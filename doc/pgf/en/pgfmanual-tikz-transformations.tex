@@ -1,0 +1,338 @@
+% Copyright 2003 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the LaTeX Project Public License Distributed from CTAN
+% archives in directory macros/latex/base/lppl.txt.
+
+
+\section{Transformations}
+
+\pgfname\ has a powerful transformation mechanism that is similar to
+the transformation capabilities of \textsc{metafont}. The present
+section explains how you can access it in \tikzname.
+
+
+\subsection{The Different Coordinate Systems}
+
+It is a long process from  a coordinate like, say, $(1,2)$ or
+$(1cm,5pt)$, until a point is finally placed on the display. In order
+to find out where the point should go, it is constantly
+``transformed,'' which means that it is mostly shifted around and
+possibly rotated, slanted, scaled, and otherwise mutilated.
+
+In detail, (at least) the following transformations are applied to a
+coordiante like $(1,2)$ before a point on the screen is chosen:
+\begin{enumerate}
+\item
+  \pgfname\ interprets a coordinate like $(1,2)$  in its
+  $xy$-coordinate sytem as ``add the current $x$-vector once and the
+  current $y$-vectore twice to obtain the new point.''
+\item
+  \pgfname\ applies its coordinate transformation matrix to the
+  resulting coordinate. This yields the final position of the point 
+  inside the picture.
+\item
+  The backend driver (like |dvips| or |pdftex|) adds transformation
+  commands such the coordinate is shifted to the correct position on the
+  page.
+\item
+  \textsc{pdf} (or PostScript) apply the canvas transformation
+  matrix to the point, which can once more change the position on the
+  page. 
+\item
+  The viewer application or the printer applies the device
+  transformation matrix to transform the coordinate to its final pixel
+  coordinate on the screen or paper.  
+\end{enumerate}
+
+In reality, the process is even more involved, but the above should
+give the idea: A point is constantly transformed by changes of the
+coordinate system.
+
+In \tikzname, you only have access to the first two coordiante systems:
+The $xy$-coordinate system and the coordinate transformation matrix
+(these will be explained later). \pgfname\ also allows you to change
+the canvas transformation matrix, but you have to use commands of
+the core layer directly to do so and you ``better know what you are
+doing'' when you use do this. The moment you start modifying the
+canvas matrix, \pgfname\ immediately looses track of all
+coordinates and shapes, anchors, and bounding box computations will no
+longer work.
+
+
+\subsection{The xy- and xyz-Coordinate Systems}
+
+The first and easiest coordinate systems are \pgfname's $xy$- and
+$xyz$-coordinate systems. The idea is very simple: Whenever you
+specify a coordinate like |(2,3)| this means $2v_x + 3v_y$, where
+$v_x$ is the current \emph{$x$-vector} and $v_y$ is the current
+\emph{$y$-vector}. Similarly, the coordinate |(1,2,3)| means $v_x +
+2v_y + 3v_z$.
+
+Unlike other packages, \pgfname\ does not insist that $v_x$ actually
+has a $y$-component of $0$, that is, that it is a horizontal
+vector. Instead, the $x$-vector can point anywhere you
+want. Naturally, \emph{normally} you will want the $x$-vector to point
+horizontallly.
+
+One undesirable effect of the flexibility offered by the fact that the
+$x$-vector does not need to point in the $x$-direction is that it is
+not possible to provide mixed coordinates as in $(1,2pt)$. Life is
+hard.
+
+To change the $x$-, $y$-, and $z$-vectors, you can use the following
+options:
+
+\begin{itemize}
+\itemoption{x}|=|\meta{dimension}
+  Sets the $x$-vector of \pgfname's $xyz$-coordinate system to point
+  \meta{dimension} to the right, that is, to
+  $(\meta{dimension},0pt)$. The default is 1cm.
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw                  (0,0)   -- +(1,0);
+  \draw[x=2cm,color=red] (0,0.1) -- +(1,0);
+\end{tikzpicture}
+\end{codeexample}    
+
+\begin{codeexample}[]
+\tikz \draw[x=1.5cm] (0,0) grid (2,2);
+\end{codeexample}    
+
+The last example shows that the size of steppings in grids, just like
+all other dimensions, are not affected by the $x$-vector. After all,
+the $x$-vector is only used to determine the coordinate of the upper
+right corner of the grid.
+\itemoption{x}|=|\meta{coordinate}
+  Sets the $x$-vector of \pgfname's $xyz$-coordinate system to the
+  specified \meta{coordinate}. If \meta{coordinate} contains a comma,
+  it must be put in braces. 
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw                            (0,0) -- (1,0);
+  \draw[x={(2cm,0.5cm)},color=red] (0,0) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  You can use this, for example, to exchange the meaning of the $x$- and
+  $y$-coordinate.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[smooth]
+  \draw plot coordinates{(1,0) (2,0.5) (3,0) (3,1)};
+  \draw[x={(0cm,1cm)},y={(1cm,0cm)},color=red]
+        plot coordinates{(1,0) (2,0.5) (3,0) (3,1)};
+\end{tikzpicture}
+\end{codeexample}
+
+\itemoption{y}|=|\meta{value}
+  Works like the |x=| option, only if \meta{value} is a dimension, the
+  resulting vector points to $(0,\meta{value})$.
+\itemoption{z}|=|\meta{value}
+  Works like the |z=| option, but now a dimension is means the point
+  $(\meta{value},\meta{value})$.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[z=-1cm,->,thick]
+  \draw[color=red] (0,0,0) -- (1,0,0);
+  \draw[color=blue] (0,0,0) -- (0,1,0);
+  \draw[color=orange] (0,0,0) -- (0,0,1);
+\end{tikzpicture}
+\end{codeexample}
+\end{itemize}
+
+
+
+\subsection{Coordinate Transformation}
+
+\pgfname\ and \tikzname\ allow you to specify \emph{coordiante
+  transformations}. Whenever you specify a coordinate as in |(1,0)| or
+|(1cm,1pt)| or |(A.north)| or |(30:2cm)|, this coordinate is first
+``reduced'' to a position of the form ``$x$ points to the right and
+  $y$ points upwards.'' For example, |(1in,5pt)| is reduced to
+``$72\frac{72}{100}$ points to the right and 5 points upwards'' and
+|(90:100pt)| means ``0pt to the right and 100 points upwards.''
+
+The next step is to apply the current \emph{coordinate transformation
+  matrix} to the coordinate. For example, the coordinate
+transformation matrix might currently be set such that it adds a
+certain constant to the $x$ value. Also, it might be setup such that
+it, say, exchanges the $x$ and $y$ value. In general, any
+``standard'' transformtion like translation, rotation, slanting, or
+scaling or any combination thereof is possible. (Internally, \pgfname\
+keeps track of a coordinate transformation matrix very much like the
+concatentation matrix used by \textsc{pdf} or PostScript.)
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw (0,0) rectangle (1,0.5);
+  \begin{scope}[xshift=1cm]
+    \draw             [red]    (0,0) rectangle (1,0.5);
+    \draw[yshift=1cm] [blue]   (0,0) rectangle (1,0.5);
+    \draw[rotate=30]  [orange] (0,0) rectangle (1,0.5);
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
+
+The most important aspect of the coordinate transforamtion matrix is
+\emph{that it applies to coordiantes only!} In particular, the
+coordinate transformation has no effect on things like the line width
+or the dash pattern or the shading angle. In certain cases, it is not
+immediately clear whether the coordinate transformation matrix
+\emph{should} apply to a certain dimension. For example, should the
+coordinate transformation matrix apply to grids? (It does.) And what
+about the size of arced corners? (It does not.) The general rule is
+``If there is no `coordinate' involved, even `indirectly,' the matrix
+is not applied.'' However, sometimes, you simply have to try or look
+it up in the documentation whether the matrix will be applied.
+
+Setting the matrix cannot be done directly. Rather, all you can do is
+to ``add'' another transformation to the current matrix. However, all
+transformations are local to the current \TeX-group. All
+transformations are added using graphic options, which are described
+below.
+
+Note that transformations apply immediately when they are encountered
+``in the middle of a path'' and they apply only to the coordinates on
+the path following the transformation option.
+
+\begin{codeexample}[]
+\tikz \draw (0,0) rectangle (1,0.5) [xshift=2cm] (0,0) rectangle (1,0.5);
+\end{codeexample}
+
+A final word of warning: You should refrain from using ``aggressive''
+transformations like a scaling of a factor of 10000. The reason is
+that all transformations are done using \TeX, which has a fairly low
+accuracy. Furthermore, in certain situations it is necessary the
+\tikzname\ \emph{inverts} the current transformation matrix and this will
+fail if the transformation matrix is badly conditioned or even
+singular (if you do not know what singular matrices are, never mind).   
+
+\begin{itemize}
+  \itemoption{shift}|={|\meta{coordinate}|}|
+  adds the  \meta{coordinate} to all coordiantes.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                       (0,0) -- (1,1) -- (1,0);
+  \draw[shift={(1,1)},blue]   (0,0) -- (1,1) -- (1,0);
+  \draw[shift={(30:1cm)},red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{xshift}|=|\meta{dimension}
+  adds \meta{dimension} to the $x$ value of all coordiantes.  
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                   (0,0) -- (1,1) -- (1,0);
+  \draw[xshift=2cm,blue]  (0,0) -- (1,1) -- (1,0);
+  \draw[xshift=-10pt,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{yshift}|=|\meta{dimension}
+  adds \meta{dimension} to the $y$ value of all coordiantes.
+  
+  \itemoption{scale}|=|\meta{factor}
+  multiplies all coordinates by the given \meta{factor}. The
+  \meta{factor} should not be excessively large in absolute terms or
+  very near to zero.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw               (0,0) -- (1,1) -- (1,0);
+  \draw[scale=2,blue] (0,0) -- (1,1) -- (1,0);
+  \draw[scale=-1,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{xscale}|=|\meta{factor}
+  multiplies only the $x$-value of all coordinates by the given
+  \meta{factor}. 
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                (0,0) -- (1,1) -- (1,0);
+  \draw[xscale=2,blue] (0,0) -- (1,1) -- (1,0);
+  \draw[xscale=-1,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{yscale}|=|\meta{factor}
+  multiplies only the $y$-value of all coordinates by \meta{factor}.
+ 
+  \itemoption{xslant}|=|\meta{factor}
+  slants the coordinate horizontally by the given \meta{factor}:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                (0,0) -- (1,1) -- (1,0);
+  \draw[xslant=2,blue] (0,0) -- (1,1) -- (1,0);
+  \draw[xslant=-1,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{yslant}|=|\meta{factor}
+  slants the coordinate vertically by the given \meta{factor}:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                (0,0) -- (1,1) -- (1,0);
+  \draw[yslant=2,blue] (0,0) -- (1,1) -- (1,0);
+  \draw[yslant=-1,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{rotate}|=|\meta{degree}
+  rotates the coordinate system by \meta{degree}:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                 (0,0) -- (1,1) -- (1,0);
+  \draw[rotate=40,blue] (0,0) -- (1,1) -- (1,0);
+  \draw[rotate=-20,red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{rotate around}|={|\meta{degree}|:|\meta{coordinate}|}|
+  rotates the coordinate system by \meta{degree} around the point
+  \meta{coordinate}.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                                (0,0) -- (1,1) -- (1,0);
+  \draw[rotate around={40:(1,1)},blue] (0,0) -- (1,1) -- (1,0);
+  \draw[rotate around={-20:(1,1)},red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{cm}|={|\meta{$a$}|,|\meta{$b$}|,|\meta{$c$}|,|\meta{$d$}|,|\meta{coordinate}|}|
+  applies the following transformation to all coordinates: Let $(x,y)$
+  be the coordinate to be transformed and let \meta{coordinate}
+  specify the point $(t_x,t_y)$. Then the new coordinate is given by
+  $\left(\begin{smallmatrix} a & b \\ c & c\end{smallmatrix}\right)
+  \left(\begin{smallmatrix} x \\ y \end{smallmatrix}\right) +
+  \left(\begin{smallmatrix} t_x \\ t_y
+  \end{smallmatrix}\right)$. Usually, you do not use this option
+  directly. 
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[style=help lines] (0,0) grid (3,2);
+  \draw                             (0,0) -- (1,1) -- (1,0);
+  \draw[cm={1,1,0,1,(0,0)},blue]    (0,0) -- (1,1) -- (1,0);
+  \draw[cm={0,1,1,0,(1cm,1cm)},red] (0,0) -- (1,1) -- (1,0);
+\end{tikzpicture}
+\end{codeexample}
+
+  \itemoption{reset cm}
+  completely resets the coordinate transformation matrix to the
+  identity matrix. This will destroy not only the transformations
+  applied in the current scope, but also all transformations inherited
+  from surrounding scopes. Do not use this option.
+\end{itemize}
+
+

@@ -1,0 +1,465 @@
+\ProvidesFileRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+% Cleanup path
+%
+% #1 = a macro name that stores a path
+%
+% Description:
+%
+% This command will remove superfluous parts from a path. Movetos with
+% a moveto following are removed.
+%
+% Example:
+%
+% \pgfsyssoftpath@moveto{0}{0}
+% \pgfsyssoftpath@moveto{10}{10}
+% \pgfsyssoftpath@lineto{0}{0}
+% \pgfsyssoftpath@getcurrentpath\mypath
+% \pgfprocesspathcleanup\mypath
+
+\def\pgfprocesspathcleanup#1{%
+  {%
+    \let\pgf@newpath=\@empty%
+    \expandafter\pgf@cleanupprocessor#1\pgf@stop%
+  }%
+  \let#1=\pgf@newpath%
+}
+
+\def\pgf@cleanupprocessor#1{%
+  \ifx#1\pgf@stop%
+    \let\next=\@gobble% ok, done
+  \else%
+    \ifx#1\pgfsyssoftpath@movetotoken%
+      \let\next=\pgf@cleanupmoveto%
+    \else%
+      \let\next=\pgf@cleanupredo%
+    \fi%
+  \fi%
+  \next#1%
+}
+
+\def\pgf@cleanupredo#1#2#3{%
+  \g@addto@macro\pgf@newpath{#1{#2}{#3}}%
+  \pgf@cleanupprocessor%
+}
+
+\def\pgf@cleanupmoveto#1#2#3#4{%
+  \ifx#4\pgfsyssoftpath@movetotoken%
+    % Ok, skip
+  \else%
+    \g@addto@macro\pgf@newpath{#1{#2}{#3}}%
+  \fi%
+  \pgf@cleanupprocessor#4%
+}
+
+
+
+% Extract start and end vectors of a path
+%
+% #1 = a macro that stores a path
+%
+% Description:
+%
+% This command will extract the first and second coordinate on the
+% path as well as the last and second-last. These coordinates will be
+% put in the pgfpoint-macros \pgfpointfirstonpath,
+% \pgfpointsecondonpath, \pgfpointsecondlastonpath, and
+% \pgfpointlastonpath. If the path is empty, these macros are set to
+% \pgfpointorigin. 
+%
+% Example:
+%
+% \pgfsyssoftpath@moveto{0}{0}
+% \pgfsyssoftpath@lineto{10}{10}
+% \pgfsyssoftpath@curveto{20}{20}{30}{30}{40}{40}
+% \pgfsyssoftpath@getcurrentpath\mypath
+% \pgfprocesspathextractpoints\mypath
+% 
+% % \pgfpointfirstonpath is now \pgfpoint{0}{0}
+% % \pgfpointsecondonpath is now \pgfpoint{10bp}{10bp}
+% % \pgfpointsecondlastonpath is now \pgfpoint{30bp}{30bp}
+% % \pgfpointlastonpath is now \pgfpoint{40bp}{40bp}
+
+\def\pgfprocesspathextractpoints#1{%
+  \ifx#1\@empty%
+    \let\pgfpointfirstonpath=\pgfpointorigin%
+    \let\pgfpointsecondonpath=\pgfpointorigin%
+    \let\pgfpointsecondlastonpath=\pgfpointorigin%
+    \let\pgfpointlastonpath=\pgfpointorigin%
+  \else%
+    \expandafter\pgf@extractprocessorfirst#1\pgf@stop%
+  \fi%
+}
+
+\def\pgf@extractprocessorfirst#1#2#3#4{%
+  \def\pgfpointfirstonpath{\pgfpoint{#2}{#3}}%
+  \ifx#4\pgf@stop%
+    % pretty short path...
+    \let\pgfpointsecondonpath=\pgfpointfirstonpath%
+    \let\pgfpointsecondlastonpath=\pgfpointfirstonpath%
+    \let\pgfpointlastonpath=\pgfpointfirstonpath%
+    \let\next=\@gobble%
+  \else
+    \let\next=\pgf@extractprocessorsecond%
+  \fi%
+  \next#4%
+}
+
+\def\pgf@extractprocessorsecond#1#2#3#4{%
+  \def\pgfpointsecondonpath{\pgfpoint{#2}{#3}}%
+  \let\pgfpointsecondlastonpath=\pgfpointfirstonpath%
+  \let\pgfpointlastonpath=\pgfpointsecondonpath%
+  \ifx#4\pgf@stop%
+    % short path...
+    \let\next=\@gobble%
+  \else
+    \let\next=\pgf@extractprocessorother%
+  \fi%
+  \next#4%
+}
+
+\def\pgf@extractprocessorother#1#2#3#4{%
+  \let\pgfpointsecondlastonpath=\pgfpointlastonpath%
+  \def\pgfpointlastonpath{\pgfpoint{#2}{#3}}%
+  \ifx#4\pgf@stop%
+    % end!
+    \let\next=\@gobble%
+  \fi%
+  \next#4%
+}
+
+
+
+% Check for closepath and rectangles
+%
+% #1 = a macro that stores a path
+% #2 = command to be executed when a closepath or a rectangle is encountered
+%
+% Example:
+%
+% \pgfsyssoftpath@moveto{0}{0}
+% \pgfsyssoftpath@lineto{10}{10}
+% \pgfsyssoftpath@curveto{20}{20}{30}{30}{40}{40}
+% \pgfsyssoftpath@getcurrentpath\mypath
+% \pgfprocesscheckclosed{\mypath}{\pgf@drawarrowsfalse}
+
+\def\pgfprocesscheckclosed#1#2{%
+  {%
+    \global\let\pgf@proc@todo=\relax%
+    \let\pgfsyssoftpath@movetotoken=\@gobbletwo%
+    \let\pgfsyssoftpath@linetotoken=\@gobbletwo%
+    \let\pgfsyssoftpath@curvetosupportatoken=\@gobbletwo%
+    \let\pgfsyssoftpath@curvetosupportbtoken=\@gobbletwo%
+    \let\pgfsyssoftpath@curvetotoken=\@gobbletwo%
+    \def\pgfsyssoftpath@rectcornertoken{\gdef\pgf@proc@todo{#2}\@gobbletwo}%
+    \def\pgfsyssoftpath@rectsizetoken{\gdef\pgf@proc@todo{#2}\@gobbletwo}%
+    \def\pgfsyssoftpath@closepathtoken{\gdef\pgf@proc@todo{#2}\@gobbletwo}%
+    #1%
+  }%
+  \pgf@proc@todo%
+}
+
+  
+% Resolve specialround
+%
+% #1 = a macro that stores a path
+% #2 = a macro that stores the new path
+%
+% Description:
+%
+% Resolves all specialround tokens. When such a token is encountered,
+% the objective is to replace the next corner by a rounded corner. 
+%
+
+\def\pgfprocessround#1#2{%
+  % first, check whether #1 contains \pgfsyssoftpath@specialroundtoken.
+  % if not, do quick assignment!
+  \expandafter\pgf@processroundcheck\expandafter#1\expandafter#2#1\pgfsyssoftpath@specialroundtoken\pgf@stop%
+}
+
+\def\pgf@processroundcheck#1#2#3\pgfsyssoftpath@specialroundtoken#4\pgf@stop{%
+  \def\pgf@test{#4}%
+  \ifx\pgf@test\@empty%
+    % ok, nothing to be done!
+    \let#2=#1%
+  \else%
+    % very well...
+    \pgf@@processround#1#2%
+  \fi%
+}
+
+
+\def\pgf@@processround#1#2{%  
+  \let\pgfprocess@newpath\@empty%
+  \let\pgfprocess@moveto\@empty%
+  \let\pgfprocess@firstto\@empty%
+  \let\pgfprocess@segment\@empty%
+  \pgf@xa=0pt%
+  \pgf@ya=0pt%
+  \expandafter\pgfprocess@round#1\pgf@stop{0pt}{0pt}%
+  \expandafter\g@addto@macro\expandafter\pgfprocess@newpath\expandafter{\pgfprocess@moveto}%
+  \expandafter\g@addto@macro\expandafter\pgfprocess@newpath\expandafter{\pgfprocess@segment}%
+  \let#2=\pgfprocess@newpath%
+}
+
+\def\pgfprocess@round#1#2#3{%
+  \ifx#1\pgf@stop%
+    \let\next=\relax%
+  \else%
+    \ifx#1\pgfsyssoftpath@specialroundtoken%
+      \def\pgfprocess@savex{#2}%
+      \def\pgfprocess@savey{#3}%
+      \let\next=\pgfprocess@specialround%
+      \ifdim#2=0pt%
+        \ifdim#3=0pt%
+          \let\next=\pgfprocess@round% skip!
+        \fi%
+      \fi%
+    \else%
+      \ifx\pgfprocess@firstto\@empty%
+        \def\pgfprocess@firstto{{#2}{#3}}%
+      \fi%
+      \pgf@xa=#2%
+      \pgf@ya=#3%
+      \ifx#1\pgfsyssoftpath@movetotoken%
+        % ok, move old segment to newpath
+        \expandafter\g@addto@macro\expandafter\pgfprocess@newpath\expandafter{\pgfprocess@moveto}%
+        \expandafter\g@addto@macro\expandafter\pgfprocess@newpath\expandafter{\pgfprocess@segment}%
+        \def\pgfprocess@moveto{#1{#2}{#3}}%
+        \let\pgfprocess@firstto=\@empty%
+        \let\pgfprocess@segment=\@empty%
+      \else%
+        \g@addto@macro\pgfprocess@segment{#1{#2}{#3}}%
+      \fi%
+      \let\next=\pgfprocess@round%
+    \fi%
+  \fi%
+  \next%  
+}
+
+\def\pgfprocess@specialround#1#2#3{%
+  \ifx\pgfprocess@firstto\@empty%
+    \def\pgfprocess@firstto{{#2}{#3}}%
+  \fi%
+  \let\next=\pgfprocess@round% default: do nothing
+  \ifx#1\pgfsyssoftpath@linetotoken%
+    % Ok, round a lineto
+    \let\next=\pgfprocess@specialroundcope%
+  \else%
+    \ifx#1\pgfsyssoftpath@curvetosupportatoken%
+      % Ok, round a curveto. 
+      \let\next=\pgfprocess@specialroundcurveto%
+    \else%
+      \ifx#1\pgfsyssoftpath@closepathtoken%
+        % Ok, round a closepath (this is tricky...)
+        \let\next=\pgfprocess@specialroundclose%
+      \fi%
+    \fi%
+  \fi%
+  \next#1{#2}{#3}%
+}%
+
+\def\pgfprocess@specialroundcope#1#2#3#4#5#6{%
+  \let\next=\pgfprocess@round% do nothing by default
+  \let\pgfprocess@continueafterrounding=\pgfprocess@round%
+  \ifx#4\pgfsyssoftpath@linetotoken%
+    % ok, let's get kicking...
+    \pgf@xc=#5%
+    \pgf@yc=#6%
+    \let\next=\pgfprocess@@specialround%
+  \else%
+    \ifx#4\pgfsyssoftpath@curvetosupportatoken%  
+      \pgf@xc=#5%
+      \pgf@yc=#6%
+      \let\next=\pgfprocess@@specialround%
+    \else%
+      \ifx#4\pgfsyssoftpath@closepathtoken%  
+        \pgf@xc=#5%
+        \pgf@yc=#6%
+        \let\next=\pgfprocess@@specialround%
+      \else
+        \ifx#4\pgfsyssoftpath@specialroundtoken%  
+          \let\next=\pgfprocess@@findrightcoordinates%
+        \fi%
+      \fi%
+    \fi%
+  \fi%
+  \next#1{#2}{#3}#4{#5}{#6}%
+}
+
+\def\pgfprocess@@findrightcoordinates#1#2#3#4#5#6#7#8#9{%
+  \pgf@xc=#8%
+  \pgf@yc=#9%
+  \pgfprocess@@specialround#1{#2}{#3}#4{#5}{#6}#7{#8}{#9}%
+}
+
+\def\pgfprocess@@specialround#1#2#3{%
+  \g@addto@macro\pgfprocess@segment{#1}%
+  % calculate start coordinate of the curve
+  \pgf@xb=#2%
+  \pgf@yb=#3%
+  %
+  \edef\pgf@marshal%
+  {\noexpand\pgfpointlineatdistance{\pgfprocess@savex}%
+    {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}%
+    {\noexpand\pgfpoint{\the\pgf@xa}{\the\pgf@ya}}}%
+  \pgf@process{\pgf@marshal}%
+  \pgf@xa=\pgf@x% save start point of added curve
+  \pgf@ya=\pgf@y%
+  \edef\pgfprocess@addition{{\the\pgf@x}{\the\pgf@y}}%
+  \expandafter\g@addto@macro\expandafter\pgfprocess@segment\expandafter{\pgfprocess@addition}%
+  %
+  % now add curve
+  %
+  \edef\pgf@marshal%
+  {\noexpand\pgfpointlineatdistance{\pgfprocess@savey}%
+    {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}%
+    {\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}}%
+  \pgf@process{\pgf@marshal}%
+  \pgf@xc=\pgf@x% save end point of added curve
+  \pgf@yc=\pgf@y%
+  % calculate first support:
+  {%
+    \pgf@x=\pgf@xb%
+    \pgf@y=\pgf@yb%
+    \advance\pgf@x by-\pgf@xa%
+    \advance\pgf@y by-\pgf@ya%
+    \advance\pgf@xa by 0.555\pgf@x%
+    \advance\pgf@ya by 0.555\pgf@y%
+    \edef\pgfprocess@addition{\noexpand\pgfsyssoftpath@curvetosupportatoken{\the\pgf@xa}{\the\pgf@ya}}%
+    \expandafter\g@addto@macro\expandafter\pgfprocess@segment\expandafter{\pgfprocess@addition}%
+  }%
+  % calculate second support:
+  {%
+    \pgf@x=\pgf@xb%
+    \pgf@y=\pgf@yb%
+    \advance\pgf@x by-\pgf@xc%
+    \advance\pgf@y by-\pgf@yc%
+    \advance\pgf@xc by 0.555\pgf@x%
+    \advance\pgf@yc by 0.555\pgf@y%
+    \edef\pgfprocess@addition{\noexpand\pgfsyssoftpath@curvetosupportbtoken{\the\pgf@xc}{\the\pgf@yc}}%
+    \expandafter\g@addto@macro\expandafter\pgfprocess@segment\expandafter{\pgfprocess@addition}%
+  }%
+  % add end:
+  \edef\pgfprocess@addition{\noexpand\pgfsyssoftpath@curvetotoken{\the\pgf@xc}{\the\pgf@yc}}%
+  \expandafter\g@addto@macro\expandafter\pgfprocess@segment\expandafter{\pgfprocess@addition}%
+  %
+  % continue!
+  %
+  \pgf@xa=#2%
+  \pgf@ya=#3%
+  \pgfprocess@continueafterrounding%
+}
+
+\def\pgfprocess@specialroundcurveto#1#2#3#4#5#6{%
+  \g@addto@macro\pgfprocess@segment{#1{#2}{#3}#4{#5}{#6}}% supports
+  \pgf@xa=#5%
+  \pgf@ya=#6%
+  \pgfprocess@specialroundcope}
+
+\def\pgfprocess@specialroundclose{%
+  \let\next=\pgfprocess@round%
+  \ifx\pgfprocess@moveto\@empty%
+  \else%
+    \ifx\pgfprocess@firstto\@empty%
+    \else%
+      \expandafter\pgfprocess@@specialclosetarget\pgfprocess@firstto%
+      \let\pgfprocess@continueafterrounding=\pgfprocess@cleanupafterclose%
+      \edef\next{%
+        \noexpand\pgfprocess@@specialround%
+        \expandafter\expandafter\expandafter\noexpand\expandafter\pgfprocess@@specialclosemoveto\pgfprocess@moveto%
+      }%
+    \fi%
+  \fi%  
+  \next%
+}
+
+\def\pgfprocess@@specialclosetarget#1#2{%
+  \pgf@xc=#1%
+  \pgf@yc=#2%
+}
+
+\def\pgfprocess@@specialclosemoveto#1#2#3{%
+  \pgfsyssoftpath@linetotoken{#2}{#3}%
+}
+
+
+\def\pgfprocess@cleanupafterclose#1#2#3{%
+  \edef\pgfprocess@moveto{\noexpand\pgfsyssoftpath@movetotoken{\the\pgf@xc}{\the\pgf@yc}}%
+  \edef\pgf@marshal{\noexpand\pgfprocess@round\noexpand\pgfsyssoftpath@closepathtoken{\the\pgf@xc}{\the\pgf@yc}}%
+  \pgf@marshal%  
+}
+
+
+% Replace start and end coordinates of a path
+%
+% #1 = new start coordinate
+% #2 = new end coordinate
+%
+% Description:
+%
+% This command will replace the first and last coordinates on a path
+% by the given coordinates.
+%
+% Example:
+%
+% \pgfsyssoftpath@moveto{0}{0}
+% \pgfsyssoftpath@lineto{10}{10}
+% \pgfsyssoftpath@curveto{20}{20}{30}{10}{40}{0}
+% \pgfsyssoftpath@getcurrentpath\mypath
+% \pgfsetlinewidth{2pt}
+% \pgfusepath{stroke}
+% \pgfprocesspathextractpoints{\mypath}
+% \pgfprocesspathreplacestartandend{\mypath}
+%   {\pgfpointlineatdistance{2pt}{\pgfpointfirstonpath}{\pgfpointsecondonpath}}%
+%   {\pgfpointlineatdistance{2pt}{\pgfpointlastonpath}{\pgfpointsecondlastonpath}}%
+% \pgfsyssoftpath@setcurrentpath\mypath
+% \pgfsetlinewidth{1pt}
+% \color{red}
+% \pgfusepath{stroke}
+
+\def\pgfprocesspathreplacestartandend#1#2#3{%
+  {%
+    \let\pgf@newpath=\@empty%
+    \ifx#1\@empty%
+    \else%
+      \pgf@process{#3}%
+      \pgf@xa=\pgf@x%
+      \pgf@ya=\pgf@y%
+      \pgf@process{#2}%
+      \expandafter\pgf@replaceprocessfirst#1\pgf@stop%
+    \fi%
+    \global\let#1=\pgf@newpath%
+  }%
+}
+
+\def\pgf@replaceprocessfirst#1#2#3#4{%
+  \edef\pgf@newpath{\noexpand#1{\the\pgf@x}{\the\pgf@y}}%
+  \ifx#4\pgf@stop%
+    \let\next=\@gobble%
+  \else%
+    \let\next=\pgf@replaceprocessother%
+  \fi%
+  \next#4%
+}
+
+\def\pgf@replaceprocessother#1#2#3#4{%
+  \ifx#4\pgf@stop%
+    \edef\pgf@newpathaddition{{\noexpand#1{\the\pgf@xa}{\the\pgf@ya}}}%
+    \expandafter\g@addto@macro\expandafter\pgf@newpath\pgf@newpathaddition%
+    \let\next=\@gobble%
+  \else%
+    \g@addto@macro\pgf@newpath{#1{#2}{#3}}%
+    \let\next=\pgf@replaceprocessother%
+  \fi%
+  \next#4%
+}  
+
+\endinput

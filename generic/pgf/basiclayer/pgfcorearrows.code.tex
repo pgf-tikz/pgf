@@ -1,0 +1,508 @@
+\ProvidesFileRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+% Sets the end arrow
+%
+% #1 = An arrow name
+%
+% Example:
+%
+% \pgfsetarrowsend{stealth}
+
+\def\pgfsetarrowsend#1{\pgf@arrowset{end}{#1}}
+\def\pgf@arrowset#1#2{%
+  \@ifundefined{pgf@arrow@code@#2}
+  {\PackageError{pgf}{Arrow #1 type ``#2'' unknown}{}}
+  {%
+    \edef\pgf@arrow@temp{#2}%
+    \ifx\pgf@arrow@temp\@empty% ah. clear!
+      \expandafter\let\csname pgf@#1arrow\endcsname=\@empty%
+      \expandafter\let\csname pgf@shorten@#1\endcsname=\@empty%
+    \else%
+      %\pgf@arrow@prepare{#2}%
+      \expandafter\def\csname pgf@#1arrow\endcsname{\pgf@arrow@call{#2}}%
+      \expandafter\edef\csname pgf@shorten@#1\endcsname{\expandafter\noexpand\csname pgf@arrow@right@#2\endcsname}%
+    \fi%
+  }%
+}
+
+
+% Sets the start arrow
+%
+% #1 = An arrow name
+%
+% Example:
+%
+% \pgfsetarrowsstart{stealth}
+
+\def\pgfsetarrowsstart#1{\pgf@arrowset{start}{\csname pgf@arrows@invert#1\endcsname}}
+
+\def\pgf@arrows@invname#1#2{\expandafter\def\csname pgf@arrows@invert#1\endcsname{#2}}
+\pgf@arrows@invname{}{}
+
+
+
+
+% Sets arrows
+%
+% #1 = An arrow specification of the form ``left''-``right''. The last
+%      and right should be arrow types that have been defined using
+%      the \pgfarrowsdef command
+%
+% Example:
+%
+% \pgfsetarrows{-to}
+
+\def\pgfsetarrows#1{\pgf@arrows#1\pgf@stop}
+\def\pgf@arrows#1-#2\pgf@stop{%
+  \pgfsetarrowsstart{#1}
+  \pgfsetarrowsend{#2}
+}
+
+\def\pgf@arrows@checked#1#2#3{%
+  \@ifundefined{pgf@arrow@code@#2}%
+  {%
+    \PackageError{pgf}{Arrow end type ``#2'' unknown}{}}%
+  {%
+    \@ifundefined{pgf@arrow@code@\csname pgf@arrows@invert#1\endcsname}
+    {\PackageError{pgf}{Arrow start type ``#1'' unknown}{}}%
+    {#3}%
+  }%
+}
+
+\def\pgf@arrows@check@already#1#2#3{%
+  \@ifundefined{pgf@arrow@code@#2}
+  {#3}%
+  {\PackageError{pgf}{Arrow end type ``#2'' already defined}{}}%
+}
+
+
+% Called when an arrow needs to be rendered
+
+\def\pgf@arrow@call#1{%
+  \expandafter\ifx\csname pgf@arrow@prot@#1@\the\pgflinewidth\endcsname\relax%
+    \pgfsysprotocol@getcurrentprotocol\pgf@arrow@temp%
+    {%
+      \pgfinterruptpath%
+        \let\pgfusepath=\pgf@nousepath@here%
+        \pgf@relevantforpicturesizefalse%
+        \pgftransformreset%
+        \pgfsysprotocol@setcurrentprotocol\@empty%
+        \pgfsysprotocol@bufferedtrue%
+        \csname pgf@arrow@code@#1\endcsname%
+        \pgfsysprotocol@getcurrentprotocol\pgf@@arrow@temp%
+        \global\let\pgf@@arrow@temp=\pgf@@arrow@temp%
+      \endpgfinterruptpath%
+      \expandafter\xdef\csname pgf@arrow@prot@#1@\the\pgflinewidth\endcsname{%
+        \noexpand\pgfsys@invoke{\pgf@@arrow@temp}}%
+    }%
+    \pgfsysprotocol@setcurrentprotocol\pgf@arrow@temp%
+  \fi%
+  \csname pgf@arrow@prot@#1@\the\pgflinewidth\endcsname%
+} 
+
+\def\pgf@arrow@code@{} % dummy
+
+\def\pgf@nousepath@here#1{%
+  \PackageError{pgf}{The definition of an arrow may not use \string\pgfusepath}{}
+}
+
+
+
+% Define an arrow type.
+%
+% #1 = name or mnemonic for arrow when used at the start (examples: ``to'' or ``<'')
+% #2 = name or mnemonic for arrow when used at the end (examples: ``to'' or ``>'')
+% #3 = code to setup the left and right extend of the arrow. To set
+%      the left extend, call \pgfarrowsleftextend, for the right \pgfarrowsrightextend.
+% #4 = protocolable code
+%
+% Description:
+%
+% When you define an arrow using this command, you must give two
+% names. The first is used for the arrow when it is ``at the start'',
+% the other when it is at the end. For example, a simple arrow might
+% have the names ``<'' and ``>'', though these particular names are
+% not used by pgf and left for the user.
+%
+% The code should be ``protocolable'' code. This means that it uses
+% only pretty simple commands. 
+%
+% The arrow code will be protocolled once for each line width at which
+% the arrow is used. Thus, the code can (and often should) depend on
+% the line width.
+%
+% The arrow should ``point right'' in the coordinate system. The end
+% of the line at which the arrow should be drawn will be at the origin
+% of the coordinate system. The coordinate system will be scaled and
+% rotated appropriately before the arrow is drawn.
+%
+% The right extend of the arrow should be set to how much the arrow
+% ``protrudes over the right''. Prior to drawing the arrow, the line
+% will be shortened by this amount so that the arrow tip will exactly
+% touch the original right end of the unshortened line.
+%
+% The left extend specifies the leftmost point of the arrow. This is
+% important only if you use the swapping command, when this end is
+% used to compute the shortening. 
+%
+% The definition of an arrow should normally take care of the fact
+% that the line cap of the main line may be a butt cap, a round cap or
+% a rect cap. In all cases, the arrow should ``cover'' the cap
+% completely or not at all.
+%
+% Example:
+%
+% \pgfarrowsdeclare{stealth}{stealth}
+% {
+%   \pgfarrowsleftextend{-6\pgflinewidth}
+%   \pgfarrowsrightextend{2\pgflinewidth}
+% {
+%   \pgfpathmoveto{\pgfpoint{2\pgflinewidth}{0pt}}
+%   \pgfpathlineto{\pgfpoint{-6\pgflinewidth}{4\pgflinewidth}}
+%   \pgfpathlineto{\pgfpoint{-3\pgflinewidth}{0pt}}
+%   \pgfpathlineto{\pgfpoint{-6\pgflinewidth}{-4\pgflinewidth}}
+%   \pgfusepathqfill
+% }
+
+\def\pgfarrowsdeclare#1#2#3#4{%
+  \pgf@arrows@check@already{#1}{#2}
+  {%
+    \expandafter\def\csname pgf@arrow@code@#2\endcsname{#4}%
+    \expandafter\def\csname pgf@arrow@left@#2\endcsname{#3\advance\pgf@x by-\pgf@xa}%
+    \expandafter\def\csname pgf@arrow@right@#2\endcsname{#3\advance\pgf@x by\pgf@xb}%
+    \pgf@arrows@invname{#1}{#2}%
+  }%
+}
+
+\def\pgfarrowsleftextend#1{\setlength\pgf@xa{#1}}
+\def\pgfarrowsrightextend#1{\setlength\pgf@xb{#1}}
+
+\def\pgf@arrows@repeat#1#2{%
+  \edef\pgf@arrows@marshal{\noexpand\let\expandafter\noexpand\csname#2\endcsname=\expandafter\noexpand\csname#1\endcsname}%
+  \pgf@arrows@marshal}
+
+
+
+% Declare a new arrow type to be the same as another one.
+%
+% #1 = name of new start
+% #2 = name or new end
+% #3 = name or old start
+% #4 = name or old end
+%
+% Example:
+%
+% \pgfarrowsdeclarealias{<}{>}{to}{to}
+
+\def\pgfarrowsdeclarealias#1#2#3#4{%
+  \pgf@arrows@check@already{#1}{#2}
+  {%
+    \pgf@arrows@checked{#3}{#4}%
+    {%
+      \pgf@arrows@repeat{pgf@arrow@code@#4}{pgf@arrow@code@#2}%
+      \pgf@arrows@repeat{pgf@arrow@left@#4}{pgf@arrow@left@#2}%
+      \pgf@arrows@repeat{pgf@arrow@right@#4}{pgf@arrow@right@#2}%
+      \pgf@arrows@invname{#1}{#2}%
+    }%
+  }%
+}
+
+
+
+
+% Creates a new arrows by ``swapping'' an existing arrow.
+%
+% #1 = name of new start
+% #2 = name of new end
+% #3 = name of old start
+% #4 = name of old end
+%
+% Example:
+%
+% \pgfarrowsdeclarealias{]}{[}{[}{]}
+
+\def\pgfarrowsdeclarereversed#1#2#3#4{%
+  \pgf@arrows@check@already{#1}{#2}%
+  {%
+    \pgf@arrows@checked{#3}{#4}%
+    {%
+      \expandafter\def\csname pgf@arrow@code@#2\endcsname{%
+        \pgflowlevel{\pgftransformxscale{-1}}%
+        \csname pgf@arrow@code@#4\endcsname}%
+      \pgf@arrows@repeat{pgf@arrow@right@#4}{pgf@arrow@left@#2}%
+      \pgf@arrows@repeat{pgf@arrow@left@#4}{pgf@arrow@right@#2}%
+      \pgf@arrows@invname{#1}{#2}%
+    }%
+  }%
+}
+
+
+
+% Creates new arrows by combining two existing arrows.
+%
+% #1 = optional additional space
+% #2 = name of new start
+% #3 = name of new end
+% #4 = name of second (innermost) start
+% #5 = name of second end
+% #6 = name of first (outermost) start
+% #7 = name of first end
+%
+% In the star form, the line will end at the innermost arrows,
+% otherwise the line will end at the outermost arrows.
+%
+% Example:
+%
+% \pgfarrowsdeclarecombine*{|<}{>|}{|}{|}{<}{>}
+% \pgfarrowsdeclarecombine{<<}{>>}{<}{>}{<}{>}
+
+\def\pgfarrowsdeclarecombine{\@ifnextchar*{\pgfarrowsdeclarecombine@star}{\pgf@@arrowsdeclarecombine}}
+
+\def\pgf@@arrowsdeclarecombine{\@ifnextchar[{\pgf@arrowsdeclarecombine}{\pgf@arrowsdeclarecombine[0pt]}}
+\def\pgf@arrowsdeclarecombine[#1]#2#3#4#5#6#7{%
+  \pgf@arrows@check@already{#2}{#3}%
+  {%
+    \pgf@arrows@checked{#4}{#5}%
+    {%
+      \pgf@arrows@checked{#6}{#7}%
+      {%
+        \expandafter\edef\csname pgf@arrow@code@#3\endcsname{%
+          \noexpand\pgfscope%
+          {\expandafter\noexpand\csname pgf@arrow@code@#7\endcsname}%
+          \noexpand\endpgfscope%
+          {%
+            \noexpand\setlength\pgf@x{#1}%
+            \noexpand\pgf@process{\expandafter\noexpand\csname pgf@arrow@left@#7\endcsname}%
+            \noexpand\pgf@process{\expandafter\noexpand\csname pgf@arrow@right@#5\endcsname}%
+            \pgf@x=-\pgf@x%
+            \noexpand\pgflowlevel{\noexpand\pgftransformxshift{\pgf@x}}%
+            \expandafter\noexpand\csname pgf@arrow@code@#5\endcsname}%
+          }%
+        \pgf@arrows@repeat{pgf@arrow@right@#7}{pgf@arrow@right@#3}%
+        \expandafter\def\csname pgf@arrow@left@#3\endcsname{%
+          \pgf@process{%
+            \setlength\pgf@y{#1}%
+            \advance\pgf@x by\pgf@y%
+            \pgf@process{\csname pgf@arrow@left@#7\endcsname}%
+            \pgf@process{\csname pgf@arrow@right@#5\endcsname}%
+            \pgf@process{\csname pgf@arrow@left@#5\endcsname}%
+          }%
+        }%
+        \pgf@arrows@invname{#2}{#3}%
+      }%
+    }%
+  }%
+}
+
+\def\pgfarrowsdeclarecombine@star*{\@ifnextchar[{\pgf@arrowsdeclarecombine@star}{\pgf@arrowsdeclarecombine@star[0pt]}}
+\def\pgf@arrowsdeclarecombine@star[#1]#2#3#4#5#6#7{%
+  \pgf@arrows@check@already{#2}{#3}%
+  {%
+    \pgf@arrows@checked{#4}{#5}%
+    {%
+      \pgf@arrows@checked{#6}{#7}%
+      {%
+        \expandafter\edef\csname pgf@arrow@code@#3\endcsname{%
+          \noexpand\pgfscope%
+            {%
+              \noexpand\setlength\pgf@x{#1}%
+              \pgf@process{\expandafter\noexpand\csname pgf@arrow@left@#7\endcsname}%
+              \pgf@process{\expandafter\noexpand\csname pgf@arrow@right@#5\endcsname}%
+              \noexpand\pgflowlevel{\noexpand\pgftransformxshift{\pgf@x}}%
+            }%
+            {\expandafter\noexpand\csname pgf@arrow@code@#7\endcsname}%
+          \noexpand\endpgfscope%
+          \expandafter\noexpand\csname pgf@arrow@code@#5\endcsname%
+        }%
+        \pgf@arrows@repeat{pgf@arrow@left@#7}{pgf@arrow@left@#3}%
+        \expandafter\def\csname pgf@arrow@right@#3\endcsname{%
+          \pgf@process{%
+            \setlength\pgf@y{#1}%
+            \advance\pgf@x by\pgf@y%
+            \pgf@process{\csname pgf@arrow@left@#7\endcsname}%
+            \pgf@process{\csname pgf@arrow@right@#5\endcsname}%
+            \pgf@process{\csname pgf@arrow@right@#7\endcsname}%
+          }%
+        }%
+        \pgf@arrows@invname{#2}{#3}%
+      }%
+    }%
+  }%
+}
+
+
+
+% Creates new arrows by doubling/tripling existing arrows.
+%
+% #1 = optional additional space in multiples of line width
+% #2 = name of new start
+% #3 = name of new end
+% #4 = name of old start
+% #5 = name of old end
+%
+% Example:
+%
+% \pgfarrowsdeclaredouble{<<}{>>}{<}{>}
+
+\def\pgfarrowsdeclaredouble{\@ifnextchar[{\pgf@arrowsdeclaredouble}{\pgf@arrowsdeclaredouble[0pt]}}
+\def\pgf@arrowsdeclaredouble[#1]#2#3#4#5{\pgfarrowsdeclarecombine[#1]{#2}{#3}{#4}{#5}{#4}{#5}}
+\def\pgfarrowsdeclaretriple{\@ifnextchar[{\pgf@arrowsdeclaretriple}{\pgf@arrowsdeclaretriple[0pt]}}
+\def\pgf@arrowsdeclaretriple[#1]#2#3#4#5{%
+  \pgfarrowsdeclarecombine[#1]{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}{#4}{#5}%
+  \pgfarrowsdeclarecombine[#1]{#2}{#3}{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}%
+}
+
+
+% A stealth-fighter-like pointed arrow
+%
+% Example:
+%
+% \pgfsetarrows{-stealth}
+
+\pgfarrowsdeclare{stealth}{stealth}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfarrowsleftextend{-3\@tempdima}
+  \pgfarrowsrightextend{5\@tempdima}
+}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfpathmoveto{\pgfpoint{5\@tempdima}{0pt}}
+  \pgfpathlineto{\pgfpoint{-3\@tempdima}{4\@tempdima}}
+  \pgfpathlineto{\pgfpointorigin}
+  \pgfpathlineto{\pgfpoint{-3\@tempdima}{-4\@tempdima}}
+  \pgfusepathqfill
+}
+
+\pgfarrowsdeclarereversed{stealth reversed}{stealth reversed}{stealth}{stealth}
+
+
+% An arrow similar to the $\to$ arrow
+%
+% Example:
+%
+% \pgfsetarrow{-to}
+
+\pgfarrowsdeclare{to}{to}
+{
+  \@tempdima=-0.84pt%
+  \advance\@tempdima by-1.3\pgflinewidth%
+  \@tempdimb=0.21pt%
+  \advance\@tempdimb by.625\pgflinewidth%
+  \pgfarrowsleftextend{\@tempdima}
+  \pgfarrowsrightextend{\@tempdimb}
+}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfsetlinewidth{0.8\pgflinewidth}
+  \pgfsetdash{}{0pt}
+  \pgfsetroundcap
+  \pgfsetroundjoin
+  \pgfpathmoveto{\pgfpoint{-3\@tempdima}{4\@tempdima}}
+  \pgfpathcurveto
+  {\pgfpoint{-2.75\@tempdima}{2.5\@tempdima}}
+  {\pgfpoint{0pt}{0.25\@tempdima}}
+  {\pgfpoint{0.75\@tempdima}{0pt}}
+  \pgfpathcurveto
+  {\pgfpoint{0pt}{-0.25\@tempdima}}
+  {\pgfpoint{-2.75\@tempdima}{-2.5\@tempdima}}
+  {\pgfpoint{-3\@tempdima}{-4\@tempdima}}
+  \pgfusepathqstroke
+}
+
+\pgfarrowsdeclare{to reversed}{to reversed}
+{
+  \@tempdima=-0.21pt%
+  \advance\@tempdima by-0.475\pgflinewidth%
+  \@tempdimb=0.98pt%
+  \advance\@tempdimb by1.45\pgflinewidth%
+  \pgfarrowsleftextend{\@tempdima}
+  \pgfarrowsrightextend{\@tempdimb}
+}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfsetlinewidth{0.8\pgflinewidth}
+  \pgfsetdash{}{0pt}
+  \pgfsetroundcap
+  \pgfsetroundjoin
+  \pgfpathmoveto{\pgfpoint{3.5\@tempdima}{4\@tempdima}}
+  \pgfpathcurveto
+  {\pgfpoint{3.25\@tempdima}{2.5\@tempdima}}
+  {\pgfpoint{0.5\@tempdima}{0.25\@tempdima}}
+  {\pgfpoint{-0.25\@tempdima}{0\@tempdima}}
+  \pgfpathcurveto
+  {\pgfpoint{0.5\@tempdima}{-0.25\@tempdima}}
+  {\pgfpoint{3.25\@tempdima}{-2.5\@tempdima}}
+  {\pgfpoint{3.5\@tempdima}{-4\@tempdima}}
+  \pgfusepathqstroke
+}
+
+
+
+% LaTeX's orginal arrow type
+%
+% Example:
+%
+% \pgfsetarrows{-latex}
+
+\pgfarrowsdeclare{latex}{latex}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfarrowsleftextend{-1\@tempdima}
+  \pgfarrowsrightextend{9\@tempdima}
+}
+{
+  \@tempdima=0.28pt%
+  \advance\@tempdima by.3\pgflinewidth%
+  \pgfpathmoveto{\pgfpoint{9\@tempdima}{0pt}}
+  \pgfpathcurveto
+  {\pgfpoint{6.3333\@tempdima}{.5\@tempdima}}
+  {\pgfpoint{2\@tempdima}{2\@tempdima}}
+  {\pgfpoint{-1\@tempdima}{3.75\@tempdima}}
+  \pgfpathlineto{\pgfpoint{-1\@tempdima}{-3.75\@tempdima}}
+  \pgfpathcurveto
+  {\pgfpoint{2\@tempdima}{-2\@tempdima}}
+  {\pgfpoint{6.3333\@tempdima}{-.5\@tempdima}}
+  {\pgfpoint{9\@tempdima}{0pt}}
+  \pgfusepathqfill
+}
+\pgfarrowsdeclarereversed{latex reversed}{latex reversed}{latex}{latex}
+
+
+
+% A bar shaped arrow
+%
+% Example:
+%
+% \pgfsetarrows{-|}
+
+\pgfarrowsdeclare{|}{|}
+{
+  \pgfarrowsleftextend{-0.25\pgflinewidth}
+  \pgfarrowsrightextend{.75\pgflinewidth}
+}
+{
+  \@tempdima=2pt%
+  \advance\@tempdima by1.5\pgflinewidth%
+  \pgfsetdash{}{0pt}
+  \pgfsetrectcap
+  \pgfpathmoveto{\pgfpoint{0.25\pgflinewidth}{-\@tempdima}}
+  \pgfpathlineto{\pgfpoint{0.25\pgflinewidth}{\@tempdima}}
+  \pgfusepathqstroke
+}
+
+
+
+\endinput

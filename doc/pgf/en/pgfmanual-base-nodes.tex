@@ -1,0 +1,865 @@
+% Copyright 2003 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the LaTeX Project Public License Distributed from CTAN
+% archives in directory macros/latex/base/lppl.txt.
+
+
+\section{Nodes and Shapes}
+
+\label{section-shapes}
+
+This section describes the |pgfbaseshapes| package.
+
+\begin{package}{pgfbaseshapes}
+  This package defines commands both for creating nodes and for
+  creating shapes. The package is loaded automatically by |pgf|, but
+  you can load it manually if you have  only included |pgfcore|.  
+\end{package}
+
+
+\subsection{Overview}
+
+\pgfname\ comes with a sophisticated set of commands for creating
+\emph{nodes} and \emph{shapes}. A \emph{node} is a graphical object
+that consists (typically) of a text label and some additional stroked
+or filled paths. Each node has a certain \emph{shape}, which may be
+something simple like a |rectangle| or a |circle|, but it may also be
+something complicated like a |uml class diagram| (this shape is
+currently not implemented, though). Different nodes that have the same
+shape may look quite different, however, since shapes (need not)
+specify whether the shape path is stroked or filled.
+
+\subsubsection{Creating and Referencing Nodes}
+
+You create a node by calling the macro |\pgfnode|. This macro takes
+several parameters and draws the requested shape at a certain
+position. In addition, it will ``remember'' the node's position within
+the current |{pgfpicture}|. You can then, later on, refer to the
+node's position. Coordinate transformations are ``fully supported,''
+which means that if you used coordinate transformations to shift or
+rotate the shape of a node, the node's position will still be correctly
+determined by \pgfname. This is \emph{not} the case if you use canvas
+transformations, instead.
+
+\subsubsection{Anchors}
+
+An important property of a node or a shape in general are its
+\emph{anchors}. Anchors are ``important'' positions in a shape. For
+example, the |center| anchor lies at the center of a shape, the
+|north| anchor is usually ``at the top, in the middle'' of a shape,
+the |text| anchor is the lower left corner of the shape's label, and
+so on.
+
+Anchors are important both when you create a node and when you
+reference it. When you create a node, you specify the node's
+``position'' by asking \pgfname\ to place the shape in such a way that
+a certain anchor lies at a certain point. For example, you might ask
+that the node is placed such that the |north| anchor is at the
+origin. This will effectively cause the node to be placed below the
+origin.
+
+When you reference a node, you always reference an anchor of the
+node. For example, when you request the ``|north| anchor of the node
+just placed'' you will get the origin. However, you can also request
+the ``|south| anchor of this node,'' which will give you a point
+somewhere below the origin. When a coordinate transformation was in
+force at the time of creation of a node, all anchors are also
+transformed accordingly.
+
+\subsubsection{Layers of a Shape}
+
+The simplest shape, the |coordinate|, has just one anchor, namely the
+|center|, and a label (which is usually empty). More complicated
+shapes like the |rectangle| shape also have a \emph{background
+  path}. This is a \pgfname-path that is defined by the shape. The
+shape does not prescribe what should happen with the path: When a node
+is created this path may be stroked (resulting in a frame around the
+label), filled (resulting in a background color for the text), or just
+discarded.
+
+Although most shapes consist just of a background path plus some label
+text, when a shape is drawn, up to seven different layers are drawn:
+
+\begin{enumerate}
+\item
+  The ``behind the background layer.'' Unlike the background path,
+  which be used in different ways by different nodes, these graphic
+  commands given for this layer will always stroke or
+  always fill the path they construct. They might also insert some
+  text that is ``behind everything.''
+\item
+  The background path layer. How this path is used depends on how the
+  arguments of the |\pgfnode| command.
+\item
+  The ``before the background path layer.'' This layer works like the
+  first one, only the commands of this layer are executed after the
+  background path has been used (in whatever way the creator of the
+  node chose).
+\item
+  The label layer. This layer inserts the node's text box.
+\item
+  The ``behind the foreground layer.'' This layer, like the
+  seventh layer, once more contain graphic commands that are ``simply
+  executed.''
+\item
+  The foreground path layer . This path is treated in the same way as the
+  background path, only it is drawn only after the label text has been
+  drawn.
+\item
+  The ``before the foreground layer.''
+\end{enumerate}
+
+Which of these layers are actually used depends on the shape.
+
+\subsection{Creating Nodes}
+
+You create a node using the following command:
+
+\begin{command}{\pgfnode\marg{shape}\marg{anchor}\marg{label
+      text}\marg{name}\marg{path usage command}} 
+  This command creates a new node. The \meta{shape} of the node must
+  have been declared previously using |\pgfdeclareshape|.
+
+  The shape is shifted such that the \meta{anchor} is at the
+  origin. In order to place the shape somewhere else, use the
+  coordinate transformation prior to calling this command.
+
+  The \meta{name} is a name for later reference. If no name is given,
+  nothing will be ``saved'' for the node, it will just be drawn.
+
+  The \meta{path usage command} is executed for the background and the
+  foreground path (if the shape defines them).
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (4,3);
+  {
+    \pgftransformshift{\pgfpoint{1cm}{1cm}}
+    \pgfnode{rectangle}{north}{Hello World}{hellonode}{\pgfusepath{stroke}}
+  }
+  {
+    \color{red!20}
+    \pgftransformrotate{10}
+    \pgftransformshift{\pgfpoint{3cm}{1cm}}
+    \pgfnode{rectangle}{center}
+      {\color{black}Hello World}{hellonode}{\pgfusepath{fill}}
+  }
+\end{tikzpicture}
+\end{codeexample}
+
+  As can be seen, all coordinate transformations are also applied to
+  the text of the shape. Sometimes, it is desirable that the
+  transformations are applied to the point where the shape will be
+  anchored, but you do not wish the shape itself to the
+  transformed. In this case, you should call
+  |\pgftransformresetnontranslations| prior to calling the |\pgfnode|
+  command. 
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (4,3);
+  {
+    \color{red!20}
+    \pgftransformrotate{10}
+    \pgftransformshift{\pgfpoint{3cm}{1cm}}
+    \pgftransformresetnontranslations
+    \pgfnode{rectangle}{center}
+      {\color{black}Hello World}{hellonode}{\pgfusepath{fill}}
+  }
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+There are a number of values that have an influence on the size of a
+node. These parameters can be changed using the following commands:
+
+\begin{command}{\pgfsetshapeminwidth\marg{dimension}}
+  This command sets the macro \declare{|\pgfshapeminwidth|} to
+  \meta{dimension}. This dimension is the \emph{recommended} minimum
+  width of a shape. Thus, when a shape is drawn and when the shape's
+  width would be smaller than \meta{dimension}, the shape's width is
+  enlarged by adding some empty space.
+
+  Note that this value is just a recommendation. A shape may choose to
+  ignore the value of |\pgfshapeminwidth| altogether.
+  
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (-2,0) grid (2,1);
+
+  \pgfsetshapeminwidth{3cm}
+  \pgfnode{rectangle}{center}{Hello World}{}{\pgfusepath{stroke}}
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfsetshapeminheight\marg{dimension}}
+  Works like |\pgfsetshapeminwidth|.
+\end{command}
+
+
+\begin{command}{\pgfsetshapeinnerxsep\marg{dimension}}
+  This command sets the macro \declare{|\pgfshapeinnerxsep|} to
+  \meta{dimension}. This dimension is the \emph{recommended} horizontal
+  inner separation between the label text and the background path. As
+  before, this value is just a recommendation and a shape may choose
+  to ignore the value of |\pgfshapeinnerxsep|.
+  
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (-2,0) grid (2,1);
+
+  \pgfsetshapeinnerxsep{1cm}
+  \pgfnode{rectangle}{center}{Hello World}{}{\pgfusepath{stroke}}
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfsetshapeinnerysep\marg{dimension}}
+  Works like |\pgfsetshapeinnerysep|.
+\end{command}
+
+
+
+\begin{command}{\pgfsetshapeouterxsep\marg{dimension}}
+  This command sets the macro \declare{|\pgfshapeouterxsep|} to
+  \meta{dimension}. This dimension is the recommended horizontal
+  outer separation between the background path and the ``outer
+  anchors.'' For example, if \meta{dimension} is |1cm| then the
+  |north| anchor will be 1cm above the top of the background path.
+
+  As before, this value is just a recommendation.
+  
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (-2,0) grid (2,1);
+
+  \pgfsetshapeouterxsep{.5cm}
+  \pgfnode{rectangle}{center}{Hello World}{x}{\pgfusepath{stroke}}
+
+  \pgfpathcircle{\pgfpointanchor{x}{north}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{south}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{east}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{west}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{north east}}{2pt}
+  \pgfusepath{fill}
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfsetshapeouterysep\marg{dimension}}
+  Works like |\pgfsetshapeouterysep|.
+\end{command}
+
+
+\subsection{Using Anchors}
+
+Each shape defines a set of anchors. We saw already that the anchors
+are used when the shape is drawn: the shape is placed in such a way
+that the given anchor is at the origin (which in turn is typically
+translated somewhere else).
+
+One has to look up the set of anchors of each shape, there is no
+``default'' set of anchors, except for the |center| anchor, which
+should always be present.
+
+Once a node has been defined, you can refer to its anchors using the
+following commands:
+
+\begin{command}{\pgfpointanchor\marg{node}\marg{anchor}}
+  This command is another ``point command'' like the commands
+  described in Section~\ref{section-points}. It returns the coordinate
+  of the given \meta{anchor} in the given \meta{node}. The command can
+  be used in commands like |\pgfpathmoveto|.
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \pgftransformrotate{30}
+  \pgfnode{rectangle}{center}{Hello World!}{x}{\pgfusepath{stroke}}
+
+  \pgfpathcircle{\pgfpointanchor{x}{north}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{south}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{east}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{west}}{2pt}
+  \pgfpathcircle{\pgfpointanchor{x}{north east}}{2pt}
+  \pgfusepath{fill}
+\end{pgfpicture}
+\end{codeexample}
+
+  In the above example, you may have noticed something curious: The
+  rotation transformation is still in force when the anchors are
+  invoked, but it does not seem to have an effect. You might expect
+  that the rotation should apply to the already rotated points once
+  more.
+
+  However, |\pgfpointanchor| returns a point that takes the current
+  transformation matrix into account: \emph{The inverse transformation
+    to the current coordinate transformation is applied to anchor
+    point before returning it.}
+
+  This behavior may seem a bit strange, but you will find it very
+  natural in most cases. If you really want to apply a transformation
+  to an anchor point (for example, to ``shift it away'' a little bit),
+  you have to invoke |\pgfpointanchor| without any transformations in
+  force. Here is an example:
+
+\makeatletter
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \pgftransformrotate{30}
+  \pgfnode{rectangle}{center}{Hello World!}{x}{\pgfusepath{stroke}}
+
+  {
+    \pgftransformreset
+    \pgfpointanchor{x}{east}
+    \xdef\mycoordinate{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}
+  }
+    
+  \pgfpathcircle{\mycoordinate}{2pt}
+  \pgfusepath{fill}
+\end{pgfpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfpointshapeborder\marg{node}\marg{point}}
+  This command returns the point on the border of the shape that lies
+  on a straight line from the center of the node to \meta{point}. For
+  complex shapes it is not guaranteed that this point will actually
+  lie on the border, it may be on the border of a ``simplified''
+  version of the shape.
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \begin{pgfscope}
+    \pgftransformrotate{30}
+    \pgfnode{rectangle}{center}{Hello World!}{x}{\pgfusepath{stroke}}
+  \end{pgfscope}
+  \pgfpathcircle{\pgfpointshapeborder{x}{\pgfpoint{2cm}{1cm}}}{2pt}
+  \pgfpathcircle{\pgfpoint{2cm}{1cm}}{2pt}
+  \pgfpathcircle{\pgfpointshapeborder{x}{\pgfpoint{-1cm}{1cm}}}{2pt}
+  \pgfpathcircle{\pgfpoint{-1cm}{1cm}}{2pt}
+  \pgfusepath{fill}
+\end{pgfpicture}
+\end{codeexample}
+\end{command}
+
+
+
+\subsection{Declaring New Shapes}
+
+Defining a shape is, unfortunately, a not-quite-trivial process. The
+reason is that shapes need to be both very flexible (their size will
+vary greatly according to circumstances) and they need to be
+constructed reasonably ``fast.'' \pgfname\ must be able to handle
+pictures with several hundreds of nodes and documents with thousands
+of nodes in total. It would not do if \pgfname\ had to compute and
+store, say, dozens of anchor positions for the nodes of all pictures. 
+
+\subsubsection{What Must Be Defined For a Shape?}
+
+In order to define a new shape, you must provide:
+\begin{itemize}
+\item
+  a \emph{shape name},
+\item
+  code for computing the  \emph{saved anchors} and \emph{saved
+    dimensions}, 
+\item
+  code for computing \emph{anchor} positions in terms of the saved anchors,
+\item
+  optionally code for the \emph{background path} and \emph{foreground path},
+\item
+  optionally code for \emph{things to be drawn before or behind} the
+  background and foreground paths.
+\end{itemize}
+
+
+\subsubsection{Normal Anchors Versus Saved Anchors}
+
+Anchors  are special places in shape. For example, the |north east|
+anchor, which is a normal anchor, lies at the upper right corner of
+the  |rectangle| shape, as does |\northeast|, which is a saved
+anchor. The difference is the following: \emph{saved anchors are 
+  computed and stored for each node, anchors are only computed as
+  needed.} The user only has access to the normal anchors, but a
+normal anchor can just ``copy'' or ``pass through'' the location of a
+saved anchor. 
+
+The idea behind all this is that a shape can declare a very large
+number of normal anchors, but when a node of this shape is created,
+these anchors are not actually computed. However, this causes a
+problem: When we wish to reference an anchor of a node some time
+later, we must still able to compute the position of the anchor. For
+this, we may need a lot of information: What was the transformation
+matrix that was in force when the node was created? What was the size
+of the text box? What were the values of the different separation
+dimensions? And so on. 
+
+To solve this problem, \pgfname\ will always compute the locations of
+all \emph{saved anchors} and store these positions. Then, when an
+normal anchor position is requested later on, the anchor position can
+be given just from knowing where the locations of the saved anchors.
+
+As an example, consider the |rectangle| shape. For this shape two
+anchors are saved: The |\northeast| corner and the |\southwest|
+corner. A normal anchor like |north west| can now easily be expressed
+in terms of these coordinates: Take the $x$-position of the
+|\southwest| point  and the $y$-position of the |\northeast| point. 
+The |rectangle| shape currently defines 13 normal anchors, but needs
+only two saved anchors. Adding new anchors like a  |south south east|
+anchor would not increase the memory and computation requirements of
+pictures. 
+
+All anchors (both saved and normal) are specified in a local
+\emph{shape coordinate space}. This is also true for the background
+and foreground paths. The |\pgfnode| macro will automatically apply
+appropriate transformations to the coordinates so that the shape is
+shifted to the right anchor or otherwise transformed. 
+
+
+\subsubsection{The Command for Declaring New Shapes}
+
+The following command declares a new shape:
+\begin{command}{\pgfdeclareshape\marg{shape name}\marg{shape
+      specification}}
+  This command declares a new shape named \meta{shape name}. The shape
+  name can later be used in commands like |\pgfnode|.
+
+  The \meta{shape specification} is some \TeX\ code containing calls
+  to special commands that are only defined inside the \meta{shape
+    specification} (this is like command like |\draw| that are only
+  available inside the |{tikzpicture}| environment).
+
+  \example Here is the code of the |coordinate| shape:
+\begin{codeexample}[code only]
+\pgfdeclareshape{coordinate}
+{
+  \savedanchor\centerpoint{%
+    \pgf@x=.5\wd\pgfshapebox%
+    \pgf@y=.5\ht\pgfshapebox%
+    \advance\pgf@y by -.5\dp\pgfshapebox%
+  }
+  \anchor{center}{\centerpoint}
+  \anchorborder{\centerpoint}
+}
+\end{codeexample}
+
+  The special commands are explained next. In the examples given for
+  the special commands a new shape will be constructed, which we might
+  call |simple rectangle|. It should behave like the normal rectangle
+  shape, only without bothering about the fine details like inner and
+  outer separations. The skeleton for the shape is the following.
+\begin{codeexample}[code only]
+\pgfdeclareshape{simple rectangle}{
+  ...
+}
+\end{codeexample}
+
+  \begin{command}{\savedanchor\marg{command}\marg{code}}
+    This command declares a saved anchor. \meta{command} should be a
+    \TeX\ macro name like |\centerpoint|.
+
+    The \meta{code} will be executed each time |\pgfnode| is called to
+    create a node of the shape \meta{shape name}. When the \meta{code}
+    is executed, the box |\pgfshapebox| will contain the text label of
+    the node. Possibly, this box is void. The \meta{code} can now
+    use the width, height, and depth of the box to compute the
+    location of the saved anchor. In addition, the \meta{code} can
+    take into account the valued of dimensions like
+    |\pgfshapeminwidth| or |\pgfshapeinnerxsep|. Furthermore, the
+    \meta{code} can take into consideration the values of any further
+    shape-specific variables that are set at the moment when
+    |\pgfnode| is called.
+
+    The net effect of the \meta{code} should be to set the two \TeX\
+    dimensions |\pgf@x| and |\pgf@y|. One way to achieve this is to
+    say |\pgfpoint{|\meta{x value}|}{|\meta{y value}|}| at the end of
+    the \meta{code}, but you can also just set these variables.
+
+    The values of |\pgf@x| and |\pgf@y| have after the code has been
+    executed, let us call them $x$ and $y$, will be recorded and
+    stored together with the node that is created by the command
+    |\pgfnode|.
+
+    The macro \meta{command} is defined to be
+    |\pgfpoint{|$x$|}{|$y$|}|. However, the \meta{command} is only
+    locally defined while anchor positions are being computed. Thus,
+    it is possible to use very simple names for \meta{command}, like
+    |\center| or |\a|, without causing a name-clash. (To be precise,
+    very simple \meta{command} names will clash with existing names,
+    but only locally inside the computation of anchor positions; and
+    we do not need the normal |\center| command during these
+    computations.)
+
+    For our |simple rectangle| shape, we will need only one saved
+    anchor: The upper right corner. The lower left corner could either
+    be the origin or the ``mirrored'' upper right corner, depending on
+    whether we want the text label to have its lower left corner at
+    the origin or whether the text label should be centered on the
+    origin. Either will be fine, for the final shape this will make no
+    difference since the shape will be shifted anyway. So, let us
+    assume that the text label is centered on the origin (this will be
+    specified later on using the |text| anchor). We get 
+    the following code for the upper right corner:
+\begin{codeexample}[code only]
+\shapepoint{\upperrightcorner}{
+  \pgf@y=.5\ht\pgfshapebox % height of the box, ignoring the depth
+  \pgf@x=.5\wd\pgfshapebox % width of the box
+}
+\end{codeexample}
+
+    If we wanted to take, say, the |\pgfshapeminwidth| into account,
+    we could use the following code:
+    
+\begin{codeexample}[code only]
+\shapepoint{\upperrightcorner}{
+  \pgf@y=.\ht\pgfshapebox % height of the box
+  \pgf@x=.\wd\pgfshapebox % width of the box
+  \setlength{\pgf@xa}{\pgfshapeminwidth}
+  \ifdim\pgf@x<.5\pgf@xa
+    \pgf@x=.5\pgf@xa
+  \fi
+}
+\end{codeexample}
+    Note that we could not have written |.5\pgfshapeminwidth| since
+    the minium width is stored in a ``plain text macro,'' not as a
+    real dimension. So if |\pgfshapeminwidth| depth were 
+    2cm, writing |.5\pgfshapeminwidth| would yield the same as |.52cm|.
+
+    In the ``real'' |rectangle| shape the code is somewhat more
+    complex, but you get the basic idea.
+  \end{command}  
+  \begin{command}{\saveddimen\marg{command}\marg{code}}
+    This command is similar to |\savedanchor|, only instead of setting
+    \meta{command} to |\pgfpoint{|$x$|}{|$y$|}|, the \meta{command} is
+    set just to (the value of) $x$.
+
+    In the |simple rectangle| shape we might use a saved dimension to
+    store the depth of the shape box.
+  
+\begin{codeexample}[code only]
+\shapedimen{\depth}{
+  \pgf@x=\dp\pgfshapebox 
+}
+\end{codeexample}
+  \end{command}  
+  \begin{command}{\anchor\marg{name}\marg{code}}
+    This command declares an anchor named \meta{name}. Unlike for saved
+    anchors, the \meta{code} will not be executed each time a node is
+    declared. Rather, the \meta{code} is only executed when the anchor
+    is specifically requested; either for anchoring the node during
+    its creation or as a  position in the shape referenced later on.
+
+    The \meta{name} is a quite arbitrary string that is not ``passed
+    down'' to the system level. Thus, names like |south| or |1| or
+    |::| would all be fine.
+
+    A saved anchor is not automatically also a normal anchor. If you
+    wish to give the users access to a saved anchor you must declare a
+    normal anchor that just returns the position of the saved anchor.
+
+    When the \meta{code} is executed, all saved anchor macros will be
+    defined. Thus, you can reference them in your \meta{code}. The
+    effect of the \meta{code} should be to set the values of |\pgf@x|
+    and |\pgf@y| to the coordinates of the anchor.
+
+    Let us consider some example for the |simple rectangle|
+    shape. First, we would like to make the upper right corner
+    publicly available, for example as |north east|:
+    
+\begin{codeexample}[code only]
+\anchor{north east}{\upperrightcorner}
+\end{codeexample}
+
+    The |\upperrightcorner| macro will set |\pgf@x| and |\pgf@y| to
+    the coordinates of the upper right corner. Thus, |\pgf@x| and
+    |\pgf@y| will have exactly the right values at the end of the
+    anchor's code.
+
+    Next, let us define a |north west| anchor. For this anchor, we can
+    negate the |\pgf@x| variable:
+   
+\begin{codeexample}[code only]
+\anchor{north west}{
+  \upperrightcorner
+  \pgf@x=-\pgf@x
+}
+\end{codeexample}
+
+    Finally, it is a good idea to always define a |center| anchor,
+    which will be the default location for a shape.
+
+\begin{codeexample}[code only]
+\anchor{center}{\pgfpointorigin}
+\end{codeexample}
+
+    You might wonder whether we should not take into consideration
+    that the node is not placed at the origin, but has been shifted
+    somewhere. However, the anchor positions are always specified in
+    the shapes ``private'' coordinate system. The ``outer''
+    transformation that has been applied to the shape upon its
+    creation is applied automatically to the coordinates returned by
+    the anchor's \meta{code}.
+
+    There is one anchor that is special: The |text| anchor. This
+    anchor is used upon creation of a node to determine the lower left
+    corner of the text label (within the private coordinate system of
+    the shape). By default, the |text| anchor is at the origin, but
+    you may change this. For example, we would say
+\begin{codeexample}[code only]
+\anchor{text}{\pgfpoint{-.5\wd\pgfshapebox}{-.5\ht\pgfshapebox}}
+\end{codeexample}
+    to center the text label on the origin in the shape coordinate space. 
+  \end{command}  
+  \begin{command}{\anchorborder\marg{code}}
+    A \emph{border anchor} is an anchor point on the border of the
+    shape. What exactly is considered as the ``border'' of the shape
+    depends on the shape.
+
+    When the user request a point on the border of the shape using the
+    |\pgfpointshapeborder| command, the \meta{code} will be executed
+    to discern this point. When the execution of  the \meta{code}
+    starts, the dimensions |\pgf@x| and |\pgf@y| will have been set to
+    a location $p$ in the shape's coordinate system. It is now the job of
+    the \meta{code} to setup |\pgf@x| and |\pgf@y| such that they
+    specify that point on the shape's border that lies on a straight
+    line from the shape's center to the point $p$. Usually, this is a
+    somewhat complicated computation, involving many case distinctions
+    and some basic math.
+
+    For our |simple rectangle| we must compute a point on the border
+    of a rectangle whose one corner is the origin (ignoring the depth
+    for simplicity) and whose other corner is |\upperrightcorner|. The
+    following code might be used:
+\begin{codeexample}[code only]
+\anchorborder{%
+  % Call a function that computes a border point. Since this
+  % function will modify dimensions like \pgf@x, we must move it to
+  % other dimensions.
+  \@tempdima=\pgf@x
+  \@tempdimb=\pgf@y
+  \pgfpointborderrectangle{\pgfpoint{\@tempdima}{\@tempdimb}}{\upperrightcorner}
+}
+\end{codeexample}
+  \end{command}  
+  \begin{command}{\backgroundpath\marg{code}}
+    This command specifies the path that ``makes up'' the background
+    of the shape. Note that the shape cannot prescribe what is going
+    to happen with the path: It might be drawn, shaded, filled, or
+    even thrown away. If you want to specify that something should
+    ``always'' happen when this shape is drawn (for example, if the
+    shape is a stop-sign, we \emph{always} want it to be filled with a
+    red color), you can use commands like |\beforebackgroundpath|,
+    explained below.
+
+    When the \meta{code} is executed, all saved anchors will be in
+    effect. The \meta{code} should contain path construction
+    commands.
+
+    For our |simple rectangle|, the following code might be used:
+\begin{codeexample}[code only]
+\backgroundpath{
+  \pgfpathrectanglecorners
+    {\upperrightcorner}
+    {\pgfpointscale{-1}{\upperrightcorner}}
+}  
+\end{codeexample}
+    As the name suggests, the background path is used ``behind'' the
+    text label. Thus, this path is used first, then the text label is
+    drawn, possibly obscuring part of the path.
+  \end{command}  
+  \begin{command}{\foregroundpath\marg{code}}
+    This command works like |\backgroundpath|, only it is invoked
+    after the text label has been drawn. This means that this path can
+    possibly obscure (part of) the text label.
+  \end{command}  
+  \begin{command}{\behindbackgroundpath\marg{code}}
+    Unlike the previous two commands, \meta{code} should not only
+    construct a path, it should also use this path in whatever way is
+    appropriate. For example, the \meta{code} might fill some area
+    with a unform color.
+
+    Whatever the \meta{code} does, it does it first. This means that
+    any drawing done by \meta{code} will be even behind the background
+    path.
+
+    Note that the \meta{code} is protected with a |{pgfscope}|.
+  \end{command}  
+  \begin{command}{\beforebackgroundpath\marg{code}}
+    This command works like |\behindbackgroundpath|, only the
+    \meta{code} is executed after the background path has been used,
+    but before the text label is drawn.
+  \end{command}  
+  \begin{command}{\behindforegroundpath\marg{code}}
+    The \meta{code} is executed after the text label has been drawn,
+    but before the foreground path is used.
+  \end{command}  
+  \begin{command}{\beforeforegroundpath\marg{code}}
+    This \meta{code} is executed at the very end.
+  \end{command}  
+  \begin{command}{\inheritsavedanchors|[from=|\marg{another shape name}|]|}
+    This command allows you to inherit the code for saved anchors from
+    \meta{another shape name}. The idea is that if you wish to create
+    a new shape that is just a small modification of a another shape,
+    you can recycle the code used for \meta{another shape name}.
+
+    The effect of this command is the same as if you had called
+    |\savedanchor| and |\saveddimen| for each saved anchor or saved
+    dimension declared in \meta{another shape name}. Thus, it is not
+    possible to ``selectively'' inherit only some saved anchors, you
+    always have to inherit all saved anchors from another
+    shape. However, you can inherit the saved anchors of more than one
+    shape by calling this command several times.
+  \end{command}  
+  \begin{command}{\inheritbehindbackgroundpath|[from=|\marg{another shape name}|]|}
+    This command can be used to inherit the code used for the
+    drawings behind the background path from \meta{another shape name}. 
+  \end{command}  
+  \begin{command}{\inheritbackgroundpath|[from=|\marg{another shape name}|]|}
+    Inherits the background path code from \meta{another shape name}.
+  \end{command}  
+  \begin{command}{\inheritbeforebackgroundpath|[from=|\marg{another shape name}|]|}
+    Inherits the before background path code from \meta{another shape name}.
+  \end{command}  
+  \begin{command}{\inheritbehindforegroundpath|[from=|\marg{another shape name}|]|}
+    Inherits the behind foreground path code from \meta{another shape name}.
+  \end{command}  
+  \begin{command}{\inheritforegroundpath|[from=|\marg{another shape name}|]|}
+    Inherits the foreground path code from \meta{another shape name}.
+  \end{command}  
+  \begin{command}{\inheritbeforeforegroundpath|[from=|\marg{another shape name}|]|}
+    Inherits the before foreground path code from \meta{another shape name}.
+  \end{command}  
+  \begin{command}{\inheritanchor|[from=|\marg{another shape name}|]|\marg{name}}
+    Inherits the code of one specific anchor named \meta{name} from
+    \meta{another shape name}. Thus, unlike saved anchors, which must
+    be inherited collectively, normal anchors can and must be
+    inherited individually.
+  \end{command}  
+  \begin{command}{\inheritanchorborder|[from=|\marg{another shape name}|]|}
+    Inherits the border anchor code from \meta{another shape name}.
+  \end{command}
+
+  The following example shows how a shape can be defined that relies
+  heavily on inheritance:
+\makeatletter
+\begin{codeexample}[]
+\pgfdeclareshape{document}{
+  \inheritsavedanchors[from=rectangle] % this nearly a rectangle
+  \inheritanchorborder[from=rectangle]
+  \inheritanchor[from=rectangle]{center}
+  \inheritanchor[from=rectangle]{north}
+  \inheritanchor[from=rectangle]{south}
+  \inheritanchor[from=rectangle]{west}
+  \inheritanchor[from=rectangle]{east}
+  % ... and possibly more
+  \backgroundpath{% this is new
+    % store lower right in xa/ya and upper right in xb/yb
+    \southwest \pgf@xa=\pgf@x \pgf@ya=\pgf@y
+    \northeast \pgf@xb=\pgf@x \pgf@yb=\pgf@y
+    % compute corner of ``flipped page''
+    \pgf@xc=\pgf@xb \advance\pgf@xc by-5pt % this should be a parameter
+    \pgf@yc=\pgf@yb \advance\pgf@yc by-5pt
+    % construct main path
+    \pgfpathmoveto{\pgfpoint{\pgf@xa}{\pgf@ya}}
+    \pgfpathlineto{\pgfpoint{\pgf@xa}{\pgf@yb}}
+    \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yb}}
+    \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@yc}}
+    \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@ya}}
+    \pgfpathclose
+    % add little corner
+    \pgfpathmoveto{\pgfpoint{\pgf@xc}{\pgf@yb}}
+    \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yc}}
+    \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@yc}}
+    \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yc}}
+ }
+}\hskip-1.2cm
+\begin{tikzpicture}
+  \node[shade,draw,shape=document,inner sep=2ex] (x) {Remark};
+  \node[fill=yellow,draw,ellipse,double]
+    at ([shift=(-80:3cm)]x) (y) {Use Case};
+
+  \draw[dashed] (x) -- (y);  
+\end{tikzpicture}
+\end{codeexample}
+  
+\end{command}
+
+
+
+
+\subsection{Predefined Shapes}
+
+
+\subsubsection{The Rectangle Shape}
+
+
+\begin{shape}{rectangle}
+  This shape is a rectangle tightly fitting the text box. Use inner or
+  outer separation to increase the distance between the text box and
+  the border and the anchors. The following figure shows the anchors
+  this shape defines; the anchors |10| and |130| are example of border
+  anchors. 
+\begin{codeexample}[]
+\Huge
+\begin{tikzpicture}
+  \node[name=s,shape=rectangle,style=shape example] {Rectangle\vrule width 1pt height 2cm};
+  \foreach \anchor/\placement in
+    {north west/above left, north/above, north east/above right, 
+     west/left, center/above, east/right, 
+     mid west/right, mid/above, mid east/left, 
+     base west/left, base/below, base east/right, 
+     south west/below left, south/below, south east/below right, 
+     text/left, 10/right, 130/above}
+    \draw[shift=(s.\anchor)] plot[mark=x] coordinates {(0,0)}
+      node[\placement] {\scriptsize\texttt{(s.\anchor)}};
+\end{tikzpicture}
+\end{codeexample}
+\end{shape}
+
+
+
+\subsubsection{The Coordinate Shape}
+
+\begin{shape}{coordinate}
+  The |coordinate| shape is a special shape that is mainly intended to
+  be used to store locations using the node mechanism. This shape does
+  not have any background path and options like |draw| have no effect on
+  it. If you specify some text, this text will be typeset, but only ``a
+  bit unwillingly'' since this shape is not really intended for drawing
+  text.
+
+  \tikzname\ handles this shape in a special way, see
+  Section~\ref{section-tikz-coordinate-shape}. 
+\end{shape}
+
+
+\subsubsection{The Circle Shape}
+
+
+\begin{shape}{circle}
+  This shape is a circle tightly fitting the text box.
+\begin{codeexample}[]
+\Huge
+\begin{tikzpicture}
+  \node[name=s,shape=circle,style=shape example] {Circle\vrule width 1pt height 2cm};
+  \foreach \anchor/\placement in
+    {north west/above left, north/above, north east/above right, 
+     west/left, center/above, east/right, 
+     mid west/right, mid/above, mid east/left, 
+     base west/left, base/below, base east/right, 
+     south west/below left, south/below, south east/below right, 
+     text/left, 10/right, 130/above}
+     \draw[shift=(s.\anchor)] plot[mark=x] coordinates {(0,0)}
+       node[\placement] {\scriptsize\texttt{(s.\anchor)}};
+\end{tikzpicture}
+\end{codeexample}
+\end{shape}
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "pgfmanual"
+%%% End: 

@@ -1,0 +1,540 @@
+\ProvidesFileRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+% Position transformations
+
+\newdimen\pgf@pt@x
+\newdimen\pgf@pt@y
+
+\newdimen\pgf@pt@temp
+
+\newif\ifpgf@pt@identity
+\pgf@pt@identitytrue
+
+\def\pgf@pt@aa{1.0} \def\pgf@pt@ab{0.0}
+\def\pgf@pt@ba{0.0} \def\pgf@pt@bb{1.0}
+
+
+
+% Store the current transformation matrix in a macro.
+%
+% #1 = macro name
+%
+% Example:
+%
+% \pgfgettransform\mytransform
+
+\def\pgfgettransform#1{%
+  \edef#1{{\pgf@pt@aa}{\pgf@pt@ab}{\pgf@pt@ba}{\pgf@pt@bb}{\the\pgf@pt@x}{\the\pgf@pt@y}}
+}
+
+
+% Restore the current transformation matrix from a macro.
+%
+% #1 = macro name, previously used with \pgfgettransform
+%
+% Example:
+%
+% \pgfsettransform\mytransform
+
+\def\pgfsettransform#1{%
+  \edef\pgf@temp{#1}%
+  \expandafter\pgf@settransform\pgf@temp%
+}
+\def\pgf@settransform#1#2#3#4#5#6{%
+  \def\pgf@pt@aa{#1}%
+  \def\pgf@pt@ab{#2}%
+  \def\pgf@pt@ba{#3}%
+  \def\pgf@pt@bb{#4}%
+  \pgf@pt@x=#5%
+  \pgf@pt@y=#6%
+  \edef\pgf@idtest{#1,#2,#3,#4}%
+  \ifx\pgf@idtest\pgf@idmatrixtext%
+    \pgf@pt@identitytrue%
+  \else%
+    \pgf@pt@identityfalse%
+  \fi%
+}
+
+\def\pgf@idmatrixtext{1.0,0.0,0.0,1.0}
+
+
+% Transformation command
+%
+% #1 = x dimension
+% #2 = y dimension
+%
+% Description:
+%
+% Applies the pgfs transformation matrix to the point (#1,#2). The
+% result is once more stored in the point.
+%
+%
+% Example:
+%
+% \pgf@pos@transform{\pgf@x}{\pgf@y}
+
+\def\pgf@pos@transform#1#2{%
+  \ifpgf@pt@identity%
+  \else%
+    \pgf@pt@temp=#1%
+    #1=\pgf@pt@aa#1%
+    \advance#1 by\pgf@pt@ba#2%
+    #2=\pgf@pt@bb#2%
+    \advance#2 by\pgf@pt@ab\pgf@pt@temp%
+  \fi%
+  \advance#1 by\pgf@pt@x%
+  \advance#2 by\pgf@pt@y%
+}
+
+
+% Invert the current transformation matrix
+%
+% Description:
+%
+% This command replaces the current transformation matrix by its
+% inverse. The inversion is not very exact if the matrix is nearly
+% singular. 
+%
+% Example:
+%
+% \pgftransforminvert
+
+\def\pgftransforminvert{%
+  % First, invert the shift. That's easy
+  \pgf@pt@x=-\pgf@pt@x
+  \pgf@pt@y=-\pgf@pt@y
+  \ifpgf@pt@identity%
+  \else%
+    % Sigh. Have to calculate the inverse of the matrix.
+    % Start with determinant
+    % Matrix = (aa ab
+    %           ba bb)
+    {%
+      \@tempdima=\pgf@pt@aa pt%
+      \@tempdima=\pgf@pt@bb\@tempdima% aa * bb
+      \@tempdimb=\pgf@pt@ba pt%
+      \@tempdimb=\pgf@pt@ab\@tempdimb% ba * ab
+      \advance\@tempdima by -\@tempdimb% aa*bb - ba*ab
+      % Invert
+      \@tempdima=.125\@tempdima%
+      \c@pgf@counta=\@tempdima\relax% 8192*determinant
+      \@tempdima=8192pt%
+      \divide\@tempdima by\c@pgf@counta%
+      \pgf@x=\pgf@pt@bb\@tempdima% bb/(det A)
+      \xdef\pgf@new@pt@aa{\pgf@sys@tonumber{\pgf@x}}%
+      \pgf@x=\pgf@pt@aa\@tempdima% aa/(det A)
+      \xdef\pgf@new@pt@bb{\pgf@sys@tonumber{\pgf@x}}%
+      \@tempdima=-\@tempdima%
+      \pgf@x=\pgf@pt@ba\@tempdima% -ba/(det A)
+      \xdef\pgf@new@pt@ba{\pgf@sys@tonumber{\pgf@x}}%
+      \pgf@x=\pgf@pt@ab\@tempdima% -ab/(det A)
+      \xdef\pgf@new@pt@ab{\pgf@sys@tonumber{\pgf@x}}%
+    }%
+    \expandafter\def\expandafter\pgf@pt@aa\expandafter{\pgf@new@pt@aa}%
+    \expandafter\def\expandafter\pgf@pt@ab\expandafter{\pgf@new@pt@ab}%
+    \expandafter\def\expandafter\pgf@pt@ba\expandafter{\pgf@new@pt@ba}%
+    \expandafter\def\expandafter\pgf@pt@bb\expandafter{\pgf@new@pt@bb}%
+    \pgf@pt@temp=\pgf@pt@x%
+    \pgf@pt@x=\pgf@pt@aa\pgf@pt@x%
+    \advance\pgf@pt@x by\pgf@pt@ba\pgf@pt@y%
+    \pgf@pt@y=\pgf@pt@bb\pgf@pt@y%
+    \advance\pgf@pt@y by\pgf@pt@ab\pgf@pt@temp%
+  \fi%
+}
+
+
+
+
+% PGF-Level concatenation of the transformation matrix with a given
+% matrix. 
+%
+% #1 - #5 = a concatenation matrix (see pdf spec). Entry #5 is a
+%           translation point.
+%
+% Description:
+%
+% All coordinates given to subsequent path construction commands will
+% be transformed additionally by the given transformation matrix. If
+% the command is followed by a 6th argument, the transformation is
+% only applied to this argument.
+%
+%
+% Example:
+%
+% \pgftransformcm{1}{0}{0}{1}{\pgfpoint{100pt}{0pt}} % 100pt to the right.
+%
+% \pgftransformcm{2}{0}{0}{2}{\pgfpointorigin} % double in in size
+% \pgfpathmoveto{\pgfpoint{0cm}{0cm}}
+% \pgfpathlineto{\pgflineto{1cm}{1cm}} % actually 2cm/2cm
+
+\def\pgftransformcm#1#2#3#4#5{%
+  \edef\pgf@marshal{\noexpand\pgf@transformcm{#1}{#2}{#3}{#4}}%
+  \pgf@marshal{#5}%
+}
+\def\pgf@transformcm#1#2#3#4#5{%
+  {%
+    \pgf@process{#5}%
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    %
+    \pgf@x=#1pt%
+    \pgf@y=#2pt%
+    %
+    \pgf@xa=\pgf@pt@aa\pgf@x%
+    \advance\pgf@xa by \pgf@pt@ba\pgf@y%
+    %
+    \pgf@ya=\pgf@pt@ab\pgf@x%
+    \advance\pgf@ya by \pgf@pt@bb\pgf@y%
+    %
+    \pgf@x=#3pt%
+    \pgf@y=#4pt%
+    %
+    \pgf@xb=\pgf@pt@aa\pgf@x%
+    \advance\pgf@xb by \pgf@pt@ba\pgf@y%
+    %
+    \pgf@yb=\pgf@pt@ab\pgf@x%
+    \advance\pgf@yb by \pgf@pt@bb\pgf@y%
+    %
+    \pgf@x=\pgf@pt@aa\pgf@xc%
+    \advance\pgf@x by\pgf@pt@ba\pgf@yc%
+    \advance\pgf@x by\pgf@pt@x%
+    %
+    \pgf@y=\pgf@pt@ab\pgf@xc%
+    \advance\pgf@y by\pgf@pt@bb\pgf@yc%
+    \advance\pgf@y by\pgf@pt@y%
+    %
+    \global\pgf@x=\pgf@x%
+    \global\pgf@y=\pgf@y%
+    \xdef\pgf@tempaa{\pgf@sys@tonumber{\pgf@xa}}%
+    \xdef\pgf@tempab{\pgf@sys@tonumber{\pgf@ya}}%
+    \xdef\pgf@tempba{\pgf@sys@tonumber{\pgf@xb}}%
+    \xdef\pgf@tempbb{\pgf@sys@tonumber{\pgf@yb}}%
+  }%
+  \pgf@pt@x=\pgf@x%
+  \pgf@pt@y=\pgf@y%
+  \let\pgf@pt@aa=\pgf@tempaa%
+  \let\pgf@pt@ba=\pgf@tempba%
+  \let\pgf@pt@ab=\pgf@tempab%
+  \let\pgf@pt@bb=\pgf@tempbb%
+  \def\pgf@trans@idtest{#1,#2,#3,#4}%
+  \ifx\pgf@trans@idtest\pgf@trans@idtext%
+  \else%
+    \pgf@pt@identityfalse%
+  \fi%
+}
+\def\pgf@trans@idtext{1.0,0,0,1.0}
+
+
+
+
+
+
+% Undo all transformations
+%
+% Example:
+%
+% \pgftansformreset
+
+\def\pgftransformreset{%
+  \pgf@pt@x=0pt%
+  \pgf@pt@y=0pt%
+  \def\pgf@pt@aa{1.0}%
+  \def\pgf@pt@ba{0.0}%
+  \def\pgf@pt@ab{0.0}%
+  \def\pgf@pt@bb{1.0}%
+  \pgf@pt@identitytrue%
+}
+
+
+% Undo all slanting/rotation, but not translations
+%
+% Example:
+%
+% \pgftansformreset
+
+\def\pgftransformresetnontranslations{%
+  \def\pgf@pt@aa{1.0}%
+  \def\pgf@pt@ba{0.0}%
+  \def\pgf@pt@ab{0.0}%
+  \def\pgf@pt@bb{1.0}%
+  \pgf@pt@identitytrue%
+}
+
+
+
+
+% Shifting command and environment
+%
+% #1 = vector by which all subsequent points should be moved.
+%
+% Example:
+%
+% \pgftansformshift{\pgfpoint{1cm}{1cm}}
+
+\def\pgftransformshift#1{\pgftransformcm{1.0}{0}{0}{1.0}{#1}}
+\def\pgftransformxshift#1{\pgftransformcm{1.0}{0}{0}{1.0}{\pgfpoint{#1}{0pt}}}
+\def\pgftransformyshift#1{\pgftransformcm{1.0}{0}{0}{1.0}{\pgfpoint{0pt}{#1}}}
+
+
+
+
+% Scaling commands
+%
+% #1 = scaling for all subsequent points.
+%
+% Example:
+%
+% \pgftransformscale{2}
+% \pgftransformxscale{2}
+% \pgftransformyscale{2}
+
+\def\pgftransformscale#1{\pgftransformcm{#1}{0}{0}{#1}{\pgfpointorigin}}
+\def\pgftransformxscale#1{\pgftransformcm{#1}{0}{0}{1.0}{\pgfpointorigin}}
+\def\pgftransformyscale#1{\pgftransformcm{1.0}{0}{0}{#1}{\pgfpointorigin}}
+
+
+
+% Slanting commands
+%
+% #1 = slanting in x-direction. 1 means 45 degrees.
+%
+% Example:
+%
+% \pgftransformxslant{2}
+% \pgftransformyslant{2}
+
+\def\pgftransformxslant#1{\pgftransformcm{1.0}{0}{#1}{1.0}{\pgfpointorigin}}
+\def\pgftransformyslant#1{\pgftransformcm{1.0}{#1}{0}{1.0}{\pgfpointorigin}}
+
+
+
+% Rotation commands
+%
+% #1 = degrees for the rotation
+%
+% Example:
+%
+% \pgftransformrotate{30}
+
+\def\pgftransformrotate#1{%
+  \pgfsincos{#1}%
+  \pgf@xa=-\pgf@x%
+  \pgftransformcm%
+  {\pgf@sys@tonumber{\pgf@y}}{\pgf@sys@tonumber{\pgf@x}}%
+  {\pgf@sys@tonumber{\pgf@xa}}{\pgf@sys@tonumber{\pgf@y}}{\pgfpointorigin}%
+}
+
+
+
+% The following two if's have the following effect:
+%
+% \ifpgfslopedattime decides whether the coordinate system of an
+% xxxattime transformation command should be rotated such that text
+% drawn on the line should be tangent to the line
+%
+% \ifpgfresetnontranslationattime decides whether the coordinate
+% system of an xxxattime transformation command should be reset
+% (concerning the non-translations) before a possible rotation is
+% applied. This is useful, for example, if the main coordinate system
+% is scaled by, say, a factor of 2 and you do not want that to apply
+% to the text, but you do want the rotation to applyu.
+
+\newif\ifpgfslopedattime
+\newif\ifpgfresetnontranslationattime
+
+
+% Transform to the coordinate system of a point on a line
+%
+% #1 = a time fraction of line where to put the label, where 0 means start,
+%      1 means end, and for example 0.5 means the middle.
+% #2 = start of line
+% #3 = end of line
+%
+% Example:
+%
+% {
+%   \pgftransformlineattime{.5}{\pgfxy(0,0)}{\pgfxy(3,2)}
+%   \pgftext{Hi!}
+% }
+%
+% {
+%   \pgftransformlineattime{.75}{\pgfxy(0,0)}{\pgfxy(3,2)}
+%   \pgftransformresetnontranslations
+%   \pgftext{Hi!}
+% }
+%
+\def\pgftransformlineattime#1#2#3{%
+  \pgftransformshift{\pgfpointlineattime{#1}{#2}{#3}}%
+  \ifpgfresetnontranslationattime%
+    \pgftransformresetnontranslations%
+  \fi%
+  \ifpgfslopedattime%
+    \pgf@process{#2}%
+    \pgf@xa=\pgf@x% xb/yb = start point
+    \pgf@ya=\pgf@y%
+    \pgf@process{#3}%
+    \advance\pgf@x by-\pgf@xa%
+    \advance\pgf@y by-\pgf@ya%
+    \ifdim\pgf@x<0pt%
+      \pgf@x=-\pgf@x%
+      \pgf@y=-\pgf@y%
+    \fi%
+    \pgfpointnormalised{}% x/y = normalised vector
+    \pgf@ya=-\pgf@y%
+    \pgftransformcm%
+    {\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@y}}%
+    {\pgf@sys@tonumber{\pgf@ya}}{\pgf@sys@tonumber{\pgf@x}}{\pgfpointorigin}%
+  \fi%
+}
+
+
+
+
+% Transform to the coordinate system of a point on a curve
+%
+% #1 = a time fraction of line where to put the label, where 0 means start,
+%      1 means end, and for example 0.5 means the middle.
+% #2 = start of line
+% #3 = first control
+% #4 = second control
+% #5 = end of line
+%
+% Example:
+%
+% {
+%   \pgftransformlabel{.5}{\pgfxy(0,0)}{\pgfxy(3,2)}
+%   \pgftext{Hi!}
+% }
+%
+% {
+%   \pgftransformlabel{.75}{\pgfxy(0,0)}{\pgfxy(3,2)}
+%   \pgftransformresetnontranslations
+%   \pgftext{Hi!}
+% }
+%
+\def\pgftransformcurveattime#1#2#3#4#5{%
+  \pgfpointcurveattime{#1}{#2}{#3}{#4}{#5}%
+  \pgftransformshift{\pgfpoint{\pgf@x}{\pgf@y}}%
+  \ifpgfresetnontranslationattime%
+    \pgftransformresetnontranslations%
+  \fi%
+  \ifpgfslopedattime%
+    \pgf@x=\pgf@xb%
+    \pgf@y=\pgf@yb%
+    \advance\pgf@x by-\pgf@xa%
+    \advance\pgf@y by-\pgf@ya%
+    \ifdim\pgf@x<0pt%
+      \pgf@x=-\pgf@x%
+      \pgf@y=-\pgf@y%
+    \fi%
+    \pgfpointnormalised{}% x/y = normalised vector
+    \pgf@ya=-\pgf@y%
+    \pgftransformcm%
+    {\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@y}}%
+    {\pgf@sys@tonumber{\pgf@ya}}{\pgf@sys@tonumber{\pgf@x}}{\pgfpointorigin}%
+  \fi%
+}
+
+
+
+
+
+% Transform to the coordinate system of an arrow at the end of the
+% line going from point #1 to point #2 with the correct rotation.
+%
+% #1 = a start point an (invisible) line
+% #2 = an end point an (invisible) line
+%
+% Example:
+%
+% \pgftransformarrow{\pgfpointorigin}{\pgfpoint{1cm}{0cm}}
+
+\def\pgftransformarrow#1#2{%
+  \pgftransformshift{#2}%
+  \pgf@process{#2}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgf@process{#1}%
+  \advance\pgf@xa by-\pgf@x%
+  \advance\pgf@ya by-\pgf@y%
+  \pgf@x=\pgf@xa%
+  \pgf@y=\pgf@ya%
+  \pgfpointnormalised{}%
+  \pgf@ya=-\pgf@y%
+  \pgftransformcm%
+  {\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@y}}%
+  {\pgf@sys@tonumber{\pgf@ya}}{\pgf@sys@tonumber{\pgf@x}}{\pgfpoint{0pt}{0pt}}%
+}
+
+
+
+% Low-level transformations
+
+% Causes the current high-level transformation command to be applied
+% to the low-level.
+%
+% Description:
+%
+% All subsequent drawing will be transformed additionally by the
+% current high-level transformation. Thus, the high-level
+% transformation becomes the low-level transformation. The high-level
+% transformation is reset at this point.
+
+\def\pgflowlevelsynccm{%
+  \pgfsys@transformcm%
+  {\pgf@pt@aa}{\pgf@pt@ab}%
+  {\pgf@pt@ba}{\pgf@pt@bb}%
+  {\pgf@pt@x}{\pgf@pt@y}%
+  \pgftransformreset%
+  \pgf@relevantforpicturesizefalse%
+}  
+
+
+
+% Causes a transformation command to be applied to the ``lowlevel''
+% transformation matrix. 
+%
+% #1 - a high-level transformation command
+%
+% Description:
+%
+% All subsequent drawing will be transformed additionally by the given
+% transformation matrix. Note that PGF will no longer be able to
+% ``keep track'' of the coordinates. Also, transformations are applied
+% to *everything*, including line thickness and line endings. Most
+% often, this is not desirable.
+%
+% Example:
+%
+% \pgflowlevel{\pgftransformcm{1}{0}{0}{1}{\pgfpoint{100pt}{0pt}}} % 100bp to the right.
+%
+% \begin{pgflowlevelscope}{\pgftransformcm{2}{0}{0}{2}{\pgfpointorigin}} % double in in size
+%  \pgfmoveto{\pgfpoint{0cm}{0cm}}
+%  \pgflineto{\pgflineto{1cm}{1cm}} % actually 2cm/2cm
+% \end{pgflowlevelscope}
+
+\def\pgflowlevel#1{%
+  {%
+    \pgftransformreset%
+    #1%
+    \pgflowlevelsynccm%
+  }%
+  \pgf@relevantforpicturesizefalse%
+}
+
+\def\pgflowlevelscope#1{\pgfscope\pgflowlevel{#1}}
+\def\endpgflowlevelscope{\endpgfscope}
+
+\long\def\pgflowlevelobj#1#2{\pgfscope{\pgflowlevel{#1}#2}\endpgfscope}
+
+
+
+
+\endinput

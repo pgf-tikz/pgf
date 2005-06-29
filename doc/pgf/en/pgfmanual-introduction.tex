@@ -1,0 +1,215 @@
+% Copyright 2003 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the LaTeX Project Public License Distributed from CTAN
+% archives in directory macros/latex/base/lppl.txt.
+
+
+
+\section{Introduction}
+
+The \pgfname\ package, where ``\pgfname'' is supposed to mean ``portable
+graphics format'' (or ``pretty, good, functional'' if you
+prefer\dots), is a package for creating graphics in an ``inline''  
+manner. The package defines a number of \TeX\ commands that draw
+graphics. For example, the code |\tikz \draw (0pt,0pt) -- (20pt,6pt);|
+yields the line \tikz \draw (0pt,0pt) -- (20pt,6pt); and the code
+|\tikz \fill[orange] (1ex,1ex) circle (1ex);| yields \tikz
+\fill[orange] (1ex,1ex) circle (1ex);.
+
+In a sense, when using \pgfname, you ``program'' your graphics, just as you
+``program'' your document when using \TeX. This means that you get 
+the advantages of the ``\TeX-approach to typesetting'' also for your 
+graphics: quick creating of simple graphics, precise positioning, the
+use of macros, often superiour typography. You also inherit all the
+disadvantages: steep learning curve, no \textsc{wysiwyg}, small
+changes require a long recompilation time, code does not really
+``show'' how things will look like. 
+
+
+
+\subsection{Structure of the System}
+
+The \pgfname\ system consists of different layers:
+
+\begin{description}
+\item[System layer:] This layer provides a complete abstraction of what is
+  going on ``in the driver.'' The driver is a program like |dvips| or
+  |dvipdfm| that takes a |.dvi| file as input and generates a |.ps| or
+  a |.pdf| file. (The |pdftex| program also counts as a driver, even
+  though it does not take a |.dvi| file as input. Never mind.) Each
+  driver has its own syntax for the generation of graphics, causing
+  headaches to everyone who wants to create graphics in a portable
+  way. \pgfname's system layer ``abstracts away'' these
+  differences. For example, the system command
+  |\pgfsys@lineto{10}{10}| extends the current path  to the coordinate
+  $(10\mathrm{bp},10\mathrm{bp})$ of the current |{pgfpicture}|
+  (``bp'' is \TeX's ``big point'' unit). Depending on whether |dvips|,
+  |dvipdfm|, or |pdftex| is used to process the document, the system
+  command will be converted to different |\special| commands.
+
+  The system layer is as ``minimalistic'' as possible since each
+  additional command makes it more work to port \pgfname\ to a new
+  driver. Currently, only drivers that produce PostScript or
+  \textsc{pdf} output are supported and only few of them (hence the
+  name \emph{portable} graphics format is currently a bit
+  boastful). However, in principle, the system layer could be ported
+  to many different drivers quite easily. It should even be possible
+  to produce, say, \textsc{svg} output in conjunction with
+  \textsc{tex4ht}.
+
+  As a user, you will not use the system layer directly.
+\item[Basic layer:]
+  The basic layer provides a set of basic commands that allow
+  you to produce complex graphics in a much easier way than by using
+  the system layer directly. For example,  the system layer provides
+  no commands for creating circles since circles can be composed from
+  the more basic Beziér curves (well, almost). However, as a user you
+  will want to have a simple command to create circles
+  (at least I do) instead of having to write down half a page of
+  Beziér  curve  support coordinates. Thus, the basic layer provides a
+  command |\pgfpathcircle| that generates the necessary curve
+  coordinates for you.
+
+  The basic layer is consists of a \emph{core}, which consists of
+  several interdependent packages that can only be loaded \emph{en
+    bloc} and add-on packages that extend the core by more
+  special-purpose commands like node management or a plotting
+  interface. For example, the \textsc{beamer} package uses the core, 
+  but not all of the add-one packages of the basic layer.
+\item[Frontend layer:]
+  A frontend (of which there can be several) is mainly a set of commands
+  or a special syntax that makes using the basic layer easier. A
+  problem with directly using the basic layer is that code written for
+  this layer is often too ``verbose.'' For example, to draw a simple
+  triangle, you may need as many as five commands when using the basic
+  layer: One for beginning a path at the first corner of the triangle,
+  one for extending the path to the second corner, one for going to
+  the third, one for closing the path, and one for actually painting
+  the triangle (as opposed to filling it). With the |tikz| frontend
+  all this boils down to a single, simple \textsc{metafont}-like
+  command: 
+\begin{verbatim}
+\draw (0,0) -- (1,0) -- (1,1) -- cycle;
+\end{verbatim}
+
+  There are different frontends:
+  \begin{itemize}
+  \item
+    The \tikzname\ frontend is the ``natural'' frontend for \pgfname. It gives
+    you access to all features of \pgfname, but it is intended to be
+    easy to use. The syntax is a mixture of \textsc{metafont} and
+    \textsc{pstricks} and some ideas of myself. This frontend is
+    \emph{neither} a complete \textsc{metafont} compatiblity layer nor
+    a \textsc{pstricks} compatiblity layer and it is not intended to
+    become either. 
+  \item
+    The |pgfpict2e| frontend reimplements the standard \LaTeX\
+    |{picture}|  environment and commands like |\line| or |\vector|
+    using the \pgfname\ basic layer. This layer is not really ``necessary''
+    since the |pict2e.sty| package does at least as good a job at
+    reimplementing the |{picture}| environment. Rather, the idea
+    behind this package is to have a simple demonstration of how a
+    frontend can be implemented.
+  \end{itemize}
+
+  It would be possible to implement a |pgftricks| frontend that maps
+  \textsc{pstricks} commands to \pgfname\ commands. However, I have not
+  done this and even if fully implemented, many things that work in
+  \pstricks\ will not work, namely whenever some \pstricks\ command
+  relies too heavily on PostScript trickery. Nevertheless, such a
+  package might be useful in some situations.
+\end{description}
+
+As a user of \pgfname\ you will use the commands of one or several of the
+frontends plus perhaps some commands of the basic layer. For this
+reason, this manual explains the frontends first, then the basic
+layer, and finally the system layer.
+
+
+
+\subsection{Comparison with Other Graphics Packages}
+
+There were two main motivations for creating \pgfname:
+\begin{enumerate}
+\item
+  The standard \LaTeX\ |{picture}| environment is not powerful enough to
+  create anything but really simple graphics. This is certainly not
+  due to a lack of knowledge or imagination on the part of
+  \LaTeX's designer(s). Rather, this is the price paid for the
+  |{picture}| environment's portability: It works together with all
+  backend drivers.
+\item
+  The |{pstricks}| package is certainly powerful enough to create
+  any conceivable kind of graphic, but it is not portable at all. Most
+  importantly, it does not work with |pdftex| nor with any other
+  driver that produces anything but PostScript code for that
+  matter.
+\end{enumerate}
+
+The \pgfname\ package is a tradeoff between portability and expressive
+power. It is not as portable as |{picture}| and not as powerful as
+|{pspicture}|. However, it is more powerful than |{picture}| and
+more portable than |{pspicture}|.
+
+
+
+\subsection{Supported \TeX-Formats}
+
+\pgfname\ can be used with any \TeX-format that is based on Donald
+Knuth's original |plain| format. This includes \LaTeX\  and
+Con\TeX. If you use any format other than \LaTeX, you must  you must
+say |\input tikz.tex| and |\input pgf.tex| instead of
+|\usepackage{tikz}| or |\usepackage{pgf}| and you must say
+|\pgfpicture| instead of |\begin{pgfpicture}| and |\endpicture|
+  instead of |\end{pgfpicture}|. 
+
+\pgfname\ was originally written for use with \LaTeX\ and this shows
+in a number of places. Nevertheless, the plain \TeX\ support is
+reasonably good.
+
+
+\subsection{Utilities: Page Management}
+
+The \pgfname\ package include a special subpackage called |pgfpages|,
+which is used to assemble several pages into a single page. This
+package is not really about creating graphics, but it is part of \pgfname\
+nevertheless, mostly because its implementation uses \pgfname\ heavily.
+
+The subpackage |pgfpages| provides commands for assembiling several
+``virtual pages'' into a single ``physical page.'' The idea is that
+whenever \TeX\ has a page ready for ``shipout,'' |pgfpages| interrupts
+this shipout and instead stores the page to be shipped out in a
+special box. When enough ``virtual pages'' have been accumulated in
+this way, they are scaled down and arranged on a ``physical page,''
+which then \emph{really} shipped out. This mechanism allows you to
+create ``two page on one page'' versions of a document directly inside
+\LaTeX\ without the use of any external programs.
+
+However, |pgfpages| can do quite a lot more than that. You can use it
+to put logos and watermark on pages, print up to 16 pages on one page,
+add borders to pages, and more.
+
+
+
+
+\subsection{How to Read This Manual}
+
+This manual describes both the design of the \pgfname\ system and
+its usage. The organisation is  very roughly according to
+``user-friendliness.'' The commands and subpackages that are easiest
+and most frequently used are described first, more low-level and
+esoteric features are discussed later.
+
+If you have not yet installed \pgfname, please read the installation
+first. Second, it might be a good idea to read the tutorial. Finally,
+you might wish to skim through the description of \tikzname. Typically, 
+you will not need to read the sections on the basic layer. You will
+only need to read the part on the system layer if you intend to write
+your own frontend or if you wish to port \pgfname\ to a new driver.
+
+The ``public'' commands and environments provided by the |pgf| package
+are described throughout the text. In each such description, the
+described command, environment or option is printed in red. Text shown
+in green is optional and can be left out.
+

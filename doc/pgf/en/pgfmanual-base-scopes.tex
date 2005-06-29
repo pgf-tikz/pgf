@@ -1,0 +1,601 @@
+% Copyright 2003 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the LaTeX Project Public License Distributed from CTAN
+% archives in directory macros/latex/base/lppl.txt.
+
+
+\section[Hierarchical Structures: Package, Environments, Scopes, and Text]
+{Hierarchical Structures:\\
+  Package, Environments, Scopes, and Text}
+
+
+\subsection{Overview}
+
+\pgfname\ uses two kinds of hierarchical structuring: First, the
+package itself is structured hierarchically, consisting of different
+packages that build on top of each other. Second, \pgfname\ allows you
+to structure your graphics hierarchically using environments and scopes.
+
+\subsubsection{The  Hierarchical Structure of the Package}
+
+The \pgfname\ system consists of several layers:
+
+\begin{description}
+\item[System layer.]
+  The lowest layer is called the \emph{system layer}, though it might
+  also be called ``driver layer'' or perhaps ``backend layer.'' Its
+  job is to provide an abstraction of the details of which driver
+  is used to transform the |.dvi| file. The system layer is
+  implemented by the package |pgfsys|, which will load appropriate
+  driver files as needed.
+
+  The system layer is documented in Part~\ref{part-system}.
+\item[Basic layer.]
+  The basic layer is loaded by the package |pgf|. Some
+  applications do not need all of the functionality of the basic
+  layer, so it is possible to load only the |pgfcore| and some other
+  packages starting with |pgfbase|.
+
+  The basic layer is documented in the present part.
+\item[Frontend layer.]
+  The frontend layer is not loaded by a single packages. Rather,
+  different packages, like \tikzname\ or \textsc{pgfpict2e}, are
+  different frontends to the basic layer.
+
+  The \tikzname\ frontend is documented in Part~\ref{part-tikz}.
+\end{description}
+
+Each layer will automatically the necessary files of the layers below
+it.
+
+In addition to the packages of these layers, there are also some
+library packages. These packages provide additional definitions of
+things like new arrow tips or new plot handlers.
+
+The library packages are documented in Part~\ref{part-libraries}.
+
+
+
+
+\subsubsection{The Hierarchical Structure of Graphics}
+
+Graphics in \pgfname\ are typically structured
+hierarchically. Hierarchical structuring can be used to identify
+groups of graphical elements that are to be treated ``in the same
+way.'' For example, you might group together a number of paths, all of
+which are to be drawn in red. Then, when you decide later on that you
+like them to be drawn in, say, blue, all you have to do is to change
+the color once.
+
+The general mechanism underlying hierarchical structuring is known as
+\emph{scoping} in computer science. The idea is that all changes to
+the general ``state'' of the graphic that are done inside a scope are
+local to that scope. So, if you change the color inside a scope, this
+does not affect the color used outside the scope. Likewise, when you
+change the line width in a scope, the line width outside is not
+changed, and so on.
+
+There are different ways of starting and ending scopes of graphic
+parameters. Unfortunately, these scopes are sometimes ``in conflict''
+with each other and it is sometimes not immediately clear which scopes
+apply. In essence, the following scoping mechanisms are available:
+
+\begin{enumerate}
+\item
+  The ``outermost'' scope supported by \pgfname\ is the |{pgfpicture}|
+  environment. All changes to the graphic state done inside a
+  |{pgfpicture}| are local to that picture.
+
+  In general, it is \emph{not} possible to set graphic parameters
+  globally outside any |{pgfpicture}| environments. Thus, you can
+  \emph{not} say |\pgfsetlinewidth{1pt}| at the beginning of your
+  document to have a default line width of one point. Rather, you have
+  to (re)set all graphic parameters inside each |{pgfpicture}|. (If
+  this is too bothersome, try defining some macro that does the job
+  for you.)
+\item
+  Inside a |{pgfpicture}| you can use a |{pgfscope}| environment to
+  keep changes of the graphic state local to that environment.
+
+  The effect of commands that change the graphic state are local to
+  the current |{pgfscope}| but not always to the current \TeX\
+  group. Thus, if you open a \TeX\ group (some text in curly braces)
+  inside a |{pgfscope}|, and if you change, for example, the dash
+  pattern, the effect of this changed dash pattern will persist till
+  the end of the |{pgfscope}|.
+
+  Unfortunately, this is not always the case. \emph{Some} graphic
+  parameters only persist till the end of the current \TeX\ group. For
+  example, when you use |\pgfsetarrows| to set the arrow tip kind
+  inside a \TeX\ group, the effect lasts only till the end of the
+  current \TeX\ group.
+\item
+  Some graphic parameters are not scoped by |{pgfscope}| but
+  ``already'' by \TeX\ groups. For example, the effect of coordinate
+  transformation commands is always local to the current \TeX\
+  group.
+
+  Since every |{pgfscope}| automatically creates a \TeX\ group, all
+  graphic parameters that are local to the current \TeX\ group are
+  also local to the current |{pgfscope}|.
+\item
+  Some graphic parameters can only be scoped using \TeX\ groups, since
+  in some situations it is not possible to introduce a
+  |{pgfscope}|. For example, a path always has to be completely
+  constructed and used in the same |{pgfscope}|. However, we might
+  wish to have different coordinate transformations apply to different
+  points on the path. In this case, we can use \TeX\ groups to keep
+  the effect local, but we could not use |{pgfscope}|.  
+\item
+  The |\pgftext| command can be used to create a scope in which \TeX\
+  ``escapes back'' to normal \TeX\ mode. The text passed to the
+  |\pgftext| is ``heavily guarded'' against having any effect on the
+  scope in which it is used. For example, it is possibly to use
+  another  |{pgfpicture}| environment inside the argument of
+  |\pgftext|. 
+\end{enumerate}
+
+
+Most of the complications can be avoided if you stick to the following
+rules:
+
+\begin{itemize}
+\item
+  Give graphic commands only inside |{pgfpicture}| environments.
+\item
+  Use |{pgfscope}| to structure graphics.
+\item
+  Do not use \TeX\ groups inside graphics, \emph{except} for keeping
+  the effect of coordinate transformations local.
+\end{itemize}
+
+
+
+\subsection{The Hierarchical Structure of the Package}
+
+Before we come to the structuring commands provided by \pgfname\ to
+structure your graphics, let us first have a look at the structure of
+the package itself.
+
+\subsubsection{The Main Package}
+
+To use \pgfname, include the following package:
+
+\begin{package}{pgf}
+  This package loads the complete ``basic layer'' of \pgfname. That
+  is, it will load all of the commands described in the current part
+  of this manual, but it will not load frontends like \tikzname.
+
+  In detail, this package will load the following packages, each of
+  which can also be loaded individually:
+  \begin{itemize}
+  \item
+    |pgfsys|, which is the lowest layer of \pgfname\ and which is
+    always needed. This file will read |pgf.cfg| to discern which
+    driver is to be used. See Section~\ref{section-pgfsys} for
+    details. 
+  \item
+    |pgfcore|, which is the central core of \pgfname\ and which is
+    always needed unless you intend to write a new basic layer from
+    scratch.
+  \item
+    |pgfbaseimage|, which provides commands for declaring and
+    using images, An example is |\pgfuseimage|.
+  \item
+    |pgfbaseshapes|, which provides commands for declaring and using
+    shapes. An example is |\pgfshape|.
+  \item
+    |pgfbaseplot|, which provides commands for plotting functions.    
+  \end{itemize}
+
+  Including any of the last three packages will automatically load the
+  first two.
+\end{package}
+
+In \LaTeX, the package takes two options:
+\begin{packageoption}{draft}
+  When this option is set, all images will be replaced by empty
+  rectangles. This can speedup compilation.
+\end{packageoption}
+ 
+\begin{packageoption}{strict}
+  This option will suppress loading of a large number of compatibility
+  commands. 
+\end{packageoption}
+
+
+\subsubsection{The Core Package}
+
+\begin{package}{pgfcore}
+  This package defines all of the basic layer's commands, except for
+  the commands defined in the additional packages like
+  |pgfbaseplot|. Typically commands defined by the core include
+  |\pgfusepath| or   |\pgfpoint|. The core is internally structured
+  into several subpackages, but the subpackages cannot be loaded
+  individually since they are all ``interrelated.''
+\end{package}
+
+
+\subsubsection{The Optional Basic Layer Packages}
+
+The |pgf| package automatically loads the following packages, but you
+can also load them individually (all of them automatically include the
+core):
+
+\begin{itemize}
+  \item |pgfbaseshapes|
+  This package provides commands for drawing nodes and shapes. These
+  commands are explained in Section~\ref{section-shapes}.
+
+  \item |pgfbaseplot|
+  This package provides commands for plotting function. The
+  commands are explained in Section~\ref{section-plots}.
+
+  \item |pgfbaseimage|
+  This package provides commands for including (external) images. The 
+  commands are explained in Section~\ref{section-images}.
+\end{itemize}
+
+
+
+
+
+\subsection{The Hierarchical Structure of the Graphics}
+
+\subsubsection{The Main Environment}
+
+
+Most, but not all, commands of the \pgfname\ package must be given
+within a |{pgfpicture}| environment. The only commands that (must) be
+given outside are commands having to do with including images (like
+|\pgfuseimage|) and with inserting complete shadings (like
+|\pgfuseshading|). However, just to keep life entertaining, the
+|\pgfshadepath| command must be given \emph{inside} a |{pgfpicture}|
+environment.
+
+\begin{environment}{{pgfpicture}}
+  This environment will insert a \TeX\ box containing the graphic drawn by
+  the \meta{environment contents} at the current position. Note that
+  \tikzname\ redefines this environment so that it takes an optional
+  options argument.
+
+  \medskip
+  \textbf{The size of the bounding box.}
+  The size of the box is determined in the following
+  manner: While \pgfname\ parses the \meta{environment contents}, it
+  keeps track of a bounding box for the graphic. Essentially, this
+  bounding box is the smallest box that contains all coordinates
+  mentioned in the graphics. Some coordinates may be ``mentioned'' by
+  \pgfname\ itself; for example, when you add circle to the current
+  path, the support points of the curve making up the circle are also
+  ``mentioned'' despite the fact that you will not ``see'' them in
+  your code.
+
+  Once the \meta{environment contents} has been parsed completely, a
+  \TeX\ box is created whose size is the size of the computed bounding
+  box and this box is inserted at the current position.
+
+\begin{codeexample}[]
+Hello \begin{pgfpicture}
+  \pgfpathrectangle{\pgfpointorigin}{\pgfpoint{2ex}{1ex}}
+  \pgfusepath{stroke}
+\end{pgfpicture} World!
+\end{codeexample}
+
+  Sometimes, you may need more fine-grained control over the size of
+  the bounding box. For example, the computed bounding box may be too
+  large or you intensionally wish the box to be ``too small.'' In
+  these cases, you can use the command
+  |\pgfusepath{use as bounding box}|, as described in
+  Section~\ref{section-using-bb}.
+
+
+  \medskip
+  \textbf{The baseline of the bounding box.}
+  When the box containing the graphic is inserted into the normal
+  text, the baseline of the graphic is normally at the bottom of the
+  graphic. For this reason, the following two sets of code lines have
+  the same effect, despite the fact that the second graphic uses
+  ``higher'' coordinates than the first:
+ 
+\begin{codeexample}[]
+Rectangles \begin{pgfpicture}
+  \pgfpathrectangle{\pgfpointorigin}{\pgfpoint{2ex}{1ex}}
+  \pgfusepath{stroke}
+\end{pgfpicture} and \begin{pgfpicture}
+  \pgfpathrectangle{\pgfpoint{0ex}{1ex}}{\pgfpoint{2ex}{1ex}}
+  \pgfusepath{stroke}
+\end{pgfpicture}.
+\end{codeexample}
+
+  You can change the baseline using the |\pgfsetbaseline| command, see
+  below. 
+
+\begin{codeexample}[]
+Rectangles \begin{pgfpicture}
+  \pgfpathrectangle{\pgfpointorigin}{\pgfpoint{2ex}{1ex}}
+  \pgfusepath{stroke}
+  \pgfsetbaseline{0pt}
+\end{pgfpicture} and \begin{pgfpicture}
+  \pgfpathrectangle{\pgfpoint{0ex}{1ex}}{\pgfpoint{2ex}{1ex}}
+  \pgfusepath{stroke}
+  \pgfsetbaseline{0pt}
+\end{pgfpicture}.
+\end{codeexample}
+
+  \medskip
+  \textbf{Including text and images in a picture.}
+  You cannot directly include text and images in a picture. Thus, you
+  should \emph{not} simply write some text in a |{pgfpicture}| or use
+  a command like |\includegraphics| or even |\pgfimage|. In all these
+  cases, you need to place the text inside a |\pgftext| command. This
+  will ``escape back'' to normal \TeX\ mode, see
+  Section~\ref{section-text-command} for details.
+\end{environment}
+
+\begin{plainenvironment}{{pgfpicture}}
+  The plain \TeX\ version of the environment. Note that in this
+  version, also, a \TeX\ group is created around the environment.
+\end{plainenvironment}
+
+\makeatletter
+\begin{command}{\pgfsetbaseline\marg{dimension}}
+  This command specifies a $y$-coordinate of the picture that should
+  be used as the baseline of the whole picture. When a \pgfname\
+  picture has been typeset completely, \pgfname\ must decide at which
+  height the baseline of the picture should lie. Normally, the
+  baseline is set to the $y$-coordinate of the bottom of the picture,
+  but it is often desirable to use another height.
+
+\begin{codeexample}[]
+Text \tikz{\pgfpathcircle{\pgfpointorigin}{1ex}\pgfusepath{stroke}},
+     \tikz{\pgfsetbaseline{0pt}
+          \pgfpathcircle{\pgfpointorigin}{1ex}\pgfusepath{stroke}},
+     \tikz{\pgfsetbaseline{.5ex}
+          \pgfpathcircle{\pgfpointorigin}{1ex}\pgfusepath{stroke}},
+     \tikz{\pgfsetbaseline{-1ex}
+          \pgfpathcircle{\pgfpointorigin}{1ex}\pgfusepath{stroke}}.
+\end{codeexample}
+\end{command}
+
+\subsubsection{Graphic Scope Environments}
+
+Inside a |{pgfpicture}| environment you can substructure your picture
+using the following environment:
+
+\begin{environment}{{pgfscope}}
+  All changes to the graphic state done inside this environment are
+  local to the environment. The graphic state includes the following:
+  \begin{itemize}
+  \item
+    The line width.
+  \item
+    The stroke and fill colors.
+  \item
+    The dash pattern.
+  \item
+    The line join and cap.
+  \item
+    The miter limit.
+  \item
+    The canvas transformation matrix.
+  \item
+    The clipping path.
+  \end{itemize}
+  Other parameters may also influence how graphics are rendered, but they
+  are \emph{not} part of the graphic state. For example, the arrow tip
+  kind is not part of the graphic state and the effect of commands
+  setting the arrow tip kind are local to the current \TeX\ group, not
+  to the current |{pgfscope}|. However, since |{pgfscope}| starts and
+  ends a \TeX\ group automatically, a |{pgfscope}| can be used to
+  limit the effect of, say, commands that set the arrow tip kind.
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \begin{pgfscope}
+    {
+      \pgfsetlinewidth{2pt}
+      \pgfpathrectangle{\pgfpointorigin}{\pgfpoint{2ex}{2ex}}
+      \pgfusepath{stroke}
+    }
+    \pgfpathrectangle{\pgfpoint{3ex}{0ex}}{\pgfpoint{2ex}{2ex}}
+    \pgfusepath{stroke}
+  \end{pgfscope}
+  \pgfpathrectangle{\pgfpoint{6ex}{0ex}}{\pgfpoint{2ex}{2ex}}
+  \pgfusepath{stroke}
+\end{pgfpicture}
+\end{codeexample}
+  
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \begin{pgfscope}
+    {
+      \pgfsetarrows{-to}
+      \pgfpathmoveto{\pgfpointorigin}\pgfpathlineto{\pgfpoint{2ex}{2ex}}
+      \pgfusepath{stroke}
+    }
+    \pgfpathmoveto{\pgfpoint{3ex}{0ex}}\pgfpathlineto{\pgfpoint{5ex}{2ex}}
+    \pgfusepath{stroke}
+  \end{pgfscope}
+  \pgfpathmoveto{\pgfpoint{6ex}{0ex}}\pgfpathlineto{\pgfpoint{7ex}{2ex}}
+  \pgfusepath{stroke}
+\end{pgfpicture}
+\end{codeexample}
+
+  At the start of the scope, the current path must be empty, that is,
+  you cannot open a scope while constructing a path.
+
+  It is usually a good idea \emph{not} to introduce \TeX\ groups
+  inside a |{pgfscope}| environment.
+\end{environment}
+
+\begin{plainenvironment}{{pgfscope}}
+  Plain \TeX\ version of the |{pgfscope}| environment.
+\end{plainenvironment}
+
+
+The following scopes also encapsulate certain properties of the
+graphic state. However, they are typically not used directly by the
+user.
+
+\begin{environment}{{pgfinterruptpath}}
+  This environment can be used to temporarily interrupt the
+  construction of the current path. The effect will be that the path
+  currently under construction will be ``stored away'' and restored at
+  the end of the environment. Inside the environment you can construct
+  a new path and do something with it.
+
+  An example application of this environment is the arrow tip
+  caching. Suppose you ask \pgfname\ to use a specific arrow tip
+  kind. When the arrow tip needs to be rendered for the first time,
+  \pgfname\ will ``cache'' the path that makes up the arrow tip. To do
+  so, it interrupts the current path construction and then protocols
+  the path of the arrow tip. The |{pgfinterruptpath}| environment is
+  used to ensure that this does not interfere with the path to which
+  the arrow tips should be attached.
+
+  This command does \emph{not} install a |{pgfscope}|. In particular,
+  it does not call any |\pgfsys@| commands at all, which would,
+  indeed, be dangerous in the middle of a path construction.
+\end{environment}
+
+\begin{environment}{{pgfinterruptpicture}}
+  This environment can be used to temporarily interrupt a
+  |{pgfpicture}|. However, the environment is intended only to be used
+  at the beginning and end of a box that is (later) inserted into a
+  |{pgfpicture}| using |\pgfqbox|. You cannot use this environment
+  directly inside a |{pgfpicture}|.
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \pgfpathmoveto{\pgfpoint{0cm}{0cm}} % In the middle of path, now
+  \newbox\mybox
+  \setbox\mybox=\hbox{
+    \begin{pgfinterruptpicture}
+      Sub-\begin{pgfpicture} % a subpicture
+        \pgfpathmoveto{\pgfpoint{1cm}{0cm}}
+        \pgfpathlineto{\pgfpoint{1cm}{1cm}}
+        \pgfusepath{stroke}
+      \end{pgfpicture}-picture.
+    \end{pgfinterruptpicture}
+  }
+  \ht\mybox=0pt
+  \wd\mybox=0pt
+  \dp\mybox=0pt
+  \pgfqbox{\box\mybox}%
+  \pgfpathlineto{\pgfpoint{0cm}{1cm}}
+  \pgfusepath{stroke}
+\end{pgfpicture}\hskip3.9cm
+\end{codeexample}
+\end{environment}
+
+
+\subsubsection{Inserting Text and Images}
+
+\label{section-text-command}
+
+Often, you may wish to add normal \TeX\ text at a certain point inside
+a |{pgfpicture}|. You cannot do so ``directly,'' that is, you cannot
+simply write this text inside the |{pgfpicture}| environment. Rather,
+you must pass the text as an argument to the |\pgftext| command.
+
+You must \emph{also} use the |\pgftext| command to insert an image or
+a shading into a |{pgfpicture}|.
+
+\begin{command}{\pgftext\opt{\oarg{options}}\marg{text}}
+  This command will typeset \meta{text} in normal \TeX\ mode and
+  insert the resulting box into the |{pgfpicture}|. The bounding box
+  of the graphic will be updated so that all of the text box is
+  inside. Be default, the text box is centered at the origin, but this
+  can be changed either by giving appropriate \meta{options} or by
+  applying an appropriate coordinate transformation beforehand.
+
+  The \meta{text} may contain verbatim text. (In other words, the
+  \meta{text} ``argument'' is not a normal argument, but is put in a
+  box and some |\aftergroup| hackery is used to find the end of the
+  box.)
+
+  \pgfname's current (high-level) coordinate transformation is
+  synchronized with the canvas transformation matrix temporarily
+  when the text box is inserted. The effect is that if there is
+  currently a high-level rotation of, say, 30 degrees, the \meta{text}
+  will also be rotated by thirty degrees. If you do not want this
+  effect, you have to (possibly temporarily) reset the high-level
+  transformation matrix.
+
+  The following \meta{options} may be given as conveniences:
+  \begin{itemize}
+    \itemoption{left}
+    causes the text box to be placed such that its left border is on the origin.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[left] {lovely}}
+\end{codeexample}
+    \itemoption{right}
+    causes the text box to be placed such that its right border is on the origin.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[right] {lovely}}
+\end{codeexample}
+    \itemoption{top}
+    causes the text box to be placed such that its top is on the
+    origin. This option can be used together with the |left| or
+    |right| option.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[top] {lovely}}
+\end{codeexample}
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[top,right] {lovely}}
+\end{codeexample}
+    \itemoption{bottom}
+    causes the text box to be placed such that its bottom is on the
+    origin.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[bottom] {lovely}}
+\end{codeexample}
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[bottom,right] {lovely}}
+\end{codeexample}
+    \itemoption{base}
+    causes the text box to be placed such that its baseline is on the
+    origin.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[base] {lovely}}
+\end{codeexample}
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[base,right] {lovely}}
+\end{codeexample}
+    \itemoption{at}|=|\meta{point}
+      Translates the origin (that is, the point where the text is
+      shown) to \meta{point}. 
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[base,at={\pgfpoint{1cm}{0cm}}] {lovely}}
+\end{codeexample}
+    \itemoption{x}|=|\meta{dimension}
+      Translates the origin by \meta{dimension} along the $x$-axis.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[base,x=1cm,y=-0.5cm] {lovely}}
+\end{codeexample}
+  \itemoption{y}|=|\meta{dimension}
+    works like the |x| option.
+  \itemoption{rotate}|=|\meta{degree}
+    Rotates the coordinate system by \meta{degree}. This will also
+    rotate the text box.
+\begin{codeexample}[]
+\tikz{\draw[help lines] (-1,-.5) grid (1,.5);
+     \pgftext[base,x=1cm,y=-0.5cm,rotate=30] {lovely}}
+\end{codeexample}
+  \end{itemize}
+  
+\end{command}
+
+

@@ -1,0 +1,321 @@
+\ProvidesPackageRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+% PGF's plotting interface works as follows:
+%
+% In order to plot something, two things need to be done. First, you
+% need to provide the coordinates (obviously) of the points that
+% should be plotted. The coordinates are given via a long stream of
+% commands. These commands are \pgfplotstreamstart, which is
+% given exactly once at the beginning, \pgfplotstreampoint, of which there
+% are numerous in the middle, \pgfplotstreamspecial, of which there may be
+% numerous in the middle, and \pgfplotstreamend, which must be given
+% at the end. Between these commands arbitrary other commands may be
+% given. Here is an example:
+%
+% ...
+% \pgfplotstreamstart
+% \pgfplotstreampoint{\pgfpointxy{0}{0}}
+% \pgfplotstreampoint{\pgfpointxy{1}{1}}
+% \pgfplotstreampoint{\pgfpointxy{2}{4}}
+% \relax
+% \pgfplotstreampoint{\pgfpointxy{3}{9}}
+% \pgfplotstreamspecial{some handler-dependent special stuff}
+% \pgfplotstreamend
+%
+% By themselves, the \pgfplotstreamxxxx commands do not do anything by
+% default. Rather, the ``use'' such a stream, you must first install a
+% stream handler. For example, the ``lineto'' handler will simply
+% translate every \pgfplotstreampoint into a \pgfpathlineto.
+%
+% Example:
+%
+% \pgfpathmoveto{\pgfpointorigin}
+%
+% \pgfplothandlerlineto
+% \pgfplotstreamstart
+% \pgfplotstreampoint{\pgfpointxy{0}{0}}
+% \pgfplotstreampoint{\pgfpointxy{1}{1}}
+% \pgfplotstreampoint{\pgfpointxy{2}{4}}
+% \relax
+% \pgfplotstreampoint{\pgfpointxy{3}{9}}
+% \pgfplotstreamend
+
+
+% The stream commands actually call their ``internal'' versions, which
+% are set by the handlers:
+\def\pgfplotstreamstart{\pgf@plotstreamstart}
+\def\pgfplotstreampoint#1{\gdef\pgfplotlastpoint{#1}\pgf@plotstreampoint{#1}}
+\def\pgfplotstreamspecial{\pgf@plotstreamspecial}
+\def\pgfplotstreamend{\pgf@plotstreamend}
+
+
+
+
+% Sets the action taken for the first point of a plot to a lineto.
+%
+% Description:
+%
+% For certain handlers it makes sense either the start a plot by
+% moving to the first point of the plot or to do a lineto to that
+% first point. Using this command this action can be set to a lineto. 
+%
+% Example:
+%
+% \pgfsetlinetofirstplotpoint
+
+\def\pgfsetlinetofirstplotpoint{\let\pgf@plot@first@action=\pgfpathlineto}
+
+
+% Sets the action taken for the first point of a plot to a moveto.
+%
+% Example:
+%
+% \pgfsetmovetofirstplotpoint
+
+\def\pgfsetmovetofirstplotpoint{\let\pgf@plot@first@action=\pgfpathmoveto}
+
+\let\pgf@plot@first@action=\pgfpathmoveto
+
+
+
+%
+% Handlers
+%
+
+
+% This handler converts each plot stream command into a lineto
+% command, except for the first, which is converted to the action that
+% has previously been specified using \pgfsetlinetofirstplotpoint or
+% \pgfsetmovetofirstplotpoint. 
+%
+% Example:
+%
+% \pgfplothandlerlineto
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerlineto{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@line@handler%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+\def\pgf@plot@line@handler#1{%
+  \pgf@plot@first@action{#1}%
+  \global\let\pgf@plotstreampoint=\pgfpathlineto%
+}
+
+
+
+% More handlers are defined in pgflibraryplothandlers
+
+
+
+
+
+% This handler discards the plot.
+%
+% Example:
+%
+% \pgfplothandlerdiscard
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerdiscard{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\@gobble%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+
+
+
+% This handler records each plot stream command to a macro. This is
+% useful if plot commands are difficult to generate and need to be
+% ``recylced'' later on.
+%
+% Example:
+%
+% \pgfplothandlerrecord{\myplot}
+% \pgfplotxyfile{mytable}  % stored in \myplot now
+% \pgfplothandlerline
+% \myplot
+% \pgftransformxshift{1cm}
+% \myplot
+
+\def\pgfplothandlerrecord#1{%
+  \def\pgf@plot@recordto{#1}%
+  \gdef#1{\pgfplotstreamstart}%
+  \def\pgf@plotstreamstart{%
+    \gdef\pgf@plotstreampoint####1{\expandafter\gdef\expandafter#1\expandafter{#1\pgfplotstreampoint{####1}}}%
+    \gdef\pgf@plotstreamspecial####1{\expandafter\gdef\expandafter#1\expandafter{#1\pgfplotstreamspecial{####1}}}%
+    \gdef\pgf@plotstreamend{\expandafter\gdef\expandafter#1\expandafter{#1\pgfplotstreamend}}%
+  }%
+}
+
+
+
+% Read a plot stream from a file and plot it.
+%
+% #1 = file from which to read things
+%
+% File format:
+%
+% Each line of the file should begin with two numbers separated by a
+% space. Such a line with number #1 and #2 is converted to a
+% \pgfplotstreampoint{\pgfpointxy{#1}{#2}}. Extra characters following
+% on the line are ignored.
+%
+% Lines starting with ``%'' and ``#'' are ignored.
+%
+% Example:
+%
+% \pgfplotxyfile{tableformgnuplot.dat}
+
+\def\pgfplotxyfile#1{%
+  \begingroup%
+    \pgfplotstreamstart%
+    \openin1=#1
+    \ifeof1
+      \PackageWarning{pgf}{Plot data file `#1' not found.}
+     \else
+      \catcode`\#=14
+      \pgf@readxyfile%
+    \fi
+    \pgfplotstreamend%    
+  \endgroup%
+}
+
+\def\pgf@partext{\par}
+\def\pgf@readxyfile{%
+  \read1 to \pgf@temp%
+  \let\par=\@@par%
+  \edef\pgf@temp{\pgf@temp}%
+  \ifx\pgf@temp\@empty%
+  \else\ifx\pgf@temp\pgf@partext%
+  \else%
+    \expandafter\pgf@parsexyline\pgf@temp\pgf@stop%
+  \fi\fi%
+  \ifeof1\else\expandafter\pgf@readxyfile\fi%
+}
+
+\def\pgf@parsexyline#1 #2 #3\pgf@stop{%
+  \pgfplotstreampoint{\pgfpointxy{#1}{#2}}%
+}
+
+
+
+
+
+% Read a plot stream from a file and plot it.
+%
+% #1 = file from which to read things
+%
+% File format:
+%
+% Like xy, except that each line contains three numbers, which are
+% converted to xyz coordiantes.
+%
+% Example:
+%
+% \pgfplotxyfile{tableformgnuplot.dat}
+
+\def\pgfplotxyzfile#1{%
+  \begingroup%
+    \pgfplotstreamstart%
+    \openin1=#1
+    \ifeof1
+      \PackageWarning{pgf}{Plot data file `#1' not found.}
+    \else
+      \catcode`\#=14
+      \pgf@readxyzfile%
+    \fi
+    \pgfplotstreamend%    
+  \endgroup%
+}
+
+\def\pgf@readxyzfile{%
+  \read1 to \pgf@temp%
+  \ifx\pgf@temp\@empty%
+  \else\ifx\pgf@temp\pgf@partext%
+  \else%
+    \expandafter\pgf@parsexyzline\pgf@temp\pgf@stop%
+  \fi\fi%
+  \ifeof1\else\expandafter\pgf@readxyzfile\fi%
+}
+
+\def\pgf@parsexyzline#1 #2 #3 #4\pgf@stop{%
+  \pgfplotstreampoint{\pgfpointxyz{#1}{#2}{#3}}%
+}
+
+
+
+
+% Render a function using gnuplot.
+%
+% #1 = filename prefix for .gnuplot and .table files (optional,
+%      default is \jobname)
+% #2 = gnuplot function text
+%
+% Description:
+%
+% This command will write a file called #1.gnuplot that sets up
+% some gnuplot commands to write output to a file called
+% #1.table. Then it calls gnuplot (using the \write18 mechanism)
+% to execute the file. Then it reads #2.table using \pgfplotxyfile.
+%
+% Example:
+%
+% \pgfplothandlerlineto
+% \pgfplotgnuplot[\jobname]{plot [x=0:5] x*sin(x)}
+
+{
+  \catcode`\%=12
+  \catcode`\"=12
+  \xdef\pgf@gnuplot@head#1{set terminal table; set output "#1.table"; set format "%.5f"}
+}
+
+\newwrite\pgf@plotwrite
+\newif\ifpgf@resample@plot
+
+\def\pgfplotgnuplot{\@ifnextchar[{\pgf@plotgnuplot}{\pgf@plotgnuplot[\jobname]}}%}
+\def\pgf@plotgnuplot[#1]#2{%
+  \pgf@resample@plottrue%
+  % Check, whether it is up-to-date
+  \openin\@inputcheck=#1.gnuplot
+  \ifeof\@inputcheck%
+  \else%
+    \read\@inputcheck to\pgf@temp% ignored
+    \read\@inputcheck to\pgf@plot@line%
+    \edef\pgf@plot@code{#2\space}%
+    \ifx\pgf@plot@code\pgf@plot@line%
+      \openin\@inputcheck=#1.table
+      \ifeof\@inputcheck%
+      \else%
+        \pgf@resample@plotfalse%
+      \fi%
+    \fi%
+  \fi
+  \ifpgf@resample@plot%  
+    \immediate\openout\pgf@plotwrite=#1.gnuplot
+    \immediate\write\pgf@plotwrite{\pgf@gnuplot@head{#1}}%
+    \immediate\write\pgf@plotwrite{#2}%
+    \immediate\closeout\pgf@plotwrite%
+    \immediate\write18{gnuplot #1.gnuplot}
+  \fi%
+  \pgfplotxyfile{#1.table}
+}
+
+
+
+
+\endinput

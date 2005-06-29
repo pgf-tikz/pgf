@@ -1,0 +1,446 @@
+\ProvidesPackageRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+\newif\ifpgf@plot@started
+
+
+% This handler converts each plot stream command into a curveto
+% command, except for the first, which is converted to the previously
+% specified action.
+%
+% Example:
+%
+% \pgfpathmoveto{\pgfpointorigin}
+% \pgfsetlinetofirstplotpoint
+% \pgfplothandlercurveto
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlercurveto{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@curveto@handler@initial%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\pgf@plot@curveto@handler@finish%
+    \global\pgf@plot@startedfalse%
+  }%
+}
+
+\def\pgf@plot@curveto@handler@initial#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgf@plot@first@action{\pgfpoint{\pgf@xa}{\pgf@ya}}%
+  \xdef\pgf@plot@curveto@first{\noexpand\pgfpoint{\the\pgf@xa}{\the\pgf@ya}}%
+  \global\let\pgf@plot@curveto@first@support=\pgf@plot@curveto@first%
+  \global\let\pgf@plotstreampoint=\pgf@plot@curveto@handler@second%
+}
+
+\def\pgf@plot@curveto@handler@second#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@curveto@second{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@curveto@handler@third%
+  \global\pgf@plot@startedtrue%
+}
+
+\def\pgf@plot@curveto@handler@third#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@curveto@current{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  % compute difference vector:
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgf@process{\pgf@plot@curveto@first}
+  \advance\pgf@xa by-\pgf@x%
+  \advance\pgf@ya by-\pgf@y%
+  % compute support directions:
+  \pgf@xa=\pgf@plottension\pgf@xa%
+  \pgf@ya=\pgf@plottension\pgf@ya%
+  % first marshal:
+  \pgf@process{\pgf@plot@curveto@second}%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+  \pgf@xc=\pgf@x%
+  \pgf@yc=\pgf@y%
+  \advance\pgf@xb by-\pgf@xa%
+  \advance\pgf@yb by-\pgf@ya%
+  \advance\pgf@xc by\pgf@xa%
+  \advance\pgf@yc by\pgf@ya%
+  \edef\pgf@marshal{\noexpand\pgfpathcurveto{\noexpand\pgf@plot@curveto@first@support}%
+    {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgf@plot@curveto@second}}%
+  {\pgf@marshal}%
+  % Prepare next:
+  \global\let\pgf@plot@curveto@first=\pgf@plot@curveto@second%
+  \global\let\pgf@plot@curveto@second=\pgf@plot@curveto@current%
+  \xdef\pgf@plot@curveto@first@support{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+}
+
+\def\pgf@plot@curveto@handler@finish{%
+  \ifpgf@plot@started%
+    \pgfpathcurveto{\pgf@plot@curveto@first@support}{\pgf@plot@curveto@second}{\pgf@plot@curveto@second}%
+  \fi%
+}
+
+
+% This commands sets the tension for smoothing of plots.
+%
+% #1 = tension of curves; default is 0.15. The correct value
+%      depends on the curvature of the curves.
+%
+% Example:
+%
+% \pgfsetplottension{0.2}
+
+\def\pgfsetplottension#1{\def\pgf@plottension{#1}}
+\pgfsetplottension{0.15}
+
+
+% This handler converts the plot stream command into a curveto
+% command that is closed using a closepath.
+%
+% Example:
+%
+% \pgfpathmoveto{\pgfpointorigin}
+% \pgfplothandlerclosedcurve
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerclosedcurve{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@closedcurve@handler@initial%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\pgf@plot@closedcurve@handler@finish%
+  }%
+}
+
+\def\pgf@plot@closedcurve@handler@initial#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \xdef\pgf@plot@closedcurve@initial{\noexpand\pgfpoint{\the\pgf@xa}{\the\pgf@ya}}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@closedcurve@handler@second%
+  \global\pgf@plot@startedfalse%
+}
+
+\def\pgf@plot@closedcurve@handler@second#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@closedcurve@after@initial{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  {\pgfpathmoveto{}}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@closedcurve@handler@third%
+}
+
+\def\pgf@plot@closedcurve@handler@third#1{%
+  \global\pgf@plot@startedtrue%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@closedcurve@current{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  % compute difference vector:
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgf@process{\pgf@plot@closedcurve@initial}
+  \advance\pgf@xa by-\pgf@x%
+  \advance\pgf@ya by-\pgf@y%
+  % compute support directions:
+  \pgf@xa=\pgf@plottension\pgf@xa%
+  \pgf@ya=\pgf@plottension\pgf@ya%
+  % first marshal:
+  \pgf@process{\pgf@plot@closedcurve@after@initial}%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+  \pgf@xc=\pgf@x%
+  \pgf@yc=\pgf@y%
+  \advance\pgf@xb by-\pgf@xa%
+  \advance\pgf@yb by-\pgf@ya%
+  \advance\pgf@xc by\pgf@xa%
+  \advance\pgf@yc by\pgf@ya%
+  \global\let\pgf@plot@closedcurve@first=\pgf@plot@closedcurve@after@initial%
+  \global\let\pgf@plot@closedcurve@second=\pgf@plot@closedcurve@current%
+  \xdef\pgf@plot@closedcurve@after@initial@presupport{\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}%
+  \xdef\pgf@plot@closedcurve@first@support{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@closedcurve@handler@fourth%
+}
+
+\def\pgf@plot@closedcurve@handler@fourth#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@closedcurve@current{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  % compute difference vector:
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgf@process{\pgf@plot@closedcurve@first}
+  \advance\pgf@xa by-\pgf@x%
+  \advance\pgf@ya by-\pgf@y%
+  % compute support directions:
+  \pgf@xa=\pgf@plottension\pgf@xa%
+  \pgf@ya=\pgf@plottension\pgf@ya%
+  % first marshal:
+  \pgf@process{\pgf@plot@closedcurve@second}%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+  \pgf@xc=\pgf@x%
+  \pgf@yc=\pgf@y%
+  \advance\pgf@xb by-\pgf@xa%
+  \advance\pgf@yb by-\pgf@ya%
+  \advance\pgf@xc by\pgf@xa%
+  \advance\pgf@yc by\pgf@ya%
+  \edef\pgf@marshal{\noexpand\pgfpathcurveto{\noexpand\pgf@plot@closedcurve@first@support}%
+    {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgf@plot@closedcurve@second}}%
+  {\pgf@marshal}%
+  % Prepare next:
+  \global\let\pgf@plot@closedcurve@first=\pgf@plot@closedcurve@second%
+  \global\let\pgf@plot@closedcurve@second=\pgf@plot@closedcurve@current%
+  \xdef\pgf@plot@closedcurve@first@support{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+}
+
+\def\pgf@plot@closedcurve@handler@finish{%
+  \ifpgf@plot@started
+    %
+    % first, draw line from 2nd last to last:
+    %
+    \pgf@process{\pgf@plot@closedcurve@initial}%
+    % compute difference vector:
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgf@plot@closedcurve@first}%
+    \advance\pgf@xa by-\pgf@x%
+    \advance\pgf@ya by-\pgf@y%
+    % compute support directions:
+    \pgf@xa=\pgf@plottension\pgf@xa%
+    \pgf@ya=\pgf@plottension\pgf@ya%
+    % first marshal:
+    \pgf@process{\pgf@plot@closedcurve@second}%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    \advance\pgf@xb by-\pgf@xa%
+    \advance\pgf@yb by-\pgf@ya%
+    \advance\pgf@xc by\pgf@xa%
+    \advance\pgf@yc by\pgf@ya%
+    \edef\pgf@marshal{\noexpand\pgfpathcurveto{\noexpand\pgf@plot@closedcurve@first@support}%
+      {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgf@plot@closedcurve@second}}%
+    {\pgf@marshal}%
+    \xdef\pgf@plot@closedcurve@first@support{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+    %
+    % second, draw line from last point to start:
+    %
+    \pgf@process{\pgf@plot@closedcurve@after@initial}%
+    % compute difference vector:
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgf@plot@closedcurve@second}%
+    \advance\pgf@xa by-\pgf@x%
+    \advance\pgf@ya by-\pgf@y%
+    % compute support directions:
+    \pgf@xa=\pgf@plottension\pgf@xa%
+    \pgf@ya=\pgf@plottension\pgf@ya%
+    % first marshal:
+    \pgf@process{\pgf@plot@closedcurve@initial}%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    \advance\pgf@xb by-\pgf@xa%
+    \advance\pgf@yb by-\pgf@ya%
+    \advance\pgf@xc by\pgf@xa%
+    \advance\pgf@yc by\pgf@ya%
+    \edef\pgf@marshal{\noexpand\pgfpathcurveto{\noexpand\pgf@plot@closedcurve@first@support}%
+      {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgf@plot@closedcurve@initial}}%
+    {\pgf@marshal}%
+    %
+    % third, draw line from first to second point:
+    %
+    \edef\pgf@marshal{\noexpand\pgfpathcurveto{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+      {\noexpand\pgf@plot@closedcurve@after@initial@presupport}{\noexpand\pgf@plot@closedcurve@after@initial}}%
+    {\pgf@marshal}%
+    \pgfpathclose%
+  \fi%
+}
+
+
+
+
+
+% This handler converts each point in a stream into a line from the
+% $y$-axis to the given points coordinate, resulting in a
+% ``comb.'' 
+%
+% Example:
+%
+% \pgfplothandlerxcomb
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerxcomb{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@xcomb@handler%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+\def\pgf@plot@xcomb@handler#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgfpathmoveto{\pgfpoint{0pt}{\pgf@ya}}%
+  \pgfpathlineto{\pgfpoint{\pgf@xa}{\pgf@ya}}%
+}
+
+
+% This handler converts each point in a stream into a line from the
+% $x$-axis straight up to the given points coordinate, resulting in a
+% ``comb.'' 
+%
+% Example:
+%
+% \pgfplothandlerycomb
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerycomb{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@ycomb@handler%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+\def\pgf@plot@ycomb@handler#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgfpathmoveto{\pgfpoint{\pgf@xa}{0pt}}%
+  \pgfpathlineto{\pgfpoint{\pgf@xa}{\pgf@ya}}%
+}
+
+
+
+
+
+
+% This handler converts each point in a stream into a line from the
+% origin to the point's coordinate, resulting in a ``star''.
+%
+% Example:
+%
+% \pgfplothandlerpolarcomb
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlerpolarcomb{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@polarcomb@handler%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+\def\pgf@plot@polarcomb@handler#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgfpathmoveto{\pgfpointorigin}%
+  \pgfpathlineto{\pgfpoint{\pgf@xa}{\pgf@ya}}%
+}
+
+
+
+
+% This handler draws a given mark at each point. 
+%
+% #1 = some code to be executed at each point (with the coordinate
+%      system translated to that point).
+%      Typically, this code will be \pgfuseplotmark{whatever}.
+%
+% Example:
+%
+% \pgfplothandlermark{\pgfuseplotmark{*}}
+% \pgfplotxyfile{mytable}
+
+\def\pgfplothandlermark#1{%
+  \def\pgf@plot@mark{#1}%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@mark@handler%
+    \global\let\pgf@plotstreamspecial=\@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+
+\def\pgf@plot@mark@handler#1{%
+  {\pgftransformshift{#1}\pgf@plot@mark}%
+}
+
+
+% Define a new plot mark for use with \pgfplotmark.
+%
+% #1 = a plot mark mnemonic
+% #2 = code for drawing the mark
+%
+% Example:
+%
+% \pgfdeclareplotmark{*}{\pgfpathcircle{\pgfpointorigin}{2pt}\pgfusepathqfill}
+
+\def\pgfdeclareplotmark#1#2{\expandafter\def\csname pgf@plot@mark@#1\endcsname{#2}}
+
+
+% Set the size of plot marks. For circles, this will be the radius,
+% for other shapes it should be about half the width/height.
+%
+% Example:
+%
+% \pgfsetplotmarksize{1pt}
+
+\def\pgfsetplotmarksize#1{\setlength\pgfplotmarksize{#1}}
+
+\newdimen\pgfplotmarksize
+\pgfplotmarksize=2pt
+
+
+% Insert a plot mark's code at the origin.
+%
+% #1 = plot mark mnemonic
+%
+% Example:
+%
+% \pgfuseplotmark{*}
+
+\def\pgfuseplotmark#1{\csname pgf@plot@mark@#1\endcsname}
+
+
+% A stroke-filled circle mark
+
+\pgfdeclareplotmark{*}
+{%
+  \pgfpathcircle{\pgfpointorigin}{\pgfplotmarksize}
+  \pgfusepathqfillstroke
+}
+
+
+% A plus-sign like mark
+
+\pgfdeclareplotmark{+}
+{%
+  \pgfpathmoveto{\pgfpoint{-\pgfplotmarksize}{0pt}}
+  \pgfpathlineto{\pgfpoint{\pgfplotmarksize}{0pt}}
+  \pgfpathmoveto{\pgfpoint{0pt}{\pgfplotmarksize}}
+  \pgfpathlineto{\pgfpoint{0pt}{-\pgfplotmarksize}}
+  \pgfusepathqstroke
+}
+
+
+% An x-shaped mark
+
+\pgfdeclareplotmark{x}
+{%
+  \pgfpathmoveto{\pgfpoint{-.70710678\pgfplotmarksize}{-.70710678\pgfplotmarksize}}
+  \pgfpathlineto{\pgfpoint{.70710678\pgfplotmarksize}{.70710678\pgfplotmarksize}}
+  \pgfpathmoveto{\pgfpoint{-.70710678\pgfplotmarksize}{.70710678\pgfplotmarksize}}
+  \pgfpathlineto{\pgfpoint{.70710678\pgfplotmarksize}{-.70710678\pgfplotmarksize}}
+  \pgfusepathqstroke
+}
+
+% See pgflibraryplotmarks for more plot marks
+
+
+
+
+
+
+\endinput

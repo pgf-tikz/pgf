@@ -1,0 +1,754 @@
+\ProvidesPackageRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+\newbox\pgfshapebox
+
+
+% Creates a node
+%
+% #1 = shape type
+% #2 = anchor
+% #3 = normal TeX text
+% #4 = name for later reference
+% #5 = path usage command
+%
+% Description:
+%
+% This command draws a shape that has previously been defined using
+% \pgfdeclareshape. The shape is shifted such that the anchor is at
+% the origin. In order to transform the whole shape, you should setup
+% pgf's transformation matrix prior to calling this command.
+%
+% Example:
+%
+% \pgftransformshift{\pgfpoint{1cm}{1cm}}
+% \pgfnode{rectangle}{center}{Hello}{hellonode}{\pgfusepath{stroke}}
+
+\def\pgfnode#1#2#3#4#5{%
+  \@ifundefined{pgf@sh@s@#1}%
+  {\PackageError{pgf}{Unknown shape ``#1''}{}}%
+  {%
+    {%
+      \setbox\pgfshapebox=\hbox%
+      {%
+        \pgfinterruptpicture%
+          {#3}%
+        \endpgfinterruptpicture%
+      }%
+      \let\pgf@sh@savedpoints=\@empty%
+      \csname pgf@sh@s@#1\endcsname%
+      \pgf@sh@savedpoints%
+      \pgftransformshift{%
+        \pgf@sh@reanchor{#1}{#2}%
+        \pgf@x=-\pgf@x%
+        \pgf@y=-\pgf@y%
+      }%
+      % Save the saved points and the transformation matrix
+      \edef\pgf@test{#4}%
+      \ifx\pgf@test\@empty%
+      \else%
+        \expandafter\xdef\csname pgf@sh@ns@#4\endcsname{#1}%
+        \edef\pgf@sh@@temp{\noexpand\gdef\expandafter\noexpand\csname pgf@sh@np@#4\endcsname}%
+        \expandafter\pgf@sh@@temp\expandafter{\pgf@sh@savedpoints}%
+        \pgfgettransform\pgf@temp
+        \expandafter\xdef\csname pgf@sh@nt@#4\endcsname{\pgf@temp}%
+      \fi%
+      \@ifundefined{pgf@sh@bbg@#1}{}
+      {{\pgfscope\csname pgf@sh@bbg@#1\endcsname\endpgfscope}}%
+      \@ifundefined{pgf@sh@bg@#1}{}%
+      {\csname pgf@sh@bg@#1\endcsname#5}%
+      \@ifundefined{pgf@sh@fbg@#1}{}
+      {{\pgfscope\csname pgf@sh@fbg@#1\endcsname\endpgfscope}}%
+      \pgfsys@beginscope%
+      {%
+        \pgftransformshift{\pgf@sh@reanchor{#1}{text}}%
+        \pgflowlevelsynccm%
+        \wd\pgfshapebox=0pt%
+        \ht\pgfshapebox=0pt%
+        \dp\pgfshapebox=0pt%
+        \pgfqbox{\box\pgfshapebox}%
+      }%
+      \pgfsys@endscope%
+      \@ifundefined{pgf@sh@bfg@#1}{}%
+      {{\pgfscope\csname pgf@sh@bfg@#1\endcsname\endpgfscope}}%
+      \@ifundefined{pgf@sh@fg@#1}{}%
+      {\csname pgf@sh@fg@#1\endcsname#5}%
+      \@ifundefined{pgf@sh@ffg@#1}{}%
+      {{\pgfscope\csname pgf@sh@ffg@#1\endcsname\endpgfscope}}%
+    }%
+  }%
+}
+
+\def\pgf@sh@resavedanchor#1#2{%
+  \pgf@process{#2}%
+  \edef\pgf@sh@marshal{%
+    \noexpand\g@addto@macro\noexpand\pgf@sh@savedpoints{%
+      \noexpand\def\noexpand#1{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+    }}%
+  \pgf@sh@marshal%
+}
+
+
+\def\pgf@sh@resaveddimen#1#2{%
+  {#2\global\pgf@x=\pgf@x}%
+  \edef\pgf@sh@marshal{%
+    \noexpand\g@addto@macro\noexpand\pgf@sh@savedpoints{%
+      \noexpand\def\noexpand#1{\the\pgf@x}%
+    }}%
+  \pgf@sh@marshal%
+}
+
+% Invoke an anchor
+\def\pgf@sh@reanchor#1#2{%
+  \@ifundefined{pgf@anchor@#1@#2}%
+  {%
+    \setcounter{pgf@counta}{#2}%
+    \csname pgf@anchor@#1@border\endcsname{\pgfpointpolar{\c@pgf@counta}{1pt}}%
+  }%
+  {\csname pgf@anchor@#1@#2\endcsname}%
+}
+
+
+
+% Retrieves an anchor of a shape
+%
+% #1 = name
+% #2 = anchor or a number (corresponding to a degree)
+%
+% Description:
+%
+% This command yields a point at the anchor of the given named shape.
+%
+% Example:
+%
+% \pgfshape{rectangle}{center}{Hello}{hellonode}{\pgfusepath[stroke]}
+% \pgfpathmoveto{\pgfpointanchor{hellonode}{center}}
+
+\def\pgfpointanchor#1#2{%
+  % Ok, check whether #1 is known!
+  \@ifundefined{pgf@sh@ns@#1}
+  {\PackageError{pgf}{No shape named #1 is known}{}%
+    \pgfpointorigin}%
+  {%
+    \pgf@process{%
+      % install special coordinates
+      \csname pgf@sh@np@#1\endcsname
+      \pgf@sh@reanchor{\csname pgf@sh@ns@#1\endcsname}{#2}%
+      {%
+        \pgfsettransform{\csname pgf@sh@nt@#1\endcsname}%
+        \pgf@pos@transform{\pgf@x}{\pgf@y}%
+        \global\pgf@x=\pgf@x%
+        \global\pgf@y=\pgf@y%
+      }%
+      % Undo current transformation
+      \pgftransforminvert%
+      \pgf@pos@transform{\pgf@x}{\pgf@y}%
+    }%
+  }%
+}
+
+
+
+% Retrieves a border point of a shape
+%
+% #1 = name
+% #2 = another point
+%
+% Description:
+%
+% This command yields a point on the border of the shape that is on a
+% straight line from the center to the point #2.
+%
+% Example:
+%
+% \pgfshape{rectangle}{center}{Hello}{hellonode}{\pgfusepath[stroke]}
+% \pgfpathmoveto{\pgfpointshapeborder{hellonode}{\pgfpoint{2cm}{1cm}}
+% \pgfpathlineto{\pgfpoint{2cm}{1cm}}
+% \pgfusepath{stroke}
+
+\def\pgfpointshapeborder#1#2{%
+  % Ok, check whether #1 is known!
+  \@ifundefined{pgf@sh@ns@#1}
+  {\PackageError{pgf}{No shape named #1 is known}{}%
+    \pgfpointorigin}%
+  {%
+    \pgf@process{%
+      % install special coordinates
+      \csname pgf@sh@np@#1\endcsname%
+      {%
+        \pgf@process{\pgfpointtransformed{#2}}%
+        \pgfsettransform{\csname pgf@sh@nt@#1\endcsname}%
+        \pgftransforminvert%
+        \pgf@pos@transform{\pgf@x}{\pgf@y}%
+        \pgf@xa=\pgf@x%
+        \pgf@ya=\pgf@y%
+        \pgf@process{\csname pgf@anchor@\csname pgf@sh@ns@#1\endcsname @center\endcsname}%
+        \advance\pgf@xa by-\pgf@x%
+        \advance\pgf@ya by-\pgf@y%
+        \csname pgf@anchor@\csname pgf@sh@ns@#1\endcsname @border\endcsname{\pgfpoint{\pgf@xa}{\pgf@ya}}%
+        \pgfsettransform{\csname pgf@sh@nt@#1\endcsname}%
+        \pgf@pos@transform{\pgf@x}{\pgf@y}%
+        \global\pgf@x=\pgf@x%
+        \global\pgf@y=\pgf@y%
+      }%
+      % Undo current transformation
+      \pgftransforminvert%
+      \pgf@pos@transform{\pgf@x}{\pgf@y}%
+    }%
+  }%
+}
+
+
+
+% Declares a shape type
+%
+% #1 = shape type
+% #2 = shape specification
+%
+% Description:
+%
+% This command declares a new shape type. The shape specification
+% should contain the following commands:
+%
+% - \savedanchor
+%   This command takes two arguments: a name and some code. The point
+%   specified by the code (the \pgf@x and \pgf@y values resulting from
+%   executing the code, to be precise), will be stored under the given
+%   name. Whenever, later on, an anchor is invoked these stored points
+%   will be available. The \saveddimen works like \savedanchor, only a
+%   single dimension is stored (taken from \pgf@x).
+%   When a savedanchor is calculated, the height/width/depth of box
+%   \pgfshapebox can be used.
+%
+% - \anchor
+%   Specifies an anchor. This command takes two arguments: an anchor
+%   name and some code for computing the anchor. When the anchor
+%   computation starts, all shape points and shape dimension will be
+%   setup.
+%
+% - \anchorborder
+%   This command should compute a point on the border of the
+%   shape. When the code is called, \pgf@x and \pgf@y will have been
+%   preinitialised with a direction.
+%
+% - \behindbackgroundpath
+%   Some things to be draw behind everything.
+%
+% - \backgroundpath
+%   A path that is drawn behind the main box. How this path is used
+%   depends on how \pgfshape is called.
+%
+% - \beforebackgroundpath
+%   Some things to be draw before the background path, but behind the
+%   main box.
+%
+% - \behindforegroundpath
+%   Some things to be draw on top of the main box.
+%
+% - \foregroundpath
+%   A path that is drawn on top of all of the above. How this path is
+%   used depends on how \pgfshape is called.
+%
+% - \beforeforegroundpath
+%   Some things to be draw before everything.
+%
+% Example:
+%
+% See the definition of rectangle, below.
+
+\long\def\pgfdeclareshape#1#2{%
+  {
+    \def\shape@name{#1}
+    \let\savedanchor=\pgf@sh@savedanchor
+    \let\saveddimen=\pgf@sh@saveddimen
+    \let\anchor=\pgf@sh@anchor
+    \let\anchorborder=\pgf@sh@anchorborder
+    \let\behindbackgroundpath=\pgf@sh@behindbgpath
+    \let\backgroundpath=\pgf@sh@bgpath
+    \let\beforebackgroundpath=\pgf@sh@beforebgpath
+    \let\behindforegroundpath=\pgf@sh@behindfgpath
+    \let\foregroundpath=\pgf@sh@fgpath
+    \let\beforeforegroundpath=\pgf@sh@beforefgpath
+    \let\inheritsavedanchors=\pgf@sh@inheritsavedanchors
+    \let\inheritanchor=\pgf@sh@inheritanchor
+    \let\inheritanchorborder=\pgf@sh@inheritanchorborder
+    \let\inheritbehindbackgroundpath=\pgf@sh@inheritbehindbgpath
+    \let\inheritbackgroundpath=\pgf@sh@inheritbgpath
+    \let\inheritbeforebackgroundpath=\pgf@sh@inheritbeforebgpath
+    \let\inheritbehindforegroundpath=\pgf@sh@inheritbehindfgpath
+    \let\inheritforegroundpath=\pgf@sh@inheritfgpath
+    \let\inheritbeforeforegroundpath=\pgf@sh@inheritbeforefgpath
+    \anchorborder{\csname pgf@anchor@#1@center\endcsname}%
+    \anchor{text}{\pgfpointorigin}%
+    \expandafter\global\expandafter\let\csname pgf@sh@s@\shape@name\endcsname=\@empty%
+    #2
+  }
+}
+
+\def\pgf@sh@savedanchor#1#2{%
+  \expandafter\g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@resavedanchor{#1}{#2}}}
+\def\pgf@sh@saveddimen#1#2{%
+  \expandafter\g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@resaveddimen{#1}{#2}}}
+\def\pgf@sh@anchor#1#2{\expandafter\gdef\csname pgf@anchor@\shape@name @#1\endcsname{#2}}
+\def\pgf@sh@anchorborder#1{\expandafter\gdef\csname pgf@anchor@\shape@name @border\endcsname##1{\pgf@process{##1}#1}}
+\long\def\pgf@sh@behindbgpath#1{\expandafter\gdef\csname pgf@sh@bbg@\shape@name\endcsname{#1}}
+\long\def\pgf@sh@bgpath#1{\expandafter\gdef\csname pgf@sh@bg@\shape@name\endcsname{#1}}
+\long\def\pgf@sh@beforebgpath#1{\expandafter\gdef\csname pgf@sh@fbg@\shape@name\endcsname{#1}}
+\long\def\pgf@sh@behindfgpath#1{\expandafter\gdef\csname pgf@sh@bfg@\shape@name\endcsname{#1}}
+\long\def\pgf@sh@fgpath#1{\expandafter\gdef\csname pgf@sh@fg@\shape@name\endcsname{#1}}
+\long\def\pgf@sh@beforefgpath#1{\expandafter\gdef\csname pgf@sg@ffg@\shape@name\endcsname{#1}}
+
+\def\pgf@sh@inheritsavedanchors[from=#1]{%
+  \expandafter\g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\csname pgf@sh@s@#1\endcsname}}
+\def\pgf@sh@inheritanchor[from=#1]#2{%
+  \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
+    pgf@anchor@\shape@name @#2\endcsname=\expandafter\noexpand\csname
+    pgf@anchor@#1@#2\endcsname}%
+  \pgf@marshal%
+}
+\def\pgf@sh@inheritanchorborder[from=#1]{%
+  \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
+    pgf@anchor@\shape@name @border\endcsname=\expandafter\noexpand\csname
+    pgf@anchor@#1@border\endcsname}%
+  \pgf@marshal%
+}
+\def\pgf@sh@inheritor#1#2{%
+  \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
+    pgf@#1@\shape@name\endcsname=\expandafter\noexpand\csname
+    pgf@#1@#2\endcsname}%
+  \pgf@marshal%
+}
+\def\pgf@sh@inheritbehindbgpath[from=#1]{\pgf@sh@inheritor{bbg}{#1}}
+\def\pgf@sh@inheritbgpath[from=#1]{\pgf@sh@inheritor{bg}{#1}}
+\def\pgf@sh@inheritbeforebgpath[from=#1]{\pgf@sh@inheritor{fbg}{#1}}
+\def\pgf@sh@inheritbehindfgpath[from=#1]{\pgf@sh@inheritor{bfg}{#1}}
+\def\pgf@sh@inheritfgpath[from=#1]{\pgf@sh@inheritor{fg}{#1}}
+\def\pgf@sh@inheritbeforefgpath[from=#1]{\pgf@sh@inheritor{ffg}{#1}}
+
+
+
+% 
+% Coordinate. This shape is special: It is only used to reference a
+% point for later usage. Nothing is drawn, all anchors are identical
+% to the center. 
+%
+
+\pgfdeclareshape{coordinate}
+{
+  \savedanchor\centerpoint{%
+    % x
+    \pgf@x=.5\wd\pgfshapebox%
+    % y
+    \pgf@y=.5\ht\pgfshapebox%
+    \advance\pgf@y by -.5\dp\pgfshapebox%
+  }
+  
+  \anchor{center}{\centerpoint}
+  \anchorborder{\centerpoint}
+}
+
+
+% Set the recommended inner x separation
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeinnerxsep{2pt}
+
+\def\pgfsetshapeinnerxsep#1{\def\pgfshapeinnerxsep{#1}}
+\pgfsetshapeinnerxsep{2pt}
+
+
+% Set the recommended inner y separation
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeinnerxsep{2pt}
+
+\def\pgfsetshapeinnerysep#1{\def\pgfshapeinnerysep{#1}}
+\pgfsetshapeinnerysep{2pt}
+
+
+% Set the recommended outer x separation
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeouterxsep{2pt}
+
+\def\pgfsetshapeouterxsep#1{\def\pgfshapeouterxsep{#1}}
+\pgfsetshapeouterxsep{.5\pgflinewidth}
+
+
+% Set the recommended outer y separation
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeouterxsep{2pt}
+
+\def\pgfsetshapeouterysep#1{\def\pgfshapeouterysep{#1}}
+\pgfsetshapeouterysep{.5\pgflinewidth}
+
+
+% Set the recommended minimum width
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeminwidth{1cm}
+
+\def\pgfsetshapeminwidth#1{\def\pgfshapeminwidth{#1}}
+\pgfsetshapeminwidth{1pt}
+
+
+% Set the recommended minimum height
+%
+% #1 = size
+%
+% Example:
+%
+% \pgfsetshapeminheight{1cm}
+
+\def\pgfsetshapeminheight#1{\def\pgfshapeminheight{#1}}
+\pgfsetshapeminheight{1pt}
+
+
+% 
+% Rectangle
+%
+
+\pgfdeclareshape{rectangle}
+{
+  \savedanchor\northeast{%
+    % Calculate x
+    %
+    % First, is width < minimum width?
+    \pgf@x=\the\wd\pgfshapebox%
+    \setlength\pgf@xc{\pgfshapeinnerxsep}%
+    \advance\pgf@x by 2\pgf@xc%
+    \setlength\pgf@xb{\pgfshapeminwidth}%
+    \ifdim\pgf@x<\pgf@xb%
+      % yes, too small. Enlarge...
+      \pgf@x=\pgf@xb%
+    \fi%
+    % Now, calculate right border: .5\wd\pgfshapebox + .5 \pgf@x + outer sep
+    \pgf@x=.5\pgf@x%
+    \advance\pgf@x by.5\wd\pgfshapebox%
+    \setlength\pgf@xa{\pgfshapeouterxsep}%
+    \advance\pgf@x by\pgf@xa%
+    % Calculate y
+    %
+    % First, is height+depth < minimum height?
+    \pgf@y=\ht\pgfshapebox%
+    \advance\pgf@y by\dp\pgfshapebox%
+    \setlength\pgf@yc{\pgfshapeinnerysep}%
+    \advance\pgf@y by 2\pgf@yc%
+    \setlength\pgf@yb{\pgfshapeminheight}%
+    \ifdim\pgf@y<\pgf@yb%
+      % yes, too small. Enlarge...
+      \pgf@y=\pgf@yb%
+    \fi%
+    % Now, calculate upper border: .5\ht-.5\dp + .5 \pgf@y + outer sep
+    \pgf@y=.5\pgf@y%
+    \advance\pgf@y by-.5\dp\pgfshapebox%
+    \advance\pgf@y by.5\ht\pgfshapebox%
+    \setlength\pgf@ya{\pgfshapeouterysep}%
+    \advance\pgf@y by\pgf@ya%
+  }
+    
+  \savedanchor\southwest{%
+      % Calculate x
+      %
+      % First, is width < minimum width?
+      \pgf@x=\wd\pgfshapebox%
+      \setlength\pgf@xc{\pgfshapeinnerxsep}%
+      \advance\pgf@x by 2\pgf@xc%
+      \setlength\pgf@xb{\pgfshapeminwidth}%
+      \ifdim\pgf@x<\pgf@xb%
+        % yes, too small. Enlarge...
+        \pgf@x=\pgf@xb%
+      \fi%
+      % Now, calculate left border: .5\wd\pgfshapebox - .5 \pgf@x - outer sep
+      \pgf@x=-.5\pgf@x%
+      \advance\pgf@x by.5\wd\pgfshapebox%
+      \setlength\pgf@xa{\pgfshapeouterxsep}%
+      \advance\pgf@x by-\pgf@xa%
+      % Calculate y
+      %
+      % First, is height+depth < minimum height?
+      \pgf@y=\ht\pgfshapebox%
+      \advance\pgf@y by\dp\pgfshapebox%
+      \setlength\pgf@yc{\pgfshapeinnerysep}%
+      \advance\pgf@y by 2\pgf@yc%
+      \setlength\pgf@yb{\pgfshapeminheight}%
+      \ifdim\pgf@y<\pgf@yb%
+        % yes, too small. Enlarge...
+        \pgf@y=\pgf@yb%
+      \fi%
+       % Now, calculate upper border: .5\ht-.5\dp - .5 \pgf@y - outer sep
+      \pgf@y=-.5\pgf@y%
+      \advance\pgf@y by-.5\dp\pgfshapebox%
+      \advance\pgf@y by.5\ht\pgfshapebox%
+      \setlength\pgf@ya{\pgfshapeouterysep}%
+      \advance\pgf@y by-\pgf@ya%
+  }
+
+  %
+  % Anchors
+  % 
+  \anchor{center}{
+    \pgf@process{\northeast}%
+    \pgf@xa=.5\pgf@x%
+    \pgf@ya=.5\pgf@y%
+    \pgf@process{\southwest}%
+    \pgf@x=.5\pgf@x%
+    \pgf@y=.5\pgf@y%
+    \advance\pgf@x by \pgf@xa%
+    \advance\pgf@y by \pgf@ya%
+  }
+  \anchor{mid}{\pgf@anchor@rectangle@center\setlength\pgf@y{.5ex}}
+  \anchor{base}{\pgf@anchor@rectangle@center\pgf@y=0pt}
+  \anchor{north}{
+    \pgf@process{\southwest}%
+    \pgf@xa=.5\pgf@x%
+    \pgf@process{\northeast}%
+    \pgf@x=.5\pgf@x%
+    \advance\pgf@x by \pgf@xa%
+  }
+  \anchor{south}{
+    \pgf@process{\northeast}%
+    \pgf@xa=.5\pgf@x%
+    \pgf@process{\southwest}%
+    \pgf@x=.5\pgf@x%
+    \advance\pgf@x by \pgf@xa%
+  }
+  \anchor{west}{
+    \pgf@process{\northeast}%
+    \pgf@ya=.5\pgf@y%
+    \pgf@process{\southwest}%
+    \pgf@y=.5\pgf@y%
+    \advance\pgf@y by \pgf@ya%
+  }
+  \anchor{mid west}{\southwest\setlength\pgf@y{.5ex}}
+  \anchor{base west}{\southwest\pgf@y=0pt}
+  \anchor{north west}{
+    \southwest
+    \pgf@xa=\pgf@x
+    \northeast
+    \pgf@x=\pgf@xa}
+  \anchor{south west}{\southwest}
+  \anchor{east}{%
+    \pgf@process{\southwest}%
+    \pgf@ya=.5\pgf@y%
+    \pgf@process{\northeast}%
+    \pgf@y=.5\pgf@y%
+    \advance\pgf@y by \pgf@ya%
+  }
+  \anchor{mid east}{\northeast\setlength\pgf@y{.5ex}}
+  \anchor{base east}{\northeast\pgf@y=0pt}
+  \anchor{north east}{\northeast}
+  \anchor{south east}{
+    \northeast
+    \pgf@xa=\pgf@x
+    \southwest
+    \pgf@x=\pgf@xa
+  }
+  \anchorborder{%
+    \pgf@xb=\pgf@x% xb/yb is target
+    \pgf@yb=\pgf@y%
+    \southwest%
+    \pgf@xa=\pgf@x% xa/ya is se
+    \pgf@ya=\pgf@y%
+    \northeast%
+    \advance\pgf@x by-\pgf@xa%
+    \advance\pgf@y by-\pgf@ya%
+    \pgf@xc=.5\pgf@x% x/y is half width/height
+    \pgf@yc=.5\pgf@y%
+    \advance\pgf@xa by\pgf@xc% xa/ya becomes center
+    \advance\pgf@ya by\pgf@yc%
+    \edef\pgf@marshal{%
+      \noexpand\pgfpointborderrectangle
+      {\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}
+      {\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}%
+    }%
+    \pgf@process{\pgf@marshal}%
+    \advance\pgf@x by\pgf@xa%
+    \advance\pgf@y by\pgf@ya%
+  }
+
+  %
+  % Background path
+  %
+  \backgroundpath{
+    \pgfpathrectanglecorners
+    {\pgfpointadd{\southwest}{\pgfpoint{\pgfshapeouterxsep}{\pgfshapeouterysep}}}
+    {\pgfpointadd{\northeast}{\pgfpointscale{-1}{\pgfpoint{\pgfshapeouterxsep}{\pgfshapeouterysep}}}}
+  }
+}
+
+
+%
+% Circle
+%
+
+\pgfdeclareshape{circle}
+%
+% Draws a circle around the text
+%
+{
+  \savedanchor\centerpoint{%
+    \pgf@x=.5\wd\pgfshapebox%
+    \pgf@y=.5\ht\pgfshapebox%
+    \advance\pgf@y by-.5\dp\pgfshapebox%
+  }
+    
+  \saveddimen\radius{%
+    % 
+    % Caculate ``height radius''
+    % 
+    \pgf@ya=.5\ht\pgfshapebox%
+    \advance\pgf@ya by.5\dp\pgfshapebox%
+    \setlength\pgf@yb{\pgfshapeinnerysep}%
+    \advance\pgf@ya by\pgf@yb%
+    % 
+    % Caculate ``width radius''
+    % 
+    \pgf@xa=.5\wd\pgfshapebox%
+    \setlength\pgf@xb{\pgfshapeinnerxsep}%
+    \advance\pgf@xa by\pgf@xb%
+    % 
+    % Calculate length of radius vector:
+    % 
+    \pgf@process{\pgfpointnormalised{\pgfpoint{\pgf@xa}{\pgf@ya}}}%
+    \ifdim\pgf@x>\pgf@y%
+        \c@pgf@counta=\pgf@x%
+        \ifnum\c@pgf@counta=0\relax%
+        \else%
+          \divide\c@pgf@counta by 255\relax%
+          \pgf@xa=16\pgf@xa\relax%
+          \divide\pgf@xa by\c@pgf@counta%
+          \pgf@xa=16\pgf@xa\relax%
+        \fi%
+      \else%
+        \c@pgf@counta=\pgf@y%
+        \ifnum\c@pgf@counta=0\relax%
+        \else%
+          \divide\c@pgf@counta by 255\relax%
+          \pgf@ya=16\pgf@ya\relax%
+          \divide\pgf@ya by\c@pgf@counta%
+          \pgf@xa=16\pgf@ya\relax%
+        \fi%
+    \fi%
+    \pgf@x=\pgf@xa%
+    % 
+    % If necessary, adjust radius so that the size requirements are
+    % met: 
+    % 
+    \setlength{\pgf@xb}{\pgfshapeminwidth}%  
+    \setlength{\pgf@yb}{\pgfshapeminheight}%  
+    \ifdim\pgf@x<.5\pgf@xb%
+        \pgf@x=.5\pgf@xb%
+    \fi%
+    \ifdim\pgf@x<.5\pgf@yb%
+        \pgf@x=.5\pgf@yb%
+    \fi%
+    % 
+    % Now, add larger of outer sepearations.
+    % 
+    \setlength{\pgf@xb}{\pgfshapeouterxsep}%  
+    \setlength{\pgf@yb}{\pgfshapeouterysep}%  
+    \ifdim\pgf@xb<\pgf@yb%
+      \advance\pgf@x by\pgf@yb%
+    \else%
+      \advance\pgf@x by\pgf@xb%
+    \fi%
+  }
+
+  %
+  % Anchors
+  % 
+  \anchor{center}{\centerpoint}
+  \anchor{mid}{\centerpoint\setlength\pgf@y{.5ex}}
+  \anchor{base}{\centerpoint\pgf@y=0pt}
+  \anchor{north}{\centerpoint\advance\pgf@y by\radius}
+  \anchor{south}{\centerpoint\advance\pgf@y by-\radius}
+  \anchor{west}{\centerpoint\advance\pgf@x by-\radius}
+  \anchor{east}{\centerpoint\advance\pgf@x by\radius}
+  \anchor{mid west}{\centerpoint\advance\pgf@x by-\radius\setlength\pgf@y{.5ex}}
+  \anchor{mid east}{\centerpoint\advance\pgf@x by\radius\setlength\pgf@y{.5ex}}
+  \anchor{base west}{\centerpoint\advance\pgf@x by-\radius\pgf@y=0pt}
+  \anchor{base east}{\centerpoint\advance\pgf@x by\radius\pgf@y=0pt}
+  \anchor{north west}{
+    \centerpoint
+    \pgf@xa=\radius
+    \advance\pgf@x by-0.707107\pgf@xa
+    \advance\pgf@y by0.707107\pgf@xa
+  }
+  \anchor{south west}{
+    \centerpoint
+    \pgf@xa=\radius
+    \advance\pgf@x by-0.707107\pgf@xa
+    \advance\pgf@y by-0.707107\pgf@xa
+  }
+  \anchor{north east}{
+    \centerpoint
+    \pgf@xa=\radius
+    \advance\pgf@x by0.707107\pgf@xa
+    \advance\pgf@y by0.707107\pgf@xa
+  }
+  \anchor{south east}{
+    \centerpoint
+    \pgf@xa=\radius
+    \advance\pgf@x by0.707107\pgf@xa
+    \advance\pgf@y by-0.707107\pgf@xa
+  }
+  \anchorborder{
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \edef\pgf@marshal{%
+      \noexpand\pgfpointborderellipse
+      {\noexpand\pgfpoint{\the\pgf@xa}{\the\pgf@ya}}
+      {\noexpand\pgfpoint{\radius}{\radius}}%
+    }%
+    \pgf@marshal%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \centerpoint%
+    \advance\pgf@x by\pgf@xa%
+    \advance\pgf@y by\pgf@ya%
+  }
+
+  %
+  % Background path
+  %
+  \backgroundpath{
+    \@tempdima=\radius%
+    \setlength{\pgf@xb}{\pgfshapeouterxsep}%  
+    \setlength{\pgf@yb}{\pgfshapeouterysep}%  
+    \ifdim\pgf@xb<\pgf@yb%
+      \advance\@tempdima by-\pgf@yb%
+    \else%
+      \advance\@tempdima by-\pgf@xb%
+    \fi%
+    \pgfpathcircle{\centerpoint}{\@tempdima}%
+  }
+}
+
+
+
+
+
+\endinput

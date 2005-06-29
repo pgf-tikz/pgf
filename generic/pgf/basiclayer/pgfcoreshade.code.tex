@@ -1,0 +1,386 @@
+\ProvidesFileRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+%
+% Parsing functions
+%
+\newdimen\pgf@max
+\def\pgf@parsefunc#1{%
+  \edef\temp{{#1}}%
+  \expandafter\pgf@convertrgbstring\temp%
+  \edef\temp{{\pgf@rgbconv}}%
+  \expandafter\pgf@@parsefunc\temp}
+\def\pgf@@parsefunc#1{%
+  \def\pgf@bounds{}%
+  \def\pgf@funcs{}%
+  \def\pgf@psfuncs{}%
+  \def\pgf@encode{}%
+  \pgf@parsefirst[#1; ]%
+  \pgf@parselastdom[#1; ]%
+  \pgf@parsemid[#1; ]%
+  \ifx\pgf@bounds\@empty%
+    \edef\pgf@pdfparseddomain{0 1}%
+    \edef\pgf@pdfparsedfunction{\pgf@singlefunc\space}%
+  \else%
+    \edef\pgf@pdfparseddomain{\pgf@doma\space\pgf@domb}%
+    \edef\pgf@pdfparsedfunction{%
+      << /FunctionType 3 /Domain [\pgf@doma\space\pgf@domb] /Functions
+      [\pgf@funcs\space] /Bounds [\pgf@bounds] /Encode [0 1 \pgf@encode]
+      >> }%
+  \fi%
+  \xdef\pgf@psfuncs{\pgf@psfuncs}%
+  }
+\def\pgf@parsefirst[rgb(#1)=(#2,#3,#4)#5]{%
+  \setlength\pgf@x{#1}%
+  \pgf@sys@bp@correct\pgf@x%
+  \edef\pgf@doma{\pgf@sys@tonumber{\pgf@x}}%
+  \edef\pgf@prevx{\pgf@sys@tonumber{\pgf@x}}%
+  \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+  \edef\pgf@prevcolor{\pgf@rgb}%
+  \edef\pgf@firstcolor{\pgf@rgb}}
+\def\pgf@parselastdom[rgb(#1)=(#2,#3,#4); {%
+  \@ifnextchar]{%
+    \setlength\pgf@x{#1}%
+    \pgf@max=\pgf@x\relax%
+    \pgf@sys@bp@correct\pgf@x%
+    \edef\pgf@domb{\pgf@sys@tonumber{\pgf@x}}%
+    \@gobble}{\pgf@parselastdom[}}
+\def\pgf@parsemid[rgb(#1)=(#2,#3,#4); {\pgf@parserest[}
+\def\pgf@parserest[rgb(#1)=(#2,#3,#4); {%
+  \@ifnextchar]{%
+    \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+    \edef\pgf@singlefunc{\space%
+      << /FunctionType 2 /Domain [0 1] /C0
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }%
+    \edef\pgf@funcs{\pgf@funcs\space%
+      << /FunctionType 2 /Domain [\pgf@doma\space\pgf@domb] /C0
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }%
+    \edef\pgf@psfuncs{\pgf@prevx\space \pgf@rgb\space \pgf@prevcolor\space pgfshade \pgf@psfuncs}%
+    \@gobble}{%
+    \setlength\pgf@x{#1}%
+    \pgf@sys@bp@correct\pgf@x%
+    \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+    \edef\pgf@psfuncs{\pgf@prevx\space \pgf@rgb\space \pgf@prevcolor\space pgfshade \pgf@psfuncs}%
+    \edef\pgf@prevx{\pgf@sys@tonumber{\pgf@x}}%
+    \edef\pgf@bounds{\pgf@bounds\space\pgf@sys@tonumber{\pgf@x}}%
+    \edef\pgf@encode{\pgf@encode\space0 1}%
+    \edef\pgf@singlefunc{\space%
+      << /FunctionType 2 /Domain [0 1] /C0
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% 
+    \edef\pgf@funcs{\pgf@funcs\space%
+      << /FunctionType 2 /Domain [\pgf@doma\space\pgf@domb] /C0
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% 
+    \edef\pgf@prevcolor{\pgf@rgb}%
+    \pgf@parserest[}}
+
+\def\pgf@getrgbtuplewithmixin#1#2#3{%
+  \definecolor{pgfshadetemp}{rgb}{#1,#2,#3}%
+  \@ifundefined{applycolormixins}{}{\applycolormixins{pgfshadetemp}}%
+  \extractcolorspec{pgfshadetemp}{\pgf@tempcolor}%
+  \expandafter\convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
+  \expandafter\pgf@getrgb@@\pgf@rgbcolor!}
+\def\pgf@getrgb@@#1,#2,#3!{%
+  \def\pgf@rgb{#1 #2 #3}}
+
+
+\def\pgf@convertrgbstring#1{%
+  \def\pgf@rgbconv{}%
+  \pgf@converttorgb#1]%
+  }
+\def\pgf@converttorgb{%
+  \@ifnextchar]{\@gobble}%done!
+  {%
+    \@ifnextchar;{\pgf@grabsemicolor}%
+    {%
+      \@ifnextchar r{\pgf@grabrgb}%
+      {%
+        \@ifnextchar g{\pgf@grabgray}%
+        {%
+          \@ifnextchar c{\pgf@grabcolor}%
+          {\PackageError{pgfshade}{Illformed shading
+              specification}{}\pgf@converttorgb}%
+        }%
+      }%
+    }%
+  }%
+}
+\def\pgf@grabsemicolor;{%
+  \edef\pgf@rgbconv{\pgf@rgbconv; }\pgf@converttorgb}
+\def\pgf@grabrgb rgb(#1)=(#2,#3,#4){%
+  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#1)=(#2,#3,#4)}\pgf@converttorgb}
+\def\pgf@grabgray gray(#1)=(#2){%
+  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#1)=(#2,#2,#2)}\pgf@converttorgb}
+\def\pgf@grabcolor color(#1)=(#2){%
+  \colorlet{pgf@tempcol}{#2}%
+  \extractcolorspec{pgf@tempcol}{\pgf@tempcolor}%
+  \expandafter\convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
+  \expandafter\pgf@convgetrgb@\expandafter{\pgf@rgbcolor}{#1}%
+}
+\def\pgf@convgetrgb@#1#2{%
+  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#2)=(#1)}\pgf@converttorgb}
+
+
+
+
+% Declares a horizontal shading for later use. The shading is a
+% horizontal bar that changes its color.
+%
+% #1 = name of the shading for later use
+% #2 = height of the shading
+% #3 = color specification in the following format: A list of colors
+%      that the bar should have at certain points. If the bar should
+%      be red at 1cm, this is specified as
+%      "rgb(1cm)=(1,0,0)". Multiple specifications are separated by a
+%      semicolon and a space. At least two specifications must be
+%      given. The specified positions must be given in increasing
+%      order. 
+%
+% Example:
+%
+% \pgfdeclarehorizontalshading{redtogreentoblue}{1cm}{%
+%   rgb(0cm)=(1,0,0); % red
+%   rgb(1cm)=(0,1,0); % green
+%   rgb(2cm)=(0,0,1)}
+%
+% \begin{document}
+%   The following bar is 2cm long: \pgfuseshading{redtogreentoblue}.
+% \end{document}
+
+\def\pgfdeclarehorizontalshading{\@ifnextchar[\pgf@declarehorizontalshading{\pgf@declarehorizontalshading[]}}%
+\def\pgf@declarehorizontalshading[#1]#2#3#4{%
+  \expandafter\def\csname pgf@deps@pgfshading#2!\endcsname{#1}%
+  \expandafter\ifx\csname pgf@deps@pgfshading#2!\endcsname\@empty%
+    \pgfsys@horishading{#2}{#3}{#4}%
+  \else%
+    \expandafter\def\csname pgf@func@pgfshading#2!\endcsname{\pgfsys@horishading}%
+    \expandafter\def\csname pgf@args@pgfshading#2!\endcsname{{#3}{#4}}%
+    \expandafter\let\csname @pgfshading#2!\endcsname=\@empty%
+  \fi}
+
+
+% Declares a vertical shading for later use. 
+%
+% #1 = name of the shading for later use
+% #2 = height of the shading
+% #3 = color specification 
+%
+% Example:
+%
+% \pgfdeclareverticalshading{redtogreentoblue}{1cm}{%
+%   rgb(0cm)=(1,0,0); % red
+%   rgb(1cm)=(0,1,0); % green
+%   rgb(2cm)=(0,0,1)}
+%
+% \begin{document}
+%   The following bar is 2cm high: \pgfuseshading{redtogreentoblue}.
+% \end{document}
+
+\def\pgfdeclareverticalshading{\@ifnextchar[\pgf@declareverticalshading{\pgf@declareverticalshading[]}}%
+\def\pgf@declareverticalshading[#1]#2#3#4{%
+  \expandafter\def\csname pgf@deps@pgfshading#2!\endcsname{#1}%
+  \expandafter\ifx\csname pgf@deps@pgfshading#2!\endcsname\@empty%
+    \pgfsys@vertshading{#2}{#3}{#4}%
+  \else%
+    \expandafter\def\csname pgf@func@pgfshading#2!\endcsname{\pgfsys@vertshading}%
+    \expandafter\def\csname pgf@args@pgfshading#2!\endcsname{{#3}{#4}}%
+    \expandafter\let\csname @pgfshading#2!\endcsname=\@empty%
+  \fi}
+
+
+% Declares a radial shading for later use. 
+%
+% #1 = name of the shading for later use
+% #2 = center of inner circle
+% #3 = color specification 
+%
+% Description:
+%
+% A radial shading creates a smooth color transition between two
+% circles. The center of the inner circle is at the give position. Its
+% radius is the start of the color specification. The
+% center of the outer circle is at the center of the whole shading,
+% whose radius is the end of the color specification. For example,
+% suppose the color specification is "rgb(1cm)=(1,1,1); rgb(2cm)=(0,0,0)".  
+% Then the shading would be 4cm times 4cm large. The inner circle would
+% have diameter 1cm and the outer circle would have diameter 2cm. The
+% outer circle would be centered in the middle of the shading, whereas
+% the outer circle would be centered at the given position.
+%
+% Example:
+%
+% \pgfdeclareradialshading{redtogreentoblue}{\pgfpoint{2cm}{2cm}}{%
+%   rgb(10pt)=(1,0,0); % red
+%   rgb(2cm)=(0,1,0); % green
+%   rgb(3cm)=(0,0,1)}
+%
+% \begin{document}
+%   The following ball has diameter 3cm: \pgfuseshading{redtogreentoblue}.
+% \end{document}
+
+\def\pgfdeclareradialshading{\@ifnextchar[\pgf@declareradialshading{\pgf@declareradialshading[]}}%
+\def\pgf@declareradialshading[#1]#2#3#4{%
+  \expandafter\def\csname pgf@deps@pgfshading#2!\endcsname{#1}%
+  \expandafter\ifx\csname pgf@deps@pgfshading#2!\endcsname\@empty%
+    \pgfsys@radialshading{#2}{#3}{#4}%
+  \else%
+    \expandafter\def\csname pgf@func@pgfshading#2!\endcsname{\pgfsys@radialshading}%
+    \expandafter\def\csname pgf@args@pgfshading#2!\endcsname{{#3}{#4}}%
+    \expandafter\let\csname @pgfshading#2!\endcsname=\@empty%
+  \fi}
+  
+
+% Inserts a box into the text that contains a previously defined
+% shading. 
+%
+% #1 = Name of a shading
+%
+% Example:
+%
+% \pgfuseshading{redtogreentoblue}
+
+\def\pgfuseshading#1{%
+  \edef\pgf@shadingname{@pgfshading#1}%
+  \pgf@tryextensions{\pgf@shadingname}{\pgfalternateextension}%
+  \expandafter\@ifundefined\expandafter{\pgf@shadingname}%
+  {\PackageError{pgfshade}{Undefined shading "#1"}{}}%
+  {%
+    {%
+      \globalcolorsfalse%
+      \def\pgf@shade@adds{}%
+      \@ifundefined{pgf@deps\pgf@shadingname}%
+      {}%
+      {%
+        \edef\@list{\csname pgf@deps\pgf@shadingname\endcsname}%
+        \@for\@temp:=\@list\do{%
+          {%
+            \@ifundefined{applycolormixins}{}{\applycolormixins{\@temp}}%
+            \extractcolorspec{\@temp}{\pgf@tempcolor}%
+            \expandafter\convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
+            \xdef\pgf@shade@adds{\pgf@shade@adds,\pgf@rgbcolor}%
+          }%
+        }%
+      }%
+      \expandafter\pgf@strip@shadename\pgf@shadingname!!%
+      \@ifundefined{@pgfshading\pgf@basename\pgf@shade@adds!}%
+      {%
+        {%
+          \expandafter\def\expandafter\@temp\expandafter{\csname pgf@func\pgf@shadingname\endcsname}%
+          \edef\@args{{\pgf@basename\pgf@shade@adds}}%
+          \expandafter\expandafter\expandafter\def%
+          \expandafter\expandafter\expandafter\@@args%
+          \expandafter\expandafter\expandafter{\csname pgf@args\pgf@shadingname\endcsname}%
+          \expandafter\expandafter\expandafter\@temp\expandafter\@args\@@args%
+          %
+        }%
+      }%
+      {}%
+      \csname @pgfshading\pgf@basename\pgf@shade@adds!\endcsname%
+    }%
+  }%
+}
+
+\def\pgf@strip@shadename @pgfshading#1!!!{\def\pgf@basename{#1}}
+
+
+% Create an alias name for a shading
+%
+% #1 = name of the alias
+% #2 = name of the original
+%
+% Example:
+%
+% \pgfaliasshading{shading!25}{shadingshaded}
+
+\def\pgfaliasshading#1#2{%
+  \expandafter\let\expandafter\pgf@temp\expandafter=\csname @pgfshading#2!\endcsname%
+  \expandafter\let\csname @pgfshading#1!\endcsname=\pgf@temp%
+  \expandafter\let\expandafter\pgf@temp\expandafter=\csname pgf@deps@pgfshading#2!\endcsname%
+  \expandafter\let\csname pgf@deps@pgfshading#1!\endcsname=\pgf@temp%
+  \expandafter\let\expandafter\pgf@temp\expandafter=\csname pgf@func@pgfshading#2!\endcsname%
+  \expandafter\let\csname pgf@func@pgfshading#1!\endcsname=\pgf@temp%
+  \expandafter\let\expandafter\pgf@temp\expandafter=\csname pgf@args@pgfshading#2!\endcsname%
+  \expandafter\let\csname pgf@args@pgfshading#1!\endcsname=\pgf@temp%
+}
+
+
+
+
+% Shades the current path, but does not discard it.
+%
+% #1 - a shading (see below)
+% #2 - an angle
+%
+% Description:
+%
+% \pgfshadepath  ``tries'' to fill the
+% current path with a shading. The shading's original size should
+% completely cover the area between (0,0) and (100bp,100bp). The
+% shading will be rotated by #2 and then rescaled so that it
+% completely covers the path. Then the path will be used (locally) for
+% clipping and the shading is drawn.
+%
+% After all this, the path can still be used for the normal
+% stroking/clipping operations.
+%
+% The shading is rotated around its middle. If no rotation occurs, the
+% lower left corner of the path will lie on (25bp, 25bp), the upper
+% right corner on (75bp, 75bp).
+%
+% Example:
+%
+% \pgfdeclareverticalshading{myshading}{100bp}{color(0pt)=(red); color(100bp)=(green)}
+%
+% \pgfpathmoveto{\pgforigin}
+% \pgfpathlineto{\pgfxy(1,0)}
+% \pgfpathlineto{\pgfxy(1,1)}
+% \pgfshadepath{myshading}{0}
+% \pgfusepath{stroke}
+
+\def\pgfshadepath#1#2{%
+  \ifdim\pgf@pathminx=16000pt%
+    \PackageWarning{pgfshade}{No path specified that can be filled}%
+  \else%
+    \begingroup%  
+      \pgfsys@beginscope%
+        % Calculate center:
+        \pgf@xb=.5\pgf@pathmaxx%
+        \advance\pgf@xb by.5\pgf@pathminx%
+        \pgf@yb=.5\pgf@pathmaxy%
+        \advance\pgf@yb by.5\pgf@pathminy%
+        % Calculate scaling:
+        \pgf@xc=\pgf@pathmaxx%
+        \advance\pgf@xc by-\pgf@pathminx%
+        \pgf@yc=\pgf@pathmaxy%
+        \advance\pgf@yc by-\pgf@pathminy%
+        \pgf@xc=.02\pgf@xc%
+        \pgf@yc=.02\pgf@yc%
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgfsys@clipnext%
+        \pgfsys@discardpath%
+        % Compute new transformation matrix:
+        \pgf@process{\pgfsincos{#2}}%
+        \pgf@xa=-\pgf@x%
+        \pgfsys@transformcm{1}{0}{0}{1}{\pgf@xb}{\pgf@yb}%
+        \pgfsys@transformcm%
+        {\pgf@sys@tonumber{\pgf@xc}}{0}%
+        {0}{\pgf@sys@tonumber{\pgf@yc}}{0pt}{0pt}%
+        \pgfsys@transformcm%
+        {\pgf@sys@tonumber{\pgf@y}}{\pgf@sys@tonumber{\pgf@x}}%
+        {\pgf@sys@tonumber{\pgf@xa}}{\pgf@sys@tonumber{\pgf@y}}{0pt}{0pt}%
+        \pgf@makehbox{\pgfuseshading{#1}}%
+        \setbox\pgf@hbox=\hbox{\hskip-.5\wd\pgf@hbox\lower.5\ht\pgf@hbox\hbox{\box\pgf@hbox}}%
+        \wd\pgf@hbox=\z@%
+        \ht\pgf@hbox=\z@%
+        \dp\pgf@hbox=\z@%
+        \pgfqbox{\box\pgf@hbox}%
+      \pgfsys@endscope%
+    \endgroup%
+  \fi%
+}
+
+\endinput

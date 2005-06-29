@@ -1,0 +1,217 @@
+\ProvidesPackageRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+
+\newdimen\pgffor@iter
+\newdimen\pgffor@skip
+\newif\ifpgffor@continue
+
+\let\pgffor@beginhook=\@empty
+\let\pgffor@endhook=\@empty
+\let\pgffor@afterhook=\@empty
+
+\def\foreach#1in#2{%
+  \def\pgffor@var{#1}%
+  \def\pgffor@values{#2, \pgffor@stop,}%
+  \let\pgffor@body\@empty%
+  \global\pgffor@continuetrue%
+  \pgffor@collectbody}
+
+\def\pgffor@collectbody{%
+  \@ifnextchar\foreach{\pgffor@collectforeach}{%
+    \@ifnextchar\bgroup{\pgffor@collectargument}{\pgffor@collectsemicolon}}%
+}
+
+\def\pgffor@collectforeach\foreach#1in#2{%
+  \expandafter\long\expandafter\def\expandafter\pgffor@body\expandafter{\pgffor@body\foreach#1in{#2}}%
+  \pgffor@collectbody%
+}
+
+\long\def\pgffor@collectargument#1{%
+  \expandafter\long\expandafter\def\expandafter\pgffor@body\expandafter{\pgffor@body{#1}}%
+  \pgffor@iterate%
+}
+
+
+\def\pgffor@collectsemicolon{%
+  \let\pgffor@next=\pgffor@collectnormalsemicolon%
+  \ifnum\the\catcode`\;=\active\relax%
+    \let\pgffor@next=\pgffor@collectactivesemicolon%
+  \fi%
+  \pgffor@next%
+}
+
+\def\pgffor@collectnormalsemicolon#1;{%
+  \expandafter\long\expandafter\def\expandafter\pgffor@body\expandafter{\pgffor@body#1;}%
+  \pgffor@iterate%
+}
+
+{
+  \catcode`\;=\active
+  
+  \gdef\pgffor@collectactivesemicolon#1;{%
+    \expandafter\long\expandafter\def\expandafter\pgffor@body\expandafter{\pgffor@body#1;}%
+    \pgffor@iterate%
+  }
+}
+
+\def\pgffor@iterate{%
+  \let\pgffor@last\@empty%
+  \let\pgffor@prevlast\@empty%
+  \expandafter\pgffor@scan\pgffor@values}
+
+\def\pgffor@stop{\pgffor@stop}%
+\def\pgffor@dots{...}%
+
+\def\pgffor@scan{\@ifnextchar({\pgffor@scanround}{\pgffor@scanone}}
+\def\pgffor@scanround(#1)#2,{\def\pgffor@value{(#1)}\pgffor@scanned}
+\def\pgffor@scanone#1,{\def\pgffor@value{#1}\pgffor@scanned}
+
+\def\pgffor@scanned{%
+  \ifx\pgffor@value\pgffor@stop%
+    \let\pgffor@next=\pgffor@after% done!
+  \else%
+    \ifx\pgffor@value\pgffor@dots%
+      \let\pgffor@next=\pgffor@handledots%
+    \else%
+      \let\pgffor@next=\pgffor@handlevalue%
+    \fi%
+    \ifpgffor@continue%
+    \else%
+      \let\pgffor@next=\pgffor@scan% done!
+    \fi%
+  \fi%
+  \pgffor@next}
+
+\def\pgffor@after{%
+  \global\pgffor@continuetrue%
+  \pgffor@afterhook}
+
+\def\pgffor@handlevalue{%
+  \let\pgffor@prevlast\pgffor@last%
+  \let\pgffor@last\pgffor@value%
+  \pgffor@invokebody%
+  \pgffor@scan%
+}
+
+\def\pgffor@invokebody{%
+  \begingroup%
+    \expandafter\in@\expandafter/\expandafter{\pgffor@var}%
+    \ifin@%
+      \expandafter\def\expandafter\pgffor@valuerest\expandafter{\pgffor@value//\relax}%
+      \expandafter\pgffor@multiassign\pgffor@var/\pgffor@stop/\pgffor@stop/\relax%
+    \else%
+      \expandafter\expandafter\expandafter\def\expandafter\pgffor@var\expandafter{\pgffor@value}%
+    \fi%
+    \expandafter\pgffor@beginhook\pgffor@body\pgffor@endhook%
+  \endgroup%
+}
+
+
+\def\pgffor@multiassign#1/#2/\relax{%
+  \def\pgffor@currentvar{#1}%
+  \def\pgffor@rest{#2}%
+  \ifx\pgffor@currentvar\pgffor@stop%
+    \let\pgffor@next=\relax%
+  \else%
+    \let\pgffor@next=\pgffor@multiassignrest%
+  \fi%
+  \pgffor@next%
+}
+
+\def\pgffor@multiassignrest{\expandafter\pgffor@multiassignfinal\pgffor@valuerest}
+\def\pgffor@multiassignfinal#1/#2/\relax{%
+  \def\pgffor@test{#2}%
+  \ifx\pgffor@test\@empty%
+    \def\pgffor@valuerest{#1//\relax}% repeat
+  \else%
+    \def\pgffor@valuerest{#2/\relax}%
+  \fi%
+  \expandafter\def\pgffor@currentvar{#1}%
+  \expandafter\pgffor@multiassign\pgffor@rest/\relax%
+}
+  
+
+
+
+\def\pgffor@handledots{%
+  \ifx\pgffor@last\@empty%
+    \PackageError{pgffor}{``...'' not allowed without prior value}{}%
+  \fi%
+  \pgffor@dotsscanend%
+}
+\def\pgffor@dotsscanend#1,{%
+  \def\pgffor@dotsend{#1}%
+  % calculate skip%
+  \ifx\pgffor@prevlast\@empty%
+    \ifdim\pgffor@dotsend pt>\pgffor@last pt%
+      \pgffor@skip=1pt%
+    \else%
+      \pgffor@skip=-1pt%
+    \fi%
+  \else%
+    \pgffor@skip=\pgffor@last pt%
+    \pgffor@iter=\pgffor@prevlast pt%
+    \advance\pgffor@skip by-\pgffor@iter%
+  \fi%
+  \pgffor@iter=\pgffor@last pt%
+  % do loop
+  \pgffor@loop%
+}
+
+\def\pgffor@loop{%
+  \advance\pgffor@iter by\pgffor@skip%
+  \let\pgffor@next=\pgffor@doloop%
+  \ifdim\pgffor@skip<0pt%
+    \ifdim\pgffor@iter<\pgffor@dotsend pt%
+      \let\pgffor@next=\pgffor@endloop%
+    \fi%
+  \else%
+    \ifdim\pgffor@iter>\pgffor@dotsend pt%
+      \let\pgffor@next=\pgffor@endloop%
+    \fi%
+  \fi%
+  \ifpgffor@continue%
+  \else%
+    \let\pgffor@next=\pgffor@endloop% done!
+  \fi%
+  \pgffor@next%
+}
+
+\def\pgffor@endloop{%
+  \pgffor@scan%
+}
+
+{\catcode`\p=12\catcode`\t=12\gdef\Pgffor@geT#1pt{#1}}
+
+\def\pgffor@doloop{%
+  \begingroup%
+    \edef\pgffor@temp{\expandafter\Pgffor@geT\the\pgffor@iter}%
+    \edef\pgffor@incheck{{.0/}{\pgffor@temp/}}%
+    \expandafter\in@\pgffor@incheck%
+    \ifin@%
+      \expandafter\pgffor@strip\pgffor@temp%
+    \fi%
+    \expandafter\in@\expandafter/\expandafter{\pgffor@var}%
+    \ifin@%
+      \expandafter\def\expandafter\pgffor@valuerest\expandafter{\pgffor@temp//\relax}%
+      \expandafter\pgffor@multiassign\pgffor@var/\pgffor@stop/\pgffor@stop/\relax%
+    \else%
+      \expandafter\expandafter\expandafter\def\expandafter\pgffor@var\expandafter{\pgffor@temp}%
+    \fi%
+    \expandafter\pgffor@beginhook\pgffor@body\pgffor@endhook%
+  \endgroup%
+  \pgffor@loop%  
+}
+
+\def\pgffor@strip#1.0{\def\pgffor@temp{#1}}
+
+
+\def\breakforeach{\global\pgffor@continuefalse}
+  
+\endinput

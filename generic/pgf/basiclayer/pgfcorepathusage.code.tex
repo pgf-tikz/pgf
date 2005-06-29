@@ -1,0 +1,191 @@
+\ProvidesFileRCS $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+% Stroke/fill/clip/etc. the current path. Depending on the options,
+% the current path will be stroked/filled/clipped/etc. If no options
+% are given, the path is stroked. If multiple options are given, all
+% of them are performed (in a sensible order).
+%
+% #1 = action(s) to be applied to the current path. Valid actions are: 
+%      stroke -  strokes the path. If no options are given, this is the
+%                default. 
+%      draw -    same as stroke.
+%      fill -    fills the path.
+%      clip -    clip the path.
+%      discard - Discards the path. Same effect as having an empty
+%                options list.
+%
+% Example:
+%
+% % Draws an edge.
+% \pgfpathmoveto{\pgfxy(0,0)}
+% \pgfpathlineto{\pgfxy(0,1)}
+% \pgfpathlineto{\pgfxy(1,0)}
+% \pgfusepath{stroke}
+
+\define@key{pgfup}{stroke}[]{\def\pgf@up@stroke{stroke}}
+\define@key{pgfup}{draw}[]{\def\pgf@up@stroke{stroke}}
+\define@key{pgfup}{fill}[]{\def\pgf@up@fill{fill}}
+\define@key{pgfup}{clip}[]{\def\pgf@up@clip{clip}}
+\define@key{pgfup}{discard}[]{}
+\define@key{pgfup}{use as bounding box}[]{\def\pgf@up@bb{\pgf@relevantforpicturesizefalse}}
+
+\def\pgfusepath#1{%
+  \let\pgf@up@stroke\@empty%
+  \let\pgf@up@fill\@empty%
+  \let\pgf@up@clip\@empty%
+  \let\pgf@up@discard\@empty%
+  \let\pgf@up@bb\@empty%
+  \setkeys{pgfup}{#1}%
+  \expandafter\def\expandafter\pgf@up@action\expandafter{\csname pgfsys@\pgf@up@fill\pgf@up@stroke\endcsname}%
+  \ifx\pgf@up@stroke\@empty%
+    \ifx\pgf@up@fill\@empty%
+      \ifx\pgf@up@clip\@empty%
+        \let\pgf@up@action=\@empty%
+        \pgfsyssoftpath@setcurrentpath\@empty%
+      \else%
+        % only clipping  
+        \let\pgf@up@action=\pgfsys@discardpath%
+      \fi%
+    \fi%
+  \fi%  
+  \pgfprocessround{\pgfsyssoftpath@currentpath}{\pgfsyssoftpath@currentpath}% change the current path
+  \ifx\pgf@up@clip\@empty%
+    \ifx\pgf@up@stroke\@empty%
+      \pgfsyssoftpath@invokecurrentpath%
+      \pgfsyssoftpath@getcurrentpath\pgf@last@used@path%
+      \pgf@up@action%
+    \else%
+      \pgf@check@for@arrows%
+      \ifpgf@drawarrows%
+        \pgf@shorten@path@as@needed%
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgfsyssoftpath@getcurrentpath\pgf@last@used@path%
+        \pgf@up@action%
+        \pgfsyssoftpath@setcurrentpath\@empty%
+        \pgf@add@arrows@as@needed%
+      \else%
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgfsyssoftpath@getcurrentpath\pgf@last@used@path%
+        \pgf@up@action%
+      \fi%
+    \fi%
+  \else%
+    \pgfsyssoftpath@invokecurrentpath%
+    \pgfsyssoftpath@getcurrentpath\pgf@last@used@path%
+    \pgfsys@clipnext%
+    \pgf@up@action%
+    \pgf@relevantforpicturesizefalse%
+  \fi%
+  \pgf@up@bb%
+  \pgfsyssoftpath@setcurrentpath\@empty%
+  \pgf@resetpathsizes%
+  \ignorespaces%
+}
+
+
+% Shorten start/end of paths by a certain amount.
+%
+% #1 = amount by which paths should be shortened.
+%
+% Example:
+%
+% \pgfpathmoveto{\pgfpointorigin}
+% \pgfpathlineto{\pgfpoint{10pt}{0pt}
+%
+% % The following has the same effect:
+% \pgfsetshortenstart{1pt}
+% \pgfpathmoveto{\pgfpointorigin}
+% \pgfpathlineto{\pgfpoint{11pt}{0pt}
+
+\def\pgfsetshortenstart#1{\setlength\pgf@shorten@start@additional{#1}}
+\def\pgfsetshortenend#1{\setlength\pgf@shorten@end@additional{#1}}
+
+\newif\ifpgf@drawarrows
+
+\def\pgf@check@for@arrows{%
+  \pgf@drawarrowsfalse%
+  \ifx\pgf@startarrow\@empty\else\pgf@drawarrowstrue\fi%
+  \ifx\pgf@endarrow\@empty\else\pgf@drawarrowstrue\fi%
+  \ifdim\pgf@shorten@end@additional=0pt\relax\else\pgf@drawarrowstrue\fi%
+  \ifdim\pgf@shorten@start@additional=0pt\relax\else\pgf@drawarrowstrue\fi%
+  \ifpgf@drawarrows%
+    \pgfsyssoftpath@getcurrentpath\pgf@arrowpath%
+    \ifx\pgf@arrowpath\@empty%
+      \pgf@drawarrowsfalse%
+    \else%
+      \pgfprocesscheckclosed{\pgf@arrowpath}{\pgf@drawarrowsfalse}%
+    \fi%
+  \fi%
+}
+
+\newdimen\pgf@shorten@end@additional
+\newdimen\pgf@shorten@start@additional
+
+\let\pgf@shorten@end=\@empty
+\let\pgf@shorten@start=\@empty
+
+\def\pgf@shorten@path@as@needed{%
+  \pgfprocesspathextractpoints{\pgf@arrowpath}%
+  \let\pgf@arrow@next=\pgf@shorten@now%
+  \ifx\pgf@shorten@start\@empty%
+    \ifx\pgf@shorten@end\@empty%
+      \ifdim\pgf@shorten@end@additional=0pt\relax%
+        \ifdim\pgf@shorten@start@additional=0pt\relax%
+          \let\pgf@arrow@next=\relax%
+        \fi%
+      \fi%
+    \fi%
+  \fi%
+  \pgf@arrow@next%
+}
+
+\def\pgf@shorten@now{%
+  {%
+    \pgf@x=0pt%
+    \pgf@shorten@start%
+    \advance\pgf@x by\pgf@shorten@start@additional%
+    \pgf@xc=\pgf@x%
+    \pgf@process{\pgfpointlineatdistance{\pgf@xc}{\pgfpointfirstonpath}{\pgfpointsecondonpath}}%
+    \global\pgf@x=\pgf@x%
+    \global\pgf@y=\pgf@y%
+  }%
+  \edef\pgfpointfirstonpath{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  {%
+    \pgf@x=0pt%
+    \pgf@shorten@end%
+    \advance\pgf@x by\pgf@shorten@end@additional%
+    \pgf@xc=\pgf@x%
+    \pgf@process{\pgfpointlineatdistance{\pgf@xc}{\pgfpointlastonpath}{\pgfpointsecondlastonpath}}%
+    \global\pgf@x=\pgf@x%
+    \global\pgf@y=\pgf@y%
+  }%
+  \edef\pgfpointlastonpath{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgfprocesspathreplacestartandend{\pgf@arrowpath}{\pgfpointfirstonpath}{\pgfpointlastonpath}%
+  \pgfsyssoftpath@setcurrentpath\pgf@arrowpath%
+}
+
+\def\pgf@add@arrows@as@needed{%
+  \ifx\pgf@startarrow\@empty%
+  \else%
+    \pgflowlevelobj%
+      {\pgftransformarrow{\pgfpointsecondonpath}{\pgfpointfirstonpath}}
+      {\pgf@startarrow}%
+  \fi%
+  \ifx\pgf@endarrow\@empty%
+  \else%
+    \pgflowlevelobj%
+      {\pgftransformarrow{\pgfpointsecondlastonpath}{\pgfpointlastonpath}}
+      {\pgf@endarrow}%
+  \fi%      
+}
+
+\let\pgf@startarrow=\@empty
+\let\pgf@endarrow=\@empty
+
+\endinput
