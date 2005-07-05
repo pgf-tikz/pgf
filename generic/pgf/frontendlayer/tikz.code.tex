@@ -423,6 +423,18 @@
 
 \tikz@set@pointed{\pgf@arrows@invertto}{to}
 
+% Parabola options
+\define@key{tikz}{bend}{\tikz@scan@one@point\tikz@set@parabola@bend#1\relax}%
+\define@key{tikz}{bend pos}{\def\tikz@parabola@bend@factor{#1}}
+\define@key{tikz}{parabola height}{%
+  \def\tikz@parabola@bend@factor{.5}%
+  \def\tikz@parabola@bend{\pgfpointadd{\pgfpoint{0pt}{#1}}{\tikz@last@position@saved}}}
+
+\def\tikz@parabola@bend{\tikz@last@position@saved}
+\def\tikz@parabola@bend@factor{0}
+
+\def\tikz@set@parabola@bend#1{\def\tikz@parabola@bend{#1}}
+
 % Axis options
 \define@key{tikz}{domain}{\def\tikz@plot@domain{#1}}
 \define@key{tikz}{range}{\def\tikz@plot@range{#1}}
@@ -520,6 +532,8 @@
 \tikzstyle{very near end}=   [pos=0.875]
 \tikzstyle{at end}=          [pos=1]
 
+\tikzstyle{bend at start}=   [bend pos=0,bend={+(0,0)}]
+\tikzstyle{bend at end}=     [bend pos=1,bend={+(0,0)}]
 
 
 
@@ -1592,62 +1606,45 @@
 }
 
 % Syntax for parabolas: 
-% parabola <corner of enclosing rectangle>
-% parabola left <corner of enclosing rectangle>
-% parabola right <corner of enclosing rectangle>
+% parabola[options] bend <coordinate> <coordinate>
 \def\tikz@parabola arabola{%
-  \tikz@flush@moveto%
-  \@ifnextchar l{\tikz@parabola@left}
-  {\@ifnextchar r{\tikz@parabola@right}
-    {\tikz@parabola@middle}}}
+  \@ifnextchar[{\tikz@parabola@options}{\tikz@parabola@options[]}}%}
 
-\def\tikz@parabola@left left{\tikz@scan@one@point\tikz@parabola@leftA}
-\def\tikz@parabola@leftA#1{%
-  \pgf@process{#1}%
-  \pgf@xc=\pgf@x%
-  \pgf@yc=\pgf@y%
-  \advance\pgf@xc by-\tikz@lastx%
-  \advance\pgf@yc by-\tikz@lasty%
-  \advance\tikz@lastx by\pgf@xc%
-  \advance\tikz@lasty by\pgf@yc%
-  \tikz@lastxsaved=\tikz@lastx%
-  \tikz@lastysaved=\tikz@lasty%
-  \tikz@updatecurrenttrue%
-  \pgfpathparabola{\pgfpoint{\pgf@xc}{\pgf@yc}}{\pgfpointorigin}%
+\def\tikz@parabola@options[#1]{%
+  \def\tikz@parabola@option{#1}%
+  \@ifnextchar b{\tikz@parabola@scan@bend}{\tikz@scan@one@point\tikz@parabola@semifinal}}
+\def\tikz@parabola@scan@bend bend{\tikz@scan@one@point\tikz@parabola@scan@bendB}
+\def\tikz@parabola@scan@bendB#1{%
+  \def\tikz@parabola@bend{#1}%
+  \tikz@scan@one@point\tikz@parabola@semifinal%
+}
+\def\tikz@parabola@semifinal#1{%
+  % Save original start:
+  \pgf@xb=\tikz@lastx%
+  \pgf@yb=\tikz@lasty%
+  \tikz@make@last@position{#1}%
+  \pgf@xc=\tikz@lastx%
+  \pgf@yc=\tikz@lasty%
+  \begingroup% now calculate bend:
+    \expandafter\tikz@setkeys\expandafter{\tikz@parabola@option}%
+    \tikz@lastxsaved=\tikz@parabola@bend@factor\tikz@lastx%
+    \tikz@lastysaved=\tikz@parabola@bend@factor\tikz@lasty%
+    \advance\tikz@lastxsaved by\pgf@xb%
+    \advance\tikz@lastysaved by\pgf@yb%
+    \advance\tikz@lastxsaved by-\tikz@parabola@bend@factor\pgf@xb%
+    \advance\tikz@lastysaved by-\tikz@parabola@bend@factor\pgf@yb%
+    \expandafter\tikz@make@last@position\expandafter{\tikz@parabola@bend}%
+    % Calculate delta from bend
+    \advance\pgf@xc by-\tikz@lastx%
+    \advance\pgf@yc by-\tikz@lasty%
+    % Ok, now calculate delta to bend
+    \advance\tikz@lastx by-\pgf@xb%
+    \advance\tikz@lasty by-\pgf@yb%
+    \xdef\tikz@parabola@b{{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}{\noexpand\pgfpoint{\the\pgf@xc}{\the\pgf@yc}}}%
+  \endgroup%
+  \expandafter\pgfpathparabola\tikz@parabola@b%
   \tikz@scan@next@command%
 }
-
-\def\tikz@parabola@right right{\tikz@scan@one@point\tikz@parabola@rightA}
-\def\tikz@parabola@rightA#1{%
-  \pgf@process{#1}%
-  \pgf@xc=\pgf@x%
-  \pgf@yc=\pgf@y%
-  \advance\pgf@xc by-\tikz@lastx%
-  \advance\pgf@yc by-\tikz@lasty%
-  \advance\tikz@lastx by\pgf@xc%
-  \advance\tikz@lasty by\pgf@yc%
-  \tikz@lastxsaved=\tikz@lastx%
-  \tikz@lastysaved=\tikz@lasty%
-  \tikz@updatecurrenttrue%
-  \pgfpathparabola{\pgfpointorigin}{\pgfpoint{\pgf@xc}{\pgf@yc}}%
-  \tikz@scan@next@command%
-}
-
-\def\tikz@parabola@middle{\tikz@scan@one@point\tikz@parabola@middleA}%
-\def\tikz@parabola@middleA#1{%
-  \pgf@process{#1}%
-  \pgf@xc=\pgf@x%
-  \pgf@yc=\pgf@y%
-  \advance\pgf@xc by-\tikz@lastx%
-  \advance\pgf@yc by-\tikz@lasty%
-  \advance\tikz@lastx by\pgf@xc%
-  \tikz@lastxsaved=\tikz@lastx%
-  \tikz@lastysaved=\tikz@lasty%
-  \tikz@updatecurrenttrue%
-  \pgfpathparabola{\pgfpoint{.5\pgf@xc}{\pgf@yc}}{\pgfpoint{.5\pgf@xc}{-\pgf@yc}}%
-  \tikz@scan@next@command%
-}
-
 
 
 % Syntax for circles:
