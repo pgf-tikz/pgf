@@ -28,6 +28,84 @@
 }
 \newcount\pgf@sys@svg@objectcount
 
+\newif\ifpgf@sys@svg@strokecolor
+\newif\ifpgf@sys@svg@fillcolor
+
+\def\pgf@sys@svg@preparefillcolor{%
+  \ifpgf@sys@svg@fillcolor%
+    \expandafter\pgf@sys@svg@extractcolor\pgf@sys@svg@fillcolor\relax%
+  \else%
+    \expandafter\expandafter\expandafter\pgf@sys@svg@extractcolor\csname\string\color@.\endcsname%
+  \fi%  
+}
+\def\pgf@sys@svg@preparestrokecolor{%
+  \ifpgf@sys@svg@strokecolor%
+    \expandafter\pgf@sys@svg@extractcolor\pgf@sys@svg@strokecolor\relax%
+  \else%
+    \expandafter\expandafter\expandafter\pgf@sys@svg@extractcolor\csname\string\color@.\endcsname%
+  \fi%  
+}
+
+\def\pgf@sys@svg@extractcolor\xcolor@#1#2#3#4{%
+  \csname pgf@sys@svg@extractcolor@#3\endcsname#4\relax%
+}
+\def\pgf@sys@svg@extractcolor@rgb#1,#2,#3\relax{%
+ {%
+    \pgf@xa=#1pt%
+    \pgf@xa=100\pgf@xa%
+    \pgf@xb=#2pt%
+    \pgf@xb=100\pgf@xb%
+    \pgf@xc=#3pt%
+    \pgf@xc=100\pgf@xc%
+    \xdef\pgf@sys@svg@prepared{rgb(\pgf@sys@tonumber\pgf@xa\%,\pgf@sys@tonumber\pgf@xb\%,\pgf@sys@tonumber\pgf@xc\%)}%
+  }%
+}
+\def\pgf@sys@svg@extractcolor@cmy#1,#2,#3\relax{%
+  {%
+    \pgf@xa=1pt%
+    \advance\pgf@xa by-#1pt%
+    \pgf@xa=100\pgf@xa%
+    \pgf@xb=1pt%
+    \advance\pgf@xb by-#2pt%
+    \pgf@xb=100\pgf@xb%
+    \pgf@xc=1pt%
+    \advance\pgf@xc by-#3pt%
+    \pgf@xc=100\pgf@xc%
+    \xdef\pgf@sys@svg@prepared{rgb(\pgf@sys@tonumber\pgf@xa\%,\pgf@sys@tonumber\pgf@xb\%,\pgf@sys@tonumber\pgf@xc\%)}%
+  }%
+}
+\def\pgf@sys@svg@extractcolor@cmyk#1,#2,#3,#4\relax{%
+  {%
+    \pgf@xa=1pt%
+    \advance\pgf@xa by-#4pt%
+    \pgf@xa=#1\pgf@xa%
+    \advance\pgf@xa by#4pt%
+    \advance\pgf@xa by-1pt%
+    \pgf@xa=-100\pgf@xa%
+    \pgf@xb=1pt%
+    \advance\pgf@xb by-#4pt%
+    \pgf@xb=#2\pgf@xb%
+    \advance\pgf@xb by#4pt%
+    \advance\pgf@xb by-1pt%
+    \pgf@xb=-100\pgf@xb%
+    \pgf@xc=1pt%
+    \advance\pgf@xc by-#4pt%
+    \pgf@xc=#3\pgf@xc%
+    \advance\pgf@xc by#4pt%
+    \advance\pgf@xc by-1pt%
+    \pgf@xc=-100\pgf@xc%
+    \xdef\pgf@sys@svg@prepared{rgb(\pgf@sys@tonumber\pgf@xa\%,\pgf@sys@tonumber\pgf@xb\%,\pgf@sys@tonumber\pgf@xc\%)}%
+  }%
+}
+\def\pgf@sys@svg@extractcolor@gray#1\relax{%
+ {%
+    \pgf@xa=#1pt%
+    \pgf@xa=100\pgf@xa%
+    \xdef\pgf@sys@svg@prepared{rgb(\pgf@sys@tonumber\pgf@xa\%,\pgf@sys@tonumber\pgf@xa\%,\pgf@sys@tonumber\pgf@xa\%)}%
+  }%
+}
+
+
 
 % Path construction:
 \def\pgfsys@lineto#1#2{\pgf@sys@addtosvgpath{L }\pgf@sys@svgnum{#1}\pgf@sys@svgnum{#2}}
@@ -63,9 +141,17 @@
     \pgfsysprotocol@literal{" #1/>}
   \fi%
 }
-\def\pgfsys@stroke{\pgf@sys@svg@possiblyclippedpath{style="stroke:black"}}
-\def\pgfsys@fill{\pgf@sys@svg@possiblyclippedpath{style="fill:black"}}
-\def\pgfsys@fillstroke{\pgf@sys@svg@possiblyclippedpath{style="stroke:black; fill:black"}}
+\def\pgfsys@stroke{%
+  \pgf@sys@svg@preparestrokecolor%
+  \pgf@sys@svg@possiblyclippedpath{style="stroke:\pgf@sys@svg@prepared"}}
+\def\pgfsys@fill{%
+  \pgf@sys@svg@preparefillcolor%
+  \pgf@sys@svg@possiblyclippedpath{style="fill:\pgf@sys@svg@prepared"}}
+\def\pgfsys@fillstroke{
+  \pgf@sys@svg@preparestrokecolor%
+  \let\pgf@sys@svg@temp=\pgf@sys@svg@prepared%
+  \pgf@sys@svg@preparefillcolor%
+  \pgf@sys@svg@possiblyclippedpath{style="stroke:\pgf@sys@svg@temp; fill:\pgf@sys@svg@prepared"}}
 \def\pgfsys@clipnext{\pgf@sys@svg@clipnexttrue}
 \def\pgfsys@discardpath{%
   \ifpgf@sys@svg@clipnext%
@@ -93,6 +179,8 @@
 \newcount\pgf@sys@svg@scopecount
 \def\pgfsys@beginscope{%
   \edef\pgf@sys@svg@thescopecount{\the\pgf@sys@svg@scopecount}%
+  \let\pgf@sys@svg@prestrokecolor=\pgf@sys@svg@strokecolor%
+  \let\pgf@sys@svg@prefillcolor=\pgf@sys@svg@fillcolor%
   \begingroup%
     \pgf@sys@svg@scopecount=1\relax%
     \pgfsysprotocol@literal{<g>}%
@@ -105,7 +193,11 @@
     \repeat%  
   \endgroup%
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%  
+  \global\let\pgf@sys@svg@strokecolor=\pgf@sys@svg@prestrokecolor%  
+  \global\let\pgf@sys@svg@fillcolor=\pgf@sys@svg@prefillcolor%  
 }
+\def\pgf@sys@svg@strokecolor{\xcolor@{}{}{gray}{0}}
+\def\pgf@sys@svg@fillcolor{\xcolor@{}{}{gray}{0}}
 
 % Graphics state
 \def\pgfsys@setdash#1#2{\pgf@sys@svg@gs{stroke-dasharray="#1" stroke-dashoffset="#2"}}
@@ -117,14 +209,41 @@
 \def\pgfsys@miterjoin{\pgf@sys@svg@gs{stroke-linejoin="miter"}}
 \def\pgfsys@roundjoin{\pgf@sys@svg@gs{stroke-linejoin="round"}}
 \def\pgfsys@beveljoin{\pgf@sys@svg@gs{stroke-linejoin="bevel"}}
-%\def\pgfsys@color@rgb@stroke#1#2#3{\pgfsysprotocol@literal{#1 #2 #3 RG}}
-%\def\pgfsys@color@rgb@fill#1#2#3{\pgfsysprotocol@literal{#1 #2 #3 rg}}
-%\def\pgfsys@color@cmyk@stroke#1#2#3#4{\pgfsysprotocol@literal{#1 #2 #3 #4 K}}
-%\def\pgfsys@color@cmyk@fill#1#2#3#4{\pgfsysprotocol@literal{#1 #2 #3 #4 k}}
-%\def\pgfsys@color@cmy@stroke#1#2#3{\pgfsysprotocol@literal{#1 #2 #3 0 K}}
-%\def\pgfsys@color@cmy@fill#1#2#3{\pgfsysprotocol@literal{#1 #2 #3 0 k}}
-%\def\pgfsys@color@gray@stroke#1{\pgfsysprotocol@literal{#1 G}}
-%\def\pgfsys@color@gray@fill#1{\pgfsysprotocol@literal{#1 g}}
+
+\def\pgfsys@color@reset{\pgf@sys@svg@strokecolorfalse\pgf@sys@svg@fillcolorfalse}
+
+\def\pgfsys@color@rgb@stroke#1#2#3{%
+  \xdef\pgf@sys@svg@strokecolor{\noexpand\xcolor@{}{}{rgb}{#1,#2,#3}}
+  \pgf@sys@svg@strokecolortrue%
+}
+\def\pgfsys@color@rgb@fill#1#2#3{%
+  \xdef\pgf@sys@svg@fillcolor{\noexpand\xcolor@{}{}{rgb}{#1,#2,#3}}
+  \pgf@sys@svg@fillcolortrue%
+}
+\def\pgfsys@color@cmyk@stroke#1#2#3#4{%
+  \xdef\pgf@sys@svg@strokecolor{\noexpand\xcolor@{}{}{cmyk}{#1,#2,#3,#4}}
+  \pgf@sys@svg@strokecolortrue%
+}
+\def\pgfsys@color@cmyk@fill#1#2#3#4{%
+  \xdef\pgf@sys@svg@fillcolor{\noexpand\xcolor@{}{}{cmyk}{#1,#2,#3,#4}}
+  \pgf@sys@svg@fillcolortrue%
+}
+\def\pgfsys@color@cmy@stroke#1#2#3{%
+  \xdef\pgf@sys@svg@strokecolor{\noexpand\xcolor@{}{}{cmy}{#1,#2,#3}}
+  \pgf@sys@svg@strokecolortrue%
+}
+\def\pgfsys@color@cmy@fill#1#2#3{%
+  \xdef\pgf@sys@svg@fillcolor{\noexpand\xcolor@{}{}{cmy}{#1,#2,#3}}
+  \pgf@sys@svg@fillcolortrue%
+}
+\def\pgfsys@color@gray@stroke#1{%
+  \xdef\pgf@sys@svg@strokecolor{\noexpand\xcolor@{}{}{gray}{#1}}
+  \pgf@sys@svg@strokecolortrue%
+}
+\def\pgfsys@color@gray@fill#1{%
+  \xdef\pgf@sys@svg@fillcolor{\noexpand\xcolor@{}{}{gray}{#1}}
+  \pgf@sys@svg@fillcolortrue%
+}
 
 \endinput
 
