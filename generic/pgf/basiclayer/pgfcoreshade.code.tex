@@ -10,16 +10,19 @@
 % Parsing functions
 %
 \newdimen\pgf@max
+\newcount\pgf@sys@shading@range@num
 \def\pgf@parsefunc#1{%
   \edef\temp{{#1}}%
   \expandafter\pgf@convertrgbstring\temp%
   \edef\temp{{\pgf@rgbconv}}%
   \expandafter\pgf@@parsefunc\temp}
 \def\pgf@@parsefunc#1{%
-  \def\pgf@bounds{}%
-  \def\pgf@funcs{}%
-  \def\pgf@psfuncs{}%
-  \def\pgf@encode{}%
+  \let\pgf@bounds=\@empty%
+  \let\pgf@funcs=\@empty%
+  \let\pgf@psfuncs=\@empty%
+  \let\pgf@encode=\@empty%
+  \let\pgf@sys@shading@ranges=\@empty%
+  \pgf@sys@shading@range@num=0\relax%
   \pgf@parsefirst[#1; ]%
   \pgf@parselastdom[#1; ]%
   \pgf@parsemid[#1; ]%
@@ -37,21 +40,29 @@
   }
 \def\pgf@parsefirst[rgb(#1)=(#2,#3,#4)#5]{%
   \setlength\pgf@x{#1}%
+  \edef\pgf@sys@shading@start@pos{\the\pgf@x}%
   \pgf@sys@bp@correct\pgf@x%
   \edef\pgf@doma{\pgf@sys@tonumber{\pgf@x}}%
   \edef\pgf@prevx{\pgf@sys@tonumber{\pgf@x}}%
   \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+  \edef\pgf@sys@shading@start@rgb{\pgf@sys@rgb}%
+  \let\pgf@sys@prevcolor=\pgf@sys@shading@start@rgb%
+  \let\pgf@sys@prevpos=\pgf@sys@shading@start@pos%
   \edef\pgf@prevcolor{\pgf@rgb}%
   \edef\pgf@firstcolor{\pgf@rgb}}
 \def\pgf@parselastdom[rgb(#1)=(#2,#3,#4); {%
   \@ifnextchar]{%
     \setlength\pgf@x{#1}%
+    \edef\pgf@sys@shading@end@pos{\the\pgf@x}%
     \pgf@max=\pgf@x\relax%
     \pgf@sys@bp@correct\pgf@x%
     \edef\pgf@domb{\pgf@sys@tonumber{\pgf@x}}%
+    \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+    \edef\pgf@sys@shading@end@rgb{\pgf@sys@rgb}%
     \@gobble}{\pgf@parselastdom[}}
 \def\pgf@parsemid[rgb(#1)=(#2,#3,#4); {\pgf@parserest[}
 \def\pgf@parserest[rgb(#1)=(#2,#3,#4); {%
+  \advance\pgf@sys@shading@range@num by1\relax%
   \@ifnextchar]{%
     \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
     \edef\pgf@singlefunc{\space%
@@ -61,11 +72,18 @@
       << /FunctionType 2 /Domain [\pgf@doma\space\pgf@domb] /C0
       [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }%
     \edef\pgf@psfuncs{\pgf@prevx\space \pgf@rgb\space \pgf@prevcolor\space pgfshade \pgf@psfuncs}%
+    \setlength\pgf@x{#1}%
+    \edef\pgf@sys@shading@ranges{\pgf@sys@shading@ranges{{\pgf@sys@prevpos}{\the\pgf@x}{\pgf@sys@prevcolor}{\pgf@sys@rgb}}}%
+    \edef\pgf@sys@prevpos{\the\pgf@x}%
+    \let\pgf@sys@prevcolor=\pgf@sys@rgb%
     \@gobble}{%
     \setlength\pgf@x{#1}%
-    \pgf@sys@bp@correct\pgf@x%
     \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
+    \edef\pgf@sys@shading@ranges{\pgf@sys@shading@ranges{{\pgf@sys@prevpos}{\the\pgf@x}{\pgf@sys@prevcolor}{\pgf@sys@rgb}}}%
+    \edef\pgf@sys@prevpos{\the\pgf@x}%
+    \let\pgf@sys@prevcolor=\pgf@sys@rgb%
     \edef\pgf@psfuncs{\pgf@prevx\space \pgf@rgb\space \pgf@prevcolor\space pgfshade \pgf@psfuncs}%
+    \pgf@sys@bp@correct\pgf@x%
     \edef\pgf@prevx{\pgf@sys@tonumber{\pgf@x}}%
     \edef\pgf@bounds{\pgf@bounds\space\pgf@sys@tonumber{\pgf@x}}%
     \edef\pgf@encode{\pgf@encode\space0 1}%
@@ -85,7 +103,9 @@
   \expandafter\convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
   \expandafter\pgf@getrgb@@\pgf@rgbcolor!}
 \def\pgf@getrgb@@#1,#2,#3!{%
-  \def\pgf@rgb{#1 #2 #3}}
+  \def\pgf@rgb{#1 #2 #3}%
+  \def\pgf@sys@rgb{{#1}{#2}{#3}}%
+}
 
 
 \def\pgf@convertrgbstring#1{%
