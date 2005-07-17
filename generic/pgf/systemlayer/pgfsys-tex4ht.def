@@ -23,12 +23,10 @@
 
 \newcount\pgf@sys@svg@picnum
 
-\newdimen\pgfsvgextraborder
-\pgfsvgextraborder=.5pt
 
 \def\pgfsys@beginpicture{%
-  \Configure{[]}{}{}
-  \Configure{()}{}{}
+  \Configure{[]}{$}{$}
+  \Configure{()}{$}{$}
   \Configure{$$}{}{}{}%$$
   \Configure{$}{}{}{}%$
   \Configure{SUB}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
@@ -49,17 +47,16 @@
   \global\advance\pgf@sys@svg@picnum by 1\relax%
   % Ok, compute width/height
   \pgf@xa=\pgf@picminx%
-  \advance\pgf@xa by-\pgfsvgextraborder%
   \pgf@ya=\pgf@picminy%
-  \advance\pgf@ya by-\pgfsvgextraborder%
   \pgf@xb=\pgf@picmaxx%
-  \advance\pgf@xb by\pgfsvgextraborder%
   \pgf@yb=\pgf@picmaxy%
-  \advance\pgf@yb by\pgfsvgextraborder%
   \pgf@x=\pgf@xb%
   \advance\pgf@x by-\pgf@xa%
   \pgf@y=\pgf@yb%
   \advance\pgf@y by-\pgf@ya%
+  \ifdim\pgf@y<1pt%
+    \pgf@y=1pt%
+  \fi%
   \HCode{<object data="\jobname-\the\pgf@sys@svg@picnum.svg"
     width="\the\pgf@x" height="\the\pgf@y"
   type="image/svg+xml"><p>SVG-Viewer needed.</p></object>}%
@@ -78,18 +75,68 @@
   \special{t4ht<\jobname-\the\pgf@sys@svg@picnum.svg}%
 }
 
-\def\pgfsys@beginhbox{%
-  \ifx\tikz@textcolor\@empty\else\pgfsetfillcolor{\tikz@textcolor}\fi% tweak for TikZ
-  \HCode{<text style="stroke:none" transform="scale(1,-1)"}%
+\def\pgfsys@hbox#1{%
+  \pgf@x=.5\wd#1%
+  \ifx\tikz@textcolor\relax%
+  \else%
+    \ifx\tikz@textcolor\@empty%
+      \pgfsetfillcolor{.}%
+    \else%
+      \pgfsetfillcolor{\tikz@textcolor}%
+    \fi%
+  \fi% tweak for TikZ
+  \HCode{<text
+    style="stroke:none"
+    transform="scale(1,-1) translate(\the\pgf@x,0pt)"
+    text-anchor="middle"
+  }%
   \ifx\f@size\@empty%
   \else%
     \HCode{ font-size="\f@size"}%
   \fi%  
-  \HCode{>\Hnewline }}
-\def\pgfsys@endhbox{\HCode{</text>\Hnewline }}
+  \HCode{>\Hnewline }%
+    \wd#1=0pt%
+    \ht#1=0pt%
+    \dp#1=0pt%
+    \box#1
+  \HCode{</text>\Hnewline }%
+}
 
 \def\pgfsys@outerinvoke{\ifpgfpicture\expandafter\pgfsys@invoke\else\expandafter\@gobble\fi}
 
+
+\def\pgfsys@shadingoutsidepgfpicture#1{%
+  \begingroup%
+    #1%
+    \setbox\pgfpic=\hbox to0pt{%
+      \pgfsys@beginpicture%
+        \pgfsys@beginscope%
+          \pgf@sys@svg@sh@defs%
+          \pgf@sys@svg@sh%
+        \pgfsys@endscope%
+      \pgfsys@endpicture%
+      \hss%  
+    }%
+    \pgf@process{\pgf@sys@svg@pos}%
+    \pgf@picminx=0pt%
+    \pgf@picminy=0pt%
+    \pgf@picmaxx=\pgf@x%
+    \pgf@picmaxy=\pgf@y%
+    \pgf@baseline=0pt%
+    \pgfsys@typesetpicturebox\pgfpic%
+  \endgroup%
+}
+
+\def\pgfsys@shadinginsidepgfpicture#1{%
+  #1%
+  \pgf@sys@svg@sh@defs% hmmm....
+  \pgf@process{\pgf@sys@svg@pos}
+  \pgf@xa=-.5\pgf@x%
+  \pgf@ya=-.5\pgf@y%
+  \pgfsysprotocol@literal{<g transform="translate(\pgf@sys@tonumber{\pgf@xa},\pgf@sys@tonumber{\pgf@ya})">\Hnewline}%
+  \pgf@sys@svg@sh%
+  \pgfsysprotocol@literal{</g>\Hnewline}%
+}
 
 
 
@@ -102,6 +149,7 @@
   \let\pgf@texht@undeclaredcolor=\@undeclaredcolor
   \def\@declaredcolor{\ifpgfpicture\expandafter\pgf@xcolor@declaredcolor\else\expandafter\pgf@texht@declaredcolor\fi}
   \def\@undeclaredcolor{\ifpgfpicture\expandafter\pgf@xcolor@undeclaredcolor\else\expandafter\pgf@texht@undeclaredcolor\fi}
+  \ConfigureEnv{pgfpicture}{}{}{}{}
 }
 
 \endinput
