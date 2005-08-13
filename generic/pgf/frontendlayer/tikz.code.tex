@@ -187,24 +187,36 @@
 \newif\iftikz@mode@shade
 \let\tikz@mode=\@empty
 
+\def\tikz@nonetext{none}
+
 \define@key{tikz}{path only}[]{\let\tikz@mode=\@empty}
 \define@key{tikz}{shade}[]{\tikz@addmode{\tikz@mode@shadetrue}}
 \define@key{tikz}{fill}[]{%
   \def\tikz@temp{#1}%
-  \ifx\tikz@temp\@empty%
+  \ifx\tikz@temp\tikz@nonetext%
+    \tikz@addmode{\tikz@mode@fillfalse}%
   \else%
-    \tikz@addoption{\pgfsetfillcolor{#1}}%
-    \def\tikz@fillcolor{#1}%
+    \ifx\tikz@temp\@empty%
+    \else%
+      \tikz@addoption{\pgfsetfillcolor{#1}}%
+      \def\tikz@fillcolor{#1}%
+    \fi%
+    \tikz@addmode{\tikz@mode@filltrue}%
   \fi%
-  \tikz@addmode{\tikz@mode@filltrue}}
+}
 \define@key{tikz}{draw}[]{%
   \def\tikz@temp{#1}%
-  \ifx\tikz@temp\@empty%
+  \ifx\tikz@temp\tikz@nonetext%
+    \tikz@addmode{\tikz@mode@drawfalse}%
   \else%
-    \tikz@addoption{\pgfsetstrokecolor{#1}}%
-    \def\tikz@strokecolor{#1}%
+    \ifx\tikz@temp\@empty%
+    \else%
+      \tikz@addoption{\pgfsetstrokecolor{#1}}%
+      \def\tikz@strokecolor{#1}%
+    \fi%
+    \tikz@addmode{\tikz@mode@drawtrue}%
   \fi%
-  \tikz@addmode{\tikz@mode@drawtrue}}
+}
 \define@key{tikz}{clip}[]{\tikz@addmode{\tikz@mode@cliptrue}}
 \define@key{tikz}{use as bounding box}[]{\tikz@addmode{\tikz@mode@boundarytrue}}
 
@@ -480,6 +492,21 @@
 
 
 
+% Execute option
+
+\define@key{tikz}{execute at begin picture}{\expandafter\def\expandafter\tikz@atbegin@picture\expandafter{\tikz@atbegin@picture#1}}
+\define@key{tikz}{execute at end picture}{\expandafter\def\expandafter\tikz@atend@picture\expandafter{\tikz@atend@picture#1}}
+\define@key{tikz}{execute at begin scope}{\expandafter\def\expandafter\tikz@atbegin@scope\expandafter{\tikz@atbegin@scope#1}}
+\define@key{tikz}{execute at end scope}{\expandafter\def\expandafter\tikz@atend@scope\expandafter{\tikz@atend@scope#1}}
+
+\let\tikz@atbegin@picture=\@empty
+\let\tikz@atend@picture=\@empty
+\let\tikz@atbegin@scope=\@empty
+\let\tikz@atend@scope=\@empty
+
+
+
+
 % Styles
 
 % Handled in a special way.
@@ -494,6 +521,17 @@
   \edef\tikz@marshal{\def\expandafter\noexpand\csname tikz@st@#1\endcsname}%
   \expandafter\expandafter\expandafter\tikz@marshal\expandafter\expandafter\expandafter{\csname tikz@st@#1\endcsname,#2}}
 
+\def\iftikzstyleempty#1#2#3{%
+  \expandafter\ifx\csname tikz@st@#1\endcsname\@empty%
+    \let\pgf@next=\@firstoftwo%
+  \else%
+    \expandafter\ifx\csname tikz@st@#1\endcsname\relax%
+      \let\pgf@next=\@firstoftwo%
+    \else
+      \let\pgf@next=\@secondoftwo%
+    \fi%
+  \fi%
+  \pgf@next{#2}{#3}}
 
 %
 %
@@ -504,10 +542,10 @@
 \tikzstyle{help lines}=      [color=gray,line width=0.2pt]
 
 \tikzstyle{every picture}=   []
-\tikzstyle{every plot}=      []
-\tikzstyle{every node}=      []
 \tikzstyle{every path}=      []
 \tikzstyle{every scope}=     []
+\tikzstyle{every plot}=      []
+\tikzstyle{every node}=      []
 
 \tikzstyle{ultra thin}=      [line width=0.1pt]
 \tikzstyle{very thin}=       [line width=0.2pt]
@@ -535,8 +573,6 @@
 
 \tikzstyle{bend at start}=   [bend pos=0,bend={+(0,0)}]
 \tikzstyle{bend at end}=     [bend pos=1,bend={+(0,0)}]
-
-
 
 
 
@@ -644,8 +680,15 @@
 %
 
 \def\tikzpicture{\@ifnextchar[\tikz@picture{\tikz@picture[]}}%}
-\def\tikz@picture[#1]{\pgfpicture\tikz@installcommands\scope[style=every picture,#1]}
+\def\tikz@picture[#1]{%
+  \pgfpicture%
+  \let\tikz@atbegin@picture=\@empty%
+  \let\tikz@atend@picture=\@empty%
+  \tikz@installcommands\scope[style=every picture,#1]%
+  \tikz@atbegin@picture%
+}
 \def\endtikzpicture{%
+    \tikz@atend@picture%
     \global\let\pgf@shift@baseline=\pgf@baseline%
     \endscope%
     \let\pgf@baseline=\pgf@shift@baseline%
@@ -689,13 +732,17 @@
 \def\tikz@@scope@env[#1]{%
   \pgfscope%
   \begingroup%
+  \let\tikz@atbegin@scope=\@empty%
+  \let\tikz@atend@scope=\@empty%
   \let\tikz@options=\@empty%
   \let\tikz@mode=\@empty%
   \tikz@every@style{every scope}%
   \tikz@setkeys{#1}%
   \tikz@options%
+  \tikz@atbegin@scope%
 }
 \def\endtikz@scope@env{%
+  \tikz@atend@scope%
   \endgroup%
   \endpgfscope%
 }
