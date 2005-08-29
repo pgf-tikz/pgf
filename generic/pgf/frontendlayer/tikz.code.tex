@@ -17,10 +17,13 @@
 \newbox\tikz@figbox
 \newbox\tikz@tempbox
 
+\newcount\tikztreelevel
 \newcount\tikznumberofchildren
 \newcount\tikznumberofcurrentchild
 
 \newcount\tikz@fig@count
+
+\newif\iftikz@node@is@a@label
 
 \let\tikz@options=\@empty
 \let\tikz@transform=\relax
@@ -500,25 +503,33 @@
 
 
 % Tree options
-\define@key{tikz}{tree edge path}{\def\tikz@tree@edge@path{#1}}
+\define@key{tikz}{edge to parent path}{\def\tikz@edge@to@parent@path{#1}}
 
-\define@key{tikz}{level distance}{\setlength\tikzleveldistance{#1}}
-\define@key{tikz}{sibling distance}{\setlength\tikzsiblingdistance{#1}}
+\define@key{tikz}{level distance}{\tikz@parse@distances{level}#1 \pgf@stop}%
+\define@key{tikz}{sibling distance}{\tikz@parse@distances{sibling}#1 \pgf@stop}%
 
-\define@key{tikz}{arrange function}{\let\tikz@arrange=#1}
+\define@key{tikz}{grow function}{\let\tikz@grow=#1}
 
 \define@key{tikz}{parent anchor}{\def\tikzparentanchor{.#1}\ifx\tikzparentanchor\tikz@border@text\let\tikzparentanchor\@empty\fi}
 \define@key{tikz}{child anchor}{\def\tikzchildanchor{.#1}\ifx\tikzchildanchor\tikz@border@text\let\tikzchildanchor\@empty\fi}
 
+\def\tikz@parse@distances#1#2 {%
+  \@ifnextchar o{\tikz@parse@distances@level{#1}#2}%
+  {\expandafter\setlength\csname tikz#1distance\endcsname{#2}\@gobble}%
+}
+\def\tikz@parse@distances@level#1#2on level #3 \pgf@stop{%
+  \expandafter\def\csname tikz@tree@#1@distance#3\endcsname{#2}%
+}
+
 \def\tikz@border@text{.border}
 \let\tikzparentanchor=\@empty
 \let\tikzchildanchor=\@empty
-\def\tikz@tree@edge@path{(\tikzparentnode\tikzparentanchor) -- (\tikzchildnode\tikzchildanchor)}
+\def\tikz@edge@to@parent@path{(\tikzparentnode\tikzparentanchor) -- (\tikzchildnode\tikzchildanchor)}
 
 \tikzleveldistance=15mm
 \tikzsiblingdistance=15mm
 
-\def\tikz@arrange@below@lr{%
+\def\tikz@grow@below@lr{%
   \pgftransformyshift{-\tikzleveldistance}
   \pgf@xa=.5\tikzsiblingdistance
   \pgftransformxshift{-\tikznumberofchildren\pgf@xa}
@@ -526,7 +537,7 @@
   \pgftransformxshift{\tikznumberofcurrentchild\tikzsiblingdistance}
 }
 
-\let\tikz@arrange=\tikz@arrange@below@lr
+\let\tikz@grow=\tikz@grow@below@lr
 
 
 % Execute option
@@ -583,8 +594,8 @@
 \tikzstyle{every scope}=            []
 \tikzstyle{every plot}=             []
 \tikzstyle{every node}=             []
-\tikzstyle{every children}=         []
-\tikzstyle{every grandchildren}=    []
+\tikzstyle{every child}=            []
+\tikzstyle{every child node}=       []
 
 \tikzstyle{ultra thin}=             [line width=0.1pt]
 \tikzstyle{very thin}=              [line width=0.2pt]
@@ -613,10 +624,9 @@
 \tikzstyle{bend at start}=          [bend pos=0,bend={+(0,0)}]
 \tikzstyle{bend at end}=            [bend pos=1,bend={+(0,0)}]
 
-\tikzstyle{tree edge}=              [draw]
-\tikzstyle{tree edge node}=         []
+\tikzstyle{edge to parent}=         [draw]
 
-\tikzstyle{arrange below rightward}=[arrange function=\tikz@arrange@below@lr]
+\tikzstyle{grow downward}=          [grow function=\tikz@grow@below@lr]
 
 
 
@@ -906,6 +916,7 @@
     \let\tikz@moveto@waiting=\relax%
     \let\tikz@timer=\relax%
     \let\tikz@collected@onpath=\@empty%
+    \tikz@node@is@a@labelfalse%
     \tikz@expandcount=1000\relax%
     \tikz@lastx=0pt%
     \tikz@lasty=0pt%
@@ -963,7 +974,7 @@
                             \let\@next=\tikz@cchar%
                           \else%
                             \ifx\@let@token e%
-                              \let\@next=\tikz@ellipse%
+                              \let\@next=\tikz@e@char%
                             \else%
                               \ifx\@let@token g%
                                 \let\@next=\tikz@grid%
@@ -1019,6 +1030,8 @@
   {\@ifnextchar h{\tikz@children}{\tikz@cochar}}}%
 \def\tikz@cochar o{%
   \@ifnextchar o{\tikz@coordinate}{\tikz@cosine}}
+\def\tikz@e@char{%
+  \@ifnextchar l{\tikz@ellipse}{\tikz@edgetoparent}}
 
 
 \def\tikz@finish{%
@@ -1287,14 +1300,13 @@
 
 
 \def\tikz@invoke@collected@onpath{%
-  \let\tikz@default@pos=\relax%
+  \tikz@node@is@a@labeltrue%
   \let\tikz@temp=\tikz@collected@onpath%
   \let\tikz@collected@onpath=\@empty%
   \expandafter\tikz@scan@next@command\tikz@temp\pgf@stop%
-  \def\tikz@default@pos{\let\tikz@time=\@empty}%
+  \tikz@node@is@a@labelfalse%
 }
 
-\def\tikz@default@pos{\let\tikz@time=\@empty}%
 
 
 
@@ -1422,6 +1434,17 @@
 \def\tikz@parse@options#1]{%
   \tikz@setkeys{#1}%
   \tikz@scan@next@command%
+}
+
+
+
+% Syntax for edge to parent: 
+% edge to parent [options]
+\def\tikz@edgetoparent dge to parent{\@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
+\def\tikz@@edgetoparent[#1]{%
+  \let\tikz@edge@to@parent@needed=\@empty%
+  \tikz@node@is@a@labeltrue%
+  \tikz@scan@next@command [style=edge to parent,#1] \tikz@edge@to@parent@path%
 }
 
 
@@ -1845,7 +1868,10 @@
       \let\tikz@transform=\@empty%
       \let\tikz@mode=\@empty%
       \def\tikz@node@at{\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
-      \tikz@default@pos%
+      \iftikz@node@is@a@label%
+      \else%
+        \let\tikz@time=\@empty%
+      \fi%
       \tikz@every@style{every node}%
       \tikz@@scan@fig}%
 \def\tikz@@scan@fig{%
@@ -1955,7 +1981,7 @@
 
 
 % Syntax for trees:
-% node {...} child [options] { node ... } child [options] {node ...}
+% node {...} child [options] {...} child [options] {...} ...
 
 \def\tikz@children{%
   % Start collecting the children:
@@ -1978,15 +2004,20 @@
 }
 \long\def\tikz@children@collected{%
   \begingroup%
+    \advance\tikztreelevel by 1\relax%
+    \expandafter\ifx\csname tikz@tree@level@distance\the\tikztreelevel\endcsname\relax%
+    \else%
+      \tikzleveldistance=\csname tikz@tree@level@distance\the\tikztreelevel\endcsname%
+    \fi%
+    \expandafter\ifx\csname tikz@tree@sibling@distance\the\tikztreelevel\endcsname\relax%
+    \else%
+      \tikzsiblingdistance=\csname tikz@tree@sibling@distance\the\tikztreelevel\endcsname%
+    \fi%
     \let\tikzparentnode=\tikz@last@fig@name%
     % Transform to center of node
     \pgftransformshift{\pgfpointanchor{\tikzparentnode}{center}}%
-    \let\tikz@options=\@empty%
-    \let\tikz@transform=\@empty%
-    \tikz@every@style{every children}%
-    \tikz@transform%
     \tikznumberofcurrentchild=0\relax%
-    \tikz@children@collected%
+    \tikz@children@list%
     \global\setbox\tikz@tempbox=\copy\tikz@figbox%
   \endgroup%
   \setbox\tikz@figbox=\box\tikz@tempbox%  
@@ -1995,86 +2026,82 @@
 
 
 % Syntax for child:
-% child[options] {node (name) {node}
-%   edge[options] labelled[options] {text}
-%   children[options] {...}}
+%
+% child
+%
+% child[options]
+%
+% child[options] {node (name) {child node text} ...
+%   edge to parent[options] node {label text} node {label text}}
 
 \def\tikz@childnode[#1]#2{%
   \advance\tikznumberofcurrentchild by1\relax%
-  \def\tikz@child@node@options{name=\tikzparentnode-\the\tikznumberofcurrentchild}%
-  \def\tikz@child@options{#1}%
-  \@ifnextchar[\tikz@childnode@opt{\tikz@childnode@opt[]}[#1]#2;}%}
-\def\tikz@childnode@opt[#1]{%
-  \@ifnextchar n{\tikz@child@a@node}{\tikz@child@a@node@opt [shape=coordinate]{}}}
-\def\tikz@child@a@node node{%
-  \@ifnextchar[\tikz@child@a@node@opt{\tikz@child@a@node@opt[]}}%}
-\def\tikz@child@a@node@opt[#1]{%
-  \expandafter\def\expandafter\tikz@child@node@options\expandafter{\tikz@child@node@options,#1}%
-  \@ifnextchar({\tikz@childnode@name}{\tikz@childnode@continue}}%}
-\def\tikz@childnode@name(#1){%
-  \expandafter\def\expandafter\tikz@child@node@options\expandafter{\tikz@child@node@options,name=#1}%
-  \tikz@childnode@continue%
-}
-\def\tikz@childnode@continue#1{%
-  % Ok, options and name read
   \setbox\tikz@figbox=\hbox\bgroup%
     \unhbox\tikz@figbox%
     \hbox\bgroup\bgroup%
         \pgfinterruptpath%
           \pgfscope%
-            \tikz@options% from children 
             \let\tikz@options=\@empty%
             \let\tikz@transform=\@empty%
-            \expandafter\tikz@setkeys\expandafter{\tikz@child@options}%
-            \tikz@options% from children 
+            \tikz@every@style{every child}%
+            \tikz@setkeys{#1}%
+            \tikz@options%
             \tikz@transform%            
-            \tikz@arrange%
+            \tikz@grow%
             % Typeset node:
-            \expandafter\node\expandafter[\tikz@child@node@options]{#1}
-              \pgfextra{\global\let\tikzchildnode=\tikz@last@fig@name};%
-  % Next, check for parent edge
-  \let\tikz@child@edge@options=\@empty%
-  \@ifnextchar t{\tikz@child@edge}{\tikz@child@edge@nonode}%
-}
-\def\tikz@child@edge tree edge{\@ifnextchar[{\tikz@child@edge@opt}{\tikz@child@edge@opt[]}}%}
-\def\tikz@child@edge@opt[#1]{%
-  \def\tikz@child@edge@options{#1}%
-  \@ifnextchar n{\tikz@child@edge@node}{\tikz@child@edge@nonode}%
-}
-\def\tikz@child@edge@node node{\@ifnextchar[{\tikz@child@edge@node@opt}{\tikz@child@edge@node@opt[]}}%}%
-\def\tikz@child@edge@node@opt[#1]{%
-  \def\tikz@child@edge@node@options{#1}%
-  \@ifnextchar({\tikz@child@edge@node@named}{\tikz@child@edge@node@notnamed}}%}
-\def\tikz@child@edge@node@named(#1){%
-  \expandafter\def\expandafter\tikz@child@edge@node@options\expandafter{\tikz@child@edge@node@options,name=#1}%
-  \tikz@child@edge@node@notnamed%
-}
-\def\tikz@child@edge@node@notnamed#1{%
-  \edef\tikz@childtime{node[style=tree edge node,pos=\tikz@time,}%
-  \path [style=tree edge]\expandafter[\tikz@child@edge@options]
-    \tikz@tree@edge@path 
-    \expandafter\tikz@childtime\tikz@child@edge@node@options] {#1};
-  \tikz@child@continueA%
-}
-\def\tikz@child@edge@nonode{%
-  \path [style=tree edge]\expandafter[\tikz@child@edge@options] \tikz@tree@edge@path;
-  \tikz@child@continueA%
-}
-\def\tikz@child@continueA{\@ifnextchar c{\tikz@child@children}{\tikz@child@done}}
-\def\tikz@child@children children{\@ifnextchar[{\tikz@child@children@opt}{\tikz@child@children@opt[]}}%}
-\def\tikz@child@children@opt[#1]#2{%
-  \let\tikz@last@fig@name=\tikzchildnode%
-  \path children[#1,style=every grandchildren]{%
-    #2};
-  \tikz@child@done%
-}
-\def\tikz@child@done{%
-        \endpgfscope
+            \edef\tikz@parent@node@name{[name=\tikzparentnode-\the\tikznumberofcurrentchild,style=every child node]}%
+            \def\tikz@child@node@text{[shape=coordinate]{}}
+            \tikz@parse@child@node#2\pgf@stop%
+            \expandafter\expandafter\expandafter\node
+            \expandafter\tikz@parent@node@name
+              \tikz@child@node@text
+              \pgfextra{\global\let\tikz@childnode@name=\tikz@last@fig@name};%
+            \let\tikzchildnode=\tikz@childnode@name%
+            {%
+              \def\tikz@edge@to@parent@needed{edge to parent}
+              \path \tikz@child@node@rest \tikz@edge@to@parent@needed;
+            }%
+        \endpgfscope%
       \endpgfinterruptpath%
     \egroup\egroup%
   \egroup%
-  \@ifnextchar;{\@gobble}{\@ifnextchar\tikz@activesemicolon{\@gobble}{\PackageError{tikz}{Semicolon expected}}}%
 }
+
+\def\tikz@parse@child@node{%
+  \@ifnextchar n{\tikz@parse@child@node@n}%
+  {\@ifnextchar c{\tikz@parse@child@node@c}%
+    {\tikz@parse@child@node@rest}}}
+\def\tikz@parse@child@node@rest#1\pgf@stop{\def\tikz@child@node@rest{#1}}
+\def\tikz@parse@child@node@c c{\@ifnextchar o{\tikz@parse@child@node@co}{\tikz@parse@child@node@rest c}}
+\def\tikz@parse@child@node@co o{\@ifnextchar o{\tikz@parse@child@node@coordinate}{\tikz@parse@child@node@rest co}}
+\def\tikz@parse@child@node@coordinate ordinate#1(#2){%
+  \@ifnextchar a{\tikz@p@c@n@c@at(#2)}{%
+    \def\tikz@child@node@text{[shape=coordinate,name=#2]{}}%
+    \tikz@parse@child@node@rest}}
+\def\tikz@p@c@n@c@at(#1)at#2(#3){%
+  \def\tikz@child@node@text{[shape=coordinate,name=#1]at(#3){}}%
+  \tikz@parse@child@node@rest}%
+\def\tikz@parse@child@node@n node{%
+  \let\tikz@child@node@text=\@empty%
+  \tikz@p@c@s}%
+\def\tikz@p@c@s{%
+  \@ifnextchar a{\tikz@p@c@s@at}
+  {\@ifnextchar ({\tikz@p@c@s@paran}
+    {\@ifnextchar [{\tikz@p@c@s@bra}
+      {\@ifnextchar \bgroup{\tikz@p@c@s@group}
+        {\PackageError{tikz}{Cannot parse this node}{}}}}}}%}}
+\def\tikz@p@c@s@at at#1(#2){%
+  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text at(#2)}
+  \tikz@p@c@s}
+\def\tikz@p@c@s@paran(#1){%
+  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text(#1)}
+  \tikz@p@c@s}
+\def\tikz@p@c@s@bra[#1]{%
+  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text[#1]}
+  \tikz@p@c@s}
+\def\tikz@p@c@s@group#1{%
+  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text{#1}}
+  \tikz@parse@child@node@rest}
 
 
 %
