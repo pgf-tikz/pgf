@@ -503,15 +503,40 @@
 
 
 % Tree options
-\define@key{tikz}{edge to parent path}{\def\tikz@edge@to@parent@path{#1}}
+\define@key{tikz}{edge from parent path}{\def\tikz@edge@to@parent@path{#1}}
 
 \define@key{tikz}{level distance}{\tikz@parse@distances{level}#1 \pgf@stop}%
 \define@key{tikz}{sibling distance}{\tikz@parse@distances{sibling}#1 \pgf@stop}%
 
 \define@key{tikz}{grow function}{\let\tikz@grow=#1}
+\define@key{tikz}{grow}{\tikz@set@growth{#1}\edef\tikz@special@level{\the\tikztreelevel}}%
+\define@key{tikz}{grow'}{\tikz@set@growth{#1}\tikz@swap@growth\edef\tikz@special@level{\the\tikztreelevel}}%
 
 \define@key{tikz}{parent anchor}{\def\tikzparentanchor{.#1}\ifx\tikzparentanchor\tikz@border@text\let\tikzparentanchor\@empty\fi}
 \define@key{tikz}{child anchor}{\def\tikzchildanchor{.#1}\ifx\tikzchildanchor\tikz@border@text\let\tikzchildanchor\@empty\fi}
+
+\def\tikz@special@level{-1}% never
+
+\def\tikz@swap@growth{%
+  % Swap left and right
+  \let\tikz@temp=\tikz@angle@grow@right%
+  \let\tikz@angle@grow@right=\tikz@angle@grow@left%
+  \let\tikz@angle@grow@left=\tikz@temp%
+}%
+
+\def\tikz@set@growth#1{%
+  \let\tikz@grow=\tikz@grow@direction%
+  \expandafter\ifx\csname tikz@grow@direction@#1\endcsname\relax%
+    \c@pgf@counta=#1\relax%
+  \else%
+    \c@pgf@counta=\csname tikz@grow@direction@#1\endcsname%
+  \fi%
+  \edef\tikz@angle@grow{\the\c@pgf@counta}%
+  \advance\c@pgf@counta by-90\relax%
+  \edef\tikz@angle@grow@left{\the\c@pgf@counta}%
+  \advance\c@pgf@counta by180\relax%
+  \edef\tikz@angle@grow@right{\the\c@pgf@counta}%
+}
 
 \def\tikz@parse@distances#1#2 {%
   \@ifnextchar o{\tikz@parse@distances@level{#1}#2}%
@@ -529,15 +554,35 @@
 \tikzleveldistance=15mm
 \tikzsiblingdistance=15mm
 
-\def\tikz@grow@below@lr{%
-  \pgftransformyshift{-\tikzleveldistance}
-  \pgf@xa=.5\tikzsiblingdistance
-  \pgftransformxshift{-\tikznumberofchildren\pgf@xa}
-  \pgftransformxshift{-\pgf@xa}
-  \pgftransformxshift{\tikznumberofcurrentchild\tikzsiblingdistance}
+\def\tikz@grow@direction@down{-90}
+\def\tikz@grow@direction@up{90}
+\def\tikz@grow@direction@left{180}
+\def\tikz@grow@direction@right{0}
+
+\def\tikz@grow@direction@south{-90}
+\def\tikz@grow@direction@north{90}
+\def\tikz@grow@direction@west{180}
+\def\tikz@grow@direction@east{0}
+
+\expandafter\def\csname tikz@grow@direction@north east\endcsname{45}
+\expandafter\def\csname tikz@grow@direction@north west\endcsname{135}
+\expandafter\def\csname tikz@grow@direction@south east\endcsname{-45}
+\expandafter\def\csname tikz@grow@direction@south west\endcsname{-135}
+
+\def\tikz@grow@direction{%
+  \pgftransformshift{\pgfpointpolar{\tikz@angle@grow}{\tikzleveldistance}}%
+  \ifnum\tikztreelevel=\tikz@special@level%
+  \else%
+    \pgf@xc=.5\tikzsiblingdistance%
+    \c@pgf@counta=\tikznumberofchildren%
+    \advance\c@pgf@counta by1\relax%
+    \@tempdima=\c@pgf@counta\pgf@xc%
+    \pgftransformshift{\pgfpointpolar{\tikz@angle@grow@left}{\@tempdima}}%
+    \pgftransformshift{\pgfpointpolar{\tikz@angle@grow@right}{\tikznumberofcurrentchild\tikzsiblingdistance}}%
+  \fi%
 }
 
-\let\tikz@grow=\tikz@grow@below@lr
+\setkeys{tikz}{grow=down}
 
 
 % Execute option
@@ -624,7 +669,7 @@
 \tikzstyle{bend at start}=          [bend pos=0,bend={+(0,0)}]
 \tikzstyle{bend at end}=            [bend pos=1,bend={+(0,0)}]
 
-\tikzstyle{edge to parent}=         [draw]
+\tikzstyle{edge from parent}=       [draw]
 
 \tikzstyle{grow downward}=          [grow function=\tikz@grow@below@lr]
 
@@ -1270,9 +1315,9 @@
   \@ifnextchar[{\tikz@@collect@coordinate@opt#1}{\tikz@@collect@coordinate@opt#1[]}}%}
 \def\tikz@@collect@coordinate@opt#1[#2]{%
   \@ifnextchar({\tikz@@collect@coordinate#1[#2]}{%
-    \PackageError{tikz}{( expected}{}}}%}}
+  \tikz@collect@label@onpath#1node[shape=coordinate,#2]{}}}%}
 \def\tikz@@collect@coordinate#1[#2](#3){%
-  \tikz@collect@label@onpath#1node[shape=coordinate][#2](#3){}}
+  \tikz@collect@label@onpath#1node[shape=coordinate,#2](#3){}}
 
 \def\tikz@collect@label@onpath#1node{%
   \expandafter\def\expandafter\tikz@collected@onpath\expandafter{\tikz@collected@onpath node}%
@@ -1438,13 +1483,13 @@
 
 
 
-% Syntax for edge to parent: 
-% edge to parent [options]
-\def\tikz@edgetoparent dge to parent{\@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
+% Syntax for edge from parent: 
+% edge from parent [options]
+\def\tikz@edgetoparent dge from parent{\@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
 \def\tikz@@edgetoparent[#1]{%
   \let\tikz@edge@to@parent@needed=\@empty%
   \tikz@node@is@a@labeltrue%
-  \tikz@scan@next@command [style=edge to parent,#1] \tikz@edge@to@parent@path%
+  \tikz@scan@next@command [style=edge from parent,#1] \tikz@edge@to@parent@path%
 }
 
 
@@ -1843,7 +1888,7 @@
 % where ``at (point)'' is optional
 \def\tikz@coordinate ordinate{%
   \@ifnextchar({\tikz@@coordinate}
-  {\PackageError{tikz}{( expected}{}}}%}}
+  {\tikz@fig ode[shape=coordinate]{}}}%}
 \def\tikz@@coordinate(#1){%
   \@ifnextchar a{\tikz@@coordinate@at(#1)}
   {\tikz@fig ode[shape=coordinate](#1){}}}
@@ -1928,7 +1973,7 @@
           \fi%
         \endpgfinterruptpicture%
       \egroup%
-    \@ifnextchar c{\tikz@fig@withchildren}{\tikz@fig@continue}}
+    \@ifnextchar c{\tikz@fig@withchildren}{\@ifnextchar[{\tikz@fig@withchildren}{\tikz@fig@continue}}}%}
 \def\tikz@fig@withchildren{%
   \ifx\tikz@fig@name\@empty%
     % Assign a dummy name
@@ -2032,7 +2077,7 @@
 % child[options]
 %
 % child[options] {node (name) {child node text} ...
-%   edge to parent[options] node {label text} node {label text}}
+%   edge from parent[options] node {label text} node {label text}}
 
 \def\tikz@childnode[#1]#2{%
   \advance\tikznumberofcurrentchild by1\relax%
@@ -2058,7 +2103,7 @@
               \pgfextra{\global\let\tikz@childnode@name=\tikz@last@fig@name};%
             \let\tikzchildnode=\tikz@childnode@name%
             {%
-              \def\tikz@edge@to@parent@needed{edge to parent}
+              \def\tikz@edge@to@parent@needed{edge from parent}
               \path \tikz@child@node@rest \tikz@edge@to@parent@needed;
             }%
         \endpgfscope%
@@ -2074,9 +2119,13 @@
 \def\tikz@parse@child@node@rest#1\pgf@stop{\def\tikz@child@node@rest{#1}}
 \def\tikz@parse@child@node@c c{\@ifnextchar o{\tikz@parse@child@node@co}{\tikz@parse@child@node@rest c}}
 \def\tikz@parse@child@node@co o{\@ifnextchar o{\tikz@parse@child@node@coordinate}{\tikz@parse@child@node@rest co}}
-\def\tikz@parse@child@node@coordinate ordinate#1(#2){%
-  \@ifnextchar a{\tikz@p@c@n@c@at(#2)}{%
-    \def\tikz@child@node@text{[shape=coordinate,name=#2]{}}%
+\def\tikz@parse@child@node@coordinate ordinate{%
+  \@ifnextchar ({\tikz@@parse@child@node@coordinate}{%
+    \def\tikz@child@node@text{[shape=coordinate]{}}%
+    \tikz@parse@child@node@rest}}%}
+\def\tikz@@parse@child@node@coordinate(#1){%
+  \@ifnextchar a{\tikz@p@c@n@c@at(#1)}{%
+    \def\tikz@child@node@text{[shape=coordinate,name=#1]{}}%
     \tikz@parse@child@node@rest}}
 \def\tikz@p@c@n@c@at(#1)at#2(#3){%
   \def\tikz@child@node@text{[shape=coordinate,name=#1]at(#3){}}%
