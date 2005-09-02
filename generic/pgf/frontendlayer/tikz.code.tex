@@ -505,15 +505,16 @@
 % Tree options
 \define@key{tikz}{edge from parent path}{\def\tikz@edge@to@parent@path{#1}}
 
-\define@key{tikz}{level distance}{\tikz@parse@distances{level}#1 \pgf@stop}%
-\define@key{tikz}{sibling distance}{\tikz@parse@distances{sibling}#1 \pgf@stop}%
+\define@key{tikz}{parent anchor}{\def\tikzparentanchor{.#1}\ifx\tikzparentanchor\tikz@border@text\let\tikzparentanchor\@empty\fi}
+\define@key{tikz}{child anchor}{\def\tikzchildanchor{.#1}\ifx\tikzchildanchor\tikz@border@text\let\tikzchildanchor\@empty\fi}
 
-\define@key{tikz}{grow function}{\let\tikz@grow=#1}
+\define@key{tikz}{level distance}{\setlength\tikzleveldistance{#1}}
+\define@key{tikz}{sibling distance}{\setlength\tikzsiblingdistance{#1}}
+
+\define@key{tikz}{growth function}{\let\tikz@grow=#1}
 \define@key{tikz}{grow}{\tikz@set@growth{#1}\edef\tikz@special@level{\the\tikztreelevel}}%
 \define@key{tikz}{grow'}{\tikz@set@growth{#1}\tikz@swap@growth\edef\tikz@special@level{\the\tikztreelevel}}%
 
-\define@key{tikz}{parent anchor}{\def\tikzparentanchor{.#1}\ifx\tikzparentanchor\tikz@border@text\let\tikzparentanchor\@empty\fi}
-\define@key{tikz}{child anchor}{\def\tikzchildanchor{.#1}\ifx\tikzchildanchor\tikz@border@text\let\tikzchildanchor\@empty\fi}
 
 \def\tikz@special@level{-1}% never
 
@@ -536,14 +537,6 @@
   \edef\tikz@angle@grow@left{\the\c@pgf@counta}%
   \advance\c@pgf@counta by180\relax%
   \edef\tikz@angle@grow@right{\the\c@pgf@counta}%
-}
-
-\def\tikz@parse@distances#1#2 {%
-  \@ifnextchar o{\tikz@parse@distances@level{#1}#2}%
-  {\expandafter\setlength\csname tikz#1distance\endcsname{#2}\@gobble}%
-}
-\def\tikz@parse@distances@level#1#2on level #3 \pgf@stop{%
-  \expandafter\def\csname tikz@tree@#1@distance#3\endcsname{#2}%
 }
 
 \def\tikz@border@text{.border}
@@ -601,6 +594,7 @@
 
 
 % Styles
+\define@key{tikz}{set style}{\tikzstyle#1}
 
 % Handled in a special way.
 \def\tikzstyle#1=#2[#3]{% #2 is dummy
@@ -625,6 +619,8 @@
     \fi%
   \fi%
   \pgf@next{#2}{#3}}
+
+
 
 %
 %
@@ -670,8 +666,6 @@
 \tikzstyle{bend at end}=            [bend pos=1,bend={+(0,0)}]
 
 \tikzstyle{edge from parent}=       [draw]
-
-\tikzstyle{grow downward}=          [grow function=\tikz@grow@below@lr]
 
 
 
@@ -1378,6 +1372,7 @@
     \tikz@make@last@position{\pgfpoint{\pgf@x}{\pgf@y}}%
     \tikz@flush@moveto@toward{\tikz@last@position}\pgf@x\pgf@y%
     \pgfpathlineto{\tikz@last@position}%
+    \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
     \tikz@make@last@position{#1}%
     \edef\tikz@moveto@waiting{\tikz@shapeborder@name}%    
   \else%
@@ -1385,9 +1380,9 @@
     % Record the starting point for later labels on the path:
     \tikz@make@last@position{#1}%
     \tikz@flush@moveto@toward{\tikz@last@position}\pgf@x\pgf@y%
-  \pgfpathlineto{\tikz@last@position}%
+    \pgfpathlineto{\tikz@last@position}%
+    \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \fi%
-  \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}
   \let\tikz@timer=\tikz@timer@line%
   \tikz@scan@next@command%
 }
@@ -2050,14 +2045,11 @@
 \long\def\tikz@children@collected{%
   \begingroup%
     \advance\tikztreelevel by 1\relax%
-    \expandafter\ifx\csname tikz@tree@level@distance\the\tikztreelevel\endcsname\relax%
-    \else%
-      \tikzleveldistance=\csname tikz@tree@level@distance\the\tikztreelevel\endcsname%
-    \fi%
-    \expandafter\ifx\csname tikz@tree@sibling@distance\the\tikztreelevel\endcsname\relax%
-    \else%
-      \tikzsiblingdistance=\csname tikz@tree@sibling@distance\the\tikztreelevel\endcsname%
-    \fi%
+    \let\tikz@options=\@empty%
+    \let\tikz@transform=\@empty%
+    \tikz@every@style{level \the\tikztreelevel}%
+    \tikz@options%
+    \tikz@transform%            
     \let\tikzparentnode=\tikz@last@fig@name%
     % Transform to center of node
     \pgftransformshift{\pgfpointanchor{\tikzparentnode}{center}}%
@@ -2104,7 +2096,11 @@
             \let\tikzchildnode=\tikz@childnode@name%
             {%
               \def\tikz@edge@to@parent@needed{edge from parent}
-              \path \tikz@child@node@rest \tikz@edge@to@parent@needed;
+              \ifx\tikz@child@node@rest\@empty%
+                \path edge from parent;%
+              \else%
+                \path (0,0) \tikz@child@node@rest \tikz@edge@to@parent@needed;%
+              \fi%
             }%
         \endpgfscope%
       \endpgfinterruptpath%

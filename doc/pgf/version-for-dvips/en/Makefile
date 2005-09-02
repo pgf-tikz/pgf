@@ -1,17 +1,18 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
-doc   = pgfmanual-pdftex-version
+doc   = pgfmanual
 
-all: $(doc).pdf
+all: $(doc).ps
 
-pgfmanual-pdftex-version.idx: 
-	touch pgfmanual-pdftex-version.idx
+pgfmanual.idx: 
+	touch pgfmanual.idx
 
-pgfmanual-pdftex-version.ind: pgfmanual-pdftex-version.idx 
+pgfmanual.ind: pgfmanual.idx 
 	makeindex $(doc).idx
 
-pgfmanual-pdftex-version.pdf: $(doc).tex $(doc).ind 
-	pdfelatex $(doc).tex
+pgfmanual.ps: $(doc).tex $(doc).ind 
+	elatex $(doc).tex
 	(egrep -q $(rerun) $(doc).log && pdfelatex $(doc).tex) || true
+	dvips $(doc).dvi
 
 clean:
 	rm -f *.aux *.log *.bbl *.blg *.ps *.dvi *.pdf *.toc *.out *.snm
