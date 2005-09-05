@@ -24,6 +24,7 @@
 \newcount\tikz@fig@count
 
 \newif\iftikz@node@is@a@label
+\newif\iftikz@snaked
 
 \let\tikz@options=\@empty
 \let\tikz@transform=\relax
@@ -576,6 +577,34 @@
 }
 
 \setkeys{tikz}{grow=down}
+
+
+
+
+% Snake options
+\define@key{tikz}{snake}[]{%
+  \def\tikz@@snake{#1}%
+  \ifx\tikz@@snake\@empty%
+    \tikz@snakedtrue%
+  \else%
+    \ifx\tikz@@snake\tikz@nonetext%
+      \tikz@snakedfalse%
+    \else%
+      \tikz@snakedtrue%
+      \let\tikz@snake=\tikz@@snake%
+    \fi%
+  \fi}
+
+\define@key{tikz}{wave amplitude}{\setlength{\pgfsnakewaveamplitude}{#1}}
+\define@key{tikz}{wave length}{\setlength{\pgfsnakewavelength}{#1}}
+\define@key{tikz}{wave angle}{\def\pgfsnakewavesangle{#1}}
+
+\define@key{tikz}{object distance}{\def\pgfsnakeobjectdistance{#1}}
+\define@key{tikz}{object size}{\def\pgfsnakeobjectsize{#1}}
+
+\def\tikz@snake{zigzag}
+
+
 
 
 % Execute option
@@ -1371,7 +1400,7 @@
     \pgf@process{\pgfpointshapeborder{\tikz@shapeborder@name}{\tikz@last@position}}%
     \tikz@make@last@position{\pgfpoint{\pgf@x}{\pgf@y}}%
     \tikz@flush@moveto@toward{\tikz@last@position}\pgf@x\pgf@y%
-    \pgfpathlineto{\tikz@last@position}%
+    \tikz@path@lineto{\tikz@last@position}%
     \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
     \tikz@make@last@position{#1}%
     \edef\tikz@moveto@waiting{\tikz@shapeborder@name}%    
@@ -1380,11 +1409,20 @@
     % Record the starting point for later labels on the path:
     \tikz@make@last@position{#1}%
     \tikz@flush@moveto@toward{\tikz@last@position}\pgf@x\pgf@y%
-    \pgfpathlineto{\tikz@last@position}%
+    \tikz@path@lineto{\tikz@last@position}%
     \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \fi%
   \let\tikz@timer=\tikz@timer@line%
   \tikz@scan@next@command%
+}
+
+% snake or lineto?
+\def\tikz@path@lineto#1{%
+  \iftikz@snaked%
+    \pgfpathsnaketo{\tikz@snake}{#1}%
+  \else%
+    \pgfpathlineto{#1}%
+  \fi%
 }
 
 
@@ -1406,15 +1444,15 @@
     {%
       \pgf@process{\pgfpointshapeborder{\tikz@shapeborder@name}{\pgfpoint{\tikz@lastx}{\pgf@yc}}}%
       \tikz@make@last@position{\pgfpoint{\pgf@x}{\pgf@y}}%
-      \pgfpathlineto{\pgfpoint{\tikz@lastx}{\pgf@yc}}%
-      \pgfpathlineto{\tikz@last@position}%
+      \tikz@path@lineto{\pgfpoint{\tikz@lastx}{\pgf@yc}}%
+      \tikz@path@lineto{\tikz@last@position}%
       \xdef\tikz@timer@end@temp{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}% move out of group
     }%
     \let\tikz@timer@end=\tikz@timer@end@temp%
     \edef\tikz@moveto@waiting{\tikz@shapeborder@name}%    
   \else%
-    \pgfpathlineto{\pgfpoint{\tikz@lastx}{\pgf@yc}}%
-    \pgfpathlineto{\tikz@last@position}%
+    \tikz@path@lineto{\pgfpoint{\tikz@lastx}{\pgf@yc}}%
+    \tikz@path@lineto{\tikz@last@position}%
     \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}% move out of group
   \fi%
   \let\tikz@timer=\tikz@timer@hvline%
@@ -1440,15 +1478,15 @@
     {%
       \pgf@process{\pgfpointshapeborder{\tikz@shapeborder@name}{\pgfpoint{\pgf@xc}{\tikz@lasty}}}%
       \tikz@make@last@position{\pgfpoint{\pgf@x}{\pgf@y}}%
-      \pgfpathlineto{\pgfpoint{\pgf@xc}{\tikz@lasty}}%
-      \pgfpathlineto{\tikz@last@position}%
+      \tikz@path@lineto{\pgfpoint{\pgf@xc}{\tikz@lasty}}%
+      \tikz@path@lineto{\tikz@last@position}%
       \xdef\tikz@timer@end@temp{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}% move out of group
     }%
     \let\tikz@timer@end=\tikz@timer@end@temp%
     \edef\tikz@moveto@waiting{\tikz@shapeborder@name}%    
   \else%
-    \pgfpathlineto{\pgfpoint{\pgf@xc}{\tikz@lasty}}%
-    \pgfpathlineto{\tikz@last@position}%
+    \tikz@path@lineto{\pgfpoint{\pgf@xc}{\tikz@lasty}}%
+    \tikz@path@lineto{\tikz@last@position}%
     \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \fi%
   \let\tikz@timer=\tikz@timer@vhline%
@@ -1599,9 +1637,10 @@
   \edef\tikz@timer@end{\noexpand\pgfpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \let\tikz@timer=\tikz@timer@line%  
   \pgfpathmoveto{\pgfpoint{\pgf@xa}{\pgf@ya}}%
-  \pgfpathlineto{\pgfpoint{\tikz@lastx}{\pgf@ya}}%
-  \pgfpathlineto{\pgfpoint{\tikz@lastx}{\tikz@lasty}}%
-  \pgfpathlineto{\pgfpoint{\pgf@xa}{\tikz@lasty}}%
+  \tikz@path@lineto{\pgfpoint{\tikz@lastx}{\pgf@ya}}%
+  \tikz@path@lineto{\pgfpoint{\tikz@lastx}{\tikz@lasty}}%
+  \tikz@path@lineto{\pgfpoint{\pgf@xa}{\tikz@lasty}}%
+  \tikz@path@lineto{\pgfpoint{\pgf@xa}{\pgf@ya}}%
   \pgfpathclose%
   \pgfpathmoveto{\pgfpoint{\tikz@lastx}{\tikz@lasty}}%
   \def\pgfstrokehook{}%

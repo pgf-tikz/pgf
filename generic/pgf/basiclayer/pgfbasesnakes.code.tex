@@ -84,6 +84,71 @@
 % Use a snake
 %
 % #1 = snake name
+% #2 = point to which the snake leads
+%
+% This operation mainly computes \pgfpathsnakealongvector for a vector
+% appropriately choosen. See \pgfpathsnakealongvector for details.
+%
+% Example:
+%
+% \pgfpathsnaketo{zig zag}{\pgfpoint{2cm}{3cm}}
+
+\def\pgfpathsnaketo#1#2{%
+  \begingroup%
+    % compute target vector
+    \pgf@process{#2}%
+    \advance\pgf@x by-\pgf@path@lastx%
+    \advance\pgf@y by-\pgf@path@lasty%
+    % Ok, now normalize the vector...
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgfpointnormalised{}}%
+    % ok, now computer length (arghh...)
+    % In theory that's easy: divide the larger of the values x or y by
+    % the normalizes x or y. Well...
+    %
+    % First, make xa and ya positive:
+    \ifdim\pgf@xa<0pt%
+      \pgf@xa=-\pgf@xa%
+    \fi%
+    \ifdim\pgf@ya<0pt%
+      \pgf@ya=-\pgf@ya%
+    \fi%
+    % Now do division:
+    \ifdim\pgf@xa>\pgf@ya%
+      \c@pgf@counta=\pgf@x%
+      \ifnum\c@pgf@counta=0\relax%
+      \else%
+        \divide\c@pgf@counta by 255\relax%
+        \pgf@xa=16\pgf@xa\relax%
+        \divide\pgf@xa by\c@pgf@counta%
+        \pgf@xa=16\pgf@xa\relax%
+      \fi%
+    \else%
+      \c@pgf@counta=\pgf@y%
+      \ifnum\c@pgf@counta=0\relax%
+      \else%
+        \divide\c@pgf@counta by 255\relax%
+        \pgf@ya=16\pgf@ya\relax%
+        \divide\pgf@ya by\c@pgf@counta%
+        \pgf@xa=16\pgf@ya\relax%
+      \fi%
+    \fi%
+    % Make positive:
+    \ifdim\pgf@xa<0pt%
+      \pgf@xa=-\pgf@xa%
+    \fi%
+    % That's it, folks!
+    \edef\pgf@marshal{\noexpand\pgfpathsnakealongvector{#1}{\the\pgf@xa}{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}}%
+    \pgf@marshal%
+  \endgroup%
+}
+
+
+
+% Use a snake
+%
+% #1 = snake name
 % #2 = length of the snake
 % #3 = vector along which the snake grows, should have unit length.
 %
@@ -106,9 +171,11 @@
 %
 % Example:
 %
-% \pgfpathsnake{zig zag}{100pt}{\pgfpolar{30}{1pt}}
+% \pgfpathsnakealongvector{zig zag}{100pt}{\pgfpolar{30}{1pt}}
 
-\def\pgfpathsnake#1#2#3{%
+\def\pgfpathsnakealongvector#1#2#3{%
+  \@ifundefined{pgf@snake@@#1@initial}{\PackageError{pgf}{Undefined snake ``#1''}{}}
+  { 
   \begingroup% keep things local
     \pgf@pt@x=\pgf@path@lastx% evil trickery to transform to the last point
     \pgf@pt@y=\pgf@path@lasty%
@@ -130,6 +197,7 @@
     % Last step:
     \csname pgf@snake@@#1@final@code\endcsname%
   \endgroup%
+  }
 }
 
 \def\pgf@final@text{final}
@@ -143,12 +211,15 @@
 }
 
 \def\pgf@snake@do@state{%
-  \let\pgf@snake@next=\pgf@snake@do@code%
+  \let\pgf@snake@next=\relax%
   \let\pgf@snake@next@state=\pgf@snake@current@state%
   % execute options
   \def\pgf@marshal{\setkeys{pgfsnake}}%
   \expandafter\expandafter\expandafter\pgf@marshal
   \expandafter\expandafter\expandafter{\csname pgf@snake@@\pgf@snake@name @\pgf@snake@current@state @options\endcsname}%
+  \ifx\pgf@snake@next\relax%
+    \pgf@snake@next=\pgf@snake@do@code%
+  \fi%
   \pgf@snake@next%
 }
 
@@ -176,11 +247,13 @@
   \def\pgf@snake@next@state{#1}%
 }
 
-\def\pgf@snake@switch@if#1 to #2\pgf@stop{%
-  \setlength\pgf@x{#1}%
-  \ifdim\pgfsnakeremainingdistance<\pgf@x%
-    \def\pgf@snake@current@state{#2}%
-    \let\pgf@snake@next=\pgf@snake@run%
+\def\pgf@snake@switch@if#1to #2\pgf@stop{%
+  \ifx\pgf@snake@next\relax%
+    \setlength\pgf@x{#1}%
+    \ifdim\pgfsnakeremainingdistance<\pgf@x%
+      \def\pgf@snake@current@state{#2}%
+      \let\pgf@snake@next=\pgf@snake@run%
+    \fi%
   \fi%
 }
 
