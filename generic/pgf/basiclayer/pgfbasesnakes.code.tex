@@ -1,0 +1,190 @@
+\ProvidesPackageRCS[v\pgfversion] $Header$
+
+% Copyright 2005 by Till Tantau <tantau@cs.tu-berlin.de>.
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+
+\newdimen\pgfsnakeremainingdistance
+\newdimen\pgfsnakecompleteddistance
+
+
+% Creates a new pgf snake
+%
+% #1 = snake name
+% #1 = initial state
+% #3= states of the snake
+%
+%
+% This command declares a new snake for later use. The second
+% parameter specifies the states of the snake, see also the
+% description of pgfpathsnake.
+%
+% Inside the code of #3 the command \state may be used. This command
+% will only be defined while #3 is executed.
+%
+% Example:
+%
+% \pgfdeclaresnake{zig zag}{one zig zag}
+% {
+%   \state{one zig zag}[width=10pt]
+%   {
+%     \pgfpathlineto{\pgfpoint{2.5pt}{2.5pt}}
+%     \pgfpathlineto{\pgfpoint{7.5pt}{-2.5pt}}
+%     \pgfpathlineto{\pgfpoint{10pt}{0pt}}
+%   }
+%   \state{final}
+%   {
+%     \pgfpathlineto{\pgfpoint{\pgfsnakeremainingdistance}{0pt}}
+%   }
+% }
+
+\long\def\pgfdeclaresnake#1#2#3{%
+  \def\pgf@snake@name{#1}%
+  \@namedef{pgf@snake@@#1@initial}{#2}%
+  \let\pgf@orig@state=\state%
+  \let\state=\pgf@snake@state
+  #3
+  \let\state=\pgf@orig@state%
+}
+
+
+% Declares a new state
+%
+% #1 = state name
+% #2 = options
+% #3 = path element
+%
+% Description:
+%
+% When a snake is drawn and the current state is #1, the following
+% happens. First, the options are executed, which will possible change
+% the state. If that does not happen, the path element is added to the
+% path and the coordinate system is translated by the path element's
+% width (which is specified using the width option).
+%
+% Example:
+%
+% \state{initial}[width=10pt]
+% {
+%   \pgfpathlineto{\pgfpoint{2.5pt}{2.5pt}}
+%   \pgfpathlineto{\pgfpoint{7.5pt}{-2.5pt}}
+%   \pgfpathlineto{\pgfpoint{10pt}{0pt}}
+% }
+
+\def\pgf@snake@state#1{\@ifnextchar[{\pgf@@snake@start#1}{\pgf@@snake@start#1[]}}%}
+\def\pgf@@snake@start#1[#2]#3{%
+  \@namedef{pgf@snake@@\pgf@snake@name @#1@options}{#2}%
+  \@namedef{pgf@snake@@\pgf@snake@name @#1@code}{#3}%
+}
+
+
+
+% Use a snake
+%
+% #1 = snake name
+% #2 = length of the snake
+% #3 = vector along which the snake grows, should have unit length.
+%
+% This command draws a snake (more precisely, it adds a snake to the
+% path). This works as follows:
+%
+% First, the coordinate system is transformed such that the vector #3
+% points to the right.
+%
+% Next, the state `initial' of the snake is entered. Unless the
+% options of this state cause it to switch to another state, the path
+% element is added to the path. Then, the coordinate system is
+% translated by the width of the path element as specified in the
+% width option of the path element. The dimensions
+% \pgfsnakeremainingdistance and \pgfsnakecompleteddistance are
+% updated. 
+%
+% The process ends when the state `final' is entered. The code of the
+% final state is executed and the process stops.
+%
+% Example:
+%
+% \pgfpathsnake{zig zag}{100pt}{\pgfpolar{30}{1pt}}
+
+\def\pgfpathsnake#1#2#3{%
+  \begingroup% keep things local
+    \pgf@pt@x=\pgf@path@lastx% evil trickery to transform to the last point
+    \pgf@pt@y=\pgf@path@lasty%
+    \pgf@process{#3}%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@xb=-\pgf@y%
+    \pgf@yb=\pgf@x%
+    \pgftransformcm
+      {\pgf@sys@tonumber{\pgf@xa}}{\pgf@sys@tonumber{\pgf@ya}}
+      {\pgf@sys@tonumber{\pgf@xb}}{\pgf@sys@tonumber{\pgf@yb}}
+      {\pgfpointorigin}%
+    % Now, setup the automaton
+    \expandafter\let\expandafter\pgf@snake@current@state\expandafter=\csname pgf@snake@@#1@initial\endcsname%
+    \def\pgf@snake@name{#1}%  
+    \pgfsnakecompleteddistance=0pt%  
+    \setlength\pgfsnakeremainingdistance{#2}%
+    \pgf@snake@run%
+    % Last step:
+    \csname pgf@snake@@#1@final@code\endcsname%
+  \endgroup%
+}
+
+\def\pgf@final@text{final}
+
+\def\pgf@snake@run{%
+  \let\pgf@snake@next=\pgf@snake@do@state%
+  \ifx\pgf@snake@current@state\pgf@final@text%
+    \let\pgf@snake@next=\relax%
+  \fi%
+  \pgf@snake@next%  
+}
+
+\def\pgf@snake@do@state{%
+  \let\pgf@snake@next=\pgf@snake@do@code%
+  \let\pgf@snake@next@state=\pgf@snake@current@state%
+  % execute options
+  \def\pgf@marshal{\setkeys{pgfsnake}}%
+  \expandafter\expandafter\expandafter\pgf@marshal
+  \expandafter\expandafter\expandafter{\csname pgf@snake@@\pgf@snake@name @\pgf@snake@current@state @options\endcsname}%
+  \pgf@snake@next%
+}
+
+\def\pgf@snake@do@code{%
+  % Ok, execute code:
+  \csname pgf@snake@@\pgf@snake@name @\pgf@snake@current@state @code\endcsname%
+  % next, do transformation and update
+  \setlength{\pgf@xa}{\pgf@snake@width}%
+  \advance\pgfsnakeremainingdistance by-\pgf@xa%
+  \advance\pgfsnakecompleteddistance by\pgf@xa%
+  \pgftransformxshift{\the\pgf@xa}%
+  % Next iteration:
+  \let\pgf@snake@current@state=\pgf@snake@next@state%
+  \pgf@snake@run 
+}
+
+\define@key{pgfsnake}{width}{%
+  \def\pgf@snake@width{#1}%
+  \pgf@snake@switch@if#1 to final\pgf@stop%
+}
+\define@key{pgfsnake}{switch if less than}{%
+  \pgf@snake@switch@if#1\pgf@stop%
+}
+\define@key{pgfsnake}{next state}{%
+  \def\pgf@snake@next@state{#1}%
+}
+
+\def\pgf@snake@switch@if#1 to #2\pgf@stop{%
+  \setlength\pgf@x{#1}%
+  \ifdim\pgfsnakeremainingdistance<\pgf@x%
+    \def\pgf@snake@current@state{#2}%
+    \let\pgf@snake@next=\pgf@snake@run%
+  \fi%
+}
+
+
+
+
+\endinput
