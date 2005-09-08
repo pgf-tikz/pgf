@@ -11,7 +11,7 @@ pgfmanual.ind: pgfmanual.idx
 
 pgfmanual.ps: $(doc).tex $(doc).ind 
 	elatex $(doc).tex
-	(egrep -q $(rerun) $(doc).log && pdfelatex $(doc).tex) || true
+	(egrep -q $(rerun) $(doc).log && elatex $(doc).tex) || true
 	dvips $(doc).dvi
 
 clean:

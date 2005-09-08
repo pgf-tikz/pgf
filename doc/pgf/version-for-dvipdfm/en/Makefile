@@ -10,9 +10,9 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
-	elatex $(doc).tex
+	(elatex $(doc).tex) || true
 	(egrep -q $(rerun) $(doc).log && pdfelatex $(doc).tex) || true
-	dvipdfm $(doc).tex
+	dvipdfm $(doc)
 
 clean:
 	rm -f *.aux *.log *.bbl *.blg *.ps *.dvi *.pdf *.toc *.out *.snm
