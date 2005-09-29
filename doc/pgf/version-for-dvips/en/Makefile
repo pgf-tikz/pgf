@@ -13,7 +13,7 @@ pgfmanual.ind: pgfmanual.idx
 pgfmanual.ps: $(doc).tex $(doc).ind 
 	$(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && $(latex) $(doc).tex) || true
-	dvips -o $(dos).ps $(doc).dvi
+	dvips -o $(doc).ps $(doc).dvi
 	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -sOutputFile=$(doc).pdf $(doc).ps
 
 clean:
