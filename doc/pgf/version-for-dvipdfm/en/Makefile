@@ -1,5 +1,6 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
+latex = elatex
 
 all: $(doc).pdf
 
@@ -10,8 +11,8 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
-	(elatex $(doc).tex) || true
-	(egrep -q $(rerun) $(doc).log && pdfelatex $(doc).tex) || true
+	($(latex) $(doc).tex) || true
+	(egrep -q $(rerun) $(doc).log && $(latex) $(doc).tex) || true
 	dvipdfm $(doc)
 
 clean:
