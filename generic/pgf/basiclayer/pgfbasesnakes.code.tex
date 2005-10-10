@@ -93,19 +93,24 @@
 
 
 
-% Use a snake
+% Use multiple snakes
 %
-% #1 = snake name
+% #1 = list of snake names/length pairs
 % #2 = point to which the snake leads
 %
-% This operation mainly computes \pgfpathsnakealongvector for a vector
-% appropriately choosen. See \pgfpathsnakealongvector for details.
+% This operation uses the snakes in parameter #1 to get to the point
+% #4. The parameter #1 should contain pairs consisting of a snake name
+% and a length for which this snake should be used. When the length is
+% computed, the dimensions \pgfsnakeremainingdistance and
+% \pgfsnakecompleteddistance will have been set to the length of the
+% total distance to #2 that has already been covered/that still needs
+% to be covered.
 %
 % Example:
 %
-% \pgfpathsnaketo{zig zag}{\pgfpoint{2cm}{3cm}}
+% \pgfpathsnakesto{{lineto}{1cm},{zig zag}{\pgfsnakeremainingdistance}}{\pgfpoint{2cm}{3cm}}
 
-\def\pgfpathsnaketo#1#2{%
+\def\pgfpathsnakesto#1#2{%
   \begingroup%
     % compute target vector
     \pgfpointtransformed{#2}%
@@ -150,11 +155,44 @@
     \ifdim\pgf@xa<0pt%
       \pgf@xa=-\pgf@xa%
     \fi%
-    % That's it, folks!
-    \edef\pgf@marshal{\noexpand\pgfpathsnakealongvector{#1}{\the\pgf@xa}{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}}%
-    \pgf@marshal%
+    % Ok, now we draw things...
+    \edef\pgf@list{#1}%
+    \pgfsnakeremainingdistance=\pgf@xa%
+    \pgfsnakecompleteddistance=0pt%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \@for\pgf@temp:=\pgf@list\do{%
+      \ifx\pgf@temp\@empty%
+      \else%
+        \expandafter\pgf@snake@invoke\pgf@temp%
+      \fi%
+    }%
   \endgroup%
 }
+
+\def\pgf@snake@invoke#1#2{%
+  \setlength\pgf@xa{#2}%
+  {%
+    \edef\pgf@marshal{\noexpand\pgfpathsnakealongvector{#1}{\the\pgf@xa}{\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@yb}}}%
+    \pgf@marshal%
+  }%
+  \advance\pgfsnakecompleteddistance by\pgf@xa%
+  \advance\pgfsnakeremainingdistance by-\pgf@xa%
+}
+
+% Use a snake
+%
+% #1 = snake name
+% #2 = point to which the snake leads
+%
+% This operation mainly computes \pgfpathsnakealongvector for a vector
+% appropriately choosen. See \pgfpathsnakealongvector for details.
+%
+% Example:
+%
+% \pgfpathsnaketo{zig zag}{\pgfpoint{2cm}{3cm}}
+
+\def\pgfpathsnaketo#1#2{\pgfpathsnakesto{{#1}{\pgfsnakeremainingdistance}}{#2}}
 
 
 
@@ -277,6 +315,31 @@
   \fi%
 }
 
+
+
+% lineto snake
+%
+% This snake simply adds a straight line. This snake is mainly useful
+% in conjunction with other snakes.
+
+\pgfdeclaresnake{lineto}{final}
+{
+  \state{final}
+  { \pgfpathlineto{\pgfpoint{\pgfsnakeremainingdistance}{0pt}} }
+}
+
+
+
+% moveto snake
+%
+% This snake simply jumps to the end. This snake, too, is mainly
+% useful in conjunction with other snakes.
+
+\pgfdeclaresnake{moveto}{final}
+{
+  \state{final}
+  { \pgfpathmoveto{\pgfpoint{\pgfsnakeremainingdistance}{0pt}} }
+}
 
 
 
