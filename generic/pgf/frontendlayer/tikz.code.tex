@@ -382,6 +382,7 @@
 
 % Text options
 \define@key{tikz}{text}{\def\tikz@textcolor{#1}}
+\define@key{tikz}{font}{\def\tikz@textfont{#1}}
 \define@key{tikz}{text width}{\def\tikz@text@width{#1}}
 \define@key{tikz}{text ragged}[]%
 {\def\tikz@text@action{\raggedright\rightskip\z@ plus2em \spaceskip.3333em \xspaceskip.5em\relax}}
@@ -406,6 +407,7 @@
 
 \let\tikz@text@width=\@empty
 \let\tikz@textcolor=\@empty
+\let\tikz@textfont=\@empty
 
 \def\tikz@text@action{\raggedright\rightskip\z@ plus2em \spaceskip.3333em \xspaceskip.5em\relax}
 
@@ -1216,7 +1218,7 @@
           \pgf@x=2\pgflinewidth%
           \advance\pgf@x by\tikz@double@width@distance%
           \pgflinewidth=\pgf@x%
-          \pgfsetlinewidth{\pgflinewidth}%
+          \pgfsetlinewidth{\the\pgflinewidth}%
     \fi%
   \fi%
   % 
@@ -1236,7 +1238,7 @@
     \iftikz@mode@double%
           \pgfsyssoftpath@setcurrentpath\pgf@last@used@path% reinstall
           \pgf@x=\tikz@double@width@distance%
-          \pgfsetlinewidth{\pgf@x}%
+          \pgfsetlinewidth{\the\pgf@x}%
           \pgfsetstrokecolor{\tikz@double@color}%
           \pgfsyssoftpath@flushcurrentpath%
           \pgfsys@stroke%
@@ -2038,8 +2040,9 @@
       \def\tikz@shape{rectangle}}%
     {}%
     \tikz@every@style{every \tikz@shape\space node}%
-    \setbox\pgfshapebox=\hbox%
+    \setbox\pgfnodeparttextbox=\hbox%
       \bgroup%
+        \tikz@every@style{every text node part}%
         \pgfinterruptpicture%
           \ifx\tikz@text@width\@empty%
           \else%
@@ -2048,11 +2051,13 @@
                 \tikz@text@action%
           \fi%
           \bgroup%
+            \aftergroup\unskip%
             \ifx\tikz@textcolor\@empty%
               \color{.}%
             \else%
               \color{\tikz@textcolor}%
             \fi%
+            \tikz@textfont%  
             \setbox\tikz@figbox=\box\voidb@x%
             \tikz@uninstallcommands%
             \aftergroup\tikz@fig@collectresetcolor%
@@ -2084,7 +2089,7 @@
     \ifx\tikz@text@width\@empty%
     \else%
       \setlength{\pgf@x}{\tikz@text@width}%
-      \wd\pgfshapebox=\pgf@x%
+      \wd\pgfnodeparttextbox=\pgf@x%
     \fi%
     % Possibly, we are ``online''
     \ifx\tikz@time\@empty%
@@ -2106,7 +2111,11 @@
             \pgfscope%
               \tikz@options%
               \setbox\tikz@figbox=\box\voidb@x%
-              \pgfnode{\tikz@shape}{\tikz@anchor}{\box\pgfshapebox}{\tikz@fig@name}{\begingroup\tikz@finish}%
+              \pgfmultipartnode{\tikz@shape}{\tikz@anchor}{\tikz@fig@name}{%
+                \@tempdima=\pgflinewidth%
+                {\begingroup\tikz@finish}%
+                \global\pgflinewidth=\@tempdima%
+              }%
             \endpgfscope
           \endpgfinterruptpath%
       }}%
@@ -2125,16 +2134,17 @@
 % node ... {... \nodepart{name} ... \nodepart{name} ...}
 
 \def\tikz@nodepart#1{%
+  \unskip%
   \gdef\tikz@nodepart@name{#1}%
   \global\let\tikz@fig@continue=\tikz@nodepart@continue%
-  \egroup\relax%
+  \@ifnextchar x{\egroup\relax}{\egroup\relax}% gobble spaces
 }
 \def\tikz@nodepart@continue{%
   \global\let\tikz@fig@continue=\tikz@fig@continue@orig%
   % Now start new box:
-  \tikz@every@style{every \tikz@nodepart@name\space node part}%
-  \expandafter\setbox\csname pgf@nodepartbox@\tikz@nodepart@name\endcsname=\hbox%
+   \expandafter\setbox\csname pgfnodepart\tikz@nodepart@name box\endcsname=\hbox%
       \bgroup%
+        \tikz@every@style{every \tikz@nodepart@name\space node part}%
         \pgfinterruptpicture%
           \ifx\tikz@text@width\@empty%
           \else%
@@ -2143,11 +2153,13 @@
                 \tikz@text@action%
           \fi%
           \bgroup%
+            \aftergroup\unskip%
             \ifx\tikz@textcolor\@empty%
               \color{.}%
             \else%
               \color{\tikz@textcolor}%
             \fi%
+            \tikz@textfont%  
             \setbox\tikz@figbox=\box\voidb@x%
             \tikz@uninstallcommands%
             \aftergroup\tikz@fig@collectresetcolor%

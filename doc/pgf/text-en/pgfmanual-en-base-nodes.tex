@@ -22,25 +22,29 @@ This section describes the |pgfbaseshapes| package.
 
 \pgfname\ comes with a sophisticated set of commands for creating
 \emph{nodes} and \emph{shapes}. A \emph{node} is a graphical object
-that consists (typically) of a text label and some additional stroked
-or filled paths. Each node has a certain \emph{shape}, which may be
-something simple like a |rectangle| or a |circle|, but it may also be
-something complicated like a |uml class diagram| (this shape is
-currently not implemented, though). Different nodes that have the same
-shape may look quite different, however, since shapes (need not)
-specify whether the shape path is stroked or filled.
+that consists (typically) of (one or more) text labels and some
+additional stroked or filled paths. Each node has a certain
+\emph{shape}, which may be something simple like a |rectangle| or a
+|circle|, but it may also be something complicated like a
+|uml class diagram| (this shape is currently not implemented,
+though). Different nodes that have the same shape may look quite
+different, however, since shapes (need not) specify whether the shape
+path is stroked or filled.
+
 
 \subsubsection{Creating and Referencing Nodes}
 
-You create a node by calling the macro |\pgfnode|. This macro takes
-several parameters and draws the requested shape at a certain
-position. In addition, it will ``remember'' the node's position within
-the current |{pgfpicture}|. You can then, later on, refer to the
+You create a node by calling the macro |\pgfnode| or the more general
+|\pgfmultipartnode|. These macro takes several parameters and draws
+the requested shape at a certain position. In addition, it will
+``remember'' the node's position within the current
+|{pgfpicture}|. You can then, later on, refer to the 
 node's position. Coordinate transformations are ``fully supported,''
 which means that if you used coordinate transformations to shift or
 rotate the shape of a node, the node's position will still be correctly
 determined by \pgfname. This is \emph{not} the case if you use canvas
 transformations, instead.
+
 
 \subsubsection{Anchors}
 
@@ -48,8 +52,8 @@ An important property of a node or a shape in general are its
 \emph{anchors}. Anchors are ``important'' positions in a shape. For
 example, the |center| anchor lies at the center of a shape, the
 |north| anchor is usually ``at the top, in the middle'' of a shape,
-the |text| anchor is the lower left corner of the shape's label, and
-so on.
+the |text| anchor is the lower left corner of the shape's text label
+(if present), and so on.
 
 Anchors are important both when you create a node and when you
 reference it. When you create a node, you specify the node's
@@ -97,7 +101,7 @@ text, when a shape is drawn, up to seven different layers are drawn:
   background path has been used (in whatever way the creator of the
   node chose).
 \item
-  The label layer. This layer inserts the node's text box.
+  The label layer. This layer inserts the node's text box(es).
 \item
   The ``behind the foreground layer.'' This layer, like the
   first layer, once more contains graphic commands that are ``simply
@@ -112,9 +116,38 @@ text, when a shape is drawn, up to seven different layers are drawn:
 
 Which of these layers are actually used depends on the shape.
 
+
+
+\subsubsection{Node Parts}
+
+A shape typically does not consist only of different background and
+foreground paths, but it may also have text labels. Indeed, for many
+shapes the text labels are the more important part of the shape.
+
+Most shapes will have only one text label. In this case, this text
+label is simply passed as a parameter to the |\pgfnode| command. When
+the node is drawn, the text label is shifted around such that its
+lower left corner is at the |text| anchor of the node.
+
+More complicated shapes may have more than one text label. Nodes of
+such shapes are called \emph{multipart nodes}. The different
+\emph{node parts} are simply the different text labels. For example, a
+|uml class| shape might have a |class name| part, a |method| part and
+an |attributes| part. Indeed, single part nodes are a special case of
+multipart nodes: They only have one part named |text|.
+
+When a shape is declared, you must specify the node parts. There is a
+simple command called |\nodeparts| that takes a list of the part names
+as input. When you create a node of a multipart shape, for each part
+of the node you must have setup a \TeX-box containing the text of the
+part. For a part named |XYZ| you must setup the box
+|\pgfnodepartXYZbox|. The box will be placed at the anchor |XYZ|. See
+the description of |\pgfmultipartnode| for more details.
+
+
 \subsection{Creating Nodes}
 
-You create a node using the following command:
+You create a node using on of the following commands:
 
 \begin{command}{\pgfnode\marg{shape}\marg{anchor}\marg{label
       text}\marg{name}\marg{path usage command}} 
@@ -168,6 +201,62 @@ You create a node using the following command:
       {\color{black}Hello World}{hellonode}{\pgfusepath{fill}}
   }
 \end{tikzpicture}
+\end{codeexample}
+
+  The \meta{label text} is typeset inside the \TeX-box
+  |\pgfnodeparttextbox|. This box is shown at the |text| anchor of the
+  node, if the node has a |text| part. See the description of
+  |\pgfmultipartnode| for details.
+\end{command}
+
+\begin{command}{\pgfmultipartnode\marg{shape}\marg{anchor}\marg{name}\marg{path
+      usage command}}
+  This command is the more general (and less user-friendly) version of
+  the |\pgfnode| command. While the |\pgfnode| command can only be
+  used for shapes that have a single part (which is the case for most
+  shapes), this command can also be used with multi-part nodes.
+
+  When this command is called, for each node part of the node you must
+  have setup one \TeX-box. Suppose the shape has two parts: The |text|
+  part and the |output| part. Then, prior to calling
+  |\pgfmultipartnode|, you must have setup the boxes
+  |\pgfnodeparttextbox| and |\pgfnodepartoutputbox|. These boxes may 
+  contain any \TeX-text. The shape code will then compute the
+  positions of the shape's anchors based on the sizes of the these
+  shapes. Finally, when the node is drawn, the boxes are placed at the
+  anchor positions |text| and |output|.
+
+\begin{codeexample}[]
+\setbox\pgfnodeparttextbox=\hbox{$q_1$}
+\setbox\pgfnodepartoutputbox=\hbox{01}
+\begin{pgfpicture}
+  \pgfmultipartnode{state with output}{center}{my state}{\pgfusepath{stroke}}
+\end{pgfpicture}
+\end{codeexample}
+
+  \emph{Note:\/} Be careful when using the |\setbox| command inside a
+  |{pgfpicture}| command. You will have to use |\pgfinterruptpath| at
+  the beginning of the box and |\endpgfinterruptpath| at the end of
+  the box to make sure that the box is typeset correctly. In the above
+  example this problem was sidestepped by moving the box construction
+  outside the environment.
+
+  \emph{Note:\/} It is not necessary to use |\newbox| for every node
+  part name. Although you need a different box for each part of a
+  single shape, two different shapes may very well use the same box
+  even when the names of the parts are different. Suppose you have a
+  |state with output| shape that has an |output| part and you have a
+  |uml class| shape that has a |methods| part. Then, in order to avoid
+  exhausting \TeX's limited number of box registers, you can say
+\begin{codeexample}[code only]
+\newbox\pgfnodepartoutputbox
+\let\pgfnodepartmethodsbox=\pgfnodepartoutputbox  
+\end{codeexample}
+  Also, when you have a node part name with spaces like |class name|,
+  it may be useful to create an alias:
+\begin{codeexample}[code only]
+\newbox\mybox
+\expandafter\let\csname pgfnodepartclass namebox\endcsname=\mybox
 \end{codeexample}
 \end{command}
 
@@ -263,7 +352,8 @@ translated somewhere else).
 
 One has to look up the set of anchors of each shape, there is no
 ``default'' set of anchors, except for the |center| anchor, which
-should always be present.
+should always be present. Also, most shapes will declare anchors like
+|north| or |east|, but this is not guaranteed.
 
 Once a node has been defined, you can refer to its anchors using the
 following commands:
@@ -357,6 +447,7 @@ pictures with several hundreds of nodes and documents with thousands
 of nodes in total. It would not do if \pgfname\ had to compute and
 store, say, dozens of anchor positions for every node.
 
+
 \subsubsection{What Must Be Defined For a Shape?}
 
 In order to define a new shape, you must provide:
@@ -373,6 +464,8 @@ In order to define a new shape, you must provide:
 \item
   optionally code for \emph{things to be drawn before or behind} the
   background and foreground paths.
+\item
+  optionally a list of node parts.
 \end{itemize}
 
 
@@ -437,9 +530,9 @@ The following command declares a new shape:
 \pgfdeclareshape{coordinate}
 {
   \savedanchor\centerpoint{%
-    \pgf@x=.5\wd\pgfshapebox%
-    \pgf@y=.5\ht\pgfshapebox%
-    \advance\pgf@y by -.5\dp\pgfshapebox%
+    \pgf@x=.5\wd\pgfnodeparttextbox%
+    \pgf@y=.5\ht\pgfnodeparttextbox%
+    \advance\pgf@y by -.5\dp\pgfnodeparttextbox%
   }
   \anchor{center}{\centerpoint}
   \anchorborder{\centerpoint}
@@ -457,17 +550,42 @@ The following command declares a new shape:
 }
 \end{codeexample}
 
+  \begin{command}{\nodeparts\marg{list of node parts}}
+    This command declares which parts make up nodes of this shape. A
+    \emph{node part} is a (possibly empty) text label that is drawn
+    when a node of the shape is created.
+
+    By default, a shape has just one node part called |text|. However,
+    there can be several node parts. For example, the
+    |state with output| shape has two parts: the |text| part, which
+    shows that state's name, and an |output| part, which shows the
+    output produced when the state is reached. For the
+    |state with output| shape the |\nodeparts| command was called with
+    the argument |{text,output}|.
+
+    When a multipart node is created, the text labels are drawn in the
+    sequences listed in the \meta{list of node parts}. For each node
+    part there you must have declared one anchor and the \TeX-box of
+    the part is placed at this anchor. For a node part called |XYZ|
+    the \TeX-box |\pgfnodepartXYZbox| is placed at anchor |XYZ|.
+  \end{command}
+
   \begin{command}{\savedanchor\marg{command}\marg{code}}
     This command declares a saved anchor. The argument \meta{command}
     should be a \TeX\ macro name like |\centerpoint|.
 
-    The \meta{code} will be executed each time |\pgfnode| is called to
-    create a node of the shape \meta{shape name}. When the \meta{code}
-    is executed, the box |\pgfshapebox| will contain the text label of
-    the node. Possibly, this box is void. The \meta{code} can now
-    use the width, height, and depth of the box to compute the
-    location of the saved anchor. In addition, the \meta{code} can
-    take into account the values of dimensions like
+    The \meta{code} will be executed each time |\pgfnode| (or
+    |\pgfmultipartnode|) is called to  create a node of the shape
+    \meta{shape name}. When the \meta{code} 
+    is executed, the \TeX-boxes of the node parts will contain the
+    text labels of the node. Possibly, these box are void. For
+    example, if there is just a |text| part, the node
+    |\pgfnodeparttextbox| will be setup when the \meta{code} is
+    executed. 
+
+    The \meta{code} can use the width, height, and depth of the
+    box(es) to compute the location of the saved anchor. In addition,
+    the \meta{code} can take into account the values of dimensions like
     |\pgfshapeminwidth| or |\pgfshapeinnerxsep|. Furthermore, the
     \meta{code} can take into consideration the values of any further
     shape-specific variables that are set at the moment when
@@ -504,8 +622,8 @@ The following command declares a new shape:
     the following code for the upper right corner:
 \begin{codeexample}[code only]
 \savedanchor{\upperrightcorner}{
-  \pgf@y=.5\ht\pgfshapebox % height of the box, ignoring the depth
-  \pgf@x=.5\wd\pgfshapebox % width of the box
+  \pgf@y=.5\ht\pgfnodeparttextbox % height of the box, ignoring the depth
+  \pgf@x=.5\wd\pgfnodeparttextbox % width of the box
 }
 \end{codeexample}
 
@@ -514,8 +632,8 @@ The following command declares a new shape:
     
 \begin{codeexample}[code only]
 \savedanchor{\upperrightcorner}{
-  \pgf@y=.\ht\pgfshapebox % height of the box
-  \pgf@x=.\wd\pgfshapebox % width of the box
+  \pgf@y=.\ht\pgfnodeparttextbox % height of the box
+  \pgf@x=.\wd\pgfnodeparttextbox % width of the box
   \setlength{\pgf@xa}{\pgfshapeminwidth}
   \ifdim\pgf@x<.5\pgf@xa
     \pgf@x=.5\pgf@xa
@@ -540,7 +658,7 @@ The following command declares a new shape:
   
 \begin{codeexample}[code only]
 \shapedimen{\depth}{
-  \pgf@x=\dp\pgfshapebox 
+  \pgf@x=\dp\pgfnodeparttextbox 
 }
 \end{codeexample}
   \end{command}  
@@ -602,15 +720,33 @@ The following command declares a new shape:
     creation is applied automatically to the coordinates returned by
     the anchor's \meta{code}.
 
-    There is one anchor that is special: The |text| anchor. This
-    anchor is used upon creation of a node to determine the lower left
-    corner of the text label (within the private coordinate system of
-    the shape). By default, the |text| anchor is at the origin, but
-    you may change this. For example, we would say
+    Out |simple rectangle| only has one text label (node
+    part) called |text|. This is the default situation, so we need not
+    do anything. For the |text| node part we must setup a |text|
+    anchor. This   anchor is used upon creation of a node to determine
+    the lower left  corner of the text label (within the private
+    coordinate system of the shape). By default, the |text| anchor is
+    at the origin, but you may change this. For example, we would say
 \begin{codeexample}[code only]
-\anchor{text}{\pgfpoint{-.5\wd\pgfshapebox}{-.5\ht\pgfshapebox}}
+\anchor{text}{%
+  \upperrightcorner%
+  \pgf@x=-\pgf@x%
+  \pgf@y=-\pgf@y%
+}
 \end{codeexample}
-    to center the text label on the origin in the shape coordinate space. 
+    to center the text label on the origin in the shape coordinate
+    space. Note that we could \emph{not} have written the following:
+    
+\begin{codeexample}[code only]
+\anchor{text}{\pgfpoint{-.5\wd\pgfnodeparttextbox}{-.5\ht\pgfnodeparttextbox}}
+\end{codeexample}
+    Do you see why this is wrong? The problem is that the box
+    |\pgfnodeparttextbox| will most likely not have the correct size
+    when the anchor is computed. After all, the anchor position might
+    be recomputed at a time when several other nodes have been created. 
+
+    If a shape has several node parts, we would have to define an
+    anchor for each part.    
   \end{command}  
   \begin{command}{\anchorborder\marg{code}}
     A \emph{border anchor} is an anchor point on the border of the
@@ -635,7 +771,7 @@ The following command declares a new shape:
 \begin{codeexample}[code only]
 \anchorborder{%
   % Call a function that computes a border point. Since this
-  % function will modify dimensions like \pgf@x, we must move it to
+  % function will modify dimensions like \pgf@x, we must move them to
   % other dimensions.
   \@tempdima=\pgf@x
   \@tempdimb=\pgf@y
@@ -666,13 +802,13 @@ The following command declares a new shape:
 }  
 \end{codeexample}
     As the name suggests, the background path is used ``behind'' the
-    text label. Thus, this path is used first, then the text label is
+    text labels. Thus, this path is used first, then the text labels are
     drawn, possibly obscuring part of the path.
   \end{command}  
   \begin{command}{\foregroundpath\marg{code}}
     This command works like |\backgroundpath|, only it is invoked
-    after the text label has been drawn. This means that this path can
-    possibly obscure (part of) the text label.
+    after the text labels have been drawn. This means that this path can
+    possibly obscure (part of) the text labels.
   \end{command}  
   \begin{command}{\behindbackgroundpath\marg{code}}
     Unlike the previous two commands, \meta{code} should not only
@@ -689,10 +825,10 @@ The following command declares a new shape:
   \begin{command}{\beforebackgroundpath\marg{code}}
     This command works like |\behindbackgroundpath|, only the
     \meta{code} is executed after the background path has been used,
-    but before the text label is drawn.
+    but before the texts label are drawn.
   \end{command}  
   \begin{command}{\behindforegroundpath\marg{code}}
-    The \meta{code} is executed after the text label has been drawn,
+    The \meta{code} is executed after the text labels have been drawn,
     but before the foreground path is used.
   \end{command}  
   \begin{command}{\beforeforegroundpath\marg{code}}
@@ -791,6 +927,16 @@ The following command declares a new shape:
 
 \subsection{Predefined Shapes}
 
+\begin{shape}{coordinate}
+  The |coordinate| is mainly intended to be used to store locations
+  using the node mechanism. This shape does not have any background
+  path and options like |draw| have no effect on it. Also, it does not
+  have any node parts, so no text is drawn when this shape is used.
+
+  \tikzname\ handles this shape in a special way, see
+  Section~\ref{section-tikz-coordinate-shape}. 
+\end{shape}
+
 \begin{shape}{rectangle}
   This shape is a rectangle tightly fitting the text box. Use inner or
   outer separation to increase the distance between the text box and
@@ -813,21 +959,6 @@ The following command declares a new shape:
 \end{tikzpicture}
 \end{codeexample}
 \end{shape}
-
-
-
-\begin{shape}{coordinate}
-  The |coordinate| shape is a special shape that is mainly intended to
-  be used to store locations using the node mechanism. This shape does
-  not have any background path and options like |draw| have no effect on
-  it. If you specify some text, this text will be typeset, but only ``a
-  bit unwillingly'' since this shape is not really intended for drawing
-  text.
-
-  \tikzname\ handles this shape in a special way, see
-  Section~\ref{section-tikz-coordinate-shape}. 
-\end{shape}
-
 
 \begin{shape}{circle}
   This shape is a circle tightly fitting the text box.

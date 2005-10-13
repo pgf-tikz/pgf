@@ -7,7 +7,7 @@
 
 
 
-\newbox\pgfshapebox
+\newbox\pgfnodeparttextbox
 
 
 % Creates a node
@@ -30,9 +30,9 @@
 % Example:
 %
 % \pgftransformshift{\pgfpoint{1cm}{1cm}}
-% \pgfnodefromboxes{rectangle}{center}{Hello}{hellonode}{\pgfusepath{stroke}}
+% \pgfmultipartnode{rectangle}{center}{Hello}{hellonode}{\pgfusepath{stroke}}
 
-\def\pgfnodefromboxes#1#2#3#4{%
+\def\pgfmultipartnode#1#2#3#4{%
   \@ifundefined{pgf@sh@s@#1}%
   {\PackageError{pgf}{Unknown shape ``#1''}{}}%
   {%
@@ -63,7 +63,10 @@
       {{\pgfscope\csname pgf@sh@fbg@#1\endcsname\endpgfscope}}%
       {%
         \expandafter\@for\expandafter\pgf@shape@com\expandafter:\expandafter=\csname pgf@sh@boxes@#1\endcsname\do{%
-          \expandafter\pgf@shape@com@execute\pgf@shape@com{#1}%
+          {%
+            \pgftransformshift{\pgf@sh@reanchor{#1}{\pgf@shape@com}}%
+            \expandafter\pgfqboxsynced\expandafter{\csname pgfnodepart\pgf@shape@com box\endcsname}%
+          }%
         }%
       }%
       \@ifundefined{pgf@sh@bfg@#1}{}%
@@ -75,12 +78,6 @@
     }%
   }%
 }
-
-\def\pgf@shape@com@execute#1#2#3{%
-  \pgftransformshift{\pgf@sh@reanchor{#3}{#1}}%
-  \pgfqboxsynced{#2}%
-}
-
 
 
 % Creates a node
@@ -105,13 +102,13 @@
 
 \def\pgfnode#1#2#3#4#5{%
   {%
-    \setbox\pgfshapebox=\hbox%
+    \setbox\pgfnodeparttextbox=\hbox%
     {%
       \pgfinterruptpicture%
         {#3}%
       \endpgfinterruptpicture%
     }%
-    \pgfnodefromboxes{#1}{#2}{#4}{#5}%
+    \pgfmultipartnode{#1}{#2}{#4}{#5}%
   }
 }  
 
@@ -253,8 +250,8 @@
 %   name. Whenever, later on, an anchor is invoked these stored points
 %   will be available. The \saveddimen works like \savedanchor, only a
 %   single dimension is stored (taken from \pgf@x).
-%   When a savedanchor is calculated, the height/width/depth of box
-%   \pgfshapebox can be used.
+%   When a savedanchor is calculated, the height/width/depth of the
+%   boxes mentioned in \nodeparts can be used.
 %
 % - \anchor
 %   Specifies an anchor. This command takes two arguments: an anchor
@@ -288,8 +285,15 @@
 % - \beforeforegroundpath
 %   Some things to be draw before everything.
 %
-% - \boxes
-%   List of anchors and TeX-boxes that make up the shape.
+% - \nodeparts
+%   List of node parts that make up the shape. For each entry XYZ in
+%   the list there must be a box named \pgfnodepartXYZbox (possibly
+%   ``redirected'' to some different box using \let). Each such box
+%   will be placed at the anchor XYZ.
+%   By default, \nodeparts is just {text}. Thus, there will be one
+%   node part box named \pgfnodeparttextbox and this node will be
+%   placed at the anchor text. 
+%   
 %
 % Example:
 %
@@ -308,7 +312,7 @@
     \let\behindforegroundpath=\pgf@sh@behindfgpath
     \let\foregroundpath=\pgf@sh@fgpath
     \let\beforeforegroundpath=\pgf@sh@beforefgpath
-    \let\boxes=\pgf@sh@boxes
+    \let\nodeparts=\pgf@sh@boxes
     \let\inheritsavedanchors=\pgf@sh@inheritsavedanchors
     \let\inheritanchor=\pgf@sh@inheritanchor
     \let\inheritanchorborder=\pgf@sh@inheritanchorborder
@@ -318,10 +322,10 @@
     \let\inheritbehindforegroundpath=\pgf@sh@inheritbehindfgpath
     \let\inheritforegroundpath=\pgf@sh@inheritfgpath
     \let\inheritbeforeforegroundpath=\pgf@sh@inheritbeforefgpath
-    \let\inheritboxes=\pgf@sh@inheritboxes
+    \let\inheritnodeparts=\pgf@sh@inheritboxes
     \anchorborder{\csname pgf@anchor@#1@center\endcsname}%
     \anchor{text}{\pgfpointorigin}%
-    \boxes{{text}{\pgfshapebox}}%
+    \nodeparts{text}%
     \expandafter\global\expandafter\let\csname pgf@sh@s@\shape@name\endcsname=\@empty%
     #2
   }
@@ -381,10 +385,10 @@
 {
   \savedanchor\centerpoint{%
     % x
-    \pgf@x=.5\wd\pgfshapebox%
+    \pgf@x=.5\wd\pgfnodeparttextbox%
     % y
-    \pgf@y=.5\ht\pgfshapebox%
-    \advance\pgf@y by -.5\dp\pgfshapebox%
+    \pgf@y=.5\ht\pgfnodeparttextbox%
+    \advance\pgf@y by -.5\dp\pgfnodeparttextbox%
   }
   
   \anchor{center}{\centerpoint}
@@ -404,6 +408,8 @@
   \anchor{south west}{\centerpoint}
   \anchor{south east}{\centerpoint}
   \anchorborder{\centerpoint}
+
+  \nodeparts{}% no text
 }
 
 
@@ -489,7 +495,7 @@
     % Calculate x
     %
     % First, is width < minimum width?
-    \pgf@x=\the\wd\pgfshapebox%
+    \pgf@x=\the\wd\pgfnodeparttextbox%
     \setlength\pgf@xc{\pgfshapeinnerxsep}%
     \advance\pgf@x by 2\pgf@xc%
     \setlength\pgf@xb{\pgfshapeminwidth}%
@@ -497,16 +503,16 @@
       % yes, too small. Enlarge...
       \pgf@x=\pgf@xb%
     \fi%
-    % Now, calculate right border: .5\wd\pgfshapebox + .5 \pgf@x + outer sep
+    % Now, calculate right border: .5\wd\pgfnodeparttextbox + .5 \pgf@x + outer sep
     \pgf@x=.5\pgf@x%
-    \advance\pgf@x by.5\wd\pgfshapebox%
+    \advance\pgf@x by.5\wd\pgfnodeparttextbox%
     \setlength\pgf@xa{\pgfshapeouterxsep}%
     \advance\pgf@x by\pgf@xa%
     % Calculate y
     %
     % First, is height+depth < minimum height?
-    \pgf@y=\ht\pgfshapebox%
-    \advance\pgf@y by\dp\pgfshapebox%
+    \pgf@y=\ht\pgfnodeparttextbox%
+    \advance\pgf@y by\dp\pgfnodeparttextbox%
     \setlength\pgf@yc{\pgfshapeinnerysep}%
     \advance\pgf@y by 2\pgf@yc%
     \setlength\pgf@yb{\pgfshapeminheight}%
@@ -516,8 +522,8 @@
     \fi%
     % Now, calculate upper border: .5\ht-.5\dp + .5 \pgf@y + outer sep
     \pgf@y=.5\pgf@y%
-    \advance\pgf@y by-.5\dp\pgfshapebox%
-    \advance\pgf@y by.5\ht\pgfshapebox%
+    \advance\pgf@y by-.5\dp\pgfnodeparttextbox%
+    \advance\pgf@y by.5\ht\pgfnodeparttextbox%
     \setlength\pgf@ya{\pgfshapeouterysep}%
     \advance\pgf@y by\pgf@ya%
   }
@@ -526,7 +532,7 @@
       % Calculate x
       %
       % First, is width < minimum width?
-      \pgf@x=\wd\pgfshapebox%
+      \pgf@x=\wd\pgfnodeparttextbox%
       \setlength\pgf@xc{\pgfshapeinnerxsep}%
       \advance\pgf@x by 2\pgf@xc%
       \setlength\pgf@xb{\pgfshapeminwidth}%
@@ -534,16 +540,16 @@
         % yes, too small. Enlarge...
         \pgf@x=\pgf@xb%
       \fi%
-      % Now, calculate left border: .5\wd\pgfshapebox - .5 \pgf@x - outer sep
+      % Now, calculate left border: .5\wd\pgfnodeparttextbox - .5 \pgf@x - outer sep
       \pgf@x=-.5\pgf@x%
-      \advance\pgf@x by.5\wd\pgfshapebox%
+      \advance\pgf@x by.5\wd\pgfnodeparttextbox%
       \setlength\pgf@xa{\pgfshapeouterxsep}%
       \advance\pgf@x by-\pgf@xa%
       % Calculate y
       %
       % First, is height+depth < minimum height?
-      \pgf@y=\ht\pgfshapebox%
-      \advance\pgf@y by\dp\pgfshapebox%
+      \pgf@y=\ht\pgfnodeparttextbox%
+      \advance\pgf@y by\dp\pgfnodeparttextbox%
       \setlength\pgf@yc{\pgfshapeinnerysep}%
       \advance\pgf@y by 2\pgf@yc%
       \setlength\pgf@yb{\pgfshapeminheight}%
@@ -553,8 +559,8 @@
       \fi%
        % Now, calculate upper border: .5\ht-.5\dp - .5 \pgf@y - outer sep
       \pgf@y=-.5\pgf@y%
-      \advance\pgf@y by-.5\dp\pgfshapebox%
-      \advance\pgf@y by.5\ht\pgfshapebox%
+      \advance\pgf@y by-.5\dp\pgfnodeparttextbox%
+      \advance\pgf@y by.5\ht\pgfnodeparttextbox%
       \setlength\pgf@ya{\pgfshapeouterysep}%
       \advance\pgf@y by-\pgf@ya%
   }
@@ -674,23 +680,23 @@
 %
 {
   \savedanchor\centerpoint{%
-    \pgf@x=.5\wd\pgfshapebox%
-    \pgf@y=.5\ht\pgfshapebox%
-    \advance\pgf@y by-.5\dp\pgfshapebox%
+    \pgf@x=.5\wd\pgfnodeparttextbox%
+    \pgf@y=.5\ht\pgfnodeparttextbox%
+    \advance\pgf@y by-.5\dp\pgfnodeparttextbox%
   }
     
   \saveddimen\radius{%
     % 
     % Caculate ``height radius''
     % 
-    \pgf@ya=.5\ht\pgfshapebox%
-    \advance\pgf@ya by.5\dp\pgfshapebox%
+    \pgf@ya=.5\ht\pgfnodeparttextbox%
+    \advance\pgf@ya by.5\dp\pgfnodeparttextbox%
     \setlength\pgf@yb{\pgfshapeinnerysep}%
     \advance\pgf@ya by\pgf@yb%
     % 
     % Caculate ``width radius''
     % 
-    \pgf@xa=.5\wd\pgfshapebox%
+    \pgf@xa=.5\wd\pgfnodeparttextbox%
     \setlength\pgf@xb{\pgfshapeinnerxsep}%
     \advance\pgf@xa by\pgf@xb%
     % 
