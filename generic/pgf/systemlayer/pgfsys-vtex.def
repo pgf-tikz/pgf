@@ -17,39 +17,57 @@
 
 
 %
-% dvips-specific stuff:
+% vtex-specific stuff:
 %
+
+% Invoking things:
 \def\pgfsys@invoke#1{\special{pS: grestore #1 gsave}} % to protect against things happeing in between
 \def\pgfsys@outerinvoke#1{\special{pS: #1}}
 
+% Starting and ending a picture:
 \def\pgfsys@beginpicture{\special{pS: 
   save 
+    /pgfx currentpoint /pgfy exch def def 
     currentpoint translate 
-    gsave}}
+    gsave}%
+  \let\set@color=\pgf@sys@vtex@set@color%
+  \let\reset@color=\pgf@sys@vtex@reset@color%
+}
+\def\pgf@sys@vtex@setcolor#1{%
+  \colorlet{pgf@tempcolor}{#1}%
+  \@ifundefined{applycolormixins}{}{\applycolormixins{pgf@tempcolor}}%
+  \expandafter\expandafter\expandafter\pgf@sys@vtex@@setcolor\csname\string\color@pgf@tempcolor\endcsname%
+}
+\def\pgf@sys@vtex@@setcolor#1#2#3#4#5{%
+  \pgfsysps@color@resetnow%
+  \expandafter\ifx\csname pgfsys@color@#4\endcsname\relax%
+    \PackageError{pgfbase}{Unsupported color model `#4'. Sorry}{}%
+  \else%
+    \edef\pgf@colmarshal{\expandafter\noexpand\csname pgfsys@color@#4\endcsname}%
+    \pgf@uncomma#5,,%
+    \pgf@colmarshal%
+  \fi}
+\def\pgf@sys@vtex@set@color{\pgf@sys@vtex@setcolor{.}\aftergroup\reset@color}
+\def\pgf@sys@vtex@reset@color{\pgf@sys@vtex@setcolor{.}}
 \def\pgfsys@endpicture{\special{pS:
     newpath
     grestore
   newpath 
   restore}}
+
+% Graphics:
+\def\pgfsys@imagesuffixlist{epsi:eps:ps:pdf}
+
+% Starting and ending a box:
 \def\pgfsys@hbox#1{%
-  \pgfsys@invoke{pgfs}%
- %   \special{ps::[end]}%
+  \pgfsys@invoke{save pgfx neg pgfy neg translate}%
       \wd#1=0pt%
       \ht#1=0pt%
       \dp#1=0pt%
       \box#1
- %   \special{ps::[begin]}%
-  \pgfsys@invoke{pgfr}%
+  \pgfsys@invoke{restore}%
 }
-\def\pgfsys@begininvisible{%
-  \special{ps::[begin]}%
-  \pgfsys@invoke{gsave nulldevice}%
-  \special{ps::[end]}}
-\def\pgfsys@endinvisible{%
-  \special{ps::[begin]}%
-  \pgfsys@invoke{grestore}%
-  \special{ps::[end]}%
-}
+
 \def\pgfsys@color@unstacked#1{\special{pS: \XC@usecolor{#1}}}
 \newcount\pgf@objectcount
 \def\pgfsys@defobject#1#2#3#4{%
@@ -75,7 +93,7 @@
     \pgfsys@invoke{pgf\csname#1\endcsname}%
   }%
   \pgfsysprotocol@setcurrentprotocol\pgfsys@temp}
-\def\pgfsys@imagesuffixlist{epsi:eps:ps}
+
 \def\pgfsys@horishading#1#2#3{%
   {%
     \pgf@parsefunc{#3}%
@@ -133,6 +151,9 @@
   }%
 }
 
+\def\pgfsys@fill@opacity#1{\pgf@sys@fail{opacity}}
+\def\pgfsys@stroke@opacity#1{\pgf@sys@fail{opacity}}
+
 \AtBeginDocument{
   % Always present specials.
   \special{pS:
@@ -141,24 +162,8 @@
     /pgfstr{stroke} bind def%
     /pgffill{fill} bind def%
     /pgfeofill{eofill} bind def%
-    /pgfl{clip newpath} bind def% clipping
     /pgfe{moveto dup 0 rlineto exch 0 exch rlineto neg 0 rlineto closepath} bind def% rectangle
-    /pgfw{setlinewidth} bind def% setlinewidth
-    /pgfs{save 72 Resolution div 72 VResolution div neg scale 
-      magscale{1 DVImag div dup scale}if 
-      pgfx neg pgfy neg translate pgffoa .setopacityalpha} bind def% save
-    /pgfr{restore} bind def %restore
-    userdict begin%
-    /pgfc{newpath @endspecial} bind def %close
-    /.setopacityalpha where {pop} {/.setopacityalpha{pop}def} ifelse % install .setopacityalpha 
-    /.pgfsetfillopacityalpha{/pgffoa exch def
-      /pgffill{gsave pgffoa .setopacityalpha fill 1 .setopacityalpha newpath fill grestore} bind def
-      /pgfeofill{gsave pgffoa .setopacityalpha eofill1 .setopacityalpha newpath eofill grestore} bind def} bind def
-    /.pgfsetstrokeopacityalpha{/pgfsoa exch def
-      /pgfstr{gsave pgfsoa .setopacityalpha stroke grestore} bind def} bind def
-    /pgffoa 1 def
-    /pgfsoa 1 def
-    end
+    /pgfw{setlinewidth} bind def % setlinewidth
     }
   
   % Parameters to horizontal pre axishade: \pgf@domb x
