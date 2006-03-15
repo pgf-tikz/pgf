@@ -20,9 +20,162 @@
 
 \subsection{Overview}
 
-Not documented yet.
+There are many ways of filling a path. First, you can fill it using a
+solid color and this is also the fasted method. Second, you can also
+fill it using a shading, which means that the color changes smoothly
+between two (or more) different colors. Third, you can fill it using a
+tiling pattern and it is explained in the following how this is done.
+
+A tiling pattern can be imagined as a rectangular tile (hence the
+name) on which a small picture is painted. There is not a single tile,
+but (conceptually) an infinite number of tiles, all showing the same 
+picture, and these tiles are arranged horizontally and vertically to
+fill the plane. When you use a tiling pattern to fill a path, what
+happens is that the path clips out a ``window'' through which we see
+part of this infinite plane.
+
+Patterns come in two versions: \emph{inherently colored patterns} and
+\emph{form-only patterns}. (These are often called ``color patterns''
+and ``uncolored patterns,'' but these names are misleading since
+uncolored patterns do have a color and the color changes. As I said, 
+the name is misleading\dots) An inherently colored pattern is just a
+colored tile like, say, a red star with a black outline. A form-only
+pattern can be imagined as a tile that is a kind of rubber stamp. When
+this pattern is used, the stamp is used to print copies of the stamp
+picture onto the plane, but we can use a different stamp color each
+time we use a form-only pattern.
+
+\pgfname\ provides a special support for patterns. You can declare a
+pattern and then use it very much like a fill color. \pgfname\
+directly maps patterns to the pattern facilities of the underlying
+graphic languages (PostScript, \textsc{pdf}, and \textsc{svg}). This
+means that filling a path using a pattern will be nearly as fast as if
+you used a uniform color.
+
+There are a number of pitfalls and restrictions when using
+patterns. First, once a pattern has been declared, you cannot change
+it anymore. In particular, it is not possible to enlarge it or change
+the line width. Such flexibility would require that the repeating of
+the pattern were not done by the graphic language, but on the
+\pgfname\ level. This would make patterns orders of magnitude slower
+to produce and to render.
+
+Second, the phase of patterns is not well-defined, that is, it is not
+clear where origin of the ``first'' tile is. To be more precise,
+PostScript and \textsc{pdf} on the one hand and \textsc{svg} on the
+other hand define the origin differently. PostScript and \textsc{pdf}
+define a fixed origin that is independent of where the path lies. This
+has the highly desirable effect that if you use the same pattern to
+fill multiple paths, this has the same effect as if you used the
+pattern to will a single path that is the union of all the paths. By
+comparison, \textsc{svg} uses the upper-left (?) corner of the path to
+be filled as the origin. However, the \textsc{svg} specification is a
+bit vague on this question.
 
 
+\subsection{Declaring a Pattern}
+
+Before a pattern can be used, it must be declared. The following
+command is used for this:
+
+\begin{command}{\pgfdeclarepatternformonly%
+    \marg{name}%
+    \marg{lower left}%
+    \marg{upper right}%
+    \marg{tile size}%
+    \marg{code}}
+  This command declares a new form-only pattern. The \marg{name} is a
+  name for later reference. The two parameters \marg{lower left} and
+  \marg{upper right} must describe a bounding box that is large enough
+  to encompass the complete tile.
+
+  The size of a tile is given by \meta{tile size}, that is, a tile is
+  a rectangle whose lower left   corner is the origin and whose upper
+  right corner is given by \meta{tile size}. This might make you
+  wonder why the second and third parameters are needed. First, the
+  bounding box might be smaller than the tile size if the tile is
+  larger than the picture on the tile. Second, the bounding box might
+  be bigger, in which case the picture will ``bleed'' over the tile.
+
+  The \meta{code} should be \pgfname\ code than can be protocolled. It
+  should not contain any color code.
+
+  
+\begin{codeexample}[]
+\pgfdeclarepatternformonly{stars}
+{\pgfpointorigin}{\pgfpoint{1cm}{1cm}}
+{\pgfpoint{1cm}{1cm}}
+{
+  \pgftransformshift{\pgfpoint{.5cm}{.5cm}}
+  \pgfpathmoveto{\pgfpointpolar{0}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{144}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{288}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{72}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{216}{4mm}}
+  \pgfpathclose%
+  \pgfusepath{fill}
+}
+\begin{tikzpicture}
+  \filldraw[pattern=stars] (0,0)   rectangle (1.5,2);  
+  \filldraw[pattern=stars,pattern color=red]
+                           (1.5,0) rectangle (3,2);  
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfdeclarepatterninherentlycolored
+    \marg{name}
+    \marg{lower left}
+    \marg{upper right}
+    \marg{tile size}
+    \marg{code}}
+  This command works like |\pgfdeclarepatternuncolored|, only the
+  pattern will have an inherent color. To set the color, you should
+  use \pgfname's color commands, not the |\color| command, since this
+  fill not be protocolled.
+  
+\begin{codeexample}[]
+\pgfdeclarepatterninherentlycolored{green stars}
+{\pgfpointorigin}{\pgfpoint{1cm}{1cm}}
+{\pgfpoint{1cm}{1cm}}
+{
+  \pgfsetfillcolor{green!50!black}
+  \pgftransformshift{\pgfpoint{.5cm}{.5cm}}
+  \pgfpathmoveto{\pgfpointpolar{0}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{144}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{288}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{72}{4mm}}
+  \pgfpathlineto{\pgfpointpolar{216}{4mm}}
+  \pgfpathclose%
+  \pgfusepath{stroke,fill}
+}
+\begin{tikzpicture}
+  \filldraw[pattern=green stars] (0,0) rectangle (3,2);  
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+
+\subsection{Setting a Pattern}
+
+Once a pattern has been declared, it can be used.
+
+\begin{command}{\pgfsetfillpattern\marg{name}\marg{color}}
+  This command specifies that paths that are filled should be filled
+  with the ``color'' by the pattern \meta{name}. For an inherently
+  colored pattern, the \meta{color} parameter is ignored. For
+  form-only patterns, the \meta{color} parameter specified the color
+  to be used for the pattern.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \pgfsetfillpattern{stars}{red}
+  \filldraw (0,0) rectangle (1.5,2);  
+
+  \pgfsetfillpattern{green stars}{red}
+  \filldraw (1.5,0) rectangle (3,2);  
+\end{tikzpicture}
+\end{codeexample} 
+\end{command}
 
 
 
