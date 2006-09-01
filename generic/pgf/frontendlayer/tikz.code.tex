@@ -88,11 +88,15 @@
 % Double draw options
 \tikzoption{double}[]{%
   \def\tikz@temp{#1}%
-  \ifx\tikz@temp\pgf@empty%
+  \ifx\tikz@temp\tikz@nonetext%
+    \tikz@addmode{\tikz@mode@doublefalse}%
   \else%
-    \def\tikz@double@color{#1}%
-  \fi%
-  \tikz@addmode{\tikz@mode@doubletrue}}
+    \ifx\tikz@temp\pgf@empty%
+    \else%
+      \def\tikz@double@color{#1}%
+    \fi%
+    \tikz@addmode{\tikz@mode@doubletrue}%
+  \fi}
 \tikzoption{double distance}{%
   \setlength{\pgf@x}{#1}%
   \edef\tikz@double@width@distance{\the\pgf@x}%
@@ -353,7 +357,14 @@
 
 \tikzoption{aspect}{\pgfsetshapeaspect{#1}}
 
-\tikzoption{anchor}{\def\tikz@anchor{#1}}
+\tikzoption{after node path}{\expandafter\def\expandafter\tikz@after@node\expandafter{\tikz@after@node#1}}
+\def\tikzaddafternodepathoption#1{%
+  #1%
+  \expandafter\def\expandafter\tikz@afternodepathoptions\expandafter{\tikz@afternodepathoptions#1}}
+
+\let\tikz@afternodepathoptions=\pgf@empty
+
+\tikzoption{anchor}{\def\tikz@anchor{#1}\let\tikz@do@auto@anchor=\relax}
 
 \tikzoption{left}[]{\def\tikz@anchor{east}\tikz@possibly@transform{x}{-}{#1}}
 \tikzoption{right}[]{\def\tikz@anchor{west}\tikz@possibly@transform{x}{}{#1}}
@@ -372,6 +383,23 @@
   {\def\tikz@anchor{north west}%
     \tikz@possibly@transform{x}{}{#1}\tikz@possibly@transform{y}{-}{#1}}
 
+\tikzoption{node distance}{\def\tikz@node@distance{#1}}
+\def\tikz@node@distance{2cm}
+
+\tikzoption{above of}{\def\tikz@anchor{south}\tikz@of{#1}{90}}%
+\tikzoption{below of}{\def\tikz@anchor{north}\tikz@of{#1}{-90}}%
+\tikzoption{left of}{\def\tikz@anchor{east}\tikz@of{#1}{180}}%
+\tikzoption{right of}{\def\tikz@anchor{west}\tikz@of{#1}{0}}%
+\tikzoption{above left of}{\def\tikz@anchor{south east}\tikz@of{#1}{135}}%
+\tikzoption{below left of}{\def\tikz@anchor{north east}\tikz@of{#1}{-135}}%
+\tikzoption{above right of}{\def\tikz@anchor{south west}\tikz@of{#1}{45}}%
+\tikzoption{below right of}{\def\tikz@anchor{north west}\tikz@of{#1}{-45}}%
+
+\def\tikz@of#1#2{%
+  \let\tikz@do@auto@anchor=\relax%
+  \tikz@addtransform{\pgftransformshift{\pgfpointpolar{#2}{\tikz@node@distance}}}%
+  \def\tikz@node@at{\pgfpointanchor{#1}{#2}}}
+  
 \tikzoption{transform shape}[true]{%
   \csname tikz@fullytransformed#1\endcsname%
   \iftikz@fullytransformed%
@@ -388,6 +416,7 @@
 \def\tikz@shape{rectangle}%
 
 \def\tikz@possibly@transform#1#2#3{%
+  \let\tikz@do@auto@anchor=\relax%
   \def\tikz@test{#3}%
   \ifx\tikz@test\pgf@empty%
   \else%
@@ -402,12 +431,35 @@
 
 % Line/curve label placement options
 \tikzoption{sloped}[true]{\csname pgfslopedattime#1\endcsname}
+\tikzoption{allow upside down}[true]{\csname pgfallowupsidedownattime#1\endcsname}
 
 \tikzoption{pos}{\edef\tikz@time{#1}}
 
+\tikzoption{auto}[]{\csname tikz@install@auto@anchor@#1\endcsname}
+\tikzoption{'}[]{%
+  \def\tikz@temp{left}%
+  \ifx\tikz@auto@anchor@direction\tikz@temp%
+    \def\tikz@auto@anchor@direction{right}%
+  \else%
+    \def\tikz@auto@anchor@direction{left}%
+  \fi%
+}
+
 \def\tikz@time{.5}
 
+\def\tikz@install@auto@anchor@{\let\tikz@do@auto@anchor=\tikz@auto@anchor@on}
+\def\tikz@install@auto@anchor@false{\let\tikz@do@auto@anchor=\relax}
+\def\tikz@install@auto@anchor@left{\let\tikz@do@auto@anchor=\tikz@auto@anchor@on\def\tikz@auto@anchor@direction{left}}
+\def\tikz@install@auto@anchor@right{\let\tikz@do@auto@anchor=\tikz@auto@anchor@on\def\tikz@auto@anchor@direction{right}}
 
+\let\tikz@do@auto@anchor=\relax%
+
+\def\tikz@auto@anchor@on{\csname tikz@auto@anchor@\tikz@auto@anchor@direction\endcsname}
+
+\def\tikz@auto@anchor@left{\tikz@auto@pre\tikz@auto@anchor\tikz@auto@post}
+\def\tikz@auto@anchor@right{\tikz@auto@pre\tikz@auto@anchor@prime\tikz@auto@post}
+
+\def\tikz@auto@anchor@direction{left}
 
 % Text options
 \tikzoption{text}{\def\tikz@textcolor{#1}}
@@ -563,6 +615,13 @@
 \newif\iftikz@plot@raw@gnuplot
 
 
+% To options
+\tikzoption{to path}{\def\tikz@to@path{#1}}
+
+\def\tikz@to@path{-- (\tikztotarget) \tikztonodes}
+
+
+
 % Tree options
 \tikzoption{edge from parent path}{\def\tikz@edge@to@parent@path{#1}}
 
@@ -706,11 +765,15 @@
 \tikzoption{execute at end picture}{\expandafter\def\expandafter\tikz@atend@picture\expandafter{\tikz@atend@picture#1}}
 \tikzoption{execute at begin scope}{\expandafter\def\expandafter\tikz@atbegin@scope\expandafter{\tikz@atbegin@scope#1}}
 \tikzoption{execute at end scope}{\expandafter\def\expandafter\tikz@atend@scope\expandafter{\tikz@atend@scope#1}}
+\tikzoption{execute at begin to}{\expandafter\def\expandafter\tikz@atbegin@to\expandafter{\tikz@atbegin@to#1}}
+\tikzoption{execute at end to}{\expandafter\def\expandafter\tikz@atend@to\expandafter{\tikz@atend@to#1}}
 
 \let\tikz@atbegin@picture=\pgf@empty
 \let\tikz@atend@picture=\pgf@empty
 \let\tikz@atbegin@scope=\pgf@empty
 \let\tikz@atend@scope=\pgf@empty
+\let\tikz@atbegin@to=\pgf@empty
+\let\tikz@atend@to=\pgf@empty
 
 
 
@@ -743,7 +806,6 @@
   \pgf@next{#2}{#3}}
 
 
-
 %
 %
 % Predefined styles
@@ -759,6 +821,8 @@
 \tikzstyle{every node}=              []
 \tikzstyle{every child}=             []
 \tikzstyle{every child node}=        []
+\tikzstyle{every to}=                []
+\tikzstyle{every edge}=              [draw]
 
 \tikzstyle{ultra thin}=              [line width=0.1pt]
 \tikzstyle{very thin}=               [line width=0.2pt]
@@ -1175,17 +1239,21 @@
                                       \let\@next=\tikz@pchar%
                                       \pgfsetmovetofirstplotpoint%
                                     \else%
-                                      \ifx\@let@token\pgfextra%
-                                        \let\@next=\tikz@extra%
+                                      \ifx\@let@token t%
+                                        \let\@next=\tikz@to%
                                       \else%
-                                        \ifx\@let@token\foreach%
-                                          \let\@next=\tikz@foreach%
+                                        \ifx\@let@token\pgfextra%
+                                          \let\@next=\tikz@extra%
                                         \else%
-                                          \ifx\@let@token\pgf@stop%
-                                            \let\@next=\relax%
+                                          \ifx\@let@token\foreach%
+                                            \let\@next=\tikz@foreach%
                                           \else%
-                                            \ifx\@let@token\par%
-                                              \let\@next=\tikz@scan@next@command%
+                                            \ifx\@let@token\pgf@stop%
+                                              \let\@next=\relax%
+                                            \else%
+                                              \ifx\@let@token\par%
+                                                \let\@next=\tikz@scan@next@command%
+                                              \fi%      
                                             \fi%      
                                           \fi%      
                                         \fi%      
@@ -1217,7 +1285,9 @@
 \def\tikz@cochar o{%
   \pgf@ifnextchar o{\tikz@coordinate}{\tikz@cosine}}
 \def\tikz@e@char{%
-  \pgf@ifnextchar l{\tikz@ellipse}{\tikz@edgetoparent}}
+  \pgf@ifnextchar l{\tikz@ellipse}{\tikz@@e@char}}%
+\def\tikz@@e@char dge{%
+  \pgf@ifnextchar f{\tikz@edgetoparent}{\tikz@edge@plain}}%
 
 
 \def\tikz@finish{%
@@ -1645,11 +1715,98 @@
   \tikz@scan@next@command%
 }
 
+% Syntax for edges:
+% edge [options] (coordinate)
+% edge [options] node {node text} (coordinate)
+\def\tikz@edge@plain{%
+  \begingroup%
+    \tikz@to@use@whom%
+    \let\tikz@to@or@edge@function=\tikz@do@edge%
+    \tikz@to@or@edge}
+
+% Syntax for to paths:
+% to [options] (coordinate)
+% to [options] node {node text} (coordinate)
+\def\tikz@to o{%
+  \tikz@to@use@last@coordinate%
+  \let\tikz@to@or@edge@function=\tikz@do@to%
+  \tikz@to@or@edge}
+  
+\def\tikz@to@or@edge{\pgf@ifnextchar[\tikz@@to@or@edge{\tikz@@to@or@edge[]}}%}
+\def\tikz@@to@or@edge[#1]{%
+  \def\tikz@@to@local@options{[#1]}%
+  \let\tikz@collected@onpath=\pgf@empty%
+  \tikz@@to@collect%
+}
+\def\tikz@@to@collect{%
+  \pgf@ifnextchar(\tikz@@to@or@edge@coordinate
+  {\pgf@ifnextchar n{\tikz@collect@label@onpath\tikz@@to@collect}%
+    {\pgf@ifnextchar c{\tikz@collect@coordinate@onpath\tikz@@to@collect}
+      {\PackageError{tikz}{( expected}{}%}
+        \tikz@@to@or@edge@coordinate()}}}%
+}
+
+\def\tikz@@to@or@edge@coordinate(#1){%
+  \def\tikztotarget{#1}%
+  \tikz@to@or@edge@function%
+}
+
+\def\tikz@do@edge{%
+  \setbox\tikz@figbox=\hbox\bgroup%
+    \unhbox\tikz@figbox%
+    \hbox\bgroup
+      \bgroup%
+        \pgfinterruptpath%
+          \pgfscope%
+            \let\tikz@transform=\pgf@empty%
+            \let\tikz@options=\pgf@empty%
+            \let\tikz@tonodes=\tikz@collected@onpath%
+            \def\tikztonodes{{\pgfextra{\tikz@node@is@a@labeltrue}\tikz@tonodes}}%
+            \let\tikz@collected@onpath=\pgf@empty%
+            \tikz@options%
+            \tikz@transform%            
+            % Typeset node:
+            \tikz@atbegin@to%
+            \path[style=every edge]\tikz@@to@local@options(\tikztostart)\tikz@to@path;%
+            \tikz@atend@to%
+          \endpgfscope%
+        \endpgfinterruptpath%
+      \egroup
+    \egroup%
+  \egroup%
+    \global\setbox\tikz@tempbox=\copy\tikz@figbox%
+  \endgroup%
+  \setbox\tikz@figbox=\box\tikz@tempbox%  
+  \tikz@scan@next@command%  
+}
+
+\def\tikz@do@to{%
+  \let\tikz@tonodes=\tikz@collected@onpath%
+  \def\tikztonodes{{\pgfextra{\tikz@node@is@a@labeltrue}\tikz@tonodes}}%
+  \let\tikz@collected@onpath=\pgf@empty%
+  \tikz@scan@next@command%
+  \pgfextra{\tikz@atbegin@to}%
+  [style=every to]\tikz@@to@local@options\tikz@to@path%
+  \pgfextra{\tikz@atend@to}%
+}
+
+
+\def\tikz@to@use@last@coordinate{%
+  \iftikz@shapeborder%
+    \edef\tikztostart{\tikz@shapeborder@name}%
+  \else%
+    \edef\tikztostart{\the\tikz@lastx,\the\tikz@lasty}%
+  \fi%
+}
+\def\tikz@to@use@last@fig@name{%
+  \edef\tikztostart{\tikz@to@last@fig@name}%
+}
+
 
 
 % Syntax for edge from parent: 
 % edge from parent [options]
-\def\tikz@edgetoparent dge from parent{\pgf@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
+\def\tikz@edgetoparent from parent{\pgf@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
 \def\tikz@@edgetoparent[#1]{%
   \let\tikz@edge@to@parent@needed=\pgf@empty%
   \tikz@node@is@a@labeltrue%
@@ -2100,11 +2257,14 @@
 %
 % A label text always ``ends'' the node.
 \def\tikz@fig ode{%
+  \edef\tikz@save@line@width{\the\pgflinewidth}%
   \begingroup%
   \let\tikz@fig@name=\pgf@empty%
     \begingroup%
       \let\nodepart=\tikz@nodepart%
       \let\tikz@options=\pgf@empty%
+      \let\tikz@after@node=\pgf@empty%
+      \let\tikz@afternodepathoptions=\pgf@empty%
       \let\tikz@transform=\pgf@empty%
       \let\tikz@mode=\pgf@empty%
       \def\tikz@node@at{\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
@@ -2176,8 +2336,12 @@
           \fi%
         \endpgfinterruptpicture%
       \egroup%
-    \pgf@ifnextchar c{\tikz@fig@withchildren}{\pgf@ifnextchar[{\tikz@fig@withchildren}{\tikz@fig@continue}}}%}
-\def\tikz@fig@withchildren{%
+    \pgf@ifnextchar c{\tikz@fig@mustbenamed}%
+    {\pgf@ifnextchar[{\tikz@fig@mustbenamed}%
+      {\pgf@ifnextchar t{\tikz@fig@mustbenamed}
+        {\pgf@ifnextchar e{\tikz@fig@mustbenamed}
+          {\ifx\tikz@after@node\pgf@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\fi}}}}}%}
+\def\tikz@fig@mustbenamed{%
   \ifx\tikz@fig@name\pgf@empty%
     % Assign a dummy name
     \global\advance\tikz@fig@count by1\relax
@@ -2199,6 +2363,7 @@
         \pgftransformresetnontranslations
       \fi%
     \else%
+      \tikz@do@auto@anchor%
       \tikz@timer%
     \fi%
     % Invoke local transformations
@@ -2220,15 +2385,25 @@
           \endpgfinterruptpath%
       }}%
     }%
+    %   
+    \global\let\tikz@last@fig@name=\tikz@fig@name%
+    \global\let\tikz@after@node@smuggle=\tikz@after@node%
+    \global\let\tikz@afternodepathoptions@smuggle=\tikz@afternodepathoptions%
     % shift box outside group
     \global\setbox\tikz@tempbox=\copy\tikz@figbox%
-    \global\let\tikz@last@fig@name=\tikz@fig@name%
   \endgroup\endgroup%
-  \setbox\tikz@figbox=\box\tikz@tempbox%  
+  \setbox\tikz@figbox=\box\tikz@tempbox%
+  \pgflinewidth=\tikz@save@line@width%
+  \let\tikz@to@last@fig@name=\tikz@last@fig@name%
+  \let\tikz@to@use@whom=\tikz@to@use@last@fig@name%
+  \let\tikzlastnode=\tikz@last@fig@name%
+  \ifx\tikz@after@node@smuggle\pgf@empty%
+  \else%
+    \tikz@scan@next@command{\pgfextra{\tikz@afternodepathoptions@smuggle}\tikz@after@node@smuggle}\pgf@stop%
+  \fi%
   \tikz@scan@next@command%
 }
 \let\tikz@fig@continue@orig=\tikz@fig@continue
-
 
 % Syntax for parts of  nodes:
 % node ... {... \nodepart{name} ... \nodepart{name} ...}
@@ -2267,10 +2442,83 @@
 }
 
 
+% Auto placement
+
+\def\tikz@auto@pre{%
+  \begingroup
+    \pgfresetnontranslationattimefalse
+    \pgfslopedattimetrue%
+    \pgfallowupsidedownattimetrue%
+    \tikz@timer%
+    \pgf@x=\pgf@pt@aa pt% 
+    \pgf@y=\pgf@pt@ab pt%
+    \pgfpointnormalised{}%
+}
+
+\def\tikz@auto@post{%
+    \global\let\tikz@anchor@smuggle=\tikz@anchor%
+  \endgroup%
+  \let\tikz@anchor=\tikz@anchor@smuggle%
+}
+
+\def\tikz@auto@anchor{%
+    \ifdim\pgf@x>0.05pt%
+      \ifdim\pgf@y>0.05pt%
+        \def\tikz@anchor{south east}%
+      \else\ifdim\pgf@y<-0.05pt%
+        \def\tikz@anchor{south west}%
+      \else
+        \def\tikz@anchor{south}%
+      \fi\fi%
+    \else\ifdim\pgf@x<-0.05pt%
+      \ifdim\pgf@y>0.05pt%
+        \def\tikz@anchor{north east}%
+      \else\ifdim\pgf@y<-0.05pt%
+        \def\tikz@anchor{north west}%
+      \else
+        \def\tikz@anchor{north}%
+      \fi\fi%
+    \else%
+      \ifdim\pgf@y>0pt%
+        \def\tikz@anchor{east}%
+      \else%
+        \def\tikz@anchor{west}%
+      \fi%
+    \fi\fi%
+}
+
+\def\tikz@auto@anchor@prime{%
+    \ifdim\pgf@x>0.05pt%
+      \ifdim\pgf@y>0.05pt%
+        \def\tikz@anchor{north west}%
+      \else\ifdim\pgf@y<-0.05pt%
+        \def\tikz@anchor{north east}%
+      \else
+        \def\tikz@anchor{north}%
+      \fi\fi%
+    \else\ifdim\pgf@x<-0.05pt%
+      \ifdim\pgf@y>0.05pt%
+        \def\tikz@anchor{south west}%
+      \else\ifdim\pgf@y<-0.05pt%
+        \def\tikz@anchor{south east}%
+      \else
+        \def\tikz@anchor{south}%
+      \fi\fi%
+    \else%
+      \ifdim\pgf@y>0pt%
+        \def\tikz@anchor{west}%
+      \else%
+        \def\tikz@anchor{east}%
+      \fi%
+    \fi\fi%
+}
+
+
+
 
 % Syntax for trees:
 % node {...} child [options] {...} child [options] {...} ...
-% node {...} children [options] \var in {list} [options] {...} ...
+% node {...} child [options] foreach \var in {list} [options] {...} ...
 
 \def\tikz@children{%
   % Start collecting the children:
@@ -2324,7 +2572,7 @@
 
 % Syntax for children:
 %
-% children [all children options] \var in {values} [child options] {...}
+% child [all children options] foreach \var in {values} [child options] {...}
 \def\tikz@childrennodes[#1]#2#3#4{%
   \c@pgf@counta=\tikznumberofcurrentchild\relax%
   \setbox\tikz@tempbox=\box\tikz@figbox%
@@ -2646,6 +2894,7 @@
 % appropriate pgf command representing that point.
 
 \def\tikz@scan@one@point#1{%
+  \let\tikz@to@use@whom=\tikz@to@use@last@coordinate%
   \tikz@shapeborderfalse%
   \pgf@ifnextchar+{\tikz@scan@relative#1}{\tikz@scan@absolute#1}}
 \def\tikz@scan@absolute#1{%
@@ -2655,7 +2904,7 @@
     \ifnum\tikz@expandcount<0\relax%
       \let\@next=\tikz@@scangiveup%
     \else%
-      \let\@next=\tikz@@scanexpand
+      \let\@next=\tikz@@scanexpand%
     \fi%
     \@next{#1}%
   }%
