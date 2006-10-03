@@ -50,8 +50,9 @@ placed at some coordinate. However, a node can also have a border
 drawn around it or have a more complex background and
 foreground. Indeed, some nodes do not have a text at all, but consist
 solely of the background. You can name nodes so that you can reference
-their coordinates later in the picture. However, \emph{nodes cannot be
-  referenced across different pictures}. 
+their coordinates later in the same picture or, if certain precautions
+are taken as explained in Section~\ref{section-cross-picture-tikz},
+also in different pictures.
 
 There are no special \TeX\ commands for adding a node to a picture; rather,
 there is path operation called |node| for this. Nodes are created
@@ -1134,6 +1135,140 @@ are encountered on the path.
 \end{codeexample}
   \end{itemize}
 \end{pathoperation}
+
+
+\subsection{Referencing Nodes Outside the Current Pictures}
+
+\label{section-cross-picture-tikz}
+
+\subsubsection{Referencing a Node in a Different Picture}
+
+It is possible (but not quite trivial) to reference nodes in pictures
+other than the current one. This means that you can create a picture
+and a node therein and, later, you can draw a line from some other
+position to this node. 
+
+To reference nodes in different pictures, proceed as follows:
+\begin{enumerate}
+\item You need to add the |remember picture| option to all pictures
+  that contain nodes that you wish to reference and also to all
+  pictures from which you wish to reference a node in another
+  picture.
+\item You need to add the |overlay| option to paths or to whole
+  pictures that contain references to nodes in different
+  pictures. (This option switches the computation of the
+  bounding box off.)
+\item You need to use a driver that supports picture remembering
+  (currently, this is only pdf\TeX). With the pdf\TeX\ driver you also
+  need to run \TeX\ twice.
+\end{enumerate}
+(For more details on what is going on behind the scenes, see
+Section~\ref{section-cross-pictures-pgf}.)
+
+Let us have a look at the effect of these options.
+\begin{itemize}
+  \itemoption{remember picture}\opt{|=|\meta{true or false}} This option
+  tells \tikzname\ that it should attempt to remember the position of
+  the current picture on the page. This attempt may fail depending on
+  which backend driver is used. Also, even if remembering works, the
+  position may only be available on a second run of \TeX.
+
+  Provided that remebering works, you may consider saying
+\begin{codeexample}[code only]
+\tikzsytle{every picture}+=[remember picture]
+\end{codeexample}
+  to make \tikzname\ remember all pictures. This will add one line in
+  the |.aux| file for each picture in your document -- which typically
+  is not very much. Then, you do not have to worry about remembered
+  pictures at all.
+  \itemoption{overlay}
+  This option is mainly intended for use when nodes in other pictures
+  are referenced, but you can also use it in other situations. The
+  effect of this option is that everything within the current scope is
+  not taken into consideration when the bounding box of the current
+  picture is computed.
+
+  You need to specify this option on all paths (or at least on all
+  parts of paths) that contain a reference to a node in another
+  picture. The reason is that, otherwise, \tikzname\ will attempt to
+  make the current picture large enough to encompass \emph{the node in
+    the other picture}. However, on a second run of \TeX\ this will
+  create an even bigger picture, leading to larger and larger
+  pictures. Unless you know what you are doing, I suggest specifying
+  the |overlay| option with all pictures that contain references to
+  other pictures.
+\end{itemize}
+
+Let us now have a look at a few examples. These examples work only if
+this document is processed with a driver that supports picture
+remembering.
+
+\begin{minipage}{\textwidth}
+Inside the current text we place two pictures, containing nodes named
+|n1| and |n2|, using
+\begin{codeexample}[code only]
+\tikz[remember picture] \node[circle,fill=red!50] (n1) {};
+\end{codeexample}
+which yields \tikz[remember picture] \node[circle,fill=red!50] (n1)
+{};, and
+\begin{codeexample}[code only]
+\tikz[remember picture] \node[fill=blue!50] (n2) {};
+\end{codeexample}
+yielding the node \tikz[remember picture] \node[fill=blue!50] (n2)
+{};. To connect these nodes, we create another picture using the
+|overlay| option and also the |remember picture| option.
+\begin{codeexample}[]
+\begin{tikzpicture}[remember picture,overlay]
+  \draw[->,very thick] (n1) -- (n2);
+\end{tikzpicture}
+\end{codeexample}
+Note that the last picture is seemingly empty. What happens is that it
+has zero size and contains an arrow that lies well outside its bounds.
+As a last example, we connect a node in another picture to the first
+two nodes. Here, we provide the |overlay| option only with the line
+that we do not wish to count as part of the picture.
+\begin{codeexample}[]
+\begin{tikzpicture}[remember picture]
+  \node (c) [circle,draw] {Big circle};
+  
+  \draw [overlay,->,very thick,red] (c) -- (n1) -| (n2);
+\end{tikzpicture}
+\end{codeexample}
+\end{minipage}
+
+
+\subsubsection{Referencing the Current Page Node -- Absolute Positioning}
+
+There is a special node called |current page| that can be used to
+access the current page. It is a node of shape rectangle whose
+|south west| anchor is the lower left corner of the page and whose
+|north east| anchor is the upper right corner of the page. While this
+node is handled in a special way internally, you can reference it as
+if it were defined in some remembered picture other than the current
+one. Thus, by giving the |remembered picture| and the |overlay|
+options to a picture, you can position nodes \emph{absolutely} on a
+page.
+
+The first example places some text in the lower left corner of the
+current page:
+\begin{codeexample}[]
+\begin{tikzpicture}[remember picture,overlay]
+  \node [xshift=1cm,yshift=1cm] at (current page.south west)
+        [text width=7cm,fill=blue!20,rounded corners,above right]
+  {
+    This is an absolutely positioned text in the
+    lower left corner. No shipout-hackery is used.
+  };
+\end{tikzpicture}
+\end{codeexample}
+
+The next example adds a circle in the middle of the page.
+\begin{codeexample}[]
+\begin{tikzpicture}[remember picture,overlay]
+  \draw [line width=1mm,opacity=.25]
+    (current page.center) circle (1cm);
+\end{tikzpicture}
+\end{codeexample}
 
 
 \subsection{Predefined Shapes}
