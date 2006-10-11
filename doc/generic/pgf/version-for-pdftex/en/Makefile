@@ -1,6 +1,6 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
-latex = pdflatex
+latex = pdfelatex
 
 all: $(doc).pdf
 
