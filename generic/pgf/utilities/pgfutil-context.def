@@ -62,6 +62,9 @@
   \edef#3{\expandafter\expandafter\expandafter\pgfutil@emu@select\csname\string\color@#1\endcsname}%
 }
 
+\let\pgfutil@doifcolorelse=\doifcolorelse
+
+
 \def\pgfutil@reset@color{%
   \pgfsysprotocol@getcurrentprotocol\pgfutil@emu@temp%
   {%
@@ -87,7 +90,7 @@
     \pgf@marshal%
   \else%
     \expandafter\ifx\csname\string\color@#2\endcsname\relax%
-      \pgfcontextregistercolor{#2}%
+      \pgfutil@registercolor{#2}%
     \fi%
     \edef\pgf@marshal{\noexpand\let\expandafter\noexpand\csname\string\color@#1\endcsname=%
                       \expandafter\noexpand\csname\string\color@#2\endcsname}%
@@ -96,10 +99,10 @@
 }
 \def\pgfutil@emu@mix#1!#2!#3!#4\@nil{%
   \expandafter\ifx\csname\string\color@#1\endcsname\relax%
-    \pgfcontextregistercolor{#1}%
+    \pgfutil@registercolor{#1}%
   \fi%
   \expandafter\ifx\csname\string\color@#3\endcsname\relax%
-    \pgfcontextregistercolor{#3}%
+    \pgfutil@registercolor{#3}%
   \fi%
   \expandafter\expandafter\expandafter\pgfutil@emu@unpack\csname\string\color@#1\endcsname%
   \pgf@ya=\pgf@xa%
@@ -131,14 +134,21 @@
 \def\pgfutil@emu@select#1#2#3#4#5{#5}
 
 
-\def\pgfcontextregistercolor#1{%
+\def\pgfutil@registercolor#1{%
   \edef\pgf@temp{\PDFcolor{#1}}%
   \edef\pgf@marshal{\noexpand\pgfutil@in@{ g}{\pgf@temp}}%
   \pgf@marshal%
   \ifpgfutil@in@%
     \expandafter\pgfutil@context@parse@gray\pgf@temp{#1}%
   \else%
-    \expandafter\pgfutil@context@parse@rgb\pgf@temp{#1}%
+    \edef\pgf@marshal{\noexpand\pgfutil@in@{ rg}{\pgf@temp}}%
+    \pgf@marshal%
+    \ifpgfutil@in@%
+      \expandafter\pgfutil@context@parse@rgb\pgf@temp{#1}%
+    \else%
+      \PackageError{pgf}{Color #1 has an unsupported color model.}{}%
+      \pgfutil@definecolor{#1}{gray}{0}
+    \fi%
   \fi%
 }
 
@@ -182,6 +192,20 @@
 
 
 
+% Font stuff
+
+\def\pgfutil@font@tiny{\rm}            % How to do this correctly?
+\def\pgfutil@font@scriptsize{\rm}
+\def\pgfutil@font@footnotesize{\rm}
+\def\pgfutil@font@small{\rm}
+\def\pgfutil@font@normalsize{\rm}
+\def\pgfutil@font@large{\rm}
+\def\pgfutil@font@Large{\rm}
+\def\pgfutil@font@huge{\rm}
+\def\pgfutil@font@Huge{\rm}
+
+\def\pgfutil@font@itshape{\it}
+
 
 % The following is still messy and needs to be cleanup up (everything
 % prefixed by pgfutil@): 
@@ -195,8 +219,20 @@
 
 \def\pgflatex@setcounter#1#2{\global\csname c@#1\endcsname#2\relax}%
 
-\def\setlength#1#2{\pgf@length@skip#2\relax#1\pgf@length@skip}
-\def\addtolength#1#2{\advance#1 #2\relax}
+\def\setlength#1#2{%
+  \pgf@length@skip=0pt%
+  \pgfutil@parse@setlength#2+\pgf@stop%
+  #1=\pgf@length@skip%
+}
+\def\pgfutil@parse@setlength#1+#2\pgf@stop{%
+  \advance\pgf@length@skip by#1\relax%
+  \def\pgf@test{#2}%
+  \ifx\pgf@test\pgfutil@empty%
+  \else%
+    \pgfutil@parse@setlength#2\pgf@stop%
+  \fi%
+}
+\def\addtolength#1#2{\setlength{\pgf@length@skip}{#2}\advance#1 \pgf@length@skip\relax}
 \def\selectfont{\rm}
 \def\applycolormixins#1{}
 
