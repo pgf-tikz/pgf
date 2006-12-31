@@ -883,6 +883,11 @@
 \def\tikz@mainsnakelength{\pgfsnakeremainingdistance}
 
 
+% Matrix options
+\tikzoption{matrix}[true]{\csname tikz@is@matrix#1\endcsname}
+
+\newif\iftikz@is@matrix
+
 
 % Execute option
 
@@ -1208,6 +1213,7 @@
   \let\tikz@origuseasboundingbox=\useasboundingbox%
   \let\tikz@orignode=\node%
   \let\tikz@origcoordinate=\coordinate%
+  \let\tikz@origmatrix=\matrix%
   %
   \tikz@deactivatthings%
   %
@@ -1228,6 +1234,7 @@
   \def\useasboundingbox{\path[use as bounding box]}
   \def\node{\path node}
   \def\coordinate{\path coordinate}
+  \def\matrix{\path node[matrix]}
 }
 
 \def\tikz@uninstallcommands{%
@@ -1250,6 +1257,7 @@
   \let\useasboundingbox=\tikz@origuseasboundingbox%
   \let\node=\tikz@orignode%
   \let\coordinate=\tikz@origcoordinate%
+  \let\matrix=\tikz@origmatrix%
 }
 
 
@@ -2431,6 +2439,7 @@
   \begingroup%
   \let\tikz@fig@name=\pgfutil@empty%
     \begingroup%
+      \tikz@is@matrixfalse%
       \let\nodepart=\tikz@nodepart%
       \let\tikz@options=\pgfutil@empty%
       \let\tikz@after@node=\pgfutil@empty%
@@ -2465,6 +2474,14 @@
       \def\tikz@shape{rectangle}}%
     {}%
     \tikz@every@style{every \tikz@shape\space node}%
+    \iftikz@is@matrix%
+      \let\tikz@next=\tikz@do@matrix%
+    \else%
+      \let\tikz@next=\tikz@do@fig%
+    \fi%
+    \tikz@next%  
+}
+\def\tikz@do@fig{%  
     \setbox\pgfnodeparttextbox=\hbox%
       \bgroup%
         \tikz@every@style{every text node part}%
@@ -2508,19 +2525,45 @@
           \fi%
         \endpgfinterruptpicture%
       \egroup%
-    \pgfutil@ifnextchar c{\tikz@fig@mustbenamed}%
-    {\pgfutil@ifnextchar[{\tikz@fig@mustbenamed}%
-      {\pgfutil@ifnextchar t{\tikz@fig@mustbenamed}
-        {\pgfutil@ifnextchar e{\tikz@fig@mustbenamed}
-          {\ifx\tikz@after@node\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\fi}}}}}%}
-\def\tikz@fig@mustbenamed{%
-  \ifx\tikz@fig@name\pgfutil@empty%
-    % Assign a dummy name
-    \global\advance\tikz@fig@count by1\relax
-    \edef\tikz@fig@name{tikz@f@\the\tikz@fig@count}%
-  \fi%
-  \tikz@fig@continue%
+    \pgfutil@ifnextchar c{\tikz@fig@mustbenamed\tikz@fig@continue}%
+    {\pgfutil@ifnextchar[{\tikz@fig@mustbenamed\tikz@fig@continue}%
+      {\pgfutil@ifnextchar t{\tikz@fig@mustbenamed\tikz@fig@continue}
+        {\pgfutil@ifnextchar e{\tikz@fig@mustbenamed\tikz@fig@continue}
+          {\ifx\tikz@after@node\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\expandafter\tikz@fig@continue\fi}}}}}%}
+
+\def\tikz@do@matrix{%
+    \tikz@node@transformations%
+    \tikz@fig@mustbenamed%
+    \setbox\tikz@figbox=\hbox\bgroup%
+      \setbox\@tempboxa=\copy\tikz@figbox%
+      \unhbox\@tempboxa%
+      \hbox\bgroup\bgroup%
+          \pgfinterruptpath%
+            \pgfscope%
+              \tikz@options%
+              \setbox\tikz@figbox=\box\voidb@x%
+              \pgfmatrix%
+              {\tikz@shape}%
+              {\tikz@anchor}%
+              {\tikz@fig@name}%
+              {%
+                \@tempdima=\pgflinewidth%
+                {\begingroup\tikz@finish}%
+                \global\pgflinewidth=\@tempdima%
+              }%
+              {\pgfpointorigin}%
+              {\pgfmatrixbackslashampersand\aftergroup\tikz@do@matrix@cont}%
+              \bgroup%
 }
+\def\tikz@do@matrix@cont{%            
+            \endpgfscope
+          \endpgfinterruptpath%
+      \egroup\egroup%
+    \egroup%
+    %
+    \tikz@node@finish%
+}
+  
 \def\tikz@fig@continue{%
     \ifx\tikz@text@width\pgfutil@empty%
     \else%
@@ -2537,19 +2580,11 @@
       \setlength{\pgf@x}{\tikz@text@depth}%
       \dp\pgfnodeparttextbox=\pgf@x%
     \fi%
-    % Possibly, we are ``online''
-    \ifx\tikz@time\pgfutil@empty%
-      \pgftransformshift{\tikz@node@at}%
-      \iftikz@fullytransformed%
-      \else%
-        \pgftransformresetnontranslations
-      \fi%
-    \else%
-      \tikz@do@auto@anchor%
-      \tikz@timer%
-    \fi%
-    % Invoke local transformations
-    \tikz@transform%  
+    %
+    % Node transformation
+    %
+    \tikz@node@transformations
+    %
     \setbox\tikz@figbox=\hbox{%
       \setbox\@tempboxa=\copy\tikz@figbox%
       \unhbox\@tempboxa%
@@ -2567,7 +2602,38 @@
           \endpgfinterruptpath%
       }}%
     }%
-    %   
+    %
+    \tikz@node@finish%
+}
+
+
+\def\tikz@fig@mustbenamed{%
+  \ifx\tikz@fig@name\pgfutil@empty%
+    % Assign a dummy name
+    \global\advance\tikz@fig@count by1\relax
+    \edef\tikz@fig@name{tikz@f@\the\tikz@fig@count}%
+  \fi%
+}
+
+\def\tikz@node@transformations{
+  % 
+  % Possibly, we are ``online''
+  % 
+  \ifx\tikz@time\pgfutil@empty%
+    \pgftransformshift{\tikz@node@at}%
+    \iftikz@fullytransformed%
+    \else%
+      \pgftransformresetnontranslations%
+    \fi%
+  \else%
+    \tikz@do@auto@anchor%
+    \tikz@timer%
+  \fi%
+  % Invoke local transformations
+  \tikz@transform%
+}
+
+\def\tikz@node@finish{%  
     \global\let\tikz@last@fig@name=\tikz@fig@name%
     \global\let\tikz@after@node@smuggle=\tikz@after@node%
     \global\let\tikz@afternodepathoptions@smuggle=\tikz@afternodepathoptions%
@@ -2586,6 +2652,8 @@
   \tikz@scan@next@command%
 }
 \let\tikz@fig@continue@orig=\tikz@fig@continue
+
+
 
 % Syntax for parts of  nodes:
 % node ... {... \nodepart{name} ... \nodepart{name} ...}
