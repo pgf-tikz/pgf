@@ -885,9 +885,17 @@
 
 % Matrix options
 \tikzoption{matrix}[true]{\csname tikz@is@matrix#1\endcsname}
+\tikzoption{cells}{\tikzstyle{every cell}+=[#1]}
+
+\tikzoption{active ampersand}[true]{\csname tikz@matrix@active@ampersand#1\endcsname}
+\tikzoption{backslash ampersand}[true]{\csname tikz@matrix@backslash@ampersand#1\endcsname}
 
 \newif\iftikz@is@matrix
+\newif\iftikz@matrix@active@ampersand
+\newif\iftikz@matrix@backslash@ampersand
 
+\tikz@matrix@active@ampersandtrue
+\tikz@matrix@backslash@ampersandtrue
 
 % Execute option
 
@@ -899,6 +907,8 @@
 \tikzoption{execute at end to}{\expandafter\def\expandafter\tikz@atend@to\expandafter{\tikz@atend@to#1}}
 \tikzoption{execute at begin node}{\expandafter\def\expandafter\tikz@atbegin@node\expandafter{\tikz@atbegin@node#1}}
 \tikzoption{execute at end node}{\expandafter\def\expandafter\tikz@atend@node\expandafter{\tikz@atend@node#1}}
+\tikzoption{execute at begin cell}{\expandafter\def\expandafter\tikz@atbegin@cell\expandafter{\tikz@atbegin@cell#1}}
+\tikzoption{execute at end cell}{\expandafter\def\expandafter\tikz@atend@cell\expandafter{\tikz@atend@cell#1}}
 
 \let\tikz@atbegin@picture=\pgfutil@empty
 \let\tikz@atend@picture=\pgfutil@empty
@@ -908,6 +918,8 @@
 \let\tikz@atend@to=\pgfutil@empty
 \let\tikz@atbegin@node=\pgfutil@empty
 \let\tikz@atend@node=\pgfutil@empty
+\let\tikz@atbegin@cell=\pgfutil@empty
+\let\tikz@atend@cell=\pgfutil@empty
 
 
 
@@ -964,6 +976,8 @@
 \tikzstyle{every child}=             []
 \tikzstyle{every child node}=        []
 \tikzstyle{every to}=                []
+\tikzstyle{every cell}=              []
+\tikzstyle{every matrix}=            []
 \tikzstyle{every edge}=              [draw]
 \tikzstyle{every label}=             [draw=none,fill=none]
 \tikzstyle{every pin}=               [draw=none,fill=none]
@@ -2532,6 +2546,7 @@
           {\ifx\tikz@after@node\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\expandafter\tikz@fig@continue\fi}}}}}%}
 
 \def\tikz@do@matrix{%
+    \tikz@every@style{every matrix}%
     \tikz@node@transformations%
     \tikz@fig@mustbenamed%
     \setbox\tikz@figbox=\hbox\bgroup%
@@ -2542,6 +2557,13 @@
             \pgfscope%
               \tikz@options%
               \setbox\tikz@figbox=\box\voidb@x%
+              \edef\tikz@anchor{\tikz@anchor}%
+              \expandafter\pgfutil@in@\expandafter{\expandafter.\expandafter}\expandafter{\tikz@anchor}%
+              \ifpgfutil@in@%
+                \expandafter\tikz@matrix@split\tikz@anchor\relax%
+              \else%
+                \def\tikz@matrix@shift{\pgfpointorigin}%  
+              \fi%
               \pgfmatrix%
               {\tikz@shape}%
               {\tikz@anchor}%
@@ -2551,8 +2573,17 @@
                 {\begingroup\tikz@finish}%
                 \global\pgflinewidth=\@tempdima%
               }%
-              {\pgfpointorigin}%
-              {\pgfmatrixbackslashampersand\aftergroup\tikz@do@matrix@cont}%
+              {\tikz@matrix@shift}%
+              {%
+                \iftikz@matrix@backslash@ampersand%
+                  \pgfmatrixbackslashampersand%
+                \fi%
+                \iftikz@matrix@active@ampersand%
+                  \pgfmatrixactiveampersand%
+                \fi%
+                \def\pgfmatrixbegincode{\scope[every cell]\tikz@atbegin@cell}
+                \def\pgfmatrixendcode{\tikz@atend@cell\endscope}
+                \aftergroup\tikz@do@matrix@cont}%
               \bgroup%
 }
 \def\tikz@do@matrix@cont{%            
@@ -2562,6 +2593,11 @@
     \egroup%
     %
     \tikz@node@finish%
+}
+
+\def\tikz@matrix@split#1.#2\relax{%
+  \def\tikz@anchor{text}%
+  \def\tikz@matrix@shift{\pgfpointanchor{#1}{#2}}%
 }
   
 \def\tikz@fig@continue{%
