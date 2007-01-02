@@ -453,6 +453,8 @@
 
 \tikzoption{shape}{\edef\tikz@shape{#1}}
 
+\tikzoption{nodes}{\tikzstyle{every node}+=[#1]}
+
 \tikzoption{inner sep}{\def\pgfshapeinnerxsep{#1}\def\pgfshapeinnerysep{#1}}
 \tikzoption{inner xsep}{\def\pgfshapeinnerxsep{#1}}
 \tikzoption{inner ysep}{\def\pgfshapeinnerysep{#1}}
@@ -885,6 +887,12 @@
 
 % Matrix options
 \tikzoption{matrix}[true]{\csname tikz@is@matrix#1\endcsname}
+
+\tikzoption{matrix anchor}{\def\tikz@matrix@anchor{#1}}
+
+\tikzoption{column sep}{\def\pgfmatrixcolumnsep{#1}}
+\tikzoption{row sep}{\def\pgfmatrixrowsep{#1}}
+
 \tikzoption{cells}{\tikzstyle{every cell}+=[#1]}
 
 \tikzoption{active ampersand}[true]{\csname tikz@matrix@active@ampersand#1\endcsname}
@@ -896,6 +904,8 @@
 
 \tikz@matrix@active@ampersandtrue
 \tikz@matrix@backslash@ampersandtrue
+
+\let\tikz@matrix@anchor=\pgfutil@empty
 
 % Execute option
 
@@ -1305,8 +1315,10 @@
 % settings.  
 
 \def\tikz@command@path{%
+  \let\tikz@signal@path=\tikz@signal@path% for detection at begin of matrix cell
   \pgfutil@ifnextchar[{\tikz@check@earg}%]
   {\pgfutil@ifnextchar<{\tikz@doopt}{\tikz@@command@path}}}
+\def\tikz@signal@path{\tikz@signal@path}%
 \def\tikz@check@earg[#1]{%
   \pgfutil@ifnextchar<{\tikz@swap@args[#1]}{\tikz@@command@path[#1]}}
 \def\tikz@swap@args[#1]<#2>{\tikz@command@path<#2>[#1]}
@@ -2557,16 +2569,17 @@
             \pgfscope%
               \tikz@options%
               \setbox\tikz@figbox=\box\voidb@x%
-              \edef\tikz@anchor{\tikz@anchor}%
-              \expandafter\pgfutil@in@\expandafter{\expandafter.\expandafter}\expandafter{\tikz@anchor}%
+              \let\tikzmatrixname=\tikz@fig@name%
+              \edef\tikz@m@anchor{\ifx\tikz@matrix@anchor\pgfutil@empty\tikz@anchor\else\tikz@matrix@anchor\fi}%
+              \expandafter\pgfutil@in@\expandafter{\expandafter.\expandafter}\expandafter{\tikz@m@anchor}%
               \ifpgfutil@in@%
-                \expandafter\tikz@matrix@split\tikz@anchor\relax%
+                \expandafter\tikz@matrix@split\tikz@m@anchor\relax%
               \else%
                 \def\tikz@matrix@shift{\pgfpointorigin}%  
               \fi%
               \pgfmatrix%
               {\tikz@shape}%
-              {\tikz@anchor}%
+              {\tikz@m@anchor}%
               {\tikz@fig@name}%
               {%
                 \@tempdima=\pgflinewidth%
@@ -2581,8 +2594,30 @@
                 \iftikz@matrix@active@ampersand%
                   \pgfmatrixactiveampersand%
                 \fi%
-                \def\pgfmatrixbegincode{\scope[every cell]\tikz@atbegin@cell}
-                \def\pgfmatrixendcode{\tikz@atend@cell\endscope}
+                \def\pgfmatrixbegincode{%
+                  \pgfsys@beginscope%
+                  \let\tikz@options=\pgfutil@empty%
+                  \let\tikz@mode=\pgfutil@empty%
+                  \tikz@every@style{every cell}%
+                  \tikz@every@style{column \the\pgfmatrixcurrentcolumn}%
+                  \ifodd\pgfmatrixcurrentcolumn%
+                    \tikz@every@style{every odd column}%
+                  \else%
+                    \tikz@every@style{every even column}%
+                  \fi%
+                  \tikz@every@style{row \the\pgfmatrixcurrentrow}%
+                  \ifodd\pgfmatrixcurrentrow%
+                    \tikz@every@style{every odd row}%
+                  \else%
+                    \tikz@every@style{every even row}%
+                  \fi%
+                  \tikz@every@style{row \the\pgfmatrixcurrentrow\space column \the\pgfmatrixcurrentcolumn}%
+                  \tikz@options%
+                  \tikz@atbegin@cell}
+                \def\pgfmatrixendcode{%
+                  \tikz@atend@cell%
+                  \pgfsys@endscope%
+                }%
                 \aftergroup\tikz@do@matrix@cont}%
               \bgroup%
 }
