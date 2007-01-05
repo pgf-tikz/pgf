@@ -13,6 +13,8 @@
 \newif\ifpgfmatrix
 \newif\ifpgf@matrix@correct@call
 
+\newif\ifpgf@matrix@fixed
+
 \newcount\pgfmatrixcurrentrow
 
 \newcount\pgfmatrixcurrentcolumn
@@ -153,7 +155,9 @@
     \offinterlineskip%
     \pgfmatrixtrue%
     \let\pgf@matrix@node@list=\pgfutil@empty%
-    %
+    \expandafter\let\csname pgf@matrix@column@finish@1\endcsname=\pgfutil@empty%
+    \let\pgf@matrix@row@finish=\pgfutil@empty%
+    % 
     % Get rid of bgroup
     %
     \afterassignment\pgf@matrix@cont\let\pgf@next=%
@@ -241,16 +245,51 @@
   \ifnum\pgfmatrixcurrentcolumn<\pgf@matrix@numberofcolumns%
   \else%
   {%
-    \setlength\pgf@x{\pgfmatrixcolumnsep}%
-    \setlength\pgf@xa{#1}%
-    \advance\pgf@x by \pgf@xa%
+    \global\pgf@matrix@fixedfalse%
+    \pgf@x=0pt%
+    \pgf@matrix@addtolength{\pgf@x}{\pgfmatrixcolumnsep}%
+    \pgf@matrix@addtolength{\pgf@x}{#1}%
+    \ifpgf@matrix@fixed%
+      \expandafter\pgfutil@g@addto@macro\csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname%
+        {\global\pgf@picmaxx=0pt}%
+    \fi%
     \advance\pgfmatrixcurrentcolumn by1\relax % only temporary for the following:
     \expandafter\xdef\csname pgf@matrix@column@sep@\the\pgfmatrixcurrentcolumn\endcsname{\the\pgf@x}%
+    \ifpgf@matrix@fixed%
+      \expandafter\gdef\csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname{\global\pgf@picminx=0pt}%
+    \else%
+      \expandafter\global\expandafter\let\csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname=\pgfutil@empty%
+    \fi%
   }%
   \fi%
   &\pgf@matrix@correct@calltrue&%
 }%
 
+
+\def\pgf@matrix@fixed@text{between origins}
+\def\pgf@matrix@natural@text{between borders}
+
+\def\pgf@matrix@addtolength#1#2{\edef\pgf@temp{#2}\expandafter\pgf@matrix@addtolength@\expandafter#1#2,\pgf@stop}
+\def\pgf@matrix@addtolength@#1#2,#3\pgf@stop{%
+  \def\pgf@temp{#2}%
+  \ifx\pgf@temp\pgfutil@empty%
+  \else%
+    \ifx\pgf@temp\pgf@matrix@fixed@text%
+      \global\pgf@matrix@fixedtrue%
+    \else%
+      \ifx\pgf@temp\pgf@matrix@natural@text%
+        \global\pgf@matrix@fixedfalse%
+      \else%
+        \addtolength{#1}{#2}%
+      \fi%
+    \fi%
+  \fi%
+  \def\pgf@temp{#3}%
+  \ifx\pgf@temp\pgfutil@empty%
+  \else%
+    \pgf@matrix@addtolength@#1#3\pgf@stop%
+  \fi%
+}
 
 
 
@@ -304,6 +343,8 @@
 \def\pgf@matrix@endcell{%
     \pgfmatrixendcode%
     \pgfsys@endpicture%
+    \csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname%
+    \pgf@matrix@row@finish%
   \egroup\egroup%
   % Special case of the empty picture
   \ifdim\pgf@picmaxx=-16000pt\relax%
@@ -493,13 +534,14 @@
 % End of line
 \def\pgf@matrix@eol{%
   &\pgf@matrix@correct@calltrue%
-  \setlength\pgf@y{\pgfmatrixrowsep}%
+  \global\pgf@matrix@fixedfalse%
+  \pgf@y=0pt%
+  \pgf@matrix@addtolength\pgf@y{\pgfmatrixrowsep}%
   \pgfutil@ifnextchar[{\pgf@matrix@eol@skip}{\pgf@matrix@finish@line}%
 }
 
 \def\pgf@matrix@eol@skip[#1]{%
-  \setlength\pgf@ya{#1}%
-  \advance\pgf@y by\pgf@ya%
+  \pgf@matrix@addtolength\pgf@y{#1}%
   \pgf@matrix@finish@line%
 }
 
@@ -519,6 +561,17 @@
 \def\pgf@matrix@no@eom@found{%
   \cr%
   \noalign{\vskip\pgf@y}%
+  \ifpgf@matrix@fixed%
+    \noalign{%
+      \vskip\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname% unskip
+      \vskip\pgf@y%
+      \pgf@y=-\pgf@y%
+      \expandafter\xdef\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname{\the\pgf@y}%
+    }%
+    \gdef\pgf@matrix@row@finish{\global\pgf@picmaxy=0pt}%
+  \else%
+    \global\let\pgf@matrix@row@finish=\pgfutil@empty%
+  \fi%
 }
 
 
