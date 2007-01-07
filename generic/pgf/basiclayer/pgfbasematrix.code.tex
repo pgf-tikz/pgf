@@ -239,7 +239,12 @@
 %   \node (b) [draw] {Welt};  \pgfmatrixnextcell \draw (0,0) circle (5mm); \\
 % }
 
-\def\pgfmatrixnextcell{\pgfutil@ifnextchar[{\pgf@matrix@cell@cont}{\pgf@matrix@cell@cont[0pt]}}%}
+\def\pgfmatrixnextcell{%
+  % if the cell contains nothing, the following \let will be at the
+  % beginning (macro expansion has stopped here since neither \omit
+  % nor \span was found)
+  \let\pgf@matrix@signal@cell@end=\pgf@matrix@signal@cell@end%
+  \pgfutil@ifnextchar[{\pgf@matrix@cell@cont}{\pgf@matrix@cell@cont[0pt]}}%}
 
 \def\pgf@matrix@cell@cont[#1]{%
   \ifnum\pgfmatrixcurrentcolumn<\pgf@matrix@numberofcolumns%
@@ -334,14 +339,42 @@
   %
   \setbox\pgf@matrix@cell=\hbox\bgroup\bgroup%
     \pgfsys@beginpicture%
-    \pgfmatrixbegincode%
+    \normalbaselines%
+    % Find out whether the cell is empty:
+    \pgfutil@ifnextchar\let%
+    {% ok, candidate, check following symbol
+      \afterassignment\pgf@matrix@empty@check\let\pgf@next=% get rid of \let
+    }%
+    {% no, not empty
+      \pgf@matrix@empty@cell@false%
+      \pgfmatrixbegincode%
+    }%
 }
+
+\def\pgf@matrix@empty@check{%
+  \pgfutil@ifnextchar\pgf@matrix@signal@cell@end%
+  {% Bingo!
+    \pgf@matrix@empty@cell@true%
+    \pgfmatrixemptycode%
+    \let% reinserted
+  }%
+  {% Nope!
+    \pgf@matrix@empty@cell@false%
+    \pgfmatrixbegincode%
+    \let% reinserted
+  }
+}%
+
+\newif\ifpgf@matrix@empty@cell@
 
 
 % End a  cell
 
 \def\pgf@matrix@endcell{%
-    \pgfmatrixendcode%
+    \ifpgf@matrix@empty@cell@%
+    \else%
+      \expandafter\pgfmatrixendcode%
+    \fi
     \pgfsys@endpicture%
     \csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname%
     \pgf@matrix@row@finish%
@@ -411,6 +444,7 @@
 % Default code for the start and end code
 \let\pgfmatrixbegincode=\relax
 \let\pgfmatrixendcode=\relax
+\let\pgfmatrixemptycode=\relax
 
 
 % The following callback is called for every node that is produced
@@ -533,12 +567,19 @@
 
 % End of line
 \def\pgf@matrix@eol{%
+  % if the cell contains nothing, the following \let will be at the
+  % beginning (macro expansion has stopped here since neither \omit
+  % nor \span was found)
+  \let\pgf@matrix@signal@cell@end=\pgf@matrix@signal@cell@end%
   &\pgf@matrix@correct@calltrue%
   \global\pgf@matrix@fixedfalse%
   \pgf@y=0pt%
   \pgf@matrix@addtolength\pgf@y{\pgfmatrixrowsep}%
   \pgfutil@ifnextchar[{\pgf@matrix@eol@skip}{\pgf@matrix@finish@line}%
 }
+
+\def\pgf@matrix@signal@cell@end{\pgf@matrix@signal@cell@end}
+% exact definition does not matter, only needs to be unique.
 
 \def\pgf@matrix@eol@skip[#1]{%
   \pgf@matrix@addtolength\pgf@y{#1}%
@@ -560,18 +601,17 @@
 
 \def\pgf@matrix@no@eom@found{%
   \cr%
-  \noalign{\vskip\pgf@y}%
+  \noalign{\vskip\pgf@y%
   \ifpgf@matrix@fixed%
-    \noalign{%
-      \vskip\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname% unskip
-      \vskip\pgf@y%
-      \pgf@y=-\pgf@y%
-      \expandafter\xdef\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname{\the\pgf@y}%
-    }%
+    \vskip\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname% unskip
+    \vskip\pgf@y%
+    \pgf@y=-\pgf@y%
+    \expandafter\xdef\csname pgf@matrix@miny\the\pgfmatrixcurrentrow\endcsname{\the\pgf@y}%
     \gdef\pgf@matrix@row@finish{\global\pgf@picmaxy=0pt}%
   \else%
     \global\let\pgf@matrix@row@finish=\pgfutil@empty%
   \fi%
+  }%
 }
 
 

@@ -30,8 +30,12 @@ adjusted such that they are large enough to contain all the cell
 contents.
 
 Matrices are a powerful tool and they need to handled with some care.
-For the impatient, note that you \emph{must} end \emph{every} row with
-|\\|. In particular, the last row \emph{must} be ended with |\\|.
+For impatient readers who skip the rest of this section: you
+\emph{must} end \emph{every} row with |\\|. In particular, the last
+row \emph{must} be ended with |\\|.
+
+Many of the ideas implemented in \tikzname's matrix support are due to
+Mark Wibrow -- many thanks to Mark at this point!
 
 
 
@@ -249,7 +253,12 @@ the column or row or between their borders.
   that the difference between the origins of all the cells in the
   first column (remember that they all lie on straight line) and the
   origins of all the cells in the second column is exactly the given
-  distance.  
+  distance.
+
+  \emph{The |between origins| option can only be used for columns
+    mentioned in the first row, that is, you cannot specify this
+    option for columns introduced only in later rows.}
+  
 \begin{codeexample}[]
 \begin{tikzpicture}
   \matrix [draw,column sep={1cm,between origins},nodes=draw]
@@ -455,9 +464,11 @@ following options allow you to execute such code in all cells:
 
 \begin{itemize}
   \itemoption{execute at begin cell}|=|\meta{code}
-  The code will be executed at the beginning of each cell.
+  The code will be executed at the beginning of each nonempty cell.
   \itemoption{execute at end cell}|=|\meta{code}
-  The code will be executed at the end of each cell.
+  The code will be executed at the end of each nonempty cell.
+  \itemoption{execute at empty cell}|=|\meta{code}
+  The code will be executed inside each empty cell.
 
 \begin{codeexample}[]
 \begin{tikzpicture}
@@ -470,6 +481,21 @@ following options allow you to execute such code in all cells:
     8 & 1 & 6 \\
     3 & 5 & 7 \\
     4 & 9 & 2 \\
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \tikzstyle{matrix of nodes}=[
+    execute at begin cell=\node\bgroup,
+    execute at end cell=\egroup;%
+    execute at empty cell=\node{--};%
+  ]
+  \matrix [matrix of nodes]
+  {
+    8 & 1 &   \\
+    3 &   & 7 \\
+      &   & 2 \\
   };
 \end{tikzpicture}
 \end{codeexample}
@@ -578,7 +604,120 @@ having to type |\pgfmatrixnextcell| each time:
 \end{itemize}
 
 
+\subsection{Examples}
 
+The following examples are adapted from code by Mark Wibrow. The first
+two redraw pictures from Timothy van Zandt's PSTricks documentation: 
+
+{\catcode`\|=12
+\begin{codeexample}[]
+\begin{tikzpicture} 
+  \matrix [matrix of math nodes,row sep=1cm]
+  { 
+    |(U)| U &[2mm]                       &[8mm]    \\ 
+            &      |(XZY)| X \times_Z Y  &      |(X)| X \\ 
+            &      |(Y)|   Y             &      |(Z)| Z \\
+  }; 
+  \tikzstyle{every node}=[midway,auto,font=\scriptsize] 
+  \draw [double, dashed] (U)   -- node {$x$} (X); 
+  \draw                  (X)   -- node {$p$} (XZY)
+                         (X)   -- node {$f$} (Z)
+                               -- node {$g$} (Y)
+                               -- node {$q$} (XZY)
+                               -- node {$y$} (U);
+\end{tikzpicture} 
+\end{codeexample}
+
+\begin{codeexample}[]
+\begin{tikzpicture}[>=stealth,->,shorten >=2pt,looseness=.5,auto] 
+  \matrix [matrix of math nodes,
+           column sep={2cm,between origins},
+           row sep={3cm,between origins},
+           nodes={circle, draw, minimum size=7.5mm}]
+  { 
+            & |(A)| A &         \\ 
+    |(B)| B & |(E)| E & |(C)| C \\ 
+            & |(D)| D           \\
+  }; 
+  \tikzstyle{every node}=[font=\small\itshape]
+  \draw (A) to [bend left] (B) node [midway]   {g}; 
+  \draw (B) to [bend left] (A) node [midway]   {f}; 
+  \draw (D) --             (B) node [midway]   {c}; 
+  \draw (E) --             (B) node [midway]   {b}; 
+  \draw (E) --             (C) node [near end] {a}; 
+  \draw [-,line width=8pt,draw=graphicbackground] 
+        (D) to [bend right, looseness=1] (A); 
+  \draw (D) to [bend right, looseness=1] (A) node [near start] {b} node [near end]   {e}; 
+\end{tikzpicture}
+\end{codeexample}
+
+\begin{codeexample}[]
+\begin{tikzpicture} 
+  \matrix (network)
+    [matrix of nodes,%
+     fill empty cells,
+     nodes={outer sep=0pt,circle,minimum size=4pt,draw},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+                  &                &                 & \\ 
+                  &                &                 & \\ 
+    |[draw=none]| & |[xshift=1mm]| & |[xshift=-1mm]|   \\
+  }; 
+  \foreach \a in {1,...,4}{ 
+    \draw (network-3-2) -- (network-2-\a); 
+    \draw (network-3-3) -- (network-2-\a); 
+    \draw [-stealth] ([yshift=5mm]network-1-\a.north) -- (network-1-\a); 
+    \foreach \b in {1,...,4} 
+      \draw (network-1-\a) -- (network-2-\b); 
+  } 
+  \draw [stealth-] ([yshift=-5mm]network-3-2.south) -- (network-3-2); 
+  \draw [stealth-] ([yshift=-5mm]network-3-3.south) -- (network-3-3); 
+\end{tikzpicture} 
+\end{codeexample}
+
+The following example is adapted from code written by Kjell Magne
+Fauske, which is based on the following paper: K.~Bossley, M.~Brown, 
+and C.~Harris, Neurofuzzy identification of an autonomous underwater
+vehicle, \emph{International Journal of Systems Science}, 1999, 30, 901--913.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[auto] 
+  \tikzstyle{decision} = [diamond, draw=blue, thick, fill=blue!20, 
+    text width=4.5em, text badly centered, inner sep=1pt] 
+  \tikzstyle{block} = [rectangle, draw=blue, thick, fill=blue!20, 
+    text width=5em, text centered, rounded corners, minimum height=4em] 
+  \tikzstyle{line} = [draw, thick, -latex',shorten >=2pt]; 
+  \tikzstyle{cloud} = [draw=red, thick, ellipse,fill=red!20, minimum height=2em]; 
+  \matrix [column sep=5mm,row sep=7mm]
+  {
+    % row 1
+      \node [cloud] (expert)   {expert}; & 
+      \node [block] (init)     {initialize model}; & 
+      \node [cloud] (system)   {system}; \\
+    % row 2
+      & \node [block] (identify) {identify candidate model}; & \\ 
+    % row 3
+      \node [block] (update)   {update model};  & 
+      \node [block] (evaluate) {evaluate candidate models}; & \\ 
+    % row 4
+      & \node [decision] (decide) {is best candidate}; & \\ 
+    % row 5
+      & \node [block] (stop)      {stop}; & \\
+  }; 
+  \tikzstyle{every path}=[line] 
+  \path          (init)     -- (identify); 
+  \path          (identify) -- (evaluate); 
+  \path          (evaluate) -- (decide); 
+  \path          (update)   |- (identify); 
+  \path          (decide)   -| node [near start] {yes} (update); 
+  \path          (decide)   -- node [midway] {no} (stop); 
+  \path [dashed] (expert)   -- (init); 
+  \path [dashed] (system)   -- (init); 
+  \path [dashed] (system)   |- (evaluate); 
+\end{tikzpicture} 
+\end{codeexample}
+}
 
 %%% Local Variables: 
 %%% mode: latex
