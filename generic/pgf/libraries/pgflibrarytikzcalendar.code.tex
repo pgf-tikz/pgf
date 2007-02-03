@@ -10,6 +10,49 @@
 \ProvidesFileRCS[v\pgfversion] $Header$
 
 
+
+% Typeset a calendar
+%
+% #1 = prefix for the calendar nodes
+% #2 = start date in ISO format
+% #3 = end date in ISO format
+% #4 = anchor date (start date is used when empty)
+% #5 = date pass check code
+% #6 = date rendering code
+%
+% Description:
+%
+% A calendar is typeset as follows: You specify a range of dates (by
+% providing a start and an end date). Then, for each date in this
+% range two things happen: First, a test is applied whether the date
+% should be considered. If this test fails, the next date is
+% used. Otherwise, a function is called that gets the date and lots
+% of information about the date (like its day of week) and information
+% about an anchor date. The job of this funtion is to compute a
+% position where the date should be put (it must setup a
+% transformation matrix) and to put the date there. Using the
+% information about the date, the funtion is invited to change graphic
+% parameters as needed.
+%
+% Inside the check and rendering code, different macros will be setup
+% an can be access:
+%
+% 
+
+\def\pgfcalendar#1#2#3#4#5#6{%
+}
+
+
+
+
+
+%
+%
+% Date conversion functions
+%
+%
+
+
 % Translation stuff
 
 \ifx\translate\@undefined
@@ -22,67 +65,6 @@
 \else
   \usedictionary{translator-months-dictionary}
 \fi
-
-
-% Convert a date to the number of days since January 1st, 2000 (which
-% was a Sunday)
-%
-% #1 = date in the ISO format (like 2006-11-10)
-% #2 = counter that should be set to the number of days
-%
-% Example:
-%
-% \pgfcalendardatetonumber{2006-01-10}{\mycount}
-
-\def\pgfcalendardatetonumber#1#2{\edef\pgf@temp{#1}\expandafter\pgfcalendar@datetonumber\pgf@temp/{#2}}
-\def\pgfcalendar@datetonumber#1-#2-#3/#4{%
-  {%
-    %
-    % Store year, month and days.
-    % 
-    \c@pgf@counta=#1\relax%
-    \c@pgf@countb=#2\relax%
-    \c@pgf@countc=#3\relax%
-    %
-    % Store final result in \c@pgf@countd
-    %
-    \advance\c@pgf@countc by -1\relax%
-    \c@pgf@countd=\c@pgf@countc\relax%
-    % 
-    %
-    % Add number of days in year contributed by the given month. 
-    %
-    \advance\c@pgf@countb by -1\relax%
-    \advance\c@pgf@countd by \ifcase\c@pgf@countb 0\or31\or59\or90\or120\or151\or181\or212\or243\or273\or304\or334\or365\fi
-    %
-    % Add number of days in years since the given year
-    %
-    \advance\c@pgf@counta by -1600\relax%
-    \advance\c@pgf@countd by-146096\relax%%
-    %
-    % Act, as if the current year began on March 1st...
-    \ifnum\c@pgf@countb<2\relax%
-      \advance\c@pgf@counta by -1\relax%
-      \advance\c@pgf@countd by365\relax%
-    \fi%
-    %
-    \multiply\c@pgf@counta by 365\relax%
-    \advance\c@pgf@countd by \c@pgf@counta\relax%
-    \divide\c@pgf@counta by 365\relax%
-    % Take leap years into account:
-    \divide\c@pgf@counta by 4\relax%
-    \advance\c@pgf@countd by\c@pgf@counta\relax%
-    % Subtract 100-year exception:
-    \divide\c@pgf@counta by 25\relax%
-    \advance\c@pgf@countd by-\c@pgf@counta\relax%
-    % Add 400-year exception:
-    \divide\c@pgf@counta by 4\relax%
-    \advance\c@pgf@countd by\c@pgf@counta\relax%
-    %
-    \xdef\pgf@temp{\the\c@pgf@countd}%
-  }%
-  #4=\pgf@temp\relax%
-}
 
 
 % Convert a date to the Julian day number (number of days since
@@ -105,61 +87,65 @@
     %
     % Store year, month and days.
     % 
-    \c@pgf@counta=#1\relax%
-    \c@pgf@countb=#2\relax%
-    \c@pgf@countc=#3\relax%
+    \count1=#1\relax%
+    \count2=#2\relax%
+    \count3=#3\relax%
     %
     % Store final result in \c@pgf@countd
     %
     %
-    % Compute a = \lfloor (14-month) /12 \rfloor
+    % 4) a = \lfloor (14-month) /12 \rfloor
     %
-    \ifnum#2>2\relax%
-      \c@pgf@counta=1\relax%
+    \ifnum\count2<3\relax%
+      \count4=1\relax%
     \else%
-      \c@pgf@counta=0\relax%
+      \count4=0\relax%
     \fi%
     %
-    % Compute y = year + 4800 - a
+    % 5) y = year + 4800 - a
     %
-    \c@pgf@countb=#1\relax%
-    \advance\c@pgf@countb by 4800\relax%
-    \advance\c@pgf@countb by-\c@pgf@counta\relax%
+    \count5=\count1\relax%
+    \advance\count5 by 4800\relax%
+    \advance\count5 by-\count4\relax%
     %
-    % Compute m = month + 12a - 3
+    % 6) m = month + 12a - 3
     %
-    \c@pgf@countc=#2\relax%
-    \advance\c@pgf@countc by 12\c@pgf@counta\relax%
-    \advance\c@pgf@countc by-3\relax%
+    \count6=#2\relax%
+    \count0=\count4\relax%
+    \multiply\count0 by12\relax
+    \advance\count6 by\count0\relax%
+    \advance\count6 by-3\relax%
     %
-    % Compute jdn = day + \floor{(153 m+2)/5} + 365y + \floor{y/4} -
+    % 7) jdn = day + \floor{(153 m+2)/5} + 365y + \floor{y/4} -
     % \floor{y/100} + \florr{y/400} - 32045
     %
-    \c@pgf@countd=#3\relax%
-    % Recycle a
+    \count7=\count3\relax%
     % + \floor{(153 m+2)/5} :
-    \c@pgf@counta=153\c@pgf@countc\relax
-    \advance\c@pgf@counta by 2\relax%
-    \divide\c@pgf@counta by 5\relax%
-    \advance\c@pgf@countd by \c@pgf@counta\relax%
+    \count0=\count6\relax
+    \multiply\count0 by 153\relax%
+    \advance\count0 by 2\relax%
+    \divide\count0 by 5\relax%
+    \advance\count7 by \count0\relax%
     % + 365y :
-    \advance\c@pgf@countd by365\c@pgf@countb\relax%
+    \count0=\count5%
+    \multiply\count0by365\relax%
+    \advance\count7 by\count0\relax%
     % + \floor{y/4}
-    \c@pgf@counta=\c@pgf@countb\relax%
-    \divide\c@pgf@counta by 4\relax%
-    \advance\c@pgf@countd by\c@pgf@counta%
+    \count0=\count5\relax%
+    \divide\count0 by 4\relax%
+    \advance\count7 by\count0%
     % - \floor{y/100}
-    \c@pgf@counta=\c@pgf@countb\relax%
-    \divide\c@pgf@counta by 100\relax%
-    \advance\c@pgf@countd by-\c@pgf@counta%
+    \count0=\count5\relax%
+    \divide\count0 by 100\relax%
+    \advance\count7 by-\count0\relax%
     % + \floor{y/400}
-    \c@pgf@counta=\c@pgf@countb\relax%
-    \divide\c@pgf@counta by 400\relax%
-    \advance\c@pgf@countd by\c@pgf@counta%
+    \count0=\count5\relax%
+    \divide\count0 by 400\relax%
+    \advance\count7 by\count0%
     %  - 32045
-    \advance\c@pgf@countd by-32405\relax%
+    \advance\count7 by-32045\relax%
     %
-    \xdef\pgf@temp{\the\c@pgf@countd}%
+    \xdef\pgf@temp{\the\count7}%
   }%
   #4=\pgf@temp\relax%
 }
@@ -168,36 +154,125 @@
 % Convert Julian day number date. 
 %
 % #1 = the number of Julian days
-% #2 = a macro in which the date should be stored.
+% #2 = a macro in which the year should be stored.
+% #3 = a macro in which the month should be stored.
+% #4 = a macro in which the day should be stored.
 %
 % Formula used:
 %
-% J = Julian day number
-% j = J + 32044
-% g = j div 146097
-% dg = j mod 146097
-% c = (dg div 36524 + 1) * 3 div 4
-% dc = dg - c * 36524
-% b = dc div 1461
-% db = dc mod 1461
-% a = (db div 365 + 1) * 3 div 4
-% da = db - a * 365
-% y = g * 400 + c * 100 + b * 4 + a
-% m = (da * 5 + 308) div 153 - 2
-% d = da - (m + 4) * 153 div 5 + 122
-% Y = y - 4800 + (m + 2) div 12
-% M = (m + 2) mod 12 + 1
-% D = d + 1
+% 1) J = Julian day number
+% 2) j = J + 32044
+% 3) g = j div 146097
+% 4) dg = j mod 146097
+% 5) c = (dg div 36524 + 1) * 3 div 4
+% 6) dc = dg - c * 36524
+% 7) b = dc div 1461
+% 8) db = dc mod 1461
+% 9) a = (db div 365 + 1) * 3 div 4
+% 10)da = db - a * 365
+% 11)y = g * 400 + c * 100 + b * 4 + a
+% 12)m = (da * 5 + 308) div 153 - 2
+% 13)d = da - (m + 4) * 153 div 5 + 122
+% 14)Y = y - 4800 + (m + 2) div 12
+% 15)M = (m + 2) mod 12 + 1
+% 16)D = d + 1
 %
 % Example
 %
-% \pgfcalendarjuliantodate{\mynumber}{\mydate}
+% \pgfcalendarjuliantodate{\mynumber}{\myyear}{\mymonth}{\myday}
 
-\def\pgfcalendarjuliantodate#1#2{%
+\def\pgfcalendarjuliantodate#1#2#3#4{%
   {%
-    \c@pgf@countd=#1\relax%
+    % 1) J = Julian day number
+    \count1=#1\relax%
+    % 2) j = J + 32044     
+    \count2=\count1\relax%
+    \advance\count2 by 32044\relax%
+    % 3) g = j div 146097  
+    \count3=\count2\relax%
+    \divide\count3 by 146097\relax%
+    % 4) dg = j mod 146097 
+    \count4=\count3\relax%
+    \multiply\count4 by-146097\relax%
+    \advance\count4 by\count2\relax%
+    % 5) c = (dg div 36524 + 1) * 3 div 4 
+    \count5=\count4\relax%
+    \divide\count5 by36524\relax%
+    \advance\count5 by1\relax%
+    \multiply\count5 by3\relax%
+    \divide\count5 by4\relax%
+    % 6) dc = dg - c * 36524 
+    \count6=\count4\relax%
+    \count0=\count5\relax%
+    \multiply\count0 by-36524\relax%
+    \advance\count6 by\count0\relax%
+    % 7) b = dc div 1461
+    \count7=\count6\relax%
+    \divide\count7 by1461\relax%
+    % 8) db = dc mod 1461
+    \count8=\count7\relax%
+    \multiply\count8 by-1461\relax%
+    \advance\count8 by\count6\relax%
+    % 9) a = (db div 365 + 1) * 3 div 4
+    \count9=\count8\relax%
+    \divide\count9 by 365\relax%
+    \advance\count9 by 1\relax%
+    \multiply\count9 by3\relax%
+    \divide\count9 by4\relax%
+    % 10)da = db - a * 365
+    \count10=\count8\relax%
+    \count0=\count9\relax%
+    \multiply\count0 by-365\relax%
+    \advance\count10 by\count0\relax%
+    % 11)y = g * 400 + c * 100 + b * 4 + a
+    \count11=\count3\relax%
+    \multiply\count11 by400\relax%
+    \count0=\count5\relax%
+    \multiply\count0 by100\relax%
+    \advance\count11 by\count0\relax%
+    \count0=\count7\relax%
+    \multiply\count0 by4\relax%
+    \advance\count11 by\count0\relax%
+    \advance\count11 by\count9\relax%
+    % 12)m = (da * 5 + 308) div 153 - 2
+    \count12=\count10\relax%
+    \multiply\count12 by5\relax%
+    \advance\count12 by 308\relax%
+    \divide\count12 by 153\relax%
+    \advance\count12 by -2\relax%
+    % 13)d = - (m + 4) * 153 div 5 + 122 + da
+    \count13=\count12\relax%
+    \advance\count13 by 4\relax%
+    \multiply\count13 by153\relax%
+    \divide\count13 by5\relax%
+    \count13=-\count13\relax%
+    \advance\count13 by 122\relax%
+    \advance\count13 by \count10\relax%
+    % 14)Y =  (m + 2) div 12 + y - 4800
+    \count14=\count12\relax%
+    \advance\count14 by 2\relax%
+    \divide\count14 by12\relax%
+    \advance\count14 by\count11\relax%
+    \advance\count14 by-4800\relax%
+    % 15)M = (m + 2) mod 12 + 1
+    \count15=\count12\relax%
+    \advance\count15 by2\relax%
+    \count0=\count15\relax%
+    \divide\count0 by12\relax%
+    \multiply\count0 by12\relax%
+    \advance\count15 by-\count0\relax%
+    \advance\count15 by1\relax%
+    % 16)D = d + 1
+    \count16=\count13%
+    \advance\count16by 1\relax%    
     %
+    \xdef\pgf@temp@year{\the\count14}%
+    \xdef\pgf@temp@month{\ifnum\count15<10 0\fi\the\count15}%
+    \xdef\pgf@temp@day{\ifnum\count16<10 0\fi\the\count16}%
   }%
+  \let#2=\pgf@temp@year%
+  \let#3=\pgf@temp@month%  
+  \let#4=\pgf@temp@day%  
 }
 
 
@@ -205,18 +280,16 @@
 % Returns the day of week as a number between 0 = Monday and 6 =
 % Sunday
 %
-% #1 = a number representing the number of days since January 1st,
-%      2000 
+% #1 = a Julian day number
 % #2 = a counter into which the weekday should be put.
 %
 % Example:
 %
-% \pgfcalendardatetonumber{2006-01-10}{\mycount}
-% \pgfcalendarnumbertoweekday{\mycount}{\myweekday}
+% \pgfcalendardatetojulian{2006-01-10}{\mycount}
+% \pgfcalendarjuliantoweekday{\mycount}{\myweekday}
 
-\def\pgfcalendarnumbertoweekday#1#2{%
+\def\pgfcalendarjuliantoweekday#1#2{%
   \c@pgf@counta=#1\relax%
-  \advance\c@pgf@counta by5\relax%
   #2=\c@pgf@counta%
   \divide#2by7\relax%
   \multiply#2by-7\relax%
@@ -231,8 +304,8 @@
 %
 % Example:
 %
-% \pgfcalendardatetonumber{2006-01-10}{\mycount}
-% \pgfcalendarnumbertoweekday{\mycount}{\myweekday}
+% \pgfcalendardatetojulian{2006-01-10}{\mycount}
+% \pgfcalendarjuliantoweekday{\mycount}{\myweekday}
 % October 1st, 2006 was a \pgfcalendarweekdayname{\myweekday}
 
 \def\pgfcalendarweekdayname#1{%
@@ -242,7 +315,6 @@
 \def\pgfcalendarweekdayshortname#1{%
   \translate{\ifcase#1Mon\or Tue\or Wed\or Thu\or Fri\or Sat\or Sun\fi}%
 }
-
 
 
 % Converts a month of year number into a month name (long or short)
