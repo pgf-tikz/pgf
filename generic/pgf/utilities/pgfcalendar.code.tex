@@ -1,0 +1,578 @@
+% Copyright 2006 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+
+
+% Typeset a calendar
+%
+% #1 = prefix for the calendar nodes
+% #2 = begin date in ISO format
+% #3 = end date in ISO format
+% #4 = date pass check code
+% #5 = date rendering code
+%
+% Description:
+%
+% First note that this macro need not be called inside a pgfpicture
+% (even though it typically will be). You can use it to typeset
+% calendars also using packages other than pgf.
+%
+% A calendar is typeset as follows: You specify a range of dates (by
+% providing a begin and an end date). Then, for each date in this
+% range two things happen: First, a test is applied whether the date
+% should be considered. If this test fails, the next date is
+% used. Otherwise, a function is called that gets the date and lots
+% of information about the date (like its day of week). The job of
+% this funtion is to render the date. Typically, this is done by
+% placing nodes somewhere, but the function could do other things as
+% well. 
+%
+% It is the job of the rendering function to position the calendar
+% correctly.
+%
+% Calls of the date pass check and rendering code are not surrounded
+% by TeX groups (though you can do so yourself, of course). This means
+% that settings can accumulate between different calls, which is often
+% desirable and useful.
+%
+% Inside the check and rendering code, different macros will be setup
+% and can be access:
+%
+% \pgfcalendarprefix
+% The parameter #1. This prefix is recomended for nodes inside the
+% calendar, but you have to use it yourself explicitly.
+%
+% \pgfcalendarbeginiso
+% Start date of range being typeset in ISO format (like 2006-01-10)
+%
+% \pgfcalendarbeginjulian
+% Julian day number of start date begin typeset
+%
+% \pgfcalendarendiso
+% End date of range begin typeset
+%
+% \pgfcalendarendjulian
+% Same as Julian day number
+%
+% \pgfcalendarcurrentjulian (a TeX-count)
+% Julian day number of day to be rendered/considered
+%
+% \pgfcalendarnumberpassed (a TeX-count)
+% Number of days since the start date that passed the test. (When the
+% rendering code is called for the first time, this count is 1, for
+% the second time it is 2 and so on.)
+%
+%
+% In order to indicate whether a date should pass the rendering test,
+% the TeX-if \ifpgfcalendarpass should be set to true or false. It is
+% initially set to true, but if you set it to false inside your test
+% code, it will stay so until you set it to true once more.
+%
+% Inside the \pgfcalendar macro the macro \on is setup to mean the
+% same as \pgfcalendaron{\pgfcalendarcurrentjulian}. This means that
+% you can write, say, \on{mondays}{Is a Monday} to execute code on a
+% monday. The macro is automatically executes as \on{all}{} for each
+% day to setup macros like \pgfcalendaronweekday.
+%
+% Example:
+%
+% \begin{tikzpicture}
+%   \pgfcalendar{cal}{2007-01-20}{2007-02-10}{}
+%     {\node[anchor=base] {\pgfcalendaronday}; \pgftransformyshift{-1.5em}}
+% \end{tikzpicture}
+%
+% \pgfcalendar{cal}{2007-01-20}{2007-02-10}{}{ \pgfcalendaronday\ }
+
+\def\pgfcalendar#1#2#3#4#5{%
+  \begingroup%
+    % Setup \on abbreviation locally
+    \def\on##1##2{%
+      \pgfcalendar@do@not@recomputetrue%
+      \pgfcalendaron{\pgfcalendarcurrentjulian}{##1}{##2}%
+      \pgfcalendar@do@not@recomputefalse%
+    }%
+    % Let's start with computing start and end dates... 
+    \def\pgfcalendarprefix{#1}%
+    \pgfcalendarnumberpassed=0\relax%
+    \pgfcalendarpasstrue%
+    \pgfcalendardatetojulian{#2}{\pgfcalendarcurrentjulian}%
+    \edef\pgfcalendarbeginjulian{\the\pgfcalendarcurrentjulian}%
+    \edef\pgfcalendarbeginiso{#2}%
+    \pgfcalendardatetojulian{#3}{\pgfutil@tempcnta}%
+    \edef\pgfcalendarendjulian{\the\pgfutil@tempcnta}%
+    \advance\pgfutil@tempcnta by1\relax
+    \edef\pgfcalendarendjulianplus{\the\pgfutil@tempcnta}%
+    \edef\pgfcalendarendiso{#3}%
+    %
+    % Start main loop
+    %
+    \loop%
+    \ifnum\pgfcalendarcurrentjulian<\pgfcalendarendjulianplus\relax%
+      \pgfcalendaron{\pgfcalendarcurrentjulian}{all}{}% setup on macros
+      % Lauch test code:
+      #4%
+      % Should we do something now?
+      \ifpgfcalendarpass%
+        \advance\pgfcalendarnumberpassed by1\relax%
+        #5%
+      \fi%
+      % Advance day:
+      \advance\pgfcalendarcurrentjulian by1\relax%
+    \repeat%
+  \endgroup%
+}
+
+\newcount\pgfcalendarnumberpassed
+\newcount\pgfcalendarcurrentjulian
+\newif\ifpgfcalendarpass
+\newif\ifpgfcalendar@do@not@recompute
+
+
+% Execute on specific kinds of dates
+%
+% #1 = Julian day number
+% #2 = date specification
+% #3 = code
+%
+% Description:
+%
+% The given code #3 is execute on every day that matches the date
+% specification #2. This specification is a comma-separated list of
+% key-value pairs of the kind pgfcalendar, defined in the usual way
+% using \define@key. The code for a key-value should check whether the
+% given day matches its specification. If so, it should set
+% \pgfcalendarmatches to true.
+%
+% When the key-value code is executed, the following macros will have
+% been setup:
+%
+% \pgfcalendaronjulian 
+% Julian day number of day to be checked
+%
+% \pgfcalendaronweekday
+% Weekday (0 = Monday) of day to be checked
+%
+% \pgfcalendaronyear
+% Year of day to be checked
+%
+% \pgfcalendaronmonth
+% Month of day to be chjeck
+%
+% \pgfcalendaronday
+% Day of monath of day to be checked
+%
+% The setting of these macros will persist after the call, so a
+% sideeffect of callling this macro is to setup these macros.
+%
+% By setting \ifpgfcalendar@do@not@recompute to false, the computation
+% of the year, month etc. is suppressed.
+%
+% Examples:
+%
+% \pgfcalendaron{2007-01-10}{all}{}
+% % Simply setup the macros
+%
+% \pgfcalendaron{2007-01-10}{mondays}{Is a monday}
+%
+% \pgfcalendaron{\mydate}{date=05-01}{\mydate is a Worker's Day}
+
+\def\pgfcalendaron#1#2#3{%
+  \ifpgfcalendar@do@not@recompute%
+  \else%
+    \edef\pgfcalendaronjulian{#1}%
+    % Compute info about date
+    \pgfcalendarjuliantodate{\pgfcalendaronjulian}
+      {\pgfcalendaronyear}{\pgfcalendaronmonth}{\pgfcalendaronday}%
+    \pgfcalendarjuliantoweekday{\pgfcalendaronjulian}{\pgfutil@tempcntb}%
+    \edef\pgfcalendaronweekday{\the\pgfutil@tempcntb}%
+  \fi%
+  % Set match to false
+  \pgfcalendarmatchesfalse%
+  \setkeys{pgfcalendar}{#2}% cleanup and change to \pgfutil@setkeys
+  \ifpgfcalendarmatches%
+    #3%
+  \fi%
+}
+
+\newif\ifpgfcalendarmatches
+
+
+% Keys for matching
+
+\define@key{pgfcalendar}{all}[]{\pgfcalendarmatchestrue}
+
+\define@key{pgfcalendar}{mondays}[]{\ifnum\pgfcalendaronweekday=0\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{tuesdays}[]{\ifnum\pgfcalendaronweekday=1\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{wednesdays}[]{\ifnum\pgfcalendaronweekday=2\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{thursdays}[]{\ifnum\pgfcalendaronweekday=3\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{fridays}[]{\ifnum\pgfcalendaronweekday=4\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{saturdays}[]{\ifnum\pgfcalendaronweekday=5\relax\pgfcalendarmatchestrue\fi}
+
+\define@key{pgfcalendar}{workdays}[]{\ifnum\pgfcalendaronweekday<5\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{weekends}[]{\ifnum\pgfcalendaronweekday>4\relax\pgfcalendarmatchestrue\fi}
+
+\define@key{pgfcalendar}{date}{%
+  \def\pgf@@temp{#1}%
+  \edef\pgf@temp{\pgfcalendaronyear-\pgfcalendaronmonth-\pgfcalendaronday}%
+  \ifx\pgf@temp\pgf@@temp\relax%
+    \pgfcalendarmatchestrue%
+  \fi%
+  \edef\pgf@temp{\pgfcalendaronmonth-\pgfcalendaronday}%
+  \ifx\pgf@temp\pgf@@temp\relax%
+    \pgfcalendarmatchestrue%
+  \fi%
+}
+
+\define@key{pgfcalendar}{day of month}{\ifnum#1=\pgfcalendaronday\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{end of month}[1]{%
+  % Tricky and expensive ... do only if necessary
+  \ifpgfcalendarmatches%
+  \else% sigh
+    {%
+      \pgfutil@tempcnta=\pgfcalendaronjulian\relax%
+      \advance\pgfutil@tempcnta by#1\relax%
+      \pgfcalendarjuliantodate{\pgfutil@tempcnta}{\pgf@dummy}{\pgf@dummy}{\pgf@cal@temp}%
+      \global\let\pgf@cal@temp=\pgf@cal@temp
+    }%
+    \ifnum\pgf@cal@temp=1\relax\pgfcalendarmatchestrue\fi%
+  \fi%
+}
+
+
+
+
+% Suggested name for nodes inside a calendar
+%
+% Description:
+%
+% It is suggested that (main) nodes (if present) in a calendar should
+% get this name.
+%
+% Example:
+%
+% \pgfcalendar{cal}{2007-01-20}{2007-02-10}{}
+% { \node[anchor=base] (\pgfcalendarsuggestedname) {\pgfcalendaronday};
+%   \pgftransformyshift{-1.5em} }
+%
+% \draw (cal-2007-01-30) -- (cal-2007-02-08);
+
+\def\pgfcalendarsuggestedname{\pgfcalendarprefix-\pgfcalendaronyear-\pgfcalendaronmonth-\pgfcalendaronday}%
+
+
+
+%
+%
+% Date conversion functions
+%
+%
+
+
+% Translation stuff
+
+\ifx\translate\@undefined
+  \def\translate#1{#1}
+\fi
+
+% Load month dictionary, if possible
+
+\ifx\usedictionary\@undefined
+\else
+  \usedictionary{translator-months-dictionary}
+\fi
+
+
+% Convert a date to the Julian day number (number of days since
+% January 1st, -4712)
+%
+% #1 = date in the ISO format (like 2006-11-10)
+% #2 = counter that should be set to the number of days
+%
+% Description:
+%
+% The conversion is taken from the Wikipedia entry on Julian days. 
+%
+% Example:
+%
+% \pgfcalendardatetojulian{2006-01-10}{\mycount}
+
+\def\pgfcalendardatetojulian#1#2{\edef\pgf@temp{#1}\expandafter\pgfcalendar@datetojulian\pgf@temp/{#2}}
+\def\pgfcalendar@datetojulian#1-#2-#3/#4{%
+  {%
+    %
+    % Store year, month and days.
+    % 
+    \count1=#1\relax%
+    \count2=#2\relax%
+    \count3=#3\relax%
+    %
+    %
+    % 4) a = \lfloor (14-month) /12 \rfloor
+    %
+    \ifnum\count2<3\relax%
+      \count4=1\relax%
+    \else%
+      \count4=0\relax%
+    \fi%
+    %
+    % 5) y = year + 4800 - a
+    %
+    \count5=\count1\relax%
+    \advance\count5 by 4800\relax%
+    \advance\count5 by-\count4\relax%
+    %
+    % 6) m = month + 12a - 3
+    %
+    \count6=#2\relax%
+    \count0=\count4\relax%
+    \multiply\count0 by12\relax
+    \advance\count6 by\count0\relax%
+    \advance\count6 by-3\relax%
+    %
+    % 7) jdn = day + \floor{(153 m+2)/5} + 365y + \floor{y/4} -
+    % \floor{y/100} + \florr{y/400} - 32045
+    %
+    \count7=\count3\relax%
+    % + \floor{(153 m+2)/5} :
+    \count0=\count6\relax
+    \multiply\count0 by 153\relax%
+    \advance\count0 by 2\relax%
+    \divide\count0 by 5\relax%
+    \advance\count7 by \count0\relax%
+    % + 365y :
+    \count0=\count5%
+    \multiply\count0by365\relax%
+    \advance\count7 by\count0\relax%
+    % + \floor{y/4}
+    \count0=\count5\relax%
+    \divide\count0 by 4\relax%
+    \advance\count7 by\count0%
+    % - \floor{y/100}
+    \count0=\count5\relax%
+    \divide\count0 by 100\relax%
+    \advance\count7 by-\count0\relax%
+    % + \floor{y/400}
+    \count0=\count5\relax%
+    \divide\count0 by 400\relax%
+    \advance\count7 by\count0%
+    %  - 32045
+    \advance\count7 by-32045\relax%
+    %
+    \xdef\pgf@temp{\the\count7}%
+  }%
+  #4=\pgf@temp\relax%
+}
+
+
+% Convert Julian day number date. 
+%
+% #1 = the number of Julian days
+% #2 = a macro in which the year should be stored.
+% #3 = a macro in which the month should be stored.
+% #4 = a macro in which the day should be stored.
+%
+% Formula used:
+%
+% 1) J = Julian day number
+% 2) j = J + 32044
+% 3) g = j div 146097
+% 4) dg = j mod 146097
+% 5) c = (dg div 36524 + 1) * 3 div 4
+% 6) dc = dg - c * 36524
+% 7) b = dc div 1461
+% 8) db = dc mod 1461
+% 9) a = (db div 365 + 1) * 3 div 4
+% 10)da = db - a * 365
+% 11)y = g * 400 + c * 100 + b * 4 + a
+% 12)m = (da * 5 + 308) div 153 - 2
+% 13)d = da - (m + 4) * 153 div 5 + 122
+% 14)Y = y - 4800 + (m + 2) div 12
+% 15)M = (m + 2) mod 12 + 1
+% 16)D = d + 1
+%
+% Example
+%
+% \pgfcalendarjuliantodate{\mynumber}{\myyear}{\mymonth}{\myday}
+
+\def\pgfcalendarjuliantodate#1#2#3#4{%
+  {%
+    % 1) J = Julian day number
+    \count1=#1\relax%
+    % 2) j = J + 32044     
+    \count2=\count1\relax%
+    \advance\count2 by 32044\relax%
+    % 3) g = j div 146097  
+    \count3=\count2\relax%
+    \divide\count3 by 146097\relax%
+    % 4) dg = j mod 146097 
+    \count4=\count3\relax%
+    \multiply\count4 by-146097\relax%
+    \advance\count4 by\count2\relax%
+    % 5) c = (dg div 36524 + 1) * 3 div 4 
+    \count5=\count4\relax%
+    \divide\count5 by36524\relax%
+    \advance\count5 by1\relax%
+    \multiply\count5 by3\relax%
+    \divide\count5 by4\relax%
+    % 6) dc = dg - c * 36524 
+    \count6=\count4\relax%
+    \count0=\count5\relax%
+    \multiply\count0 by-36524\relax%
+    \advance\count6 by\count0\relax%
+    % 7) b = dc div 1461
+    \count7=\count6\relax%
+    \divide\count7 by1461\relax%
+    % 8) db = dc mod 1461
+    \count8=\count7\relax%
+    \multiply\count8 by-1461\relax%
+    \advance\count8 by\count6\relax%
+    % 9) a = (db div 365 + 1) * 3 div 4
+    \count9=\count8\relax%
+    \divide\count9 by 365\relax%
+    \advance\count9 by 1\relax%
+    \multiply\count9 by3\relax%
+    \divide\count9 by4\relax%
+    % 10)da = db - a * 365
+    \count10=\count8\relax%
+    \count0=\count9\relax%
+    \multiply\count0 by-365\relax%
+    \advance\count10 by\count0\relax%
+    % 11)y = g * 400 + c * 100 + b * 4 + a
+    \count11=\count3\relax%
+    \multiply\count11 by400\relax%
+    \count0=\count5\relax%
+    \multiply\count0 by100\relax%
+    \advance\count11 by\count0\relax%
+    \count0=\count7\relax%
+    \multiply\count0 by4\relax%
+    \advance\count11 by\count0\relax%
+    \advance\count11 by\count9\relax%
+    % 12)m = (da * 5 + 308) div 153 - 2
+    \count12=\count10\relax%
+    \multiply\count12 by5\relax%
+    \advance\count12 by 308\relax%
+    \divide\count12 by 153\relax%
+    \advance\count12 by -2\relax%
+    % 13)d = - (m + 4) * 153 div 5 + 122 + da
+    \count13=\count12\relax%
+    \advance\count13 by 4\relax%
+    \multiply\count13 by153\relax%
+    \divide\count13 by5\relax%
+    \count13=-\count13\relax%
+    \advance\count13 by 122\relax%
+    \advance\count13 by \count10\relax%
+    % 14)Y =  (m + 2) div 12 + y - 4800
+    \count14=\count12\relax%
+    \advance\count14 by 2\relax%
+    \divide\count14 by12\relax%
+    \advance\count14 by\count11\relax%
+    \advance\count14 by-4800\relax%
+    % 15)M = (m + 2) mod 12 + 1
+    \count15=\count12\relax%
+    \advance\count15 by2\relax%
+    \count0=\count15\relax%
+    \divide\count0 by12\relax%
+    \multiply\count0 by12\relax%
+    \advance\count15 by-\count0\relax%
+    \advance\count15 by1\relax%
+    % 16)D = d + 1
+    \count16=\count13%
+    \advance\count16by 1\relax%    
+    %
+    \xdef\pgf@temp@year{\the\count14}%
+    \xdef\pgf@temp@month{\ifnum\count15<10 0\fi\the\count15}%
+    \xdef\pgf@temp@day{\ifnum\count16<10 0\fi\the\count16}%
+  }%
+  \let#2=\pgf@temp@year%
+  \let#3=\pgf@temp@month%  
+  \let#4=\pgf@temp@day%  
+}
+
+
+
+% Returns the day of week as a number between 0 = Monday and 6 =
+% Sunday
+%
+% #1 = a Julian day number
+% #2 = a counter into which the weekday should be put.
+%
+% Example:
+%
+% \pgfcalendardatetojulian{2006-01-10}{\mycount}
+% \pgfcalendarjuliantoweekday{\mycount}{\myweekday}
+
+\def\pgfcalendarjuliantoweekday#1#2{%
+  {%
+    \pgfutil@tempcnta=#1\relax%
+    #2=\pgfutil@tempcnta%
+    \divide#2by7\relax%
+    \multiply#2by-7\relax%
+    \advance#2by\pgfutil@tempcnta\relax%
+    \xdef\pgf@temp{\the#2}%
+  }%
+  #2=\pgf@temp\relax%
+}
+
+
+
+% Converts a day of week into a weekday name (long or short)
+%
+% #1 = a number representing a weekday (0=Monday)
+%
+% Example:
+%
+% \pgfcalendardatetojulian{2006-01-10}{\mycount}
+% \pgfcalendarjuliantoweekday{\mycount}{\myweekday}
+% October 1st, 2006 was a \pgfcalendarweekdayname{\myweekday}
+
+\def\pgfcalendarweekdayname#1{%
+  \translate{\ifcase#1Monday\or Tuesday\or Wednesday\or Thursday\or Friday\or Saturday\or Sunday\fi}%
+}
+
+\def\pgfcalendarweekdayshortname#1{%
+  \translate{\ifcase#1Mon\or Tue\or Wed\or Thu\or Fri\or Sat\or Sun\fi}%
+}
+
+
+% Converts a month of year number into a month name (long or short)
+%
+% #1 = a number representing a month (1=January)
+%
+% Example:
+%
+% \pgfcalendarmonthname
+
+\def\pgfcalendarmonthname#1{%
+  \translate{\ifcase#1\or January\or February\or March\or April\or
+    May\or June\or July\or August\or September\or October\or
+    November\or December\fi}%
+}
+
+\def\pgfcalendarmonthshortname#1{%
+  \translate{\ifcase#1\or Jan\or Feb\or Mar\or Apr\or
+    May\or Jun\or Jul\or Aug\or Sep\or Oct\or
+    Nov\or Dec\fi}%
+}
+
+
+
+% Yields a day or month without leading zeros
+%
+% #1 = a number
+%
+% Example:
+%
+% \pgfcalendarnoleadingzero{01}
+
+\def\pgfcalendarnoleadingzero#1{{\pgfutil@tempcnta=#1\relax\the\pgfutil@tempcnta}}
+
+
+
+\endinput
