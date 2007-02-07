@@ -41,7 +41,9 @@ This section describes the package |pgfcalendar|.
 \end{package}
 
 
-\subsection{Date Conversion Macros}
+\subsection{Handling Dates}
+
+\subsubsection{Conversions Between Date Types}
 
 \begin{command}{\pgfcalendardatetojulian\marg{date}\marg{counter}}
   This macro converts a date in ISO format to the Julian day number in
@@ -60,58 +62,226 @@ This section describes the package |pgfcalendar|.
 
 \begin{command}{\pgfcalendarjuliantodate\marg{Julian day}\marg{year
       macro}\marg{month macro}\marg{day macro}}
-  
+  This command converts a Julian day number to an ISO-date. The
+  \meta{Julian day} must be a number or \TeX\ counter, the \meta{year macro},
+  \meta{month macro} and \meta{day macro} must be \TeX\ macro
+  names. They will be set to numbers representing the year, month, and
+  day of the given Julian day in the Gregorian calendar.
+
+  The \meta{year macro} will be assigned the year without leading
+  zeros. Note that this macro will produce year 0 (as opposed to other
+  calendars, where year 0 does not exist). However, if you really need
+  calendars for before the year 1, it is expected that you know what
+  you are doing anyway.
+
+  The \meta{month macro} gets assigned a two-digit number representing
+  the month (with a leading zero, if necessary). Thus, the macro is
+  set to |01| for January.
+
+  The \meta{day macro} gets assigned a two-digit number representing
+  the day of the month (again with a possible leading zero).
+
+  To convert a Julian day number to an ISO-date you use code like the
+  following:
+\begin{verbatim}
+\pgfcalendardatetojulian{2454115}{\myyear}{\mymonth}{\myday}
+\edef\isodate{\myyear-\mymonth-\myday}
+\end{verbatim}
+  The above code sets |\isodate| to
+  \pgfcalendarjuliantodate{2454115}{\myyear}{\mymonth}{\myday}%
+  \edef\isodate{\myyear-\mymonth-\myday}\texttt{\isodate}.
 \end{command}
+
 
 \begin{command}{\pgfcalendarjuliantoweekday\marg{Julian day}\marg{week day counter}}
-  
+  This command converts a Julian day to a week day by computing the
+  day modulo 7. The \meta{week day counter} must be a \TeX\
+  counter. It will be set to 0 for a Monday, to 1 for a Tuesday, and
+  so on.
+
+  \example |\pgfcalendarjuliantoweekday{2454115}{\mycount}| sets
+  |\mycount| to
+  \pgfcalendarjuliantoweekday{2454115}{\mycount}\the\mycount. 
 \end{command}
 
 
-\begin{command}{\pgfcalendarweekdayname\marg{week day counter}}
-  
+\subsubsection{Checking Dates}
+
+
+\begin{command}{\pgfcalendarifdate\marg{date}\marg{tests}\marg{code}\marg{else code}}
+  This command is used to execute code based on properties of
+  \meta{date}. The \meta{date} should be a date in ISO-format. For
+  this date, the \meta{tests} are checked (to be detailed later)
+  and if one of the tests applied, the \meta{code} is
+  executed. If none of the tests applies, the \meta{else code} is
+  executed.
+
+  \example |\pgfcalendarifdate{2007-02-07}{wednesdays}{Is a Wednesday}{Is not a Wednesday}|
+  yields \texttt{\pgfcalendarifdate{2007-02-07}{wednesdays}{Is a
+      Wednesday}{Is not a Wednesday}}.
+
+  The \meta{tests} is a comma-separated list of key-value
+  pairs. The following are defined by default:
+  \begin{itemize}
+  \itemcalendaroption{all} This test is passed by all dates.
+  \itemcalendaroption{mondays} This test is passed by all dates that
+  are Mondays.
+  \itemcalendaroption{tuesdays} as above.
+  \itemcalendaroption{wednesday} as above.
+  \itemcalendaroption{thursdays} as above.
+  \itemcalendaroption{fridays} as above.
+  \itemcalendaroption{saturdays} as above.
+  \itemcalendaroption{sundays} as above.
+  \itemcalendaroption{workdays} Passed by Mondays, Tuesdays,
+  Wednesdays, Thursdays, and Fridays.
+  \itemcalendaroption{weekends} Passed Saturdays and Sundays. 
+  \itemcalendaroption{date}|=|\meta{reference} The \meta{reference}
+  can be in one of two forms: Either, it is a full ISO format date
+  like |2007-01-01| or the year may be missing as in |12-31|. In the
+  first case, the test is passed if \meta{date} is the same as
+  \meta{reference}. In the second case, the test is passed if the
+  month and day part of \meta{date} is the same as \meta{reference}.
+
+  For example, the test |date=2007-01-10| will only be passed by this
+  particular date. The test |date=05-01| will be passed by every first
+  of May on any year.
+  \itemcalendaroption{day of month}|=|\meta{number} Passed by the day
+  of month of the \meta{date} is \meta{number}. For example, the test
+  |day of month=1| is passed by every first of every month.
+  \itemcalendaroption{end of month}\opt{|=|\meta{number}} Passed by
+  the day of month of the \meta{date} that is \meta{number} from the
+  end of the month. For example, the test |end of month=1| is passed
+  by the last day of every month, the test |end of month=2| is passed
+  by the second last day of every month. If \meta{number} is omitted,
+  it is assumed to be |1|.
+  \end{itemize}
+
+  In addition to the above checks, you can also define new checks. To
+  do so, you must add a new key to the key-value group |pgfcalendar|
+  using |\define@key|. The job of the code of this new key is to
+  possibly set the \TeX-if |\ifpgfcalendarmatches| to true (if it is
+  already true, no action should be taken) to indicate that the
+  \meta{date} passes the test setup by this new key.
+
+  In order to perform the test, the key code needs to know the date
+  that should be checked. The date is available through a macro, but a
+  whole bunch of additional information about this date is also
+  available through the following macros:
+  \begin{itemize}
+  \item |\pgfcalendarifdatejulian|
+    is the Julian day number of the \meta{date} to be checked.
+  \item |\pgfcalendarifdateweekday|
+    is the weekday of the \meta{date} to be checked.
+  \item |\pgfcalendarifdateyear|
+    is the year of the \meta{date} to be checked.
+  \item |\pgfcalendarifdatemonth|
+    is the month of the \meta{date} to be checked.
+  \item |\pgfcalendarifdateday|
+    is the day of month of the \meta{date} to be checked.
+  \end{itemize}
+
+  For example, let us define a new key that checks whether the
+  \meta{date} is a Workers day (first of May). This can be done as
+  follows:
+\begin{verbatim}
+\define@key{pgfcalendar}{workers day}[]
+{
+  \ifnum\pgfcalendarifdatemonth=5\relax
+    \ifnum\pgfcalendarifdateday=1\relax
+      \pgfcalendarmatchestrue
+    \fi
+  \fi
+}
+\end{verbatim}
 \end{command}
 
 
-\begin{command}{\pgfcalendarweekdayshortname\marg{week day counter}}
-  
+\subsubsection{Typesetting Dates}
+
+\begin{command}{\pgfcalendarweekdayname\marg{week day number}}
+  This command exapnds to a textual representation of the day of week,
+  given by the \meta{week day number}. Thus,
+  |\pgfcalendarweekdayname{0}| expands to |Monday| if the current
+  language is English and to |Montag| if the current language is
+  German, and so on. See Section~\ref{section-calendar-locale} for
+  more details on translations.
+
+  \example |\pgfcalendarweekdayname{2}| yields
+  \texttt{\pgfcalendarweekdayname{2}}. 
 \end{command}
 
 
-\begin{command}{\pgfcalendarmonthname\marg{month counter}}
-  
+\begin{command}{\pgfcalendarweekdayshortname\marg{week day number}}
+  This command works similiarly to the previous command, only an
+  abbreviated version of the week day is produced.
+
+  \example |\pgfcalendarweekdayshortname{2}| yields
+  \texttt{\pgfcalendarweekdayshortname{2}}. 
 \end{command}
 
 
-\begin{command}{\pgfcalendarmonthshortname\marg{month counter}}
-  
+\begin{command}{\pgfcalendarmonthname\marg{month number}}
+  This command expands to a textual representation of the month, which
+  is given by the \meta{month number}.
+
+  \example |\pgfcalendarmonthname{12}| yields
+  \texttt{\pgfcalendarmonthname{12}}. 
+\end{command}
+
+
+\begin{command}{\pgfcalendarmonthshortname\marg{month number}}
+  As above, only an abbreviated version is produced.
+
+  \example |\pgfcalendarmonthshortname{12}| yields
+  \texttt{\pgfcalendarmonthshortname{12}}.   
 \end{command}
 
 \begin{command}{\pgfcalendarnoleadingzero\marg{number}}
-  
+  This command expands to the given \meta{number}, only without
+  leading zeros. 
+
+  \example |\pgfcalendarnoleadingzero{01}| yields
+  \texttt{\pgfcalendarnoleadingzero{01}}.   
 \end{command}
 
 
+\subsubsection{Localization}
+
+\label{section-calendar-locale}
+All textual representations of week days or months (like ``Monday'' or
+``February'') are wrapped with |\translate| commands from the
+|translator| package (it this package is not loaded, no translation
+takes place). Furthermore, the |pgfcalendar| package will try to load
+the |translator-months-dictionary|, if the |translator| package is
+loaded.
+
+The net effect of all this is that all dates will be translated to the
+current language setup in the |translator| package. See the
+documentation of this package for more details.
 
 
-\subsection{Calendar Typesetting Macro}
+
+\subsection{Typesetting Calendars}
 
 \begin{command}{\pgfcalendar\marg{prefix}\marg{start date}\marg{end
       date}\marg{restrictions}\marg{rendering code}}
-  
+  This command can be used to typeset a calendar. It is a very general
+  command, the actual work has to be done by giving clever
+  implementations of \meta{rendering code}.
+
+  The \meta{prefix} is just a suggested prefix for the names of
+  possible nodes created in the calendar.
 \end{command}
 
 
 
 \begin{command}{\pgfcalendarsuggestedname}
-  
-\end{command}
-
-\subsection{Date Restriction Macros}
-
-
-\begin{command}{\pgfcalendaron\marg{date}\marg{conditions}\marg{code}}
-  
+  This macro expands to a suggested name for nodes representing days
+  in a calendar. In detail, it expands to the \meta{prefix} of the
+  calendar, followed by a hyphen, followed by the ISO format version
+  of the date. Thus, when the date |2007-01-01| is typeset in a
+  calendar for the prefix |mycal|, the macro expands to
+  |mycal-2007-01-01|. 
 \end{command}
 
 

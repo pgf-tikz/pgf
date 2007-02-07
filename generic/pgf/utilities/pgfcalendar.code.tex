@@ -65,6 +65,18 @@
 % \pgfcalendarcurrentjulian (a TeX-count)
 % Julian day number of day to be rendered/considered
 %
+% \pgfcalendarcurrentweekday
+% Weekday (0 = Monday) of day to be checked
+%
+% \pgfcalendarcurrentyear
+% Year of day to be checked
+%
+% \pgfcalendarcurrentmonth
+% Month of day to be chjeck
+%
+% \pgfcalendarcurrentday
+% Day of monath of day to be checked
+%
 % \pgfcalendarnumberpassed (a TeX-count)
 % Number of days since the start date that passed the test. (When the
 % rendering code is called for the first time, this count is 1, for
@@ -76,11 +88,11 @@
 % initially set to true, but if you set it to false inside your test
 % code, it will stay so until you set it to true once more.
 %
-% Inside the \pgfcalendar macro the macro \on is setup to mean the
-% same as \pgfcalendaron{\pgfcalendarcurrentjulian}. This means that
-% you can write, say, \on{mondays}{Is a Monday} to execute code on a
-% monday. The macro is automatically executes as \on{all}{} for each
-% day to setup macros like \pgfcalendaronweekday.
+% Inside the \pgfcalendar macro the macro \ifdate is available, which
+% has the same effect as \pgfcalendarifdate{\pgfcalendarcurrentjulian}
+% (only faster). This means that you
+% can write, say, \ifdate{mondays}{Is a Monday}{Not a Monday} to
+% execute code on a Monday. 
 %
 % Example:
 %
@@ -94,9 +106,9 @@
 \def\pgfcalendar#1#2#3#4#5{%
   \begingroup%
     % Setup \on abbreviation locally
-    \def\on##1##2{%
+    \def\ifdate##1##2##3{%
       \pgfcalendar@do@not@recomputetrue%
-      \pgfcalendaron{\pgfcalendarcurrentjulian}{##1}{##2}%
+      \pgfcalendaron{\pgfcalendarcurrentjulian}{##1}{##2}{##3}%
       \pgfcalendar@do@not@recomputefalse%
     }%
     % Let's start with computing start and end dates... 
@@ -116,7 +128,7 @@
     %
     \loop%
     \ifnum\pgfcalendarcurrentjulian<\pgfcalendarendjulianplus\relax%
-      \pgfcalendaron{\pgfcalendarcurrentjulian}{all}{}% setup on macros
+      \pgfcalendarifdate{\pgfcalendarcurrentjulian}{all}{}{}% setup on macros
       % Lauch test code:
       #4%
       % Should we do something now?
@@ -138,7 +150,7 @@
 
 % Execute on specific kinds of dates
 %
-% #1 = Julian day number
+% #1 = ISO-format date
 % #2 = date specification
 % #3 = code
 %
@@ -154,19 +166,22 @@
 % When the key-value code is executed, the following macros will have
 % been setup:
 %
-% \pgfcalendaronjulian 
+% \pgfcalendarifdateiso
 % Julian day number of day to be checked
 %
-% \pgfcalendaronweekday
+% \pgfcalendarifdatejulian 
+% Julian day number of day to be checked
+%
+% \pgfcalendarifdateweekday
 % Weekday (0 = Monday) of day to be checked
 %
-% \pgfcalendaronyear
+% \pgfcalendarifdateyear
 % Year of day to be checked
 %
-% \pgfcalendaronmonth
+% \pgfcalendarifdatemonth
 % Month of day to be chjeck
 %
-% \pgfcalendaronday
+% \pgfcalendarifdateday
 % Day of monath of day to be checked
 %
 % The setting of these macros will persist after the call, so a
@@ -177,28 +192,43 @@
 %
 % Examples:
 %
-% \pgfcalendaron{2007-01-10}{all}{}
+% \pgfcalendarifdate{2007-01-10}{all}{}
 % % Simply setup the macros
 %
-% \pgfcalendaron{2007-01-10}{mondays}{Is a monday}
+% \pgfcalendarifdate{2007-01-10}{mondays}{Is a monday}
 %
-% \pgfcalendaron{\mydate}{date=05-01}{\mydate is a Worker's Day}
+% \pgfcalendarifdate{\mydate}{date=05-01}{\mydate is a Worker's Day}
 
-\def\pgfcalendaron#1#2#3{%
-  \ifpgfcalendar@do@not@recompute%
-  \else%
-    \edef\pgfcalendaronjulian{#1}%
-    % Compute info about date
-    \pgfcalendarjuliantodate{\pgfcalendaronjulian}
-      {\pgfcalendaronyear}{\pgfcalendaronmonth}{\pgfcalendaronday}%
-    \pgfcalendarjuliantoweekday{\pgfcalendaronjulian}{\pgfutil@tempcntb}%
-    \edef\pgfcalendaronweekday{\the\pgfutil@tempcntb}%
-  \fi%
+\def\pgfcalendarifdate#1#2#3#4{%
+  \edef\pgfcalendarifdateiso{#1}%
+  \explicitly\pgfcalendar@split\pgfcalendarifdateiso\relax%
+  \pgfcalendardatetojulian{\pgfcalendarifdateiso}{\pgfutil@tempcnta}
+  \edef\pgfcalendarifdatejulian{\the\pgfutil@tempcnta}%
+  % Compute info about date
+  \pgfcalendarjuliantoweekday{\pgfutil@tempcnta}{\pgfutil@tempcntb}%
+  \edef\pgfcalendarifdateweekday{\the\pgfutil@tempcntb}%
+  %
+  \pgfcalendar@launch@ifdate%
+}
+
+\def\pgfcalendar@split#1-#2-#3\relax{%
+  \def\pgfcalendarifdateyear{#1}%
+  \def\pgfcalendarifdatemonth{#2}%
+  \def\pgfcalendarifdateday{#3}%
+}
+
+
+\def\pgfcalendar@launch@ifdate{%
+  % When this macro is called, the pgfcalendarifdatexxxx macros must
+  % be setup correctly
+  %
   % Set match to false
   \pgfcalendarmatchesfalse%
   \setkeys{pgfcalendar}{#2}% cleanup and change to \pgfutil@setkeys
   \ifpgfcalendarmatches%
     #3%
+  \else%
+    #4%
   \fi%
 }
 
@@ -209,35 +239,35 @@
 
 \define@key{pgfcalendar}{all}[]{\pgfcalendarmatchestrue}
 
-\define@key{pgfcalendar}{mondays}[]{\ifnum\pgfcalendaronweekday=0\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{tuesdays}[]{\ifnum\pgfcalendaronweekday=1\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{wednesdays}[]{\ifnum\pgfcalendaronweekday=2\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{thursdays}[]{\ifnum\pgfcalendaronweekday=3\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{fridays}[]{\ifnum\pgfcalendaronweekday=4\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{saturdays}[]{\ifnum\pgfcalendaronweekday=5\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{mondays}[]{\ifnum\pgfcalendarifdateweekday=0\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{tuesdays}[]{\ifnum\pgfcalendarifdateweekday=1\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{wednesdays}[]{\ifnum\pgfcalendarifdateweekday=2\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{thursdays}[]{\ifnum\pgfcalendarifdateweekday=3\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{fridays}[]{\ifnum\pgfcalendarifdateweekday=4\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{saturdays}[]{\ifnum\pgfcalendarifdateweekday=5\relax\pgfcalendarmatchestrue\fi}
 
-\define@key{pgfcalendar}{workdays}[]{\ifnum\pgfcalendaronweekday<5\relax\pgfcalendarmatchestrue\fi}
-\define@key{pgfcalendar}{weekends}[]{\ifnum\pgfcalendaronweekday>4\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{workdays}[]{\ifnum\pgfcalendarifdateweekday<5\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{weekends}[]{\ifnum\pgfcalendarifdateweekday>4\relax\pgfcalendarmatchestrue\fi}
 
 \define@key{pgfcalendar}{date}{%
   \def\pgf@@temp{#1}%
-  \edef\pgf@temp{\pgfcalendaronyear-\pgfcalendaronmonth-\pgfcalendaronday}%
+  \edef\pgf@temp{\pgfcalendarifdateyear-\pgfcalendarifdatemonth-\pgfcalendarifdateday}%
   \ifx\pgf@temp\pgf@@temp\relax%
     \pgfcalendarmatchestrue%
   \fi%
-  \edef\pgf@temp{\pgfcalendaronmonth-\pgfcalendaronday}%
+  \edef\pgf@temp{\pgfcalendarifdatemonth-\pgfcalendarifdateday}%
   \ifx\pgf@temp\pgf@@temp\relax%
     \pgfcalendarmatchestrue%
   \fi%
 }
 
-\define@key{pgfcalendar}{day of month}{\ifnum#1=\pgfcalendaronday\relax\pgfcalendarmatchestrue\fi}
+\define@key{pgfcalendar}{day of month}{\ifnum#1=\pgfcalendarifdateday\relax\pgfcalendarmatchestrue\fi}
 \define@key{pgfcalendar}{end of month}[1]{%
   % Tricky and expensive ... do only if necessary
   \ifpgfcalendarmatches%
   \else% sigh
     {%
-      \pgfutil@tempcnta=\pgfcalendaronjulian\relax%
+      \pgfutil@tempcnta=\pgfcalendarifdatejulian\relax%
       \advance\pgfutil@tempcnta by#1\relax%
       \pgfcalendarjuliantodate{\pgfutil@tempcnta}{\pgf@dummy}{\pgf@dummy}{\pgf@cal@temp}%
       \global\let\pgf@cal@temp=\pgf@cal@temp
@@ -259,12 +289,12 @@
 % Example:
 %
 % \pgfcalendar{cal}{2007-01-20}{2007-02-10}{}
-% { \node[anchor=base] (\pgfcalendarsuggestedname) {\pgfcalendaronday};
+% { \node[anchor=base] (\pgfcalendarsuggestedname) {\pgfcalendarifdateday};
 %   \pgftransformyshift{-1.5em} }
 %
 % \draw (cal-2007-01-30) -- (cal-2007-02-08);
 
-\def\pgfcalendarsuggestedname{\pgfcalendarprefix-\pgfcalendaronyear-\pgfcalendaronmonth-\pgfcalendaronday}%
+\def\pgfcalendarsuggestedname{\pgfcalendarprefix-\pgfcalendarifdateyear-\pgfcalendarifdatemonth-\pgfcalendarifdateday}%
 
 
 
