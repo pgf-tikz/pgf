@@ -10,5 +10,145 @@
 \ProvidesFileRCS[v\pgfversion] $Header$
 
 
+\pgfutil@usemodule{pgfcalendar}
+
+
+%
+% General options (these options affect all calendars typeset unsind \calendar):
+%
+% Start, end, and code executed for each current date
+%
+
+\tikzoption{start date}{\def\tikz@lib@cal@start{#1}}
+\tikzoption{end date}{\def\tikz@lib@cal@end{#1}}
+\tikzoption{execute at begin day}{\expandafter\def\expandafter\tikz@atbegin@day\expandafter{\tikz@atbegin@day#1}}
+\tikzoption{execute at end day}{\def\pgf@temp{#1}\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@atend@day\expandafter\expandafter\expandafter{\expandafter\pgf@temp\tikz@atend@day}}
+
+\let\tikz@atbegin@day=\pgfutil@empty
+\let\tikz@atend@day=\pgfutil@empty
+
+
+
+% 
+% Options affecting some calendars:
+%
+
+% General day offset
+
+\tikzoption{day offset}{\def\tikz@lib@cal@offset{#1}}
+
+
+% Templates for typesetting days, month, years
+
+\tikzoption{day template}{\def\tikzdaytemplate{#1}}
+\tikzoption{month template}{\def\tikzmonthtemplate{#1}}
+\tikzoption{year template}{\def\tikzyeartemplate{#1}}
+
+
+% Day sequence
+
+\tikzstyle{day sequence}=[%
+  execute at begin day={\tikzstyle{day}=[]},
+  execute at end day={%
+    \tikzdaytemplate%
+    \expandafter\tikz@scan@one@point\expandafter\pgftransformshift\tikz@lib@cal@offset\relax%
+  },
+  day template={\node[anchor=base east,name=\pgfcalendarsuggestedname,style=day]{\pgfcalendarnoleadingzero{\pgfcalendarcurrentday}};}
+]
+
+\tikzstyle{day sequence down}=[day sequence,day offset={(0pt,-1.2em)}]
+\tikzstyle{month end markers}=[execute at end day={
+   \ifdate{day of month=1,equals=\pgfcalendarbeginiso}
+   {\draw [thick,cap=round,black!50] (-3pt,0.9em) -- (-3em,0.9em);}{}
+}]
+
+
+
+
+%
+% Code of the actual \calendar command (tikz.code.tex contains \let\calendar=\tikz@lib@cal@calendar):
+%
+
+\def\tikz@lib@cal@calendar{%
+  \begingroup%
+    \let\tikz@lib@cal@ifs=\pgfutil@empty%
+    \tikz@expandcount=1000\relax%
+    \tikz@setkeys{name=,at={(0,0)}}%
+    \tikz@lib@cal@scanner%
+}
+
+\def\tikz@lib@cal@scanner{%
+  \afterassignment\tikz@lib@cal@handle\let\@let@token=%
+}
+
+\def\tikz@lib@cal@handle{%
+  \let\@next=\tikz@lib@cal@expand%
+  \ifx\@let@token;%
+    \let\@next=\tikz@lib@cal@stop%
+  \else%
+    \ifx\@let@token(%)
+      \let\@next=\tikz@lib@cal@name%
+    \else%
+      \ifx\@let@token a%
+        \let\@next=\tikz@lib@cal@at%
+      \else%
+        \ifx\@let@token[%
+          \let\@next=\tikz@lib@cal@option%
+        \else%
+          \ifx\@let@token i%
+            \let\@next=\tikz@lib@cal@if%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+  \fi%
+  \@next%
+}
+\def\tikz@lib@cal@expand{%
+  \advance\tikz@expandcount by -1%
+  \ifnum\tikz@expandcount<0\relax%
+    \PackageError{tikz}{Giving up on this calendar}{}%
+    \let\@next=\tikz@lib@cal@end%
+  \else%
+    \let\@next=\tikz@lib@cal@@expand
+  \fi%
+  \@next}
+
+\def\tikz@lib@cal@@expand{\expandafter\tikz@lib@cal@scanner\@let@token}
+
+
+\def\tikz@lib@cal@name#1){%
+  \tikz@setkeys{name=#1}%
+  \tikz@lib@cal@scanner%
+}
+\def\tikz@lib@cal@at t#1(#2){%
+  \tikz@setkeys{at={(#2)}}%
+  \tikz@lib@cal@scanner%
+}
+\def\tikz@lib@cal@option#1]{%
+  \tikz@setkeys{#1}%
+  \tikz@lib@cal@scanner%
+}
+\long\def\tikz@lib@cal@if f#1(#2)#3{%
+  \pgfutil@ifnextchar e{\tikz@lib@cal@else{#2}{#3}}%
+  {\expandafter\def\expandafter\tikz@lib@cal@ifs\expandafter{\tikz@lib@cal@ifs\ifdate{#2}{#3}{}}\tikz@lib@cal@scanner}%
+}
+\long\def\tikz@lib@cal@else#1#2else#3{%
+  \expandafter\def\expandafter\tikz@lib@cal@ifs\expandafter{\tikz@lib@cal@ifs\ifdate{#1}{#2}{#3}}%
+  \tikz@lib@cal@scanner%
+}
+\def\tikz@lib@cal@stop{%
+    \pgftransformshift{\tikz@node@at}%
+    \expandafter\pgfcalendar\expandafter{\tikz@fig@name}{\tikz@lib@cal@start}{\tikz@lib@cal@end}%
+    {%
+      \tikz@atbegin@day%
+      \tikz@lib@cal@ifs%
+      \tikz@atend@day%
+    }%
+  \endgroup%
+}
+
+
+
 
 \endinput
