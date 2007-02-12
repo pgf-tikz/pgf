@@ -36,8 +36,9 @@
 % Description:
 %
 % First note that this macro need not be called inside a pgfpicture
-% (even though it typically will be). You can use it to typeset
-% calendars also using packages other than pgf.
+% (even though it often will be). You can use it to typeset
+% calendars also using packages other than pgf. You do not even need
+% to load pgf to use this file.
 %
 % A calendar is typeset as follows: You specify a range of dates (by
 % providing a begin and an end date). Then, for each date the code #4
@@ -194,21 +195,15 @@
 % \pgfcalendarifdate{\mydate}{date=05-01}{\mydate is a Worker's Day}
 
 \def\pgfcalendarifdate#1#2#3#4{%
-  \edef\pgf@temp{#1}%
-  \expandafter\pgfcalendar@split\pgf@temp\relax%
   \pgfcalendardatetojulian{#1}{\pgfutil@tempcnta}%
+  \pgfcalendarjuliantodate{\pgfutil@tempcnta}
+    {\pgfcalendarifdateyear}{\pgfcalendarifdatemonth}{\pgfcalendarifdateday}%
   \edef\pgfcalendarifdatejulian{\the\pgfutil@tempcnta}%
   % Compute info about date
   \pgfcalendarjuliantoweekday{\pgfutil@tempcnta}{\pgfutil@tempcntb}%
   \edef\pgfcalendarifdateweekday{\the\pgfutil@tempcntb}%
   %
   \pgfcalendar@launch@ifdate{#2}{#3}{#4}%
-}
-
-\def\pgfcalendar@split#1-#2-#3\relax{%
-  \def\pgfcalendarifdateyear{#1}%
-  \def\pgfcalendarifdatemonth{#2}%
-  \def\pgfcalendarifdateday{#3}%
 }
 
 
@@ -298,7 +293,7 @@
   \fi%
 }
 
-\def\pgfcalendar@between#1 and #2\relax{%
+\def\pgfcalendar@between#1and#2\relax{%
   \def\pgfcalendar@start{#1}%
   \def\pgfcalendar@end{#2}%
 }
@@ -353,26 +348,59 @@
 % Convert a date to the Julian day number (number of days since
 % January 1st, -4712)
 %
-% #1 = date in the ISO format (like 2006-11-10)
+% #1 = date specification
 % #2 = counter that should be set to the number of days
 %
 % Description:
 %
 % The conversion is taken from the Wikipedia entry on Julian days. 
 %
+% The date specification works as follows:
+%
+% - It starts with a year. Use \year for the current year (the year
+%   the file is being typeset).
+% - Next comes a hyphen.
+% - Next comes a month (number). Use \month for the current month.
+% - Next comes a hyphen.
+% - Next comes either a day of month (number, use \day for current
+%   day) or "last". The keyword "last" refers the last day of the
+%   month. Thus, 2006-01-last is the same as 2006-01-31 and
+%   2000-02-last is the same as 2002-02-29.
+% - Next may come a plus sign, followed by a number (positive or
+%   negative). This will adjust the date by the given number of
+%   days. Thus, 2006-01-31+1 is the same as 2006-02-01 and
+%   2006-02-01+-2 is the same as 2006-01-30. And \year-\month-day+1 is
+%   tomorrow. You may add a space before the +.
+%
 % Example:
 %
 % \pgfcalendardatetojulian{2006-01-10}{\mycount}
 
-\def\pgfcalendardatetojulian#1#2{\edef\pgf@temp{#1}\expandafter\pgfcalendar@datetojulian\pgf@temp/{#2}}
-\def\pgfcalendar@datetojulian#1-#2-#3/#4{%
+\def\pgfcalendardatetojulian#1#2{\edef\pgf@temp{#1}\expandafter\pgfcalendar@datetojulian\pgf@temp+/{#2}}
+\def\pgfcalendar@datetojulian#1-#2-#3+#4/#5{%
   {%
     %
     % Store year, month and days.
     % 
     \count1=#1\relax%
     \count2=#2\relax%
-    \count3=#3\relax%
+    % If #3=="last", then calculate first day of next month
+    \edef\pgf@temp{#3}%
+    \ifx\pgf@temp\pgfcalendar@last@text%
+      \advance\count2 by1\relax%
+      \count3=1\relax%
+    \else%
+      \count3=#3\relax%
+    \fi%
+    %
+    % Store offset
+    %
+    \edef\pgf@@temp{#4}%
+    \ifx\pgf@@temp\pgfutil@empty%
+      \count8=0\relax%
+    \else%
+      \pgfcalendar@unpack#4%
+    \fi%
     %
     %
     % 4) a = \lfloor (14-month) /12 \rfloor
@@ -391,7 +419,7 @@
     %
     % 6) m = month + 12a - 3
     %
-    \count6=#2\relax%
+    \count6=\count2\relax%
     \count0=\count4\relax%
     \multiply\count0 by12\relax
     \advance\count6 by\count0\relax%
@@ -426,11 +454,20 @@
     %  - 32045
     \advance\count7 by-32045\relax%
     %
+    % Undo "last" advance
+    \ifx\pgf@temp\pgfcalendar@last@text%
+      \advance\count7by-1\relax%
+    \fi%
+    % Add offset  
+    \advance\count7by\count8\relax%
     \xdef\pgf@temp{\the\count7}%
   }%
-  #4=\pgf@temp\relax%
+  #5=\pgf@temp\relax%
 }
-
+\def\pgfcalendar@last@text{last}
+\def\pgfcalendar@unpack#1+{%
+  \count8=#1\relax%
+}
 
 % Convert Julian day number date. 
 %
