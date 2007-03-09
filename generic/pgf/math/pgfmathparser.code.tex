@@ -1,0 +1,870 @@
+% This file parses/evaluates a decimal expression.
+%
+% (c) 2007 Mark Wibrow
+%
+% but subject to the LaTeX Project Public License, 
+% (http://www.latex-project.org/lppl.txt)
+%
+% and the GNU Public License,
+% (http://www.gnu.org/licenses/gpl.txt)
+%
+% Version 0.0 08/03/2007
+
+
+% \pgfmathparse
+%
+% Evaluates a decimal expression.
+%
+% #1 - the expression.
+%
+% returns
+%
+% x = the result as a dimension.
+%
+% E.g.
+% \pgfmathparse{3pt*2cm+1.5}
+% 
+\def\pgfmathparse#1{%
+  \begingroup%
+    % Reinstall correct font, so that dimensions like 1em are correct
+    \pgfutil@selectfont%
+    % 
+    \edef\pgfmath@temp{#1}%
+    \pgfmath@resetparsingparameters%
+    \global\pgfmath@unitsdeclaredfalse%
+    \let\pgfmath@afterparsegroup\pgfmath@parseoperator%
+    \expandafter\pgfmath@parse@\pgfmath@temp @@\pgfmath@empty}
+
+
+% \pgfmath@resetparsingparameters
+%
+% Reset parsing parameters at begining of groups.
+%
+\def\pgfmath@resetparsingparameters{%
+	\let\pgfmath@a\pgfmath@empty%
+	\let\pgfmath@b\pgfmath@empty%
+	\let\pgfmath@c\pgfmath@empty%
+	\let\pgfmath@d\pgfmath@empty%
+	\let\pgfmath@primaryoperation\pgfmath@empty%
+	\let\pgfmath@secondaryoperation\pgfmath@empty%
+	\let\pgfmath@tertiaryoperation\pgfmath@empty%
+}
+
+% \pgfmath@parse@
+%
+% Start parsing. Expect one of
+% 1) the end of the parse
+% 2) the start of a group
+% 3) a (possible) operand.
+%
+\def\pgfmath@parse@#1{%
+	\def\pgfmath@token{}%
+	\ifx#1@%
+		\let\pgfmath@parsenext\pgfmath@endparse%
+	\else%
+		\ifx#1(%
+			\let\pgfmath@parsenext\pgfmath@startparsegroup%
+		\else%
+			\edef\pgfmath@token{#1}%
+			\let\pgfmath@parsenext\pgfmath@parseoperand%
+	\fi\fi%
+	\pgfmath@parsenext%
+}
+
+% If no TeX units are declared *at any point* in the parse
+% the result is scaled by \pgfmathresultunitscale.
+\newif\ifpgfmath@unitsdeclared
+\def\pgfmathsetresultunitscale#1{\def\pgfmathresultunitscale{#1}}
+\def\pgfmathresultunitscale{1}
+
+% \pgfmath@endparse
+%
+% Everything stops here.
+%
+\def\pgfmath@endparse#1\pgfmath@empty{%
+        	\pgfmath@processalloperations%
+		\ifpgfmath@unitsdeclared%
+			\pgfmath@x1pt\relax%
+		\else%
+			\afterassignment\pgfmath@gobbletilpgfmath@
+			\pgfmath@x\pgfmathresultunitscale pt\relax\pgfmath@%
+		\fi%
+		\pgfmath@x=\pgfmath@a\pgfmath@x%
+		\pgfmath@returnone\pgfmath@x%
+	\endgroup%
+}
+
+% \pgfmath@startparsegroup
+%
+% When opening ( is scanned start a new group.
+%
+\def\pgfmath@startparsegroup{%
+	\begingroup%
+		\pgfmath@resetparsingparameters
+		\pgfmath@parse@}
+
+% \pgfmath@startparsegroup
+%
+% When closing ) is scanned, processes all waiting
+% operations (within the group) and close the group.
+%
+\def\pgfmath@endparsegroup{%
+		\pgfmath@processalloperations%
+		\pgfmath@x=\pgfmathresult pt\relax%
+		\pgfmath@returnone\pgfmath@x%
+	\endgroup%
+	\pgfmath@afterparsegroup%
+}
+
+% \pgfmath@parseoperator
+%
+% An operator is expected here. 
+% Or the end of the parse or parse group.
+% 
+\def\pgfmath@parseoperator#1{%
+  \def\pgfmath@token{}%
+  \let\pgfmath@pushback=\pgfmath@empty%
+  \pgfmath@assignnumber%
+  \ifx#1@%
+    \let\pgfmath@parsenext\pgfmath@endparse%
+  \else%
+		\ifx#1+%
+			\let\pgfmath@parsenext\pgfmath@parseadd%
+		\else%
+			\ifx#1-%
+				\let\pgfmath@parsenext\pgfmath@parsesubtract%
+			\else%
+				\ifx#1*%
+					\let\pgfmath@parsenext\pgfmath@parsemultiply%
+				\else%
+					\ifx#1/%
+						\let\pgfmath@parsenext\pgfmath@parsedivide%
+					\else%
+						\ifx#1r%
+							\let\pgfmath@parsenext\pgfmath@parseradians%
+						\else%
+							\ifx#1>%
+								\let\pgfmath@parsenext\pgfmath@parsegreaterthan%
+							\else%
+								\ifx#1<%
+									\let\pgfmath@parsenext\pgfmath@parselessthan%
+								\else%
+									\if#1=%
+										\let\pgfmath@parsenext\pgfmath@parseequalto%
+									\else%
+										\if#1^%
+											\let\pgfmath@parsenext\pgfmath@parsepower%
+										\else%
+											\if#1m%
+												\let\pgfmath@parsenext\pgfmath@parsemod%
+											\else%
+												\if#1)%
+													\let\pgfmath@parsenext\pgfmath@endparsegroup%
+                                                                                                \else%
+                                                                                                  % the following is for inputs like .5\pgflinewidth,
+                                                                                                  % which should be read as .5*\pgflinewidth
+                                                                                                  \ifcat#1\relax\relax%
+                                                                                                    \let\pgfmath@parsenext\pgfmath@parsemultiply%
+                                                                                                    \def\pgfmath@pushback{#1}%
+                                                                                                  \else%
+                                                                                                    \pgfmath@error{Unknown  operator `#1'}%
+                                                                                                    \let\pgfmath@parsenext\relax%
+	\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+	\expandafter\pgfmath@parsenext\pgfmath@pushback%
+}
+
+% \pgfmath@assignnumber
+%
+% Scanned or computed numbers are stored here.
+%
+\def\pgfmath@assignnumber{%
+	\pgfmath@ifletto\pgfmath@a\pgfmath@empty{%
+		\edef\pgfmath@a{\pgfmathresult}}{%
+			\edef\pgfmath@b{\pgfmathresult}}%
+}		
+
+% \pgfmath@processalloperations
+%
+% If various operations are not empty, perform them.
+% \pgfmath@primaryoperation      - used for any current operation.
+% \pgfmath@secondaryoperation    - used to store + - if * / encountered
+% \pgfmath@tertiaryoperation     - used to store = > <
+%
+\def\pgfmath@processalloperations{%
+	\pgfmath@processprimaryoperation%
+	\pgfmath@processsecondaryoperation%
+	\pgfmath@processtertiaryoperation}
+
+\def\pgfmath@processprimaryoperation{%
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@primaryoperation{\pgfmath@a}{\pgfmath@b}%
+		\edef\pgfmath@a{\pgfmathresult}%
+	}%
+	\let\pgfmath@primaryoperation\pgfmath@empty%
+	\let\pgfmath@b\pgfmath@empty%
+}
+
+\def\pgfmath@processsecondaryoperation{%
+	\pgfmath@ifletto\pgfmath@secondaryoperation\pgfmath@empty{}{%
+		\pgfmath@secondaryoperation{\pgfmath@c}{\pgfmath@a}%
+		\edef\pgfmath@a{\pgfmathresult}%
+	}%
+	\let\pgfmath@secondaryoperation\pgfmath@empty%
+	\let\pgfmath@b\pgfmath@empty%
+	\let\pgfmath@c\pgfmath@empty%
+}
+	
+\def\pgfmath@processtertiaryoperation{%
+	\pgfmath@ifletto\pgfmath@tertiaryoperation\pgfmath@empty{}{%
+		\pgfmath@tertiaryoperation{\pgfmath@d}{\pgfmath@a}%
+		\edef\pgfmath@a{\pgfmathresult}%
+	}%
+	\let\pgfmath@tertiaryoperation\pgfmath@empty%
+	\let\pgfmath@b\pgfmath@empty%
+	\let\pgfmath@c\pgfmath@empty%
+	\let\pgfmath@d\pgfmath@empty%
+}%
+
+% OK. Now the operators are parsed.
+% These correspond to the + - / * ^ < > = mod and r operators 
+%
+\def\pgfmath@parseadd{%
+	% If no operator has been assigned (i.e. + is the first operator scanned),
+	% do nothing, except make addition the primary operation.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		% Otherwise process the primary and the secondary operations.
+		%
+		% Consider the epxression A-B*C+D.
+		% At this point + has just been parsed, so the primary operation is *,
+		% and the secondary operation is - (it was saved after * was parsed).
+		\pgfmath@processprimaryoperation%
+		\pgfmath@processsecondaryoperation}%
+	\let\pgfmath@primaryoperation\pgfmathadd@%
+	\pgfmath@parse@}
+
+\def\pgfmath@parsesubtract{% Works like addition.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@processprimaryoperation%
+		\pgfmath@processsecondaryoperation}%
+	\let\pgfmath@primaryoperation\pgfmathsubtract@%
+	\pgfmath@parse@}
+
+\def\pgfmath@parsemultiply{%
+	% If no operator has been assigned (i.e. * is the first operator scanned),
+	% do nothing, except make multiplication the primary operation.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		% Slighty tricker than addition/subtraction...
+		\pgfmath@iflettoeither\pgfmath@primaryoperation\pgfmathmultiply@\pgfmathdivide@{%
+			% Consder X\Y*Z, when * has been scanned. 
+			% The primary operation is \, so this operation can be processed, 
+			% and * made the new primary opertion.
+			\pgfmath@processprimaryoperation}{%
+				% Consder X+Y*Z, when * has been scanned. 
+				% The addition must take place *after* the multiplication. 
+				% So + (the current primary operation), is saved as the secondary  
+				% operation, and X is saved. * becomes the new primary operation.
+				\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
+				\edef\pgfmath@c{\pgfmath@a}%
+				\edef\pgfmath@a{\pgfmath@b}%
+				\let\pgfmath@b\pgfmath@empty%		
+	}}%
+	\let\pgfmath@primaryoperation\pgfmathmultiply@%
+	\pgfmath@parse@}
+
+\def\pgfmath@parsedivide{% Works like multiplication.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@iflettoeither\pgfmath@primaryoperation\pgfmathmultiply@\pgfmathdivide@{%
+			\pgfmath@processprimaryoperation}{%
+				\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
+				\edef\pgfmath@c{\pgfmath@a}%
+				\edef\pgfmath@a{\pgfmath@b}%
+				\let\pgfmath@b\pgfmath@empty%		
+	}}%
+	\let\pgfmath@primaryoperation\pgfmathdivide@%
+	\pgfmath@parse@}
+
+\def\pgfmath@parsegreaterthan{%
+	% A Tricky one to explain precisely...
+	%
+	% On scanning an equality/inequality operator everything up to
+	% (but not including) the operator is evaluated... 
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@processalloperations}%
+	% ...now the LHS of the inequality must be saved...
+	\edef\pgfmath@temp{\pgfmath@a}%
+	% ...all parsing parameters are reset...
+	\pgfmath@resetparsingparameters%
+	\edef\pgfmath@d{\pgfmath@temp}% ...but one parameter reinserted.
+	% ....and the inequality defined as the tertiary opertation.
+	\let\pgfmath@tertiaryoperation\pgfmathgreaterthan@%
+	\pgfmath@parse@}
+	
+\def\pgfmath@parselessthan{% Similar to greater than.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@processalloperations}%
+	\edef\pgfmath@temp{\pgfmath@a}%
+	\pgfmath@resetparsingparameters%
+	\edef\pgfmath@d{\pgfmath@temp}%
+	\let\pgfmath@tertiaryoperation\pgfmathlessthan@%
+	\pgfmath@parse@}
+	
+\def\pgfmath@parseequalto{% Similar to greater than.
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\pgfmath@processalloperations}%
+	\edef\pgfmath@temp{\pgfmath@a}%
+	\pgfmath@resetparsingparameters%
+	\edef\pgfmath@d{\pgfmath@temp}%
+	\let\pgfmath@tertiaryoperation\pgfmathequalto@%
+	\pgfmath@parse@}
+
+\def\pgfmath@parsemod#1#2{%
+	\pgfmath@ifin@{#1#2}{od}{% Just a little check.
+		\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+			\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
+			\edef\pgfmath@c{\pgfmath@a}%
+			\edef\pgfmath@a{\pgfmath@b}%
+			\let\pgfmath@b\pgfmath@empty%		
+		}%
+		\let\pgfmath@primaryoperation\pgfmathmod@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{m#1#2}%
+			\pgfmath@reportunknownfunction}%
+}
+			
+\def\pgfmath@parsepower{%
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{}{%
+		\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
+		\edef\pgfmath@c{\pgfmath@a}%
+		\edef\pgfmath@a{\pgfmath@b}%
+		\let\pgfmath@b\pgfmath@empty%		
+	}%
+	\let\pgfmath@primaryoperation\pgfmathpower@%
+	\pgfmath@parse@}
+	
+\def\pgfmath@parseradians{%
+	\pgfmath@ifletto\pgfmath@primaryoperation\pgfmath@empty{%
+		\pgfmathradians@{\pgfmath@a}%
+		\let\pgfmath@a\pgfmath@empty}{%
+			\pgfmath@iflettoeither\pgfmath@primaryoperation\pgfmathmultiply@\pgfmathdivide@{%
+				\pgfmath@processprimaryoperation%
+				\pgfmathradians@{\pgfmath@a}%
+				\let\pgfmath@a\pgfmath@empty}{%
+			\pgfmathradians@{\pgfmath@b}%	
+	}}%	
+	% Notice unlike the other operators, we go to \pgfmath@parseoperator,
+	% This is because, r is really a post-fix function.
+	\pgfmath@parseoperator}
+
+% \pgfmath@parseoperand
+%
+% An operand can be an ASCII number (with or without dimensions, with
+% or without a decimal point), a TeX register (count, dimen or skip,
+% which may have expanded with \the), or a function e.g. sin(X).
+%
+% It is assumed that after \edef-ing, the only unexpanded tokens are registers. 
+%
+\def\pgfmath@parseoperand{%
+	\expandafter\pgfmath@parseoperand@\pgfmath@token}
+\def\pgfmath@parseoperand@#1{%
+	\edef\pgfmath@temp{#1}%
+	\expandafter\ifcat\pgfmath@temp\relax\relax%
+		\begingroup%
+			% If #1 is a count register the tokens pt will be
+			% used on assignment. If #1 is dimension or skip
+			% register then they will not.
+			\afterassignment\pgfmath@parseregisterunit%
+			\pgfmath@x=#1pt\relax\relax\pgfmath@%
+		\endgroup%
+	\fi%
+	\def\pgfmath@sign{}%
+	\expandafter\pgfmath@parsenumberorfunction\pgfmath@temp%
+}%
+
+\def\pgfmath@parseregisterunit#1#2\pgfmath@{%
+	\ifx#1p%
+		\xdef\pgfmath@temp{\pgfmath@tonumber{\pgfmath@x}pt}% 
+	\else%
+		\xdef\pgfmath@temp{\pgfmath@tonumber{\pgfmath@x}}%
+	\fi} 
+	
+\def\pgfmath@parsenumberorfunction#1{%
+	\pgfmath@ifin@#1{-+}{% 
+		% I suppose there are (silly) people who might complain if
+		% they can't say 2---5, or 3+-----7. Just for them...
+		\edef\pgfmath@sign{\pgfmath@sign#1}%
+			\pgfmath@parsenumberorfunction}{%
+				\pgfmath@parsenumberorfunction@#1}}
+
+\def\pgfmath@parsenumberorfunction@#1{%
+  \expandafter\pgfmath@parsenumberorfunction@@%
+  \ifcat#1\relax%
+    % Ok, looks like a - followed by a register.
+    % Handle this case by inserting a 1.
+    1%
+  \fi%
+  #1%  
+}
+
+\def\pgfmath@parsenumberorfunction@@#1{%
+  \pgfmath@ifin@{#1}{.0123456789}{\pgfmath@parsenumber#1}{%
+    \pgfmath@parsefunction#1}}
+
+\def\pgfmath@parsenumber{% 
+	% Consider the number 3.14159
+	% 3 is parsed by assignment to a, then '.' is absorbed and 14159
+	% parsed by assignement to b (actually b=114159, see below). 
+	\begingroup%
+		\afterassignment\pgfmath@parsedecimalpoint%
+			\c@pgfmath@counta0}
+
+\def\pgfmath@parsedecimalpoint#1{%
+		\ifx#1.% Is there a decimal point? If not, see if there are any units.
+			\let\pgfmath@parsenext\pgfmath@parsemantissa%
+		\else%
+			\c@pgfmath@countb1\relax% The first digit of b is gobbled (see below). 
+			\let\pgfmath@parsenext\pgfmath@parseunits%
+		\fi%
+		\pgfmath@parsenext#1}
+
+\def\pgfmath@parsemantissa.{%
+		\afterassignment\pgfmath@parseunits%
+		% Consider the number: 2.005
+		% 2 is assigned to a, but b will be assigned 5, which is *not right*. 
+		% So using 1 here hereresults in  b=1005. The first digit is then  
+		% gobbled later, when expanded with \the.
+		\c@pgfmath@countb1}% 
+
+% Unfortunately it is necessary (I can see no way out of it),
+% to remove 2 tokens from the stream, and manually check for
+% dimensions. If the tokens do not match a TeX dimension, they
+% are reinserted into the stream, and a default unit of pt used.
+%
+\def\pgfmath@parseunits#1#2{%
+		% Here the extra first digit in b is gobbled. 
+		% Interestingly, TeX allows <dimen>=12.pt (which *I* think it shouldn't)
+		\edef\pgfmath@temp{\pgfmath@sign\the\c@pgfmath@counta.\expandafter\pgfmath@gobbleone\the\c@pgfmath@countb}%
+		% We scan for: bp dd cc cm em ex in mm pc pt sp 
+		% Also we must scan for the 'pt' resulting from expansion using \the.
+		\expandafter\pgfmath@in@\expandafter{\expandafter#1\expandafter#2\expandafter\pgfmath@\expandafter}%
+			\expandafter{\pgfmath@pt\pgfmath@ bp\pgfmath@ dd\pgfmath@ cc\pgfmath@ cm\pgfmath@ em\pgfmath@ ex\pgfmath@ in\pgfmath@ mm\pgfmath@ pc\pgfmath@ pt\pgfmath@ sp\pgfmath@}%
+		\ifpgfmath@in@%
+			\global\pgfmath@unitsdeclaredtrue%
+			\edef\pgfmath@token{}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\pgfmath@x=\pgfmath@temp#1#2\relax\pgfmath@%
+		\else%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\pgfmath@x=\pgfmath@temp pt\relax\pgfmath@%
+			\edef\pgfmath@token{#1#2}%
+		\fi%
+		\pgfmath@smuggleone{\pgfmath@token}%
+		\pgfmath@returnone\pgfmath@x%
+	\endgroup%
+	\expandafter\pgfmath@parseoperator\pgfmath@token%
+}
+
+% OK. Now the good stuff. We parse functions here. Note that 
+% *no* calulations are done in the following macros. All the
+% mathematics is done in pgfmathoperations.code and friends. 
+%
+% Functions dealt with here are:
+%
+% round(X)         'half-up' rounding.
+% floor(X)         floor function.
+% ciel(X)          ceiling function.
+% abs(X)           absolute function.
+%
+% exp(X)           e^X (0 <= X <~= 9.7).
+%
+% sin(X)           sine function.
+% cos(X)           cosine function.
+% tan(X)           tan function.
+% veclen(X)(Y)     the length Z where Z^2 = X^2 + Y^2
+%
+% rnd              generate pseudo-random number X (0 <= X <= 1).
+% rand             generate pseudo-random number X (1 <= X <= -1).
+% sqrt(X)          square root.
+% 
+% pi               the constant PI.
+
+\def\pgfmath@parsefunction#1{%
+	\def\pgfmath@parsedfunctionname{#1}%
+	\ifx#1a%
+		\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@a%
+	\else%
+		\ifx#1c%
+			\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@c%
+		\else%
+			\ifx#1e%
+				\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@e%
+			\else%
+				\ifx#1f%
+					\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@f%
+				\else%
+					\ifx#1m%
+						\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@m%
+					\else%
+						\ifx#1p%
+							\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@p%
+						\else%
+							\ifx#1r%
+								\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@r%
+							\else%
+								\ifx#1s%
+									\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@s%
+								\else%
+									\ifx#1t%
+										\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@t%
+									\else%
+										\ifx#1v%
+											\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@v%
+										\else
+											\pgfmath@reportunknownfunction%
+											\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@reportunknownfunction{%
+	\pgfmath@error{Unknown function `\pgfmath@parsedfunctionname'}{}%
+}
+
+% \pgfmath@postfunction
+% 
+% In scanning a function e.g. sin(40), we subvert the normal parsing 
+% group mechanism by messing around with \pgfmath@afterparsegroup, so 
+% that after scanning ), the parser doesn't scan for an operator, but 
+% returns to the macros scanning the function. 
+% Here the mechanism is restored, and the value of the function is 
+% stored along with the approprate sign, which was saved earlier.
+%
+\def\pgfmath@postfunction{%
+	\let\pgfmath@afterparsegroup\pgfmath@parseoperator%
+	\edef\pgfmathresult{\pgfmath@sign\pgfmathresult}%
+	\pgfmath@parseoperator}
+	
+\def\pgfmath@functionstartswith@a#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1b%
+		\let\pgfmath@parsefunctionnext\pgfmath@parseabs%
+	\else%
+		\ifx#1r%
+			\let\pgfmath@parsefunctionnext\pgfmath@functionstartswith@ar%
+		\else%
+			\pgfmath@reportunknownfunction%
+			\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@ar c#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1c%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsearccos%
+	\else%
+		\ifx#1s%
+			\let\pgfmath@parsefunctionnext\pgfmath@parsearcsin%
+		\else%
+			\ifx#1t%
+				\let\pgfmath@parsefunctionnext\pgfmath@parsearctan% <- not implemented (yet).
+			\else%
+				\pgfmath@reportunknownfunction%
+				\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@c#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1e%
+		\let\pgfmath@parsefunctionnext\pgfmath@parseceil%
+	\else%
+		\ifx#1o%
+			\let\pgfmath@parsefunctionnext\pgfmath@parsecos%
+		\else%
+			\pgfmath@reportunknownfunction%
+			\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@e#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1x%
+		\let\pgfmath@parsefunctionnext\pgfmath@parseexp%
+	\else%
+		\pgfmath@reportunknownfunction%
+		\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@f#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1l%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsefloor%
+	\else%
+		\pgfmath@reportunknownfunction%
+		\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@m#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1o%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsemod%
+	\else%
+		\pgfmath@reportunknownfunction%
+		\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@p#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1i%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsepi%
+	\else%
+		\pgfmath@reportunknownfunction%
+		\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@r#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1a%
+		\let\pgfmath@parsefunctionnext\pgfmath@parserand%
+	\else%
+		\ifx#1n%
+			\let\pgfmath@parsefunctionnext\pgfmath@parsernd%
+		\else%
+			\ifx#1o%
+				\let\pgfmath@parsefunctionnext\pgfmath@parseround%
+			\else%
+				\pgfmath@reportunknownfunction%
+				\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@s#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1i%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsesin%
+	\else%
+		\ifx#1q%
+			\let\pgfmath@parsefunctionnext\pgfmath@parsesqrt%
+		\else%
+			\pgfmath@reportunknownfunction%
+			\let\pgfmath@parsefunctionnext\relax%
+	\fi\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@t#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1a%
+		\let\pgfmath@parsefunctionnext\pgfmath@parsetan%
+	\else%
+			\pgfmath@reportunknownfunction%
+			\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+\def\pgfmath@functionstartswith@v#1{%
+	\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+	\ifx#1e%
+		\let\pgfmath@parsefunctionnext\pgfmath@parseveclen%
+	\else%
+			\pgfmath@reportunknownfunction%
+			\let\pgfmath@parsefunctionnext\relax%
+	\fi%
+	\pgfmath@parsefunctionnext%
+}
+
+% \pgfmath@parseabs
+%
+\def\pgfmath@parseabs#1{%
+	\pgfmath@ifin@{#1}{s}{%
+		% The normal parsing mechansims is subverted here:
+		\let\pgfmath@afterparsegroup\pgfmath@parseabs@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}
+\def\pgfmath@parseabs@{%	
+	\expandafter\pgfmathabs@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsesqrt
+%
+\def\pgfmath@parsesqrt #1#2{%
+	\pgfmath@ifin@{#1#2}{rt}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsesqrt@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsesqrt@{%	
+	\expandafter\pgfmathsqrt@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parseround
+%
+\def\pgfmath@parseround #1#2#3{%
+	\pgfmath@ifin@{#1#2#3}{und}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parseround@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2#3}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parseround@{%	
+	\expandafter\pgfmathround@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsefloor
+%
+\def\pgfmath@parsefloor #1#2#3{%
+	\pgfmath@ifin@{#1#2#3}{oor}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsefloor@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2#3}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsefloor@{%	
+	\expandafter\pgfmathfloor@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parseceil
+%
+\def\pgfmath@parseceil #1#2{%
+	\pgfmath@ifin@{#1#2}{il}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parseceil@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parseceil@{%	
+	\expandafter\pgfmathceil@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsesin
+%
+\def\pgfmath@parsesin#1{%
+	\pgfmath@ifin@{#1}{n}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsesin@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsesin@{%	
+	\expandafter\pgfmathsin@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsecos
+%
+\def\pgfmath@parsecos#1{%
+	\pgfmath@ifin@{#1}{s}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsecos@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsecos@{%	
+	\expandafter\pgfmathcos@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsearcsin
+%
+\def\pgfmath@parsearcsin#1#2{%
+	\pgfmath@ifin@{#1#2}{in}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsearcsin@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsearcsin@{%	
+	\expandafter\pgfmatharcsin@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsearccos
+%
+\def\pgfmath@parsearccos#1#2{%
+	\pgfmath@ifin@{#1#2}{os}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsearccos@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1#2}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsearccos@{%	
+	\expandafter\pgfmatharccos@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsetan
+%
+\def\pgfmath@parsetan#1{%
+	\pgfmath@ifin@{#1}{n}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parsetan@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parsetan@{%	
+	\expandafter\pgfmathtan@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsernd
+%
+\def\pgfmath@parsernd#1{%
+	\pgfmath@ifin@{#1}{d}{\pgfmathrnd}{%
+		\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}%
+	\pgfmath@postfunction}%
+			
+% \pgfmath@parserand
+%
+\def\pgfmath@parserand#1#2{%
+	\pgfmath@ifin@{#1}{nd}{\pgfmathrand}{%
+		\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}%
+	\pgfmath@postfunction}%
+			
+% \pgfmath@parseexp
+%
+\def\pgfmath@parseexp#1{%
+	\pgfmath@ifin@{#1}{p}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parseexp@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parseexp@{%	
+	\expandafter\pgfmathexp@\expandafter{\pgfmathresult}%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parsepi
+%
+\def\pgfmath@parsepi{%
+	\pgfmathpi%
+	\pgfmath@postfunction%
+}
+
+% \pgfmath@parseveclen
+%
+\def\pgfmath@parseveclen#1#2#3#4{%
+	\pgfmath@ifin@{#1#2#3#4}{clen}{%
+		\let\pgfmath@afterparsegroup\pgfmath@parseveclen@%
+		\pgfmath@parse@}{%
+			\edef\pgfmath@parsedfunctionname{\pgfmath@parsedfunctionname#1}%
+			\pgfmath@reportunknownfunction}}%
+\def\pgfmath@parseveclen@{%
+	\edef\pgfmath@vecx{\pgfmathresult}%
+	\let\pgfmath@afterparsegroup\pgfmath@parseveclen@@%
+	\pgfmath@parse@}%
+\def\pgfmath@parseveclen@@{%
+	\edef\pgfmath@vecy{\pgfmathresult}%
+	\pgfmathveclen@{\pgfmath@vecx}{\pgfmath@vecy}%
+	\pgfmath@postfunction}

@@ -23,27 +23,6 @@
 
 \def\pgf@process#1{{#1\global\pgf@x=\pgf@x\global\pgf@y=\pgf@y}}
 
-\newdimen\pgf@tempdim
-\def\pgf@setlength#1#2{% these will be used only when \nullfont is active
-  \begingroup% keep font setting local
-    \pgf@selectfontorig% restore font
-    \pgf@setlengthorig\pgf@tempdim{#2}% calculate dimension (possibly using calc)
-    \global\pgf@tempdim\pgf@tempdim% make dimension global
-  \endgroup%
-  #1=\pgf@tempdim\relax}
-\def\pgf@addtolength#1#2{%
-  \begingroup% keep font setting local
-    \pgf@selectfontorig% restore font
-    \pgf@tempdim#1\relax%
-    \pgf@addtolengthorig\pgf@tempdim{#2}% calculate dimension (possibly using calc)
-    \global\pgf@tempdim\pgf@tempdim% make dimension global
-  \endgroup%
-  #1=\pgf@tempdim\relax}
-\newcount\c@pgf@tempcount
-\def\pgf@setcounter#1#2{%
-  \pgflatex@setcounter{pgf@tempcount}{#2}% makes change global!
-  \csname c@#1\endcsname=\c@pgf@tempcount\relax}
-\def\pgf@selectfont{\pgf@selectfontorig\nullfont}
 
 
 
@@ -60,8 +39,8 @@
 % \pgfpathmoveto{\pgfpoint{2pt+3cm}{3cm}}
 
 \def\pgfpoint#1#2{%
-  \setlength\pgf@x{#1}%
-  \setlength\pgf@y{#2}\ignorespaces}
+  \pgfmathsetlength\pgf@x{#1}%
+  \pgfmathsetlength\pgf@y{#2}\ignorespaces}
 
 
 % Quickly a point
@@ -89,7 +68,7 @@
 %
 % \pgfpathmoveto{\pgfpointorigin}
 
-\def\pgfpointorigin{\pgfpoint{0pt}{0pt}\ignorespaces}
+\def\pgfpointorigin{\pgf@x=0pt\pgf@y=\pgf@x\ignorespaces}
 
 
 
@@ -321,7 +300,7 @@
   \advance\pgf@x by-\pgf@xb\relax%
   \advance\pgf@y by-\pgf@yb\relax%
   \pgf@process{\pgfpointnormalised{}}% x/y = normalised vector
-  \setlength\pgf@xa{#1}%
+  \pgfmathsetlength\pgf@xa{#1}%
   \pgf@ya=\pgf@xa\relax%
   \pgf@xa=\pgf@sys@tonumber{\pgf@x}\pgf@xa%
   \pgf@ya=\pgf@sys@tonumber{\pgf@y}\pgf@ya%
@@ -353,8 +332,9 @@
 % \pgfpathmoveto{\pgfpointcurveattime{0.5}{\pgfpointxy{0}{1}}{\pgfpointxy{1}{1}}{\pgfpointxy{1}{1}}{\pgfpointxy{2}{3}}}
 
 \def\pgfpointcurveattime#1#2#3#4#5{%
-  \def\pgf@time@s{#1}%
-  \pgf@x=#1pt%
+  \pgfmathparse{#1}%
+  \let\pgf@time@s=\pgfmathresult%
+  \pgf@x=\pgfmathresult pt%
   \pgf@x=-\pgf@x%
   \advance\pgf@x by 1pt%
   \edef\pgf@time@t{\pgf@sys@tonumber{\pgf@x}}%
@@ -406,8 +386,8 @@
 % A polar coordinate
 %
 % #1 = a degree
-% #2 = a radius -- either a dimension or two dimensions separated by a
-%      slash. 
+% #2 = a radius -- either a dimension or two dimensions separated by 
+%      " and ". 
 %
 % x = (first dimension in #2) * cos(#1)
 % y = (second dimension in #2) * sin(#2)
@@ -415,25 +395,40 @@
 % Example:
 %
 % \pgfpathmoveto{\pgfpointpolar{30}{1cm}}
-% \pgfpathlineto{\pgfpointpolar{30}{1cm/2cm}}
+% \pgfpathlineto{\pgfpointpolar{30}{1cm and 2cm}}
 
 \def\pgfpointpolar#1#2{%
-  \pgfsincos{#1}%
-  \pgfutil@in@/{#2}%
+  \pgfutil@in@{and }{#2}%
   \ifpgfutil@in@%
     \pgf@polar@#2\@@%
   \else%
-    \pgf@polar@#2/#2\@@%
+    \pgf@polar@#2 and #2\@@%
   \fi%  
-  \pgf@xa=\pgf@sys@tonumber{\pgf@x}\pgf@xa%
-  \pgf@ya=\pgf@sys@tonumber{\pgf@y}\pgf@ya%
-  \pgf@y=\pgf@xa\relax%
-  \pgf@x=\pgf@ya\ignorespaces}
-
-\def\pgf@polar@#1/#2\@@{%
-  \setlength{\pgf@xa}{#2}%
-  \setlength{\pgf@ya}{#1}%  
+  \pgfmathparse{#1}%
+  \let\pgfpoint@angle=\pgfmathresult%
+  \pgfmathcos@{\pgfpoint@angle}%
+  \pgf@x=\pgfmathresult\pgf@x%
+  \pgfmathsin@{\pgfpoint@angle}%
+  \pgf@y=\pgfmathresult\pgf@y%
 }
+
+\def\pgf@polar@#1and #2\@@{%
+  \pgfmathsetlength{\pgf@y}{#2}%
+  \pgfmathsetlength{\pgf@x}{#1}%  
+}
+
+% Quick version of the polar coordinate method
+
+\def\pgfqpointpolar#1#2{%
+  \pgf@x=#2%
+  \pgf@y=\pgf@x%
+  \pgfmathcos@{#1}%
+  \pgf@x=\pgfmathresult\pgf@x%
+  \pgfmathsin@{#1}%
+  \pgf@y=\pgfmathresult\pgf@y\relax%
+}
+
+
 
 
 % A polar coordinate in the xy plane.
@@ -449,21 +444,26 @@
 % \pgfpathmoveto{\pgfpointpolarxy{30}{2}}
 
 \def\pgfpointpolarxy#1#2{%
-  \pgfsincos{#1}%
-  \pgfutil@in@/{#2}%
+  \pgfutil@in@{and }{#2}%
   \ifpgfutil@in@%
     \pgf@polarxy@#2\@@%
   \else%
-    \pgf@polarxy@#2/#2\@@%
+    \pgf@polarxy@#2and #2\@@%
   \fi%  
+  \pgfmathparse{#1}%
+  \let\pgfpoint@angle=\pgfmathresult%
+  \pgfmathcos@{\pgfpoint@angle}%
+  \pgf@xa=\pgfmathresult\pgf@xa%
+  \pgfmathsin@{\pgfpoint@angle}%
+  \pgf@ya=\pgfmathresult\pgf@ya%
   \pgf@x=\pgf@sys@tonumber{\pgf@xa}\pgf@xx%
   \advance\pgf@x by \pgf@sys@tonumber{\pgf@ya}\pgf@yx%
   \pgf@y=\pgf@sys@tonumber{\pgf@xa}\pgf@xy%
   \advance\pgf@y by \pgf@sys@tonumber{\pgf@ya}\pgf@yy}
 
-\def\pgf@polarxy@#1/#2\@@{%
-  \pgf@xa=#1\pgf@y%
-  \pgf@ya=#2\pgf@x%
+\def\pgf@polarxy@#1and #2\@@{%
+  \pgfmathsetlength{\pgf@xa}{#1}%
+  \pgfmathsetlength{\pgf@ya}{#2}%
 }
 
 
@@ -482,8 +482,9 @@
 
 \def\pgfpointcylindrical#1#2#3{%
   \pgfpointpolarxy{#1}{#2}%
-  \advance\pgf@x by #3\pgf@zx%
-  \advance\pgf@y by #3\pgf@zy}
+  \pgfmathparse{#3}%
+  \advance\pgf@x by \pgfmathresult\pgf@zx%
+  \advance\pgf@y by \pgfmathresult\pgf@zy}
 
 
 % A spherical coordinate.
@@ -499,18 +500,26 @@
 % \pgfpathmoveto{\pgfpointspherical{30}{30}{2}}
 
 \def\pgfpointspherical#1#2#3{%
-  \pgfsincos{#1}%
-  \pgf@xb=\pgf@sys@tonumber{\pgf@y}\pgf@xx%
-  \advance\pgf@xb by \pgf@sys@tonumber{\pgf@x}\pgf@yx%
-  \pgf@yb=\pgf@sys@tonumber{\pgf@y}\pgf@xy%
-  \advance\pgf@yb by \pgf@sys@tonumber{\pgf@x}\pgf@yy%
-  \pgfsincos{#2}%
-  \pgf@xc=\pgf@sys@tonumber{\pgf@y}\pgf@xb%
-  \advance\pgf@xc by \pgf@sys@tonumber{\pgf@x}\pgf@zx%
-  \pgf@yc=\pgf@sys@tonumber{\pgf@y}\pgf@yb%
-  \advance\pgf@yc by \pgf@sys@tonumber{\pgf@x}\pgf@zy%
-  \pgf@x=#3\pgf@xc%
-  \pgf@y=#3\pgf@yc%
+  \pgfmathparse{#1}%
+  \let\pgfpoint@angle=\pgfmathresult%
+  \pgfmathsin@{\pgfpoint@angle}%
+  \pgf@xb=\pgfmathresult\pgf@xx%
+  \pgf@yb=\pgfmathresult\pgf@xy%
+  \pgfmathcos@{\pgfpoint@angle}%
+  \advance\pgf@xb by \pgfmathresult\pgf@yx%
+  \advance\pgf@yb by \pgfmathresult\pgf@yy%
+  %
+  \pgfmathparse{#2}%
+  \let\pgfpoint@angle=\pgfmathresult%
+  \pgfmathcos@{\pgfpoint@angle}%
+  \pgf@xc=\pgfmathresult\pgf@xb%
+  \pgf@yc=\pgfmathresult\pgf@yb%
+  \pgfmathsin@{\pgfpoint@angle}%
+  \advance\pgf@xc by \pgfmathresult\pgf@zx%
+  \advance\pgf@yc by \pgfmathresult\pgf@zy%
+  \pgfmathparse{#3}%
+  \pgf@x=\pgfmathresult\pgf@xc%
+  \pgf@y=\pgfmathresult\pgf@yc\relax%
 }
 
 
@@ -688,7 +697,7 @@
       \pgf@y=0pt\relax%
     \else%
       \divide\c@pgf@countb by \c@pgf@counta%
-      \pgf@setmath{x}{\csname pgf@cosfrac\the\c@pgf@countb\endcsname}%
+      \pgf@x=\csname pgf@cosfrac\the\c@pgf@countb\endcsname pt%
       \pgf@xc=8192pt%
       \divide\pgf@xc by\c@pgf@counta%
       \pgf@y=\pgf@sys@tonumber{\pgf@xc}\pgf@ya%
@@ -719,7 +728,7 @@
       \pgf@x=0pt\relax%
     \else%
       \divide\c@pgf@countb by \c@pgf@counta%
-      \pgf@setmath{y}{\csname pgf@cosfrac\the\c@pgf@countb\endcsname}%
+      \pgf@y=\csname pgf@cosfrac\the\c@pgf@countb\endcsname pt%
       \pgf@xc=8192pt%
       \divide\pgf@xc by\c@pgf@counta%
       \pgf@x=\pgf@sys@tonumber{\pgf@xc}\pgf@xa%
@@ -728,7 +737,8 @@
     \ifdim\pgf@ya<0pt%
       \pgf@y=-\pgf@y%
     \fi%
-  \fi\ignorespaces}
+  \fi\ignorespaces%
+}
 
 
 
@@ -917,6 +927,62 @@
 \def\pgfextracty#1#2{%
   \pgf@process{#2}%
   #1=\pgf@y\relax}
+
+
+
+\def\pgf@def#1#2#3{\expandafter\def\csname pgf@#1#2\endcsname{#3}}
+\pgf@def{cosfrac}{0}{1}
+\pgf@def{cosfrac}{1}{0.99995}    \pgf@def{cosfrac}{2}{0.9998}
+\pgf@def{cosfrac}{3}{0.99955}    \pgf@def{cosfrac}{4}{0.999201}
+\pgf@def{cosfrac}{5}{0.998752}   \pgf@def{cosfrac}{6}{0.998205}
+\pgf@def{cosfrac}{7}{0.997559}   \pgf@def{cosfrac}{8}{0.996815}
+\pgf@def{cosfrac}{9}{0.995974}   \pgf@def{cosfrac}{10}{0.995037}
+\pgf@def{cosfrac}{11}{0.994004}  \pgf@def{cosfrac}{12}{0.992877}
+\pgf@def{cosfrac}{13}{0.991656}  \pgf@def{cosfrac}{14}{0.990342}
+\pgf@def{cosfrac}{15}{0.988936}  \pgf@def{cosfrac}{16}{0.987441}
+\pgf@def{cosfrac}{17}{0.985856}  \pgf@def{cosfrac}{18}{0.984183}
+\pgf@def{cosfrac}{19}{0.982424}  \pgf@def{cosfrac}{20}{0.980581}
+\pgf@def{cosfrac}{21}{0.978653}  \pgf@def{cosfrac}{22}{0.976644}
+\pgf@def{cosfrac}{23}{0.974555}  \pgf@def{cosfrac}{24}{0.972387}
+\pgf@def{cosfrac}{25}{0.970143}  \pgf@def{cosfrac}{26}{0.967823}
+\pgf@def{cosfrac}{27}{0.965429}  \pgf@def{cosfrac}{28}{0.962964}
+\pgf@def{cosfrac}{29}{0.960429}  \pgf@def{cosfrac}{30}{0.957826}
+\pgf@def{cosfrac}{31}{0.955157}  \pgf@def{cosfrac}{32}{0.952424}
+\pgf@def{cosfrac}{33}{0.949629}  \pgf@def{cosfrac}{34}{0.946773}
+\pgf@def{cosfrac}{35}{0.943858}  \pgf@def{cosfrac}{36}{0.940887}
+\pgf@def{cosfrac}{37}{0.937862}  \pgf@def{cosfrac}{38}{0.934784}
+\pgf@def{cosfrac}{39}{0.931655}  \pgf@def{cosfrac}{40}{0.928477}
+\pgf@def{cosfrac}{41}{0.925252}  \pgf@def{cosfrac}{42}{0.921982}
+\pgf@def{cosfrac}{43}{0.918669}  \pgf@def{cosfrac}{44}{0.915315}
+\pgf@def{cosfrac}{45}{0.911922}  \pgf@def{cosfrac}{46}{0.90849}
+\pgf@def{cosfrac}{47}{0.905024}  \pgf@def{cosfrac}{48}{0.901523}
+\pgf@def{cosfrac}{49}{0.89799}   \pgf@def{cosfrac}{50}{0.894427}
+\pgf@def{cosfrac}{51}{0.890835}  \pgf@def{cosfrac}{52}{0.887217}
+\pgf@def{cosfrac}{53}{0.883573}  \pgf@def{cosfrac}{54}{0.879905}
+\pgf@def{cosfrac}{55}{0.876216}  \pgf@def{cosfrac}{56}{0.872506}
+\pgf@def{cosfrac}{57}{0.868777}  \pgf@def{cosfrac}{58}{0.865031}
+\pgf@def{cosfrac}{59}{0.861269}  \pgf@def{cosfrac}{60}{0.857493}
+\pgf@def{cosfrac}{61}{0.853704}  \pgf@def{cosfrac}{62}{0.849903}
+\pgf@def{cosfrac}{63}{0.846092}  \pgf@def{cosfrac}{64}{0.842271}
+\pgf@def{cosfrac}{65}{0.838444}  \pgf@def{cosfrac}{66}{0.834609}
+\pgf@def{cosfrac}{67}{0.83077}   \pgf@def{cosfrac}{68}{0.826927}
+\pgf@def{cosfrac}{69}{0.82308}   \pgf@def{cosfrac}{70}{0.819232}
+\pgf@def{cosfrac}{71}{0.815383}  \pgf@def{cosfrac}{72}{0.811534}
+\pgf@def{cosfrac}{73}{0.807687}  \pgf@def{cosfrac}{74}{0.803842}
+\pgf@def{cosfrac}{75}{0.8}       \pgf@def{cosfrac}{76}{0.796162}
+\pgf@def{cosfrac}{77}{0.792329}  \pgf@def{cosfrac}{78}{0.788502}
+\pgf@def{cosfrac}{79}{0.784682}  \pgf@def{cosfrac}{80}{0.780869}
+\pgf@def{cosfrac}{81}{0.777064}  \pgf@def{cosfrac}{82}{0.773268}
+\pgf@def{cosfrac}{83}{0.769481}  \pgf@def{cosfrac}{84}{0.765705}
+\pgf@def{cosfrac}{85}{0.761939}  \pgf@def{cosfrac}{86}{0.758185}
+\pgf@def{cosfrac}{87}{0.754443}  \pgf@def{cosfrac}{88}{0.750714}
+\pgf@def{cosfrac}{89}{0.746997}  \pgf@def{cosfrac}{90}{0.743294}
+\pgf@def{cosfrac}{91}{0.739605}  \pgf@def{cosfrac}{92}{0.735931}
+\pgf@def{cosfrac}{93}{0.732272}  \pgf@def{cosfrac}{94}{0.728628}
+\pgf@def{cosfrac}{95}{0.724999}  \pgf@def{cosfrac}{96}{0.721387}
+\pgf@def{cosfrac}{97}{0.717792}  \pgf@def{cosfrac}{98}{0.714213}
+\pgf@def{cosfrac}{99}{0.710651}  \pgf@def{cosfrac}{100}{0.707107}
+
 
 
 \endinput

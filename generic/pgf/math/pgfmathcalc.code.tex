@@ -1,0 +1,420 @@
+% Copyright 2007 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+% This file loads all the parsing, functions and operator stuff
+%
+% Version 0.0 08/03/2007
+
+\input{pgfmathutil.code.tex}
+\input{pgfmathparser.code.tex}
+\input{pgfmathoperations.code.tex}
+
+
+% \pgfmathsetlength, \pgfmathaddtolength
+%
+% #1 = dimension register
+% #2 = expression
+%
+% Description:
+%
+% These functions work similar to \setlength and \addtolength. Only,
+% they allow #2 to contain an expression, which is evaluated before
+% assignment. Furthermore, the font is setup before the assignment is
+% done, so that dimensions like 1em are evaluated correctly.
+%
+% If #2 starts with "+", then a simple assignment is done (but the
+% font is still setup). This is orders of magnitude faster than a
+% parsed assignment.
+
+\newdimen\mydim
+\def\pgfmathsetlength#1#2{%
+  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  {%
+    % Ok, quick version:
+    #1#2\relax%
+  }%
+  {\pgfmathparse{#2}#1\pgfmathresult pt\relax}%
+}
+\def\pgfmathaddtolength#1#2{%
+  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  {%
+    % Ok, quick version:
+    \advance#1by#2\relax%
+  }%
+  {\pgfmathparse{#2}\advance#1\pgfmathresult pt\relax}%
+}
+
+% \pgfmathsetcounter, \pgfmathaddtocounter
+%
+% Results of parsing are truncated.
+%
+\def\pgfmathsetcounter#1#2{%
+  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  {%
+    \csname c@#1\endcsname=#2\relax%
+  }%
+  {%
+    \pgfmath@ifundefined{c@#1}{\pgfmath@error{No counter named '#1' is known}{}}{%
+      \pgfmathparse{#2}%
+      \afterassignment\pgfmath@gobbletilpgfmath@%
+      \csname c@#1\endcsname\pgfmathresult\relax\pgfmath@%
+    }%
+  }%
+}
+
+\def\pgfmathaddtocounter#1#2{%
+  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  {%
+    \advance\csname c@#1\endcsname by#2\relax%
+  }%
+  {%
+    \pgfmath@ifundefined{c@#1}{\pgfmath@error{No counter named '#1' is known}{}}{%
+      \edef\pgfmath@addtocountertemp{\expandafter\the\csname c@#1\endcsname}%
+      \pgfmathparse{#2}%
+      \afterassignment\pgfmath@gobbletilpgfmath@%
+      \csname c@#1\endcsname\pgfmathresult\relax\pgfmath@%
+      \expandafter\advance\csname c@#1\endcsname\pgfmath@addtocountertemp%
+    }%
+  }%
+}
+
+
+% Check whether a given parameter starts with quick.
+%
+% The command should be followed by nonempty text, ending with
+% \pgfmath@ as a stop-token. Then should follow
+%
+% #1 = code to execute if text starts with +
+% #2 = code to execute if text does not
+%
+% Example:
+%
+% \pgfmath@onquick+0pt\pgfmath@{is quick}{is slow}
+
+\def\pgfmath@onquick{%
+  \afterassignment\pgfmath@afterquick%
+  \let\pgfmath@next=%
+}
+
+\def\pgfmath@afterquick#1\pgfmath@{%
+  \ifx\pgfmath@next+%
+    \expandafter\pgfmath@firstoftwo%
+  \else%
+    \expandafter\pgfmath@secondoftwo%
+  \fi%
+}
+
+
+
+
+% \pgfmathdeclarefunction
+%
+% Declare a function to be used with \pgfmathusefunction
+%
+% #1 -> the name of the function.
+% #2 -> a list of variables used by the function. When the
+%       function is called with a list of arguments, these
+%       variables will be instantiated to the arguments.
+% #3 -> the function definition.
+%
+% E.g.
+%
+% \pgfmathdeclarefunction{my function}{\t}{sin{\t r}*60}
+%
+\def\pgfmathdeclarefunction#1#2#3{%	
+	\expandafter\def\csname pgfmath@function@#1\endcsname{#3}%
+	\expandafter\def\csname pgfmath@function@#1@arguments@\endcsname{#2}%
+}%
+
+% \pgfmathusefunction
+%
+% Call a declared function with appropriate arguments to
+% calculate the value of the function. 
+%
+% Assume the function f has been declared using
+%
+% \pgfmathdeclarefunction{f}{\t}{3*\t+4}
+%
+% We say:
+%
+% \pgfmathusefunction{\y}{f}{\x}
+%
+% where \x is a macro representing a number, which forms
+% the argument to the function. This will calculate f(x)
+% and place the value (*without* dimension) in the macro 
+% \y. The \t in the function definition is equated with
+% the value of the argument \x.
+%
+% #1 -> the macro to store the evaluated function.
+% #1 -> the function name.
+% #2 -> a list of arguments.
+%
+\def\pgfmathusefunction#1#2#3{%
+	\def\pgfmath@functionname{#2}%
+	\pgfmath@ifundefined{pgfmath@function@#2}{%
+		\pgfmath@error{Unknown function `#2'.}}{%
+			\begingroup%
+				\expandafter\ifx\csname pgfmath@function@#2@arguments@\endcsname\pgfmath@empty
+				\else%
+					\expandafter%
+					\pgfmath@equatevariables\expandafter{\csname pgfmath@function@#2@arguments@\endcsname}{#3}%
+				\fi%
+				\edef\pgfmath@temp{\csname pgfmath@function@#2\endcsname}%
+				\expandafter\pgfmathparse\expandafter{\pgfmath@temp}%
+				\pgfmath@x=\pgfmathresult pt\relax%
+				\pgfmath@returnone\pgfmath@x
+			\endgroup%
+			\edef#1{\pgfmathresult}%
+		}%
+}
+
+% \pgfmath@equatevariables
+%
+% Internal macro for assigning a list of values to
+% a list of variables. 
+%
+% \pgfmath@equatevariables{\a,\b,\c}{1.2,4,6.73}
+%
+% will resulit in \a <- 1.2, \b <- 4 and \c <- 6.73
+%
+% NB Assumes \pgfmath@functionname is defined.
+%
+% #1 -> list of variables.
+% #2 -> list of arguments.
+%
+\def\pgfmath@equatevariables#1#2{%
+		\expandafter\pgfmath@equatevariables@\expandafter{#2}{#1}}%
+\def\pgfmath@equatevariables@#1#2{%
+	\expandafter\pgfmath@equatevariables@@#2,\pgfmath@empty,\pgfmath@empty,\pgfmath@%
+		#1,\pgfmath@empty,\pgfmath@empty,\pgfmath@}%
+\def\pgfmath@equatevariables@@#1,#2,\pgfmath@#3,#4,\pgfmath@{%
+	\ifx\pgfmath@empty#1\relax%
+		\ifx\pgfmath@empty#3\relax%
+		\else%
+			\pgfmath@reporterror{Function `\pgfmath@functionname' called with too many variables}{}%
+		\fi%
+		\let\pgfmath@next\pgfmath@endequatevariables%
+	\else%
+		\ifx\pgfmath@empty#3\relax%
+			\pgfmath@reporterror{Function `\pgfmath@functionname' called with too few variables}{}%
+			\let\pgfmath@next\pgfmath@endequatevariables%
+		\else%
+			\expandafter\pgfmathparse\expandafter{#3}%
+			\edef#1{\pgfmathresult}%
+			\let\pgfmath@next\pgfmath@equatevariables@@%
+		\fi%
+	\fi%
+	\pgfmath@next#2,\pgfmath@#4,\pgfmath@}
+
+\def\pgfmath@endequatevariables#1\pgfmath@#2\pgfmath@{}
+
+
+% \pgfmathlinearspace
+%
+% Partition a linear space.
+%
+% #1 -> the macro to store the linear space.
+% #2 -> the first term.
+% #3 -> the last term.
+% #4 -> the number of partitions.
+%
+% e.g.
+% \pgfmathlinearspace{\x}{0}{20}{4}
+% 
+% Results in \x -> 0.0,5.0,10.0,15.0,20.0
+%
+\def\pgfmathlinearspace#1#2#3#4{%
+	\begingroup%
+		\def\pgfmath@temppartitions{#4}%
+		\ifx\pgfmath@temppartitions\pgfmath@empty%
+			\def\pgfmath@temppartitions{100}%
+		\fi%
+		\pgfmathsetlength{\pgfmath@xa}{#2}%
+		\pgfmathsetlength{\pgfmath@xb}{#3}%
+		\pgfmath@xc=\pgfmath@xb%
+		\advance\pgfmath@xb by-\pgfmath@xa%
+		\pgfmath@y=\pgfmath@xb%
+		\divide\pgfmath@y by\pgfmath@temppartitions%
+		\xdef\pgfmathlinearspace@tempa{\pgfmath@tonumber{\pgfmath@y}}%
+		\xdef\pgfmathlinearspace@tempb{\pgfmath@tonumber{\pgfmath@xa}}%
+		\pgfmathloop%
+			\ifnum\pgfmathcounter<#4\relax%
+				\pgfmath@x=\pgfmath@xb%
+				\divide\pgfmath@x by#4\relax%
+				\multiply\pgfmath@x by\pgfmathcounter\relax%
+				\advance\pgfmath@x by\pgfmath@xa%
+				\xdef\pgfmathlinearspace@tempb{\pgfmathlinearspace@tempb,\pgfmath@tonumber{\pgfmath@x}}%
+		\repeatpgfmathloop%
+		\xdef\pgfmathlinearspace@tempb{\pgfmathlinearspace@tempb,\pgfmath@tonumber{\pgfmath@xc}}%
+	\endgroup%
+	\edef\pgfmathlinearspacepartitionwidth{\pgfmathlinearspace@tempa}%
+	\edef#1{\pgfmathlinearspace@tempb}%	
+}
+
+% \pgfmathlinearseries
+%
+% Create a linear series.
+%
+% #1 -> the macro to store the linear space.
+% #2 -> the first term.
+% #3 -> the common difference.
+% #4 -> the number of terms.
+%
+% e.g.
+% \pgfmathlinearseries{\x}{0}{3.5}{5}
+% 
+% Results in \x -> 0.0,3.5,7.0,10.5,14.0
+%
+\def\pgfmathlinearseries#1#2#3#4{%
+	\begingroup
+		\pgfmathsetlength{\pgfmath@x}{#2}%
+		\pgfmathsetlength{\pgfmath@xa}{#3}%
+		\pgfmathsetcounter{pgfmath@counta}{#4}%
+		\edef\pgfmathlinearseries@temp{\pgfmath@tonumber{\pgfmath@x}}%
+		\pgfmathloop
+			\ifnum\pgfmathcounter<\c@pgfmath@counta
+				\advance\pgfmath@x by\pgfmath@xa%
+				\xdef\pgfmathlinearseries@temp{\pgfmathlinearseries@temp,\pgfmath@tonumber{\pgfmath@x}}%
+		\repeatpgfmathloop
+	\endgroup
+	\edef#1{\pgfmathlinearseries@temp}%	
+}
+
+% \foreach
+%
+% Extended to support linear series and linear spaces.
+% Now it is possible to say:
+%
+% \foreach \x in linear space [from=0, to=2*pi, partitions=100]...
+% or...
+% \foreach \x in linear space [0:2*pi:100]...
+%
+% and...
+%
+% \foreach \x in linear series [first term=4, common difference=2, terms=10]...
+% or...
+% \foreach \x in linear series [4:2:10]...
+%
+%
+\def\foreach#1in{%
+	\def\pgffor@var{#1}%
+	\pgfmath@ifnextchar l{%
+		\pgfmath@collectlinearspaceorseries}{%
+			\pgfmath@continueforeach}}
+
+\def\pgfmath@collectlinearspaceorseries linear s{%
+	\pgfmath@ifnextchar p{%
+		\pgfmath@collectlinearspace}{%
+			\pgfmath@ifnextchar e{%
+				\pgfmath@collectlinearseries}{%
+  					\pgfmath@reporterror{Unknown 'linear' option in \foreach.}{}%
+  	}}%
+}%
+
+%
+% Removed [PgfMath] since xkeyval currently is not necessarily available.
+% 
+
+
+\define@key{pgfmath linear space}{from}[0.0]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearspace@from{\pgfmathresult}}%
+\define@key{pgfmath linear space}{to}[100]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearspace@to{\pgfmathresult}}%
+\define@key{pgfmath linear space}{partitions}[10]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearspace@partitions{\pgfmathresult}}%
+\def\pgfmath@collectlinearspace pace#1[#2]{% #1 is a dummy.
+	\pgfmath@ifin@{:}{#2}{\pgfmath@collectlinearspace@#2\pgfmath@}{%
+		\setkeys{pgfmath linear space}{#2}%
+		\pgfmathlinearspace{\pgfmathforeach@temp}%
+			{\pgfmath@linearspace@from}%
+			{\pgfmath@linearspace@to}%
+			{\pgfmath@linearspace@partitions}%
+		\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
+	}%
+}
+\def\pgfmath@collectlinearspace@#1:#2:#3\pgfmath@{%
+	\pgfmathlinearspace{\pgfmathforeach@temp}{#1}{#2}{#3}%
+	\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
+}
+
+\define@key{pgfmath linear series}{first term}[0.0]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearseries@from{\pgfmathresult}}%
+\define@key{pgfmath linear series}{common difference}[100.0]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearseries@difference{\pgfmathresult}}%
+\define@key{pgfmath linear series}{terms}[10]{%
+	\pgfmathparse{#1}%
+	\edef\pgfmath@linearseries@terms{\pgfmathresult}}%
+\def\pgfmath@collectlinearseries eries#1[#2]{% #1 is a dummy.
+	\pgfmath@ifin@{:}{#2}{\pgfmath@collectlinearseries@#2\pgfmath@}{%
+		\setkeys{pgfmath linear series}{#2}%
+		\pgfmathlinearseries{\pgfmathforeach@temp}%
+			{\pgfmath@linearseries@from}%
+			{\pgfmath@linearseries@difference}%
+			{\pgfmath@linearseries@terms}%
+		\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
+	}%
+}
+\def\pgfmath@collectlinearseries@#1:#2:#3\pgfmath@{%
+	\pgfmathlinearseries{\pgfmathforeach@temp}{#1}{#2}{#3}%
+	\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
+}
+
+\def\pgfmath@continueforeach#1{%
+	\def\pgffor@values{#1, \pgffor@stop,}%
+	\ifx\pgffor@values\pgffor@emptyvalues%
+		\def\pgffor@values{\pgffor@stop,}%
+	\fi%
+	\let\pgffor@body\pgfutil@empty%
+	\global\pgffor@continuetrue%
+	\pgffor@collectbody}
+
+
+\def\pgfpathfunctionto#1#2#3#4{%
+	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
+	\pgfmathparse{#3}\edef\pgfmath@functionend{\pgfmathresult}%
+	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
+	\foreach \pgfmath@functiontemp in{\pgfmath@functionstart, \pgfmath@functionfirststep,...,\pgfmath@functionend}{%
+		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
+		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp pt}{\pgfmath@functiony pt}}%
+	}%
+}%
+
+\def\pgfpathbetweenfunctionandxaxis#1#2#3#4{%
+	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
+	\pgfmathparse{#3+#4}\edef\pgfmath@functionend{\pgfmathresult}%
+	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
+	\pgfpathmoveto{\pgfpoint{#2}{0}}%
+	\foreach\pgfmath@functiontemp in{\pgfmath@functionstart,\pgfmath@functionfirststep,...,\pgfmath@functionend}{%
+		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
+		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp}{\pgfmath@functiony}}%
+	}%
+	\pgfmathparse{#3}%
+	\pgfpathlineto{\pgfpoint{\pgfmathresult}{0}}%
+	\pgfpathclose%
+}%
+
+\def\pgfpathbetweenfunctionandyaxis#1#2#3#4{%
+	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
+	\pgfmathparse{#3+#4}\edef\pgfmath@functionend{\pgfmathresult}%
+	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
+	\pgfmathusefunction{\pgfmath@functiony}{#1}{#2}%
+	\pgfpathmoveto{\pgfpoint{0pt}{\pgfmath@functiony pt}}%
+	\foreach\pgfmath@functiontemp in{\pgfmath@functionstart,\pgfmath@functionfirststep,...,\pgfmath@functionend}{%
+		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
+		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp pt}{\pgfmath@functiony pt}}%
+	}%
+	\pgfmathusefunction{\pgfmath@functiony}{#1}{#3}%
+	\pgfpathlineto{\pgfpoint{0pt}{\pgfmath@functiony pt}}%
+	\pgfpathclose%
+}%
