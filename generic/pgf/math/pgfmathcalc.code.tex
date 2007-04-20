@@ -14,6 +14,7 @@
 \input{pgfmathutil.code.tex}
 \input{pgfmathparser.code.tex}
 \input{pgfmathoperations.code.tex}
+\input{pgfmathbase.code.tex}
 
 
 % \pgfmathsetlength, \pgfmathaddtolength
@@ -34,15 +35,17 @@
 
 \newdimen\mydim
 \def\pgfmathsetlength#1#2{%
-  \expandafter\pgfmath@onquick#2@@\pgfmath@%
-  {%
-    % Ok, quick version:
+  \expandafter\pgfmath@onquick#2\pgfmath@%
+ {%
+ 	 % Ok, quick version:
     #1#2\relax%
   }%
-  {\pgfmathparse{#2}#1\pgfmathresult pt\relax}%
+  {%
+   \pgfmathparse{#2}#1\pgfmathresult pt\relax%
+}%
 }
 \def\pgfmathaddtolength#1#2{%
-  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+	 \expandafter\pgfmath@onquick#2\pgfmath@%
   {%
     % Ok, quick version:
     \advance#1by#2\relax%
@@ -50,12 +53,21 @@
   {\pgfmathparse{#2}\advance#1\pgfmathresult pt\relax}%
 }
 
+\def\pgfmathnewcounter#1{%
+	\expandafter\let\expandafter\pgfmath@register\csname c@#1\endcsname%
+	\expandafter\ifx\pgfmath@register\relax%
+    	\expandafter\newcount\csname c@#1\endcsname%
+    	\csname c@#1\endcsname0\relax%
+		\expandafter\def\csname the#1\endcsname{\expandafter\the\csname c@#1\endcsname}%
+	\else% Do nothing.
+   \fi}%
+   
 % \pgfmathsetcounter, \pgfmathaddtocounter
 %
 % Results of parsing are truncated.
 %
 \def\pgfmathsetcounter#1#2{%
-  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  \expandafter\pgfmath@onquick#2\pgfmath@%
   {%
     \csname c@#1\endcsname=#2\relax%
   }%
@@ -69,7 +81,7 @@
 }
 
 \def\pgfmathaddtocounter#1#2{%
-  \expandafter\pgfmath@onquick#2@@\pgfmath@%
+  \expandafter\pgfmath@onquick#2\pgfmath@%
   {%
     \advance\csname c@#1\endcsname by#2\relax%
   }%
@@ -84,6 +96,47 @@
   }%
 }
 
+% \pgfmathsetcount, \pgfmathaddtocount
+%
+% Results of parsing are truncated.
+%
+\def\pgfmathsetcount#1#2{%
+  \expandafter\pgfmath@onquick#2\pgfmath@%
+  {%
+    #1#2\relax%
+  }%
+  {%
+    \pgfmathparse{#2}%
+    \afterassignment\pgfmath@gobbletilpgfmath@%
+    #1\pgfmathresult\relax\pgfmath@%
+  }%
+}
+
+\def\pgfmathaddtocount#1#2{%
+  \expandafter\pgfmath@onquick#2\pgfmath@%
+  {%
+    \advance#1 by#2\relax%
+  }%
+  {%
+    \edef\pgfmath@addtocounttemp{\the#1}%
+    \pgfmathparse{#2}%
+     \afterassignment\pgfmath@gobbletilpgfmath@%
+     #1\pgfmathresult\relax\pgfmath@%
+     \advance#1\pgfmath@addtocounttemp%
+  }%
+}
+
+\def\pgfmathsetmacro#1#2{%
+	\expandafter\pgfmath@onquick#2\pgfmath@%
+  {%
+    \pgfmath@setmacro#1#2\pgfmath@
+  }%
+  {%
+    \pgfmathparse{#2}%
+    \edef#1{\pgfmathresult}%
+  }%
+}
+\def\pgfmathset@macro#1#2#3{\edef#1{#3}}
 
 % Check whether a given parameter starts with quick.
 %
@@ -111,310 +164,159 @@
 }
 
 
-
-
-% \pgfmathdeclarefunction
+% \pgfmathanglebetweenpoints
 %
-% Declare a function to be used with \pgfmathusefunction
+% Determines the angle (in degrees) between two points.
 %
-% #1 -> the name of the function.
-% #2 -> a list of variables used by the function. When the
-%       function is called with a list of arguments, these
-%       variables will be instantiated to the arguments.
-% #3 -> the function definition.
+% #1 - the macro in which to store the angle.
+% #2 - the first (reference) point.
+% #3 - the second point
 %
-% E.g.
+% e.g.
 %
-% \pgfmathdeclarefunction{my function}{\t}{sin{\t r}*60}
+% \pgfmathanglebetweenpoints\myangle{\pgfpointorigin}{\pgfpoint{3cm}{4cm}}
 %
-\def\pgfmathdeclarefunction#1#2#3{%	
-	\expandafter\def\csname pgfmath@function@#1\endcsname{#3}%
-	\expandafter\def\csname pgfmath@function@#1@arguments@\endcsname{#2}%
-}%
-
-% \pgfmathusefunction
-%
-% Call a declared function with appropriate arguments to
-% calculate the value of the function. 
-%
-% Assume the function f has been declared using
-%
-% \pgfmathdeclarefunction{f}{\t}{3*\t+4}
-%
-% We say:
-%
-% \pgfmathusefunction{\y}{f}{\x}
-%
-% where \x is a macro representing a number, which forms
-% the argument to the function. This will calculate f(x)
-% and place the value (*without* dimension) in the macro 
-% \y. The \t in the function definition is equated with
-% the value of the argument \x.
-%
-% #1 -> the macro to store the evaluated function.
-% #1 -> the function name.
-% #2 -> a list of arguments.
-%
-\def\pgfmathusefunction#1#2#3{%
-	\def\pgfmath@functionname{#2}%
-	\pgfmath@ifundefined{pgfmath@function@#2}{%
-		\pgfmath@error{Unknown function `#2'.}}{%
-			\begingroup%
-				\expandafter\ifx\csname pgfmath@function@#2@arguments@\endcsname\pgfmath@empty
-				\else%
-					\expandafter%
-					\pgfmath@equatevariables\expandafter{\csname pgfmath@function@#2@arguments@\endcsname}{#3}%
-				\fi%
-				\edef\pgfmath@temp{\csname pgfmath@function@#2\endcsname}%
-				\expandafter\pgfmathparse\expandafter{\pgfmath@temp}%
-				\pgfmath@x=\pgfmathresult pt\relax%
-				\pgfmath@returnone\pgfmath@x
-			\endgroup%
-			\edef#1{\pgfmathresult}%
-		}%
-}
-
-% \pgfmath@equatevariables
-%
-% Internal macro for assigning a list of values to
-% a list of variables. 
-%
-% \pgfmath@equatevariables{\a,\b,\c}{1.2,4,6.73}
-%
-% will resulit in \a <- 1.2, \b <- 4 and \c <- 6.73
-%
-% NB Assumes \pgfmath@functionname is defined.
-%
-% #1 -> list of variables.
-% #2 -> list of arguments.
-%
-\def\pgfmath@equatevariables#1#2{%
-		\expandafter\pgfmath@equatevariables@\expandafter{#2}{#1}}%
-\def\pgfmath@equatevariables@#1#2{%
-	\expandafter\pgfmath@equatevariables@@#2,\pgfmath@empty,\pgfmath@empty,\pgfmath@%
-		#1,\pgfmath@empty,\pgfmath@empty,\pgfmath@}%
-\def\pgfmath@equatevariables@@#1,#2,\pgfmath@#3,#4,\pgfmath@{%
-	\ifx\pgfmath@empty#1\relax%
-		\ifx\pgfmath@empty#3\relax%
+\def\pgfanglebetweenpoints#1#2#3{%
+	\pgf@process{#3}%
+	\pgf@xa\pgf@x%
+	\pgf@ya\pgf@y%
+	\pgf@process{#2}%
+	\advance\pgf@xa-\pgf@x%
+	\advance\pgf@ya-\pgf@y%	
+	\pgf@x\pgf@xa%
+	\pgf@y\pgf@ya%
+	\ifdim\pgf@x<0pt\relax%
+		\pgf@x-\pgf@x%
+	\fi%
+	\ifdim\pgf@y<0pt\relax%
+		\pgf@y-\pgf@y%
+	\fi%
+	\ifdim\pgf@y<\pgf@x%
+		\pgf@xb\pgf@x%
+		\pgf@x\pgf@y%
+		\pgf@y\pgf@xb%
+	\fi%
+	\pgfmathreciprocal@{\pgfmath@tonumber{\pgfmath@y}}%
+	\pgfmath@y\pgfmathresult\pgfmath@x\relax%
+	\multiply\pgf@y1000\relax%
+	\afterassignment\pgfmath@gobbletilpgfmath@%
+	\expandafter\c@pgfmath@counta\the\pgf@y\relax\pgfmath@%
+	\ifnum\c@pgfmath@counta>1000\relax\c@pgfmath@counta100\relax\fi% Hmm... sometimes necessary.
+	\expandafter\pgf@xc\csname pgfmath@atan@\the\c@pgfmath@counta\endcsname pt\relax%
+	\ifdim\pgfmath@ya>\pgfmath@xa\relax%
+		\pgf@xc-\pgf@xc%
+		\advance\pgf@xc90pt\relax%
+	\fi%
+	\ifdim\pgf@xa<0pt\relax%
+		\pgf@xc-\pgf@xc%
+		\ifdim\pgf@ya>0pt\relax%
+			\advance\pgf@xc180pt\relax%
 		\else%
-			\pgfmath@reporterror{Function `\pgfmath@functionname' called with too many variables}{}%
+			\advance\pgf@xc270pt\relax%
 		\fi%
-		\let\pgfmath@next\pgfmath@endequatevariables%
 	\else%
-		\ifx\pgfmath@empty#3\relax%
-			\pgfmath@reporterror{Function `\pgfmath@functionname' called with too few variables}{}%
-			\let\pgfmath@next\pgfmath@endequatevariables%
-		\else%
-			\expandafter\pgfmathparse\expandafter{#3}%
-			\edef#1{\pgfmathresult}%
-			\let\pgfmath@next\pgfmath@equatevariables@@%
+		\ifdim\pgf@ya<0pt\relax%
+			\pgf@xc-\pgf@xc%
+			\advance\pgf@xc360pt\relax%
 		\fi%
 	\fi%
-	\pgfmath@next#2,\pgfmath@#4,\pgfmath@}
+	\edef#1{\pgfmath@tonumber{\pgf@xc}}%
+}
 
-\def\pgfmath@endequatevariables#1\pgfmath@#2\pgfmath@{}
-
-
-% \pgfmathlinearspace
+% \pgfdistancebetweenpoints
 %
-% Partition a linear space.
+% Determines Euclidian distance (in points) between two points.
 %
-% #1 -> the macro to store the linear space.
-% #2 -> the first term.
-% #3 -> the last term.
-% #4 -> the number of partitions.
+% #1 - the dimen register in which to store the angle.
+% #2 - the first (reference) point.
+% #3 - the second point
 %
 % e.g.
-% \pgfmathlinearspace{\x}{0}{20}{4}
-% 
-% Results in \x -> 0.0,5.0,10.0,15.0,20.0
 %
-\def\pgfmathlinearspace#1#2#3#4{%
+% \pgfmathdistancebetweenpoints\pgf@x{\pgfpointorigin}{\pgfpoint{3cm}{4cm}}
+%
+\def\pgfdistancebetweenpoints#1#2#3{%
+	\pgf@process{#3}%
+	\ifdim\pgfmath@x<0pt\relax\pgfmath@x-\pgfmath@x\fi%
+	\ifdim\pgfmath@y<0pt\relax\pgfmath@y-\pgfmath@y\fi%
+	\pgf@xa\pgf@x%
+	\pgf@ya\pgf@y
+	\pgf@process{#2}%
+	\ifdim\pgfmath@x<0pt\relax\pgfmath@x-\pgfmath@x\fi%
+	\ifdim\pgfmath@y<0pt\relax\pgfmath@y-\pgfmath@y\fi%
+	\advance\pgf@xa-\pgf@x%
+	\advance\pgf@ya-\pgf@y%	
+	\pgf@x\pgf@xa%
+	\pgf@y\pgf@ya%
+	\pgfmathveclen@{\pgfmath@tonumber{\pgfmath@x}}{\pgfmath@tonumber{\pgfmath@y}}%
+	#1\pgfmathresult pt\relax%
+}
+
+% \pgfpathstar
+%
+% Create a path in the shape of a star.
+%
+% #1 - a coordinate.
+% #2 - the number of points.
+% #3 - the outer point radius.
+% #4 - the inner point radius.
+%
+\def\pgfpathstar#1#2#3#4{%
+	\pgfmathsetmacro\pgf@pathstarangle{90}%
+	\pgfmathsetmacro\pgf@pathstaranglestep{180/#2}%
+	\pgfmathtruncate\pgf@pathstarpoints{#2}%
+	\pgfmathsetmacro\pgf@pathstarouterpointradius{#3}%
+	\pgfmathsetmacro\pgf@pathstarinnerpointradius{#4}%
+	\pgfpathmoveto{\pgfpointadd{#1}{\pgfpoint{+0pt}{+\pgf@pathstarouterpointradius pt}}}%
+	\pgfmathloop%
+	\expandafter\ifnum\pgfmathcounter>\pgf@pathstarpoints%
+	\else%
+		\pgfmathsetmacro\pgf@pathstarangle{\pgf@pathstarangle+\pgf@pathstaranglestep}%
+		\pgfpathlineto{%
+			\pgfpointadd{#1}{\pgfpointpolar{\pgf@pathstarangle}%
+				{+\pgf@pathstarinnerpointradius pt}}}%
+		\pgfmathsetmacro\pgf@pathstarangle{\pgf@pathstarangle+\pgf@pathstaranglestep}%
+		\pgfpathlineto{%
+			\pgfpointadd{#1}{\pgfpointpolar{\pgf@pathstarangle}%
+				{+\pgf@pathstarouterpointradius pt}}}%
+	\repeatpgfmathloop%
+	\pgfpathclose%
+}
+
+% \pgfmathtruncate#1#2
+% 
+% Define #1 as the truncated result of #2
+%
+\def\pgfmathtruncate#1#2{%
 	\begingroup%
-		\def\pgfmath@temppartitions{#4}%
-		\ifx\pgfmath@temppartitions\pgfmath@empty%
-			\def\pgfmath@temppartitions{100}%
-		\fi%
-		\pgfmathsetlength{\pgfmath@xa}{#2}%
-		\pgfmathsetlength{\pgfmath@xb}{#3}%
-		\pgfmath@xc=\pgfmath@xb%
-		\advance\pgfmath@xb by-\pgfmath@xa%
-		\pgfmath@y=\pgfmath@xb%
-		\divide\pgfmath@y by\pgfmath@temppartitions%
-		\xdef\pgfmathlinearspace@tempa{\pgfmath@tonumber{\pgfmath@y}}%
-		\xdef\pgfmathlinearspace@tempb{\pgfmath@tonumber{\pgfmath@xa}}%
-		\pgfmathloop%
-			\ifnum\pgfmathcounter<#4\relax%
-				\pgfmath@x=\pgfmath@xb%
-				\divide\pgfmath@x by#4\relax%
-				\multiply\pgfmath@x by\pgfmathcounter\relax%
-				\advance\pgfmath@x by\pgfmath@xa%
-				\xdef\pgfmathlinearspace@tempb{\pgfmathlinearspace@tempb,\pgfmath@tonumber{\pgfmath@x}}%
-		\repeatpgfmathloop%
-		\xdef\pgfmathlinearspace@tempb{\pgfmathlinearspace@tempb,\pgfmath@tonumber{\pgfmath@xc}}%
-	\endgroup%
-	\edef\pgfmathlinearspacepartitionwidth{\pgfmathlinearspace@tempa}%
-	\edef#1{\pgfmathlinearspace@tempb}%	
-}
-
-% \pgfmathlinearseries
+		\pgfmathsetcount\c@pgfmath@counta{#2}%
+		\edef#1{\the\c@pgfmath@counta}%
+		\pgfmath@smuggleone{#1}%
+	\endgroup}
+	
+% \pgfpathpolygon
 %
-% Create a linear series.
+% Create a polygon in the shape of a star.
 %
-% #1 -> the macro to store the linear space.
-% #2 -> the first term.
-% #3 -> the common difference.
-% #4 -> the number of terms.
+% #1 - a coordinate.
+% #2 - the number of points.
+% #3 - the outer point radius.
+% #4 - the inner point radius.
 %
-% e.g.
-% \pgfmathlinearseries{\x}{0}{3.5}{5}
-% 
-% Results in \x -> 0.0,3.5,7.0,10.5,14.0
-%
-\def\pgfmathlinearseries#1#2#3#4{%
-	\begingroup
-		\pgfmathsetlength{\pgfmath@x}{#2}%
-		\pgfmathsetlength{\pgfmath@xa}{#3}%
-		\pgfmathsetcounter{pgfmath@counta}{#4}%
-		\edef\pgfmathlinearseries@temp{\pgfmath@tonumber{\pgfmath@x}}%
-		\pgfmathloop
-			\ifnum\pgfmathcounter<\c@pgfmath@counta
-				\advance\pgfmath@x by\pgfmath@xa%
-				\xdef\pgfmathlinearseries@temp{\pgfmathlinearseries@temp,\pgfmath@tonumber{\pgfmath@x}}%
-		\repeatpgfmathloop
-	\endgroup
-	\edef#1{\pgfmathlinearseries@temp}%	
-}
-
-% \foreach
-%
-% Extended to support linear series and linear spaces.
-% Now it is possible to say:
-%
-% \foreach \x in linear space [from=0, to=2*pi, partitions=100]...
-% or...
-% \foreach \x in linear space [0:2*pi:100]...
-%
-% and...
-%
-% \foreach \x in linear series [first term=4, common difference=2, terms=10]...
-% or...
-% \foreach \x in linear series [4:2:10]...
-%
-%
-\def\foreach#1in{%
-	\def\pgffor@var{#1}%
-	\pgfmath@ifnextchar l{%
-		\pgfmath@collectlinearspaceorseries}{%
-			\pgfmath@continueforeach}}
-
-\def\pgfmath@collectlinearspaceorseries linear s{%
-	\pgfmath@ifnextchar p{%
-		\pgfmath@collectlinearspace}{%
-			\pgfmath@ifnextchar e{%
-				\pgfmath@collectlinearseries}{%
-  					\pgfmath@reporterror{Unknown 'linear' option in \foreach.}{}%
-  	}}%
-}%
-
-%
-% Removed [PgfMath] since xkeyval currently is not necessarily available.
-% 
-
-
-\define@key{pgfmath linear space}{from}[0.0]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearspace@from{\pgfmathresult}}%
-\define@key{pgfmath linear space}{to}[100]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearspace@to{\pgfmathresult}}%
-\define@key{pgfmath linear space}{partitions}[10]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearspace@partitions{\pgfmathresult}}%
-\def\pgfmath@collectlinearspace pace#1[#2]{% #1 is a dummy.
-	\pgfmath@ifin@{:}{#2}{\pgfmath@collectlinearspace@#2\pgfmath@}{%
-		\setkeys{pgfmath linear space}{#2}%
-		\pgfmathlinearspace{\pgfmathforeach@temp}%
-			{\pgfmath@linearspace@from}%
-			{\pgfmath@linearspace@to}%
-			{\pgfmath@linearspace@partitions}%
-		\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
-	}%
-}
-\def\pgfmath@collectlinearspace@#1:#2:#3\pgfmath@{%
-	\pgfmathlinearspace{\pgfmathforeach@temp}{#1}{#2}{#3}%
-	\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
-}
-
-\define@key{pgfmath linear series}{first term}[0.0]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearseries@from{\pgfmathresult}}%
-\define@key{pgfmath linear series}{common difference}[100.0]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearseries@difference{\pgfmathresult}}%
-\define@key{pgfmath linear series}{terms}[10]{%
-	\pgfmathparse{#1}%
-	\edef\pgfmath@linearseries@terms{\pgfmathresult}}%
-\def\pgfmath@collectlinearseries eries#1[#2]{% #1 is a dummy.
-	\pgfmath@ifin@{:}{#2}{\pgfmath@collectlinearseries@#2\pgfmath@}{%
-		\setkeys{pgfmath linear series}{#2}%
-		\pgfmathlinearseries{\pgfmathforeach@temp}%
-			{\pgfmath@linearseries@from}%
-			{\pgfmath@linearseries@difference}%
-			{\pgfmath@linearseries@terms}%
-		\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
-	}%
-}
-\def\pgfmath@collectlinearseries@#1:#2:#3\pgfmath@{%
-	\pgfmathlinearseries{\pgfmathforeach@temp}{#1}{#2}{#3}%
-	\expandafter\pgfmath@continueforeach\expandafter{\pgfmathforeach@temp}%
-}
-
-\def\pgfmath@continueforeach#1{%
-	\def\pgffor@values{#1, \pgffor@stop,}%
-	\ifx\pgffor@values\pgffor@emptyvalues%
-		\def\pgffor@values{\pgffor@stop,}%
-	\fi%
-	\let\pgffor@body\pgfutil@empty%
-	\global\pgffor@continuetrue%
-	\pgffor@collectbody}
-
-
-\def\pgfpathfunctionto#1#2#3#4{%
-	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
-	\pgfmathparse{#3}\edef\pgfmath@functionend{\pgfmathresult}%
-	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
-	\foreach \pgfmath@functiontemp in{\pgfmath@functionstart, \pgfmath@functionfirststep,...,\pgfmath@functionend}{%
-		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
-		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp pt}{\pgfmath@functiony pt}}%
-	}%
-}%
-
-\def\pgfpathbetweenfunctionandxaxis#1#2#3#4{%
-	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
-	\pgfmathparse{#3+#4}\edef\pgfmath@functionend{\pgfmathresult}%
-	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
-	\pgfpathmoveto{\pgfpoint{#2}{0}}%
-	\foreach\pgfmath@functiontemp in{\pgfmath@functionstart,\pgfmath@functionfirststep,...,\pgfmath@functionend}{%
-		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
-		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp}{\pgfmath@functiony}}%
-	}%
-	\pgfmathparse{#3}%
-	\pgfpathlineto{\pgfpoint{\pgfmathresult}{0}}%
+\def\pgfpathpolygon#1#2#3{%
+	\pgfmathsetmacro\pgf@pathpolygonangle{+90}%
+	\pgfmathtruncate\pgf@pathpolygonsides{#2}%
+	\pgfmathsetmacro\pgf@pathpolygonanglestep{360/#2}%
+	\pgfmathsetmacro\pgf@pathpolygonradius{#3}%
+	\pgfpathmoveto{%
+		\pgfpointadd{#1}{\pgfpointpolar{\pgf@pathpolygonangle}%
+				{+\pgf@pathpolygonradius pt}}}%
+	\pgfmathloop%
+	\expandafter\ifnum\pgfmathcounter<\pgf@pathpolygonsides%
+		\pgfmathsetmacro\pgf@pathpolygonangle{\pgf@pathpolygonangle+\pgf@pathpolygonanglestep}%
+		\pgfpathlineto{%
+		\pgfpointadd{#1}{\pgfpointpolar{\pgf@pathpolygonangle}%
+				{+\pgf@pathpolygonradius pt}}}%
+	\repeatpgfmathloop%
 	\pgfpathclose%
-}%
-
-\def\pgfpathbetweenfunctionandyaxis#1#2#3#4{%
-	\pgfmathparse{#2}\edef\pgfmath@functionstart{\pgfmathresult}%
-	\pgfmathparse{#3+#4}\edef\pgfmath@functionend{\pgfmathresult}%
-	\pgfmathparse{#2+#4}\edef\pgfmath@functionfirststep{\pgfmathresult}%
-	\pgfmathusefunction{\pgfmath@functiony}{#1}{#2}%
-	\pgfpathmoveto{\pgfpoint{0pt}{\pgfmath@functiony pt}}%
-	\foreach\pgfmath@functiontemp in{\pgfmath@functionstart,\pgfmath@functionfirststep,...,\pgfmath@functionend}{%
-		\pgfmathusefunction{\pgfmath@functiony}{#1}{\pgfmath@functiontemp}%
-		\pgfpathlineto{\pgfpoint{\pgfmath@functiontemp pt}{\pgfmath@functiony pt}}%
-	}%
-	\pgfmathusefunction{\pgfmath@functiony}{#1}{#3}%
-	\pgfpathlineto{\pgfpoint{0pt}{\pgfmath@functiony pt}}%
-	\pgfpathclose%
-}%
+}
