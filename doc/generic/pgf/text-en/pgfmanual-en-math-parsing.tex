@@ -1,0 +1,522 @@
+% Copyright 2007 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+%
+
+\section{Parsing Mathematical Expressions}
+
+\label{pgfmath-parsing}
+
+The support for infix mathematical operations involving 
+integers and non-integers, with or without units comes with some 
+caveats. Firstly, it should be noted that all
+calculations must not exceed $\pm16383.99999$ at \emph{any} point, 
+because the underlying algorithms are all implemented by hacking 
+around the \TeX{} dimensions. This means that many of the underlying 
+algorithms are necessarily approximate (but even native \TeX{} 
+arithmatic occasionally throws up some surprises). It also means that
+some of the algorithms are not very fast. \TeX{} is, after all, a
+typesetting language and not ideally suited to relatively advanced 
+mathematical operations. However, it is very simple to change the
+algorithms as described in Section~\ref{pgfmath-reimplement}.
+
+\begingroup
+% Locally redefine \medskip, so examples are not too far apart.
+\let\medskip\smallskip%
+
+\begin{command}{\pgfmathparse\marg{expression}}
+
+	This macro parses \meta{expression} and returns the result in 
+	the macro |\pgfmathresult|. 
+	
+\end{command}
+
+Note the following features (note also, that unlike the rest of the 
+manual, the examples in these sections show the result of the 
+calculation, not what is displayed in the document).
+
+
+	\begin{itemize}
+	\item the result is a decimal \emph{without units}, this is 
+	regardless of whether the \meta{expression} contains any unit 
+	specification. But, any units specified will be converted to 
+	points first.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2pt+3.4pt}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2cm+3.4cm}
+\end{codeexample}
+
+	\item if no units are specified \emph{at any point} in the 
+	expression, the result will be mulitplied by the value in 
+	|\pgfmathresultunitscale|, which can be a number or a dimension 
+	(which will be converted to points). By default it is set to 1, 
+	but can be changed with |\pgfmathsetresultunitscale|. Note that 
+	the result will still be a number \emph{without} units.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2pt+3.4pt}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathsetresultunitscale{1cm}
+\pgfmathparse{2+3.4}
+\end{codeexample}
+
+	\pgfmathsetresultunitscale{1pt}
+
+	\item The parser handles numbers with or without units regardless
+	of the operation.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{54pt/3cm*2.1} 
+\end{codeexample}
+
+	\item the parser can cope with \TeX{} registers. Including those 
+	preceded by |\the|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgf@x=12.34pt
+\c@pgf@counta=5
+\pgfmathparse{\pgf@x+\c@pgf@counta*6}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgf@x=56.78pt
+\pgfmathparse{\pgf@x+\the\pgf@x}
+\end{codeexample}
+
+	\item \TeX{} registers can be multiplied without the |*| operator
+	by precededing then with a number (\emph{not} a function), or a
+	count register.
+	 
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\c@pgf@counta=-4
+\pgf@x=10pt
+\pgfmathparse{.5\pgf@x-\c@pgf@counta\pgf@x}%
+\end{codeexample}
+
+	\item parenthesis can be used to group operations.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{(4pt+0.5)*3}
+\end{codeexample}
+
+	\item functions are recognized, so it is possible to parse
+	|sin(.5*pi r)*60|, which means ``the sine of $0.5$ times $\pi$ 
+	radians, multiplied by 60''. The argument of most functions can
+	be any expression.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sin(pi/2 r)*60}
+\end{codeexample}
+
+\end{itemize}
+
+\begin{command}{\pgfmathqparse\marg{expression}}
+
+	This macro is similar to |\pgfmathparse|: it parses 
+	\meta{expression} and returns the result in the macro 
+	|\pgfmathresult|. It differs in that, \emph{every} number in
+	\meta{expression} \emph{must} specify a \TeX{} unit. This greatly
+	simplfies the problem of parsing of non-integers and as a result
+	is about twice as fast as |\pgfmathparse|. Note that the result will 
+	still be a number \emph{without} units.	
+\end{command}
+
+\begin{command}{\pgfmathsetresultunitscale\marg{number}\textsl{\ or\ }\marg{dimension}}
+	Sets the value in |\pgfmathresultunitscale|, which scales the result
+	of an expression parsed with |\pgfmathparse|, if that expression
+	contains no units	\emph{at any point}. The argument can be an integer,
+	non-integer or a dimension, but the result will still be a number 
+	\emph{without} units. Note, that this will affect |\pgfmathsetlength| 
+	and friends, but not if the |+| expression prefix is used 
+	(see Section~\ref{pgfmath-registers}). By default the value in
+	|\pgfmathresultunitscale| is 1.
+\end{command}
+
+\subsection{Syntax for mathematical expressions}
+
+\label{pgfmath-syntax}
+
+The syntax for the expressions recognised by |\pgfmathparse| has been
+based in the syntax recognised by \textsc{matlab}. The following 
+operations and functions are currently recognized:
+
+\begin{math-operator}{\mvar{x}\ +\ \mvar{y}}
+	Adds \mvar{y} to \mvar{x}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{4+2pt}
+\end{codeexample}
+\end{math-operator}\begin{math-operator}{\mvar{x}\ -\ \mvar{y}}
+	Subtracts \mvar{y} from  \mvar{x}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{155.35-4cm}
+\end{codeexample}
+\end{math-operator}
+\begin{math-operator}{\mvar{x}\ *\ \mvar{y}}
+	Multiplies \mvar{x} by  \mvar{y}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{3.9pt*4.56}
+\end{codeexample}
+
+\end{math-operator}
+\begin{math-operator}{\mvar{x}\ /\ \mvar{y}}
+	Divides \mvar{x} by  \mvar{y}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{-31.6pt/17}
+\end{codeexample}
+
+\end{math-operator}
+\begin{math-operator}{\mvar{x}\ {\char94}\ \mvar{y}} 
+
+Raises \mvar{x} to the power \mvar{y}. \mvar{y} should be an integer, but it can be negative.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2.3^4}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2^-4}
+\end{codeexample}
+\end{math-operator}
+
+\begin{math-operator}{\mvar{x}\ ==\ \mvar{y}} 
+
+	This evaluates to |1| if \mvar{x} equals \mvar{y}, or |0| if \mvar{x}
+	does not equal \mvar{y}. 
+	Note that equalities (and inequalities) are evaluated left to right, 
+	and are only evaluated when another equality (or inequality) operator 
+	is scanned, or the end of the current group or parse is reached. So 
+	|5+4==3+2==9| results in |0| because |5+4| does not equal |3+2|, 
+	resulting in zero, and the second equality is therefore evaluating 
+	|0=9|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{3*5 == 15}
+\end{codeexample}
+
+\end{math-operator}
+
+
+\begin{math-operator}{\mvar{x}\ >\ \mvar{y}} 
+
+	This evaluates to |1| if \mvar{x} is greater than \mvar{y}, or |0| if 
+	\mvar{x} is smaller or equal to \mvar{y}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{17 > 4.2*1.97+4}
+\end{codeexample}
+
+\end{math-operator}
+
+\begin{math-operator}{\mvar{x}\ <\ \mvar{y}}
+
+	This evaluates to |1| if \mvar{x} is smaller than \mvar{y}, or |0| if
+	\mvar{x} is greater or equal to \mvar{y}.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2 < -5.2/-3.6-2}
+\end{codeexample}
+
+\end{math-operator}
+
+\begin{math-function}{mod(\mvar{x},\mvar{y})}
+	This evaluates \mvar{x} modulo \mvar{y}. This function cannot be 
+	nested inside itself or the functions |max|, |min| or |veclen|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{mod(20,6)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{max(\mvar{x},\mvar{y})}
+	This evaluates to the maximum of \mvar{x} or \mvar{y}. This function 
+	cannot be nested inside itself or the functions |min|, |mod| or 
+	|veclen|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{max(17,23)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{min(\mvar{x},\mvar{y})}
+	This evaluates to the minimum of \mvar{x} or \mvar{y}. This function 
+	cannot be nested inside itself or the functions |max|, |mod| or 
+	|veclen|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{min(17,23)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{abs(\mvar{x})}
+
+	Evaluates the absolute value of $x$.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{abs(-5)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{-abs(4*-3)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{round(\mvar{x})}
+
+	Rounds \mvar{x} to the nearest integer. It uses ``asymmetric half-up'' 
+	rounding. So |1.5| is rounded to |2|, but |-1.5| is rounded to |-2| 
+	(\emph{not} |0|).
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{round(1.5)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{round(-1.5)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{round(32.5/17)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{round(398/12)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{floor(\mvar{x})}
+
+	Rounds \mvar{x} down to the nearest integer. 
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{floor(32.5/17)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{floor(398/12)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{ceil(\mvar{x})}
+
+	Rounds \mvar{x} up to the nearest integer. 
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{ceil(32.5/17)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{ceil(398/12)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{exp(\mvar{x})}
+
+	Maclaurin series for $e^\textrm{\mvar{x}}$. 
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{exp(1)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{exp(2.34)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{sqrt(\mvar{x})}
+
+ A Newton-Raphson approximation of $\sqrt{\textrm{\mvar{x}}}$.  
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sqrt(10)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sqrt(8765.432)}
+\end{codeexample}
+
+
+\end{math-function}
+
+\begin{math-function}{veclen(\mvar{x},\mvar{y})}
+
+	Evaluates the Euclidean distance from |(0,0)| to |(|\mvar{x}|,|\mvar{y}|)|. 
+	This function cannot be nested inside itself or the functions |max|,
+	|min| or |mod|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{veclen(15,14)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{veclen(3,4)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-operator}{\mvar{x}\ r}
+
+	This converts \mvar{x} from radians to degrees. Note that |r| will 
+	evaluate any preceding series of multiplication or division 
+	\emph{before} conversion, but not other operations. So |3*4/6r| 
+	converts 2 radians to degrees, but |3-4+6r|, converts 6 radians to
+	degrees and adds the result to |-1|.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2*pi r-pi r}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2*pi/8 r}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sin(3*pi/2r)*60}
+\end{codeexample}
+
+\end{math-operator}
+
+\begin{math-constant}{pi}
+
+	The constant $\pi=3.14159$.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{pi}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{pi r}
+\end{codeexample}
+
+\end{math-constant}
+
+\begin{math-function}{sin(\mvar{x})}
+
+	Sine of \mvar{x}. By employing the |r| operator, \mvar{x} can be in 
+	radians.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sin(30)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{sin(pi/3 r)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{cos(\mvar{x})}
+
+	Cosine of \mvar{x}. By employing the |r| operator, \mvar{x} can be in 
+	radians.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{cos(60)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{cos(pi/6 r)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{tan(\mvar{x})}
+
+	Tangent of \mvar{x}. By employing the |r| operator, \mvar{x} can be in 
+	radians.
+	
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{tan(45)}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{tan(2*pi/8 r)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{asin(\mvar{x})}
+
+	Arcsine of \mvar{x}. The result is in degrees.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{asin(0.7071)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{acos(\mvar{x})}
+
+	Arccosine of \mvar{x} in degrees.  
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{acos(0.5)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{atan(\mvar{x})}
+
+	Arctangent of $x$ in degrees. 
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{atan(1)}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{rnd}
+
+	Generates a pseudo-random number between 0 and 1.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{rnd}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{2*rnd}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{-rnd+5}
+\end{codeexample}
+
+\end{math-function}
+
+\begin{math-function}{rand}
+
+	Generates a pseudo-random number between -1 and 1.
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{rand}
+\end{codeexample}
+
+\begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
+\pgfmathparse{rand*15}
+\end{codeexample}
+
+\end{math-function}
+
+\endgroup\medskip\par\leavevmode
