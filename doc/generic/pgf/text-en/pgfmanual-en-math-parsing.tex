@@ -8,45 +8,60 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 %
 
-\section{Parsing Mathematical Expressions}
+\section{Evaluating Mathematical Expressions}
+
+The easiest way of using \pgfname's mathematical engine is to provide
+a mathematical expression given in the usual infix notation (such as
+|1cm+4*2cm/5.5| or |2*3+3*sin(30)|). This expression can be parsed by
+the mathematical engine and the result be placed in a dimension
+register, a counter, or a macro. Supported are infix mathematical
+operations involving integers and non-integers, with or without
+units.
+
+It should be noted that all 
+calculations must not exceed $\pm16383.99999$ at \emph{any} point, 
+because the underlying algorithms relie on \TeX{} dimensions. This
+means that many of the underlying algorithms are necessarily
+approximate. It also means that some of the algorithms are not very
+fast. \TeX{} is, after all, a typesetting language and not ideally
+suited to relatively advanced mathematical operations. However, it is
+posible to change the algorithms as described in
+Section~\ref{pgfmath-reimplement}. 
+
+In the present section, the high-level macros for parsing an
+expression are explained first, then the syntax for expression is
+explained.
+
+
+\subsection{Commands for Parsing Expressions}
+
+\label{pgfmath-registers}
 
 \label{pgfmath-parsing}
 
-The support for infix mathematical operations involving 
-integers and non-integers, with or without units comes with some 
-caveats. Firstly, it should be noted that all
-calculations must not exceed $\pm16383.99999$ at \emph{any} point, 
-because the underlying algorithms are all implemented by hacking 
-around the \TeX{} dimensions. This means that many of the underlying 
-algorithms are necessarily approximate (but even native \TeX{} 
-arithmatic occasionally throws up some surprises). It also means that
-some of the algorithms are not very fast. \TeX{} is, after all, a
-typesetting language and not ideally suited to relatively advanced 
-mathematical operations. However, it is very simple to change the
-algorithms as described in Section~\ref{pgfmath-reimplement}.
-
-\begingroup
-% Locally redefine \medskip, so examples are not too far apart.
-\let\medskip\smallskip%
+The basic command for invoking the parser of \pgfname's mathematical
+engine is the following:
 
 \begin{command}{\pgfmathparse\marg{expression}}
+  This macro parses \meta{expression} and returns the result without
+  units in  the macro |\pgfmathresult|.
 
-	This macro parses \meta{expression} and returns the result in 
-	the macro |\pgfmathresult|. 
-	
-\end{command}
+  \example |\pgfmathparse{2pt+3.5pt}| will set |\pgfmathresult| to the
+  text |5.5|.
 
-Note the following features (note also, that unlike the rest of the 
-manual, the examples in these sections show the result of the 
-calculation, not what is displayed in the document).
+  In the following, the special properties of this command are
+  explained. The exact syntax of mathematical expressions is explained
+  in Section~\ref{pgfmath-syntax}. Note that unlike the rest of the  
+  manual, the examples show the result of the calculation (that is,
+  the value of the macro |\pgfmathresult|), not what is displayed in
+  the document.  
 
-
-	\begin{itemize}
-	\item the result is a decimal \emph{without units}, this is 
-	regardless of whether the \meta{expression} contains any unit 
-	specification. But, any units specified will be converted to 
-	points first.
-
+  \begin{itemize}
+  \item
+    The result stored in the macro |\pgfmathresult| is a decimal
+    \emph{without units}. This is true regardless of whether the
+    \meta{expression} contains any unit specification. But, any units
+    specified will be converted to points first.
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgfmathparse{2pt+3.4pt}
 \end{codeexample}
@@ -55,12 +70,12 @@ calculation, not what is displayed in the document).
 \pgfmathparse{2cm+3.4cm}
 \end{codeexample}
 
-	\item if no units are specified \emph{at any point} in the 
-	expression, the result will be mulitplied by the value in 
-	|\pgfmathresultunitscale|, which can be a number or a dimension 
-	(which will be converted to points). By default it is set to 1, 
-	but can be changed with |\pgfmathsetresultunitscale|. Note that 
-	the result will still be a number \emph{without} units.
+  \item If no units are specified \emph{at any point} in the 
+    expression, the result will be mulitplied by the value in 
+    |\pgfmathresultunitscale|, which can be a number or a dimension 
+    (which will be converted to points). By default it is set to 1, 
+    but can be changed with |\pgfmathsetresultunitscale|. Note that 
+    the result will still be a number \emph{without} units.
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgfmathparse{2pt+3.4pt}
@@ -71,17 +86,24 @@ calculation, not what is displayed in the document).
 \pgfmathparse{2+3.4}
 \end{codeexample}
 
-	\pgfmathsetresultunitscale{1pt}
-
-	\item The parser handles numbers with or without units regardless
-	of the operation.
+    \pgfmathsetresultunitscale{1pt}
+    
+  \item You can check whether an expression contained a unit using 
+    the \TeX-if |\||ifpgfmathunitsdeclared|. After a call
+    of |\pgfmathparse| this if will be true exactly if some unit was
+    encountered in the expression.
+    
+  \item The parser handles numbers with or without units regardless
+    of the operation.
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgfmathparse{54pt/3cm*2.1} 
 \end{codeexample}
 
-	\item the parser can cope with \TeX{} registers. Including those 
-	preceded by |\the|.
+  \item the parser can cope with \TeX{} registers, including those 
+    preceded by |\the|.
+
+    \makeatletter
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgf@x=12.34pt
@@ -94,9 +116,9 @@ calculation, not what is displayed in the document).
 \pgfmathparse{\pgf@x+\the\pgf@x}
 \end{codeexample}
 
-	\item \TeX{} registers can be multiplied without the |*| operator
-	by precededing then with a number (\emph{not} a function), or a
-	count register.
+  \item \TeX{} registers can be multiplied without the |*| operator
+    by precededing then with a number (\emph{not} a function), or a
+    count register.
 	 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \c@pgf@counta=-4
@@ -104,52 +126,112 @@ calculation, not what is displayed in the document).
 \pgfmathparse{.5\pgf@x-\c@pgf@counta\pgf@x}%
 \end{codeexample}
 
-	\item parenthesis can be used to group operations.
+  \item Parenthesis can be used to group operations.
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgfmathparse{(4pt+0.5)*3}
 \end{codeexample}
 
-	\item functions are recognized, so it is possible to parse
-	|sin(.5*pi r)*60|, which means ``the sine of $0.5$ times $\pi$ 
-	radians, multiplied by 60''. The argument of most functions can
-	be any expression.
+  \item functions are recognized, so it is possible to parse
+    |sin(.5*pi r)*60|, which means ``the sine of $0.5$ times $\pi$ 
+    radians, multiplied by 60''. The argument of most functions can
+    be any expression.
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
 \pgfmathparse{sin(pi/2 r)*60}
 \end{codeexample}
 
-\end{itemize}
+  \end{itemize}
+\end{command}
 
 \begin{command}{\pgfmathqparse\marg{expression}}
-
-	This macro is similar to |\pgfmathparse|: it parses 
-	\meta{expression} and returns the result in the macro 
-	|\pgfmathresult|. It differs in that, \emph{every} number in
-	\meta{expression} \emph{must} specify a \TeX{} unit. This greatly
-	simplfies the problem of parsing of non-integers and as a result
-	is about twice as fast as |\pgfmathparse|. Note that the result will 
-	still be a number \emph{without} units.	
+  This macro is similar to |\pgfmathparse|: it parses 
+  \meta{expression} and returns the result in the macro 
+  |\pgfmathresult|. It differs in that, \emph{every} number in
+  \meta{expression} \emph{must} specify a \TeX{} unit. This greatly
+  simplifies the problem of parsing of non-integers and as a result
+  is about twice as fast as |\pgfmathparse|. Note that the result will 
+  still be a number \emph{without} units.	
 \end{command}
 
-\begin{command}{\pgfmathsetresultunitscale\marg{number}\textsl{\ or\ }\marg{dimension}}
-	Sets the value in |\pgfmathresultunitscale|, which scales the result
-	of an expression parsed with |\pgfmathparse|, if that expression
-	contains no units	\emph{at any point}. The argument can be an integer,
-	non-integer or a dimension, but the result will still be a number 
-	\emph{without} units. Note, that this will affect |\pgfmathsetlength| 
-	and friends, but not if the |+| expression prefix is used 
-	(see Section~\ref{pgfmath-registers}). By default the value in
-	|\pgfmathresultunitscale| is 1.
+\begin{command}{\pgfmathsetresultunitscale\marg{number or dimension}}
+  Sets the value in |\pgfmathresultunitscale|, which scales the result
+  of an expression parsed with |\pgfmathparse|, if that expression
+  contains no units \emph{at any point}. The argument can be an integer,
+  non-integer or a dimension, but the result will still be a number 
+  \emph{without} units. Note, that this will affect |\pgfmathsetlength| 
+  and friends, but not if the expression starts with |+| (which
+  switches parsing off). By default the value in
+  |\pgfmathresultunitscale| is 1. 
 \end{command}
+
+Instead of the |\pgfmathparse| macro you can also wrapper commands,
+whose usage is very similar to their cousins in the \calcname{} 
+package. The only difference is that the expressions can be any
+expression that is handled by |\pgfmathparse|.
+
+For all of the following commands, if \meta{expression} starts with
+|+|, no parsing is done and a simple assignment or increment is done
+using normal \TeX\ assignments or increments. This will be orders of
+magnitude faster than calling the parser. 
+
+\begin{command}{\pgfmathsetlength\marg{dimension register}\marg{expression}}
+  Sets the length of the \TeX{} \meta{dimension register}, to the value
+  (in points) specified by \meta{expression}. The \meta{expression}
+  will be parsed using |\pgfmathparse|.
+\end{command}
+
+\begin{command}{\pgfmathaddtolength\marg{dimension register}\marg{expression}}
+  Adds the value (in points) of \meta{expression} to the \TeX{} 
+  \meta{dimension register}. 
+\end{command}
+
+\begin{command}{\pgfmathsetcount\marg{count register}\marg{expression}}
+  Sets the value of the \TeX{} \meta{count register}, to the 
+  \emph{truncated} value specified by \meta{expression}. 
+\end{command}
+
+\begin{command}{\pgfmathaddtocount\marg{count register}\marg{expression}}
+  Adds the \emph{truncated} value  of \meta{expression} to the \TeX{} 
+  \meta{count register}.
+\end{command}
+
+\begin{command}{\pgfmathsetcounter\marg{counter}\marg{expression}}
+  Sets the value of the \meta{counter}, to the \emph{truncated} value 
+  specified by \meta{expression}. 
+\end{command}
+
+\begin{command}{\pgfmathaddtocounter\marg{counter}\marg{expression}}
+  Adds the \emph{truncated} value  of \meta{expression} to 
+  \meta{counter}.
+\end{command}
+
+\begin{command}{\pgfmathnewcounter\marg{counter}}
+  This is simply a version of the \LaTeX{} macro |\newcounter|, 
+  implemented to maintain consistency (consistency is good,
+  inconsistency is evil). Considering |\pgfmathnewcounter{foo}|, this
+  creates a new count register |\c@foo|, and a macro |\thefoo|, which
+  returns the value in |\c@foo|.
+\end{command}
+
+\begin{command}{\pgfmathsetmacro\marg{macro}\marg{expression}}
+  Defines \meta{macro} as the  value of \meta{expression}. The result
+  is a decimal \emph{without} units.
+\end{command}
+
+
 
 \subsection{Syntax for mathematical expressions}
 
 \label{pgfmath-syntax}
 
-The syntax for the expressions recognised by |\pgfmathparse| has been
-based in the syntax recognised by \textsc{matlab}. The following 
-operations and functions are currently recognized:
+The syntax for the expressions recognised by |\pgfmathparse| and
+friends is based on the syntax recognised by \textsc{matlab}. The
+following operations and functions are currently recognized:
+
+\begingroup
+% Locally redefine \medskip, so examples are not too far apart.
+\let\medskip\smallskip%
 
 \begin{math-operator}{\mvar{x}\ +\ \mvar{y}}
 	Adds \mvar{y} to \mvar{x}.
@@ -418,7 +500,7 @@ Raises \mvar{x} to the power \mvar{y}. \mvar{y} should be an integer, but it can
 	radians.
 	
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
-\pgfmathparse{sin(30)}
+\pgfmathparse{sin(60)}
 \end{codeexample}
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
@@ -437,7 +519,7 @@ Raises \mvar{x} to the power \mvar{y}. \mvar{y} should be an integer, but it can
 \end{codeexample}
 
 \begin{codeexample}[post=\tt\footnotesize\pgfmathresult]
-\pgfmathparse{cos(pi/6 r)}
+\pgfmathparse{cos(pi/3 r)}
 \end{codeexample}
 
 \end{math-function}
@@ -519,4 +601,4 @@ Raises \mvar{x} to the power \mvar{y}. \mvar{y} should be an integer, but it can
 
 \end{math-function}
 
-\endgroup\medskip\par\leavevmode
+\endgroup
