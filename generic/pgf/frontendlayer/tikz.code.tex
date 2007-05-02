@@ -693,7 +693,7 @@
 \def\tikz@set@parabola@bend#1{\def\tikz@parabola@bend{#1}}
 
 % Axis options
-\tikzoption{domain}{\def\tikz@plot@domain{#1}}
+\tikzoption{domain}{\def\tikz@plot@domain{#1}\expandafter\tikz@plot@samples@recalc\tikz@plot@domain\relax}
 \tikzoption{range}{\def\tikz@plot@range{#1}}
 
 % Plot options
@@ -711,8 +711,11 @@
 \tikzoption{prefix}{\def\tikz@plot@prefix{#1}}
 \tikzoption{id}{\def\tikz@plot@id{#1}}
 
-\tikzoption{samples}{\def\tikz@plot@sampels{#1}}
+\tikzoption{samples}{\def\tikz@plot@samples{#1}\expandafter\tikz@plot@samples@recalc\tikz@plot@domain\relax}
+\tikzoption{samples at}{\def\tikz@plot@samplesat{#1}}
 \tikzoption{parametric}[true]{\csname tikz@plot@parametric#1\endcsname}
+
+\tikzoption{variable}{\def\tikz@plot@var{#1}}
 
 \tikzoption{only marks}[]{\let\tikz@plot@handler\pgfplothandlerdiscard}
 
@@ -731,8 +734,19 @@
 \let\tikz@plot@handler=\pgfplothandlerlineto
 \let\tikz@plot@mark=\pgfutil@empty
 
-\def\tikz@plot@sampels{25}
+\def\tikz@plot@samples{25}
 \def\tikz@plot@domain{-5:5}
+\def\tikz@plot@var{\x}
+\def\tikz@plot@samplesat{-5,-4.6,...,5}
+\def\tikz@plot@samples@recalc#1:#2\relax{%
+  \pgfmathparse{#1}%
+  \let\tikz@temp@start=\pgfmathresult%
+  \pgfmathparse{#2}%
+  \let\tikz@temp@end=\pgfmathresult%
+  \pgfmathparse{\tikz@temp@start+(\tikz@temp@end-\tikz@temp@start)/\tikz@plot@samples}%
+  \edef\tikz@plot@samplesat{\tikz@temp@start,\pgfmathresult,...,\tikz@temp@end}%
+}
+
 
 \def\tikz@plot@prefix{\jobname.}
 \def\tikz@plot@id{pgf-plot}
@@ -2189,8 +2203,9 @@
     \tikz@setkeys{#1}%
     \pgfutil@ifnextchar f{\tikz@plot@f}%
     {\pgfutil@ifnextchar c{\tikz@plot@scan@points}%
-      {\PackageError{tikz}{Cannot parse this plotting data}{}%
-       \endgroup}}}
+      {\pgfutil@ifnextchar ({\tikz@plot@expression}{%
+      \PackageError{tikz}{Cannot parse this plotting data}{}%
+       \endgroup}}}}
 \def\tikz@plot@f f{\pgfutil@ifnextchar i{\tikz@plot@file}{\tikz@plot@function}}
 
 \def\tikz@plot@file ile#1{\def\tikz@plot@data{\pgfplotxyfile{#1}}\tikz@@@plot}%
@@ -2213,12 +2228,12 @@
   \else%
     \iftikz@plot@parametric%   
       \def\tikz@plot@data{\pgfplotgnuplot[\tikz@plot@filename]{%
-          set samples \tikz@plot@sampels;
+          set samples \tikz@plot@samples;
           set parametric;
           plot [t=\tikz@plot@domain] #1}}%
     \else%
       \def\tikz@plot@data{\pgfplotgnuplot[\tikz@plot@filename]{%
-          set samples \tikz@plot@sampels;
+          set samples \tikz@plot@samples;
           plot [x=\tikz@plot@domain] #1}}%
     \fi%
   \fi%
@@ -2231,6 +2246,11 @@
   {}%
 }
 
+\def\tikz@plot@expression(#1){%
+  \edef\tikz@plot@data{\noexpand\pgfplotfunction{\expandafter\noexpand\tikz@plot@var}{\tikz@plot@samplesat}}%
+  \expandafter\def\expandafter\tikz@plot@data\expandafter{\tikz@plot@data{\tikz@scan@one@point\pgfutil@firstofone(#1)}}%
+  \tikz@@@plot%
+}
 
 \def\tikz@@@plot{%
     \def\pgfplotlastpoint{\pgfpointorigin}%
