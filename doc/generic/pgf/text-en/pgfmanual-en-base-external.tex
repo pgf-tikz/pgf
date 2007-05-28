@@ -1,0 +1,435 @@
+% Copyright 2007 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+\section{Externalizing Graphics}
+\label{section-external}
+
+
+\subsection{Overview}
+
+There are two fundamentally different ways of inserting graphics into
+a \TeX-document. First, you can create a graphic using some external
+program like |xfig| or |InDesign| and then include this graphic in
+your text. This is done using commands like |\includegraphics| or
+|\pgfimage|. In this case, the graphic file contains all the low-level
+graphic commands that describe the picture. When such a file is
+included, all \TeX\ has to worry about is the size of the picture; the
+internals of the picture are unknown to \TeX\ and it does not care
+about them.
+
+The second method of creating graphics is to use a special package
+that transforms \TeX-commands like |\draw| or |\psline| into
+appropriate low-level graphic commands. In this case, \TeX\ has to do
+all the hard work of ``typesetting'' the picture and if a picture has
+a complicated internal structure this may take a lot of time.
+
+While \pgfname\ was created to facilitate the second method of
+creating pictures, there are two main reasons why you may need to
+employ the first method of image-inclusion, nevertheless:
+
+\begin{enumerate}
+\item Typesetting a picture using \TeX\ can be a very time-consuming
+  process. If \TeX\ needs a minute to typeset a picture, you do not
+  want to wait this minute when you re\TeX\ your document after having
+  changed a single comma.
+\item Some users, especially journal editors, may not be able to
+  process files that contain \pgfname\ commands -- for the simple
+  reason that the systems of many publishing houses do not have
+  \pgfname\ installed. 
+\end{enumerate}
+
+In both cases, the solution is to ``extract'' or ``externalize''
+pictures that would normally be typeset every time a document is \TeX
+ed. Once the pictures have been extracted into separate graphics
+files, these graphic files can be reinserted into the text using the
+first method.
+
+Extracting a graphic from a file is not as easy as it may sound at
+first since \TeX\ cannot write parts of its output into different
+files. A bit of trickery is needed and the |pgfbaseimage| package
+provides macros that simplify the following workflow:
+
+\begin{enumerate}
+\item You have to tell \pgfname\ which files will be used for which
+  pictures. To do so, you enclose each picture that you wish to be
+  ``externalized'' in a pair of |\beginpgfgraphicnamed| and
+  |\endpgfgraphicnamed| macros.
+\item The next step is to generate the extracted graphics. For this
+  you run \TeX\ with the |\jobname| set to the graphic file's
+  name. This will cause |\pgfname| to behave in a very special way:
+  All of your document will simply be thrown away, \emph{except} for
+  the single graphic having the same name as the current jobname.
+\item After you have run \TeX\ once for each graphic that your wish to
+  externalize, you can rerun \TeX\ on your document normally. This
+  will have the following effect: Each time a |\beginpgfgraphicnamed|
+  is encountered, \pgfname\ checks whether a graphic file of the given
+  name exists (if you did step 2, it will). If this graphic file
+  exists, it will be input and the text till the corresponding
+  |\endpgfgraphicnamed| will be ignored.
+\end{enumerate}
+
+In the rest of this section, the above workflow is explained in more
+detail.
+
+
+\subsection{Workflow Step 1: Naming Graphics}
+
+In order to put each graphic in an external file, you first need to
+tell \pgfname\ the names of these files. For this, you use a pair of
+commands that are declared in the package |pgfbaseimage|.
+
+\begin{command}{\beginpgfgraphicnamed\marg{file name prefix}}
+  This command indicates that everything up to
+  the next call of |\endpgfgraphicnamed| is part of a graphic that
+  should be placed in a file named \meta{file name
+    prefix}|.|\meta{suffix}, where the \meta{suffix} depends on your
+  backend driver. Typically, \meta{suffix} will be |dvi| or |pdf|.
+
+  Here is a typical example of how this command is used:
+\begin{codeexample}[code only]
+% In file main.tex:
+...
+As we see in Figure~\ref{fig1}, the world is flat.
+\begin{figure}
+  \beginpgfgraphicnamed{graphic-of-flat-world}
+  \begin{tikzpicture}
+    \fill (0,0) circle (1cm);
+  \end{tikzpicture}
+  \endpgfgraphicnamed
+  \caption{The flat world.}
+  \label{fig1}
+\end{figure}
+\end{codeexample}
+
+  Each graphic that is be externalized should have a unique name. Note
+  that this name will be used as the name of a file in the file
+  system, so it should not contain any funny characters.
+
+  This command can have three different effects:
+  \begin{enumerate}
+  \item The easiest situation arises if there does not yet exist a
+    graphic file called \meta{file name  prefix}|.|\meta{suffix},
+    where the \meta{suffix} is one of the suffixes understood by your
+    current backend driver (so |pdf| or |jpg| if you use |pdftex|,
+    |eps| if you use |dvips|, and so on). In this case, both this
+    command and the |\endpgfgraphicnamed| command simply have no
+    effect. 
+  \item A more complex situation arises when a graphic file named
+    \meta{file name  prefix}|.|\meta{suffix} \emph{does} exist. In
+    this case, this graphic file is included using the
+    |\includegraphics| command. Furthermore, the text between
+    |\beginpgfgraphicnamed| and |\endpgfgraphicnamed| is ignored.
+
+    When the text is ``ignored,'' what actually happens is that all
+    text up to the next occurrence  of |\endpgfgraphicnamed| is thrown
+    away without any macro expansion. This means, in particular, that
+    (a) you cannot put |\endpgfgraphicnamed| inside a macro and (b)
+    the macros used in the graphics need not be defined at all when
+    the graphic file is included.
+  \item The most complex behaviour arises when current the |\jobname|
+    equals the \meta{file name prefix} and, furthermore, the
+    a \emph{real job name} has been declared. The behaviour for this
+    case is explained later.
+  \end{enumerate}
+
+  Note that the |\beginpgfgraphicnamed| does not really have any
+  effect until you have generated the graphic files named. Till then,
+  this command is simply ignored. Also, if you delete the graphics
+  file later on, the graphics are typeset normally once more.
+\end{command}
+
+\begin{command}{\endpgfgraphicnamed}
+  This command just marks the end of the graphic that should be
+  externalized.
+\end{command}
+
+
+\subsection{Workflow Step 2: Generating the External Graphics}
+
+We have now indicated all the graphics for which we would like graphic
+files to be generated. In order to generate the files, you now need to
+modify the |\jobname| appropriately. This is done in two steps:
+
+\begin{enumerate}
+\item You use the following command to tell \pgfname\ the real name of
+  your |.tex| file:
+  \begin{command}{\pgfrealjobname\marg{name}}
+    Tells \pgfname\ the real name of your job. For instance, if you
+    have a file called |survey.tex| that contains two graphics that
+    you wish to be called |survey-graphic1| and |survey-graphic2|,
+    then you should write the following.
+\begin{codeexample}[code only]
+% This is file survey.tex
+\documentclass{article}
+...
+\usepackage{tikz}
+\pgfrealjobname{survey}
+\end{codeexample}
+  \end{command}
+\item  You run \TeX\ with the |\jobname| set to the name of
+the graphic for which you need an external graphic to be generated.
+To set the |\jobname|, you use the |--jobname=| option of \TeX:
+
+\begin{codeexample}[code only]
+bash> latex --jobname=survey-graphic1 survey.tex
+\end{codeexample}
+\end{enumerate}
+
+The following things will now happen:
+\begin{enumerate}
+\item |\pgfrealjobname| notices that the |\jobname|
+  is not the ``real'' jobname and, thus, must be the name of a graphic
+  that is to be put in an external file.
+\item At the beginning of the document, \pgfname\ changes the
+  definition of \TeX's internal |\shipout| macro. The new shipout
+  macro simply throws away the output. This means that the document is
+  typeset normally, but no output is produced.
+\item When the |\beginpgfgraphicnamed{|\meta{name}|}| command is
+  encountered where the \meta{name} is the same as the current
+  |\jobname|, then a \TeX-box is started and \meta{everything} up to the
+  following |\endpgfgraphicnamed| command is stored inside this box.
+
+  Note that, typically, \meta{everything} will contain just a single
+  |{tikzpicture}| or |{pgfpicture}| environment. However, this need
+  not be the case, you use, say, a |{pspicture}| environment as
+  \meta{everything} or even just some normal \TeX-text.  
+\item At the |\endpgfgraphicnamed|, the box \emph{is} shipped out
+  using the original |\shipout| command. Thus, unlike everything else,
+  the contents of the graphic is made part of the output.
+\item When the box containing the graphic is shipped out, the paper
+  size is modified such that it exactly equal to the height and width
+  of the box. 
+\end{enumerate}
+
+The net effect of everything described above is that the two
+commands
+\begin{codeexample}[code only]
+bash> latex --jobname=survey-graphic1 survey.tex
+bash> dvips survey-graphic1
+\end{codeexample}
+\noindent produce a file called |survey-graphic1.ps| that consists of a single
+page that contains exactly the graphic produced by the code between
+|\beginpgfgraphicnamed{survey-graphic1}| and
+|\endpgfgraphicnamed|. Furthermore, the size of this single page is
+exactly the size of the graphic.
+
+If you use pdf\TeX, producing the graphic is even simpler:
+\begin{codeexample}[code only]
+bash> pdflatex --jobname=survey-graphic1 survey.tex
+\end{codeexample}
+\noindent produces the single-page |pdf|-file |survey-graphic1.pdf|.
+
+\subsection{Workflow Step 3: Including the External Graphics}
+
+Once you have produced all the pictures in the text, including them
+into the main document is easy: Simply run \TeX\ again without any
+modification of the |\jobname|. In this case the
+|\pgfrealjobname| command will notice that the main file is, indeed,
+the main file. The main file will then be typeset normally and the
+|\beginpgfgraphicnamed| commands also behave normally, which means
+that they will try to include the generated graphic files -- which is
+exactly what you want.
+
+Suppose that you wish to send your survey to a journal that does not
+have \pgfname\ installed. In this case, you now have all the necessary
+external graphics, but you still need \pgfname\ to automatically
+include them instead of the executing the picture code! One way to
+solve this problem is to simply delete all of the \pgfname\ or
+\tikzname\ code from your |survey.tex| and instead insert appropriate
+|\includegraphics| commands ``by hand.'' However, there is a better
+way: You input the file |pgfexternal.tex|.
+
+\begin{filedescription}{pgfexternal.tex}
+  This file defines the command |\beginpgfgraphicnamed| and causes it
+  to have the following effect: It includes the graphic file given as
+  a parameter to it and then gobbles everything up to
+  |\endpgfgraphicnamed|.
+
+  Since |\beginpgfgraphicnamed| does not do macro expansion as it
+  searches for |\endpgfgraphicnamed|, it is not necessary to actually
+  include the packages necessary for \emph{creating} the graphics. 
+  So the idea is that you comment out things like |\usepackage{tikz}|
+  and instead say |\input pgfexternal.tex|.
+
+  Indeed, the contents of this file is simply the following line:
+\begin{codeexample}[code only]
+\long\def\beginpgfgraphicnamed#1#2\endpgfgraphicnamed{\includegraphics{#1}}
+\end{codeexample}
+
+  Instead of |\input pgfexternal.tex| you could also include this line
+  in your main file. 
+\end{filedescription}
+
+As a final remark, note that the |baseline| option does not work
+together with pictures written to an external graphic file. The simple
+reason is that there is no way to store this baseline information is
+an external graphic file. 
+
+
+\subsection{A Complete Example}
+
+Let us now have a look at a simple, but complete example. We start out
+with a normal file called |survey.tex| that has the following
+contents:
+\begin{codeexample}[code only]
+% This is the file survey.tex
+\documentclass{article}
+
+\usepackage{graphics}
+\usepackage{tikz}
+
+\begin{document}
+In the following figure, we see a circle:
+\begin{tikzpicture}
+  \fill (0,0) circle (10pt);
+\end{tikzpicture}
+
+By comparison, in this figure we see a rectangle:
+\begin{tikzpicture}
+  \fill (0,0) rectangle (10pt,10pt);
+\end{tikzpicture}
+\end{document}
+\end{codeexample}
+
+Now our editor tells us that the publisher will need all figures to be
+provided in separate PostScript or |.pdf|-files. For this, we 
+enclose all figures in |...graphicnamed|-pairs and we add a call to
+the |\pgfrealjobname| macro:
+\begin{codeexample}[code only]
+% This is the file survey.tex
+\documentclass{article}
+
+\usepackage{graphics}
+\usepackage{tikz}
+\pgfrealjobname{survey}
+
+\begin{document}
+In the following figure, we see a circle:
+\beginpgfgraphicnamed{survey-f1}
+\begin{tikzpicture}
+  \fill (0,0) circle (10pt);
+\end{tikzpicture}
+\endpgfgraphicnamed
+
+By comparison, in this figure we see a rectangle:
+\beginpgfgraphicnamed{survey-f2}
+\begin{tikzpicture}
+  \fill (0,0) rectangle (10pt,10pt);
+\end{tikzpicture}
+\endpgfgraphicnamed
+\end{document}
+\end{codeexample}
+
+After these changes, typesetting the file will still yield the same
+output as it did before -- after all, we have not yet created any
+external graphics.
+
+To create the external graphics, we run |pdflatex| twice, once for
+each graphic:
+\begin{codeexample}[code only]
+bash> pdflatex --jobname=survey-f1 survey.tex
+This is pdfTeX, Version 3.141592-1.40.3 (Web2C 7.5.6)
+entering extended mode
+(./survey.tex
+LaTeX2e <2005/12/01>
+...
+) [1] (./survey-f1.aux) )
+Output written on survey-f1.pdf (1 page, 1016 bytes).
+Transcript written on survey-f1.log.
+\end{codeexample}
+
+\begin{codeexample}[code only]
+bash> pdflatex --jobname=survey-f2 survey.tex
+This is pdfTeX, Version 3.141592-1.40.3 (Web2C 7.5.6)
+entering extended mode
+(./survey.tex
+LaTeX2e <2005/12/01>
+...
+(./survey-f2.aux) )
+Output written on survey-f2.pdf (1 page, 1002 bytes).
+Transcript written on survey-f2.log.
+\end{codeexample}
+
+We can now send the two generated graphics (|survey-f1.pdf| and
+|survey-f2.pdf|) to the editor. However, the publisher cannot use our
+|survey.tex| file, yet. The reason is that it contains the command
+|\usepackage{tikz}| and they do not have \pgfname\ installed.
+
+Thus, we modify the main file |survey.tex| as follows:
+\begin{codeexample}[code only]
+% This is the file survey.tex
+\documentclass{article}
+
+\usepackage{graphics}
+\input pgfexternal.tex
+% \usepackage{tikz}
+% \pgfrealjobname{survey}
+
+\begin{document}
+In the following figure, we see a circle:
+\beginpgfgraphicnamed{survey-f1}
+\begin{tikzpicture}
+  \fill (0,0) circle (10pt);
+\end{tikzpicture}
+\endpgfgraphicnamed
+
+By comparison, in this figure we see a rectangle:
+\beginpgfgraphicnamed{survey-f2}
+\begin{tikzpicture}
+  \fill (0,0) rectangle (10pt,10pt);
+\end{tikzpicture}
+\endpgfgraphicnamed
+\end{document}
+\end{codeexample}
+If we now run pdf\LaTeX, then, indeed, \pgfname\ is no longer needed:
+\begin{codeexample}[code only]
+bash> pdflatex survey.tex
+This is pdfTeX, Version 3.141592-1.40.3 (Web2C 7.5.6)
+entering extended mode
+(./survey.tex
+LaTeX2e <2005/12/01>
+Babel <v3.8h> and hyphenation patterns for english, ..., loaded.
+(/usr/local/gwTeX/texmf.texlive/tex/latex/base/article.cls
+Document Class: article 2005/09/16 v1.4f Standard LaTeX document class
+(/usr/local/gwTeX/texmf.texlive/tex/latex/base/size10.clo))
+(/usr/local/gwTeX/texmf.texlive/tex/latex/graphics/graphics.sty
+(/usr/local/gwTeX/texmf.texlive/tex/latex/graphics/trig.sty)
+(/usr/local/gwTeX/texmf.texlive/tex/latex/config/graphics.cfg)
+(/usr/local/gwTeX/texmf.texlive/tex/latex/pdftex-def/pdftex.def))
+(/Users/tantau/Library/texmf/tex/generic/pgf/generic/pgf/utilities/pgfexternal.
+tex) (./survey.aux)
+(/usr/local/gwTeX/texmf.texlive/tex/context/base/supp-pdf.tex
+[Loading MPS to PDF converter (version 2006.09.02).]
+) <survey-f1.pdf, id=1, 23.33318pt x 19.99973pt> <use survey-f1.pdf>
+<survey-f2.pdf, id=2, 13.33382pt x 10.00037pt> <use survey-f2.pdf> [1{/Users/ta
+ntau/Library/texmf/fonts/map/pdftex/updmap/pdftex.map} <./survey-f1.pdf> <./sur
+vey-f2.pdf>] (./survey.aux) )</usr/local/gwTeX/texmf.texlive/fonts/type1/bluesk
+y/cm/cmr10.pfb>
+Output written on survey.pdf (1 page, 10006 bytes).
+Transcript written on survey.log.
+\end{codeexample}
+
+To our editor, we send the following files:
+\begin{itemize}
+\item The last |survey.tex| shown above.
+\item The graphic file |survey-f1.pdf|.
+\item The graphic file |survey-f2.pdf|.
+\item The file |pgfexternal.tex|, whose contents is simply
+\begin{codeexample}[code only]
+\long\def\beginpgfgraphicnamed#1#2\endpgfgraphicnamed{\includegraphics{#1}}
+\end{codeexample}
+  (Alternatively, we can also directly add this line to our
+  |survey.tex| file).
+\end{itemize}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "pgfmanual"
+%%% End: 

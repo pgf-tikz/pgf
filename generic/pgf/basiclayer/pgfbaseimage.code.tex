@@ -235,4 +235,175 @@
 
 
 
+
+
+
+
+
+% The external read/write mechanism is used as follows:
+%
+% In your document, you put a number or all of your pgfpicture (or
+% tikzpicture) environments inside a pair of \beginpgfexternal and
+% \endpgfexternal. The \beginpgfexternal gets one parameter called the
+% graphics name.
+%
+% Once this is done, the next step is to declare the names of your
+% graphics in the document at the beginning using the
+% \pgfdeclaregraphicname command.
+%
+% Now, when you typeset your document, each time a \beginpgfexternal
+% command is encountered, it will be checked whether the corresponding
+% graphics file exists. If this is the case, it will be included and
+% the code between \beginpgfexternal and \endpgfexternal is
+% ignored. Otherwise, the code is executed normally.
+%
+% Things change when you run tex on your file with the \jobname set to
+% the name of a decalred graphics name. In this case, only your
+% graphic will be typeset, the rest of the document will be "thrown away". 
+% To be more precise, everything is gobbled up to the beginning
+% of the first \beginpgfexternal with the given graphics name. Then,
+% the content of the "environment" is put in a box (this "environment"
+% need not contain a graphics, it may contain anything that can be put
+% in a box). Then a single page is output whose size is exactly the
+% size of the picture.
+%
+% So, once you have run tex repeatedly, each time with the jobname set
+% to each of the graphics, you can then run tex on the whole document
+% and this will cause all graphics to be included rather than begin
+% typeset.
+%
+% Finally, once all the graphics have been created, you can also say
+% \input pgfexternal.tex instead of including pgf/TikZ.
+
+
+
+% Tells pgf which jobname is the name of the real file
+%
+% #1 = name
+%
+% Description:
+%
+% This command is used to tell pgf that the file named #1 should be
+% typeset normally. If \jobname is not equal to #1, only
+% the graphic called \jobname will be typeset. 
+%
+% Example:
+%
+% \pgfrealjobname{survey}
+
+\def\pgfrealjobname#1{%
+  \edef\pgf@tempa{\expandafter\string\csname #1\endcsname}%
+  \edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
+  \ifx\pgf@tempa\pgf@tempb%
+  \else%
+    \pgf@external@grabshipouttrue
+  \fi%
+}
+
+\AtBeginDocument{%
+  \ifpgf@external@grabshipout
+    \global\let\pgfexternal@originalshipout=\shipout%
+    \global\def\shipout{\setbox\pgfexternal@ignorebox=}
+    \maxdeadcycles=10000%
+    % Ok, gather everything we have seen up to now in a box. This box
+    % will contain any specials that have been used.
+    {%
+      \output{\global\setbox\pgfexternal@startupbox=\vbox{\csname @begindvi\endcsname\unvbox255}}%
+      \hbox{}\eject%
+    }%
+  \fi%
+}
+
+\newif\ifpgf@external@grabshipout
+
+\newbox\pgfexternal@startupbox
+\newbox\pgfexternal@ignorebox
+
+
+% "Environment" for an external graphic.
+%
+% #1 = graphic name
+%
+% Example:
+%
+% \beginpgfgraphicnamed{main-graphic2}
+%   \begin{tikzpicture}
+%     ...
+%   \end{tikzpicture}
+% \endpgfgraphicnamed
+
+\def\pgf@externalbegin#1{%
+  % First, check whether we wish to grab this graphic:
+  \let\pgf@next=\pgf@external@normal%
+  \ifpgf@external@grabshipout
+    \edef\pgf@tempa{\expandafter\string\csname #1\endcsname}%
+    \edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
+    \ifx\pgf@tempa\pgf@tempb%
+      \let\pgf@next=\pgf@external@grab%
+    \fi%
+  \fi%
+  \pgf@next{#1}%
+}
+
+
+\AtBeginDocument{
+  \let\beginpgfgraphicnamed=\pgf@externalbegin% overwrite definition of pgfexternal.tex if necessary   
+  \let\endpgfgraphicnamed=\unskip
+}
+
+
+% Normal operation: Include an external graphic instead of the
+% picture, if such an external picture exists.
+\def\pgf@external@normal#1{%
+  \let\pgf@filename=\pgfutil@empty%
+  \expandafter\pgf@findfile\pgfsys@imagesuffixlist:+{#1}%
+  \ifx\pgf@filename\pgfutil@empty%
+    % Ok, no such image... Just typeset the picture normally.
+    \let\pgf@next=\relax%
+  \else%
+    \let\pgf@next=\pgf@replacepicturebygraphic%
+  \fi%
+  \pgf@next%  
+}
+
+\long\def\pgf@replacepicturebygraphic#1\endpgfgraphicnamed{\includegraphics{\pgf@filename}\unskip}
+
+
+% Grab operation: If jobname matches the graphic name, typeset this
+% picture normall.
+
+\newbox\pgfexternal@box
+
+\def\pgf@external@grab#1{%
+  \setbox\pgfexternal@box=\hbox\bgroup\bgroup%
+    \let\endpgfgraphicnamed=\pgf@externalend%
+}
+
+\def\pgf@externalend{%
+  \unskip\egroup\egroup%
+  {%
+    \parindent0pt%
+    \leftmargin0pt%
+    \rightmargin0pt%
+    \dimen0\ht\pgfexternal@box%
+    \advance\dimen0\dp\pgfexternal@box%
+    \pgfsys@papersize{\the\wd\pgfexternal@box}{\the\dimen0}%
+    \setbox0=\vbox{%
+      \kern -1truein%
+      \hbox{%
+        \kern -1truein%
+        \hbox to0pt{%
+          \wd\pgfexternal@startupbox=0pt%
+          \ht\pgfexternal@startupbox=0pt%
+          \dp\pgfexternal@startupbox=0pt%
+          \box\pgfexternal@startupbox%
+          \pgfsys@atbegindocument\hss}%
+        \box\pgfexternal@box%
+        \kern 1truein}%
+      \kern1truein}%
+    \pgfexternal@originalshipout\box0%
+  }%
+}
+
+
 \endinput
