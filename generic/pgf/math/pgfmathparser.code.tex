@@ -53,18 +53,12 @@
 
 % \pgfmath@resetparsingparameters
 %
-% Reset parsing parameters at begining of groups.
+% Reset the stack at the begining of the parse/group.
 %
 \def\pgfmath@resetparsingparameters{%
-	\let\pgfmath@a\pgfmath@empty%
-	\let\pgfmath@b\pgfmath@empty%
-	\let\pgfmath@c\pgfmath@empty%
-	\let\pgfmath@d\pgfmath@empty%
-	\let\pgfmath@primaryoperation\pgfmath@empty%
-	\let\pgfmath@secondaryoperation\pgfmath@empty%
-	\let\pgfmath@tertiaryoperation\pgfmath@empty%
+	\pgfmath@stack{\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
+	\def\pgfmath@stacknextoperator{\pgfmath@empty}% Will not work with \let
 }
-
 % \pgfmath@parse@
 %
 % Start parsing. Expect one of
@@ -105,7 +99,7 @@
 				\afterassignment\pgfmath@gobbletilpgfmath@
 				\pgfmath@x\pgfmathresultunitscale pt\relax\pgfmath@%
 			\fi%
-			\pgfmath@x=\pgfmath@a\pgfmath@x%
+			\expandafter\pgfmath@x\pgfmath@stackpeek\pgfmath@x%
 			\pgfmath@returnone\pgfmath@x%
 		\endgroup%
 		\pgfmath@smuggleone{\pgfmathresult}%
@@ -122,14 +116,14 @@
 		\pgfmath@resetparsingparameters
 		\pgfmath@parse@}
 
-% \pgfmath@startparsegroup
+% \pgfmath@endparsegroup
 %
 % When closing ) is scanned, processes all waiting
 % operations (within the group) and close the group.
 %
 \def\pgfmath@endparsegroup{%
 		\pgfmath@processalloperations%
-		\pgfmath@x=\pgfmathresult pt\relax%
+		\expandafter\pgfmath@x\pgfmath@stackpeek pt\relax%
 		\pgfmath@returnone\pgfmath@x%
 	\endgroup%
 	\pgfmath@parsepostgroup%
@@ -142,7 +136,8 @@
 % 
 \def\pgfmath@parseoperator#1{%
 	\def\pgfmath@token{}%
-	\pgfmath@assignnumber%
+	% Push the operand in \pgfmathresult on to the stack. 
+	\expandafter\pgfmath@stackpushoperand\expandafter{\pgfmathresult}%
 	\ifx#1@%
 		\let\pgfmath@parsenext\pgfmath@endparse%
 	\else%
@@ -182,215 +177,186 @@
 	\pgfmath@parsenext%
 }
 
-% \pgfmath@assignnumber
+% Use a \toks register as a stack.
+\newtoks\pgfmath@stack
+
+% \pgfmath@stackpushoperator
+% 
+% Push an operator (actually its macro e.g., \pgfmathadd@)
+% on to the stack. And keep track of it using the macro
+% \pgfmath@stacknextoperator.
 %
-% Scanned or computed numbers are stored here.
+\def\pgfmath@stackpushoperator#1{%
+	\edef\pgfmath@temp{\noexpand#1\the\pgfmath@stack}%
+	\expandafter\pgfmath@stack\expandafter{\pgfmath@temp}%
+	\def\pgfmath@stacknextoperator{#1}}% <- Must \def. Cannot \let.
+
+% \pgfmath@stackpushoperand
 %
-\def\pgfmath@assignnumber{%
-	\ifx\pgfmath@a\pgfmath@empty%
-		\edef\pgfmath@a{\pgfmathresult}%
+% Push an operand (i.e. a number) on the stack. It is
+% put within a TeX group to make popping a lot simpler.
+%
+\def\pgfmath@stackpushoperand#1{%
+	\edef\pgfmath@temp{{#1}\the\pgfmath@stack}%
+	\expandafter\pgfmath@stack\expandafter{\pgfmath@temp}%
+}
+
+% \pgfmath@stackpeek
+%
+% Peek (i.e. without removal) at the top of the stack.
+%
+\def\pgfmath@stackpeek{\expandafter\pgfmath@stackpeek@\the\pgfmath@stack\pgfmath@}
+\def\pgfmath@stackpeek@#1#2\pgfmath@{#1}%
+
+% \pgfmath@stackpop
+%
+% Pop (i.e. remove) the top of the stack into #1.
+%
+\def\pgfmath@stackpop#1{\expandafter\pgfmath@stackpop@\expandafter#1\the\pgfmath@stack\pgfmath@}
+\def\pgfmath@stackpop@#1#2#3\pgfmath@{\edef#1{#2}\pgfmath@stack{#3}}%
+
+% \pgfmath@stackpopoperation
+%
+% Remove and perform an operation from the stack.
+%
+\def\pgfmath@stackpopoperation{%
+	\expandafter\pgfmath@stackpopoperation@\the\pgfmath@stack\pgfmath@%
+}
+\def\pgfmath@stackpopoperation@#1#2#3#4#5\pgfmath@{%
+	\ifx\pgfmath@empty#1\relax%
+			\pgfmath@stack{\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
 	\else%
-		\edef\pgfmath@b{\pgfmathresult}%
-	\fi%
-}		
+		\ifx\pgfmath@empty#2\relax%%
+			\pgfmath@stack{{#1}\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
+		\else%
+			#2{#3}{#1}%
+			\pgfmath@stack{#4#5}%
+			\expandafter\pgfmath@stackpushoperand\expandafter{\pgfmathresult}%
+	\fi\fi%
+	\def\pgfmath@stacknextoperator{#4}}
 
 % \pgfmath@processalloperations
 %
-% If various operations are not empty, perform them.
-% \pgfmath@primaryoperation      - used for any current operation.
-% \pgfmath@secondaryoperation    - used to store + - if * / encountered
-% \pgfmath@tertiaryoperation     - used to store = > <
+% Process all operation in the stack. The 
+% overall result is at the top of the stack.
 %
 \def\pgfmath@processalloperations{%
-	\pgfmath@processprimaryoperation%
-	\pgfmath@processsecondaryoperation%
-	\pgfmath@processtertiaryoperation}
-
-\def\pgfmath@processprimaryoperation{%
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
+	\expandafter\pgfutil@in@\pgfmath@stacknextoperator{\pgfmath@empty}%
+	\ifpgfutil@in@%
+		\let\pgfmath@processnext\relax%		
 	\else%
-		\pgfmath@primaryoperation{\pgfmath@a}{\pgfmath@b}%
-		\edef\pgfmath@a{\pgfmathresult}%
+		\pgfmath@stackpopoperation%
+		\let\pgfmath@processnext\pgfmath@processalloperations%
 	\fi%
-	\let\pgfmath@primaryoperation\pgfmath@empty%
-	\let\pgfmath@b\pgfmath@empty%
-}
+	\pgfmath@processnext}
 
-\def\pgfmath@processsecondaryoperation{%
-	\ifx\pgfmath@secondaryoperation\pgfmath@empty%
+% \pgfmath@processoperationsuntil
+%
+% Process operations in the stack, until the specified
+% operation/s is/are encountered. The overall result is 
+% at the top of the stack.
+%
+\def\pgfmath@processoperationsuntil#1{%
+	\expandafter\pgfutil@in@\pgfmath@stacknextoperator{#1\pgfmath@empty}%
+	\ifpgfutil@in@%
+		\let\pgfmath@processnext\pgfmath@processoperationsuntil@end%		
 	\else%
-		\pgfmath@secondaryoperation{\pgfmath@c}{\pgfmath@a}%
-		\edef\pgfmath@a{\pgfmathresult}%
+		\pgfmath@stackpopoperation%
+		\let\pgfmath@processnext\pgfmath@processoperationsuntil%
 	\fi%
-	\let\pgfmath@secondaryoperation\pgfmath@empty%
-	\let\pgfmath@b\pgfmath@empty%
-	\let\pgfmath@c\pgfmath@empty%
-}
-	
-\def\pgfmath@processtertiaryoperation{%
-	\ifx\pgfmath@tertiaryoperation\pgfmath@empty%
-	\else%
-		\pgfmath@tertiaryoperation{\pgfmath@d}{\pgfmath@a}%
-		\edef\pgfmath@a{\pgfmathresult}%
-	\fi
-	\let\pgfmath@tertiaryoperation\pgfmath@empty%
-	\let\pgfmath@b\pgfmath@empty%
-	\let\pgfmath@c\pgfmath@empty%
-	\let\pgfmath@d\pgfmath@empty%
-}%
+	\pgfmath@processnext{#1}}
+\def\pgfmath@processoperationsuntil@end#1{}
+
 
 % OK. Now the operators are parsed.
 % These correspond to the + - / * ^ < > = mod and r operators 
 %
-\def\pgfmath@parseadd{%
+\def\pgfmath@parseadd{%	
 	% If no operator has been assigned (i.e. + is the first operator scanned),
-	% do nothing, except make addition the primary operation.
-	\ifx\pgfmath@primaryoperation\pgfmath@empty
+	% do nothing, except add addition to the stack.
+	\ifx\pgfmath@stacknextoperator\pgfmath@empty
 	\else%
-		% Otherwise process the primary and the secondary operations.
-		%
-		% Consider the epxression A-B*C+D.
-		% At this point + has just been parsed, so the primary operation is *,
-		% and the secondary operation is - (it was saved after * was parsed).
-		\pgfmath@processprimaryoperation%
-		\pgfmath@processsecondaryoperation%
+		% Empty the process stack up to any inequalities.
+		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@}%
 	\fi%
-	\let\pgfmath@primaryoperation\pgfmathadd@%
+	\pgfmath@stackpushoperator{\pgfmathadd@}%
 	\pgfmath@parse@}
-
-\def\pgfmath@parsesubtract{% Works like addition.
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
+	
+\def\pgfmath@parsesubtract{%	
+	% If no operator has been assigned (i.e. - is the first operator scanned),
+	% do nothing, except add subtract to the stack.
+	\ifx\pgfmath@stacknextoperator\pgfmath@empty
 	\else%
-		\pgfmath@processprimaryoperation%
-		\pgfmath@processsecondaryoperation%
+		% Empty the process stack up to any inequalities.
+		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@}%
 	\fi%
-	\let\pgfmath@primaryoperation\pgfmathsubtract@%
+	\pgfmath@stackpushoperator{\pgfmathsubtract@}%
 	\pgfmath@parse@}
+	
 
 \def\pgfmath@parsemultiply{%
 	% If no operator has been assigned (i.e. * is the first operator scanned),
-	% do nothing, except make multiplication the primary operation.
-	\ifx\pgfmath@primaryoperation\pgfmath@empty
+	% do nothing, except push multiply onto the stack.
+	\ifx\pgfmath@stacknextoperator\pgfmath@empty
 	\else%
-		% Slighty tricker than addition/subtraction...
-		% Consder X\Y*Z, when * has been scanned. 
-		% The primary operation is \, so this operation can be processed, 
-		% and * made the new primary opertion.
-		\ifx\pgfmath@primaryoperation\pgfmathmultiply@
-			\pgfmath@processprimaryoperation%
-		\else
-			\ifx\pgfmath@primaryoperation\pgfmathdivide@%
-				\pgfmath@processprimaryoperation%
-			\else%
-				\ifx\pgfmath@primaryoperation\pgfmathpower@%
-					\pgfmath@processprimaryoperation%
-				\else%
-					% Consder X+Y*Z, when * has been scanned. 
-					% The addition must take place *after* the multiplication. 
-					% So + (the current primary operation), is saved as the secondary  
-					% operation, and X is saved. * becomes the new primary operation.
-					\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
-					\edef\pgfmath@c{\pgfmath@a}%
-					\edef\pgfmath@a{\pgfmath@b}%
-					\let\pgfmath@b\pgfmath@empty%	
-	\fi\fi\fi\fi%
-	\let\pgfmath@primaryoperation\pgfmathmultiply@%
+		% Process all operations up to inequalites or addition/subtraction
+		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
+			\pgfmathadd@\pgfmathsubtract@}
+	\fi%
+	\pgfmath@stackpushoperator{\pgfmathmultiply@}%
 	\pgfmath@parse@}
-
-\def\pgfmath@parsedivide{% Works like multiplication.
-	\ifx\pgfmath@primaryoperation\pgfmath@empty
+	
+\def\pgfmath@parsedivide{%
+	% If no operator has been assigned (i.e. / is the first operator scanned),
+	% do nothing, except push divide onto the stack.
+	\ifx\pgfmath@stacknextoperator\pgfmath@empty
 	\else%
-		\ifx\pgfmath@primaryoperation\pgfmathmultiply@
-			\pgfmath@processprimaryoperation%
-		\else
-			\ifx\pgfmath@primaryoperation\pgfmathdivide@%
-				\pgfmath@processprimaryoperation%
-			\else%
-				\ifx\pgfmath@primaryoperation\pgfmathpower@%
-					\pgfmath@processprimaryoperation%
-				\else%
-					\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
-					\edef\pgfmath@c{\pgfmath@a}%
-					\edef\pgfmath@a{\pgfmath@b}%
-					\let\pgfmath@b\pgfmath@empty%	
-	\fi\fi\fi\fi%
-	\let\pgfmath@primaryoperation\pgfmathdivide@%
+		% Process all operations up to inequalites or addition/subtraction
+		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
+			\pgfmathadd@\pgfmathsubtract@}
+	\fi%
+	\pgfmath@stackpushoperator{\pgfmathdivide@}%
 	\pgfmath@parse@}
 
 \def\pgfmath@parsegreaterthan{%
 	% On scanning an equality/inequality operator everything up to
 	% (but not including) the operator is evaluated... 
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-		\pgfmath@processalloperations%
-	\fi%
-	% ...now the LHS of the inequality must be saved...
-	\edef\pgfmath@temp{\pgfmath@a}%
-	% ...all parsing parameters are reset...
-	\pgfmath@resetparsingparameters%
-	\edef\pgfmath@d{\pgfmath@temp}% ...but one parameter reinserted.
-	% ....and the inequality defined as the tertiary opertation.
-	\let\pgfmath@tertiaryoperation\pgfmathgreaterthan@%
+	\pgfmath@processalloperations%
+	% ...and the operation pushed onto the stack.
+	\pgfmath@stackpushoperator{\pgfmathgreaterthan@}%
 	\pgfmath@parse@}
-	
-\def\pgfmath@parselessthan{% Similar to greater than.
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-		\pgfmath@processalloperations%
-	\fi%
-	\edef\pgfmath@temp{\pgfmath@a}%
-	\pgfmath@resetparsingparameters%
-	\edef\pgfmath@d{\pgfmath@temp}%
-	\let\pgfmath@tertiaryoperation\pgfmathlessthan@%
+
+\def\pgfmath@parselessthan{%
+	\pgfmath@processalloperations%
+	\pgfmath@stackpushoperator{\pgfmathlessthan@}%
 	\pgfmath@parse@}
-	
+
 \def\pgfmath@parseequalto={%
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-		\pgfmath@processalloperations%
-	\fi%
-	\edef\pgfmath@temp{\pgfmath@a}%
-	\pgfmath@resetparsingparameters%
-	\edef\pgfmath@d{\pgfmath@temp}%
-	\let\pgfmath@tertiaryoperation\pgfmathequalto@%
+	\pgfmath@processalloperations%
+	\pgfmath@stackpushoperator{\pgfmathequalto@}%
 	\pgfmath@parse@}
 
-			
 \def\pgfmath@parsepower{%
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-	\else%
-		\let\pgfmath@secondaryoperation\pgfmath@primaryoperation%
-		\edef\pgfmath@c{\pgfmath@a}%
-		\edef\pgfmath@a{\pgfmath@b}%
-		\let\pgfmath@b\pgfmath@empty%		
-	\fi%
-	\let\pgfmath@primaryoperation\pgfmathpow@%
+	% Easy, just push power onto the stack.
+	\pgfmath@stackpushoperator{\pgfmathpow@}%
 	\pgfmath@parse@}
-	
+
 \def\pgfmath@parseradians{%
+	% Actually this is a post-fix function...
 	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-		\pgfmathradians@{\pgfmath@a}%
-		\let\pgfmath@a\pgfmath@empty%
 	\else%
-		\ifx\pgfmath@primaryoperation\pgfmathmultiply@%
-			\pgfmath@processprimaryoperation%
-			\pgfmathradians@{\pgfmath@a}%
-			\let\pgfmath@a\pgfmath@empty%
-		\else%
-			\ifx\pgfmath@primaryoperation\pgfmathdivide@%
-				\pgfmath@processprimaryoperation%
-				\pgfmathradians@{\pgfmath@a}%
-				\let\pgfmath@a\pgfmath@empty
-			\else%
-				\pgfmathradians@{\pgfmath@b}%
-	\fi\fi\fi%	
-	% Notice unlike the other operators, we go to \pgfmath@parseoperator,
-	% This is because, r is really a post-fix function.
+		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
+			\pgfmathadd@\pgfmathsubtract@}
+	\fi%	
+	\pgfmath@stackpop{\pgfmath@temp}%
+	\pgfmathdeg@{\pgfmath@temp}%
+	% ...so processing returns to \pgfmath@parseoperator
 	\pgfmath@parseoperator}
-
-
+	
 \newcount\c@pgfmath@parsecounta
 \newcount\c@pgfmath@parsecountb
 \newcount\c@pgfmath@parsecountc
 \newdimen\pgfmath@parsex
-
 
 % \pgfmath@quickparseoperand
 %
