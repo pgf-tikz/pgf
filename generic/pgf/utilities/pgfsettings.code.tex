@@ -1,0 +1,358 @@
+% Copyright 2007 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+% The purpose of this file is to provide a general settings engine that 
+% works with all TeX formats and has no save-stack impact
+
+
+% This is useful:
+
+\def\pgfutil@ifcsname#1\endcsname#2\else#3\fi{\expandafter\ifx\csname#1\endcsname\relax#3\else#2\fi}%
+\ifx\eTeXrevision\undefined%
+\else%
+  \expandafter\let\expandafter\pgfutil@ifcsname\csname ifcsname\endcsname%
+\fi
+
+
+
+% Set a key to a value
+%
+% #1 = key
+% #2 = a parameter pattern
+% #3 = a value
+%
+% Description:
+%
+% This command sets the key to the given value. The value can be
+% parametrized (that is, it may contain parameters like #1 or
+% #2). This allows you to modify the value of the key when it is
+% retrieved. The list of parameters (more generally, the parameter
+% pattern) is given in the second argument.
+%
+% Keys are organized hierarchically using something similar to Unix
+% paths. Thus, a typically key might be called "/tikz/length" or
+% "/tikz/length dimension/.code". Some keys starting with a dot are
+% special, so they should not be used as normal key names (they are
+% similar to Unix files starting with a dot -- you can use them, but
+% be careful).
+%
+% Keys are always local to the current TeX group.
+%
+% Example:
+%
+% \pgfsetkey{/tikz/length/.value}{}{2cm-3cm}
+% \pgfsetkey{/algo/swap}{#1#2}{{#2}{#1}}
+
+\def\pgfsetkey#1#2#3{%
+  \expandafter\def\csname pgfk@#1\endcsname#2{#3}%
+}
+
+
+
+
+% Makes a key equal a given macro
+%
+% #1 = key
+% #2 = a macro name
+%
+% Description:
+%
+% This command executes a \let command so that when the key is
+% executed, then the parameter #2 is executed "instead".
+%
+% Keys are always local to the current TeX group.
+%
+% Example:
+%
+% \pgfletkey{/algo/swap}{\myswap}
+
+\def\pgfletkey#1#2{%
+  \expandafter\let\csname pgfk@#1\endcsname#2%
+}
+
+
+
+% Retrieve the value stored in a key
+%
+% #1 = key
+%
+% Description:
+%
+% This command will expand to the value stored in the key. If the key
+% is parametrized, the parameters should follow. The key should
+% previously have been set using \pgfsetkey. 
+%
+% Example:
+%
+% The length is \pgfdokey{/tikz/length}.
+% This \pgfdokey{/algo/swap}{correct}{is }.
+
+\def\pgfdokey#1{\csname pgfk@#1\endcsname}
+
+
+
+% Retrieve the code stored in a key into a macro
+%
+% #1 = key
+% #2 = macro
+%
+% Description:
+%
+% This command will make #2 have the same effect as \pgfdokey{#1}.
+%
+% Example:
+%
+% \pgfretrievekeycode{/tikz/swap}{\myswap}
+
+\def\pgfretrievekeycode#1#2{\expandafter\let\expandafter#2\csname pgfk@#1\endcsname}
+
+
+
+% Execute settings
+%
+% #1 = list of settings
+%
+% Description:
+%
+% The list of settings should contain comma-separated settings. Each
+% setting has the following form:
+%
+% /path/key=value
+%
+% The parts "/path/" and "=value" are optional. When the path is not
+% specified, the value of the token register "\pgfkeypath" is used. If
+% "=value" is missing, the value of the setting "/path/key/.default" is used
+% instead. If this key is set to "\pgfvaluerequired", the key
+% "/errors/value required/.code" is executed. The macro \pgfcurrentkey
+% will store the name of the current key.
+%
+% Any spaces at the beginning and at the end and around the
+% equals-sign are removed. The key with the complete path is set to
+% the macro \pgfcurrentkey.
+%
+% The setting is then processed according to the following rules:
+%
+% 1) If the key /path/key/.code" is present, its code is executed
+%    with the value computed above, followed by \pgfeov (end of
+%    value). So, to handle
+%
+%    "/stuff/height=  1.5 ,"
+%
+%    /stuff/height/.code should be set to some code, that can
+%    handle the parameter
+%
+%    "1.5\pgfeov"
+%
+%    For instance, saying
+%
+%    \pgfsetkey{/stuff/height/.code}{#1\pgfeov}{\def\myheight{#1}}
+%
+%    will do nicely.
+%
+% 2) Otherwise, if the key /path/key/.value is present, this key is
+%    set to the value computed above.
+%
+% 3) Otherwise, if the key /handlers/key/.code is present, it is executed
+%    with the same parameters as in 1). Additionally, the
+%    token register \pgfcurrentkeypath will be set to "/path/" and the
+%    macor \pgfcurrentkeywithoutpath to "key". So, in the above
+%    example if neither "/stuff/height/.code" nor
+%    "/stuff/height/.value" is present, but "/handlers/height" is,
+%    then "/handlers/height" is executed with the parameters:
+%
+%    "1.5\pgfeov"
+%
+%    and \pgfcurrentkey is set to "/stuff/height" and \pgfcurrentkeypath
+%    is set to "/stuff/" and \pgfcurrentkeywithoutpath to "height".
+%
+% 4) Otherwise, if the key "/path/.unknown/.code" is present, its code is
+%    executed with the same parameters as in 3).
+%
+% 5) Otherwise, the key "/handlers/.unknown/.code" is executed with the same
+%    parameters as in 1).
+%
+% After all settings have been processed, the value of the token
+% register \pgfdefaultkeypath is set to its original value. Thus, any local
+% change of this token register has no effect outside the call.
+%
+% Example:
+%
+% \setoptions{/handlers/.style/.set code[1]={\setoptionsinner{#1}}}
+% \setoptions{/tikz/.style={/path=/tikz}}}
+% \setoptions{tikz,length/.macro=\tikz@length}
+% \setoptions{tikz,hidden/.if=\iftikz@hidden}
+% \setoptions{tikz,length=1cm,hidden}
+% \setoptions{/tikz/length=2cm}
+% \setoptions{tikz,length=1cm, height=2cm, }
+
+\newtoks\pgfdefaultkeypath
+\newtoks\pgfcurrentkeypath
+\pgfdefaultkeypath{/}
+
+
+\def\pgfset{% Save path
+  \expandafter\pgfset@withpath\expandafter{\the\pgfdefaultkeypath}%
+}
+
+\def\pgfset@withpath#1#2{%
+  \pgfset@parse#2,\relax,%
+  \pgfdefaultkeypath{#1}% restore path
+}
+
+\def\pgfset@parse#1,{%
+  \ifx\relax#1\pgfutil@empty%
+  \else%
+    \pgfset@unpack#1=\pgf@novalue=\pgfset@stop%
+    \expandafter\pgfset@parse%
+  \fi%
+}
+
+\def\pgf@novalue{\pgf@novalue} % equals only itself
+\def\pgfvaluerequired{\pgfvaluerequired} % equals only itself
+
+\def\pgfset@unpack#1=#2=#3\pgfset@stop{%
+  \pgfset@spdef\pgfcurrentkey{#1}%
+  \ifx\pgfcurrentkey\pgfutil@empty%
+    % Skip
+  \else%
+    \pgfset@add@path@as@needed%
+    \pgfset@spdef\pgfset@val{#2}%
+    \ifx\pgfset@val\pgf@novalue% Hmm... no value
+      \pgfutil@ifcsname pgfk@\pgfcurrentkey/.default\endcsname%
+        % Aha. Use this!
+        \pgfretrievekeycode{\pgfcurrentkey/.default}{\pgfset@val}%
+      \else%
+        \let\pgfset@val\pgfutil@empty% no default, so use empty string
+      \fi%
+    \fi%
+    \ifx\pgfset@val\pgfvaluerequired%
+      \pgfdokey{/errors/value required/.code}%
+    \else%
+      \pgfset@case@one%
+    \fi%
+  \fi}
+
+\def\pgfset@case@one{%
+  \pgfutil@ifcsname pgfk@\pgfcurrentkey/.code\endcsname%
+    \expandafter\let\expandafter\pgfset@code\csname pgfk@\pgfcurrentkey/.code\endcsname%
+    \expandafter\pgfset@code\pgfset@val\pgfeov%
+    % done
+  \else%
+    \pgfset@case@two%
+  \fi%
+}
+
+\def\pgfset@case@two{%
+  \pgfutil@ifcsname pgfk@\pgfcurrentkey/.value\endcsname%
+    \expandafter\def\pgfset@name{\pgfcurrentkey/.value}%
+    \expandafter\pgfsetkey\expandafter{\expandafter\pgfset@name\expandafter}\expandafter{\pgfset@val}%
+    % done
+  \else%
+    \pgfset@case@three%
+  \fi%
+}
+
+\def\pgfset@case@three{%
+  \pgfset@split@path%
+  \pgfutil@ifcsname pgfk@/handlers/\pgfcurrentkeywithoutpath/.code\endcsname%
+    \expandafter\let\expandafter\pgfset@code\csname pgfk@/handlers/\pgfcurrentkeywithoutpath/.code\endcsname%
+    \expandafter\pgfset@code\pgfset@val\pgfeov%
+    % done
+  \else%
+    \pgfset@case@four%
+  \fi%
+}
+
+\def\pgfset@case@four{%
+  \pgfutil@ifcsname pgfk@\the\pgfcurrentkeypath.unknown/.code\endcsname%
+    \expandafter\let\expandafter\pgfset@code\csname pgfk@\the\pgfcurrentkeypath.unknown/.code\endcsname%
+    \expandafter\pgfset@code\pgfset@val\pgfeov%
+    % done
+  \else%
+    \pgfset@case@five%
+  \fi%
+}
+
+\def\pgfset@case@five{%
+  \expandafter\let\expandafter\pgfset@code\csname pgfk@/handlers/.unknown/.code\endcsname%
+  \expandafter\pgfset@code\pgfset@val\pgfeov%
+}
+
+
+\def\pgfkey@argumentisspace#1{%
+  \def\pgfset@spdef##1##2{%
+    \futurelet\pgfset@possiblespace\pgfset@sp@a##2\pgfset@stop\pgfset@stop#1\pgfset@stop\relax##1}%
+  \def\pgfset@sp@a{%
+    \ifx\pgfset@possiblespace\pgfutil@sptoken%
+      \expandafter\pgfset@sp@b%
+    \else%
+      \expandafter\pgfset@sp@b\expandafter#1%
+    \fi}%
+  \def\pgfset@sp@b#1##1 \pgfset@stop{\pgfset@sp@c##1}%
+}
+\pgfkey@argumentisspace{ }
+\def\pgfset@sp@c#1\pgfset@stop#2\relax#3{\def#3{#1}}
+
+
+\def\pgfset@add@path@as@needed{% Should add the path if the
+  % \pgfcurrentkey does not start with /
+  \expandafter\futurelet\expandafter\pgfset@possibleslash\expandafter\pgfset@check@slash\pgfcurrentkey\relax%
+}
+\def\pgfset@check@slash{%
+  \ifx\pgfset@possibleslash/%
+    \expandafter\pgfset@nevermind%
+  \else%
+    \expandafter\pgfset@addpath%
+  \fi%
+}
+
+\def\pgfset@nevermind#1\relax{}
+\def\pgfset@addpath#1\relax{\def\pgfcurrentkey{\the\pgfdefaultkeypath#1}}
+
+\def\pgfset@split@path{% Should assign the two macros
+                       % \pgfcurrentkeywithoutpath and \pgfcurrentlkeypath
+  \pgfcurrentkeypath{}%
+  \expandafter\pgfset@splitter\pgfcurrentkey//%
+}
+\def\pgfset@splitter#1/#2/{%
+  \def\pgfset@temp{#2}%
+  \ifx\pgfset@temp\pgfutil@empty%
+    % Ah. done
+    \def\pgfcurrentkeywithoutpath{#1}%
+    \expandafter\pgfset@gobbletoslash%
+  \else%
+    \expandafter\pgfcurrentkeypath\expandafter{\the\pgfcurrentkeypath#1/}%
+  \fi%
+  \pgfset@splitter#2/%
+}
+\def\pgfset@gobbletoslash\pgfset@splitter/{}%
+
+
+
+
+% Sets keys while setting keys
+%
+% #1 = key-value pairs
+%
+% Desscription:
+%
+% This macro may only be called inside the code that is executed for a
+% key. The #1 should be a list of settings pairs. They will be executed
+% as if they had been given as the argument to the \pgfset command.
+%
+% Example:
+%
+% \pgfset{tikz,myother length.set code=\def\myotherlength{#1}\pgfsetinner{length=#1}}
+
+\def\pgfsetinner#1{\pgfset@parse#1,\relax,}
+
+
+
+
