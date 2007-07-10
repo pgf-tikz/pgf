@@ -329,6 +329,43 @@
 
 
 
+\makeatletter
+
+
+% \pgfsavepgf@process
+%
+% Little `helper' macro.
+%
+\def\pgfsavepgf@process#1#2{%
+	\pgf@process{#2}%
+	\edef#1{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
+}
+
+% \ifpgfshapeborderusesincircle
+%
+% Determine if a shape uses an incircle to
+% calculate its border dimensions.
+%
+\newif\ifpgfshapeborderusesincircle
+\pgfshapeborderusesincirclefalse
+
+% \pgfsetshapeborderrotate
+%
+% Set the rotation of the shape border. 
+%
+\def\pgfsetshapeborderrotate#1{%
+	\pgfmathparse{#1}%
+	\pgfmathmod@{\pgfmathresult}{360}%
+	\ifdim\pgfmathresult pt<0pt\relax%
+		\pgfmathadd@{\pgfmathresult}{360}%
+	\fi%
+	\let\pgfshapeborderrotate\pgfmathresult}
+\pgfsetshapeborderrotate{0}
+
+
+
+
+
 % \pgfsetstarpoints
 %
 % Set the number of points on a star.
@@ -361,414 +398,306 @@
 }
 \pgfsetstarpointratio{1.75}
 
-% \pgfsetstarrrotate
-%
-% Set the angle of rotation of the star
-% border. This can be decimal.
-%
-\def\pgfsetstarrotate#1{%
-	\pgfmathparse{#1}%
-	\edef\pgfstarrotate{\pgfmathresult}}%
-\pgfsetstarrotate{0}
-
 % Shape star.
 %
-\pgfdeclareshape{star}{%
-	\saveddimen{\points}{\pgf@x\pgfstarpoints pt}%
-	\saveddimen{\pointratio}{\pgf@x\pgfstarpointratio pt}%
-	\saveddimen{\rotate}{\pgf@x\pgfstarrotate pt}%
-	\saveddimen{\pointheight}{\pgf@x\pgfstarpointheight}%
-	\saveddimen{\minimumsize}{%
-		\pgfmathsetlength\pgf@x{\pgfshapeminwidth}%
-		\pgfmathsetlength\pgf@y{\pgfshapeminheight}%
-		\ifdim\pgf@y>\pgf@x%
-			\pgf@x\pgf@y%
-		\fi}%	
-	\saveddimen{\outersep}{%
-		\pgfmathsetlength\pgf@x{\pgfshapeouterxsep}%
-		\pgfmathsetlength\pgf@y{\pgfshapeouterysep}%
-		\ifdim\pgf@y>\pgf@x%
-			\pgf@x\pgf@y%
-		\fi}%
-	\savedanchor{\centerpoint}{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y.5\ht\pgfnodeparttextbox%
-		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-	}%
-	\saveddimen{\innerpointradius}{%
-		% 
-		% The innerpoint radius is the radius of the circle which 
-		% can safely encompass the node textbox. 
+\pgfdeclareshape{star}{
+	\savedmacro\totalstarpoints{%
+		\pgfmathadd@{\pgfstarpoints}{\pgfstarpoints}%
+		\let\totalstarpoints\pgfmathresult%
+	}
+	\savedmacro\anglestep{%
+		\pgfmathdivide@{180}{\pgfstarpoints}%
+		\let\anglestep\pgfmathresult%
+	}
+	\savedmacro\calculateradii{%
 		%
-		\pgfmathsetlength\pgf@x{\pgfshapeinnerxsep}%
-		\advance\pgf@x.5\wd\pgfnodeparttextbox%
+		% Get the node dimensions.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 		\pgfmathsetlength\pgf@y{\pgfshapeinnerysep}%
-		\advance\pgf@y.5\ht\pgfnodeparttextbox%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
 		\ifdim\pgf@y>\pgf@x%
 			\pgf@x\pgf@y%
 		\fi%
-		\pgfmathveclen@{\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@x}}%
-		\pgf@x\pgfmathresult pt\relax% 		
+		%
+		% Calculate the incircle radius.
+		%
+		\pgf@x1.41421\pgf@x%
+		\edef\innerradius{\the\pgf@x}%
+		%
+		% Calculate the circumcircle radius.
+		%
+		% If the star point height is negative use the star point ratio.
+		%
+		\pgfmathsetlength\pgf@xb{+\pgfstarpointheight}%
+		\ifdim\pgf@xb<0pt\relax%
+			\pgf@x\pgfstarpointratio\pgf@x%
+		\else%
+			\advance\pgf@x\pgf@xb%
+		\fi%
+		\pgf@xc\pgf@x%
+		%
+		% Accommodate the larger of the minimum height/width.
+		%
+		\pgfmathsetlength\pgf@xa{+\pgfshapeminwidth}%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
+		\ifdim\pgf@ya>\pgf@xa%
+			\pgf@xa\pgf@ya%
+		\fi%
+		\ifdim\pgf@x<.5\pgf@xa%
+	   	\pgf@x.5\pgf@xa%
+	   \fi%
+	   \edef\outerradius{\the\pgf@x}%
+	   %
+	   % If the outer radius has been enlarged, adjust the inner radius...
+	   %
+	   \ifdim\pgf@x>\pgf@xc%
+	   	%
+	   	% ...using the star point ratio, or...
+	   	%
+	   	\ifdim\pgf@xb<0pt\relax%
+	   		\pgfmathreciprocal@{\pgfstarpointratio}%
+	   		\pgf@xa\pgfmathresult\pgf@x\relax%
+	   		\edef\innerradius{\the\pgf@xa}%
+			\else%
+				%
+				% The star point height.
+				%
+				\pgf@xa\pgf@x\relax%
+				\advance\pgf@xa-\pgf@xb%
+				\edef\innerradius{\the\pgf@xa}%
+			\fi%
+		\fi%
+		\edef\outerradius{\the\pgf@x}%
+		%
+		% Now calculate the anchor radiii from the outer sep.
+		%
+		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeouterysep}%
+		\ifdim\pgf@ya>\pgf@xa%
+			\pgf@xa\pgf@ya%
+		\fi
+		%
+		% Take into account the miter length...
+		%
+		\pgfmathdivide@{180}{\pgfstarpoints}%
+		\let\angletofirstpoint\pgfmathresult%
+		\pgfmathmultiply@{\angletofirstpoint}{2}%
+		\let\angletosecondpoint\pgfmathresult%
+		%
+		% ...for the outer radius...
+		%
+		\pgfmathanglebetweenlines%
+			{\pgfqpointpolar{\angletofirstpoint}{\outerradius}}%
+			{\pgfqpointpolar{\angletosecondpoint}{\innerradius}}%
+			{\pgfqpointpolar{\angletofirstpoint}{\outerradius}}%		
+			{\pgfqpointpolar{0}{\innerradius}}%		
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\pgfmathcosec@{\pgfmathresult}%
+		\pgf@x\outerradius\relax%
+		\advance\pgf@x\pgfmathresult\pgf@xa%
+		\edef\anchorouterradius{\the\pgf@x}%
+		%
+		% ...and for the inner radius.
+		%
+		\pgfmathanglebetweenlines%
+			{\pgfqpointpolar{\angletofirstpoint}{\innerradius}}%		
+			{\pgfqpointpolar{0}{\outerradius}}%	
+			{\pgfqpointpolar{\angletofirstpoint}{\innerradius}}%
+			{\pgfqpointpolar{\angletosecondpoint}{\outerradius}}%						
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\pgfmathcosec@{\pgfmathresult}%
+		\pgf@x\innerradius\relax%
+		\advance\pgf@x\pgfmathresult\pgf@xa%
+		\edef\anchorinnerradius{\the\pgf@x}%
+		%	
+		% Save all radii.
+		%
+		\def\calculateradii{%
+			\noexpand\def\noexpand\innerradius{\innerradius}%
+			\noexpand\def\noexpand\outerradius{\outerradius}%
+			\noexpand\def\noexpand\anchorinnerradius{\anchorinnerradius}%
+			\noexpand\def\noexpand\anchorouterradius{\anchorouterradius}%
+		}%
+	}
+	\savedmacro\startangle{%
+		\pgfmathadd@{90}{\pgfshapeborderrotate}%
+		\let\startangle\pgfmathresult%
+	}
+	%
+	% Saved anchors.
+	%
+	\savedanchor{\centerpoint}{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
 	}%
+	\savedanchor{\midpoint}{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%	
+	%
+	% Other anchors.
+	%
+%
+	% Other anchors.
 	%
 	\anchor{center}{\centerpoint}%
 	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{.5ex}}%
  	\anchor{base}{\centerpoint\pgf@y=0pt}%
- 	\anchor{north}{\pgf@anchor@star@border{\pgfpoint{+0pt}{+\outerpointradius}}}%
- 	\anchor{south}{\pgf@anchor@star@border{\pgfpoint{+0pt}{+-\outerpointradius}}}%
- 	\anchor{east}{\pgf@anchor@star@border{\pgfpoint{+\outerpointradius}{+0pt}}}%
- 	\anchor{west}{\pgf@anchor@star@border{\pgfpoint{+-\outerpointradius}{+0pt}}}%
- 	\anchor{north east}{\pgf@anchor@star@border{\pgfpoint{+\outerpointradius}{+\outerpointradius}}}%
- 	\anchor{north west}{\pgf@anchor@star@border{\pgfpoint{+-\outerpointradius}{+\outerpointradius}}}%
- 	\anchor{south east}{\pgf@anchor@star@border{\pgfpoint{+\outerpointradius}{+-\outerpointradius}}}%
- 	\anchor{south west}{\pgf@anchor@star@border{\pgfpoint{+-\outerpointradius}{+-\outerpointradius}}}%
+ 	\anchor{north}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{0pt}{\anchorouterradius}}}%
+ 	\anchor{south}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{0pt}{-\anchorouterradius}}}%
+ 	\anchor{east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{\anchorouterradius}{0pt}}}%
+ 	\anchor{west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{-\anchorouterradius}{0pt}}}%
+ 	\anchor{north east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{\anchorouterradius}{\anchorouterradius}}}%
+ 	\anchor{north west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{-\anchorouterradius}{\anchorouterradius}}}%
+ 	\anchor{south east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{\anchorouterradius}{-\anchorouterradius}}}%
+ 	\anchor{south west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@star@border\endcsname{\pgfqpoint{-\anchorouterradius}{-\anchorouterradius}}}%	 	
+ 	%
+ 	% Background path.
  	%
 	\backgroundpath{%
-		%
-		% Redefine stuff for ease of use.
-		%
-		\pgf@x\points%
-		\c@pgf@counta\pgf@x%
-		\divide\c@pgf@counta65536\relax%
-		\edef\points{\the\c@pgf@counta}%
-		\pgf@x\rotate%
-		\edef\rotate{\pgf@sys@tonumber{\pgf@x}}%
-		\pgf@x\pointratio%
-		\edef\pointratio{\pgf@sys@tonumber{\pgf@x}}%
-		%
-		% Calculate radii.
-		%
-		\pgf@x\innerpointradius\relax%
-		\edef\innerradius{\the\pgf@x}%
-		\pgf@xa\pointheight\relax%
-		\ifdim\pgf@xa<0pt\relax%
-			\pgf@x\pointratio\pgf@x%
-		\else%
-			\advance\pgf@x\pgf@xa%
-		\fi%
-		\pgf@xb\pgf@x%
-    	\pgf@xc\minimumsize\relax%
-    	\ifdim\pgf@x<.5\pgf@xc%
-    		\pgf@x.5\pgf@xc%
-    	\fi%
-    	\edef\outerradius{\the\pgf@x}%
-    	\ifdim\pgf@x>\pgf@xb%
-    		\ifdim\pgf@xa<0pt\relax%
-    			\pgfmathreciprocal{\pointratio}%
-    			\pgf@xc\pgfmathresult\pgf@x\relax%
-    			\edef\innerradius{\the\pgf@xc}%
-			\else%
-				\pgf@xc\pgf@x\relax%
-				\advance\pgf@xc-\pointheight%
-				\edef\innerradius{\the\pgf@xc}%
-			\fi%
-		\fi%
-		%
-		% Get the total number of points (inner + outer)...
-		%
-		\c@pgf@counta\points%
-		\advance\c@pgf@counta\c@pgf@counta%
-		\edef\numpoints{\the\c@pgf@counta}%
-		%
-		% ...and hence the angle between points.
-		%
-		\pgf@x360pt\relax%
-		\divide\pgf@x\c@pgf@counta%
-		\edef\staranglestep{\the\pgf@x}%
-		%
-		% Start at 90 degrees (star always points up)...
-		%
-		\pgf@x90pt\relax%
-		%
-		% ...unless rotation is applied.
-		%
-		\pgf@xa\rotate pt\relax%
-		\advance\pgf@x\pgf@xa%
-		\edef\starangle{\the\pgf@x}%
-		\let\starradius=\outerradius%
-		%
-		% Move to first point.
-		%
-		\pgfpathmoveto{%
-			\pgfpointadd{\centerpoint}%
-				{\pgfpointpolar{+\starangle}{+\starradius}}%
-		}%
-		\def\staranchorname{pgf@anchor@star@outer point}%
+		\calculateradii%
+		\let\angle\startangle%
+		\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\startangle}{\outerradius}}}%
 		\pgfmathloop%
-			%
-			% Create anchors. Manually \xdef as \gdef is normally used by \anchor.
-			%
 			\c@pgf@counta\pgfmathcounter\relax%
 			\advance\c@pgf@counta1\relax%
 			\divide\c@pgf@counta2\relax%
-			\expandafter\xdef\csname\staranchorname\space\the\c@pgf@counta\endcsname{%
-				\noexpand\pgf@lib@shapesstaranchor{\pgfmathcounter}%
-			}%
-			\ifnum\pgfmathcounter=\numpoints\relax% Stop.
-			\else%
+			\c@pgf@countb\c@pgf@counta\relax%
+			\advance\c@pgf@countb-1\relax%
 			\ifodd\pgfmathcounter%
-				\let\starradius\innerradius%
-				\def\staranchorname{pgf@anchor@star@inner point}%
-			\else%
-				\let\starradius\outerradius%
-				\def\staranchorname{pgf@anchor@star@outer point}%
+				%
+				% Define anchors for outer points.
+				%
+				\pgfutil@ifundefined{pgf@anchor@star@outer point\space\the\c@pgf@counta}{%
+					\expandafter\xdef\csname pgf@anchor@star@outer point\space\the\c@pgf@counta\endcsname{%
+						\noexpand\calculateradii%
+						\noexpand\pgfmathmultiply@{\the\c@pgf@countb}{\noexpand\anglestep}%
+						\noexpand\pgfmathmultiply@{\noexpand\pgfmathresult}{2}%
+						\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\startangle}%
+						\noexpand\let\noexpand\angle\noexpand\pgfmathresult%
+						\noexpand\pgfpointadd{\noexpand\centerpoint}%
+							{\noexpand\pgfqpointpolar{\noexpand\angle}{\noexpand\anchorouterradius}}%
+						}%
+				}{}%
+			\else
+				%
+				% Define anchors for inner points.
+				%
+				\pgfutil@ifundefined{pgf@anchor@star@inner point\space\the\c@pgf@counta}{%
+					\expandafter\xdef\csname pgf@anchor@star@inner point\space\the\c@pgf@counta\endcsname{%
+						\noexpand\calculateradii%
+						\noexpand\pgfmathmultiply@{\the\c@pgf@countb}{\noexpand\anglestep}%
+						\noexpand\pgfmathmultiply@{\noexpand\pgfmathresult}{2}%
+						\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\anglestep}%
+						\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\startangle}%
+						\noexpand\let\noexpand\angle\noexpand\pgfmathresult%
+						\noexpand\pgfpointadd{\noexpand\centerpoint}%
+							{\noexpand\pgfqpointpolar{\noexpand\angle}{\noexpand\anchorinnerradius}}%
+					}%
+				}{}%
 			\fi%
-			\pgf@x\starangle\relax%
-			\advance\pgf@x\staranglestep\relax%
-			\edef\starangle{\the\pgf@x}%
-			\pgfpathlineto{%
-				\pgfpointadd{\centerpoint}%
-					{\pgfpointpolar{+\starangle}{+\starradius}}%
-			}%
-			\repeatpgfmathloop%
-		\pgfpathclose%
+			\pgfmathadd@{\angle}{\anglestep}%
+			\let\angle\pgfmathresult%
+		\ifnum\pgfmathcounter=\totalstarpoints%
+			\pgfpathclose%
+		\else%
+			\ifodd\pgfmathcounter
+				\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angle}{\innerradius}}}%
+			\else%
+				\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angle}{\outerradius}}}%
+			\fi%
+		\repeatpgfmathloop%
 	}%
+	%
+	% Define points on the anchor border.
 	%
 	\anchorborder{%
 		%
 		% Save x and y.
 		%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
+		\edef\externalx{\the\pgf@x}%
+		\edef\externaly{\the\pgf@y}%
 		%
-		% Redefine stuff for ease of use.
-		%
-		\pgf@x\points%
-		\c@pgf@counta\pgf@x%
-		\divide\c@pgf@counta65536\relax%
-		\edef\points{\the\c@pgf@counta}%
-		\pgf@x\rotate%
-		\edef\rotate{\pgf@sys@tonumber{\pgf@x}}%
-		\pgf@x\pointratio%
-		\edef\pointratio{\pgf@sys@tonumber{\pgf@x}}%
-		%
-		% Calculate the location of the external 
-		% point relative to the node center.
+		% Adjust the location of the external 
+		% point relative to \centerpoint.
 		%
 		\centerpoint%
+		\pgf@xa\externalx\relax%
+		\pgf@ya\externaly\relax%
 		\advance\pgf@xa\pgf@x%
 		\advance\pgf@ya\pgf@y%
 		\edef\externalx{\the\pgf@xa}%
 		\edef\externaly{\the\pgf@ya}%
-		\pgf@process{\pgfpointdiff{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}}%
 		%
-		% First approximate the angle of the external point...
+		% Get the angle of the external point to the \centerpoint.
 		%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\pgf@xb\pgf@x%
-		\pgf@yb\pgf@y%
-		\ifdim\pgf@xa<0pt\relax%
-			\pgf@xa-\pgf@xa%
+		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
+		%
+		% Locate the appropriate sides on the star border...
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\startangle}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
 		\fi%
-		\ifdim\pgf@ya<0pt\relax%
-			\pgf@ya-\pgf@ya%
-		\fi%
-		\ifdim\pgf@ya>\pgf@xa%
-			\pgf@x\pgf@xa%
-			\pgf@y\pgf@ya%
-		\else%
-			\pgf@x\pgf@ya%
-			\pgf@y\pgf@xa%
-		\fi%
-		\ifdim\pgf@y=0pt\relax%
-			\pgf@x0pt%
-		\else%
-			\pgfmathreciprocal@{\pgf@sys@tonumber{\pgf@y}}%
-			\pgf@x\pgfmathresult\pgf@x%
-		\fi%
-		\multiply\pgf@x1000\relax%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgf@counta\the\pgf@x\relax\pgfmath@%
-		\expandafter\pgf@x\csname pgfmath@atan@\the\c@pgf@counta\endcsname pt\relax%
-		\ifdim\pgfmath@ya>\pgfmath@xa\relax%
-			\pgf@x-\pgf@x%
-			\advance\pgf@x90pt%
-		\fi%
-		\ifdim\pgf@xb<0pt%
-			\ifdim\pgf@yb>0pt%
-				\pgf@x-\pgf@x%
-			\fi%
-			\advance\pgf@x180pt\relax%
-		\else%
-			\ifdim\pgf@yb<0pt%
-			\pgf@x-\pgf@x%
-			\advance\pgf@x360pt\relax%
-		\fi\fi%		
+		\pgfmathdivide@{\pgfmathresult}{\anglestep}%
+		\pgfmathfloor@{\pgfmathresult}%
+		\afterassignment\pgfmath@gobbletilpgfmath@
+		\c@pgf@counta\pgfmathresult\relax\pgfmath@
+		\pgfmathmultiply@{\pgfmathresult}{\anglestep}%
+		\pgfmathadd@{\pgfmathresult}{\startangle}%
+		\let\firstangle\pgfmathresult%
+		\pgfmathadd@{\pgfmathresult}{\anglestep}%
+		\let\secondangle\pgfmathresult%
+		\calculateradii%
 		%
-		% ...then adjust, as star points start at 90 degrees...
+		% ...and thus, the point on the star border.
 		%
-		\advance\pgf@x-90pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-			\advance\pgf@x360pt\relax%
-		\fi%
-		%
-		% ...and also for rotation.
-		%
-		\advance\pgf@x-\rotate pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-			\advance\pgf@x360pt\relax%
-		\fi%
-		%
-		% Now, locate the start and end points on the star border segment...
-		%
-		\c@pgf@counta\points\relax%
-		\pgf@y180pt\relax%
-		\divide\pgf@y\c@pgf@counta\relax%
-		\pgfmathreciprocal@{\pgf@sys@tonumber{\pgf@y}}%
-		\pgf@x\pgfmathresult\pgf@x%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgf@counta\the\pgf@x\relax\pgfmath@%
-		%
-		% ...and hence, the start and end angles of the star border segment.
-		%
-		\pgf@x\pgf@y%
-		\multiply\pgf@x\c@pgf@counta%
-		\advance\pgf@x90pt%
-		\advance\pgf@x\rotate pt\relax%
-		\edef\firstangle{\the\pgf@x}%
-		\advance\c@pgf@counta1\relax%
-		\pgf@x\pgf@y%
-		\multiply\pgf@x\c@pgf@counta%
-		\advance\pgf@x\rotate pt\relax%
-		\advance\pgf@x90pt%
-		\edef\secondangle{\the\pgf@x}%
-		%
-		% Get the radii and add the outer sep...
-		%
-		\pgf@x\innerpointradius\relax%
-		\edef\innerradius{\the\pgf@x}%
-		\pgf@xa\pointheight\relax%
-		\ifdim\pgf@xa<0pt\relax%
-			\pgf@x\pointratio\pgf@x%
-		\else%
-			\advance\pgf@x\pgf@xa%
-		\fi%
-		\pgf@xb\pgf@x%
-    	\pgf@xc\minimumsize\relax%
-    	\ifdim\pgf@x<.5\pgf@xc%
-    		\pgf@x.5\pgf@xc%
-    	\fi%
-    	\edef\outerradius{\the\pgf@x}%
-    	\ifdim\pgf@x>\pgf@xb%
-    		\ifdim\pgf@xa<0pt\relax%
-    			\pgfmathreciprocal{\pointratio}%
-    			\pgf@xc\pgfmathresult\pgf@x\relax%
-    			\edef\innerradius{\the\pgf@xc}%
-			\else%
-				\pgf@xc\pgf@x\relax%
-				\advance\pgf@xc-\pgf@xb%
-				\edef\innerradius{\the\pgf@xc}%
-			\fi%
-		\fi%
-		\pgf@xa\outersep\relax%
-		\pgf@x\outerradius\relax%
-    	\advance\pgf@x\pgf@xa%
-		\edef\outerradius{\the\pgf@x}%
-		\pgf@x\innerradius\relax%
-		\advance\pgf@x\pgf@xa%		
-		\edef\innerradius{\the\pgf@x}%		
-		\ifodd\c@pgf@counta%
-			\let\firstradii\outerradius%
-			\let\secondradii\innerradius%
-		\else%
-			\let\firstradii\innerradius%
-			\let\secondradii\outerradius%
-		\fi%
-		%
-		% ...and calculate the point on the intersection of
-		% the line from the external point to \centerpoint and
-		% the relevant segment of the star border.
-		%
-		\pgfpointintersectionoflines{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}%
-			{%
-				\pgfpointadd{\centerpoint}%
-					{\pgfpointpolar{+\firstangle}{+\firstradii}}%
-				}%	
+		\ifodd\c@pgf@counta
+			\pgfpointintersectionoflines{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}%
 				{%
 					\pgfpointadd{\centerpoint}%
-						{\pgfpointpolar{+\secondangle}{+\secondradii}}%
-				}%	
-	}%
-}%
-
-
-% \pgf@lib@shapesstaranchor
-%
-% Used internally to calculate inner point and  
-% outer point anchor positions 'on line'.
-%
-\def\pgf@lib@shapesstaranchor#1{%
-	%
-	% Redefine stuff for ease of use.
-	%
-	\pgf@x\points%
-	\c@pgf@counta\pgf@x%
-	\divide\c@pgf@counta65536\relax%
-	\edef\points{\the\c@pgf@counta}%
-	\pgf@x\rotate%
-	\edef\rotate{\pgf@sys@tonumber{\pgf@x}}%
-	\pgf@x\pointratio%
-	\edef\pointratio{\pgf@sys@tonumber{\pgf@x}}%
-	%
-	% Caculate radii.
-	%
-	\pgf@x\innerpointradius%
-	\edef\innerradius{\the\pgf@x}%
-	\pgf@xa\pointheight\relax%
-	\ifdim\pgf@xa<0pt\relax%
-		\pgf@x\pointratio\pgf@x%
-	\else%
-		\advance\pgf@x\pgf@xa%
-	\fi%
-	\pgf@xb\pgf@x%
-	\pgf@xc\minimumsize\relax%
-   \ifdim\pgf@x<.5\pgf@xc%
-   	\pgf@x.5\pgf@xc%
-   \fi%
-   \edef\outerradius{\the\pgf@x}%
-   \ifdim\pgf@x>\pgf@xb%
-   	\ifdim\pgf@xa<0pt\relax%
-   		\pgfmathreciprocal{\pointratio}%
-   		\pgf@xc\pgfmathresult\pgf@x\relax%
-   		\edef\innerradius{\the\pgf@xc}%
+						{\pgfqpointpolar{+\firstangle}{+\anchorinnerradius}}%
+					}%	
+					{%
+						\pgfpointadd{\centerpoint}%
+							{\pgfqpointpolar{+\secondangle}{+\anchorouterradius}}%
+					}%	
 		\else%
-			\pgf@xc\pgf@x\relax%
-			\advance\pgf@xc-\pgf@xb%
-			\edef\innerradius{\the\pgf@xc}%
+			\pgfpointintersectionoflines{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}%
+				{%
+					\pgfpointadd{\centerpoint}%
+						{\pgfqpointpolar{+\firstangle}{+\anchorouterradius}}%
+					}%	
+					{%
+						\pgfpointadd{\centerpoint}%
+							{\pgfqpointpolar{+\secondangle}{+\anchorinnerradius}}%
+					}%	
 		\fi%
-	\fi%
-	%
-	% Add the outer sep.
-	%
-	\pgf@xa\outersep%
-	\pgf@x\outerradius\relax%
-   \advance\pgf@x\pgf@xa%
-	\edef\outerradius{\the\pgf@x}%
-	\pgf@x\innerradius\relax%
-	\advance\pgf@x\pgf@xa%		
-	\edef\innerradius{\the\pgf@x}%
-	%
-	% Calculate the angle.
-	%	
-	\c@pgf@counta\points%
-	\pgf@x180pt\relax%
-	\divide\pgf@x\c@pgf@counta%
-	\c@pgf@counta#1\relax%
-	\advance\c@pgf@counta-1\relax%
-	\multiply\pgf@x\c@pgf@counta%
-	\pgf@xa\rotate pt\relax%
-	\advance\pgf@x\pgf@xa%
-	\advance\pgf@x90pt\relax%
-	\edef\starangle{\the\pgf@x}%
-	\ifodd\c@pgf@counta%
-		\let\starradius\innerradius%
-	\else%
-		\let\starradius\outerradius%
-	\fi%
-	\pgfpointadd{\centerpoint}%
-			{\pgfpointpolar{\starangle}{\starradius}}%
-}%
+	}
+}
+
+
+
 
 
 % \pgfsetpolygonsides
@@ -780,798 +709,187 @@
 	\edef\pgfpolygonsides{\the\c@pgfmath@counta}}
 \pgfsetpolygonsides{6}
 
-% \pgfsetpolygonrotate
-%
-% Set the angle of rotation of the polygon
-% border. This can be decimal.
-%
-\def\pgfsetpolygonrotate#1{%
-	\pgfmathparse{#1}%
-	\edef\pgfpolygonrotate{\pgfmathresult}}%
-\pgfsetpolygonrotate{0}
 
-
-% Regular polygon shape.
-% 
+% Shape Regular Polygon.
 %
-\pgfdeclareshape{regular polygon}{%
-	%
-	% Saved dimensions.
-	%
-	\saveddimen{\sides}{\pgf@x\pgfpolygonsides pt}%
-	\saveddimen{\rotate}{\pgf@x\pgfpolygonrotate pt}%
-	\saveddimen{\minimumsize}{%
-		\pgfmathsetlength\pgf@x{\pgfshapeminwidth}%
-		\pgfmathsetlength\pgf@y{\pgfshapeminheight}%
-		\ifdim\pgf@y>\pgf@x%
-			\pgf@x\pgf@y%
-		\fi}%
-	\saveddimen{\outersep}{%
-		\pgfmathsetlength\pgf@x{\pgfshapeouterxsep}%
-		\pgfmathsetlength\pgf@y{\pgfshapeouterysep}%
-		\ifdim\pgf@y>\pgf@x%
-			\pgf@x\pgf@y%
-		\fi}%
-	\saveddimen{\radius}{%
-		% 
-		% The radius calculated here is the radius of the circle which 
-		% can safely encompass the node textbox. This corresponds to the 
-		% distance from the centre of the polygon to the mid-point of the
-		% of the sides of the polygon. The desired radius for the corners 
-		% of the polygon has to calculated `on-line' as the saved dimen 
-		% \sides is not available here.
+\pgfdeclareshape{regular polygon}{
+	\savedmacro\sides{%
+		\let\sides\pgfpolygonsides%
+	}
+	\savedmacro\anglestep{%
+		\pgfmathdivide@{360}{\pgfpolygonsides}%
+		\let\anglestep\pgfmathresult%
+	}
+	\savedmacro\calculateradii{%
 		%
-		\pgfmathsetlength\pgf@x{\pgfshapeinnerxsep}%
-		\advance\pgf@x.5\wd\pgfnodeparttextbox%
+		% Get the node dimensions.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 		\pgfmathsetlength\pgf@y{\pgfshapeinnerysep}%
-		\advance\pgf@y.5\ht\pgfnodeparttextbox%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
 		\ifdim\pgf@y>\pgf@x%
 			\pgf@x\pgf@y%
 		\fi%
-		\pgfmathveclen@{\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@x}}%
-		\pgf@x\pgfmathresult pt\relax%   
-	}%
-	
+		%
+		% Calculate i, the incircle radius 
+		%
+		\pgf@x1.41421\pgf@x%
+		%
+		% Calculate r, the polygon radius
+		%
+		% r = i / cos(360 / s / 2)
+		%
+		% (s = polygon sides)
+		%
+		\pgfmathdivide@{180}{\pgfpolygonsides}%
+		\pgfmathsec@{\pgfmathresult}%
+		\pgf@x\pgfmathresult\pgf@x%
+		%
+		% Accommodate the minimum width/height.
+		%
+		\pgfmathsetlength\pgf@xa{+\pgfshapeminwidth}%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
+		\ifdim\pgf@ya>\pgf@xa%
+			\pgf@xa\pgf@ya%
+		\fi%
+		\ifdim\pgf@x<.5\pgf@xa%
+			\pgf@x.5\pgf@xa%
+		\fi%
+		\edef\radius{\the\pgf@x}%
+		%
+		% Now calculate the anchor radius from the outer sep.
+		%
+		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeouterysep}%
+		\ifdim\pgf@ya>\pgf@xa%
+			\pgf@xa\pgf@ya%
+		\fi
+		%
+		% Take into account the miter length.
+		%
+		% m = o / sin (90 - (360 / s / 2))
+		%
+		% (o = outer sep, s = sides)
+		%
+		\pgfmathdivide@{180}{\pgfpolygonsides}%
+		\pgfmathsubtract@{90}{\pgfmathresult}%
+		\pgfmathcosec@{\pgfmathresult}%
+		\advance\pgf@x\pgfmathresult\pgf@xa%
+		\edef\anchorradius{\the\pgf@x}%
+		%
+		% Save both radii.
+		%
+		\def\calculateradii{%
+			\noexpand\def\noexpand\radius{\radius}%
+			\noexpand\def\noexpand\anchorradius{\anchorradius}%
+		}%
+	}
+	\savedmacro\startangle{%
+		\ifodd\pgfpolygonsides%
+			\edef\pgfmathresult{90}%
+		\else%
+			\pgfmathdivide@{\anglestep}{2}%
+			\pgfmathsubtract@{90}{\pgfmathresult}%
+		\fi%
+		\pgfmathadd@{\pgfmathresult}{\pgfshapeborderrotate}%
+		\let\startangle\pgfmathresult%
+	}
 	%
 	% Saved anchors.
 	%
 	\savedanchor{\centerpoint}{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y.5\ht\pgfnodeparttextbox%
-		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
 	}%
-	
+	\savedanchor{\midpoint}{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%	
 	%
 	% Other anchors.
 	%
 	\anchor{center}{\centerpoint}%
 	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{.5ex}}%
  	\anchor{base}{\centerpoint\pgf@y=0pt}%
- 	\anchor{north}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+0pt}{+\radius}}}%
- 	\anchor{south}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+0pt}{+-\radius}}}%
- 	\anchor{east}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+\radius}{+0pt}}}%
- 	\anchor{west}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+-\radius}{+0pt}}}%
- 	\anchor{north east}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+\radius}{+\radius}}}%
- 	\anchor{north west}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+-\radius}{+\radius}}}%
- 	\anchor{south east}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+\radius}{+-\radius}}}%
- 	\anchor{south west}{\csname pgf@anchor@regular polygon@border\endcsname{\pgfpoint{+-\radius}{+-\radius}}}%
- 	
+ 	\anchor{north}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{0pt}{\anchorradius}}}%
+ 	\anchor{south}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{0pt}{-\anchorradius}}}%
+ 	\anchor{east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{\anchorradius}{0pt}}}%
+ 	\anchor{west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{-\anchorradius}{0pt}}}%
+ 	\anchor{north east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{\anchorradius}{\anchorradius}}}%
+ 	\anchor{north west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{-\anchorradius}{\anchorradius}}}%
+ 	\anchor{south east}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{\anchorradius}{-\anchorradius}}}%
+ 	\anchor{south west}{%
+ 		\calculateradii%
+ 		\csname pgf@anchor@regular polygon@border\endcsname{\pgfqpoint{-\anchorradius}{-\anchorradius}}}%	
  	%
-	% Background path.
-	%
+ 	% Background path.
+ 	%
 	\backgroundpath{%
-		%
-		% Redefine some stuff for ease of use.
-		%
-		\pgf@x\sides%
-		\c@pgf@counta\pgf@x%
-		\divide\c@pgf@counta65536\relax%
-		\edef\sides{\the\c@pgf@counta}%
-		\pgf@x\rotate%
-		\edef\rotate{\pgf@sys@tonumber{\pgf@x}}%
-		%
-		% Get the inner angle.
-		%
-		\pgf@y360pt\relax%
-		\divide\pgf@y\sides%
-		\edef\polygonanglestep{\the\pgf@y}%
-		%
-		% Now recalculate the polygon *corner* radius. 
-		%
-		\pgf@y.5\pgf@y%
-		\pgfmathcos@{\pgf@sys@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\radius\relax%
-		\pgf@x\pgfmathresult\pgf@x%
-		\pgf@xa\minimumsize\relax%
-		\ifdim\pgf@x<.5\pgf@xa%
-			\pgf@x.5\pgf@xa%
-		\fi%
-		\edef\polygonradius{\the\pgf@x}%
-		%
-		% Every polygon is drawn so that a side is at the bottom...
-		%
-		\pgf@x90pt\relax%
-		\ifodd\sides%
-		\else%
-			\advance\pgf@x-\pgf@y%
-		\fi%
-		%
-		% ...unless rotation is applied.
-		%
-		\pgf@xa\rotate pt\relax%
-		\advance\pgf@x\pgf@xa%
-		\edef\polygonangle{\the\pgf@x}%
-		%
-		% Move to first point.
-		%
+		\calculateradii%
 		\pgfpathmoveto{%
-			\pgfpointadd{\centerpoint}%
-				{\pgfpointpolar{+\polygonangle}{+\polygonradius}}%
+			\pgfpointadd{\centerpoint}{\pgfqpointpolar{\startangle}{\radius}}%
 		}%
+		\let\angle\startangle%
 		\pgfmathloop%
 			%
-			% Create anchors. Manually \xdef as \gdef is normally used by \anchor.
+			% If the corner and side anchors have not been declared 
+			% by a previous polygon shape. Define them here...
 			%
-			\expandafter\xdef\csname pgf@anchor@regular polygon@corner\space\pgfmathcounter\endcsname{%
-				\noexpand\pgf@lib@shapescorneranchor{\pgfmathcounter}%
-			}%
-			\expandafter\xdef\csname pgf@anchor@regular polygon@side\space\pgfmathcounter\endcsname{%
-				\noexpand\pgf@lib@shapessideanchor{\pgfmathcounter}%
-			}%
-			\ifnum\pgfmathcounter=\sides\relax% Stop.
-			\else%
-			\pgf@x\polygonangle\relax%
-			\advance\pgf@x\polygonanglestep\relax%
-			\edef\polygonangle{\the\pgf@x}%
+			\pgfutil@ifundefined{pgf@anchor@regular polygon@corner\space\pgfmathcounter}{%
+				%
+				% ...(manually \xdef as \gdef is normally used by \anchor)...
+				%
+				\expandafter\xdef\csname pgf@anchor@regular polygon@corner\space\pgfmathcounter\endcsname{%
+					\noexpand\calculateradii%
+					\noexpand\pgfmathsubtract@{\pgfmathcounter}{1}%
+					\noexpand\pgfmathmultiply@{\noexpand\pgfmathresult}{\noexpand\anglestep}%
+					\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\startangle}%
+					\noexpand\let\noexpand\angle\noexpand\pgfmathresult%
+					\noexpand\pgfpointadd{\noexpand\centerpoint}%
+						{\noexpand\pgfqpointpolar{\noexpand\angle}{\noexpand\anchorradius}}%
+				}%
+				\expandafter\xdef\csname pgf@anchor@regular polygon@side\space\pgfmathcounter\endcsname{%
+					\noexpand\calculateradii%
+					\noexpand\pgfmathsubtract@{\pgfmathcounter}{1}%
+					\noexpand\pgfmathmultiply@{\noexpand\pgfmathresult}{\noexpand\anglestep}%
+					\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\startangle}%
+					\noexpand\let\noexpand\firstangle\noexpand\pgfmathresult%
+					\noexpand\pgfmathadd@{\noexpand\pgfmathresult}{\noexpand\anglestep}%
+					\noexpand\let\noexpand\secondangle\noexpand\pgfmathresult%
+					\noexpand\pgfpointlineattime{0.5}%
+						{\noexpand\pgfpointadd{\noexpand\centerpoint}%
+							{\noexpand\pgfqpointpolar{\noexpand\firstangle}{\noexpand\anchorradius}}}%
+						{\noexpand\pgfpointadd{\noexpand\centerpoint}%
+							{\noexpand\pgfqpointpolar{\noexpand\secondangle}{\noexpand\anchorradius}}}%
+				}%
+			}{}% ...Or do nothing.
+		\ifnum\pgfmathcounter=\sides\relax% 
+			\pgfpathclose%
+		\else%
+			\pgfmathadd@{\angle}{\anglestep}%
+			\let\angle\pgfmathresult%
 			\pgfpathlineto{%
-				\pgfpointadd{\centerpoint}%
-					{\pgfpointpolar{+\polygonangle}{+\polygonradius}}%
+				\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angle}{\radius}}%
 			}%
-			\repeatpgfmathloop%
-		\pgfpathclose%
+		\repeatpgfmathloop%	
 	}%
-	
-	%
-	% Anchor border.
-	%
-	\anchorborder{%
-		%
-		% Save the external point.
-		%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@xa\pgf@x%
-		\advance\pgf@ya\pgf@y%
-		\edef\externalx{\the\pgf@xa}%
-		\edef\externaly{\the\pgf@ya}%
-		\pgf@process{\pgfpointdiff{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}}%
-		%
-		% Approximate the angle of the external point...
-		%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\pgf@xb\pgf@x%
-		\pgf@yb\pgf@y%
-		\ifdim\pgf@xa<0pt\relax%
-			\pgf@xa-\pgf@xa%
-		\fi%
-		\ifdim\pgf@ya<0pt\relax%
-			\pgf@ya-\pgf@ya%
-		\fi%
-		\ifdim\pgf@ya>\pgf@xa%
-			\pgf@x\pgf@xa%
-			\pgf@y\pgf@ya%
-		\else%
-			\pgf@x\pgf@ya%
-			\pgf@y\pgf@xa%
-		\fi%
-		\ifdim\pgf@y=0pt\relax%
-			\pgf@x0pt%
-		\else%
-			\pgfmathreciprocal@{\pgf@sys@tonumber{\pgf@y}}%
-			\pgf@x\pgfmathresult\pgf@x%
-		\fi%
-		\multiply\pgf@x1000\relax%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgf@counta\the\pgf@x\relax\pgfmath@%
-		\expandafter\pgf@x\csname pgfmath@atan@\the\c@pgf@counta\endcsname pt\relax%
-		\ifdim\pgfmath@ya>\pgfmath@xa\relax%
-			\pgf@x-\pgf@x%
-			\advance\pgf@x90pt%
-		\fi%
-		\ifdim\pgf@xb<0pt%
-			\ifdim\pgf@yb>0pt%
-				\pgf@x-\pgf@x%
-			\fi%
-			\advance\pgf@x180pt\relax%
-		\else%
-			\ifdim\pgf@yb<0pt%
-			\pgf@x-\pgf@x%
-			\advance\pgf@x360pt\relax%
-		\fi\fi%
-		%
-		% ...(redefine stuff for ease of use)...
-		%
-		\pgf@y\sides%
-		\c@pgf@counta\pgf@y%
-		\divide\c@pgf@counta65536\relax%
-		\edef\sides{\the\c@pgf@counta}%
-		\pgf@y\rotate%
-		\edef\rotate{\pgf@sys@tonumber{\pgf@y}}%		
-		%
-		% ...now adjust angle, for the number of polygon sides...
-		%
-		\advance\pgf@x-90pt\relax%
-		\pgf@xa180pt\relax%
-		\divide\pgf@xa\sides%
-		%
-		% ...and for if the there is an even number of sides...
-		%
-		\ifodd\sides%
-		\else%
-			\advance\pgf@x\pgf@xa%
-		\fi%
-		\ifdim\pgf@x<0pt\relax%
-			\advance\pgf@x360pt\relax%
-		\fi%
-		%
-		% ...and also for rotation.
-		%
-		\advance\pgf@x-\rotate pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-			\advance\pgf@x360pt\relax%
-		\fi%
-		%
-		% Now, locate the start and end points on the polygon border segment...
-		%
-		\c@pgf@counta\sides\relax%
-		\pgf@y360pt\relax%
-		\divide\pgf@y\c@pgf@counta\relax%
-		\pgfmathreciprocal@{\pgf@sys@tonumber{\pgf@y}}%
-		\pgf@x\pgfmathresult\pgf@x%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgf@counta\the\pgf@x\relax\pgfmath@%
-		%
-		% ...and hence, the start and end angles of the polygon border segment.
-		%
-		\pgf@x\pgf@y%
-		\multiply\pgf@x\c@pgf@counta%
-		\advance\pgf@x90pt%
-		\ifodd\sides%
-		\else%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\advance\pgf@x\rotate pt\relax%
-		\edef\firstangle{\the\pgf@x}%
-		\advance\c@pgf@counta1\relax%
-		\pgf@x\pgf@y%
-		\multiply\pgf@x\c@pgf@counta%
-		\advance\pgf@x\rotate pt\relax%
-		\advance\pgf@x90pt%
-		\ifodd\sides%
-		\else%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\edef\secondangle{\the\pgf@x}%
-		%
-		% Get the inner angle.
-		%
-		\pgf@y360pt\relax%
-		\divide\pgf@y\sides%
-		%
-		% Now recalculate the polygon *corner* radius... 
-		%
-		\pgf@y.5\pgf@y%
-		\pgfmathcos@{\pgf@sys@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\radius\relax%
-		\pgf@x\pgfmathresult\pgf@x%
-		\edef\polygonradius{\the\pgf@x}%
-		%
-		% ...and add the outer sep to the corner radius...
-		%
-		\pgf@xa\minimumsize\relax%
-    	\ifdim\pgf@x<.5\pgf@xa%
-    		\pgf@x.5\pgf@xa%
-    	\fi%
-    	\pgf@xa\outersep\relax%
-    	\advance\pgf@x\pgf@xa%
-		\edef\radius{\the\pgf@x}%
-		%
-		% ...and calculate the point on the intersection of
-		% the line from the external point to \centerpoint and
-		% the segment of the star border.
-		%
-		\pgfpointintersectionoflines{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}%
-			{%
-				\pgfpointadd{\centerpoint}%
-					{\pgfpointpolar{+\firstangle}{+\radius}}%
-				}%	
-				{%
-					\pgfpointadd{\centerpoint}%
-						{\pgfpointpolar{+\secondangle}{+\radius}}%
-				}%	
-	}%
-}%
-
-
-% \pgf@lib@shapespolygoncorneranchor
-%
-% Used internally to calculate corner anchor positions.  
-%
-\def\pgf@lib@shapescorneranchor#1{%
-	%
-	% Redefine stuff for ease of use.
-	%
-	\pgf@y\sides%
-	\c@pgf@counta\pgf@y%
-	\divide\c@pgf@counta65536\relax%
-	\edef\sides{\the\c@pgf@counta}%
-	\pgf@y\rotate%
-	\edef\rotate{\pgf@sys@tonumber{\pgf@y}}%
-	%
-	% Get the inner angle.
-	%
-	\pgf@y360pt\relax%
-	\divide\pgf@y\sides\relax%
-	\edef\polgonanglestep{\pgf@sys@tonumber{\pgf@y}}%
-	%
-	% Recalculate the polygon corner radius...
-	%
-	\pgf@y.5\pgf@y%
-	\pgfmathcos@{\pgf@sys@tonumber{\pgf@y}}%
-	\pgfmathreciprocal@{\pgfmathresult}%
-	\pgf@x\radius\relax%
-	\pgf@x\pgfmathresult\pgf@x%
-	\edef\polygonradius{\the\pgf@x}%
-	%
-	% ...adjust for minimum size...
-	%
-	\pgf@xa\minimumsize\relax%
-   \ifdim\pgf@x<.5\pgf@xa%
-   	\pgf@x.5\pgf@xa%
-   \fi%
-	%
-	% ...and add the outer sep.
-	%	
-	\pgf@xa\outersep\relax%
-   \advance\pgf@x\pgf@xa%		
-	\edef\polygonradius{\the\pgf@x}%
-	%
-	% Calculate the angle.
-	%	
-	\c@pgf@counta#1\relax%
-	\advance\c@pgf@counta-1\relax%
-	\pgf@x2.0\pgf@y%
-	\multiply\pgf@x\c@pgf@counta%
-	\pgf@xa\rotate pt\relax%
-	\advance\pgf@x\pgf@xa%
-	\advance\pgf@x90pt\relax%
-	\ifodd\sides%
-	\else%
-		\advance\pgf@x-\pgf@y%
-	\fi%
-	\edef\polygonangle{\the\pgf@x}%
-	\pgfpointadd{\centerpoint}%
-			{\pgfpointpolar{\polygonangle}{\polygonradius}}%
-}%
-
-% \pgf@lib@shapespolygonsideanchor
-%
-% Used internally to calculate side anchor positions.  
-%
-\def\pgf@lib@shapessideanchor#1{%
-	%
-	% Redefine stuff for ease of use.
-	%
-	\pgf@y\sides%
-	\c@pgf@counta\pgf@y%
-	\divide\c@pgf@counta65536\relax%
-	\edef\sides{\the\c@pgf@counta}%
-	\pgf@y\rotate%
-	\edef\rotate{\pgf@sys@tonumber{\pgf@y}}%
-	%
-	% Get the inner angle.
-	%
-	\pgf@y360pt\relax%
-	\divide\pgf@y\sides\relax%
-	\edef\polygonanglestep{\the\pgf@y}%
-	%
-	% Recalculate the polygon corner radius...
-	%
-	\pgf@y.5\pgf@y%
-	\pgfmathcos@{\pgf@sys@tonumber{\pgf@y}}%
-	\pgfmathreciprocal@{\pgfmathresult}%
-	\pgf@x\radius\relax%
-	\pgf@x\pgfmathresult\pgf@x%
-	%
-	% ...adjust for minimum size...
-	%
-	\pgf@xa\minimumsize\relax%
-  	\ifdim\pgf@x<.5\pgf@xa%
-   	\pgf@x.5\pgf@xa%
-   \fi%
-	%
-	% and add the outer sep.
-	%	
-	\pgf@xa\outersep\relax%
-   \advance\pgf@x\pgf@xa%		
-	\edef\polygonradius{\the\pgf@x}%
-	%
-	% Calculate the angle.
-	%
-	\pgf@y\polygonanglestep%
-	\c@pgf@counta#1\relax%
-	\advance\c@pgf@counta-1\relax%
-	\pgf@x\polygonanglestep pt\relax%
-	\multiply\pgf@x\c@pgf@counta%
-	\pgf@xa\rotate pt\relax%
-	\advance\pgf@x\pgf@xa%
-	\advance\pgf@x90pt\relax%
-	\ifodd\sides%
-	\else%
-		\advance\pgf@x-.5\pgf@y%
-	\fi%
-	\edef\firstangle{\the\pgf@x}%
-	\advance\pgf@x\pgf@y%
-	\edef\secondangle{\the\pgf@x}%
-	\pgfpointlineattime{0.5}{%
-		\pgfpointadd{\centerpoint}{\pgfpointpolar{+\firstangle}{+\polygonradius}}%
-		}{%
-			\pgfpointadd{\centerpoint}{\pgfpointpolar{+\secondangle}{+\polygonradius}}%
-	}%
-}%
-
-% \pgfsettriangleapexangle
-%
-% Set the apex angle for the triangle.
-%
-\def\pgfsettriangleapexangle#1{\pgfmathsetmacro\pgftriangleapexangle{#1}}
-\pgfsettriangleapexangle{45}
-
-% \pgfsettrianglerotation
-%
-% Set the border rotation for the triangle.
-%
-\def\pgfsettrianglerotate#1{\pgfmathsetmacro\pgftrianglerotate{#1}}%
-\pgfsettrianglerotate{90}
-
-%
-% Shape isosceles triangle
-%
-\pgfdeclareshape{isosceles triangle}{%
-	\savedmacro{\angle}{\let\angle\pgftriangleapexangle}%
-	\savedmacro{\angletolowerleftpoint}{%
-		\pgf@x\pgftriangleapexangle pt\relax%
-		\divide\pgf@x-4\relax%
-		\advance\pgf@x135pt%
-		\advance\pgf@x\pgftrianglerotate pt\relax%
-		\pgfmathmod@{\pgfmath@tonumber{\pgf@x}}{360}%
-		\pgf@x\pgfmathresult pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-		\advance\pgf@x360pt\relax%
-		\fi%
-		\edef\angletolowerleftpoint{\pgfmath@tonumber{\pgf@x}}%
-	}
-	\savedmacro{\angletolowerrightpoint}{%
-		\pgf@x\pgftriangleapexangle pt\relax%
-		\divide\pgf@x4\relax%
-		\advance\pgf@x225pt%
-		\advance\pgf@x\pgftrianglerotate pt\relax%
-		\pgfmathmod@{\pgfmath@tonumber{\pgf@x}}{360}%
-		\pgf@x\pgfmathresult pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-		\advance\pgf@x360pt\relax%
-		\fi%
-		\edef\angletolowerrightpoint{\pgfmath@tonumber{\pgf@x}}%
-	}
-	\savedmacro{\angletoapex}{%
-		\pgf@x\pgftrianglerotate pt\relax%
-		\pgfmathmod@{\pgfmath@tonumber{\pgf@x}}{360}%
-		\pgf@x\pgfmathresult pt\relax%
-		\ifdim\pgf@x<0pt\relax%
-		\advance\pgf@x360pt\relax%
-		\fi%
-		\edef\angletoapex{\pgfmath@tonumber{\pgf@x}}%
-	}
-	\saveddimen{\radius}{%
-		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
-		\ifdim\pgf@x<\pgf@y%
-			\pgf@x\pgf@y%
-		\fi%
-		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@x}}%
-		\pgf@x\pgfmathresult pt\relax%
-		%
-		% Now adjust the incircle radius r for minimum height H,
-		% and minimum width W. If a is the apex angle, then
-		%
-		% r >= H * sin(a/2) / (1 + sin(a/2)), and
-		% r >= W / 2 * cos(a/2) / (1 + sin(a/2))
-		%
-		% Adjusting the height changes the width (and vice versa)
-		% in order to maintain the apex angle of the triangle.
-		%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
-		\pgfmathsetlength\pgf@yb{+\pgfshapeminwidth}%
-		\pgf@xb\pgftriangleapexangle pt\relax%
-		\divide\pgf@xb2\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@ya\pgfmathresult\pgf@ya\relax%
-		\pgf@xc\pgfmathresult pt\relax%
-		\advance\pgf@xc1pt\relax%
-		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}%
-		\pgf@ya\pgfmathresult\pgf@ya%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@yb\pgfmathresult\pgf@yb%	
-		\pgf@yb.5\pgf@yb%	
-		%
-		% ya is the incircle radius for the minimum height
-		% yb is the incircle radius for the minimum width
-		%
-		\ifdim\pgf@x<\pgf@ya%
-			\pgf@x\pgf@ya%
-		\fi%
-		\ifdim\pgf@x<\pgf@yb%
-			\pgf@x\pgf@yb%
-		\fi%
-	}
-	\saveddimen{\apexradius}{%
-		%
-		% This is the distance from the center of the
-		% incircle to the apex of the triangle.
-		%
-		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
-		\ifdim\pgf@x<\pgf@y%
-			\pgf@x\pgf@y%
-		\fi%
-		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@x}}%
-		\pgf@x\pgfmathresult pt\relax%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
-		\pgfmathsetlength\pgf@yb{+\pgfshapeminwidth}%
-		\pgf@xb\pgftriangleapexangle pt\relax%
-		\divide\pgf@xb2\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@ya\pgfmathresult\pgf@ya\relax%
-		\pgf@xc\pgfmathresult pt\relax%
-		\advance\pgf@xc1pt\relax%
-		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}%
-		\pgf@ya\pgfmathresult\pgf@ya%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@yb\pgfmathresult\pgf@yb%	
-		\pgf@yb.5\pgf@yb%	
-		\ifdim\pgf@x<\pgf@ya%
-			\pgf@x\pgf@ya%
-		\fi%
-		\ifdim\pgf@x<\pgf@yb%
-			\pgf@x\pgf@yb%
-		\fi%
-		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeouterysep}%
-		\ifdim\pgf@xa<\pgf@ya%
-			\pgf@xa\pgf@ya%
-		\fi%
-		\advance\pgf@x\pgf@xa%	
-		\pgf@xa\pgftriangleapexangle pt\relax%
-		\divide\pgf@xa2\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\pgfmathresult\pgf@x%	
-	}
-	\saveddimen{\lowerpointradius}{%
-		%
-		% This is the distance from the center of the
-		% incircle to the lower left or right point
-		% of the triangle.
-		%
-		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
-		\ifdim\pgf@x<\pgf@y%
-			\pgf@x\pgf@y%
-		\fi%
-		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@x}}%
-		\pgf@x\pgfmathresult pt\relax%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
-		\pgfmathsetlength\pgf@yb{+\pgfshapeminwidth}%
-		\pgf@xb\pgftriangleapexangle pt\relax%
-		\divide\pgf@xb2\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@ya\pgfmathresult\pgf@ya\relax%
-		\pgf@xc\pgfmathresult pt\relax%
-		\advance\pgf@xc1pt\relax%
-		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}%
-		\pgf@ya\pgfmathresult\pgf@ya%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xb}}%
-		\pgf@yb\pgfmathresult\pgf@yb%	
-		\pgf@yb.5\pgf@yb%	
-		\ifdim\pgf@x<\pgf@ya%
-			\pgf@x\pgf@ya%
-		\fi%
-		\ifdim\pgf@x<\pgf@yb%
-			\pgf@x\pgf@yb%
-		\fi%
-		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeouterysep}%
-		\ifdim\pgf@xa<\pgf@ya%
-			\pgf@xa\pgf@ya%
-		\fi%
-		\advance\pgf@x\pgf@xa%
-		\pgf@y\pgftriangleapexangle pt\relax%
-		\divide\pgf@y-4\relax%
-		\advance\pgf@y45pt\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\pgfmathresult\pgf@x%
-	}
-	\savedanchor{\centerpoint}{%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
-	}
-	\anchor{center}{\centerpoint}
-	\anchor{base}{\centerpoint\pgf@y0pt\relax}
-	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{+.5ex}}
-	\anchor{north}{%
-		%
-		% A teensy bit clumsy, but guarantees the 
-		% point is outside the triangle border.
-		%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{90}{\the\pgf@y}}%
-	}
-	\anchor{south}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{270}{\the\pgf@y}}%
-	}
-	\anchor{east}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{0}{\the\pgf@y}}%
-	}
-	\anchor{west}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{180}{\the\pgf@y}}%
-	}	
-	\anchor{north west}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{135}{\the\pgf@y}}%
-	}	
-	\anchor{north east}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{45}{\the\pgf@y}}%
-	}	
-	\anchor{south west}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{225}{\the\pgf@y}}%
-	}	
-	\anchor{south east}{%
-		\pgf@y\apexradius\relax%
-		\advance\pgf@y\lowerpointradius%
-		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{315}{\the\pgf@y}}%
-	}	
-	\anchor{apex}{%
-		\pgf@process{\pgfqpointpolar{\angletoapex}{\apexradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-	}
-	\anchor{point 1}{%
-		\pgf@process{\pgfqpointpolar{\angletoapex}{\apexradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-	}
-	\anchor{point 2}{%
-		\pgf@process{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-	}
-	\anchor{point 3}{%
-		\pgf@process{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-	}
-	\anchor{side 1}{%
-		\pgf@process{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pgfqpointpolar{\angletoapex}{\apexradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgfpointlineattime{0.5}{\firstpoint}{\secondpoint}%
-	}
-	\anchor{side 2}{%
-		\pgf@process{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgfpointlineattime{0.5}{\firstpoint}{\secondpoint}%
-	}
-	\anchor{side 3}{%
-		\pgf@process{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pgfqpointpolar{\angletoapex}{\apexradius}}%
-		\pgf@xa\pgf@x%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\advance\pgf@x\pgf@xa%
-		\advance\pgf@y\pgf@ya%
-		\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgfpointlineattime{0.5}{\firstpoint}{\secondpoint}%
-	}
-	\backgroundpath{%
-		\pgf@x\radius\relax%
-		\pgf@y\angle pt\relax%
-		\divide\pgf@y2\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@xa\pgfmathresult\pgf@x%
-		\edef\apexradius{\the\pgf@xa}%
-		\divide\pgf@y-2\relax%
-		\advance\pgf@y45pt\relax%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@xa\pgfmathresult\pgf@x%
-		\edef\lowerpointradius{\the\pgf@xa}%
-		\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletoapex}{\apexradius}}}%
-		\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}}%
-		\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}}%
-		\pgfpathclose%
-	}
 	\anchorborder{%
 		%
 		% Save x and y.
@@ -1580,7 +898,7 @@
 		\edef\externaly{\the\pgf@y}%
 		%
 		% Adjust the location of the external 
-		% point relative to the centerpoint.
+		% point relative to \centerpoint.
 		%
 		\centerpoint%
 		\pgf@xa\externalx\relax%
@@ -1590,41 +908,42 @@
 		\edef\externalx{\the\pgf@xa}%
 		\edef\externaly{\the\pgf@ya}%
 		%
-		% Get the angle of the external point.
+		% Get the angle of the external point to the \centerpoint.
 		%
 		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-		\let\externalangle\pgfmathresult%
 		%
-		% Locate the appropriate side on the border...
-		%		
-		\ifdim\externalangle pt<\angletoapex pt\relax%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}}%
-			\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletoapex}{\apexradius}}}%
-			\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\else%
-			\ifdim\externalangle pt<\angletolowerleftpoint pt\relax%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletoapex}{\apexradius}}}%
-				\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}}%
-				\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\else%
-				\ifdim\externalangle pt<\angletolowerrightpoint pt\relax%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerleftpoint}{\lowerpointradius}}}%
-					\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}}%
-					\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\else%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletolowerrightpoint}{\lowerpointradius}}}%
-					\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpointpolar{\angletoapex}{\apexradius}}}%
-					\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\fi\fi\fi%
-		% ...and hence the point on the border.
-		\pgfpointintersectionoflines{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-			{\firstpoint}{\secondpoint}%
-		}
+		% Locate the appropriate sides on the polygon border...
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\startangle}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
+		\fi%
+		\pgfmathdivide@{\pgfmathresult}{\anglestep}%
+		\pgfmathfloor@{\pgfmathresult}%
+		\pgfmathmultiply@{\pgfmathresult}{\anglestep}%
+		\pgfmathadd@{\pgfmathresult}{\startangle}%
+		\let\firstangle\pgfmathresult%
+		\pgfmathadd@{\pgfmathresult}{\anglestep}%
+		\let\secondangle\pgfmathresult%
+		\calculateradii%
+		%
+		% ...and thus, the point on the polygon border.
+		%
+		\pgfpointintersectionoflines{\centerpoint}{\pgfpoint{+\externalx}{+\externaly}}%
+			{%
+				\pgfpointadd{\centerpoint}%
+					{\pgfqpointpolar{+\firstangle}{+\anchorradius}}%
+				}%	
+				{%
+					\pgfpointadd{\centerpoint}%
+						{\pgfqpointpolar{+\secondangle}{+\anchorradius}}%
+				}%	
+	}
 }
+
+
+
+
 
 % \pgfsettrapeziumleftextension
 %
@@ -1635,6 +954,7 @@
 	\pgfmathparse{#1}%
 	\edef\pgftrapeziumleftextension{\pgfmathresult pt}%
 }
+\pgfsettrapeziumleftextension{1.5ex}
 
 % \pgfsettrapeziumleftextension
 %
@@ -1645,326 +965,1441 @@
 	\pgfmathparse{#1}%
 	\edef\pgftrapeziumrightextension{\pgfmathresult pt}%
 }
+\pgfsettrapeziumrightextension{1.5ex}
 
- 
-% \pgfsettrapeziumleftextension
-% 
-% Set both lower corner extensions. Negative 
-% extensions extend the upper corners.
+% Shape trapezium.
 %
-\def\pgfsettrapeziumextension#1{%
-	\pgfmathparse{#1}%
-	\edef\pgftrapeziumleftextension{\pgfmathresult pt}%
-	\edef\pgftrapeziumrightextension{\pgfmathresult pt}%
-}
-\pgfsettrapeziumextension{1.5ex}
-
 \pgfdeclareshape{trapezium}{
-	\saveddimen{\leftextension}{\pgf@x\pgftrapeziumleftextension\relax}%
-	\saveddimen{\rightextension}{\pgf@x\pgftrapeziumrightextension\relax}%
-	\saveddimen{\linewidth}{\pgfmathsetlength\pgf@x{+\pgflinewidth}}%
-	\saveddimen{\halfwidth}{%
+	\savedmacro\installtrapeziumparameters{%
+		%
+		% Get the node dimensions.
+		%
 		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}
-		\pgfmathaddtolength\pgf@x{+\pgfshapeouterxsep}%
-	}
-	\saveddimen{\halfheight}{%
-		\pgfmathsetlength\pgf@x{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@x{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@x{+.5\dp\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeminheight}%
-		\ifdim\pgf@x<.5\pgf@y%
-			\pgf@x.5\pgf@y
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
+		\ifpgfshapeborderusesincircle%
+			%
+			% Get the rotation (no rounding).
+			%
+			\let\rotate\pgfshapeborderrotate%
+			%
+			% Use the radius of the incircle if required...
+			%
+			\ifdim\pgf@x<\pgf@y%
+				\pgf@x\pgf@y%
+			\fi%			
+			\pgf@x1.41421\pgf@x%
+			\pgf@y\pgf@x%
+		\else%
+			%
+			% Get the rotation (with rounding).
+			%
+			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
+			\advance\c@pgf@counta45\relax%
+			\divide\c@pgf@counta90\relax%
+			\multiply\c@pgf@counta90\relax%
+			\ifnum\c@pgf@counta<0\relax%
+				\advance\c@pgf@counta360\relax%
+			\fi%
+			\edef\rotate{\the\c@pgf@counta}%
+			%
+			% Calculate the width and height of the node
+			% contents, according to any border rotation.
+			%
+			\ifnum\c@pgf@counta=90\relax%
+				\pgf@xc\pgf@x%
+				\pgf@x\pgf@y%
+				\pgf@y\pgf@xc%
+			\else%
+				\ifnum\c@pgf@counta=270\relax%
+					\pgf@xc\pgf@x%
+					\pgf@x\pgf@y%
+					\pgf@y\pgf@xc%
+				\fi%
+			\fi%
 		\fi%
-		\pgfmathaddtolength\pgf@x{+\pgfshapeouterysep}%
-	}%
-	\savedmacro{\rightcosangle}{%
-		\pgfmathsetlength\pgf@x{+\pgftrapeziumrightextension}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
-		\multiply\pgf@y2\relax%
-		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\pgfmathresult\pgf@y%
-		\def\rightcosangle{\pgfmath@tonumber{\pgf@x}}%
-	}
-	\savedmacro{\leftcosangle}{%
-		\pgfmathsetlength\pgf@x{+\pgftrapeziumleftextension}%
-		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
-		\multiply\pgf@y2\relax%
-		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@x\pgfmathresult\pgf@y%
-		\def\leftcosangle{\pgfmath@tonumber{\pgf@x}}%
-	}
-	\saveddimen{\outerxsep}{%
+		%
+		% Take into account minimum height and width.
+		%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
+		\ifdim\pgf@y<.5\pgf@ya%
+			\pgf@y.5\pgf@ya%
+		\fi%
+		\edef\halfheight{\the\pgf@y}%
+		\pgfmathsetlength\pgf@xa{+\pgftrapeziumleftextension}%
+		\edef\leftextension{\the\pgf@xa}%
+		\ifdim\pgf@xa<0pt\relax%
+			\pgf@xa-\pgf@xa%
+		\fi%
+		\pgfmathsetlength\pgf@xb{+\pgftrapeziumrightextension}%
+		\edef\rightextension{\the\pgf@xb}%
+		\ifdim\pgf@xb<0pt\relax%
+			\advance\pgf@xa-\pgf@xb%
+		\else%
+			\advance\pgf@xa\pgf@xb%
+		\fi%
+		\pgf@xb\pgf@xa\relax%
+		\advance\pgf@xb2.0\pgf@x%
+		%
+		% The body of the trapezium is extended to 
+		% accommodate any minimum width.
+		%
+		\pgfmathsetlength\pgf@yc{+\pgfshapeminwidth}%
+		\ifdim\pgf@xb<\pgf@yc%
+			\pgf@xb\pgf@yc%
+			\pgf@xc\pgf@xb%
+			\ifdim\leftextension<0pt\relax%
+				\advance\pgf@xc\leftextension%
+			\else%
+				\advance\pgf@xc-\leftextension%
+			\fi%
+			\ifdim\rightextension<0pt\relax%
+				\advance\pgf@xc\rightextension%
+			\else%
+				\advance\pgf@xc-\rightextension%
+			\fi%
+			\divide\pgf@xc2\relax%
+			\pgf@x\pgf@xc%
+		\fi%
+		\edef\halfwidth{\the\pgf@x}%
+		\pgf@xc\pgf@xb%
+		%
+		% Take the larger of the outer sep.
+		%
 		\pgfmathsetlength\pgf@x{+\pgfshapeouterxsep}%
-	}%
-	\saveddimen{\outerysep}{%
-		\pgfmathsetlength\pgf@x{+\pgfshapeouterysep}%
-	}%
-	\saveddimen{\upperleft}{%
-		\pgfmathsetlength\pgf@x{+-\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+-.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@xa{+\pgftrapeziumleftextension}%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x\pgf@xa%
+		\pgfmathsetlength\pgf@y{+\pgfshapeouterysep}%
+		\ifdim\pgf@y>\pgf@x%
+			\pgf@x\pgf@y%
+		\fi%
+		\edef\outersep{\the\pgf@x}%
+		%
+		% The \externalradius is a length that is
+		% guarenteed to produce a point outside the trapezium.
+		%
+		\advance\pgf@xc2.0\pgf@x%
+		\pgf@yc\halfheight\relax%
+		\multiply\pgf@yc2\relax%
+		\advance\pgf@yc2.0\pgf@x%
+		\ifdim\pgf@xc<\pgf@yc%
+			\edef\externalradius{\the\pgf@yc}%
 		\else%
-			\advance\pgf@x-\pgf@xa%
+			\edef\externalradius{\the\pgf@xc}%
 		\fi%
-		\ifdim\pgf@x>-.5\pgf@xb%
-			\pgf@x-.5\pgf@xb%
+		%
+		% Calculate the centre base and mid poins of the node.
+		%
+		\pgfsavepgf@process\centerpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+			\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+		}%
+		\pgfsavepgf@process\basepoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgf@y0pt\relax%
+		}%
+		\pgfsavepgf@process\midpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5ex}%
+		}%
+		%
+		% Calculate each point on the trapezium (without rotation).
+		%
+		\pgfsavepgf@process\lowerleftpoint{%
+			\centerpoint%
+			\advance\pgf@x-\halfwidth\relax%
+			\ifdim\leftextension>0pt\relax%
+				\advance\pgf@x-\leftextension\relax%
+			\fi%
+			\advance\pgf@y-\halfheight\relax%
+		}%
+		\pgfsavepgf@process\upperleftpoint{%
+			\centerpoint%
+			\advance\pgf@x-\halfwidth\relax%
+			\ifdim\leftextension<0pt\relax%
+				\advance\pgf@x\leftextension\relax%
+			\fi%
+			\advance\pgf@y\halfheight\relax%
+		}%
+		\pgfsavepgf@process\upperrightpoint{%
+			\centerpoint%
+			\advance\pgf@x\halfwidth\relax%
+			\ifdim\rightextension<0pt\relax%
+				\advance\pgf@x-\rightextension\relax%
+			\fi%
+			\advance\pgf@y\halfheight\relax%
+		}%
+		\pgfsavepgf@process\lowerrightpoint{%
+			\centerpoint%
+			\advance\pgf@x\halfwidth\relax%
+			\ifdim\rightextension>0pt\relax%
+				\advance\pgf@x\rightextension\relax%
+			\fi%
+			\advance\pgf@y-\halfheight\relax%
+		}%
+		%
+		% Now calculate the adjustment for the miter length at each corner 
+		% of the trapezium. This ensures more accurate anchor positioning
+		% when the line width is particularly thick.
+		%
+		\pgfsavepgf@process\lowerleftmiter{%
+			\pgfmathanglebetweenlines{\lowerleftpoint}{\lowerrightpoint}{\lowerleftpoint}{\upperleftpoint}%
+			\pgfmathmultiply@{\pgfmathresult}{.5}%
+			\pgfmathtan@{\pgfmathresult}%	
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@x-\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y-\outersep\relax%
+		}%
+		\pgfsavepgf@process\upperleftmiter{%
+			\pgfmathanglebetweenlines{\upperleftpoint}{\lowerleftpoint}{\upperleftpoint}{\upperrightpoint}%
+			\pgfmathmultiply@{\pgfmathresult}{.5}%
+			\pgfmathtan@{\pgfmathresult}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@x-\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y\outersep\relax%
+		}%
+		\pgfsavepgf@process\upperrightmiter{%
+			\pgfmathanglebetweenlines{\upperrightpoint}{\upperleftpoint}{\upperrightpoint}{\lowerrightpoint}%
+			\pgfmathmultiply@{\pgfmathresult}{.5}%
+			\pgfmathtan@{\pgfmathresult}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@x\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y\outersep\relax%
+		}%
+		\pgfsavepgf@process\lowerrightmiter{%
+			\pgfmathanglebetweenlines{\lowerrightpoint}{\upperrightpoint}{\lowerrightpoint}{\lowerleftpoint}%
+			\pgfmathmultiply@{\pgfmathresult}{.5}%
+			\pgfmathtan@{\pgfmathresult}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@x\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y-\outersep\relax%
+		}%
+		%
+		% Now calculate the corners for determining anchor border
+		% points, by adding the adjustment for the miter length.
+		%
+		\pgfsavepgf@process\lowerleftborderpoint{%
+			\pgfpointadd{\lowerleftpoint}{\lowerleftmiter}%
+		}%
+		\pgfsavepgf@process\upperleftborderpoint{%
+			\pgfpointadd{\upperleftpoint}{\upperleftmiter}%
+		}%
+		\pgfsavepgf@process\upperrightborderpoint{%
+			\pgfpointadd{\upperrightpoint}{\upperrightmiter}%
+		}%
+		\pgfsavepgf@process\lowerrightborderpoint{%
+			\pgfpointadd{\lowerrightpoint}{\lowerrightmiter}%
+		}%
+		%
+		% Calulate the angle from the centerpoint to each corner.
+		% Rotation is not important here (see \anchorborder code).
+		%
+		\pgfmathanglebetweenpoints{\centerpoint}{\lowerleftborderpoint}%
+		\let\angletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\upperleftborderpoint}%
+		\let\angletoupperleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\upperrightborderpoint}%
+		\let\angletoupperright\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\lowerrightborderpoint}%
+		\let\angletolowerright\pgfmathresult%
+		%
+		% Do the same for the *inversely rotated* base point...
+		%
+		\pgfsavepgf@process\rotatedbasepoint{%
+			\pgfmathrotatepointaround{\basepoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\lowerleftborderpoint}%
+		\let\baseangletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\upperleftborderpoint}%
+		\let\baseangletoupperleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\upperrightborderpoint}%
+		\let\baseangletoupperright\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\lowerrightborderpoint}%
+		\let\baseangletolowerright\pgfmathresult%
+		%
+		% And the *inversely rotated* mid point...
+		%
+		\pgfsavepgf@process\rotatedmidpoint{%
+			\pgfmathrotatepointaround{\midpoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\lowerleftborderpoint}%
+		\let\midangletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\upperleftborderpoint}%
+		\let\midangletoupperleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\upperrightborderpoint}%
+		\let\midangletoupperright\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\lowerrightborderpoint}%
+		\let\midangletolowerright\pgfmathresult%
+		%
+		% Now rotate the border points around the centerpoint...
+		%
+		\pgfsavepgf@process\lowerleftborderpoint{%
+			\pgfmathrotatepointaround%
+				{\lowerleftborderpoint}%
+				{\centerpoint}%
+				{\rotate}%
+		}%
+		\pgfsavepgf@process\upperleftborderpoint{%
+			\pgfmathrotatepointaround%
+				{\upperleftborderpoint}%
+				{\centerpoint}%
+				{\rotate}%
+		}%
+		\pgfsavepgf@process\upperrightborderpoint{%
+			\pgfmathrotatepointaround%
+				{\upperrightborderpoint}%
+				{\centerpoint}%
+				{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerrightborderpoint{%
+			\pgfmathrotatepointaround%
+				{\lowerrightborderpoint}%
+				{\centerpoint}%
+				{\rotate}%
+		}%
+		%
+		% ...and the points for drawing the border (i.e. no outer sep).
+		%
+		\pgfsavepgf@process\lowerleftpoint{%
+			\pgfmathrotatepointaround{\lowerleftpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\upperleftpoint{%
+			\pgfmathrotatepointaround{\upperleftpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\upperrightpoint{%
+			\pgfmathrotatepointaround{\upperrightpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerrightpoint{%
+			\pgfmathrotatepointaround{\lowerrightpoint}{\centerpoint}{\rotate}%
+		}%			
+		%
+		% And finally, save all the relevant stuff.
+		%
+		% Parameters are are logically grouped (hopefully more efficient in some way).
+		%
+		\def\getbackgroundpathpoints{%
+			\noexpand\def\noexpand\lowerleftpoint{\lowerleftpoint}%
+			\noexpand\def\noexpand\upperleftpoint{\upperleftpoint}%
+			\noexpand\def\noexpand\upperrightpoint{\upperrightpoint}%
+			\noexpand\def\noexpand\lowerrightpoint{\lowerrightpoint}%
+		}%
+		\def\getanchorborderpoints{%
+			\noexpand\def\noexpand\lowerleftborderpoint{\lowerleftborderpoint}%
+			\noexpand\def\noexpand\upperleftborderpoint{\upperleftborderpoint}%
+			\noexpand\def\noexpand\upperrightborderpoint{\upperrightborderpoint}%
+			\noexpand\def\noexpand\lowerrightborderpoint{\lowerrightborderpoint}%
+		}%
+		\def\getanchorborderangles{%
+			\noexpand\def\noexpand\angletolowerleft{\angletolowerleft}%
+			\noexpand\def\noexpand\angletoupperleft{\angletoupperleft}%
+			\noexpand\def\noexpand\angletoupperright{\angletoupperright}%
+			\noexpand\def\noexpand\angletolowerright{\angletolowerright}%
+			%
+			\noexpand\def\noexpand\baseangletolowerleft{\baseangletolowerleft}%
+			\noexpand\def\noexpand\baseangletoupperleft{\baseangletoupperleft}%
+			\noexpand\def\noexpand\baseangletoupperright{\baseangletoupperright}%
+			\noexpand\def\noexpand\baseangletolowerright{\baseangletolowerright}%
+			%
+			\noexpand\def\noexpand\midangletolowerleft{\midangletolowerleft}%
+			\noexpand\def\noexpand\midangletoupperleft{\midangletoupperleft}%
+			\noexpand\def\noexpand\midangletoupperright{\midangletoupperright}%
+			\noexpand\def\noexpand\midangletolowerright{\midangletolowerright}%
+		}%
+		\def\installtrapeziumparameters{%
+			\noexpand\def\noexpand\getbackgroundpathpoints{\getbackgroundpathpoints}%
+			\noexpand\def\noexpand\getanchorborderpoints{\getanchorborderpoints}%
+			\noexpand\def\noexpand\getanchorborderangles{\getanchorborderangles}%
+			\noexpand\def\noexpand\rotate{\rotate}%
+			\noexpand\def\noexpand\externalradius{\externalradius}%
+		}%
+	}
+	\savedanchor\centerpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{-.5\dp\pgfnodeparttextbox}%
+	}%
+	\savedanchor\basepoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}%
+	\savedanchor\midpoint{%
+		\centerpoint%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%
+	\anchor{center}{\centerpoint}%
+	\anchor{base}{\basepoint}%
+	\anchor{base east}{%
+		\installtrapeziumparameters%
+		\let\pgf@trapeziumanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{base west}{%
+		\installtrapeziumparameters%
+		\let\pgf@trapeziumanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}%
+	\anchor{mid}{\midpoint}%
+	\anchor{mid east}{%
+		\installtrapeziumparameters%
+		\let\pgf@trapeziumanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{mid west}{%
+		\installtrapeziumparameters%
+		\let\pgf@trapeziumanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}%
+	\anchor{north}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{0pt}{\externalradius}}%
+	}
+	\anchor{south}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{0pt}{-\externalradius}}%
+	}
+	\anchor{east}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{west}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}
+	\anchor{north east}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{\externalradius}}%
+	}
+	\anchor{south west}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{-\externalradius}{-\externalradius}}%
+	}
+	\anchor{south east}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
+	}
+	\anchor{north west}{%
+		\installtrapeziumparameters%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
+	}
+	\anchor{bottom left corner}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\lowerleftborderpoint%
+	}%
+	\anchor{top left corner}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\upperleftborderpoint%
+	}%
+	\anchor{top right corner}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\upperrightborderpoint%
+	}%
+	\anchor{bottom right corner}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\lowerrightborderpoint%
+	}%	
+	\anchor{left side}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\pgfpointlineattime{0.5}{\lowerleftborderpoint}{\upperleftborderpoint}%
+	}%	
+	\anchor{right side}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\pgfpointlineattime{0.5}{\lowerrightborderpoint}{\upperrightborderpoint}%
+	}%	
+	\anchor{top side}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\pgfpointlineattime{0.5}{\upperleftborderpoint}{\upperrightborderpoint}%
+	}%	
+	\anchor{bottom side}{%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\pgfpointlineattime{0.5}{\lowerleftborderpoint}{\lowerrightborderpoint}%
+	}%		
+	\backgroundpath{%
+		\installtrapeziumparameters%
+		\getbackgroundpathpoints%
+		\pgfpathmoveto{\lowerleftpoint}%
+		\pgfpathlineto{\upperleftpoint}%
+		\pgfpathlineto{\upperrightpoint}%
+		\pgfpathlineto{\lowerrightpoint}%
+		\pgfpathclose%			
+	}
+	\anchorborder{%
+		%
+		% Save x and y.
+		%
+		\edef\externalx{\the\pgf@x}%
+		\edef\externaly{\the\pgf@y}%
+		%
+		% This allows anchors base east, base west, mid east and mid west,
+		% to redefine the `center' of the node to correctly calculate the
+		% border points.
+		%
+		\pgfutil@ifundefined{pgf@trapeziumanchorborderreferencepoint}%
+			{\let\referencepoint\centerpoint}%
+			{\let\referencepoint\pgf@trapeziumanchorborderreferencepoint}%
+		%
+		% Adjust the location of the external 
+		% point relative to the reference point.
+		%
+		\referencepoint%
+		\pgf@xa\externalx\relax%
+		\pgf@ya\externaly\relax%
+		\advance\pgf@xa\pgf@x%
+		\advance\pgf@ya\pgf@y%
+		\edef\externalx{\the\pgf@xa}%
+		\edef\externaly{\the\pgf@ya}%
+		%
+		% Install the required points and angles.
+		%
+		\installtrapeziumparameters%
+		\getanchorborderpoints%
+		\getanchorborderangles%
+		%
+		% Get the angle of the external point to the \referencepoint.
+		%
+		\pgfmathanglebetweenpoints{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+		%
+		% *Subtract* the rotation from the external angle. This is 
+		% why the border point angles do not neeed to be rotated.
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
 		\fi%
-		\ifdim\pgf@xa>0pt\relax%
-			\advance\pgf@x\pgf@xa%
+		%
+		% Get the relevant angles for the reference point.
+		%
+		\let\externalangle\pgfmathresult%
+		\ifx\referencepoint\basepoint%
+			\let\angletoupperright\baseangletoupperright%
+			\let\angletoupperleft\baseangletoupperleft%
+			\let\angletolowerright\baseangletolowerright%
+			\let\angletolowerleft\baseangletolowerleft%
+		\else%
+			\ifx\referencepoint\midpoint%
+				\let\angletoupperright\midangletoupperright%
+				\let\angletoupperleft\midangletoupperleft%
+				\let\angletolowerright\midangletolowerright%
+				\let\angletolowerleft\midangletolowerleft%
+		\fi\fi%
+		%
+		% Find the line on the border...
+		%			
+		\ifdim\externalangle pt<\angletoupperright pt\relax%
+			\let\firstpoint\upperrightborderpoint%
+			\let\secondpoint\lowerrightborderpoint%
+		\else%
+			\ifdim\externalangle pt<\angletoupperleft pt\relax%
+				\let\firstpoint\upperleftborderpoint%
+				\let\secondpoint\upperrightborderpoint%
+			\else%
+				\ifdim\externalangle pt<\angletolowerleft pt\relax%
+					\let\firstpoint\upperleftborderpoint%
+					\let\secondpoint\lowerleftborderpoint%
+				\else%
+					\ifdim\externalangle pt<\angletolowerright pt\relax%
+						\let\firstpoint\lowerleftborderpoint%
+						\let\secondpoint\lowerrightborderpoint%
+					\else%
+						\let\firstpoint\upperrightborderpoint%
+						\let\secondpoint\lowerrightborderpoint%
+					\fi%
+				\fi%
+			\fi%
 		\fi%
-		\pgfmathsetlength\pgf@xa{+-\pgfshapeouterxsep}%
-		\advance\pgf@x\pgf@xa}%
-	\saveddimen{\upperright}{%
+		%
+		% ...and thus the point on the border.
+		%
+		\pgfpointintersectionoflines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+				{\firstpoint}{\secondpoint}%
+	}%
+}
+
+
+
+
+% Shape semicircle.
+%
+\pgfdeclareshape{semicircle}{
+	\savedmacro\installsemicircleparameters{%
+		%
+		% Get the larger of the outer sep.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeouterysep}%
+		\ifdim\pgf@x<\pgf@y%
+			\pgf@x\pgf@y%
+		\fi%
+		\edef\outersep{\the\pgf@x}%
+		%
+		% Get the node dimensions.
+		%
 		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
 		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@xa{+\pgftrapeziumrightextension}%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-		\ifdim\pgf@xa>0pt\relax%
-			\advance\pgf@x\pgf@xa%
+		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
+		%
+		% Use the radius of the incircle if required...
+		%
+		\ifpgfshapeborderusesincircle%
+			%
+			% Get the rotation (no rounding).
+			%
+			\let\rotate\pgfshapeborderrotate%
+			\ifdim\pgf@x<\pgf@y%
+				\pgf@x\pgf@y%
+			\fi%			
+			\pgf@x1.41421\pgf@x%
+			\edef\halfheight{\the\pgf@x}%
+			\advance\pgf@x\pgf@x%
 		\else%
-			\advance\pgf@x-\pgf@xa%
+			%
+			% Get the rotation (with rounding).
+			%
+			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
+			\advance\c@pgf@counta45\relax%
+			\divide\c@pgf@counta90\relax%
+			\multiply\c@pgf@counta90\relax%
+			\ifnum\c@pgf@counta<0\relax%
+				\advance\c@pgf@counta360\relax%
+			\fi%
+			\edef\rotate{\the\c@pgf@counta}%
+			%
+			% Calculate the width and height of the node
+			% contents, according to any border rotation.
+			%
+			\ifnum\c@pgf@counta=90\relax%
+				\pgf@xc\pgf@x%
+				\pgf@x\pgf@y%
+				\pgf@y\pgf@xc%
+			\else%
+				\ifnum\c@pgf@counta=270\relax%
+					\pgf@xc\pgf@x%
+					\pgf@x\pgf@y%
+					\pgf@y\pgf@xc%
+				\fi%
+			\fi%
+			\advance\pgf@y\pgf@y%
+			\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+			\pgf@x\pgfmathresult pt\relax%
+			\pgf@y.5\pgf@y%
+			\edef\halfheight{\the\pgf@y}%
 		\fi%
-		\ifdim\pgf@x<.5\pgf@xb%
-			\pgf@x.5\pgf@xb%
+		\edef\defaultradius{\the\pgf@x}%
+		%
+		% Take into account minimum height and width.
+		%
+		\pgfmathsetlength\pgf@xa{+\pgfshapeminwidth}%
+		\ifdim\pgf@x<.5\pgf@xa%
+			\pgf@x.5\pgf@xa%
 		\fi%
-		\ifdim\pgf@xa>0pt\relax%
-			\advance\pgf@x-\pgf@xa%
+		\pgfmathsetlength\pgf@ya{+\pgfshapeminheight}%
+		\ifdim\pgf@x<\pgf@ya%
+			\pgf@x\pgf@ya%
 		\fi%
-		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
-		\advance\pgf@x\pgf@xa}%
-	\saveddimen{\lowerright}{%
-		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@xa{+\pgftrapeziumrightextension}%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-		\ifdim\pgf@xa>0pt\relax%
-			\advance\pgf@x\pgf@xa%
-		\else%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\ifdim\pgf@x<.5\pgf@xb%
-			\pgf@x.5\pgf@xb%
-		\fi%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x\pgf@xa%
-		\fi%
-		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
-		\advance\pgf@x\pgf@xa}%
-	\saveddimen{\lowerleft}{%
-		\pgfmathsetlength\pgf@x{+-\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+-.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@xa{+\pgftrapeziumleftextension}%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x\pgf@xa%
-		\else%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\ifdim\pgf@x>-.5\pgf@xb%
-			\pgf@x-.5\pgf@xb%
-		\fi%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\pgfmathsetlength\pgf@xa{+-\pgfshapeouterxsep}%
-		\advance\pgf@x\pgf@xa}%
+		\edef\semicircleradius{\the\pgf@x}%
+		%
+		% Find the center/base/mid of the semi circle node.
+		%		
+		\pgfsavepgf@process\centerpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+			\pgfmathaddtolength\pgf@y{-.5\dp\pgfnodeparttextbox}%
+		}%
+		\pgfsavepgf@process\basepoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgf@y0pt\relax%
+		}%
+		\pgfsavepgf@process\midpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5ex}%
+		}%
+		\pgfsavepgf@process\semicirclecenterpoint{%
+			\centerpoint%
+			\pgf@ya\semicircleradius\relax%
+			\advance\pgf@ya-\defaultradius\relax%
+			%
+			% The point is adjusted to make the node contents
+			% appear more centered if the node is enlarged to
+			% some minimum size. The factor .4 just seems OK.
+			%
+			\pgf@ya.4\pgf@ya% 
+			\advance\pgf@y-\pgf@ya%
+			\pgf@ya\halfheight\relax%
+			\advance\pgf@y-\pgf@ya%	
+		}%
+		%
+		% Add the outer sep to the radius here.
+		%
+		\pgf@x\semicircleradius\relax%
+		\advance\pgf@x\outersep\relax%
+		\edef\semicircleradius{\the\pgf@x}%
+		\pgfpointdiff{\centerpoint}{\semicirclecenterpoint}%
+		\ifdim\pgf@y<0pt\pgf@y-\pgf@y\fi%
+		\edef\centerpointdiff{\the\pgf@y}%
+		%
+		% Calculate the start and end points on the border.
+		%		
+		\pgfsavepgf@process\arcstartborder{%
+			\semicirclecenterpoint%
+			\advance\pgf@x\semicircleradius\relax%
+		}%
+		\pgfsavepgf@process\arcendborder{%
+			\semicirclecenterpoint%
+			\advance\pgf@x-\semicircleradius\relax%
+		}%
+		%
+		% Calculate the start and end *corner* points on the border.
+		% This is needed to accommodate the outer sep.
+		%
+		\pgfsavepgf@process\arcstartcorner{%
+			\arcstartborder%
+			\advance\pgf@y-\outersep\relax%
+		}%
+		\pgfsavepgf@process\arcendcorner{%
+			\arcendborder%
+			\advance\pgf@y-\outersep\relax%
+		}
+		%
+		% Now calculate all the relevant angles.
+		%
+		% For the center point.
+		%
+		\pgfmathanglebetweenpoints{\centerpoint}{\arcstartborder}%
+		\let\angletoarcstartborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\arcendborder}%
+		\let\angletoarcendborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\arcstartcorner}%
+		\let\angletoarcstartcorner\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\arcendcorner}%
+		\let\angletoarcendcorner\pgfmathresult%
+		%
+		% For the basepoint (rotated about the center point).
+		%
+		\pgfsavepgf@process\rotatedbasepoint{%
+			\pgfmathrotatepointaround{\basepoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\arcstartborder}%
+		\let\baseangletoarcstartborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\arcendborder}%
+		\let\baseangletoarcendborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\arcstartcorner}%
+		\let\baseangletoarcstartcorner\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\arcendcorner}%
+		\let\baseangletoarcendcorner\pgfmathresult%
+		%
+		% For the midpoint (rotated about the center point).
+		%
+		\pgfsavepgf@process\rotatedmidpoint{%
+			\pgfmathrotatepointaround{\midpoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\arcstartborder}%
+		\let\midangletoarcstartborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\arcendborder}%
+		\let\midangletoarcendborder\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\arcstartcorner}%
+		\let\midangletoarcstartcorner\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\arcendcorner}%
+		\let\midangletoarcendcorner\pgfmathresult%
+		%
+		% Now, rotate the semicircle points around the centerpoint.
+		%
+		\pgfsavepgf@process\semicirclecenterpoint{%
+			\pgfmathrotatepointaround{\semicirclecenterpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\arcstartborder{%
+			\pgfmathrotatepointaround{\arcstartborder}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\arcendborder{%
+			\pgfmathrotatepointaround{\arcendborder}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\arcstartcorner{%
+			\pgfmathrotatepointaround{\arcstartcorner}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\arcendcorner{%
+			\pgfmathrotatepointaround{\arcendcorner}{\centerpoint}{\rotate}%
+		}%
+		%
+		% Calculate the distance between the base point and the (rotated) semicircle center.
+		%
+		\pgfpointdiff{\basepoint}{\semicirclecenterpoint}%
+		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+		\edef\basesemicirclecenterdiff{\pgfmathresult pt}%
+		%
+		% Calculate the distance between the base point and the (rotated) semicircle center.
+		%
+		\pgfpointdiff{\midpoint}{\semicirclecenterpoint}%
+		\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+		\edef\midsemicirclecenterdiff{\pgfmathresult pt}%
+		%
+		% And save all the stuff.
+		%
+		\def\installsemicircleparameters{%
+			\noexpand\def\noexpand\rotate{\rotate}%
+			\noexpand\def\noexpand\outersep{\outersep}%
+			\noexpand\def\noexpand\semicircleradius{\semicircleradius}%
+			%
+			\noexpand\def\noexpand\arcstartborder{\arcstartborder}%
+			\noexpand\def\noexpand\arcendborder{\arcendborder}%
+			\noexpand\def\noexpand\arcstartcorner{\arcstartcorner}%
+			\noexpand\def\noexpand\arcendcorner{\arcendcorner}%
+			\noexpand\def\noexpand\semicirclecenterpoint{\semicirclecenterpoint}%
+			%
+			\noexpand\def\noexpand\angletoarcstartborder{\angletoarcstartborder}%
+			\noexpand\def\noexpand\angletoarcendborder{\angletoarcendborder}%
+			\noexpand\def\noexpand\angletoarcstartcorner{\angletoarcstartcorner}%
+			\noexpand\def\noexpand\angletoarcendcorner{\angletoarcendcorner}%
+			%
+			\noexpand\def\noexpand\centerpointdiff{\centerpointdiff}%
+			\noexpand\def\noexpand\basesemicirclecenterdiff{\basesemicirclecenterdiff}%
+			\noexpand\def\noexpand\midsemicirclecenterdiff{\midsemicirclecenterdiff}%
+			%
+			\noexpand\def\noexpand\baseangletoarcstartborder{\baseangletoarcstartborder}%
+			\noexpand\def\noexpand\baseangletoarcendborder{\baseangletoarcendborder}%
+			\noexpand\def\noexpand\baseangletoarcstartcorner{\baseangletoarcstartcorner}%
+			\noexpand\def\noexpand\baseangletoarcendcorner{\baseangletoarcendcorner}%
+			%
+			\noexpand\def\noexpand\midangletoarcstartborder{\midangletoarcstartborder}%
+			\noexpand\def\noexpand\midangletoarcendborder{\midangletoarcendborder}%
+			\noexpand\def\noexpand\midangletoarcstartcorner{\midangletoarcstartcorner}%
+			\noexpand\def\noexpand\midangletoarcendcorner{\midangletoarcendcorner}%
+		}%
+	}
 	\savedanchor{\centerpoint}{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
 		\pgfmathaddtolength\pgf@y{-.5\dp\pgfnodeparttextbox}%	
 	}
+	\savedanchor{\basepoint}{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}
+	\savedanchor{\midpoint}{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}
 	\anchor{center}{\centerpoint}
-	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{+.5ex}}
-	\anchor{base}{\centerpoint\pgf@y0pt}
-	\anchor{north}{\centerpoint\advance\pgf@y\halfheight\relax}
-	\anchor{south}{\centerpoint\advance\pgf@y-\halfheight\relax}
+	\anchor{base}{\basepoint}
+	\anchor{base west}{%
+		\installsemicircleparameters%
+		\let\pgf@semicirclereferencepoint\basepoint%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpoint{-\semicircleradius}{0pt}}%
+	}
+	\anchor{base east}{%
+		\installsemicircleparameters%
+		\let\pgf@semicirclereferencepoint\basepoint%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpoint{\semicircleradius}{0pt}}%
+	}
+	\anchor{mid}{\midpoint}
+	\anchor{mid west}{%
+		\installsemicircleparameters%
+		\let\pgf@semicirclereferencepoint\midpoint%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpoint{-\semicircleradius}{0pt}}%
+	}
+	\anchor{mid east}{%
+		\installsemicircleparameters%
+		\let\pgf@semicirclereferencepoint\midpoint%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpoint{\semicircleradius}{0pt}}%
+	}
+	\anchor{apex}{%
+		\installsemicircleparameters%
+		\pgfmathadd@{\rotate}{90}%
+		\let\angle\pgfmathresult%
+		\pgfpointadd{\semicirclecenterpoint}{\pgfqpointpolar{\angle}{\semicircleradius}}%
+	}
+	\anchor{arc start}{%
+		\installsemicircleparameters%
+		\arcstartcorner%
+	}
+	\anchor{arc end}{%
+		\installsemicircleparameters%
+		\arcendcorner%
+	}
+	\anchor{chord center}{%
+		\installsemicircleparameters%
+		\pgfpointlineattime{0.5}{\arcstartcorner}{\arcendcorner}%
+	}
+	\anchor{north}{%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{90}{\semicircleradius}}%
+	}
+	\anchor{south}{%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{270}{\semicircleradius}}%
+	}
 	\anchor{east}{%
-		\centerpoint%
-		\advance\pgf@x\halfwidth%
-		\advance\pgf@x-\outerxsep\relax%
-		\pgf@xa\upperright\relax%
-		\advance\pgf@xa-\lowerright\relax%
-		\pgf@xa.5\pgf@xa%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x-\pgf@xa%
-		\else%
-			\advance\pgf@x\pgf@xa%
-		\fi%
-		\pgf@xa\outerxsep\relax%
-		\pgfmathreciprocal@{\rightcosangle}%
-		\pgf@xa\pgfmathresult\pgf@xa\relax%
-		\advance\pgf@x\pgf@xa%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{0}{\semicircleradius}}%
 	}
 	\anchor{west}{%
-		\centerpoint%
-		\advance\pgf@x-\halfwidth%
-		\advance\pgf@x\outerxsep\relax%
-		\pgf@xa\upperleft\relax%
-		\advance\pgf@xa-\lowerleft\relax%
-		\pgf@xa.5\pgf@xa%
-		\ifdim\pgf@xa<0pt\relax%
-			\advance\pgf@x\pgf@xa%
-		\else%
-			\advance\pgf@x-\pgf@xa%
-		\fi%
-		\pgf@xa\outerxsep\relax%
-		\pgfmathreciprocal@{\leftcosangle}%
-		\pgf@xa\pgfmathresult\pgf@xa\relax%
-		\advance\pgf@x-\pgf@xa%
-	}
-	\anchor{north east}{%	
-		%
-		% To calculate this border point, we need to take into account the
-		% mitre length at the join for larger line widths (see Adobe spec). 
-		% We use the angle which is the half angle between the joining lines...
-		%
-		\pgfmathanglebetweenpoints%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-		\pgf@xa\pgfmathresult pt%
-		\advance\pgf@xa-180pt\relax%
-		\divide\pgf@xa2\relax%
-		\edef\angle{\the\pgf@xa}%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		%
-		% ...we then recalculate the outer x and y sep. 
-		%
-		\pgf@xb\outerxsep\relax%
-		\pgf@xb\pgfmathresult\pgf@xb%
-		\pgf@yb\outerysep\relax%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		%
-		% Move to the point with no outer sep...
-		%
-		\centerpoint%
-		\advance\pgf@x\upperright\relax%
-		\advance\pgf@x-\outerxsep\relax%
-		\advance\pgf@y\halfheight\relax%
-		\advance\pgf@y-\outerysep\relax%
-		%
-		% ... and add the outer sep.
-		%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@xc\pgfmathresult\pgf@xb
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@yc\pgfmathresult\pgf@yb
-		\advance\pgf@x\pgf@xc\relax%
-		\advance\pgf@y\pgf@yc\relax%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{180}{\semicircleradius}}%
 	}
 	\anchor{north west}{%
-		\pgfmathanglebetweenpoints%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperleft}{\halfheight}}}%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerleft}{-\halfheight}}}%
-		\pgf@xa-\pgfmathresult pt%
-		\advance\pgf@xa360pt\relax%
-		\divide\pgf@xa2\relax%
-		\edef\angle{\the\pgf@xa}%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@xb\outerxsep\relax%
-		\pgf@xb\pgfmathresult\pgf@xb%
-		\pgf@yb\outerysep\relax%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\centerpoint%
-		\advance\pgf@x\upperleft\relax%
-		\advance\pgf@x\outerxsep\relax%
-		\advance\pgf@y\halfheight\relax%
-		\advance\pgf@y-\outerysep\relax%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@xc\pgfmathresult\pgf@xb
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@yc\pgfmathresult\pgf@yb
-		\advance\pgf@x-\pgf@xc\relax%
-		\advance\pgf@y\pgf@yc\relax%
-	}	
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{135}{\semicircleradius}}%
+	}
 	\anchor{south west}{%
-		\pgfmathanglebetweenpoints%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerleft}{-\halfheight}}}%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperleft}{\halfheight}}}%
-		\pgf@xa\pgfmathresult pt%
-		\divide\pgf@xa2\relax%
-		\edef\angle{\the\pgf@xa}%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@xb\outerxsep\relax%
-		\pgf@xb\pgfmathresult\pgf@xb%
-		\pgf@yb\outerysep\relax%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\centerpoint%
-		\advance\pgf@x\lowerleft\relax%
-		\advance\pgf@x\outerxsep\relax%
-		\advance\pgf@y-\halfheight\relax%
-		\advance\pgf@y\outerysep\relax%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@xc\pgfmathresult\pgf@xb
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@yc\pgfmathresult\pgf@yb
-		\advance\pgf@x-\pgf@xc\relax%
-		\advance\pgf@y-\pgf@yc\relax%
-	}%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{225}{\semicircleradius}}%
+	}
+	\anchor{north east}{%
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{45}{\semicircleradius}}%
+	}
 	\anchor{south east}{%
-		\pgfmathanglebetweenpoints%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-			{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-		\pgf@xa-\pgfmathresult pt%
-		\advance\pgf@xa180pt\relax%
-		\divide\pgf@xa2\relax%
-		\edef\angle{\the\pgf@xa}%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\pgf@xb\outerxsep\relax%
-		\pgf@xb\pgfmathresult\pgf@xb%
-		\pgf@yb\outerysep\relax%
-		\pgf@yb\pgfmathresult\pgf@yb%
-		\centerpoint%
-		\advance\pgf@x\lowerright\relax%
-		\advance\pgf@x-\outerxsep\relax%
-		\advance\pgf@y-\halfheight\relax%
-		\advance\pgf@y\outerysep\relax%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@xc\pgfmathresult\pgf@xb
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgf@yc\pgfmathresult\pgf@yb
-		\advance\pgf@x\pgf@xc\relax%
-		\advance\pgf@y-\pgf@yc\relax%
-	}		
+		\installsemicircleparameters%
+		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{315}{\semicircleradius}}%
+	}
 	\backgroundpath{%
+		\installsemicircleparameters%
+		\pgf@x\semicircleradius\relax%
+		\advance\pgf@x-\outersep\relax%
+		\edef\semicircleradius{\the\pgf@x}%
+		\pgfpathmoveto{\pgfpointadd{\semicirclecenterpoint}{\pgfqpointpolar{\rotate}{\semicircleradius}}}%
+		{%
+			\pgftransformrotate{\rotate}%
+			\pgfpatharc{0}{180}{\semicircleradius}%
+			\pgfpathclose%	
+		}%
+	}
+	\anchorborder{%
 		%
-		% Remove the outer sep from the parameters...
+		% Save x and y.
 		%
-		\pgf@x\upperleft\relax%
-		\advance\pgf@x\pgfshapeouterxsep\relax%
-		\edef\upperleft{\the\pgf@x}%
-		\pgf@x\upperright\relax%
-		\advance\pgf@x-\pgfshapeouterxsep\relax%
-		\edef\upperright{\the\pgf@x}%
-		\pgf@x\lowerleft\relax%
-		\advance\pgf@x\pgfshapeouterxsep\relax%
-		\edef\lowerleft{\the\pgf@x}%
-		\pgf@x\lowerright\relax%
-		\advance\pgf@x-\pgfshapeouterxsep\relax%
-		\edef\lowerright{\the\pgf@x}%
-		\pgf@x\halfheight\relax%
-		\advance\pgf@x-\pgfshapeouterysep\relax%
-		\edef\halfheight{\the\pgf@x}%
+		\edef\externalx{\the\pgf@x}%
+		\edef\externaly{\the\pgf@y}%
 		%
-		% ...and create path.
+		% Check if a reference point has been defined (i.e. \midpoint or \basepoint).
 		%
-		\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperleft}{\halfheight}}}%
-		\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-		\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-		\pgfpathlineto{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerleft}{-\halfheight}}}%
+		\pgfutil@ifundefined{pgf@semicirclereferencepoint}%
+			{\let\referencepoint\centerpoint}%
+			{\let\referencepoint\pgf@semicirclereferencepoint}%
+		%
+		% Adjust the location of the external  point relative to the reference point.
+		%
+		\referencepoint%
+		\pgf@xa\externalx\relax%
+		\pgf@ya\externaly\relax%
+		\advance\pgf@xa\pgf@x%
+		\advance\pgf@ya\pgf@y%
+		\edef\externalx{\the\pgf@xa}%
+		\edef\externaly{\the\pgf@ya}%
+		%
+		% Install the required points and angles.
+		%
+		\installsemicircleparameters%
+		%
+		% Get the angle of the external point to the \referencepoint.
+		%
+		\pgfmathanglebetweenpoints{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+		\let\externalangle\pgfmathresult%
+		%
+		% *Subtract* the rotation from the external angle.
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
+		\fi%
+		\let\angle\pgfmathresult%
+		\ifx\referencepoint\basepoint%
+			\let\angletoarcstartborder\baseangletoarcstartborder%
+			\let\angletoarcendborder\baseangletoarcendborder%
+			\let\angletoarcstartcorner\baseangletoarcstartcorner%
+			\let\angletoarcendcorner\baseangletoarcendcorner%
+			\let\centerpointdiff\basesemicirclecenterdiff%
+		\else%
+			\ifx\referencepoint\midpoint%
+				\let\angletoarcstartborder\midangletoarcstartborder%
+				\let\angletoarcendborder\midangletoarcendborder%
+				\let\angletoarcstartcorner\midangletoarcstartcorner%
+				\let\angletoarcendcorner\midangletoarcendcorner%
+				\let\centerpointdiff\midsemicirclecenterdiff%
+		\fi\fi%
+		%
+		% Determine if the line will cross the semicircle arc, or the chord.
+		% 
+		\ifdim\angle pt>\angletoarcstartborder pt\relax%
+			\let\firstpoint\pgfutil@empty%
+			\let\secondpoint\pgfutil@empty%
+		\else%
+			\ifdim\angle pt>\angletoarcstartcorner pt\relax%
+				\let\firstpoint\arcstartcorner%
+				\let\secondpoint\arcstartborder%
+			\else%
+				\ifdim\angle pt>\angletoarcendcorner pt\relax%
+					\let\firstpoint\arcendcorner%
+					\let\secondpoint\arcstartcorner%
+				\else%
+					\ifdim\angle pt>\angletoarcendborder pt\relax%
+						\let\firstpoint\arcendborder%
+						\let\secondpoint\arcendcorner%
+					\else%
+						\let\firstpoint\pgfutil@empty%
+						\let\secondpoint\pgfutil@empty%
+					\fi%
+				\fi%
+			\fi%
+		\fi%
+		\ifx\firstpoint\pgfutil@empty
+			%
+			% Calculate the angle from the centre of the semicircle to the
+			% point on the semicircle arc which intersects the line from 
+			% the external point to the reference point...
+			%
+			\pgfmathanglebetweenlines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+				{\semicirclecenterpoint}{\referencepoint}%
+			\pgfmathsin@{\pgfmathresult}%
+			\let\sineangle\pgfmathresult%
+			\pgf@x\semicircleradius\relax%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@x}}%
+			\let\reciprocalradius\pgfmathresult%
+			\pgf@x\centerpointdiff\relax%
+			\pgf@x\sineangle\pgf@x%
+			\pgf@x\reciprocalradius\pgf@x%
+			\pgfmathasin@{\pgfmath@tonumber{\pgf@x}}%
+			\pgf@x\pgfmathresult pt\relax%
+			\advance\pgf@x\externalangle pt\relax%
+			\edef\angle{\pgfmath@tonumber{\pgf@x}}%
+			%
+			% ...and thus the point on the border.
+			%
+			\pgfpointadd{\semicirclecenterpoint}{\pgfqpointpolar{\angle}{\semicircleradius}}%
+		\else%
+			%
+			% Calculate the the point where the semicircle chord intersects 
+			% the line from the external point to the reference point.
+			%
+			\pgfpointintersectionoflines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+				{\firstpoint}{\secondpoint}%
+		\fi%
+	}		
+}
+
+
+
+
+
+% \pgfsetisoscelestriangleapexangle
+%
+\def\pgfsetisoscelestriangleapexangle#1{\pgfmathsetmacro\pgfisoscelestriangleapexangle{#1}}
+\pgfsetisoscelestriangleapexangle{45}
+
+% Shape isosceles triangle.
+%
+\pgfdeclareshape{isosceles triangle}{
+	\savedmacro\installtriangleparameters{%
+		%
+		% Define a \centerpoint, \basepoint and \midpoint.
+		%
+		\pgfsavepgf@process\centerpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+			\pgfmathaddtolength\pgf@y{-.5\dp\pgfnodeparttextbox}%
+		}%
+		\pgfsavepgf@process\basepoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgf@y0pt\relax%
+		}%
+		\pgfsavepgf@process\midpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5ex}%
+		}%
+		%
+		% Get the larger of the outer sep.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeouterysep}%
+		\ifdim\pgf@x<\pgf@y%
+			\pgf@x\pgf@y%
+		\fi%
+		\edef\outersep{\the\pgf@x}%
+		%
+		% Get the node dimensions.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
+		%
+		% Half of the apex angle is more useful.
+		%
+		\pgfmathdivide@{\pgfisoscelestriangleapexangle}{2}%
+		\let\halfapexangle\pgfmathresult%
+		\pgfmathtan@{\halfapexangle}%
+		\let\tanhalfapexangle\pgfmathresult%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\let\cothalfapexangle\pgfmathresult%
+		%
+		% Calculate the default (half) width and height of the triangle
+		% contents, according to any border rotation...
+		%
+		\ifpgfshapeborderusesincircle%
+			%
+			% Get the rotation.
+			%
+			\let\rotate\pgfshapeborderrotate%
+			%
+			% Calculate the incircle radius.
+			%	
+			\ifdim\pgf@x<\pgf@y%
+				\pgf@x\pgf@y%
+			\fi%
+			\pgf@x1.41421\pgf@x% incircle radius
+			\pgfmathsin@{\halfapexangle}%
+			\let\sinehalfapexangle\pgfmathresult%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\let\reciprocalsinehalfapexangle\pgfmathresult%
+			\pgf@yb\pgfmathresult\pgf@x%
+			\advance\pgf@yb\pgf@x% yb is the total height.
+			\pgf@xb\tanhalfapexangle\pgf@yb% xb is the (half) width.
+			%
+			% Take into account minimum height and width.
+			%
+			\pgfmathsetlength\pgf@x{+\pgfshapeminwidth}%
+			\pgfmathsetlength\pgf@y{+\pgfshapeminheight}%
+			\pgf@xb\tanhalfapexangle\pgf@yb%
+			\ifdim\pgf@xb<.5\pgf@x%
+				\pgf@xb.5\pgf@x%
+				\pgf@yb\cothalfapexangle\pgf@xb% yb is the new total height.
+			\fi%
+			\ifdim\pgf@yb<\pgf@y%
+				\pgf@yb\pgf@y%
+				\pgf@xb\tanhalfapexangle\pgf@yb% xb is new (half) width.
+			\fi%
+			%
+			% Now recalculate radius.
+			%
+			\pgfmathadd@{\sinehalfapexangle}{1}%
+			\pgfmathreciprocal{\pgfmathresult}%
+			\pgf@yc\pgfmathresult\pgf@yb%
+			\pgf@yc\sinehalfapexangle\pgf@yc% yc is triangle depth.
+			\pgf@ya-\pgf@yc%
+			\advance\pgf@ya\pgf@yb% ya is the triangle height.
+			\edef\triangledepth{\the\pgf@yc}%
+			\edef\triangleheight{\the\pgf@ya}%
+			\edef\halftrianglewidth{\the\pgf@xb}%
+		\else%
+			%
+			% Get the rotation (with rounding).
+			%
+			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
+			\advance\c@pgf@counta45\relax%
+			\divide\c@pgf@counta90\relax%
+			\multiply\c@pgf@counta90\relax%
+			\ifnum\c@pgf@counta<0\relax%
+				\advance\c@pgf@counta360\relax%
+			\fi%
+			\edef\rotate{\the\c@pgf@counta}%
+			%
+			% Calculate the width and height of the node
+			% contents, according to any border rotation.
+			%
+			\pgf@x2.0\pgf@x%
+			\pgf@y2.0\pgf@y%
+			\pgf@xa\pgf@x%
+			\pgf@ya\pgf@y%
+			\ifnum\c@pgf@counta=0\relax%
+				\pgf@xc\pgf@xa%
+				\pgf@xa\pgf@ya%
+				\pgf@ya\pgf@xc%
+			\else%
+				\ifnum\c@pgf@counta=180\relax%
+					\pgf@xc\pgf@xa%
+					\pgf@xa\pgf@ya%
+					\pgf@ya\pgf@xc%
+				\fi%
+			\fi%
+			\pgf@yb.5\pgf@xa%
+			\pgf@yb\cothalfapexangle\pgf@yb%
+			\advance\pgf@yb\pgf@ya% yb is the total height.
+			\pgf@yc-\pgf@yb%
+			%			
+			% Take into account minimum height and width.
+			%
+			\pgfmathsetlength\pgf@x{+\pgfshapeminwidth}%
+			\pgfmathsetlength\pgf@y{+\pgfshapeminheight}%
+			\pgf@xb.5\pgf@xa% xb is the (half) width.
+			\pgf@xb\tanhalfapexangle\pgf@yb%
+			\ifdim\pgf@xb<.5\pgf@x%
+				\pgf@xb.5\pgf@x%
+				\pgf@yb\cothalfapexangle\pgf@xb% yb is the new total height.
+			\fi%
+			\ifdim\pgf@yb<\pgf@y%
+				\pgf@yb\pgf@y%
+				\pgf@xb\tanhalfapexangle\pgf@yb% xb is new (half) width.
+			\fi%
+			%
+			% Adjust the positioning of the node contents
+			% NB center of node is not guaranteed to be any kind of
+			%    geometric center of the triangle.
+			%
+			\advance\pgf@yc\pgf@yb%
+			\pgf@yc.33333\pgf@yc%
+			\advance\pgf@yc.5\pgf@ya% yc is the depth.
+			\pgf@ya-\pgf@yc%
+			\advance\pgf@ya\pgf@yb% ya is the height%
+			\edef\triangledepth{\the\pgf@yc}%
+			\edef\triangleheight{\the\pgf@ya}%
+			\edef\halftrianglewidth{\the\pgf@xb}%
+		\fi%
+		\pgfmathdivide@{\halfapexangle}{2}%
+		\pgfmathsubtract@{45}{\pgfmathresult}%
+		\pgfmathtan@{\pgfmathresult}%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\pgf@x\outersep\relax%
+		\pgf@x\pgfmathresult\pgf@x%
+		\edef\lowerhorizontalmiter{\the\pgf@x}%
+		\pgfmathsin@{\halfapexangle}%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\pgf@ya\outersep\relax%
+		\pgf@ya\pgfmathresult\pgf@ya%
+		\edef\apexmiter{\the\pgf@ya}%
+		%
+		% Calculate the points.
+		%
+		\pgfsavepgf@process\apex{%
+			\centerpoint%
+			\advance\pgf@x\triangleheight\relax%
+		}%
+		\pgfsavepgf@process\lowerleft{%
+			\centerpoint%
+			\advance\pgf@x-\triangledepth\relax%
+			\advance\pgf@y\halftrianglewidth\relax%
+		}%
+		\pgfsavepgf@process\lowerright{%
+			\centerpoint%
+			\advance\pgf@x-\triangledepth\relax%
+			\advance\pgf@y-\halftrianglewidth\relax%
+		}%
+		\pgfsavepgf@process\apexpoint{%
+			\apex%
+			\advance\pgf@x\apexmiter\relax%
+		}%
+		\pgfsavepgf@process\lowerleftpoint{%
+			\lowerleft%
+			\advance\pgf@x-\outersep\relax%
+			\advance\pgf@y\lowerhorizontalmiter\relax%
+		}%
+		\pgfsavepgf@process\lowerrightpoint{%
+			\lowerright%
+			\advance\pgf@x-\outersep\relax%
+			\advance\pgf@y-\lowerhorizontalmiter\relax%
+		}%
+		%
+		% And the *unrotated* corner angles to the \centerpoint.
+		%
+		\pgfmathanglebetweenpoints{\centerpoint}{\apexpoint}%
+		\let\angletoapex\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\lowerleftpoint}%
+		\let\angletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\lowerrightpoint}%
+		\let\angletolowerright\pgfmathresult%
+		%
+		% ...the *inversly rotated* \basepoint...
+		%
+		\pgfsavepgf@process\rotatedbasepoint{%
+			\pgfmathrotatepointaround{\basepoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\apexpoint}%
+		\let\baseangletoapex\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\lowerleftpoint}%
+		\let\baseangletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\lowerrightpoint}%
+		\let\baseangletolowerright\pgfmathresult%
+		%
+		% ...and the *inversely rotated* \midpoint.
+		%
+		\pgfsavepgf@process\rotatedmidpoint{%
+			\pgfmathrotatepointaround{\midpoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\apexpoint}%
+		\let\midangletoapex\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\lowerleftpoint}%
+		\let\midangletolowerleft\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\lowerrightpoint}%
+		\let\midangletolowerright\pgfmathresult%
+		%
+		% Now rotate the points.
+		%
+		\pgfsavepgf@process\apex{%
+			\pgfmathrotatepointaround{\apex}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerleft{%
+			\pgfmathrotatepointaround{\lowerleft}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerright{%
+			\pgfmathrotatepointaround{\lowerright}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\apexpoint{%
+			\pgfmathrotatepointaround{\apexpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerleftpoint{%
+			\pgfmathrotatepointaround{\lowerleftpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lowerrightpoint{%
+			\pgfmathrotatepointaround{\lowerrightpoint}{\centerpoint}{\rotate}%
+		}%
+		%
+		% Calculate a radius guaranteed to be outside the triangle.
+		%
+		\pgf@x\halftrianglewidth\relax%
+		\advance\pgf@x\lowerhorizontalmiter%
+		\pgf@x2.0\pgf@x%
+		\pgf@y\triangleheight\relax%
+		\advance\pgf@y\triangledepth\relax%
+		\advance\pgf@y\outersep\relax%
+		\advance\pgf@y\apexmiter\relax%
+		\ifdim\pgf@x>\pgf@y%
+			\edef\externalradius{\the\pgf@x}%
+		\else%
+			\edef\externalradius{\the\pgf@y}%
+		\fi%		
+		%
+		% Save everything.
+		%
+		\def\installtriangleparameters{%
+			\noexpand\def\noexpand\rotate{\rotate}%
+			\noexpand\def\noexpand\outersep{\outersep}%
+			\noexpand\def\noexpand\lowerhorizontalmiter{\lowerhorizontalmiter}%
+			\noexpand\def\noexpand\apexmiter{\apexmiter}%
+			\noexpand\def\noexpand\apexpoint{\apexpoint}%
+			\noexpand\def\noexpand\lowerleftpoint{\lowerleftpoint}%
+			\noexpand\def\noexpand\lowerrightpoint{\lowerrightpoint}%
+			\noexpand\def\noexpand\apex{\apex}%
+			\noexpand\def\noexpand\lowerleft{\lowerleft}%
+			\noexpand\def\noexpand\lowerright{\lowerright}%
+			%
+			\noexpand\def\noexpand\angletoapex{\angletoapex}%
+			\noexpand\def\noexpand\angletolowerleft{\angletolowerleft}%
+			\noexpand\def\noexpand\angletolowerright{\angletolowerright}%
+			%
+			\noexpand\def\noexpand\baseangletoapex{\baseangletoapex}%
+			\noexpand\def\noexpand\baseangletolowerleft{\baseangletolowerleft}%
+			\noexpand\def\noexpand\baseangletolowerright{\baseangletolowerright}%
+			%
+			\noexpand\def\noexpand\midangletoapex{\midangletoapex}%
+			\noexpand\def\noexpand\midangletolowerleft{\midangletolowerleft}%
+			\noexpand\def\noexpand\midangletolowerright{\angletolowerright}%
+			%
+			\noexpand\def\noexpand\externalradius{\externalradius}%
+		}%
+	}
+	\savedanchor\centerpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{-.5\dp\pgfnodeparttextbox}%
+	}%
+	\savedanchor\basepoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}%
+	\savedanchor\midpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%
+	\anchor{center}{\centerpoint}%
+	\anchor{base}{\basepoint}%
+	\anchor{base west}{%
+		\installtriangleparameters%
+		\let\pgf@triangleanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}%
+	\anchor{base east}{%
+		\installtriangleparameters%
+		\let\pgf@triangleanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}%
+	\anchor{mid}{\midpoint}%
+	\anchor{mid west}{%
+		\installtriangleparameters%
+		\let\pgf@triangleanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{180}{\externalradius}}%
+	}%
+	\anchor{mid east}{%
+		\installtriangleparameters%
+		\let\pgf@triangleanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{0}{\externalradius}}%
+	}%
+	\anchor{apex}{%
+		\installtriangleparameters%
+		\apexpoint}
+	\anchor{left corner}{%
+		\installtriangleparameters%
+		\lowerleftpoint}
+	\anchor{right corner}{%
+		\installtriangleparameters%
+		\lowerrightpoint}
+	\anchor{left side}{%
+		\installtriangleparameters%
+		\pgfpointlineattime{0.5}{\apexpoint}{\lowerleftpoint}%
+	}	
+	\anchor{right side}{%
+		\installtriangleparameters%
+		\pgfpointlineattime{0.5}{\apexpoint}{\lowerrightpoint}%
+	}	
+	\anchor{lower side}{%
+		\installtriangleparameters%
+		\pgfpointlineattime{0.5}{\lowerleftpoint}{\lowerrightpoint}%
+	}
+	\anchor{north}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{90}{\externalradius}}%
+	}
+	\anchor{south}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{270}{\externalradius}}%
+	}
+	\anchor{east}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{0}{\externalradius}}%
+	}
+	\anchor{west}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{180}{\externalradius}}%
+	}
+	\anchor{north east}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{45}{\externalradius}}%
+	}
+	\anchor{south west}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{225}{\externalradius}}%
+	}
+	\anchor{south east}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{315}{\externalradius}}%
+	}
+	\anchor{north west}{%
+		\installtriangleparameters%
+		\csname pgf@anchor@isosceles triangle@border\endcsname{\pgfqpointpolar{135}{\externalradius}}%
+	}
+	\backgroundpath{%
+		\installtriangleparameters%
+		\pgfpathmoveto{\apex}%
+		\pgfpathlineto{\lowerleft}%
+		\pgfpathlineto{\lowerright}%
 		\pgfpathclose}
 	\anchorborder{%
 		%
@@ -1973,10 +2408,18 @@
 		\edef\externalx{\the\pgf@x}%
 		\edef\externaly{\the\pgf@y}%
 		%
-		% Adjust the location of the external 
-		% point relative to the centerpoint.
+		% This allows anchors base east, base west, mid east and mid west,
+		% to redefine the `center' of the node to correctly calculate the
+		% border points.
 		%
-		\centerpoint%
+		\pgfutil@ifundefined{pgf@triangleanchorborderreferencepoint}%
+			{\let\referencepoint\centerpoint}%
+			{\let\referencepoint\pgf@triangleanchorborderreferencepoint}%
+		%
+		% Adjust the location of the external 
+		% point relative to the reference point.
+		%
+		\referencepoint%
 		\pgf@xa\externalx\relax%
 		\pgf@ya\externaly\relax%
 		\advance\pgf@xa\pgf@x%
@@ -1984,788 +2427,589 @@
 		\edef\externalx{\the\pgf@xa}%
 		\edef\externaly{\the\pgf@ya}%
 		%
-		% Get the angle of the external point.
+		% Install the required points and angles.
 		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
+		\installtriangleparameters%
+		%
+		% Get the angle of the external point to the \referencepoint.
+		%
+		\pgfmathanglebetweenpoints{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+		%
+		% *Subtract* the rotation from the external angle. This is 
+		% why the border point angles do not neeed to be rotated.
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
+		\fi%
 		\let\externalangle\pgfmathresult%
-		\pgfmathanglebetweenpoints{\pgf@x0pt\pgf@y0pt}{\pgfqpoint{\upperright}{\halfheight}}
-		\let\upperrightangle\pgfmathresult%
-		\pgfmathanglebetweenpoints{\pgf@x0pt\pgf@y0pt}{\pgfqpoint{\upperleft}{\halfheight}}
-		\let\upperleftangle\pgfmathresult%
-		\pgfmathanglebetweenpoints{\pgf@x0pt\pgf@y0pt}{\pgfqpoint{\lowerleft}{-\halfheight}}
-		\let\lowerleftangle\pgfmathresult%
-		\pgfmathanglebetweenpoints{\pgf@x0pt\pgf@y0pt}{\pgfqpoint{\lowerright}{-\halfheight}}
-		\let\lowerrightangle\pgfmathresult%
-		\ifdim\externalangle pt<\upperrightangle pt\relax%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-			\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-			\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
+		\ifx\referencepoint\basepoint%
+			\let\angletoapex\baseangletoapex%
+			\let\angletolowerleft\baseangletolowerleft%
+			\let\angletolowerright\baseangletolowerright%
 		\else%
-			\ifdim\externalangle pt<\upperleftangle pt\relax%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperleft}{\halfheight}}}%
-				\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-				\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\else%
-				\ifdim\externalangle pt<\lowerleftangle pt\relax%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerleft}{-\halfheight}}}%
-					\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperleft}{\halfheight}}}%
-					\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\else%
-					\ifdim\externalangle pt<\lowerrightangle pt\relax%
-						\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerleft}{-\halfheight}}}%
-						\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-						\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\else%
-							\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\upperright}{\halfheight}}}%
-							\edef\firstpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-							\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\lowerright}{-\halfheight}}}%
-							\edef\secondpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\fi\fi\fi\fi%
-		\pgfpointintersectionoflines{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-			{\firstpoint}{\secondpoint}%
-		}
-}
-
-% Shape simple isosceles triangle
-%
-\pgfdeclareshape{simple isosceles triangle}{
-	\savedmacro{\rotate}{%
-		\pgfmathsetcount\c@pgf@counta{+\pgftrianglerotate}%
-		\advance\c@pgf@counta45\relax%
-		\divide\c@pgf@counta90\relax%
-		\multiply\c@pgf@counta90\relax%
-		\ifnum\c@pgf@counta>270\relax%
-			\c@pgf@counta0\relax%
-		\fi%
-		\edef\rotate{\the\c@pgf@counta}%
-	}
-	\savedmacro\installtriangleparameters{%
-		%
-		% Round the rotation to the nearest 90 degrees.
-		%
-		\pgfmathsetcount\c@pgf@counta{+\pgftrianglerotate}%
-		\advance\c@pgf@counta45\relax%
-		\divide\c@pgf@counta90\relax%
-		\multiply\c@pgf@counta90\relax%
-		\ifnum\c@pgf@counta>270\relax%
-			\c@pgf@counta0\relax%
-		\fi%
-		\edef\rotate{\the\c@pgf@counta}%
-		%
-		% Get the centre of the node tex box.
-		%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
-		\edef\centerpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		%
-		% Now get the text box dimensions required for calculating
-		% thw dimensions of the isosceles triangle.
-		%
-		\pgfmathaddtolength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+\dp\pgfnodeparttextbox}%
-		\ifdim\pgftrianglerotate pt<45pt\relax%
-			\pgf@xa\pgf@x\pgf@x\pgf@y\pgf@y\pgf@xa%
+			\ifx\referencepoint\midpoint%
+				\let\angletoapex\midangletoapex%
+				\let\angletolowerleft\midangletolowerleft%
+				\let\angletolowerright\midangletolowerright%			
+		\fi\fi%
+		\ifdim\externalangle pt<\angletoapex pt\relax%
+			\let\firstpoint\apexpoint%
+			\let\secondpoint\lowerrightpoint%
 		\else%
-			\ifdim\pgftrianglerotate pt<135pt\relax%
+			\ifdim\externalangle pt<\angletolowerleft pt\relax%
+				\let\firstpoint\apexpoint%
+				\let\secondpoint\lowerleftpoint%
 			\else%
-				\ifdim\pgftrianglerotate pt<225pt\relax%
-					\pgf@xa\pgf@x\pgf@x\pgf@y\pgf@y\pgf@xa%
+				\ifdim\externalangle pt<\angletolowerright pt\relax%
+					\let\firstpoint\lowerleftpoint%
+					\let\secondpoint\lowerrightpoint%
 				\else%
-					\ifdim\pgftrianglerotate pt<315pt\relax%
-					\else%
-						\pgf@xa\pgf@x\pgf@x\pgf@y\pgf@y\pgf@xa%
-		\fi\fi\fi\fi%
-		%
-		% Calculate some useful angles.
-		%
-		\pgf@xa\pgftriangleapexangle pt\relax%
-		\divide\pgf@xa2\relax%
-		\pgfmathtan@{\pgfmath@tonumber{\pgf@xa}}%
-		\let\tanhalfapexangle\pgfmathresult%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\reciprocaltanhalfapexangle\pgfmathresult%
-		\pgfmathsin@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\reciprocalsinhalfapexangle\pgfmathresult%
-		\pgfmathcos@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\reciprocalcoshalfapexangle\pgfmathresult%
-		\divide\pgf@xa-2\relax%
-		\advance\pgf@xa45pt\relax%
-		\pgfmathtan@{\pgfmath@tonumber{\pgf@xa}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\reciprocaltanhalfbaseangle\pgfmathresult%
-		%
-		% Now the triangle dimensions.
-		%
-		\pgf@ya\pgf@y%
-		\advance\pgf@ya\pgf@y%
-		\pgf@xa\tanhalfapexangle\pgf@ya%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-		\ifdim\pgf@xa<.5\pgf@xb%
-			\pgf@xa.5\pgf@xb%
+					\let\firstpoint\apexpoint%
+					\let\secondpoint\lowerrightpoint%
+				\fi%
+			\fi%
 		\fi%
-		\pgf@ya\reciprocaltanhalfapexangle\pgf@xa%
-		\pgfmathsetlength\pgf@yb{+\pgfshapeminheight}%
-		\ifdim\pgf@ya<\pgf@yb%
-			\pgf@ya\pgf@yb%
-			\pgf@xa\tanhalfapexangle\pgf@ya%
-		\fi%
-		\pgf@yb\reciprocaltanhalfapexangle\pgf@x%
-		\advance\pgf@yb\pgf@y%
-		\advance\pgf@yb\pgf@y%
-		\ifdim\pgf@yb>\pgf@ya%
-			\pgf@ya\pgf@yb%
-			\pgf@xa\tanhalfapexangle\pgf@ya%
-		\fi%
-		\edef\trianglehalfbase{\the\pgf@xa}%
-		\edef\triangletotalheight{\the\pgf@ya}%
-		\pgf@yb-\pgf@yb%
-		\advance\pgf@yb\pgf@ya%
-		\pgf@yb.33333\pgf@yb%
-		\advance\pgf@yb\pgf@y%
-		\edef\triangledepth{\the\pgf@yb}%
-		\advance\pgf@ya-\pgf@yb%
-		\edef\triangleheight{\the\pgf@ya}%
-		%
-		% Now calcualte the outer sep (taking into account the 
-		% miter which is different at the apex than at the
-		% triangle base).
-		%
-		\pgfmathsetlength\pgf@ya{+\pgfshapeouterysep}%
-		\pgfmathsetlength\pgf@xa{+\pgfshapeouterxsep}%
-		\ifdim\pgf@ya>\pgf@xa%
-			\pgf@xa\pgf@ya%
-		\fi%
-		\edef\outersep{\the\pgf@xa}%
-		\pgf@ya\outersep\relax%
-		\edef\bottomsep{\the\pgf@ya}%
-		\pgf@ya\reciprocalsinhalfapexangle\pgf@ya%
-		\edef\topsep{\the\pgf@ya}%
-		\pgf@xa\outersep\relax%
-		\pgf@xa\reciprocaltanhalfbaseangle\pgf@xa%
-		\edef\basesep{\the\pgf@xa}%
-		\pgf@xa\outersep\relax%
-		\pgf@xa\reciprocalcoshalfapexangle\pgf@xa%
-		\edef\sidesep{\the\pgf@xa}%
-		%
-		% Now the points of the triangle are created on the
-		% basis of the rotation (0, 90, 180 or 270 degrees).
-		%
-		% \pointone is always the apex of the triangle.
-		% \pointtwo is the next clockwise angle from \pointone.
-		% \pointthree is the next clockwise angle from \pointtwo.
-		%
-		% Also the point vector for the relevant outer sep is 
-		% computed for each point.
-		%
-		\ifnum\rotate=0\relax%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\triangleheight}{0pt}}}%
-			\edef\pointone{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{-\triangledepth}{\trianglehalfbase}}}%
-			\edef\pointtwo{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{-\triangledepth}{-\trianglehalfbase}}}%
-			\edef\pointthree{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			%
-			\pgf@process{\pgfqpoint{\topsep}{0pt}}%
-			\edef\pointonesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfqpoint{-\bottomsep}{\basesep}}%
-			\edef\pointtwosep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			\pgf@process{\pgfqpoint{-\bottomsep}{-\basesep}}%
-			\edef\pointthreesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-			%
-		\else%
-			\ifnum\rotate=90\relax%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{0pt}{\triangleheight}}}%
-				\edef\pointone{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{-\trianglehalfbase}{-\triangledepth}}}%
-				\edef\pointtwo{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\trianglehalfbase}{-\triangledepth}}}%
-				\edef\pointthree{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				%
-				\pgf@process{\pgfqpoint{0pt}{\topsep}}%
-				\edef\pointonesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfqpoint{-\basesep}{-\bottomsep}}%
-				\edef\pointtwosep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				\pgf@process{\pgfqpoint{\basesep}{-\bottomsep}}%
-				\edef\pointthreesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-				%
-			\else%
-				\ifnum\rotate=180\relax%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{-\triangleheight}{0pt}}}%
-					\edef\pointone{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\triangledepth}{-\trianglehalfbase}}}%
-					\edef\pointtwo{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\triangledepth}{\trianglehalfbase}}}%
-					\edef\pointthree{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					%
-					\pgf@process{\pgfqpoint{-\topsep}{0pt}}%
-					\edef\pointonesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfqpoint{\bottomsep}{-\basesep}}%
-					\edef\pointtwosep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					\pgf@process{\pgfqpoint{\bottomsep}{\basesep}}%
-					\edef\pointthreesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-					%
-				\else%
-					\ifnum\rotate=270\relax%
-						\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{0pt}{-\triangleheight}}}%
-						\edef\pointone{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{\trianglehalfbase}{\triangledepth}}}%
-						\edef\pointtwo{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						\pgf@process{\pgfpointadd{\centerpoint}{\pgfqpoint{-\trianglehalfbase}{\triangledepth}}}%
-						\edef\pointthree{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						%
-						\pgf@process{\pgfqpoint{0pt}{-\topsep}}%
-						\edef\pointonesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						\pgf@process{\pgfqpoint{\basesep}{\bottomsep}}%
-						\edef\pointtwosep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-						\pgf@process{\pgfqpoint{-\basesep}{\bottomsep}}%
-						\edef\pointthreesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\fi\fi\fi\fi%
-		%
-		% Add the outer sep to the points for the anchors...
-		%
-		\pgf@process{\pgfpointadd{\pointone}{\pointonesep}}%
-		\edef\pointone{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pgfpointadd{\pointtwo}{\pointtwosep}}%
-		\edef\pointtwo{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pgfpointadd{\pointthree}{\pointthreesep}}%
-		\edef\pointthree{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		%
-		% ...but reverse the outer sep vectors for drawing the border.
-		%
-		\pgf@process{\pointonesep}%
-		\pgf@x-\pgf@x\pgf@y-\pgf@y%
-		\edef\pointonesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pointtwosep}%
-		\pgf@x-\pgf@x\pgf@y-\pgf@y%
-		\edef\pointtwosep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		\pgf@process{\pointthreesep}%
-		\pgf@x-\pgf@x\pgf@y-\pgf@y%
-		\edef\pointthreesep{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
-		%
-		% Now calculate the angles for each point.
-		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pointone}%
-		\let\angletofirstpoint\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pointtwo}%
-		\let\angletosecondpoint\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pointthree}%
-		\let\angletothirdpoint\pgfmathresult%
-		%
-		% Oh, the power of saved macros! Lots of things defined at once!
-		%
-		\def\installtriangleparameters{%
-			\noexpand\def\noexpand\pointone{\pointone}%
-			\noexpand\def\noexpand\pointtwo{\pointtwo}%
-			\noexpand\def\noexpand\pointthree{\pointthree}%
-			\noexpand\def\noexpand\pointonesep{\pointonesep}%
-			\noexpand\def\noexpand\pointtwosep{\pointtwosep}%
-			\noexpand\def\noexpand\pointthreesep{\pointthreesep}%
-			\noexpand\def\noexpand\triangletotalheight{\triangletotalheight}%
-			\noexpand\def\noexpand\angletofirstpoint{\angletofirstpoint}%
-			\noexpand\def\noexpand\angletosecondpoint{\angletosecondpoint}%
-			\noexpand\def\noexpand\angletothirdpoint{\angletothirdpoint}%
-		}%	
-	}
-	\savedanchor\centerpoint{%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
-	}
-	\anchor{center}{\centerpoint}
-	\anchor{base}{\centerpoint\pgf@y0pt}
-	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{+0.5ex}}%
-	\anchor{point 1}{%
-		\installtriangleparameters%
-		\pointone}
-	\anchor{apex}{%
-		\installtriangleparameters%
-		\pointone}
-	\anchor{point 2}{%
-		\installtriangleparameters%
-		\pointtwo}
-	\anchor{point 3}{%
-		\installtriangleparameters%
-		\pointthree}
-	\anchor{side 1}{%
-		\installtriangleparameters%
-		\pgfpointlineattime{0.5}{\pointone}{\pointtwo}%
-		}
-	\anchor{side 2}{%
-		\installtriangleparameters%
-		\pgfpointlineattime{0.5}{\pointtwo}{\pointthree}%
-	}
-	\anchor{side 3}{%
-		\installtriangleparameters%
-		\pgfpointlineattime{0.5}{\pointthree}{\pointone}%
-	}
-	\anchor{north}{%
-		%
-		% A teensy bit clumsy, but guarantees the 
-		% point is outside the triangle border.
-		%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{90}{\triangletotalheight}}%
-	}
-	\anchor{south}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{270}{\triangletotalheight}}%
-	}
-	\anchor{east}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{0}{\triangletotalheight}}%
-	}
-	\anchor{west}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{180}{\triangletotalheight}}%
-	}	
-	\anchor{north west}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{135}{\triangletotalheight}}%
-	}	
-	\anchor{north east}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{45}{\triangletotalheight}}%
-	}	
-	\anchor{south west}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{225}{\triangletotalheight}}%
-	}	
-	\anchor{south east}{%
-		\installtriangleparameters%
-		\csname pgf@anchor@simple isosceles triangle@border\endcsname{\pgfqpointpolar{315}{\triangletotalheight}}%
-	}	
-	\backgroundpath{%
-		\installtriangleparameters%
-		\pgfpathmoveto{\pgfpointadd{\pointone}{\pointonesep}}%
-		\pgfpathlineto{\pgfpointadd{\pointtwo}{\pointtwosep}}%
-		\pgfpathlineto{\pgfpointadd{\pointthree}{\pointthreesep}}%
-		\pgfpathclose%
-	}
-	\anchorborder{%
-		%
-		% Save x and y.
-		%
-		\edef\externalx{\the\pgf@x}%
-		\edef\externaly{\the\pgf@y}%
-		%
-		% Adjust the location of the external 
-		% point relative to the centerpoint.
-		%
-		\centerpoint%
-		\pgf@xa\externalx\relax%
-		\pgf@ya\externaly\relax%
-		\advance\pgf@xa\pgf@x%
-		\advance\pgf@ya\pgf@y%
-		\edef\externalx{\the\pgf@xa}%
-		\edef\externaly{\the\pgf@ya}%
-		%
-		% Get the angle of the external point.
-		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-		\let\externalangle\pgfmathresult%
-		%
-		% Locate the appropriate side on the border...
-		%	
-		\installtriangleparameters%
-		\ifnum\rotate=0\relax%
-			\ifdim\externalangle pt<\angletosecondpoint pt\relax%
-				\let\firstpoint\pointone%
-				\let\secondpoint\pointtwo%
-			\else%
-				\ifdim\externalangle pt<\angletothirdpoint pt\relax%
-					\let\firstpoint\pointtwo%
-					\let\secondpoint\pointthree%
-				\else%
-					\let\firstpoint\pointone%
-					\let\secondpoint\pointthree%
-			\fi\fi%
-		\else
-			\ifnum\rotate=90\relax%			
-				\ifdim\externalangle pt<\angletofirstpoint pt\relax%
-					\let\firstpoint\pointone%
-					\let\secondpoint\pointthree%
-				\else%
-					\ifdim\externalangle pt<\angletosecondpoint pt\relax%
-						\let\firstpoint\pointone%
-						\let\secondpoint\pointtwo%
-					\else%
-						\ifdim\externalangle pt<\angletothirdpoint pt\relax%
-							\let\firstpoint\pointtwo%
-							\let\secondpoint\pointthree%
-						\else%
-							\let\firstpoint\pointone%
-							\let\secondpoint\pointthree%
-				\fi\fi\fi%
-			\else%
-				\ifnum\rotate=180\relax%
-					\ifdim\externalangle pt<\angletothirdpoint pt\relax%
-						\let\firstpoint\pointtwo%
-						\let\secondpoint\pointthree%
-					\else%
-						\ifdim\externalangle pt<\angletofirstpoint pt\relax%
-							\let\firstpoint\pointone%
-							\let\secondpoint\pointthree%
-						\else%
-							\ifdim\externalangle pt<\angletosecondpoint pt\relax%
-								\let\firstpoint\pointone%
-								\let\secondpoint\pointtwo%
-							\else%
-								\let\firstpoint\pointtwo%
-								\let\secondpoint\pointthree%
-					\fi\fi\fi%
-				\else%
-					\ifnum\rotate=270\relax%
-						\ifdim\externalangle pt<\angletosecondpoint pt\relax%
-							\let\firstpoint\pointone%
-							\let\secondpoint\pointtwo%
-						\else%
-							\ifdim\externalangle pt<\angletothirdpoint pt\relax%
-								\let\firstpoint\pointtwo%
-								\let\secondpoint\pointthree%
-							\else%
-								\ifdim\externalangle pt<\angletofirstpoint pt\relax%
-									\let\firstpoint\pointone%
-									\let\secondpoint\pointthree%
-								\else%
-									\let\firstpoint\pointone%
-									\let\secondpoint\pointtwo%
-						\fi\fi\fi%
-		\fi\fi\fi\fi%
-		% ...and hence the point on the border.
-		\pgfpointintersectionoflines{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-			{\firstpoint}{\secondpoint}%
-	}
+		\pgfpointintersectionoflines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+				{\firstpoint}{\secondpoint}%
+	}%
 }
 
 
 
 
-% \pgfsetsemicirclerotate
-% 
-% Set the rotation of the semicircle border.
+% \pgfsetkiteuppervertexangle
 %
-\def\pgfsetsemicirclerotate#1{\pgfmathsetmacro\pgfsemicirclerotate{#1}}
-\pgfsetsemicirclerotate{90}
+\def\pgfsetkiteuppervertexangle#1{\pgfmathsetmacro\pgfkiteuppervertexangle{#1}}%
+\pgfsetkiteuppervertexangle{120}%
 
-% \pgfsavepgf@process
+% \pgfsetkitelowervertexangle
 %
-% Little `helper' macro.
-%
-\def\pgfsavepgf@process#1#2{\pgf@process{#2}\edef#1{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}}
+\def\pgfsetkitelowervertexangle#1{\pgfmathsetmacro\pgfkitelowervertexangle{#1}}%
+\pgfsetkitelowervertexangle{60}
 
-% Shape semicircle
+% Shape kite.
 %
-%
-\pgfdeclareshape{semicircle}{
-	\savedmacro\rotate{%
-		\pgfmathsetcount\c@pgf@counta{+\pgfsemicirclerotate}%
-		\advance\c@pgf@counta45\relax%
-		\divide\c@pgf@counta90\relax%
-		\multiply\c@pgf@counta90\relax%
-		\ifnum\c@pgf@counta>270\relax%
-			\c@pgf@counta0\relax%
+\pgfdeclareshape{kite}{
+	\savedmacro\installkiteparameters{%
+		%
+		% Get the larger of the outer sep.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeouterysep}%
+		\ifdim\pgf@x<\pgf@y%
+			\pgf@x\pgf@y%
 		\fi%
-		\edef\rotate{\the\c@pgf@counta}%
-	}	
-	\savedmacro\installsemicircleparameters{%
+		\edef\outersep{\the\pgf@x}%
 		%
-		% Round the rotation to the nearest 90 degrees.
+		% Calculate the centre, base and mid points of the node.
 		%
-		\pgfmathsetcount\c@pgf@counta{+\pgfsemicirclerotate}%
-		\advance\c@pgf@counta45\relax%
-		\divide\c@pgf@counta90\relax%
-		\multiply\c@pgf@counta90\relax%
-		\ifnum\c@pgf@counta>270\relax%
-			\c@pgf@counta0\relax%
-		\fi%
-		\edef\rotate{\the\c@pgf@counta}%
+		\pgfsavepgf@process\centerpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+			\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+		}%
+		\pgfsavepgf@process\basepoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgf@y0pt\relax%
+		}%
+		\pgfsavepgf@process\midpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5ex}%
+		}%
 		%
-		% Calculate the radius of the semi-circle, and the
-		% 'offset' which is the distance from the center of
-		% the node to the distance of the semicircle.
+		% Halve the vertex angles.
+		%
+		\pgfmathdivide@{\pgfkiteuppervertexangle}{2}%
+		\let\halfuppervertexangle\pgfmathresult%
+		\pgfmathdivide@{\pgfkitelowervertexangle}{2}%
+		\let\halflowervertexangle\pgfmathresult%
+		%
+		% Get the node dimensions.
 		%
 		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
-		\pgfmathaddtolength\pgf@x{+\wd\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
-		\pgfmathaddtolength\pgf@y{+\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+\dp\pgfnodeparttextbox}%
-		%
-		% xa is the radius
-		% xb and yb are the minimum width and height.
-		% xc is the offset
-		%
-		\ifnum\rotate=0\relax%
-			\pgf@ya.5\pgf@y%
-			\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@ya}}%
-			\pgf@xa\pgfmathresult pt\relax%
-			\pgfmathsetlength\pgf@xb{+\pgfshapeminheight}%
-			\pgfmathsetlength\pgf@yb{+\pgfshapeminwidth}%
-			\pgf@yb.5\pgf@yb% half as we compare to the radius.
-			\pgf@xc.5\pgf@x%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
+		\ifpgfshapeborderusesincircle%
+			%
+			% Get the rotation.
+			%
+			\let\rotate\pgfshapeborderrotate%
+			%
+			% Get the radis of the incircle.
+			%
+			\ifdim\pgf@x<\pgf@y%
+				\pgf@x\pgf@y%
+			\fi%			
+			\pgf@x1.41421\pgf@x%
+			%
+			% Get the distances from the upper and lower verticies
+			% to the center of the incircle.
+			%
+			\pgfmathsin@{\halfuppervertexangle}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@ya\pgfmathresult\pgf@x%
+			\pgfmathsin@{\halflowervertexangle}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@yb\pgfmathresult\pgf@x%
+			%
+			% Now calculate vertical offset (yc) between the center of 
+			% the incircle, and the intersection of the kite diagonals.
+			%
+			% yc = y * cos(90 - a/2) * (a/4 - b/4) / sin(90 - a/4 - b/4)
+			%
+			% where
+			%
+			% ya = distance from the incircle centre to the upper vertex.
+			% a  = upper vertex angle.
+			% b  = lower vertex angle.
+			%
+			\pgfmathadd@{\halfuppervertexangle}{\halflowervertexangle}%
+			\pgfmathdivide@{\pgfmathresult}{2}%
+			\pgfmathsubtract@{90}{\pgfmathresult}%
+			\pgfmathsin@{\pgfmathresult}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@yc\pgfmathresult\pgf@ya%
+			\pgfmathsubtract@{90}{\halfuppervertexangle}%
+			\pgfmathcos@{\pgfmathresult}%
+			\pgf@yc\pgfmathresult\pgf@yc%
+			\pgfmathsubtract@{\halfuppervertexangle}{\halflowervertexangle}%
+			\pgfmathdivide@{\pgfmathresult}{2}%
+			\pgfmathsin@{\pgfmathresult}%
+			\pgf@yc\pgfmathresult\pgf@yc%
+			\edef\deltay{\the\pgf@yc}%
+			%
+			% Now calculate the height of the kite...
+			%
+			\advance\pgf@ya-\pgf@yc%
+			%
+			% ...and the depth.
+			%
+			\advance\pgf@yb\pgf@yc%
+			%
+			% Get the half width of the widest part of the kite.
+			%
+			\pgfmathtan@{\halfuppervertexangle}%
+			\pgf@xa\pgfmathresult\pgf@ya%			
 		\else%
-			\ifnum\rotate=90\relax%
-				\pgf@xa.5\pgf@x%
-				\pgfmathveclen@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@y}}%
-				\pgf@xa\pgfmathresult pt\relax%
-				\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-				\pgf@xb.5\pgf@xb%
-				\pgfmathsetlength\pgf@yb{+\pgfshapeminheight}%
-				\pgf@xc.5\pgf@y%
+			\multiply\pgf@x2\relax%
+			\multiply\pgf@y2\relax%
+			%
+			% Get the rotation (with rounding).
+			%
+			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
+			\advance\c@pgf@counta45\relax%
+			\divide\c@pgf@counta90\relax%
+			\multiply\c@pgf@counta90\relax%
+			\ifnum\c@pgf@counta<0\relax%
+				\advance\c@pgf@counta360\relax%
+			\fi%
+			\edef\rotate{\the\c@pgf@counta}%
+			%
+			% Calculate the width and height of the node
+			% contents, according to any border rotation.
+			%
+			\ifnum\c@pgf@counta=90\relax%
+				\pgf@xc\pgf@x%
+				\pgf@x\pgf@y%
+				\pgf@y\pgf@xc%
 			\else%
-				\ifnum\rotate=180\relax%
-					\pgf@ya.5\pgf@y%
-					\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@ya}}%
-					\pgf@xa\pgfmathresult pt\relax%
-					\pgfmathsetlength\pgf@xb{+\pgfshapeminheight}%
-					\pgfmathsetlength\pgf@yb{+\pgfshapeminwidth}%
-					\pgf@yb.5\pgf@yb%
-					\pgf@xc.5\pgf@x%
-				\else%
-					\pgf@xa.5\pgf@x%
-					\pgfmathveclen@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@y}}%
-					\pgf@xa\pgfmathresult pt\relax%
-					\pgfmathsetlength\pgf@xb{+\pgfshapeminwidth}%
-					\pgf@xb.5\pgf@xb%
-					\pgfmathsetlength\pgf@yb{+\pgfshapeminheight}%
-					\pgf@xc.5\pgf@y%
-		\fi\fi\fi%
-		\ifdim\pgf@xb<\pgf@yb%
-			\pgf@xb\pgf@yb%
+				\ifnum\c@pgf@counta=270\relax%
+					\pgf@xc\pgf@x%
+					\pgf@x\pgf@y%
+					\pgf@y\pgf@xc%
+				\fi%
+			\fi%
+			%
+			% The node contents (total height y) extends a distance ya into the 
+			% upper isosceles triangle of the kite and a distance yb into the 
+			% lower isosceles triangle. Thus, the following relationships hold:
+			%
+			%   ya/yb = tan(b/2)/tan(a/2)
+			%
+			% and   y = ya + yb
+			%
+			% so   ya = y * sin(a/2 + b/2) / (cos(a/2) * sin(b/2))
+			%
+			% (a = upper vertex angle, b = lower vertex angle).
+			%
+			\pgfmathadd@{\halfuppervertexangle}{\halflowervertexangle}%
+			\pgfmathsin@{\pgfmathresult}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\pgf@ya\pgfmathresult\pgf@y%
+			\pgfmathcos@{\halfuppervertexangle}%
+			\pgf@ya\pgfmathresult\pgf@ya%
+			\pgfmathsin@{\halflowervertexangle}%
+			\pgf@ya\pgfmathresult\pgf@ya%
+			\pgf@yb\pgf@y%
+			\advance\pgf@yb-\pgf@ya%
+			%
+			% The vertical offset between the center of the node, and
+			% the intersection of the kite diagonals is given by:
+			% 
+			% yc = y/2 - ya
+			%
+			\pgf@yc.5\pgf@y%
+			\advance\pgf@yc-\pgf@ya%
+			\edef\deltay{\the\pgf@yc}%
+			%
+			% Get the half width of the widest part of the kite.
+			%
+			\pgfmathtan@{\halfuppervertexangle}%
+			\pgf@xa.5\pgf@x%
+			\advance\pgf@xa\pgfmathresult\pgf@ya%
+			%
+			% Now calculate the height of the kite...
+			%
+			\pgf@xb.5\pgf@x%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\advance\pgf@ya\pgfmathresult\pgf@xb%
+			%
+			% ...and the depth.
+			%
+			\pgfmathtan@{\halflowervertexangle}%
+			\pgfmathreciprocal@{\pgfmathresult}%
+			\advance\pgf@yb\pgfmathresult\pgf@xb%
 		\fi%
-		\ifdim\pgf@xa<\pgf@xb%
-			\pgf@ya-\pgf@xa%
-			\pgf@xa\pgf@xb%
-			\advance\pgf@ya\pgf@xa%
-			\pgf@ya.5\pgf@ya%
-			\advance\pgf@xc\pgf@ya%
+		%
+		% Take into account minimum height and width.
+		%
+		% ya is the kite height.
+		% yb is the kite depth.
+		% xa is the kite (half) width.
+		%
+		\pgfmathsetlength\pgf@yc{+\pgfshapeminheight}%
+		\pgf@y\pgf@ya%
+		\advance\pgf@y\pgf@yb%
+		\ifdim\pgf@y<\pgf@yc%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@y}}%
+			\pgf@yc\pgfmathresult\pgf@yc%
+			\pgf@xa\pgfmath@tonumber{\pgf@yc}\pgf@xa%
+			\pgf@ya\pgfmath@tonumber{\pgf@yc}\pgf@ya%
+			\pgf@yb\pgfmath@tonumber{\pgf@yc}\pgf@yb%
 		\fi%
-		\pgfmathsetlength\pgf@xb{+\pgfshapeouterxsep}%
-		\pgfmathsetlength\pgf@yb{+\pgfshapeouterysep}%
-		\ifdim\pgf@xb>\pgf@yb%
-			\pgf@xb\pgf@yb%
+		\pgf@x2.0\pgf@xa%	
+		\pgfmathsetlength\pgf@xc{+\pgfshapeminwidth}%
+		\ifdim\pgf@x<\pgf@xc%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@x}}%
+			\pgf@xc\pgfmathresult\pgf@xc%
+			\pgf@xa\pgfmath@tonumber{\pgf@xc}\pgf@xa%
+			\pgf@ya\pgfmath@tonumber{\pgf@xc}\pgf@ya%
+			\pgf@yb\pgfmath@tonumber{\pgf@xc}\pgf@yb%
 		\fi%
-		\edef\outersep{\the\pgf@xb}%
-		\advance\pgf@xa\pgf@xb%
-		\edef\radius{\the\pgf@xa}%
-		%\advance\pgf@xc\pgf@xb%
-		\edef\offset{\the\pgf@xc}%
+		\edef\kitehalfwidth{\the\pgf@xa}%
+		\edef\kiteheight{\the\pgf@ya}%
+		\edef\kitedepth{\the\pgf@yb}%
 		%
-		% Get the centre of the node tex box.
+		% Calculate the basic points on the kite (for the background path).
 		%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
-		\edef\centerpoint{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
+		\pgfsavepgf@process\toppoint{%
+			\centerpoint%
+			\advance\pgf@y\deltay\relax%
+			\advance\pgf@y\kiteheight%
+		}%
+		\pgfsavepgf@process\bottompoint{%
+			\centerpoint%
+			\advance\pgf@y\deltay\relax%
+			\advance\pgf@y-\kitedepth%
+		}%
+		\pgfsavepgf@process\leftpoint{%
+			\centerpoint%
+			\advance\pgf@y\deltay\relax%
+			\advance\pgf@x-\kitehalfwidth%
+		}%
+		\pgfsavepgf@process\rightpoint{%
+			\centerpoint%
+			\advance\pgf@y\deltay\relax%
+				\advance\pgf@x\kitehalfwidth%
+		}%
 		%
-		% Calculate the center of the semi-circle, and the angle
-		% from the node center to the ends of the semi-circle arc.
+		% Now calculate the miter length. At the top...
 		%
-		\ifnum\rotate=0\relax%
-			\pgfsavepgf@process\semicirclecenter{%
-				\centerpoint%
-				\advance\pgf@x-\offset}%
-			\pgfsavepgf@process\semicircleendpoint{%
-				\semicirclecenter%
-				\advance\pgf@y\radius\relax%
-			}%
-			\pgfsavepgf@process\semicircleouterendpoint{%
-				\semicircleendpoint%
-				\advance\pgf@x-\outersep%
-			}%
-			\pgfsavepgf@process\semicirclestartpoint{%
-				\semicirclecenter%
-				\advance\pgf@y-\radius\relax%
-			}%
-			\pgfsavepgf@process\semicircleouterstartpoint{%
-				\semicirclestartpoint%
-				\advance\pgf@x-\outersep\relax%
-			}%
+		\pgfmathsin@{\halfuppervertexangle}%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\pgf@y\outersep\relax%
+		\pgf@y\pgfmathresult\pgf@y%
+		\edef\topmiter{\the\pgf@y}%
+		%
+		% ...at the bottom...
+		%
+		\pgfmathsin@{\halflowervertexangle}%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\pgf@y\outersep\relax%
+		\pgf@y\pgfmathresult\pgf@y%
+		\edef\bottommiter{\the\pgf@y}%
+		%
+		% ...to the right...
+		%
+		\pgfmathsubtract@{180}{\halflowervertexangle}%
+		\pgfmathsubtract@{\pgfmathresult}{\halfuppervertexangle}%
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\pgfmathsin@{\pgfmathresult}%
+		\pgfmathreciprocal@{\pgfmathresult}%
+		\pgf@xa\outersep\relax%
+		\pgf@xa\pgfmathresult\pgf@xa%
+		\pgfmathsubtract@{\halfuppervertexangle}{\halflowervertexangle}%
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\let\angle\pgfmathresult%
+		\pgfsavepgf@process\rightmiter{%
+			\pgfqpointpolar{\angle}{\the\pgf@xa}%
+		}%
+		%
+		% ...and to the left.
+		%
+		\pgfmathsubtract@{180}{\angle}%
+		\let\angle\pgfmathresult%
+		\pgfsavepgf@process\leftmiter{%
+			\pgfqpointpolar{\angle}{\the\pgf@xa}%
+		}%
+		%
+		% Create the border points.
+		%
+		\pgfsavepgf@process\topborderpoint{%
+			\toppoint%
+			\advance\pgf@y\topmiter\relax%
+		}%
+		\pgfsavepgf@process\bottomborderpoint{%
+			\bottompoint%
+			\advance\pgf@y-\bottommiter\relax%
+		}%
+		\pgfsavepgf@process\leftborderpoint{%
+			\leftpoint%
+			\pgf@xa\pgf@x%
+			\pgf@ya\pgf@y%
+			\leftmiter%
+			\advance\pgf@x\pgf@xa%
+			\advance\pgf@y\pgf@ya%
+		}%
+		\pgfsavepgf@process\rightborderpoint{%
+			\rightpoint%
+			\pgf@xa\pgf@x%
+			\pgf@ya\pgf@y%
+			\rightmiter%
+			\advance\pgf@x\pgf@xa%
+			\advance\pgf@y\pgf@ya%
+		}%
+		%
+		% Get the angle from the \centerpoint to the *unrotated points*.
+		%
+		\pgfmathanglebetweenpoints{\centerpoint}{\topborderpoint}%
+		\let\angletotoppoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\leftborderpoint}%
+		\let\angletoleftpoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\bottomborderpoint}%
+		\let\angletobottompoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\rightborderpoint}%
+		\let\angletorightpoint\pgfmathresult%
+		%
+		% ...from the *inversly rotated* \basepoint...
+		%
+		\pgfsavepgf@process\rotatedbasepoint{%
+			\pgfmathrotatepointaround{\basepoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\topborderpoint}%
+		\let\baseangletotoppoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\leftborderpoint}%
+		\let\baseangletoleftpoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\bottomborderpoint}%
+		\let\baseangletobottompoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\rightborderpoint}%
+		\let\baseangletorightpoint\pgfmathresult%
+		%
+		% ...and from the *inversely rotated* \midpoint.
+		%
+		\pgfsavepgf@process\rotatedmidpoint{%
+			\pgfmathrotatepointaround{\midpoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\topborderpoint}%
+		\let\midangletotoppoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\leftborderpoint}%
+		\let\midangletoleftpoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\bottomborderpoint}%
+		\let\midangletobottompoint\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\rightborderpoint}%
+		\let\midangletorightpoint\pgfmathresult%
+		%
+		% Calculate a radius guaranteed to be outside the kite.
+		%
+		\pgfextractx\pgf@xa{\pgfpointdiff{\leftborderpoint}{\rightborderpoint}}%
+		\ifdim\pgf@xa<0pt\relax%
+			\pgf@xa-\pgf@xa%
+		\fi%
+		\pgfextracty\pgf@ya{\pgfpointdiff{\topborderpoint}{\bottomborderpoint}}%
+		\ifdim\pgf@ya<0pt\relax%
+			\pgf@ya-\pgf@ya%
+		\fi%
+		\ifdim\pgf@ya>\pgf@xa%
+			\edef\externalradius{\the\pgf@ya}%
 		\else%
-			\ifnum\rotate=90\relax%
-				\pgfsavepgf@process\semicirclecenter{%
-					\centerpoint%
-					\advance\pgf@y-\offset}%
-				\pgfsavepgf@process\semicircleendpoint{%
-					\semicirclecenter%
-					\advance\pgf@x-\radius\relax%
-				}%
-				\pgfsavepgf@process\semicircleouterendpoint{%
-					\semicircleendpoint%
-					\advance\pgf@y-\outersep%
-				}%
-				\pgfsavepgf@process\semicirclestartpoint{%
-					\semicirclecenter%
-					\advance\pgf@x\radius\relax%
-				}%
-				\pgfsavepgf@process\semicircleouterstartpoint{%
-					\semicirclestartpoint%
-					\advance\pgf@y-\outersep\relax%
-				}%
-			\else%
-				\ifnum\rotate=180\relax%
-					\pgfsavepgf@process\semicirclecenter{%
-						\centerpoint%
-						\advance\pgf@x\offset}%
-					\pgfsavepgf@process\semicircleendpoint{%
-						\semicirclecenter%
-						\advance\pgf@y-\radius\relax%
-					}%
-					\pgfsavepgf@process\semicircleouterendpoint{%
-						\semicircleendpoint%
-						\advance\pgf@x\outersep%
-					}%
-					\pgfsavepgf@process\semicirclestartpoint{%
-						\semicirclecenter%
-					\advance\pgf@y\radius\relax%
-					}%
-					\pgfsavepgf@process\semicircleouterstartpoint{%
-						\semicirclestartpoint%
-						\advance\pgf@x\outersep\relax%
-					}%
-				\else%
-					\pgfsavepgf@process\semicirclecenter{%
-						\centerpoint%
-						\advance\pgf@y\offset}%
-					\pgfsavepgf@process\semicircleendpoint{%
-						\semicirclecenter%
-						\advance\pgf@x\radius\relax%
-					}%
-					\pgfsavepgf@process\semicircleouterendpoint{%
-						\semicircleendpoint%
-						\advance\pgf@y\outersep%
-					}%
-					\pgfsavepgf@process\semicirclestartpoint{%
-						\semicirclecenter%
-					\advance\pgf@x-\radius\relax%
-					}%
-					\pgfsavepgf@process\semicircleouterstartpoint{%
-						\semicirclestartpoint%
-						\advance\pgf@y\outersep\relax%
-					}%
-		\fi\fi\fi%
+			\edef\externalradius{\the\pgf@xa}%
+		\fi%
 		%
-		% Calculate the angles between the center of the node
-		% and various points on the semi-circle border.
+		% Now rotate the points...
 		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\semicirclestartpoint}%
-		\let\angletoarcstart\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\semicircleouterstartpoint}%
-		\let\angletoouterstartpoint\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\semicircleendpoint}%
-		\let\angletoarcend\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\semicircleouterendpoint}%
-		\let\angletoouterendpoint\pgfmathresult%
+		\pgfsavepgf@process\toppoint{%
+			\pgfmathrotatepointaround{\toppoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\bottompoint{%
+			\pgfmathrotatepointaround{\bottompoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\leftpoint{%
+			\pgfmathrotatepointaround{\leftpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\rightpoint{%
+			\pgfmathrotatepointaround{\rightpoint}{\centerpoint}{\rotate}%
+		}%
 		%
-		% Now save the stuff...
+		% ...and the border points.
 		%
-		\def\installsemicircleparameters{%
-			\noexpand\def\noexpand\semicirclecenter{\semicirclecenter}%
-			\noexpand\def\noexpand\radius{\radius}%
-			\noexpand\def\noexpand\offset{\offset}%	
-			\noexpand\def\noexpand\outersep{\outersep}%	
-			\noexpand\def\noexpand\angletoarcstart{\angletoarcstart}%
-			\noexpand\def\noexpand\angletoarcend{\angletoarcend}%	
-			\noexpand\def\noexpand\angletoouterstartpoint{\angletoouterstartpoint}%
-			\noexpand\def\noexpand\angletoouterendpoint{\angletoouterendpoint}%	
-			\noexpand\def\noexpand\semicircleendpoint{\semicircleendpoint}%
-			\noexpand\def\noexpand\semicircleouterendpoint{\semicircleouterendpoint}%
-			\noexpand\def\noexpand\semicirclestartpoint{\semicirclestartpoint}%
-			\noexpand\def\noexpand\semicircleouterstartpoint{\semicircleouterstartpoint}%
+		\pgfsavepgf@process\topborderpoint{%
+			\pgfmathrotatepointaround{\topborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\bottomborderpoint{%
+			\pgfmathrotatepointaround{\bottomborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\leftborderpoint{%
+			\pgfmathrotatepointaround{\leftborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\rightborderpoint{%
+			\pgfmathrotatepointaround{\rightborderpoint}{\centerpoint}{\rotate}%
+		}%
+		%
+		% Now save it all.
+		%
+		\def\installkiteparameters{%
+			\noexpand\def\noexpand\rotate{\rotate}%
+			\noexpand\def\noexpand\externalradius{\externalradius}%
+			%
+			\noexpand\def\noexpand\toppoint{\toppoint}%
+			\noexpand\def\noexpand\bottompoint{\bottompoint}%
+			\noexpand\def\noexpand\leftpoint{\leftpoint}%
+			\noexpand\def\noexpand\rightpoint{\rightpoint}%
+			%
+			\noexpand\def\noexpand\topborderpoint{\topborderpoint}%
+			\noexpand\def\noexpand\bottomborderpoint{\bottomborderpoint}%
+			\noexpand\def\noexpand\leftborderpoint{\leftborderpoint}%
+			\noexpand\def\noexpand\rightborderpoint{\rightborderpoint}%
+			%
+			\noexpand\def\noexpand\angletotoppoint{\angletotoppoint}%
+			\noexpand\def\noexpand\angletobottompoint{\angletobottompoint}%
+			\noexpand\def\noexpand\angletoleftpoint{\angletoleftpoint}%
+			\noexpand\def\noexpand\angletorightpoint{\angletorightpoint}%
+			%
+			\noexpand\def\noexpand\baseangletotoppoint{\baseangletotoppoint}%
+			\noexpand\def\noexpand\baseangletobottompoint{\baseangletobottompoint}%
+			\noexpand\def\noexpand\baseangletoleftpoint{\baseangletoleftpoint}%
+			\noexpand\def\noexpand\baseangletorightpoint{\baseangletorightpoint}%
+			%
+			\noexpand\def\noexpand\midangletotoppoint{\midangletotoppoint}%
+			\noexpand\def\noexpand\midangletobottompoint{\midangletobottompoint}%
+			\noexpand\def\noexpand\midangletoleftpoint{\midangletoleftpoint}%
+			\noexpand\def\noexpand\midangletorightpoint{\midangletorightpoint}%			
 		}%
 	}
 	\savedanchor\centerpoint{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%	
-	}
-	\anchor{center}{\centerpoint}
-	\anchor{base}{\centerpoint\pgf@y0pt\relax}
-	\anchor{mid}{\centerpoint\pgfmathsetlength\pgf@y{0.5ex}}
-	\anchor{apex}{%
-		\installsemicircleparameters%
-		\pgfpointadd{\semicirclecenter}{\pgfqpointpolar{\rotate}{\radius}}%
-	}
-	\anchor{arc start}{%
-		\installsemicircleparameters%
-		\semicircleouterstartpoint%
-	}
-	\anchor{arc end}{%
-		\installsemicircleparameters%
-		\semicircleouterendpoint%
-	}
-	\anchor{chord center}{%
-		\installsemicircleparameters%
-		\semicirclecenter%
-		\advance\pgf@y-\outersep\relax%
-	}
+		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+	}%
+	\savedanchor\basepoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}%
+	\savedanchor\midpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%
+	\anchor{center}{\centerpoint}%
+	\anchor{base}{\basepoint}%
+	\anchor{base west}{%
+		\installkiteparameters%
+		\let\pgf@kiteanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}%
+	\anchor{base east}{%
+		\installkiteparameters%
+		\let\pgf@kiteanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}%
+	\anchor{mid}{\midpoint}%
+	\anchor{mid west}{%
+		\installkiteparameters%
+		\let\pgf@kiteanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}%
+	\anchor{mid east}{%
+		\installkiteparameters%
+		\let\pgf@kiteanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}%
 	\anchor{north}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{90}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{0pt}{\externalradius}}%
 	}
 	\anchor{south}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{270}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{0pt}{-\externalradius}}%
 	}
 	\anchor{east}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{0}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
 	}
 	\anchor{west}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{180}{\radius}}%
-	}
-	\anchor{north west}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{135}{\radius}}%
-	}
-	\anchor{south west}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{225}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
 	}
 	\anchor{north east}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{45}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{\externalradius}{\externalradius}}%
+	}
+	\anchor{south west}{%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{-\externalradius}{-\externalradius}}%
 	}
 	\anchor{south east}{%
-		\installsemicircleparameters%
-		\csname pgf@anchor@semicircle@border\endcsname{\pgfqpointpolar{315}{\radius}}%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
 	}
+	\anchor{north west}{%
+		\installkiteparameters%
+		\csname pgf@anchor@kite@border\endcsname{\pgfqpoint{-\externalradius}{\externalradius}}%
+	}
+	\anchor{upper vertex}{%
+		\installkiteparameters%
+		\topborderpoint}
+	\anchor{lower vertex}{%
+		\installkiteparameters%
+		\bottomborderpoint}
+	\anchor{left vertex}{%
+		\installkiteparameters%
+		\leftborderpoint}
+	\anchor{right vertex}{%
+		\installkiteparameters%
+		\rightborderpoint}
+	\anchor{upper left side}{%
+		\installkiteparameters%
+		\pgfpointlineattime{0.5}{\topborderpoint}{\leftborderpoint}}
+	\anchor{lower left side}{%
+		\installkiteparameters%
+		\pgfpointlineattime{0.5}{\bottomborderpoint}{\leftborderpoint}}
+	\anchor{upper right side}{%
+		\installkiteparameters%
+		\pgfpointlineattime{0.5}{\topborderpoint}{\rightborderpoint}}
+	\anchor{lower right side}{%
+		\installkiteparameters%
+		\pgfpointlineattime{0.5}{\bottomborderpoint}{\rightborderpoint}}
 	\backgroundpath{%
-		\installsemicircleparameters%
-		%
-		% Remove the outer sep.
-		%
-		\pgf@x\radius\relax%
-		\advance\pgf@x-\outersep%
-		\edef\radius{\the\pgf@x}%
-		\pgf@x\offset\relax%
-		\edef\offset{\the\pgf@x}%
-		%
-		% Draw the semi-circle.
-		%
-		\ifnum\rotate=0\relax%
-				\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpoint{-\offset}{-\radius}}}%
-				\pgfpatharc{-90}{90}{\radius}%	
-		\else%
-			\ifnum\rotate=90\relax%
-				\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpoint{\radius}{-\offset}}}%
-				\pgfpatharc{0}{180}{\radius}%
-			\else%
-				\ifnum\rotate=180\relax%
-					\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpoint{\offset}{\radius}}}%
-					\pgfpatharc{90}{270}{\radius}%
-				\else%
-					\pgfpathmoveto{\pgfpointadd{\centerpoint}{\pgfqpoint{-\radius}{\offset}}}%
-					\pgfpatharc{180}{360}{\radius}%
-		\fi\fi\fi%
+		\installkiteparameters%
+		\pgfpathmoveto{\toppoint}%
+		\pgfpathlineto{\leftpoint}%
+		\pgfpathlineto{\bottompoint}%
+		\pgfpathlineto{\rightpoint}%
 		\pgfpathclose%
 	}
 	\anchorborder{%
@@ -2775,10 +3019,18 @@
 		\edef\externalx{\the\pgf@x}%
 		\edef\externaly{\the\pgf@y}%
 		%
-		% Adjust the location of the external 
-		% point relative to the centerpoint.
+		% This allows anchors base east, base west, mid east and mid west,
+		% to redefine the `center' of the node to correctly calculate the
+		% border points.
 		%
-		\centerpoint%
+		\pgfutil@ifundefined{pgf@kiteanchorborderreferencepoint}%
+			{\let\referencepoint\centerpoint}%
+			{\let\referencepoint\pgf@kiteanchorborderreferencepoint}%
+		%
+		% Adjust the location of the external 
+		% point relative to the reference point.
+		%
+		\referencepoint%
 		\pgf@xa\externalx\relax%
 		\pgf@ya\externaly\relax%
 		\advance\pgf@xa\pgf@x%
@@ -2786,138 +3038,637 @@
 		\edef\externalx{\the\pgf@xa}%
 		\edef\externaly{\the\pgf@ya}%
 		%
-		% Get the angle of the external point.
+		% Install the required points and angles.
 		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
-		\let\externalangle\pgfmathresult%
+		\installkiteparameters%
 		%
-		% The border point is either
+		% Get the angle of the external point relative to \referencepoint.
 		%
-		% (a) on the chord of the semi-circle (easy)
-	 	% (b) on the semi-circle arc (tricky)
+		\pgfmathanglebetweenpoints{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
 		%
-		% (a) is only *relatively* easy as the outer sep may add some
-		% extra tricksyness.
+		% *Subtract* the rotation from the external angle.
 		%
-		% (b) is tricky because the center of the node `N' is not the center
-		% of the semi-circle `O'. Assuming the rotation of the border is 90
-		% degrees, `N' is a distance `x' above `O'.
-		% The border point `B' is where the line from the external point `E' 
-		% to `N' crosses the arc of the semi-circle, so we need to find the 
-		% angle `u' such that a line from `O' at angle `u' passes through `B'.
-		%	
-		% Is (b) possible? You bet!
-		%
-		% Can it be explained without a diagram? No, but...
-		%
-		% Let `r' be the radius of the semi-circle.
-		% Let `s' be the angle from `N' to `E
-		%
-		% The points `O' `C' and `B' form a triangle, so let `t' be the angle OBC.
-		%
-		% Then r/sin(90+s) = x/sin(t)               
-		% so             t = asin(sin(90+s) * x / r)
-		%
-		% Now, if we had a diagram it would be obvious that
-		%
-		%               90 = s + t + (90 - u)
-		% thus           u = s + t 
-		%	                = s + asin(sin(90+s) * x / r)
-		%
-		% The argument can be extended to the other rotations.
-		%
-		\installsemicircleparameters%
-		%
-		% 180 is a special case as the chord crosses the 0 angle.
-		%
-		\ifnum\rotate=180\relax
-			\ifdim\externalangle pt>\angletoarcstart pt\relax%
-				\ifdim\externalangle pt<\angletoarcend pt\relax%
-					\let\firstpoint\pgfutil@empty%
-					\let\secondpoint\pgfutil@empty%
-				\else%
-					\ifdim\externalangle pt<\angletoouterendpoint pt\relax%
-						\let\firstpoint\semicircleendpoint%
-						\let\secondpoint\semicircleouterendpoint%
-					\else%
-						\let\firstpoint\semicircleouterstartpoint%
-						\let\secondpoint\semicircleouterendpoint%
-					\fi%
-				\fi%
-			\else%
-				\ifdim\externalangle pt>\angletoouterstartpoint pt\relax%
-					\let\firstpoint\semicirclestartpoint%
-					\let\secondpoint\semicircleouterstartpoint%
-				\else%
-					\let\firstpoint\semicircleouterstartpoint%
-					\let\secondpoint\semicircleouterendpoint%
-				\fi%
-			\fi%					
-		\else%
-			\ifdim\externalangle pt>\angletoarcend pt\relax%
-				\ifdim\externalangle pt>\angletoouterendpoint pt\relax%
-					\ifdim\externalangle pt>\angletoouterstartpoint pt\relax%
-						\ifdim\externalangle pt<\angletoarcstart pt \relax%
-							\let\firstpoint\semicirclestartpoint%
-							\let\secondpoint\semicircleouterstartpoint%
-						\else%
-							\let\firstpoint\pgfutil@empty%
-							\let\secondpoint\pgfutil@empty%
-						\fi%
-					\else%
-						\let\firstpoint\semicircleouterendpoint%
-						\let\secondpoint\semicircleouterstartpoint%
-					\fi%
-				\else%
-						\let\firstpoint\semicircleendpoint%
-						\let\secondpoint\semicircleouterendpoint%
-				\fi%
-			\else%
-				\let\firstpoint\pgfutil@empty%
-				\let\secondpoint\pgfutil@empty%
-			\fi%	
+		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
 		\fi%
-		\ifx\firstpoint\pgfutil@empty
-			%
-			% Oh no! The tricky way...
-			%
-			\pgf@x\externalangle pt\relax%
-			\ifnum\rotate=0\relax%
-				\pgf@x-\pgf@x%
-				\advance\pgf@x180pt\relax%
-				\edef\offset{-\offset}%
-			\else%
-				\ifnum\rotate=90\relax%
-					\advance\pgf@x90pt\relax%
-				\else
-					\ifnum\rotate=180\relax%
-						\pgf@x-\pgf@x%
-						\advance\pgf@x180pt\relax%
-					\else%
-						\advance\pgf@x90pt\relax%
-						\edef\offset{-\offset}%
-			\fi\fi\fi%
-			\pgfmathsin@{\pgfmath@tonumber{\pgf@x}}%
-			\let\sineangle\pgfmathresult%
-			\pgf@x\radius\relax%
-			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@x}}%
-			\let\reciprocalradius\pgfmathresult%
-			\pgf@x\offset\relax%
-			\pgf@x\sineangle\pgf@x%
-			\pgf@x\reciprocalradius\pgf@x%
-			\pgfmathasin@{\pgfmath@tonumber{\pgf@x}}%
-			\pgf@x\pgfmathresult pt\relax%
-			\advance\pgf@x\externalangle pt\relax%
-			\edef\angle{\pgfmath@tonumber{\pgf@x}}%
-			\pgfpointadd{\semicirclecenter}{\pgfqpointpolar{\angle}{\radius}}%
+		\let\externalangle\pgfmathresult%
+		\ifx\referencepoint\basepoint%
+			\let\angletotoppoint\baseangletotoppoint%
+			\let\angletobottompoint\baseangletobottompoint%
+			\let\angletoleftpoint\baseangletoleftpoint%
+			\let\angletorightpoint\baseangletorightpoint%
 		\else%
-			%
-			% Great! The easy way...
-			%
-			\pgfpointintersectionoflines{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
+			\ifx\referencepoint\midpoint%
+				\let\angletotoppoint\midangletotoppoint%
+				\let\angletobottompoint\midangletobottompoint%
+				\let\angletoleftpoint\midangletoleftpoint%
+				\let\angletorightpoint\midangletorightpoint%
+		\fi\fi%
+		%
+		%  Depending on the rotation, the angle to \rightborderpoint
+		%  may be smaller than the angle to \topborderpoint.
+		%
+		\ifdim\angletorightpoint pt<\angletotoppoint pt\relax%
+			\ifdim\externalangle pt<\angletorightpoint pt\relax%
+				\let\firstpoint\rightborderpoint%
+				\let\secondpoint\bottomborderpoint%
+			\else%
+				\ifdim\externalangle pt<\angletotoppoint pt\relax%
+					\let\firstpoint\rightborderpoint%
+					\let\secondpoint\topborderpoint%
+				\else%
+					\ifdim\externalangle pt<\angletoleftpoint pt\relax%
+						\let\firstpoint\topborderpoint%
+						\let\secondpoint\leftborderpoint%
+					\else%
+						\ifdim\externalangle pt<\angletobottompoint pt\relax%
+							\let\firstpoint\leftborderpoint%
+							\let\secondpoint\bottomborderpoint%
+						\else%
+							\let\firstpoint\rightborderpoint%
+							\let\secondpoint\bottomborderpoint%
+						\fi%
+					\fi%
+				\fi%
+			\fi%
+		\else%
+			\ifdim\externalangle pt<\angletotoppoint pt\relax%
+				\let\firstpoint\rightborderpoint%
+				\let\secondpoint\topborderpoint%
+			\else%
+				\ifdim\externalangle pt<\angletoleftpoint pt\relax%
+					\let\firstpoint\leftborderpoint%
+					\let\secondpoint\topborderpoint%
+				\else%
+					\ifdim\externalangle pt<\angletobottompoint pt\relax%
+						\let\firstpoint\bottomborderpoint%
+						\let\secondpoint\leftborderpoint%
+					\else%
+						\ifdim\externalangle pt<\angletorightpoint pt\relax%
+							\let\firstpoint\rightborderpoint%
+							\let\secondpoint\bottomborderpoint%
+						\else%
+							\let\firstpoint\rightborderpoint%
+							\let\secondpoint\topborderpoint%
+						\fi%
+					\fi%
+				\fi%
+			\fi%
+		\fi%
+		\pgfpointintersectionoflines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
 				{\firstpoint}{\secondpoint}%
-		\fi%						
 	}
 }
 
-\endinput
+
+
+
+
+% \pgfsetdarttipangle
+%
+\def\pgfsetdarttipangle#1{\pgfmathsetmacro\pgfdarttipangle{#1}}%
+\pgfsetdarttipangle{45}
+
+% \pgfsetdarttailangle
+%
+\def\pgfsetdarttailangle#1{\pgfmathsetmacro\pgfdarttailangle{#1}}%
+\pgfsetdarttailangle{135}
+
+% Shape dart.
+%
+\pgfdeclareshape{dart}{%
+	\savedmacro\installdartparameters{%
+		%
+		% Get the halved angles (more useful).
+		%
+		\pgfmathdivide@{\pgfdarttipangle}{2}%
+		\let\halftipangle\pgfmathresult%
+		\pgfmathdivide@{\pgfdarttailangle}{2}%
+		\let\halftailangle\pgfmathresult%
+		%
+		% Calculate some common results.
+		%
+		\pgfmathcot@{\halftipangle}%
+		\let\cothalftipangle\pgfmathresult%
+		%
+		% Get the larger of the outer sep.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeouterxsep}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeouterysep}%
+		\ifdim\pgf@x<\pgf@y%
+			\pgf@x\pgf@y%
+		\fi%
+		\edef\outersep{\the\pgf@x}%
+		%
+		% Calculate the centre, base and mid points of the node.
+		%
+		\pgfsavepgf@process\centerpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+			\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+		}%
+		\pgfsavepgf@process\basepoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgf@y0pt\relax%
+		}%
+		\pgfsavepgf@process\midpoint{%
+			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+			\pgfmathsetlength\pgf@y{+.5ex}%
+		}%
+		%
+		% Get the (halved) dimension of the node.
+		%
+		\pgfmathsetlength\pgf@x{+\pgfshapeinnerxsep}%
+		\pgfmathaddtolength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+\pgfshapeinnerysep}%
+		\pgfmathaddtolength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+.5\dp\pgfnodeparttextbox}%
+		%
+		% Get the length of the dart tip.
+		%
+		\ifpgfshapeborderusesincircle%
+			%
+			% Get the (unrounded) rotation.
+			%
+			\let\rotate\pgfshapeborderrotate%
+			%
+			% Get the radius of the incircle.
+			%
+			\ifdim\pgf@x<\pgf@y%
+				\pgf@x\pgf@y%
+			\fi%			
+			\pgf@x1.41421\pgf@x%
+			%
+			% Calculate the length of the dart tip.
+			%
+			\pgf@xa\cothalftipangle\pgf@x%
+			\advance\pgf@xa\pgf@x%
+		\else%
+			%
+			% Get the rotation (with rounding).
+			%
+			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\afterassignment\pgfmath@gobbletilpgfmath@%
+			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
+			\advance\c@pgf@counta45\relax%
+			\divide\c@pgf@counta90\relax%
+			\multiply\c@pgf@counta90\relax%
+			\ifnum\c@pgf@counta<0\relax%
+				\advance\c@pgf@counta360\relax%
+			\fi%
+			\edef\rotate{\the\c@pgf@counta}%
+			%
+			% Flip the width and height of the node contents, 
+			% according to the appropriate border rotation.
+			%
+			\ifnum\c@pgf@counta=90\relax%
+				\pgf@xc\pgf@x%
+				\pgf@x\pgf@y%
+				\pgf@y\pgf@xc%
+			\else%
+				\ifnum\c@pgf@counta=270\relax%
+					\pgf@xc\pgf@x%
+					\pgf@x\pgf@y%
+					\pgf@y\pgf@xc%
+				\fi%
+			\fi%
+			%
+			% Calculate the length of the dart tip.
+			%
+			\pgf@xa\cothalftipangle\pgf@y%
+			\advance\pgf@xa2.0\pgf@x% 
+		\fi%
+		%
+		% Get the (half) separation of the dart tails.
+		%
+		\pgfmathsubtract@{\halftailangle}{\halftipangle}%
+		\pgfmathcosec@{\pgfmathresult}%
+		\pgf@ya\pgfmathresult\pgf@xa%
+		\pgfmathsin@{\halftipangle}%
+		\pgf@ya\pgfmathresult\pgf@ya%
+		\pgfmathcos@{\halftipangle}%
+		\pgf@ya\pgfmathresult\pgf@ya%
+		%
+		% Get the total length of the dart...
+		%
+		\pgf@xb\cothalftipangle\pgf@ya%
+		%
+		% and hence the length of the tails. 
+		%
+		\pgf@xc-\pgf@xa%
+		\advance\pgf@xc\pgf@xb%
+		%
+		% Adjust for minimum height (length of the dart).
+		%
+		\pgfmathsetlength\pgf@y{+\pgfshapeminheight}%
+		\ifdim\pgf@xb<\pgf@y%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xb}}%
+			\pgf@y\pgfmathresult\pgf@y%
+			\pgf@xa\pgfmath@tonumber{\pgf@y}\pgf@xa%
+			\pgf@xc\pgfmath@tonumber{\pgf@y}\pgf@xc%
+			\pgf@ya\pgfmath@tonumber{\pgf@y}\pgf@ya%
+			\pgf@x\pgfmath@tonumber{\pgf@y}\pgf@x%
+		\fi%
+		%
+		% Adjust for minimum width (tail separation length).
+		%
+		\pgfmathsetlength\pgf@y{+\pgfshapeminwidth}%
+		\pgf@y.5\pgf@y%
+		\ifdim\pgf@ya<\pgf@y%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@ya}}%
+			\pgf@ya\pgf@y%
+			\pgf@y\pgfmathresult\pgf@y%
+			\pgf@xa\pgfmath@tonumber{\pgf@y}\pgf@xa%
+			\pgf@xc\pgfmath@tonumber{\pgf@y}\pgf@xc%
+			\pgf@x\pgfmath@tonumber{\pgf@y}\pgf@x%
+		\fi%
+		\edef\dartlength{\the\pgf@xa}%
+		\edef\deltax{\the\pgf@x}%
+		\edef\taillength{\the\pgf@xc}%
+		\edef\halftailseparation{\the\pgf@ya}
+		%
+		% Create the basic points on the dart (for the backgroundo path).
+		%
+		\pgfsavepgf@process\tippoint{%
+			\centerpoint%
+			\advance\pgf@x\dartlength\relax%
+			\advance\pgf@x-\deltax\relax%
+		}%
+		\pgfsavepgf@process\tailcenterpoint{%
+			\centerpoint%
+			\advance\pgf@x-\deltax\relax%
+		}%
+		\pgfsavepgf@process\lefttailpoint{%
+			\centerpoint%
+			\advance\pgf@x-\deltax\relax%
+			\advance\pgf@x-\taillength\relax%
+			\advance\pgf@y\halftailseparation\relax%
+		}%
+		\pgfsavepgf@process\righttailpoint{%
+			\centerpoint%
+			\advance\pgf@x-\deltax\relax%
+			\advance\pgf@x-\taillength\relax%
+			\advance\pgf@y-\halftailseparation\relax%
+		}%
+		%
+		% Calculate the miter vectors. At the dart tip...
+		%
+		\pgfsavepgf@process\tipmiter{%
+			\pgfmathcosec@{\halftipangle}%
+			\pgf@x\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y0pt\relax%
+		}%
+		%
+		% ...at the tail center...
+		%
+		\pgfsavepgf@process\tailcentermiter{%
+			\pgfmathcosec@{\halftailangle}%
+			\pgf@x-\outersep\relax%
+			\pgf@x\pgfmathresult\pgf@x%
+			\pgf@y0pt\relax%
+		}%
+		%
+		% ...at the left tail...
+		%
+		\pgfmathsubtract@{\halftailangle}{\halftipangle}%
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\let\angle\pgfmathresult%
+		\pgfmathcosec@{\pgfmathresult}%
+		\pgf@x\outersep\relax%
+		\pgf@x\pgfmathresult\pgf@x%
+		\pgfmathadd@{\angle}{90}%
+		\pgfmathsubtract{\pgfmathresult}{\halftailangle}%
+		\pgfmathsincos@{\pgfmathresult}%
+		\pgf@ya\pgfmathresultx\pgf@x%
+		\pgf@xa\pgfmathresulty\pgf@x%
+		\pgfsavepgf@process\lefttailmiter{%
+			\pgf@x-\pgf@xa%
+			\pgf@y\pgf@ya%
+		}%
+		%
+		% ...and the right tail.
+		%
+		\pgfsavepgf@process\righttailmiter{%
+			\pgf@x-\pgf@xa%
+			\pgf@y-\pgf@ya%
+		}%
+		%
+		% Create the border points.
+		%
+		\pgfsavepgf@process\tipborderpoint{%
+			\pgfpointadd{\tippoint}{\tipmiter}
+		}%
+		\pgfsavepgf@process\tailcenterborderpoint{%
+			\pgfpointadd{\tailcenterpoint}{\tailcentermiter}%
+		}%
+		\pgfsavepgf@process\lefttailborderpoint{%
+			\pgfpointadd{\lefttailpoint}{\lefttailmiter}%
+		}%
+		\pgfsavepgf@process\righttailborderpoint{%
+			\pgfpointadd{\righttailpoint}{\righttailmiter}%
+		}%
+		%
+		% Calculate the angles between the centerpoint
+		% and the *unrotated* borderpoints.
+		%
+		\pgfmathanglebetweenpoints{\centerpoint}{\tipborderpoint}%
+		\let\angletotip\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\tailcenterborderpoint}%
+		\let\angletotailcenter\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\lefttailborderpoint}%
+		\let\angletolefttail\pgfmathresult%
+		\pgfmathanglebetweenpoints{\centerpoint}{\righttailborderpoint}%
+		\let\angletorighttail\pgfmathresult%
+		%
+		% Calculate the angles between the *inversly rotated* 
+		% basepoint and the *unrotated* borderpoints.
+		%
+		\pgfsavepgf@process\rotatedbasepoint{%
+			\pgfmathrotatepointaround{\basepoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\tipborderpoint}%
+		\let\baseangletotip\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\tailcenterborderpoint}%
+		\let\baseangletotailcenter\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\lefttailborderpoint}%
+		\let\baseangletolefttail\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedbasepoint}{\righttailborderpoint}%
+		\let\baseangletorighttail\pgfmathresult%
+		%
+		% Calculate the angles between the *inversly rotated* 
+		% midpoint and the *unrotated* borderpoints.
+		%
+		\pgfsavepgf@process\rotatedmidpoint{%
+			\pgfmathrotatepointaround{\midpoint}{\centerpoint}{-\rotate}%
+		}%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\tipborderpoint}%
+		\let\midangletotip\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\tailcenterborderpoint}%
+		\let\midangletotailcenter\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\lefttailborderpoint}%
+		\let\midangletolefttail\pgfmathresult%
+		\pgfmathanglebetweenpoints{\rotatedmidpoint}{\righttailborderpoint}%
+		\let\midangletorighttail\pgfmathresult%
+		%
+		% Rotate the background path points.
+		%
+		\pgfsavepgf@process\tippoint{%
+			\pgfmathrotatepointaround{\tippoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\tailcenterpoint{%
+			\pgfmathrotatepointaround{\tailcenterpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lefttailpoint{%
+			\pgfmathrotatepointaround{\lefttailpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\righttailpoint{%
+			\pgfmathrotatepointaround{\righttailpoint}{\centerpoint}{\rotate}%
+		}%
+		%
+		% Calculate a radius guaranteed to be outside the dart.
+		%
+		\pgfextractx\pgf@xa{\pgfpointdiff{\lefttailborderpoint}{\tipborderpoint}}%
+		\pgfextracty\pgf@ya{\pgfpointdiff{\lefttailborderpoint}{\righttailborderpoint}}%
+		\ifdim\pgf@xa<0pt\relax%
+			\pgf@xa-\pgf@xa%
+		\fi%
+		\ifdim\pgf@ya<0pt\relax%
+			\pgf@ya-\pgf@ya%
+		\fi%
+		\ifdim\pgf@xa>\pgf@ya%
+			\edef\externalradius{\the\pgf@xa}%
+		\else%
+			\edef\externalradius{\the\pgf@ya}%
+		\fi%
+		%
+		% Rotate the border anchor points.
+		%
+		\pgfsavepgf@process\tipborderpoint{%
+			\pgfmathrotatepointaround{\tipborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\tailcenterborderpoint{%
+			\pgfmathrotatepointaround{\tailcenterborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\lefttailborderpoint{%
+			\pgfmathrotatepointaround{\lefttailborderpoint}{\centerpoint}{\rotate}%
+		}%
+		\pgfsavepgf@process\righttailborderpoint{%
+			\pgfmathrotatepointaround{\righttailborderpoint}{\centerpoint}{\rotate}%
+		}%
+		%
+		% Save everything.
+		%
+		\def\installdartparameters{%
+			\noexpand\def\noexpand\rotate{\rotate}%
+			\noexpand\def\noexpand\externalradius{\externalradius}%
+			%
+			\noexpand\def\noexpand\tippoint{\tippoint}%
+			\noexpand\def\noexpand\tailcenterpoint{\tailcenterpoint}%
+			\noexpand\def\noexpand\lefttailpoint{\lefttailpoint}%
+			\noexpand\def\noexpand\righttailpoint{\righttailpoint}%
+			%
+			\noexpand\def\noexpand\tipborderpoint{\tipborderpoint}%
+			\noexpand\def\noexpand\tailcenterborderpoint{\tailcenterborderpoint}%
+			\noexpand\def\noexpand\lefttailborderpoint{\lefttailborderpoint}%
+			\noexpand\def\noexpand\righttailborderpoint{\righttailborderpoint}%
+			%
+			\noexpand\def\noexpand\angletotip{\angletotip}%
+			\noexpand\def\noexpand\angletotailcenter{\angletotailcenter}%
+			\noexpand\def\noexpand\angletolefttail{\angletolefttail}%
+			\noexpand\def\noexpand\angletorighttail{\angletorighttail}%
+			%
+			\noexpand\def\noexpand\baseangletotip{\baseangletotip}%
+			\noexpand\def\noexpand\baseangletotailcenter{\baseangletotailcenter}%
+			\noexpand\def\noexpand\baseangletolefttail{\baseangletolefttail}%
+			\noexpand\def\noexpand\baseangletorighttail{\baseangletorighttail}%
+			%
+			\noexpand\def\noexpand\midangletotip{\midangletotip}%
+			\noexpand\def\noexpand\midangletotailcenter{\midangletotailcenter}%
+			\noexpand\def\noexpand\midangletolefttail{\midangletolefttail}%
+			\noexpand\def\noexpand\midangletorighttail{\midangletorighttail}%
+		}%
+	}
+	\savedanchor\centerpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+	}%
+	\savedanchor\basepoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}%
+	\savedanchor\midpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%
+	\anchor{center}{\centerpoint}%
+	\anchor{base}{\basepoint}%
+	\anchor{base west}{%
+		\installdartparameters%
+		\let\pgf@dartanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}
+	\anchor{base east}{%
+		\installdartparameters%
+		\let\pgf@dartanchorborderreferencepoint\basepoint%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{mid}{\midpoint}%
+	\anchor{mid west}{%
+		\installdartparameters%
+		\let\pgf@dartanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}
+	\anchor{mid east}{%
+		\installdartparameters%
+		\let\pgf@dartanchorborderreferencepoint\midpoint%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{north}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{0pt}{\externalradius}}%
+	}
+	\anchor{south}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{0pt}{-\externalradius}}%
+	}
+	\anchor{east}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
+	}
+	\anchor{west}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
+	}
+	\anchor{north east}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{\externalradius}{\externalradius}}%
+	}
+	\anchor{south west}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{-\externalradius}{-\externalradius}}%
+	}
+	\anchor{south east}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
+	}
+	\anchor{north west}{%
+		\installdartparameters%
+		\csname pgf@anchor@dart@border\endcsname{\pgfqpoint{-\externalradius}{\externalradius}}%
+	}
+	\anchor{tip}{%
+		\installdartparameters%
+		\tipborderpoint}
+	\anchor{left tail}{%
+		\installdartparameters%
+		\lefttailborderpoint}
+	\anchor{right tail}{%
+		\installdartparameters%
+		\righttailborderpoint}
+	\anchor{tail center}{%
+		\installdartparameters%
+		\tailcenterborderpoint}
+	\anchor{left side}{%
+		\installdartparameters%
+		\pgfpointlineattime{0.5}{\tipborderpoint}{\lefttailborderpoint}}
+	\anchor{right side}{%
+		\installdartparameters%
+		\pgfpointlineattime{0.5}{\tipborderpoint}{\righttailborderpoint}}
+	\backgroundpath{%
+		\installdartparameters%
+		\pgfpathmoveto{\tippoint}%
+		\pgfpathlineto{\lefttailpoint}%
+		\pgfpathlineto{\tailcenterpoint}%
+		\pgfpathlineto{\righttailpoint}%
+		\pgfpathclose%
+	}
+	\anchorborder{%
+		%
+		% Save x and y.
+		%
+		\edef\externalx{\the\pgf@x}%
+		\edef\externaly{\the\pgf@y}%
+		%
+		% This allows anchors base east, base west, mid east and mid west,
+		% to redefine the `center' of the node to correctly calculate the
+		% border points.
+		%
+		\pgfutil@ifundefined{pgf@dartanchorborderreferencepoint}%
+			{\let\referencepoint\centerpoint}%
+			{\let\referencepoint\pgf@dartanchorborderreferencepoint}%
+		%
+		% Adjust the location of the external 
+		% point relative to the reference point.
+		%
+		\referencepoint%
+		\pgf@xa\externalx\relax%
+		\pgf@ya\externaly\relax%
+		\advance\pgf@xa\pgf@x%
+		\advance\pgf@ya\pgf@y%
+		\edef\externalx{\the\pgf@xa}%
+		\edef\externaly{\the\pgf@ya}%
+		%
+		% Install the required points and angles.
+		%
+		\installdartparameters%
+		%
+		% Get the angle of the external point relative to \referencepoint.
+		%
+		\pgfmathanglebetweenpoints{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+		%
+		% *Subtract* the rotation from the external angle.
+		%
+		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
+		\ifdim\pgfmathresult pt<0pt\relax%
+			\pgfmathadd@{\pgfmathresult}{360}%
+		\fi%
+		\let\externalangle\pgfmathresult%
+		%
+		% Get the set of angles for the appropriate border point.
+		%
+		\ifx\referencepoint\basepoint%
+			\let\angletotip\baseangletotip%
+			\let\angletotailcenter\baseangletotailcenter%
+			\let\angletolefttail\baseangletolefttail%
+			\let\angletorighttail\baseangletorighttail%
+		\else%
+			\ifx\referencepoint\midpoint%
+				\let\angletotip\midangletotip%
+				\let\angletotailcenter\midangletotailcenter%
+				\let\angletolefttail\midangletolefttail%
+				\let\angletorighttail\midangletorighttail%
+		\fi\fi%
+		%
+		% Locate the appropriate line on the border...
+		%
+		\ifdim\externalangle pt<\angletotip pt\relax%
+			\let\firstpoint\tipborderpoint%
+			\let\secondpoint\righttailborderpoint%
+		\else%
+			\ifdim\externalangle pt<\angletolefttail pt\relax%
+				\let\firstpoint\lefttailborderpoint%
+				\let\secondpoint\tipborderpoint%
+			\else%
+				\ifdim\externalangle pt<\angletotailcenter pt\relax%
+					\let\firstpoint\lefttailborderpoint%
+					\let\secondpoint\tailcenterborderpoint%
+				\else%
+					\ifdim\externalangle pt<\angletorighttail pt\relax%
+						\let\firstpoint\righttailborderpoint%
+						\let\secondpoint\tailcenterborderpoint%
+					\else%
+						\let\firstpoint\tipborderpoint%
+						\let\secondpoint\righttailborderpoint%
+					\fi%
+				\fi%
+			\fi%
+		\fi%
+		%
+		% ...and thus the point on the border.
+		%
+		\pgfpointintersectionoflines{\referencepoint}{\pgfqpoint{\externalx}{\externaly}}%
+				{\firstpoint}{\secondpoint}%
+	}%
+}
