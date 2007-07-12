@@ -14,9 +14,8 @@
 
 \usepgflibrary{plothandlers}
 
-
-\let\tikz@orig@setkeys=\setkeys        % guard against changes, later
-\let\tikz@orig@define@key=\define@key  
+% TikZ is a family
+\pgfset{tikz/.is family}
 
 \newdimen\tikz@lastx
 \newdimen\tikz@lasty
@@ -53,9 +52,12 @@
 
 % TikZ options:
 
-\def\tikzoption{\tikz@orig@define@key{tikz}}
+% This command is supported for compatibility only:
 
+\def\tikzoption#1{\pgfutil@ifnextchar[{\tikzoption@opt{#1}}{\tikzoption@noopt{#1}}}%} was : \tikz@orig@define@key{tikz}
 
+\def\tikzoption@opt#1[#2]#3{\pgfkeysdef{/tikz/#1}{#3}\pgfkeyssetkey{/tikz/#1/.@def}{#2}}
+\def\tikzoption@noopt#1#2{\pgfkeysdef{/tikz/#1}{#2}\pgfkeyssetkey{/tikz/#1/.@def}{\pgfkeysvaluerequired}}
 
 % Baseline options
 \tikzoption{baseline}[0pt]{\pgfutil@ifnextchar({\tikz@baseline@coordinate}{\tikz@baseline@simple}#1\@nil}%)
@@ -837,7 +839,8 @@
   \fi%
 }
 
-\tikz@orig@setkeys{tikz}{grow=down}
+\pgfset{/tikz/grow=down}
+%\tikz@orig@setkeys{tikz}{grow=down}
 
 
 
@@ -954,31 +957,10 @@
 \def\tikz@style@parseA#1#2=#3[#4]{% #2 and #3 are dummy
   \pgfutil@in@+{#2}%
   \ifpgfutil@in@%
-    \tikz@style{#1}{#4}%
+    \pgfset{/tikz/#1/.append style={#4}}%
   \else%
-    \expandafter\def\csname tikz@st@#1\endcsname{#4}%
+    \pgfset{/tikz/#1/.style={#4}}%
   \fi}
-\def\tikz@style#1#2{%
-  \iftikzstyleempty{#1}
-  {\expandafter\def\csname tikz@st@#1\endcsname{#2}}%
-  {%
-    \edef\tikz@marshal{\def\expandafter\noexpand\csname tikz@st@#1\endcsname}%
-    \expandafter\expandafter\expandafter\tikz@marshal\expandafter\expandafter\expandafter{\csname
-      tikz@st@#1\endcsname,#2}%
-  }%
-}
-
-\def\iftikzstyleempty#1#2#3{%
-  \expandafter\ifx\csname tikz@st@#1\endcsname\pgfutil@empty%
-    \let\pgf@next=\pgfutil@firstoftwo%
-  \else%
-    \expandafter\ifx\csname tikz@st@#1\endcsname\relax%
-      \let\pgf@next=\pgfutil@firstoftwo%
-    \else
-      \let\pgf@next=\pgfutil@secondoftwo%
-    \fi%
-  \fi%
-  \pgf@next{#2}{#3}}
 
 
 %
@@ -1052,101 +1034,41 @@
 % Setting keys
 %
 
-\let\tikz@late@keys=\pgfutil@empty%
+\pgfset{/tikz/style/.style=#1}
 
-\def\tikz@set@one@key#1{%
-  \tikz@orig@setkeys*{tikz}{#1}%
-  \ifx\XKV@rm\pgfutil@empty%
-    % fine
+\pgfset{/tikz/.unknown/.def=%
+  \expandafter\pgfutil@in@\expandafter!\expandafter{\pgfkeyscurrentwithoutpath}%
+  \ifpgfutil@in@%
+    % this is a color!
+    \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\pgfkeyscurrentwithoutpath}}%
+    \edef\tikz@textcolor{\pgfkeyscurrentwithoutpath}%
   \else%
-    \expandafter\pgfutil@in@\expandafter!\expandafter{\XKV@rm}%
-    \ifpgfutil@in@%
-      % this is a color!
-      \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\XKV@rm}}%
-      \edef\tikz@textcolor{\XKV@rm}%
-    \else%
-      \pgfutil@doifcolorelse{\XKV@rm}
-      { %     
-        \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\XKV@rm}}%
-        \edef\tikz@textcolor{\XKV@rm}%
-      }%
-      {%
-        % Ok, second chance: This might be an arrow specification:
-        \expandafter\pgfutil@in@\expandafter-\expandafter{\XKV@rm}
-        \ifpgfutil@in@%
-          % Ah, an arrow spec!
-          \expandafter\tikz@processarrows\expandafter{\XKV@rm}%
-        \else%
-          % Ok, third chance: A shape!
-          \expandafter\ifx\csname pgf@sh@s@\XKV@rm\endcsname\relax%
-            \PackageError{tikz}{I do not know what to do with the option ``\XKV@rm''}{}
-          \else%
-            \edef\tikz@shape{\XKV@rm}%
-          \fi%
-        \fi%
-      }%
-    \fi%
-  \fi%  
-}
-
-\def\tikz@setkeys#1{\tikz@@setkeys#1,\pgf@stop}
-
-\def\tikz@@setkeys#1,#2\pgf@stop{%
-  \def\tikz@key@test{#1}%
-  \def\tikz@key@rest{#2}%
-  \ifx\tikz@key@test\pgfutil@empty%
-  \else%
-    \pgfutil@ifnextchar s{\tikz@parse@key}{\tikz@parse@key}#1==\pgf@stop%
-  \fi%
-  \ifx\tikz@key@rest\pgfutil@empty%
-  \else%
-    \expandafter\expandafter\expandafter\tikz@@setkeys\expandafter\tikz@key@rest\expandafter\pgf@stop%
-  \fi%
-}
-
-\def\tikz@style@text{style}
-
-\def\tikz@parse@key#1=#2=#3\pgf@stop{
-  \def\tikz@key@test{#1}%
-  \ifx\tikz@key@test\tikz@style@text%
-    % Ok, style!
-    \pgfutil@ifundefined{tikz@st@#2}%
-    {\PackageError{tikz}{Unknown style ``#2}''{}}
-    {%
-      \expandafter\let\expandafter\tikz@temp\expandafter=\csname tikz@st@#2\endcsname%
-      \expandafter\expandafter\expandafter\def
-      \expandafter\expandafter\expandafter\tikz@key@rest
-      \expandafter\expandafter\expandafter{\expandafter\tikz@temp\expandafter,\tikz@key@rest}%
+    \pgfutil@doifcolorelse{\pgfkeyscurrentwithoutpath}
+    { %     
+      \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\pgfkeyscurrentwithoutpath}}%
+      \edef\tikz@textcolor{\pgfkeyscurrentwithoutpath}%
     }%
-  \else%
-    \expandafter\ifx\csname tikz@st@#1\endcsname\relax%
-      % Ok, normal!
-      \def\tikz@test{#3}%
-      \ifx\tikz@test\pgfutil@empty%
-        \tikz@set@one@key{#1}%
+    {%
+      % Ok, second chance: This might be an arrow specification:
+      \expandafter\pgfutil@in@\expandafter-\expandafter{\pgfkeyscurrentwithoutpath}
+      \ifpgfutil@in@%
+        % Ah, an arrow spec!
+        \expandafter\tikz@processarrows\expandafter{\pgfkeyscurrentwithoutpath}%
       \else%
-        \tikz@set@one@key{#1={#2}}%
+        % Ok, third chance: A shape!
+        \expandafter\ifx\csname pgf@sh@s@\pgfkeyscurrentwithoutpath\endcsname\relax%
+          \PackageError{tikz}{I do not know what to do with the option ``\pgfkeyscurrentwithoutpath''}{}
+        \else%
+          \edef\tikz@shape{\pgfkeyscurrentwithoutpath}%
+        \fi%
       \fi%
-    \else%
-      % Ok, style!
-      \expandafter\let\expandafter\tikz@temp\expandafter=\csname tikz@st@#1\endcsname%
-      \expandafter\expandafter\expandafter\def
-      \expandafter\expandafter\expandafter\tikz@key@rest
-      \expandafter\expandafter\expandafter{\expandafter\tikz@temp\expandafter,\tikz@key@rest}%
-    \fi%
-  \fi%  
-}
-
-\def\tikz@every@style#1{%
-  \expandafter\ifx\csname tikz@st@#1\endcsname\relax%
-  \else%
-    \expandafter\expandafter\expandafter\tikz@setkeys
-    \expandafter\expandafter\expandafter{\csname tikz@st@#1\endcsname}%
+    }%
   \fi%
 }
 
-
-
+\def\tikzpath@text{/tikz/}
+\def\tikz@setkeys#1{\let\pgfkeysdefaultpath\tikzpath@text\pgfsetalso{#1}}% faster than \pgfset{tikz,#1}
+\def\tikz@every@style#1{\ifpgfkeydefined{/tikz/#1/.@cmd}{\tikz@setkeys{#1}}{}}%
 
 
 %
@@ -1159,7 +1081,7 @@
   \let\tikz@atbegin@picture=\pgfutil@empty%
   \let\tikz@atend@picture=\pgfutil@empty%
   \let\tikz@transform=\relax%
-  \tikz@installcommands\scope[style=every picture,#1]%
+  \tikz@installcommands\scope[every picture,#1]%
   \tikz@atbegin@picture%
 }
 \def\endtikzpicture{%
@@ -3147,25 +3069,25 @@
 
 \tikzdeclarecoordinatesystem{canvas}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{x=0pt,y=0pt,#1}%
+  \pgfset{/tikz/cs/.use as path,x=0pt,y=0pt,#1}%
   \pgfpoint{\tikz@cs@x}{\tikz@cs@y}%
 }
 
 \tikzdeclarecoordinatesystem{canvas polar}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{angle=0,radius=0cm,#1}%
+  \pgfset{/tikz/cs/.use as path,angle=0,radius=0cm,#1}%
   \pgfpointpolar{\tikz@cs@angle}{\tikz@cs@xradius/\tikz@cs@yradius}%
 }
 
 \tikzdeclarecoordinatesystem{xyz}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{x=0,y=0,z=0,#1}%
+  \pgfset{/tikz/cs/.use as path,x=0,y=0,z=0,#1}%
   \pgfpointxyz{\tikz@cs@x}{\tikz@cs@y}{\tikz@cs@z}%
 }
 
 \tikzdeclarecoordinatesystem{xyz polar}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{angle=0,radius=0,#1}%
+  \pgfset{/tikz/cs/.use as path,angle=0,radius=0,#1}%
   \pgfpointpolarxy{\tikz@cs@angle}{\tikz@cs@xradius and \tikz@cs@yradius}%
 }
 \tikzaliascoordinatesystem{xy polar}{xyz polar}
@@ -3173,7 +3095,7 @@
 
 \tikzdeclarecoordinatesystem{node}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{name=,anchor=none,angle=none,#1}%
+  \pgfset{/tikz/cs/.use as path,name=,anchor=none,angle=none,#1}%
   \ifx\tikz@cs@anchor\tikz@nonetext%
     \ifx\tikz@cs@angle\tikz@nonetext%
       \expandafter\ifx\csname pgf@sh@ns@\tikz@cs@node\endcsname\tikz@coordinate@text%
@@ -3192,7 +3114,7 @@
 
 \tikzdeclarecoordinatesystem{intersection}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{#1}%
+  \pgfset{/tikz/cs/.use as path,#1}%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@a\tikz@cs@line@a@begin%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@b\tikz@cs@line@a@end%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@c\tikz@cs@line@b@begin%
@@ -3208,7 +3130,7 @@
 
 \tikzdeclarecoordinatesystem{perpendicular}
 {%
-  \tikz@orig@setkeys{tikzcskeys}{#1}%
+  \pgfset{/tikz/cs/.use as path,#1}%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@a\tikz@cs@hori@line%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@b\tikz@cs@vert@line%
   \pgfqpoint{\the\pgf@xb}{\the\pgf@ya}
@@ -3240,27 +3162,21 @@
   \fi%
 }
 
+\pgfset{/tikz/cs/x/.store in=\tikz@cs@x}
+\pgfset{/tikz/cs/y/.store in=\tikz@cs@y}
+\pgfset{/tikz/cs/z/.store in=\tikz@cs@z}
+\pgfset{/tikz/cs/angle/.store in=\tikz@cs@angle}
+\pgfset{/tikz/cs/x radius/.store in=\tikz@cs@xradius}
+\pgfset{/tikz/cs/y radius/.store in=\tikz@cs@yradius}
+\pgfset{/tikz/cs/radius/.style={/tikz/cs/x radius=#1,/tikz/cs/y radius=#1}}
+\pgfset{/tikz/cs/name/.store in=\tikz@cs@node}
+\pgfset{/tikz/cs/anchor/.store in=\tikz@cs@anchor}
 
-\tikz@orig@define@key{tikzcskeys}{x}{\def\tikz@cs@x{#1}}
-\tikz@orig@define@key{tikzcskeys}{y}{\def\tikz@cs@y{#1}}
-\tikz@orig@define@key{tikzcskeys}{z}{\def\tikz@cs@z{#1}}
-\tikz@orig@define@key{tikzcskeys}{angle}{\def\tikz@cs@angle{#1}}
-\tikz@orig@define@key{tikzcskeys}{radius}{\def\tikz@cs@xradius{#1}\def\tikz@cs@yradius{#1}}
-\tikz@orig@define@key{tikzcskeys}{x radius}{\def\tikz@cs@xradius{#1}}
-\tikz@orig@define@key{tikzcskeys}{y radius}{\def\tikz@cs@yradius{#1}}
-\tikz@orig@define@key{tikzcskeys}{name}{\def\tikz@cs@node{#1}}
-\tikz@orig@define@key{tikzcskeys}{anchor}{\def\tikz@cs@anchor{#1}}
+\pgfset{/tikz/cs/first line/.def args={(#1)--(#2)}{\def\tikz@cs@line@a@begin{(#1)}\def\tikz@cs@line@a@end{(#2)}}}
+\pgfset{/tikz/cs/second line/.def args={(#1)--(#2)}{\def\tikz@cs@line@b@begin{(#1)}\def\tikz@cs@line@b@end{(#2)}}}
 
-\tikz@orig@define@key{tikzcskeys}{first line}{\tikz@parse@cs@line{tikz@cs@line@a}#1}
-\tikz@orig@define@key{tikzcskeys}{second line}{\tikz@parse@cs@line{tikz@cs@line@b}#1}
-
-\def\tikz@parse@cs@line#1(#2)--(#3){%
-  \expandafter\def\csname #1@begin\endcsname{(#2)}%
-  \expandafter\def\csname #1@end\endcsname{(#3)}%
-}
-
-\tikz@orig@define@key{tikzcskeys}{horizontal line through}{\def\tikz@cs@hori@line{#1}}
-\tikz@orig@define@key{tikzcskeys}{vertical line through}{\def\tikz@cs@vert@line{#1}}
+\pgfset{/tikz/cs/horizontal line through/.store in=\tikz@cs@hori@line}
+\pgfset{/tikz/cs/vertical line through/.store in=\tikz@cs@vert@line}
 
 
 
