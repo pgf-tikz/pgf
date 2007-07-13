@@ -14,8 +14,11 @@
 
 \usepgflibrary{plothandlers}
 
-% TikZ is a family
-\pgfset{tikz/.is family}
+% TikZ is a key family
+\pgfkeys{/tikz/.is family}
+
+\def\tikzset#1{\pgfkeys{/tikz=,#1}}
+
 
 \newdimen\tikz@lastx
 \newdimen\tikz@lasty
@@ -56,8 +59,8 @@
 
 \def\tikzoption#1{\pgfutil@ifnextchar[{\tikzoption@opt{#1}}{\tikzoption@noopt{#1}}}%} was : \tikz@orig@define@key{tikz}
 
-\def\tikzoption@opt#1[#2]#3{\pgfkeysdef{/tikz/#1}{#3}\pgfkeyssetkey{/tikz/#1/.@def}{#2}}
-\def\tikzoption@noopt#1#2{\pgfkeysdef{/tikz/#1}{#2}\pgfkeyssetkey{/tikz/#1/.@def}{\pgfkeysvaluerequired}}
+\def\tikzoption@opt#1[#2]#3{\pgfkeysdef{/tikz/#1}{#3}\pgfkeyssettokens{/tikz/#1/.@def}{#2}}
+\def\tikzoption@noopt#1#2{\pgfkeysdef{/tikz/#1}{#2}\pgfkeyssettokens{/tikz/#1/.@def}{\pgfkeysvaluerequired}}
 
 % Baseline options
 \tikzoption{baseline}[0pt]{\pgfutil@ifnextchar({\tikz@baseline@coordinate}{\tikz@baseline@simple}#1\@nil}%)
@@ -839,7 +842,7 @@
   \fi%
 }
 
-\pgfset{/tikz/grow=down}
+\tikzset{grow=down}
 %\tikz@orig@setkeys{tikz}{grow=down}
 
 
@@ -957,9 +960,9 @@
 \def\tikz@style@parseA#1#2=#3[#4]{% #2 and #3 are dummy
   \pgfutil@in@+{#2}%
   \ifpgfutil@in@%
-    \pgfset{/tikz/#1/.append style={#4}}%
+    \pgfkeys{/tikz/#1/.append style={#4}}%
   \else%
-    \pgfset{/tikz/#1/.style={#4}}%
+    \pgfkeys{/tikz/#1/.style={#4}}%
   \fi}
 
 
@@ -1034,41 +1037,44 @@
 % Setting keys
 %
 
-\pgfset{/tikz/style/.style=#1}
+\pgfkeys{/tikz/style/.style=#1}
 
-\pgfset{/tikz/.unknown/.def=%
-  \expandafter\pgfutil@in@\expandafter!\expandafter{\pgfkeyscurrentwithoutpath}%
-  \ifpgfutil@in@%
-    % this is a color!
-    \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\pgfkeyscurrentwithoutpath}}%
-    \edef\tikz@textcolor{\pgfkeyscurrentwithoutpath}%
+\pgfkeys{/tikz/.unknown/.def=%
+  % Is it a pgf key?
+  \let\tikz@key\pgfkeyscurrentwithoutpath% 
+  \pgfkeys{/pgf/\tikz@key/.try=#1}%
+  \ifpgfkeyssuccess%
   \else%
-    \pgfutil@doifcolorelse{\pgfkeyscurrentwithoutpath}
-    { %     
-      \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\pgfkeyscurrentwithoutpath}}%
-      \edef\tikz@textcolor{\pgfkeyscurrentwithoutpath}%
-    }%
-    {%
-      % Ok, second chance: This might be an arrow specification:
-      \expandafter\pgfutil@in@\expandafter-\expandafter{\pgfkeyscurrentwithoutpath}
-      \ifpgfutil@in@%
-        % Ah, an arrow spec!
-        \expandafter\tikz@processarrows\expandafter{\pgfkeyscurrentwithoutpath}%
-      \else%
-        % Ok, third chance: A shape!
-        \expandafter\ifx\csname pgf@sh@s@\pgfkeyscurrentwithoutpath\endcsname\relax%
-          \PackageError{tikz}{I do not know what to do with the option ``\pgfkeyscurrentwithoutpath''}{}
+    \expandafter\pgfutil@in@\expandafter!\expandafter{\tikz@key}%
+    \ifpgfutil@in@%
+      % this is a color!
+      \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\tikz@key}}%
+      \edef\tikz@textcolor{\tikz@key}%
+    \else%
+      \pgfutil@doifcolorelse{\tikz@key}
+      { %     
+        \expandafter\tikz@addoption\expandafter{\expandafter\pgfutil@color\expandafter{\tikz@key}}%
+        \edef\tikz@textcolor{\tikz@key}%
+      }%
+      {%
+        % Ok, second chance: This might be an arrow specification:
+        \expandafter\pgfutil@in@\expandafter-\expandafter{\tikz@key}
+        \ifpgfutil@in@%
+          % Ah, an arrow spec!
+          \expandafter\tikz@processarrows\expandafter{\tikz@key}%
         \else%
-          \edef\tikz@shape{\pgfkeyscurrentwithoutpath}%
+          % Ok, third chance: A shape!
+          \expandafter\ifx\csname pgf@sh@s@\tikz@key\endcsname\relax%
+            \PackageError{tikz}{I do not know what to do with the
+            option ``\tikz@key''. I'm ignoring it}{}
+          \else%
+            \edef\tikz@shape{\tikz@key}%
+          \fi%
         \fi%
-      \fi%
-    }%
+      }%
+    \fi%
   \fi%
 }
-
-\def\tikzpath@text{/tikz/}
-\def\tikz@setkeys#1{\let\pgfkeysdefaultpath\tikzpath@text\pgfsetalso{#1}}% faster than \pgfset{tikz,#1}
-\def\tikz@every@style#1{\ifpgfkeydefined{/tikz/#1/.@cmd}{\tikz@setkeys{#1}}{}}%
 
 
 %
@@ -1135,8 +1141,7 @@
   \let\tikz@atend@scope=\pgfutil@empty%
   \let\tikz@options=\pgfutil@empty%
   \let\tikz@mode=\pgfutil@empty%
-  \tikz@every@style{every scope}%
-  \tikz@setkeys{#1}%
+  \tikzset{every scope/.try,#1}%
   \tikz@options%
   \tikz@atbegin@scope%
 }
@@ -1289,7 +1294,7 @@
     \tikz@lasty=0pt%
     \tikz@lastxsaved=0pt%
     \tikz@lastysaved=0pt%
-    \tikz@every@style{every path}%
+    \tikzset{every path/.try}%
     \tikz@scan@next@command%
 }
 \def\tikz@scan@next@command{%
@@ -1846,7 +1851,7 @@
 % Syntax for options: 
 % [options]
 \def\tikz@parse@options#1]{%
-  \tikz@setkeys{#1}%
+  \tikzset{#1}%
   \tikz@scan@next@command%
 }
 
@@ -2087,7 +2092,7 @@
 \def\tikz@gridB#1{%
   \tikz@make@last@position{#1}%
   {%
-    \expandafter\tikz@setkeys\expandafter{\tikz@grid@options}
+    \expandafter\tikzset\expandafter{\tikz@grid@options}
     \tikz@checkunit{\tikz@grid@x}%
     \iftikz@isdimension%
       \pgf@process{\pgfpoint{\tikz@grid@x}{0pt}}%
@@ -2121,8 +2126,8 @@
 \def\tikz@@plot[#1]{%
   \begingroup%
     \let\tikz@options=\pgfutil@empty%
-    \tikz@every@style{every plot}%
-    \tikz@setkeys{#1}%
+    \tikzset{every plot/.try}%
+    \tikzset{#1}%
     \pgfutil@ifnextchar f{\tikz@plot@f}%
     {\pgfutil@ifnextchar c{\tikz@plot@scan@points}%
       {\pgfutil@ifnextchar ({\tikz@plot@expression}{%
@@ -2189,7 +2194,7 @@
             \pgfscope%
               \let\tikz@options=\pgfutil@empty%
               \let\tikz@transform=\pgfutil@empty%
-              \expandafter\tikz@setkeys\expandafter{\tikz@plot@mark@options}%
+              \expandafter\tikzset\expandafter{\tikz@plot@mark@options}%
               \tikz@options%
               \ifx\tikz@mark@list\pgfutil@empty%
                 \pgfplothandlermark{\tikz@transform\pgfuseplotmark{\tikz@plot@mark}}%
@@ -2279,7 +2284,7 @@
   \pgf@xc=\tikz@lastx%
   \pgf@yc=\tikz@lasty%
   \begingroup% now calculate bend:
-    \expandafter\tikz@setkeys\expandafter{\tikz@parabola@option}%
+    \expandafter\tikzset\expandafter{\tikz@parabola@option}%
     \tikz@lastxsaved=\tikz@parabola@bend@factor\tikz@lastx%
     \tikz@lastysaved=\tikz@parabola@bend@factor\tikz@lasty%
     \advance\tikz@lastxsaved by\pgf@xb%
@@ -2432,7 +2437,7 @@
       \else%
         \let\tikz@time=\pgfutil@empty%
       \fi%
-      \tikz@every@style{every node}%
+      \tikzset{every node/.try}%
       \tikz@@scan@fig}%
 \def\tikz@@scan@fig{%
   \pgfutil@ifnextchar a{\tikz@fig@scan@at}
@@ -2446,7 +2451,7 @@
 \def\tikz@@fig@scan@at#1{%
   \def\tikz@node@at{#1}\tikz@@scan@fig}%
 \def\tikz@fig@scan@name(#1){\edef\tikz@fig@name{#1}\tikz@@scan@fig}%
-\def\tikz@fig@scan@options[#1]{\tikz@setkeys{#1}\def\test{#1}\tikz@@scan@fig}%
+\def\tikz@fig@scan@options[#1]{\tikzset{#1}\def\test{#1}\tikz@@scan@fig}%
 \def\tikz@fig@main{\afterassignment\tikz@@fig@main\let\next=}
 \def\tikz@@fig@main{%
     \pgfutil@ifundefined{pgf@sh@s@\tikz@shape}%
@@ -2454,7 +2459,7 @@
       {Unknown shape ``\tikz@shape.'' Using ``rectangle'' instead}{}%
       \def\tikz@shape{rectangle}}%
     {}%
-    \tikz@every@style{every \tikz@shape\space node}%
+    \tikzset{every \tikz@shape\space node/.try}%
     \iftikz@is@matrix%
       \let\tikz@next=\tikz@do@matrix%
     \else%
@@ -2465,7 +2470,7 @@
 \def\tikz@do@fig{%  
     \setbox\pgfnodeparttextbox=\hbox%
       \bgroup%
-        \tikz@every@style{every text node part}%
+        \tikzset{every text node part/.try}%
         \ifx\tikz@textopacity\pgfutil@empty%
         \else%
           \pgfsetfillopacity{\tikz@textopacity}%
@@ -2513,7 +2518,7 @@
           {\ifx\tikz@after@node\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\expandafter\tikz@fig@continue\fi}}}}}%}
 
 \def\tikz@do@matrix{%
-    \tikz@every@style{every matrix}%
+    \tikzset{every matrix/.try}%
     \tikz@node@transformations%
     \tikz@fig@mustbenamed%
     \setbox\tikz@figbox=\hbox\bgroup%
@@ -2553,20 +2558,20 @@
                 \def\tikz@common@matrix@code{%
                   \let\tikz@options=\pgfutil@empty%
                   \let\tikz@mode=\pgfutil@empty%
-                  \tikz@every@style{every cell}%
-                  \tikz@every@style{column \the\pgfmatrixcurrentcolumn}%
+                  \tikzset{every cell/.try}%
+                  \tikzset{column \the\pgfmatrixcurrentcolumn/.try}%
                   \ifodd\pgfmatrixcurrentcolumn%
-                    \tikz@every@style{every odd column}%
+                    \tikzset{every odd column/.try}%
                   \else%
-                    \tikz@every@style{every even column}%
+                    \tikzset{every even column/.try}%
                   \fi%
-                  \tikz@every@style{row \the\pgfmatrixcurrentrow}%
+                  \tikzset{row \the\pgfmatrixcurrentrow/.try}%
                   \ifodd\pgfmatrixcurrentrow%
-                    \tikz@every@style{every odd row}%
+                    \tikzset{every odd row/.try}%
                   \else%
-                    \tikz@every@style{every even row}%
+                    \tikzset{every even row/.try}%
                   \fi%
-                  \tikz@every@style{row \the\pgfmatrixcurrentrow\space column \the\pgfmatrixcurrentcolumn}%
+                  \tikzset{row \the\pgfmatrixcurrentrow\space column \the\pgfmatrixcurrentcolumn/.try}%
                   \tikz@options%
                 }%
                 \def\pgfmatrixendcode{%
@@ -2715,7 +2720,7 @@
   % Now start new box:
    \expandafter\setbox\csname pgfnodepart\tikz@nodepart@name box\endcsname=\hbox%
       \bgroup%
-        \tikz@every@style{every \tikz@nodepart@name\space node part}%
+        \tikzset{every \tikz@nodepart@name\space node part/.try}%
         \pgfinterruptpicture%
           \tikz@textfont%  
           \ifx\tikz@text@width\pgfutil@empty%
@@ -2853,7 +2858,7 @@
     \advance\tikztreelevel by 1\relax%
     \let\tikz@options=\pgfutil@empty%
     \let\tikz@transform=\pgfutil@empty%
-    \tikz@every@style{level \the\tikztreelevel}%
+    \tikzset{level \the\tikztreelevel/.try}%
     \tikz@transform%            
     \let\tikzparentnode=\tikz@last@fig@name%
     % Transform to center of node
@@ -2904,8 +2909,7 @@
         \pgfinterruptpath%
           \pgfscope%
             \let\tikz@transform=\pgfutil@empty%
-            \tikz@every@style{every child}%
-            \tikz@setkeys{#1}%
+            \tikzset{every child/.try,#1}%
             \tikz@options%
             \tikz@transform%            
             \tikz@grow%
@@ -3069,25 +3073,25 @@
 
 \tikzdeclarecoordinatesystem{canvas}
 {%
-  \pgfset{/tikz/cs/.use as path,x=0pt,y=0pt,#1}%
+  \tikzset{cs/.cd,x=0pt,y=0pt,#1}%
   \pgfpoint{\tikz@cs@x}{\tikz@cs@y}%
 }
 
 \tikzdeclarecoordinatesystem{canvas polar}
 {%
-  \pgfset{/tikz/cs/.use as path,angle=0,radius=0cm,#1}%
+  \tikzset{cs/.cd,angle=0,radius=0cm,#1}%
   \pgfpointpolar{\tikz@cs@angle}{\tikz@cs@xradius/\tikz@cs@yradius}%
 }
 
 \tikzdeclarecoordinatesystem{xyz}
 {%
-  \pgfset{/tikz/cs/.use as path,x=0,y=0,z=0,#1}%
+  \tikzset{cs/.cd,x=0,y=0,z=0,#1}%
   \pgfpointxyz{\tikz@cs@x}{\tikz@cs@y}{\tikz@cs@z}%
 }
 
 \tikzdeclarecoordinatesystem{xyz polar}
 {%
-  \pgfset{/tikz/cs/.use as path,angle=0,radius=0,#1}%
+  \tikzset{cs/.cd,angle=0,radius=0,#1}%
   \pgfpointpolarxy{\tikz@cs@angle}{\tikz@cs@xradius and \tikz@cs@yradius}%
 }
 \tikzaliascoordinatesystem{xy polar}{xyz polar}
@@ -3095,7 +3099,7 @@
 
 \tikzdeclarecoordinatesystem{node}
 {%
-  \pgfset{/tikz/cs/.use as path,name=,anchor=none,angle=none,#1}%
+  \tikzset{cs/.cd,name=,anchor=none,angle=none,#1}%
   \ifx\tikz@cs@anchor\tikz@nonetext%
     \ifx\tikz@cs@angle\tikz@nonetext%
       \expandafter\ifx\csname pgf@sh@ns@\tikz@cs@node\endcsname\tikz@coordinate@text%
@@ -3114,7 +3118,7 @@
 
 \tikzdeclarecoordinatesystem{intersection}
 {%
-  \pgfset{/tikz/cs/.use as path,#1}%
+  \tikzset{cs/.cd,#1}%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@a\tikz@cs@line@a@begin%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@b\tikz@cs@line@a@end%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@c\tikz@cs@line@b@begin%
@@ -3130,7 +3134,7 @@
 
 \tikzdeclarecoordinatesystem{perpendicular}
 {%
-  \pgfset{/tikz/cs/.use as path,#1}%
+  \tikzset{cs/.cd,#1}%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@a\tikz@cs@hori@line%
   \expandafter\tikz@@@scan@@absolute\expandafter\tikz@parse@intersection@b\tikz@cs@vert@line%
   \pgfqpoint{\the\pgf@xb}{\the\pgf@ya}
@@ -3162,21 +3166,21 @@
   \fi%
 }
 
-\pgfset{/tikz/cs/x/.store in=\tikz@cs@x}
-\pgfset{/tikz/cs/y/.store in=\tikz@cs@y}
-\pgfset{/tikz/cs/z/.store in=\tikz@cs@z}
-\pgfset{/tikz/cs/angle/.store in=\tikz@cs@angle}
-\pgfset{/tikz/cs/x radius/.store in=\tikz@cs@xradius}
-\pgfset{/tikz/cs/y radius/.store in=\tikz@cs@yradius}
-\pgfset{/tikz/cs/radius/.style={/tikz/cs/x radius=#1,/tikz/cs/y radius=#1}}
-\pgfset{/tikz/cs/name/.store in=\tikz@cs@node}
-\pgfset{/tikz/cs/anchor/.store in=\tikz@cs@anchor}
+\tikzset{cs/x/.store in=\tikz@cs@x}
+\tikzset{cs/y/.store in=\tikz@cs@y}
+\tikzset{cs/z/.store in=\tikz@cs@z}
+\tikzset{cs/angle/.store in=\tikz@cs@angle}
+\tikzset{cs/x radius/.store in=\tikz@cs@xradius}
+\tikzset{cs/y radius/.store in=\tikz@cs@yradius}
+\tikzset{cs/radius/.style={/tikz/cs/x radius=#1,/tikz/cs/y radius=#1}}
+\tikzset{cs/name/.store in=\tikz@cs@node}
+\tikzset{cs/anchor/.store in=\tikz@cs@anchor}
 
-\pgfset{/tikz/cs/first line/.def args={(#1)--(#2)}{\def\tikz@cs@line@a@begin{(#1)}\def\tikz@cs@line@a@end{(#2)}}}
-\pgfset{/tikz/cs/second line/.def args={(#1)--(#2)}{\def\tikz@cs@line@b@begin{(#1)}\def\tikz@cs@line@b@end{(#2)}}}
+\tikzset{cs/first line/.def args={(#1)--(#2)}{\def\tikz@cs@line@a@begin{(#1)}\def\tikz@cs@line@a@end{(#2)}}}
+\tikzset{cs/second line/.def args={(#1)--(#2)}{\def\tikz@cs@line@b@begin{(#1)}\def\tikz@cs@line@b@end{(#2)}}}
 
-\pgfset{/tikz/cs/horizontal line through/.store in=\tikz@cs@hori@line}
-\pgfset{/tikz/cs/vertical line through/.store in=\tikz@cs@vert@line}
+\tikzset{cs/horizontal line through/.store in=\tikz@cs@hori@line}
+\tikzset{cs/vertical line through/.store in=\tikz@cs@vert@line}
 
 
 
@@ -3250,7 +3254,7 @@
     % matrix:
     \pgftransformreset%
     \let\tikz@transform=\pgfutil@empty%
-    \expandafter\tikz@setkeys\expandafter{\tikz@scan@point@options}%
+    \expandafter\tikzset\expandafter{\tikz@scan@point@options}%
     \tikz@transform%
     \pgf@process{\pgfpointtransformed{#1}}%
     \xdef\tikz@marshal{\expandafter\noexpand\tikz@scan@point@recall{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}%

@@ -1,0 +1,210 @@
+% Copyright 2006 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+\section{Key Management}
+\label{section-keys}
+
+This section describes the package |pgfkeys|. It is loaded
+automatically by both \pgfname\ and \tikzname.
+
+\begin{package}{pgfkeys}
+  This package can be used independently of \pgfname. Note that no
+  other package of \pgfname\ needs to be loaded (so neither the
+  emulation layer nor the system layer is needed). The Con\TeX t
+  abbreviation is |pgfkey| if |pgfmod| is not loaded.
+\end{package}
+
+
+
+\subsection{Overview}
+
+The |pgfkeys| package defines a key-value management system that is in
+some sense similar to the more light-weight |keyval| system and the
+improved |xkeyval| system. However, |pgfkeys| uses a slightly
+different philosophy than these systems and it will coexist peacefully
+with both of them.
+
+The main differences between |pgfkeys| and |xkeyval| are the
+following:
+
+\begin{itemize}
+\item |pgfkeys| organizes keys in a tree, while |keyval| and |xkeyval|
+  use families. In |pgfkeys| the families correspond to the root
+  entries of the key tree.
+\item For efficiency reasons, |pgfkeys| does not directly support
+  setting keys drawn from multiple families as |xkeyval| does. This
+  can be emulated if necessary, but it will be slower than |xkeyval|'s
+  native support.
+\item |pgfkeys| has no save-stack impact (you will have to read the
+  \TeX Book very carefully to appreciate this).
+\item |pgfkeys| is slightly slower than |keyval|, but not much.
+\item |pgfkeys| supports styles. This means that keys can just stand
+  for other keys (which can stand for other keys in turn or which can
+  also just execute some code). \tikzname\ uses this mechanism heavily.
+\item |pgfkeys| supports multi-argument key code. This can, however,
+  be emulated in |keyval|.
+\item |pgfkeys| supports handlers. These are call-backs that are
+  called when a key is not known. They are very flexible, in fact even
+  defining keys in different ways is handled by, well, handlers.
+\end{itemize}
+
+
+\subsection{The Key Tree}
+
+The |pgfkeys| package organizes keys in a so-called \emph{key
+  tree}. This tree will be familiar to anyone who has used a Unix
+operating system: A key is addressed by a path, which consists of
+different parts separated by slashes. A typical key might be
+|/tikz/line width| or just |/tikz| or something more complicated like
+|/tikz/cs/x/.store in|. The \emph{root key} is just |/|.
+
+We do not always wish to specify keys completely. Instead, we usually
+specify only part of a key and the \emph{default path} is then added
+to the key at the front. So, when the default path is |/tikz| and you
+refer to the (partial) key |line width|, the actual key that is used
+is |/tikz/line width|. There is a simple rule for deciding whether a
+key is a partial key or a full key: If it starts with a slash, then it
+is a (complete) key and it is not modified; if it does not start with
+a slash, then the default path is automatically prefixed.
+
+Note that the default path is not the same as a search path. In
+particular, the default path is just a single path. When a partial key
+is given, only this single default path is prefixed; |pgfkeys| does
+not try to lookup the key in different parts of a search path. It is,
+however, also possible to emulate search paths, but a much more
+complicated mechanism must be used.
+
+When you set keys (to be explained in a moment), you can freely mix
+partial and full keys and you can change the default path. This makes
+it possible to temporarily use keys from another part of the key tree
+(this turns out to be a very useful feature).
+
+Each key (may) store some \emph{tokens} and there exist commands,
+described below, for setting, getting, and changing the tokens stored
+in a key. However, you will only very seldom use these commands
+directly. Rather, the standard way of using keys is the |\pgfkeys|
+command or some command the uses it internally like, say,
+|\tikzset|. So, you may wish to skip the following commands and
+continue with the next subsection.
+
+\begin{command}{\pgfkeyssettokens\marg{full key}\marg{token text}}
+  Stores the \meta{token text} in the \meta{full key}. The \meta{full key}
+  may not be a partial key, so no default-path-adding is done. The
+  \meta{token text} can be arbitrary tokens and may even contain things
+  like |#| or unbalanced \TeX-ifs.
+\begin{codeexample}[]
+\pgfkeyssettokens{/my family/my key}{Hello, world!}
+\pgfkeysinserttokens{/my family/my key}  
+\end{codeexample}
+
+  The setting of a key is always local to the current \TeX\ group.
+\end{command}
+
+\begin{command}{\pgfkeyslet\marg{full key}\marg{macro}}
+  Performs a |\let| statement so the the \meta{full key} pionts to the
+  contents of \meta{macro}.
+\begin{codeexample}[]
+\def\helloworld{Hello, world!}
+\pgfkeyslet{/my family/my key}{\helloworld}
+\pgfkeysinserttokens{/my family/my key}  
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfkeysgettokens\marg{full key}\marg{macro}}
+  Retrieves the tokens stored in the \meta{full key} and lets
+  \meta{macro} be equal to these tokens. If the key has
+  not been set, the \meta{macro} will be equal to |\relax|. 
+\begin{codeexample}[]
+\pgfkeyssettokens{/my family/my key}{Hello, world!}
+\pgfkeysgettokens{/my family/my key}{\helloworld}
+\helloworld
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfkeysinserttokens\marg{full key}}
+  Inserts the tokens stored in \meta{full key} at the current position
+  into the text.
+
+\begin{codeexample}[]
+\pgfkeyssettokens{/my family/my key}{Hello, world!}
+\pgfkeysinserttokens{/my family/my key}
+\end{codeexample}
+\end{command}
+
+
+\subsection{Setting Keys}
+
+Settings keys is done using a powerful command called |\pgfkeys|. This
+command takes a list of so-called \emph{key--value pairs}. These are
+pairs of the form \meta{key}|=|\meta{value}. The principle idea is the
+following: For each pair in the list, some \emph{action} is
+taken. This action can be one of the following:
+
+\begin{enumerate}
+\item A command is executed whose argument(s) are \meta{value}. This
+  command is stored in a special subkey of \meta{key}.
+\item The \meta{value} is stored in a different special subkey of \meta{key}.
+\item If the key's end part (the part after the last slahs) is a known
+  \emph{handler}, then this handler will take care of the key.
+\item If the key is totally unknown, one of several possible
+  \emph{unknown key handlers} is called. 
+\end{enumerate}
+
+Addtionally, if the \meta{value} is missing, a default value may or
+may not be substituted. Before we plunge into the glorious details,
+let us have a quick look at the command itself.
+
+\begin{command}{\pgfkeys\marg{key list}}
+  The \meta{key list} should be a list of key-value pairs, separated
+  by commas. A key-value pair can have the following two forms:
+  \meta{key}|=|\meta{value} or just \meta{key}. Any spaces around the
+  \meta{key} or around the \meta{value} are removed. It is permissible
+  to surround both the \meta{key} or the \meta{value} in curly braces,
+  which are also removed. Especially putting the \meta{value} in curly
+  braces needs to be done quite often, namely whenever the \meta{value}
+  contains an equal-sign or a comma.
+
+  If a \meta{key} is a partial key, the current value of the default
+  path is prepended to the \meta{key} and this ``upgraded'' key is
+  then used. The default path is just the root path |/| when the first
+  key is handled, but it may change later on. At the end of the
+  command, the default path is reset to the value it had before this
+  command was executed. 
+  
+  The key-value pairs in the list are handled in the order they
+  appear. How this handling is done, exactly, is described in the rest
+  of this section.
+\end{command}
+
+
+\subsubsection{Default Arguments}
+
+\subsubsection{Keys That Store Values}
+
+\subsubsection{Keys That Execute Commands}
+
+\subsubsection{Keys That Are Handled}
+
+\subsubsection{Keys That Are Unknown}
+
+
+
+\subsection{Key Handlers}
+
+\subsubsection{Handlers for Path Management, Inspection, and Testing Keys}
+
+\subsubsection{Defining Commands}
+
+\subsubsection{Defining Styles}
+
+\subsubsection{Defining Value-, Macro-, If- and Choice-Keys}
+
+
+\subsection{Error Keys}
