@@ -23,7 +23,9 @@ automatically by both \pgfname\ and \tikzname.
 
 
 
-\subsection{Overview}
+\subsection{Introduction}
+
+\subsubsection{Comparison to Other Packages}
 
 The |pgfkeys| package defines a key-value management system that is in
 some sense similar to the more light-weight |keyval| system and the
@@ -56,6 +58,9 @@ following:
 \end{itemize}
 
 
+\subsubsection{Quick Guide to Using the Key Mechanism}
+
+
 \subsection{The Key Tree}
 
 The |pgfkeys| package organizes keys in a so-called \emph{key
@@ -65,9 +70,15 @@ different parts separated by slashes. A typical key might be
 |/tikz/line width| or just |/tikz| or something more complicated like
 |/tikz/cs/x/.store in|. The \emph{root key} is just |/|.
 
+Let us fix some further terminology: Given a key like |/a/b/c|, we
+call the part leading up the last slash (|/a/b|) the \emph{path} of
+the key. We call everything after the last slash (|c|) the \emph{name}
+of the key (in a file system this would be the file name). 
+
 We do not always wish to specify keys completely. Instead, we usually
-specify only part of a key and the \emph{default path} is then added
-to the key at the front. So, when the default path is |/tikz| and you
+specify only part of a key (typically only the name) and the
+\emph{default path} is then added to the key at the front. So, when
+the default path is |/tikz| and you 
 refer to the (partial) key |line width|, the actual key that is used
 is |/tikz/line width|. There is a simple rule for deciding whether a
 key is a partial key or a full key: If it starts with a slash, then it
@@ -94,14 +105,14 @@ command or some command the uses it internally like, say,
 |\tikzset|. So, you may wish to skip the following commands and
 continue with the next subsection.
 
-\begin{command}{\pgfkeyssettokens\marg{full key}\marg{token text}}
+\begin{command}{\pgfkeyssetvalue\marg{full key}\marg{token text}}
   Stores the \meta{token text} in the \meta{full key}. The \meta{full key}
   may not be a partial key, so no default-path-adding is done. The
   \meta{token text} can be arbitrary tokens and may even contain things
   like |#| or unbalanced \TeX-ifs.
 \begin{codeexample}[]
-\pgfkeyssettokens{/my family/my key}{Hello, world!}
-\pgfkeysinserttokens{/my family/my key}  
+\pgfkeyssetvalue{/my family/my key}{Hello, world!}
+\pgfkeysinsertvalue{/my family/my key}  
 \end{codeexample}
 
   The setting of a key is always local to the current \TeX\ group.
@@ -113,17 +124,19 @@ continue with the next subsection.
 \begin{codeexample}[]
 \def\helloworld{Hello, world!}
 \pgfkeyslet{/my family/my key}{\helloworld}
-\pgfkeysinserttokens{/my family/my key}  
+\pgfkeysinsertvalue{/my family/my key}  
 \end{codeexample}
+  You should never let a key be equal to |\relax|. Such a key may or
+  may not be indistinguishable from an undefined key.
 \end{command}
 
-\begin{command}{\pgfkeysgettokens\marg{full key}\marg{macro}}
+\begin{command}{\pgfkeysgetvalue\marg{full key}\marg{macro}}
   Retrieves the tokens stored in the \meta{full key} and lets
   \meta{macro} be equal to these tokens. If the key has
   not been set, the \meta{macro} will be equal to |\relax|. 
 \begin{codeexample}[]
-\pgfkeyssettokens{/my family/my key}{Hello, world!}
-\pgfkeysgettokens{/my family/my key}{\helloworld}
+\pgfkeyssetvalue{/my family/my key}{Hello, world!}
+\pgfkeysgetvalue{/my family/my key}{\helloworld}
 \helloworld
 \end{codeexample}
 \end{command}
@@ -133,8 +146,24 @@ continue with the next subsection.
   into the text.
 
 \begin{codeexample}[]
-\pgfkeyssettokens{/my family/my key}{Hello, world!}
-\pgfkeysinserttokens{/my family/my key}
+\pgfkeyssetvalue{/my family/my key}{Hello, world!}
+\pgfkeysinsertvalue{/my family/my key}
+\end{codeexample}
+\end{command}
+
+
+\begin{command}{\pgfkeysifdefined\marg{full key}\marg{if}\marg{else}}
+  Checks whether this key was previously set using either
+  |\pgfkeyssetvalue| or |\pgfkeyslet|. If so, the code in \meta{if} is
+  executed, otherwise the code in \meta{else}.
+
+  This command will use e\TeX's |\ifcsname| command, if available, for
+  efficiency. This means, however, that it may behave differently for
+  \TeX\ and for e\TeX\ when you set keys to |\relax|. For this reason
+  you should not do so. 
+\begin{codeexample}[]
+\pgfkeyssetvalue{/my family/my key}{Hello, world!}
+\pgfkeysifdefined{/my family/my key}{yes}{no}
 \end{codeexample}
 \end{command}
 
@@ -171,6 +200,10 @@ let us have a quick look at the command itself.
   braces needs to be done quite often, namely whenever the \meta{value}
   contains an equal-sign or a comma.
 
+  The key-value pairs in the list are handled in the order they
+  appear. How this handling is done, exactly, is described in the rest
+  of this section.
+
   If a \meta{key} is a partial key, the current value of the default
   path is prepended to the \meta{key} and this ``upgraded'' key is
   then used. The default path is just the root path |/| when the first
@@ -178,19 +211,215 @@ let us have a quick look at the command itself.
   command, the default path is reset to the value it had before this
   command was executed. 
   
-  The key-value pairs in the list are handled in the order they
-  appear. How this handling is done, exactly, is described in the rest
-  of this section.
+  Calls of this command may be nested. Thus, it is permissible to call
+  |\pgfkeys| inside the code that is executed for a key. Since the
+  default path is restored after a call of |\pgfkeys|, the default
+  path will not change when you call |\pgfkeys| while executing code
+  for a key (which is exactly what you want).
+\end{command}
+
+
+\begin{command}{\pgfkeysalso\marg{key list}}
+  This command has execatly the same effect as |\pgfkeys|, only the
+  default path is not modified before or after the keys are being
+  set. This command is mainly intended to be called by the code that
+  is being processed for a key.
 \end{command}
 
 
 \subsubsection{Default Arguments}
 
-\subsubsection{Keys That Store Values}
+The arguments of the |\pgfkeys| command can either be of the form
+\meta{key}|=|\meta{value} or of the form \meta{key} with the
+value-part missing. In the second case, the |\pgfkeys| will try to
+provide a \emph{default value} for the \meta{value}. If such a default
+value is defined, it will be used as if you had written
+\meta{key}|=|\meta{default value}.
+
+In the following, the details of how default values are determined is
+described; however, you should normally use the handlers |.default|
+and |.value required| as described in
+Section~\ref{section-default-handlers} and you can may wish to skip
+the following details.
+
+When |\pgfkeys| encounters a \meta{key} without an equal-sign, the
+following happens:
+\begin{enumerate}
+\item The input is replaced by \meta{key}|=\pgfkeysnovalue|. In
+  particular, the commands |\pgfkeys{my key}| and
+  |\pgfkeys{my key=\pgfkeysnovalue}| have exactly the same effect and
+  you can ``simulate'' a missing value by providing the value
+  |\pgfkeysnovalue|, which is sometimes useful. 
+\item If the \meta{value} is |\pgfkeysnovalue|, then it is checked
+  whether the key \meta{key}|/.@def| exists. For instance, if you
+  write |\pgfkeys{/my key}|, then it is checked whether the key
+  |/my key/.@def| exists.
+\item If the key \meta{key}|/.@def| exists, then the tokens stored in
+  this key are used as \meta{value}.
+\item If the key does not exist, then |\pgfkeysnovalue| is used as the
+  \meta{value}.
+\item At the end, if the \meta{value} is now equal to
+  |\pgfkeysvaluerequired|, then the code
+  |\pgfkeys{/errors/value required}| (or something fairly equivalent)
+  is executed. Thus, by changing this key you can change the error
+  message that is printed or you can handle the missing value in some
+  other way.
+\end{enumerate}
+
+
 
 \subsubsection{Keys That Execute Commands}
+\label{section-key-code}
+
+After the transformation process described in the previous subsection,
+we arrive at a key of the form \meta{key}=\meta{value}, where
+\meta{key} is a full key. Different things can now happen, but always
+the macro |\pgfkeyscurrentkey| will have been setup to expand to the
+text of the \meta{key} that is currently being processed.
+
+The first things that is tested is whether the key \meta{key}|/.@cmd|
+exists. If this is the case, then it is assumed that this key stores
+the code of a macro and this macro is executed. The argument of this
+macro is \meta{value} directly followed by |\pgfeov|, which stands for
+``end of value.'' The \meta{value} is not surrounded by braces. After
+this code has been executed, |\pgfkeys| continues with the next key in
+the \meta{key list}.
+
+It may seem quite peculiar that the macro stored in the key
+\meta{key}|/.@cmd| is not simply executed with its argument
+|{|\meta{value}|}|. However, the approach taken in the |pgfkeys|
+packages allows for more flexibility. For instance, assume that you
+have a key whose expects a \meta{value} of the form
+``\text{text}|+|\meta{more text}'' and wishes to store \meta{text} and
+\meta{more text} in two different macros. This can be achieved as
+follows:
+\begin{codeexample}[]
+\def\mystore#1+#2\pgfeov{\def\a{#1}\def\b{#2}}
+\pgfkeyslet{/my key/.@cmd}{\mystore}
+\pgfkeys{/my key=hello+world}
+
+|\a| is \a, |\b| is \b.
+\end{codeexample}
+
+Naturally, defining the code to be stored in a key in the above manner
+is too awkward. The following commands simplify things a bit, but the
+usual manner of setting up code for a key is to use one of the
+handlers described in Section~\ref{section-code-handlers}.
+
+\begin{command}{\pgfkeysdef\marg{key}\marg{code}}
+  This command temporarily defines a \TeX-macro with the argument list
+  |#1\pgfeov| and then lets \meta{key}|/.@cmd| be equal to this
+  macro. The net effect of all this is that you have then setup code
+  for the key \meta{key} so that when you write
+  |\pgfkeys{|\meta{key}|=|\meta{value}|}|, then the \meta{code} is
+  executed with all occurrences of |#1| in \meta{code} being replaced
+  by \meta{value}. (This behaviour is quite similar to the
+  |\define@key| command of |keyval| and |xkeyval|).
+
+\begin{codeexample}[]
+\pgfkeysdef{/my key}{#1, #1.}
+\pgfkeys{/my key=hello}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfkeysedef\marg{key}\marg{code}}
+  This command works like |\pgfkeysdef|, but it uses |\edef| rather
+  than |\def| when defining the key macro. If you do not know the
+  difference between the two, then you will not need this command;
+  and if you know the difference, then you will know when you need this
+  command.
+\end{command}
+
+\begin{command}{\pgfkeysdeargs\marg{key}\marg{argument pattern}\marg{code}}
+  This command works like |\pgfkeysdef|, but it allows you to provide
+  an arbitrary \meta{argument pattern} rather than just the simple
+  single argument of |\pgfkeysdef|. 
+
+\begin{codeexample}[]
+\pgfkeysdefargs{/my key}{#1+#2}{\def\a{#1}\def\b{#2}}
+\pgfkeys{/my key=hello+world}
+
+|\a| is \a, |\b| is \b.
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfkeysedefargs\marg{key}\marg{argument pattern}\marg{code}}
+  The |\edef| version of |\pgfkeysdefargs|.
+\end{command}
+
+
+\subsubsection{Keys That Store Values}
+
+Let us continue with what happens when |\pgfkeys| processes the
+current key and id the subkey \meta{key}|/.@cmd| is not defined. Then
+it is checked whether the \meta{key} itself exists (has been
+previously assigned a value using, for instance,
+|\pgfkeyssetvalue|). In this case, the tokens store in \meta{key} are
+replaced by \meta{value} and |\pgfkeys| proceeds with the next key in
+the \meta{key list}. 
+
 
 \subsubsection{Keys That Are Handled}
+
+If neither the \meta{key} itself nor the subkey \meta{key}|/.@cmd| are
+defined, then the \meta{key} cannot be processed ``all by itself.''
+Rather, a \meta{handler} is needed for this key. Most of the power of
+|pgfkeys| comes from the proper use of such handlers.
+
+Recall that the \meta{key} is always a full key (if it was not
+originally, it has already been upgraded at this point to a full
+key). It decomposed into  two parts:
+
+\begin{enumerate}
+\item The \meta{path} of the current key (everything
+  before the last slash) is stored in the macro |\pgfkeyscurrentpath|.
+\item The \meta{name} of the current key (everything
+  after the last slash) is stored in the macro |\pgfkeyscurrentname|.
+
+  It is recommended (but not necessary) that the name of a handler
+  starts with a dot (but not with |.@|), so that they are easy to
+  detect for the reader.  
+\end{enumerate}
+
+(For efficiency reasons, these two macros are only setup at this point;
+so when code is executed for a key in the ``usual'' manner then these
+macros are not setup.)
+
+The |\pgfkeys| command now checks whether the key
+|/handlers/|\meta{name}|/.@cmd| exists. If so, it should store a command
+and this command is executed exactly in the same manner as described
+in Section~\ref{section-key-code}.
+Thus, this code gets the \meta{value} that was originally intended for
+\meta{key} as its argument, followed by |\pgfeov|.
+It is the job of the handlers to so something useful with the
+\meta{value}.
+
+For an example, let us write a handler that will output the value
+stored in a key to the log file. We call this handler
+|.print to log|. The idea is that when someone tries to use the key
+|/my key/.print to log|, then this key will not be defined and the
+handler gets executed. The handler will then have access to the
+path-part of the key, which is |/my key|, via the macro
+|\pgfkeyscurrentpath|. It can then lookup which value is stored in
+this key and print it.
+
+\begin{codeexample}[code only]
+\pgfkeysdef{/handlers/.print to log}
+{%
+  \pgfkeysgetvalue{\pgfkeyscurrentpath}{\temp}
+  \writetolog{\temp}
+}
+\pgfkeyssetvalue{/my key}{Hi!}
+...
+\pgfkeys{/my key/.print to log}
+\end{codeexample}
+The above code will print |Hi!| in the log, provided the macro
+|\writetolog| is setup appropriately.
+
+For a more interesting handler, let us program a handler that will
+setup a key so that when the key is used some code is executed. This
+code is the code given as \meta{value}. So, when we write 
+
 
 \subsubsection{Keys That Are Unknown}
 
@@ -200,7 +429,11 @@ let us have a quick look at the command itself.
 
 \subsubsection{Handlers for Path Management, Inspection, and Testing Keys}
 
+\subsubsection{Setting Defaults}
+\label{section-default-handlers}
+
 \subsubsection{Defining Commands}
+\label{section-default-handlers}
 
 \subsubsection{Defining Styles}
 

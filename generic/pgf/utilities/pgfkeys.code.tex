@@ -32,15 +32,22 @@
 
 \def\pgfkeys@empty{}
 
+% This also:
+
+\ifx\PackageError\undefined
+  \def\pgfkeys@error#1{\immediate\write-1{Package pgfkeys: Error! #1.}}%
+\else
+  \def\pgfkeys@error#1{\PackageError{pgfkeys}{#1}{}}%
+\fi
 
 % Set a key to a value
 %
 % #1 = key
-% #2 = a value
+% #2 = tokens
 %
 % Description:
 %
-% This command sets the key to the given value. The value is stored as
+% This command sets the key to the given tokens. The tokens are stored as
 % is and can even contain things like #9. 
 %
 % Keys are organized hierarchically using something similar to Unix
@@ -54,10 +61,10 @@
 %
 % Example:
 %
-% \pgfkeysdefkey{/tikz/length/.@val}{2cm-3cm}
-% \pgfkeysdefkey{/algo/swap}{{#2}{#1}}
+% \pgfkeyssetvalue{/tikz/length}{2cm-3cm}
+% \pgfkeyssetvalue{/algo/swap}{{#2}{#1}}
 
-\def\pgfkeyssettokens#1#2{%
+\def\pgfkeyssetvalue#1#2{%
   \pgfkeys@temptoks{#2}\expandafter\edef\csname pgfk@#1\endcsname{\the\pgfkeys@temptoks}%
 }
 
@@ -72,16 +79,16 @@
 % Description:
 %
 % This command adds #2 to the definition of the key. The key should
-% have been set previously using \pgfkeyssettokens.
+% have been set previously using \pgfkeyssetvalue.
 %
 % Example:
 %
-% \pgfkeysaddtokens{/tikz/length/.@val}{}{-3cm}
+% \pgfkeysaddvalue{/tikz/length}{}{-3cm}
 
-\def\pgfkeysaddtokens#1#2#3{%
+\def\pgfkeysaddvalue#1#2#3{%
   {%
     \toks0{#1}%
-    \ifpgfkeydefined{#1}
+    \pgfkeysifdefined{#1}
     {\pgfkeys@temptoks\expandafter\expandafter\expandafter{\csname pgfk@#1\endcsname}}%
     {\pgfkeys@temptoks{}}%
     \toks1{#2}%
@@ -124,9 +131,9 @@
 %
 % Example:
 %
-% \pgfkeysgettokens{/tikz/swap}{\myswap}
+% \pgfkeysgetvalue{/tikz/swap}{\myswap}
 
-\def\pgfkeysgettokens#1#2{\expandafter\let\expandafter#2\csname pgfk@#1\endcsname}
+\def\pgfkeysgetvalue#1#2{\expandafter\let\expandafter#2\csname pgfk@#1\endcsname}
 
 
 
@@ -143,7 +150,7 @@
 %
 % The length is \pgfkeysvalue{/tikz/length}.
 
-\def\pgfkeysinsertokens#1{\csname pgfk@#1\endcsname}
+\def\pgfkeysinsertvalue#1{\csname pgfk@#1\endcsname}
 
 
 
@@ -160,9 +167,9 @@
 %
 % Example:
 %
-% \ifpgfkeydefined{/tikz/length}{key exists}{does not exist}
+% \pgfkeysifdefined{/tikz/length}{key exists}{does not exist}
 
-\def\ifpgfkeydefined#1#2#3{\pgfkeys@ifcsname pgfk@#1\endcsname#2\else#3\fi}
+\def\pgfkeysifdefined#1#2#3{\pgfkeys@ifcsname pgfk@#1\endcsname#2\else#3\fi}
 
 
 
@@ -208,7 +215,7 @@
 %
 %    will do nicely.
 %
-% 2) Otherwise, if the key /path/key/.@val is present, this key is
+% 2) Otherwise, if the key /path/key is present, this key is
 %    set to the value computed above.
 %
 % 3) Otherwise, if the key /handlers/key/.@cmd is present, it is executed
@@ -216,7 +223,7 @@
 %    token register \pgfcurrentkeypath will be set to "/path/" and the
 %    macor \pgfcurrentkeywithoutpath to "key". So, in the above
 %    example if neither "/stuff/height/.@cmd" nor
-%    "/stuff/height/.@val" is present, but "/handlers/height" is,
+%    "/stuff/height" is present, but "/handlers/height" is,
 %    then "/handlers/height" is executed with the parameters:
 %
 %    "1.5\pgfeov"
@@ -242,7 +249,8 @@
 %         .set default=.4pt}
 % \pgfkeys{tikz,line width=1pt}
 
-\newtoks\pgfkeyscurrentpath
+\newtoks\pgfkeys@pathtoks
+\def\pgfkeyscurrentpath{\the\pgfkeys@pathtoks}
 \newtoks\pgfkeys@temptoks
 
 \def\pgfkeys@root{/}
@@ -270,50 +278,50 @@
 \def\pgfkeysvaluerequired{\pgfkeysvaluerequired} % equals only itself
 
 \def\pgfkeys@unpack#1=#2=#3\pgfkeys@stop{%
-  \pgfkeys@spdef\pgfkeyscurrent{#1}%
-  \edef\pgfkeyscurrent{\pgfkeyscurrent}%
-  \ifx\pgfkeyscurrent\pgfkeys@empty%
+  \pgfkeys@spdef\pgfkeyscurrentkey{#1}%
+  \edef\pgfkeyscurrentkey{\pgfkeyscurrentkey}%
+  \ifx\pgfkeyscurrentkey\pgfkeys@empty%
     % Skip
   \else%
     \pgfkeys@add@path@as@needed%
     \pgfkeys@spdef\pgfkeys@val{#2}%
     \ifx\pgfkeys@val\pgfkeysnovalue% Hmm... no value
-      \ifpgfkeydefined{\pgfkeyscurrent/.@def}%
-      {\pgfkeysgettokens{\pgfkeyscurrent/.@def}{\pgfkeys@val}}
+      \pgfkeysifdefined{\pgfkeyscurrentkey/.@def}%
+      {\pgfkeysgetvalue{\pgfkeyscurrentkey/.@def}{\pgfkeys@val}}
       {}% no default, so leave it
     \fi%
     \ifx\pgfkeys@val\pgfkeysvaluerequired%
-      \pgfkeysinsertokens{/errors/value required/.@cmd}\pgfeov%
+      \pgfkeysinsertvalue{/errors/value required/.@cmd}\pgfeov%
     \else%
       \pgfkeys@case@one%
     \fi%
   \fi}
 
 \def\pgfkeys@case@one{%
-  \ifpgfkeydefined{\pgfkeyscurrent/.@cmd}%
-  {\pgfkeysgettokens{\pgfkeyscurrent/.@cmd}{\pgfkeys@code}%
+  \pgfkeysifdefined{\pgfkeyscurrentkey/.@cmd}%
+  {\pgfkeysgetvalue{\pgfkeyscurrentkey/.@cmd}{\pgfkeys@code}%
    \expandafter\pgfkeys@code\pgfkeys@val\pgfeov}
   {\pgfkeys@case@two}%
 }
 
 \def\pgfkeys@case@two{%
-  \ifpgfkeydefined{\pgfkeyscurrent/.@val}%
-  {\pgfletkey{\pgfkeyscurrent/.@val}\pgfkeys@val}
+  \pgfkeysifdefined{\pgfkeyscurrentkey}%
+  {\pgfletkey{\pgfkeyscurrentkey}\pgfkeys@val}
   {\pgfkeys@case@three}%
 }
 
 \def\pgfkeys@case@three{%
   \pgfkeys@split@path%
-  \ifpgfkeydefined{/handlers/\pgfkeyscurrentwithoutpath/.@cmd}%
-  {\pgfkeysgettokens{/handlers/\pgfkeyscurrentwithoutpath/.@cmd}{\pgfkeys@code}%
+  \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}%
+  {\pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
     \expandafter\pgfkeys@code\pgfkeys@val\pgfeov}
   {%
-    \ifpgfkeydefined{\the\pgfkeyscurrentpath/.unknown/.@cmd}%
+    \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
     {%
-      \pgfkeysgettokens{\the\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@code}%
+      \pgfkeysgetvalue{\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@code}%
       \expandafter\pgfkeys@code\pgfkeys@val\pgfeov}
     {%
-      \pgfkeysgettokens{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
+      \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
       \expandafter\pgfkeys@code\pgfkeys@val\pgfeov%
     }%
   }%
@@ -338,8 +346,8 @@
 
 
 \def\pgfkeys@add@path@as@needed{% Should add the path if the
-  % \pgfkeyscurrent does not start with /
-  \expandafter\futurelet\expandafter\pgfkeys@possibleslash\expandafter\pgfkeys@check@slash\pgfkeyscurrent\relax%
+  % \pgfkeyscurrentkey does not start with /
+  \expandafter\futurelet\expandafter\pgfkeys@possibleslash\expandafter\pgfkeys@check@slash\pgfkeyscurrentkey\relax%
 }
 \def\pgfkeys@check@slash{%
   \ifx\pgfkeys@possibleslash/%
@@ -350,26 +358,26 @@
 }
 
 \def\pgfkeys@nevermind#1\relax{}
-\def\pgfkeys@addpath#1\relax{\edef\pgfkeyscurrent{\pgfkeysdefaultpath#1}}
+\def\pgfkeys@addpath#1\relax{\edef\pgfkeyscurrentkey{\pgfkeysdefaultpath#1}}
 
 \def\pgfkeys@split@path{% Should assign the two codes
-                       % \pgfkeyscurrentwithoutpath and \pgfcurrentlkeypath
-  \pgfkeyscurrentpath{}%
-  \expandafter\pgfkeys@splitter\pgfkeyscurrent//%
+                       % \pgfkeyscurrentname and \pgfcurrentlkeypath
+  \pgfkeys@pathtoks{}%
+  \expandafter\pgfkeys@splitter\pgfkeyscurrentkey//%
 }
 \def\pgfkeys@splitter#1/#2/{%
   \def\pgfkeys@temp{#2}%
   \ifx\pgfkeys@temp\pgfkeys@empty%
     % Ah. done
-    \def\pgfkeyscurrentwithoutpath{#1}%
+    \def\pgfkeyscurrentname{#1}%
     \expandafter\pgfkeys@gobbletoslash%
   \else%
-    \expandafter\pgfkeyscurrentpath\expandafter{\the\pgfkeyscurrentpath#1/}%
+    \expandafter\pgfkeys@pathtoks\expandafter{\the\pgfkeys@pathtoks#1/}%
   \fi%
   \pgfkeys@splitter#2/%
 }
-\def\pgfkeys@gobbletoslash\pgfkeys@splitter/{\expandafter\pgfkeys@remove@slash\the\pgfkeyscurrentpath\relax}%
-\def\pgfkeys@remove@slash#1/\relax{\pgfkeyscurrentpath{#1}}
+\def\pgfkeys@gobbletoslash\pgfkeys@splitter/{\expandafter\pgfkeys@remove@slash\the\pgfkeys@pathtoks\relax}%
+\def\pgfkeys@remove@slash#1/\relax{\pgfkeys@pathtoks{#1}}
 
 
 % Sets keys while setting keys
@@ -434,133 +442,132 @@
 \def\pgfkeysdefargs#1#2#3{%
   \def\pgfkeys@temp#2\pgfeov{#3}%
   \pgfkeyslet{#1/.@cmd}{\pgfkeys@temp}%
-  \pgfkeyssettokens{#1/.@args}{#2\pgfeov}%
-  \pgfkeyssettokens{#1/.@body}{#3}%
+  \pgfkeyssetvalue{#1/.@args}{#2\pgfeov}%
+  \pgfkeyssetvalue{#1/.@body}{#3}%
 }
 \def\pgfkeysedefargs#1#2#3{%
   \edef\pgfkeys@temp#2\pgfeov{#3}%
   \pgfkeyslet{#1/.@cmd}{\pgfkeys@temp}%
-  \pgfkeyssettokens{#1/.@args}{#2\pgfeov}%
-  \pgfkeyssettokens{#1/.@body}{#3}%
+  \pgfkeyssetvalue{#1/.@args}{#2\pgfeov}%
+  \pgfkeyssetvalue{#1/.@body}{#3}%
 }
 
 
 
 % Defining a key command
 
-\pgfkeysdef{/handlers/.def}{\pgfkeysdef{\the\pgfkeyscurrentpath}{#1}}
-\pgfkeysdef{/handlers/.def 2 args}{\pgfkeysdefargs{\the\pgfkeyscurrentpath}{##1##2}{#1}}
-\pgfkeysdef{/handlers/.edef}{\pgfkeysedef{\the\pgfkeyscurrentpath}{#1}}
-\pgfkeysdef{/handlers/.edef 2 args}{\pgfkeysedefargs{\the\pgfkeyscurrentpath}{##1##2}{#1}}
-\pgfkeysdefargs{/handlers/.def args}{#1#2}{\pgfkeysdefargs{\the\pgfkeyscurrentpath}{#1}{#2}}
-\pgfkeysdefargs{/handlers/.edef args}{#1#2}{\pgfkeysedefargs{\the\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdef{/handlers/.def}{\pgfkeysdef{\pgfkeyscurrentpath}{#1}}
+\pgfkeysdef{/handlers/.def 2 args}{\pgfkeysdefargs{\pgfkeyscurrentpath}{##1##2}{#1}}
+\pgfkeysdef{/handlers/.edef}{\pgfkeysedef{\pgfkeyscurrentpath}{#1}}
+\pgfkeysdef{/handlers/.edef 2 args}{\pgfkeysedefargs{\pgfkeyscurrentpath}{##1##2}{#1}}
+\pgfkeysdefargs{/handlers/.def args}{#1#2}{\pgfkeysdefargs{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdefargs{/handlers/.edef args}{#1#2}{\pgfkeysedefargs{\pgfkeyscurrentpath}{#1}{#2}}
 
 % Adding to a key command
 
 \pgfkeys{/handlers/.add def/.def 2 args=%
   % Find out, whether with args or not.
-  \ifpgfkeydefined{\the\pgfkeyscurrentpath/.@args}%
+  \pgfkeysifdefined{\pgfkeyscurrentpath/.@args}%
   {% Yes, so add to body and reuse args
-    \pgfkeysaddtokens{\the\pgfkeyscurrentpath/.@body}{#1}{#2}%
+    \pgfkeysaddvalue{\pgfkeyscurrentpath/.@body}{#1}{#2}%
     % Redefine code
-    \pgfkeysgettokens{\the\pgfkeyscurrentpath/.@args}{\pgfkeys@tempargs}
-    \pgfkeysgettokens{\the\pgfkeyscurrentpath/.@body}{\pgfkeys@tempbody}
+    \pgfkeysgetvalue{\pgfkeyscurrentpath/.@args}{\pgfkeys@tempargs}
+    \pgfkeysgetvalue{\pgfkeyscurrentpath/.@body}{\pgfkeys@tempbody}
     \expandafter\expandafter\expandafter\def\expandafter\pgfkeys@temp\expandafter\pgfkeys@tempargs\expandafter{\pgfkeys@tempbody}%
-    \pgfkeyslet{\the\pgfkeyscurrentpath/.@cmd}{\pgfkeys@temp}%
+    \pgfkeyslet{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@temp}%
   }%
   {%
     % No, so single argument. Redefine accordingly.
     {%
       \toks0{#1}%
-      \ifpgfkeydefined{\the\pgfkeyscurrentpath/.@cmd}%
-      {\pgfkeys@temptoks\expandafter\expandafter\expandafter{\csname pgfk@\the\pgfkeyscurrentpath/.@cmd\endcsname##1\pgfeov}}%
+      \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}%
+      {\pgfkeys@temptoks\expandafter\expandafter\expandafter{\csname pgfk@\pgfkeyscurrentpath/.@cmd\endcsname##1\pgfeov}}%
       {\pgfkeys@temptoks{}}%
       \toks1{#2}%
       \xdef\pgfkeys@global@temp##1\pgfeov{\the\toks0 \the\pgfkeys@temptoks \the\toks1}%
     }%
-    \pgfkeyslet{\the\pgfkeyscurrentpath/.@cmd}\pgfkeys@global@temp%
+    \pgfkeyslet{\pgfkeyscurrentpath/.@cmd}\pgfkeys@global@temp%
   }%
 }
-\pgfkeys{/handlers/.prepend def/.def=\pgfkeys{\the\pgfkeyscurrentpath/.add def={#1}{}}}%
-\pgfkeys{/handlers/.append def/.def=\pgfkeys{\the\pgfkeyscurrentpath/.add def={}{#1}}}%
+\pgfkeys{/handlers/.prepend def/.def=\pgfkeys{\pgfkeyscurrentpath/.add def={#1}{}}}%
+\pgfkeys{/handlers/.append def/.def=\pgfkeys{\pgfkeyscurrentpath/.add def={}{#1}}}%
 
 
 % Defining a style
 
-\pgfkeys{/handlers/.style/.def=\pgfkeys{\the\pgfkeyscurrentpath/.def=\pgfkeysalso{#1}}}
-\pgfkeys{/handlers/.estyle/.def=\pgfkeys{\the\pgfkeyscurrentpath/.edef=\noexpand\pgfkeysalso{#1}}}
-\pgfkeys{/handlers/.style args/.def 2 args=\pgfkeys{\the\pgfkeyscurrentpath/.def args={#1}{\pgfkeysalso{#2}}}}
-\pgfkeys{/handlers/.estyle args/.def 2 args=\pgfkeys{\the\pgfkeyscurrentpath/.edef args={#1}{\noexpand\pgfkeysalso{#2}}}}
-\pgfkeys{/handlers/.style 2 args/.def=\pgfkeys{\the\pgfkeyscurrentpath/.def 2 args=\pgfkeysalso{#1}}}
+\pgfkeys{/handlers/.style/.def=\pgfkeys{\pgfkeyscurrentpath/.def=\pgfkeysalso{#1}}}
+\pgfkeys{/handlers/.estyle/.def=\pgfkeys{\pgfkeyscurrentpath/.edef=\noexpand\pgfkeysalso{#1}}}
+\pgfkeys{/handlers/.style args/.def 2 args=\pgfkeys{\pgfkeyscurrentpath/.def args={#1}{\pgfkeysalso{#2}}}}
+\pgfkeys{/handlers/.estyle args/.def 2 args=\pgfkeys{\pgfkeyscurrentpath/.edef args={#1}{\noexpand\pgfkeysalso{#2}}}}
+\pgfkeys{/handlers/.style 2 args/.def=\pgfkeys{\pgfkeyscurrentpath/.def 2 args=\pgfkeysalso{#1}}}
 
 % Adding to a style
 
-\pgfkeys{/handlers/.add style/.def 2 args=\pgfkeys{\the\pgfkeyscurrentpath/.add def={\pgfkeysalso{#1}}{\pgfkeysalso{#2}}}}%
-\pgfkeys{/handlers/.prepend style/.def=\pgfkeys{\the\pgfkeyscurrentpath/.add def={\pgfkeysalso{#1}}{}}}%
-\pgfkeys{/handlers/.append style/.def=\pgfkeys{\the\pgfkeyscurrentpath/.add def={}{\pgfkeysalso{#1}}}}%
+\pgfkeys{/handlers/.add style/.def 2 args=\pgfkeys{\pgfkeyscurrentpath/.add def={\pgfkeysalso{#1}}{\pgfkeysalso{#2}}}}%
+\pgfkeys{/handlers/.prepend style/.def=\pgfkeys{\pgfkeyscurrentpath/.add def={\pgfkeysalso{#1}}{}}}%
+\pgfkeys{/handlers/.append style/.def=\pgfkeys{\pgfkeyscurrentpath/.add def={}{\pgfkeysalso{#1}}}}%
 
 
 % Defining a value
 
-\pgfkeys{/handlers/.value/.def=\pgfkeyssettokens{\the\pgfkeyscurrentpath/.@val}{#1}}
-\pgfkeys{/handlers/.add value/.def 2 args=\pgfkeysaddtokens{\the\pgfkeyscurrentpath/.@val}{#1}{#2}}
-\pgfkeys{/handlers/.get value/.def=\pgfkeysgettokens{\the\pgfkeyscurrentpath/.@val}{#1}}
+\pgfkeys{/handlers/.initial/.def=\pgfkeyssetvalue{\pgfkeyscurrentpath}{#1}}
+\pgfkeys{/handlers/.add/.def 2 args=\pgfkeysaddvalue{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeys{/handlers/.get/.def=\pgfkeysgetvalue{\pgfkeyscurrentpath}{#1}}
 
 % Defining a default
 
-\pgfkeys{/handlers/.default/.def=\pgfkeyssettokens{\the\pgfkeyscurrentpath/.@def}{#1}}
-\pgfkeys{/handlers/.value required/.def=\pgfkeyssettokens{\the\pgfkeyscurrentpath/.@def}{\pgfkeysvaluerequired}}
+\pgfkeys{/handlers/.default/.def=\pgfkeyssetvalue{\pgfkeyscurrentpath/.@def}{#1}}
+\pgfkeys{/handlers/.value required/.def=\pgfkeyssetvalue{\pgfkeyscurrentpath/.@def}{\pgfkeysvaluerequired}}
 
 
 % High-level cmds
 
-\pgfkeys{/handlers/.store in/.def=\pgfkeys{\the\pgfkeyscurrentpath/.def=\def#1{##1}}}
+\pgfkeys{/handlers/.store in/.def=\pgfkeys{\pgfkeyscurrentpath/.def=\def#1{##1}}}
 
 \pgfkeys{/handlers/.is if/.def=\pgfkeys{%
-    \the\pgfkeyscurrentpath/.def={%
+    \pgfkeyscurrentpath/.def={%
       \pgfkeys@ifcsname#1##1\endcsname%
         \csname#1##1\endcsname%
       \else%
         \pgfkeys{/errors/boolean parameter=##1}%
       \fi},%
-    \the\pgfkeyscurrentpath/.default=true%
+    \pgfkeyscurrentpath/.default=true%
   }%
 }
 
 \pgfkeys{/handlers/.is choice/.def=%
   \pgfkeys{%
-    \the\pgfkeyscurrentpath/.cd,%
-    .def=\expandafter\pgfkeysalso\expandafter{\pgfkeyscurrent/##1},
+    \pgfkeyscurrentpath/.cd,%
+    .def=\expandafter\pgfkeysalso\expandafter{\pgfkeyscurrentkey/##1},
     .unknown/.style=/errors/unknown choice value}}
 
 
 % Inspection handlers
 
-\pgfkeys{/handlers/.show tokens/.def=\pgfkeysgettokens{\the\pgfkeyscurrentpath}{\pgfkeysshower}\show\pgfkeysshower} % inspect the key tokens
-\pgfkeys{/handlers/.show value/.def=\pgfkeysgettokens{\the\pgfkeyscurrentpath/.@val}{\pgfkeysshower}\show\pgfkeysshower} % inspect the value itself
-\pgfkeys{/handlers/.show def/.def=\pgfkeysgettokens{\the\pgfkeyscurrentpath/.@cmd}{\pgfkeysshower}\show\pgfkeysshower} % inspect the body of the command
+\pgfkeys{/handlers/.show value/.def=\pgfkeysgetvalue{\pgfkeyscurrentpath}{\pgfkeysshower}\show\pgfkeysshower} % inspect the value 
+\pgfkeys{/handlers/.show def/.def=\pgfkeysgetvalue{\pgfkeyscurrentpath/.@cmd}{\pgfkeysshower}\show\pgfkeysshower} % inspect the body of the command
 
 
 % Path handling
 
-\pgfkeys{/handlers/.is family/.def=\pgfkeys{\the\pgfkeyscurrentpath/.edef=\edef\noexpand\pgfkeysdefaultpath{\the\pgfkeyscurrentpath/}}}
-\pgfkeys{/handlers/.cd/.def=\edef\pgfkeysdefaultpath{\the\pgfkeyscurrentpath/}}
+\pgfkeys{/handlers/.is family/.def=\pgfkeys{\pgfkeyscurrentpath/.edef=\edef\noexpand\pgfkeysdefaultpath{\pgfkeyscurrentpath/}}}
+\pgfkeys{/handlers/.cd/.def=\edef\pgfkeysdefaultpath{\pgfkeyscurrentpath/}}
 
 
 % Try to set a key and do nothing if not define
 
 \newif\ifpgfkeyssuccess
 \pgfkeys{/handlers/.try/.def=%
-  \ifpgfkeydefined{\the\pgfkeyscurrentpath/.@cmd}%
+  \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}%
   {%
-    \pgfkeysgettokens{\the\pgfkeyscurrentpath/.@cmd}{\pgfkeys@code}%
+    \pgfkeysgetvalue{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@code}%
     \expandafter\pgfkeys@code\pgfkeys@val\pgfeov%
     \pgfkeyssuccesstrue%
   }%
   {%
-    \ifpgfkeydefined{\the\pgfkeyscurrentpath/.@val}%
+    \pgfkeysifdefined{\pgfkeyscurrentpath}%
     {%
-      \pgfletkey{\the\pgfkeyscurrentpath/.@val}\pgfkeys@val%
+      \pgfletkey{\pgfkeyscurrentpath}\pgfkeys@val%
       \pgfkeyssuccesstrue%
     }%
     {\pgfkeyssuccessfalse}%
@@ -575,11 +582,11 @@
 
 % Errors
 
-\pgfkeys{/errors/boolean parameter/.def=\PackageError{pgfkeys}{Boolean parameter must be true or false, not '#1'}{}}
-\pgfkeys{/errors/value required/.def=\PackageError{pgfkeys}{The key '\pgfkeyscurrent' requires a value}{}}
-\pgfkeys{/errors/unknown choice value/.def=\PackageError{pgfkeys}{Choice '\pgfkeyscurrentwithoutpath' unknown in key '\the\pgfkeyscurrentpath'}{}}
+\pgfkeys{/errors/boolean parameter/.def=\pgfkeys@error{pgfkeys}{Boolean parameter must be true or false, not '#1'}{}}
+\pgfkeys{/errors/value required/.def=\pgfkeys@error{pgfkeys}{The key '\pgfkeyscurrentkey' requires a value}{}}
+\pgfkeys{/errors/unknown choice value/.def=\pgfkeys@error{pgfkeys}{Choice '\pgfkeyscurrentname' unknown in key '\pgfkeyscurrentpath'}{}}
 
-\pgfkeys{/handlers/.unknown/.def=\PackageError{pgfkeys}{The key '\pgfkeyscurrent' is unknown}{}}
+\pgfkeys{/handlers/.unknown/.def=\pgfkeys@error{pgfkeys}{The key '\pgfkeyscurrentkey' is unknown}{}}
 
 
 
