@@ -219,7 +219,7 @@ continue with the next subsection.
   like |#| or unbalanced \TeX-ifs.
 \begin{codeexample}[]
 \pgfkeyssetvalue{/my family/my key}{Hello, world!}
-\pgfkeysinsertvalue{/my family/my key}  
+\pgfkeysvalueof{/my family/my key}  
 \end{codeexample}
 
   The setting of a key is always local to the current \TeX\ group.
@@ -231,7 +231,7 @@ continue with the next subsection.
 \begin{codeexample}[]
 \def\helloworld{Hello, world!}
 \pgfkeyslet{/my family/my key}{\helloworld}
-\pgfkeysinsertvalue{/my family/my key}  
+\pgfkeysvalueof{/my family/my key}  
 \end{codeexample}
   You should never let a key be equal to |\relax|. Such a key may or
   may not be indistinguishable from an undefined key.
@@ -248,13 +248,13 @@ continue with the next subsection.
 \end{codeexample}
 \end{command}
 
-\begin{command}{\pgfkeysinserttokens\marg{full key}}
-  Inserts the tokens stored in \meta{full key} at the current position
+\begin{command}{\pgfkeysvalueof\marg{full key}}
+  Inserts the value stored in \meta{full key} at the current position
   into the text.
 
 \begin{codeexample}[]
 \pgfkeyssetvalue{/my family/my key}{Hello, world!}
-\pgfkeysinsertvalue{/my family/my key}
+\pgfkeysvalueof{/my family/my key}
 \end{codeexample}
 \end{command}
 
@@ -325,12 +325,26 @@ let us have a quick look at the command itself.
   for a key (which is exactly what you want).
 \end{command}
 
+\begin{command}{\pgfqkeys\marg{default path}\marg{key list}}
+  This command has the same effect as |\pgfkeys{|\meta{default
+      path}|/.cd,|\meta{key list}|}|, it is only marginally
+  quicker. This command should not be used in user code, but rather in
+  commands like |\tikzset| or |\pgfset| that get called very often.   
+\end{command}
 
 \begin{command}{\pgfkeysalso\marg{key list}}
   This command has execatly the same effect as |\pgfkeys|, only the
   default path is not modified before or after the keys are being
   set. This command is mainly intended to be called by the code that
   is being processed for a key.
+\end{command}
+
+\begin{command}{\pgfqkeysalso\marg{default path}\marg{key list}}
+  This command has the same effect as |\pgfkeysalso{|\meta{default
+      path}|/.cd,|\meta{key list}|}|, it is only quicker. Changing the
+  default path inside a |\pgfkeyalso| is dangerous, so use with
+  care. A rather safe place to call this command is at the beginning
+  of a \TeX\ group.
 \end{command}
 
 
@@ -912,7 +926,23 @@ value in the key itself.
   value is ``stored'' in the \meta{macro}.  
 \begin{codeexample}[]
 \pgfkeys{/text/.store in=\mytext}
-\pgfkeys{/text=Hello world!}
+\def\a{world} 
+\pgfkeys{/text=Hello \a!}
+\def\a{Gruffalo}
+\mytext
+\end{codeexample}
+\end{handler}
+
+\begin{handler}{{.estore in}|=|\meta{macro}}
+  This handler is similar to |.store in|, only the code 
+  |\edef|\meta{macro}|{|\meta{value}|}| is used. Thus, the
+  macro-expanded version of \meta{value} is stored in the
+  \meta{macro}. 
+\begin{codeexample}[]
+\pgfkeys{/text/.estore in=\mytext}
+\def\a{world} 
+\pgfkeys{/text=Hello \a!}
+\def\a{Gruffalo}
 \mytext
 \end{codeexample}
 \end{handler}
@@ -964,6 +994,59 @@ handler is useful.
   key |/errors/unknown choice value| is executed.
 \end{handler}
 
+
+\subsubsection{Expanding Values}
+
+When you write \meta{key}|=|\meta{value}, you usually wish to use the
+\meta{value} ``as is.'' Indeed, great care is taken to ensure that you
+can even use things like |#1| or unbalanced \TeX-ifs inside
+\meta{value}. However, sometimes you want the \meta{value} to be
+expanded before it is used. For instance, \meta{value} might be a
+macro name like |\mymacro| and you do not want |\mymacro| to be used
+as the macro, but rather the \emph{contents} of |\mymacro|. Thus,
+instead of using \meta{value} you wish to use whatever \meta{value}
+expands to. Instead of using some fancy |\expandafter| hackery, you
+can use the following handlers:
+
+\begin{handler}{{.expand once}|=|\meta{value}}
+  This handler expands \meta{value} once (more precisely, it executes
+  an |\expandafter| command on the first token of \meta{value}) and
+  then process the resulting \meta{result} as if you had written
+  \meta{key}|=|\meta{result}. Note that if \meta{key} contains a
+  handler itself, this handler will be called normally.
+\begin{codeexample}[]
+\def\a{bottom}
+\def\b{\a}
+\def\c{\b}
+
+\pgfkeys{/key1/.initial=\c}
+\pgfkeys{/key2/.initial/.expand once=\c}
+\pgfkeys{/key3/.initial/.expand twice=\c}
+\pgfkeys{/key4/.initial/.expanded=\c}
+
+\def\a{{\ttfamily\string\a}}
+\def\b{{\ttfamily\string\b}}
+\def\c{{\ttfamily\string\c}}
+
+\begin{tabular}{ll}
+Key 1:& \pgfkeys{/key1} \\
+Key 2:& \pgfkeys{/key2} \\
+Key 3:& \pgfkeys{/key3} \\
+Key 4:& \pgfkeys{/key4}
+\end{tabular}
+\end{codeexample}
+\end{handler}
+
+\begin{handler}{{.expand twice}|=|\meta{value}}
+  This handler works like saying \meta{key}|/.expand once/.expand once=|\meta{value}.
+\end{handler}
+
+\begin{handler}{{.expanded}|=|\meta{value}}
+  This handler will completely expand \meta{value} (using |\edef|)
+  before processing \meta{key}|=|\meta{result}.
+\end{handler}
+
+
 \subsubsection{Handlers for Testing Keys}
 
 \begin{handler}{{.try}|=|\meta{value}}
@@ -1014,12 +1097,11 @@ handler is useful.
 
 The following key is not a handler, but it also commonly used for
 inspecting things:
-\begin{itemize}
-  \itemoption{/utils/exec}|=|\marg{code}
+\begin{key}{/utils/exec=\meta{code}}
   This key will simply execute the given \meta{code}. 
 
   \example |\pgfkeys{some key=some value,/utils/exec=\show\hallo,obscure key=obscure}|
-\end{itemize}
+\end{key}
 
 
 \subsection{Error Keys}
@@ -1034,17 +1116,27 @@ Currently, error keys are simply executed. In the future it might be a
 good idea to have different subkeys that are executed depending on the
 language currently set so that users get a localized error message.
 
-\begin{itemize}
-  \itemoption{/errors/value required} This key is executed whenever a
-  key is used without a value when a value is actually required.
-  \itemoption{/errors/value forbidden} This key is executed whenever a
-  key is used with a value when a value is actually forbidden.
-  \itemoption{/errors/boolean expected} This key is executed whenever a
-  key setup using |.is if| gets called with a parameter other than
-  |true| or |false|.
-  \itemoption{/errors/unknown choice value} This key is executed
-  whenever a choice is used as a \meta{value} for a key setup using
-  the |.is choice| handler that is not defined.
-  \itemoption{/errors/unknown key} This key is executed
-  whenever a key is unknown and no specific |.unknown| handler is found. 
-\end{itemize}
+\begin{key}{/errors/value required=\marg{offending key}\marg{value}}
+  This key is executed whenever an \meta{offending key} is used
+  without a value when a value is actually required. 
+\end{key}
+
+\begin{key}{/errors/value forbidden=\marg{offending key}\marg{value}}
+  This key is executed whenever a key is used with a value when a
+  value is actually forbidden.
+\end{key}
+
+\begin{key}{/errors/boolean expected=\marg{offending key}\marg{value}}
+  This key is executed whenever a key setup using |.is if| gets called
+  with a \meta{value} other than |true| or |false|.
+\end{key}
+
+\begin{key}{/errors/unknown choice value=\marg{offending key}\marg{value}}
+  This key is executed whenever a choice is used as a \meta{value} for
+  a key setup using the |.is choice| handler that is not defined.
+\end{key}
+
+\begin{key}{/errors/unknown key=\marg{offending key}\marg{value}}
+  This key is executed whenever a key is unknown and no specific
+  |.unknown| handler is found.
+\end{key}

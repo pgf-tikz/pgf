@@ -150,7 +150,7 @@
 %
 % The length is \pgfkeysvalue{/tikz/length}.
 
-\def\pgfkeysinsertvalue#1{\csname pgfk@#1\endcsname}
+\def\pgfkeysvalueof#1{\csname pgfk@#1\endcsname}
 
 
 
@@ -258,8 +258,11 @@
 \def\pgfkeys@root{/}
 \let\pgfkeysdefaultpath\pgfkeys@root
 
-\def\pgfkeys{\expandafter\pgf@@set\expandafter{\pgfkeysdefaultpath}}%
-\def\pgf@@set#1#2{\let\pgfkeysdefaultpath\pgfkeys@root\pgfkeys@parse#2,\pgfkeys@mainstop\def\pgfkeysdefaultpath{#1}}
+\def\pgfkeys{\expandafter\pgfkeys@@set\expandafter{\pgfkeysdefaultpath}}%
+\def\pgfkeys@@set#1#2{%
+  \let\pgfkeysdefaultpath\pgfkeys@root%
+  \pgfkeys@parse#2,\pgfkeys@mainstop%
+  \def\pgfkeysdefaultpath{#1}}
 
 \def\pgfkeys@parse{\futurelet\pgfkeys@possiblerelax\pgfkeys@parse@main}
 \def\pgfkeys@parse@main{%
@@ -295,7 +298,7 @@
       {}% no default, so leave it
     \fi%
     \ifx\pgfkeyscurrentvalue\pgfkeysvaluerequired%
-      \pgfkeysinsertvalue{/errors/value required/.@cmd}\pgfkeyscurrentkey\pgfkeyscurrentvalue\pgfeov%
+      \pgfkeysvalueof{/errors/value required/.@cmd}\pgfkeyscurrentkey\pgfkeyscurrentvalue\pgfeov%
     \else%
       \pgfkeys@case@one%
     \fi%
@@ -310,7 +313,12 @@
 
 \def\pgfkeys@case@two{%
   \pgfkeysifdefined{\pgfkeyscurrentkey}%
-  {\pgfkeyslet{\pgfkeyscurrentkey}\pgfkeyscurrentvalue}
+  {%
+    \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
+      \pgfkeysvalueof{\pgfkeyscurrentkey}%
+    \else%
+      \pgfkeyslet{\pgfkeyscurrentkey}\pgfkeyscurrentvalue%
+    \fi}
   {\pgfkeys@case@three}%
 }
 
@@ -319,15 +327,17 @@
   \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}%
   {\pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
+  {\pgfkeys@unknown}%
+}
+
+\def\pgfkeys@unknown{%
+  \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
   {%
-    \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
-    {%
-      \pgfkeysgetvalue{\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@code}%
-      \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
-    {%
-      \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
-      \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov%
-    }%
+    \pgfkeysgetvalue{\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@code}%
+    \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
+  {%
+    \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
+    \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov%
   }%
 }
 
@@ -384,6 +394,28 @@
 \def\pgfkeys@remove@slash#1/\relax{\pgfkeys@pathtoks{#1}}
 
 
+
+% Quickly set keys
+%
+% #1 = default path
+% #2 = key-value pairs
+%
+% Desscription:
+%
+% This command starts the execution with the default path set to
+% #1. This command should only be used when speed is important (like
+% in a heavily used macro like \tikzset). Normally, keys should be
+% used to set the path. Note that if #1 equals /, then \pgfkeys will
+% actually be quicker!
+%
+% Example:
+%
+% \pgfqkeys{/tikz}{myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length=#1}}
+
+\def\pgfqkeys{\expandafter\pgfkeys@@qset\expandafter{\pgfkeysdefaultpath}}%
+\def\pgfkeys@@qset#1#2#3{\def\pgfkeysdefaultpath{#2/}\pgfkeys@parse#3,\pgfkeys@mainstop\def\pgfkeysdefaultpath{#1}}
+
+
 % Sets keys while setting keys
 %
 % #1 = key-value pairs
@@ -399,6 +431,27 @@
 % \pgfkeys{tikz,myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length=#1}}
 
 \def\pgfkeysalso#1{\pgfkeys@parse#1,\pgfkeys@mainstop}
+
+
+
+% Quickly sets keys while setting keys
+%
+% #1 = default path
+% #2 = key-value pairs
+%
+% Desscription:
+%
+% This command executes #2 with the default path set to #1. This
+% command will cause chaos if used incorrectly. The only safe
+% place to use it instead of \pgfkeys is at the beginning of a TeX group.
+%
+% Example:
+%
+% \begingroup
+%   \pgfqkeysalso{/tikz}{myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length=#1}}
+
+\def\pgfqkeysalso#1#2{\def\pgfkeysdefaultpath{#1/}\pgfkeys@parse#2,\pgfkeys@mainstop}
+
 
 
 
@@ -527,7 +580,7 @@
 {%
   \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
   \else%
-    \pgfkeysinsertvalue{/errors/value forbidden/.@cmd}\pgfkeyscurrentkey\pgfkeyscurrentvalue\pgfeov%
+    \pgfkeysvalueof{/errors/value forbidden/.@cmd}\pgfkeyscurrentkey\pgfkeyscurrentvalue\pgfeov%
   \fi%
 }{}}}
 
@@ -535,6 +588,7 @@
 % High-level cmds
 
 \pgfkeys{/handlers/.store in/.code=\pgfkeysalso{\pgfkeyscurrentpath/.code=\def#1{##1}}}
+\pgfkeys{/handlers/.estore in/.code=\pgfkeysalso{\pgfkeyscurrentpath/.code=\edef#1{##1}}}
 
 \pgfkeys{/handlers/.is if/.code=\pgfkeysalso{%
     \pgfkeyscurrentpath/.code=\pgfkeys@handle@boolean{#1}{##1},
@@ -545,7 +599,7 @@
   \pgfkeys@ifcsname#1#2\endcsname%
     \csname#1#2\endcsname%
   \else%
-    \pgfkeysinsertvalue{/errors/boolean expected/.@cmd}\pgfkeyscurrentkey{#2}\pgfeov%
+    \pgfkeysvalueof{/errors/boolean expected/.@cmd}\pgfkeyscurrentkey{#2}\pgfeov%
   \fi
 }
 
@@ -568,6 +622,14 @@
 \pgfkeys{/handlers/.cd/.code=\edef\pgfkeysdefaultpath{\pgfkeyscurrentpath/}}
 
 
+% Value expansion
+
+\pgfkeys{/handlers/.expand once/.code=\expandafter\pgfkeys@exp@call\expandafter{#1}}
+\pgfkeys{/handlers/.expand twice/.code=\expandafter\expandafter\expandafter\pgfkeys@exp@call\expandafter\expandafter\expandafter{#1}}
+\pgfkeys{/handlers/.expanded/.code=\edef\pgfkeys@temp{#1}\expandafter\pgfkeys@exp@call\expandafter{\pgfkeys@temp}}
+
+\def\pgfkeys@exp@call#1{\pgfkeysalso{\pgfkeyscurrentpath=#1}}
+
 % Try to set a key and do nothing if not define
 
 \newif\ifpgfkeyssuccess
@@ -583,7 +645,11 @@
   {%
     \pgfkeysifdefined{\pgfkeyscurrentpath}%
     {%
-      \pgfkeyslet{\pgfkeyscurrentpath}\pgfkeyscurrentvalue%
+      \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
+        \pgfkeysvalueof{\pgfkeyscurrentpath}%
+      \else%
+        \pgfkeyslet{\pgfkeyscurrentpath}\pgfkeyscurrentvalue%
+      \fi%
       \pgfkeyssuccesstrue%
     }%
     {\pgfkeyssuccessfalse}%
