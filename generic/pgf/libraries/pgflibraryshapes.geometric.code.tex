@@ -341,72 +341,80 @@
 	\edef#1{\noexpand\pgf@x\the\pgf@x\noexpand\pgf@y\the\pgf@y}%
 }
 
-% \ifpgfshapeborderusesincircle
+
+% Keys for border construction/rotation:
 %
-% Determine if a shape uses an incircle to
-% calculate its border dimensions.
+% /pgf/shape border uses incirle : Use the incircle to create the shape border.
+% /pgf/shape border rotate       : The rotation of the shape border.
 %
+
 \newif\ifpgfshapeborderusesincircle
-\pgfshapeborderusesincirclefalse
+\pgfkeys{/pgf/shape border uses incircle/.is if=pgfshapeborderusesincircle}
+\pgfkeys{/pgf/shape border uses incircle=false}
 
-% \pgfsetshapeborderrotate
-%
-% Set the rotation of the shape border. 
-%
-\def\pgfsetshapeborderrotate#1{%
-	\pgfmathparse{#1}%
-	\pgfmathmod@{\pgfmathresult}{360}%
-	\ifdim\pgfmathresult pt<0pt\relax%
-		\pgfmathadd@{\pgfmathresult}{360}%
-	\fi%
-	\let\pgfshapeborderrotate\pgfmathresult}
-\pgfsetshapeborderrotate{0}
-
-
-
-
-
-% \pgfsetstarpoints
-%
-% Set the number of points on a star.
-%
-\def\pgfsetstarpoints#1{%
-	\pgfmathsetcounter{pgf@counta}{#1}%
-	\edef\pgfstarpoints{\the\c@pgfmath@counta}}
-\pgfsetstarpoints{5}
-
-% \pgfsetstarpointheight
-%
-% Set the height of the points (this is the
-% distance between the outer and inner point 
-% radii).
-%
-\def\pgfsetstarpointheight#1{%
-	\pgfmathparse{#1}%
-	\edef\pgfstarpointheight{\pgfmathresult pt}}
-\pgfsetstarpointheight{12pt}
-
-% \pgfsetstarpointratio
-%
-% Set the ratio between the outer and 
-% inner point radii.
-%
-\def\pgfsetstarpointratio#1{%
-	\pgfmathparse{#1}%
-	\edef\pgfstarpointratio{\pgfmathresult}%
-	\def\pgfstarpointheight{-16383pt}% If negative, the ratio is used.
+\pgfkeys{/pgf/shape border rotate/.value required}
+\pgfkeys{/pgf/shape border rotate/.code={%
+    \pgfmathparse{#1}%
+    \pgfmathmod@{\pgfmathresult}{360}%
+    \ifdim\pgfmathresult pt<0pt\relax%
+      \pgfmathadd@{\pgfmathresult}{360}%
+    \fi%
+    \pgfkeyslet{/pgf/shape border rotate}{\pgfmathresult}%
+  }%
 }
-\pgfsetstarpointratio{1.75}
+\pgfkeys{/pgf/shape border rotate=0}
+
+
+
+
+
+
+\newif\ifpgf@sh@starouterradiususesratio
+
+% Keys for star shape
+%
+% /pgf/star points       : Number of points on the star.
+% /pgf/star point height : The height of the outer star points.
+% /pgf/star point ratio  : The ratio of the outer point and inner point radii.
+
+\pgfkeys{/pgf/star points/.value required}
+\pgfkeys{/pgf/star points/.code={%
+		\pgfmathtruncatemacro\pgfmathresult{#1}%
+		\pgfkeyslet{/pgf/star points}{\pgfmathresult}%	
+	}%
+}
+\pgfkeys{/pgf/star points=5}
+
+\pgfkeys{/pgf/star point height/.value required}
+\pgfkeys{/pgf/star point height/.code={%
+		\pgfmathparse{#1}%
+		\edef\pgfmathresult{\pgfmathresult pt}%
+		\pgfkeyslet{/pgf/star point height}{\pgfmathresult}%
+		\pgf@sh@starouterradiususesratiofalse%	
+	}%
+}
+\pgfkeys{/pgf/star point height=.5cm}
+
+\pgfkeys{/pgf/star point ratio/.value required}
+\pgfkeys{/pgf/star point ratio/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/star point ratio}{\pgfmathresult}%	
+		\pgf@sh@starouterradiususesratiotrue%	
+	}%
+}
+\pgfkeys{/pgf/star point ratio=1.5}
+
 
 % Shape star.
 %
 \pgfdeclareshape{star}{
 	\savedmacro\totalstarpoints{%
-		\pgfmathadd@{\pgfstarpoints}{\pgfstarpoints}%
-		\let\totalstarpoints\pgfmathresult%
+		\pgfmathsetcounter{pgf@counta}{+\pgfkeysvalueof{/pgf/star points}}%
+		\multiply\c@pgf@counta2\relax%
+		\edef\totalstarpoints{\the\c@pgf@counta}%
 	}
 	\savedmacro\anglestep{%
-		\pgfmathdivide@{180}{\pgfstarpoints}%
+		\pgfmathdivide@{180}{\pgfkeysvalueof{/pgf/star points}}%
 		\let\anglestep\pgfmathresult%
 	}
 	\savedmacro\calculateradii{%
@@ -429,13 +437,12 @@
 		%
 		% Calculate the circumcircle radius.
 		%
-		% If the star point height is negative use the star point ratio.
+		% Use the star point height or the star point ratio?
 		%
-		\pgfmathsetlength\pgf@xb{+\pgfstarpointheight}%
-		\ifdim\pgf@xb<0pt\relax%
-			\pgf@x\pgfstarpointratio\pgf@x%
+		\ifpgf@sh@starouterradiususesratio
+			\expandafter\pgf@x\pgfkeysvalueof{/pgf/star point ratio}\pgf@x%
 		\else%
-			\advance\pgf@x\pgf@xb%
+			\advance\pgf@x\pgfkeysvalueof{/pgf/star point height}\relax%
 		\fi%
 		\pgf@xc\pgf@x%
 		%
@@ -457,8 +464,8 @@
 	   	%
 	   	% ...using the star point ratio, or...
 	   	%
-	   	\ifdim\pgf@xb<0pt\relax%
-	   		\pgfmathreciprocal@{\pgfstarpointratio}%
+	   	\ifpgf@sh@starouterradiususesratio%
+	   		\pgfmathreciprocal@{\pgfkeysvalueof{/pgf/star point ratio}}%
 	   		\pgf@xa\pgfmathresult\pgf@x\relax%
 	   		\edef\innerradius{\the\pgf@xa}%
 			\else%
@@ -466,13 +473,13 @@
 				% The star point height.
 				%
 				\pgf@xa\pgf@x\relax%
-				\advance\pgf@xa-\pgf@xb%
+				\advance\pgf@xa-\pgfkeysvalueof{/pgf/star point height}\relax%
 				\edef\innerradius{\the\pgf@xa}%
 			\fi%
 		\fi%
 		\edef\outerradius{\the\pgf@x}%
 		%
-		% Now calculate the anchor radiii from the outer sep.
+		% Now calculate the anchor radii from the outer sep.
 		%
 		\pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/outer xsep}}%
 		\pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/outer ysep}}%
@@ -482,7 +489,7 @@
 		%
 		% Take into account the miter length...
 		%
-		\pgfmathdivide@{180}{\pgfstarpoints}%
+		\pgfmathdivide@{180}{\pgfkeysvalueof{/pgf/star points}}%
 		\let\angletofirstpoint\pgfmathresult%
 		\pgfmathmultiply@{\angletofirstpoint}{2}%
 		\let\angletosecondpoint\pgfmathresult%
@@ -515,15 +522,13 @@
 		%	
 		% Save all radii.
 		%
-		\def\calculateradii{%
-			\noexpand\def\noexpand\innerradius{\innerradius}%
-			\noexpand\def\noexpand\outerradius{\outerradius}%
-			\noexpand\def\noexpand\anchorinnerradius{\anchorinnerradius}%
-			\noexpand\def\noexpand\anchorouterradius{\anchorouterradius}%
-		}%
+		\addtosavedmacro{\innerradius}%
+		\addtosavedmacro{\outerradius}%
+		\addtosavedmacro{\anchorinnerradius}%
+		\addtosavedmacro{\anchorouterradius}%
 	}
 	\savedmacro\startangle{%
-		\pgfmathadd@{90}{\pgfshapeborderrotate}%
+		\pgfmathadd@{90}{+\pgfkeysvalueof{/pgf/shape border rotate}}%
 		\let\startangle\pgfmathresult%
 	}
 	%
@@ -699,25 +704,26 @@
 
 
 
-
-% \pgfsetpolygonsides
+% Keys for shape regular polygon
 %
-% Set the number of sides on a polygon.
-%
-\def\pgfsetpolygonsides#1{%
-	\pgfmathsetcounter{pgf@counta}{#1}%
-	\edef\pgfpolygonsides{\the\c@pgfmath@counta}}
-\pgfsetpolygonsides{6}
+% /pgf/regular polygon sides 
+\pgfkeys{/pgf/regular polygon sides/.value required}
+\pgfkeys{/pgf/regular polygon sides/.code={%
+		\pgfmathtruncatemacro\pgfmathresult{#1}%
+		\pgfkeyslet{/pgf/regular polygon sides}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/regular polygon sides=5}
 
 
 % Shape Regular Polygon.
 %
 \pgfdeclareshape{regular polygon}{
 	\savedmacro\sides{%
-		\let\sides\pgfpolygonsides%
+		\pgfkeysgetvalue{/pgf/regular polygon sides}{\sides}%
 	}
 	\savedmacro\anglestep{%
-		\pgfmathdivide@{360}{\pgfpolygonsides}%
+		\pgfmathdivide@{360}{\pgfkeysvalueof{/pgf/regular polygon sides}}%
 		\let\anglestep\pgfmathresult%
 	}
 	\savedmacro\calculateradii{%
@@ -743,7 +749,7 @@
 		%
 		% (s = polygon sides)
 		%
-		\pgfmathdivide@{180}{\pgfpolygonsides}%
+		\pgfmathdivide@{180}{\pgfkeysvalueof{/pgf/regular polygon sides}}%
 		\pgfmathsec@{\pgfmathresult}%
 		\pgf@x\pgfmathresult\pgf@x%
 		%
@@ -773,7 +779,7 @@
 		%
 		% (o = outer sep, s = sides)
 		%
-		\pgfmathdivide@{180}{\pgfpolygonsides}%
+		\pgfmathdivide@{180}{\pgfkeysvalueof{/pgf/regular polygon sides}}%
 		\pgfmathsubtract@{90}{\pgfmathresult}%
 		\pgfmathcosec@{\pgfmathresult}%
 		\advance\pgf@x\pgfmathresult\pgf@xa%
@@ -781,19 +787,17 @@
 		%
 		% Save both radii.
 		%
-		\def\calculateradii{%
-			\noexpand\def\noexpand\radius{\radius}%
-			\noexpand\def\noexpand\anchorradius{\anchorradius}%
-		}%
+		\addtosavedmacro{\radius}%
+		\addtosavedmacro{\anchorradius}%
 	}
 	\savedmacro\startangle{%
-		\ifodd\pgfpolygonsides%
+		\expandafter\ifodd\pgfkeysvalueof{/pgf/regular polygon sides}%
 			\edef\pgfmathresult{90}%
 		\else%
 			\pgfmathdivide@{\anglestep}{2}%
 			\pgfmathsubtract@{90}{\pgfmathresult}%
 		\fi%
-		\pgfmathadd@{\pgfmathresult}{\pgfshapeborderrotate}%
+		\pgfmathadd@{\pgfmathresult}{+\pgfkeysvalueof{/pgf/shape border rotate}}%
 		\let\startangle\pgfmathresult%
 	}
 	%
@@ -943,29 +947,36 @@
 
 
 
-
-
-% \pgfsettrapeziumleftextension
+% Keys for shape trapezium
 %
-% Set the extension of the lower left corner of the trapezium. 
-% Negative extensions extend the upper left corner.
+% /pgf/trapezium left extension
+% /pgf/trapezium right extension
 %
-\def\pgfsettrapeziumleftextension#1{%
-	\pgfmathparse{#1}%
-	\edef\pgftrapeziumleftextension{\pgfmathresult pt}%
+
+\pgfkeys{/pgf/trapezium left extension/.value required}
+\pgfkeys{/pgf/trapezium left extension/.code={%
+		\pgfmathparse{#1}%
+		\edef\pgfmathresult{\pgfmathresult pt}%
+		\pgfkeyslet{/pgf/trapezium left extension}{\pgfmathresult}%
+	}%
 }
-\pgfsettrapeziumleftextension{1.5ex}
+\pgfkeys{/pgf/trapezium left extension=.333cm}
 
-% \pgfsettrapeziumleftextension
-%
-% Set the extension of the lower right corner of the trapezium. 
-% Negative extensions extend the upper right corner.
-%
-\def\pgfsettrapeziumrightextension#1{%
-	\pgfmathparse{#1}%
-	\edef\pgftrapeziumrightextension{\pgfmathresult pt}%
+\pgfkeys{/pgf/trapezium right extension/.value required}
+\pgfkeys{/pgf/trapezium right extension/.code={%
+		\pgfmathparse{#1}%
+		\edef\pgfmathresult{\pgfmathresult pt}%
+		\pgfkeyslet{/pgf/trapezium right extension}{\pgfmathresult}%
+	}%
 }
-\pgfsettrapeziumrightextension{1.5ex}
+\pgfkeys{/pgf/trapezium right extension=.333cm}
+
+\pgfkeys{/pgf/trapezium extension/.value required}
+\pgfkeys{/pgf/trapezium extension/.code={%
+		\pgfkeys{/pgf/trapezium left extension=#1}
+		\pgfkeys{/pgf/trapezium right extension=#1}
+	}%
+}
 
 % Shape trapezium.
 %
@@ -983,7 +994,7 @@
 			%
 			% Get the rotation (no rounding).
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			%
 			% Use the radius of the incircle if required...
 			%
@@ -996,7 +1007,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -1030,12 +1041,12 @@
 			\pgf@y.5\pgf@ya%
 		\fi%
 		\edef\halfheight{\the\pgf@y}%
-		\pgfmathsetlength\pgf@xa{+\pgftrapeziumleftextension}%
+		\pgfmathsetlength\pgf@xa{+\pgfkeysvalueof{/pgf/trapezium left extension}}%
 		\edef\leftextension{\the\pgf@xa}%
 		\ifdim\pgf@xa<0pt\relax%
 			\pgf@xa-\pgf@xa%
 		\fi%
-		\pgfmathsetlength\pgf@xb{+\pgftrapeziumrightextension}%
+		\pgfmathsetlength\pgf@xb{+\pgfkeysvalueof{/pgf/trapezium right extension}}%
 		\edef\rightextension{\the\pgf@xb}%
 		\ifdim\pgf@xb<0pt\relax%
 			\advance\pgf@xa-\pgf@xb%
@@ -1282,43 +1293,33 @@
 		%
 		% And finally, save all the relevant stuff.
 		%
-		% Parameters are are logically grouped (hopefully more efficient in some way).
+		\addtosavedmacro{\lowerleftpoint}%
+		\addtosavedmacro{\upperleftpoint}%
+		\addtosavedmacro{\upperrightpoint}%
+		\addtosavedmacro{\lowerrightpoint}%
+    %
+		\addtosavedmacro{\lowerleftborderpoint}%
+		\addtosavedmacro{\upperleftborderpoint}%
+		\addtosavedmacro{\upperrightborderpoint}%
+		\addtosavedmacro{\lowerrightborderpoint}%
+    %
+		\addtosavedmacro{\angletolowerleft}%
+		\addtosavedmacro{\angletoupperleft}%
+		\addtosavedmacro{\angletoupperright}%
+		\addtosavedmacro{\angletolowerright}%
 		%
-		\def\getbackgroundpathpoints{%
-			\noexpand\def\noexpand\lowerleftpoint{\lowerleftpoint}%
-			\noexpand\def\noexpand\upperleftpoint{\upperleftpoint}%
-			\noexpand\def\noexpand\upperrightpoint{\upperrightpoint}%
-			\noexpand\def\noexpand\lowerrightpoint{\lowerrightpoint}%
-		}%
-		\def\getanchorborderpoints{%
-			\noexpand\def\noexpand\lowerleftborderpoint{\lowerleftborderpoint}%
-			\noexpand\def\noexpand\upperleftborderpoint{\upperleftborderpoint}%
-			\noexpand\def\noexpand\upperrightborderpoint{\upperrightborderpoint}%
-			\noexpand\def\noexpand\lowerrightborderpoint{\lowerrightborderpoint}%
-		}%
-		\def\getanchorborderangles{%
-			\noexpand\def\noexpand\angletolowerleft{\angletolowerleft}%
-			\noexpand\def\noexpand\angletoupperleft{\angletoupperleft}%
-			\noexpand\def\noexpand\angletoupperright{\angletoupperright}%
-			\noexpand\def\noexpand\angletolowerright{\angletolowerright}%
-			%
-			\noexpand\def\noexpand\baseangletolowerleft{\baseangletolowerleft}%
-			\noexpand\def\noexpand\baseangletoupperleft{\baseangletoupperleft}%
-			\noexpand\def\noexpand\baseangletoupperright{\baseangletoupperright}%
-			\noexpand\def\noexpand\baseangletolowerright{\baseangletolowerright}%
-			%
-			\noexpand\def\noexpand\midangletolowerleft{\midangletolowerleft}%
-			\noexpand\def\noexpand\midangletoupperleft{\midangletoupperleft}%
-			\noexpand\def\noexpand\midangletoupperright{\midangletoupperright}%
-			\noexpand\def\noexpand\midangletolowerright{\midangletolowerright}%
-		}%
-		\def\installtrapeziumparameters{%
-			\noexpand\def\noexpand\getbackgroundpathpoints{\getbackgroundpathpoints}%
-			\noexpand\def\noexpand\getanchorborderpoints{\getanchorborderpoints}%
-			\noexpand\def\noexpand\getanchorborderangles{\getanchorborderangles}%
-			\noexpand\def\noexpand\rotate{\rotate}%
-			\noexpand\def\noexpand\externalradius{\externalradius}%
-		}%
+		\addtosavedmacro{\baseangletolowerleft}%
+		\addtosavedmacro{\baseangletoupperleft}%
+		\addtosavedmacro{\baseangletoupperright}%
+		\addtosavedmacro{\baseangletolowerright}%
+		%
+		\addtosavedmacro{\midangletolowerleft}%
+		\addtosavedmacro{\midangletoupperleft}%
+		\addtosavedmacro{\midangletoupperright}%
+		\addtosavedmacro{\midangletolowerright}%
+    %
+    \addtosavedmacro{\rotate}%
+    \addtosavedmacro{\externalradius}%
 	}
 	\savedanchor\centerpoint{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
@@ -1387,51 +1388,42 @@
 	}
 	\anchor{north west}{%
 		\installtrapeziumparameters%
-		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
+		\csname pgf@anchor@trapezium@border\endcsname{\pgfqpoint{-\externalradius}{\externalradius}}%
 	}
 	\anchor{bottom left corner}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\lowerleftborderpoint%
 	}%
 	\anchor{top left corner}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\upperleftborderpoint%
 	}%
 	\anchor{top right corner}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\upperrightborderpoint%
 	}%
 	\anchor{bottom right corner}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\lowerrightborderpoint%
 	}%	
 	\anchor{left side}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\pgfpointlineattime{0.5}{\lowerleftborderpoint}{\upperleftborderpoint}%
 	}%	
 	\anchor{right side}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\pgfpointlineattime{0.5}{\lowerrightborderpoint}{\upperrightborderpoint}%
 	}%	
 	\anchor{top side}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\pgfpointlineattime{0.5}{\upperleftborderpoint}{\upperrightborderpoint}%
 	}%	
 	\anchor{bottom side}{%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
 		\pgfpointlineattime{0.5}{\lowerleftborderpoint}{\lowerrightborderpoint}%
 	}%		
 	\backgroundpath{%
 		\installtrapeziumparameters%
-		\getbackgroundpathpoints%
 		\pgfpathmoveto{\lowerleftpoint}%
 		\pgfpathlineto{\upperleftpoint}%
 		\pgfpathlineto{\upperrightpoint}%
@@ -1467,8 +1459,6 @@
 		% Install the required points and angles.
 		%
 		\installtrapeziumparameters%
-		\getanchorborderpoints%
-		\getanchorborderangles%
 		%
 		% Get the angle of the external point to the \referencepoint.
 		%
@@ -1561,7 +1551,7 @@
 			%
 			% Get the rotation (no rounding).
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			\ifdim\pgf@x<\pgf@y%
 				\pgf@x\pgf@y%
 			\fi%			
@@ -1572,7 +1562,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -1752,36 +1742,34 @@
 		%
 		% And save all the stuff.
 		%
-		\def\installsemicircleparameters{%
-			\noexpand\def\noexpand\rotate{\rotate}%
-			\noexpand\def\noexpand\outersep{\outersep}%
-			\noexpand\def\noexpand\semicircleradius{\semicircleradius}%
-			%
-			\noexpand\def\noexpand\arcstartborder{\arcstartborder}%
-			\noexpand\def\noexpand\arcendborder{\arcendborder}%
-			\noexpand\def\noexpand\arcstartcorner{\arcstartcorner}%
-			\noexpand\def\noexpand\arcendcorner{\arcendcorner}%
-			\noexpand\def\noexpand\semicirclecenterpoint{\semicirclecenterpoint}%
-			%
-			\noexpand\def\noexpand\angletoarcstartborder{\angletoarcstartborder}%
-			\noexpand\def\noexpand\angletoarcendborder{\angletoarcendborder}%
-			\noexpand\def\noexpand\angletoarcstartcorner{\angletoarcstartcorner}%
-			\noexpand\def\noexpand\angletoarcendcorner{\angletoarcendcorner}%
-			%
-			\noexpand\def\noexpand\centerpointdiff{\centerpointdiff}%
-			\noexpand\def\noexpand\basesemicirclecenterdiff{\basesemicirclecenterdiff}%
-			\noexpand\def\noexpand\midsemicirclecenterdiff{\midsemicirclecenterdiff}%
-			%
-			\noexpand\def\noexpand\baseangletoarcstartborder{\baseangletoarcstartborder}%
-			\noexpand\def\noexpand\baseangletoarcendborder{\baseangletoarcendborder}%
-			\noexpand\def\noexpand\baseangletoarcstartcorner{\baseangletoarcstartcorner}%
-			\noexpand\def\noexpand\baseangletoarcendcorner{\baseangletoarcendcorner}%
-			%
-			\noexpand\def\noexpand\midangletoarcstartborder{\midangletoarcstartborder}%
-			\noexpand\def\noexpand\midangletoarcendborder{\midangletoarcendborder}%
-			\noexpand\def\noexpand\midangletoarcstartcorner{\midangletoarcstartcorner}%
-			\noexpand\def\noexpand\midangletoarcendcorner{\midangletoarcendcorner}%
-		}%
+		\addtosavedmacro{\rotate}%
+		\addtosavedmacro{\outersep}%
+		\addtosavedmacro{\semicircleradius}%
+		%
+		\addtosavedmacro{\arcstartborder}%
+		\addtosavedmacro{\arcendborder}%
+		\addtosavedmacro{\arcstartcorner}%
+		\addtosavedmacro{\arcendcorner}%
+		\addtosavedmacro{\semicirclecenterpoint}%
+		%
+		\addtosavedmacro{\angletoarcstartborder}%
+		\addtosavedmacro{\angletoarcendborder}%
+		\addtosavedmacro{\angletoarcstartcorner}%
+		\addtosavedmacro{\angletoarcendcorner}%
+		%
+		\addtosavedmacro{\centerpointdiff}%
+		\addtosavedmacro{\basesemicirclecenterdiff}%
+		\addtosavedmacro{\midsemicirclecenterdiff}%
+		%
+		\addtosavedmacro{\baseangletoarcstartborder}%
+		\addtosavedmacro{\baseangletoarcendborder}%
+		\addtosavedmacro{\baseangletoarcstartcorner}%
+		\addtosavedmacro{\baseangletoarcendcorner}%
+		%
+		\addtosavedmacro{\midangletoarcstartborder}%
+		\addtosavedmacro{\midangletoarcendborder}%
+		\addtosavedmacro{\midangletoarcstartcorner}%
+		\addtosavedmacro{\midangletoarcendcorner}%
 	}
 	\savedanchor{\centerpoint}{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
@@ -1995,13 +1983,17 @@
 }
 
 
-
-
-
-% \pgfsetisoscelestriangleapexangle
+% Keys for shape isosceles triangle
 %
-\def\pgfsetisoscelestriangleapexangle#1{\pgfmathsetmacro\pgfisoscelestriangleapexangle{#1}}
-\pgfsetisoscelestriangleapexangle{45}
+% /pgf/isosceles trangle apex angle
+
+\pgfkeys{/pgf/isosceles triangle apex angle/.value required}
+\pgfkeys{/pgf/isosceles triangle apex angle/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/isosceles triangle apex angle}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/isosceles triangle apex angle=45}
 
 % Shape isosceles triangle.
 %
@@ -2043,7 +2035,7 @@
 		%
 		% Half of the apex angle is more useful.
 		%
-		\pgfmathdivide@{\pgfisoscelestriangleapexangle}{2}%
+		\pgfmathdivide@{\pgfkeysvalueof{/pgf/isosceles triangle apex angle}}{2}%
 		\let\halfapexangle\pgfmathresult%
 		\pgfmathtan@{\halfapexangle}%
 		\let\tanhalfapexangle\pgfmathresult%
@@ -2057,7 +2049,7 @@
 			%
 			% Get the rotation.
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			%
 			% Calculate the incircle radius.
 			%	
@@ -2102,7 +2094,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -2279,32 +2271,30 @@
 		%
 		% Save everything.
 		%
-		\def\installtriangleparameters{%
-			\noexpand\def\noexpand\rotate{\rotate}%
-			\noexpand\def\noexpand\outersep{\outersep}%
-			\noexpand\def\noexpand\lowerhorizontalmiter{\lowerhorizontalmiter}%
-			\noexpand\def\noexpand\apexmiter{\apexmiter}%
-			\noexpand\def\noexpand\apexpoint{\apexpoint}%
-			\noexpand\def\noexpand\lowerleftpoint{\lowerleftpoint}%
-			\noexpand\def\noexpand\lowerrightpoint{\lowerrightpoint}%
-			\noexpand\def\noexpand\apex{\apex}%
-			\noexpand\def\noexpand\lowerleft{\lowerleft}%
-			\noexpand\def\noexpand\lowerright{\lowerright}%
-			%
-			\noexpand\def\noexpand\angletoapex{\angletoapex}%
-			\noexpand\def\noexpand\angletolowerleft{\angletolowerleft}%
-			\noexpand\def\noexpand\angletolowerright{\angletolowerright}%
-			%
-			\noexpand\def\noexpand\baseangletoapex{\baseangletoapex}%
-			\noexpand\def\noexpand\baseangletolowerleft{\baseangletolowerleft}%
-			\noexpand\def\noexpand\baseangletolowerright{\baseangletolowerright}%
-			%
-			\noexpand\def\noexpand\midangletoapex{\midangletoapex}%
-			\noexpand\def\noexpand\midangletolowerleft{\midangletolowerleft}%
-			\noexpand\def\noexpand\midangletolowerright{\angletolowerright}%
-			%
-			\noexpand\def\noexpand\externalradius{\externalradius}%
-		}%
+		\addtosavedmacro{\rotate}%
+		\addtosavedmacro{\outersep}%
+		\addtosavedmacro{\lowerhorizontalmiter}%
+		\addtosavedmacro{\apexmiter}%
+		\addtosavedmacro{\apexpoint}%
+		\addtosavedmacro{\lowerleftpoint}%
+		\addtosavedmacro{\lowerrightpoint}%
+		\addtosavedmacro{\apex}%
+		\addtosavedmacro{\lowerleft}%
+		\addtosavedmacro{\lowerright}%
+		%
+		\addtosavedmacro{\angletoapex}%
+		\addtosavedmacro{\angletolowerleft}%
+		\addtosavedmacro{\angletolowerright}%
+		%
+		\addtosavedmacro{\baseangletoapex}%
+		\addtosavedmacro{\baseangletolowerleft}%
+		\addtosavedmacro{\baseangletolowerright}%
+		%
+		\addtosavedmacro{\midangletoapex}%
+		\addtosavedmacro{\midangletolowerleft}%
+		\addtosavedmacro{\midangletolowerright}%
+		%
+		\addtosavedmacro{\externalradius}%
 	}
 	\savedanchor\centerpoint{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
@@ -2476,17 +2466,40 @@
 }
 
 
-
-
-% \pgfsetkiteuppervertexangle
+% Keys for shape kite
 %
-\def\pgfsetkiteuppervertexangle#1{\pgfmathsetmacro\pgfkiteuppervertexangle{#1}}%
-\pgfsetkiteuppervertexangle{120}%
-
-% \pgfsetkitelowervertexangle
 %
-\def\pgfsetkitelowervertexangle#1{\pgfmathsetmacro\pgfkitelowervertexangle{#1}}%
-\pgfsetkitelowervertexangle{60}
+\pgfkeys{/pgf/kite upper vertex angle/.value required}
+\pgfkeys{/pgf/kite upper vertex angle/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/kite upper vertex angle}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/kite upper vertex angle=120}
+
+\pgfkeys{/pgf/kite lower vertex angle/.value required}
+\pgfkeys{/pgf/kite lower vertex angle/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/kite lower vertex angle}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/kite lower vertex angle=60}
+
+\pgfkeys{/pgf/kite vertex angles/.value required}
+\pgfkeys{/pgf/kite vertex angles/.code={%
+		\pgfutil@in@,{#1}%
+		\ifpgfutil@in@%
+			\def\pgf@marshall##1,##2\@@{%
+				\pgfkeys{/pgf/kite upper vertex angle=##1}%
+				\pgfkeys{/pgf/kite lower vertex angle=##2}%
+			}%
+			\expandafter\pgf@marshall#1\@@%
+		\else%
+			\pgfkeys{/pgf/kite upper vertex angle=#1}%
+			\pgfkeys{/pgf/kite lower vertex angle=#1}%
+		\fi%
+	}%
+}%
 
 % Shape kite.
 %
@@ -2520,9 +2533,9 @@
 		%
 		% Halve the vertex angles.
 		%
-		\pgfmathdivide@{\pgfkiteuppervertexangle}{2}%
+		\pgfmathdivide@{\pgfkeysvalueof{/pgf/kite upper vertex angle}}{2}%
 		\let\halfuppervertexangle\pgfmathresult%
-		\pgfmathdivide@{\pgfkitelowervertexangle}{2}%
+		\pgfmathdivide@{\pgfkeysvalueof{/pgf/kite lower vertex angle}}{2}%
 		\let\halflowervertexangle\pgfmathresult%
 		%
 		% Get the node dimensions.
@@ -2536,7 +2549,7 @@
 			%
 			% Get the rotation.
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			%
 			% Get the radis of the incircle.
 			%
@@ -2598,7 +2611,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -2883,35 +2896,33 @@
 		%
 		% Now save it all.
 		%
-		\def\installkiteparameters{%
-			\noexpand\def\noexpand\rotate{\rotate}%
-			\noexpand\def\noexpand\externalradius{\externalradius}%
-			%
-			\noexpand\def\noexpand\toppoint{\toppoint}%
-			\noexpand\def\noexpand\bottompoint{\bottompoint}%
-			\noexpand\def\noexpand\leftpoint{\leftpoint}%
-			\noexpand\def\noexpand\rightpoint{\rightpoint}%
-			%
-			\noexpand\def\noexpand\topborderpoint{\topborderpoint}%
-			\noexpand\def\noexpand\bottomborderpoint{\bottomborderpoint}%
-			\noexpand\def\noexpand\leftborderpoint{\leftborderpoint}%
-			\noexpand\def\noexpand\rightborderpoint{\rightborderpoint}%
-			%
-			\noexpand\def\noexpand\angletotoppoint{\angletotoppoint}%
-			\noexpand\def\noexpand\angletobottompoint{\angletobottompoint}%
-			\noexpand\def\noexpand\angletoleftpoint{\angletoleftpoint}%
-			\noexpand\def\noexpand\angletorightpoint{\angletorightpoint}%
-			%
-			\noexpand\def\noexpand\baseangletotoppoint{\baseangletotoppoint}%
-			\noexpand\def\noexpand\baseangletobottompoint{\baseangletobottompoint}%
-			\noexpand\def\noexpand\baseangletoleftpoint{\baseangletoleftpoint}%
-			\noexpand\def\noexpand\baseangletorightpoint{\baseangletorightpoint}%
-			%
-			\noexpand\def\noexpand\midangletotoppoint{\midangletotoppoint}%
-			\noexpand\def\noexpand\midangletobottompoint{\midangletobottompoint}%
-			\noexpand\def\noexpand\midangletoleftpoint{\midangletoleftpoint}%
-			\noexpand\def\noexpand\midangletorightpoint{\midangletorightpoint}%			
-		}%
+		\addtosavedmacro{\rotate}%
+		\addtosavedmacro{\externalradius}%
+		%
+		\addtosavedmacro{\toppoint}%
+		\addtosavedmacro{\bottompoint}%
+		\addtosavedmacro{\leftpoint}%
+		\addtosavedmacro{\rightpoint}%
+		%
+		\addtosavedmacro{\topborderpoint}%
+		\addtosavedmacro{\bottomborderpoint}%
+		\addtosavedmacro{\leftborderpoint}%
+		\addtosavedmacro{\rightborderpoint}%
+		%
+		\addtosavedmacro{\angletotoppoint}%
+		\addtosavedmacro{\angletobottompoint}%
+		\addtosavedmacro{\angletoleftpoint}%
+		\addtosavedmacro{\angletorightpoint}%
+		%
+		\addtosavedmacro{\baseangletotoppoint}%
+		\addtosavedmacro{\baseangletobottompoint}%
+		\addtosavedmacro{\baseangletoleftpoint}%
+		\addtosavedmacro{\baseangletorightpoint}%
+		%
+		\addtosavedmacro{\midangletotoppoint}%
+		\addtosavedmacro{\midangletobottompoint}%
+		\addtosavedmacro{\midangletoleftpoint}%
+		\addtosavedmacro{\midangletorightpoint}%			
 	}
 	\savedanchor\centerpoint{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
@@ -3125,16 +3136,25 @@
 
 
 
-
-% \pgfsetdarttipangle
+% Keys for shape dart.
 %
-\def\pgfsetdarttipangle#1{\pgfmathsetmacro\pgfdarttipangle{#1}}%
-\pgfsetdarttipangle{45}
-
-% \pgfsetdarttailangle
 %
-\def\pgfsetdarttailangle#1{\pgfmathsetmacro\pgfdarttailangle{#1}}%
-\pgfsetdarttailangle{135}
+
+\pgfkeys{/pgf/dart tip angle/.value required}
+\pgfkeys{/pgf/dart tip angle/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/dart tip angle}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/dart tip angle=45}
+
+\pgfkeys{/pgf/dart tail angle/.value required}
+\pgfkeys{/pgf/dart tail angle/.code={%
+		\pgfmathparse{#1}%
+		\pgfkeyslet{/pgf/dart tail angle}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/dart tail angle=135}
 
 % Shape dart.
 %
@@ -3143,9 +3163,9 @@
 		%
 		% Get the halved angles (more useful).
 		%
-		\pgfmathdivide@{\pgfdarttipangle}{2}%
+		\pgfmathdivide@{\pgfkeysvalueof{/pgf/dart tip angle}}{2}%
 		\let\halftipangle\pgfmathresult%
-		\pgfmathdivide@{\pgfdarttailangle}{2}%
+		\pgfmathdivide@{\pgfkeysvalueof{/pgf/dart tail angle}}{2}%
 		\let\halftailangle\pgfmathresult%
 		%
 		% Calculate some common results.
@@ -3192,7 +3212,7 @@
 			%
 			% Get the (unrounded) rotation.
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			%
 			% Get the radius of the incircle.
 			%
@@ -3209,7 +3229,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -3461,35 +3481,33 @@
 		%
 		% Save everything.
 		%
-		\def\installdartparameters{%
-			\noexpand\def\noexpand\rotate{\rotate}%
-			\noexpand\def\noexpand\externalradius{\externalradius}%
-			%
-			\noexpand\def\noexpand\tippoint{\tippoint}%
-			\noexpand\def\noexpand\tailcenterpoint{\tailcenterpoint}%
-			\noexpand\def\noexpand\lefttailpoint{\lefttailpoint}%
-			\noexpand\def\noexpand\righttailpoint{\righttailpoint}%
-			%
-			\noexpand\def\noexpand\tipborderpoint{\tipborderpoint}%
-			\noexpand\def\noexpand\tailcenterborderpoint{\tailcenterborderpoint}%
-			\noexpand\def\noexpand\lefttailborderpoint{\lefttailborderpoint}%
-			\noexpand\def\noexpand\righttailborderpoint{\righttailborderpoint}%
-			%
-			\noexpand\def\noexpand\angletotip{\angletotip}%
-			\noexpand\def\noexpand\angletotailcenter{\angletotailcenter}%
-			\noexpand\def\noexpand\angletolefttail{\angletolefttail}%
-			\noexpand\def\noexpand\angletorighttail{\angletorighttail}%
-			%
-			\noexpand\def\noexpand\baseangletotip{\baseangletotip}%
-			\noexpand\def\noexpand\baseangletotailcenter{\baseangletotailcenter}%
-			\noexpand\def\noexpand\baseangletolefttail{\baseangletolefttail}%
-			\noexpand\def\noexpand\baseangletorighttail{\baseangletorighttail}%
-			%
-			\noexpand\def\noexpand\midangletotip{\midangletotip}%
-			\noexpand\def\noexpand\midangletotailcenter{\midangletotailcenter}%
-			\noexpand\def\noexpand\midangletolefttail{\midangletolefttail}%
-			\noexpand\def\noexpand\midangletorighttail{\midangletorighttail}%
-		}%
+		\addtosavedmacro{\rotate}%
+		\addtosavedmacro{\externalradius}%
+		%
+		\addtosavedmacro{\tippoint}%
+		\addtosavedmacro{\tailcenterpoint}%
+		\addtosavedmacro{\lefttailpoint}%
+		\addtosavedmacro{\righttailpoint}%
+		%
+		\addtosavedmacro{\tipborderpoint}%
+		\addtosavedmacro{\tailcenterborderpoint}%
+		\addtosavedmacro{\lefttailborderpoint}%
+		\addtosavedmacro{\righttailborderpoint}%
+		%
+		\addtosavedmacro{\angletotip}%
+		\addtosavedmacro{\angletotailcenter}%
+		\addtosavedmacro{\angletolefttail}%
+		\addtosavedmacro{\angletorighttail}%
+		%
+		\addtosavedmacro{\baseangletotip}%
+		\addtosavedmacro{\baseangletotailcenter}%
+		\addtosavedmacro{\baseangletolefttail}%
+		\addtosavedmacro{\baseangletorighttail}%
+		%
+		\addtosavedmacro{\midangletotip}%
+		\addtosavedmacro{\midangletotailcenter}%
+		\addtosavedmacro{\midangletolefttail}%
+		\addtosavedmacro{\midangletorighttail}%
 	}
 	\savedanchor\centerpoint{%
 		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
@@ -3676,12 +3694,18 @@
 
 
 
-
-
-% \pgfsetcircularsectorangle
+% Keys for shape circular sector:
 %
-\def\pgfsetcircularsectorangle#1{\pgfmathsetmacro\pgfcircularsectorangle{#1}}
-\pgfsetcircularsectorangle{60}
+% /pgf/circular sector angle : the angle at the center of the sector.
+%
+
+\pgfkeys{/pgf/circular sector angle/.value required}
+\pgfkeys{/pgf/circular sector angle/.code={%
+    \pgfmathparse{#1}%
+    \pgfkeyslet{/pgf/circular sector angle}{\pgfmathresult}%
+  }%
+}
+\pgfkeys{/pgf/circular sector angle=60}
 
 % Shape circular sector
 %
@@ -3707,7 +3731,7 @@
 		%
 		% Half of the sector angle is more useful.
 		%
-		\pgfmathmod@{\pgfcircularsectorangle}{360}%
+		\pgfmathmod@{\pgfkeysvalueof{/pgf/circular sector angle}}{360}%
 		\ifdim\pgfmathresult pt<0pt\relax%
 			\pgfmathadd@{\pgfmathresult}{360}%
 		\fi%
@@ -3758,7 +3782,7 @@
 			%
 			% Get the rotation.
 			%
-			\let\rotate\pgfshapeborderrotate%
+			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
 			%
 			% Calculate the incircle radius.
 			%	
@@ -3776,7 +3800,7 @@
 			%
 			% Get the rotation (with rounding).
 			%
-			\pgfmathmod@{\pgfshapeborderrotate}{360}%
+			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
 			\afterassignment\pgfmath@gobbletilpgfmath@%
 			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
 			\advance\c@pgf@counta45\relax%
@@ -4080,7 +4104,7 @@
 		%
 		\installcircularsectorparameters%
 		%
-		% Get the angle of the external point to the \referencepoint.
+		% Get the angle of the external point to the \centerpoint.
 		%
 		\pgfmathanglebetweenpoints{\centerpoint}{\pgfqpoint{\externalx}{\externaly}}%
 		\let\externalangle\pgfmathresult%
