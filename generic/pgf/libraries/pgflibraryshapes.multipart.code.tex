@@ -1,4 +1,4 @@
-% Copyright 2006 by Till Tantau
+% Copyright 2007 by Till Tantau and Mark Wibrow
 %
 % This file may be distributed and/or modified
 %
@@ -51,12 +51,25 @@
   \saveddimen\radius{%
     % 
     % Caculate ``height radius''
-    % 
-    \pgf@ya=.5\ht\pgfnodeparttextbox%
-    \advance\pgf@ya by.5\dp\pgfnodeparttextbox%
-    \advance\pgf@ya by.5\ht\pgfnodepartlowerbox%
-    \advance\pgf@ya by.5\dp\pgfnodepartlowerbox%
-    \advance\pgf@ya by.5\pgflinewidth%
+    %
+    %\pgf@ya=.5\ht\pgfnodeparttextbox%
+%    \advance\pgf@ya by.5\dp\pgfnodeparttextbox%
+%    \advance\pgf@ya by.5\ht\pgfnodepartlowerbox%
+%    \advance\pgf@ya by.5\dp\pgfnodepartlowerbox%
+%    \advance\pgf@ya by.5\pgflinewidth%
+		%
+		% MW: Suggested correction for above calculation:	Use the tallest box * 2.
+		%
+		\pgf@ya=.5\ht\pgfnodeparttextbox%
+		\advance\pgf@ya by.5\dp\pgfnodeparttextbox%
+		\pgf@yb=.5\ht\pgfnodepartlowerbox%
+		\advance\pgf@yb by.5\dp\pgfnodepartlowerbox%
+		\ifdim\pgf@ya>\pgf@yb\relax%
+			\pgf@ya2.0\pgf@ya\relax%
+		\else%
+			\pgf@ya2.0\pgf@yb\relax%
+		\fi%
+		\advance\pgf@ya by.5\pgflinewidth%
     \pgfmathsetlength\pgf@yb{\pgfkeysvalueof{/pgf/inner ysep}}%
     \advance\pgf@ya by2\pgf@yb%
     % 
@@ -160,6 +173,893 @@
   }
 }
 
+
+
+
+% (Most) keys for shape rectangle split.
+%
+% /pgf/rectangle split parts             : Set the number of rectangles to split into.
+% /pgf/rectangle split part align        : Align the for the boxes in each part
+%                                          (also keys for each part)
+% /pgf/rectangle split use custom fill   : Use a custom (behindbackground path) fill.
+% /pgf/rectangle split part fill         : Custom fill for ech part.
+%                                          (also keys for each part)
+% /pgf/rectangle split draw splits       : Draw the line between node parts.
+% /pgf/rectangle split empty part height : Set the default height for empty boxes.
+
+\pgfkeys{/pgf/rectangle split parts/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split parts}{#1}%
+	}%
+}%
+\pgfkeys{/pgf/rectangle split parts=4}%
+\pgfkeys{/pgf/rectangle split/constants/.unknown/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split/constants/\pgfkeyscurrentname}{#1}%
+	}%
+}
+\pgfkeys{/pgf/rectangle split/constants/.cd, left=0, center=1, right=2}
+
+\pgfkeys{/pgf/rectangle split text part align/.code={%
+		\edef\pgfkeys@temp{\pgfkeysvalueof{/pgf/rectangle split/constants/#1}}%
+		\pgfkeyslet{/pgf/rectangle split text part align}{\pgfkeys@temp}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split second part align/.code={%
+		\edef\pgfkeys@temp{\pgfkeysvalueof{/pgf/rectangle split/constants/#1}}%
+		\pgfkeyslet{/pgf/rectangle split second part align}{\pgfkeys@temp}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split third part align/.code={%
+		\edef\pgfkeys@temp{\pgfkeysvalueof{/pgf/rectangle split/constants/#1}}%
+		\pgfkeyslet{/pgf/rectangle split third part align}{\pgfkeys@temp}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split fourth part align/.code={%
+		\edef\pgfkeys@temp{\pgfkeysvalueof{/pgf/rectangle split/constants/#1}}%
+		\pgfkeyslet{/pgf/rectangle split fourth part align}{\pgfkeys@temp}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split part align/.code={%
+		\def\pgf@marshall##1,##2,##3,##4,##5\pgf@marshall{%
+			\pgfkeys{/pgf/.cd,%
+				rectangle split text part align=##1,%
+				rectangle split second part align=##1,%
+				rectangle split third part align=##1,%
+				rectangle split fourth part align=##1%
+			}%
+			\ifx##2\@@\else%
+				\pgfkeys{/pgf/.cd,%
+					rectangle split second part align=##2,%
+					rectangle split third part align=##2,%
+					rectangle split fourth part align=##2%
+				}%
+			\fi%
+			\ifx##3\@@\else%
+				\pgfkeys{/pgf/.cd,%
+					rectangle split third part align=##3,%
+					rectangle split fourth part align=##3%
+				}%
+			\fi%
+			\ifx##4\@@\else%
+				\pgfkeys{/pgf/rectangle split fourth part align=##4%
+				}%
+			\fi%
+		}%
+		\pgf@marshall#1,\@@,\@@,\@@,\@@,\pgf@marshall%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split part align={center}}
+
+\newif\ifpgfrectanglesplitdrawsplits
+\pgfrectanglesplitdrawsplitstrue
+\pgfkeys{/pgf/rectangle split draw splits/.is if=pgfrectanglesplitdrawsplits}
+
+\pgfkeys{/pgf/rectangle split empty part height/.value required}
+\pgfkeys{/pgf/rectangle split empty part height/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split empty part height}{#1}%
+	}%
+}
+
+\newif\ifpgfrectanglesplitusecustomfill
+\pgfkeys{/pgf/rectangle split use custom fill/.is if=pgfrectanglesplitusecustomfill}
+
+\pgfkeys{/pgf/rectangle split text part fill/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split text part fill}{#1}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split second part fill/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split second part fill}{#1}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split third part fill/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split third part fill}{#1}%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split fourth part fill/.code={%
+		\pgfkeyssetvalue{/pgf/rectangle split fourth part fill}{#1}%
+	}%
+}
+\pgfrectanglesplitusecustomfillfalse
+
+\pgfkeys{/pgf/rectangle split part fill/.code={%
+		\def\pgf@marshall##1,##2,##3,##4,##5\pgf@marshall{%
+			\pgfkeys{/pgf/.cd,%
+				rectangle split text part fill=##1,%
+				rectangle split second part fill=##1,%
+				rectangle split third part fill=##1,%
+				rectangle split fourth part fill=##1%
+			}%
+			\ifx##2\@@\else%
+				\pgfkeys{/pgf/.cd,%
+					rectangle split second part fill=##2,%
+					rectangle split third part fill=##2,%
+					rectangle split fourth part fill=##2%
+				}%
+			\fi%
+			\ifx##3\@@\else%
+				\pgfkeys{/pgf/.cd,%
+					rectangle split third part fill=##3,%
+					rectangle split fourth part fill=##3%
+				}%
+			\fi%
+			\ifx##4\@@\else%
+				\pgfkeys{/pgf/rectangle split fourth part fill=##4}%
+			\fi%
+		}%
+		\pgf@marshall#1,\@@,\@@,\@@,\@@,\pgf@marshall%
+		\pgfrectanglesplitusecustomfilltrue%
+	}%
+}
+
+\pgfkeys{/pgf/rectangle split part fill=white}%
+\pgfrectanglesplitusecustomfillfalse%
+
+\pgfkeys{/pgf/rectangle split empty part height/.value required}%
+\pgfkeys{/pgf/rectangle split empty part height/.code={%
+		\pgfmathparse{#1}%
+		\edef\pgfmathresult{\pgfmathresult pt}%
+		\pgfkeyslet{/pgf/rectangle split empty part height}{\pgfmathresult}%
+	}%
+}
+\pgfkeys{/pgf/rectangle split empty part height=1ex}%
+
+\newbox\pgfnodepartsecondbox
+\newbox\pgfnodepartthirdbox
+\newbox\pgfnodepartfourthbox
+
+\pgfdeclareshape{rectangle split}{%
+	\nodeparts{text,second,third,fourth}
+	\savedmacro\getrectanglesplitparameters{%
+		%
+		% If the height+depth of any box is 0pt use the default empty height.
+		%
+		\pgf@y\ht\pgfnodeparttextbox%
+		\advance\pgf@y\dp\pgfnodeparttextbox%
+		\ifdim\pgf@y=0pt\relax%
+			\setbox\pgfnodeparttextbox=\hbox{%
+				\vrule width0pt height\pgfkeysvalueof{/pgf/rectangle split empty part height}\relax%
+			}%
+		\fi%
+		\pgf@y\ht\pgfnodepartsecondbox%
+		\advance\pgf@y\dp\pgfnodepartsecondbox%
+		\ifdim\pgf@y=0pt\relax%
+			\setbox\pgfnodepartsecondbox=\hbox{%
+				\vrule width0pt height\pgfkeysvalueof{/pgf/rectangle split empty part height}\relax%
+			}%
+		\fi%
+		\pgf@y\ht\pgfnodepartthirdbox%
+		\advance\pgf@y\dp\pgfnodepartthirdbox%
+		\ifdim\pgf@y=0pt\relax%
+			\setbox\pgfnodepartthirdbox=\hbox{%
+				\vrule width0pt height\pgfkeysvalueof{/pgf/rectangle split empty part height}\relax%
+			}%
+		\fi%
+		\pgf@y\ht\pgfnodepartfourthbox%
+		\advance\pgf@y\dp\pgfnodepartfourthbox%
+		\ifdim\pgf@y=0pt\relax%
+			\setbox\pgfnodepartfourthbox=\hbox{%
+				\vrule width0pt height\pgfkeysvalueof{/pgf/rectangle split empty part height}\relax%
+			}%
+		\fi%
+		%
+		% Empty boxes (without voiding them) if they are not used.
+		%
+	  \pgfkeysgetvalue{/pgf/rectangle split parts}{\parts}%
+	  \addtosavedmacro{\parts}%
+	  \ifnum\parts<2\relax%
+	  	\setbox\pgfnodepartsecondbox=\hbox{}%
+	  \fi%
+	  \ifnum\parts<3\relax%
+	  	\setbox\pgfnodepartthirdbox=\hbox{}%
+	  \fi%
+	  \ifnum\parts<4\relax%
+	  	\setbox\pgfnodepartfourthbox=\hbox{}%
+	  \fi%	  
+	  %
+		% Save the line width.
+		%
+		\pgfmathsetlength\pgf@x{+\pgflinewidth}
+		\edef\linewidth{\the\pgf@x}%
+	  \addtosavedmacro{\linewidth}%
+	  %
+	  \pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/inner ysep}}%
+  	\edef\innerysep{\the\pgf@y}%
+  	%
+	  \pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/inner xsep}}%
+  	\edef\innerxsep{\the\pgf@x}%
+  	%
+  	% Get the widths.
+  	%
+  	\pgf@x.5\wd\pgfnodeparttextbox%
+  	\pgf@xa.5\wd\pgfnodepartsecondbox%
+  	\pgf@xb.5\wd\pgfnodepartthirdbox%
+  	\pgf@xc.5\wd\pgfnodepartfourthbox%
+  	%
+  	% Find the maximum width%
+  	%
+  	\pgfutil@tempdima\pgf@x%
+  	\ifdim\pgfutil@tempdima<\pgf@xa%
+  		\pgfutil@tempdima\pgf@xa%
+  	\fi%
+  	\ifdim\pgfutil@tempdima<\pgf@xb%
+  		\pgfutil@tempdima\pgf@xb%
+  	\fi%
+  	\ifdim\pgfutil@tempdima<\pgf@xc%
+  		\pgfutil@tempdima\pgf@xc%
+  	\fi%
+  	%
+  	% Adjust for alignment.
+	  %
+	  \ifcase\pgfkeysvalueof{/pgf/rectangle split text part align}\relax%
+  		\pgf@x-\pgfutil@tempdima%
+	  \or%
+	  	\pgf@x-\pgf@x%
+	  \or%
+  		\pgf@x-2.0\pgf@x%
+  		\advance\pgf@x\pgfutil@tempdima%
+	  \fi%
+  	%
+  	\ifcase\pgfkeysvalueof{/pgf/rectangle split second part align}\relax%
+  		\pgf@xa-\pgfutil@tempdima%
+	  \or%
+	  	\pgf@xa-\pgf@xa%
+	  \or%
+  		\pgf@xa-2.0\pgf@xa%
+  		\advance\pgf@xa\pgfutil@tempdima%
+	  \fi%
+  	%
+  	\ifcase\pgfkeysvalueof{/pgf/rectangle split third part align}\relax%
+  		\pgf@xb-\pgfutil@tempdima%
+	  \or%
+	  	\pgf@xb-\pgf@xb%
+	  \or%
+  		\pgf@xb-2.0\pgf@xb%
+  		\advance\pgf@xb\pgfutil@tempdima%
+	  \fi%
+  	%
+  	\ifcase\pgfkeysvalueof{/pgf/rectangle split fourth part align}\relax%
+  		\pgf@xc-\pgfutil@tempdima%
+	  \or%
+	  	\pgf@xc-\pgf@xc%
+	  \or%
+  		\pgf@xc-2.0\pgf@xc%
+  		\advance\pgf@xc\pgfutil@tempdima%
+	  \fi%
+  	%
+  	% Make relative to x.
+  	%
+  	\advance\pgf@xa-\pgf@x%
+  	\advance\pgf@xb-\pgf@x%
+  	\advance\pgf@xc-\pgf@x%
+  	\pgf@x0pt%
+  	%
+  	% Find the minimum.
+  	%
+  	\pgfutil@tempdimb\pgf@x%
+  	\ifdim\pgfutil@tempdimb>\pgf@xa%
+  		\pgfutil@tempdimb\pgf@xa%
+  	\fi%
+  	\ifdim\pgfutil@tempdimb>\pgf@xb%
+  		\pgfutil@tempdimb\pgf@xb%
+  	\fi%
+  	\ifdim\pgfutil@tempdimb>\pgf@xc%
+  		\pgfutil@tempdimb\pgf@xc%
+  	\fi%
+  	%
+  	% Anchor for the text box is (0pt, 0pt)
+  	%
+  	\pgfsavepgf@process\textanchor{\pgfqpoint{0pt}{0pt}}%
+  	%
+  	% Anchor for second box.
+  	%
+  	\pgfsavepgf@process\lowestanchor{\pgfqpoint{0pt}{0pt}}%
+  	\let\lowestbox\pgfnodeparttextbox%
+  	\ifnum\parts>1\relax%
+  	  \pgfsavepgf@process\secondanchor{%
+  	  	\pgf@x\pgf@xa%
+	  		\pgf@y-\dp\pgfnodeparttextbox%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\pgflinewidth%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\ht\pgfnodepartsecondbox%
+	  	}%
+	  	\let\lowestanchor\secondanchor%
+	  	\let\lowestbox\pgfnodepartsecondbox%
+  	\else%
+  		\let\secondanchor\textanchor%
+  	\fi%
+  	%
+  	% Anchor for third box.
+  	%
+  	\ifnum\parts>2\relax%
+  	  \pgfsavepgf@process\thirdanchor{%
+  	  	\lowestanchor%
+  	  	\pgf@x\pgf@xb%
+	  		\advance\pgf@y-\dp\pgfnodepartsecondbox%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\pgflinewidth%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\ht\pgfnodepartthirdbox%
+	  	}%
+	  	\let\lowestanchor\thirdanchor%
+	  	\let\lowestbox\pgfnodepartthirdbox%
+  	\else%
+  		\let\thirdanchor\secondanchor%
+  	\fi%
+  	%
+  	% Anchor for fourth box.
+  	%
+  	\ifnum\parts>3\relax%
+  		\pgfsavepgf@process\fourthanchor{%
+  			\lowestanchor%
+  	  	\pgf@x\pgf@xc%
+  	  	\advance\pgf@y-\dp\lowestbox%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\pgflinewidth%
+	  		\advance\pgf@y-\innerysep\relax%
+	  		\advance\pgf@y-\ht\pgfnodepartfourthbox%
+	  	}%
+	  	\let\lowestanchor\fourthanchor%
+	  	\let\lowestbox\pgfnodepartfourthbox%
+	  \else%
+  		\let\fourthanchor\thirdanchor%
+  	\fi%
+  	%
+  	\addtosavedmacro{\textanchor}%
+	  \addtosavedmacro{\secondanchor}%
+	  \addtosavedmacro{\thirdanchor}%
+	  \addtosavedmacro{\fourthanchor}%
+	  %
+	  % Adjust the boxwidth for minimum width
+	  %
+	  \pgfmathaddtolength\pgfutil@tempdima{+\pgfkeysvalueof{/pgf/inner xsep}}%
+  	\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/minimum width}}%
+  	\ifdim\pgfutil@tempdima<.5\pgf@x%
+  		\pgfutil@tempdima.5\pgf@x%
+  	\fi%
+  	\pgfmathaddtolength\pgfutil@tempdima{+-\pgfkeysvalueof{/pgf/inner xsep}}%
+  	%
+  	% Get some important points.
+  	%
+  	\pgfsavepgf@process\southwest{%
+  		\lowestanchor%
+  		\pgf@x\pgfutil@tempdimb%
+  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/inner xsep}}%
+  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+  		\pgf@ya\linewidth\relax%
+  		\advance\pgf@x-.5\pgf@ya%
+  		\advance\pgf@y-\dp\lowestbox%
+  		\advance\pgf@y-.5\pgf@ya%
+  		\pgfmathaddtolength\pgf@y{+-\pgfkeysvalueof{/pgf/inner ysep}}%
+  		\pgfmathaddtolength\pgf@y{+-\pgfkeysvalueof{/pgf/outer ysep}}%
+  	}%
+  	\pgfsavepgf@process\northeast{%
+  		\pgf@x\pgfutil@tempdimb%
+  		\advance\pgf@x2.0\pgfutil@tempdima%
+  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/inner xsep}}%
+  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+  		\pgf@ya\linewidth\relax%
+  		\advance\pgf@x.5\pgf@ya%
+  		\pgf@y\ht\pgfnodeparttextbox%
+  		\advance\pgf@y.5\pgf@ya%
+  		\pgfmathaddtolength\pgf@y{+\pgfkeysvalueof{/pgf/inner ysep}}%
+  		\pgfmathaddtolength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
+  	}%
+  	\addtosavedmacro{\northeast}%
+  	\addtosavedmacro{\southwest}%  	
+  	\pgfsavepgf@process\centerpoint{%
+  	  \pgfpointadd{\southwest}{%
+  			\pgfpointdiff{\southwest}{\northeast}%
+  			\pgf@x.5\pgf@x%
+  			\pgf@y.5\pgf@y%
+  		}%
+  	}%
+  	\addtosavedmacro{\centerpoint}%  
+  	\pgfsavepgf@process\south{%
+  		\centerpoint%
+  		\pgf@xa\pgf@x%
+  		\southwest%
+  		\pgf@x\pgf@xa%
+  	}%
+  	%
+  	% Get the split points.
+  	%
+  	\let\lastsplit\south%
+  	\ifnum\parts>1\relax%
+	  	\pgfsavepgf@process\textsplit{%
+	  		\pgf@x\pgfutil@tempdimb%
+	  		\advance\pgf@x\pgfutil@tempdima%
+	  		\pgf@y-\dp\pgfnodeparttextbox%
+	  		\advance\pgf@y-\innerysep%
+	  		\advance\pgf@y-.5\pgflinewidth%
+	  	}%
+	  \else%
+	  	\let\textsplit\south%
+	  \fi%
+  	\addtosavedmacro{\textsplit}%
+  	\pgfsavepgf@process\textspliteast{%
+  		\textsplit%
+  		\pgf@ya\pgf@y%
+  		\northeast%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\textspliteast}%
+  	\pgfsavepgf@process\textsplitwest{%
+  		\textsplit%
+  		\pgf@ya\pgf@y%
+  		\southwest%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\textsplitwest}%
+  	\ifnum\parts>2\relax%
+  		\pgfsavepgf@process\secondsplit{%
+  		  \secondanchor%
+  			\pgf@x\pgfutil@tempdimb%
+  			\advance\pgf@x\pgfutil@tempdima%
+  			\advance\pgf@y-\dp\pgfnodepartsecondbox%
+  			\advance\pgf@y-\innerysep%
+  			\advance\pgf@y-.5\pgflinewidth%
+  		}%
+  	\else%
+  		\let\secondsplit\south%
+  	\fi%
+  	\addtosavedmacro{\secondsplit}%
+  	\pgfsavepgf@process\secondspliteast{%
+  		\secondsplit%
+  		\pgf@ya\pgf@y%
+  		\northeast%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\secondspliteast}%
+  	\pgfsavepgf@process\secondsplitwest{%
+  		\secondsplit%
+  		\pgf@ya\pgf@y%
+  		\southwest%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\secondsplitwest}%
+  	\ifnum\parts>3\relax%
+  		\pgfsavepgf@process\thirdsplit{%
+  		  \thirdanchor%
+  			\pgf@x\pgfutil@tempdimb%
+  			\advance\pgf@x\pgfutil@tempdima%
+  			\advance\pgf@y-\dp\pgfnodepartthirdbox%
+  			\advance\pgf@y-\innerysep%
+  			\advance\pgf@y-.5\pgflinewidth%
+  		}%
+  		\let\lastsplit\thirdsplit%
+  	\else%
+  		\let\thirdsplit\south%
+  	\fi%
+  	\addtosavedmacro{\thirdsplit}%
+  	\pgfsavepgf@process\thirdspliteast{%
+  		\thirdsplit%
+  		\pgf@ya\pgf@y%
+  		\northeast%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\thirdspliteast}%
+  	\pgfsavepgf@process\thirdsplitwest{%
+  		\thirdsplit%
+  		\pgf@ya\pgf@y%
+  		\southwest%
+  		\pgf@y\pgf@ya%
+  	}%
+  	\addtosavedmacro{\thirdsplitwest}%
+	}%
+	\savedanchor\basepoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
+		\pgf@y0pt\relax%
+	}%
+	\savedanchor\midpoint{%
+		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@y{+.5ex}%
+	}%
+	\anchor{center}{\getrectanglesplitparameters\centerpoint}%
+	\anchor{base}{\basepoint}%
+	\anchor{mid}{\midpoint}%
+	\anchor{second}{\getrectanglesplitparameters\secondanchor}%
+	\anchor{third}{\getrectanglesplitparameters\thirdanchor}%
+	\anchor{fourth}{\getrectanglesplitparameters\fourthanchor}%
+	\anchor{north east}{\getrectanglesplitparameters\northeast}
+	\anchor{south west}{\getrectanglesplitparameters\southwest}
+	\anchor{south east}{%
+		\getrectanglesplitparameters%
+		\northeast%
+		\pgf@xa\pgf@x%
+		\southwest%
+		\pgf@x\pgf@xa}
+	\anchor{north west}{%
+		\getrectanglesplitparameters%
+		\northeast%
+		\pgf@ya\pgf@y%
+		\southwest%
+		\pgf@y\pgf@ya}
+	\anchor{south}{%
+		\getrectanglesplitparameters%
+		\centerpoint%
+		\pgf@xa\pgf@x%
+		\southwest%
+		\pgf@x\pgf@xa}
+	\anchor{north}{%
+		\getrectanglesplitparameters%
+		\centerpoint%
+		\pgf@xa\pgf@x%
+		\northeast%
+		\pgf@x\pgf@xa}
+	\anchor{west}{%
+		\getrectanglesplitparameters%
+		\centerpoint%
+		\pgf@ya\pgf@y%
+		\southwest%
+		\pgf@y\pgf@ya}
+	\anchor{east}{%
+		\getrectanglesplitparameters%
+		\centerpoint%
+		\pgf@ya\pgf@y%
+		\northeast%
+		\pgf@y\pgf@ya}
+	\anchor{text split}{\getrectanglesplitparameters\textsplit}
+	\anchor{text split east}{\getrectanglesplitparameters\textspliteast}
+	\anchor{text split west}{\getrectanglesplitparameters\textsplitwest}
+	\anchor{second split}{\getrectanglesplitparameters\secondsplit}
+	\anchor{second split east}{\getrectanglesplitparameters\secondspliteast}
+	\anchor{second split west}{\getrectanglesplitparameters\secondsplitwest}
+	\anchor{third split}{\getrectanglesplitparameters\thirdsplit}
+	\anchor{third split east}{\getrectanglesplitparameters\thirdspliteast}
+	\anchor{third split west}{\getrectanglesplitparameters\thirdsplitwest}	
+	\anchor{text east}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>1\relax%
+			\textsplit%
+			\pgf@ya\pgf@y
+			\northeast%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@ya\linewidth\relax%
+			\advance\pgf@y-.25\pgf@ya%
+		\else%
+			\centerpoint%
+			\pgf@ya\pgf@y%
+			\northeast%
+			\pgf@y\pgf@ya%
+		\fi%
+	}
+	\anchor{text west}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>1\relax%
+			\textsplit%
+			\pgf@ya\pgf@y
+			\southwest%
+			\pgf@xa\pgf@x%
+			\northeast%
+			\pgf@x\pgf@xa%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@ya\linewidth\relax%
+			\advance\pgf@y-.25\pgf@ya%
+		\else%
+			\centerpoint%
+			\pgf@ya\pgf@y%
+			\southwest%
+			\pgf@y\pgf@ya%
+		\fi%
+	}
+	\anchor{second east}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>1\relax%
+			\northeast%
+			\pgf@xa\pgf@x%
+			\secondsplit%
+			\pgf@ya\pgf@y
+			\textsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\southwest%
+			\pgf@ya\pgf@y%
+			\northeast%
+			\pgf@y\pgf@ya%
+		\fi%
+	}
+	\anchor{second west}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>1\relax%
+			\southwest%
+			\pgf@xa\pgf@x%
+			\secondsplit%
+			\pgf@ya\pgf@y
+			\textsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\southwest%
+		\fi%
+	}
+	\anchor{third east}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>2\relax%
+			\northeast%
+			\pgf@xa\pgf@x%
+			\thirdsplit%
+			\pgf@ya\pgf@y
+			\secondsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\southwest%
+			\pgf@ya\pgf@y%
+			\northeast%
+			\pgf@y\pgf@ya%
+		\fi%
+	}
+	\anchor{third west}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>2\relax%
+			\southwest%
+			\pgf@xa\pgf@x%
+			\thirdsplit%
+			\pgf@ya\pgf@y
+			\secondsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\southwest
+		\fi%
+	}
+	\anchor{fourth east}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>3\relax%
+			\northeast%
+			\pgf@xa\pgf@x%
+			\southwest%
+			\pgf@ya\linewidth\relax%
+			\pgf@ya.5\pgf@ya%
+			\advance\pgf@ya\pgf@y%
+			\thirdsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\northeast%
+			\pgf@xa\pgf@x%
+			\southwest%
+			\pgf@x\pgf@xa%
+		\fi%
+	}
+	\anchor{fourth west}{%
+		\getrectanglesplitparameters%
+		\ifnum\parts>3\relax%
+			\southwest%
+			\pgf@xa\pgf@x%
+			\pgf@ya\linewidth\relax%
+			\pgf@ya.5\pgf@ya%
+			\advance\pgf@ya\pgf@y%
+			\thirdsplit%
+			\advance\pgf@y\pgf@ya%
+			\pgf@y.5\pgf@y%
+			\pgf@x\pgf@xa%
+		\else%
+			\southwest%
+		\fi%
+	}
+	\backgroundpath{%
+		\getrectanglesplitparameters%
+		%
+		% Remove outer sep.
+		%
+		\pgfsavepgf@process\southwest{%
+			\southwest%
+  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+  		\pgfmathaddtolength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
+  	}%
+  	\pgfsavepgf@process\northeast{%
+			\northeast%
+  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+  		\pgfmathaddtolength\pgf@y{+-\pgfkeysvalueof{/pgf/outer ysep}}%
+  	}%
+  	\pgfsavepgf@process\textsplit{%
+			\textsplit%
+  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+  	}%
+  	\pgfsavepgf@process\secondsplit{%
+			\secondsplit%
+  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+  	}%
+  	\pgfsavepgf@process\thirdsplit{%
+			\thirdsplit%
+  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+  	}%
+  	\pgfpathrectangle{\southwest}{\pgfpointdiff{\southwest}{\northeast}}%
+  	{%
+  		\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+  		\ifnum\parts>1\relax%
+  			\pgfpathmoveto{\textsplit\pgf@ya\pgf@y\southwest\pgf@y\pgf@ya}%
+  			\pgfpathlineto{\textsplit\pgf@ya\pgf@y\northeast\pgf@y\pgf@ya}%
+  		\fi%
+  		\ifnum\parts>2\relax%
+  			\pgfpathmoveto{\secondsplit\pgf@ya\pgf@y\southwest\pgf@y\pgf@ya}%
+  			\pgfpathlineto{\secondsplit\pgf@ya\pgf@y\northeast\pgf@y\pgf@ya}%
+  		\fi%
+  		\ifnum\parts>3\relax%
+  			\pgfpathmoveto{\thirdsplit\pgf@ya\pgf@y\southwest\pgf@y\pgf@ya}%
+  			\pgfpathlineto{\thirdsplit\pgf@ya\pgf@y\northeast\pgf@y\pgf@ya}%
+  		\fi%
+  	}%
+  }
+  \behindbackgroundpath{%
+  	\ifpgfrectanglesplitusecustomfill%
+  		%
+			% Remove outer sep.
+			%
+			\getrectanglesplitparameters%
+			\pgfsavepgf@process\southwest{%
+				\southwest%
+	  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+	  		\pgfmathaddtolength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
+	  	}%
+	  	\pgfsavepgf@process\northeast{%
+				\northeast%
+	  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+	  		\pgfmathaddtolength\pgf@y{+-\pgfkeysvalueof{/pgf/outer ysep}}%
+	  	}%
+	  	\pgfsavepgf@process\textspliteast{%
+				\textspliteast%
+	  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	\pgfsavepgf@process\textsplitwest{%
+				\textsplitwest%
+	  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	\pgfsavepgf@process\secondspliteast{%
+				\secondspliteast%
+	  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	\pgfsavepgf@process\secondsplitwest{%
+				\secondsplitwest%
+	  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	\pgfsavepgf@process\thirdspliteast{%
+				\thirdspliteast%
+	  		\pgfmathaddtolength\pgf@x{+-\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	\pgfsavepgf@process\thirdsplitwest{%
+				\thirdsplitwest%
+	  		\pgfmathaddtolength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
+	  	}%
+	  	%
+  		% Always fill the text box.
+  		%
+  		\pgfpathmoveto{\textsplitwest}%
+  		\pgfpathlineto{\northeast\pgf@ya\pgf@y\southwest\pgf@y\pgf@ya}%
+  		\pgfpathlineto{\northeast}%
+  		\ifnum\parts>1\relax%
+  			\bgroup%
+  				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+  		\fi%  		
+  		\pgfpathlineto{\textspliteast}%
+  		\pgfpathclose%
+  		\ifnum\parts>1\relax%
+  			\egroup%
+  		\fi% 
+  		\pgfsetfillcolor{\pgfkeysvalueof{/pgf/rectangle split text part fill}}%
+  		\pgfusepath{fill}%
+  		%
+  		% Second box.
+  		%
+  		\ifnum\parts>1\relax%
+  			\bgroup%
+  				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+  				\pgfpathmoveto{\textsplitwest}%
+  				\pgfpathlineto{\textspliteast}%
+	  			\ifnum\parts=2\relax%
+	  				\egroup%
+	  			\fi%
+  				\pgfpathlineto{\secondspliteast}%
+  				\pgfpathlineto{\secondsplitwest}%
+  				\ifnum\parts=2\relax%
+	  				\bgroup%
+	  				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+	  			\fi%
+  				\pgfpathclose%
+  				\pgfsetfillcolor{\pgfkeysvalueof{/pgf/rectangle split second part fill}}%
+  				\pgfusepath{fill}%
+  			\egroup%
+  		\fi%
+  		%
+  		% Third box.
+  		%
+  		\ifnum\parts>2\relax%
+  			\bgroup%
+  				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+  				\pgfpathmoveto{\secondsplitwest}%
+  				\pgfpathlineto{\secondspliteast}%
+  				\ifnum\parts=3\relax%
+  					\egroup%
+  				\fi%
+  				\pgfpathlineto{\thirdspliteast}%
+  				\pgfpathlineto{\thirdsplitwest}%
+  				\ifnum\parts=3\relax%
+  					\bgroup%
+  					\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+  				\fi%
+  				\pgfpathclose%
+  				\pgfsetfillcolor{\pgfkeysvalueof{/pgf/rectangle split third part fill}}%
+  				\pgfusepath{fill}%
+  			\egroup%
+  		\fi%
+	  	%
+			% And the fourth box.
+			%
+			\ifnum\parts>3\relax%
+				\pgfpathmoveto{\thirdsplitwest}%
+				\pgfpathlineto{\southwest}%
+				\pgfpathlineto{\southwest\pgf@ya\pgf@y\northeast\pgf@y\pgf@ya}%
+				\bgroup%
+						\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
+						\pgfpathlineto{\thirdspliteast}%
+					\pgfpathclose%
+				\egroup%
+				\pgfsetfillcolor{\pgfkeysvalueof{/pgf/rectangle split fourth part fill}}%
+				\pgfusepath{fill}%
+			\fi%
+		\fi%
+  }
+  \anchorborder{%
+  	\pgfutil@tempdima\pgf@x%
+  	\pgfutil@tempdimb\pgf@y%
+  	\getrectanglesplitparameters%
+  	\pgfpointdiff{\southwest}{\northeast}%
+  	\pgf@x.5\pgf@x%
+  	\pgf@y.5\pgf@y%
+  	\edef\pgf@marshall{%
+  		\noexpand\pgfpointborderrectangle{%
+  				\noexpand\pgfqpoint{\the\pgfutil@tempdima}{\the\pgfutil@tempdimb}%
+  			}%
+      	{%
+      		\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}%
+      	}%
+    }%
+    \pgf@marshall%
+    \pgf@xa\pgf@x%
+    \pgf@ya\pgf@y%
+    \centerpoint%
+    \advance\pgf@x\pgf@xa%
+    \advance\pgf@y\pgf@ya%
+   }%
+}
 
 
 \endinput
