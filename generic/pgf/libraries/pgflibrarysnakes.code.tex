@@ -421,4 +421,384 @@
 
 
 
+%	The Shape Snake
+%	
+%	The shape snake is snake that consists of repeated instances of 
+%	the path of a specified shape. The shape must have been declared 
+%	by \pgfdeclareshape. If a shape has specialized keys (e.g. the
+%	number of points on a star, or the apex angle the isosceles
+%	triangle), these can be specified in the usual manner. 
+%	
+%	The sepatation between shapes in the path can be specified and can 
+%	be between the center of the shape or the border of the shape. 
+%	
+%	The height and width of the shape can be independently or
+%	simultaneously scaled (linearly) along the path. It is also
+% possible to prevent the shapes being sloped parallel to the
+% path.
+
+% Keys for snake: shape snake
+%
+% /pgf/shape snake shape        : the shape used in the snake.
+% /pgf/shape snake sep          : the distance between shape borders.
+% /pgf/shape snake scaled       : scale the shapes in the snake along the path.
+% /pgf/shape snake start width  : recommended starting width.
+% /pgf/shape snake start height : recommended starting height.
+% /pgf/shape snake start size
+% /pgf/shape snake end width    : recommended ending width.
+% /pgf/shape snake end height   : recommended ending height.
+% /pgf/shape snake end size
+% /pgf/shape snake sloped       : make the shapes slope parallel to the path.
+
+\pgfkeys{/pgf/shape snake shape/.initial=circle}
+\pgfkeys{/pgf/shape snake sep/.initial={.25cm, between centers}}
+
+\pgfkeys{%
+	/pgf/shape snake start width/.initial=.25cm,
+	/pgf/shape snake start height/.initial=.25cm,
+	/pgf/shape snake start size/.style={%
+		/pgf/shape snake start width=#1,
+		/pgf/shape snake start height=#1%
+	}%
+}
+\pgfkeys{%
+	/pgf/shape snake end width/.initial=.125cm,
+	/pgf/shape snake end height/.initial=.125cm,
+	/pgf/shape snake end size/.style={%
+		/pgf/shape snake end width=#1,
+		/pgf/shape snake end height=#1%
+	}%
+}
+
+\pgfkeys{/pgf/shape snake sep/.store in=\pgfshapesnakesep}%
+
+\def\pgfshapesnakesep{.25cm, between centers}
+
+\newif\ifpgfshapesnakesloped
+\pgfshapesnakeslopedtrue
+\pgfkeys{/pgf/shape snake sloped/.is if=pgfshapesnakesloped}
+
+\newif\ifpgfshapesnakescaled
+\pgfkeys{/pgf/shape snake scaled/.is if=pgfshapesnakescaled}
+
+\pgfkeys{/pgf/shape snake evenly spread/.store in=\pgf@shapesnake@spread}
+
+\let\pgf@shapesnake@spread\pgfutil@empty%
+
+% internal if
+\newif\ifpgf@shapesnake@betweenborders
+
+\edef\pgf@shapesnake@initialise{0pt}%
+
+\pgfdeclaresnake{shape snake}{initialise}
+{
+	\state{initialise}[width=+\pgf@shapesnake@initialise,next state=shape]
+	{
+		%
+		% \egroup ends the group started by the automaton before executing
+		% a snake state. This prevents the need for (most) \global variables. 
+		%
+		\egroup% 
+			%
+			% Check the shape exists.
+			%
+			\pgfutil@ifundefined{pgf@sh@bg@\pgfkeysvalueof{/pgf/shape snake shape}}{%
+				\PackageError{PGF}{I do not know the shape `\pgfkeysvalueof{/pgf/shape snake shape}',
+				so I cannot use it in a snake. Check if its library been loaded or if you 
+				simply mistyped the name}{}}{}%
+			%
+		  % Oooo, this is some hacking. But need to get a `default' 
+		  % path size, in order to scale it later on.
+		  %
+		  \pgfinterruptpath%
+				\pgfinterruptboundingbox%
+					\pgftransformreset%
+					%
+					% This size of this shape is unimportant, but it should
+					% be just large/small enough to avoid huge errors when
+					% calculting the scaling factors later on.
+					%			
+					\pgfkeys{/pgf/inner sep=50pt, /pgf/minimum size=1pt}% Arbitrary lengths.
+					\setbox\pgfnodeparttextbox\hbox{}% Assume shape does nothing special if box is empty.
+					\let\pgf@sh@savedmacros\pgfutil@empty% 
+				  \let\pgf@sh@savedpoints\pgfutil@empty%
+				  \csname pgf@sh@s@\pgfkeysvalueof{/pgf/shape snake shape}\endcsname%
+				  \pgf@sh@savedpoints%
+				  \pgf@sh@savedmacros%
+				  %
+				  % Save the macros and pionts.
+				  %
+				  \expandafter\gdef\expandafter\pgf@shapesnake@points\expandafter{\pgf@sh@savedpoints}%
+				  \expandafter\gdef\expandafter\pgf@shapesnake@macros\expandafter{\pgf@sh@savedmacros}%
+					\csname pgf@sh@bg@\pgfkeysvalueof{/pgf/shape snake shape}\endcsname% 
+					%
+					% Save the dimensions of the shape path.
+					%
+					\pgfsavepgf@process\pgf@shapesnake@shapepathsize{%
+						\pgf@x\pgf@picmaxx%
+						\pgf@y\pgf@picmaxy%
+						\advance\pgf@x-\pgf@picminx%
+						\advance\pgf@y-\pgf@picminy%
+					}%
+					\expandafter\gdef\expandafter\pgf@shapesnake@shapepathsize\expandafter{\pgf@shapesnake@shapepathsize}%
+				\endpgfinterruptboundingbox%
+			\endpgfinterruptpath%
+			%
+			\edef\pgf@shapesnake@beforeshape{0pt}%
+			\edef\pgf@shapesnake@aftershape{0pt}%
+			%
+			\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/shape snake start width}}%
+			\edef\pgf@shapesnake@startwidth{\the\pgf@x}%
+			\edef\pgf@shapesnake@width{\the\pgf@x}%
+			\pgf@x-\pgf@x%
+			\pgfmathaddtolength\pgf@x{\pgfkeysvalueof{/pgf/shape snake end width}}%
+			\edef\pgf@shapesnake@widthchange{\the\pgf@x}%
+			%
+			\pgfmathsetlength\pgf@y{\pgfkeysvalueof{/pgf/shape snake start height}}%
+			\edef\pgf@shapesnake@initialheight{\the\pgf@y}%
+			\edef\pgf@shapesnake@height{\the\pgf@y}%
+			\pgf@y-\pgf@y%
+			\pgfmathaddtolength\pgf@y{\pgfkeysvalueof{/pgf/shape snake end height}}%
+			\edef\pgf@shapesnake@heightchange{\the\pgf@y}%		
+			%
+			% Calculate the sep.
+			%
+			\ifx\pgf@shapesnake@spread\pgfutil@empty%
+				% 
+				% Not spreading, so easy:
+				%
+				\def\pgf@shapesnake@borderstext{between borders}%
+				\afterassignment\pgf@shapesnake@setkeyword%
+				\expandafter\pgf@x\pgfshapesnakesep,\pgf@stop%
+				\edef\pgf@shapesnake@sep{\the\pgf@x}%
+			\else%
+				%
+				% Spreading (a bit of a nuiscence actually).
+				%
+				\def\pgf@shapesnake@borderstext{by borders}%
+				\afterassignment\pgf@shapesnake@setkeyword%
+				\expandafter\c@pgf@counta\pgf@shapesnake@spread,\pgf@stop%
+				\ifpgf@shapesnake@betweenborders%
+					%
+					% Ok. The required sep between borders is:
+					% 
+					% (r -(n-1)((a+b)/2))/(n-1)
+					%
+					% r = snake length (here, the remaining distance)
+					% a = initial width
+					% b = end width
+					% n = the number of shapes
+					%
+					\ifnum\c@pgf@counta>1\relax%
+						\advance\c@pgf@counta-1\relax%
+						\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/shape snake start width}}%
+						\ifpgfshapesnakescaled%
+							\pgfmathaddtolength\pgf@x{\pgfkeysvalueof{/pgf/shape snake end width}}%
+						\else%
+							\advance\pgf@x\pgf@x%
+						\fi%
+						\pgf@x.5\pgf@x% (a+b)/2
+						\multiply\pgf@x-\c@pgf@counta% -(n-1)((a+b)/2)
+						\advance\pgf@x\pgfsnakeremainingdistance%
+						\divide\pgf@x\c@pgf@counta%
+						\pgf@x.9999\pgf@x% Hackery to control some native TeX inaccuracies.
+						%
+						% Unfortunately if the shape is scaled, and evenly spread by borders,
+						% it is necessary to do something a bit different to control for 
+						% (most) inaccuracies.
+						% 
+						\ifpgfshapesnakescaled%
+							\pgf@xa\pgf@shapesnake@widthchange\relax%
+							\divide\pgf@xa\c@pgf@counta%
+							\edef\pgf@shapesnake@specialwidth{\the\pgf@xa}%		
+						\fi%
+					\else%
+						\pgf@shapesnake@betweenbordersfalse%
+						\pgf@x\pgfsnakeremainingdistance%
+						\ifnum\c@pgf@counta=1\relax%
+							\pgf@y.5\pgf@x%
+							\edef\pgf@shapesnake@initialise{\the\pgf@y}%
+						\else%
+							\advance\pgf@x5pt\relax% An arbitrary value >0pt.
+							\edef\pgf@shapesnake@initialise{\the\pgf@x}%
+						\fi%
+					\fi%	
+				\else%
+					%
+					% Between centers.
+					%
+					\pgf@x\pgfsnakeremainingdistance%
+					\ifnum\c@pgf@counta>1\relax%
+						\advance\c@pgf@counta-1\relax%
+						\divide\pgf@x\c@pgf@counta\relax%
+					\else%
+						\ifnum\c@pgf@counta=1\relax%
+							\pgf@y.5\pgf@x%
+							\edef\pgf@shapesnake@initialise{\the\pgf@y}%
+						\else%
+							\advance\pgf@x5pt\relax% An arbitrary value >0pt.
+							\edef\pgf@shapesnake@initialise{\the\pgf@x}%
+						\fi%
+					\fi%
+				\fi%
+				\edef\pgf@shapesnake@sep{\the\pgf@x}%
+			\fi%
+		%
+		% \bgroup starts the group ended at the beginning of the state.
+		%
+		\bgroup%
+	}
+	\state{before shape}[width=+\pgf@shapesnake@beforeshape,next state=shape]
+	{
+		\egroup%
+			\ifpgfshapesnakescaled%
+				\ifpgf@shapesnake@betweenborders%
+					\ifx\pgf@shapesnake@spread\pgfutil@empty%
+						%
+						% Not so straightforward. The required ratio is given by
+						%
+						% R = (c+W/2)/(c+r-.5*w)
+						%
+						% c = completed distance
+						% r = remaining distance
+						% W = initial width
+						% w = the change in width (i.e., end - start)
+						%
+						\pgf@x\pgfsnakecompleteddistance%
+						\advance\pgf@x\pgfsnakeremainingdistance%
+						\pgf@xa\pgf@shapesnake@startwidth\relax%
+						\pgf@xa.5\pgf@xa%
+						\advance\pgf@xa\pgfsnakecompleteddistance% c+W/2
+						%
+						\pgf@xb\pgf@shapesnake@widthchange\relax%
+						\pgf@xb-.5\pgf@xb%
+						\advance\pgf@xb\pgf@x% c+r-.5*w
+						%
+						\pgfmathdivide@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@xb}}%
+					\fi%
+				\else%
+					%
+					% Easy peasy. The required ratio is 
+					%
+					% R = c / (c+r)
+					%
+					\pgf@x\pgfsnakecompleteddistance%
+					\advance\pgf@x\pgfsnakeremainingdistance%
+					\pgfmathdivide@{\pgfmath@tonumber{\pgfsnakecompleteddistance}}{\pgfmath@tonumber{\pgf@x}}%			
+				\fi%
+				%
+				% Get the new width.
+				%
+				\ifx\pgf@shapesnake@spread\pgfutil@empty%
+					\pgf@x\pgf@shapesnake@widthchange\relax%
+					\pgf@x\pgfmathresult\pgf@x%
+					\advance\pgf@x\pgf@shapesnake@startwidth\relax%
+				\else%
+					\ifpgf@shapesnake@betweenborders%
+						%
+						% Specical case when snake is scaled, and evenly spread by borders.
+						%
+						\pgf@x\pgf@shapesnake@width\relax%
+						\advance\pgf@x\pgf@shapesnake@specialwidth\relax%
+						\pgf@xa\pgf@x%
+						\advance\pgf@xa-\pgf@shapesnake@startwidth\relax%
+						\pgf@xb\pgf@shapesnake@widthchange\relax%
+						\pgfmathdivide@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@xb}}%
+					\else%
+						\pgf@x\pgf@shapesnake@widthchange\relax%
+						\pgf@x\pgfmathresult\pgf@x%
+						\advance\pgf@x\pgf@shapesnake@startwidth\relax%
+					\fi%
+				\fi%		
+				\edef\pgf@shapesnake@width{\the\pgf@x}%		
+				%
+				% New height = R*h + H
+				%
+				\pgf@y\pgf@shapesnake@heightchange\relax%
+				\pgf@y\pgfmathresult\pgf@y%
+				\advance\pgf@y\pgf@shapesnake@initialheight\relax%
+				\edef\pgf@shapesnake@height{\the\pgf@y}%
+			\fi%
+			%
+			\ifpgf@shapesnake@betweenborders%
+				\pgf@x\pgf@shapesnake@width\relax%
+				\pgf@x.5\pgf@x%
+				\edef\pgf@shapesnake@beforeshape{\the\pgf@x}%
+			\else%
+				\def\pgf@shapesnake@beforeshape{0pt}%
+			\fi%	
+		\bgroup%
+	}
+	\state{shape}[width=+0pt,next state=after shape]
+	{
+		\ifpgfshapesnakesloped%
+		\else%
+			\pgftransformrotate{-\pgfsnakeangle}%
+		\fi%
+		%
+	  % Scale the path when it is actually drawn.
+	  %
+	  \pgf@shapesnake@shapepathsize%
+	  \pgfutil@tempdima\pgf@x%
+	  \pgfutil@tempdimb\pgf@y%
+	  \pgf@xa\pgf@shapesnake@width\relax%
+	  \pgf@xb\pgfutil@tempdima%
+	  \pgfmathdivide@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@xb}}%
+	  \expandafter\pgftransformxscale\expandafter{\pgfmathresult}%
+	  %
+	  \pgf@ya\pgf@shapesnake@height\relax%
+	  \pgf@yb\pgfutil@tempdimb%
+	  \pgfmathdivide@{\pgfmath@tonumber{\pgf@ya}}{\pgfmath@tonumber{\pgf@yb}}%
+	  \expandafter\pgftransformyscale\expandafter{\pgfmathresult}%
+	  %
+	  % Move to the center anchor.
+	  %
+	  \pgf@shapesnake@points%
+	  \pgf@shapesnake@macros%
+	  \pgftransformshift{%
+	  	\pgf@sh@reanchor{\pgfkeysvalueof{/pgf/shape snake shape}}{center}%
+	  	\pgf@x-\pgf@x%
+	   	\pgf@y-\pgf@y%
+	  }%
+	  %
+	  % And draw the shape path.
+	  %
+		\csname pgf@sh@bg@\pgfkeysvalueof{/pgf/shape snake shape}\endcsname%	
+	}
+	\state{after shape}[width=+\pgf@shapesnake@aftershape,next state=sep]
+	{
+		\egroup%
+			\ifpgf@shapesnake@betweenborders%
+				\pgf@x\pgf@shapesnake@width\relax%
+				\pgf@x.5\pgf@x%
+				\edef\pgf@shapesnake@aftershape{\the\pgf@x}%
+			\else%
+				\edef\pgf@shapesnake@aftershape{0pt}%
+			\fi%	
+		\bgroup%
+	}
+	\state{sep}[width=\pgf@shapesnake@sep,next state=before shape]
+	{
+		\egroup%
+			\def\pgf@shapesnake@beforeshape{0pt}%
+		\bgroup%
+	}
+	\state{final}
+	{
+		\pgfpathmoveto{\pgfpoint{+\pgfsnakeremainingdistance}{+0pt}}%
+	}
+}
+
+\def\pgf@shapesnake@setkeyword,{%
+	\pgfutil@ifnextchar\pgf@stop{\def\pgf@temp{}\pgf@@@shapesnake@setkeyword}{\pgf@@shapesnake@setkeyword}%
+}
+\def\pgf@@shapesnake@setkeyword#1,{\def\pgf@temp{#1}\pgf@@@shapesnake@setkeyword}
+\def\pgf@@@shapesnake@setkeyword\pgf@stop{%
+	\ifx\pgf@temp\pgf@shapesnake@borderstext%
+		\pgf@shapesnake@betweenborderstrue%
+	\else%
+		\pgf@shapesnake@betweenbordersfalse%
+	\fi%
+}
+
 \endinput
