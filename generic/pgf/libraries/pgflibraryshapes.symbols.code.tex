@@ -106,7 +106,7 @@
 		%
 		% Calculate the centerpoint.
 		%
-		\pgfsavepgf@process\centerpoint{%
+		\pgfextract@process\centerpoint{%
 			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
 			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
 			\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
@@ -263,7 +263,7 @@
 						\advance\pgf@x\pgf@xa%
 						\pgf@y\yinnerradius\relax%
 						\advance\pgf@y\pgf@xa%
-						\expandafter\pgfsavepgf@process\csname point@\the\c@pgf@counta @\endcsname{%
+						\expandafter\pgfextract@process\csname point@\the\c@pgf@counta @\endcsname{%
 							\pgfpointpolar{\angle}{\the\pgf@x and \the\pgf@y}%
 							\pgf@xa\pgf@x%
 							\pgf@ya\pgf@y%
@@ -275,7 +275,7 @@
 						%
 						% An inner point.
 						%
-						\expandafter\pgfsavepgf@process\csname point@\the\c@pgf@counta @\endcsname{%
+						\expandafter\pgfextract@process\csname point@\the\c@pgf@counta @\endcsname{%
 							\pgfpointpolar{\angle}{\xinnerradius and \yinnerradius}%
 							\pgf@xa\pgf@x%
 							\pgf@ya\pgf@y%
@@ -319,7 +319,7 @@
 					%
 					% ...and thus the border point.
 					%
-					\pgfsavepgf@process\borderpoint{%
+					\pgfextract@process\borderpoint{%
 						\secondpoint%
 						\pgf@xa\pgf@x
 						\pgf@ya\pgf@y%
@@ -336,7 +336,7 @@
 					%
 					% Rotatee the border points and save.
 					%
-					\expandafter\pgfsavepgf@process\csname borderpoint@\the\c@pgf@countb @\endcsname{%
+					\expandafter\pgfextract@process\csname borderpoint@\the\c@pgf@countb @\endcsname{%
 						\pgfmathrotatepointaround{\borderpoint}{\centerpoint}{\rotate}%
 					}%
 					\expandafter\addtosavedmacro\expandafter{\csname borderpoint@\the\c@pgf@countb @\endcsname}%				
@@ -565,8 +565,6 @@
 		%
 		\edef\xinnerradius{\the\pgf@x}%
 		\edef\yinnerradius{\the\pgf@y}%
-		\edef\xdefaultinnerradius{\the\pgf@x}%
-		\edef\ydefaultinnerradius{\the\pgf@y}%
 		%
 		% Get the larger of the outer sep.
 		%	
@@ -578,15 +576,15 @@
 		\edef\outersep{\the\pgf@x}%
 		\addtosavedmacro\outersep%
 		%
-		% For a given cloud, with puff arc length a°, the quotient of the
+		% For a given cloud, with puff arc length a, the quotient of the
 		% distance between the start and end point of a puffs circular arc
 		% and the radius of that arc, is constant:
 		%
 		% g = .5 * sec((180-a)/2)
 		% 
-		\pgfmathsubtract{180}{\pgfkeysvalueof{/pgf/cloud puff arc}}%
+		\pgfmathsubtract{180}{\arc}%
 		\pgfmathdivide@{\pgfmathresult}{2}%
-		\let\arcangle\pgfmathresult%
+		\let\tempangle\pgfmathresult%
 		\pgfmathsec@{\pgfmathresult}%
 		\pgfmathdivide@{\pgfmathresult}{2}%
 		\let\arcradiusquotient\pgfmathresult%
@@ -598,42 +596,96 @@
 		%
 		% h = .5 * (1-sin((180-a)/2))/cos((180-a)/2)
 		%   = g  * (1 - sin((180-a)/2))
-		\pgfmathsin@{\arcangle}%
+		\pgfmathsin@{\tempangle}%
 		\pgfmathsubtract@{1}{\pgfmathresult}%
 		\pgfmathmultiply@{\pgfmathresult}{\arcradiusquotient}%
 		\let\archeightquotient\pgfmathresult%
 		\addtosavedmacro\archeightquotient%
 		%
-		% Adjust for minimum height.
+		% Minimum size is applied to the circum-ellipse (i.e. the ellipse 
+		% that passes through the extremeties of each puff). Thus, the
+		% relationship between the radii of the elliptical incircle ("inellipse"?) 
+		% of the cloud (x and y) and the radii of the circum-ellispe (X and Y), 
+		% is given by 
+		%
+		% X = 2(x*cos(a/2) + ky)  
+		% Y = 2(y*cos(a/2) + kx)
+		% 
+		% where:
+		% k = sin(p/2)*((1-cos(a/2))/sin(a/2))
+		% p = the angle between each puff (i.e. 360/<puffs>) 
+		% a = the length of arc of the puff.
+		% 
+		\pgfmathdivide{\arc}{2}%
+		\let\halfarcangle\pgfmathresult%
+		\pgfmathcos@{\pgfmathresult}%
+		\pgfmathsubtract@{1}{\pgfmathresult}%
+		\let\pgf@temp\pgfmathresult%
+		\pgfmathsin@{\halfarcangle}%
+		\pgfmathdivide@{\pgf@temp}{\pgfmathresult}%
+		\let\pgf@temp\pgfmathresult%
+		\pgfmathdivide@{\anglestep}{2}%
+		\pgfmathsin@{\pgfmathresult}%
+		\pgfmathmultiply@{\pgfmathresult}{\pgf@temp}%
+		\let\k\pgfmathresult%
+		%
+		\pgfmathdivide@{\anglestep}{2}%
+		\pgfmathcos@{\pgfmathresult}%
+		\let\coshalfanglestep\pgfmathresult%
+		%
+		% Calculate the actual radii of the circum-ellipse.
+		%
+		\pgf@x\xinnerradius\relax%
+		\pgf@y\yinnerradius\relax%
+		\pgf@xa\coshalfanglestep\pgf@x%
+		\advance\pgf@xa\k\pgf@y%
+		\pgf@ya\coshalfanglestep\pgf@y%
+		\advance\pgf@ya\k\pgf@x%
+		%
+		% Adjust for minimum height (Y').
 		%
 		\pgfmathsetlength\pgf@yb{\pgfkeysvalueof{/pgf/minimum height}}%
-		\pgf@yb.5\pgf@yb%
-		\ifdim\yinnerradius<\pgf@yb%
-			\edef\yinnerradius{\the\pgf@yb}%
+		\ifdim\pgf@ya<.5\pgf@yb%
+			\pgf@ya.5\pgf@yb%
 		\fi%
 		%
-		% Adjust for minimum width.
+		% Adjust for minimum width (X').
 		%
 		\pgfmathsetlength\pgf@xb{\pgfkeysvalueof{/pgf/minimum width}}%
-		\pgf@xb.5\pgf@xb%
-		\ifdim\xinnerradius<\pgf@xb%
-			\edef\xinnerradius{\the\pgf@xb}%
+		\ifdim\pgf@xa<.5\pgf@xb%
+			\pgf@xa.5\pgf@xb%
 		\fi%
 		%
+		\edef\xouterradius{\the\pgf@xa}%
+		\addtosavedmacro\xouterradius%
+		\edef\youterradius{\the\pgf@ya}%
+		\addtosavedmacro\youterradius%
+		%
+		% Now recalculate `in-ellispe' radii: 
+		%
+		% x = (X'cos(a/2)-kY')/cos^2(a/2)-k^2, 
+		% y = (Y'cos(a/2)-kX')/cos^2(a/2)-k^2, 
+		%
+		\pgf@xc\k pt\relax%
+		\pgf@xc-\k\pgf@xc%
+		\pgf@yc\coshalfanglestep pt\relax%
+		\pgf@yc\coshalfanglestep\pgf@yc%
+		\advance\pgf@xc\pgf@yc\relax%
+		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}% cos^2(a/2)-k^2
+		%
+		\pgf@x\coshalfanglestep\pgf@xa%
+		\advance\pgf@x-\k\pgf@ya%
+		\pgf@x\pgfmathresult\pgf@x%
+		\pgf@y\coshalfanglestep\pgf@ya%
+		\advance\pgf@y-\k\pgf@xa%
+		\pgf@y\pgfmathresult\pgf@y%
+		%
+		\edef\xinnerradius{\the\pgf@x}%
+		\edef\yinnerradius{\the\pgf@y}%
 		\addtosavedmacro\xinnerradius%
 		\addtosavedmacro\yinnerradius%
 		%
-		\pgf@x\xinnerradius\relax%
-		\pgf@x2.0\pgf@x%
-		\edef\xouterradius{\the\pgf@x}%
-		\addtosavedmacro\xouterradius%
-		%
-		\pgf@y\yinnerradius\relax%
-		\pgf@y2.0\pgf@y%
-		\edef\youterradius{\the\pgf@y}%
-		\addtosavedmacro\youterradius%
-		%
-		% Get some trig. constants.
+		% Get some useful trig. constants.
 		%
 		\pgfmathdivide@{\arc}{4}%
 		\let\quarterarc\pgfmathresult%
@@ -700,7 +752,7 @@
 	}%
 	\anchor{north west}{%
 		\getradii%
-		\pgfsavepgf@process\pgf@sh{%
+		\pgfextract@process\pgf@sh{%
 			\pgf@x\xouterradius\relax%
 			\pgf@x-0.707106\pgf@x%
 			\pgf@y\youterradius\relax%
@@ -710,7 +762,7 @@
 	}%
 	\anchor{north east}{%
 		\getradii%
-		\pgfsavepgf@process\pgf@sh{%
+		\pgfextract@process\pgf@sh{%
 			\pgf@x\xouterradius\relax%
 			\pgf@x0.707106\pgf@x%
 			\pgf@y\youterradius\relax%
@@ -720,7 +772,7 @@
 	}%
 	\anchor{south west}{%
 		\getradii%
-		\pgfsavepgf@process\pgf@sh{%
+		\pgfextract@process\pgf@sh{%
 			\pgf@x\xouterradius\relax%
 			\pgf@x-0.707106\pgf@x%
 			\pgf@y\youterradius\relax%
@@ -730,7 +782,7 @@
 	}%
 	\anchor{south east}{%
 		\getradii%
-		\pgfsavepgf@process\pgf@sh{%
+		\pgfextract@process\pgf@sh{%
 			\pgf@x\xouterradius\relax%
 			\pgf@x0.707106\pgf@x%
 			\pgf@y\youterradius\relax%
@@ -740,9 +792,9 @@
 	}%
 	%
 	% Each `puff' is a circular arc of length a, drawn using two a/2 
-	% arcs (a < 180), approximated by Bezier curves. Cannot use \pgfpatharc, 
-	% because due to accuracy errors (from various sources), it is sometimes
-	% necessary to `force' the arc to end at a specific point. So...
+	% arcs (a < 180), approximated by Bezier curves. 
+	% Due to TeX rounding errors, it is sometimes necessary to `force' 
+	% the arc to end at a specific point. So...
 	%
 	% @article{riskus2006,
 	%   author  = {Aleskus Ri\v{s}kus},
@@ -765,9 +817,9 @@
 		%
 		% Calculate the first arc point.
 		%
-		\pgfsavepgf@process\arcfirstpoint{%
+		\pgfextract@process\arcfirstpoint{%
 			\pgfpointadd{\centerpoint}{%
-				\pgfpointpolar{+\angle}{+\xinnerradius and \yinnerradius}%
+				\pgfpointpolar{+\angle}{+\xinnerradius and +\yinnerradius}%
 			}%
 		}%
 		\pgfpathmoveto{\arcfirstpoint}%
@@ -785,7 +837,7 @@
 			\else%
 				\pgfmathadd@{\angle}{\anglestep}%
 				\let\angle\pgfmathresult%
-				\pgfsavepgf@process\arcendpoint{%
+				\pgfextract@process\arcendpoint{%
 					\pgfpointadd{\centerpoint}{%
 						\pgfpointpolar{+\angle}{+\xinnerradius and +\yinnerradius}%
 					}%
@@ -815,7 +867,7 @@
 			%
 			% Get the first control point for the first arc (length a/2)...
 			%
-			\pgfsavepgf@process\controlone{%
+			\pgfextract@process\controlone{%
 				%
 				% k = 0.552284745 (a `magic' number)...
 				%
@@ -845,8 +897,8 @@
 			%
 			% Get the midpoint of the 150° arc.
 			%
-			\pgfsavepgf@process\arcmidpoint{%
-				\pgfsavepgf@process\arcmidpoint{%
+			\pgfextract@process\arcmidpoint{%
+				\pgfextract@process\arcmidpoint{%
 					\pgf@x-\halfchordlength\relax%
 					\pgf@y\segmentheight\relax%
 				}%
@@ -857,7 +909,7 @@
 			%
 			% Get the second control point for the first arc (length a/2)...
 			%
-			\pgfsavepgf@process\controltwo{%		
+			\pgfextract@process\controltwo{%		
 				\pgf@x0.55228475pt\relax%
 				\pgf@x\sinquarterarc\pgf@x%  k * sin(a/2)
 				\pgf@y-0.55228475pt\relax%
@@ -894,7 +946,7 @@
 			%
 			% First control point for the second arc...
 			%
-			\pgfsavepgf@process\controlone{%				
+			\pgfextract@process\controlone{%				
 				\pgf@x0.55228475pt\relax%
 				\pgf@x\sinquarterarc\pgf@x% k * sin(a/2)
 				\pgf@y0.55228475pt\relax%
@@ -917,7 +969,7 @@
 			%
 			% Second control point for the second arc.
 			%
-			\pgfsavepgf@process\controltwo{%				
+			\pgfextract@process\controltwo{%				
 				\pgf@x0.55228475pt\relax%
 				\pgf@x\sinquarterarc\pgf@x%  k * sin(a/2)
 				\pgf@y-0.55228475pt\relax%
@@ -970,7 +1022,7 @@
 					}%
 			}%
 		\else%
-			\pgfsavepgf@process\externalpoint{%
+			\pgfextract@process\externalpoint{%
 				\centerpoint%
 				\advance\pgf@x\externalx\relax%
 				\advance\pgf@y\externaly\relax%
@@ -1001,21 +1053,21 @@
 				% Calculate the `miter point'. This is the point between 
 				% each puff, and takes into account the outer sep.
 				%
-				\pgfsavepgf@process\miterpoint{%
+				\pgfextract@process\miterpoint{%
 					%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfpointpolar{+\endangle}{+\xinnerradius and +\yinnerradius}%
 					}%
 					%
 					\pgfmathadd@{\endangle}{\anglestep}%
 					\let\angletemp\pgfmathresult%
-					\pgfsavepgf@process\thirdpoint{%
+					\pgfextract@process\thirdpoint{%
 						\pgfpointpolar{+\angletemp}{+\xinnerradius and +\yinnerradius}%
 					}%
 					%
 					\pgfmathsubtract@{\endangle}{\anglestep}%
 					\let\angletemp\pgfmathresult%
-					\pgfsavepgf@process\firstpoint{%
+					\pgfextract@process\firstpoint{%
 						\pgfpointpolar{+\angletemp}{+\xinnerradius and +\yinnerradius}%
 					}%
 					%
@@ -1068,12 +1120,12 @@
 			%
 			% Now, get the start and end points of the arc.
 			%
-			\pgfsavepgf@process\arcstartpoint{%
+			\pgfextract@process\arcstartpoint{%
 				\pgfpointadd{\centerpoint}{%
 					\pgfpointpolar{+\startangle}{+\xinnerradius and +\yinnerradius}%
 				}%
 			}%	
-			\pgfsavepgf@process\arcendpoint{%
+			\pgfextract@process\arcendpoint{%
 				\pgfpointadd{\centerpoint}{%
 					\pgfpointpolar{+\endangle}{+\xinnerradius and +\yinnerradius}%
 				}%
@@ -1116,7 +1168,7 @@
 					%
 					\pgfmathadd@{\p}{\arcslope}%
 					\let\a\pgfmathresult%
-					\pgfsavepgf@process\arcpoint{%
+					\pgfextract@process\arcpoint{%
 						\pgfpointadd{\circlecenterpoint}{%
 							\pgfqpointpolar{\a}{\outerarcradius}%
 						}%
@@ -1165,12 +1217,6 @@
 			}%
 		\fi%
 	}% Again, Phew!
-	\saveddimen\minimumwidth{%
-		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/minimum width}}%
-	}%
-	\saveddimen\minimumheight{%
-		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/minimum height}}%
-	}%
 	%
 	% Now, a sneaky hack. This means an arbitrary `puff' anchors 
 	% can be used for positiong the cloud shape. This is needed
@@ -1208,7 +1254,7 @@
 		%
 		% Calculate the first arc point.
 		%
-		\pgfsavepgf@process\arcstartpoint{%
+		\pgfextract@process\arcstartpoint{%
 			\pgfpointadd{\centerpoint}{%
 				\pgfpointpolar{+\angle}{+\xinnerradius and +\yinnerradius}%
 			}%
@@ -1216,7 +1262,7 @@
 		%
 		\pgfmathadd@{\angle}{\anglestep}%
 		\let\angle\pgfmathresult%
-		\pgfsavepgf@process\arcendpoint{%
+		\pgfextract@process\arcendpoint{%
 			\pgfpointadd{\centerpoint}{%
 				\pgfpointpolar{+\angle}{+\xinnerradius and +\yinnerradius}%
 			}%
@@ -1269,8 +1315,8 @@
   %
   % Calculate the center of the circle of which the arc is a part.
   %
-  \pgfsavepgf@process\circlecenterpoint{%
-    \pgfsavepgf@process\circlecenterpoint{%
+  \pgfextract@process\circlecenterpoint{%
+    \pgfextract@process\circlecenterpoint{%
       \pgf@x-\halfchordlength\relax%
       \pgf@y\segmentheight\relax%
       \advance\pgf@y-\arcradius
@@ -1426,10 +1472,10 @@
 		%
 		% Define a centerpoint.
 		%
-		\pgfsavepgf@process\centerpoint{%
-			\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-			\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-			\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+		\pgfextract@process\centerpoint{%
+			\pgf@x.5\wd\pgfnodeparttextbox%
+			\pgf@y.5\ht\pgfnodeparttextbox%
+			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
 		}%
 		%
 		% Get some useful trig. stuff
@@ -1534,35 +1580,35 @@
 		%
 		% So, define the points for the background path.
 		%
-		\pgfsavepgf@process\north{%
+		\pgfextract@process\north{%
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}>0\relax%
 				\advance\pgf@y\pgf@yb%
 			\fi%
 		}%
-		\pgfsavepgf@process\south{%
+		\pgfextract@process\south{%
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}>0\relax%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
 		}%
-		\pgfsavepgf@process\east{%
+		\pgfextract@process\east{%
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}>0\relax%
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
-		\pgfsavepgf@process\west{%
+		\pgfextract@process\west{%
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}>0\relax%
 				\advance\pgf@x-\pgf@xb%
 			\fi%
 		}%
-		\pgfsavepgf@process\northeast{%
+		\pgfextract@process\northeast{%
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
 			\advance\pgf@x\pgf@xa%
@@ -1573,7 +1619,7 @@
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
-		\pgfsavepgf@process\southeast{%
+		\pgfextract@process\southeast{%
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
 			\advance\pgf@x\pgf@xa%
@@ -1584,7 +1630,7 @@
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
-		\pgfsavepgf@process\southwest{%
+		\pgfextract@process\southwest{%
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
 			\advance\pgf@x-\pgf@xa%
@@ -1595,7 +1641,7 @@
 				\advance\pgf@x-\pgf@xb%
 			\fi%
 		}%
-		\pgfsavepgf@process\northwest{%
+		\pgfextract@process\northwest{%
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
 			\advance\pgf@x-\pgf@xa%
@@ -1617,7 +1663,7 @@
 		%
 		% Calculate the `miter vectors' (i.e. +outer sep). 
 		%
-		\pgfsavepgf@process\northmiter{%
+		\pgfextract@process\northmiter{%
 			\pgf@x0pt%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}=0\relax%
 				\pgf@y\pgf@yc%
@@ -1625,7 +1671,7 @@
 				\pgf@y\pointerapexmiter\relax%
 			\fi%
 		}%
-		\pgfsavepgf@process\southmiter{%
+		\pgfextract@process\southmiter{%
 			\pgf@x0pt%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}=0\relax%
 				\pgf@y-\pgf@yc%
@@ -1633,7 +1679,7 @@
 				\pgf@y-\pointerapexmiter\relax%
 			\fi%
 		}%
-		\pgfsavepgf@process\eastmiter{%
+		\pgfextract@process\eastmiter{%
 			\pgf@y0pt%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
 				\pgf@x\pgf@yc%
@@ -1641,7 +1687,7 @@
 				\pgf@x\pointerapexmiter\relax%
 			\fi%
 		}%
-		\pgfsavepgf@process\westmiter{%
+		\pgfextract@process\westmiter{%
 			\pgf@y0pt%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
 				\pgf@x-\pgf@yc%
@@ -1649,7 +1695,7 @@
 				\pgf@x-\pointerapexmiter\relax%
 			\fi%
 		}%
-		\pgfsavepgf@process\northeastmiter{%
+		\pgfextract@process\northeastmiter{%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
 				\pgf@x\pgf@yc
 				\pgf@y\pgf@yc%
@@ -1670,7 +1716,7 @@
 				\fi%
 			\fi%	
 		}%
-		\pgfsavepgf@process\southeastmiter{%
+		\pgfextract@process\southeastmiter{%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
 				\pgf@x\pgf@yc%
 				\pgf@y\pgf@yc%
@@ -1691,7 +1737,7 @@
 				\fi%
 			\fi%	
 		}%
-		\pgfsavepgf@process\southwestmiter{%
+		\pgfextract@process\southwestmiter{%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
 				\pgf@x-\pgf@yc
 				\pgf@y-\pgf@yc%
@@ -1716,7 +1762,7 @@
 				\fi%
 			\fi%	
 		}%
-		\pgfsavepgf@process\northwestmiter{%
+		\pgfextract@process\northwestmiter{%
 			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
 				\pgf@x-\pgf@yc%
 				\pgf@y\pgf@yc%
@@ -1752,28 +1798,28 @@
 		%
 		% Now calculate the anchor points
 		%
-		\pgfsavepgf@process\anchornorth{%
+		\pgfextract@process\anchornorth{%
 			\pgfpointadd{\north}{\northmiter}%
 		}%
-		\pgfsavepgf@process\anchorsouth{%
+		\pgfextract@process\anchorsouth{%
 			\pgfpointadd{\south}{\southmiter}%
 		}%
-		\pgfsavepgf@process\anchoreast{%
+		\pgfextract@process\anchoreast{%
 			\pgfpointadd{\east}{\eastmiter}%
 		}%
-		\pgfsavepgf@process\anchorwest{%
+		\pgfextract@process\anchorwest{%
 			\pgfpointadd{\west}{\westmiter}%
 		}%
-		\pgfsavepgf@process\anchornortheast{%
+		\pgfextract@process\anchornortheast{%
 			\pgfpointadd{\northeast}{\northeastmiter}%
 		}%
-		\pgfsavepgf@process\anchorsoutheast{%
+		\pgfextract@process\anchorsoutheast{%
 			\pgfpointadd{\southeast}{\southeastmiter}%
 		}%
-		\pgfsavepgf@process\anchorsouthwest{%
+		\pgfextract@process\anchorsouthwest{%
 			\pgfpointadd{\southwest}{\southwestmiter}%
 		}%
-		\pgfsavepgf@process\anchornorthwest{%
+		\pgfextract@process\anchornorthwest{%
 			\pgfpointadd{\northwest}{\northwestmiter}%
 		}%
 		\addtosavedmacro{\anchornorth}%
@@ -1811,7 +1857,7 @@
 		\else%
 			\pgfutil@tempdima\pgf@x%
 		\fi%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\basepoint%
 			\pgf@x\pgfutil@tempdima%
 		}
@@ -1836,7 +1882,7 @@
 		\else%
 			\pgfutil@tempdima\pgf@x%
 		\fi%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\basepoint%
 			\pgf@x\pgfutil@tempdima%
 		}
@@ -1862,7 +1908,7 @@
 		\else%
 			\pgfutil@tempdima\pgf@x%
 		\fi%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\midpoint%
 			\pgf@x\pgfutil@tempdima%
 		}
@@ -1887,7 +1933,7 @@
 		\else%
 			\pgfutil@tempdima\pgf@x%
 		\fi%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\midpoint%
 			\pgf@x\pgfutil@tempdima%
 		}
@@ -2193,12 +2239,12 @@
 		%
 		% Calculate the background path points.
 		%
-		\pgfsavepgf@process\centerpoint{%
+		\pgfextract@process\centerpoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgf@y.5\ht\pgfnodeparttextbox%
 			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
 		}%
-		\pgfsavepgf@process\northeast{%
+		\pgfextract@process\northeast{%
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
 			\advance\pgf@y\pgf@ya%
@@ -2207,7 +2253,7 @@
 				\advance\pgf@y\pgf@yb%
 			\fi%
 		}%	
-		\pgfsavepgf@process\northwest{%
+		\pgfextract@process\northwest{%
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
 			\advance\pgf@y\pgf@ya%
@@ -2216,7 +2262,7 @@
 				\advance\pgf@y\pgf@yb%
 			\fi%
 		}%	
-		\pgfsavepgf@process\southwest{%
+		\pgfextract@process\southwest{%
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
 			\advance\pgf@y-\pgf@ya%
@@ -2225,7 +2271,7 @@
 				\advance\pgf@y-\pgf@yb%
 			\fi%
 		}%
-		\pgfsavepgf@process\southeast{%
+		\pgfextract@process\southeast{%
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
 			\advance\pgf@y-\pgf@ya%
@@ -2241,7 +2287,7 @@
 		%
 		% Define the anchor points.
 		%	
-		\pgfsavepgf@process\northeastanchor{%
+		\pgfextract@process\northeastanchor{%
 			\pgfpointadd{\northeast}{%
 				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
 					\pgfmathadd@{45}{\halfgradientangle}%
@@ -2258,7 +2304,7 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\northwestanchor{%
+		\pgfextract@process\northwestanchor{%
 			\pgfpointadd{\northwest}{%
 				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
 					\pgfmathadd@{135}{\halfgradientangle}%
@@ -2275,7 +2321,7 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\southwestanchor{%
+		\pgfextract@process\southwestanchor{%
 			\pgfpointadd{\southwest}{%
 				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
 					\pgfmathadd@{225}{\halfgradientangle}%
@@ -2292,7 +2338,7 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\southeastanchor{%
+		\pgfextract@process\southeastanchor{%
 			\pgfpointadd{\southeast}{%
 				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
 					\pgfmathsubtract@{315}{\halfgradientangle}%
@@ -2309,7 +2355,7 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\northanchor{%
+		\pgfextract@process\northanchor{%
 			\pgfpointadd{\centerpoint\pgf@xa\pgf@x\northeast\pgf@x\pgf@xa}{%
 				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
 					\pgfqpoint{0pt}{\outersep}%
@@ -2320,7 +2366,7 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\southanchor{%
+		\pgfextract@process\southanchor{%
 			\pgfpointadd{\centerpoint\pgf@xa\pgf@x\southwest\pgf@x\pgf@xa}{%
 				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
 					\pgfqpoint{0pt}{-\outersep}%
@@ -2331,8 +2377,8 @@
 				\fi%
 			}%
 		}%
-		\pgfsavepgf@process\eastanchor{\centerpoint\pgf@ya\pgf@y\northeastanchor\pgf@y\pgf@ya}%
-		\pgfsavepgf@process\westanchor{\centerpoint\pgf@ya\pgf@y\southwestanchor\pgf@y\pgf@ya}%
+		\pgfextract@process\eastanchor{\centerpoint\pgf@ya\pgf@y\northeastanchor\pgf@y\pgf@ya}%
+		\pgfextract@process\westanchor{\centerpoint\pgf@ya\pgf@y\southwestanchor\pgf@y\pgf@ya}%
 		\addtosavedmacro{\northanchor}%
 		\addtosavedmacro{\southanchor}%
 		\addtosavedmacro{\eastanchor}%
@@ -2436,7 +2482,7 @@
 		%
 		\edef\externalx{\the\pgf@x}%
 		\edef\externaly{\the\pgf@y}%
-	 	\pgfsavepgf@process\externalpoint{%
+	 	\pgfextract@process\externalpoint{%
 			\centerpoint%
 			\advance\pgf@x\externalx\relax%
 			\advance\pgf@y\externaly\relax%
@@ -2744,47 +2790,47 @@
 		% xc - distance from the end of the node contents to the back end of the arrow head.
 		% yc - distance from the top of the node contents to the top end of the arrow head.
 		%
-		\pgfsavepgf@process\centerpoint{%
+		\pgfextract@process\centerpoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgf@y.5\ht\pgfnodeparttextbox%
 			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
 		}%
-		\pgfsavepgf@process\basepoint{%
+		\pgfextract@process\basepoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgf@y0pt%
 		}%
-		\pgfsavepgf@process\midpoint{%
+		\pgfextract@process\midpoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgfmathsetlength\pgf@y{+.5ex}%
 		}%
 		%
 		% As the arrow is symmetrical it can be described by only four points:
 		%
-		\pgfsavepgf@process\arrowtip{%
+		\pgfextract@process\arrowtip{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x\pgf@xb%
 			\pgf@y0pt\relax%
 		}%
-		\pgfsavepgf@process\beforearrowtip{%
+		\pgfextract@process\beforearrowtip{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x-\pgf@xc%
 			\pgf@y\pgf@ya%
 			\advance\pgf@y\pgf@yc%
 		}%
-		\pgfsavepgf@process\beforearrowhead{%
+		\pgfextract@process\beforearrowhead{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x-\pgf@xc%
 			\advance\pgf@x\pgfutil@tempdima%
 			\pgf@y\pgf@ya%
 		}%
-		\pgfsavepgf@process\afterarrowtail{%
+		\pgfextract@process\afterarrowtail{%
 			\pgf@x-\pgf@xa%
 			\pgf@y\pgf@ya%
 		}%
 		%
 		% Calculate the anchor point at the arrow tip...
 		%
-		\pgfsavepgf@process\arrowtipanchor{%
+		\pgfextract@process\arrowtipanchor{%
 			\pgfpointadd{\centerpoint}{\arrowtip}%
 			\pgf@xa\xoutersep\relax%
 			\advance\pgf@x\cosechalftipangle\pgf@xa%
@@ -2805,7 +2851,7 @@
 		\advance\pgfutil@tempdima180pt\relax%
 		\advance\pgfutil@tempdima-\halftipangle pt\relax%
 		%
-		\pgfsavepgf@process\beforearrowtipanchor{%
+		\pgfextract@process\beforearrowtipanchor{%
 			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
 			\pgf@xb\pgf@x%
 			\pgf@yb\pgf@y%
@@ -2822,7 +2868,7 @@
 		\pgf@xa\pgfmathresult\pgf@xa%
 		\pgfutil@tempdima-\pgfutil@tempdima%
 		\advance\pgfutil@tempdima180pt\relax%
-		\pgfsavepgf@process\beforearrowheadanchor{%
+		\pgfextract@process\beforearrowheadanchor{%
 			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
 			\pgf@xb\pgf@x%
 			\pgf@yb\pgf@y%
@@ -2830,7 +2876,7 @@
 			\advance\pgf@x\pgf@xb%
 			\advance\pgf@y\pgf@yb%
 		}%
-		\pgfsavepgf@process\afterarrowtailanchor{%
+		\pgfextract@process\afterarrowtailanchor{%
 			\pgfpointadd{\centerpoint}{\afterarrowtail}%
 			\advance\pgf@x-\xoutersep\relax%
 			\advance\pgf@y\youtersep\relax%
@@ -3002,11 +3048,11 @@
 		\pgfpathclose%
 	}%
 	\anchorborder{%
-		\pgfsavepgf@process\externalpoint{}%			
+		\pgfextract@process\externalpoint{}%			
 		\getsinglearrowpoints%
 		\pgfutil@ifundefined{pgf@singlearrow@referencepoint}{\let\referencepoint\centerpoint}%
 			{\let\referencepoint\pgf@singlearrow@referencepoint}%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\externalpoint%
 			\pgf@xa\pgf@x%
 			\pgf@ya\pgf@y%
@@ -3044,7 +3090,7 @@
 				\advance\pgf@xb360pt\relax%
 				\ifdim\pgf@x<\pgf@xb%
 					\let\firstpoint\afterarrowtailanchor%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfmathrotatepointaround{%
 							\pgfpointadd{%
 								\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
@@ -3057,7 +3103,7 @@
 					\pgf@xa-\pgf@xa%
 					\advance\pgf@xa360pt\relax%
 					\ifdim\pgf@x<\pgf@xa%
-						\pgfsavepgf@process\firstpoint{%
+						\pgfextract@process\firstpoint{%
 							\pgfmathrotatepointaround{%
 								\pgfpointadd{%
 									\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
@@ -3066,7 +3112,7 @@
 							}%
 							{\centerpoint}{\rotate}%
 						}%
-						\pgfsavepgf@process\secondpoint{%
+						\pgfextract@process\secondpoint{%
 							\pgfmathrotatepointaround{%
 								\pgfpointadd{%
 									\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
@@ -3076,7 +3122,7 @@
 							{\centerpoint}{\rotate}%
 						}%
 					\else%
-						\pgfsavepgf@process\firstpoint{%
+						\pgfextract@process\firstpoint{%
 							\pgfmathrotatepointaround{%
 								\pgfpointadd{%
 									\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
@@ -3257,34 +3303,34 @@
 		% xc - distance from the end of the node contents to the back end of the arrow head.
 		% yc - distance from the top of the node contents to the top end of the arrow head.
 		%
-		\pgfsavepgf@process\centerpoint{%
+		\pgfextract@process\centerpoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgf@y.5\ht\pgfnodeparttextbox%
 			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
 		}%
-		\pgfsavepgf@process\basepoint{%
+		\pgfextract@process\basepoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgf@y0pt%
 		}%
-		\pgfsavepgf@process\midpoint{%
+		\pgfextract@process\midpoint{%
 			\pgf@x.5\wd\pgfnodeparttextbox%
 			\pgfmathsetlength\pgf@y{+.5ex}%
 		}%
 		%
 		% As the arrow is symmetrical it can be described by only 3 points:
 		%
-		\pgfsavepgf@process\arrowtip{%
+		\pgfextract@process\arrowtip{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x\pgf@xb%
 			\pgf@y0pt\relax%
 		}%
-		\pgfsavepgf@process\beforearrowtip{%
+		\pgfextract@process\beforearrowtip{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x-\pgf@xc%
 			\pgf@y\pgf@ya%
 			\advance\pgf@y\pgf@yc%
 		}%
-		\pgfsavepgf@process\beforearrowhead{%
+		\pgfextract@process\beforearrowhead{%
 			\pgf@x\pgf@xa%
 			\advance\pgf@x-\pgf@xc%
 			\advance\pgf@x\pgfutil@tempdima%
@@ -3293,7 +3339,7 @@
 		%
 		% Calculate the anchor point at the arrow tip.
 		%
-		\pgfsavepgf@process\arrowtipanchor{%
+		\pgfextract@process\arrowtipanchor{%
 			\pgfpointadd{\centerpoint}{\arrowtip}%
 			\pgf@xa\xoutersep\relax%
 			\advance\pgf@x\cosechalftipangle\pgf@xa%
@@ -3312,7 +3358,7 @@
 		\pgfutil@tempdima-\pgfutil@tempdima%
 		\advance\pgfutil@tempdima180pt\relax%
 		\advance\pgfutil@tempdima-\halftipangle pt\relax%
-		\pgfsavepgf@process\beforearrowtipanchor{%
+		\pgfextract@process\beforearrowtipanchor{%
 			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
 			\pgf@xb\pgf@x%
 			\pgf@yb\pgf@y%
@@ -3329,7 +3375,7 @@
 		\pgf@xa\pgfmathresult\pgf@xa%
 		\pgfutil@tempdima-\pgfutil@tempdima%
 		\advance\pgfutil@tempdima180pt\relax%
-		\pgfsavepgf@process\beforearrowheadanchor{%
+		\pgfextract@process\beforearrowheadanchor{%
 			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
 			\pgf@xb\pgf@x%
 			\pgf@yb\pgf@y%
@@ -3517,11 +3563,11 @@
 		\pgfpathclose%
 	}%
 	\anchorborder{%
-		\pgfsavepgf@process\externalpoint{}%			
+		\pgfextract@process\externalpoint{}%			
 		\getdoublearrowpoints%
 		\pgfutil@ifundefined{pgf@singlearrow@referencepoint}{\let\referencepoint\centerpoint}%
 			{\let\referencepoint\pgf@singlearrow@referencepoint}%
-		\pgfsavepgf@process\externalpoint{%
+		\pgfextract@process\externalpoint{%
 			\externalpoint%
 			\pgf@xa\pgf@x%
 			\pgf@ya\pgf@y%
@@ -3553,18 +3599,18 @@
 				\advance\pgf@xa180pt\relax%
 				\ifdim\pgf@x<\pgf@xa%
 					\let\firstpoint\beforearrowheadanchor%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
 							\pgf@x-\pgf@x
 							}{\centerpoint}}%
 				\else%
-					\pgfsavepgf@process\firstpoint{%
+					\pgfextract@process\firstpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
 							\pgf@x-\pgf@x
 							}{\centerpoint}}%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\arrowtipanchor}%
 							\pgf@x-\pgf@x%
@@ -3579,32 +3625,32 @@
 				\pgf@xa-\pgf@xa%
 				\advance\pgf@xa540pt\relax%
 				\ifdim\pgf@x<\pgf@xa%
-					\pgfsavepgf@process\firstpoint{%
+					\pgfextract@process\firstpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\arrowtipanchor}%
 							\pgf@x-\pgf@x%
 						}{\centerpoint}}%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
 							\pgf@x-\pgf@x%
 							\pgf@y-\pgf@y%
 						}{\centerpoint}}%
 				\else%
-					\pgfsavepgf@process\firstpoint{%
+					\pgfextract@process\firstpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
 							\pgf@x-\pgf@x%
 							\pgf@y-\pgf@y%
 						}{\centerpoint}}%
-					\pgfsavepgf@process\secondpoint{%
+					\pgfextract@process\secondpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
 							\pgf@y-\pgf@y%
 						}{\centerpoint}}%
 				\fi%
 			\else%
-				\pgfsavepgf@process\firstpoint{%
+				\pgfextract@process\firstpoint{%
 						\pgfpointadd{%
 							\pgfpointdiff{\beforearrowtipanchor}{\centerpoint}%
 							\pgf@x-\pgf@x%
@@ -3612,10 +3658,10 @@
 				\let\secondpoint\arrowtipanchor%
 			\fi%
 		\fi%
-		\pgfsavepgf@process\firstpoint{%
+		\pgfextract@process\firstpoint{%
 			\pgfmathrotatepointaround{\firstpoint}{\centerpoint}{\rotate}%
 		}%
-		\pgfsavepgf@process\secondpoint{%
+		\pgfextract@process\secondpoint{%
 			\pgfmathrotatepointaround{\secondpoint}{\centerpoint}{\rotate}%
 		}%
 		\pgfpointintersectionoflines{\referencepoint}{\externalpoint}%

@@ -66,484 +66,617 @@
  }
 }
 
-% Keys for shape rounded rectangle
-%
-% /pgf/rounded rectangle sides : Set which corners are rounded.
+\pgfkeys{/pgf/.cd,
+	rounded rectangle left arc/.initial=convex,%
+	rounded rectangle right arc/.initial=convex,%
+	rounded rectangle arc length/.initial=180%
+}%
 
-\pgfkeys{/pgf/rounded rectangle round/.store in=\pgf@roundedrectangle@sides}
+\def\pgf@lib@shapes@roundedrectangle@concave{concave}%
+\def\pgf@lib@shapes@roundedrectangle@convex{convex}%
 
-\def\pgf@roundedrectangle@parsesides{%
-	\edef\pgf@marshal{\noexpand\pgfutil@in@{and}{\pgf@roundedrectangle@sides}}%
-	\pgf@marshal%
-	\ifpgfutil@in@%
-	\else%
-		\edef\pgf@roundedrectangle@sides{\pgf@roundedrectangle@sides\space and \pgf@roundedrectangle@sides}%
-	\fi%
-	\expandafter\pgf@roundedrectangle@@parsesides\pgf@roundedrectangle@sides\pgf@stop}
-
-\def\pgf@roundedrectangle@round{round}%
-
-\def\pgf@roundedrectangle@@parsesides#1 and #2\pgf@stop{%
-	\pgf@roundedrectangle@@@parsesides{#1}%
-	\pgf@roundedrectangle@@@parsesides{#2}%
-}
-\def\pgf@roundedrectangle@@@parsesides#1{%
-	\pgfutil@in@{@#1}{@east@right}%
-	\ifpgfutil@in@%
-		\let\eastside\pgf@roundedrectangle@round%
-	\else%
-		\pgfutil@in@{@#1}{@west@left}%
-		\ifpgfutil@in@%
-			\let\westside\pgf@roundedrectangle@round%
-		\fi%
-	\fi%
-}
-			
-\def\pgf@roundedrectangle@sides{east and west}
-
-
-% Shape rounded rectangle
-%
-\pgfdeclareshape{rounded rectangle}{%
-	\savedmacro\getroundedrectanglepoints{%
-		\let\eastside\pgfutil@empty%
-		\let\westside\pgfutil@empty%
-		\pgf@roundedrectangle@parsesides%
-		\addtosavedmacro\eastside%
-		\addtosavedmacro\westside%
+\pgfdeclareshape{rounded rectangle}{
+	\savedmacro\leftarc{%
+		\edef\leftarc{\pgfkeysvalueof{/pgf/rounded rectangle left arc}}%
+	}
+	\savedmacro\rightarc{%
+		\edef\rightarc{\pgfkeysvalueof{/pgf/rounded rectangle right arc}}%
+	}
+	\savedmacro\roundedrectanglepoints{%
 		%
+		% Get half the arc angle.
+		%
+		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/rounded rectangle arc length}}%
+		\pgf@x.5\pgf@x%
+		\edef\halfarcangle{\pgfmath@tonumber{\pgf@x}}%
+		\addtosavedmacro\halfarcangle%		
+		%
+		% Get the (half) node dimensions x & y.
+		%
+		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/inner xsep}}%
+		\advance\pgf@x.5\wd\pgfnodeparttextbox%
 		\pgfmathsetlength\pgf@y{\pgfkeysvalueof{/pgf/inner ysep}}%
 		\advance\pgf@y.5\ht\pgfnodeparttextbox%
 		\advance\pgf@y.5\dp\pgfnodeparttextbox%
-		\pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/minimum height}}%
-		\pgf@ya.5\pgf@ya%
-		\ifdim\pgf@y<\pgf@ya%
-			\pgf@y\pgf@ya%
-		\fi%
-		\edef\endradius{\the\pgf@y}%
-		\addtosavedmacro\endradius%
 		%
-		\pgf@ya\pgf@y%
+		% Calculate the radii xa & ya of the arc ends.
 		%
-		% Calculate how far the node contents extend into a rounded end.
+		\pgfmathsetlength\pgfutil@tempdima{\pgfkeysvalueof{/pgf/rounded rectangle arc length}}%
+		\pgfutil@tempdima.5\pgfutil@tempdima%
+		\pgfmathcosec@{\pgfmath@tonumber{\pgfutil@tempdima}}%
+		\pgf@ya\pgfmathresult\pgf@y%
+		\pgf@xa\pgf@ya%
 		%
-		\pgfmathaddtolength\pgf@y{-\pgfkeysvalueof{/pgf/inner ysep}}%
-		\pgfmathdivide@{\pgfmath@tonumber{\pgf@y}}{\pgfmath@tonumber{\pgf@ya}}%
-		\pgfmathacos@{\pgfmathresult}%
-		\pgfmathtan@{\pgfmathresult}%
-		\pgf@xb\pgfmathresult\pgf@y%
+		% Calculate the width of the arc end.
 		%
-		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/inner xsep}}%
-		\pgf@x2.0\pgf@x%
-		\advance\pgf@x\wd\pgfnodeparttextbox%
-		\pgf@xa\pgf@x%
-		\ifx\westside\pgf@roundedrectangle@round%
-			\advance\pgf@x-\pgf@xb%
-			\advance\pgf@x\pgf@ya%
+		\pgfmathcos@{\pgfmath@tonumber{\pgfutil@tempdima}}%
+		\pgf@xb-\pgfmathresult\pgf@xa%
+		\advance\pgf@xb\pgf@xa\relax%
+		\edef\arcwidth{\the\pgf@xb}%
+		\addtosavedmacro{\arcwidth}%
+		%
+		% Adjust for minimum height and width.
+		%
+		\pgfmathsetlength\pgf@xb{\pgfkeysvalueof{/pgf/minimum width}}%
+		\advance\pgf@x\arcwidth\relax%
+		\ifdim\pgf@x<.5\pgf@xb%
+			\pgf@x.5\pgf@xb%
 		\fi%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			\advance\pgf@x-\pgf@xb%
-			\advance\pgf@x\pgf@ya%
+		\advance\pgf@x-\arcwidth\relax%
+		%
+		\pgfmathsetlength\pgf@yb{\pgfkeysvalueof{/pgf/minimum height}}%
+		\ifdim\pgf@y<.5\pgf@yb%
+			\pgf@yb.5\pgf@yb%
+			\pgfmathdivide@{\pgfmath@tonumber{\pgf@yb}}{\pgfmath@tonumber{\pgf@y}}%
+			\pgf@y\pgfmathresult\pgf@y%
+			\pgf@ya\pgfmathresult\pgf@ya%
 		\fi%
-		\pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/minimum width}}%
-		\ifdim\pgf@x<\pgf@xa%
-			\pgf@x\pgf@xa%
-		\fi%
-		\ifx\westside\pgf@roundedrectangle@round%
+		%
+		% Get the outer sep.
+		%
+		\pgfmathsetlength\pgf@xb{\pgfkeysvalueof{/pgf/outer xsep}}%
+		\pgfmathsetlength\pgf@yb{\pgfkeysvalueof{/pgf/outer ysep}}%
+		\edef\outerxsep{\the\pgf@xb}%
+		\edef\outerysep{\the\pgf@yb}%
+		\addtosavedmacro\outerxsep%
+		\addtosavedmacro\outerysep%
+		%
+		\edef\xpathradius{\the\pgf@xa}%
+		\edef\ypathradius{\the\pgf@ya}%
+		\addtosavedmacro\xpathradius%
+		\addtosavedmacro\ypathradius%
+		%
+		\advance\pgf@xa\pgf@xb%
+		\advance\pgf@ya\pgf@yb%
+		\edef\xradius{\the\pgf@xa}%
+		\edef\yradius{\the\pgf@ya}%
+		\addtosavedmacro\xradius%
+		\addtosavedmacro\yradius%
+		%
+		\advance\pgf@xa-2.0\pgf@xb%
+		\advance\pgf@ya-2.0\pgf@yb%
+		\edef\xinnerradius{\the\pgf@xa}%
+		\edef\yinnerradius{\the\pgf@ya}%
+		\addtosavedmacro\xinnerradius%
+		\addtosavedmacro\yinnerradius%		
+		%
+		\pgfextract@process\pathcornernoarc{}%
+		\addtosavedmacro\pathcornernoarc%
+		%
+		\pgfextract@process\pathcornerconvexarc{%
+			\pathcornernoarc%
+			\pgf@xc\arcwidth\relax%
+			\advance\pgf@x-.707106\pgf@xc
+		}%
+		\addtosavedmacro\pathcornerconvexarc%
+		%
+		\pgfextract@process\pathcornerconcavearc{%
+			\pathcornernoarc%
+			\advance\pgf@x\arcwidth\relax%
+		}%
+		\addtosavedmacro\pathcornerconcavearc%
+		%
+		\pgfextract@process\anchorcornernoarc{%
+			\pathcornernoarc%
 			\advance\pgf@x\pgf@xb%
-			\advance\pgf@x-\pgf@ya%
-		\fi%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			\advance\pgf@x\pgf@xb%
-			\advance\pgf@x-\pgf@ya%
-		\fi%
-		\divide\pgf@x2\relax%
-		\pgf@xa\pgf@x%
-		%
-		\pgf@xc.5\wd\pgfnodeparttextbox%
-		\pgf@yc.5\ht\pgfnodeparttextbox%
-		\advance\pgf@yc-.5\dp\pgfnodeparttextbox%
-		%
-		\pgf@x\pgf@xa%
-		\advance\pgf@x\pgf@ya%
-		\edef\externalradius{\the\pgf@x}%
-		\addtosavedmacro\externalradius%
-		%
-		\pgfextract@process\northeast{%
-			\pgf@x\pgf@xa%
-			\ifx\eastside\pgf@roundedrectangle@round%
-				\advance\pgf@x-\pgf@xb%
-			\fi%
-			\advance\pgf@x\pgf@xc%
-			\pgf@y\pgf@ya%
-			\advance\pgf@y\pgf@yc%
+			\advance\pgf@y\pgf@yb%
 		}%
-		\pgfextract@process\southwest{%
-			\pgf@x-\pgf@xa%
-			\ifx\westside\pgf@roundedrectangle@round%
-				\advance\pgf@x\pgf@xb%
-			\fi%
-			\advance\pgf@x\pgf@xc%
-			\pgf@y-\pgf@ya%
-			\advance\pgf@y\pgf@yc%
-		}%
-		\addtosavedmacro\northeast%
-		\addtosavedmacro\southwest%	
+		\addtosavedmacro\anchorcornernoarc%
 		%
-		\pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/outer xsep}}%
-		\pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/outer ysep}}%
-		%
-		\pgf@x\endradius\relax%
-		\advance\pgf@x\pgf@xa%
-		\edef\xouterradius{\the\pgf@x}%
-		\pgf@y\endradius\relax%
-		\advance\pgf@y\pgf@ya%
-		\edef\youterradius{\the\pgf@y}%
-		\addtosavedmacro\xouterradius%
-		\addtosavedmacro\youterradius%		
-		%
-		\pgfextract@process\northeastanchor{%
-			\northeast%
-			\ifx\eastside\pgf@roundedrectangle@round%
+		\pgfextract@process\anchorcornerconvexarc{%
+			\pathcornerconvexarc%
+			\ifdim\halfarcangle pt=90pt\relax%
 			\else%
-				\advance\pgf@x\pgf@xa%
+				\pgfmathsin@{\halfarcangle}%
+				\pgf@xa\xpathradius\relax%
+				\pgf@xa\pgfmathresult\pgf@xa%
+				\pgfmathcos@{\halfarcangle}%
+				\pgf@ya\ypathradius\relax%
+				\pgf@ya\pgfmathresult\pgf@ya%
+				%
+				\pgfmathdivide@{\pgfmath@tonumber{\pgf@ya}}{\pgfmath@tonumber{\pgf@xa}}%
+				\pgfmathatan@{\pgfmathresult}%
+				\let\angle\pgfmathresult%				
+				\pgfmathadd@{90}{\angle}%
+				\pgfmathcosec@{\pgfmathresult}%
+				\pgf@xb\pgfmathresult\pgf@xb%
+				\pgfmathadd@{90}{\halfarcangle}%
+				\pgfmathdivide@{\pgfmathresult}{2}%
+				\pgfmathcos@{\pgfmathresult}%
+				\advance\pgf@x\pgfmathresult\pgf@xb%
 			\fi%
-			\advance\pgf@y\pgf@ya%			
+			\advance\pgf@y\pgf@yb%
 		}%
-		\pgfextract@process\southwestanchor{%
-			\southwest%
-			\ifx\westside\pgf@roundedrectangle@round%
+		\addtosavedmacro\anchorcornerconvexarc%
+		%
+		\pgfextract@process\anchorcornerconcavearc{%
+			\pathcornerconcavearc%
+			\ifdim\halfarcangle pt=90pt\relax%
 			\else%
-				\advance\pgf@x-\pgf@xa%
+				\pgfmathsin@{\halfarcangle}%
+				\pgf@xa\xpathradius\relax%
+				\pgf@xa\pgfmathresult\pgf@xa%
+				\pgfmathcos@{\halfarcangle}%
+				\pgf@ya\ypathradius\relax%
+				\pgf@ya\pgfmathresult\pgf@ya%
+				%
+				\pgfmathdivide@{\pgfmath@tonumber{\pgf@ya}}{\pgfmath@tonumber{\pgf@xa}}%
+				\pgfmathatan@{\pgfmathresult}%
+				\pgfmathdivide@{\pgfmathresult}{2}%
+				\let\angle\pgfmathresult%
+				\pgfmathcosec@{\pgfmathresult}%
+				\pgf@xb\pgfmathresult\pgf@xb%
+				\pgfmathcos@{\angle}%
+				\advance\pgf@x\pgfmathresult\pgf@xb%
 			\fi%
-			\advance\pgf@y-\pgf@ya%			
+			\advance\pgf@y\pgf@yb%
 		}%
-		\addtosavedmacro\northeastanchor%
-		\addtosavedmacro\southwestanchor%	
-	}
+		\addtosavedmacro\anchorcornerconcavearc%
+		%	
+	}%
+	\saveddimen\halflinewidth{\pgf@x.5\pgflinewidth}%
 	\savedanchor\centerpoint{%
 		\pgf@x.5\wd\pgfnodeparttextbox%
 		\pgf@y.5\ht\pgfnodeparttextbox%
-		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-	}%
+		\advance\pgf@y-.5\dp\pgfnodeparttextbox%		
+	}	
 	\savedanchor\midpoint{%
 		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgfmathsetlength\pgf@y{+0.5ex}%
-	}%
+		\pgfmathsetlength\pgf@y{+0.5ex}%	
+	}	
 	\savedanchor\basepoint{%
 		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y0pt%
-	}%
-	\anchor{center}{\centerpoint}
+		\pgf@y0pt\relax%
+	}	
+	\anchor{center}{\centerpoint}%
 	\anchor{mid}{\midpoint}%
 	\anchor{mid east}{%
-		\getroundedrectanglepoints%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			\pgfmathpointintersectionoflineandarc%
-				{\midpoint\advance\pgf@x1pt}{\midpoint}{%
-					\northeast%
-					\pgf@xa\pgf@x%
-					\centerpoint%
-					\pgf@x\pgf@xa%
-				}{-90}{90}{\xouterradius and \youterradius}%
+		\roundedrectanglepoints%
+		\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+			\csname pgf@anchor@rounded rectangle@east\endcsname%
 		\else%
-			\pgfpointintersectionoflines%
-				{\midpoint\advance\pgf@x1pt}{\midpoint}{\northeastanchor}{%
-					\northeastanchor%
-					\pgf@xa\pgf@x%
-					\southwestanchor%
-					\pgf@x\pgf@xa%
-				}%
+			\csname pgf@anchor@rounded rectangle@south east\endcsname%
 		\fi%
+		\pgf@xa\pgf@x%
+		\midpoint%
+		\pgf@x\pgf@xa%
 	}%
 	\anchor{mid west}{%
-		\getroundedrectanglepoints%
-		\ifx\westside\pgf@roundedrectangle@round%
-			\pgfmathpointintersectionoflineandarc%
-				{\midpoint\advance\pgf@x-1pt}{\midpoint}{%
-					\southwest%
-					\pgf@xa\pgf@x%
-					\centerpoint%
-					\pgf@x\pgf@xa%
-			}{90}{270}{\xouterradius and \youterradius}%
+		\roundedrectanglepoints%
+		\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+			\csname pgf@anchor@rounded rectangle@west\endcsname%
 		\else%
-			\pgfpointintersectionoflines%
-				{\midpoint\advance\pgf@x-1pt}{\midpoint}{\southwestanchor}{%
-					\northeastanchor%
-					\pgf@ya\pgf@y%
-					\southwestanchor%
-					\pgf@y\pgf@xy%
-				}%
+			\csname pgf@anchor@rounded rectangle@south west\endcsname%
 		\fi%
+		\pgf@xa\pgf@x%
+		\midpoint%
+		\pgf@x\pgf@xa%
 	}%
 	\anchor{base}{\basepoint}%
 	\anchor{base east}{%
-		\getroundedrectanglepoints%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			\pgfmathpointintersectionoflineandarc%
-				{\basepoint\advance\pgf@x1pt}{\basepoint}{%
-					\northeast%
-					\pgf@xa\pgf@x%
-					\centerpoint%
-					\pgf@x\pgf@xa%
-				}{-90}{90}{\xouterradius and \youterradius}%
+		\roundedrectanglepoints%
+		\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+			\csname pgf@anchor@rounded rectangle@east\endcsname%
 		\else%
-			\pgfpointintersectionoflines%
-				{\basepoint\advance\pgf@x1pt}{\basepoint}{\northeastanchor}{%
-					\northeastanchor%
-					\pgf@xa\pgf@x%
-					\southwestanchor%
-					\pgf@x\pgf@xa%
-				}%
+			\csname pgf@anchor@rounded rectangle@south east\endcsname%
 		\fi%
+		\pgf@y0pt%
 	}%
 	\anchor{base west}{%
-		\getroundedrectanglepoints%
-		\ifx\westside\pgf@roundedrectangle@round%
-			\pgfmathpointintersectionoflineandarc%
-				{\basepoint\advance\pgf@x-1pt}{\basepoint}{%
-					\southwest%
-					\pgf@xa\pgf@x%
-					\centerpoint%
-					\pgf@x\pgf@xa%
-			}{90}{270}{\xouterradius and \youterradius}%
+		\roundedrectanglepoints%
+		\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+			\csname pgf@anchor@rounded rectangle@west\endcsname%
 		\else%
-			\pgfpointintersectionoflines%
-				{\basepoint\advance\pgf@x-1pt}{\basepoint}{\southwestanchor}{%
-					\northeastanchor%
-					\pgf@ya\pgf@y%
-					\southwestanchor%
-					\pgf@y\pgf@xy%
-				}%
+			\csname pgf@anchor@rounded rectangle@south west\endcsname%
 		\fi%
-	}%
-	\anchor{north east}{%
-		\getroundedrectanglepoints%
-		\northeastanchor%
-	}%
-	\anchor{south east}{%
-		\getroundedrectanglepoints%
-		\northeastanchor%
-		\pgf@xa\pgf@x%
-		\southwestanchor%
-		\pgf@x\pgf@xa%
-	}%
-	\anchor{south west}{%
-		\getroundedrectanglepoints%
-		\southwestanchor%
-	}%
-	\anchor{north west}{%
-		\getroundedrectanglepoints%
-		\northeastanchor%
-		\pgf@ya\pgf@y%
-		\southwestanchor%
-		\pgf@y\pgf@ya%
+		\pgf@y0pt%
 	}%
 	\anchor{north}{%
-		\getroundedrectanglepoints%
-		\northeastanchor%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\pgf@y\pgf@ya%
-	}%
-	\anchor{south}{%
-		\getroundedrectanglepoints%
-		\southwestanchor%
-		\pgf@ya\pgf@y%
-		\centerpoint%
-		\pgf@y\pgf@ya%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\anchorcornernoarc%
+			\pgf@x0pt%
+		}%
 	}%
 	\anchor{east}{%
-		\getroundedrectanglepoints%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			\northeast%
-			\pgf@xa\pgf@x%
-			\centerpoint%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x\xouterradius\relax%
-		\else%
-			\northeastanchor%
-			\pgf@xa\pgf@x%
-			\centerpoint%
-			\pgf@x\pgf@xa%
-		\fi%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+				\pathcornerconvexarc%
+				\advance\pgf@x\arcwidth\relax%
+				\advance\pgf@x\outerxsep\relax%
+			\else%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+					\pathcornerconcavearc%
+					\advance\pgf@x-\arcwidth\relax%
+					\advance\pgf@x\outerxsep\relax%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%	
+			\pgf@y0pt\relax%	
+		}%
 	}%
 	\anchor{west}{%
-		\getroundedrectanglepoints%
-		\ifx\westside\pgf@roundedrectangle@round%
-			\southwest%
-			\pgf@xa\pgf@x%
-			\centerpoint%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x-\xouterradius\relax%
-		\else%
-			\southwestanchor%
-			\pgf@xa\pgf@x%
-			\centerpoint%
-			\pgf@x\pgf@xa%
-		\fi%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+				\pathcornerconvexarc%
+				\advance\pgf@x\arcwidth\relax%
+				\advance\pgf@x\outerxsep\relax%
+			\else%
+				\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+					\pathcornerconcavearc%
+					\advance\pgf@x-\arcwidth\relax%
+					\advance\pgf@x\outerxsep\relax%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%	
+			\pgf@x-\pgf@x%
+			\pgf@y0pt\relax%	
+		}%
+	}%
+	\anchor{south}{%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\anchorcornernoarc%
+			\pgf@x0pt%
+			\pgf@y-\pgf@y
+		}%
+	}%
+	\anchor{north east}{%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+				\anchorcornerconvexarc%
+			\else%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+					\anchorcornerconcavearc%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%		
+		}%
+	}%
+	\anchor{north west}{%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+				\anchorcornerconvexarc%
+			\else%
+				\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+					\anchorcornerconcavearc%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%
+			\pgf@x-\pgf@x%		
+		}%
+	}%
+	\anchor{south west}{%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+				\anchorcornerconvexarc%
+			\else%
+				\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+					\anchorcornerconcavearc%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%
+			\pgf@x-\pgf@x%
+			\pgf@y-\pgf@y%		
+		}%
+	}%
+	\anchor{south east}{%
+		\pgfpointadd{\centerpoint}{%
+			\roundedrectanglepoints%
+			\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+				\anchorcornerconvexarc%
+			\else%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+					\anchorcornerconcavearc%
+				\else%
+					\anchorcornernoarc%
+				\fi%
+			\fi%
+			\pgf@y-\pgf@y%		
+		}%
+	}%
+	\anchor{shape center}{%
+		\roundedrectanglepoints%
+		\pgfpointadd{\centerpoint}{%
+			\pgfpointadd{%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+					\pathcornerconvexarc%
+				\else%
+					\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+						\pathcornerconcavearc%
+					\else%
+						\pathcornernoarc%
+					\fi%
+				\fi}%
+			{%
+				\pgfpointadd{%
+					\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+						\pathcornerconvexarc%
+					\else%
+						\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+							\pathcornerconcavearc%
+						\else%
+							\pathcornernoarc%
+						\fi%
+					\fi
+					\pgf@x-\pgf@x}%
+				{%
+					\pgfpointadd{%
+						\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+							\pathcornerconvexarc%
+						\else%
+							\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+								\pathcornerconcavearc%
+							\else%
+								\pathcornernoarc%
+							\fi%
+						\fi
+						\pgf@x-\pgf@x%
+						\pgf@y-\pgf@y}% 
+					{%
+						\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+							\pathcornerconvexarc%
+						\else%
+							\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+								\pathcornerconcavearc%
+							\else%
+								\pathcornernoarc%
+							\fi%
+						\fi
+						\pgf@y-\pgf@y%
+					}%
+				}%
+			}%
+			\divide\pgf@x4\relax%
+			\divide\pgf@y4\relax%
+		}%
 	}%
 	\backgroundpath{%
-		\getroundedrectanglepoints%
-		\pgfpathmoveto{%
-			\northeast%
-			\pgf@ya\pgf@y%
-			\centerpoint%
-			\pgf@y\pgf@ya%
+		{%
+			\pgftransformshift{\centerpoint}%
+			\roundedrectanglepoints%
+			%
+			\pgf@x\xradius\relax%
+			\pgf@y\yradius\relax%
+			\advance\pgf@x-\outerxsep\relax%
+			\advance\pgf@y-\outerysep\relax%
+			\edef\xradius{\the\pgf@x}%
+			\edef\yradius{\the\pgf@y}%
+			%
+			\pgfpathmoveto{%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+					\pathcornerconvexarc%
+				\else%
+					\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+						\pathcornerconcavearc%
+					\else%
+						\pathcornernoarc%
+					\fi%
+				\fi%			
+			}%
+			\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+				\pgfpatharc{\halfarcangle}{-\halfarcangle}{\xradius and \yradius}%
+			\else%
+				\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+					\pgfpatharc{180-\halfarcangle}{180+\halfarcangle}{\xradius and \yradius}%
+				\else%
+					\pgfpathlineto{\pathcornernoarc\pgf@y-\pgf@y}%
+				\fi%
+			\fi%
+			\pgfpathlineto{%
+				\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+					\pathcornerconvexarc%
+				\else%
+					\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+						\pathcornerconcavearc%
+					\else%
+						\pathcornernoarc%
+					\fi%
+				\fi%	
+				\pgf@x-\pgf@x%
+				\pgf@y-\pgf@y%		
+			}%
+			\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+				\pgfpatharc{180+\halfarcangle}{180-\halfarcangle}{\xradius and \yradius}%
+			\else%
+				\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+					\pgfpatharc{-\halfarcangle}{\halfarcangle}{\xradius and \yradius}%
+				\else%
+					\pgfpathlineto{\pathcornernoarc\pgf@x-\pgf@x}%
+				\fi%
+			\fi%
+			\pgfpathclose%
 		}%
-		\ifx\westside\pgf@roundedrectangle@round%
-			%
-			% Rounded corners will mess up the ends so...
-			%
-			{%
-				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
-				\pgfpathlineto{%
-					\southwest%
-					\pgf@xa\pgf@x%
-					\northeast%
-					\pgf@x\pgf@xa%
-				}%
-				\pgfpatharc{90}{270}{\endradius}%
-			}%
-		\else%
-			\pgfpathlineto{%
-				\southwest%
-				\pgf@xa\pgf@x%
-				\northeast%
-				\pgf@x\pgf@xa%
-			}%
-			\pgfpathlineto{\southwest}%
-		\fi%
-		\ifx\eastside\pgf@roundedrectangle@round%
-			%
-			% Again, rounded corners will mess up the ends...
-			%
-			{%
-				\pgfsetcornersarced{\pgfqpoint{0pt}{0pt}}%
-				\pgfpathlineto{%
-					\southwest%
-					\pgf@ya\pgf@y%
-					\northeast%
-					\pgf@y\pgf@ya%
-				}%
-				\pgfpatharc{-90}{90}{\endradius}%
-			}%
-		\else%
-			\pgfpathlineto{%
-				\southwest%
-				\pgf@ya\pgf@y%
-				\northeast%
-				\pgf@y\pgf@ya%
-			}%
-			\pgfpathlineto{\northeast}%
-		\fi%
-		\pgfpathclose%	
-	}%
+	}
 	\anchorborder{%
 		\pgfextract@process\externalpoint{%
-			\pgf@xa\pgf@x%
-			\pgf@ya\pgf@y%
-			\centerpoint%
-			\advance\pgf@x\pgf@xa%
-			\advance\pgf@y\pgf@ya%
+			\pgfextract@process\externalpoint{}%
+			\pgfpointadd{\centerpoint}{\externalpoint}%
 		}%
+		\roundedrectanglepoints%
+		%
 		\pgfmathanglebetweenpoints{\centerpoint}{\externalpoint}%
 		\let\externalangle\pgfmathresult%
 		%
-		\getroundedrectanglepoints%
-		\pgfmathanglebetweenpoints{\centerpoint}{%
-			\northeastanchor%
-			\pgf@ya\pgf@y%
-			\southwestanchor%
-			\pgf@y\pgf@ya%
-		}%
+		\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@west\endcsname}%
 		\ifdim\externalangle pt<\pgfmathresult pt\relax%
-			\pgfmathanglebetweenpoints{\centerpoint}{\northeastanchor}%
+			\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@north\endcsname}%
 			\ifdim\externalangle pt<\pgfmathresult pt\relax%
-				\ifx\eastside\pgf@roundedrectangle@round%
-					\pgfmathpointintersectionoflineandarc%
-						{\externalpoint}{\centerpoint}{%
-							\northeast%
-							\pgf@xa\pgf@x%
-							\centerpoint%
-							\pgf@x\pgf@xa%
-						}{0}{90}{\xouterradius and \youterradius}%
-				\else%
-					\pgfpointintersectionoflines%
-						{\centerpoint}{\externalpoint}{\northeastanchor}{%
-							\northeastanchor%
-							\pgf@xa\pgf@x%
-							\southwestanchor%
-							\pgf@x\pgf@xa%
+				\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@north east\endcsname}%
+				\ifdim\externalangle pt<\pgfmathresult pt\relax%
+					\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+						\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
+						{%
+							\csname pgf@anchor@rounded rectangle@east\endcsname%
+							\advance\pgf@x-\xradius\relax%
 						}%
-				\fi%
-			\else%
-				\pgfpointintersectionoflines%
-					{\centerpoint}{\externalpoint}{\northeastanchor}{%
-						\northeastanchor%
-						\pgf@ya\pgf@y%
-						\southwestanchor%
-						\pgf@y\pgf@ya%
-					}%
-			\fi%
-		\else%
-			\pgfmathanglebetweenpoints{\centerpoint}{\southwestanchor}%
-			\ifdim\externalangle pt>\pgfmathresult pt\relax%
-				\pgfmathanglebetweenpoints{\centerpoint}{%
-					\southwestanchor%
-					\pgf@ya\pgf@y
-					\northeastanchor%
-					\pgf@y\pgf@ya%
-				}%
-				\ifdim\externalangle pt>\pgfmathresult pt\relax%
-					\ifx\eastside\pgf@roundedrectangle@round%
-						\pgfmathpointintersectionoflineandarc%
-							{\externalpoint}{\centerpoint}{%
-								\northeast%
-								\pgf@xa\pgf@x%
-								\centerpoint%
-								\pgf@x\pgf@xa%
-							}{270}{360}{\xouterradius and \youterradius}%
+						{0}{\halfarcangle}{\xradius and \yradius}%
 					\else%
-						\pgfpointintersectionoflines%
-							{\centerpoint}{\externalpoint}{\northeastanchor}{%
-								\northeastanchor%
+						\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+							\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
+							{%
+								\centerpoint%
 								\pgf@xa\pgf@x%
-								\southwestanchor%
-								\pgf@x\pgf@xa%
+								\pgf@ya\pgf@y%
+								\pathcornernoarc%
+								\advance\pgf@x\pgf@xa%
+								\pgf@y\pgf@ya%
+								\advance\pgf@x\xpathradius\relax%
 							}%
+							{180-\halfarcangle}{180}{\xinnerradius and \yinnerradius}%
+						\else%
+						\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+							{\csname pgf@anchor@rounded rectangle@north east\endcsname}%
+							{\csname pgf@anchor@rounded rectangle@south east\endcsname}%
+						\fi%
 					\fi%
 				\else%
-					\pgfpointintersectionoflines%
-						{\centerpoint}{\externalpoint}{\southwestanchor}{%
-							\northeastanchor%
-							\pgf@xa\pgf@x%
-							\southwestanchor%
-							\pgf@x\pgf@xa%
-						}%
+					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+						{\csname pgf@anchor@rounded rectangle@north east\endcsname}%
+						{\csname pgf@anchor@rounded rectangle@north west\endcsname}%
 				\fi%
 			\else%
-				\ifx\westside\pgf@roundedrectangle@round%
-					\pgfmathpointintersectionoflineandarc%
-						{\externalpoint}{\centerpoint}{%
-							\southwest%
-							\pgf@xa\pgf@x%
-							\centerpoint%
-							\pgf@x\pgf@xa%
-						}{90}{270}{\xouterradius and \youterradius}%
+				\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@north west\endcsname}%
+				\ifdim\externalangle pt<\pgfmathresult pt\relax%
+					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+						{\csname pgf@anchor@rounded rectangle@north east\endcsname}%
+						{\csname pgf@anchor@rounded rectangle@north west\endcsname}%
 				\else%
-					\pgfpointintersectionoflines%
-						{\centerpoint}{\externalpoint}{\southwestanchor}{%
-							\northeastanchor%
-							\pgf@ya\pgf@y%
-							\southwestanchor%
-							\pgf@y\pgf@ya%
+					\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+							\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
+							{%
+								\csname pgf@anchor@rounded rectangle@west\endcsname%
+								\advance\pgf@x\xradius\relax%
+							}%
+							{180-\halfarcangle}{180}{\xradius and \yradius}%
+					\else%
+						\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+							\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
+								{%
+									\centerpoint%
+									\pgf@xa\pgf@x%
+									\pgf@ya\pgf@y%
+									\pathcornernoarc%
+									\pgf@x-\pgf@x%
+									\advance\pgf@x\pgf@xa%
+									\pgf@y\pgf@ya%
+									\advance\pgf@x-\xpathradius\relax%
+								}%
+								{0}{\halfarcangle}{\xinnerradius and \yinnerradius}%
+						\else%
+							\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+								{\csname pgf@anchor@rounded rectangle@north west\endcsname}%
+								{\csname pgf@anchor@rounded rectangle@south west\endcsname}%
+						\fi%
+					\fi%
+				\fi%
+			\fi%
+		\else%
+			\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@south\endcsname}%
+			\ifdim\externalangle pt<\pgfmathresult pt\relax%
+				\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@south west\endcsname}%
+				\ifdim\externalangle pt<\pgfmathresult pt\relax%
+					\ifx\leftarc\pgf@lib@shapes@roundedrectangle@convex%
+						\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
+						{%
+							\csname pgf@anchor@rounded rectangle@west\endcsname%
+							\advance\pgf@x\xradius\relax%
 						}%
+						{180}{180+\halfarcangle}{\xradius and \yradius}%
+					\else%
+						\ifx\leftarc\pgf@lib@shapes@roundedrectangle@concave%
+							\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
+								{%
+									\centerpoint%
+									\pgf@xa\pgf@x%
+									\pgf@ya\pgf@y%
+									\pathcornernoarc%
+									\pgf@x-\pgf@x%
+									\advance\pgf@x\pgf@xa%
+									\pgf@y\pgf@ya%
+									\advance\pgf@x-\xpathradius\relax%
+								}%
+								{360-\halfarcangle}{360}{\xinnerradius and \yinnerradius}%
+						\else%
+							\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+								{\csname pgf@anchor@rounded rectangle@north west\endcsname}%
+								{\csname pgf@anchor@rounded rectangle@south west\endcsname}%
+						\fi%
+					\fi%
+				\else%
+					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+						{\csname pgf@anchor@rounded rectangle@south west\endcsname}%
+						{\csname pgf@anchor@rounded rectangle@south east\endcsname}%
+				\fi%
+			\else%
+				\pgfmathanglebetweenpoints{\centerpoint}{\csname pgf@anchor@rounded rectangle@south east\endcsname}%
+				\ifdim\externalangle pt<\pgfmathresult pt\relax%
+					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+						{\csname pgf@anchor@rounded rectangle@south west\endcsname}%
+						{\csname pgf@anchor@rounded rectangle@south east\endcsname}%
+				\else%
+					\ifx\rightarc\pgf@lib@shapes@roundedrectangle@convex%
+						\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
+						{%
+							\csname pgf@anchor@rounded rectangle@east\endcsname%
+							\advance\pgf@x-\xradius\relax%
+						}%
+						{360-\halfarcangle}{360}{\xradius and \yradius}%
+					\else%
+						\ifx\rightarc\pgf@lib@shapes@roundedrectangle@concave%
+							\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
+								{%
+									\centerpoint%
+									\pgf@xa\pgf@x%
+									\pgf@ya\pgf@y%
+									\pathcornernoarc%
+									\advance\pgf@x\pgf@xa%
+									\pgf@y\pgf@ya%
+									\advance\pgf@x\xpathradius\relax%
+								}%
+								{180}{180+\halfarcangle}{\xinnerradius and \yinnerradius}%
+						\else%
+							\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
+								{\csname pgf@anchor@rounded rectangle@south east\endcsname}%
+								{\csname pgf@anchor@rounded rectangle@north east\endcsname}%
+						\fi%
+					\fi%
 				\fi%
 			\fi%
 		\fi%
-	}
+	}%
 }
+
 
 
 
