@@ -529,14 +529,41 @@
 % /pgf/cloud puffs    : the number of cloud puffs.
 % /pgf/cloud puff arc : the length of the cloud puff arc.
 
-\pgfkeys{/pgf/cloud puffs/.initial=10}%
-
-\pgfkeys{/pgf/cloud puff arc/.initial=150}%
-
 \newif\ifpgfcloudanchorsuseellipse%
-\pgfkeys{/pgf/cloud anchors use ellipse/.is if=pgfcloudanchorsuseellipse}%
+\newif\ifpgfcloudignoresaspect%
+\pgfcloudignoresaspectfalse%
+\pgfkeys{/pgf/.cd,
+	cloud puffs/.initial=10,
+	cloud puff arc/.initial=150,
+	cloud ignores aspect/.is if=pgfcloudignoresaspect,
+	cloud anchors use ellipse/.is if=pgfcloudanchorsuseellipse
+}%
 
 
+% If symbol library is loaded separately these need to be defined.
+%
+\pgfkeys{/pgf/.cd,
+	aspect/.code={\pgfsetshapeaspect{#1}},% this for tikz...
+	shape aspect/.initial=1,% but this is consistent with other pgfset stuff. 
+	shape aspect/.code={%
+		\pgfkeys{/pgf/aspect=#1}%
+		\pgfkeyssetvalue{/pgf/shape aspect}{#1}
+	}%
+}
+
+\def\pgfsetshapeaspect#1{%
+  \def\pgfshapeaspect{#1}%
+  % Invert
+  \pgfutil@tempdima=#1pt%
+  \pgfutil@tempdima=.125\pgfutil@tempdima%
+  \c@pgf@counta=\pgfutil@tempdima\relax% 8192*determinant
+  \pgfutil@tempdima=8192pt%
+  \divide\pgfutil@tempdima by\c@pgf@counta%
+  \edef\pgfshapeaspectinverse{\pgf@sys@tonumber{\pgfutil@tempdima}}
+}
+
+\pgfsetshapeaspect{1}
+%
 
 % Shape cloud.
 %
@@ -563,8 +590,25 @@
 		\advance\pgf@y.5\dp\pgfnodeparttextbox%
 		\pgf@y1.4142135\pgf@y%
 		%
-		\edef\xinnerradius{\the\pgf@x}%
-		\edef\yinnerradius{\the\pgf@y}%
+		% Adjust for shape aspect.
+		%
+		\ifpgfcloudignoresaspect%
+			\pgf@xc\pgf@x%
+			\pgf@yc\pgf@y%
+		\else%
+			\pgf@xc\pgfshapeaspect\pgf@y%
+			\ifdim\pgf@xc<\pgf@x%
+				\pgf@xc\pgf@x%
+			\fi%
+	    \pgf@yc\pgfshapeaspectinverse\pgf@xc%
+	  	\ifdim\pgf@yc<\pgf@y%
+	  		\pgf@yc\pgf@y%
+				\pgf@xc\pgfshapeaspect\pgf@y%
+			\fi%
+		\fi%
+    %
+		\edef\xinnerradius{\the\pgf@xc}%
+		\edef\yinnerradius{\the\pgf@yc}%
 		%
 		% Get the larger of the outer sep.
 		%	
@@ -671,7 +715,7 @@
 		\pgf@yc\coshalfanglestep pt\relax%
 		\pgf@yc\coshalfanglestep\pgf@yc%
 		\advance\pgf@xc\pgf@yc\relax%
-		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}% cos^2(a/2)-k^2
+		\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@xc}}% cos^2(p/2)-k^2
 		%
 		\pgf@x\coshalfanglestep\pgf@xa%
 		\advance\pgf@x-\k\pgf@ya%
@@ -1331,139 +1375,93 @@
 
 
 
+% Internal macros for signal shape.
+%
+\def\pgf@lib@shapes@signal@nowhere{nowhere}%
+\def\pgf@lib@shapes@signal@from{from}%
+\def\pgf@lib@shapes@signal@to{to}%
+
+\let\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
+\let\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
+\let\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
+\let\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
+
+\def\pgf@lib@shapes@signal@parsedirection#1#2{%
+	\let\pgf@lib@shapes@signal@direction#2%
+	\pgfutil@in@{and}{#1}%
+	\ifpgfutil@in@%
+		\pgf@lib@shapes@signal@@parsedirection#1\pgf@lib%
+	\else%
+		\pgf@lib@shapes@signal@@parsedirection#1 and #1\pgf@lib%
+	\fi
+}
+\def\pgf@lib@shapes@signal@@parsedirection#1 and #2\pgf@lib{%
+	\pgfutil@in@{nowhere}{#1}%
+	\ifpgfutil@in@
+		\pgf@lib@shapes@signal@@donowhere%
+	\else%
+		\pgf@lib@shapes@signal@@@parsedirection{#1}%
+		\pgf@lib@shapes@signal@@@parsedirection{#2}%
+	\fi%
+}
+\def\pgf@lib@shapes@signal@@@parsedirection#1{%
+	\pgfutil@in@{ #1 }{ east right }%
+	\ifpgfutil@in@%
+		\let\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@direction%
+		\let\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
+		\let\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\pgfutil@in@{ #1 }{ left west }%
+	\ifpgfutil@in@%
+		\let\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@direction%
+		\let\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
+		\let\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\pgfutil@in@{ #1 }{ above up north }%
+	\ifpgfutil@in@%
+		\let\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@direction%
+		\let\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
+		\let\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\pgfutil@in@{ #1 }{ below down south }%
+	\ifpgfutil@in@%
+		\let\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@direction%
+		\let\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
+		\let\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
+	\fi%
+}
+
+\def\pgf@lib@shapes@signal@@donowhere{%
+	\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@direction%
+		\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@direction%
+		\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@direction%
+		\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
+	\fi%
+	\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@direction%
+		\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
+	\fi%
+}
+
+
 % Keys for signal shape:
 %
-% /pgf/signal pointer angle
-% /pgf/signal from
-% /pgf/signal to
-%
-\pgfkeys{/pgf/signal pointer angle/.code={%
-		\pgfmathparse{#1}%
-		\pgfmathmod@{\pgfmathresult}{360}%
-		\ifdim\pgfmathresult pt<0pt\relax%
-			\pgfmathadd@{\pgfmathresult}{360}%
-		\fi%
-		\pgfkeyslet{/pgf/signal pointer angle}{\pgfmathresult}%
-	}%
-}		
-\pgfkeys{/pgf/signal pointer angle=90}
-
-\pgfkeys{/pgf/signal direction/north/.code={%
-		\pgfkeyssetvalue{/pgf/signal direction/north}{#1}%
-		\ifnum#1=0\relax%
-		\else%
-			\pgfkeyssetvalue{/pgf/signal direction/east}{0}% I am not keen on numerical constants,
-			\pgfkeyssetvalue{/pgf/signal direction/west}{0}% Oh well...
-		\fi%
-	}%
+\pgfkeys{/pgf/.cd,
+	signal pointer angle/.initial=90,
+	signal from/.code={\pgf@lib@shapes@signal@parsedirection{#1}{\pgf@lib@shapes@signal@from}},
+	signal to/.code={\pgf@lib@shapes@signal@parsedirection{#1}{\pgf@lib@shapes@signal@to}}
 }
 
-\pgfkeys{/pgf/signal direction/south/.code={%
-		\pgfkeyssetvalue{/pgf/signal direction/south}{#1}%
-		\ifnum#1=0\relax%
-		\else%
-			\pgfkeyssetvalue{/pgf/signal direction/east}{0}%
-			\pgfkeyssetvalue{/pgf/signal direction/west}{0}%
-		\fi%
-	}%
+
+\pgfkeys{/pgf/.cd,
+	signal to=east,
+	signal from=nowhere
 }
 
-\pgfkeys{/pgf/signal direction/east/.code={%
-		\pgfkeyssetvalue{/pgf/signal direction/east}{#1}%
-		\ifnum#1=0\relax%
-		\else%
-			\pgfkeyssetvalue{/pgf/signal direction/south}{0}%
-			\pgfkeyssetvalue{/pgf/signal direction/north}{0}%
-		\fi%
-	}%
-}
 
-\pgfkeys{/pgf/signal direction/west/.code={%
-		\pgfkeyssetvalue{/pgf/signal direction/west}{#1}%
-		\ifnum#1=0\relax%
-		\else%
-			\pgfkeyssetvalue{/pgf/signal direction/north}{0}%
-			\pgfkeyssetvalue{/pgf/signal direction/south}{0}%
-		\fi%
-	}%
-}
-\pgfkeys{/pgf/signal direction/.cd, north=0, south=0, east=0, west=0}
-
-\pgfkeys{/pgf/signal from/.cd,
-		.code={%
-			\pgfutil@in@{and}{#1}%
-			\ifpgfutil@in@
-				\def\pgf@marshall##1 and##2\@@{%
-					\pgfkeys{/pgf/signal from/.cd,##1,##2}%
-				}%
-				\pgf@marshall#1\@@%
-			\else%
-				\pgfkeys{/pgf/signal from/#1}
-			\fi%
-		},
-		north/.style={/pgf/signal direction/north=-1},
-		south/.style={/pgf/signal direction/south=-1},
-		east/.style={/pgf/signal direction/east=-1},
-		west/.style={/pgf/signal direction/west=-1},
-		above/.style={/pgf/signal direction/north=-1},
-		below/.style={/pgf/signal direction/south=-1},
-		left/.style={/pgf/signal direction/east=-1},
-		right/.style={/pgf/signal direction/west=-1},
-		nowhere/.code={%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}<0\relax%
-				\pgfkeys{/pgf/signal direction/north=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}<0\relax%
-				\pgfkeys{/pgf/signal direction/south=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}<0\relax%
-				\pgfkeys{/pgf/signal direction/east=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}<0\relax%
-				\pgfkeys{/pgf/signal direction/west=0}%
-			\fi%
-		}%		
-}%
-
-\pgfkeys{/pgf/signal to/.cd,
-		.code={%
-			\pgfutil@in@{and}{#1}%
-			\ifpgfutil@in@
-				\def\pgf@marshall##1 and##2\@@{%
-					\pgfkeys{/pgf/signal to/.cd,##1,##2}%
-				}%
-				\pgf@marshall#1\@@%
-			\else%
-				\pgfkeys{/pgf/signal to/#1}
-			\fi%
-		},
-		north/.style={/pgf/signal direction/north=1},
-		south/.style={/pgf/signal direction/south=1},
-		east/.style={/pgf/signal direction/east=1},
-		west/.style={/pgf/signal direction/west=1},
-		above/.style={/pgf/signal direction/north=1},
-		below/.style={/pgf/signal direction/south=1},
-		left/.style={/pgf/signal direction/east=1},
-		right/.style={/pgf/signal direction/west=1},
-		nowhere/.code={%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}>0\relax%
-				\pgfkeys{/pgf/signal direction/north=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}>0\relax%
-				\pgfkeys{/pgf/signal direction/south=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}>0\relax%
-				\pgfkeys{/pgf/signal direction/east=0}%
-			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}>0\relax%
-				\pgfkeys{/pgf/signal direction/west=0}%
-			\fi%
-		}%			
-}%
-
-\pgfkeys{/pgf/signal from=nowhere, /pgf/signal to=left}
-
-	
 % Shape signal
 %
 %
@@ -1480,7 +1478,7 @@
 		%
 		% Get some useful trig. stuff
 		%
-		\pgfkeysgetvalue{/pgf/signal pointer angle}{\pointerangle}%
+		\pgfmathsetmacro\pointerangle{\pgfkeysvalueof{/pgf/signal pointer angle}}%
 		\pgfmathdivide@{\pointerangle}{2}%
 		\let\halfpointerangle\pgfmathresult%
 		\pgfmathcosec@{\halfpointerangle}%
@@ -1496,8 +1494,8 @@
 		%
 		% Get the larger of the outer sep.
 		%
-		\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
-		\pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
+		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/outer xsep}}%
+		\pgfmathsetlength\pgf@y{\pgfkeysvalueof{/pgf/outer ysep}}%
 		\ifdim\pgf@x>\pgf@y%
 			\pgf@y\pgf@x%
 		\fi%
@@ -1520,11 +1518,11 @@
 		%
 		% Get the (half) dimensions of the node.
 		%
-		\pgfmathsetlength\pgf@xa{+\pgfkeysvalueof{/pgf/inner xsep}}%
-		\pgfmathaddtolength\pgf@xa{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@ya{+\pgfkeysvalueof{/pgf/inner ysep}}%
-		\pgfmathaddtolength\pgf@ya{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@ya{+.5\dp\pgfnodeparttextbox}%
+		\pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/inner xsep}}%
+		\advance\pgf@xa.5\wd\pgfnodeparttextbox%
+		\pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/inner ysep}}%
+		\advance\pgf@ya.5\ht\pgfnodeparttextbox%
+		\advance\pgf@ya.5\dp\pgfnodeparttextbox%
 		%
 		% Get the distance a pointer sticks out to the side...
 		%
@@ -1539,15 +1537,15 @@
 		% Adjust for minimum height.
 		%
 		\pgfutil@tempdima2.0\pgf@ya%
-		\ifnum\pgfkeysvalueof{/pgf/signal direction/north}=0\relax%
+		\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
 		\else%
 			\advance\pgfutil@tempdima\pgf@yb%
 		\fi%
-		\ifnum\pgfkeysvalueof{/pgf/signal direction/south}=0\relax%
+		\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
 		\else%
 			\advance\pgfutil@tempdima\pgf@yb%
 		\fi%
-		\pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/minimum height}}%
+		\pgfmathsetlength\pgf@y{\pgfkeysvalueof{/pgf/minimum height}}%
 		\ifdim\pgfutil@tempdima<\pgf@y%
 			\pgfmathreciprocal@{\pgfmath@tonumber{\pgfutil@tempdima}}%
 			\pgfutil@tempdima\pgfmathresult\pgf@y%
@@ -1560,15 +1558,15 @@
 		% Adjust for minimum width.
 		%
 		\pgfutil@tempdima2.0\pgf@xa%
-		\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
+		\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
 		\else%
 			\advance\pgfutil@tempdima\pgf@xb%
 		\fi%
-		\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
+		\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
 		\else%
 			\advance\pgfutil@tempdima\pgf@xb%
 		\fi%
-		\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/minimum width}}%
+		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/minimum width}}%
 		\ifdim\pgfutil@tempdima<\pgf@x%
 			\pgfmathreciprocal@{\pgfmath@tonumber{\pgfutil@tempdima}}%
 			\pgfutil@tempdima\pgfmathresult\pgf@x%
@@ -1583,28 +1581,28 @@
 		\pgfextract@process\north{%
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}>0\relax%
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@to%
 				\advance\pgf@y\pgf@yb%
 			\fi%
 		}%
 		\pgfextract@process\south{%
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}>0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@to%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
 		}%
 		\pgfextract@process\east{%
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}>0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@to%
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
 		\pgfextract@process\west{%
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}>0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@to%
 				\advance\pgf@x-\pgf@xb%
 			\fi%
 		}%
@@ -1612,10 +1610,10 @@
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
 			\advance\pgf@x\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}<0\relax%
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@from%
 				\advance\pgf@y\pgf@yb%
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}<0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@from%
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
@@ -1623,10 +1621,10 @@
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
 			\advance\pgf@x\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}<0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@from%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}<0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@from%
 				\advance\pgf@x\pgf@xb%
 			\fi%
 		}%
@@ -1634,10 +1632,10 @@
 			\centerpoint%
 			\advance\pgf@y-\pgf@ya%
 			\advance\pgf@x-\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}<0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@from%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}<0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@from%
 				\advance\pgf@x-\pgf@xb%
 			\fi%
 		}%
@@ -1645,10 +1643,10 @@
 			\centerpoint%
 			\advance\pgf@y\pgf@ya%
 			\advance\pgf@x-\pgf@xa%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}<0\relax%
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@from%
 				\advance\pgf@y\pgf@yb%
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}<0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@from%
 				\advance\pgf@x-\pgf@xb%
 			\fi%
 		}%
@@ -1665,7 +1663,7 @@
 		%
 		\pgfextract@process\northmiter{%
 			\pgf@x0pt%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}=0\relax%
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@nowhere%
 				\pgf@y\pgf@yc%
 			\else%
 				\pgf@y\pointerapexmiter\relax%
@@ -1673,7 +1671,7 @@
 		}%
 		\pgfextract@process\southmiter{%
 			\pgf@x0pt%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}=0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@nowhere%
 				\pgf@y-\pgf@yc%
 			\else%
 				\pgf@y-\pointerapexmiter\relax%
@@ -1681,7 +1679,7 @@
 		}%
 		\pgfextract@process\eastmiter{%
 			\pgf@y0pt%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
 				\pgf@x\pgf@yc%
 			\else%
 				\pgf@x\pointerapexmiter\relax%
@@ -1689,99 +1687,99 @@
 		}%
 		\pgfextract@process\westmiter{%
 			\pgf@y0pt%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
 				\pgf@x-\pgf@yc%
 			\else%
 				\pgf@x-\pointerapexmiter\relax%
 			\fi%
 		}%
 		\pgfextract@process\northeastmiter{%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
 				\pgf@x\pgf@yc
 				\pgf@y\pgf@yc%
 			\else
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/east}<0\relax%
+				\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@from%
 					\pgfqpointpolar{\quarterpointerangle}{\fromcornermiter}
 				\else%
-					\ifnum\pgfkeysvalueof{/pgf/signal direction/east}>0\relax%
+					\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@to%
 						\pgfqpointpolar{\complementquarterpointerangle}{\tocornermiter}%
 					\fi%
 				\fi%	
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}<0\relax%
-				\pgfqpointpolar{\complementquarterpointerangle}{\fromcornermiter}
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@from%
+				\pgfqpointpolar{\complementquarterpointerangle}{\fromcornermiter}%
 			\else%
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/north}>0\relax%
+				\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@to%
 					\pgfqpointpolar{\quarterpointerangle}{\tocornermiter}%
 				\fi%
 			\fi%	
 		}%
 		\pgfextract@process\southeastmiter{%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/east}=0\relax%
+			\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@nowhere%
 				\pgf@x\pgf@yc%
 				\pgf@y\pgf@yc%
 			\else
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/east}<0\relax%
+				\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@from%
 					\pgfqpointpolar{-\quarterpointerangle}{\fromcornermiter}
 				\else%
-					\ifnum\pgfkeysvalueof{/pgf/signal direction/east}>0\relax%
+					\ifx\pgf@lib@shapes@signal@east\pgf@lib@shapes@signal@to%
 						\pgfqpointpolar{-\complementquarterpointerangle}{\tocornermiter}%
 					\fi%
 				\fi%	
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}<0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@from%
 				\pgfqpointpolar{-\complementquarterpointerangle}{\fromcornermiter}
 			\else%
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/south}>0\relax%
+				\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@to%
 					\pgfqpointpolar{-\quarterpointerangle}{\tocornermiter}%
 				\fi%
 			\fi%	
 		}%
 		\pgfextract@process\southwestmiter{%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
 				\pgf@x-\pgf@yc
 				\pgf@y-\pgf@yc%
 			\else
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/west}<0\relax%
+				\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@from%
 					\pgfmathadd@{\quarterpointerangle}{180}%
 					\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\fromcornermiter}
 				\else%
-					\ifnum\pgfkeysvalueof{/pgf/signal direction/west}>0\relax%
+					\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@to%
 						\pgfmathadd@{\complementquarterpointerangle}{180}%
 						\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\tocornermiter}%
 					\fi%
 				\fi%	
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/south}<0\relax%
+			\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@from%
 				\pgfmathadd@{\complementquarterpointerangle}{180}%
 				\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\fromcornermiter}%
 			\else%
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/south}>0\relax%
+				\ifx\pgf@lib@shapes@signal@south\pgf@lib@shapes@signal@to%
 					\pgfmathadd@{\quarterpointerangle}{180}%
 					\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\tocornermiter}%
 				\fi%
 			\fi%	
 		}%
 		\pgfextract@process\northwestmiter{%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/west}=0\relax%
+			\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@nowhere%
 				\pgf@x-\pgf@yc%
 				\pgf@y\pgf@yc%
 			\else
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/west}<0\relax%
+				\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@from%
 					\pgfmathsubtract@{180}{\quarterpointerangle}%
 					\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\fromcornermiter}
 				\else%
-					\ifnum\pgfkeysvalueof{/pgf/signal direction/west}>0\relax%
+					\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@to%
 						\pgfmathsubtract@{180}{\complementquarterpointerangle}%
 						\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\tocornermiter}%
 					\fi%
 				\fi%	
 			\fi%
-			\ifnum\pgfkeysvalueof{/pgf/signal direction/north}<0\relax%
+			\ifx\pgf@lib@shapes@signal@north\pgf@lib@shapes@signal@from%
 				\pgfmathsubtract@{180}{\complementquarterpointerangle}%
 				\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\fromcornermiter}%
 			\else%
-				\ifnum\pgfkeysvalueof{/pgf/signal direction/north}>0\relax%
+				\ifx\pgf@lib@shapes@signal@west\pgf@lib@shapes@signal@to%
 					\pgfmathsubtract@{180}{\quarterpointerangle}%
 					\expandafter\pgfqpointpolar\expandafter{\pgfmathresult}{\tocornermiter}%
 				\fi%
@@ -1832,16 +1830,16 @@
 		\addtosavedmacro{\anchornorthwest}%		
 	}%
 	\savedanchor\centerpoint{%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
-		\pgfmathsetlength\pgf@y{+.5\ht\pgfnodeparttextbox}%
-		\pgfmathaddtolength\pgf@y{+-.5\dp\pgfnodeparttextbox}%
+		\pgf@x.5\wd\pgfnodeparttextbox%
+		\pgf@y.5\ht\pgfnodeparttextbox%
+		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
 	}%
 	\savedanchor\basepoint{%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@x.5\wd\pgfnodeparttextbox%
 		\pgf@y0pt%
 	}%
 	\savedanchor\midpoint{%
-		\pgfmathsetlength\pgf@x{+.5\wd\pgfnodeparttextbox}%
+		\pgf@x.5\wd\pgfnodeparttextbox%
 		\pgfmathsetlength\pgf@y{+.5ex}%
 	}%
 	\anchor{center}{\centerpoint}%
@@ -2053,46 +2051,22 @@
 
 
 
+
 % Keys for shape tape
 %
 % /pgf/tape bend top : Type of bend for north side.
 % /pgf/tape bend bottom : Type of bend for south side.
-
 % /pgf/tape bend height : The height of the bends.
 
-
-% *hidden keys*
-% These values are unimportant but *must* be different.
-%
-\pgfkeyssetvalue{/pgf/@tape bend/out and in}{1}
-\pgfkeyssetvalue{/pgf/@tape bend/in and out}{2}
-\pgfkeyssetvalue{/pgf/@tape bend/none}{0}
-
-\pgfkeys{/pgf/tape bend top/.code={%
-		\edef\pgf@temp{\pgfkeysvalueof{/pgf/@tape bend/#1}}%
-		\pgfkeyslet{/pgf/tape bend top}{\pgf@temp}%
-	}%
+\pgfkeys{/pgf/.cd,
+	tape bend top/.initial=in and out,
+	tape bend bottom/.initial=in and out,
+	tape bend height/.initial=5pt
 }
 
-\pgfkeys{/pgf/tape bend bottom/.code={%
-		\edef\pgf@temp{\pgfkeysvalueof{/pgf/@tape bend/#1}}%
-		\pgfkeyslet{/pgf/tape bend bottom}{\pgf@temp}%
-	}%
-}
-
-
-
-\pgfkeys{/pgf/tape bend height/.code={%
-		\pgfmathparse{#1}%
-		\edef\pgfmathresult{\pgfmathresult pt}%
-		\pgfkeyslet{/pgf/tape bend height}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/tape bend height=5pt}
-
-\pgfkeys{/pgf/tape bend top=in and out}
-\pgfkeys{/pgf/tape bend bottom=in and out}
-
+\def\pgf@lib@shapes@tape@inandout{in and out}
+\def\pgf@lib@shapes@tape@outandin{out and in}
+\def\pgf@lib@shapes@tape@none{none}
 
 % Shape tape.
 %
@@ -2102,8 +2076,8 @@
 		%
 		% Get the larger of the outer sep.
 		%
-		\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
-		\pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
+		\pgfmathsetlength\pgf@x{\pgfkeysvalueof{/pgf/outer xsep}}%
+		\pgfmathsetlength\pgf@y{\pgfkeysvalueof{/pgf/outer ysep}}%
 		\ifdim\pgf@x>\pgf@y%
 			\edef\outersep{\the\pgf@x}%
 		\else%
@@ -2120,40 +2094,40 @@
 		%
 		% Get the node dimensions (plus half the line width}
 		%
-		\pgfmathsetlength\pgf@xa{+\pgfkeysvalueof{/pgf/inner xsep}}%
+		\pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/inner xsep}}%
 		\advance\pgf@xa.5\wd\pgfnodeparttextbox%
 		\advance\pgf@xa.5\pgflinewidth\relax%
-		\pgfmathsetlength\pgf@ya{+\pgfkeysvalueof{/pgf/inner ysep}}%
+		\pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/inner ysep}}%
 		\advance\pgf@ya.5\ht\pgfnodeparttextbox%
 		\advance\pgf@ya.5\dp\pgfnodeparttextbox%
 		\advance\pgf@ya.5\pgflinewidth\relax%
 		%
 		% Get half the bend height
 		%
-		\pgfmathsetlength\pgf@yb{+\pgfkeysvalueof{/pgf/tape bend height}}%
+		\pgfmathsetlength\pgf@yb{\pgfkeysvalueof{/pgf/tape bend height}}%
 		\pgf@yb.5\pgf@yb%
 		\edef\chordheight{\the\pgf@yb}%
 		\addtosavedmacro\chordheight%
 		%
 		% Adjust for minimum height and width
 		%
-		\pgfmathsetlength\pgf@xc{+\pgfkeysvalueof{/pgf/minimum width}}%
+		\pgfmathsetlength\pgf@xc{\pgfkeysvalueof{/pgf/minimum width}}%
 		\ifdim\pgf@xa<.5\pgf@xc%
 			\pgf@xa.5\pgf@xc%
 		\fi%
 		%
 		\c@pgf@countb0\relax%
-		\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+		\ifx\north\pgf@lib@shapes@tape@none%
 		\else%
 			\advance\c@pgf@countb1\relax%
 		\fi%
-		\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+		\ifx\south\pgf@lib@shapes@tape@none%
 		\else%
 			\advance\c@pgf@countb1\relax%
 		\fi%
 		\pgf@y\pgf@ya%
 		\advance\pgf@y\c@pgf@countb\pgf@yb%
-		\pgfmathsetlength\pgf@yc{+\pgfkeysvalueof{/pgf/minimum height}}%
+		\pgfmathsetlength\pgf@yc{\pgfkeysvalueof{/pgf/minimum height}}%
 		\ifdim\pgf@y<.5\pgf@yc%
 			\pgf@ya.5\pgf@yc%
 			\advance\pgf@ya-\c@pgf@countb\pgf@yb%
@@ -2248,7 +2222,7 @@
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
 			\advance\pgf@y\pgf@ya%
-			\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+			\ifx\north\pgf@lib@shapes@tape@none%
 			\else%
 				\advance\pgf@y\pgf@yb%
 			\fi%
@@ -2257,7 +2231,7 @@
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
 			\advance\pgf@y\pgf@ya%
-			\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+			\ifx\north\pgf@lib@shapes@tape@none%
 			\else%
 				\advance\pgf@y\pgf@yb%
 			\fi%
@@ -2266,7 +2240,7 @@
 			\centerpoint%
 			\advance\pgf@x-\pgf@xa%
 			\advance\pgf@y-\pgf@ya%
-			\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+			\ifx\south\pgf@lib@shapes@tape@none%
 			\else%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
@@ -2275,7 +2249,7 @@
 			\centerpoint%
 			\advance\pgf@x\pgf@xa%
 			\advance\pgf@y-\pgf@ya%
-			\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+			\ifx\south\pgf@lib@shapes@tape@none%
 			\else%
 				\advance\pgf@y-\pgf@yb%
 			\fi%
@@ -2289,12 +2263,12 @@
 		%	
 		\pgfextract@process\northeastanchor{%
 			\pgfpointadd{\northeast}{%
-				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+				\ifx\north\pgf@lib@shapes@tape@outandin%
 					\pgfmathadd@{45}{\halfgradientangle}%
 					\let\miterangle\pgfmathresult%
 					\pgfqpointpolar{\miterangle}{\inmiterlength}%
 				\else%
-					\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+					\ifx\north\pgf@lib@shapes@tape@inandout%
 						\pgfmathsubtract@{45}{\halfgradientangle}%
 						\let\miterangle\pgfmathresult%
 						\pgfqpointpolar{\miterangle}{\outmiterlength}%
@@ -2306,12 +2280,12 @@
 		}%
 		\pgfextract@process\northwestanchor{%
 			\pgfpointadd{\northwest}{%
-				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+				\ifx\north\pgf@lib@shapes@tape@outandin%
 					\pgfmathadd@{135}{\halfgradientangle}%
 					\let\miterangle\pgfmathresult%
 					\pgfqpointpolar{\miterangle}{\outmiterlength}%
 				\else%
-					\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+					\ifx\north\pgf@lib@shapes@tape@inandout%
 						\pgfmathsubtract@{135}{\halfgradientangle}%
 						\let\miterangle\pgfmathresult%
 						\pgfqpointpolar{\miterangle}{\inmiterlength}%
@@ -2323,12 +2297,12 @@
 		}%
 		\pgfextract@process\southwestanchor{%
 			\pgfpointadd{\southwest}{%
-				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+				\ifx\south\pgf@lib@shapes@tape@outandin%
 					\pgfmathadd@{225}{\halfgradientangle}%
 					\let\miterangle\pgfmathresult%
 					\pgfqpointpolar{\miterangle}{\inmiterlength}%
 				\else%
-					\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+					\ifx\south\pgf@lib@shapes@tape@inandout%
 						\pgfmathsubtract@{225}{\halfgradientangle}%
 						\let\miterangle\pgfmathresult%
 						\pgfqpointpolar{\miterangle}{\outmiterlength}%
@@ -2340,12 +2314,12 @@
 		}%
 		\pgfextract@process\southeastanchor{%
 			\pgfpointadd{\southeast}{%
-				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+				\ifx\south\pgf@lib@shapes@tape@inandout%
 					\pgfmathsubtract@{315}{\halfgradientangle}%
 					\let\miterangle\pgfmathresult%
 					\pgfqpointpolar{\miterangle}{\inmiterlength}%
 				\else%
-					\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+					\ifx\south\pgf@lib@shapes@tape@outandin%
 						\pgfmathadd@{315}{\halfgradientangle}%
 						\let\miterangle\pgfmathresult%
 						\pgfqpointpolar{\miterangle}{\outmiterlength}%
@@ -2357,7 +2331,7 @@
 		}%
 		\pgfextract@process\northanchor{%
 			\pgfpointadd{\centerpoint\pgf@xa\pgf@x\northeast\pgf@x\pgf@xa}{%
-				\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+				\ifx\north\pgf@lib@shapes@tape@none%
 					\pgfqpoint{0pt}{\outersep}%
 				\else%
 					\pgfutil@tempdima\outersep\relax%
@@ -2368,7 +2342,7 @@
 		}%
 		\pgfextract@process\southanchor{%
 			\pgfpointadd{\centerpoint\pgf@xa\pgf@x\southwest\pgf@x\pgf@xa}{%
-				\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}\relax%
+				\ifx\south\pgf@lib@shapes@tape@none%
 					\pgfqpoint{0pt}{-\outersep}%
 				\else%
 					\pgfutil@tempdima\outersep\relax%
@@ -2451,11 +2425,11 @@
 		%
 		\pgfpathmoveto{\centerpoint\pgf@ya\pgf@y\northeast\pgf@y\pgf@ya}%
 		\pgfpathlineto{\southeast}%
-		\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+		\ifx\south\pgf@lib@shapes@tape@outandin%
 			\pgfpatharc{315}{225}{\xradius and \yradius}%
 			\pgfpatharc{45}{135}{\xradius and \yradius}%				
 		\else%
-			\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+			\ifx\south\pgf@lib@shapes@tape@inandout%
 				\pgfpatharc{45}{135}{\xradius and \yradius}%
 				\pgfpatharc{315}{225}{\xradius and \yradius}%
 			\else%
@@ -2463,11 +2437,11 @@
 			\fi%
 		\fi
 		\pgfpathlineto{\northwest}%
-		\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/out and in}\relax%
+		\ifx\north\pgf@lib@shapes@tape@outandin%
 			\pgfpatharc{135}{45}{\xradius and \yradius}%
 			\pgfpatharc{225}{315}{\xradius and \yradius}%
 		\else%
-			\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/in and out}\relax%
+			\ifx\north\pgf@lib@shapes@tape@inandout%
 				\pgfpatharc{225}{315}{\xradius and \yradius}%
 				\pgfpatharc{135}{45}{\xradius and \yradius}%
 			\else%
@@ -2500,11 +2474,11 @@
 					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 							{\northeastanchor}{\southeastanchor}%
 				\else%
-					\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}%
+					\ifx\north\pgf@lib@shapes@tape@none%
 						\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 							{\northeastanchor}{\northwestanchor}%
 					\else%
-						\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/in and out}%
+						\ifx\north\pgf@lib@shapes@tape@inandout%
 							\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
 								{%
 									\northeast%
@@ -2527,14 +2501,14 @@
 				\fi%
 			\else%
 				\ifdim\externalangle pt<\northwestanchorangle pt\relax%
-					\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/none}%
+					\ifx\north\pgf@lib@shapes@tape@none%
 						\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 							{\northeastanchor}{\northwestanchor}%
 					\else%
 						\ifdim\externalangle pt=90pt\relax%
 							\northanchor%
 						\else%
-							\ifnum\north=\pgfkeysvalueof{/pgf/@tape bend/in and out}%
+							\ifx\north\pgf@lib@shapes@tape@inandout%
 								\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
 									{%
 										\northwest%
@@ -2566,11 +2540,11 @@
 					\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 						{\northwestanchor}{\southwestanchor}%
 				\else%
-					\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}%
+					\ifx\south\pgf@lib@shapes@tape@none%
 						\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 							{\southeastanchor}{\southwestanchor}%
 					\else%
-						\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}%
+						\ifx\south\pgf@lib@shapes@tape@inandout%
 							\pgfmathpointintersectionoflineandarc{\externalpoint}{\centerpoint}%
 								{%
 									\southwest%
@@ -2593,14 +2567,14 @@
 				\fi%
 			\else%
 				\ifdim\externalangle pt<\southeastanchorangle pt\relax%
-					\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/none}%
+					\ifx\south\pgf@lib@shapes@tape@none%
 						\pgfpointintersectionoflines{\centerpoint}{\externalpoint}%
 							{\southeastanchor}{\southwestanchor}%
 					\else%
 						\ifdim\externalangle pt=270pt\relax%
 							\southanchor%
 						\else%
-							\ifnum\south=\pgfkeysvalueof{/pgf/@tape bend/in and out}%
+							\ifx\south\pgf@lib@shapes@tape@inandout%
 								\pgfmathpointintersectionoflineandarc{\centerpoint}{\externalpoint}%
 									{%
 										\southeast%
@@ -2629,1045 +2603,5 @@
 		\fi% Hurrah!			
 	}%
 }	
-
-
-
-
-
-% keys for shape single arrow
-%
-% /pgf/single arrow tip angle
-% /pgf/single arrow head sep
-
-\pgfkeys{/pgf/single arrow tip angle/.code={%
-		\pgfmathparse{#1}%
-		\pgfkeyslet{/pgf/single arrow tip angle}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/single arrow tip angle=90}
-
-\pgfkeys{/pgf/single arrow head extend/.code={%
-		\pgfmathparse{#1}%
-		\edef\pgfmathresult{\pgfmathresult pt}%
-		\pgfkeyslet{/pgf/single arrow head extend}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/single arrow head extend=1.5ex}
-
-\pgfkeys{/pgf/single arrow head indent/.code={%
-		\pgfmathparse{#1}%
-		\edef\pgfmathresult{\pgfmathresult pt}%
-		\pgfkeyslet{/pgf/single arrow head indent}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/single arrow head indent=0pt}
-
-% Shape single arrow
-%
-%
-\pgfdeclareshape{single arrow}{%
-	\savedmacro\getsinglearrowpoints{%
-		%
-		% Get the outer sep.
-		% 
-		\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
-		\edef\xoutersep{\the\pgf@x}%
-		\pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
-		\edef\youtersep{\the\pgf@y}%
-		%
-		% Get the node dimensions.
-		%
-		\pgfmathsetlength\pgf@xa{+\pgfkeysvalueof{/pgf/inner xsep}}%
-		\advance\pgf@xa.5\wd\pgfnodeparttextbox%
-		\advance\pgf@xa.5\pgflinewidth%
-		\pgfmathsetlength\pgf@ya{+\pgfkeysvalueof{/pgf/inner ysep}}%
-		\advance\pgf@ya.5\ht\pgfnodeparttextbox%
-		\advance\pgf@ya.5\dp\pgfnodeparttextbox%
-		\advance\pgf@ya.5\pgflinewidth%
-		\ifpgfshapeborderusesincircle%
-			\ifdim\pgf@xa<\pgf@ya%
-				\pgf@xa\pgf@ya%
-			\fi%			
-			\pgf@xa1.41421\pgf@xa%
-			\pgf@ya\pgf@xa%
-			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
-			\ifdim\xoutersep>\youtersep\relax%
-				\let\youtersep\xoutersep%
-			\else%
-				\let\xoutersep\youtersep%
-			\fi%
-		\else%
-			%
-			% Round the rotation.
-			%
-			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
-			\afterassignment\pgfmath@gobbletilpgfmath@%
-			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
-			\advance\c@pgf@counta45\relax%
-			\divide\c@pgf@counta90\relax%
-			\multiply\c@pgf@counta90\relax%
-			\ifnum\c@pgf@counta<0\relax%
-				\advance\c@pgf@counta360\relax%
-			\fi%
-			\edef\rotate{\the\c@pgf@counta}%
-			%
-			% Calculate the width and height of the node
-			% contents, according to any border rotation.
-			%
-			\ifnum\c@pgf@counta=90\relax%
-				\pgf@x\pgf@xa%
-				\pgf@xa\pgf@ya%
-				\pgf@ya\pgf@x%
-				\let\pgfmathresult\xoutersep%
-				\let\xoutersep\youtersep%
-				\let\youtersep\pgfmathresult%
-			\else%
-				\ifnum\c@pgf@counta=270\relax%
-					\pgf@x\pgf@xa%
-					\pgf@xa\pgf@ya%
-					\pgf@ya\pgf@x%
-					\let\pgfmathresult\xoutersep%
-					\let\xoutersep\youtersep%
-					\let\youtersep\pgfmathresult%
-				\fi%
-			\fi%
-		\fi%
-		\addtosavedmacro\rotate%
-		%
-		% Get some useful trig stuff.
-		%
-		\pgfmathdivide@{\pgfkeysvalueof{/pgf/single arrow tip angle}}{2}%
-		\let\halftipangle\pgfmathresult%
-		\pgfmathcosec@{\halftipangle}%
-		\let\cosechalftipangle\pgfmathresult%
-		\pgfmathcos@{\halftipangle}%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima\cosechalftipangle\pgfutil@tempdima%
-		\edef\cothalftipangle{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\sechalftipangle\pgfmathresult%
-		\pgfmathsin@{\halftipangle}%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima\sechalftipangle\pgfutil@tempdima%
-		\edef\tanhalftipangle{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		%
-		% Get the single arrow head extend, and adjust for minimum width.
-		%
-		\pgf@xb\pgf@ya%
-		\pgf@xb\cothalftipangle\pgf@xb%
-		\pgfmathsetlength\pgf@xc{+\pgfkeysvalueof{/pgf/single arrow head extend}}%
-		\pgf@yc\pgf@xc%
-		\advance\pgf@xc\pgf@ya%
-		\pgfmathsetlength\pgfutil@tempdimb{+\pgfkeysvalueof{/pgf/minimum width}}%
-		\ifdim\pgf@xc<.5\pgfutil@tempdimb%
-			\pgfutil@tempdimb.5\pgfutil@tempdimb%
-			\pgfmathdivide@{\pgfmath@tonumber{\pgfutil@tempdimb}}{\pgfmath@tonumber{\pgf@xc}}%
-			\pgf@ya\pgfmathresult\pgf@ya%
-			\pgf@xc\pgfmathresult\pgf@xc%
-			\pgf@yc\pgfmathresult\pgf@yc%
-			\pgf@xb\pgfmathresult\pgf@xb%
-		\fi%
-		%
-		% Now calculate the height of the arrow and adjust for minimum height.
-		%
-		\advance\pgf@xc-\pgf@ya%
-		\pgf@xc\cothalftipangle\pgf@xc%
-		\pgf@xa2.0\pgf@xa%
-		\advance\pgf@xa\pgf@xb%
-		\pgfmathsetlength\pgfutil@tempdimb{+\pgfkeysvalueof{/pgf/minimum height}}%
-		\ifdim\pgf@xa<\pgfutil@tempdimb%
-			\pgf@xa\pgfutil@tempdimb%
-		\fi%
-		\advance\pgf@xa-\pgf@xb%
-		\pgf@xa.5\pgf@xa%		
-		\pgfmathsetlength\pgfutil@tempdima{+\pgfkeysvalueof{/pgf/single arrow head indent}}%
-		%
-		% Now:
-		%
-		% xa - .5 * width of the node minus xb.
-		% ya - .5 * height of the node contents.
-		% xb - distance from the end of the node contents to the arrow tip.
-		% xc - distance from the end of the node contents to the back end of the arrow head.
-		% yc - distance from the top of the node contents to the top end of the arrow head.
-		%
-		\pgfextract@process\centerpoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgf@y.5\ht\pgfnodeparttextbox%
-			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-		}%
-		\pgfextract@process\basepoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgf@y0pt%
-		}%
-		\pgfextract@process\midpoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgfmathsetlength\pgf@y{+.5ex}%
-		}%
-		%
-		% As the arrow is symmetrical it can be described by only four points:
-		%
-		\pgfextract@process\arrowtip{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x\pgf@xb%
-			\pgf@y0pt\relax%
-		}%
-		\pgfextract@process\beforearrowtip{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x-\pgf@xc%
-			\pgf@y\pgf@ya%
-			\advance\pgf@y\pgf@yc%
-		}%
-		\pgfextract@process\beforearrowhead{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x-\pgf@xc%
-			\advance\pgf@x\pgfutil@tempdima%
-			\pgf@y\pgf@ya%
-		}%
-		\pgfextract@process\afterarrowtail{%
-			\pgf@x-\pgf@xa%
-			\pgf@y\pgf@ya%
-		}%
-		%
-		% Calculate the anchor point at the arrow tip...
-		%
-		\pgfextract@process\arrowtipanchor{%
-			\pgfpointadd{\centerpoint}{\arrowtip}%
-			\pgf@xa\xoutersep\relax%
-			\advance\pgf@x\cosechalftipangle\pgf@xa%
-		}%
-		\advance\pgf@x.5\wd\pgfnodeparttextbox%
-		\edef\externalradius{\the\pgf@x}%
-		\addtosavedmacro\externalradius%
-		%
-		% ...and the rest of the points.
-		%
-		\pgfmathanglebetweenlines{\beforearrowtip}{\beforearrowhead}{\beforearrowtip}{\arrowtip}%
-		\pgf@xa\xoutersep\relax%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima.5\pgfutil@tempdima%
-		\pgfmathcosec@{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgf@xa\pgfmathresult\pgf@xa%
-		\pgfutil@tempdima-\pgfutil@tempdima%
-		\advance\pgfutil@tempdima180pt\relax%
-		\advance\pgfutil@tempdima-\halftipangle pt\relax%
-		%
-		\pgfextract@process\beforearrowtipanchor{%
-			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
-			\pgf@xb\pgf@x%
-			\pgf@yb\pgf@y%
-			\pgf@process{\pgfpointadd{\centerpoint}{\beforearrowtip}}%
-			\advance\pgf@x\pgf@xb%
-			\advance\pgf@y\pgf@yb%
-		}%
-		\pgfmathanglebetweenpoints{\beforearrowhead}{\beforearrowtip}%
-		\pgfutil@tempdima-\pgfmathresult pt\relax%
-		\advance\pgfutil@tempdima180pt\relax%
-		\pgfutil@tempdima.5\pgfutil@tempdima%
-		\pgfmathcosec@{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgf@xa\xoutersep\relax%
-		\pgf@xa\pgfmathresult\pgf@xa%
-		\pgfutil@tempdima-\pgfutil@tempdima%
-		\advance\pgfutil@tempdima180pt\relax%
-		\pgfextract@process\beforearrowheadanchor{%
-			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
-			\pgf@xb\pgf@x%
-			\pgf@yb\pgf@y%
-			\pgf@process{\pgfpointadd{\centerpoint}{\beforearrowhead}}%
-			\advance\pgf@x\pgf@xb%
-			\advance\pgf@y\pgf@yb%
-		}%
-		\pgfextract@process\afterarrowtailanchor{%
-			\pgfpointadd{\centerpoint}{\afterarrowtail}%
-			\advance\pgf@x-\xoutersep\relax%
-			\advance\pgf@y\youtersep\relax%
-		}%
-		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\beforearrowtipanchor}%
-		\let\center@angle@beforearrowtip\pgfmathresult%
-		\pgfmathanglebetweenpoints{\centerpoint}{\afterarrowtailanchor}%
-		\let\center@angle@afterarrowtail\pgfmathresult%
-		\addtosavedmacro\center@angle@beforearrowtip%
-		\addtosavedmacro\center@angle@afterarrowtail%
-		%
-		\pgfmathanglebetweenpoints{\midpoint}{\beforearrowtipanchor}%
-		\let\mid@angle@beforearrowtip\pgfmathresult%
-		\pgfmathanglebetweenpoints{\midpoint}{\afterarrowtailanchor}%
-		\let\mid@angle@afterarrowtail\pgfmathresult%
-		\addtosavedmacro\mid@angle@beforearrowtip%
-		\addtosavedmacro\mid@angle@afterarrowtail%
-		%
-		\pgfmathanglebetweenpoints{\basepoint}{\beforearrowtipanchor}%
-		\let\base@angle@beforearrowtip\pgfmathresult%
-		\pgfmathanglebetweenpoints{\basepoint}{\afterarrowtailanchor}%
-		\let\base@angle@afterarrowtail\pgfmathresult%
-		\addtosavedmacro\base@angle@beforearrowtip%
-		\addtosavedmacro\base@angle@afterarrowtail%
-		%
-		\addtosavedmacro\arrowtipanchor%
-		\addtosavedmacro\beforearrowtipanchor%
-		\addtosavedmacro\beforearrowheadanchor%
-		\addtosavedmacro\afterarrowtailanchor%
-	}
-	\savedanchor\centerpoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y.5\ht\pgfnodeparttextbox%
-		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-	}%
-	\savedanchor\midpoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgfmathsetlength\pgf@y{+0.5ex}%
-	}%
-	\savedanchor\basepoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y0pt%
-	}%
-	\anchor{center}{\centerpoint}%
-	\anchor{mid}{\midpoint}%
-	\anchor{mid east}{%
-		\getsinglearrowpoints%
-		\let\pgf@singlearrow@referencepoint\midpoint%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}	
-	\anchor{mid west}{%
-		\getsinglearrowpoints%
-		\let\pgf@singlearrow@referencepoint\midpoint%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}	
-	\anchor{base}{\basepoint}%
-	\anchor{base east}{%
-		\getsinglearrowpoints%
-		\let\pgf@singlearrow@referencepoint\basepoint%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}	
-	\anchor{base west}{%
-		\getsinglearrowpoints%
-		\let\pgf@singlearrow@referencepoint\basepoint%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}	
-	\anchor{north}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{0pt}{\externalradius}}%
-	}
-	\anchor{south}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{0pt}{-\externalradius}}%
-	}
-	\anchor{east}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}
-	\anchor{west}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}
-	\anchor{north east}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{\externalradius}{\externalradius}}%
-	}
-	\anchor{south east}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
-	}
-	\anchor{south west}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{-\externalradius}{-\externalradius}}%
-	}
-	\anchor{north west}{%
-		\getsinglearrowpoints%
-		\csname pgf@anchor@single arrow@border\endcsname{\pgfqpoint{-\externalradius}{\externalradius}}%
-	}
-	\anchor{before head}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{\beforearrowheadanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{before tip}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{\beforearrowtipanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{tip}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{\arrowtipanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{after tip}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{after head}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{before tail}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{after tail}{%
-		\getsinglearrowpoints%
-		\pgfmathrotatepointaround{\afterarrowtailanchor}{\centerpoint}{\rotate}%
-	}
-	\anchor{tail}{%
-		\getsinglearrowpoints%
-		\pgfpointlineattime{0.5}{%
-			\pgfmathrotatepointaround{\afterarrowtailanchor}{\centerpoint}{\rotate}%
-		}%
-		{%
-			\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-			{\centerpoint}{\rotate}%
-		}%	
-	}%
-	\backgroundpath{%
-		{%
-			\pgftransformshift{\centerpoint}%
-			\pgftransformrotate{\rotate}%
-			\pgfpathmoveto{\arrowtip}%
-			\pgfpathlineto{\beforearrowtip}%
-			\pgfpathlineto{\beforearrowhead}%
-			\pgfpathlineto{\afterarrowtail}%
-			\pgfpathlineto{\afterarrowtail\pgf@y-\pgf@y}%
-			\pgfpathlineto{\beforearrowhead\pgf@y-\pgf@y}%
-			\pgfpathlineto{\beforearrowtip\pgf@y-\pgf@y}%			
-		}%
-		\pgfpathclose%
-	}%
-	\anchorborder{%
-		\pgfextract@process\externalpoint{}%			
-		\getsinglearrowpoints%
-		\pgfutil@ifundefined{pgf@singlearrow@referencepoint}{\let\referencepoint\centerpoint}%
-			{\let\referencepoint\pgf@singlearrow@referencepoint}%
-		\pgfextract@process\externalpoint{%
-			\externalpoint%
-			\pgf@xa\pgf@x%
-			\pgf@ya\pgf@y%
-			\referencepoint%
-			\advance\pgf@x\pgf@xa%
-			\advance\pgf@y\pgf@ya}% 
-		\pgfmathanglebetweenpoints{\centerpoint}{\externalpoint}%
-		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
-		\ifdim\pgfmathresult pt<0pt\relax%
-			\pgfmathadd@{\pgfmathresult}{360}%
-		\fi%
-		\let\externalangle\pgfmathresult%
-		\pgf@x\externalangle pt\relax%
-		\ifx\referencepoint\midpoint%
-			\pgf@xa\mid@angle@beforearrowtip pt\relax%
-			\pgf@xb\mid@angle@afterarrowtail pt\relax%
-		\else%
-			\ifx\referencepoint\basepoint%
-				\pgf@xa\base@angle@beforearrowtip pt\relax%
-				\pgf@xb\base@angle@afterarrowtail pt\relax%
-			\else%
-				\pgf@xa\center@angle@beforearrowtip pt\relax%
-				\pgf@xb\center@angle@afterarrowtail pt\relax%
-			\fi%
-		\fi%
-		\ifdim\pgf@x<\pgf@xa%
-			\let\firstpoint\arrowtipanchor%
-			\let\secondpoint\beforearrowtipanchor%
-		\else%
-			\ifdim\pgf@x<\pgf@xb%
-				\let\firstpoint\beforearrowheadanchor%
-				\let\secondpoint\afterarrowtailanchor%
-			\else%
-				\pgf@xb-\pgf@xb%
-				\advance\pgf@xb360pt\relax%
-				\ifdim\pgf@x<\pgf@xb%
-					\let\firstpoint\afterarrowtailanchor%
-					\pgfextract@process\secondpoint{%
-						\pgfmathrotatepointaround{%
-							\pgfpointadd{%
-								\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
-								\pgf@y-\pgf@y%
-							}{\centerpoint}
-						}%
-						{\centerpoint}{\rotate}%
-					}%
-				\else%
-					\pgf@xa-\pgf@xa%
-					\advance\pgf@xa360pt\relax%
-					\ifdim\pgf@x<\pgf@xa%
-						\pgfextract@process\firstpoint{%
-							\pgfmathrotatepointaround{%
-								\pgfpointadd{%
-									\pgfpointdiff{\centerpoint}{\afterarrowtailanchor}%
-									\pgf@y-\pgf@y%
-								}{\centerpoint}
-							}%
-							{\centerpoint}{\rotate}%
-						}%
-						\pgfextract@process\secondpoint{%
-							\pgfmathrotatepointaround{%
-								\pgfpointadd{%
-									\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-									\pgf@y-\pgf@y%
-								}{\centerpoint}
-							}%
-							{\centerpoint}{\rotate}%
-						}%
-					\else%
-						\pgfextract@process\firstpoint{%
-							\pgfmathrotatepointaround{%
-								\pgfpointadd{%
-									\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-									\pgf@y-\pgf@y%
-								}{\centerpoint}
-							}%
-							{\centerpoint}{\rotate}%
-						}%
-						\let\secondpoint\arrowtipanchor%
-					\fi%
-				\fi%
-			\fi%
-		\fi%
-		\pgfpointintersectionoflines{\referencepoint}{\externalpoint}%
-			{\firstpoint}{\secondpoint}%			
-	}%
-}
-
-
-
-
-
-
-
-% keys for shape double arrow
-%
-% /pgf/double arrow tip angle
-% /pgf/double arrow head sep
-
-\pgfkeys{/pgf/double arrow tip angle/.code={%
-		\pgfmathparse{#1}%
-		\pgfkeyslet{/pgf/double arrow tip angle}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/double arrow tip angle=90}
-
-\pgfkeys{/pgf/double arrow head extend/.code={%
-		\pgfmathparse{#1}%
-		\edef\pgfmathresult{\pgfmathresult pt}%
-		\pgfkeyslet{/pgf/double arrow head extend}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/double arrow head extend=1.5ex}
-
-\pgfkeys{/pgf/double arrow head indent/.code={%
-		\pgfmathparse{#1}%
-		\edef\pgfmathresult{\pgfmathresult pt}%
-		\pgfkeyslet{/pgf/double arrow head indent}{\pgfmathresult}%
-	}%
-}
-\pgfkeys{/pgf/double arrow head indent=0ex}
-
-% Shape double arrow
-%
-%
-\pgfdeclareshape{double arrow}{%
-	\savedmacro\getdoublearrowpoints{%
-		%
-		% Get the outer sep.
-		% 
-		\pgfmathsetlength\pgf@x{+\pgfkeysvalueof{/pgf/outer xsep}}%
-		\edef\xoutersep{\the\pgf@x}%
-		\pgfmathsetlength\pgf@y{+\pgfkeysvalueof{/pgf/outer ysep}}%
-		\edef\youtersep{\the\pgf@y}%
-		%
-		% Get the node dimensions.
-		%
-		\pgfmathsetlength\pgf@xa{+\pgfkeysvalueof{/pgf/inner xsep}}%
-		\advance\pgf@xa.5\wd\pgfnodeparttextbox%
-		\advance\pgf@xa.5\pgflinewidth%
-		\pgfmathsetlength\pgf@ya{+\pgfkeysvalueof{/pgf/inner ysep}}%
-		\advance\pgf@ya.5\ht\pgfnodeparttextbox%
-		\advance\pgf@ya.5\dp\pgfnodeparttextbox%
-		\advance\pgf@ya.5\pgflinewidth%
-		\ifpgfshapeborderusesincircle%
-			\ifdim\pgf@xa<\pgf@ya%
-				\pgf@xa\pgf@ya%
-			\fi%			
-			\pgf@xa1.41421\pgf@xa%
-			\pgf@ya\pgf@xa%
-			\pgfkeysgetvalue{/pgf/shape border rotate}{\rotate}%
-			\ifdim\xoutersep>\youtersep\relax%
-				\let\youtersep\xoutersep%
-			\else%
-				\let\xoutersep\youtersep%
-			\fi%
-		\else%
-			%
-			% Round the rotation.
-			%
-			\pgfmathmod@{+\pgfkeysvalueof{/pgf/shape border rotate}}{360}%
-			\afterassignment\pgfmath@gobbletilpgfmath@%
-			\expandafter\c@pgf@counta\pgfmathresult\relax\pgfmath@%
-			\advance\c@pgf@counta45\relax%
-			\divide\c@pgf@counta90\relax%
-			\multiply\c@pgf@counta90\relax%
-			\ifnum\c@pgf@counta<0\relax%
-				\advance\c@pgf@counta360\relax%
-			\fi%
-			\edef\rotate{\the\c@pgf@counta}%
-			%
-			% Calculate the width and height of the node
-			% contents, according to any border rotation.
-			%
-			\ifnum\c@pgf@counta=90\relax%
-				\pgf@x\pgf@xa%
-				\pgf@xa\pgf@ya%
-				\pgf@ya\pgf@x%
-				\let\pgfmathresult\xoutersep%
-				\let\xoutersep\youtersep%
-				\let\youtersep\pgfmathresult%
-			\else%
-				\ifnum\c@pgf@counta=270\relax%
-					\pgf@x\pgf@xa%
-					\pgf@xa\pgf@ya%
-					\pgf@ya\pgf@x%
-					\let\pgfmathresult\xoutersep%
-					\let\xoutersep\youtersep%
-					\let\youtersep\pgfmathresult%
-				\fi%
-			\fi%
-		\fi%
-		\addtosavedmacro\rotate%
-		%
-		% Get some useful trig stuff.
-		%
-		\pgfmathdivide@{\pgfkeysvalueof{/pgf/double arrow tip angle}}{2}%
-		\let\halftipangle\pgfmathresult%
-		\pgfmathcosec@{\halftipangle}%
-		\let\cosechalftipangle\pgfmathresult%
-		\pgfmathcos@{\halftipangle}%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima\cosechalftipangle\pgfutil@tempdima%
-		\edef\cothalftipangle{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgfmathreciprocal@{\pgfmathresult}%
-		\let\sechalftipangle\pgfmathresult%
-		\pgfmathsin@{\halftipangle}%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima\sechalftipangle\pgfutil@tempdima%
-		\edef\tanhalftipangle{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		%
-		% Get the double arrow head extend, and adjust for minimum width.
-		%
-		\pgf@xb\pgf@ya%
-		\pgf@xb\cothalftipangle\pgf@xb%
-		\pgfmathsetlength\pgf@xc{+\pgfkeysvalueof{/pgf/double arrow head extend}}%
-		\pgf@yc\pgf@xc%
-		\advance\pgf@xc\pgf@ya%
-		\pgfmathsetlength\pgfutil@tempdimb{+\pgfkeysvalueof{/pgf/minimum width}}%
-		\ifdim\pgf@xc<.5\pgfutil@tempdimb%
-			\pgfutil@tempdimb.5\pgfutil@tempdimb%
-			\pgfmathdivide@{\pgfmath@tonumber{\pgfutil@tempdimb}}{\pgfmath@tonumber{\pgf@xc}}%
-			\pgf@ya\pgfmathresult\pgf@ya%
-			\pgf@xc\pgfmathresult\pgf@xc%
-			\pgf@yc\pgfmathresult\pgf@yc%
-			\pgf@xb\pgfmathresult\pgf@xb%
-		\fi%
-		%
-		% Now calculate the height of the arrow and adjust for minimum height.
-		%
-		\advance\pgf@xc-\pgf@ya%
-		\pgf@xc\cothalftipangle\pgf@xc%
-		\advance\pgf@xa\pgf@xb%
-		\pgf@xa2.0\pgf@xa%
-		\pgfmathsetlength\pgfutil@tempdimb{+\pgfkeysvalueof{/pgf/minimum height}}%
-		\ifdim\pgf@xa<\pgfutil@tempdimb%
-			\pgf@xa\pgfutil@tempdimb%
-		\fi%
-		\pgf@xa.5\pgf@xa%	
-		\advance\pgf@xa-\pgf@xb%
-		\pgfmathsetlength\pgfutil@tempdima{+\pgfkeysvalueof{/pgf/double arrow head indent}}%
-		%
-		% Now:
-		%
-		% xa - .5 * width of the node minus xb.
-		% ya - .5 * height of the node contents.
-		% xb - distance from the end of the node contents to the arrow tip.
-		% xc - distance from the end of the node contents to the back end of the arrow head.
-		% yc - distance from the top of the node contents to the top end of the arrow head.
-		%
-		\pgfextract@process\centerpoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgf@y.5\ht\pgfnodeparttextbox%
-			\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-		}%
-		\pgfextract@process\basepoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgf@y0pt%
-		}%
-		\pgfextract@process\midpoint{%
-			\pgf@x.5\wd\pgfnodeparttextbox%
-			\pgfmathsetlength\pgf@y{+.5ex}%
-		}%
-		%
-		% As the arrow is symmetrical it can be described by only 3 points:
-		%
-		\pgfextract@process\arrowtip{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x\pgf@xb%
-			\pgf@y0pt\relax%
-		}%
-		\pgfextract@process\beforearrowtip{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x-\pgf@xc%
-			\pgf@y\pgf@ya%
-			\advance\pgf@y\pgf@yc%
-		}%
-		\pgfextract@process\beforearrowhead{%
-			\pgf@x\pgf@xa%
-			\advance\pgf@x-\pgf@xc%
-			\advance\pgf@x\pgfutil@tempdima%
-			\pgf@y\pgf@ya%
-		}%
-		%
-		% Calculate the anchor point at the arrow tip.
-		%
-		\pgfextract@process\arrowtipanchor{%
-			\pgfpointadd{\centerpoint}{\arrowtip}%
-			\pgf@xa\xoutersep\relax%
-			\advance\pgf@x\cosechalftipangle\pgf@xa%
-		}%
-		\advance\pgf@x.5\wd\pgfnodeparttextbox%
-		\edef\externalradius{\the\pgf@x}%
-		\addtosavedmacro\externalradius%
-		%
-		%
-		\pgfmathanglebetweenlines{\beforearrowtip}{\beforearrowhead}{\beforearrowtip}{\arrowtip}%
-		\pgf@xa\xoutersep\relax%
-		\pgfutil@tempdima\pgfmathresult pt\relax%
-		\pgfutil@tempdima.5\pgfutil@tempdima%
-		\pgfmathcosec@{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgf@xa\pgfmathresult\pgf@xa%
-		\pgfutil@tempdima-\pgfutil@tempdima%
-		\advance\pgfutil@tempdima180pt\relax%
-		\advance\pgfutil@tempdima-\halftipangle pt\relax%
-		\pgfextract@process\beforearrowtipanchor{%
-			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
-			\pgf@xb\pgf@x%
-			\pgf@yb\pgf@y%
-			\pgf@process{\pgfpointadd{\centerpoint}{\beforearrowtip}}%
-			\advance\pgf@x\pgf@xb%
-			\advance\pgf@y\pgf@yb%
-		}%
-		\pgfmathanglebetweenpoints{\beforearrowhead}{\beforearrowtip}%
-		\pgfutil@tempdima-\pgfmathresult pt\relax%
-		\advance\pgfutil@tempdima180pt\relax%
-		\pgfutil@tempdima.5\pgfutil@tempdima%
-		\pgfmathcosec@{\pgfmath@tonumber{\pgfutil@tempdima}}%
-		\pgf@xa\xoutersep\relax%
-		\pgf@xa\pgfmathresult\pgf@xa%
-		\pgfutil@tempdima-\pgfutil@tempdima%
-		\advance\pgfutil@tempdima180pt\relax%
-		\pgfextract@process\beforearrowheadanchor{%
-			\pgfqpointpolar{\pgfmath@tonumber{\pgfutil@tempdima}}{\the\pgf@xa}%
-			\pgf@xb\pgf@x%
-			\pgf@yb\pgf@y%
-			\pgf@process{\pgfpointadd{\centerpoint}{\beforearrowhead}}%
-			\advance\pgf@x\pgf@xb%
-			\advance\pgf@y\pgf@yb%
-		}%
-		%
-		\pgfmathanglebetweenpoints{\centerpoint}{\beforearrowtipanchor}%
-		\let\center@angle@beforearrowtip\pgfmathresult%
-		\addtosavedmacro\center@angle@beforearrowtip%
-		%
-		\pgfmathanglebetweenpoints{\midpoint}{\beforearrowtipanchor}%
-		\let\mid@angle@beforearrowtip\pgfmathresult%
-		\addtosavedmacro\mid@angle@beforearrowtip%
-		%
-		\pgfmathanglebetweenpoints{\basepoint}{\beforearrowtipanchor}%
-		\let\base@angle@beforearrowtip\pgfmathresult%
-		\addtosavedmacro\base@angle@beforearrowtip%
-		%
-		\addtosavedmacro\arrowtipanchor%
-		\addtosavedmacro\beforearrowtipanchor%
-		\addtosavedmacro\beforearrowheadanchor%
-	}
-	\savedanchor\centerpoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y.5\ht\pgfnodeparttextbox%
-		\advance\pgf@y-.5\dp\pgfnodeparttextbox%
-	}%
-	\savedanchor\midpoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgfmathsetlength\pgf@y{+0.5ex}%
-	}%
-	\savedanchor\basepoint{%
-		\pgf@x.5\wd\pgfnodeparttextbox%
-		\pgf@y0pt%
-	}%
-	\anchor{center}{\centerpoint}%
-	\anchor{mid}{\midpoint}%
-	\anchor{mid east}{%
-		\getdoublearrowpoints%
-		\let\pgf@singlearrow@referencepoint\midpoint%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}	
-	\anchor{mid west}{%
-		\getdoublearrowpoints%
-		\let\pgf@singlearrow@referencepoint\midpoint%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}	
-	\anchor{base}{\basepoint}%
-	\anchor{base east}{%
-		\getdoublearrowpoints%
-		\let\pgf@singlearrow@referencepoint\basepoint%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}	
-	\anchor{base west}{%
-		\getdoublearrowpoints%
-		\let\pgf@singlearrow@referencepoint\basepoint%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}	
-	\anchor{north}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{0pt}{\externalradius}}%
-	}
-	\anchor{south}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{0pt}{-\externalradius}}%
-	}
-	\anchor{east}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{\externalradius}{0pt}}%
-	}
-	\anchor{west}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{-\externalradius}{0pt}}%
-	}
-	\anchor{north east}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{\externalradius}{\externalradius}}%
-	}
-	\anchor{south east}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{\externalradius}{-\externalradius}}%
-	}
-	\anchor{south west}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{-\externalradius}{-\externalradius}}%
-	}
-	\anchor{north west}{%
-		\getdoublearrowpoints%
-		\csname pgf@anchor@double arrow@border\endcsname{\pgfqpoint{-\externalradius}{\externalradius}}%
-	}
-	\anchor{before head 1}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{\beforearrowheadanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{before tip 1}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{\beforearrowtipanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{tip 1}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{\arrowtipanchor}{\centerpoint}{\rotate}%
-	}%
-	\anchor{after tip 1}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{after head 1}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{before head 2}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-				\pgf@x-\pgf@x%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}%
-	\anchor{before tip 2}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-				\pgf@x-\pgf@x%
-				\pgf@y-\pgf@y%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}%
-	\anchor{tip 2}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\arrowtipanchor}%
-				\pgf@x-\pgf@x%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}%
-	\anchor{after tip 2}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-				\pgf@x-\pgf@x%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\anchor{after head 2}{%
-		\getdoublearrowpoints%
-		\pgfmathrotatepointaround{%
-			\pgfpointadd{%
-				\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-				\pgf@x-\pgf@x%
-			}{\centerpoint}}%
-		{\centerpoint}{\rotate}%
-	}
-	\backgroundpath{%
-		{%
-			\pgftransformshift{\centerpoint}%
-			\pgftransformrotate{\rotate}%
-			\pgfpathmoveto{\arrowtip}%
-			\pgfpathlineto{\beforearrowtip}%
-			\pgfpathlineto{\beforearrowhead}%
-			\pgfpathlineto{\beforearrowhead\pgf@x-\pgf@x}%
-			\pgfpathlineto{\beforearrowtip\pgf@x-\pgf@x}%
-			\pgfpathlineto{\arrowtip\pgf@x-\pgf@x}%
-			\pgfpathlineto{\beforearrowtip\pgf@x-\pgf@x\pgf@y-\pgf@y}%
-			\pgfpathlineto{\beforearrowhead\pgf@x-\pgf@x\pgf@y-\pgf@y}%
-			\pgfpathlineto{\beforearrowhead\pgf@y-\pgf@y}%
-			\pgfpathlineto{\beforearrowtip\pgf@y-\pgf@y}%			
-		}%
-		\pgfpathclose%
-	}%
-	\anchorborder{%
-		\pgfextract@process\externalpoint{}%			
-		\getdoublearrowpoints%
-		\pgfutil@ifundefined{pgf@singlearrow@referencepoint}{\let\referencepoint\centerpoint}%
-			{\let\referencepoint\pgf@singlearrow@referencepoint}%
-		\pgfextract@process\externalpoint{%
-			\externalpoint%
-			\pgf@xa\pgf@x%
-			\pgf@ya\pgf@y%
-			\referencepoint%
-			\advance\pgf@x\pgf@xa%
-			\advance\pgf@y\pgf@ya}% 
-		\pgfmathanglebetweenpoints{\centerpoint}{\externalpoint}%
-		\pgfmathsubtract@{\pgfmathresult}{\rotate}%
-		\ifdim\pgfmathresult pt<0pt\relax%
-			\pgfmathadd@{\pgfmathresult}{360}%
-		\fi%
-		\let\externalangle\pgfmathresult%
-		\pgf@x\externalangle pt\relax%
-		\ifx\referencepoint\midpoint%
-			\pgf@xa\mid@angle@beforearrowtip pt\relax%
-		\else%
-			\ifx\referencepoint\basepoint%
-				\pgf@xa\base@angle@beforearrowtip pt\relax%
-			\else%
-				\pgf@xa\center@angle@beforearrowtip pt\relax%
-			\fi%
-		\fi%
-		\ifdim\pgf@x<180pt\relax%
-			\ifdim\pgf@x<\pgf@xa%
-				\let\firstpoint\arrowtipanchor%
-				\let\secondpoint\beforearrowtipanchor%
-			\else%
-				\pgf@xa-\pgf@xa%
-				\advance\pgf@xa180pt\relax%
-				\ifdim\pgf@x<\pgf@xa%
-					\let\firstpoint\beforearrowheadanchor%
-					\pgfextract@process\secondpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-							\pgf@x-\pgf@x
-							}{\centerpoint}}%
-				\else%
-					\pgfextract@process\firstpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-							\pgf@x-\pgf@x
-							}{\centerpoint}}%
-					\pgfextract@process\secondpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\arrowtipanchor}%
-							\pgf@x-\pgf@x%
-							\pgf@y-\pgf@y%
-						}{\centerpoint}}%
-				\fi%
-			\fi%
-		\else%
-			\pgf@xa-\pgf@xa%
-			\advance\pgf@xa360pt\relax%
-			\ifdim\pgf@x<\pgf@xa%
-				\pgf@xa-\pgf@xa%
-				\advance\pgf@xa540pt\relax%
-				\ifdim\pgf@x<\pgf@xa%
-					\pgfextract@process\firstpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\arrowtipanchor}%
-							\pgf@x-\pgf@x%
-						}{\centerpoint}}%
-					\pgfextract@process\secondpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\beforearrowtipanchor}%
-							\pgf@x-\pgf@x%
-							\pgf@y-\pgf@y%
-						}{\centerpoint}}%
-				\else%
-					\pgfextract@process\firstpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-							\pgf@x-\pgf@x%
-							\pgf@y-\pgf@y%
-						}{\centerpoint}}%
-					\pgfextract@process\secondpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\centerpoint}{\beforearrowheadanchor}%
-							\pgf@y-\pgf@y%
-						}{\centerpoint}}%
-				\fi%
-			\else%
-				\pgfextract@process\firstpoint{%
-						\pgfpointadd{%
-							\pgfpointdiff{\beforearrowtipanchor}{\centerpoint}%
-							\pgf@x-\pgf@x%
-						}{\centerpoint}}%
-				\let\secondpoint\arrowtipanchor%
-			\fi%
-		\fi%
-		\pgfextract@process\firstpoint{%
-			\pgfmathrotatepointaround{\firstpoint}{\centerpoint}{\rotate}%
-		}%
-		\pgfextract@process\secondpoint{%
-			\pgfmathrotatepointaround{\secondpoint}{\centerpoint}{\rotate}%
-		}%
-		\pgfpointintersectionoflines{\referencepoint}{\externalpoint}%
-			{\firstpoint}{\secondpoint}%			
-	}%
-}
-
 
 \endinput
