@@ -37,7 +37,7 @@
     \edef\pgf@pdfparsedfunction{%
       << /FunctionType 3 /Domain [\pgf@doma\space\pgf@domb] /Functions
       [\pgf@funcs\space] /Bounds [\pgf@bounds] /Encode [0 1 \pgf@encode]
-      >> }%
+      >> }% <<
   \fi%
   \xdef\pgf@psfuncs{\pgf@psfuncs}%
   }
@@ -70,10 +70,10 @@
     \pgf@getrgbtuplewithmixin{#2}{#3}{#4}%
     \edef\pgf@singlefunc{\space%
       << /FunctionType 2 /Domain [0 1] /C0
-      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }%
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% <<
     \edef\pgf@funcs{\pgf@funcs\space%
       << /FunctionType 2 /Domain [\pgf@doma\space\pgf@domb] /C0
-      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }%
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% <<
     \edef\pgf@psfuncs{\pgf@prevx\space \pgf@rgb\space \pgf@prevcolor\space pgfshade \pgf@psfuncs}%
     \pgfmathsetlength\pgf@x{#1}%
     \edef\pgf@sys@shading@ranges{\pgf@sys@shading@ranges{{\pgf@sys@prevpos}{\the\pgf@x}{\pgf@sys@prevcolor}{\pgf@sys@rgb}}}%
@@ -92,10 +92,10 @@
     \edef\pgf@encode{\pgf@encode\space0 1}%
     \edef\pgf@singlefunc{\space%
       << /FunctionType 2 /Domain [0 1] /C0
-      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% 
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% <<
     \edef\pgf@funcs{\pgf@funcs\space%
       << /FunctionType 2 /Domain [\pgf@doma\space\pgf@domb] /C0
-      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% 
+      [\pgf@prevcolor] /C1 [\pgf@rgb] /N 1 >> }% <<
     \edef\pgf@prevcolor{\pgf@rgb}%
     \pgf@parserest[}}
 
@@ -153,15 +153,25 @@
 % Declares a horizontal shading for later use. The shading is a
 % horizontal bar that changes its color.
 %
-% #1 = name of the shading for later use
-% #2 = height of the shading
-% #3 = color specification in the following format: A list of colors
+% #1 = optional dependencies
+% #2 = name of the shading for later use
+% #3 = height of the shading
+% #4 = color specification in the following format: A list of colors
 %      that the bar should have at certain points. If the bar should
 %      be red at 1cm, this is specified as
 %      "rgb(1cm)=(1,0,0)". Multiple specifications are separated by a
 %      semicolon and a space. At least two specifications must be
 %      given. The specified positions must be given in increasing
 %      order. 
+%
+% Description:
+%
+% The optional dependecies have the following effect: If present, it
+% should consist of a list of colors, separated by commas. Each time
+% the shading is used, these colors will be reevaluated. It will be
+% checked whether the colors still have their "original meaning". If
+% the colors have changed, a new shading will be created internally to
+% reflect the changed color's values.
 %
 % Example:
 %
@@ -188,9 +198,10 @@
 
 % Declares a vertical shading for later use. 
 %
-% #1 = name of the shading for later use
-% #2 = height of the shading
-% #3 = color specification 
+% #1 = optinal dependecies
+% #2 = name of the shading for later use
+% #3 = height of the shading
+% #4 = color specification 
 %
 % Example:
 %
@@ -217,9 +228,10 @@
 
 % Declares a radial shading for later use. 
 %
-% #1 = name of the shading for later use
-% #2 = center of inner circle
-% #3 = color specification 
+% #1 = optional dependencies
+% #2 = name of the shading for later use
+% #3 = center of inner circle
+% #4 = color specification 
 %
 % Description:
 %
@@ -255,7 +267,135 @@
     \expandafter\def\csname pgf@args@pgfshading#2!\endcsname{{#3}{#4}}%
     \expandafter\let\csname @pgfshading#2!\endcsname=\pgfutil@empty%
   \fi}
-  
+
+
+
+
+% Declares a functional shading for later use. 
+%
+% #1 = optional dependecies
+% #2 = name of the shading for later use
+% #3 = lower left corner of the shading as a pgfpoint.
+% #4 = upper right corner of the shading as a pgfpoint.
+% #5 = Preparation code
+% #6 = a PDF type 4 function (restricted Postscript function), see the 
+%      PDF-specification 1.7, section 3.9.4
+%
+% Description:
+%
+% This command creates a so-called functional shading. For such a
+% shading the color of each point is calculated by calling a function
+% for each point that gets the coordinates as input and yields the
+% color as an output. Note that the function is evaluated by the
+% *renderer*, not by PGF or TeX or someone else at compile-time. This
+% means that the evaluation of this function has to be done *extremely
+% quickly* and the funciton should be *very simple*. For this reason,
+% only a very restricted set of operations are possible in the
+% function (see 3.9.4 of the PDF-spec 1.7). Also functions should be
+% kept small. Any errors in the function will only be noticed by the
+% renderer.
+%
+% The function gets the coordinates of a point as input (as bp). This
+% input consists of the top two elements of an otherwise empty
+% (virtual, PostScript) stack. The function should then replace these
+% two values by three values, representing the red, green, and blue
+% color of the point. The numbers should be real values, not integers
+% since Apple's PDF renderer is broken in this regard (use cvr at the
+% end if necessary).
+%
+% Conceptually, the function will be evaluated once for each point of
+% the rectangle (#3) to (#4). A renderer may choose to evaluate the
+% function at less points, but, in principle, the function will be
+% evaluated for each pixel independently.
+%
+% Because of the rather difficult PostScript syntax, use this macro
+% only *if you know what you are doing* (or if you are advanterous, of
+% course). 
+%
+% As for other shadings, the optional depencies argument is used to
+% determine whether a shading needs to be recalculated when a color
+% has changed.
+%
+% The code #5 is executed each time a shading is
+% (re)calculated. Typically, it will contain code to extract
+% coordinates from colors (see below).
+%
+% Inside the PostScript function #6 you cannot use colors
+% directly. Rather, you must push the color components on the
+% stack. For this, it is useful to call \pgfshadergb in the startup
+% code #4. The macro takes a color name as input and stores the color's 
+% red/green/blue components real numbers between 0.0 and 1.0 separated
+% by spaces (which is exactly what you need if you want to push it on
+% a stack) in a macro. 
+%
+% Example:
+%
+%\pgfdeclarefunctionalshading{twospots}{\pgfpointorigin}{\pgfpoint{200bp}{200bp}}{}{
+%  2 copy
+%  90 sub dup mul exch
+%  80 sub dup mul add sqrt
+%  dup mul neg 1.0005 exch exp 1.0 exch sub
+%  3 1 roll
+%  120 sub dup mul exch
+%  100 sub dup mul add sqrt
+%  dup mul neg 1.002 exch exp 1.0 exch sub
+%  1.0
+%}
+%
+% \pgfdeclarefunctionalshading[mycol]{sweep}{\pgfpointorigin}{\pgfpoint{100bp}{100bp}}
+% {\pgfshadecolortorgb{mycol}{\myrgb}}{
+%   add 150 div   % not very useful...
+%   dup
+%   \myrgb        % push mycol
+%   5 4 roll      % multiply all components by calculated value
+%   mul
+%   3 1 roll
+%   3 index
+%   mul
+%   3 1 roll
+%   4 3 roll
+%   mul
+%   3 1 roll
+% }
+%
+% \begin{document}
+%   Have a look at this: \pgfuseshading{twospots}.
+%   Here is \colorlet{mycol}{green!50}\pgfuseshading{sweep} in green
+%   and in \colorlet{mycol}{red!50!blue}\pgfuseshading{sweep} in red/blue.
+% \end{document}
+
+\def\pgfdeclarefunctionalshading{\pgfutil@ifnextchar[\pgf@declarefunctionalshading{\pgf@declarefunctionalshading[]}}%
+\def\pgf@declarefunctionalshading[#1]#2#3#4#5#6{%
+  \expandafter\def\csname pgf@deps@pgfshading#2!\endcsname{#1}%
+  \expandafter\ifx\csname pgf@deps@pgfshading#2!\endcsname\pgfutil@empty%
+    \pgfshade@functionaldo{#2}{#3}{#4}{#5}{#6}%
+  \else%
+    \expandafter\def\csname pgf@func@pgfshading#2!\endcsname{\pgfshade@functionaldo}%
+    \expandafter\def\csname pgf@args@pgfshading#2!\endcsname{{#3}{#4}{#5}{#6}}%
+    \expandafter\let\csname @pgfshading#2!\endcsname=\pgfutil@empty%
+  \fi}
+\def\pgfshade@functionaldo#1#2#3#4#5{%
+  {%
+    #4%
+    \pgfsys@functionalshading{#1}{#2}{#3}{#5}%
+  }%
+}
+
+\def\pgfshadecolortorgb#1#2{%
+  \pgfutil@colorlet{pgf@tempcol}{#1}%
+  \pgfutil@extractcolorspec{pgf@tempcol}{\pgf@tempcolor}%
+  \expandafter\pgfutil@convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
+  \expandafter\pgfshading@rgb\pgf@rgbcolor\relax%
+  \edef#2{\pgf@sys@tonumber{\pgf@xa}\space\pgf@sys@tonumber{\pgf@xb}\space\pgf@sys@tonumber{\pgf@xc}\space}%
+}
+\def\pgfshading@rgb#1,#2,#3\relax{%
+  \pgf@xa=#1pt%
+  \pgf@xb=#2pt%
+  \pgf@xc=#3pt%
+}
+
+
+
 
 % Inserts a box into the text that contains a previously defined
 % shading. 
