@@ -306,6 +306,12 @@
 \def\tikz@fade@angle{0}
 \colorlet{transparent}{pgftransparent}
 
+\tikzoption{scope fading}{\tikz@addoption{\def\tikz@scope@fading{#1}}}
+\tikzoption{scope fading bounding box}{\tikz@addoption{\def\tikz@scope@fading@bb{#1}}}
+\let\tikz@scope@fading\pgfutil@empty
+\let\tikz@scope@fading@path\pgfutil@empty
+
+
 % Shading options
 \tikzoption{shading}{\def\tikz@shading{#1}\tikz@addmode{\tikz@mode@shadetrue}}
 \tikzoption{shading angle}{\def\tikz@shade@angle{#1}\tikz@addmode{\tikz@mode@shadetrue}}
@@ -657,8 +663,8 @@
     \pgfarrowsdeclarealias{tikzs@<@#2}{tikze@>@#2}{#1}{#2}%
     \pgfarrowsdeclarereversed{tikzs@>@#2}{tikze@<@#2}{#1}{#2}%
     \pgfarrowsdeclarecombine*{tikz@|<@#2}{tikz@>|@#2}{#1}{#2}{|}{|}%
-    \pgfarrowsdeclaredouble[\pgflinewidth]{tikzs@<<@#2}{tikze@>>@#2}{#1}{#2}%
-    \pgfarrowsdeclarereversed{tikzs@>>@#2}{tikze@<<@#2}{tikzs@<<@#2}{tikze@>>@#2}%
+    \pgfarrowsdeclaredouble[\pgflinewidth]{tikzs@<<@#2}{tikze@>>@#2}{#1}{#2}%<<
+    \pgfarrowsdeclarereversed{tikzs@>>@#2}{tikze@<<@#2}{tikzs@<<@#2}{tikze@>>@#2}%<<
   }{}%
   \pgfutil@namedef{tikz@special@arrow@start<}{tikzs@<@#2}%
   \pgfutil@namedef{tikz@special@arrow@end>}{tikze@>@#2}%
@@ -667,9 +673,9 @@
   \pgfutil@namedef{tikz@special@arrow@start|<}{tikz@|<@#2}%
   \pgfutil@namedef{tikz@special@arrow@end>|}{tikz@>|@#2}%
   \pgfutil@namedef{tikz@special@arrow@start<<}{tikzs@<<@#2}%
-  \pgfutil@namedef{tikz@special@arrow@end>>}{tikze@>>@#2}%
-  \pgfutil@namedef{tikz@special@arrow@start>>}{tikzs@<<@#2}%
-  \pgfutil@namedef{tikz@special@arrow@end<<}{tikze@>>@#2}%
+  \pgfutil@namedef{tikz@special@arrow@end>>}{tikze@>>@#2}%<<
+  \pgfutil@namedef{tikz@special@arrow@start>>}{tikzs@<<@#2}%<<
+  \pgfutil@namedef{tikz@special@arrow@end<<}{tikze@>>@#2}%<<
 }
 
 \def\tikz@processarrows#1{%
@@ -1057,6 +1063,8 @@
 \tikzstyle{snake triangles 60}=      [snake=triangles,segment object length=1.73205081\pgfsnakesegmentamplitude]
 \tikzstyle{snake triangles 90}=      [snake=triangles,segment object length=\pgfsnakesegmentamplitude]
 
+\tikzstyle{transparency group}=      [execute at begin scope={\pgftransparencygroup},
+                                      execute at end scope={\endpgftransparencygroup}]
 
 %
 % Setting keys
@@ -1167,6 +1175,7 @@
   \let\tikz@mode=\pgfutil@empty%
   \tikzset{every scope/.try,#1}%
   \tikz@options%
+  \tikz@scope@fade%
   \tikz@atbegin@scope%
 }
 \def\endtikz@scope@env{%
@@ -1175,6 +1184,18 @@
   \endpgfscope%
 }
 
+\def\tikz@scope@fade{%
+  \ifx\tikz@scope@fading\pgfutil@empty%
+  \else%
+    \ifx\tikz@scope@fading@bb\pgfutil@empty%
+      \pgfsetfading{\tikz@scope@fading}{\pgftransformrotate{\tikz@fade@angle}}%
+    \else%
+      \path%
+        \tikz@scope@fading@bb%
+        \pgfextra{\pgfsetfadingforcurrentpath{\tikz@scope@fading}{\pgftransformrotate{\tikz@fade@angle}}};%
+    \fi%
+  \fi%
+}
 
 %
 % Install the abbreviated commands
@@ -1447,20 +1468,21 @@
   \tikz@mode@doublefalse%
   \tikz@mode@clipfalse%
   \tikz@mode@boundaryfalse%
+  \tikz@mode@fadefalse%
   \edef\tikz@pathextend{%
     {\noexpand\pgfqpoint{\the\pgf@pathminx}{\the\pgf@pathminy}}%
     {\noexpand\pgfqpoint{\the\pgf@pathmaxx}{\the\pgf@pathmaxy}}%
   }%
   \tikz@mode% installs the mode settings
-  % Rendering pipeline:  
-  % 
-  % Step 0: Do a fade if necessary
-  %
+  % Path fading counts as an option:
   \iftikz@mode@fade%
-    \pgfsetfadingforcurrentpath{\tikz@fading}{\tikz@fade@angle}%
-    \tikz@mode@fadefalse% no more fading...
+    \tikz@addoption{%
+      \pgfsetfadingforcurrentpath{\tikz@fading}{\pgftransformrotate{\tikz@fade@angle}}%
+      \tikz@mode@fadefalse% no more fading...
+    }%
   \fi%
-  % 
+  % Rendering pipeline 
+  %
   % Step 1: Setup options
   % 
   \ifx\tikz@options\pgfutil@empty%
