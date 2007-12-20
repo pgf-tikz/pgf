@@ -238,13 +238,13 @@
 \newif\iftikz@mode@clip
 \newif\iftikz@mode@boundary
 \newif\iftikz@mode@shade
-\newif\iftikz@mode@fade
+\newif\iftikz@mode@fade@path
+\newif\iftikz@mode@fade@scope
 \let\tikz@mode=\pgfutil@empty
 
 \def\tikz@nonetext{none}
 
 \tikzoption{path only}[]{\let\tikz@mode=\pgfutil@empty}
-\tikzoption{fade}[]{\tikz@addmode{\tikz@mode@fadetrue}}
 \tikzoption{shade}[]{\tikz@addmode{\tikz@mode@shadetrue}}
 \tikzoption{fill}[]{%
   \def\tikz@temp{#1}%
@@ -301,18 +301,43 @@
 
 
 % Shading options
-\tikzoption{fading}{\def\tikz@fading{#1}\tikz@addmode{\tikz@mode@fadetrue}}
-\tikzoption{fading transform}{\def\tikz@fade@transform{#1}}
-\def\tikz@do@fade@transform{\let\tikz@transform=\relax\expandafter\tikzset\expandafter{\tikz@fade@transform}}
-\tikzset{fading angle/.style={fade,fading transform={rotate=#1}}}
+\tikzset{path fading/.code={
+  \def\tikz@temp{#1}%
+  \ifx\tikz@temp\tikz@nonetext%
+    \tikz@addmode{\tikz@mode@fade@pathfalse}%
+  \else%
+    \ifx\tikz@temp\pgfutil@empty%
+    \else%
+      \def\tikz@path@fading{#1}%
+    \fi%
+    \tikz@addmode{\tikz@mode@fade@pathtrue}%
+  \fi%
+  },
+  path fading/.default=, 
+  scope fading/.code={
+  \def\tikz@temp{#1}%
+  \ifx\tikz@temp\tikz@nonetext%
+    \tikz@addmode{\tikz@mode@fade@scopefalse}%
+  \else%
+    \ifx\tikz@temp\pgfutil@empty%
+    \else%
+      \def\tikz@scope@fading{#1}%
+    \fi%
+    \tikz@addmode{\tikz@mode@fade@scopetrue}%
+  \fi%
+  },
+  scope fading/.default=}
+\tikzset{fit fading/.is if=tikz@fade@adjust}
+\tikzset{fading transform/.store in=\tikz@fade@transform}
+\tikzset{fading angle/.style={fading transform={rotate=#1}}}
 
+\newif\iftikz@fade@adjust
+\tikz@fade@adjusttrue
 \let\tikz@fade@transform\pgfutil@empty
-\colorlet{transparent}{pgftransparent}
 
-\tikzoption{scope fading}{\tikz@addoption{\def\tikz@scope@fading{#1}}}
-\tikzoption{scope fading bounding box}{\tikz@addoption{\def\tikz@scope@fading@bb{#1}}}
-\let\tikz@scope@fading\pgfutil@empty
-\let\tikz@scope@fading@bb\pgfutil@empty
+\colorlet{transparent}{pgftransparent}
+\def\tikz@do@fade@transform{\let\tikz@transform=\relax\expandafter\tikzset\expandafter{\tikz@fade@transform}}
+
 
 
 % Transparency groups
@@ -1177,7 +1202,6 @@
   \tikz@transparency@groupfalse%
   \tikzset{every scope/.try,#1}%
   \tikz@options%
-  \tikz@scope@fade%
   \iftikz@transparency@group\pgftransparencygroup\fi%
   \tikz@atbegin@scope%
 }
@@ -1186,16 +1210,6 @@
   \iftikz@transparency@group\endpgftransparencygroup\fi%
   \endgroup%
   \endpgfscope%
-}
-
-\def\tikz@scope@fade{%
-  \ifx\tikz@scope@fading\pgfutil@empty%
-  \else%
-    \path%
-      \tikz@scope@fading@bb%
-      \pgfextra{\pgfsetfadingforcurrentpath{\tikz@scope@fading}{\tikz@do@fade@transform}};%
-  \fi%
-  \let\tikz@scope@fading=\pgfutil@empty%
 }
 
 %
@@ -1469,20 +1483,36 @@
   \tikz@mode@doublefalse%
   \tikz@mode@clipfalse%
   \tikz@mode@boundaryfalse%
-  \tikz@mode@fadefalse%
+  \tikz@mode@fade@pathfalse%
+  \tikz@mode@fade@scopefalse%
   \edef\tikz@pathextend{%
     {\noexpand\pgfqpoint{\the\pgf@pathminx}{\the\pgf@pathminy}}%
     {\noexpand\pgfqpoint{\the\pgf@pathmaxx}{\the\pgf@pathmaxy}}%
   }%
   \tikz@mode% installs the mode settings
   % Path fading counts as an option:
-  \iftikz@mode@fade%
+  \iftikz@mode@fade@path%
     \tikz@addoption{%
-      \pgfsetfadingforcurrentpath{\tikz@fading}{\tikz@do@fade@transform}%
-      \tikz@mode@fadefalse% no more fading...
+      \iftikz@fade@adjust%
+        \pgfsetfadingforcurrentpath{\tikz@path@fading}{\tikz@do@fade@transform}%
+      \else%
+        \pgfsetfading{\tikz@path@fading}{\tikz@do@fade@transform}%
+      \fi%
+      \tikz@mode@fade@pathfalse% no more fading...
     }%
   \fi%
   % Rendering pipeline 
+  %
+  % Step 0: Install scope fading
+  %
+  \iftikz@mode@fade@scope%
+    \iftikz@fade@adjust%
+      \pgfsetfadingforcurrentpath{\tikz@scope@fading}{\tikz@do@fade@transform}%
+    \else%
+      \pgfsetfading{\tikz@scope@fading}{\tikz@do@fade@transform}%
+    \fi%
+    \tikz@mode@fade@scopefalse%
+  \fi%
   %
   % Step 1: Setup options
   % 
