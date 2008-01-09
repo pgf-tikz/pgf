@@ -9,6 +9,8 @@
 
 \section{Actions on Paths}
 
+\subsection{Overview}
+
 Once a path has been constructed, different things can be done with
 it. It can be drawn (or stroked) with a ``pen,'' it can be filled with
 a color or shading, it can be used for clipping subsequent drawing, it
@@ -1110,4 +1112,159 @@ transparency in general.
   \pdf\ specification. You do not want to know the details. It is best
   simply not to specify any options for these 
   commands. 
+\end{key}
+
+
+
+
+\subsection{Doing Multiple Actions on a Path}
+
+If more than one of the basic actions like drawing, clipping and
+filling are requested, they are automatically applied in a sensible
+order: First, a path is filled, then drawn, and then clipped (although
+it took Apple two mayor revisions of their operating system to get
+this right\dots). Sometimes, however, you need finer control over what
+is done with a path. For instance, you might wish to first fill a path
+with a color, then repaint the path with a pattern and then repaint it
+with yet another pattern. In such cases you can use the following two
+options:
+
+\begin{key}{/tikz/preactions=\meta{options}}
+  This option can be given to a |\path| command (or to derived
+  commands like |\draw| which internally call |\path|). Similarly to
+  options like |draw|, this option only has an effect when given to a
+  |\path| or as part of the options of a |node|; as an option to a
+  |{scope}| it has no effect.
+
+  When this option is used on a |\path|, the effect is the following:
+  When the path has been completely constructed and is about to be
+  used, a scope is created. Inside this scope, the path is used but
+  not with the original path options, but with \meta{options}
+  instead. Then, the path is used in the usual manner. In other words,
+  the path is used twice: Once with \meta{options} in force and then
+  again with the normal path options in force.
+
+  Here is an example in which the path consists of a rectangle. The
+  main action is to draw this path in red (which is why we see a red
+  rectangle). However, the preaction is to draw the path in blue,
+  which is why we see a blue rectangle behind the red rectangle.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+
+  \draw
+    [preaction={draw,line width=4mm,blue}]
+    [line width=2mm,red] (0,0) rectangle (2,2);
+\end{tikzpicture}
+\end{codeexample}
+
+  Note that when the preactions are preformed, then the path is
+  already ``finished.'' In particular, applying a coordinate
+  transformation to the path has no effect. By comparison, applying a
+  canvas transformation does have an effect. Let us use this to add a
+  ``shadow'' to a path. For this, we use the preaction to fill the
+  path in gray, shifted a bit to the right and down:
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+  \draw
+    [preaction={fill=black,opacity=.5,
+                transform canvas={xshift=1mm,yshift=-1mm}}]
+    [fill=red] (0,0) rectangle (1,2)
+               (1,2) circle (5mm);
+\end{tikzpicture}
+\end{codeexample}
+
+  Naturally, you would normally create a style |shadow| that contains
+  the above code. The shadow library, see
+  Section~\ref{section-libs-shadows}, contains predefined shadows of
+  this kind.
+
+  It is possible to use the |preaction| option multiple times. In this
+  case, for each use of the |preaction| option, the path is used again
+  (thus, the \meta{options} do not accumulate in a single usage of the
+  path). The path is used in the order of |preaction| options given.
+
+  In the following example, we use one |preaction| to add a shadow and
+  another to provide a shading, while the main action is to use a
+  pattern. 
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+  \draw [pattern=fivepointed stars]
+    [preaction={fill=black,opacity=.5,
+                transform canvas={xshift=1mm,yshift=-1mm}}]
+    [preaction={top color=blue,bottom color=white}]
+               (0,0) rectangle (1,2)
+               (1,2) circle (5mm);
+\end{tikzpicture}
+\end{codeexample}
+
+  A complicated application is shown in the following example, where
+  the path is used several times with different fadings and shadings
+  to create a special visual effect:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  [
+    % Define an interesting style
+    button/.style={
+      % First preaction: Background pattern
+      preaction={pattern=#1,
+                 path fading=circle with fuzzy edge 15 percent},
+      % Second preaction: shiny effect
+      preaction={path fading=fuzzy ring 15 percent,
+                 top color=black!5,
+                 bottom color=black!80,
+                 shading angle=45},
+      inner sep=2ex
+    },
+    button/.default=horizontal lines light blue,
+    circle
+  ]
+
+  \draw [help lines] (0,0) grid (4,3);
+
+  \node [button] at (1,1) {Hello};
+  \node [button=crosshatch dots light steel blue,
+         text=white] at (2.2,1) {\tikzname};
+\end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/postaction=\meta{options}}
+  The postactions work in the same way as the preactions, only they
+  are applied \emph{after} the main action has been taken. Like
+  preactions, multiple |postaction| options may be given to a |\path|
+  command, in which case the path is reused several times, each time
+  with a different set of options in force.
+
+  If both pre- and postactions are specified, then the preactions are
+  taken first, then the main action, and then the post actions.
+
+  In the first example, we use a postaction to draw the path, after it
+  has already been drawn:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+
+  \draw
+    [postaction={draw,line width=2mm,blue}]
+    [line width=4mm,red,fill=white] (0,0) rectangle (2,2);
+\end{tikzpicture}
+\end{codeexample}
+
+  In another example, we use a postaction to ``colorzie'' a path: 
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+  \draw
+    [postaction={path fading=south,fill=white}]
+    [postaction={path fading=south,fading angle=45,fill=blue,opacity=.5}]
+    [left color=black,right color=red,draw=white,line width=2mm]
+               (0,0) rectangle (1,2)
+               (1,2) circle (5mm);
+\end{tikzpicture}
+\end{codeexample}
 \end{key}

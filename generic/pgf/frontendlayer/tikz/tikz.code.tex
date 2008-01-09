@@ -181,26 +181,27 @@
 
 % Transformation options
 \tikzoption{scale}{\tikz@addtransform{\pgftransformscale{#1}}}
+\tikzoption{scale around}{\tikz@addtransform{\def\tikz@aroundaction{\pgftransformscale}\tikz@doaround{#1}}}
 \tikzoption{xscale}{\tikz@addtransform{\pgftransformxscale{#1}}}
 \tikzoption{xslant}{\tikz@addtransform{\pgftransformxslant{#1}}}
 \tikzoption{yscale}{\tikz@addtransform{\pgftransformyscale{#1}}}
 \tikzoption{yslant}{\tikz@addtransform{\pgftransformyslant{#1}}}
 \tikzoption{rotate}{\tikz@addtransform{\pgftransformrotate{#1}}}
-\tikzoption{rotate around}{\tikz@addtransform{\tikz@rotatearound{#1}}}
-\def\tikz@rotatearound#1{%
+\tikzoption{rotate around}{\tikz@addtransform{\def\tikz@aroundaction{\pgftransformrotate}\tikz@doaround{#1}}}
+\def\tikz@doaround#1{%
   \edef\tikz@temp{#1}% get rid of active stuff
-  \expandafter\tikz@rotateparseA\tikz@temp%
+  \expandafter\tikz@doparseA\tikz@temp%
 }%
-\def\tikz@rotateparseA#1:{%
+\def\tikz@doparseA#1:{%
   \def\tikz@temp@rot{#1}%
-  \tikz@scan@one@point\tikz@rotateparseB%
+  \tikz@scan@one@point\tikz@doparseB%
 }
-\def\tikz@rotateparseB#1{%
+\def\tikz@doparseB#1{%
   \pgf@process{#1}%
   \pgf@xc=\pgf@x%
   \pgf@yc=\pgf@y%
   \pgftransformshift{\pgfqpoint{\pgf@xc}{\pgf@yc}}%
-  \pgftransformrotate{\tikz@temp@rot}%
+  \tikz@aroundaction{\tikz@temp@rot}%
   \pgftransformshift{\pgfqpoint{-\pgf@xc}{-\pgf@yc}}%
 }
 
@@ -218,6 +219,20 @@
   \expandafter\pgftransformcm\tikz@p@cm{#1}%
 }
 
+\tikzset{transform canvas/.code=%
+  {%
+    \tikz@addoption
+    {%
+      {%
+        \pgftransformreset%
+        \let\tikz@transform=\relax%
+        \tikzset{#1}%
+        \pgflowlevelsynccm%
+      }%
+      \pgf@relevantforpicturesizefalse%
+    }%
+  }%
+}
 
 
 % Grid options
@@ -247,7 +262,7 @@
 \tikzoption{path only}[]{\let\tikz@mode=\pgfutil@empty}
 \tikzoption{shade}[]{\tikz@addmode{\tikz@mode@shadetrue}}
 \tikzoption{fill}[]{%
-  \def\tikz@temp{#1}%
+  \edef\tikz@temp{#1}%
   \ifx\tikz@temp\tikz@nonetext%
     \tikz@addmode{\tikz@mode@fillfalse}%
   \else%
@@ -260,7 +275,7 @@
   \fi%
 }
 \tikzoption{draw}[]{%
-  \def\tikz@temp{#1}%
+  \edef\tikz@temp{#1}%
   \ifx\tikz@temp\tikz@nonetext%
     \tikz@addmode{\tikz@mode@drawfalse}%
   \else%
@@ -282,9 +297,9 @@
 
 
 % Pattern options
-\tikzoption{pattern color}{\def\tikz@pattern@color{#1}}
+\tikzoption{pattern color}{\edef\tikz@pattern@color{#1}}
 \tikzoption{pattern}[]{%
-  \def\tikz@temp{#1}%
+  \edef\tikz@temp{#1}%
   \ifx\tikz@temp\tikz@nonetext%
     \tikz@addmode{\tikz@mode@fillfalse}%
   \else%
@@ -975,7 +990,11 @@
 \let\tikz@at@emptycell=\pgfutil@empty
 
 
-
+% Pre and post actions
+\tikzset{preaction/.code=\expandafter\def\expandafter\tikz@preactions\expandafter{\tikz@preactions\tikz@extra@preaction{#1}}}
+\tikzset{postaction/.code=\expandafter\def\expandafter\tikz@postactions\expandafter{\tikz@postactions\tikz@extra@postaction{#1}}}
+\let\tikz@preactions=\pgfutil@empty
+\let\tikz@postactions=\pgfutil@empty
 
 % Styles
 \tikzoption{set style}{\tikzstyle#1}
@@ -1335,6 +1354,8 @@
     \let\tikz@moveto@waiting=\relax%
     \let\tikz@timer=\relax%
     \let\tikz@collected@onpath=\pgfutil@empty%
+    \let\tikz@preactions=\pgfutil@empty%
+    \let\tikz@postactions=\pgfutil@empty%
     \tikz@snakedfalse%
     \tikz@node@is@a@labelfalse%
     \tikz@expandcount=1000\relax%
@@ -1461,6 +1482,21 @@
 
 
 \def\tikz@finish{%
+  % Rendering pipeline 
+  % 
+  % Step 1: Preactions
+  % 
+  \pgfsyssoftpath@getcurrentpath\tikz@actions@path%
+  \edef\tikz@restorepathsize{%
+    \global\pgf@pathmaxx=\the\pgf@pathmaxx%
+    \global\pgf@pathmaxy=\the\pgf@pathmaxy%
+    \global\pgf@pathminx=\the\pgf@pathminx%
+    \global\pgf@pathminy=\the\pgf@pathminy%
+  }%
+  \tikz@preactions%
+  %
+  % Reset modes
+  %
   \tikz@mode@fillfalse%
   \tikz@mode@drawfalse%
   \tikz@mode@doublefalse%
@@ -1486,7 +1522,7 @@
   \fi%
   % Rendering pipeline 
   %
-  % Step 0: Install scope fading
+  % Step 2: Install scope fading
   %
   \iftikz@mode@fade@scope%
     \iftikz@fade@adjust%
@@ -1497,7 +1533,7 @@
     \tikz@mode@fade@scopefalse%
   \fi%
   %
-  % Step 1: Setup options
+  % Step 3: Setup options
   % 
   \ifx\tikz@options\pgfutil@empty%
   \else%
@@ -1506,7 +1542,7 @@
       \tikz@options%
   \fi%
   % 
-  % Step 2: Do a fill if shade follows.
+  % Step 4: Do a fill if shade follows.
   %
   \iftikz@mode@fill%
     \iftikz@mode@shade%
@@ -1517,7 +1553,7 @@
     \fi%
   \fi%
   % 
-  % Step 3: Do a shade if necessary.
+  % Step 5: Do a shade if necessary.
   %
   \iftikz@mode@shade%
     \pgfprocessround{\pgfsyssoftpath@currentpath}{\pgfsyssoftpath@currentpath}% change the current path
@@ -1525,7 +1561,7 @@
     \tikz@mode@shadefalse% no more shading...
   \fi%
   % 
-  % Step 4: Double stroke, if necessary
+  % Step 6: Double stroke, if necessary
   %
   \iftikz@mode@draw%
     \iftikz@mode@double%
@@ -1539,7 +1575,7 @@
     \fi%
   \fi%
   % 
-  % Step 5: Do stroke/fill/clip as needed
+  % Step 7: Do stroke/fill/clip as needed
   %
   \edef\tikz@temp{\noexpand\pgfusepath{%
     \iftikz@mode@fill fill,\fi%
@@ -1549,7 +1585,7 @@
   \tikz@temp%
   \tikz@mode@fillfalse% no more filling
   % 
-  % Step 6: Double stroke, if necessary
+  % Step 8: Double stroke, if necessary
   %
   \iftikz@mode@draw%
     \iftikz@mode@double%
@@ -1567,13 +1603,16 @@
     \fi%
   \fi%
   \tikz@mode@drawfalse% no more stroking
+  %
+  % Step 9: Postactions
+  %
+  \tikz@postactions%
   % 
-  % Step 7: Add labels and nodes
+  % Step 10: Add labels and nodes
   %
-  \copy\tikz@figbox%
-  \setbox\tikz@figbox=\box\voidb@x%
+  \box\tikz@figbox%
   %
-  % Step 8: Close option brace
+  % Step 11: Close option brace
   %
   \ifx\tikz@options\pgfutil@empty%
   \else%
@@ -1593,6 +1632,27 @@
   \global\pgflinewidth=\tikzscope@linewidth%
 }
 
+% Extra actions
+
+\def\tikz@extra@preaction#1{%
+  {%
+    \pgfsys@beginscope%
+      \path[#1];% do extra path
+      \pgfsyssoftpath@setcurrentpath\tikz@actions@path% restore
+      \tikz@restorepathsize%
+    \pgfsys@endscope%
+  }%
+}
+
+\def\tikz@extra@postaction#1{%
+  {%
+    \pgfsys@beginscope%
+      \tikz@restorepathsize%
+      \path[#1]\pgfextra{\pgfsyssoftpath@setcurrentpath\tikz@actions@path};% do extra path
+      \pgf@resetpathsizes%
+    \pgfsys@endscope%
+  }%
+}
 
 
 
@@ -3590,7 +3650,7 @@
 % Description:
 %
 % This command includes a list of TikZ library files. For each file X in the
-% list, the file pgflibrarytikzX.code.tex is included, provided this has
+% list, the file tikzlibraryX.code.tex is included, provided this has
 % not been done earlier. 
 %
 % For the convenience of Context users, both round and square brackets
@@ -3612,7 +3672,7 @@
       \expandafter\edef\csname tikz@library@#1@barcode\endcsname{\the\catcode`\|}
       \catcode`\@=11
       \catcode`\|=12
-      \input pgflibrarytikz\pgf@temp.code.tex
+      \input tikzlibrary\pgf@temp.code.tex
       \catcode`\@=\csname tikz@library@#1@atcode\endcsname
       \catcode`\|=\csname tikz@library@#1@barcode\endcsname
     \fi%
