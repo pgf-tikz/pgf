@@ -1,0 +1,1382 @@
+% Copyright 2008 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+% The following naming conventions are (more or less) observed:
+%
+%	`decorated'  : the path that is being decorated.
+% `decoration' : any path created/left by the automaton
+% `decorate'   : generic use where distinction is probably unimportant
+%                (e.g. internal macros).
+
+
+
+% These should be moved.
+%
+\def\pgfgetpath#1{\pgfsyssoftpath@getcurrentpath{#1}}
+\def\pgfsetpath#1{\pgfsyssoftpath@setcurrentpath{#1}}
+
+
+% Required registers.
+%
+\newdimen\pgfdecoratedcompleteddistance
+\newdimen\pgfdecoratedremainingdistance
+\newdimen\pgfdecoratedsubpathcompleteddistance
+\newdimen\pgfdecoratedsubpathremainingdistance
+\newdimen\pgf@decorate@distancetomove
+
+\newcount\pgf@decorate@repeatstate
+
+% \pgfdeclaredecoration
+%
+% Define a decoration automaton.
+%
+\long\def\pgfdeclaredecoration#1#2#3{%
+  \def\pgf@decorate@name{#1}%
+  \pgfutil@namedef{pgf@decorate@@#1@initial}{#2}%
+  \let\pgf@orig@state\state%
+  \let\state\pgf@decorate@state
+  #3%
+  \let\state\pgf@orig@state%
+}
+
+\def\pgf@decorate@state#1{\pgfutil@ifnextchar[{\pgf@decorate@@start#1}{\pgf@decorate@@start#1[]}}%}
+\def\pgf@decorate@@start#1[#2]#3{%
+  \pgfutil@namedef{pgf@decorate@@\pgf@decorate@name @#1@options}{#2}%
+  \pgfutil@namedef{pgf@decorate@@\pgf@decorate@name @#1@code}{#3}%
+}
+
+
+
+
+% Simple decorations. 
+%
+% To do: These are not ideal definitions.
+%
+\pgfdeclaredecoration{lineto}{initial}{
+	\state{initial}[width=\pgfdecoratedsubpathlength/100]
+	{
+		\pgfpathlineto{\pgfpointorigin}
+	}
+	\state{final}{\pgfpathlineto{\pgfpointdecoratedpathlast}}
+}
+
+\pgfdeclaredecoration{moveto}{initial}{
+	\state{initial}[width=\pgfdecoratedsubpathlength/100]
+	{
+		\pgfpathmoveto{\pgfpointorigin}
+	}
+	\state{final}{\pgfpathmoveto{\pgfpointdecoratedpathlast}}
+}
+
+
+
+\let\pgfdecoratebeforecode\pgfutil@empty
+\let\pgfdecorateaftercode\pgfutil@empty
+
+% \pgfdecoratepath
+%
+% Decorate a path.
+%
+% \pgfdecoratebeforecode and \pgfdecorateaftercode can be used to 
+% execute code before and after the decoration.
+% 
+% #1 - the name of the decoration.
+% #2 - a (non-empty) path specification.
+%
+% Example:
+%
+%	\pgfdeclaredecoration{circles}{red circles}{
+%		\state{red circles}[width=10pt, repeat state=2, next state=blue circles]
+%		{
+%			\pgfmathparse{round(rnd*100)}
+%			\pgfsetstrokecolor{red!\pgfmathresult!brown}
+%			\pgfsetfillcolor{orange!\pgfmathresult!yellow}
+%			\pgfpathcircle{\pgfpointorigin}{2.5pt}
+%			\pgfusepath{stroke,fill}
+%		}
+%		\state{blue circles}[width=10pt, repeat state=1, next state=red circles]
+%		{
+%			\pgfmathparse{round(rnd*100)}
+%			\pgfsetstrokecolor{blue!\pgfmathresult!gray}
+%			\pgfsetfillcolor{blue!\pgfmathresult!white}
+%			\pgfpathcircle{\pgfpointorigin}{2.5pt}
+%			\pgfusepath{stroke,fill}
+%		}
+%		\state{final}{}
+%	}	
+%	
+%	\pgfpicture
+%		\pgfdecoratepath{circles}
+%		{
+%			\pgfpathmoveto{\pgfpointorigin}
+%			\pgfpathcurveto{\pgfpoint{0cm}{3cm}}{\pgfpoint{4cm}{0cm}}{\pgfpoint{4cm}{3cm}}
+%		}
+%	\endpgfpicture
+%
+\long\def\pgfdecoratepath#1#2{%
+	\pgfdecorate{{#1}{\pgfdecoratedpathlength}{\pgfdecoratebeforecode}{\pgfdecorateaftercode}}%
+	#2%
+	\endpgfdecorate}
+
+
+
+
+% \pgfdecoratecurrentpath
+%
+% Decorate the current/existing path, but (unavoidably) destroys it.
+% 
+% \pgfdecoratebeforecode and \pgfdecorateaftercode can be used to 
+% execute code before and after the decoration.
+%
+% #1 - the name of the decoration.
+%
+% Example:
+%
+%	\pgfdeclaredecoration{stars}{move}{
+%		\state{move}[width=7.5pt, next state=star]{}
+%	  \state{star}[width=7.5pt, next state=move]
+%	  {
+%	  	\pgfmathparse{round(rnd*100)}
+%	  	\pgfsetfillcolor{yellow!\pgfmathresult!orange}
+%	    \pgfsetstrokecolor{yellow!\pgfmathresult!red}
+%	    \pgfmathparse{rnd*.75+.25}
+%	    \pgftransformscale{\pgfmathresult}
+%	    \pgfnode{star}{center}{}{}{\pgfusepath{stroke,fill}}
+%	  }
+%	  \state{final}
+%	  {
+%	  	\pgfpathmoveto{\pgfpointdecoratedpathlast}
+%	  }
+%	}
+%
+%	\pgfpicture
+%		\pgfpathmoveto{\pgfpointorigin}
+%		\pgfpathcurveto{\pgfqpoint{0cm}{2cm}}{\pgfqpoint{3cm}{2cm}}{\pgfqpoint{3cm}{0cm}}
+%		\pgfpathcurveto{\pgfqpoint{3cm}{-3cm}}{\pgfqpoint{0cm}{0cm}}{\pgfqpoint{0cm}{-3cm}}
+%		\pgfpathcurveto{\pgfqpoint{0cm}{-5cm}}{\pgfqpoint{3cm}{-5cm}}{\pgfqpoint{3cm}{-3cm}}
+%		\pgfdecoratecurrentpath{stars}
+%	\endpgfpicture
+%
+\def\pgfdecoratecurrentpath#1{%
+	\pgfgetpath\pgf@decorate@currentpath%
+	\pgfsetpath\pgfutil@empty%
+	\pgfdecorate{{#1}{\pgfdecoratedpathlength}{\pgfdecoratebeforecode}{\pgfdecorateaftercode}}%
+		\pgfsetpath\pgf@decorate@currentpath%
+	\endpgfdecorate}
+
+
+
+
+% Environment \pgfdecorate \endpgfdecorate
+%
+% Decorates a path with multiple decorations.
+%
+% Definitions:
+%
+% `existing path' 
+%		- any unsed path exsiting prior to the environment.
+%
+% `decorated path'
+% 	- the path that is being decorated.
+%
+%	`decoration path'
+%		- any unused path left by the decoration automaton.
+%
+% The action of the environment is as follows:
+%
+%	1. Any existing path is saved.
+%	2. Construction commands are executed forming the decorated path.
+%	3. If the first command in the decorated path is not a `move to',
+%    the last known position from the exisiting path is inserted.
+%	4. The saved existing path is reinstalled. 
+%	5. The decoration automaton is executed along the decorated path.
+%  
+% Parameters:
+%
+% #1 - a comma separated list of decoration specifications.
+% 
+% A decoration specification takes the format:
+%
+% {<name>}{<distance>}{<before code>}{<after code>}
+%
+% The decoration <name> is applied to a section of the decorated
+% path from the last point on the decorated path the decoration 
+% automaton reached to <distance> from that point.
+% 
+% When <distance>} is parsed, the dimension 
+% \pgfdecoratedreminingdistance holds the distance remaining on the
+% entire decorated path, and the macro \pgfdecoratedpathlength holds
+% the total length of the entire decorated path. 
+% After <distance> is parsed, both are set to to the value of 
+% <distance> for the automaton to decorate current section of the 
+% decorated path.
+%
+% <before code> is executed just before the decoration automaton
+% starts and <after code> is executed just after the automaton stops.
+% If <before code> or <after code> are empty, they can be omitted.
+%	The macros \pgfdecoratedpathfirst and \pgfdecoratedpathlast
+% will be set up as the first and last points on the current section
+% of the decorated path.
+%
+% When the environment exits, the following macros will be set up:
+%
+%	\pgfdecorateexistingpath
+%	  - the existing path.
+%
+%	\pgfdecoratedpath
+%	  - the decorated path.
+%
+%	\pgfdecorationpath
+%	  - any unused decoration path.
+%
+%	\pgfpointdecoratedpathlast 
+%   - the last point on the decorated path.
+%
+% Examples (require pgfdecorations library):
+%
+%	\pgfpicture
+%	\pgfdecorate
+%		{
+%			{lineto}{\pgfdecoratedpathlength/3},
+%			{zigzag}{\pgfdecoratedpathlength/3},
+%			{lineto}{\pgfdecoratedpathlength/3}
+%		}
+%		\pgfpathmoveto{\pgfpointorigin}
+%		\pgfpathcurveto{\pgfpoint{0cm}{4cm}}{\pgfpoint{5cm}{0cm}}{\pgfpoint{5cm}{4cm}}
+%	\endpgfdecorate
+%	\pgfusepath{stroke}
+%	\endpgfpicture 
+%	
+%	
+%	\pgfpicture
+%	\pgfdecorate
+%		{
+%			{lineto}{\pgfdecoratedpathlength/5}{}{\pgfusepath{stroke}},
+%			{zigzag}{\pgfdecoratedpathlength/5}
+%				{
+%					\pgfpathmoveto{\pgfpointdecoratedpathfirst}
+%				}
+%				{
+%					\pgfsetstrokecolor{red}
+%					\pgfusepath{stroke}
+%				},
+%			{lineto}{\pgfdecoratedpathlength/5}
+%			  {
+%			  	\pgfpathmoveto{\pgfpointdecoratedpathfirst}
+%			  }
+%			  {
+%			  	\pgfsetstrokecolor{black}
+%			  	\pgfusepath{stroke}
+%			  },
+%			{zigzag}{\pgfdecoratedpathlength/5}
+%				{
+%					\pgfpathmoveto{\pgfpointdecoratedpathfirst}
+%				}
+%				{
+%					\pgfsetstrokecolor{red}
+%					\pgfusepath{stroke}
+%				},
+%			{lineto}{\pgfdecoratedpathlength/5}
+%				{
+%			  	\pgfpathmoveto{\pgfpointdecoratedpathfirst}
+%			  }
+%			  {
+%			  	\pgfsetstrokecolor{black}
+%			  	\pgfusepath{stroke}
+%			  }
+%		}
+%		\pgfpathmoveto{\pgfpointorigin}
+%		\pgfpathcurveto{\pgfpoint{0cm}{4cm}}{\pgfpoint{5cm}{0cm}}{\pgfpoint{5cm}{4cm}}
+%	\endpgfdecorate
+%	
+%	\endpgfpicture 
+%	
+%	
+%	
+%	\pgfdeclaredecoration{polygons}{move}{
+%		\state{move}[width=7.5pt, next state=polygon]{}
+%	  \state{polygon}[width=7.5pt, next state=move]
+%	  {
+%	  	\pgfmathparse{round(rnd*100)}
+%	  	\pgfsetfillcolor{green!\pgfmathresult!yellow}
+%	    \pgfsetstrokecolor{green!\pgfmathresult!brown}
+%	    \pgfnode{regular polygon}{center}{}{}{\pgfusepath{stroke,fill}}
+%	  }
+%	  \state{final}
+%	  {
+%	  	\pgfpathmoveto{\pgfpointdecoratedpathlast}
+%	  }
+%	}
+%	
+%	\pgfpicture
+%	\pgfdecorate
+%		{
+%			{polygons}{45pt},
+%			{lineto}{30pt}
+%				{\pgfpathmoveto{\pgfpointdecoratedpathfirst}}
+%				{				
+%					\pgfsetstrokecolor{yellow!50!orange}
+%					\pgfusepath{stroke}	
+%				},
+%			{polygons}{45pt},
+%			{lineto}{30pt}
+%				{\pgfpathmoveto{\pgfpointdecoratedpathfirst}}
+%				{				
+%					\pgfsetstrokecolor{green!50!blue}
+%					\pgfusepath{stroke}	
+%				},
+%			{polygons}{\pgfdecoratedremainingdistance}
+%		}
+%		\pgfpathmoveto{\pgfpointorigin}
+%		\pgfpathcurveto{\pgfpoint{0cm}{4cm}}{\pgfpoint{5cm}{0cm}}{\pgfpoint{5cm}{4cm}}
+%	\endpgfdecorate
+%	\endpgfpicture
+%	
+%	
+%	\pgfpicture
+%	  \pgfpathmoveto{\pgfpointorigin}
+%	  \pgfpathcurveto{\pgfpoint{0cm}{4cm}}{\pgfpoint{5cm}{0cm}}{\pgfpoint{5cm}{4cm}}
+%	  \pgfgetpath\temppath
+%		\pgfsetstrokecolor{red}
+%	  \pgfusepath{stroke}
+%	  
+%	  \pgfset{decoration text={Here is some text all the way along this curve!}}
+%	  \pgfdecorate{{text}{\pgfdecoratedremainingdistance}}
+%	    \pgfsetpath\temppath
+%	  \endpgfdecorate
+%	\endpgfpicture
+%
+\def\pgfdecorate#1{%
+	\begingroup%
+		\pgfgetpath\pgfdecorateexistingpath%
+		\pgfsetpath\pgfutil@empty%
+		\let\pgfdecorationpath\pgfutil@empty%
+	  \let\pgfdecoratedpath\pgfutil@empty%
+		\let\pgfpoint@decorated@pathlast\pgfpointorigin%
+	  \edef\pgfpoint@decorate@existingpathlast{\pgf@x\the\pgf@path@lastx\pgf@y\the\pgf@path@lasty}%			
+		\def\pgf@decorate@decorationlist{#1}%
+		%
+		% Begin a group so transformations don't mess things up.
+		%
+		\bgroup%		
+}
+
+\def\endpgfdecorate{%
+		\egroup%
+		%
+		% Save the existing soft path and restore the existing path.
+		%
+		\pgfgetpath\pgfdecoratedpath%
+		\pgfsetpath\pgfdecorateexistingpath%
+		%
+		\ifx\pgfdecoratedpath\pgfutil@empty%
+			\PackageError{PGF}{I cannot decorate an empty path}{}%
+		\else%
+			%
+			% Remove special round tokens and get points.
+			%
+			\pgfprocessround{\pgfdecoratedpath}{\pgfdecoratedpath}%
+			%
+			% Parse the soft path into a series of decorated subpath objects.
+			%
+			\pgf@decorate@parsesoftpath{\pgfdecoratedpath}{\pgf@decorate@subpathobjects}%
+			%
+			\let\pgf@decorated@remainingdistance\pgf@decorate@totalpathlength%
+			%
+			\let\pgfpoint@decorated@totalpathfirst\pgfpoint@decorated@firstparsed%
+			\let\pgfpoint@decorated@totalpathlast\pgfpoint@decorate@lastnonmovetoparsed%
+			%
+			\let\pgfpoint@decorated@pathfirst\pgfpoint@decorated@totalpathfirst
+			\let\pgfpoint@decorated@pathlast\pgfpoint@decorated@totalpathlast%
+			%
+			% Set up the first subpath.
+			%
+			\let\pgf@decorate@currentsubpathobjects\pgf@decorate@subpathobjects%
+			\let\pgf@decorate@transformtosubpath\pgfutil@empty%
+			\pgf@decorate@getnextsubpathobject\pgf@decorate@nextsubpathobject%
+			\pgf@decorate@processnextsubpathobject%
+		  \pgf@decorate@distancetomove0pt\relax%
+			%
+			% Perform the decoration(s).
+			%
+			\pgf@decorate@for\pgf@temp:=\pgf@decorate@decorationlist\do{%
+				\ifx\pgf@temp\pgfutil@empty%
+				\else%
+					\expandafter\pgf@decorate@invoke\expandafter{\pgf@temp}%
+				\fi%
+			}%
+		\fi%
+		\pgfgetpath\pgfdecorationpath%
+		%
+	  % Take stuff outside the group.
+	  %
+	 	\global\let\pgf@decorate@decorationpathtemp\pgfdecorationpath%
+	  \global\let\pgf@decorate@decoratedpathtemp\pgfdecoratedpath%
+	  \global\let\pgf@decorate@existingpathtemp\pgfdecorateexistingpath%
+	  \global\let\pgfpoint@decorated@pathlasttemp\pgfpoint@decorated@pathlast%
+	\endgroup%
+	%
+	% Are we in LaTeX?
+	% 
+	\pgfutil@ifnextchar\@checkend{\aftergroup\pgf@decorate@installmacrosatend}%
+		{\pgf@decorate@installmacrosatend}%
+}
+
+\def\pgf@decorate@installmacrosatend{%
+	\let\pgfdecorationpath\pgf@decorate@decorationpathtemp%
+  \let\pgfdecoratedpath\pgf@decorate@decoratedpathtemp%
+  \let\pgfdecorateexistingpath\pgf@decorate@existingpathtemp%
+  \let\pgfpoint@decorated@pathlast\pgfpoint@decorated@pathlasttemp%
+}
+
+\let\pgfdecorationpath\pgfutil@empty
+\let\pgfdecoratedpath\pgfutil@empty
+\let\pgfdecorateexisitingpath\pgfutil@empty
+
+\let\pgfpoint@decorated@pathlast\pgfpointorigin
+
+
+
+% A version of \pgfutil@for which doesn't expand each value in #3.
+%
+\long\def\pgf@decorate@for#1:=#2\do#3{%
+	\def\pgf@decorate@for@var{#1}%
+	\def\pgf@decorate@for@action{#3}%
+	\expandafter\pgf@decorate@@for#2,\pgf@stop,}
+	
+\def\pgf@decorate@@for#1,{%
+	\ifx#1\pgf@stop%
+		\expandafter\let\pgf@decorate@for@var\pgfutil@empty%
+	\else%
+		\expandafter\long\expandafter\def\pgf@decorate@for@var{#1}%
+		\pgf@decorate@for@action%
+		\expandafter\pgf@decorate@@for%
+	\fi%
+}
+
+
+% Invoke a decoration.
+%
+% #1 - {<name>}{<distance>}{<before code>}{<after code>}
+%
+\def\pgf@decorate@invoke#1{%
+	\pgf@decorate@@invoke#1\pgf@decorate@invoke\pgf@decorate@invoke\pgf@decorate@invoke\pgf@stop}
+	
+\def\pgf@decorate@@invoke#1#2#3#4#5\pgf@stop{%
+	\pgfutil@ifundefined{pgf@decorate@@#1@initial}%
+	{%
+		\PackageError{PGF}{Unknown decoration `#1'}{}%
+	}%
+	{%
+		\def\pgf@decorate@name{#1}%
+		\ifx\pgf@decorate@invoke#3%
+			\let\pgf@decorate@beforecode\pgfutil@empty%
+		\else%
+			\def\pgf@decorate@beforecode{#3}%
+		\fi%
+		\ifx\pgf@decorate@invoke#4%
+			\let\pgf@decorate@aftercode\pgfutil@empty%
+		\else%
+			\def\pgf@decorate@aftercode{#4}%
+		\fi%
+		%
+		% Make remaining distance and the decorated path length `public'.
+		%
+		\pgfdecoratedremainingdistance\pgf@decorated@remainingdistance\relax%
+		\let\pgfdecoratedpathlength\pgf@decorate@totalpathlength%
+		%
+		\pgfmathsetlength\pgf@xa{#2}%
+		\ifdim\pgf@xa>\pgf@decorated@remainingdistance\relax%
+			\pgf@xa\pgf@decorated@remainingdistance\relax%
+		\fi%
+		\edef\pgf@decorate@currentpathlength{\the\pgf@xa}%
+		%
+		% Calculate the distance remaining to the end of the entire path.
+		%
+		\pgf@xa-\pgf@decorate@currentpathlength\relax%
+		\advance\pgf@xa\pgf@decorated@remainingdistance\relax%
+		\edef\pgf@decorated@remainingdistance{\the\pgf@xa}%
+		%
+		% Set up the macros and distances for the current section
+		% of the decorated path.
+		%
+		\let\pgfdecoratedpathlength\pgf@decorate@currentpathlength%
+		\pgfdecoratedremainingdistance\pgfdecoratedpathlength\relax%
+		\pgfdecoratedcompleteddistance0pt\relax%
+		%
+		% Execute user-defined code beore decoration.
+		%
+		\pgf@decorate@beforecode%
+		%
+		% Run the decoration...
+		%
+	  \expandafter\let\expandafter\pgf@decorate@current@state%
+	  	\csname pgf@decorate@@\pgf@decorate@name @initial\endcsname%
+	  \pgf@decorate@run%
+	  %
+	  % ...until the final state.
+	  %
+	  \ifdim\pgf@decorated@remainingdistance<1pt\relax% Should be =0pt, but need to control for inaccuracies.
+	  	\let\pgfpoint@decorated@pathlast\pgfpoint@decorated@totalpathlast%
+	  \else%
+	  	%
+	  	% Set up \pgfpoint@decorated@pathlast if the end of
+	  	% the total decorated path has not been reached.
+	  	%
+		  {%
+		  	\pgf@decorate@movealongsubpath{\the\pgfdecoratedremainingdistance}%
+		  	\pgf@decorate@transformtosubpath%
+		  	\pgfpointorigin%
+		  	\pgf@pos@transform{\pgf@x}{\pgf@y}%
+		  	\global\pgf@x\pgf@x%
+		  	\global\pgf@y\pgf@y%
+		  }%
+		  \edef\pgfpoint@decorated@pathlast{\pgf@x\the\pgf@x\pgf@y\the\pgf@y}%
+		\fi%  	
+	  {%
+	  	\pgftransformreset%
+	  	\pgf@decorate@transformtosubpath%
+	    \pgf@decorate@additionaltransform%
+	    \csname pgf@decorate@@\pgf@decorate@name @final@code\endcsname%
+	  }%
+	  \pgf@decorate@movealongsubpath{\the\pgfdecoratedremainingdistance}%
+	  %
+	  % Execute user-defined code after decoration.
+	  %
+	  \pgf@decorate@aftercode%	
+	  %
+	  % Update the subpath objects.
+	  %
+	  \let\pgf@decorate@subpathobjects\pgf@decorate@subpathobjects@aftersplit%
+	  \let\pgfpoint@decorated@pathfirst\pgfpoint@decorated@pathlast%
+	 }%
+}
+
+
+\let\pgf@decorate@transformtosubpath\pgfutil@empty%
+\let\pgf@decorate@additionaltransform\pgfutil@empty%
+
+\def\pgfpointdecoratedpathlast{%
+	{%
+		\pgftransforminvert%
+		\pgfpoint@decorated@pathlast%
+		\pgf@pos@transform{\pgf@x}{\pgf@y}%
+		\global\pgf@x\pgf@x%
+		\global\pgf@y\pgf@y%
+	}%
+}%
+
+% \pgfpointdecoratedpathfirst
+%
+\def\pgfpointdecoratedpathfirst{%
+	{%
+		\pgftransforminvert%
+		\pgfpoint@decorated@pathfirst%
+		\pgf@pos@transform{\pgf@x}{\pgf@y}%
+		\global\pgf@x\pgf@x%
+		\global\pgf@y\pgf@y%
+	}%
+}%
+
+% \pgfpointdecoratedsubpathlast
+%
+% The final point of the current sub-path. 
+%
+\def\pgfpointdecoratedsubpathlast{%
+	{%
+		\pgftransforminvert%
+		\pgf@decorate@subpath@last%
+		\pgf@pos@transform{\pgf@x}{\pgf@y}%
+		\global\pgf@x\pgf@x%
+		\global\pgf@y\pgf@y%
+	}%
+}%	
+
+\def\pgf@final@text{final}
+
+% Run the decoration.
+%
+\def\pgf@decorate@run{%
+	\let\pgf@decorate@next\pgf@decorate@do@state%
+  \ifx\pgf@decorate@current@state\pgf@final@text%
+    \let\pgf@decorate@next\relax%
+  \fi%
+  \pgf@decorate@next%  
+}
+
+\def\pgf@decorate@do@state{%
+  \let\pgf@decorate@next\relax%
+  \let\pgf@decorate@next@state\pgf@decorate@current@state%
+  %
+  % Get the options.
+  %
+  \expandafter\expandafter\expandafter\pgf@decorate@setter
+  \expandafter\expandafter\expandafter{\csname pgf@decorate@@\pgf@decorate@name @\pgf@decorate@current@state @options\endcsname}%
+  \ifx\pgf@decorate@next\relax%
+    \let\pgf@decorate@next\pgf@decorate@do@code%
+  \fi%
+  \pgf@decorate@next%
+}
+
+\def\pgf@decorate@setter{\pgfqkeys{/pgf/decorate}}
+
+\pgf@decorate@repeatstate-1\relax
+
+\def\pgf@decorate@do@code{%
+	%
+  % Execute code.
+  %
+  {%
+  	\pgftransformreset%
+    \pgf@decorate@transformtosubpath%
+    \pgf@decorate@additionaltransform%
+    \csname pgf@decorate@@\pgf@decorate@name @\pgf@decorate@current@state @code\endcsname%
+  }%
+  \pgf@decorate@movealongpath{\pgf@decorate@width}%
+  %
+  % Next iteration.
+  %
+  \ifnum\pgf@decorate@repeatstate>0\relax%
+  	\advance\pgf@decorate@repeatstate-1\relax%
+  \else%
+  	\pgf@decorate@repeatstate-1\relax%
+  	\let\pgf@decorate@current@state\pgf@decorate@next@state%
+  \fi%
+  \pgf@decorate@run%
+}
+
+\pgfkeys{
+  /pgf/decorate/width/.code=\def\pgf@decorate@width{#1}\pgf@decorate@switch@if#1 to final\pgf@stop,%
+  /pgf/decorate/switch if less than/.code=\pgf@decorate@switch@if#1\pgf@stop,%
+  /pgf/decorate/switch if subpath less than/.code=\pgf@decorate@switch@ifsubpath#1\pgf@stop,%
+  /pgf/decorate/next state/.store in=\pgf@decorate@next@state,%
+  /pgf/decorate/repeat state/.code={%
+  	\ifnum\pgf@decorate@repeatstate=-1\relax%
+  		\pgfmathsetcount\pgf@decorate@repeatstate{#1}%
+  	\fi%
+  }%
+}
+
+\def\pgf@decorate@switch@if#1to #2\pgf@stop{%
+  \ifx\pgf@decorate@next\relax%
+    \pgfmathsetlength\pgf@x{#1}%
+    \ifdim\pgfdecoratedremainingdistance<\pgf@x%
+      \def\pgf@decorate@current@state{#2}%
+      \pgf@decorate@repeatstate-1\relax%
+      \let\pgf@decorate@next\pgf@decorate@run%
+    \fi%
+  \fi%
+}
+
+\def\pgf@decorate@switch@ifsubpath#1to #2\pgf@stop{%
+  \ifx\pgf@decorate@next\relax%
+    \pgfmathsetlength\pgf@x{#1}%
+    \ifdim\pgfdecoratedsubpathremainingdistance<\pgf@x%
+      \def\pgf@decorate@current@state{#2}%
+      \pgf@decorate@repeatstate-1\relax%
+      \let\pgf@decorate@next\pgf@decorate@run%
+    \fi%
+  \fi%
+}
+
+
+
+
+% \pgfsetdecoratesegmenttransformation
+%
+% Set the additional transform for each decoration state.
+%
+% Example:
+%
+% \pgfsetdecoratesegmenttransformation{\pgftransformyshift{5pt}}
+%
+\def\pgfsetdecoratesegmenttransformation#1{\def\pgf@decorate@additionaltransform{#1}}
+\let\pgf@decorate@additionaltransform\pgfutil@empty%
+
+
+
+% Move along the path by a specified distance.
+%
+\def\pgf@decorate@movealongpath#1{%
+	\pgfmathsetlength\pgf@decorate@distancetomove{#1}%
+	\advance\pgfdecoratedcompleteddistance\pgf@decorate@distancetomove%
+	\advance\pgfdecoratedremainingdistance-\pgf@decorate@distancetomove%
+	\pgf@decorate@@movealongpath%
+}
+\def\pgf@decorate@@movealongpath{%
+	\advance\pgfdecoratedsubpathcompleteddistance\pgf@decorate@distancetomove%
+	\advance\pgfdecoratedsubpathremainingdistance-\pgf@decorate@distancetomove%
+	\ifdim\pgfdecoratedsubpathremainingdistance>0pt\relax%
+		\let\pgf@next\pgf@decorate@@@movealongpath%
+	\else%
+		\pgf@decorate@distancetomove-\pgfdecoratedsubpathremainingdistance%
+		\pgf@decorate@processnextsubpathobject%
+		\ifx\pgf@decorate@currentsubpathobjects\pgfutil@empty%
+			\pgfdecoratedremainingdistance0pt\relax%
+			\let\pgf@next\relax%
+		\else%
+			\let\pgf@next\pgf@decorate@@movealongpath%
+		\fi%
+	\fi%
+	\pgf@next%
+}
+
+\def\pgf@decorate@@@movealongpath{%
+	%
+	% Move along subpath for real.
+	%
+	\pgf@decorate@movealongsubpath{\the\pgf@decorate@distancetomove}%
+	\pgf@decorate@distancetomove0pt\relax%
+	%
+	% Grrr. Hacking to control some inaccuracies.
+	%
+	\ifdim\pgf@decorate@subpathtime pt>1pt\relax%
+		\pgf@decorate@processnextsubpathobject%
+		\ifx\pgf@decorate@currentsubpathobjects\pgfutil@empty%
+			\pgfdecoratedremainingdistance0pt\relax%
+		\fi%
+	\fi%
+}
+
+% Return the next subpath object in a macro 
+%
+\def\pgf@decorate@getnextsubpathobject#1{%
+	\ifx\pgf@decorate@currentsubpathobjects\pgfutil@empty%
+		\let\pgf@next\relax%
+	\else%
+		\def\pgf@decorate@temp{#1}%
+		\let\pgf@next\pgf@decorate@@getnextsubpathobject%
+	\fi%
+	\pgf@next%
+}
+\def\pgf@decorate@@getnextsubpathobject{%
+	\expandafter\pgf@decorate@@@getnextsubpathobject\pgf@decorate@currentsubpathobjects\pgf@stop}
+\def\pgf@decorate@@@getnextsubpathobject#1#2\pgf@stop{%
+	\expandafter\def\pgf@decorate@temp{#1}%
+	\def\pgf@decorate@currentsubpathobjects{#2}}
+
+% Process the next subpath object.
+%
+\def\pgf@decorate@processnextsubpathobject{%
+	%
+	\let\pgf@decorate@currentsubpathobject\pgf@decorate@nextsubpathobject%
+	\pgf@decorate@getnextsubpathobject\pgf@decorate@nextsubpathobject%
+	% 
+	% If the current subpath object is a moveto, execute the 
+	% object macro and get the next subpath object.
+	%
+	\expandafter\pgfutil@in@\expandafter\pgf@decorate@subpathobject@moveto%
+		\expandafter{\pgf@decorate@currentsubpathobject}%
+	\ifpgfutil@in@%
+		\pgf@decorate@currentsubpathobject%
+		\let\pgf@decorate@currentsubpathobject\pgf@decorate@nextsubpathobject%
+		\pgf@decorate@getnextsubpathobject\pgf@decorate@nextsubpathobject%
+		\relax%
+	\fi%
+	%
+	\pgf@decorate@currentsubpathobject%
+	%
+	% Teensy hack in case a path goes nowhere.
+	%
+	\ifdim\pgfdecoratedsubpathlength=0pt\relax%
+		\def\pgfdecoratedsubpathlength{0.05pt}% Arbitrary choice >0pt.
+	\fi%
+	\pgfdecoratedsubpathremainingdistance\pgfdecoratedsubpathlength\relax%
+	\pgfdecoratedsubpathcompleteddistance0pt\relax%
+	\def\pgf@decorate@subpathtime{0}%
+	\pgfmathanglebetweenpoints{\pgf@decorate@subpath@first}{\pgf@decorate@subpath@supporta}%
+	\let\pgfdecoratedangle\pgfmathresult%	
+}
+
+
+%
+% Subpath objects
+%
+
+% Subpath object moveto.
+%
+\def\pgf@decorate@subpathobject@moveto#1{%
+	\pgfpathmoveto{#1}%
+	\def\pgf@decorate@subpath@first{#1}%
+	\def\pgf@decorate@subpath@supporta{#1}%
+	\def\pgf@decorate@subpath@supportb{#1}%
+	\def\pgf@decorate@subpath@last{#1}%
+	\edef\pgf@decorate@lastmoveto{#1}%
+	\def\pgfdecoratedsubpathlength{0pt}%
+	\let\pgf@decorate@splitsubpathobject\pgf@decorate@splitsubpathobject@move%
+}
+
+% Subpath object lineto.
+%
+\def\pgf@decorate@subpathobject@lineto#1#2#3{%
+	\def\pgfdecoratedsubpathlength{#1}%
+	\def\pgf@decorate@subpath@first{#2}%
+	%
+	% OK, lines don't need supports, but this means angle calculations 
+	% do not have to be done individually for each object.
+	%
+	\def\pgf@decorate@subpath@supporta{#3}%
+	\def\pgf@decorate@subpath@supportb{#2}%
+	\def\pgf@decorate@subpath@last{#3}%	
+	%
+	\let\pgf@decorate@movealongsubpath\pgf@decorate@movealongsubpath@line%
+	\let\pgf@decorate@transformtosubpath\pgf@decorate@transformtosubpath@line%
+	\let\pgf@decorate@splitsubpathobject\pgf@decorate@splitsubpathobject@line%
+}
+
+% Subpath object curveto.
+%
+\def\pgf@decorate@subpathobject@curveto#1#2#3#4#5{%
+	\def\pgfdecoratedsubpathlength{#1}%
+	\def\pgf@decorate@subpath@first{#2}%
+	\def\pgf@decorate@subpath@supporta{#3}%
+	\def\pgf@decorate@subpath@supportb{#4}%
+	\def\pgf@decorate@subpath@last{#5}%	
+	%
+	\let\pgf@decorate@movealongsubpath\pgf@decorate@movealongsubpath@curve%
+	\let\pgf@decorate@transformtosubpath\pgf@decorate@transformtosubpath@curve%
+	\let\pgf@decorate@splitsubpathobject\pgf@decorate@splitsubpathobject@curve%
+}
+
+% Subpath object closepath.
+%
+% Currently no different to object lineto (this may change).
+%
+\def\pgf@decorate@subpathobject@closepath#1#2#3{%
+	\def\pgfdecoratedsubpathlength{#1}%
+	\def\pgf@decorate@subpath@first{#2}%
+	\def\pgf@decorate@subpath@supporta{#3}%
+	\def\pgf@decorate@subpath@supportb{#2}%
+	\def\pgf@decorate@subpath@last{#3}%	
+	%
+	\let\pgf@decorate@movealongsubpath\pgf@decorate@movealongsubpath@line%
+	\let\pgf@decorate@transformtosubpath\pgf@decorate@transformtosubpath@line%
+	\let\pgf@decorate@splitsubpathobject\pgf@decorate@splitsubpathobject@line%
+}
+
+% Subpath object endofsubpaths.
+%
+\def\pgf@decorate@subpathobject@endofsubpaths{}
+
+
+
+
+% This macro controls how the automaton moves along a line sub-path
+%
+\def\pgf@decorate@movealongsubpath@line#1{}% Nothing special needed.
+
+% This macro controls how the automaton moves along a curve sub-path.
+%
+\def\pgf@decorate@movealongsubpath@curve#1{%
+	\ifdim#1=0pt\relax%
+	\else%
+		\pgfpointcurveattime{\pgf@decorate@subpathtime}%
+			{\pgf@decorate@subpath@first}{\pgf@decorate@subpath@supporta}%
+			{\pgf@decorate@subpath@supportb}{\pgf@decorate@subpath@last}%
+		\pgf@xa\pgf@x%
+		\pgf@ya\pgf@y%
+		\pgf@xb\pgf@decorate@subpathtime pt\relax%
+		%
+		% Reduce the initial time step, depending on the length 
+		% of the path. To do: Optimise this step (should also depend on #1).
+		%
+		\ifdim\pgf@decorate@currentpathlength<128pt\relax%
+			\pgf@yb.03125pt\relax%
+		\else%
+			\ifdim\pgf@decorate@currentpathlength<512pt\relax%
+				\pgf@yb.015625pt\relax%
+			\else%
+				\ifdim\pgf@decorate@currentpathlength<2048pt\relax%
+					\pgf@yb.00390625pt\relax%
+				\else%
+					\pgf@yb.0009765625pt\relax%
+				\fi%
+			\fi%
+		\fi%
+		\c@pgf@counta1\relax%
+		\pgfutil@tempdima0pt\relax%
+		\pgfmathloop%
+			\advance\pgf@xb\c@pgf@counta\pgf@yb%
+			\pgf@process{%
+				\pgfpointcurveattime{\pgfmath@tonumber{\pgf@xb}}%
+					{\pgf@decorate@subpath@first}{\pgf@decorate@subpath@supporta}%
+					{\pgf@decorate@subpath@supportb}{\pgf@decorate@subpath@last}%
+			}%
+			\pgf@xc\pgf@xa%
+			\pgf@yc\pgf@ya%
+			\pgf@xa\pgf@x%
+			\pgf@ya\pgf@y%
+			\advance\pgf@x-\pgf@xc%
+			\advance\pgf@y-\pgf@yc%
+			\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+			\pgfutil@tempdimb\pgfmathresult pt\relax%
+			\advance\pgfutil@tempdima\c@pgf@counta\pgfutil@tempdimb%
+			\ifnum\c@pgf@counta>0\relax%
+				\ifdim\pgfutil@tempdima>#1\relax%
+					\c@pgf@counta-\c@pgf@counta%
+					\pgf@yb.5\pgf@yb%
+				\fi%
+			\else%
+				\ifdim\pgfutil@tempdima<#1\relax%
+					\c@pgf@counta-\c@pgf@counta%
+					\pgf@yb.5\pgf@yb%
+				\fi%
+			\fi%
+			\ifdim\pgf@yb<.00012pt\relax% *Should* be OK.
+			\else%
+		\repeatpgfmathloop%
+		\edef\pgf@decorate@subpathtime{\pgfmath@tonumber{\pgf@xb}}%
+		%
+		% Now calculate the angle at the new time on the curve.
+		%
+		\pgfpointcurveattime{\pgf@decorate@subpathtime}%
+			{\pgf@decorate@subpath@first}{\pgf@decorate@subpath@supporta}%
+			{\pgf@decorate@subpath@supportb}{\pgf@decorate@subpath@last}%
+		\edef\pgf@marshal{%
+			\noexpand\pgfmathanglebetweenpoints%
+				{\pgf@x\the\pgf@xb\pgf@y\pgf@yb}%
+				{\pgf@x\the\pgf@xa\pgf@y\pgf@ya}%
+		}%
+		\pgf@marshal%
+		\let\pgfdecoratedangle\pgfmathresult%
+	\fi%
+}
+
+
+
+
+% Applies the necessary transform for a line sub-path.
+%
+\def\pgf@decorate@transformtosubpath@line{%
+	\pgftransformshift{%
+		\pgfpointadd{\pgf@decorate@subpath@first}%
+			{\pgfpointpolar{\pgfdecoratedangle}{\pgfdecoratedsubpathcompleteddistance}}%
+	}%
+	\pgftransformrotate{\pgfdecoratedangle}%
+}
+
+% Applies the necessary transform for a curve sub-path.
+%
+\def\pgf@decorate@transformtosubpath@curve{%
+	\pgfslopedattimetrue%
+	\pgfallowupsidedownattimetrue%
+	\pgftransformcurveattime{\pgf@decorate@subpathtime}%
+		{\pgf@decorate@subpath@first}{\pgf@decorate@subpath@supporta}%
+		{\pgf@decorate@subpath@supportb}{\pgf@decorate@subpath@last}%
+}
+
+
+
+
+
+%	\pgf@decorate@parsesoftpath
+%	
+%	Parses an instance of a soft path into intermediate line and curve
+%	sub-path objects which the decoration automaton can use to traverse 
+% the decorated path. 
+%	
+%	The soft path should be well formed and only contain `primative' 
+%	soft path tokens, that is: moveto, lineto, curvetosupporta, 
+%	curvetosupportb, curveto, rectcorner, rectsize, and closepath.
+%	(i.e., all specialround tokens should have removed using 
+%	\pgfprocessround)
+%	
+%	The overall length of the path is also calculated and returned
+%	in the macro \pgfdecoratedpathlength. 
+%	
+%	Parameters:
+%	
+%	#1 - a macro containing a well formed soft path.
+%	#2 - a macro to store the intermediate sub-path representations.
+%
+%	Example:
+%	
+%	\pgfpathmoveto{\pgfpointorigin}
+%	\pgfpathlineto{\pgfpoint{0pt}{12pt}}
+%	\pgfpathlineto{\pgfpoint{12pt}{0pt}}
+%	\pgfgetpath\softpath
+%	
+%	\pgf@decorate@parsesoftpath{\softpath}{\parsedsoftpath}{}
+%	
+%	results in:
+%	
+%	\parsedsoftpath ->
+%	  {\pgf@decorate@subpathobject@lineto{12pt}{\pgf@x 0pt\pgf@y 0pt}{\pgf@x 0pt\pgf@y 12pt}}
+%	  {\pgf@decorate@subpathobject@lineto{12pt}{\pgf@x 0pt\pgf@y 12pt}{\pgf@x 12pt\pgf@y 12pt}}
+%	
+%	\pgfdecoratedpathlength ->
+%	  24pt
+%
+
+\def\pgf@decorate@parsesoftpath#1#2{%
+	\def\pgf@decorate@subpathobjectsmacro{#2}%
+	\let\pgf@decorate@subpathobjects\pgfutil@empty%
+	\pgfutil@tempdima0pt\relax%
+	\let\pgfpoint@decorate@lastparsed\pgfpoint@decorate@existingpathlast%
+	\let\pgfpoint@decorate@lastnonmovetoparsed\pgfpoint@origin%
+	\let\pgf@decorate@queuesubpathobject\pgfutil@empty%
+	\let\pgfpoint@decorated@firstparsed\pgfutil@empty%
+	\expandafter\pgf@decorate@@parsesoftpath#1\pgf@stop%
+}
+
+\def\pgf@decorate@@parsesoftpath#1{%
+	\ifx#1\pgf@stop%
+		\let\pgf@decorate@queuesubpathobject\pgfutil@empty% <- removes final moveto (may not be desirable).
+		\pgf@decorate@addtosubpathobjects{\pgf@decorate@subpathobject@endofsubpaths}%
+		\pgf@decorate@addtosubpathobjects{\pgf@decorate@subpathobject@endofsubpaths}%
+		\expandafter\let\pgf@decorate@subpathobjectsmacro\pgf@decorate@subpathobjects%
+		\edef\pgf@decorate@totalpathlength{\the\pgfutil@tempdima}%
+		\let\pgf@next\relax%
+	\else%
+		\ifx#1\pgfsyssoftpath@movetotoken%
+			\let\pgf@next\pgf@decorate@parsemoveto%
+		\else%
+			\ifx#1\pgfsyssoftpath@linetotoken%
+				\let\pgf@next\pgf@decorate@parselineto%
+			\else%
+				\ifx#1\pgfsyssoftpath@curvetosupportatoken%
+					\let\pgf@next\pgf@decorate@parsecurveto%
+				\else%
+					\ifx#1\pgfsyssoftpath@closepathtoken%
+						\let\pgf@next\pgf@decorate@parseclosepath%
+					\else%
+						\ifx#1\pgfsyssoftpath@rectcornertoken%
+							\let\pgf@next\pgf@decorate@parserect%
+						\else%
+							\PackageError{PGF}{Unrecognised soft path token `#1'}{}%
+						\fi%
+					\fi%
+				\fi%
+			\fi%
+		\fi%
+	\fi%
+	\pgf@next}
+
+
+\def\pgf@decorate@addtosubpathobjects#1{%
+	%
+	% If there is a subpath object waiting (i.e. a moveto), insert it here.
+	%
+	\ifx\pgf@decorate@queuesubpathobject\pgfutil@empty%
+	\else%
+		\let\pgf@decorate@temp\pgf@decorate@queuesubpathobject%
+		\let\pgf@decorate@queuesubpathobject\pgfutil@empty%
+		\expandafter\pgf@decorate@addtosubpathobjects\expandafter{\pgf@decorate@temp}%
+	\fi%
+	\ifx\pgfpoint@decorated@firstparsed\pgfutil@empty%
+		#1%
+		\let\pgfpoint@decorated@firstparsed\pgf@decorate@subpath@first%
+	\fi%
+	\expandafter\def\expandafter\pgf@decorate@subpathobjects\expandafter%
+		{\pgf@decorate@subpathobjects{#1}}%
+}
+
+%	Convert \pgfsyssoftpath@linetotoken{<X>}{<Y>} into the following
+% representation:
+%	
+%	\pgf@decorate@subpathobject@moveto{\pgf@x X\pgf@y Y}
+%
+%	The moveto subpath object is not added immediately, so that
+%	only the last of multiple movetos is inserted.
+%	
+\def\pgf@decorate@parsemoveto#1#2{%
+	\def\pgf@decorate@queuesubpathobject{\pgf@decorate@subpathobject@moveto{\pgf@x#1\pgf@y#2}}%
+	\def\pgfpoint@decorate@lastparsed{\pgf@x#1\pgf@y#2}%
+	\pgf@decorate@@parsesoftpath%
+}
+
+% Convert \pgfsyssoftpath@linetotoken{<X>}{<Y>} into the following
+% representation:
+%
+% \pgf@decorate@subpathobject@lineto{<length>}{\pgf@x <Last X> \pgf@y <Last Y}{\pgf@x <X> \pgf@y <Y>}
+%
+\def\pgf@decorate@parselineto#1#2{%
+	\pgf@decorate@linelength{\pgfpoint@decorate@lastparsed}{\pgf@x#1\pgf@y#2}%
+	\advance\pgfutil@tempdima\pgfmathresult pt\relax%
+	\edef\pgf@decorate@temp{%
+		\noexpand\pgf@decorate@subpathobject@lineto{\pgfmathresult pt}{\pgfpoint@decorate@lastparsed}{\pgf@x#1\pgf@y#2}%
+	}%
+	\edef\pgfpoint@decorate@lastparsed{\pgf@x#1\pgf@y#2}%
+	\let\pgfpoint@decorate@lastnonmovetoparsed\pgfpoint@decorate@lastparsed%
+	\expandafter\pgf@decorate@addtosubpathobjects\expandafter{\pgf@decorate@temp}%
+	\pgf@decorate@@parsesoftpath%
+}
+	
+% Convert \pgfsyssoftpath@curvetosupportatoken{<Xa>}{<Ya>}...etc
+% into the following representation:
+%
+% \pgf@decorate@subpathobject@curveto{<length>}{\pgf@x <Last X> \pgf@y <Last Y}
+%		{\pgf@x <Xa> \pgf@y <Ya>}{\pgf@x <Xb> \pgf@y <Yb>}{\pgf@x <X> \pgf@y <Y>}
+%
+\def\pgf@decorate@parsecurveto#1#2\pgfsyssoftpath@curvetosupportbtoken#3#4\pgfsyssoftpath@curvetotoken#5#6{%
+	\pgf@decorate@curvelength{\pgfpoint@decorate@lastparsed}{\pgf@x#1\pgf@y#2}{\pgf@x#3\pgf@y#4}{\pgf@x#5\pgf@y#6}%
+	\advance\pgfutil@tempdima\pgfmathresult pt\relax%
+	\edef\pgf@decorate@temp{%
+		\noexpand\pgf@decorate@subpathobject@curveto{\pgfmathresult pt}{\pgfpoint@decorate@lastparsed}%
+			{\pgf@x#1\pgf@y#2}{\pgf@x#3\pgf@y#4}{\pgf@x#5\pgf@y#6}%
+	}%
+	\expandafter\pgf@decorate@addtosubpathobjects\expandafter{\pgf@decorate@temp}%
+	\edef\pgfpoint@decorate@lastparsed{\pgf@x#5\pgf@y#6}%
+	\let\pgfpoint@decorate@lastnonmovetoparsed\pgfpoint@decorate@lastparsed%
+	\pgf@decorate@@parsesoftpath%
+}
+
+
+\def\pgf@decorate@parseclosepath#1#2{%
+	\pgf@decorate@linelength{\pgfpoint@decorate@lastparsed}{\pgf@x#1\pgf@y#2}%
+	\advance\pgfutil@tempdima\pgfmathresult pt\relax%
+	\edef\pgf@decorate@temp{%
+		\noexpand\pgf@decorate@subpathobject@closepath{\pgfmathresult pt}{\pgfpoint@decorate@lastparsed}{\pgf@x#1\pgf@y#2}%
+	}%
+	\expandafter\pgf@decorate@addtosubpathobjects\expandafter{\pgf@decorate@temp}%
+	\edef\pgfpoint@decorate@lastparsed{\pgf@x#1\pgf@y#2}%
+	\let\pgfpoint@decorate@lastnonmovetoparsed\pgfpoint@decorate@lastparsed%
+	\pgf@decorate@@parsesoftpath%
+}
+
+% Convert \pgfsyssoftpath@rectcornertoken{<X>}{<Y>}\pgfsyssoftpath@rectsizetoken{<Xa>}{<Ya>}
+% into either (clockwise)
+%
+% \pgf@decorate@subpathobject@moveto{<X>}{<Y>}
+% \pgf@decorate@subpathobject@lineto{<length 1>}{\pgf@x <X> \pgf@y <Y>}{\pgf@x <X> \pgf@y <Ya+Y>}
+% \pgf@decorate@subpathobject@lineto{<length 2>}{\pgf@x <X> \pgf@y <Ya+Y>}{\pgf@x <Xa+X> \pgf@y <Ya+Y>}
+% \pgf@decorate@subpathobject@lineto{<length 1>}{\pgf@x <Xa+X> \pgf@y <Ya+X>}{\pgf@x <Xa+X> \pgf@y <Y>}
+% \pgf@decorate@subpathobject@lineto{<length 2>}{\pgf@x <Xa+X> \pgf@y <Y>}{\pgf@x <X> \pgf@y <Y>}
+% \pgf@decorate@subpathobject@moveto{<Xa>}{<Ya>}
+%
+% ...or (anti-clockwise)
+%
+% \pgf@decorate@subpathobject@moveto{<X>}{<Y>}
+% \pgf@decorate@subpathobject@lineto{<length 2>}{\pgf@x <X> \pgf@y <Y>}{\pgf@x <Xa+X> \pgf@y <Y>}
+% \pgf@decorate@subpathobject@lineto{<length 1>}{\pgf@x <Xa+X> \pgf@y <Y>}{\pgf@x <Xa+X> \pgf@y <Ya+Y>}
+% \pgf@decorate@subpathobject@lineto{<length 2>}{\pgf@x <Xa+X> \pgf@y <Ya+Y>}{\pgf@x <X> \pgf@y <Ya+Y>}
+% \pgf@decorate@subpathobject@lineto{<length 1>}{\pgf@x <X> \pgf@y <Ya+Y>}{\pgf@x <X> \pgf@y <Y>}
+% \pgf@decorate@subpathobject@moveto{<Xa>}{<Ya>}
+%
+\newif\ifpgfdecoraterectangleclockwise
+\def\pgf@decorate@parserect#1#2\pgfsyssoftpath@rectsizetoken#3#4{%
+	%
+	% Subvert \pgf@decorate@parsesoftpath so parsing macros will
+	% return here instead of continuing to parse the soft path.
+	%
+	\let\pgf@decorate@orig@@parsesoftpath\pgf@decorate@@parsesoftpath%
+	\let\pgf@decorate@@parsesoftpath\relax%
+	\pgf@decorate@parsemoveto{#1}{#2}%
+	\pgf@xa#1\relax%
+	\pgf@ya#2\relax%
+	\ifpgfdecoraterectangleclockwise%	
+		\advance\pgf@ya#4%
+		\pgf@yb\pgf@ya%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@xa#3%
+		\pgf@xb\pgf@xa%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@ya-#4%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@xa-#3%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parseclosepath\pgf@temp%
+	\else%
+		\advance\pgf@xa#3%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\pgf@xb\pgf@xa%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@ya#4%
+		\pgf@yb\pgf@ya%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@xa-#3%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parselineto\pgf@temp%
+		\advance\pgf@ya-#4%
+		\edef\pgf@temp{{\the\pgf@xa}{\the\pgf@ya}}%
+		\expandafter\pgf@decorate@parseclosepath\pgf@temp%
+	\fi%	
+	%
+	% Restore the parsing.
+	%
+	\let\pgf@decorate@@parsesoftpath\pgf@decorate@orig@@parsesoftpath%
+	\edef\pgf@marshal{\noexpand\pgf@decorate@parsemoveto{\the\pgf@xb}{\the\pgf@yb}}%
+	\pgf@marshal%
+}
+
+
+
+
+% \pgf@decorate@linelength
+%
+% Define \pgfmathresult as the distance between #1 and #2 (without units).
+%
+\def\pgf@decorate@linelength#1#2{%
+	\pgf@process{\pgfpointdiff{#1}{#2}}%
+	\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+}
+
+% \pgf@decorate@curvelength
+%
+% Define \pgfmathresult as the length (without units) of the cubic 
+% bezier described by #1,#2,#3 and #4.
+%
+% To approximate the length of the curve P (sort of) use:
+% 
+% curveLength(P)
+%		<P1,P2,P3,P4> <- P;
+%   P' = P4 - P1;
+%   x = P'.x();
+%		y = P'.y();
+%   if (x < q) && (y < q) && (|P2-P1|+|P3-P2|+|P4-P3| < q)
+%			return |P'|;
+%		else%
+%  		Q = subdivideLeft(P);
+%			R = subdivideRight(P);
+%     return curveLength(Q) + curveLength(R);
+%  
+% Where q is some small value (`tolerance').
+% 
+\newif\ifpgf@decorate@subdivide
+\def\pgf@decorate@curvelength{%
+	\let\pgf@decorate@recursive@subdividecurve@after\pgf@decorate@@curvelength%
+	\pgf@decorate@@curvelength}
+	
+\def\pgf@decorate@@curvelength#1#2#3#4{%
+	\begingroup%
+		\pgf@decorate@curvecordlength{#1}{#2}{#3}{#4}%
+		\ifpgf@decorate@subdivide%
+			\pgf@decorate@recursive@subdividecurve@left{#1}{#2}{#3}{#4}%
+			\pgfutil@tempdimb\pgfmathresult pt\relax%
+			\pgf@decorate@recursive@subdividecurve@right{#1}{#2}{#3}{#4}%
+			\advance\pgfutil@tempdimb\pgfmathresult pt\relax%
+			\pgfmath@returnone\pgfutil@tempdimb%
+		\else%
+			\pgfmath@returnone\pgfmathresult%
+		\fi%
+	\endgroup%
+}
+
+\def\pgf@decorate@curvelength@tolerance{1pt}
+
+\def\pgf@decorate@curvecordlength#1#2#3#4{%
+	% 
+	% Calculate the curve cord vector.
+	%
+	#4\relax%
+	\pgf@xa\pgf@x\pgf@ya\pgf@y%
+	#1\relax%
+	\advance\pgf@xa-\pgf@x%
+	\advance\pgf@ya-\pgf@y%
+	\ifdim\pgf@xa<0pt\relax\pgf@xa-\pgf@xa\fi%
+	\ifdim\pgf@ya<0pt\relax\pgf@ya-\pgf@ya\fi%
+	%
+	% Always subdivide, unless...
+	%
+	\pgf@decorate@subdividetrue%
+	\ifdim\pgf@xa<\pgf@decorate@curvelength@tolerance\relax%
+		\ifdim\pgf@ya<\pgf@decorate@curvelength@tolerance\relax%
+			%
+			% ...the bezier cord vector is small. BUT #1 might be very close or
+			% equal to #4, so the bezier polygon vector must be checked.
+			%
+			#1\relax%
+			\pgf@xb-\pgf@x%
+			\pgf@yb-\pgf@y%
+			#2\relax%
+			\pgf@xc-\pgf@x%
+			\pgf@yc-\pgf@y%
+			\expandafter\advance\expandafter\pgf@xb\ifdim\pgf@x<0pt-\fi\pgf@x%
+			\expandafter\advance\expandafter\pgf@yb\ifdim\pgf@y<0pt-\fi\pgf@y%
+			#3\relax%
+			\advance\pgf@xc\pgf@x%
+			\advance\pgf@yc\pgf@y%
+			\expandafter\advance\expandafter\pgf@xb\ifdim\pgf@xc<0pt-\fi\pgf@xc%
+			\expandafter\advance\expandafter\pgf@yb\ifdim\pgf@yc<0pt-\fi\pgf@yc%
+			\pgf@xc-\pgf@x%
+			\pgf@yc-\pgf@y%
+			#4\relax%
+			\advance\pgf@xc\pgf@x%
+			\advance\pgf@yc\pgf@y%
+			\expandafter\advance\expandafter\pgf@xb\ifdim\pgf@xc<0pt-\fi\pgf@xc%
+			\expandafter\advance\expandafter\pgf@yb\ifdim\pgf@yc<0pt-\fi\pgf@yc%
+			\ifdim\pgf@xb<\pgf@decorate@curvelength@tolerance\relax%
+				\pgfmathveclen@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@ya}}%
+				\pgf@decorate@subdividefalse%
+			\else%
+				\ifdim\pgf@yb<\pgf@decorate@curvelength@tolerance\relax%
+					\pgfmathveclen@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@ya}}%
+					\pgf@decorate@subdividefalse%
+				\fi%
+			\fi%
+		\fi%		
+	\fi%
+}
+
+\def\pgf@decorate@recursive@subdividecurve@left#1#2#3#4{%
+	{%
+		%
+		% The left curve (from t=0 to t=.5) 
+		%
+		#1\relax%
+		\pgfutil@tempdima\pgf@x%
+		\pgfutil@tempdimb\pgf@y%
+		\pgf@xa.5\pgf@x\pgf@ya.5\pgf@y%
+		\pgf@xb.25\pgf@x\pgf@yb.25\pgf@y%
+		\pgf@xc.125\pgf@x\pgf@yc.125\pgf@y%
+		#2\relax%
+		\advance\pgf@xa.5\pgf@x\advance\pgf@ya.5\pgf@y%
+		\advance\pgf@xb.5\pgf@x\advance\pgf@yb.5\pgf@y%
+		\advance\pgf@xc.375\pgf@x\advance\pgf@yc.375\pgf@y%
+		#3\relax%
+		\advance\pgf@xb.25\pgf@x\advance\pgf@yb.25\pgf@y%
+		\advance\pgf@xc.375\pgf@x\advance\pgf@yc.375\pgf@y%
+		#4\relax%
+		\advance\pgf@xc.125\pgf@x\advance\pgf@yc.125\pgf@y%
+		\xdef\pgf@marshal{%
+			\noexpand\pgf@decorate@recursive@subdividecurve@after%
+				{\pgf@x\the\pgfutil@tempdima\pgf@y\the\pgfutil@tempdimb}%
+				{\pgf@x\the\pgf@xa\pgf@y\the\pgf@ya}{\pgf@x\the\pgf@xb\pgf@y\the\pgf@yb}
+					{\pgf@x\the\pgf@xc\pgf@y\the\pgf@yc}%
+		}%
+	}%
+	\pgf@marshal%
+}
+
+\def\pgf@decorate@recursive@subdividecurve@right#1#2#3#4{%
+	{%
+		%
+		% The right curve (from t=0.5 to t=1) 
+		%
+		#1\relax%
+		\pgfutil@tempdima.125\pgf@x\pgfutil@tempdimb.125\pgf@y%
+		#2\relax%
+		\advance\pgfutil@tempdima.375\pgf@x\advance\pgfutil@tempdimb.375\pgf@y%
+		\pgf@xa.25\pgf@x\pgf@ya.25\pgf@y%
+		#3\relax%
+		\advance\pgfutil@tempdima.375\pgf@x\advance\pgfutil@tempdimb.375\pgf@y%
+		\advance\pgf@xa.5\pgf@x\advance\pgf@ya.5\pgf@y%
+		\pgf@xb.5\pgf@x\pgf@yb.5\pgf@y%
+		#4\relax%
+		\advance\pgfutil@tempdima.125\pgf@x\advance\pgfutil@tempdimb.125\pgf@y%
+		\advance\pgf@xa.25\pgf@x\advance\pgf@ya.25\pgf@y%
+		\advance\pgf@xb.5\pgf@x\advance\pgf@yb.5\pgf@y%
+		\pgf@xc\pgf@x\pgf@yc\pgf@y%
+		\xdef\pgf@marshal{%
+			\noexpand\pgf@decorate@recursive@subdividecurve@after%
+				{\pgf@x\the\pgfutil@tempdima\pgf@y\the\pgfutil@tempdimb}%
+				{\pgf@x\the\pgf@xa\pgf@y\the\pgf@ya}{\pgf@x\the\pgf@xb\pgf@y\the\pgf@yb}
+					{\pgf@x\the\pgf@xc\pgf@y\the\pgf@yc}%
+		}%
+	}%
+	\pgf@marshal%
+}
+
+% Phew!
+\endinput
