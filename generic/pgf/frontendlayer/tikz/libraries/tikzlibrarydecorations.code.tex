@@ -10,13 +10,12 @@
 \usepgflibrary{decorations}
 
 \newif\iftikz@decorate
+\newif\iftikz@metadecoration
 
 \def\tikz@lib@dec@addtomacro#1#2{\expandafter\def\expandafter#1\expandafter{#1#2}}
 
-\let\tikz@lib@dec@beforedecoration\pgfutil@empty
-\let\tikz@lib@dec@afterdecoration\pgfutil@empty
-\let\tikz@lib@dec@lastdecorationlist\tikz@nonetext
 \let\tikz@lib@dec@decorationlist\tikz@nonetext
+\let\tikz@lib@dec@lastdecorationlist\tikz@nonetext
 
 % /tikz/decoration=<decoration name>
 %
@@ -61,199 +60,115 @@
 		\else%
 			\def\tikz@lib@dec@decorationlist{{#1}{\pgfdecoratedpathlength}{}{}}%
 		\fi%
+		\tikz@metadecorationfalse%
 	}
 }
 
-% /tikz/decorations=<decoration list>
+
+% /tikz/meta decoration=<metadecoration name>
 %
-% Decorate the path with multiple decorations.
-% 
-% The key path is set to /tikz/decorations before <decoration list>
-% is executed. Any unknown keys along this path are executed on 
-% the /tikz key path. The keys for <decoration list> are described
-% below.
+% Decorate the path with a meta decoration.
 %
 % Example:
 %
-%	\tikz\path[decorations={
-%		decoration=lineto, decoration length=2cm, 
-%			after decoration={use decoration path={draw}},
-%		decoration=zigzag, decoration length=2cm,
-%			before decoration={move to first on path, decoration segment length=5pt},
-%			after decoration={use decoration path={red, draw}},
-%		decoration=lineto, decoration length=2cm,
-%			before decoration={move to first on path},
-%			after decoration={use decoration path={black, draw}},
-%		decoration=zigzag, decoration length=2cm,
-%			before decoration={move to first on path, decoration segment length=10pt},
-%			after decoration={use decoration path={blue, draw}},
-%		decoration=lineto, decoration length=to end,
-%			before decoration={move to first on path},
-%			after decoration={use decoration path={draw}}
-%		}]
-%		(0,0) .. controls (0,3) and (6,3) .. (6,6);
-%
+%	\pgfdeclaremetadecoration{fancy line}{line to}{
+%		\state{line to}[width=1cm, next state=zigzag]
+%		{
+%			\decoration{lineto}
+%			\beforedecoration
+%			{
+%				\pgfpathmoveto{\pgfpointdecoratedpathfirst}		
+%			}	
+%			\afterdecoration
+%			{
+%				\pgfsetstrokecolor{black}
+%				\pgfusepath{stroke}			
+%			}
+%		}
+%		\state{zigzag}[width=2cm, next state=line to]
+%		{
+%			\decoration{zigzag}	
+%			\beforedecoration
+%			{
+%				\pgfpathmoveto{\pgfpointdecoratedpathfirst}		
+%			}
+%			\afterdecoration
+%			{
+%				\pgfsetstrokecolor{red}
+%				\pgfusepath{stroke}	
+%			}
+%		}
+%		\state{final}
+%		{
+%			\decoration{lineto}
+%			\beforedecoration
+%			{
+%				\pgfpathmoveto{\pgfpointdecoratedpathfirst}		
+%			}
+%			\afterdecoration
+%			{
+%				\pgfsetstrokecolor{black}
+%				\pgfusepath{stroke}			
+%			}
+%		}
+%	}
+%	
+%	\tikz\draw[meta decoration=fancy line]
+%		 	(0,0) .. controls (0,2)  and (3,2)  .. (3,0)
+%			      .. controls (3,-3) and (0,0)  .. (0,-3)
+%			      .. controls (0,-5) and (3,-5) .. (3,-3); 
+%			      
 \tikzset{%
-	decorations/.code={%
-		\let\tikz@lib@dec@decorationname\pgfutil@empty%
-		\def\tikz@lib@dec@decorationlength{\pgfdecoratedremainingdistance}%
-		\let\tikz@lib@dec@beforedecoration\pgfutil@empty%
-		\let\tikz@lib@dec@afterdecoration\pgfutil@empty%
-		\let\tikz@lib@dec@decorationlist\pgfutil@empty%
-		\tikzset{decorations/.cd,#1}%
-		\ifx\tikz@lib@dec@decorationname\pgfutil@empty%
-		\else%
-			\tikz@lib@dec@updatedecorationlist%
-		\fi%
+	meta decoration/.code={%
+		\def\tikz@lib@dec@decorationlist{#1}%
+		\tikz@lib@dec@decorationlist{#1}
+		\tikz@metadecorationtrue%
 	}
 }
 
-
-\def\tikz@lib@dec@updatedecorationlist{%
-	\edef\tikz@lib@dec@decoration{{\tikz@lib@dec@decorationname}}%
-	\expandafter\tikz@lib@dec@addtomacro\expandafter\tikz@lib@dec@decoration%
-		\expandafter{\expandafter{\tikz@lib@dec@decorationlength}}%
-	\expandafter\tikz@lib@dec@addtomacro\expandafter\tikz@lib@dec@decoration%
-		\expandafter{\expandafter{\tikz@lib@dec@beforedecoration}}%
-	\expandafter\tikz@lib@dec@addtomacro\expandafter\tikz@lib@dec@decoration%
-		\expandafter{\expandafter{\tikz@lib@dec@afterdecoration}}%
-	\ifx\tikz@lib@dec@decorationlist\pgfutil@empty%
-	\else%
-		\tikz@lib@dec@addtomacro\tikz@lib@dec@decorationlist{,}%
-	\fi%
-	\expandafter\tikz@lib@dec@addtomacro\expandafter\tikz@lib@dec@decorationlist%
-		\expandafter{\tikz@lib@dec@decoration}%
-}%
-
-% /tikz/decorations/.cd
-%
-%	These keys are executed only inside the /tikz/decorations key.
-%	They have no meaning/function beyond this. See example above.
-%
-% ../decoration=<decoration name>
-%
-% The name of the decoration.
-%
-% ../decoration length=<distance>
-%
-% This should be a distance, or the keyword `to end'.
-%	The macro \pgfdecoratedpathlength is set up as the length of the
-%	entire decorated path so stuff like \pgfdecoratedpathlength/6 is
-%	possible. If this key is omitted, `to end' is assumed.
-%	
-%	../before decoration=<keys>
-%	
-%	  Keys to execute before decoration (see below). Any unkwown keys
-%	  are executed on the /tikz path (so things like the decoration
-%	  segment length can be set). 
-%	
-%	../after decoration=<keys>
-%	
-%	  Keys to execute before decoration (see below). Any unkwown keys
-%	  are executed on the /tikz path.
-%	
-%	../move to first on path
-%		
-%		Insert \pgfpathmoveto{\pgfdecoratedpathfirst} before/after the 
-%		decoration automaton is run. This is the first point on the *current* 
-%		section of the decorated path. This is only to be used with the
-%		/before decoration or /after decoration keys.
-%		
-%		
-%	../move to last on path
-%		
-%		Insert \pgfpathmoveto{\pgfdecoratedpathlast} before/after the 
-%		decoration automaton is run. This is the last point on the *current* 
-%		section	of the decorated path. This is only to be used with the
-%		/before decoration or /after decoration keys.
-%	
-%	../use path=<keys>
-%		
-%		Insert \path[<keys>]; before/after the decoration automaton is run.
-%		This means any current non-empty path is used. The key path is set
-%		to /tikz so stuff like use path={draw, red, double} is possible.
-%		This is only to be used with the /before decoration or 
-%		/after decoration keys.
-%	
-%	../execute code=<code>
-%		
-%		Insert arbitrary TeX code before/after the decoration automaton is 
-%	  run. This is only to be used with the /before decoration or /after 
-%		decoration keys.
-%
-\tikzset{decorations/.cd,
-	decoration/.code={%
-		\ifx\tikz@lib@dec@decorationname\pgfutil@empty%
-			\def\tikz@lib@dec@decorationname{#1}%
-		\else%
-			\tikz@lib@dec@updatedecorationlist%
-			\def\tikz@lib@dec@decorationname{#1}%
-			\def\tikz@lib@dec@decorationlength{\pgfdecoratedremainingdistance}%
-			\let\tikz@lib@dec@beforedecoration\pgfutil@empty%
-			\let\tikz@lib@dec@afterdecoration\pgfutil@empty%
-		\fi%
-	},%
-	decoration length/.code={%
-		\pgfutil@in@{to end}{#1}%
-		\ifpgfutil@in@%
-		\else%
-			\def\tikz@lib@dec@decorationlength{#1}%
-		\fi%
-	},%
-	before decoration/.code={%
-		\def\tikz@lib@dec@tempmacro{\tikz@lib@dec@beforedecoration}%
-		\tikzset{decorations/.cd,#1}%
-	},%
-	after decoration/.code={%
-		\def\tikz@lib@dec@tempmacro{\tikz@lib@dec@afterdecoration}%
-		\tikzset{decorations/.cd,#1}%
-	},%
-	move to first on path/.code={%
-		\expandafter\tikz@lib@dec@addtomacro\tikz@lib@dec@tempmacro{%
-			\pgfpathmoveto{\pgfpointdecoratedpathfirst}%
-		}%
-	},%
-	move to last on path/.code={%
-		\expandafter\tikz@lib@dec@addtomacro\tikz@lib@dec@tempmacro{%
-			\pgfpathmoveto{\pgfpointdecoratedpathlast}%
-		}%
-	},%
-	use decoration path/.code={%
-		\expandafter\tikz@lib@dec@addtomacro\tikz@lib@dec@tempmacro{%
-			\path[#1];
-		}%
-	},%
-	execute code/.code={%
-		\expandafter\tikz@lib@dec@addtomacro\tikz@lib@dec@tempmacro{#1}%
-	}%
-}
-
-\tikzset{decorations/.unknown/.code={%
-		\pgfutil@ifundefined{tikz@lib@dec@tempmacro}{}
-		{%
-			\edef\tikz@lib@dec@temp{\noexpand\tikzset{\pgfkeyscurrentname=\noexpand#1}}%
-			\def\tikz@lib@dec@@temp{\expandafter\tikz@lib@dec@addtomacro\tikz@lib@dec@tempmacro}%
-			\expandafter\tikz@lib@dec@@temp\expandafter{\tikz@lib@dec@temp}%
-		}%
-	}%
-}
-
-
-
 % Internal environment for tikz decorations.
 %
-\def\tikz@lib@dec@env#1{%
-	\pgfdecorate{#1}%
+\def\tikz@lib@dec@env{%
+	\iftikz@metadecoration%
+		\let\tikz@lib@dec@next\tikz@lib@dec@metadecoration@env%
+	\else%
+		\let\tikz@lib@dec@next\tikz@lib@dec@decoration@env%
+	\fi%
+	\tikz@lib@dec@next%
+}
+
+\def\tikz@lib@dec@decoration@env#1{%
+	\pgfdecoration{#1}%
 		\def\tikz@lib@dec@lastdecorationlist{#1}%
 		\tikz@decoratetrue%
 		\ifx\pgfdecorateexistingpath\pgfutil@empty%
 			\pgfpathmoveto{\pgfqpoint{\the\tikz@lastxsaved}{\the\tikz@lastysaved}}%
 		\fi%
 }
-	
-\def\endtikz@lib@dec@env{%
-	\endpgfdecorate%
+
+\def\tikz@lib@dec@metadecoration@env#1{%
+	\pgfmetadecoration{#1}%
+		\def\tikz@lib@dec@lastdecorationlist{#1}%
+		\tikz@decoratetrue%
+		\ifx\pgfdecorateexistingpath\pgfutil@empty%
+			\pgfpathmoveto{\pgfqpoint{\the\tikz@lastxsaved}{\the\tikz@lastysaved}}%
+		\fi%
 }
+
+\def\endtikz@lib@dec@env{%
+	\iftikz@metadecoration%
+		\let\tikz@lib@dec@next\tikz@lib@dec@metadecoration@endenv%
+	\else%
+		\let\tikz@lib@dec@next\tikz@lib@dec@decoration@endenv%
+	\fi%
+	\tikz@lib@dec@next%
+}
+
+
+\def\tikz@lib@dec@decoration@endenv{\endpgfdecoration}%
+
+\def\tikz@lib@dec@metadecoration@endenv{\endpgfmetadecoration}%
+	
 
 \def\tikz@parse@options#1]{%
 	\tikzset{#1}%
