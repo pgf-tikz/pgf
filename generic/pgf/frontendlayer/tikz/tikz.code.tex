@@ -39,6 +39,7 @@
 
 \newif\iftikz@node@is@a@label
 \newif\iftikz@snaked
+\newif\iftikz@decorate
 
 \let\tikz@options=\pgfutil@empty
 \def\tikz@addoption#1{\expandafter\def\expandafter\tikz@options\expandafter{\tikz@options#1}}
@@ -946,6 +947,9 @@
 \let\tikz@postsnake=\pgfutil@empty
 \def\tikz@mainsnakelength{\pgfsnakeremainingdistance}
 
+% Decorations are in a lib:
+\tikzset{decoration/.code=\PackageError{tikz}{You need to load the decorations library}{},
+         meta decoration/.code=\PackageError{tikz}{You need to load the decorations library}{}}
 
 % Matrix options
 \tikzoption{matrix}[true]{\csname tikz@is@matrix#1\endcsname}
@@ -1357,6 +1361,8 @@
     \let\tikz@preactions=\pgfutil@empty%
     \let\tikz@postactions=\pgfutil@empty%
     \tikz@snakedfalse%
+    \tikz@decoratefalse%
+    \let\tikz@lib@dec@decorationlist\tikz@nonetext%
     \tikz@node@is@a@labelfalse%
     \tikz@expandcount=1000\relax%
     \tikz@lastx=0pt%
@@ -1482,6 +1488,11 @@
 
 
 \def\tikz@finish{%
+  % Close decorations
+  \iftikz@decorate%
+     \endtikz@lib@dec@env%
+  \fi%
+  \tikz@decoratefalse%
   % Rendering pipeline 
   % 
   % Step 1: Preactions
@@ -1896,10 +1907,13 @@
       \pgftransformreset%
       \pgfpathsnakesto{\tikz@presnake,{\tikz@snake}{\tikz@mainsnakelength},\tikz@postsnake}{#1}%
     }%
-    \pgfpathclose%
   \else%
-    \pgfpathclose%
+    \iftikz@decorate%
+      \pgfpathlineto{#1}%
+      \endtikz@lib@dec@env%
+    \fi%
   \fi%
+  \pgfpathclose%
 }
 
 
@@ -3475,9 +3489,21 @@
 \def\tikz@@@parse@polar#1(#2:#3 and #4){%
   \tikz@checkunit{#3}%
   \iftikz@isdimension%
-    \def\tikz@next{#1{\pgfpointpolar{#2}{#3 and #4}}}%
+    \tikz@checkunit{#4}%
+    \iftikz@isdimension%
+      \def\tikz@next{#1{\pgfpointpolar{#2}{#3 and #4}}}%
+    \else%
+      \PackageError{tikz}{You cannot mix dimension and dimensionless values for polar coordinates}{}
+      \def\tikz@next{#1{\pgfpointorigin}}%
+    \fi%
   \else%
-    \def\tikz@next{#1{\pgfpointpolarxy{#2}{#3 and #4}}}%
+    \tikz@checkunit{#4}%
+    \iftikz@isdimension%
+      \PackageError{tikz}{You cannot mix dimension and dimensionless values for polar coordinates}{}
+      \def\tikz@next{#1{\pgfpointorigin}}%
+    \else%
+      \def\tikz@next{#1{\pgfpointpolarxy{#2}{#3 and #4}}}%
+    \fi%
   \fi%
   \tikz@next%
 }
@@ -3514,9 +3540,19 @@
   \else%
     \tikz@checkunit{#2}%
     \iftikz@isdimension%
-      \def\@next{#1{\pgfpoint{#2}{#3}}}%
+      \tikz@checkunit{#3}%
+      \iftikz@isdimension%
+        \def\@next{#1{\pgfpoint{#2}{#3}}}%
+      \else%
+        \def\@next{#1{\pgfpointadd{\pgfpoint{#2}{0pt}}{\pgfpointxy{0}{#3}}}}%
+      \fi%
     \else%
-      \def\@next{#1{\pgfpointxy{#2}{#3}}}%
+      \tikz@checkunit{#3}%
+      \iftikz@isdimension%
+        \def\@next{#1{\pgfpointadd{\pgfpoint{0pt}{#3}}{\pgfpointxy{#2}{0}}}}%
+      \else%
+        \def\@next{#1{\pgfpointxy{#2}{#3}}}%
+      \fi%
     \fi%
   \fi%
   \@next%
