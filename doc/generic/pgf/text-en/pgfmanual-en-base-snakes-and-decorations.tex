@@ -1,0 +1,1150 @@
+ % Copyright 2008 by Till Tantau and Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\section{Snakes and Decorations}
+\label{section-base-snakes-and-decorations}
+
+\subsection{Overview}
+
+Snakes and decorations are two ways of ``making paths more fancy''. 
+This could be as simple as extending a path with a ``zigzagged'' 
+line\ldots 
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[snake=zigzag] (0,0) -- (3,0);
+  \draw[snake=zigzag] (0,-.5) -- (3,-1);
+\end{tikzpicture}
+\end{codeexample}
+
+\ldots but could also be as complex as typesetting text along a path:
+
+{\catcode`\|12
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [red, dashed]
+    [postaction={decoration=text, decoration text={Some text along a path}}]
+    (0,2) .. controls (2,2) and (1,0) .. (3,0);
+\end{tikzpicture}
+\end{codeexample}
+}
+
+The most common use for a snake or a decoration is to ``repeat
+something along a path'' (for example, the |zigzag| snake 
+repeats \tikz\draw[snake=zigzag](0,0)--(\pgfsnakesegmentlength,0);
+along a straight line). However, it not necessarily the case that
+only one thing be repeated: a snake or a decoration can consist
+of different parts, or \emph{segments}, repeated in a particular
+order.
+
+Before a snake or a decoration can be used, it must first be declared. 
+This declaration contains a detailed description of how each segement 
+looks like and in what ordering the different possible 
+segments are used.
+
+
+\subsubsection{Segments}
+
+
+When you declare a snake or a decoration, you provide a description 
+of how their different segments will be rendered. The description of
+each segment should be given in a way as if the ``x-axis'' of the
+segment is the tangent to the path at a particular point,
+and that point is the origin of the segment.
+Thus, for example, the segment of the |zigzag| snake might be
+defined using the following code: 
+\begin{codeexample}[code only]
+\pgfpathlineto{\pgfpoint{5pt}{5pt}}
+\pgfpathlineto{\pgfpoint{15pt}{-5pt}}
+\pgfpathlineto{\pgfpoint{20pt}{0pt}}
+\end{codeexample}
+
+\pgfname\ will ensure that an appropriate coordinate transformation
+is in place when the segment is rendered such that
+the segment actually points in the right direction. Also
+subsequent segments will be transformed such that they are
+``further along the path'' toward the end of the path.
+All transformations are setup automatically.
+
+Note that we did not use a |\pgfpathmoveto{\pgfpointorigin}| at the
+beginning of the segment code. Doing so would subdivide the path into
+numerous subpaths. Rather, we assume that the previous segment caused
+the current point to be at the origin.
+
+While we can now describe segments, we still need a way to ``stop''
+a snake or a decoration. Also, \pgfname\ needs to know the width of 
+the different segments such that it can translate and rotate the 
+next segment correctly.
+Even though it would be possible to compute all this information
+automatically, \pgfname\ does not do so and you have to provide the
+information ``by hand'' for each segment. 
+
+
+\subsubsection{Finite State Automata}
+
+The |zagzag| snake only has one segment that is repeated again and
+again. However, we might also like to have \emph{different} segments
+and use rules to describe which segment should be used where. For
+example, we might have special segments at the start and at the end.
+
+Both decorations and snakes use a mechanism known in computer science 
+as \emph{finite state automata} to describe which segment is used at a
+particular point. The idea is the following: For the first segment we
+start in a special \emph{state} called the \emph{initial state}. In
+this state, and also in all other state later, \pgfname\ first
+computes how much space is left on the path. That is, \pgfname\ keeps
+track of the distance to the end of the path. Attached to each state 
+there is a set of rules of the following form: ``If the remaining 
+distance is less than $x$, switch to state~$q$.'' \pgfname\ checks 
+for each of these rules whether it applies and, if so, immediately 
+switches to state~$q$.
+
+Only if none of the rules tell us to switch to another
+state, \pgfname\ will execute the state's code. This code will add a
+segment to the path. In addition to the rules there is also width
+parameter attached to each state. \pgfname\ then translates the
+coordinate system by this width and reduces the remaining distance.
+Then, \pgfname\ either stays in the current state or switches to
+another state, depending on yet another property attached of the
+state.
+
+The whole process stops when a special state called |final| is
+reached. The segment of this state is added to the path immediately
+(it is often empty, though) and the process ends.
+
+
+\subsection{Snakes}
+
+\label{section-base-snakes}
+
+A snake is used to extend the path and the
+commands for using snakes start with |\pgfpath|. However, snakes do
+not necessarily extend the path using line-to and curve-to operations;
+rather, they can also contain move-to operations and, thereby, cause
+the path to be split into many subpaths.
+
+Once a snake has been declared, it can be used. For this you specify a
+target point and a snaked line will be added from the last point
+current point to the target point.
+
+\subsubsection{The Snake Declaration Command}
+
+\begin{command}{\pgfdeclaresnake\marg{name}\marg{initial
+      state}\marg{states}}
+  This command declares a new snake called \meta{name}. The
+  \meta{states} argument contains a description of the snake
+  automaton's states and the transitions between them. The
+  \meta{initial state} is the state in which the automaton starts.
+
+  The \meta{states} argument should consist of |\state| commands, one
+  for each state of the snake automaton. The |\state| command is
+  defined only when the \meta{states} argument is executed.
+
+\begin{codeexample}[]
+\pgfdeclaresnake{example snake}{initial}
+{
+  \state{initial}[width=10pt]
+  {
+    \pgfpathlineto{\pgfpoint{0pt}{5pt}}
+    \pgfpathlineto{\pgfpoint{5pt}{5pt}}
+    \pgfpathlineto{\pgfpoint{5pt}{-5pt}}
+    \pgfpathlineto{\pgfpoint{10pt}{-5pt}}
+    \pgfpathlineto{\pgfpoint{10pt}{0pt}}
+  }
+  \state{final}
+  {
+    \pgfpathlineto{\pgfpoint{\pgfsnakeremainingdistance}{0pt}}
+  }
+}
+\tikz{\draw[snake=example snake] (0,0) -- (3,0);
+      \draw[snake=example snake] (0,-1) -- (3,-3);}
+\end{codeexample}
+
+ The |\state| command works as follows:
+  \begin{command}{\state\marg{name}\oarg{options}\marg{code}}
+    This command declares a new state inside the current snake
+    automaton. The state is names \meta{name}.
+
+    When \pgfname\ is in state \meta{name}, the following things
+    happen:
+    \begin{enumerate}
+    \item
+      The \meta{options} are parsed. This may lead, see below, to a 
+      state switch. When this happens, the following steps are not
+      executed. The \meta{options} are executed one after the other in
+      the given order. If an option causes a state switch, the switch
+      is immediate, even if later options might cause a different
+      state switch.
+    \item
+      The \meta{code} is executed. When this happens, the coordinate
+      transformation will be setup such that the origin is at the
+      start of the segment and such that the target lies in the
+      direction ``east.''
+    \item
+      After the \meta{code} has been executed, the state switches to
+      whatever state has been specified inside the \meta{options}
+      using the |next state| option. If no |next state| has been
+      specified, the state stays the same.
+    \end{enumerate}
+
+    The \meta{options} are executed with the key path set to
+    |/pgf/snakes/|. The following keys are defined for this path: 
+    \begin{key}{/pgf/snakes/switch if less than=\meta{dimension}| to |\meta{new state}}
+      When this key is encountered, \pgfname\ checks whether the
+      remaining distance to the target is less than
+      \meta{dimension}. If so, an immediate state switch to \meta{new
+        state} occurs.
+    \end{key}
+    \begin{key}{/pgf/snakes/switch if sub-path less than=\meta{dimension}| to |\meta{new state}}
+      When this key is encountered, \pgfname\ checks whether the
+      remaining distance to the target is less than
+      \meta{dimension}. If so, an immediate state switch to \meta{new
+        state} occurs.
+    \end{key}
+    \begin{key}{/pgf/snakes/width=\meta{dimension}}
+      This option tells \pgfname\ the width of the segment if it is
+      appended to the path. The coordinate system will, afterward, be
+      translated by \meta{dimension} to ensure that the next segment
+      starts where the current one ended.
+
+      In addition, this option will cause an immediate switch to the
+      state |final| if the remaining distance is less than
+      \meta{dimension}. The effect is the same as if you had said
+      |switch if less than=|\meta{dimension}| to final| just before
+      the |width| option.
+    \end{key}
+    \begin{key}{/pgf/snakes/next state=\meta{new state}}
+      After the segment has been added to the path, a state switch to
+      \meta{new state} is performed. If this option is not given, the
+      next state is the same as the current state.
+    \end{key}
+  
+    There are two dimensions that are useful inside snake automata:
+    \begin{command}{\pgfsnakeremainingdistance}
+      This \TeX\ dimension holds the remaining distance to the target.
+    \end{command}
+    \begin{command}{\pgfsnakecompleteddistance}
+      This \TeX\ dimension holds the distance already completed on the
+      snake. 
+    \end{command}
+  \end{command}
+
+  As a final example we present a more complicated snake that makes
+  use of the different options:
+\begin{codeexample}[]
+\pgfdeclaresnake{complicated example snake}{initial}
+{
+  \state{initial}[width=5pt,next state=up]
+  { \pgfpathlineto{\pgfpoint{5pt}{0pt}} }
+  
+  \state{up}[width=5pt,next state=down]
+  {
+    \ifdim\pgfsnakeremainingdistance>\pgfsnakecompleteddistance
+      % Growing
+      \pgfpathlineto{\pgfpoint{0pt}{\pgfsnakecompleteddistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{\pgfsnakecompleteddistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{0pt}}
+    \else
+      % Shrinking
+      \pgfpathlineto{\pgfpoint{0pt}{\pgfsnakeremainingdistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{\pgfsnakeremainingdistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{0pt}}
+    \fi%      
+  }
+  \state{down}[width=5pt,next state=up]
+  {
+    \ifdim\pgfsnakeremainingdistance>\pgfsnakecompleteddistance
+      % Growing
+      \pgfpathlineto{\pgfpoint{0pt}{-\pgfsnakecompleteddistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{-\pgfsnakecompleteddistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{0pt}}
+    \else
+      % Shrinking
+      \pgfpathlineto{\pgfpoint{0pt}{-\pgfsnakeremainingdistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{-\pgfsnakeremainingdistance}}
+      \pgfpathlineto{\pgfpoint{5pt}{0pt}}
+    \fi%      
+  }
+  \state{final}
+  {
+    \pgfpathlineto{\pgfpoint{\pgfsnakeremainingdistance}{0pt}}
+  }
+}
+\begin{tikzpicture}[snake=complicated example snake]
+  \draw[snake] (0,0) -- (3,0);
+  \fill[red!50,snake,rounded corners=2pt] (.5,-2) -- ++(2.5,-2.5)
+                             [snake=none] -- ++(0,-.5) -| (0,-2) -- cycle;
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\subsubsection{Predefined Snakes}
+
+Only two very simple and basic snakes are predefined when you load
+\pgfname. For more interesting snakes you can use the package
+|pgflibrarysnakes|.
+
+\begin{snake}{lineto}
+  This most trivial of all snakes is simply a straight line. This
+  snake is typically not used in a ``stand alone'' fashion. Rather, it
+  is useful as a ``subsnake'' of the |\pgfsnakesto| command.
+\end{snake}
+
+\begin{snake}{moveto}
+  Arguably, this snake is even simpler than the previous snake. This
+  snake consists of a simple move-to operation. Like the |lineto|
+  snake, it is useful as a ``subsnake'' of the |\pgfsnakesto|
+  command. 
+\end{snake}
+
+
+\subsubsection{Snake Parameters}
+
+The appearance of snakes is usually influenced by the current settings
+of a whole bunch of keys. For efficiency reasons, the following keys
+(which are the most important ones) do not actually store their
+setting ``inside themselves,'' but set \TeX\ macros and dimensions:
+\begin{itemize}
+\item |/pgf/segment amplitude| sets the \TeX-dimension |\pgfsnakesegmentamplitude|
+\item |/pgf/segment length| sets the \TeX-dimension |\pgfsnakesegmentlength|
+\item |/pgf/segment angle| sets the \TeX-macro |\pgfsnakesegmentangle|
+\item |/pgf/segment aspect| sets the \TeX-macro   |\pgfsnakesegmentaspect|
+\item |/pgf/segment object length| sets the \TeX-macro (!) |\pgfsnakesegmentobjectlength|
+\end{itemize}
+
+This means that when you define your own snake, you should refer to
+the above macros, not the the keys.
+
+
+
+\subsubsection{Using Snakes}
+
+Three commands can be used to use a snake.
+
+\begin{command}{\pgfpathsnakealongvector\marg{snake}\marg{length}\marg{vector}}
+  This command will append the \meta{snake} to the current path. The
+  length of the snake is given by \meta{length}. The \meta{vector}
+  should be a normalizes vector (a vector having length |1pt|)
+  pointing in the direction in which the snake should grow.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+  \pgfpathmoveto{\pgfpoint{1cm}{1cm}}
+  \pgfpathsnakealongvector{zigzag}{2cm}{\pgfpointpolar{30}{1pt}}
+  \pgfusepath{stroke}
+\end{tikzpicture}    
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfpathsnakesto\marg{snake list}\marg{target}}
+  This command will append the snakes in the \meta{snake list}  to the
+  current path such that it ends at \meta{point}. This command calls the previous 
+  one (repeatedly, possibly) after having computed the distance from
+  the current point to \meta{target} and normalized the vector
+  connecting the current point to the target.
+
+  The \meta{snake list} is a comma-separated list of pairs consisting
+  of a snake name in curly braces and a distance in curly braces. For
+  example, a snake list might be |{lineto}{1cm},{moveto}{2cm}|. This
+  is interpreted as follows: Use a |lineto| snake for the first
+  centimeter of the way to the \meta{target}, then use the |moveto|
+  snake for the next two centimeters.
+
+  No attempt is made to check or ensure that the distances of the
+  ``subsnakes' add up to the distnace from the current point to the
+  \meta{target}. However, it is possible to refer to this distance
+  inside the \meta{snake list}: While the snake list is processed, the
+  two \TeX-dimensions |\pgfsnakeremainingdistance| and
+  |\pgfsnakecompleteddistance| will be set to the correct values. For
+  example, consider the example from a above, consisting of a |lineto|
+  and a |moveto| snake. Suppose the distance to \meta{target} where
+  5cm. Then, when the length of the first subsnake is computed, the
+  remaining distance willbe set to 5cm and the completed distance to
+  0cm. When the length of the second subsnake is computed, the
+  remaining distance wil be 4cm and the completed distance will be
+  1cm.
+
+  Here are some useful examles: |{zigzag}{\pgfsnakeremainingdistance}|
+  is a \meta{snake list} that consists only of a |zigzag| snake whose
+  length is the total distance from the current point to the
+  \meta{target}. Next, to get a snake that is a |zigzag| snake that is
+  preceeded and succeeded by 3mm of |lineto|, you can use the
+  following:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines](0,0) grid (3,2);
+  \pgfpathmoveto{\pgfpointorigin}
+  \pgfpathsnakesto{%
+    {lineto}{3mm},%
+    {zigzag}{\pgfsnakeremainingdistance-6mm},%
+    {lineto}{3mm}}
+  {\pgfpoint{3cm}{2cm}}
+  \pgfusepath{stroke}
+\end{tikzpicture}
+\end{codeexample}
+
+  Note that the computation of the distance may be imprecise. In
+  general, the placement precision of the snakes will not be perfect. 
+\end{command}
+
+\begin{command}{\pgfpathsnaketo\marg{snake}\marg{target}}
+  This command is just a shortcut for calling |\pgfpathsnakesto| for a
+  single snake whose length is |\pgfsnakeremainingdistance|.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (3,2);
+  \pgfpathmoveto{\pgfpoint{1cm}{1cm}}
+  \pgfpathsnaketo{zigzag}{\pgfpoint{3cm}{2cm}}
+  \pgfusepath{stroke}
+\end{tikzpicture}    
+\end{codeexample}
+\end{command}
+
+As was already mentioned, when each segment of the snake is added to
+the path, an appropriate coordinate transformation will be in
+force. It is sometimes useful to add an additional transformation
+locally. For example, by reflecting everything around the $x$-axis
+right before each segment is added, the snake will effectively be
+mirrored along the path. The following command allows you to install
+such a ``last minute transformation.''
+
+\begin{command}{\pgfsetsnakesegmenttransformation\marg{code}}
+  The \meta{code} will be executed at the very beginning of each
+  segment. Normally, this be a transformation command that changes the
+  $y$-axis in some way.
+\end{command}
+
+
+\subsection{Decorations}
+\label{section-base-decorations}
+
+Decorations are ``grown up'' snakes. Like snakes,
+decorations consist of segments and are declared as finite 
+state automata. However, whereas snakes can
+only be used to extend a path in a straight line, decorations
+are much more flexible. Decorations can also extend a path in a
+``snake-like'' manner (everthing that can be done with a snake
+can be done with a decoration), but they are not limited to
+single straight lines. Multiple paths consiting of lines, and 
+curves can be decorated. 
+
+In addition, a decoration can stroke or fill the path it creates 
+allowing for different colors, line widths, fills and shades all 
+within the same decoration. Alternatively, a decoration can not 
+create a path at all: the |text| decoration simply typesets text
+along a path.
+Further versitility is provided by ``meta-decorations''. These
+are automata that decorate a path with decorations.
+
+Naturally, all of this comes at some cost. Measuring the 
+length of an arbitrary path, and moving along it is very tricky 
+to do accurately and quickly in \TeX. So you should be aware that 
+decorations can be much slower than snakes. Also, some inaccuracies
+in positioning may be noticable when crossing a subpath boundary.
+
+In order to prevent confusion with different types of path, such
+as those that are extended, those that are decorated and those that 
+are created, the following conventions will be used:
+
+\begin{itemize}
+	\item 
+		the \emph{existing} path refers to any unused path in existence 
+		before a decoration environment is encountered.
+	\item
+		the \emph{decorated} path refers to ``the path that is to be 
+		decorated''	or ``the path that has been decorated'', that is, 
+		the path that	the decoration automaton moves along. The decorated
+		path may consist of many line and curve subpaths (for example,
+		a circle or an ellipse consists of four curves).
+	\item
+		the \emph{decoration} path refers to ``the path that the decoration 
+		makes'', that is, the path created by the decoration automaton.
+		When the automaton terminates, this path may be empty (as it has
+		been used by the decoration).
+\end{itemize}
+
+\subsubsection{The Decoration Declaration Command}
+
+As with snakes, decorations must be declared. The command for
+declaring decorations is very similar to the |\pgfdeclaresnake| 
+command, and operates in the same way. However, a state in a
+decoration automaton has more keys, macros and dimensions
+avaiblable, than a state in a snake automaton.
+
+\begin{command}{\pgfdeclaredecoration\marg{name}\marg{initial
+      state}\marg{states}}
+  This command declares a new decoration called \meta{name}. The
+  \meta{states} argument contains a description of the decoration
+  automaton's states and the transitions between them. The
+  \meta{initial state} is the state in which the automaton starts.
+  
+\begin{codeexample}[]
+\pgfdeclaredecoration{stars}{initial}{
+  \state{initial}[width=15pt]
+  {
+  	\pgfmathparse{round(rnd*100)}
+  	\pgfsetfillcolor{yellow!\pgfmathresult!orange}
+    \pgfsetstrokecolor{yellow!\pgfmathresult!red}
+    \pgfnode{star}{center}{}{}{\pgfusepath{stroke,fill}}
+  }
+  \state{final}
+  {
+  	\pgfpathmoveto{\pgfpointdecoratedpathlast}
+  }
+}
+\tikz\path[decoration=stars, star point ratio=2, star points=5,
+           inner sep=0, minimum size=rnd*10pt+2pt]            
+  (0,0) .. controls (0,2)  and (3,2)  .. (3,0)
+        .. controls (3,-3) and (0,0)  .. (0,-3)
+        .. controls (0,-5) and (3,-5) .. (3,-3);
+\end{codeexample}
+
+  The |\state| command works as follows:
+  \begin{command}{\state\marg{name}\oarg{options}\marg{code}}
+    This command declares a new state inside the current decoration
+    automaton. The state is names \meta{name}.
+
+    The \meta{options} are executed with the key path set to
+    |/pgf/decoration/|. The following keys are defined for this path: 
+    \begin{key}{/pgf/decoration/switch if less than=\meta{dimension}| to |\meta{new state}}
+      When this key is encountered, \pgfname\ checks whether the
+      remaining distance to the end of the decorated path is less than
+      \meta{dimension}. If so, an immediate state switch to \meta{new
+        state} occurs.
+    \end{key}
+    \begin{key}{/pgf/decoration/switch if subpath less than=\meta{dimension}| to |\meta{new state}}
+      When this key is encountered, \pgfname\ checks whether the
+      remaining distance to the end of the current decorated subpath is 
+      less than \meta{dimension}. If so, an immediate state switch to 
+      \meta{new state} occurs.
+    \end{key}
+    \begin{key}{/pgf/decoration/width=\meta{dimension}}
+      This option tells \pgfname\ the width of the segment.
+      The coordinate system will, afterward, be
+      translated to a point which is \meta{dimension} along the 
+      decorated path (and also rotated to an angle of the tangent
+      to the decorated path).
+
+      In addition, this option will cause an immediate switch to the
+      state |final| if the remaining distance is less than
+      \meta{dimension}. The effect is the same as if you had said
+      |switch if less than=|\meta{dimension}| to final| just before
+      the |width| option.
+    \end{key}
+    \begin{key}{/pgf/decoration/next state=\meta{new state}}
+      After the code for state has been executed, a state switch to
+      \meta{new state} is performed. If this option is not given, the
+      next state is the same as the current state.
+    \end{key}
+    \begin{key}{/pgf/decoration/repeat state=\meta{repetitions} (initially 0)}
+      Repeat the current state \meta{repetitions} times. This is reset
+      if one of the |switch if| keys causes a state switch. 
+      Note, that the maximum number of times the state will be executed 
+      is $\meta{repetitions}+1$.
+    \end{key}
+    
+		There are a number of macros and dimensions which may be useful
+		inside a decoration automaton. The following macros are available:
+		
+		\begin{command}{\pgfdecoratedpathlength}
+				The length of the decorated path. Note that if multiple
+				decorations are being applied, this refers to the length
+				of the current segment of the decorated path.
+		\end{command}
+		
+		\begin{command}{\pgfdecoratedsubpathlength}
+				The length of the current decorated sub-path.
+		\end{command}
+		
+		\begin{command}{\pgfpointdecoratedpathlast}
+				The final point of the decorated path.
+		\end{command}
+				
+		\begin{command}{\pgfpointdecoratedsubpathlast}
+				The final point of the current decorated sub-path.
+		\end{command}
+		
+		\begin{command}{\pgfdecoratedangle}
+		   The angle of the tangent to the decorated path at the \emph{origin}
+		   of the current segment. The transformation matrix applied at 
+		   the beginning of a state includes a rotation equivalent to 
+		   this angle.
+		\end{command}
+		
+		 The following dimension registers are also available inside the 
+		 automaton:
+		
+		\begin{command}{\pgfdecoratedremainingdistance}
+				The remaining distance on the decorated path. When multiple
+				decorations are applied, this is the distance to the end
+				of the segment of the decorated path that is currently being
+				decorated.
+		\end{command}
+		
+		\begin{command}{\pgfdecoratedcompleteddistance}
+				The completed distance on the decorated path.
+		\end{command}
+		
+		\begin{command}{\pgfdecoratedsubpathremainingdistance}
+				The remaining distance on the current decorated sub-path.
+		\end{command}
+		
+		\begin{command}{\pgfdecoratedsubpathcompleteddistance}
+				The completed distance on the current decorated sub-path.
+		\end{command}
+	\end{command}
+\end{command}
+
+
+\subsubsection{Predefined Decorations}
+
+Only two very simple decorations are predefined when you 
+load \pgfname{}. For more interesting decorations you can load
+the library |pgflibrarydecorations|.
+
+\begin{decoration}{lineto}
+
+	This decoration is analogous to the snake |lineto|: it simply 
+	decorates the path as if it was stroked. In reality, lots
+	of very small stright lines are used. This decoration is quite
+	handy when using mutiple decorations, or as part of a
+	meta-decoration.
+
+\end{decoration}
+
+
+\begin{decoration}{moveto}
+
+ This decoration is analogous to the snake |moveto|, it just
+ moves along the path (actually in very small steps). Again,
+ this decoration is most useful in multiple decorations or in
+ a meta-decoration.
+ 
+\end{decoration}
+
+\subsubsection{Decoration Parameters}
+
+Like snakes, the appearance of decorations can influenced by the 
+settings of various keys. They are analogous to the keys used 
+by snakes, and similarly, do not actually store their
+setting ``inside themselves,'' but set \TeX\ macros and dimensions.
+
+\begin{itemize}
+	\item |/pgf/decoration segment amplitude| 
+		sets the \TeX-dimension |\pgfdecorationsegmentamplitude|
+		
+	\item |/pgf/decoration segment length| 
+		sets the \TeX-dimension |\pgfdecorationsegmentlength|
+		
+	\item |/pgf/decoration segment angle| 
+		sets the macro |\pgfdecorationsegmentangle|
+		
+	\item |/pgf/decoration segment aspect| 
+		sets the macro |\pgfdecorationsegmentaspect|
+		
+	\item |/pgf/decoration segment object length| 
+		sets the macro |\pgfdecorationsegmentobjectlength|
+\end{itemize}
+
+When defining decorations, you should refer to the above macros, 
+not the the keys.
+
+
+\subsubsection{Using Decorations}
+
+One of the biggest difference between snakes and decorations
+is in the way they are used in a picture. Whereas snakes
+extend an existing path using |\pgfpath| commands, a decoration 
+uses the |{pgfdecorate}| environment, in which a path is specified 
+and then decorated, creating and possibly using other paths. 
+
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+  \pgfdecorationsegmentlength.125cm
+  \begin{pgfdecoration}{{zigzag}{\pgfdecoratedpathlength}}
+    \pgfpathmoveto{\pgfpoint{1.5cm}{1cm}}
+    \pgfpatharc{45}{270}{1.5cm and 1cm}
+    \pgfpatharc{90}{-135}{1.5cm and 1cm}
+  \end{pgfdecoration}
+  \pgfusepath{stroke}
+\end{pgfpicture}
+\end{codeexample}
+
+\begin{environment}{{pgfdecoration}\marg{decoration list}}
+	This environment decorates the path specified in 
+	\meta{environment contents} with the 
+	decorations specified in \marg{decoration list}. In effect, the
+	decorated path is divided into segments, each with its own 
+	decoration.
+	
+	When this environment is entered, the sequence of 
+	events will be as follows:
+		\begin{enumerate}
+			\item
+				Any existing unused path is saved.
+			\item 
+				The path commands specified in \meta{environment contents} are
+				executed and this resulting path (the ``decorated'' path) is 
+				saved. 
+			\item
+				The saved existing path is reinstalled.
+			\item
+				The decoration automaton moves along the decorated path using
+				the automaton \meta{name}, thus creating (and
+				possibly using) the ``decoration'' path.
+		\end{enumerate}
+	 
+	Some important points should be noted regarding the use of this
+	environment:
+	
+	\begin{itemize}
+		\item
+			If \meta{environment contents} does not begin with 
+			|\pgfpathmoveto|,	the last known point on the existing path is 
+			assumed as the starting point.
+		\item
+			All except the last of any sequence of consecutive move-to commands 
+			in \meta{environment contents} are discarded.
+		\item
+			Any move-to commands at end of \meta{environment contents} are 
+			ignored.
+		\item
+			Any close-path commands on the decorated path are interpreted as 
+			straight lines.
+			Internally somthing a little more complicated is going on,
+			however, a closed path on the decorated path has no effect on the 
+			decoration path, other than causing the automaton to travel in a 
+			straight line towards the location of the last move-to command on 
+			the decorated path.
+		\item
+			Although a the decorated path assumes the last known point on the
+			path, it does not automatically insert a move-to for the decoration
+			path. 
+			If a decoration	path commences with a line-to or curve-to when the 
+			existng path is empty, an appropriate move-to command should be 
+			inserted before the decoration commences (this can be done quite
+			simply --- see below).
+		\item
+			If a decoration uses its own path, any unused existing path will
+			be used by the decoration. 
+	\end{itemize}
+	
+	
+	The format for each item in \marg{decoration list} is as follows:
+	
+	\marg{name}\marg{length}\marg{before code}\marg{after code}
+	
+	This instructs \pgfname{} to decorate the path for a distance
+	of \marg{length} using the decoration \meta{name}. Before the
+	decoration is applied \meta{before code} is executed. After the
+	decoration has finished, \meta{after code} is executed.
+			
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration segment length=5pt]
+  \draw [help lines] grid (3,2);
+  \begin{pgfdecoration}{{lineto}{1cm},{zigzag}{2cm},{lineto}{1cm}}
+    \pgfpathmoveto{\pgfpointorigin}
+    \pgfpathcurveto
+      {\pgfpoint{0cm}{2cm}}{\pgfpoint{3cm}{2cm}}{\pgfpoint{3cm}{0cm}}
+  \end{pgfdecoration}
+\pgfusepath{stroke}
+\end{tikzpicture}
+\end{codeexample}
+
+	The above example illustrates an important point: if the sum of 
+	the lengths specified in \meta{decoration list} is not equal to 
+	the length of the decorated path then the decoration will simply 
+	stop at the point it has reached (if the sum of the lengths is 
+	greater than the decorated path length, later decorations in the 
+	list are simply ignored). 
+		
+	Fortuntely when the lengths are evaluated, the dimension
+	|\pgfdecoratedremainingdistance| holds the remaining distance on
+	the entire decorated path, and |\pgfdecoratedpathlength| holds the
+	total length of the path. Thus, it is possible to specify lengths
+	like |\pgfdecoratedpathlength/3|.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration segment length=5pt]
+  \draw [help lines] grid (3,2);
+  \begin{pgfdecoration}{
+      {lineto}{\pgfdecoratedpathlength/3},
+      {zigzag}{\pgfdecoratedpathlength/3},
+      {lineto}{\pgfdecoratedremainingdistance}
+    }
+    \pgfpathmoveto{\pgfpointorigin}
+    \pgfpathcurveto
+      {\pgfpoint{0cm}{2cm}}{\pgfpoint{3cm}{2cm}}{\pgfpoint{3cm}{0cm}}
+  \end{pgfdecoration}
+  \pgfusepath{stroke}
+\end{tikzpicture}
+\end{codeexample}
+
+	When \meta{before code} is executed, the macro 
+	|\pgfpointdecoratedpathfirst| will return the point corresponding
+	to the start of the current segment of the decorated path.
+	When \meta{after code} is executed the macro 
+	|\pgfpointdecoratedpathlast| returns the point corresponding to
+	the end of the current segment of the decorated path.
+	This means that if decorations do not use their own path, it is 
+	possible to do something with them and and continue from the
+	correct place. 
+	
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] grid (3,2);
+  \begin{pgfdecoration}{
+	    {lineto}{\pgfdecoratedpathlength/3}
+	      {}
+	      {
+	        \pgfusepath{stroke}
+	      },
+	    {zigzag}{\pgfdecoratedpathlength/3}
+  	    {
+	        \pgfpathmoveto{\pgfpointdecoratedpathfirst}
+	        \pgfdecorationsegmentlength=5pt
+	      }
+	      {
+	        \pgfsetstrokecolor{red}
+	        \pgfusepath{stroke}
+	        \pgfpathmoveto{\pgfpointdecoratedpathlast}
+	        \pgfsetstrokecolor{black}
+	      },
+	    {lineto}{\pgfdecoratedremainingdistance}
+    }
+    \pgfpathmoveto{\pgfpointorigin}
+    \pgfpathcurveto
+      {\pgfpoint{0cm}{2cm}}{\pgfpoint{3cm}{2cm}}{\pgfpoint{3cm}{0cm}}
+  \end{pgfdecoration}
+\pgfusepath{stroke}
+\end{tikzpicture}
+\end{codeexample}
+	
+	If \meta{before code} and \meta{after code} are 
+	empty they can be omitted. However, if \meta{before code} is
+	empty, braces must be included if \meta{after code} is not,
+	for example, |{zigzag}{1cm}{}{\pgfusepath{stroke}|.
+	
+	After the |{decoration}| environment has finished, the following 
+	macros are available:
+	
+	\begin{command}{\pgfdecorateexistingpath}
+		Any unused path existing before the environment was entered.
+	\end{command}
+	
+	\begin{command}{\pgfdecoratedpath}
+		The path that was decorated.
+	\end{command}
+	
+	\begin{command}{\pgfdecorationpath}
+	  Any unused path created by the automaton.
+	\end{command}
+	
+	\begin{command}{\pgfpointdecoratedpathlast}
+		The final point of the decorated path.
+	\end{command}
+	
+	\begin{command}{\pgfpointdecorationpathlast}
+		The final point of any unused decoration path.
+	\end{command}
+
+\end{environment}
+
+\begin{plainenvironment}{{pgfdecoration}\marg{name}}
+  The plain-\TeX{} version of the |{pgfdecorate}| environment.
+\end{plainenvironment}
+
+\begin{contextenvironment}{{pgfdecoration}\marg{name}}
+  The Con\TeX t version of the |{pgfdecoration}| environment.
+\end{contextenvironment}
+
+For convenience, the following macros provide a ``shorthand''
+for decorations (internally, they all use the |{pgfdecoration}|
+environment).
+
+\begin{command}{\pgfdecoratepath\marg{name}\marg{path commands}}
+	Decorate the path described by \meta{path commands} with the
+	decoration \meta{name}. This is equivalent to
+\end{command}
+
+\begin{command}{\pgfdecoratecurrentpath\marg{name}}
+	Decorate the existing path with the	decoration \meta{name}.
+\end{command}
+
+Both the above commands use the current definitons of the following
+macros:
+
+\begin{command}{\pgfdecoratebeforecode}
+  Specifies code to be executed immediately before a decoration is 
+  applied.
+  When this macro is executed, |\pgfpointdecoratedpathfirst| will 
+  have been set up to return the point corresponding to the start 
+  of the current segment of the decorated path.
+\end{command}
+
+\begin{command}{\pgfdecorateaftercode}
+  Specifies code to be executed immediately after a decoration is 
+  applied.
+  When this macro is executed, |\pgfpointdecoratedpathlast| will 
+  have been set up  to return the point corresponding	to the end
+  of the current segment of the decorated path.
+\end{command}
+
+
+It may sometimes be useful to add an additional transformation
+for each segment of a decoration. The following command allows 
+you to define such a ``last minute transformation.''
+
+\begin{command}{\pgfsetdecorationsegmenttransformation\marg{code}}
+  The \meta{code} will be executed at the very beginning of each
+  segment. Note when applying multiple decorations, this will
+  be reset between decorations, so needs to be specified for
+  each decortion.
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] grid (3,2);
+  \begin{pgfdecoration}{
+	    {lineto}{\pgfdecoratedpathlength/3},
+	    {zigzag}{\pgfdecoratedpathlength/3}
+        {
+          \pgfdecorationsegmentlength=5pt
+          \pgfsetdecorationsegmenttransformation{\pgftransformyshift{.5cm}}
+        },
+	    {lineto}{\pgfdecoratedremainingdistance}
+    }
+    \pgfpathmoveto{\pgfpointorigin}
+    \pgfpathcurveto
+      {\pgfpoint{0cm}{2cm}}{\pgfpoint{3cm}{2cm}}{\pgfpoint{3cm}{0cm}}
+  \end{pgfdecoration}
+\pgfusepath{stroke}
+\end{tikzpicture}
+\end{codeexample}
+  
+\end{command}
+
+
+\subsubsection{The Meta-Decorations command}
+\label{section-base-meta-decorations}
+
+A meta-decoration provides an alternative way to decorate a path with 
+mutiple decorations. It is, in essence, an automaton that decorates
+a path with decoration automatons. In general, however, the end effect 
+is still that a path is decorated with other paths, and the decorated 
+path should be thought of as being divided into segments each with 
+their own decoration. Like snakes and ordinary decorations, before a 
+meta-decoration can be used it must be declared.
+
+\begin{command}{\pgfdeclaremetadecorate\marg{name}\marg{initial state}\marg{states}}
+
+	This command declares a new meta-decoration called \meta{name}. The
+  \meta{states} argument contains a description of the meta-decoration
+  automaton's states and the transitions between them. The
+  \meta{initial state} is the state in which the automaton starts.
+  
+  The |\state| command is similar to the one found in snake and
+  decoration declarations, and takes the same form:
+  
+  \begin{command}{\state\marg{name}\oarg{options}\marg{code}}
+  	Declares the state \meta{name} inside the current meta-decoration
+    automaton.
+    Unlike states in snakes or decorations, states in 
+	  meta-decorations are not executed within a group. This permits a 
+	  rather useful trick: By using an initial state with |width=0pt| some
+	  calculations can be done in advance which could speed the execution
+	  of the meta-decoration.
+    
+    The \meta{options} are executed with the key path set to
+    |/pgf/meta-decorations/|, and the following keys are defined for 
+    this path: 
+    
+    \begin{key}{/pgf/meta-decoration/switch if less than=\meta{dimension}| to |\meta{new state}}
+      This causes \pgfname\ to check whether the
+      remaining distance to the end of the decorated path is less than
+      \meta{dimension}, and If so, to immediatly switch to the state 
+      \meta{new state}. When this key is evaluated, the macro 
+      |\pgfmetadecoratedpathlength| will be defined as the total length of 
+      the decoration path, allowing for values such as
+      |\pgfmetadecoratedpathlength/8|.
+    \end{key}
+    
+    \begin{key}{/pgf/meta-decoration/width=\meta{dimension}}
+      This option tells \pgfname\ the width of the segment, that is,
+      the length of the path which the decoration automaton specified 
+      in \meta{code} will decorate.
+      
+      In addition, this option will cause an immediate switch to the
+      state |final| if the remaining distance is less than
+      \meta{dimension}. 
+    \end{key}
+    
+    \begin{key}{/pgf/meta-decoration/next state=\meta{new state}}
+      After the code for a state has been executed, a state switch to
+      \meta{new state} is performed. If this option is not given, the
+      next state is the same as the current state.
+    \end{key}
+    
+    The code in \meta{code} is quite different from the code in a 
+    snake or a decoration state. In almost all cases only the 
+    following three macros will be required:
+    
+    \begin{command}{\decoration\marg{name}}
+    	This sets the decoration for the current state to \meta{name}.
+    	If this command is omitted, the |moveto| decoration will be
+    	used.
+    \end{command}
+    
+    \begin{command}{\beforedecoration\marg{code}}
+    	Defines \marg{code} as (typically) \pgfname{} commands to be
+    	executed before the decoration is applied to the current segment.
+    	This command can be omited. When this code is executed,
+    	the macro |\pgfpointmetadecoratedpathfirst| will be set up as
+    	the first point on the current segment of the decorated path.
+    	If you wish to set up some decoration specific parameters 
+    	such as segment length, or segment amplitude, then they
+    	can be set in \meta{code}.
+    	
+    \end{command}
+    
+    \begin{command}{\afterdecoration\marg{code}}
+    	Defines \marg{code} as commands to be	executed afer the 
+    	decoration has been applied to the current segment.
+    	This command can be omited.
+    	When this code is executed, |\pgfpointmetadecoratedpathlast| will 
+    	be set up as the last point on the current segment of the 
+    	decorated path.
+    \end{command}
+    
+    There are some macros that may be usedful when creating 
+    meta-decorations (note that they are all macros):
+    
+    \begin{command}{\pgfmetadecoratedpathlength}
+      The entire length of the decorated path.
+    \end{command}
+    
+    
+    \begin{command}{\pgfmetadecoratedcompleteddistance}
+    	The completed distance on the entire decorated path.
+    \end{command}
+    
+    \begin{command}{\pgfmetadecoratedremainingdistance}
+    	The remaining distance on the entire decorated path.
+    \end{command}
+    
+    \begin{command}{\pgfmetadecoratedsubpathcompleteddistance}
+    	The completed distance on the current decorated subpath.
+    \end{command}
+    
+    \begin{command}{\pgfmetadecoratedsubpathremainingdistance}
+    	The remaining distance on the current decorated subpath.
+    \end{command}
+  \end{command}
+   
+   To finish with, a simple example of a meta-decoration:
+
+\begin{codeexample}[]
+\pgfdeclaremetadecoration{arrows}{initial}{
+  \state{initial}[width=0pt, next state=arrow]
+  {	
+    \pgfmathdivide{100}{\pgfmetadecoratedpathlength}
+    \let\factor\pgfmathresult
+    \pgfsetlinewidth{1pt}
+    \pgfset{/pgf/decoration segment length=4pt}
+  }
+  \state{arrow}[
+    switch if less than=\pgfmetadecorationsegmentlength to final,
+    width=\pgfmetadecorationsegmentlength/3, 
+    next state=zigzag]
+  {
+    \decoration{lineto}
+    \beforedecoration
+    {   
+      \pgfmathparse{\pgfmetadecoratedcompleteddistance*\factor}
+      \pgfsetcolor{red!\pgfmathresult!yellow}
+      \pgfpathmoveto{\pgfpointmetadecoratedpathfirst}
+    }	
+  }
+  \state{zigzag}[width=\pgfmetadecorationsegmentlength/3, next state=end arrow]
+  {
+  	\decoration{zigzag}
+  }
+  \state{end arrow}[width=\pgfmetadecorationsegmentlength/3, next state=move]
+  {
+    \decoration{lineto}
+    \beforedecoration{\pgfpathmoveto{\pgfpointmetadecoratedpathfirst}}
+    \afterdecoration
+    {	
+      \pgfsetarrowsend{to}
+      \pgfusepath{stroke}	
+    }
+  }  
+  \state{move}[width=\pgfmetadecorationsegmentlength/2, next state=arrow]{}
+  \state{final}{}
+}
+
+\tikz\draw[meta-decoration segment length=2cm, meta-decoration=arrows]
+  (0,0) .. controls (0,2)   and (3,2)   .. (3,0)
+        .. controls (3,-2)  and (0,-2)  .. (0,-4)
+        .. controls (0,-6)  and (3,-6)  .. (3,-8)
+        .. controls (3,-10) and (0,-10) .. (0,-8);
+\end{codeexample}
+
+\end{command}
+
+
+\subsubsection{Predefined Meta-decorations}
+
+There are no predefined meta-decorations loaded with \pgfname{}.
+
+\subsubsection{Meta-decoration Parameters}
+
+The appearance of meta-decorations decorations can influenced by the 
+settings of two keys. They are analogous to the keys used 
+by both snakes and ordinary decorations, and similarly, do not 
+actually store their setting ``inside themselves,'' but set 
+\TeX\ macros.
+
+\begin{itemize}
+	\item |/pgf/meta-decoration segment amplitude| 
+		sets the macro |\pgfmetadecorationsegmentamplitude|
+		
+	\item |/pgf/meta-decoration segment length| 
+		sets the macro |\pgfmetadecorationsegmentlength|
+		
+\end{itemize}
+
+When defining meta-decorations, you should refer to the above macros, 
+not the the keys.
+
+
+
+\subsubsection{Using Meta-Decorations}
+
+Using meta-decorations is much simpler than using decorations, because
+you can only use one meta-decoration per path.
+
+\begin{environment}{{pgfmetadecoration}\marg{name}}
+
+	This environment decorates the path described in 
+	\meta{environment contents}, with the	meta-decoration \meta{name}.
+	
+\end{environment}
+
+\begin{plainenvironment}{{pgfmetadecoration}\marg{name}}
+
+	The plain \TeX{} version of the |{pgfmetadecoration}| environment.
+	
+\end{plainenvironment}
+
+\begin{contextenvironment}{{pgfmetadecoration}\marg{name}}
+
+	The Con\TeX t version of the |{pgfmetadecoration}| environment.
+	
+\end{contextenvironment}
