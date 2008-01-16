@@ -39,7 +39,6 @@
 
 \newif\iftikz@node@is@a@label
 \newif\iftikz@snaked
-\newif\iftikz@decorate
 
 \let\tikz@options=\pgfutil@empty
 \def\tikz@addoption#1{\expandafter\def\expandafter\tikz@options\expandafter{\tikz@options#1}}
@@ -886,9 +885,11 @@
 % Snakes are in a lib:
 \tikzset{snake/.code=\PackageError{tikz}{You need to say \string\usetikzlibrary{snakes}}{}}
 
-% Decorations are in a lib:
-\tikzset{decoration/.code=\PackageError{tikz}{You need to load the decorations library}{},
-         meta decoration/.code=\PackageError{tikz}{You need to load the decorations library}{}}
+% Decorations are in a lib
+\tikzset{decoration/.code=\PackageError{tikz}{You need to say \string\usetikzlibrary{decorations}}{},
+         meta-decoration/.style=decoration,
+         decorate/.is if=tikz@decoratepath}
+\newif\iftikz@decoratepath
 
 % Matrix options
 \usepgfmodule{matrix}
@@ -1299,8 +1300,7 @@
     \let\tikz@preactions=\pgfutil@empty%
     \let\tikz@postactions=\pgfutil@empty%
     \tikz@snakedfalse%
-    \tikz@decoratefalse%
-    \let\tikz@lib@dec@decorationlist\tikz@nonetext%
+    \tikz@decoratepathfalse%
     \tikz@node@is@a@labelfalse%
     \tikz@expandcount=1000\relax%
     \tikz@lastx=0pt%
@@ -1322,94 +1322,106 @@
 % Central dispatcher for commands
 \def\tikz@handle{%
   \let\@next=\tikz@expand%
-    \ifx\@let@token(%)
-      \let\@next=\tikz@movetoabs%
+  \ifx\@let@token(%)
+    \let\@next=\tikz@movetoabs%
+  \else%
+    \ifx\@let@token+%
+      \let\@next=\tikz@movetorel%
     \else%
-      \ifx\@let@token+%
-        \let\@next=\tikz@movetorel%
+      \ifx\@let@token-%
+        \let\@next=\tikz@lineto%
       \else%
-        \ifx\@let@token-%
-          \let\@next=\tikz@lineto%
+        \ifx\@let@token.%
+          \let\@next=\tikz@dot%
         \else%
-          \ifx\@let@token.%
-            \let\@next=\tikz@dot%
+          \ifx\@let@token r%
+            \let\@next=\tikz@rect%
           \else%
-            \ifx\@let@token r%
-              \let\@next=\tikz@rect%
+            \ifx\@let@token n%
+              \let\@next=\tikz@fig%
             \else%
-              \ifx\@let@token a%
-                \let\@next=\tikz@arcA%
+              \ifx\@let@token[%]
+                \let\@next=\tikz@parse@options%
               \else%
-                \ifx\@let@token[%]
-                  \let\@next=\tikz@parse@options%
+                \ifx\@let@token c%
+                  \let\@next=\tikz@cchar%
                 \else%
-                  \ifx\@let@token n%
-                    \let\@next=\tikz@fig%
+                  \ifx\@let@token\bgroup%
+                    \let\@next=\tikz@beginscope%
                   \else%
-                    \ifx\@let@token\bgroup%
-                      \let\@next=\tikz@beginscope%
+                    \ifx\@let@token\egroup%
+                      \let\@next=\tikz@endscope%
                     \else%
-                      \ifx\@let@token\egroup%
-                        \let\@next=\tikz@endscope%
+                      \ifx\@let@token;%
+                        \let\@next=\tikz@finish%
                       \else%
-                        \ifx\@let@token;%
-                          \let\@next=\tikz@finish%
-                        \else%
-                          \ifx\@let@token c%
-                            \let\@next=\tikz@cchar%
-                          \else%
-                            \ifx\@let@token e%
-                              \let\@next=\tikz@e@char%
-                            \else%
-                              \ifx\@let@token g%
-                                \let\@next=\tikz@grid%
-                              \else%
-                                \ifx\@let@token s%
-                                   \let\@next=\tikz@sine%
-                                \else%
-                                  \ifx\@let@token |%
-                                     \let\@next=\tikz@vh@lineto%
-                                  \else%
-                                    \ifx\@let@token p%
-                                      \let\@next=\tikz@pchar%
-                                      \pgfsetmovetofirstplotpoint%
-                                    \else%
-                                      \ifx\@let@token t%
-                                        \let\@next=\tikz@to%
-                                      \else%
-                                        \ifx\@let@token\pgfextra%
-                                          \let\@next=\tikz@extra%
-                                        \else%
-                                          \ifx\@let@token\foreach%
-                                            \let\@next=\tikz@foreach%
-                                          \else%
-                                            \ifx\@let@token\pgf@stop%
-                                              \let\@next=\relax%
-                                            \else%
-                                              \ifx\@let@token\par%
-                                                \let\@next=\tikz@scan@next@command%
-                                              \fi%      
-                                            \fi%      
-                                          \fi%      
-                                        \fi%      
-                                      \fi%      
-                                    \fi%  
-                                  \fi%  
-                                \fi%
-                              \fi%
-                            \fi%
-                          \fi%
-                        \fi%
-                      \fi%  
-                    \fi%  
-                  \fi%  
-                \fi%  
+                        \let\@next=\tikz@handle@more%
+                      \fi%
+                    \fi%
+                  \fi%
+                \fi%
               \fi%
             \fi%
           \fi%
         \fi%
       \fi%
     \fi%
+  \fi%
+  \@next%
+}
+
+% Continued...
+\def\tikz@handle@more{%
+  \ifx\@let@token a%
+    \let\@next=\tikz@arcA%
+  \else%
+    \ifx\@let@token e%
+      \let\@next=\tikz@e@char%
+    \else%
+      \ifx\@let@token g%
+        \let\@next=\tikz@grid%
+      \else%
+        \ifx\@let@token s%
+           \let\@next=\tikz@sine%
+        \else%
+          \ifx\@let@token |%
+             \let\@next=\tikz@vh@lineto%
+          \else%
+            \ifx\@let@token p%
+              \let\@next=\tikz@pchar%
+              \pgfsetmovetofirstplotpoint%
+            \else%
+              \ifx\@let@token t%
+                \let\@next=\tikz@to%
+              \else%
+                \ifx\@let@token\pgfextra%
+                  \let\@next=\tikz@extra%
+                \else%
+                  \ifx\@let@token\foreach%
+                    \let\@next=\tikz@foreach%
+                  \else%
+                    \ifx\@let@token\pgf@stop%
+                      \let\@next=\relax%
+                    \else%
+                      \ifx\@let@token\par%
+                        \let\@next=\tikz@scan@next@command%
+                      \else%
+                        \ifx\@let@token d%
+                          \let\@next=\tikz@decoration%
+                        \else%
+                          \let\@next=\tikz@expand%
+                        \fi%      
+                      \fi%      
+                    \fi%      
+                  \fi%      
+                \fi%      
+              \fi%      
+            \fi%  
+          \fi%  
+        \fi%
+      \fi%
+    \fi%
+  \fi%
   \@next%
 }
 
@@ -1426,12 +1438,13 @@
 
 
 \def\tikz@finish{%
-  % Close decorations
-  \iftikz@decorate%
-     \endtikz@lib@dec@env%
-  \fi%
-  \tikz@decoratefalse%
   % Rendering pipeline 
+  % 
+  % Step 1: Decorate path
+  % 
+  \iftikz@decoratepath%
+    \tikz@lib@dec@decorate@path%
+  \fi%
   % 
   % Step 1: Preactions
   % 
@@ -1628,7 +1641,7 @@
 
 \def\tikz@beginscope{\begingroup\tikz@scan@next@command}
 \def\tikz@endscope{%
-  \global\setbox\tikz@tempbox=\copy\tikz@figbox%
+  \global\setbox\tikz@tempbox=\box\tikz@figbox%
   \endgroup%
   \setbox\tikz@figbox=\box\tikz@tempbox%
   \tikz@scan@next@command}
@@ -1846,10 +1859,7 @@
       \pgfpathsnakesto{\tikz@presnake,{\tikz@snake}{\tikz@mainsnakelength},\tikz@postsnake}{#1}%
     }%
   \else%
-    \iftikz@decorate%
-      \pgfpathlineto{#1}%
-      \endtikz@lib@dec@env%
-    \fi%
+    \pgfpathlineto{#1}%
   \fi%
   \pgfpathclose%
 }
@@ -1940,8 +1950,10 @@
 % [options]
 \def\tikz@parse@options#1]{%
   \tikzset{#1}%
+  \tikz@lib@dec@hook% for decorations...
   \tikz@scan@next@command%
 }
+\let\tikz@lib@dec@hook=\relax
 
 % Syntax for edges:
 % edge [options] (coordinate)
@@ -3089,6 +3101,22 @@
 \def\tikz@p@c@s@group#1{%
   \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text{#1}}
   \tikz@parse@child@node@rest}
+
+% 
+% Syntax for decorated subpaths:
+%
+% decorate [option] { subpath }
+%
+\def\tikz@decoration ecorate{%
+  \pgfutil@ifnextchar[{\tikz@lib@decoration}{\tikz@lib@decoration[]}%]
+}
+\def\tikz@lib@decoration[#1]#2{%
+  \PackageError{tikz}{You need to say \string\usetikzlibrary{decorations} to use decorations}{}%
+  \tikz@scan@next@command%
+}
+\def\tikz@lib@dec@decorate@path{%
+  \PackageError{tikz}{You need to say \string\usetikzlibrary{decorations} to use decorations}{}%
+}
 
 
 %

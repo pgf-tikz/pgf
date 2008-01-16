@@ -9,12 +9,86 @@
 
 \usepgflibrary{decorations}
 
+
+
 \newif\iftikz@metadecoration
 
 \def\tikz@lib@dec@addtomacro#1#2{\expandafter\def\expandafter#1\expandafter{#1#2}}
 
 \let\tikz@lib@dec@decorationlist\tikz@nonetext
-\let\tikz@lib@dec@lastdecorationlist\tikz@nonetext
+
+
+% The decorate path command:
+
+\def\tikz@lib@decoration[#1]{%
+  \begingroup%
+    % Just to be on the save side...
+    %
+    % Now, let's parse the options:
+    \tikzset{#1}%
+    %
+    \ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
+    % Ok, let's forget about this decoration stuff...
+    \else
+      \expandafter\tikz@lib@do@dec%
+    \fi%
+}
+\def\tikz@lib@do@dec{%
+      % Ok, now what?
+      \iftikz@metadecoration%
+        \expandafter\pgfmetadecoration\expandafter{\tikz@lib@dec@decorationlist}%
+      \else%
+        \expandafter\pgfdecoration\expandafter{\tikz@lib@dec@decorationlist}%
+      \fi%
+      \ifx\pgfdecorateexistingpath\pgfutil@empty%
+        \pgfpathmoveto{\pgfqpoint{\the\tikz@lastxsaved}{\the\tikz@lastysaved}}%
+      \fi%
+      % Now, we expect a brace.
+      \pgfutil@ifnextchar\bgroup{%
+        \begingroup%
+        \aftergroup\tikz@enddecoration%
+        \afterassignment\tikz@scan@next@command%
+        \let\tikz@lib@next=% gobble \bgroup%
+      }%
+      {%
+        \PackageError{tikz}{A decoration must begin with a brace}{}%
+        \tikz@enddecoration%
+      }%
+}
+
+\def\tikz@enddecoration#1{%
+    \ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
+    % ignore this.
+    \else
+      % Ok, now what?
+      \iftikz@metadecoration%
+        \endpgfmetadecoration%
+      \else%
+        \endpgfdecoration%
+      \fi%
+    \fi
+  \endgroup%
+}
+
+
+% The decorate path command:
+\def\tikz@lib@dec@decorate@path{%
+  \ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
+  \else%
+    \pgfgetpath\tikz@lib@dec@currentpath%
+    \pgfsetpath\pgfutil@empty%
+    \iftikz@metadecoration%
+      \expandafter\pgfmetadecoration\expandafter{\tikz@lib@dec@decorationlist}%
+        \pgfsetpath\tikz@lib@dec@currentpath%
+      \endpgfmetadecoration%
+    \else%
+      \expandafter\pgfdecoration\expandafter{\tikz@lib@dec@decorationlist}%
+        \pgfsetpath\tikz@lib@dec@currentpath%
+      \endpgfdecoration%
+    \fi%
+  \fi%
+}
+
 
 % /tikz/decoration=<decoration name>
 %
@@ -53,18 +127,18 @@
 %		       .. controls (0,-5) and (3,-5) .. (3,-3); 
 %
 \tikzset{%
-	decoration/.code={%
-		\def\tikz@lib@dec@decorationlist{#1}%
-		\ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
-		\else%
-			\def\tikz@lib@dec@decorationlist{{#1}{\pgfdecoratedpathlength}{}{}}%
-		\fi%
-		\tikz@metadecorationfalse%
-	}
+  decoration/.code={%
+    \def\tikz@lib@dec@decorationlist{#1}%
+    \ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
+    \else%
+      \def\tikz@lib@dec@decorationlist{{#1}{\pgfdecoratedpathlength}{}{}}%
+    \fi%
+    \tikz@metadecorationfalse%
+  }
 }
 
 
-% /tikz/meta decoration=<metadecoration name>
+% /tikz/meta-decoration=<metadecoration name>
 %
 % Decorate the path with a meta decoration.
 %
@@ -112,92 +186,18 @@
 %		}
 %	}
 %	
-%	\tikz\draw[meta decoration=fancy line]
+%	\tikz\draw[meta-decoration=fancy line]
 %		 	(0,0) .. controls (0,2)  and (3,2)  .. (3,0)
 %			      .. controls (3,-3) and (0,0)  .. (0,-3)
 %			      .. controls (0,-5) and (3,-5) .. (3,-3); 
 %			      
 \tikzset{%
-	meta-decoration/.code={%
-		\def\tikz@lib@dec@decorationlist{#1}%
-		\tikz@lib@dec@decorationlist{#1}
-		\tikz@metadecorationtrue%
-	}
-}
-
-% Internal environment for tikz decorations.
-%
-\def\tikz@lib@dec@env{%
-	\iftikz@metadecoration%
-		\let\tikz@lib@dec@next\tikz@lib@dec@metadecoration@env%
-	\else%
-		\let\tikz@lib@dec@next\tikz@lib@dec@decoration@env%
-	\fi%
-	\tikz@lib@dec@next%
-}
-
-\def\tikz@lib@dec@decoration@env#1{%
-	\pgfdecoration{#1}%
-		\def\tikz@lib@dec@lastdecorationlist{#1}%
-		\tikz@decoratetrue%
-		\ifx\pgfdecorateexistingpath\pgfutil@empty%
-			\pgfpathmoveto{\pgfqpoint{\the\tikz@lastxsaved}{\the\tikz@lastysaved}}%
-		\fi%
-}
-
-\def\tikz@lib@dec@metadecoration@env#1{%
-	\pgfmetadecoration{#1}%
-		\def\tikz@lib@dec@lastdecorationlist{#1}%
-		\tikz@decoratetrue%
-		\ifx\pgfdecorateexistingpath\pgfutil@empty%
-			\pgfpathmoveto{\pgfqpoint{\the\tikz@lastxsaved}{\the\tikz@lastysaved}}%
-		\fi%
-}
-
-\def\endtikz@lib@dec@env{%
-	\iftikz@metadecoration%
-		\let\tikz@lib@dec@next\tikz@lib@dec@metadecoration@endenv%
-	\else%
-		\let\tikz@lib@dec@next\tikz@lib@dec@decoration@endenv%
-	\fi%
-	\tikz@lib@dec@next%
+  meta-decoration/.code={%
+    \def\tikz@lib@dec@decorationlist{#1}%
+    \tikz@metadecorationtrue%
+  }
 }
 
 
-\def\tikz@lib@dec@decoration@endenv{\endpgfdecoration}%
-
-\def\tikz@lib@dec@metadecoration@endenv{\endpgfmetadecoration}%
-	
-
-\def\tikz@parse@options#1]{%
-	\tikzset{#1}%
-	%
-	% Update decoration here otherwise some key values 
-	% will be lost inside the scope of the decoration.
-	% 
-  \expandafter\tikz@lib@dec@check\expandafter{\tikz@lib@dec@decorationlist}%
-  \tikz@scan@next@command%
-}
-
-
-\def\tikz@lib@dec@check#1{%
-	\def\tikz@lib@dec@decorationlist{#1}%
-	\ifx\tikz@lib@dec@decorationlist\tikz@lib@dec@lastdecorationlist%
-	\else%
-		\ifx\tikz@lib@dec@lastdecorationlist\tikz@nonetext%
-			% Start a new decoration.
-			\tikz@lib@dec@env{#1}%
-		\else%
-			\ifx\tikz@lib@dec@decorationlist\tikz@nonetext%
-				% End existing decoration.
-				\endtikz@lib@dec@env%
-			\else%
-				% End existing decoration and start new decoration.
-				\endtikz@lib@dec@env%
-				\tikz@lib@dec@env{#1}%
-			\fi%
-		\fi%
-	\fi%
-}
 
 \endinput
