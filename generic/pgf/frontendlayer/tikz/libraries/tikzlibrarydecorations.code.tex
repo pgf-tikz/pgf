@@ -38,16 +38,35 @@
     }%
     \let\tikz@dec@user@transform=\tikz@g@temptransform%
     \tikz@dec@trans%
-  }%
+  },%
+  /pgf/decoration/pre/.initial=lineto,
+  /pgf/decoration/post/.initial=lineto,
+  /pgf/decoration/pre length/.initial=0pt,
+  /pgf/decoration/post length/.initial=0pt,
 }
 
 \newif\iftikz@decoratepath
 \let\tikz@decoration@name=\tikz@nonetext
 
-\def\tikz@dec@trans{\pgfsetdecorationsegmenttransformation{\tikz@dec@user@transform\tikz@dec@shift\tikz@dec@mirror}}
+\def\tikz@dec@trans{\pgfsetdecorationsegmenttransformation{\tikz@dec@user@transform\tikz@dec@mirror\tikz@dec@shift}}
 \let\tikz@dec@user@transform=\relax
 \let\tikz@dec@shift=\relax
 \let\tikz@dec@mirror=\relax
+
+\pgfdeclaremetadecoration{tikz@internal}{pre}{
+  \state{pre}[width=\pgfkeysvalueof{/pgf/decoration/pre length}, next state=main]
+  {
+    \decoration{\pgfkeysvalueof{/pgf/decoration/pre}}
+  }
+  \state{main}[width=\pgfmetadecoratedremainingdistance-\pgfkeysvalueof{/pgf/decoration/post length}, next state=final]
+  {
+    \decoration{\tikz@decoration@name}
+  }
+  \state{final}
+  {
+    \decoration{\pgfkeysvalueof{/pgf/decoration/post}}
+  }
+}
 
 
 \newif\iftikz@metadecoration
@@ -84,7 +103,7 @@
   {\expandafter\pgfmetadecoration\expandafter{\tikz@decoration@name}}%
   {%
     \pgfifdecoration{\tikz@decoration@name}%
-    {\expandafter\pgfdecoration\expandafter{\expandafter{\tikz@decoration@name}{\pgfdecoratedpathlength}{}{}}}%
+    {\tikz@lib@dec@startdecoration}%
     {\PackageError{tikz}{Unknown (meta-)decoration '\tikz@decoration@name'. Perhaps you
         misspelled it?}{}}%
   }%
@@ -101,7 +120,7 @@
       \iftikz@metadecoration%
         \endpgfmetadecoration%
       \else%
-        \endpgfdecoration%
+        \tikz@lib@dec@stopdecoration%
       \fi%
     \fi
   \endgroup%
@@ -122,15 +141,45 @@
     {
       \pgfifdecoration{\tikz@decoration@name}
       {
-        \expandafter\pgfdecoration\expandafter{\expandafter{\tikz@decoration@name}{\pgfdecoratedpathlength}{}{}}%
+        \tikz@lib@dec@startdecoration%
           \pgfsetpath\tikz@lib@dec@currentpath%
-        \endpgfdecoration%
+        \tikz@lib@dec@stopdecoration%
       }
       {
         \PackageError{tikz}{Unknown (meta-)decoration '\tikz@decoration@name'. Perhaps
           you misspelled it?}{}
       }
     }
+  \fi%
+}
+
+\def\tikz@lib@dec@zpttext{0pt}
+
+\newif\iftikz@lib@dec@temp
+\def\tikz@lib@dec@startdecoration{%
+  \pgfkeysgetvalue{/pgf/decoration/pre length}{\tikz@lib@pre}%
+  \pgfkeysgetvalue{/pgf/decoration/post length}{\tikz@lib@post}%
+  \tikz@lib@dec@tempfalse%
+  \ifx\tikz@lib@pre\tikz@lib@dec@zpttext%
+    \ifx\tikz@lib@post\tikz@lib@dec@zpttext%
+    \else%
+      \tikz@lib@dec@temptrue%
+    \fi%
+  \else%
+    \tikz@lib@dec@temptrue%
+  \fi%
+  \iftikz@lib@dec@temp%
+    \pgfmetadecoration{tikz@internal}%
+  \else%
+    \expandafter\pgfdecoration\expandafter{\expandafter{\tikz@decoration@name}{\pgfdecoratedpathlength}{}{}}%
+  \fi%
+}
+
+\def\tikz@lib@dec@stopdecoration{%
+  \iftikz@lib@dec@temp%
+    \endpgfmetadecoration%
+  \else%
+    \endpgfdecoration%
   \fi%
 }
 
