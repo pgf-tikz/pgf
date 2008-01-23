@@ -11,58 +11,6 @@
 
 
 
-% Cleanup path
-%
-% #1 = a macro name that stores a path
-%
-% Description:
-%
-% This command will remove superfluous parts from a path. Movetos with
-% a moveto following are removed.
-%
-% Example:
-%
-% \pgfsyssoftpath@moveto{0}{0}
-% \pgfsyssoftpath@moveto{10}{10}
-% \pgfsyssoftpath@lineto{0}{0}
-% \pgfsyssoftpath@getcurrentpath\mypath
-% \pgfprocesspathcleanup\mypath
-
-\def\pgfprocesspathcleanup#1{%
-  {%
-    \let\pgf@newpath=\pgfutil@empty%
-    \expandafter\pgf@cleanupprocessor#1\pgf@stop%
-  }%
-  \let#1=\pgf@newpath%
-}
-
-\def\pgf@cleanupprocessor#1{%
-  \ifx#1\pgf@stop%
-    \let\next=\pgfutil@gobble% ok, done
-  \else%
-    \ifx#1\pgfsyssoftpath@movetotoken%
-      \let\next=\pgf@cleanupmoveto%
-    \else%
-      \let\next=\pgf@cleanupredo%
-    \fi%
-  \fi%
-  \next#1%
-}
-
-\def\pgf@cleanupredo#1#2#3{%
-  \pgfutil@g@addto@macro\pgf@newpath{#1{#2}{#3}}%
-  \pgf@cleanupprocessor%
-}
-
-\def\pgf@cleanupmoveto#1#2#3#4{%
-  \ifx#4\pgfsyssoftpath@movetotoken%
-    % Ok, skip
-  \else%
-    \pgfutil@g@addto@macro\pgf@newpath{#1{#2}{#3}}%
-  \fi%
-  \pgf@cleanupprocessor#4%
-}
-
 
 
 % Extract start and end vectors of a path
@@ -448,59 +396,70 @@
 % \pgfusepath{stroke}
 
 \def\pgfprocesspathreplacestartandend#1#2#3{%
+  \ifx#1\pgfutil@empty%
+  \else%
   {%
-    \let\pgf@newpath=\pgfutil@empty%
+    % We (mis)use the current path to store (in a buffered manner) the
+    % rest path.
+    \pgfsyssoftpath@getcurrentpath\pgf@replace@origpath%
     \let\pgf@prepath=\pgfutil@empty%
-    \ifx#1\pgfutil@empty%
-    \else%
-      \pgf@process{#3}%
-      \pgf@xa=\pgf@x%
-      \pgf@ya=\pgf@y%
-      \pgf@process{#2}%
-      \expandafter\pgf@replaceprocessfirst#1\pgf@stop%
-    \fi%
-    \expandafter\expandafter\expandafter\def
-    \expandafter\expandafter\expandafter\pgf@newpath
-    \expandafter\expandafter\expandafter{\expandafter\pgf@prepath\pgf@newpath}%
-    \global\let#1=\pgf@newpath%
+    \pgf@process{#3}%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{#2}%
+    \expandafter\pgf@replaceprocessfirst#1\pgf@stop%
+    \pgfsyssoftpath@getcurrentpath\pgf@restpath%
+    \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\gdef%
+    \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter#1%
+    \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter{%
+      \expandafter\expandafter\expandafter\pgf@prepath%
+      \expandafter\pgf@newstart\pgf@restpath}%
+    % Restore current path
+    \pgfsyssoftpath@setcurrentpath\pgf@replace@origpath%
   }%
+  \fi%
 }
 
 \def\pgf@replaceprocessfirst#1#2#3#4{%
-  \def\pgf@temppath{#1{#2}{#3}}%
-  \edef\pgf@newpath{\noexpand#1{\the\pgf@x}{\the\pgf@y}}%
+  \def\pgf@origstart{#1{#2}{#3}}%
+  \edef\pgf@newstart{\noexpand#1{\the\pgf@x}{\the\pgf@y}}%
+  \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
   \ifx#4\pgf@stop%
-    \let\next=\pgfutil@gobble%
+    \let\pgf@next=\pgfutil@gobble%
   \else%
-    \let\next=\pgf@replaceprocessother%
+    \let\pgf@next=\pgf@replaceprocessother%
+    \let\pgf@@next=\pgf@@replaceprocessother%
   \fi%
-  \next#4%
+  \pgf@next#4%
 }
 
 \def\pgf@replaceprocessother#1{%
   \ifx#1\pgfsyssoftpath@movetotoken%
-    % Arggghh! Must reset everything!
-    \expandafter\expandafter\expandafter\def
-    \expandafter\expandafter\expandafter\pgf@prepath
-    \expandafter\expandafter\expandafter{\expandafter\pgf@prepath\pgf@temppath}%
-    % Redo first.
-    \let\pgf@next=\pgf@replaceprocessfirst%
-  \else%
-    \let\pgf@next=\pgf@@replaceprocessother%
+    \pgf@replace@handle@move%
   \fi%
-  \pgf@next#1%
+  \pgf@@next#1%
 }
 \def\pgf@@replaceprocessother#1#2#3#4{%
   \ifx#4\pgf@stop%
-    \edef\pgf@newpathaddition{{\noexpand#1{\the\pgf@xa}{\the\pgf@ya}}}%
-    \expandafter\pgfutil@g@addto@macro\expandafter\pgf@newpath\pgf@newpathaddition%
-    \let\next=\pgfutil@gobble%
+    \edef\pgf@restpathaddition{{\noexpand#1{\the\pgf@xa}{\the\pgf@ya}}}%
+    \expandafter\pgfsyssoftpath@addtocurrentpath\pgf@restpathaddition%
+    \let\pgf@next=\pgfutil@gobble%
   \else%
-    \pgfutil@g@addto@macro\pgf@temppath{#1{#2}{#3}}%
-    \pgfutil@g@addto@macro\pgf@newpath{#1{#2}{#3}}%
-    \let\next=\pgf@replaceprocessother%
+    \pgfsyssoftpath@addtocurrentpath{#1{#2}{#3}}%
   \fi%
-  \next#4%
+  \pgf@next#4%
 }  
 
+\def\pgf@replace@handle@move{%
+  \pgfsyssoftpath@getcurrentpath\pgf@restpath%
+  % Arggghh! Must reset everything!
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\gdef%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\pgf@prepath%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter{%
+    \expandafter\expandafter\expandafter\pgf@prepath%
+    \expandafter\pgf@origstart\pgf@restpath}%
+  % Redo first.
+  \let\pgf@@next=\pgf@replaceprocessfirst%
+}
+  
 \endinput
