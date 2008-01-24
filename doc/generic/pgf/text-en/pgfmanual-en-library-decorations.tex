@@ -913,6 +913,171 @@ the paths.
 
 
 
+
+\subsection{Mark Decorations: Adding Arrow Tips and Nodes on a Path}
+
+\begin{pgflibrary}{decorations.markings}
+  Markings are arbitrary ``marks'' that can be put on a path. Marks
+  can be arrow tips or nodes or even whole pictures. 
+\end{pgflibrary}
+
+\begin{decoration}{markings}
+  A \emph{marking} can be thought of a ``little picture'' or a more
+  precisely of ``some scope contents'' that is placed ``on'' a path at
+  a certain position. Suppose the marking should be a simple cross. We
+  can produce this with the following code:
+\begin{codeexample}[code only]
+\draw (-2pt,-2pt) -- (2pt,2pt);
+\draw (2pt,-2pt) -- (-2pt,2pt);
+\end{codeexample}
+  If we use this code as a marking at position |2cm| on a path, then
+  the following happens: \pgfname\ determines the position on the path
+  that is 2cm along the path. Then is translates the coordiante system
+  to this position and rotates it such that the positive $x$-axis is
+  tangent to the path. Then a protective scope is created, inside
+  which the above code is executed -- resulting in a little cross on
+  the path.
+
+  The |markings| decoration allows you to place one or more such
+  markings on a path. The decoration destroys the input path, which
+  means that it uses the path for determining positions on the path,
+  but after the decoration is done this path is gone. You typically
+  need to use a |postaction| to add markings.
+
+  Let us start with the above example in real code:
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=% actually add a mark
+      at position 2cm
+      with
+      {
+        \draw (-2pt,-2pt) -- (2pt,2pt);
+        \draw (2pt,-2pt) -- (-2pt,2pt);
+      }
+    }
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+
+  The |mark| decoration option is used to specify a marking. It has
+  the following syntax:
+  \begin{key}{/pgf/decoration/mark=|at position|
+      \meta{pos}| with |\meta{code}}
+    The options specifies that when a |marking| decoration is applied,
+    there should be a marking at position \meta{pos} on the path whose
+    code is given by \meta{code}.
+
+    The \meta{pos} can have four different forms:
+    \begin{enumerate}
+    \item It can be a non-negative dimension like |0pt| or |2cm| or
+      |5cm/2|. In this case, it refers to the position along the path
+      that is this far removed from the start.
+    \item It can be a negative dimesion like |-1cm-2pt| or |-1sp|. In
+      this case, the position is taken from the end of the path. Thus,
+      |-1cm| is the position that is $-1$cm removed from the end of
+      the path.
+    \item It can be a dimensionless non-negative number like |1/2| or
+      |0.333+2*0.1|. In this case, the \meta{pos} is interpreted as a
+      factor of the total path lenght. Thus, a \meta{pos} or |0.5|
+      refers to the middle of the path, |0.1| is near the start, and
+      so on.
+    \item It can be a dimensionless negative number like |-0.1|. Then,
+      again, the fraction of the path length counts ``from the end.''
+    \end{enumerate}
+
+    The \meta{pos} determines a position on the path. When the marking
+    is applied, the (high level) coordinate system will have been
+    transformed so that the origin lies at this position and the
+    positive $x$-axis points along the path. For this coordinate
+    system, the \meta{code} is executed. It can contains all sorts of
+    graphic drawing commands, including (even named) nodes.
+
+    If the position position lies past the end of the path (for
+    instance if \meta{pos} is set to |1.2|), the marking will not be
+    drawn.
+
+    It is possible to give the |mark| option several times, which
+    causes several markings to be applied. In this case, however, it
+    is necessary that the positions on the path are in increasing
+    order. That is, it is not allowed (and will result in chaos) to
+    have a marking that lies earlier on the path to follow a marking
+    that is later on the path.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=at position 1cm  with \node[red]{1cm};,
+    mark=at position .5   with \node[green]{mid};,
+    mark=at position -1cm with {\node[blue,transform shape]{1cm from end};}}
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+
+  Here is an example that shows how markings can be used to place text
+  on plots:
+\begin{codeexample}[]
+\begin{tikzpicture}[domain=0:4,label/.style={postaction={
+      decorate,
+      decoration={
+        markings,
+        mark=at position .75 with \node #1;}}}]
+  \draw[very thin,color=gray] (-0.1,-1.1) grid (3.9,3.9);
+  
+  \draw[->] (-0.2,0) -- (4.2,0) node[right] {$x$};
+  \draw[->] (0,-1.2) -- (0,4.2) node[above] {$f(x)$};
+  
+  \draw[red,label={[above left]{$f(x)=x$}}]                       plot (\x,\x);
+  \draw[blue,label={[below left]{$f(x)=\sin x$}}]                 plot (\x,{sin(\x r)});
+  \draw[orange,label={[right]{$f(x)= \frac{1}{20} \mathrm e^x$}}] plot (\x,{0.05*exp(\x)});
+\end{tikzpicture}
+\end{codeexample}
+
+    Frequent markings that are hard to create correctly are arrow
+    tips. For them, inside the \meta{code} two special commands can be
+    useful, which are only defined in this code:
+    \begin{command}{\arrow\opt{\oarg{options}}\marg{arrow end tip}}
+      This command simply draws the \meta{arrow end tip} at the origin,
+      pointing right. This is exactly what you need when you want to
+      draw an arrow tip as a marking.
+
+      The \meta{options} can only be given when \tikzname\ is used. In
+      this case, they are executed in a scope that contains the arrow
+      tip. 
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=at position 1cm  with {\node[red]{1cm};},
+    mark=at position .75  with {\arrow[blue,line width=2mm]{>}},
+    mark=at position -1cm with {\arrowreversed[black]{stealth};}}
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+   \end{command}
+    \begin{command}{\arrowreversed\opt{\oarg{options}}\marg{arrow end tip}}
+      As above, only the arrow end tip is flipped and points in the
+      other direction. 
+    \end{command}
+  \end{key}
+
+  \begin{key}{/pgf/decoration/reset marks}
+    Since |mark| options accumulate, there needs to be a way to
+    ``reset'' things, so that any |mark| options set in an enclosing
+    scope do not interfere. This option does exactly this. Note that
+    when the \meta{code} of a marking is executed, the markings are
+    automatically reset.
+  \end{key}
+\end{decoration}
+
+
+
+
 \subsection{Fractal Decorations}
 
 \begin{pgflibrary}{decorations.fractals}
