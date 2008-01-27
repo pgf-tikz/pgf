@@ -1407,7 +1407,11 @@
                         \ifx\@let@token d%
                           \let\@next=\tikz@decoration%
                         \else%
-                          \let\@next=\tikz@expand%
+                          \ifx\@let@token l%
+                            \let\@next=\tikz@let@command%
+                          \else%
+                            \let\@next=\tikz@expand%
+                          \fi%      
                         \fi%      
                       \fi%      
                     \fi%      
@@ -1994,7 +1998,25 @@
         \tikz@@to@or@edge@coordinate()}}}%
 }
 
-\def\tikz@@to@or@edge@coordinate(#1){%
+\def\tikz@@to@or@edge@coordinate({%
+  \pgfutil@ifnextchar${%$
+    % Ok, parse directly
+    \tikz@scan@one@point\tikz@@to@or@edge@math(%
+  }{%
+    \pgfutil@ifnextchar[{%]
+      \tikz@scan@one@point\tikz@@to@or@edge@math(%
+    }{%
+      \tikz@@to@or@edge@@coordinate(%
+    }%
+  }%
+}
+\def\tikz@@to@or@edge@math#1{% 
+  \pgf@process{#1}%
+  \edef\tikztotarget{\the\pgf@x,\the\pgf@y}%
+  \tikz@to@or@edge@function%
+}
+
+\def\tikz@@to@or@edge@@coordinate(#1){%
   \def\tikztotarget{#1}%
   \tikz@to@or@edge@function%
 }
@@ -2535,8 +2557,15 @@
 \def\tikz@@coordinate[#1](#2){%
   \pgfutil@ifnextchar a{\tikz@@coordinate@at[#1](#2)}
   {\tikz@fig ode[shape=coordinate,#1](#2){}}}
-\def\tikz@@coordinate@at[#1](#2)at#3(#4){%
-  \tikz@fig ode[shape=coordinate,#1](#2)at(#4){}}
+\def\tikz@@coordinate@at[#1](#2)at#3({%
+  \def\tikz@coordinate@caller{\tikz@fig ode[shape=coordinate,#1](#2)at}%
+  \tikz@scan@one@point\tikz@@coordinate@at@math(%
+}
+\def\tikz@@coordinate@at@math#1{%
+  \pgf@process{#1}%
+  \edef\tikz@temp{(\the\pgf@x,\the\pgf@y)}%
+  \expandafter\tikz@coordinate@caller\tikz@temp{}%
+}
   
 
 
@@ -3086,9 +3115,18 @@
   \pgfutil@ifnextchar a{\tikz@p@c@n@c@at(#1)}{%
     \def\tikz@child@node@text{[shape=coordinate,name=#1]{}}%
     \tikz@parse@child@node@rest}}
-\def\tikz@p@c@n@c@at(#1)at#2(#3){%
-  \def\tikz@child@node@text{[shape=coordinate,name=#1]at(#3){}}%
-  \tikz@parse@child@node@rest}%
+\def\tikz@p@c@n@c@at(#1)at#2({%
+  \def\tikz@child@node@text@pre{[shape=coordinate,name=#1]at}%
+  \tikz@scan@one@point\tikz@p@c@n@c@at@math(%
+}
+\def\tikz@p@c@n@c@at@math#1{%
+  \pgf@process{#1}%
+  \edef\tikz@marshal{(\the\pgf@x,\the\pgf@y){}}%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@child@node@text%
+  \expandafter\expandafter\expandafter{\expandafter\tikz@child@node@text@pre\tikz@marshal}%
+  \tikz@parse@child@node@rest%
+}
 \def\tikz@parse@child@node@n node{%
   \let\tikz@child@node@text=\pgfutil@empty%
   \tikz@p@c@s}%
@@ -3098,8 +3136,15 @@
     {\pgfutil@ifnextchar [{\tikz@p@c@s@bra}
       {\pgfutil@ifnextchar \bgroup{\tikz@p@c@s@group}
         {\PackageError{tikz}{Cannot parse this node}{}}}}}}%}}
-\def\tikz@p@c@s@at at#1(#2){%
-  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text at(#2)}
+\def\tikz@p@c@s@at at#1({%
+  \tikz@scan@one@point\tikz@p@c@s@at@math(%
+}
+\def\tikz@p@c@s@at@math#1{%
+  \pgf@process{#1}%
+  \edef\tikz@marshal{ at(\the\pgf@x,\the\pgf@y)}%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@child@node@text%
+  \expandafter\expandafter\expandafter{\expandafter\tikz@child@node@text\tikz@marshal}
   \tikz@p@c@s}
 \def\tikz@p@c@s@paran(#1){%
   \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text(#1)}
@@ -3127,6 +3172,16 @@
 % The decorate path command:
 \def\tikz@lib@dec@decorate@path{\PackageError{tikz}{You need to load a decoration library}{}}
 
+
+
+% 
+% Syntax for let :
+%
+% let \p1 = (coordinate), \p2 = (coordinate),... in 
+%
+\def\tikz@let@command et#1in{%
+  \PackageError{tikz}{You need to say \string\usetikzlibrary{calc} to use the let command}{}%
+}
 
 
 
@@ -3272,10 +3327,8 @@
 \tikzdeclarecoordinatesystem{intersection}
 {%
   \tikzset{cs/.cd,#1}%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@intersection@a\tikz@cs@line@a@begin%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@intersection@b\tikz@cs@line@a@end%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@intersection@c\tikz@cs@line@b@begin%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@intersection@d\tikz@cs@line@b@end%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@linea\tikz@cs@line@a%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@lineb\tikz@cs@line@b%
   \edef\pgf@marshal{%
     {\noexpand\pgfpointintersectionoflines%
       {\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
@@ -3284,6 +3337,29 @@
       {\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}}%
   \pgf@marshal%
 }
+
+\def\tikz@parse@linea#1--{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \tikz@scan@one@point\tikz@parse@linea@second%
+}
+\def\tikz@parse@linea@second#1{%
+  \pgf@process{#1}%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+}
+
+\def\tikz@parse@lineb#1--{%
+  \pgf@process{#1}%
+  \pgf@xc=\pgf@x%
+  \pgf@yc=\pgf@y%
+  \tikz@scan@one@point\tikz@parse@lineb@second%
+}
+\def\tikz@parse@lineb@second#1{%
+  \pgf@process{#1}%
+}
+
 
 \tikzdeclarecoordinatesystem{perpendicular}
 {%
@@ -3329,8 +3405,8 @@
 \tikzset{cs/name/.store in=\tikz@cs@node}
 \tikzset{cs/anchor/.store in=\tikz@cs@anchor}
 
-\tikzset{cs/first line/.code args={(#1)--(#2)}{\def\tikz@cs@line@a@begin{(#1)}\def\tikz@cs@line@a@end{(#2)}}}
-\tikzset{cs/second line/.code args={(#1)--(#2)}{\def\tikz@cs@line@b@begin{(#1)}\def\tikz@cs@line@b@end{(#2)}}}
+\tikzset{cs/first line/.store in=\tikz@cs@line@a}
+\tikzset{cs/second line/.store in=\tikz@cs@line@b}
 
 \tikzset{cs/horizontal line through/.store in=\tikz@cs@hori@line}
 \tikzset{cs/vertical line through/.store in=\tikz@cs@vert@line}

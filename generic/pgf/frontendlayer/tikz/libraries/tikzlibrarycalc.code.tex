@@ -9,70 +9,95 @@
 
 \ProvidesFileRCS[v\pgfversion] $Header$
 
+%
+%
+% Part I: The let path command
+% 
+%
+
+
+%
+% Syntax: let \p{name1} = (coord), \p{name2} = (coord), ... in ...
+%
+% Currently (this may get more fancy in the future), the (coord)s are
+% evaluated one by one. If the first evaluates to, say, (10pt,20pt),
+% the macro \p{name1} is set to "10pt,20pt" (without parantheses), the
+% macro \x{name1} is set to "10pt" and the macro \y{name1} is set to
+% "20pt". 
+%
+% If you use a number for {name}, you need no parantheses, so you
+% could write:
+%
+% \draw let
+%         \p1 = (1,1),
+%         \p2 = ($ 2.5*(3,2) $)
+%       in
+%         (\x1,\x2) -- (\y1,\y2);
+
+\def\tikz@let@command et{%
+  \let\p=\tikz@cc@dop%
+  \let\x=\tikz@cc@dox%
+  \let\y=\tikz@cc@doy%
+  \let\n=\tikz@cc@don%
+  \pgfutil@ifnextchar i{\tikz@cc@stop@let}{\tikz@cc@handle@line}%
+}
+\def\tikz@cc@handle@line{%
+  \pgfutil@ifnextchar\p{%
+    \tikz@cc@handle@coor%
+  }{%
+    \pgfutil@ifnextchar\n{%
+      \tikz@cc@handle@num%
+    }{%
+      \PackageError{tikz}{``\string\p'' or ``\string\n'' expected}{}%
+    }%
+  }%
+}
+\def\tikz@cc@handle@num\n#1#2=#3{%
+  \pgfmathparse{#3}%
+  \expandafter\edef\csname tikz@cc@n@\tikz@cc@coord@name\endcsname{\pgfmathresult\ifpgfmathunitsdeclared pt\fi}
+  \pgfutil@ifnextchar,{\tikz@cc@handle@nextline}{\tikz@cc@stop@let}%
+}
+\def\tikz@cc@handle@coor\p#1#2={%
+  \def\tikz@cc@coord@name{#1}%
+  \tikz@scan@one@point\tikz@cc@dolet%
+}
+\def\tikz@cc@dolet#1{%
+  \pgf@process{#1}%
+  \expandafter\edef\csname tikz@cc@p@\tikz@cc@coord@name\endcsname{\the\pgf@x,\the\pgf@y}%
+  \expandafter\edef\csname tikz@cc@x@\tikz@cc@coord@name\endcsname{\the\pgf@x}%
+  \expandafter\edef\csname tikz@cc@y@\tikz@cc@coord@name\endcsname{\the\pgf@y}%
+  \pgfutil@ifnextchar,{\tikz@cc@handle@nextline}{\tikz@cc@stop@let}%
+}
+\def\tikz@cc@handle@nextline,{%
+  \tikz@cc@handle@line%
+}
+\def\tikz@cc@stop@let in{%
+  \tikz@scan@next@command%
+}%
+
+\def\tikz@cc@dop#1{\csname tikz@cc@p@#1\endcsname}
+\def\tikz@cc@dox#1{\csname tikz@cc@x@#1\endcsname}
+\def\tikz@cc@doy#1{\csname tikz@cc@y@#1\endcsname}
+\def\tikz@cc@don#1{\csname tikz@cc@n@#1\endcsname}
+
+
+
+%
+%
+% Part II: The ($...$) parser
+%
+%
 
 \def\tikz@parse@calculator#1(${%$
   \def\tikz@cc@command{#1}%
   \begingroup%
     %
-    % Startup: Remove brace, if necessary
-    %
-    \expandafter\tikz@cc@look@for@l\pgfutil@firstofone%
-}
-\def\tikz@cc@look@for@l{%
-  \pgfutil@ifnextchar l{%
-    % Aha. Check for e.
-    \tikz@cc@look@for@le
-  }%
-  {%
-    % no. so enter main computation.
-    \tikz@cc@main%
-  }%
-}
-
-\def\tikz@cc@look@for@le l{%
-  \pgfutil@ifnextchar e{%
-    % Bingo. Must be let, not ln.
-    \tikz@cc@handle@let l%
-  }%
-  {% Nope. Possibly ln. We will see...
-    \tikz@cc@main l%
-  }%
-}
-
-
-%
-% Syntax: let \macroname = (coord) in ...
-%
-% Causes (\macroname) to be the same as (coord) and \macronamex to be
-% its x-coordinate and \macronamey to be its y-coordinate
-
-\def\tikz@cc@handle@let let{%
-  \pgfutil@ifnextchar x{% just get rid of spaces
-    \tikz@cc@handle@let@a}{\tikz@cc@handle@let@a}%
-}
-\def\tikz@cc@handle@let@a#1#2={%
-  \edef\tikz@cc@name{\expandafter\pgfutil@gobble\string#1}%
-  \tikz@scan@one@point\tikz@cc@dolet%
-}
-\def\tikz@cc@dolet#1{%
-  \pgf@process{#1}%
-  \expandafter\edef\csname\tikz@cc@name\endcsname{\the\pgf@x,\the\pgf@y}%
-  \expandafter\edef\csname\tikz@cc@name x\endcsname{\the\pgf@x}%
-  \expandafter\edef\csname\tikz@cc@name y\endcsname{\the\pgf@y}%
-  \pgfutil@ifnextchar i{\tikz@cc@afterlet}{\PackageError{tikz}{``in'' expected}{}\tikz@cc@end}%
-}
-\def\tikz@cc@afterlet in{\tikz@cc@look@for@l}%
-
-
-%
-% Parse main computation. It's a series of optional factors in front
-% of coordiantes.
-%
-
-\def\tikz@cc@main{%
-  \pgf@xa=0pt% We accumulate the result in here.
-  \pgf@ya=0pt%
-  \tikz@cc@parse+% 
+    % Parse main computation. It's a series of optional factors in front
+    % of coordiantes.
+    % 
+    \pgf@xa=0pt% We accumulate the result in here.
+    \pgf@ya=0pt%
+    \tikz@cc@parse+% 
 }
 
 \def\tikz@cc@parse{%
@@ -171,7 +196,7 @@
 }
 
 %
-% Simple case: (coord a)!number!(coord b)
+% Partway case: (coord a)!number!(coord b)
 %
 % Returns the position that is at <number> fraction on the way from a
 % to b. This, (a)!0!(b) is (a), (a)!.5!(b) is the middle and (a)!1!(b)
@@ -179,18 +204,42 @@
 %
 \def\tikz@cc@mid@num#1!{%
   \pgfmathparse{#1}%
-  \let\tikz@cc@mid@factor=\pgfmathresult%
-  \pgfmathparse{1-\tikz@cc@mid@factor}%
-  \let\tikz@cc@mid@factor@one=\pgfmathresult%
-  \tikz@scan@one@point\tikz@cc@after@mid%
+  \ifpgfmathunitsdeclared%
+    \let\tikz@cc@mid@unit=\pgfmathresult%
+    \expandafter\tikz@cc@scan@rot\expandafter\tikz@cc@after@unit%
+  \else%
+    \let\tikz@cc@mid@factor=\pgfmathresult%
+    \pgfmathparse{1-\tikz@cc@mid@factor}%
+    \let\tikz@cc@mid@factor@one=\pgfmathresult%
+    \expandafter\tikz@cc@scan@rot\expandafter\tikz@cc@after@num%
+  \fi%
 }
 
-\def\tikz@cc@after@mid#1{%
+\def\tikz@cc@after@num#1{%
   \pgf@process{#1}%
   \pgf@xb=\tikz@cc@mid@factor@one\pgf@xb%
   \pgf@yb=\tikz@cc@mid@factor@one\pgf@yb%
   \advance\pgf@xb by\tikz@cc@mid@factor\pgf@x%
   \advance\pgf@yb by\tikz@cc@mid@factor\pgf@y%
+  \tikz@cc@mid@checks%
+}
+
+
+
+%
+% Distance case: (coord a)!dimension!(coord b)
+%
+% Returns the position that is at <dimension> removed from (coord a)
+% in the direction of (coord b).
+%
+
+\def\tikz@cc@after@unit#1{%
+  \pgf@process{#1}%
+  \advance\pgf@x by-\pgf@xb%
+  \advance\pgf@y by-\pgf@yb%
+  \pgfpointnormalised{}%
+  \advance\pgf@xb by\tikz@cc@mid@unit\pgf@x%
+  \advance\pgf@yb by\tikz@cc@mid@unit\pgf@y%
   \tikz@cc@mid@checks%
 }
 
@@ -204,7 +253,7 @@
   % Save in c
   \pgf@xc=\pgf@x%
   \pgf@yc=\pgf@y%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@cc@after@project\tikz@cc@scan@ex%
+  \expandafter\tikz@cc@scan@rot\expandafter\tikz@cc@after@project\tikz@cc@scan@ex%
 }
 
 \def\tikz@cc@scan@ex!{}
@@ -225,3 +274,80 @@
   \advance\pgf@yb by\pgf@sys@tonumber{\pgf@xc}\pgf@y%
   \tikz@cc@mid@checks%
 }
+
+%
+% Rotational scanner: radius:(x)
+%
+
+\def\tikz@cc@scan@rot#1{%
+  \pgfutil@ifnextchar({%)
+    \tikz@scan@one@point#1% normal
+  }%
+  {
+    \def\tikz@cc@scan@rot@cmd{#1}
+    \tikz@cc@scan@one@rot%
+  }%
+}
+
+\def\tikz@cc@scan@one@rot#1:{%
+  \def\tikz@cc@scan@rot@angle{#1}%
+  \tikz@scan@one@point\tikz@cc@handle@rot%
+}
+
+\def\tikz@cc@handle@rot#1{%
+  \pgf@process{#1}%
+  % Ok, now we need to rotate x/y around xb/xb by ...rot@angle
+  {%
+    \pgftransformreset%
+    % Save them...
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    \pgftransformshift{\pgfqpoint{\pgf@xb}{\pgf@yb}}%
+    \pgftransformrotate{\tikz@cc@scan@rot@angle}%
+    \pgftransformshift{\pgfqpoint{-\pgf@xb}{-\pgf@yb}}%
+    \pgfpointtransformed{\pgfqpoint{\pgf@xc}{\pgf@yc}}%
+    \expandafter
+  }%
+  \edef\tikz@marshal{\noexpand\tikz@cc@scan@rot@cmd{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}%
+  \tikz@marshal%
+}
+
+
+
+
+%
+%
+% Part III: Calculation coordinate systems
+% 
+%
+
+\tikzdeclarecoordinatesystem{tangent to circle}
+{%
+  {
+    \tikzset{cs/.cd,#1}%
+    % missing...
+  }
+}
+
+\tikzset{cs/circle center/.store in=\tikz@cs@center}
+\tikzset{cs/outside point/.store in=\tikz@cs@tangent}
+
+\newif\iftikz@lib@cc@first@solution
+\tikz@lib@cc@first@solutiontrue
+\tikzset{cs/first solution/.code=\tikz@lib@cc@first@solutiontrue}
+\tikzset{cs/second solution/.code=\tikz@lib@cc@first@solutionfalse}
+
+
+
+\tikzdeclarecoordinatesystem{intersection of circles}
+{%
+  {
+    \tikzset{cs/.cd,#1}%
+    % missing...
+  }
+}
+
+\tikzset{cs/first circle center/.store in=\tikz@cs@centera}
+\tikzset{cs/first circle radius/.store in=\tikz@cs@radiusa}
+\tikzset{cs/second circle center/.store in=\tikz@cs@centerb}
+\tikzset{cs/second circle radius/.store in=\tikz@cs@radiusb}
