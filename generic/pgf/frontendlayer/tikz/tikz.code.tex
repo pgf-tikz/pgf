@@ -3335,11 +3335,47 @@
   \fi%
 }
 
+% Intersection coordinates
+\tikzset{cs/first line/.code=\def\tikz@cs@line@a{#1}\def\tikz@cs@type@a{line}}
+\tikzset{cs/second line/.code=\def\tikz@cs@line@b{#1}\def\tikz@cs@type@b{line}}
+
+\tikzset{cs/first node/.code=\tikz@cs@unpack{\tikz@cs@node@a}{\tikz@cs@type@a}{#1}}
+\tikzset{cs/second node/.code=\tikz@cs@unpack{\tikz@cs@node@b}{\tikz@cs@type@b}{#1}}
+
+\def\tikz@cs@unpack#1#2#3{%
+  \expandafter\ifx\csname pgf@sh@ns@#3\endcsname\relax%
+    \PackageError{tikz}{Undefined node ``#3''}{}%
+  \else%
+    \def#1{#3}%
+    \edef#2{\csname pgf@sh@ns@#3\endcsname}%
+  \fi%
+}
+
+\tikzset{cs/solution/.initial=1}
+
+\tikzset{cs/horizontal line through/.store in=\tikz@cs@hori@line}
+\tikzset{cs/vertical line through/.store in=\tikz@cs@vert@line}
+
 \tikzdeclarecoordinatesystem{intersection}
 {%
   \tikzset{cs/.cd,#1}%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@linea\tikz@cs@line@a%
-  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@lineb\tikz@cs@line@b%
+  \expandafter\ifx\csname tikz@intersect@\tikz@cs@type@a @and@\tikz@cs@type@b\endcsname\relax%
+    \PackageError{tikz}{I do not know how to compute the intersection
+    of a \tikz@cs@type@a and a \tikz@cs@type@b. Try saying
+    \string\usetikzlibrary{calc}}{}%
+    \pgfpointorigin%
+  \else%
+    \csname tikz@intersect@\tikz@cs@type@a @and@\tikz@cs@type@b\endcsname%
+  \fi%
+}
+
+\def\tikz@intersect@line@and@line{%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@line\tikz@cs@line@a%
+  \pgf@xa=\pgf@xc%
+  \pgf@ya=\pgf@yc%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@parse@line\tikz@cs@line@b%
   \edef\pgf@marshal{%
     {\noexpand\pgfpointintersectionoflines%
       {\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
@@ -3349,26 +3385,11 @@
   \pgf@marshal%
 }
 
-\def\tikz@parse@linea#1--{%
-  \pgf@process{#1}%
-  \pgf@xa=\pgf@x%
-  \pgf@ya=\pgf@y%
-  \tikz@scan@one@point\tikz@parse@linea@second%
-}
-\def\tikz@parse@linea@second#1{%
-  \pgf@process{#1}%
-  \pgf@xb=\pgf@x%
-  \pgf@yb=\pgf@y%
-}
-
-\def\tikz@parse@lineb#1--{%
+\def\tikz@parse@line#1--{%
   \pgf@process{#1}%
   \pgf@xc=\pgf@x%
   \pgf@yc=\pgf@y%
-  \tikz@scan@one@point\tikz@parse@lineb@second%
-}
-\def\tikz@parse@lineb@second#1{%
-  \pgf@process{#1}%
+  \tikz@scan@one@point\pgf@process%
 }
 
 
@@ -3416,11 +3437,6 @@
 \tikzset{cs/name/.store in=\tikz@cs@node}
 \tikzset{cs/anchor/.store in=\tikz@cs@anchor}
 
-\tikzset{cs/first line/.store in=\tikz@cs@line@a}
-\tikzset{cs/second line/.store in=\tikz@cs@line@b}
-
-\tikzset{cs/horizontal line through/.store in=\tikz@cs@hori@line}
-\tikzset{cs/vertical line through/.store in=\tikz@cs@vert@line}
 
 
 
@@ -3478,16 +3494,6 @@
   {\def\tikz@scan@point@recall{#1}\tikz@scan@options}%
   {\tikz@@@scan@@absolute#1(}%
 }
-%  #2){%
-%  \edef\tikz@temp{(#2)}%
-%  \expandafter\tikz@@scan@@absolute\expandafter#1\tikz@temp%
-%}
-
-%\def\tikz@@scan@@absolute#1({%
-%  \pgfutil@ifnextchar[% uhoh... options!
-%  {\def\tikz@scan@point@recall{#1}\tikz@scan@options}%
-%  {\tikz@@@scan@@absolute#1(}%
-%}
 
 \def\tikz@scan@options[#1]#2{%
   \def\tikz@scan@point@options{#1}%
@@ -3518,22 +3524,22 @@
   \expandafter\tikz@@scan@@no@calculator\expandafter#1\tikz@temp%
 }
 \def\tikz@@scan@@no@calculator#1(#2){%
-  \pgfutil@in@{intersection of}{#2}%
+  \pgfutil@in@{cs:}{#2}%
   \ifpgfutil@in@%
-    \let\@next\tikz@parse@intersection%
+    \let\@next\tikz@parse@coordinatesystem%
   \else%
-    \pgfutil@in@|{#2}%
-    \ifpgfutil@in@
-      \pgfutil@in@{-|}{#2}%
-      \ifpgfutil@in@
-        \let\@next\tikz@parse@hv%
-      \else%
-        \let\@next\tikz@parse@vh%
-      \fi%
+    \pgfutil@in@{intersection }{#2}%
+    \ifpgfutil@in@%
+      \let\@next\tikz@parse@intersection%
     \else%
-      \pgfutil@in@{cs:}{#2}%
-      \ifpgfutil@in@%
-        \let\@next\tikz@parse@coordinatesystem%
+      \pgfutil@in@|{#2}%
+      \ifpgfutil@in@
+        \pgfutil@in@{-|}{#2}%
+        \ifpgfutil@in@
+          \let\@next\tikz@parse@hv%
+        \else%
+          \let\@next\tikz@parse@vh%
+        \fi%
       \else%
         \pgfutil@in@:{#2}%
         \ifpgfutil@in@
@@ -3746,26 +3752,39 @@
 \def\tikz@parse@vh@mid#1{\pgf@process{#1}\pgf@xa=\pgf@x}
 \def\tikz@parse@vh@end#1{\pgf@process{#1}\pgf@ya=\pgf@y}
 
-\def\tikz@parse@intersection#1(intersection of #2--#3 and #4--#5){%
-  {%
-    \tikz@@@scan@@absolute\tikz@parse@intersection@a(#2)%
-    \tikz@@@scan@@absolute\tikz@parse@intersection@b(#3)%
-    \tikz@@@scan@@absolute\tikz@parse@intersection@c(#4)%
-    \tikz@@@scan@@absolute\tikz@parse@intersection@d(#5)%
-    \xdef\tikz@marshal{\noexpand#1{\noexpand\pgfpointintersectionoflines%
-        {\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
-        {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}%
-        {\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
-        {\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}}%
+\def\tikz@parse@intersection#1(intersection{%
+  \pgfutil@ifnextchar o{%
+    \tikz@parse@main@intersection#1 1%
+  }{%
+    \tikz@parse@main@intersection#1%
   }%
-  \tikz@shapeborderfalse%
-  \tikz@marshal%  
 }
+\def\tikz@parse@main@intersection#1#2of #3 and #4){%
+  \tikzset{cs/solution=#2}%
+  \pgfutil@in@{--}{#3}%
+  \ifpgfutil@in@%
+    \tikz@reparse@line{first}#3\pgf@stop%
+  \else%
+    \tikzset{cs/first node=#3}%
+  \fi%
+  \pgfutil@in@{--}{#4}%
+  \ifpgfutil@in@%
+    \tikz@reparse@line{second}#4\pgf@stop%
+  \else%
+    \tikzset{cs/second node=#4}%
+  \fi%
+  \tikz@shapeborderfalse%
+  \tikz@parse@cs@intersection()% advanced hackery...
+  \edef\pgf@marshal{\noexpand#1{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}%
+  \pgf@marshal%
+}
+\def\tikz@reparse@line#1#2--#3\pgf@stop{%
+  \tikzset{cs/#1 line={(#2)--(#3)}}%
+}
+
 
 \def\tikz@parse@intersection@a#1{\pgf@process{#1}\pgf@xa=\pgf@x\pgf@ya=\pgf@y}
 \def\tikz@parse@intersection@b#1{\pgf@process{#1}\pgf@xb=\pgf@x\pgf@yb=\pgf@y}
-\def\tikz@parse@intersection@c#1{\pgf@process{#1}\pgf@xc=\pgf@x\pgf@yc=\pgf@y}
-\def\tikz@parse@intersection@d#1{\pgf@process{#1}}
 
 \def\tikz@scan@relative#1+{%
   \pgfutil@ifnextchar+{\tikz@scan@plusplus#1}{\tikz@scan@oneplus#1}}

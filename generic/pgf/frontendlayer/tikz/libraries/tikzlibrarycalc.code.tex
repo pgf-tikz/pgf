@@ -321,49 +321,144 @@
 % 
 %
 
-\tikzdeclarecoordinatesystem{tangent to circle}
+% Tangent cs: Keys are a node and a point. Depending on the type of
+% node, the appropriate tanent computation should be done.
+
+\tikzdeclarecoordinatesystem{tangent}
 {%
-  {
-    \tikzset{cs/.cd,#1}%
-    % missing...
-  }
+  \tikzset{cs/.cd,#1}%
+  \expandafter\ifx\csname tikz@tangent@\tikz@cs@type\endcsname\relax%
+    \PackageError{tikz}{I do not know how to compute the tangent to 
+    a \tikz@cs@type}{}%
+    \pgfpointorigin%
+  \else%
+    \expandafter\tikz@scan@one@point\expandafter\tikz@lib@do@tangent\tikz@cs@point%  
+  \fi%
 }
 
-\tikzset{cs/circle center/.store in=\tikz@cs@center}
-\tikzset{cs/outside point/.store in=\tikz@cs@tangent}
+\tikzset{cs/node/.code=\tikz@cs@unpack{\tikz@cs@node}{\tikz@cs@type}{#1}}
+\tikzset{cs/point/.store in=\tikz@cs@point}
 
-\newif\iftikz@lib@cc@first@solution
-\tikz@lib@cc@first@solutiontrue
-\tikzset{cs/first solution/.code=\tikz@lib@cc@first@solutiontrue}
-\tikzset{cs/second solution/.code=\tikz@lib@cc@first@solutionfalse}
+\def\tikz@lib@do@tangent{\csname tikz@tangent@\tikz@cs@type\endcsname}
 
-
-
-\tikzdeclarecoordinatesystem{intersection of circles}
-{%
-  {
-    \tikzset{cs/.cd,#1}%
-    %
-    % Here is some code from the Dr. Math forum:
-    %
-    % Let the centers be: (a,b), (c,d)
-    % Let the radii be: r, s
-    %
-    % e = c - a                          [difference in x coordinates]
-    % f = d - b                          [difference in y coordinates]
-    % p = sqrt(e^2 + f^2)                [distance between centers]
-    % k = (p^2 + r^2 - s^2)/(2p)         [distance from center 1 to line
-    %                                     joining points of intersection]
-    % x = a + ek/p + (f/p)sqrt(r^2 - k^2)
-    % y = b + fk/p - (e/p)sqrt(r^2 - k^2)
-    % OR
-    % x = a + ek/p - (f/p)sqrt(r^2 - k^2)
-    % y = b + fk/p + (e/p)sqrt(r^2 - k^2)
-    % missing...
-  }
+\def\tikz@tangent@coordinate#1{%
+  \pgfpointanchor{\tikz@cs@node}{center}%
 }
 
-\tikzset{cs/first circle center/.store in=\tikz@cs@centera}
-\tikzset{cs/first circle radius/.store in=\tikz@cs@radiusa}
-\tikzset{cs/second circle center/.store in=\tikz@cs@centerb}
-\tikzset{cs/second circle radius/.store in=\tikz@cs@radiusb}
+\def\tikz@tangent@circle#1{%
+  {%
+    % Step 1: Compute the transformed position of the input:
+    \pgf@process{\pgfpointtransformed{#1}}%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    %
+    % Step 2: Compute vector from center of circle to transformed #1
+    %
+    \pgf@process{\pgfpointtransformed{\pgfpointanchor{\tikz@cs@node}{center}}}%
+    \advance\pgf@xa by-\pgf@x%
+    \advance\pgf@ya by-\pgf@y%
+    %
+    % Step 2: Reset transformations, they distract...
+    %
+    \pgftransformreset%
+    %
+    % Step 3: Transform to the center of the circle.
+    %
+    \pgftransformshift{\pgfpointanchor{\tikz@cs@node}{center}}%
+    %
+    % Step 4: Compute the radius
+    %
+    \pgf@process{\pgfpointanchor{\tikz@cs@node}{east}}%
+    \pgf@xc=\pgf@x%
+    %
+    % Now, (xa,ya) is a point. Compute the tangent from this point to
+    % a circle around the origin of radius xc.
+    %
+    % acos(radius/veclen(xa,ya)) is the angle of the tangent.
+    \pgfmathparse{veclen(\the\pgf@xa,\the\pgf@ya)}
+    \pgfmathparse{acos(\the\pgf@xc/\pgfmathresult)}
+    \ifnum\pgfkeysvalueof{/tikz/cs/solution}>1\relax%
+      \pgfmathsubtract{0}{\pgfmathresult}%
+    \fi%
+    \let\tikz@lib@temp=\pgfmathresult%
+    %
+    % Now \pgfmathparse contains the desired angle. Use this to
+    % compute the correct position on the circle...
+    %
+    % But, first, rotate to the point.
+    \pgf@process{\pgfpointnormalised{\pgfqpoint{\pgf@xa}{\pgf@ya}}}%
+    \pgf@ya=-\pgf@y%
+    \pgftransformcm{\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@y}}{\pgf@sys@tonumber{\pgf@ya}}{\pgf@sys@tonumber{\pgf@x}}{\pgfpointorigin}%
+    % Finally, rotate...
+    \pgf@process{\pgfpointtransformed{\pgfpointpolar{\tikz@lib@temp}{\the\pgf@xc}}}%
+    %
+    % Ok, undo transformations...
+  }%
+  % \pgf@x, \pgf@y have been smuggled outside by \pgf@process
+  {%
+    \pgftransforminvert%
+    \pgf@process{\pgfpointtransformed{}}%
+  }%
+}
+
+
+% Implementation of intersections
+
+
+\def\tikz@intersect@circle@and@circle{%
+  {%
+    \pgftransformreset% transformations only confuse us, here...
+    %
+    % Compute origin and radius of first circle
+    %
+    \pgf@process{\pgfpointanchor{\tikz@cs@node@a}{center}}%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgfpointanchor{\tikz@cs@node@a}{east}}%
+    \advance\pgf@x by-\pgf@xa%
+    \pgf@xc=\pgf@x% ok, pgf@xc is first radius, (xa,ya) is center
+    %
+    % Compute origin and radius of second circle
+    %
+    \pgf@process{\pgfpointanchor{\tikz@cs@node@b}{center}}%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \pgf@process{\pgfpointanchor{\tikz@cs@node@b}{east}}%
+    \advance\pgf@x by-\pgf@xb%
+    \pgf@yc=\pgf@x% \pgf@yc is second radius, (xb,yb) is center
+    %
+    \pgf@process{%
+      \pgfpointintersectionofcircles{\pgfqpoint{\pgf@xa}{\pgf@ya}}{\pgfqpoint{\pgf@xb}{\pgf@yb}}{\pgf@xc}{\pgf@yc}{\pgfkeysvalueof{/tikz/cs/solution}}%
+    }%
+  }%
+  % \pgf@x, \pgf@y have been smuggled outside by \pgf@process,
+  % reinstall transformations...
+  {%
+    \pgftransforminvert%
+    \pgf@process{\pgfpointtransformed{}}%
+  }%
+}
+
+\tikzset{circle through/.code={%
+    \pgfkeysalso{shape=circle,inner sep=0pt,outer sep=0pt}%
+    % Save transformations (correct?)
+    \pgfgettransform{\tikz@lib@saved@transform}%
+    \tikz@scan@one@point\tikz@lib@circle@through#1%
+  }}
+
+\def\tikz@lib@circle@through#1{%
+  \tikz@addoption{%
+    {%
+      \pgfsettransform{\tikz@lib@saved@transform}%
+      \pgf@process{\pgfpointtransformed{#1}}%
+      \pgf@xa=\pgf@x%
+      \pgf@ya=\pgf@y%
+      \pgf@process{\pgfpointtransformed{\tikz@node@at}}%
+      \advance\pgf@xa by-\pgf@x%
+      \advance\pgf@ya by-\pgf@y%
+      \pgfmathparse{2*veclen(\the\pgf@xa,\the\pgf@ya)}%
+      \global\let\tikz@lib@circle@size=\pgfmathresult%
+    }%
+    \pgfset{/pgf/minimum size/.expanded=\tikz@lib@circle@size}%
+  }%
+}
