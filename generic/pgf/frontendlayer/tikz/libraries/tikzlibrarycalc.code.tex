@@ -54,7 +54,7 @@
 }
 \def\tikz@cc@handle@num\n#1#2=#3{%
   \pgfmathparse{#3}%
-  \expandafter\edef\csname tikz@cc@n@\tikz@cc@coord@name\endcsname{\pgfmathresult\ifpgfmathunitsdeclared pt\fi}
+  \expandafter\edef\csname tikz@cc@n@#1\endcsname{\pgfmathresult\ifpgfmathunitsdeclared pt\fi}
   \pgfutil@ifnextchar,{\tikz@cc@handle@nextline}{\tikz@cc@stop@let}%
 }
 \def\tikz@cc@handle@coor\p#1#2={%
@@ -237,7 +237,7 @@
   \pgf@process{#1}%
   \advance\pgf@x by-\pgf@xb%
   \advance\pgf@y by-\pgf@yb%
-  \pgfpointnormalised{}%
+  \pgf@process{\pgfpointnormalised{}}%
   \advance\pgf@xb by\tikz@cc@mid@unit\pgf@x%
   \advance\pgf@yb by\tikz@cc@mid@unit\pgf@y%
   \tikz@cc@mid@checks%
@@ -439,26 +439,111 @@
   }%
 }
 
-\tikzset{circle through/.code={%
-    \pgfkeysalso{shape=circle,inner sep=0pt,outer sep=0pt}%
-    % Save transformations (correct?)
-    \pgfgettransform{\tikz@lib@saved@transform}%
-    \tikz@scan@one@point\tikz@lib@circle@through#1%
-  }}
 
-\def\tikz@lib@circle@through#1{%
-  \tikz@addoption{%
-    {%
-      \pgfsettransform{\tikz@lib@saved@transform}%
-      \pgf@process{\pgfpointtransformed{#1}}%
-      \pgf@xa=\pgf@x%
-      \pgf@ya=\pgf@y%
-      \pgf@process{\pgfpointtransformed{\tikz@node@at}}%
-      \advance\pgf@xa by-\pgf@x%
-      \advance\pgf@ya by-\pgf@y%
-      \pgfmathparse{2*veclen(\the\pgf@xa,\the\pgf@ya)}%
-      \global\let\tikz@lib@circle@size=\pgfmathresult%
-    }%
-    \pgfset{/pgf/minimum size/.expanded=\tikz@lib@circle@size}%
+\def\tikz@intersect@line@and@circle{%
+  {%
+    %
+    % Step 1: Get line
+    %
+    \expandafter\tikz@scan@one@point\expandafter\tikz@parse@line\tikz@cs@line@a%
+    \pgf@process{\pgfpointtransformed{}}%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \pgf@process{\pgfpointtransformed{\pgfqpoint{\pgf@xc}{\pgf@yc}}}%
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    %
+    % Step 2: Subtract center of circle
+    %
+    \pgf@process{\pgfpointtransformed{\pgfpointanchor{\tikz@cs@node@b}{center}}}%
+    \advance\pgf@xa by-\pgf@x%
+    \advance\pgf@ya by-\pgf@y%
+    \advance\pgf@xb by-\pgf@x%
+    \advance\pgf@yb by-\pgf@y%
+    %
+    % Step 3: Reset transformations, they distract...
+    %
+    \pgftransformreset%
+    %
+    % Step 4: Transform to the center of the circle.
+    %
+    \pgftransformshift{\pgfpointanchor{\tikz@cs@node@b}{center}}%
+    %
+    % Step 5: Compute the radius
+    %
+    \pgf@process{\pgfpointanchor{\tikz@cs@node@b}{east}}%
+    \edef\tikz@lib@saved@radius{\pgf@sys@tonumber{\pgf@x}}%
+    %
+    % Step 6: Compute projection of origin on line (xa,ya) -- (xb,yb),
+    % store in (xa,ya)
+    \pgf@x=\pgf@xb%
+    \pgf@y=\pgf@yb%
+    \advance\pgf@x by-\pgf@xa%
+    \advance\pgf@y by-\pgf@ya%
+    \pgf@process{\pgfpointnormalised{}}%
+    % Scalar product
+    \pgf@xc=\pgf@sys@tonumber{\pgf@xa}\pgf@x%
+    \advance\pgf@xc by\pgf@sys@tonumber{\pgf@ya}\pgf@y%
+    \pgf@xc=-\pgf@xc%
+    % and add
+    \advance\pgf@xa by\pgf@sys@tonumber{\pgf@xc}\pgf@x%
+    \advance\pgf@ya by\pgf@sys@tonumber{\pgf@xc}\pgf@y%
+    % 
+    % Now, we have a triangle with a right angle at (xa,ya). The
+    % second point of the triangle is the origin. The third point is
+    % sought. 
+    % Save x/y
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    % Square radius
+    \pgf@xb=\tikz@lib@saved@radius pt%
+    %
+    % First, make numbers smaller, in case they are too large
+    %
+    \c@pgf@counta=1\relax%
+    \loop%
+    \ifdim\pgf@xb>50pt%
+      \multiply\c@pgf@counta by2\relax%
+      \divide\pgf@xa by2\relax%
+      \divide\pgf@ya by2\relax%
+      \divide\pgf@xb by2\relax%
+    \repeat%
+    \pgf@xb=\pgf@sys@tonumber{\pgf@xb}\pgf@xb%
+    % Subtract xa^2 + ya^2
+    \pgf@yb=\pgf@sys@tonumber{\pgf@xa}\pgf@xa%
+    \advance\pgf@xb by-\pgf@yb%
+    \pgf@yb=\pgf@sys@tonumber{\pgf@ya}\pgf@ya%
+    \advance\pgf@xb by-\pgf@yb%
+    % Square root
+    \ifdim\pgf@xb<0pt%
+      \pgf@xb=0pt%
+    \fi%
+    \pgfmathsqrt@{\pgf@sys@tonumber{\pgf@xb}}%
+    \pgfmathmultiply@{\pgfmathresult}{\the\c@pgf@counta}%
+    \multiply\pgf@xa by\c@pgf@counta\relax%
+    \multiply\pgf@ya by\c@pgf@counta\relax%
+    \ifnum\pgfkeysvalueof{/tikz/cs/solution}>1\relax%
+      \pgfmathsubtract{0}{\pgfmathresult}%
+    \fi%
+    % Ok, now add things...
+    \advance\pgf@xa by \pgfmathresult\pgf@xc%
+    \advance\pgf@ya by \pgfmathresult\pgf@yc%
+    \pgf@process{\pgfpointtransformed{\pgfqpoint{\pgf@xa}{\pgf@ya}}}%
+    % Ok, undo transformations...
+  }%
+  % \pgf@x, \pgf@y have been smuggled outside by \pgf@process
+  {%
+    \pgftransforminvert%
+    \pgf@process{\pgfpointtransformed{}}%
   }%
 }
+
+\def\tikz@intersect@circle@and@line{%
+  % Swap
+  {%
+    \let\tikz@cs@node@b=\tikz@cs@node@a%
+    \let\tikz@cs@line@a=\tikz@cs@line@b%
+    \tikz@intersect@line@and@circle%
+  }%
+}
+
