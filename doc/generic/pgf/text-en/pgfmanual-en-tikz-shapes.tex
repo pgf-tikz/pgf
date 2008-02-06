@@ -883,18 +883,560 @@ While the standard placement options suffice for simple cases, the
   that they give you better control of node placement.
 \end{tikzlibrary}
 
-When this library is loaded, the options like |above| behave
-differently: 
+When this library is loaded, the options like |above| or |above left| behave
+differently.
 
-Still missing...
+\begin{key}{/tikz/above=\opt{\meta{specification}} (default 0pt)}
+  With the |placements| library loaded, the |above| option does not
+  take a simple \meta{dimension} as its paramter. Rather, it can
+  (also) take a more elaborate \meta{specification} as parameter. This
+  \meta{specification} has the following general form: It starts with
+  an optional \meta{shifting part} and is followed by an optional
+  \meta{of-part}. Let us start with the \meta{shifting part}, which
+  can have three forms:
+  \begin{enumerate}
+  \item It can simply be a \declare{\meta{dimension}} (or a mathematical
+    expression that evaluates to a dimension) like |2cm| or
+    |3cm/2+4cm|. In this case, the following happens: the node's
+    anchor is set to |south| and the node is vertically shifted
+    upwards by \meta{dimension}.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (2,2);
+  \node at (1,1) [above=2pt+3pt,draw] {above};
+\end{tikzpicture}
+\end{codeexample}
+    This use of the |above| option is the same as if the |placements|
+    library were not loaded.
+  \item It can be a \declare{\meta{number}} (that is, any mathematical
+    expression that does not include a unit like |pt| or
+    |cm|). Examples are |2| or |3+sin(60)|. In this case, the anchor
+    is also set to |south| and the node is vertically shifted by
+    the vertical component of the coordinate |(0,|\meta{number}|)|.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (2,2);
+  \node at (1,1) [above=.2,draw] {above};
+  % south border of the node is now 2mm above (1,1)
+\end{tikzpicture}
+\end{codeexample}
+  \item It can be of the form \declare{\meta{number or
+        dimension 1}| and |\meta{number or dimension 2}}. This specification
+    does not make particular sense for the |above| option, it is much
+    more useful for options like |above left|. The reason it is
+    allowed for the |above| option is that it is sometimes
+    automatically used, as explained later.
+
+    The effect of this option is the following. First, the point
+    |(|\meta{number of dimension 2}|,|\meta{number or dimension 1}|)|
+    is computed (note the inversed order), using the normal rules for
+    evaluating such a coordinate, yielding some position. Then, the
+    node is shifted by the vertical component of this point. The
+    anchor is set to |south|.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[help lines] (0,0) grid (2,2);
+  \node at (1,1) [above=.2 and 3mm,draw] {above};
+  % south border of the node is also 2mm above (1,1)
+\end{tikzpicture}
+\end{codeexample}
+  \end{enumerate}
+  The \meta{shifting part} can optionally be followed by a
+  \meta{of-part}, which has one of the following forms:
+  \begin{enumerate}
+  \item The \meta{of-part} can be declare{|of |\meta{coordinate}},
+    where\meta{coordinate} is \emph{not} in parentheses and it is
+    \emph{not} just a node name. An example would be
+    |of somenode.north| or |of 2,3|. In this case, the
+    following happens: First, the node's |at| parameter is set to the
+    \meta{coordinate}. Second, the node is shifted according to the
+    \meta{shift-part}. Third, the anchor is set to |south|. 
+
+    Here is a basic example:
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style=draw]
+  \draw[help lines] (0,0) grid (2,2);
+  \node (somenode) at (1,1) {some node};
+  
+  \node [above=5mm of somenode.north east] {\tiny 5mm of somenode.north east};
+  \node [above=1cm of somenode.north]      {\tiny 1cm of somenode.north};
+\end{tikzpicture}
+\end{codeexample}
+    As can be seen the |above=5mm of somenode.north east| option does,
+    indeed, place the node 5mm above the north east anchor of
+    |somenode|. The same effect could have been achieved writing
+    |above=5mm| followed by |at=(somenode.north east)|.
+
+    If the \meta{shift-part} is missing, the shift is not zero, but
+    rather the value of the |node distance| key is used, see below.
+  \item The \meta{of-part} can have be |of |\meta{node name}. An
+    example would be |of somenode|. In this case, the following
+    usually happens: 
+    \begin{itemize}
+    \item The anchor is set to |south|.
+    \item The node is shifted according to the \meta{shifting part}
+      or, if it is missing, according to the value of |node distance|.
+    \item The node's |at| parameter is set to \meta{node
+        name}|.north|. 
+    \end{itemize}
+    The net effect of all this is that the new node will be placed in
+    such a way that the distance between is south border and
+    \meta{node name}'s north border is exactly the given distance.
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style=draw]
+  \draw[help lines] (0,0) grid (2,2);
+  \node (some node) at (1,1) {some node};
+  
+  \node (other node) [above=1cm of some node] {\tiny above=1cm of some node};
+
+  \draw [<->] (some node.north) -- (other node.south)
+                                node [midway,right,draw=none] {1cm};
+\end{tikzpicture}
+\end{codeexample}
+    It is possible to change the behaviour of this
+    \meta{specification} rather drastically, using the following key:
+    \begin{key}{/tikz/on grid=\meta{boolean} (initially false)}
+      When this key is set to |true|, an \meta{of-part} of the
+      current form behaves differently: The anchors set for the
+      current node as well as the anchor used for other \meta{node
+        name} are set the |center|.
+
+      This has the following effect: When you say
+      |above=1cm of somenode| with |on grid| set to true, the new node
+      will be placed in such a way that its center is 1cm above the
+      center of |somenode|. Repeatedly placing nodes in this way will
+      result in nodes that are centered on ``grid coordinate,'' hence
+      the name of the option. 
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style=draw]
+  \draw[help lines] (0,0) grid (2,3);
+
+  % Not gridded
+  \node (a1) at (0,0) {not gridded};
+  \node (b1) [above=1cm of a1] {fooy};
+  \node (c1) [above=1cm of b1] {a};
+
+  % gridded
+  \node (a2) at (2,0) {gridded};
+  \node (b2) [on grid,above=1cm of a2] {fooy};
+  \node (c2) [on grid,above=1cm of b2] {a};
+\end{tikzpicture}
+\end{codeexample}
+    \end{key}
+  \end{enumerate}
+
+  \begin{key}{/tikz/node distance=\meta{shifting part} (initially 1cm and 1cm)}
+    The value of this key is used as \meta{shifting part} is used if
+    and only if a \meta{of-part} is present, but no \meta{shifting
+      part}. 
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style=draw,node distance=5mm]
+  \draw[help lines] (0,0) grid (2,3);
+
+  % Not gridded
+  \node (a1) at (0,0) {not gridded};
+  \node (b1) [above=of a1] {fooy};
+  \node (c1) [above=of b1] {a};
+
+  % gridded
+  \begin{scope}[on grid]
+    \node (a2) at (2,0) {gridded};
+    \node (b2) [above=of a2] {fooy};
+    \node (c2) [above=of b2] {a};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
+  \end{key}
+\end{key}
+
+\begin{key}{/tikz/below=\opt{\meta{specification}}}
+  This key is redefined in the same manner as |above|.
+\end{key}
+
+\begin{key}{/tikz/left=\opt{\meta{specification}}}
+  This key is redefined in the same manner as |above|, only all
+  vertical shifts are replaced by horizontal shifts.
+\end{key}
+
+\begin{key}{/tikz/right=\opt{\meta{specification}}}
+  This key is redefined in the same manner as |left|.
+\end{key}
+
+\begin{key}{/tikz/above left=\opt{\meta{specification}}}
+  This key is also redefined in a manner similar to the above, but
+  behaviour of the \meta{shifting part} is more complicated:
+  \begin{enumerate}
+  \item When the \meta{shifting part} is of the form \meta{number or
+      dimension}| and |\meta{number or dimension}, it has
+    (essentially) the effect of shifting the node vertically upwards
+    by the first \meta{number or dimension} and to the left by the
+    second. To be more precise, the coordinate |(|\meta{second number
+      or dimension}|,|\meta{first number or dimension}|)| is computed
+    and then the node is shifted vertically by the $y$-part of
+    the resulting coordinate and horizontally be the negated $x$-part
+    of the result. (This is exactly what you expect, except possibly
+    when you have used the |x| and |y| options to modify the
+    |xy|-coordinate system so that the unit  vectors no longer point
+    in the expected directions.)
+  \item When the \meta{shifting part} is of the form \meta{number or
+      dimension}, the node is shifted by this \meta{number or
+      dimension} in the direction of $135^\circ$. This means that
+    there is a difference between a \meta{shifting part} of |1cm| and
+    of |1cm and 1cm|: In the second case, the node is shifted by 1cm
+    upward and 1cm to the left; in the first case it is shifted by
+    $\frac{1}{2}\sqrt{2}$cm upward and by the same amount to the
+    left. A more mathematical way of phrasing this is the following: A
+    plain \meta{dimension} is measured in the $l_2$-norm, while a
+    \meta{dimension}| and |\meta{dimension} is measured in the
+    $l_1$-norm. 
+  \end{enumerate}
+  The following example should help to illustrate the difference:
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={draw,circle}]
+  \draw[help lines] (0,0) grid (2,5);
+  \begin{scope}[node distance=5mm]
+    \node (a) at (1,1) {a};
+    \node [left=of a] {1};       \node [right=of a] {2};
+    \node [above=of a] {3};      \node [below=of a] {4};
+    \node [above left=of a] {5}; \node [above right=of a] {6};
+    \node [below left=of a] {7}; \node [below right=of a] {8};
+  \end{scope}
+  \begin{scope}[node distance=5mm and 5mm]
+    \node (b) at (1,4) {b};
+    \node [left=of b] {1};       \node [right=of b] {2};
+    \node [above=of b] {3};      \node [below=of b] {4};
+    \node [above left=of b] {5}; \node [above right=of b] {6};
+    \node [below left=of b] {7}; \node [below right=of b] {8};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}  
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={draw,rectangle}]
+  \draw[help lines] (0,0) grid (2,5);
+  \begin{scope}[node distance=5mm]
+    \node (a) at (1,1) {a};
+    \node [left=of a] {1};       \node [right=of a] {2};
+    \node [above=of a] {3};      \node [below=of a] {4};
+    \node [above left=of a] {5}; \node [above right=of a] {6};
+    \node [below left=of a] {7}; \node [below right=of a] {8};
+  \end{scope}
+  \begin{scope}[node distance=5mm and 5mm]
+    \node (b) at (1,4) {b};
+    \node [left=of b] {1};       \node [right=of b] {2};
+    \node [above=of b] {3};      \node [below=of b] {4};
+    \node [above left=of b] {5}; \node [above right=of b] {6};
+    \node [below left=of b] {7}; \node [below right=of b] {8};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}  
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={draw,rectangle},on grid]
+  \draw[help lines] (0,0) grid (4,4);
+  \begin{scope}[node distance=1]
+    \node (a) at (2,3) {a};
+    \node [left=of a] {1};       \node [right=of a] {2};
+    \node [above=of a] {3};      \node [below=of a] {4};
+    \node [above left=of a] {5}; \node [above right=of a] {6};
+    \node [below left=of a] {7}; \node [below right=of a] {8};
+  \end{scope}
+  \begin{scope}[node distance=1 and 1]
+    \node (b) at (2,0) {b};
+    \node [left=of b] {1};       \node [right=of b] {2};
+    \node [above=of b] {3};      \node [below=of b] {4};
+    \node [above left=of b] {5}; \node [above right=of b] {6};
+    \node [below left=of b] {7}; \node [below right=of b] {8};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}  
+\end{key}
+
+\begin{key}{/tikz/below left=\opt{\meta{specification}}}
+  Works similar to |above left|.
+\end{key}
+\begin{key}{/tikz/above left=\opt{\meta{specification}}}
+  Works similar to |above left|.
+\end{key}
+\begin{key}{/tikz/above right=\opt{\meta{specification}}}
+  Works similar to |above left|.
+\end{key}
+
+The |placements| package also introduces the following new placement
+keys:
+\begin{key}{/tikz/base left=\opt{\meta{specification}}}
+  This key works like the |left| key, only instead of the |east| anchor,
+  the |base east| anchor is used and, when the second form of an
+  \meta{of-part} is used, the corresponding |base west| anchor.
+
+  This key is useful for chaining together nodes so that their base
+  lines are aligned.
+\begin{codeexample}[]
+\begin{tikzpicture}[node distance=1ex]
+  \draw[help lines] (0,0) grid (3,1);
+  \huge
+  \node (X) at (0,1)     {X};
+  \node (a) [right=of X] {a};
+  \node (y) [right=of a] {y};
+  
+  \node (X) at (0,0)          {X};
+  \node (a) [base right=of X] {a};
+  \node (y) [base right=of a] {y};
+\end{tikzpicture}
+\end{codeexample}  
+\end{key}
+\begin{key}{/tikz/base right=\opt{\meta{specification}}}
+  Works like |base left|.
+\end{key}
+\begin{key}{/tikz/mid left=\opt{\meta{specification}}}
+  Works like |base left|, but with |mid east| and |mid west| anchors
+  instead of |base east| and |base west|.
+\end{key}
+\begin{key}{/tikz/mid right=\opt{\meta{specification}}}
+  Works like |mid left|.
+\end{key}
+
+
 
 \subsubsection{Chains}
 
 Chains provide a convenient way of creating sequences of nodes that
-are placed ``in a row.''
+are placed ``in a row.'' An alternative, more powerful way is to use
+matrices, see Section~\ref{section-matrices}, but for simple cases
+chains will be easier to use. You need to load the |placements|
+library to use chains.
 
-Still missing...
+The general idea behind a chain is the following: A chain is a
+sequence of nodes where each node is placed relative to the
+preceding one. Typically, you construct one chain at a time, but it is
+permissible to have construct multiple chains simultaneously. In this
+case, the chain must be named differently and you must specify for
+each node which chain it belongs to.
 
+The first step toward creating a chain is to use the |setup chain|
+key.
+\begin{key}{/tikz/setup chain=\meta{chain name}|going |\meta{direction}}
+  This key should be given as an option to a scope enclosing all nodes
+  of the chain. Typically, this will be a |scope| or the whole
+  |tikzpicture|, but it might just be a path on which all nodes are
+  placed.
+
+  The key installs a chain named \meta{chain name} for the current
+  scope. Inside this scope, you cannot use |setup chain| once more for
+  the same \meta{chain name}, you have to use a different one. It is
+  permissible that the \meta{chain name} is empty; in this case the
+  chain name is simply the empty string.
+
+  The \meta{direction} is used to determine the placement rule for
+  nodes on the chain. The placement rule is just a \tikzname\ option
+  that is applied automatically to each node on the chain. Depending
+  on the form of the \meta{direction} parameter, the placement rule is
+  determined in two different ways:
+  \begin{enumerate}
+  \item If \meta{direction} contains an equal sign, then
+    \meta{direction} is used as the placement rule. 
+  \item If \meta{direction} does not contain an equal sign, then
+    \meta{direction}|=of \tikzchainprevious| is used as the placement
+    rule. 
+  \end{enumerate}
+
+  Other than this, this key has no further effect. In particular, to
+  place nodes on the chain, you must use the |on chain| option,
+  described next.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=1 going right,
+                    setup chain=2 going below,
+                    node distance=5mm,
+                    every node/.style=draw]
+  \node [on chain=1] {A};
+  \node [on chain=1] {B};
+  \node [on chain=1] {C};
+
+  \node [on chain=2] at (0,-1) {0};
+  \node [on chain=2] {1};
+  \node [on chain=2] {2};
+  
+  \node [on chain=1] {D}; 
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=going right]
+  % Use the empty chain    
+  \node [on chain] {A};
+  \node [on chain] {B};
+  \node [on chain] {C};
+\end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/on chain=\opt{\meta{chain name}}\opt{|going |\meta{new direction}}}
+  This key should be given as an option to a node. When the option is
+  used, the \meta{chain name} must previously have been declared for
+  the current scope using the |setup chain|. If \meta{chain name} is
+  the empty string, the chain whose name is the empty chain must have
+  been declared.
+
+  The |going |\meta{new direction} part is optional. If present it
+  changes the placement rule for the present and all subsequent nodes
+  in the same way as described for |setup chain|.
+
+  The effects of this option are the following:
+  \begin{enumerate}
+  \item An internal counter (there is one, local, counter
+    for each chain) is increased. This counter reflects the current
+    number of the node in the chain, where the first node is node 1,
+    the second is node 2, and so on.
+
+    This value of this internal counter is globally stored in the
+    macro \declare{|\tikzchaincount|}.
+  \item If the node does not yet have a name, (having been given using
+    the |at| option or the at-syntax), the name of the node is set to
+    \meta{chain name}|-|\meta{value of the internal chain
+      counter}. For instance, if the chain is called |nums|, the first
+    node would be named |nums-1|, the second |nums-2|, and so on. For
+    the empty chain, the first node is named |-1|, the second |-2|,
+    and so on.
+  \item Independently of whether the name has been provided
+    automatically or via the |at| option, the name of the node is
+    globally stored in the macro \declare{|\tikzchaincurrent|}.
+  \item Except for the first node, the macro
+    \declare{|\tikzchainprevious|} is now globally set to the name of
+    the node of the previous node on the chain. For this first node,
+    this macro is globally set to the empty string.
+  \item Except possibly for the first node of the chain, the placement rule is
+    now executed. Inside this rule, the macros |\tikzchainprevious| is
+    typically used to access the previous node, but you can also
+    access |\tikzchaincurrent| or |\tikzchaincount| for more
+    complicated placings. The follow key governs whether the placement
+    rule is also executed for the first node:
+    \begin{key}{/tikz/chain is relative=\meta{boolean} (initially true)}
+      If set to |true|, each node is placed relative to the previous
+      one, which means that the placement rule is not executed for the
+      first node of a chain. If set to |false|, the placement rule is
+      also applied to the first node of a chain. Note that for this
+      first node the  |\tikzchainprevious| is empty. Here is an
+      example where this   option makes sense:
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=circle going {at=(\tikzchaincount*30:1.5)},
+                    chain is relative=false]
+  \foreach \i in {1,...,10}
+    \node [on chain=circle] {\i};
+  
+  \draw (circle-1) -- (circle-10);
+\end{tikzpicture}
+\end{codeexample}
+    \end{key}
+  \item
+    The following style is executed:
+    \begin{stylekey}{/tikz/every on chain}
+      This key is executed for every node of a chain, including the
+      first one. 
+    \end{stylekey}
+  \end{enumerate}
+
+  Recall that the standard replacement rule has a form like
+  |right=of (\tikzchainprevious)|. This means that each 
+  new node is placed to the right of the previous one, spaced by the
+  current value of |node distance|.
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=going right,node distance=5mm]
+  \node [draw,on chain] {};
+  \node [draw,on chain] {Hallo};
+  \node [draw,on chain] {Welt};
+\end{tikzpicture}
+\end{codeexample}
+
+  The optional \meta{new direction} allows us to change the direction
+  in the middle of a chain:
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=going right,node distance=5mm]
+  \node [draw,on chain] {};
+  \node [draw,on chain] {Hello};
+  \node [draw,on chain] {World};
+  \node [draw,on chain=going below] {,};
+  \node [draw,on chain] {this};
+  \node [draw,on chain] {is};
+  \node [draw,on chain] {it.};
+\end{tikzpicture}
+\end{codeexample}
+
+  You can also use more complicated computations in the \meta{direction}:
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=going {at=(\tikzchainprevious),shift=(30:1)}]
+  \draw [help lines] (0,0) grid (3,2);
+  \node [draw,on chain] {1};
+  \node [draw,on chain] {Hello};
+  \node [draw,on chain] {World};
+  \node [draw,on chain] {.};
+\end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/chain edge=\meta{options}}
+  When this key is given to any node on the chain, except for the
+  first (where this option has no effect), an |edge| command is added
+  after the node. This |edge| command gets the \meta{options} as a
+  parameter and gets |\tikzchainprevious| as its target. The net
+  effect of this is that the current chain node is connected to the
+  previous chain node via an edge.
+\begin{codeexample}[]
+\begin{tikzpicture}[setup chain=going right,node distance=5mm,
+                    every on chain/.style={chain edge={red,<-}},
+                    every node/.style={draw,on chain}]
+  \node {};
+  \node {Hallo};
+  \node {Welt};
+\end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+Here is a final example of a chain ``in action.''
+
+\begin{codeexample}[]
+\begin{tikzpicture}[
+    >=stealth,
+    minimum size=6mm,
+    terminal/.style={rectangle,rounded corners=3mm,draw,fill=white,thick},
+    nonterminal/.style={rectangle,draw,fill=white,thick},
+    node distance=3mm]
+    
+  \begin{scope}[setup chain=going right,
+                every node/.style={on chain},
+                terminal/.append style={chain edge={<-,shorten <=1pt}},
+                nonterminal/.append style={chain edge={<-,shorten <=1pt}},
+                support/.style={chain edge={-}}]
+    \coordinate [support]     (start);
+    \node       [nonterminal] {unsigned integer};
+    \coordinate [support]     (after ui);
+    \node       [terminal]    {.};
+    \coordinate [support]     (after dot);
+    \node       [terminal]    {digit};
+    \coordinate [support]     (after digit);
+    \coordinate [support]     (skip);
+    \coordinate [support]     (before E);
+    \node       [terminal]    {E};
+    \coordinate [support]     (after E);
+    \coordinate [support,
+                 xshift=5mm]  (between);
+    \coordinate [support,
+                 xshift=5mm]  (before last);
+    \node       [nonterminal] {unsigned integer};
+    \coordinate [support]     (after last);
+    \coordinate [chain edge={<-}] (end);
+  \end{scope}
+  \node (plus)  [terminal,above=of between] {$+$};
+  \node (minus) [terminal,below=of between] {$-$};
+
+  \begin{scope}[->,shorten >=1pt,rounded corners]
+    \draw (after ui)    -- +(0,.7)  -| (skip);
+    \draw (after digit) -- +(0,-.7) -| (after dot);
+    \draw (before E)    -- +(0,-1) -| (after last);
+    \draw (after E)     |- (plus);
+    \draw (plus)        -| (before last);
+    \draw (after E)     |- (minus);
+    \draw (minus)       -| (before last);
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
 
 \subsection{Fitting Nodes to a Set of Coordinates}
 
