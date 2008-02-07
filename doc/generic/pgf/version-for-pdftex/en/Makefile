@@ -4,6 +4,8 @@ latex = pdflatex
 
 all: $(doc).pdf
 
+TEXINPUTS := ../../text-en:$(TEXINPUTS)
+
 pgfmanual.idx: 
 	touch pgfmanual.idx
 
@@ -11,8 +13,8 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
-	$(latex) $(doc).tex
-	(egrep -q $(rerun) $(doc).log && $(latex) $(doc).tex) || true
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
+	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 
 clean:
-	rm -f *.aux *.log *.bbl *.blg *.ps *.dvi *.pdf *.toc *.out *.snm
+	rm -f pgfmanual*.aux pgfmanual.{out,log,idx,ind,ilg,pdf,toc,bbl,blg}
