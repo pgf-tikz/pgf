@@ -1,10 +1,9 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
 latex = pdflatex
+TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 all: $(doc).pdf
-
-TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 pgfmanual.idx: 
 	touch pgfmanual.idx
