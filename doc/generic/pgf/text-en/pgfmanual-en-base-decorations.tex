@@ -93,7 +93,7 @@ are created, the following conventions will be used:
 \item
   The \emph{input} path refers to the to-be-decorated path that the
   decoration automaton moves along. The input path may consist of many
-  line and curve subpaths (for example, a circle or an ellipse
+  line and curve input segments (for example, a circle or an ellipse
   consists of four curves). It is specified inside the decoration
   environment. 
 \item
@@ -225,11 +225,11 @@ this command describes the decoration automaton.
   certain distance. This will also work if the path is not a straight
   line. That is, it is permissible that the path curves are veers at a
   sharp angle.  It is also permissible that while travelling along the
-  input path the current subpath ends and a new subpath starts. In this
-  case, the remaining distance on the first subpath is subtracted
+  input path the current input segment ends and a new input segment starts. In this
+  case, the remaining distance on the first input segment is subtracted
   from the \meta{dimension} and then we travelled along the second
-  subpath for the remaining distance. This subpath may also end
-  early, in which case we travel along the next subpath, and so
+  input segment for the remaining distance. This input segment may also end
+  early, in which case we travel along the next input segment, and so
   on. Note that it cannot happen that we travel past the end of the
   input path since this would have caused an immediate switch to
   the |final| state.
@@ -338,13 +338,11 @@ this command describes the decoration automaton.
       \meta{dimension}. If so, an immediate state switch to \meta{new
         state} occurs.
     \end{key}
-    \begin{key}{/pgf/decoration automaton/switch if subpath less than=\meta{dimension}| to |\meta{new state}}
+    \begin{key}{/pgf/decoration automaton/switch if input segment less than=\meta{dimension}| to |\meta{new state}}
       When this key is encountered, \pgfname\ checks whether the
-      remaining distance to the end of the current subpath of the
+      remaining distance to the end of the current input segment of the
       input path is less than \meta{dimension}. If so, an immediate
-      state switch to \meta{new state} occurs. A new subpath of the
-      input path is started (exactly) with each |\pgfpathmoveto|
-      operation on the input path.
+      state switch to \meta{new state} occurs.
     \end{key}
     \begin{key}{/pgf/decoration automaton/width=\meta{dimension}}
       First, this option causes an immediate switch to the
@@ -379,6 +377,44 @@ this command describes the decoration automaton.
       option is not given, the next state is the same as the current state.
     \end{key}
 
+    \begin{key}{/pgf/decoration automaton/if input segment is closepath=\meta{options}}
+      This key checks whether the current input segment is a closepath
+      operation. If so, the \meta{options} get executed; otherwise
+      nothing happens. You can use this option to handle a closepath
+      in some special way, for instance, switching to a new state in
+      which |\pgfpathclose| is executed.
+    \end{key}
+
+    \begin{key}{/pgf/decoration automaton/auto end on length=\meta{dimension}}
+      This key is just included for convenience, it does nothing that
+      cannot be achieved using the previous options. The effect is the
+      following: If the remaingin input path's length is at most
+      \meta{dimension}, the decorated path is ended with a straight
+      line to the end of the input path and, possibly, it is closed,
+      namely if the input path ended with a closepath
+      operation. Otherwise, it is checked whether the current input
+      segment is a closepath segment and whether the remaining
+      distance on the current input segment is at most
+      \meta{distance}. If so, the a closepath operation is used to
+      close the decorated path and the automaton continues with the
+      next subpath, remaining in the current state.
+
+      In all other cases, nothing happens.
+    \end{key}
+
+    \begin{key}{/pgf/decoration automaton/auto corner on length=\meta{dimension}}
+      This key has the following effect: Firstly, the \TeX-if
+      |\ifpgfdecoratepathhascorners| is false, nothing
+      happens. Otherwise, it is tested whether the remaining distance
+      on the current input segment is at most \meta{dimension}. If so,
+      a lineto operation is used to reach the end of this input
+      segment and the automaton continues with the next input segment,
+      but remains in the current state.
+
+      The main idea behind this option is to avoid having decoration
+      segments ``overshoot'' past a corner.
+    \end{key}
+
     You may sometimes wish to do computations outside the
     transformational \TeX-group of the current segment,
     so that these results of these computations are available in the
@@ -402,13 +438,13 @@ this command describes the decoration automaton.
     
     \begin{command}{\pgfdecoratedpathlength}
       The length of the input path. If the input path consists of
-      several subpaths, this number is the sum of the lengths of the
-      subpaths. 
+      several input segments, this number is the sum of the lengths of the
+      input segments. 
     \end{command}
     
-    \begin{command}{\pgfdecoratedsubpathlength}
-      The length of the current subpath of the input path. ``Current
-      subpath''  refers to the subpath on which the current point
+    \begin{command}{\pgfdecoratedinputsegmentlength}
+      The length of the current input segment of the input path. ``Current
+      input segment''  refers to the input segment on which the current point
       lies. 
     \end{command}
 		
@@ -416,8 +452,8 @@ this command describes the decoration automaton.
       The final point of the input path.
     \end{command}
     
-    \begin{command}{\pgfpointdecoratedsubpathlast}
-      The final point of the current subpath of the input path.
+    \begin{command}{\pgfpointdecoratedinputsegmentlast}
+      The final point of the current input segment of the input path.
     \end{command}
 		
     \begin{command}{\pgfdecoratedangle}
@@ -438,12 +474,12 @@ this command describes the decoration automaton.
       The completed distance on the input path.
     \end{command}
     
-    \begin{command}{\pgfdecoratedsubpathremainingdistance}
-      The remaining distance on the current subpath of the input path.
+    \begin{command}{\pgfdecoratedinputsegmentremainingdistance}
+      The remaining distance on the current input segment of the input path.
     \end{command}
     
-    \begin{command}{\pgfdecoratedsubpathcompleteddistance}
-      The completed distance on the current subpath of the input path.
+    \begin{command}{\pgfdecoratedinputsegmentcompleteddistance}
+      The completed distance on the current input segment of the input path.
     \end{command}
 
     Further keys and macros are defined and used by the decoration
@@ -695,6 +731,12 @@ Once a decoration has been declared, it can be used.
   \begin{command}{\pgfpointdecorationpathlast}
     The final point of the output path.
   \end{command}
+
+  The following style is executed each time a decoration is used. You
+  may use it to setup default options for decorations.
+  \begin{stylekey}{/pgf/every decoration (initially \normalfont empty)}
+    This sytle is executed for every decoration.
+  \end{stylekey}
 \end{environment}
 
 \begin{plainenvironment}{{pgfdecoration}\marg{name}}
@@ -885,13 +927,13 @@ meta-decoration can be used it must be declared.
       The remaining distance on the entire input path.
     \end{command}
     
-    \begin{command}{\pgfmetadecoratedsubpathcompleteddistance}
-      The completed distance on the current subpath of the entire
+    \begin{command}{\pgfmetadecoratedinputsegmentcompleteddistance}
+      The completed distance on the current input segment of the entire
       input path.
     \end{command}
     
-    \begin{command}{\pgfmetadecoratedsubpathremainingdistance}
-      The remaining distance on the current subpath of the entire
+    \begin{command}{\pgfmetadecoratedinputsegmentremainingdistance}
+      The remaining distance on the current input segment of the entire
       input path.
     \end{command}
   \end{command}
