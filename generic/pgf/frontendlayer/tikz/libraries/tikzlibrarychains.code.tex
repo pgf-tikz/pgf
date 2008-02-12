@@ -24,7 +24,6 @@
       % Setup chain parameters
       \expandafter\gdef\csname tikz@lib@chain@count@\tikz@lib@chain@name\endcsname{0}%
       \expandafter\global\expandafter\let\csname tikz@lib@chain@dir@\tikz@lib@chain@name\endcsname\tikz@lib@chain@direction%
-      \expandafter\gdef\csname tikz@lib@chain@last@\tikz@lib@chain@name\endcsname{}%
       \let\tikz@lib@current@chain=\tikz@lib@chain@name%
       \let\chainin=\tikz@lib@chainin%
     \else%
@@ -106,6 +105,9 @@
 
 \def\tikz@lib@current@chain{chain}
 
+\pgfutil@g@addto@macro\tikz@node@reset@hook{\let\tikz@lib@chain@caller=\relax}
+\pgfutil@g@addto@macro\tikz@node@begin@hook{\tikz@lib@chain@caller}
+
 \tikzset{
   on chain/.default=,
   on chain/.code=\tikz@lib@on@chain{#1}%
@@ -118,32 +120,37 @@
   \expandafter\ifx\csname tikz@lib@chain@exists@\tikz@lib@chain@name\endcsname\relax%
     \PackageError{tikz}{Unknown chain ``\tikz@lib@chain@name''}{}%
   \else%
-    \ifx\tikz@lib@chain@direction\relax%
-      \def\tikz@lib@chain@direction{\csname tikz@lib@chain@dir@\tikz@lib@chain@name\endcsname}% use default
-    \fi%
-    % Increase the count and set name, if necessary.
     \c@pgf@counta\csname tikz@lib@chain@count@\tikz@lib@chain@name\endcsname\relax%
-    \advance\c@pgf@counta by1\relax%
-    \expandafter\xdef\csname tikz@lib@chain@count@\tikz@lib@chain@name\endcsname{\the\c@pgf@counta}%
-    \ifnum\c@pgf@counta=1\relax%
-      \tikzset{alias/.expanded=\tikz@lib@chain@name-begin} % Define pseudostart
-    \fi%    
-    \tikzset{alias/.expanded=\tikz@lib@chain@name-end} % Define pseudostart
-    \ifx\tikz@fig@name\pgfutil@empty%
-      \edef\tikz@fig@name{\tikz@lib@chain@name-\csname tikz@lib@chain@count@\tikz@lib@chain@name\endcsname}%
+    \ifnum\c@pgf@counta=0\relax%
+      \global\let\tikzchainprevious=\pgfutil@empty%
+    \else
+      \xdef\tikzchainprevious{\tikz@lib@chain@name-\the\c@pgf@counta}%
     \fi%
-    \expandafter\global\expandafter\let\expandafter\tikzchaincount\csname tikz@lib@chain@count@\tikz@lib@chain@name\endcsname%
-    \expandafter\global\expandafter\let\expandafter\tikzchainprevious\csname tikz@lib@chain@last@\tikz@lib@chain@name\endcsname%
-    \tikz@lib@chain@direction%
-    \expandafter\def\expandafter\tikz@node@begin@hook\expandafter{\tikz@node@begin@hook\tikz@lib@set@last}%
+    \advance\c@pgf@counta by1\relax%
+    \xdef\tikzchaincount{\the\c@pgf@counta}%
+    \ifx\tikz@lib@chain@direction\relax%
+      \csname tikz@lib@chain@dir@\tikz@lib@chain@name\endcsname% use default
+    \else%
+      \tikz@lib@chain@direction%
+    \fi%
+    \edef\tikz@lib@chain@caller{\noexpand\tikz@lib@chain@last@found{\tikz@lib@chain@name}}%
   \fi%
-  \tikzset{after node path={\pgfextra{\global\let\tikzchaincurrent=\tikz@last@fig@name}},every on chain/.try}%
+}
+\def\tikz@lib@chain@last@found#1{%
+  % Increase the count and set name, if necessary.
+  \c@pgf@counta\csname tikz@lib@chain@count@#1\endcsname\relax%
+  \advance\c@pgf@counta by1\relax%
+  \xdef\tikzchaincurrent{#1-\the\c@pgf@counta}%
+  \expandafter\xdef\csname tikz@lib@chain@count@#1\endcsname{\the\c@pgf@counta}%
+  \ifnum\c@pgf@counta=1\relax%
+    \tikzset{alias/.expanded=#1-begin} % Define pseudostart
+  \fi%    
+  \tikzset{alias/.expanded=#1-end} % Define pseudostart
+  \tikzset{alias/.expanded=#1-\the\c@pgf@counta} % Define pseudostart
+  \tikz@lib@chain@direction%
+  \tikzset{every on chain/.try}%
 }
 
-\def\tikz@lib@set@last{%
-  \let\tikzchaincurrent\tikz@fig@name%
-  \expandafter\global\expandafter\let\csname tikz@lib@chain@last@\tikz@lib@chain@name\endcsname\tikz@fig@name%
-}
 
 \def\tikz@lib@chain@place#1{%
   \pgfutil@in@{=}{#1}%
@@ -186,19 +193,7 @@
 
 
 \def\tikz@lib@chainin#1(#2){\pgfutil@ifnextchar[{\tikz@lib@chainin@{#2}}{\tikz@lib@chainin@{#2}[]}}%]
-\def\tikz@lib@chainin@#1[#2]#3;{%
-  \let\tikz@lib@chain@name\pgfutil@empty%
-  \path[late options={%
-    name=#1,%
-    on chain/.store in=\tikz@lib@chain@name,%
-    every chain in/.try,
-    #2,
-    /utils/exec={%
-      \expandafter\tikz@lib@on@chain\expandafter{\tikz@lib@chain@name}%
-      \global\let\tikzchaincurrent=\tikz@fig@name%
-    }
-  }];
-}
+\def\tikz@lib@chainin@#1[#2]{\path[late options={name=#1,on chain,every chain in/.try,#2}]}
 
 
 %
@@ -207,9 +202,9 @@
 
 \tikzset{start branch/.code={%
     % save last node on current chain:
-    \expandafter\let\expandafter\tikz@lib@branch@start\csname tikz@lib@chain@last@\tikz@lib@current@chain\endcsname%
+    \let\tikz@lib@save@current\tikz@lib@current@chain%
     \pgfkeysalso{/tikz/start chain/.expand once=\tikz@lib@current@chain/#1}%
-    \path[late options={name=\tikz@lib@branch@start,on chain}];%
+    \path[late options={name=\tikz@lib@save@current-end,on chain}];%
   }%
 }
 \tikzset{continue branch/.style={continue chain/.expand once=\tikz@lib@current@chain/#1}}
