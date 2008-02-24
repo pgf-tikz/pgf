@@ -1,0 +1,205 @@
+% Copyright 2006 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS $Header$
+
+
+
+
+% Do something if a data point attribute is pgfnull.
+%
+% #1 = attribuate
+% #2 = if-part
+% #3 = else=part
+
+\def\pgfifdatapointatributenull#1{%
+  \expandafter\ifx\csname pgf@dv@@#1\endcsname\relax%
+    \expandafter\pgfutil@firstoftwo%
+  \else%
+    \expandafter\pgfutil@secondoftwo%
+  \fi%
+}
+
+
+
+
+%
+% Part II: Visualization automata
+%
+
+% When a set of datapoints is processed, one or more visualization
+% automata are invoked.
+%
+% The first step is to define an automaton using
+% \pgfdeclaredatavisualizationautomaton, which takes the description of
+% the automaton. Second, to actually visualize something, you use a
+% data visualization environment. This takes a list of automata that
+% you would like to use. Then comes some code that produces
+% datapoints. For each datapoint all the automata are invoked in the
+% order given to the data visualization. Then the next point is
+% processed and so on. A "side effect" of the automata should be to
+% create the graphic.
+
+
+
+% Declare a data visualization automaton
+%
+% #1 = name of the automaton
+% #2 = code setting up initial state attributes
+%
+% Description:
+%
+% Data visualization automata underlie the data visualization
+% process. Conceptually, for each datapoint of the data set the
+% visualization automaton can execute some code. This code can have
+% side effects like a line being drawn. This code will be executed
+% inside a local scope and it should not try to set global variables;
+% the reason being that multiple instances of the automaton may
+% actually be working on the datapoints at the same time. The
+% automaton can, however, store information in its state, which is
+% managed by the data visualization environment. For this, the two
+% commands \pgfsetstateattribute and \pgfgetstateattribute can be
+% used. 
+% 
+
+\def\pgfdeclaredatavisualizationautomaton#1#2{%
+  \expandafter\def\csname pgf@dva@#1\endcsname{#2}%
+}
+
+
+% Sets a state attribute
+%
+% #1 = attribute name
+% #2 = value
+%
+% Desccription:
+%
+% This command sets the attribute named #1 to value for the currently
+% active automaton.
+%
+% This command can only be called if there is an activate automaton,
+% which is only the case inside a data visualization.
+
+\def\pgfsetstateattribute#1#2{%
+  \expandafter\gdef\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname{#2}%
+}
+
+% Get a state attribute
+%
+% #1 = attribute name
+% #2 = macro
+%
+% Desccription:
+%
+% This command retrieves the attribute named #1 for the currently 
+% active automaton.
+
+\def\pgfgetstateattribute#1#2{%
+  \expandafter\let\expandafter#2\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
+}
+
+% Insert the value of a state attribute
+%
+% #1 = attribute name
+%
+% Desccription:
+%
+% This command inserts the value of the attribute named #1 for the
+% currently active automaton.
+
+\def\pgfstateattributevalueof#1{%
+  \csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
+}
+
+
+
+
+
+% The main data visualization environment
+%
+% Description:
+%
+% The data visualization environment should contain calls of the
+% following two macros:
+%
+% \pgfusedatavisualizationautomaton
+% \pgfdatapoint
+%
+% Between these calls, aribtrary code may be executed.
+%
+
+\newcount\pgf@dva@num
+\newcount\pgf@dva@cur
+
+\def\pgfdatavisualization{%
+  \begingroup%
+    \pgf@dva@num=0\relax%  
+    \pgf@dva@cur=0\relax%  
+}
+
+\def\endpgfdatavisualization{%
+    % Invoke the final code for all automata
+    \pgf@dv@foreachautomaton{\pgfstateattributevalueof{final preaction}}{\pgfstateattributevalueof{final postaction}}
+  \endgroup%
+}
+
+
+% Use a data visualization automaton inside the current data
+% visualization environment.
+%
+% #1 = automaton path
+% #2 = code for setting the initial state
+%
+% Description:
+%
+% This command is used ...
+
+\def\pgfusedatavisualizationautomaton#1#2{%
+  {%
+    % Invoke startup code to set initial state
+    #2%
+    \csname pgf@dva@#1\endcsname%
+  }%
+  \advance\pgf@dva@num by1\relax%
+  \advance\pgf@dva@cur by1\relax%
+}
+
+
+
+% Create a datapoint 
+%
+% Description:
+%
+% \pgfdatapoint
+
+\def\pgfdatapoint{%
+  % Invoke the visualization automata...
+  \pgf@dv@foreachautomaton{\pgfstateattributevalueof{preaction}}{\pgfstateattributevalueof{postaction}}%
+}
+
+
+\def\pgf@dv@foreachautomaton#1#2{%
+  {%
+    \pgf@dva@cur=0\relax%
+    \loop%
+    \ifnum\pgf@dva@cur<\pgf@dva@num%
+      #1%
+      \advance\pgf@dva@cur by1\relax%
+    \repeat%
+    \pgf@dva@cur=\pgf@dva@num\relax%
+    \loop%
+    \ifnum\pgf@dva@cur>0\relax%
+      \advance\pgf@dva@cur by-11\relax%
+      #2%
+    \repeat%
+  }%
+}
+
+
+\endinput
