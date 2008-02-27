@@ -12,39 +12,18 @@
 
 
 
-% Do something if a data point attribute is pgfnull.
-%
-% #1 = attribuate
-% #2 = if-part
-% #3 = else=part
-
-\def\pgfifdatapointatributenull#1{%
-  \expandafter\ifx\csname pgf@dv@@#1\endcsname\relax%
-    \expandafter\pgfutil@firstoftwo%
-  \else%
-    \expandafter\pgfutil@secondoftwo%
-  \fi%
-}
-
-
-
-
-%
-% Part II: Visualization automata
-%
-
 % When a set of datapoints is processed, one or more visualization
 % automata are invoked.
 %
 % The first step is to define an automaton using
 % \pgfdeclaredatavisualizationautomaton, which takes the description of
 % the automaton. Second, to actually visualize something, you use a
-% data visualization environment. This takes a list of automata that
-% you would like to use. Then comes some code that produces
-% datapoints. For each datapoint all the automata are invoked in the
-% order given to the data visualization. Then the next point is
-% processed and so on. A "side effect" of the automata should be to
-% create the graphic.
+% data visualization environment. Inside it, you setup a list of
+% automata that you would like to use. Then comes some code that
+% produces datapoints. For each datapoint all the automata are invoked
+% in the order given to the data visualization. Then the next data
+% point is  processed and so on. A "side effect" of the automata
+% should be to create the graphic.
 
 
 
@@ -63,9 +42,10 @@
 % the reason being that multiple instances of the automaton may
 % actually be working on the datapoints at the same time. The
 % automaton can, however, store information in its state, which is
-% managed by the data visualization environment. For this, the two
-% commands \pgfsetstateattribute and \pgfgetstateattribute can be
-% used. 
+% managed by the data visualization environment. For this, the
+% commands \pgfsetstateattribute and \pgfstateattributevalueof can be
+% used. You can also use the abbreviations \set and \valueof for these
+% commands inside a data visualization environment.
 % 
 
 \def\pgfdeclaredatavisualizationautomaton#1#2{%
@@ -76,33 +56,25 @@
 % Sets a state attribute
 %
 % #1 = attribute name
-% #2 = value
+% #2 = macro name or value
 %
 % Desccription:
 %
-% This command sets the attribute named #1 to value for the currently
-% active automaton.
+% This command sets the attribute named #1 to #2 for the currently
+% active automaton. If #2 does not start with a brace, a \let is used
+% for the assignment, otherwise a \def is used.
 %
 % This command can only be called if there is an activate automaton,
 % which is only the case inside a data visualization.
 
-\def\pgfsetstateattribute#1#2{%
-  \expandafter\gdef\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname{#2}%
+\def\pgfsetstateattribute#1{%
+  \pgfutil@ifnextchar\bgroup{%
+    \expandafter\gdef\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
+  }{%
+    \expandafter\global\expandafter\let\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
+  }%
 }
 
-% Get a state attribute
-%
-% #1 = attribute name
-% #2 = macro
-%
-% Desccription:
-%
-% This command retrieves the attribute named #1 for the currently 
-% active automaton.
-
-\def\pgfgetstateattribute#1#2{%
-  \expandafter\let\expandafter#2\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
-}
 
 % Insert the value of a state attribute
 %
@@ -140,13 +112,34 @@
 \def\pgfdatavisualization{%
   \begingroup%
     \pgf@dva@num=0\relax%  
-    \pgf@dva@cur=0\relax%  
+    \pgf@dva@cur=0\relax%
+    \let\pgforig@set=\set%
+    \let\pgforig@valueof=\valueof%
+    \let\set=\pgfsetstateattribute%
+    \let\valueof=\pgfstateattributevalueof%
+}
+\def\endpgfdatavisualization{%
+    % Create final data point
+    \pgfdatapoint{final}%
+  \endgroup%
 }
 
-\def\endpgfdatavisualization{%
-    % Invoke the final code for all automata
-    \pgf@dv@foreachautomaton{\pgfstateattributevalueof{final preaction}}{\pgfstateattributevalueof{final postaction}}
-  \endgroup%
+% Restore the meaning of \set and \valueof
+%
+% Description:
+%
+% Inside a data visualization, the macro \set is set to mean the same
+% as \pgfsetstateattribute and \valueof is set to mean the same as
+% \pgfstateattributevalueof. If the original meaning of these macros
+% are needed, the command \pgfrestoresetandvalueof can be used to
+% locally restore their original meaning.
+%
+% Normally, this command should be used whenever user-defined text is
+% to be typeset inside a data visualization.
+
+\def\pgfrestoresetandvalueof{%
+  \let\set=\pgforig@set%
+  \let\valueof=\pgforig@valueof%
 }
 
 
@@ -163,8 +156,9 @@
 \def\pgfusedatavisualizationautomaton#1#2{%
   {%
     % Invoke startup code to set initial state
-    #2%
     \csname pgf@dva@#1\endcsname%
+    #2%
+    \csname pgf@dv@state@\the\pgf@dva@cur @init\endcsname%
   }%
   \advance\pgf@dva@num by1\relax%
   \advance\pgf@dva@cur by1\relax%
@@ -172,34 +166,39 @@
 
 
 
-% Create a datapoint 
+% Create a data point 
+%
+% #1 = actions to be taken for the data point
 %
 % Description:
 %
-% \pgfdatapoint
+% When this command is used, the current setting of the TeX state
+% constitute a "data point". Typically, only the current values of the
+% keys /data point/... are important, but this is just a convention.
+%
+% When a data point is created, the current automata of the data
+% visualization are activated. There may be more than one automaton
+% active and they are activated in the order they have been
+% created. For each automaton, the code stored in the state attribute
+% named "#1" is executed, in the order the automata were
+% given.
+%
+% It is the job of the code stored in these attributes to "do
+% something useful". Typically, the code will inspect some of the
+% /data point/... keys and issue appropriate drawing commands. 
 
-\def\pgfdatapoint{%
+\def\pgfdatapoint#1{%
   % Invoke the visualization automata...
-  \pgf@dv@foreachautomaton{\pgfstateattributevalueof{preaction}}{\pgfstateattributevalueof{postaction}}%
-}
-
-
-\def\pgf@dv@foreachautomaton#1#2{%
   {%
     \pgf@dva@cur=0\relax%
     \loop%
     \ifnum\pgf@dva@cur<\pgf@dva@num%
-      #1%
+      \csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
       \advance\pgf@dva@cur by1\relax%
-    \repeat%
-    \pgf@dva@cur=\pgf@dva@num\relax%
-    \loop%
-    \ifnum\pgf@dva@cur>0\relax%
-      \advance\pgf@dva@cur by-11\relax%
-      #2%
     \repeat%
   }%
 }
+
 
 
 \endinput
