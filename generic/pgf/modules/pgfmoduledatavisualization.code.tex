@@ -9,195 +9,852 @@
 
 \ProvidesFileRCS $Header$
 
+\usepgfmodule{oo}
 
 
+% This module defines the basic framework for data visualization. 
 
-% When a set of datapoints is processed, one or more visualization
-% automata are invoked.
+% In order to visualize data, you first need data. The format for this
+% data is not specified, indeed, different formats are possible. A
+% data point is created each time the command \pgfdatapoint is
+% used. The "parameters" of the data point are just the current values
+% of the keys or macros in the current scope. 
 %
-% The first step is to define an automaton using
-% \pgfdeclaredatavisualizationautomaton, which takes the description of
-% the automaton. Second, to actually visualize something, you use a
-% data visualization environment. Inside it, you setup a list of
-% automata that you would like to use. Then comes some code that
-% produces datapoints. For each datapoint all the automata are invoked
-% in the order given to the data visualization. Then the next data
-% point is  processed and so on. A "side effect" of the automata
-% should be to create the graphic.
-
-
-
-% Declare a data visualization automaton
+% A set of data points is framed by calls to \pgfdataset and
+% \pgfenddataset, which just signal the events "begin data set" and
+% "end data set". Inside a data set, you can use \pgfdatacluster
+% and \endpgfdatacluster to further cluster data. These events will
+% cause the "begin data cluster" and "end data cluster" events to be
+% issued. Every data set implicitly opens a cluster.
 %
-% #1 = name of the automaton
-% #2 = code setting up initial state attributes
+% When a data point is created, a numer of events are signaled, see
+% the description of \pgfdatapoint. To actually visualize something,
+% objects should be created that listen to these events and that
+% handle them. 
+%
+% The command \pgfnewdatavisualization inits these events. 
+
+
+% Initialize a data visualization
 %
 % Description:
 %
-% Data visualization automata underlie the data visualization
-% process. Conceptually, for each datapoint of the data set the
-% visualization automaton can execute some code. This code can have
-% side effects like a line being drawn. This code will be executed
-% inside a local scope and it should not try to set global variables;
-% the reason being that multiple instances of the automaton may
-% actually be working on the datapoints at the same time. The
-% automaton can, however, store information in its state, which is
-% managed by the data visualization environment. For this, the
-% commands \pgfsetstateattribute and \pgfstateattributevalueof can be
-% used. You can also use the abbreviations \set and \valueof for these
-% commands inside a data visualization environment.
+% Use this command to start a data visualization. It will clear
+% (locally for the current group) all event listeners.
+
+\def\pgfnewdatavisualization{%
+  \pgfooinitevent{prepare data point}%
+  \pgfooinitevent{locate data point}%
+  \pgfooinitevent{transform data point}%
+  \pgfooinitevent{visualize data point}%
+  \pgfooinitevent{finish data point}%
+  \pgfooinitevent{begin data set}%
+  \pgfooinitevent{end data set}%
+  \pgfooinitevent{begin data cluster}%
+  \pgfooinitevent{end data cluster}%
+}      
+
+
+
+
+% Create and handle a data point
+%
+% Description:
+%
+% This command may only be called after \pgfnewdatavisualization has
+% been called. It will then signal a number of events, to which
+% (hopefully) some smart objects are listening.
+%
+% The data that is represented by the data point is not given as a
+% parameter. Rather, it is stored in macros and keys, that is, the
+% data point is conceptually given by the settgins of all the keys and
+% macros in the local scope.
+%
+% In detail, a prepare event is signaled first, given all objects a
+% chance to "prepare" for the data point. Note that it is permissible
+% for an object to manipulate the data point in this phase (and also
+% in later phases).
+%
+% Next, the command \pgfcanvaspositionofdatapoint is called. Mainly, the effect
+% of this command is to setup the keys /data point/canvas x and /data
+% point/canvas y, see the description of this command for more
+% details. 
+%
+% The next phase consists of signaling the "visualize data point"
+% event. Objects listening to this event will cause some form of
+% visualization of the data point to occur.
+%
+% Finally, finish data point allows objects to do any final processing
+% of the data point.
+
+\def\pgfdatapoint{%
+  \pgfooevent{prepare data point}%
+  \pgfcanvaspositionofdatapoint%
+  \pgfooevent{visualize data point}%
+  \pgfooevent{finish data point}%
+}
+
+
+
+% Compute a position of a data point
+%
+% Description:
+%
+% This command uses a special event to compute the position where a
+% data point should be visualized on the canvas. In detail, the
+% following happens:
+%
+% The next phase is special: A local scope is created and the
+% transformation matrix is reset. Then, two events are signled: First,
+% "locate data points" and then "transform data point". The first
+% event lets listening objects "locate" the object by setting up
+% attributes of the data point. The second event asks objects
+% listening to this event to transform  the current transformation
+% matrix. After the events, we compute where 
+% the origin lies inside this transformed coordinate system. Then the
+% two keys /data point/canvas x and /data point/canvas y are set to
+% the values of this position. The local scope ends (but the settings
+% of the keys persist by a bit of magic), thus restoring the
+% transformation matrix to its original value.
+
+\def\pgfcanvaspositionofdatapoint{%
+  \pgf@canvaspositionofdatapoint{\pgfdatapointvirtualfalse}%
+}
+\def\pgf@canvaspositionofdatapoint#1{%
+  {
+    \pgftransformreset
+    #1%
+    \pgfooevent{locate data point}
+    \pgfooevent{transform data point}%
+    \pgfpointtransformed{\pgfpointorigin}
+    % Smuggle outside group
+    \expandafter
+  }%
+  \edef\pgf@marshal{%
+    \noexpand\pgfkeyssetvalue{/data point/canvas x}{\the\pgf@x}
+    \noexpand\pgfkeyssetvalue{/data point/canvas y}{\the\pgf@y}
+  }%
+  \pgf@marshal%
+}
+
+% Help functions for locating a canvas data point
+%
+% Description:
+%
+% The first function returns the data point computed by a
+% canvasposition... call. The second function stores this position in
+% a macro
+
+\def\pgfpointcanvasposition{%
+  \pgfqpoint{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}%
+}
+
+\def\pgfsettocanvasposition#1{%
+  \edef#1{\noexpand\pgfqpoint{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+}
+
+
+
+% Compute a position of a virtual data point
+%
+% Description:
+%
+% This macors works like the previous macor, but the data point is
+% considered to be "virtual". This happens when you wish to compute
+% the position where a data point should be visualized even when no
+% "real" data point is there. For virtual data points, bounders and
+% coordinate trackers should not update internal data
+% structures. They can detect whether a data point is virtual by
+% testing \ifpgfdatapointvirtual
+
+\newif\ifpgfdatapointvirtual
+\def\pgfcanvaspositionofvirtualdatapoint{%
+  \pgf@canvaspositionofdatapoint{\pgfdatapointvirtualtrue}%
+}
+
+\pgfkeys{% do not even think of changing the values of the following:
+  /data point/always true/.initial=true,
+  /data point/always false/.initial=false,
+  /data point/always 0/.initial=0,
+  /data point/always 1/.initial=1,
+  /data point/always empty/.initial=%
+}
+
+
+% Start/stop a data set
+%
+% Description:
+%
+% These command is used to signal the start/end of a data set. They
+% cause the "begin data set" or "end data set" event to be
+% signaled. Objects listening for these event can use it to setup
+% their internal settings. 
+
+\def\pgfdataset{\pgfooevent{begin data set}\pgfooevent{begin data cluster}}
+\def\endpgfdataset{\pgfooevent{end data cluster}\pgfooevent{end data set}}
+
+\let\startpgfdataset=\pgfdataset
+\let\stoppgfdataset=\endpgfdataset
+
+
+
+% Start/stop a data cluster
+%
+% Description:
+%
+% Inside a data set the data can be further clustered using these
+% commands. Like the start/stop of data sets, they signal events.
+
+\def\pgfdatacluster{\pgfooevent{begin data cluster}}
+\def\endpgfdatacluster{\pgfooevent{end data cluster}}
+
+\let\startpgfdatacluster=\pgfdatacluster
+\let\stoppgfdatacluster=\endpgfdatacluster
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%
+%
+% Standard objects for data visualization
 % 
-
-\def\pgfdeclaredatavisualizationautomaton#1#2{%
-  \expandafter\def\csname pgf@dva@#1\endcsname{#2}%
-}
+%
 
 
-% Sets a state attribute
 %
-% #1 = attribute name
-% #2 = macro name or value
+% Transformers
 %
-% Desccription:
-%
-% This command sets the attribute named #1 to #2 for the currently
-% active automaton. If #2 does not start with a brace, a \let is used
-% for the assignment, otherwise a \def is used.
-%
-% This command can only be called if there is an activate automaton,
-% which is only the case inside a data visualization.
 
-\def\pgfsetstateattribute#1{%
-  \pgfutil@ifnextchar\bgroup{%
-    \expandafter\gdef\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
-  }{%
-    \expandafter\global\expandafter\let\csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
-  }%
-}
+\pgfooclass{line transformer}
+{
+  \method line transformer(#1,#2) {
+    \pgfoothis.listen to(transform data point)
+    \pgfooset{attribute}{#1}
+    \pgfooset{origin}{\pgfpointorigin}%
+    \pgfooset{unit}{#2}%
+  }
 
+  \method set origin(#1) {
+    \pgfooset{origin}{#1}
+  }
 
-% Insert the value of a state attribute
-%
-% #1 = attribute name
-%
-% Desccription:
-%
-% This command inserts the value of the attribute named #1 for the
-% currently active automaton.
-
-\def\pgfstateattributevalueof#1{%
-  \csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
+  \method transform data point() {
+    \pgfkeysgetvalue{/data point/\pgfoovalue{attribute}}\pgf@dv@val%
+    \ifx\pgf@dv@val\pgfutil@empty%
+    \else%
+      \ifx\pgf@dv@val\relax%
+      \else%
+        \pgftransformshift{\pgfoovalue{origin}}%
+        \pgftransformshift{\pgfpointscale{\pgf@dv@val}{\pgfoovalue{unit}}}%
+      \fi%
+    \fi%
+  }
 }
 
 
 
 
-
-% The main data visualization environment
 %
-% Description:
-%
-% The data visualization environment should contain calls of the
-% following two macros:
-%
-% \pgfusedatavisualizationautomaton
-% \pgfdatapoint
-%
-% Between these calls, aribtrary code may be executed.
+% Locators
 %
 
-\newcount\pgf@dva@num
-\newcount\pgf@dva@cur
+\pgfooclass{attribute locator}
+{
+  \method attribute locator(#1,#2,#3,#4,#5,#6,#7) {
+    \pgfoothis.listen to(locate data point)
+    {%
+      % Let's start with the output, it's easier...
+      \pgfooset{out}{#4}
+      \pgfmathparse{#5}
+      \pgfooeset{out min}{\pgfmathresult}
+      \pgfmathsubtract{#6}{\pgfoovalue{out min}}%
+      \let\pgf@dv@out@diff=\pgfmathresult%
+      % Now comes the transformation code:
+      \def\pgf@temp{#7}%
+      \ifx\pgf@temp\pgfutil@empty%
+      \else%
+        \pgfooset{trans}{%
+          \let\pgfvalue\pgfmathresult%
+          \pgfmathparse{#7}%
+        }%
+      \fi%
+      % Ok, now the transformed input:
+      \pgfooset{in}{#1}
+      \pgfmathparse{#2}
+      \pgfoovalue{trans}%
+      \let\pgf@dv@min=\pgfmathresult
+      \pgfooeset{trans in min}{\pgfmathresult}
+      \pgfmathparse{#3}
+      \pgfoovalue{trans}%
+      \pgfmathsubtract{\pgfmathresult}{\pgfoovalue{trans in min}}%
+      % 
+      % Precompute the scaling
+      %
+      \pgfmathdivide{\pgf@dv@out@diff}{\pgfmathresult}%
+      \pgfooeset{scale}{\pgfmathresult}%
+    }%
+  } 
 
-\def\pgfdatavisualization{%
-  \begingroup%
-    \pgf@dva@num=0\relax%  
-    \pgf@dva@cur=0\relax%
-    \let\pgforig@set=\set%
-    \let\pgforig@valueof=\valueof%
-    \let\set=\pgfsetstateattribute%
-    \let\valueof=\pgfstateattributevalueof%
-}
-\def\endpgfdatavisualization{%
-    % Create final data point
-    \pgfdatapoint{final}%
-  \endgroup%
-}
-
-% Restore the meaning of \set and \valueof
-%
-% Description:
-%
-% Inside a data visualization, the macro \set is set to mean the same
-% as \pgfsetstateattribute and \valueof is set to mean the same as
-% \pgfstateattributevalueof. If the original meaning of these macros
-% are needed, the command \pgfrestoresetandvalueof can be used to
-% locally restore their original meaning.
-%
-% Normally, this command should be used whenever user-defined text is
-% to be typeset inside a data visualization.
-
-\def\pgfrestoresetandvalueof{%
-  \let\set=\pgforig@set%
-  \let\valueof=\pgforig@valueof%
-}
-
-
-% Use a data visualization automaton inside the current data
-% visualization environment.
-%
-% #1 = automaton path
-% #2 = code for setting the initial state
-%
-% Description:
-%
-% This command is used ...
-
-\def\pgfusedatavisualizationautomaton#1#2{%
-  {%
-    % Invoke startup code to set initial state
-    \csname pgf@dva@#1\endcsname%
-    #2%
-    \csname pgf@dv@state@\the\pgf@dva@cur @init\endcsname%
-  }%
-  \advance\pgf@dva@num by1\relax%
-  \advance\pgf@dva@cur by1\relax%
+  \method locate data point() {
+    \pgfkeysgetvalue{/data point/\pgfoovalue{in}}\pgfmathresult%
+    \ifx\pgfmathresult\pgfutil@empty%
+    \else%
+      \ifx\pgfmathresult\relax%
+      \else%
+        \pgfoovalue{trans}%
+        \pgfmathsubtract{\pgfmathresult}{\pgfoovalue{trans in min}}%
+        \pgfmathmultiply{\pgfmathresult}{\pgfoovalue{scale}}%
+        \pgfmathadd{\pgfmathresult}{\pgfoovalue{out min}}%
+        \pgfkeyslet{/data point/\pgfoovalue{out}}\pgfmathresult%
+      \fi%
+    \fi%
+  }
 }
 
 
+\pgfooclass{polar locator}
+{
+  \method polar locator(#1,#2,#3,#4) {
+    \pgfoothis.listen to(locate data point)
+    \pgfooset{angle}{#1}
+    \pgfooset{radius}{#2}
+    \pgfooset{x}{#3}
+    \pgfooset{y}{#4}
+  } 
 
-% Create a data point 
-%
-% #1 = actions to be taken for the data point
-%
-% Description:
-%
-% When this command is used, the current setting of the TeX state
-% constitute a "data point". Typically, only the current values of the
-% keys /data point/... are important, but this is just a convention.
-%
-% When a data point is created, the current automata of the data
-% visualization are activated. There may be more than one automaton
-% active and they are activated in the order they have been
-% created. For each automaton, the code stored in the state attribute
-% named "#1" is executed, in the order the automata were
-% given.
-%
-% It is the job of the code stored in these attributes to "do
-% something useful". Typically, the code will inspect some of the
-% /data point/... keys and issue appropriate drawing commands. 
+  \method locate data point() {
+    \pgfkeysgetvalue{/data point/\pgfoovalue{angle}}\pgf@dv@angle%
+    \ifx\pgf@dv@angle\pgfutil@empty%
+    \else%
+      \ifx\pgf@dv@angle\relax%
+      \else%
+        \pgfkeysgetvalue{/data point/\pgfoovalue{radius}}\pgf@dv@radius%
+        \ifx\pgf@dv@radius\pgfutil@empty%
+        \else%
+          \ifx\pgf@dv@radius\relax%
+          \else%
+            \pgfmathsincos{\pgf@dv@angle}%
+            \pgfmathmultiply{\pgfmathresultx}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalue{x}}\pgfmathresult%
+            \pgfmathmultiply{\pgfmathresulty}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalue{y}}\pgfmathresult%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+  }
 
-\def\pgfdatapoint#1{%
-  % Invoke the visualization automata...
-  {%
-    \pgf@dva@cur=0\relax%
-    \loop%
-    \ifnum\pgf@dva@cur<\pgf@dva@num%
-      \csname pgf@dv@state@\the\pgf@dva@cur @#1\endcsname%
-      \advance\pgf@dva@cur by1\relax%
-    \repeat%
-  }%
+  \method get angle and radius attributes() {
+    \pgfooget{angle}\pgfdvangleattribute
+    \pgfooget{radius}\pgfdvradiusattribute
+  }
 }
+
+
+
+%
+% Bounders
+%
+
+\pgfooclass{attribute bounder}
+{
+  
+  \method attribute bounder(#1,#2) {
+    \pgfoothis.listen to(locate data point)
+    \pgfooset{attribute}{#1}
+    \pgfoolet{interval obj}#2
+    \pgfooset{drop min}{}
+    \pgfooset{drop max}{}
+    \pgfooset{lift min}{}
+    \pgfooset{lift max}{}
+    \pgfooset{ignore min}{}
+    \pgfooset{ignore max}{}
+  }
+
+  \method drop values below(#1) {
+    \pgfooset{drop min}{#1}
+  }
+
+  \method drop values above(#1) {
+    \pgfooset{drop max}{#1}
+  }
+
+  \method ignore values below(#1) {
+    \pgfooset{ignore min}{#1}
+  }
+
+  \method ignore values above(#1) {
+    \pgfooset{ignore max}{#1}
+  }
+
+  \method raise values lower than(#1) {
+    \pgfooset{lift min}{#1}
+  }
+
+  \method lower values higher than(#1) {
+    \pgfooset{lift max}{#1}
+  }
+
+  \method goto min() {
+    \pgfooget{interval obj}\pgf@dv@interval
+    \pgf@dv@interval.get interval()
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfdvmin
+  }
+
+  \method goto max() {
+    \pgfooget{interval obj}\pgf@dv@interval
+    \pgf@dv@interval.get interval()
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfdvmax
+  }
+
+  \method goto adjusted min() {
+    \pgfooget{interval obj}\pgf@dv@interval
+    \pgf@dv@interval.get adjusted interval()
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfdvmin
+  }
+
+  \method goto adjusted max() {
+    \pgfooget{interval obj}\pgf@dv@interval
+    \pgf@dv@interval.get adjusted interval()
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfdvmax
+  }
+  
+  \method locate data point() {
+    \ifpgfdatapointvirtual%
+    \else%
+      \pgfkeysgetvalue{/data point/\pgfoovalue{attribute}}\pgf@dv@val%
+      \ifx\pgf@dv@val\pgfutil@empty%
+      \else%
+        \ifx\pgf@dv@val\relax%
+        \else%
+          \pgfmathparse{\pgf@dv@val}%
+          % Ignore?
+          \pgfooget{ignore min}\pgf@dv@ignore%
+          \ifx\pgf@dv@ignore\pgfutil@empty%
+          \else%
+            \ifdim\pgfmathresult pt<\pgf@dv@ignore pt%
+              \pgf@dvignoretrue%
+            \fi%
+          \fi%
+          \pgfooget{ignore max}\pgf@dv@ignore%
+          \ifx\pgf@dv@ignore\pgfutil@empty%
+          \else%
+            \ifdim\pgfmathresult pt>\pgf@dv@ignore pt%
+              \pgf@dvignoretrue%
+            \fi%
+          \fi%
+          \ifpgf@dvignore%
+          \else%
+            % Drop?
+            \pgfooget{drop min}\pgf@dv@drop%
+            \ifx\pgf@dv@drop\pgfutil@empty%
+            \else%
+              \ifdim\pgfmathresult pt<\pgf@dv@drop pt%
+                \pgf@dvdroptrue%
+              \fi%
+            \fi%
+            \pgfooget{drop max}\pgf@dv@drop%
+            \ifx\pgf@dv@drop\pgfutil@empty%
+            \else%
+              \ifdim\pgfmathresult pt>\pgf@dv@drop pt%
+                \pgf@dvdroptrue%
+              \fi%
+            \fi%
+            \ifpgf@dvdrop%
+              \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfutil@empty%
+            \else%
+              % Lift?
+              \pgfooget{lift min}\pgf@dv@lift%
+              \ifx\pgf@dv@lift\pgfutil@empty%
+              \else%
+                \ifdim\pgfmathresult pt<\pgf@dv@lift pt%
+                  \let\pgfmathresult=\pgf@dv@lift%
+                  \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfmathresult            
+                \fi%
+              \fi%
+              % Lift?
+              \pgfooget{lift max}\pgf@dv@lift%
+              \ifx\pgf@dv@lift\pgfutil@empty%
+              \else%
+                \ifdim\pgfmathresult pt>\pgf@dv@lift pt%
+                  \let\pgfmathresult=\pgf@dv@lift%
+                  \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgfmathresult            
+                \fi%
+              \fi%
+              % Now, protocol value
+              \pgfooget{interval obj}\pgf@dv@interval
+              \pgf@dv@interval.get interval()%
+              \ifx\pgfdvmin\pgfutil@empty%
+                \pgf@dv@interval.set min(\pgfmathresult)%
+              \else%
+                \ifdim\pgfmathresult pt<\pgfdvmin pt%
+                  \pgf@dv@interval.set min(\pgfmathresult)%
+                \fi%
+              \fi%
+              \ifx\pgfdvmax\pgfutil@empty%
+                \pgf@dv@interval.set max(\pgfmathresult)%
+              \else%
+                \ifdim\pgfmathresult pt>\pgfdvmax pt%
+                  \pgf@dv@interval.set max(\pgfmathresult)%
+                \fi%
+              \fi%
+            \fi%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+  }
+
+  \newif\ifpgf@dvdrop
+  \newif\ifpgf@dvignore
+}
+
+
+
+%
+% Help class: Interval
+%
+
+\pgfooclass{interval}
+{
+  \method interval(#1,#2) {
+    \pgfooeset{min}{#1}
+    \pgfooeset{max}{#2}
+    \pgfooset{min adjust absolute}{}
+    \pgfooset{min adjust relative}{}
+    \pgfooset{max adjust absolute}{}
+    \pgfooset{max adjust relative}{}
+  }
+  \method set min(#1) {
+    \pgfooeset{min}{#1}
+  }
+  \method set max(#1) {
+    \pgfooeset{max}{#1}
+  }
+  \method set min adjust absolute(#1) {
+    \pgfooset{min adjust absolute}{#1}    
+  }
+  \method set min adjust relative(#1) {
+    \pgfooset{min adjust relative}{#1}    
+  }
+  \method set max adjust absolute(#1) {
+    \pgfooset{max adjust absolute}{#1}    
+  }
+  \method set max adjust relative(#1) {
+    \pgfooset{max adjust relative}{#1}    
+  }
+
+  \method get interval() {
+    \pgfooget{min}\pgfdvmin
+    \pgfooget{max}\pgfdvmax
+  }
+
+  \method get adjusted interval() {
+    \pgfooget{min}\pgfdvmin
+    \pgfooget{max}\pgfdvmax
+    \ifx\pgfdvmin\pgfutil@empty%
+    \else%
+      \ifx\pgfdvmax\pgfutil@empty%
+      \else%
+        \pgfooget{min adjust absolute}\pgf@dv@minpa
+        \pgfooget{min adjust relative}\pgf@dv@minpr
+        \pgfooget{max adjust absolute}\pgf@dv@maxpa
+        \pgfooget{max adjust relative}\pgf@dv@maxpr
+        \pgfmathsubtract{\pgfdvmax}{\pgfdvmin}%
+        \let\pgf@dv@diff\pgfmathresult%
+        % Start with minimum
+        \let\pgfmathresult\pgfdvmin%
+        \ifx\pgf@dv@minpa\pgfutil@empty%
+        \else%
+          \pgfmathadd{\pgfmathresult}{\pgf@dv@minpa}%
+        \fi%
+        \ifx\pgf@dv@minpr\pgfutil@empty%
+        \else%
+          \pgfmathadd{\pgfmathresult}{\pgf@dv@minpr*\pgf@dv@diff}%
+        \fi%
+        \let\pgfdvmin\pgfmathresult%  
+        % Maximum next
+        \let\pgfmathresult\pgfdvmax%
+        \ifx\pgf@dv@maxpa\pgfutil@empty%
+        \else%
+          \pgfmathadd{\pgfmathresult}{\pgf@dv@maxpa}%
+        \fi%
+        \ifx\pgf@dv@maxpr\pgfutil@empty%
+        \else%
+          \pgfmathadd{\pgfmathresult}{\pgf@dv@maxpr*\pgf@dv@diff}%
+        \fi%
+        \let\pgfdvmax\pgfmathresult%  
+      \fi%
+    \fi%
+  }
+}
+
+
+\pgfooclass{count up}
+{
+  \method count up(#1) {
+    \pgfoothis.listen to(prepare data point)
+    \pgfooset{attribute}{#1}
+    \pgfooset{val}{0}
+  }
+
+  \method set value(#1) {
+    \pgfooset{val}{#1}
+    \pgfkeyssetvalue{/data point/\pgfoovalue{attribute}}{#1}%
+  }
+
+  \method prepare data point() {
+    {%
+      \c@pgf@counta=\pgfoovalue{val}\relax%
+      \advance\c@pgf@counta by1\relax%
+      \pgfooeset{val}{\the\c@pgf@counta}%
+    }%
+    \pgfooget{val}\pgf@dv@temp%
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgf@dv@temp%
+  }  
+}
+
+
+\pgfooclass{count down}
+{
+  \method count down(#1,#2) {
+    \pgfoothis.listen to(prepare data point)
+    \pgfooset{attribute}{#1}
+    \pgfooset{max}{#2}
+    \pgfooset{val}{#2}
+  }
+
+  \method set value(#1) {
+    \pgfooset{val}{#1}
+    \pgfkeyssetvalue{/data point/\pgfoovalue{attribute}}{#1}%
+  }
+
+  \method prepare data point() {
+    {%
+      \c@pgf@counta=\pgfoovalue{val}\relax%
+      \advance\c@pgf@counta by-1\relax%
+      \ifnum\c@pgf@counta<0\relax%
+        \advance\c@pgf@counta by\pgfoovalue{max}\relax%
+      \fi%
+      \pgfooeset{val}{\the\c@pgf@counta}%
+    }%
+    \pgfooget{val}\pgf@dv@temp%
+    \pgfkeyslet{/data point/\pgfoovalue{attribute}}\pgf@dv@temp%
+  }  
+}
+
+
+
+\pgfooclass{accumulator}
+{
+  \method accumulator(#1,#2) {
+    \pgfoothis.listen to(prepare data point)
+    \pgfooeset{what}{#1}
+    \pgfooeset{where}{#2}
+    \pgfkeysifdefined{/data point/#2}{}{\pgfkeyssetvalue{/data point/#2}{0}}
+  }
+
+  \method prepare data point() {
+    \pgfmathadd{\pgfkeysvalueof{/data point/\pgfoovalue{where}}}{\pgfkeysvalueof{/data point/\pgfoovalue{what}}}
+    \pgfkeyslet{/data point/\pgfoovalue{where}}\pgfmathresult
+  }
+}
+
+
+%
+% Axes
+%
+
+\pgfooclass{straight axis}
+{
+  \method straight axis(#1,#2) {
+    \pgfooset{attribute}{#1}
+    \pgfoolet{interval obj}#2
+    \pgfooset{use path}{\pgfusepath{stroke}}
+  }
+
+  \method set use path(#1) {
+    \pgfooset{use path}{#1}
+  }
+  
+  \method visualize axis() {
+    {%
+      % we assume that the current data point settings determine where
+      % the axis should go
+      %
+      % We now compute the start and the end points
+      %
+      \pgfooget{interval obj}\pgf@dv@interval
+      \pgf@dv@interval.get adjusted interval()%
+      % Ok, got the values
+      % Save them.
+      \let\pgf@dv@sa@min=\pgfdvmin
+      \let\pgf@dv@sa@max=\pgfdvmax
+      \pgfkeyssetvalue{/data point/\pgfoovalue{attribute}}{\pgf@dv@sa@min}%
+      \pgfcanvaspositionofvirtualdatapoint%
+      % Ok, that's where we start
+      \pgfpathmoveto{\pgfpointcanvasposition}%
+      % now the end:
+      \pgfkeyssetvalue{/data point/\pgfoovalue{attribute}}{\pgf@dv@sa@max}%
+      \pgfcanvaspositionofvirtualdatapoint%
+      \pgfpathlineto{\pgfpointcanvasposition}%
+      % Finally, use the path:
+      \pgfoovalue{use path}%
+    }%
+  }
+}
+
+
+
+\pgfooclass{polar axis}
+{
+  \method polar axis(#1,#2) {
+    \pgfoolet{locator obj}#1
+    \pgfoolet{interval obj}#2
+    \pgfooset{use path}{\pgfusepath{stroke}}
+  }
+
+  \method set use path(#1) {
+    \pgfooset{use path}{#1}
+  }
+  
+  \method visualize axis() {
+    {%
+      %
+      \pgfooget{locator obj}\pgf@dv@trans%
+      \pgf@dv@trans.get angle and radius attributes()%
+      % we assume that the current data point settings determine where
+      % the axis should go
+      %
+      % we also assume that the axis will, indeed, be visualized as an
+      % arc. 
+      %
+      % Compute the origin:
+      {%
+        \pgfkeyssetvalue{/data point/\pgfdvradiusattribute}{0}%
+        \pgfcanvaspositionofvirtualdatapoint%
+        \pgfsettocanvasposition\pgf@temp
+        \global\let\pgf@dv@temp@orig=\pgf@temp%
+      }%
+      % Compute the first axis:
+      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{0}%
+      \pgfcanvaspositionofvirtualdatapoint%
+      \pgfsettocanvasposition\pgf@dv@veczero%
+      % Compute the second axis:
+      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{90}%
+      \pgfcanvaspositionofvirtualdatapoint%
+      \pgfsettocanvasposition\pgf@dv@vecninety%
+      %
+      % Start and end angle
+      %
+      \pgfooget{interval obj}\pgf@dv@interval
+      \pgf@dv@interval.get adjusted interval()%
+      % Ok, got the values
+      % Compute the first axis:
+      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{\pgfdvmin}%
+      \pgfcanvaspositionofvirtualdatapoint%
+      \pgfpathmoveto{\pgfpointcanvasposition}%
+      % Do arc:
+      \pgftransformtriangle{\pgf@dv@temp@orig}{\pgf@dv@veczero}{\pgf@dv@vecninety}%
+      \pgfpatharc{\pgfdvmin}{\pgfdvmax}{1pt}%
+      % Finally, use the path:
+      \pgfoovalue{use path}%
+    }%
+  }
+}
+
+
+
+
+
+%
+% Visualizers
+%
+
+\usepgflibrary{plothandlers}
+
+
+\pgfooclass{plot mark visualizer}
+{
+  \method plot mark visualizer(#1) {
+    \pgfoothis.listen to(visualize data point)
+    \pgfooeset{mark}{#1}
+    \pgfooeset{zero trigger}{always 0}
+    \pgfooeset{size}{\pgfplotmarksize}
+  }
+
+  \method set size(#1) {
+    \pgfooset{size}{#1}
+  }
+
+  \method set zero trigger(#1) {
+    \pgfooset{zero trigger}{#1}
+  }
+  
+  \method visualize data point() {
+    {%
+      \pgfkeysgetvalue{/data point/\pgfoovalue{zero trigger}}\pgf@dv@trig%
+      \ifx\pgf@dv@trig\pgf@dv@zero@text%
+        \pgfplotmarksize\pgfoovalue{size}
+        \pgftransformshift{\pgfpointcanvasposition}
+        \pgfuseplotmark{\pgfoovalue{mark}}
+      \fi%
+    }%
+  }
+
+  \def\pgf@dv@zero@text{0}
+}
+
+
+
+\pgfooclass{plot handler visualizer}
+{
+  \method plot handler visualizer(#1) {
+    \pgfoothis.listen to(visualize data point)
+    \pgfoothis.listen to(end data cluster)
+    \pgfooset{handler}{#1}
+    \pgfooset{use path}{\pgfusepath{stroke}}
+    \pgfooset{positions}{}
+  }
+
+  \method set use path(#1) {
+    \pgfooset{use path}{#1}
+  }
+  
+  \method visualize data point() {
+    % Just append it to positions
+    \pgfooget{positions}\pgf@dv@temp
+    \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\pgf@dv@temp%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@dv@temp\pgf@dv@add}%
+    \pgfoolet{positions}\pgf@dv@temp
+  }
+
+  \method end data cluster() {
+    \pgfoovalue{handler}
+    \pgfplotstreamstart
+    \pgfoovalue{positions}
+    \pgfplotstreamend
+    \pgfoovalue{use path}
+    \pgfoolet{positions}\pgfutil@empty
+  }
+
+  \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
+}
+
 
 
 
