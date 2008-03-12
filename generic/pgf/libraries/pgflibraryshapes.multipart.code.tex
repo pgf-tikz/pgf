@@ -179,14 +179,15 @@
 
 % (Most) keys for shape rectangle split.
 %
-% /pgf/rectangle split parts             : Set the number of rectangles to split into.
-% /pgf/rectangle split part align        : Align the for the boxes in each part
-%                                          (also keys for each part)
-% /pgf/rectangle split use custom fill   : Use a custom (behindbackground path) fill.
-% /pgf/rectangle split part fill         : Custom fill for ech part.
-%                                          (also keys for each part)
-% /pgf/rectangle split draw splits       : Draw the line between node parts.
-% /pgf/rectangle split empty part height : Set the default height for empty boxes.
+% /pgf/rectangle split parts              : Set the number of rectangles to split into.
+% /pgf/rectangle split part align         : Align the for the boxes in each part
+%                                           (also keys for each part)
+% /pgf/rectangle split use custom fill    : Use a custom (behindbackground path) fill.
+% /pgf/rectangle split part fill          : Custom fill for ech part.
+%                                           (also keys for each part)
+% /pgf/rectangle split draw splits        : Draw the line between node parts.
+% /pgf/rectangle split empty part height  : Set the default height for empty boxes.
+% /pgf/rectangle split ignore empty parts : Ignore empty parts.
 
 
 \newif\ifpgfrectanglesplitdrawsplits
@@ -194,6 +195,10 @@
 
 \newif\ifpgfrectanglesplitusecustomfill
 \pgfrectanglesplitusecustomfillfalse
+
+\newif\ifpgfrectanglesplitignoreemptyparts
+
+\newbox\pgf@lib@voidbox
 
 \pgfkeys{/pgf/.cd,
 	rectangle split parts/.initial=4,
@@ -214,7 +219,8 @@
 	rectangle split text part fill/.initial=white,
 	rectangle split second part fill/.initial=white,
 	rectangle split third part fill/.initial=white,
-	rectangle split fourth part fill/.initial=white
+	rectangle split fourth part fill/.initial=white,
+	rectangle split ignore empty parts/.is if=pgfrectanglesplitignoreemptyparts
 }
 
 % Internal macros for the rectangle split shape.
@@ -257,52 +263,31 @@
 	\nodeparts{text,second,third,fourth}
 	\savedmacro\getrectanglesplitparameters{%
 		%
-		% If the height+depth of any box is 0pt use the default empty height.
+		% If the height+depth of any box is 0pt use the default empty height,
+		% unless the empty parts are ignored.
 		%
-		\pgfmathsetlength\pgfutil@tempdima{\pgfkeysvalueof{/pgf/rectangle split empty part height}}
-		\pgf@y\ht\pgfnodeparttextbox%
-		\advance\pgf@y\dp\pgfnodeparttextbox%
-		\ifdim\pgf@y=0pt\relax%
-			\setbox\pgfnodeparttextbox=\hbox{%				
-				\vrule width0pt height\the\pgfutil@tempdima depth0pt%
-			}%
-		\fi%
-		\pgf@y\ht\pgfnodepartsecondbox%
-		\advance\pgf@y\dp\pgfnodepartsecondbox%
-		\ifdim\pgf@y=0pt\relax%
-			\setbox\pgfnodepartsecondbox=\hbox{%
-				\vrule width0pt height\the\pgfutil@tempdima depth0pt%
-			}%
-		\fi%
-		\pgf@y\ht\pgfnodepartthirdbox%
-		\advance\pgf@y\dp\pgfnodepartthirdbox%
-		\ifdim\pgf@y=0pt\relax%
-			\setbox\pgfnodepartthirdbox=\hbox{%
-				\vrule width0pt height\the\pgfutil@tempdima depth0pt%
-			}%
-		\fi%
-		\pgf@y\ht\pgfnodepartfourthbox%
-		\advance\pgf@y\dp\pgfnodepartfourthbox%
-		\ifdim\pgf@y=0pt\relax%
-			\setbox\pgfnodepartfourthbox=\hbox{%
-					\vrule width0pt height\the\pgfutil@tempdima depth0pt%
-			}%
-		\fi%
-		%
-		% Empty boxes (without voiding them) if they are not used.
-		%
+		\pgfmathsetlength\pgfutil@tempdima{\pgfkeysvalueof{/pgf/rectangle split empty part height}}%
 		\pgfmathtruncatemacro\parts{\pgfkeysvalueof{/pgf/rectangle split parts}}%
-	  \addtosavedmacro{\parts}%
-	  \ifnum\parts<2\relax%
-	  	\setbox\pgfnodepartsecondbox=\hbox{}%
-	  \fi%
-	  \ifnum\parts<3\relax%
-	  	\setbox\pgfnodepartthirdbox=\hbox{}%
-	  \fi%
-	  \ifnum\parts<4\relax%
-	  	\setbox\pgfnodepartfourthbox=\hbox{}%
-	  \fi%	  
-	  %
+		\addtosavedmacro\parts%
+		\c@pgf@counta=0\relax%
+		\pgfutil@for\partname:={text,second,third,fourth}\do{%
+			\expandafter\let\expandafter\currentbox\csname pgfnodepart\partname box\endcsname% 
+			\ifnum\parts>\c@pgf@counta%
+			  \pgf@y\ht\currentbox%
+				\advance\pgf@y\dp\currentbox%
+				\ifdim\pgf@y=0pt\relax%
+					\ifpgfrectanglesplitignoreemptyparts%
+						\setbox\currentbox\copy\pgf@lib@voidbox%
+					\else%
+						\setbox\currentbox\hbox{\vrule width0pt height\the\pgfutil@tempdima depth0pt}%
+					\fi%
+				\fi%
+			\else%
+				\setbox\currentbox\copy\pgf@lib@voidbox%
+			\fi%
+			\advance\c@pgf@counta1\relax%
+		}%
+		%
 		% Save the line width.
 		%
 		\pgfmathsetlength\pgf@x{\pgflinewidth}
@@ -405,64 +390,58 @@
   		\pgfutil@tempdimb\pgf@xc%
   	\fi%
   	%
-  	% Anchor for the text box is (0pt, 0pt)
-  	%
-  	\pgfsavepgf@process\textanchor{\pgfqpoint{0pt}{0pt}}%
-  	%
-  	% Anchor for second box.
-  	%
-  	\pgfsavepgf@process\lowestanchor{\pgfqpoint{0pt}{0pt}}%
-  	\let\lowestbox\pgfnodeparttextbox%
-  	\ifnum\parts>1\relax%
-  	  \pgfsavepgf@process\secondanchor{%
-  	  	\pgf@x\pgf@xa%
-	  		\pgf@y-\dp\pgfnodeparttextbox%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\pgflinewidth%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\ht\pgfnodepartsecondbox%
-	  	}%
-	  	\let\lowestanchor\secondanchor%
-	  	\let\lowestbox\pgfnodepartsecondbox%
-  	\else%
-  		\let\secondanchor\textanchor%
-  	\fi%
-  	%
-  	% Anchor for third box.
-  	%
-  	\ifnum\parts>2\relax%
-  	  \pgfsavepgf@process\thirdanchor{%
-  	  	\lowestanchor%
-  	  	\pgf@x\pgf@xb%
-	  		\advance\pgf@y-\dp\pgfnodepartsecondbox%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\pgflinewidth%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\ht\pgfnodepartthirdbox%
-	  	}%
-	  	\let\lowestanchor\thirdanchor%
-	  	\let\lowestbox\pgfnodepartthirdbox%
-  	\else%
-  		\let\thirdanchor\secondanchor%
-  	\fi%
-  	%
-  	% Anchor for fourth box.
-  	%
-  	\ifnum\parts>3\relax%
-  		\pgfsavepgf@process\fourthanchor{%
-  			\lowestanchor%
-  	  	\pgf@x\pgf@xc%
-  	  	\advance\pgf@y-\dp\lowestbox%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\pgflinewidth%
-	  		\advance\pgf@y-\innerysep\relax%
-	  		\advance\pgf@y-\ht\pgfnodepartfourthbox%
-	  	}%
-	  	\let\lowestanchor\fourthanchor%
-	  	\let\lowestbox\pgfnodepartfourthbox%
-	  \else%
-  		\let\fourthanchor\thirdanchor%
-  	\fi%
+		% Anchor for the text box is (0pt, 0pt)
+		%
+		\pgfsavepgf@process\textanchor{\pgfqpoint{0pt}{0pt}}%
+		\let\lowestanchor\textanchor%
+		\let\lowestbox\pgfnodeparttextbox
+		%
+		\ifvoid\pgfnodepartsecondbox%
+			\pgfextract@process\secondanchor{\lowestanchor}%
+		\else%
+			\pgfsavepgf@process\secondanchor{% 
+				\pgf@x\pgf@xa%
+				\pgf@y-\dp\lowestbox%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\pgflinewidth%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\ht\pgfnodepartsecondbox%
+			}%
+			\let\lowestanchor\secondanchor%
+			\let\lowestbox\pgfnodepartsecondbox%
+		\fi%
+		%
+		\ifvoid\pgfnodepartthirdbox%
+			\pgfextract@process\thirdanchor{\lowestanchor}%
+		\else%
+			\pgfsavepgf@process\thirdanchor{% 
+				\lowestanchor% 	  	
+		  	\pgf@x\pgf@xb%
+				\advance\pgf@y-\dp\lowestbox%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\pgflinewidth%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\ht\pgfnodepartthirdbox%
+			}%
+			\let\lowestanchor\thirdanchor%
+			\let\lowestbox\pgfnodepartthirdbox%
+		\fi%
+		%
+		\ifvoid\pgfnodepartfourthbox%
+			\pgfextract@process\fourthanchor{\lowestanchor}%
+		\else%
+			\pgfsavepgf@process\fourthanchor{%
+				\lowestanchor%  	  	
+		  	\pgf@x\pgf@xc%
+				\advance\pgf@y-\dp\lowestbox%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\pgflinewidth%
+				\advance\pgf@y-\innerysep\relax%
+				\advance\pgf@y-\ht\pgfnodepartfourthbox%
+			}%
+			\let\lowestanchor\fourthanchor%
+			\let\lowestbox\pgfnodepartfourthbox%
+		\fi%
   	%
   	\addtosavedmacro{\textanchor}%
 	  \addtosavedmacro{\secondanchor}%
