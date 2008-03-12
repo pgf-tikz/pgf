@@ -17,7 +17,7 @@
 % The oo support works as follows:
 %
 % The main supported concepts are classes, objects, methods,
-% attributes and events. A class defines a set of methods, which are,
+% attributes and signal/slots. A class defines a set of methods, which are,
 % in the end, just normal TeX macros. Once a class has been created,
 % it can be instantiated by calling the \pgfoonew command, resulting
 % in a new object. Objects are local to their group. Given an object,
@@ -27,10 +27,6 @@
 % are not local to TeX groups, rather their life-cycle is the same as
 % the object's (which, however, is local to the group in which the
 % object was declared).
-%
-% An event can be raised at any time. Objects can tune in to events,
-% in this case whenever the event occurs a method of the object is
-% invoked.
 %
 % The implementation is as follows: There is an ID counter that is
 % increased each time an object is created. This counter is local to
@@ -45,6 +41,11 @@
 %
 % Attributes are stored globally in internal TeX macros whose name is
 % composed of the object number and the attribute name.
+%
+% A signal must first be initialized. Then it can be emitted. Methods
+% of objects (called slots in this case) can tune in to signals,
+% in this case whenever the signal is raised, a method of the object is
+% invoked.
 
 
 
@@ -67,7 +68,8 @@
   \let\method=\pgfoo@declaremethod%
   #2%
   % Special listen to method:
-  \expandafter\let\csname pgfooY\pgfoo@classname.listen to\endcsname\pgfoo@listen%
+  \expandafter\let\csname pgfooY\pgfoo@classname.connect signal and slot\endcsname\pgfoo@connect@%
+  \expandafter\let\csname pgfooY\pgfoo@classname.connect\endcsname\pgfoo@connect%
   \let\method=\pgfoo@origmethod%
 }
 
@@ -121,7 +123,7 @@
 % This method inserts the current value of the given attribute for the
 % current object.
 
-\def\pgfoovalue#1{%
+\def\pgfoovalueof#1{%
   \csname pgfooX\the\pgfoothis@count #1\endcsname%
 }
 
@@ -194,7 +196,7 @@
 
 \def\pgfoonew{\pgfutil@ifnextchar n{\pgfoo@new\pgfoo@dummy=}{\pgfoo@new}}
 \def\pgfoo@new#1=new #2(#3){%
-  \expandafter\ifx\csname pgfooY#2.listen to\endcsname\relax%
+  \expandafter\ifx\csname pgfooY#2.connect\endcsname\relax%
     \PackageError{pgfoo}{Unknown class '#2'}{}%
   \else%
     \advance\pgfoo@objectcount by 1\relax%
@@ -223,26 +225,27 @@
 
 
 
-% Initialize an event
+% Initialize a signal
 %
-% #1 = event name
+% #1 = signal name
 %
 % Description:
 %
-% Initalizes an event so that objects can start listening to it. The
+% Initalizes a signal so that objects can start listening to it. The
 % event is local to the current TeX group. If the does already exist,
 % it will be "cleared".
 
-\def\pgfooinitevent#1{%
+\def\pgfoonewsignal#1{%
   \expandafter\let\csname pgfooZ#1\endcsname\pgfutil@empty%
 }
 
 
 
 
-% Let an object listen to an event
+% Connect a slot (method) of an object to a signal.
 %
-% #1 = event
+% #1 = signal
+% #2 = slot
 %
 % Description:
 %
@@ -252,30 +255,41 @@
 % current object #1 is invoked. The event must previously have been
 % initialized using \pgfooinitevent. 
 
-\def\pgfoo@listen(#1){%
+\def\pgfoo@connect@(#1,#2){%
   \expandafter\let\expandafter\pgfoo@e\csname pgfooZ#1\endcsname%
   \ifx\pgfoo@e\relax%
-    \PackageError{pgfoo}{Event '#1' not initalized}{}%
+    \PackageError{pgfoo}{Unknown signal '#1'}{}%
   \else%
     \let\pgfoo@caller=\relax% to avoid expansion
-    \edef\pgfoo@e{\pgfoo@e\pgfoo@caller{\the\pgfoothis@count}.#1()}
+    \edef\pgfoo@e{\pgfoo@e\pgfoo@caller{\the\pgfoothis@count}.#2()}
     \let\pgfoo@caller=\pgfoo@orig@caller%
     \expandafter\let\csname pgfooZ#1\endcsname\pgfoo@e%
   \fi%
 }
 
-
-
-% Signal an event
+% Connect a slot (method) of an object to a signal of the same name.
 %
-% #1 = event name
+% #1 = signal and also slot name
 %
 % Description:
 %
-% For all objects that are currently listening to the event, the
-% method named #1 is invoked.
+% \pgfoothis.connect(foo) is just an abbreviation for
+% \pgfoothis.connect signal and slot(foo,foo)
 
-\def\pgfooevent#1{%
+\def\pgfoo@connect(#1){\pgfoo@connect@(#1,#1)}
+
+
+
+% Emit a signal
+%
+% #1 = signal name
+%
+% Description:
+%
+% For all objects that are currently listening to the signal, the
+% slots are activated.
+
+\def\pgfooemit#1{%
   \csname pgfooZ#1\endcsname%
 }
 
