@@ -41,11 +41,7 @@
 %
 % Attributes are stored globally in internal TeX macros whose name is
 % composed of the object number and the attribute name.
-%
-% A signal must first be initialized. Then it can be emitted. Methods
-% of objects (called slots in this case) can tune in to signals,
-% in this case whenever the signal is raised, a method of the object is
-% invoked.
+
 
 
 
@@ -67,9 +63,9 @@
   \let\pgfoo@origmethodlet=\methodlet%
   \let\method=\pgfoo@declaremethod%
   #2%
-  % Special listen to method:
-  \expandafter\let\csname pgfooY\pgfoo@classname.connect signal and slot\endcsname\pgfoo@connect@%
-  \expandafter\let\csname pgfooY\pgfoo@classname.connect\endcsname\pgfoo@connect%
+  % Always persent methods:
+  \expandafter\let\csname pgfooY\pgfoo@classname.object\endcsname\pgfoo@obj%
+  \expandafter\let\csname pgfooY\pgfoo@classname.id\endcsname\pgfoo@id%
   \let\method=\pgfoo@origmethod%
 }
 
@@ -124,7 +120,7 @@
 % current object.
 
 \def\pgfoovalueof#1{%
-  \csname pgfooX\the\pgfoothis@count #1\endcsname%
+  \csname pgfooX\the\pgfoothis@count @#1\endcsname%
 }
 
 
@@ -137,7 +133,7 @@
 % attribute for the current object.
 
 \def\pgfooget#1#2{%
-  \expandafter\let\expandafter#2\csname pgfooX\the\pgfoothis@count #1\endcsname%
+  \expandafter\let\expandafter#2\csname pgfooX\the\pgfoothis@count @#1\endcsname%
 }
 
 
@@ -150,7 +146,7 @@
 % given value.
 
 \long\def\pgfooset#1#2{%
-  \expandafter\gdef\csname pgfooX\the\pgfoothis@count #1\endcsname{#2}%
+  \expandafter\gdef\csname pgfooX\the\pgfoothis@count @#1\endcsname{#2}%
 }
 
 
@@ -163,7 +159,7 @@
 % expanded version of the given value.
 
 \long\def\pgfooeset#1#2{%
-  \expandafter\xdef\csname pgfooX\the\pgfoothis@count #1\endcsname{#2}%
+  \expandafter\xdef\csname pgfooX\the\pgfoothis@count @#1\endcsname{#2}%
 }
 
 
@@ -176,7 +172,7 @@
 % given value.
 
 \def\pgfoolet#1#2{%
-  \expandafter\global\expandafter\let\csname pgfooX\the\pgfoothis@count #1\endcsname#2%
+  \expandafter\global\expandafter\let\csname pgfooX\the\pgfoothis@count @#1\endcsname#2%
 }
 
 
@@ -196,21 +192,21 @@
 
 \def\pgfoonew{\pgfutil@ifnextchar n{\pgfoo@new\pgfoo@dummy=}{\pgfoo@new}}
 \def\pgfoo@new#1=new #2(#3){%
-  \expandafter\ifx\csname pgfooY#2.connect\endcsname\relax%
+  \expandafter\ifx\csname pgfooY#2.id\endcsname\relax%
     \PackageError{pgfoo}{Unknown class '#2'}{}%
   \else%
     \advance\pgfoo@objectcount by 1\relax%
-    \edef\pgfoo@temp@obj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
-    \expandafter\gdef\csname pgfooX\the\pgfoo@objectcount class\endcsname{#2}%
-    \pgfoo@temp@obj.#2(#3)%
-    \let#1\pgfoo@temp@obj%
+    \edef\pgfoolastobj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
+    \expandafter\gdef\csname pgfooX\the\pgfoo@objectcount @class\endcsname{#2}%
+    \let#1\pgfoolastobj%
+    \pgfoolastobj.#2(#3)%
   \fi%
 }
 
 \def\pgfoo@caller#1.#2(#3){%
   \def\pgf@marshal{%
     \pgfoothis@count=#1\relax%
-    \csname pgfooY\csname pgfooX\the\pgfoothis@count class\endcsname.#2\endcsname(#3)%
+    \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#2\endcsname(#3)%
   }%
   \expandafter\pgf@marshal\expandafter\pgfoothis@count\the\pgfoothis@count\relax%
 }
@@ -219,79 +215,178 @@
 % The special "this" object
 
 \def\pgfoothis.#1(#2){%
-  \csname pgfooY\csname pgfooX\the\pgfoothis@count class\endcsname.#1\endcsname(#2)%
+  \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#1\endcsname(#2)%
 }
 
 
 
 
-% Initialize a signal
+
+% Get the object id
 %
-% #1 = signal name
+% #1 = macro to store the id
 %
 % Description:
 %
-% Initalizes a signal so that objects can start listening to it. The
-% event is local to the current TeX group. If the does already exist,
-% it will be "cleared".
+% This special method allows you to access the object id. You can then
+% use \pgfoocall to call a method using this id. This is mainly useful
+% when you wish to store the id for a longer time.
 
-\def\pgfoonewsignal#1{%
-  \expandafter\let\csname pgfooZ#1\endcsname\pgfutil@empty%
+\def\pgfoo@id(#1){%
+  \edef#1{\the\pgfoothis@count}%
+}
+
+
+% Get the object
+%
+% #1 = macro to store the object
+%
+% Description:
+%
+% This special method allows you to get a new handle to a given
+% object. If \obj is an object, you could normally just say
+% \let#1=\obj. However, if \obj happens to be \pgfoothis, then you may
+% wish to get a handle to the object itself, not to the special macor
+% \pgfoothis. In this case you can say \obj.object(#1).
+
+\def\pgfoo@obj(#1){%
+  \edef#1{\noexpand\pgfoo@caller{\the\pgfoothis@count}}%
+}
+
+
+% Yields the object with the given id
+%
+% #1 = id
+%
+% Description:
+%
+% Given an object id, \pgfooobj{<id>} will yield the object having
+% this id.
+
+\def\pgfooobj#1{%
+  \pgfoo@caller{#1}%
 }
 
 
 
 
-% Connect a slot (method) of an object to a signal.
-%
-% #1 = signal
-% #2 = slot
-%
-% Description:
-%
-% This special method is defined for every class. After this method
-% has been called, the object will listen to #2. Whenever the event #2
-% is occurs (using \pgfooevent), the method named "event" of the
-% current object #1 is invoked. The event must previously have been
-% initialized using \pgfooinitevent. 
 
-\def\pgfoo@connect@(#1,#2){%
-  \expandafter\let\expandafter\pgfoo@e\csname pgfooZ#1\endcsname%
-  \ifx\pgfoo@e\relax%
-    \PackageError{pgfoo}{Unknown signal '#1'}{}%
-  \else%
-    \let\pgfoo@caller=\relax% to avoid expansion
-    \edef\pgfoo@e{\pgfoo@e\pgfoo@caller{\the\pgfoothis@count}.#2()}
-    \let\pgfoo@caller=\pgfoo@orig@caller%
-    \expandafter\let\csname pgfooZ#1\endcsname\pgfoo@e%
-  \fi%
+
+%
+%
+% Signal class
+%
+%
+
+\pgfooclass{signal}
+{
+  %
+  % This class implements signals.
+  %
+  % After you have created a signal object, you can call
+  % connect to connect a slot. Then, whenever the emit method is
+  % called, all connected methods get called.
+
+  % Constructor
+  \method signal() {%
+    \pgfooset{emitter}{}%
+  }
+
+  % Connect a slot (method) #2 of object #1
+  \method connect(#1,#2) {%
+    {%
+      #1.id(\pgf@tempid)%
+      % Save in emmiter
+      \pgfooget{emitter}\pgf@temp%
+      \let\pgfoo@signal@call=\relax% avoid expansion
+      \edef\pgf@temp{\pgf@temp\pgfoo@signal@call{\pgf@tempid}{#2}}%
+      \pgfoolet{emitter}\pgf@temp%
+    }%
+  }
+
+  \def\pgfoo@signal@call#1#2{%
+    \def\pgf@temp{\pgfooobj{#1}.#2}%
+    \expandafter\pgf@temp\expandafter(\pgfoo@signal@args)%
+  }
+  
+  % Emit a signal
+  \method emit(#1) {%
+    \def\pgfoo@signal@args{#1}%
+    \pgfoovalueof{emitter}
+  }
 }
 
-% Connect a slot (method) of an object to a signal of the same name.
-%
-% #1 = signal and also slot name
-%
-% Description:
-%
-% \pgfoothis.connect(foo) is just an abbreviation for
-% \pgfoothis.connect signal and slot(foo,foo)
-
-\def\pgfoo@connect(#1){\pgfoo@connect@(#1,#1)}
 
 
 
-% Emit a signal
-%
-% #1 = signal name
-%
-% Description:
-%
-% For all objects that are currently listening to the signal, the
-% slots are activated.
+% % Initialize a signal
+% %
+% % #1 = signal name
+% %
+% % Description:
+% %
+% % Initalizes a signal so that objects can start listening to it. The
+% % event is local to the current TeX group. If the does already exist,
+% % it will be "cleared".
 
-\def\pgfooemit#1{%
-  \csname pgfooZ#1\endcsname%
-}
+% \def\pgfoonewsignal#1{%
+%   \expandafter\let\csname pgfooZ#1\endcsname\pgfutil@empty%
+% }
+
+
+
+
+
+% % Connect a slot (method) of an object to a signal.
+% %
+% % #1 = signal
+% % #2 = slot
+% %
+% % Description:
+% %
+% % This special method is defined for every class. After this method
+% % has been called, the object will listen to #2. Whenever the event #2
+% % is occurs (using \pgfooevent), the method named "event" of the
+% % current object #1 is invoked. The event must previously have been
+% % initialized using \pgfooinitevent. 
+
+% \def\pgfoo@connect@(#1,#2){%
+%   \expandafter\let\expandafter\pgfoo@e\csname pgfooZ#1\endcsname%
+%   \ifx\pgfoo@e\relax%
+%     \PackageError{pgfoo}{Unknown signal '#1'}{}%
+%   \else%
+%     \let\pgfoo@caller=\relax% to avoid expansion
+%     \edef\pgfoo@e{\pgfoo@e\pgfoo@caller{\the\pgfoothis@count}.#2()}
+%     \let\pgfoo@caller=\pgfoo@orig@caller%
+%     \expandafter\let\csname pgfooZ#1\endcsname\pgfoo@e%
+%   \fi%
+% }
+
+% % Connect a slot (method) of an object to a signal of the same name.
+% %
+% % #1 = signal and also slot name
+% %
+% % Description:
+% %
+% % \pgfoothis.connect(foo) is just an abbreviation for
+% % \pgfoothis.connect signal and slot(foo,foo)
+
+% \def\pgfoo@connect(#1){\pgfoo@connect@(#1,#1)}
+
+
+
+% % Emit a signal
+% %
+% % #1 = signal name
+% %
+% % Description:
+% %
+% % For all objects that are currently listening to the signal, the
+% % slots are activated.
+
+% \def\pgfooemit#1{%
+%   \csname pgfooZ#1\endcsname%
+% }
 
 
 

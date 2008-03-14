@@ -39,19 +39,19 @@
 %
 % Description:
 %
-% Use this command to start a data visualization. It will clear
-% (locally for the current group) all listeners.
+% Use this command to start a data visualization. It creates the
+% necessary listeners (this works also with nesting).
 
 \def\pgfnewdatavisualization{%
-  \pgfoonewsignal{prepare data point}%
-  \pgfoonewsignal{locate data point}%
-  \pgfoonewsignal{transform data point}%
-  \pgfoonewsignal{visualize data point}%
-  \pgfoonewsignal{finish data point}%
-  \pgfoonewsignal{begin data set}%
-  \pgfoonewsignal{end data set}%
-  \pgfoonewsignal{begin data cluster}%
-  \pgfoonewsignal{end data cluster}%
+  \pgfoonew \pgfsignalpreparedatapoint=new signal()%
+  \pgfoonew \pgfsignalmapdatapoint=new signal()%
+  \pgfoonew \pgfsignaltransformdatapoint=new signal()%
+  \pgfoonew \pgfsignalvisualizedatapoint=new signal()%
+  \pgfoonew \pgfsignalfinishdatapoint=new signal()%
+  \pgfoonew \pgfsignalbegindataset=new signal()%
+  \pgfoonew \pgfsignalenddataset=new signal()%
+  \pgfoonew \pgfsignalbegindatacluster=new signal()%
+  \pgfoonew \pgfsignalenddatacluster=new signal()%
 }      
 
 
@@ -67,7 +67,7 @@
 %
 % The data that is represented by the data point is not given as a
 % parameter. Rather, it is stored in macros and keys, that is, the
-% data point is conceptually given by the settgins of all the keys and
+% data point is conceptually given by the settings of all the keys and
 % macros in the local scope.
 %
 % In detail, a prepare signal is emitted first, giving all objects a
@@ -93,14 +93,14 @@
 % of the data point.
 
 \def\pgfdatapoint{%
-  \pgfooemit{prepare data point}%
+  \pgfsignalpreparedatapoint.emit()%
   \pgfcanvaspositionofdatapoint%
   \pgfkeysifdefined{/data point/name}
   {%
     \pgfcoordinate{\pgfkeysvalueof{/data point/name}}{\pgfpointcanvasposition}%
   }{}%
-  \pgfooemit{visualize data point}%
-  \pgfooemit{finish data point}%
+  \pgfsignalvisualizedatapoint.emit()%
+  \pgfsignalfinishdatapoint.emit()%
 }
 
 
@@ -115,8 +115,8 @@
 %
 % The next phase is special: A local scope is created and the
 % transformation matrix is reset. Then, two signals are emitted: First,
-% "locate data points" and then "transform data point". The first
-% lets listening objects "locate" the object by setting up
+% "map data points" and then "transform data point". The first
+% lets listening objects "map" the object by setting up
 % attributes of the data point. The second asks objects
 % listening to this signal to transform  the current transformation
 % matrix. After the signals, we compute where 
@@ -133,8 +133,8 @@
   {
     \pgftransformreset
     #1%
-    \pgfooemit{locate data point}
-    \pgfooemit{transform data point}%
+    \pgfsignalmapdatapoint.emit()%
+    \pgfsignaltransformdatapoint.emit()%
     \pgfpointtransformed{\pgfpointorigin}
     % Smuggle outside group
     \expandafter
@@ -199,8 +199,14 @@
 % emitted. Objects listening for these can use it to setup
 % their internal settings. 
 
-\def\pgfdataset{\pgfooemit{begin data set}\pgfooemit{begin data cluster}}
-\def\endpgfdataset{\pgfooemit{end data cluster}\pgfooemit{end data set}}
+\def\pgfdataset{%
+  \pgfsignalbegindataset.emit()%
+  \pgfdatacluster%
+}
+\def\endpgfdataset{
+  \endpgfdatacluster%
+  \pgfsignalenddataset.emit()%
+}
 
 \let\startpgfdataset=\pgfdataset
 \let\stoppgfdataset=\endpgfdataset
@@ -214,8 +220,8 @@
 % Inside a data set the data can be further clustered using these
 % commands. Like the start/stop of data sets, they emit signal.
 
-\def\pgfdatacluster{\pgfooemit{begin data cluster}}
-\def\endpgfdatacluster{\pgfooemit{end data cluster}}
+\def\pgfdatacluster{\pgfsignalbegindatacluster.emit()}
+\def\endpgfdatacluster{\pgfsignalenddatacluster.emit()}
 
 \let\startpgfdatacluster=\pgfdatacluster
 \let\stoppgfdatacluster=\endpgfdatacluster
@@ -252,14 +258,15 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(transform data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignaltransformdatapoint.connect(\pgf@dv@me,transform)
   }
   
   \method set origin(#1) {
     \pgfooset{origin}{#1}
   }
 
-  \method transform data point() {
+  \method transform() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
     \ifx\pgf@dv@val\pgfutil@empty%
     \else%
@@ -276,12 +283,12 @@
 
 
 %
-% Locators
+% Mappers
 %
 
-\pgfooclass{attribute locator}
+\pgfooclass{attribute mapper}
 {
-  \method attribute locator(#1,#2,#3,#4,#5,#6,#7) {
+  \method attribute mapper(#1,#2,#3,#4,#5,#6,#7) {
     {%
       % Let's start with the output, it's easier...
       \pgfooset{out}{#4}
@@ -316,10 +323,11 @@
   } 
 
   \method default connects() {
-    \pgfoothis.connect(locate data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
-  \method locate data point() {
+  \method map() {
     \pgfkeysifdefined{/data point/\pgfoovalueof{out}}
     {}% do nothing!
     {%
@@ -340,9 +348,9 @@
 }
 
 
-\pgfooclass{polar locator}
+\pgfooclass{polar mapper}
 {
-  \method polar locator(#1,#2,#3,#4) {
+  \method polar mapper(#1,#2,#3,#4) {
     \pgfooset{angle}{#1}
     \pgfooset{radius}{#2}
     \pgfooset{x}{#3}
@@ -350,10 +358,11 @@
   } 
 
   \method default connects() {
-    \pgfoothis.connect(locate data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
-  \method locate data point() {
+  \method map() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{angle}}\pgf@dv@angle%
     \ifx\pgf@dv@angle\pgfutil@empty%
     \else%
@@ -410,7 +419,8 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(locate data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
   \method drop values below(#1) {
@@ -461,7 +471,7 @@
     \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmax
   }
   
-  \method locate data point() {
+  \method map() {
     \ifpgfdatapointvirtual%
     \else%
       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
@@ -644,7 +654,8 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(prepare data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
   }
 
   \method set value(#1) {
@@ -652,7 +663,7 @@
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{#1}%
   }
 
-  \method prepare data point() {
+  \method apply() {
     {%
       \c@pgf@counta=\pgfoovalueof{val}\relax%
       \advance\c@pgf@counta by1\relax%
@@ -673,7 +684,8 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(prepare data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
   }
 
   \method set value(#1) {
@@ -681,7 +693,7 @@
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{#1}%
   }
 
-  \method prepare data point() {
+  \method apply() {
     {%
       \c@pgf@counta=\pgfoovalueof{val}\relax%
       \advance\c@pgf@counta by-1\relax%
@@ -707,10 +719,11 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(prepare data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
   }
 
-  \method prepare data point() {
+  \method apply() {
     \pgfooget{sum}\pgf@temp
     \pgfkeyslet{/data point/\pgfoovalueof{attribute}/prev sum}\pgf@temp
     \pgfmathadd{\pgfkeysvalueof{/data point/\pgfoovalueof{attribute}}}{\pgfoovalueof{sum}}
@@ -814,7 +827,7 @@
 \pgfooclass{polar axis}
 {
   \method polar axis(#1,#2) {
-    \pgfoolet{locator obj}#1
+    \pgfoolet{mapper obj}#1
     \pgfoolet{interval obj}#2
     \pgfooset{use path}{\pgfusepath{stroke}}
   }
@@ -829,7 +842,7 @@
   \method visualize axis() {
     {%
       %
-      \pgfooget{locator obj}\pgf@dv@trans%
+      \pgfooget{mapper obj}\pgf@dv@trans%
       \pgf@dv@trans.get angle and radius attributes()%
       % we assume that the current data point settings determine where
       % the axis should go
@@ -891,7 +904,8 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(visualize data point)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,visualize)
   }
 
   \method set size(#1) {
@@ -902,7 +916,7 @@
     \pgfooset{zero trigger}{#1}
   }
   
-  \method visualize data point() {
+  \method visualize() {
     {%
       \pgfkeysgetvalue{/data point/\pgfoovalueof{zero trigger}}\pgf@dv@trig%
       \ifx\pgf@dv@trig\pgf@dv@zero@text%
@@ -927,15 +941,16 @@
   }
 
   \method default connects() {
-    \pgfoothis.connect(visualize data point)
-    \pgfoothis.connect(end data cluster)
+    \pgfoothis.object(\pgf@dv@me)
+    \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,protocol)
+    \pgfsignalenddatacluster.connect(\pgf@dv@me,render)
   }
 
   \method set use path(#1) {
     \pgfooset{use path}{#1}
   }
   
-  \method visualize data point() {
+  \method protocol() {
     % Just append it to positions
     \pgfooget{positions}\pgf@dv@temp
     \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
@@ -945,7 +960,7 @@
     \pgfoolet{positions}\pgf@dv@temp
   }
 
-  \method end data cluster() {
+  \method render() {
     \pgfoovalueof{handler}
     \pgfplotstreamstart
     \pgfoovalueof{positions}
@@ -958,6 +973,8 @@
 }
 
 
-
+\pgfooclass{rectangle visualizer}
+{
+}
 
 \endinput
