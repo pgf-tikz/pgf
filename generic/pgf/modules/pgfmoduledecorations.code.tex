@@ -1,4 +1,4 @@
-% Copyright 2008 by Mark Wibrow
+% Copyright 2008 by Mark Wibrow and Till Tantau
 %
 % This file may be distributed and/or modified
 %
@@ -1194,24 +1194,23 @@
 % Process the next input segment object.
 %
 \def\pgf@decorate@processnextinputsegmentobject{%
-	%
+	\let\pgfdecorationpreviousinputsegment\pgfdecoratecurrentinputsegment%
 	\let\pgf@decorate@currentinputsegmentobject\pgf@decorate@nextinputsegmentobject%
 	\pgf@decorate@getnextinputsegmentobject\pgf@decorate@nextinputsegmentobject%
-	% 
+	%
 	% If the current input segment object is a moveto, execute the 
 	% object macro and get the next input segment object.
 	%
-	\expandafter\pgfutil@in@\expandafter\pgf@decorate@inputsegmentobject@moveto%
-		\expandafter{\pgf@decorate@currentinputsegmentobject}%
-	\ifpgfutil@in@%
-		\pgf@decorate@currentinputsegmentobject%
+	\pgf@decorate@is@closepath@false%
+	\pgf@decorate@currentinputsegmentobject%
+	\ifx\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentmoveto%
+		\pgfpathmoveto{\pgf@decorate@inputsegment@first}%
+		\let\pgfdecorationpreviousinputsegment\pgfdecorationcurrentinputsegment%
 		\let\pgf@decorate@currentinputsegmentobject\pgf@decorate@nextinputsegmentobject%
 		\pgf@decorate@getnextinputsegmentobject\pgf@decorate@nextinputsegmentobject%
-		\relax%
+		\pgf@decorate@is@closepath@false%
+		\pgf@decorate@currentinputsegmentobject%
 	\fi%
-	%
-        \pgf@decorate@is@closepath@false%
-	\pgf@decorate@currentinputsegmentobject%
 	%
 	% Teensy hack in case a path goes nowhere.
 	%
@@ -1221,8 +1220,41 @@
 	\pgfdecoratedinputsegmentremainingdistance\pgfdecoratedinputsegmentlength\relax%
 	\pgfdecoratedinputsegmentcompleteddistance0pt\relax%
 	\def\pgf@decorate@inputsegmenttime{0}%
-	\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@supporta}%
-	\let\pgfdecoratedangle\pgfmathresult%	
+	%
+	% Get the angle at the start of the input segment.
+	%
+	\ifx\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentcurveto%
+		\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@supporta}%
+		\let\pgfdecoratedangle\pgfmathresult%
+		\let\pgfdecoratedinputsegmentstartangle\pgfmathresult%
+		\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@supportb}{\pgf@decorate@inputsegment@last}%
+		\let\pgfdecoratedinputsegmentendangle\pgfmathresult%
+	\else%
+		\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@last}%
+		\let\pgfdecoratedangle\pgfmathresult%
+		\let\pgfdecoratedinputsegmentstartangle\pgfmathresult%
+		\let\pgfdecoratedinputsegmentendangle\pgfmathresult%
+	\fi%
+	%
+	% Get the angle to the next input segment.
+	%
+	\begingroup%
+		\pgf@decorate@nextinputsegmentobject%
+		\global\let\pgf@decorate@temp\pgfdecorationcurrentinputsegment%
+		\ifx\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentmoveto%
+			\expandafter\pgf@decorate@currentinputsegmentobject%
+		\fi%
+		\ifx\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentcurveto%
+			\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@supporta}%
+		\else%
+			\pgfmathanglebetweenpoints{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@last}%
+		\fi%
+		\pgf@x-\pgfdecoratedangle pt\relax%
+		\advance\pgf@x\pgfmathresult pt\relax%
+		\edef\pgfdecoratedangletonextinputsegment{\the\pgf@x}%
+		\pgfmath@smuggleone\pgfdecoratedangletonextinputsegment%
+	\endgroup%
+	\let\pgfdecorationnextinputsegmentobject\pgf@decorate@temp%
 }
 
 
@@ -1232,18 +1264,30 @@
 
 \newif\ifpgf@decorate@is@closepath@%
 
+% Input segment types.
+%
+% These allow comparison with \ifx using
+%
+% \pgfdecorationcurrentinputsegment 
+% \pgfdecorationnextinputsegment
+% \pgfdecorationcurrentprevioussegment
+%
+\def\pgfdecorationinputsegmentmoveto{moveto}
+\def\pgfdecorationinputsegmentlineto{lineto}
+\def\pgfdecorationinputsegmentcurveto{curveto}
+\def\pgfdecorationinputsegmentclosepath{closepath}
+\def\pgfdecorationinputsegmentlast{last}
 
 % Input segment object moveto.
 %
 \def\pgf@decorate@inputsegmentobject@moveto#1{%
-	\pgfpathmoveto{#1}%
 	\def\pgf@decorate@inputsegment@first{#1}%
 	\def\pgf@decorate@inputsegment@supporta{#1}%
 	\def\pgf@decorate@inputsegment@supportb{#1}%
 	\def\pgf@decorate@inputsegment@last{#1}%
 	\edef\pgf@decorate@lastmoveto{#1}%
 	\def\pgfdecoratedinputsegmentlength{0pt}%
-	\let\pgf@decorate@splitinputsegmentobject\pgf@decorate@splitinputsegmentobject@move%
+	\let\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentmoveto%
 }
 
 % Input segment object lineto.
@@ -1251,17 +1295,28 @@
 \def\pgf@decorate@inputsegmentobject@lineto#1#2#3{%
 	\def\pgfdecoratedinputsegmentlength{#1}%
 	\def\pgf@decorate@inputsegment@first{#2}%
+	\def\pgf@decorate@inputsegment@last{#3}%
 	%
-	% OK, lines don't need supports, but this means angle calculations 
-	% do not have to be done individually for each object.
+	% Supports should be defined like this, so if treated as a curve, 
+	% equal time steps will correspond to equal distances. 
 	%
-	\def\pgf@decorate@inputsegment@supporta{#3}%
-	\def\pgf@decorate@inputsegment@supportb{#2}%
-	\def\pgf@decorate@inputsegment@last{#3}%	
+	\pgfpointdiff{#2}{#3}%
+	\pgf@xa\pgf@x%
+	\pgf@ya\pgf@y%
+	\pgfextract@process\pgf@decorate@inputsegment@supporta{%
+		\pgf@process{#2}%
+		\advance\pgf@x0.333333\pgf@xa%
+		\advance\pgf@y0.333333\pgf@ya%
+	}%
+	\pgfextract@process\pgf@decorate@inputsegment@supportb{%
+		\pgf@process{#2}%
+		\advance\pgf@x0.666666\pgf@xa%
+		\advance\pgf@y0.666666\pgf@ya%
+	}%	
 	%
 	\let\pgf@decorate@movealonginputsegment\pgf@decorate@movealonginputsegment@line%
 	\let\pgf@decorate@transformtoinputsegment\pgf@decorate@transformtoinputsegment@line%
-	\let\pgf@decorate@splitinputsegmentobject\pgf@decorate@splitinputsegmentobject@line%
+	\let\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentlineto%
 }
 
 % Input segment object curveto.
@@ -1275,7 +1330,7 @@
 	%
 	\let\pgf@decorate@movealonginputsegment\pgf@decorate@movealonginputsegment@curve%
 	\let\pgf@decorate@transformtoinputsegment\pgf@decorate@transformtoinputsegment@curve%
-	\let\pgf@decorate@splitinputsegmentobject\pgf@decorate@splitinputsegmentobject@curve%
+	\let\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentcurveto%
 }
 
 % Input segment object closepath.
@@ -1287,18 +1342,33 @@
   %
   \def\pgfdecoratedinputsegmentlength{#1}%
   \def\pgf@decorate@inputsegment@first{#2}%
-  \def\pgf@decorate@inputsegment@supporta{#3}%
-  \def\pgf@decorate@inputsegment@supportb{#2}%
-  \def\pgf@decorate@inputsegment@last{#3}%	
-  % 
+  \def\pgf@decorate@inputsegment@last{#3}%
+  %	
+	\pgfpointdiff{#2}{#3}%
+	\pgf@xa\pgf@x%
+	\pgf@ya\pgf@y%
+	\pgfextract@process\pgf@decorate@inputsegment@supporta{%
+		\pgf@process{#2}%
+		\advance\pgf@x0.333333\pgf@xa%
+		\advance\pgf@y0.333333\pgf@ya%
+	}%
+	\pgfextract@process\pgf@decorate@inputsegment@supportb{%
+		\pgf@process{#2}%
+		\advance\pgf@x0.666666\pgf@xa%
+		\advance\pgf@y0.666666\pgf@ya%
+	}%	
+	% 
   \let\pgf@decorate@movealonginputsegment\pgf@decorate@movealonginputsegment@line%
   \let\pgf@decorate@transformtoinputsegment\pgf@decorate@transformtoinputsegment@line%
-  \let\pgf@decorate@splitinputsegmentobject\pgf@decorate@splitinputsegmentobject@line%
+	\let\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentclosepath%
 }
+
 
 % Input segment object endofinputsegments.
 %
-\def\pgf@decorate@inputsegmentobject@endofinputsegments{}
+\def\pgf@decorate@inputsegmentobject@endofinputsegments{%
+	\let\pgfdecorationcurrentinputsegment\pgfdecorationinputsegmentlast%
+}
 
 
 

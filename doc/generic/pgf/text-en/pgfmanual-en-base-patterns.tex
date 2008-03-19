@@ -52,7 +52,10 @@ it anymore. In particular, it is not possible to enlarge it or change
 the line width. Such flexibility would require that the repeating of
 the pattern were not done by the graphic language, but on the
 \pgfname\ level. This would make patterns orders of magnitude slower
-to produce and to render.
+to produce and to render. However, \pgfname{} does provides a 
+more-or-less successful emulation of ``mutable'' patterns, although
+internally, a new (fixed) instance of a pattern is declared when
+the paramaters of a pattern change.
 
 Second, the phase of patterns is not well-defined, that is, it is not
 clear where origin of the ``first'' tile is. To be more precise,
@@ -65,7 +68,7 @@ pattern to will a single path that is the union of all the paths. By
 comparison, \textsc{svg} uses the upper-left (?) corner of the path to
 be filled as the origin. However, the \textsc{svg} specification is a
 bit vague on this question.
-
+ 
 
 \subsection{Declaring a Pattern}
 
@@ -73,12 +76,14 @@ Before a pattern can be used, it must be declared. The following
 command is used for this:
 
 \begin{command}{\pgfdeclarepatternformonly%
-    \marg{name}%
-    \marg{lower left}%
-    \marg{upper right}%
-    \marg{tile size}%
-    \marg{code}}
-  This command declares a new form-only pattern. The \marg{name} is a
+	\opt{\oarg{variables}}%
+	\marg{name}%
+	\marg{bottom left}%
+	\marg{top right}%
+	\marg{tile size}%
+	\marg{code}}
+
+	This command declares a new form-only pattern. The \marg{name} is a
   name for later reference. The two parameters \marg{lower left} and
   \marg{upper right} must describe a bounding box that is large enough
   to encompass the complete tile.
@@ -115,9 +120,66 @@ command is used for this:
                            (1.5,0) rectangle (3,2);  
 \end{tikzpicture}
 \end{codeexample}
+
+	The optional argument \meta{variables} consists of a comma 
+	separated	list of macros,	registers or keys, representing the 
+	parameters of the pattern that may vary. If a variable is a key, 
+	then the full path name must be used (specifically, it must start
+	with |/|). 
+	As an example, a list might look like the following: 
+	|\mymacro,\mydimen,/pgf/my key|. Note that macros and keys should
+	be ``simple''. They should only store values in themselves.
+	
+	The effect of \meta{variables}, is the following: 
+  Normally, when this argument is empty, once a pattern has been 
+  declared, it becomes ``frozen''. This means that it is not possible 
+  to enlarge the pattern or change the line width later on. 
+  By specifying \meta{variables} no pattern is actually created.
+  Instead, the arguments are stored away
+  (so the macros,	registers or keys do not have to be defined in advance). 
+  
+  When the fill patten is set, \pgfname{} checks if the pattern has 
+  already been created with the \meta{variables} set to their current
+  values (\pgfname{} is usually ``smart enough'' to distinguish between 
+  macros, registers and keys). If so, this already-declared-pattern 
+  is used as the fill pattern. 
+  If not, a new instance of the pattern (which will have a 
+  unique internal name) is declared using the current values of 
+  \meta{variables}. These values are then saved and the fill pattern
+  set accordingly.
+	
+	The following shows an example of a pattern which varies 
+	according to the values of the macro |\size|, the key |/tikz/radius|,
+	and the \TeX{} dimension |\thickness|.
+
+\begin{codeexample}[]
+\pgfdeclarepatternformonly[/tikz/radius,\thickness,\size]{rings}
+{\pgfpoint{-0.5*\size}{-0.5*\size}}
+{\pgfpoint{0.5*\size}{0.5*\size}}
+{\pgfpoint{\size}{\size}}
+{
+  \pgfsetlinewidth{\thickness}
+  \pgfpathcircle\pgfpointorigin{\pgfkeysvalueof{/tikz/radius}}
+  \pgfusepath{stroke}
+}
+\newdimen\thickness
+\tikzset{
+  radius/.initial=4pt, 
+  size/.store in=\size, size=20pt,
+  thickness/.code={\thickness=#1}
+}
+\begin{tikzpicture}[rings/.style={pattern=rings}]
+  \filldraw [rings, radius=2pt, size=6pt]      (0,0)   rectangle +(1.5,2);
+  \filldraw [rings, radius=2pt, size=8pt]      (2,0)   rectangle +(1.5,2);
+  \filldraw [rings, radius=6pt, thickness=2pt] (0,2.5) rectangle +(1.5,2); 
+  \filldraw [rings, radius=8pt, thickness=4pt] (2,2.5) rectangle +(1.5,2); 
+\end{tikzpicture}
+\end{codeexample}
 \end{command}
 
+  
 \begin{command}{\pgfdeclarepatterninherentlycolored
+		\opt{\oarg{variables}}
     \marg{name}
     \marg{lower left}
     \marg{upper right}
@@ -126,7 +188,7 @@ command is used for this:
   This command works like |\pgfdeclarepatternuncolored|, only the
   pattern will have an inherent color. To set the color, you should
   use \pgfname's color commands, not the |\color| command, since this
-  fill not be protocolled.
+  fill is not protocolled.
   
 \begin{codeexample}[]
 \pgfdeclarepatterninherentlycolored{green stars}
@@ -148,6 +210,8 @@ command is used for this:
 \end{tikzpicture}
 \end{codeexample}
 \end{command}
+
+
 
 
 \subsection{Setting a Pattern}
