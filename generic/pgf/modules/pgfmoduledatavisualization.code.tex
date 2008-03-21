@@ -20,12 +20,11 @@
 % used. The "parameters" of the data point are just the current values
 % of the keys or macros in the current scope. 
 %
-% A set of data points is framed by calls to \pgfdataset and
-% \pgfenddataset, which just signals "begin data set" and
-% "end data set". Inside a data set, you can use \pgfdatacluster
-% and \endpgfdatacluster to further cluster data. These will
-% cause the "begin data cluster" and "end data cluster" signals to be
-% emitted. Every data set implicitly opens a cluster.
+% A set of data points created using the \pgfdataset command. Inside a
+% data set, you can use \pgfdatacluster and \endpgfdatacluster to
+% further cluster data. These will cause the "begin data cluster" and
+% "end data cluster" signals to be emitted. Every data set implicitly
+% opens a cluster. 
 %
 % When a data point is created, a number of signals are emitted, see
 % the description of \pgfdatapoint. To actually visualize something,
@@ -48,8 +47,8 @@
   \pgfoonew \pgfsignaltransformdatapoint=new signal()%
   \pgfoonew \pgfsignalvisualizedatapoint=new signal()%
   \pgfoonew \pgfsignalfinishdatapoint=new signal()%
-  \pgfoonew \pgfsignalbegindataset=new signal()%
-  \pgfoonew \pgfsignalenddataset=new signal()%
+  \pgfoonew \pgfsignalsurveydatapoint=new signal()%
+  \pgfoonew \pgfsignalphase=new signal()%
   \pgfoonew \pgfsignalbegindatacluster=new signal()%
   \pgfoonew \pgfsignalenddatacluster=new signal()%
 }      
@@ -61,26 +60,36 @@
 %
 % Description:
 %
-% This command may only be called after \pgfnewdatavisualization has
-% been called. It will then emit a number of signals, to which
-% (hopefully) some smart objects are listening.
+% This command is called by data parses wheneven a complete data point
+% has been produced. Depending on the current circumstances, different
+% signals will be emitted.
 %
 % The data that is represented by the data point is not given as a
 % parameter. Rather, it is stored in macros and keys, that is, the
 % data point is conceptually given by the settings of all the keys and
 % macros in the local scope.
 %
-% In detail, a prepare signal is emitted first, giving all objects a
+% There are two phases to data processing: In the survey phase data
+% points are produced and handled in order to find out things like
+% their number or the minimum and maximum values of attributes, so
+% that axes and picture sizes can be prepared correctly. In the
+% visualization phase, data point are actually shown. 
+%
+% During the survey phase, for each data point the signal
+% "surveydatapoint" is emitted.
+%
+% During the visualization phase, more signals are emitted. A prepare
+% signal is emitted first, giving all objects a 
 % chance to "prepare" for the data point. Note that it is permissible
-% for an object to manipulate the data point in this phase (and also
-% in later phases).
+% for an object to manipulate the data point here (and also
+% in later on).
 %
 % Next, the command \pgfcanvaspositionofdatapoint is called. Mainly, the effect
 % of this command is to setup the keys /data point/canvas x and /data
 % point/canvas y, see the description of this command for more
 % details. 
 %
-% The next phase consists of signaling "visualize data point". Objects
+% The next step consists of signaling "visualize data point". Objects
 % listening to this will cause some form of visualization of the
 % data point to occur. 
 %
@@ -92,7 +101,11 @@
 % Finally, finish data point allows objects to do any final processing
 % of the data point.
 
-\def\pgfdatapoint{%
+\def\pgfdatapoint@surveyphase{%
+  \pgfsignalsurveydatapoint.emit()%
+}
+
+\def\pgfdatapoint@visualizationphase{%
   \pgfsignalpreparedatapoint.emit()%
   \pgfcanvaspositionofdatapoint%
   \pgfkeysifdefined{/data point/name}
@@ -190,27 +203,157 @@
 }
 
 
-% Start/stop a data set
+% Handle a dataset.
+% 
+% #1 = options with path /pgf/data visualization/
+% #2 = possibly data
 %
 % Description:
 %
-% These command is used to signal the start/end of a data set. They
-% cause the "begin data set" or "end data set" signals to be
-% emitted. Objects listening for these can use it to setup
-% their internal settings. 
+% This command is used to define a dataset. Data can be in different
+% formats, as specified by the "format" key, and you can define new
+% formats. 
+%
+% In detail, the following happens:
+%
+% A scope is opened and the options #1 are executed. This results in
+% some keys to be set. Two keys are handled in a special way:
+%
+% /pgf/data visualization/format stores the format (see below)
+% /pgf/data visualization/source determines where the data is.
+%
+% If source is empty, the data is stored in the argument
+% that follows. Otherwise, the file whose name is
+% stored in source is read. 
+%
+% Independently of what source is used, the format handler is started
+% for the data. This works as follows: first, the handler's startup
+% code is executed. Then for each line of the data file, the lien
+% handler function is called. Finally, the data format end handler is
+% called. 
+%
+% The format handler's job is to call \pgfdatapoint each time a
+% complete data point has been produced.
+%
+% The whole format handling will be run twice for each data set. The
+% first time, the \pgfdatapoint command will only emit survey signals,
+% the second time the actual visualization signals are emitted.
 
-\def\pgfdataset{%
-  \pgfsignalbegindataset.emit()%
+\def\pgfdataset{\pgfutil@ifnextchar[{\pgf@dataset}{\pgf@dataset[]}}%}
+\def\pgf@dataset[#1]{%
+  \begingroup%
+    \pgfdataformatstriptrue%
+    \pgfkeys{/pgf/data visualization/.cd,#1}%
+    \pgfkeysgetvalue{/pgf/data visualization/format}\pgf@dv@format%
+    \expandafter\let\expandafter\pgf@dv@format@line\csname pgfdv@format@\pgf@dv@format @line\endcsname%
+    \ifx\pgf@dv@format@line\relax%
+      \PackageError{pgf}{Unknown data format '\pgf@dv@format'}{}%
+    \else%
+      \pgfkeysgetvalue{/pgf/data visualization/source}\pgf@dv@source%
+      \ifx\pgf@dv@source\pgfutil@empty%
+        \let\pgf@next\pgf@dataset@inline%
+      \else%
+        \let\pgf@next\pgf@dataset@external%
+      \fi%
+      \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@startup\endcsname%
+      \ifpgfdataformatstrip%
+        \let\pgf@dv@handle@line\pgf@dv@handle@line@strip%
+      \else%
+       \let\pgf@dv@handle@line\pgf@dv@handle@line@%
+      \fi%
+    \fi%
+    \pgf@next%
+}
+
+\def\pgf@dataset@external{%
+  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@startup\endcsname%
+  \pgf@dataset@phases{%
+      \immediate\openin1=\pgfkeysvalueof{/pgf/data visualization/source} %
+      \pgf@dataset@readline%
+      \immediate\closein1%
+    }%
+  \endgroup%
+}
+
+\def\pgf@partext{\par}%
+\def\pgf@dataset@readline{%
+  \immediate\read1 to \pgf@temp%
+  \ifx\pgf@temp\pgf@partext%
+    \let\pgf@temp\pgfutil@empty%
+  \fi%
+  \ifpgfdataformatstrip%
+    \ifx\pgf@temp\pgfutil@empty%
+    \else%
+      \expandafter\pgf@dv@format@line\pgf@temp\pgfeol%
+    \fi%
+  \else%
+    \expandafter\pgf@dv@format@line\pgf@temp\pgfeol%
+  \fi%
+  \ifeof1\else\expandafter\pgf@dataset@readline\fi%
+}
+
+
+\def\pgf@dataset@phases#1{%
+  % Survey phase.
+  \pgfsignalphase.emit(survey)%
+  \let\pgfdatapoint=\pgfdatapoint@surveyphase%
+  #1%
+  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@end\endcsname%
+  % Visualization phase.
+  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@startup\endcsname%
+  \pgfsignalphase.emit(visualization)%
+  \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
   \pgfdatacluster%
-}
-\def\endpgfdataset{
+    #1%
   \endpgfdatacluster%
-  \pgfsignalenddataset.emit()%
+  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@end\endcsname%
+}%
+
+
+
+\def\pgf@dataset@inline{%
+  \pgfutil@ifnextchar\bgroup{\catcode`\^^M=\active\pgf@dataset@scaninline}%
+  {\PackageError{pgf}{Opening brace expected}{}}%
 }
 
-\let\startpgfdataset=\pgfdataset
-\let\stoppgfdataset=\endpgfdataset
+{\catcode`\^^M=\active%
+  \gdef\pgf@dataset@scaninline#1{%
+    \pgf@dataset@phases{\pgf@dv@handle@line#1^^M\pgf@@eol}
+  \endgroup%
+  }%
+\gdef\pgf@dv@handle@line@strip{%
+  \pgfutil@ifnextchar^^M{\expandafter\pgf@dv@handle@line\pgfutil@gobble}%
+  {\pgfutil@ifnextchar\pgf@@eol{\pgfutil@gobble}{\pgf@dv@handle@line@}}%
+}%
+\gdef\pgf@dv@handle@line@#1^^M{%
+  \pgf@dv@format@line#1\pgfeol%
+  \futurelet\pgf@dv@test\pgf@dv@cont%
+}%
+}
+\def\pgf@dv@cont{%
+  \ifx\pgf@dv@test\pgf@@eol%
+    \expandafter\pgfutil@gobble%
+  \else%
+    \expandafter\pgf@dv@handle@line%
+  \fi%
+}
+\def\pgf@@eol{\pgf@eol}
 
+
+\pgfkeys{
+  /pgf/data visualization/format/.initial=,
+  /pgf/data visualization/source/.initial=
+}
+
+
+% Strip away empty lines and spaces
+%
+% Description:
+%
+% If this if is set to true be a data format, empty lines will be
+% stripped away. This is the default
+
+\newif\ifpgfdataformatstrip
 
 
 % Start/stop a data cluster
@@ -229,10 +372,204 @@
 
 
 
+% Define a data format
+%
+% #1 = format name
+% #2 = startup code
+% #3 = line arguments
+% #4 = line code
+% #5 = end code
+%
+% Description:
+%
+% This command defines a new data format for data visualization. When
+% a data set is visualized and the format is set to #1, this handler
+% is used to parse the data.
+%
+% In detail, the \pgfdataset command will select a source. Before this
+% source is read, #2 will be executed, which can be used to setup
+% catcodes and other stuff. Then, for each line of the source, the
+% command #4 is executed, where the line will be matched against the
+% argument pattern given in #3. At the end of the source, #5 will be
+% executed.
+
+\def\pgfdeclaredataformat#1#2#3#4#5{%
+  \expandafter\def\csname pgfdv@format@#1@startup\endcsname{#2}%
+  \expandafter\def\csname pgfdv@format@#1@line\endcsname#3\pgfeol{#4}%
+  \expandafter\def\csname pgfdv@format@#1@end\endcsname{#5}%
+}
 
 
 
+%
+% Predefined standard formats
+%
 
+% TeX code format
+%
+% Description:
+%
+% The lines of the data set are assumed to contains executable TeX
+% code that will call \pgfdatapoint.
+%
+% Example:
+%
+% \pgfdataset[format=TeX code]
+% {
+%   \pgfkeyssetvalue{/data point/x}{5}
+%   \pgfkeyssetvalue{/data point/y}{5}
+%   \pgfdatapoint
+%   \pgfkeyssetvalue{/data point/x}{6}
+%   \pgfkeyssetvalue{/data point/y}{6}
+%   \pgfdatapoint
+% }
+
+\pgfdeclaredataformat{TeX code}{}{#1}{#1 }{}
+
+
+
+% Key-value lines format
+%
+% Description:
+%
+% The lines of the data set are passed to \pgfkeys with the path set
+% to /data point. In this way, provided
+%
+% Example:
+%
+% \pgfdataset[format=key value pairs]
+% {
+%   x=5, y=6, hi=9
+%   x=7, y=6, lo=10
+% }
+
+\pgfdeclaredataformat{key value pairs}{}{#1}{\pgfkeys{/data point/.cd,#1}\pgfdatapoint}{}
+
+
+
+% Comma separated columns
+%
+% Description:
+%
+% Each input line for this format should contain values separated by
+% commas. For each nonempty line, the first value will be stored in
+% /data point/<col1>, where <col1> is the value stored in /pgf/data
+% visualization/column 1, the second value is stored in /data
+% point/<col2>, where <col2> is the value stored in /pgf/data
+% visualization/column 2, and so on. If a <colX> is empty, the value
+% is ignored.
+%
+% Example:
+%
+% \pgfdataset[format=space separated columns,
+%             column 1=dax/low,
+%             column 2=dax/high,
+%             column 3=dax/entry,
+%             column 4=dax/exit]
+% {
+%   % today
+%   2000, 2300, 2100, 2200 
+%   2000, 2350, 2200  
+%   2200, 2300, 2250, 2260 
+%   1800, 2260, 2260, 1900 
+%   2000, 2300, 2100, 2200
+%    
+%   % yesterday
+%   2000, 2350, 2200, 2250 
+%   2200, 2300, 2250, 2260 
+%   1800, 2260, 2260, 1900 
+% }
+
+\pgfkeys{/pgf/data visualization/.cd,
+  column 1/.initial=x,
+  column 2/.initial=y,
+  column 3/.initial=z,
+  column 4/.initial=,
+  column 5/.initial=,
+  column 6/.initial=,
+  column 7/.initial=,
+  column 8/.initial=}
+
+\pgfdeclaredataformat{comma separated columns}{\pgf@dv@separated@get}{#1}
+{\pgf@dv@csc#1,,,,,,,,,\pgfeol}{}
+
+\def\pgf@dv@csc#1,#2,#3,#4,#5,#6,#7,#8,#9\pgfeol{%
+  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
+  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
+  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
+  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
+  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
+  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
+  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
+  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
+  \pgfdatapoint%
+}
+
+\def\pgf@dv@separated@get{%
+  \pgfkeysgetvalue{/pgf/data visualization/column 1}\pgf@dv@cola%
+  \pgfkeysgetvalue{/pgf/data visualization/column 2}\pgf@dv@colb%
+  \pgfkeysgetvalue{/pgf/data visualization/column 3}\pgf@dv@colc%
+  \pgfkeysgetvalue{/pgf/data visualization/column 4}\pgf@dv@cold%
+  \pgfkeysgetvalue{/pgf/data visualization/column 5}\pgf@dv@cole%
+  \pgfkeysgetvalue{/pgf/data visualization/column 6}\pgf@dv@colf%
+  \pgfkeysgetvalue{/pgf/data visualization/column 7}\pgf@dv@colg%
+  \pgfkeysgetvalue{/pgf/data visualization/column 8}\pgf@dv@colh%
+}
+
+% Space separated columns
+%
+% Description:
+%
+% Each input line for this format should contain values separated by
+% spaces. Otherwise, the format works like comma separated columns.
+%
+% Example:
+%
+% \pgfdataset[format=space separated columns,
+%             column 1=dax/low,
+%             column 2=dax/high,
+%             column 3=dax/entry,
+%             column 4=dax/exit]
+% {
+%   % today
+%   2000 2300 2100 2200 
+%   2000 2350 2200  
+%   2200 2300 2250 2260 
+%   1800 2260 2260 1900 
+%   2000 2300 2100 2200
+%    
+%   % yesterday
+%   2000 2350 2200 2250 
+%   2200 2300 2250 2260 
+%   1800 2260 2260 1900 
+% }
+
+
+\pgfdeclaredataformat{space separated columns}{\pgf@dv@separated@get}{#1}
+{\pgf@dv@ssc#1 @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @\pgfeol}{}
+
+\def\pgf@dv@ssc#1 #2 #3 #4 #5 #6 #7 #8 #9\pgfeol{%
+  \pgf@dv@css@handle\pgf@dv@cola{#1}%
+  \pgf@dv@css@handle\pgf@dv@colb{#2}%
+  \pgf@dv@css@handle\pgf@dv@colc{#3}%
+  \pgf@dv@css@handle\pgf@dv@cold{#4}%
+  \pgf@dv@css@handle\pgf@dv@cole{#5}%
+  \pgf@dv@css@handle\pgf@dv@colf{#6}%
+  \pgf@dv@css@handle\pgf@dv@colg{#7}%
+  \pgf@dv@css@handle\pgf@dv@colh{#8}%
+  \pgfdatapoint%
+}
+\def\pgf@dv@css@handle#1#2{%
+  \ifx#1\pgfutil@empty%
+  \else%
+    \def\pgf@temp{#2}%
+    \ifx\pgf@temp\pgf@atpgfattext%
+      \let\pgf@temp\pgfutil@empty%
+    \fi%
+    \pgfkeyslet{/data point/#1}\pgf@temp%
+  \fi%
+}
+\def\pgf@atpgfattext{@\pgf @}
 
 
 
