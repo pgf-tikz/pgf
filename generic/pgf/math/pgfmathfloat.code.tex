@@ -12,6 +12,7 @@
 %
 % Version 0.9.4 2008/03/18
 
+\newif\ifpgfmathcomparison
 \newif\ifpgfmathfloatcomparison
 \newif\ifpgfmathfloatroundhasperiod
 
@@ -305,7 +306,7 @@
 			% loop counter:
 			\c@pgfmath@parsecounta=0
 			\loop
-			\ifnum\c@pgfmath@parsecounta<2
+			\ifnum\c@pgfmath@parsecounta<3
 				\pgfmathlog@invoke@expanded\pgfmathexp@{{\pgf@sys@tonumber{\pgfmathfloat@b@M}}}%
 				\let\pgfmathlog@tmp=\pgfmathresult
 				\pgfmathlog@invoke@expanded\pgfmathdivide@{{\pgf@sys@tonumber{\pgfmathfloat@a@M}}{\pgfmathlog@tmp}}%
@@ -367,6 +368,28 @@
 	\endgroup%
 }
 
+% Assigns \pgfmathresult to 1.0 if #1 ~= #1.
+%
+% It will also set the boolean \ifpgfmathcomparison accordingly.
+\def\pgfmathapproxequalto#1#2{%
+	\begingroup%
+		\expandafter\pgfmath@x#1pt\relax%
+		\expandafter\pgfmath@y#2pt\relax%
+		\advance\pgfmath@x-\pgfmath@y%
+		\ifdim\pgfmath@x<0pt
+			\multiply\pgfmath@x by-1
+		\fi
+		\ifdim\pgfmath@x<0.0001pt\relax%
+			\def\pgfmathresult{1.0}%
+			\aftergroup\pgfmathcomparisontrue
+		\else%
+			\def\pgfmathresult{0.0}%
+			\aftergroup\pgfmathcomparisonfalse
+		\fi%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup%
+}
+
 
 % Rounds a fixed point number #1 to \pgfmathfloat@round@precision digits precision and returns
 % the result into \pgfmathresult.
@@ -423,16 +446,18 @@
 
 % #1 maybe a macro
 \def\pgfmathprintnumber@fixed@stylePERIOD#1{%
-	#1%
+	\pgfutilensuremath{#1}%
 }
 
 % #1 maybe a macro
 \def\pgfmathprintnumber@fixed@styleCOMMA#1{%
+	\pgfutilensuremath{%
 	\ifpgfmathfloatroundhasperiod
 		\expandafter\pgfmathprintnumber@fixed@styleCOMMA@impl#1\pgfmathfloat@EOI
 	\else
 		#1%
 	\fi
+	}%
 }
 \def\pgfmathprintnumber@fixed@styleCOMMA@impl#1.#2\pgfmathfloat@EOI{#1{,}#2}%
 
@@ -517,16 +542,26 @@
 }
 \def\pgfmathfloatrounddisplaystyle@e#1#2e#3\relax{%
 	\pgfmathfloatrounddisplaystyle@shared@impl{#1}{#2}{}{1}{%
-		e\expandafter\ifnum#3>0
-			+#3%
-		\else#3\fi
+		e\expandafter\ifnum#3>0\relax
+			{+}#3%
+		\else
+			{\count0=#3\relax
+			\multiply\count0 by-1
+			{-}\the\count0
+			}%
+		\fi
 	}%
 }
 \def\pgfmathfloatrounddisplaystyle@E#1#2e#3\relax{%
 	\pgfmathfloatrounddisplaystyle@shared@impl{#1}{#2}{}{1}{%
-		E\expandafter\ifnum#3>0
-			+#3%
-		\else#3\fi
+		E\expandafter\ifnum#3>0\relax
+			{+}#3%
+		\else
+			{\count0=#3\relax
+			\multiply\count0 by-1
+			{-}\the\count0
+			}%
+		\fi
 	}%
 }
 
@@ -557,6 +592,7 @@
 	use period/.code=		{\let\pgfmathprintnumber@fixed@style=\pgfmathprintnumber@fixed@stylePERIOD},
 	use comma/.code=		{\let\pgfmathprintnumber@fixed@style=\pgfmathprintnumber@fixed@styleCOMMA},
 	sci 10^e/.code=			{\let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@std},
+	sci 10e/.code=			{\let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@std},
 	sci e/.code=			{\let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@e},
 	sci E/.code=			{\let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@E},
 	sci subscript/.code=	{\let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@subscript},
@@ -713,12 +749,30 @@
 	\endgroup
 }
 
+% Prints argument #1 using the current pretty printer environment (all
+% variables in /pgf/number format).
+%
+% You may specify optional arguments with \pgfmathprintnumber[...].
+\def\pgfmathprintnumber{%
+	\pgfutil@ifnextchar[%
+		{\pgfmathprintnumber@OPT}%
+		{\pgfmathprintnumber@}%
+}
+
+\def\pgfmathprintnumber@OPT[#1]#2{%
+	\begingroup
+	\pgfqkeys{/pgf/number format}{#1}%
+	\pgfmathprintnumber@{#2}%
+	\endgroup
+}%
+	
+
 % Changes the current number pretty printer to #1.
 %
 % #1 is the macro base name for the pretty print routine, without the
 % leading '\'.
 \def\pgfmath@set@number@printer#1{%
-	\expandafter\let\expandafter\pgfmathprintnumber\csname #1\endcsname
+	\expandafter\let\expandafter\pgfmathprintnumber@\csname #1\endcsname
 	\expandafter\let\expandafter\pgfmathprintnumber@issci\csname #1@issci\endcsname
 }
 
@@ -745,6 +799,8 @@
 \let\c@pgfmathroundto@offsetbehindperiod=\c@pgfmath@parsecountb
 \let\c@pgfmathroundto@lastzeros=\c@pgfmath@parsecountc
 
+\newif\ifpgfmathround@impl@PREPERIOD@is@negative@zero
+
 % PRECONDITION:
 %  	\ifpgfmathfloatroundhasperiod=\iftrue  holds outside of the
 %  	current TeX group.
@@ -755,12 +811,14 @@
 \def\pgfmathroundto@impl#1{%
 	\pgfmathfloat@tmptoks={}%
 	\let\pgfmathround@next=\pgfutil@empty
+	\let\pgfmathround@cur=\pgfutil@empty
 	\let\pgfmathresult=\pgfutil@empty
 	\edef\pgfmathround@input{#1}%
 	\expandafter\c@pgfmathroundto@prec\pgfmathfloat@round@precision\relax
 	\c@pgfmathroundto@lastzeros=0
 	\c@pgfmathroundto@offsetbehindperiod=-1 % means: no period found so far
-	\expandafter\pgfmathroundto@impl@ITERATE@NODOT\pgfmathround@input\pgfmathfloat@EOI
+	\pgfmathround@impl@PREPERIOD@is@negative@zerotrue
+	\expandafter\pgfmathroundto@impl@ITERATE@NODOT@firstcall\pgfmathround@input\pgfmathfloat@EOI
 }
 
 % \pgfmathroundto implementation in WORDS:
@@ -775,11 +833,13 @@
 %
 % Let 'k' be the desired precision.
 %
+% Please note that pgfmathroundto rounds the mantisse, that means |abs(x)|.
+%
 % There are exactly TWO cases:
 % 1. The case with p<=k and x_{-p-1} = end of input.
 % 2. The case with p=k and x_{-p-1} is a further, next character.
 %
-% Then, we do in case 1.)
+% Then, for case 1.):
 % 	discard any unused zeros at the tail of our number (possibly
 % 	including the period)
 %
@@ -819,6 +879,8 @@
 %	  This is -again- done with \pgfmathfloat@tmptoks.
 
 \def\pgfmathroundto@impl@discard@period#1.#2\pgfmathfloat@EOI{%
+	\pgfmathfloatroundhasperiodfalse
+	\aftergroup\pgfmathfloatroundhasperiodfalse
 	\def\pgfmathresult{#1}%
 }
 
@@ -838,10 +900,16 @@
 		\ifnum\c@pgfmathroundto@offsetbehindperiod<0
 			% no period found.
 			\ifpgfmathfloat@fixed@digits@after@period
-				\pgfmathfloat@tmptoks=\expandafter{\pgfmathround@input.}%
-				\c@pgfmathroundto@offsetbehindperiod=\c@pgfmathroundto@prec
-				\pgfmathroundto@impl@append@zeros
-				\edef\pgfmathresult{\the\pgfmathfloat@tmptoks}%
+				\ifnum\c@pgfmathroundto@prec=0\relax
+					\pgfmathfloatroundhasperiodfalse
+					\aftergroup\pgfmathfloatroundhasperiodfalse
+					\edef\pgfmathresult{\pgfmathround@input}%
+				\else
+					\pgfmathfloat@tmptoks=\expandafter{\pgfmathround@input.}%
+					\c@pgfmathroundto@offsetbehindperiod=\c@pgfmathroundto@prec
+					\pgfmathroundto@impl@append@zeros
+					\edef\pgfmathresult{\the\pgfmathfloat@tmptoks}%
+				\fi
 			\else
 				\pgfmathfloatroundhasperiodfalse
 				\aftergroup\pgfmathfloatroundhasperiodfalse
@@ -858,7 +926,7 @@
 		%\else
 		%	\pgfmath@error{Internal logic error in pgfmathroundto at [II] - should not have happened!? I have offsetbehindperiod=\the\c@pgfmathroundto@offsetbehindperiod and prec = \the\c@pgfmathroundto@prec}%
 		%\fi
-		\expandafter\ifnum\pgfmathround@next<5
+		\expandafter\ifnum\pgfmathround@next<5\relax
 			\pgfmathroundto@impl@finish@with@truncation
 		\else
 			\multiply\c@pgfmathroundto@offsetbehindperiod by-1
@@ -872,14 +940,26 @@
 \def\pgfmathroundto@impl@finish@with@truncation{%
 	\ifpgfmathfloat@fixed@digits@after@period
 		\expandafter\pgfmathroundto@impl@REVERSE\the\pgfmathfloat@tmptoks\pgfmathfloat@EOI
-		\advance\c@pgfmathroundto@prec by-\c@pgfmathroundto@offsetbehindperiod
-		\c@pgfmathroundto@offsetbehindperiod=\c@pgfmathroundto@prec
-		\pgfmathroundto@impl@append@zeros
-		\edef\pgfmathresult{\the\pgfmathfloat@tmptoks}%
+		\ifnum\c@pgfmathroundto@lastzeros=\c@pgfmathroundto@offsetbehindperiod
+			\ifpgfmathround@impl@PREPERIOD@is@negative@zero
+				% write '0.0000' instead of '-0.0000':
+				\expandafter\pgfmathroundto@impl@discard@minus\the\pgfmathfloat@tmptoks\pgfmathfloat@EOI
+			\fi
+		\fi
+		\ifnum\c@pgfmathroundto@prec=0\relax
+			\expandafter\pgfmathroundto@impl@discard@period\the\pgfmathfloat@tmptoks\pgfmathfloat@EOI
+		\else
+			\advance\c@pgfmathroundto@prec by-\c@pgfmathroundto@offsetbehindperiod
+			\c@pgfmathroundto@offsetbehindperiod=\c@pgfmathroundto@prec
+			\pgfmathroundto@impl@append@zeros
+			\edef\pgfmathresult{\the\pgfmathfloat@tmptoks}%
+		\fi
 	\else
 		\pgfmathroundto@impl@discard@suffix@zeros
 	\fi
 }
+
+\def\pgfmathroundto@impl@discard@minus-#1\pgfmathfloat@EOI{\pgfmathfloat@tmptoks={#1}}%
 
 % appends \c@pgfmathroundto@offsetbehindperiod zeros at the end of \pgfmathfloat@tmptoks.
 \def\pgfmathroundto@impl@append@zeros{%
@@ -891,7 +971,7 @@
 }
 
 \def\pgfmathroundto@impl@ADD@ONE{%
-	\pgfmathfloat@tmptoks={}%
+	\pgfmathfloat@tmptoks={}% no longer needed because its old value will be read from input
 	\pgfmathroundto@impl@ADD@ONE@ITERATE
 }
 \def\pgfmathroundto@impl@ADD@ONE@ITERATE{%
@@ -901,7 +981,13 @@
 		\pgfmathroundto@impl@gobble
 	}{%
 		\pgfutil@ifnextchar.{%
-			\pgfmathroundto@impl@ADD@ONE@NEXT@COLLECT
+			\ifnum\c@pgfmathroundto@prec=0
+				% silently discard period in special case precision=0
+				\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ADD@ONE@ITERATE@gobble@dot}%
+			\else
+				\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ADD@ONE@NEXT@COLLECT}%
+			\fi
+			\pgfmathround@nextcmd
 		}{%
 			\pgfutil@ifnextchar+{%
 				\pgfmathfloat@round@may@need@renormalizetrue
@@ -921,6 +1007,8 @@
 }
 
 \def\pgfmathroundto@impl@ADD@ONE@ITERATE@gobble@dot.{%
+	\pgfmathfloatroundhasperiodfalse
+	\aftergroup\pgfmathfloatroundhasperiodfalse
 	\pgfmathroundto@impl@ADD@ONE@ITERATE
 }
 
@@ -944,8 +1032,6 @@
 			\ifpgfmathfloat@fixed@digits@after@period
 				\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ADD@ONE@ITERATE}%
 			\else
-				\pgfmathfloatroundhasperiodfalse
-				\aftergroup\pgfmathfloatroundhasperiodfalse
 				\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ADD@ONE@ITERATE@gobble@dot}%
 			\fi
 		\else
@@ -965,9 +1051,13 @@
 
 \def\pgfmathroundto@impl@discard@suffix@zeros{%
 	\ifnum\c@pgfmathroundto@lastzeros=\c@pgfmathroundto@offsetbehindperiod
-		\pgfmathfloatroundhasperiodfalse
-		\aftergroup\pgfmathfloatroundhasperiodfalse
-		\expandafter\pgfmathroundto@impl@discard@period\pgfmathround@input\pgfmathfloat@EOI
+		\ifpgfmathround@impl@PREPERIOD@is@negative@zero
+			\pgfmathfloatroundhasperiodfalse
+			\aftergroup\pgfmathfloatroundhasperiodfalse
+			\def\pgfmathresult{0}% write '0' instead of '-0'
+		\else
+			\expandafter\pgfmathroundto@impl@discard@period\pgfmathround@input\pgfmathfloat@EOI
+		\fi
 	\else
 		\ifnum\c@pgfmathroundto@lastzeros=0
 			\expandafter\pgfmathroundto@impl@REVERSE\the\pgfmathfloat@tmptoks\pgfmathfloat@EOI
@@ -1041,25 +1131,52 @@
 	\pgfmathround@nextcmd
 }%
 
-\def\pgfmathroundto@impl@ITERATE@NODOT{%
-	\pgfutil@ifnextchar\pgfmathfloat@EOI{%
-		\pgfmathroundto@impl@gobble@and@start
-	}{%
-		\pgfutil@ifnextchar.{%
-			\pgfmathroundto@impl@BEGIN@DOT
-		}{%
-			\pgfmathroundto@impl@NEXT@NODOT
-		}%
-	}%
+% in contrast to pgfmathroundto@impl@ITERATE@NODOT, this method here
+% checks also for signs
+\def\pgfmathroundto@impl@ITERATE@NODOT@firstcall#1{%
+	\def\pgfmathround@cur{#1}%
+	\ifx\pgfmathround@cur\pgfmathfloat@EOI
+		\pgfmathround@impl@PREPERIOD@is@negative@zerofalse
+		\def\pgfmathround@nextcmd{\pgfmathroundto@impl@start}%
+	\else
+		\ifx\pgfmathround@cur\pgfmathfloatparsenumber@tok@PERIOD
+			\pgfmathround@impl@PREPERIOD@is@negative@zerofalse
+			\def\pgfmathround@nextcmd{\pgfmathroundto@impl@BEGIN@DOT.}%
+		\else
+			\ifx\pgfmathround@cur\pgfmathfloatparsenumber@tok@MINUS
+			\else
+				\pgfmathround@impl@PREPERIOD@is@negative@zerofalse
+			\fi
+			\pgfmathfloat@tmptoks=\expandafter{\expandafter#1\the\pgfmathfloat@tmptoks}%
+			\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ITERATE@NODOT}%
+		\fi
+	\fi
+	\pgfmathround@nextcmd
 }
-\def\pgfmathroundto@impl@NEXT@NODOT#1{%
-	\pgfmathfloat@tmptoks=\expandafter{\expandafter#1\the\pgfmathfloat@tmptoks}%
-	\pgfmathroundto@impl@ITERATE@NODOT
-}%
+
+\def\pgfmathroundto@impl@ITERATE@NODOT#1{%
+	\def\pgfmathround@cur{#1}%
+	\ifx\pgfmathround@cur\pgfmathfloat@EOI
+		\def\pgfmathround@nextcmd{\pgfmathroundto@impl@start}%
+	\else
+		\ifx\pgfmathround@cur\pgfmathfloatparsenumber@tok@PERIOD
+			\def\pgfmathround@nextcmd{\pgfmathroundto@impl@BEGIN@DOT.}%
+		\else
+			\ifx\pgfmathround@cur\pgfmathfloatparsenumber@tok@ZERO
+			\else
+				\pgfmathround@impl@PREPERIOD@is@negative@zerofalse
+			\fi
+			\pgfmathfloat@tmptoks=\expandafter{\expandafter#1\the\pgfmathfloat@tmptoks}%
+			\def\pgfmathround@nextcmd{\pgfmathroundto@impl@ITERATE@NODOT}%
+		\fi
+	\fi
+	\pgfmathround@nextcmd
+}
 
 %--------------------------------------------
 % END of pgfmathroundto implementation.
 %--------------------------------------------
+
 
 % flags, mantisse and exponent has already been stored into
 % \pgfmathfloat@a@* [using ...@Mtok]
