@@ -49,6 +49,7 @@ of lines. The interface works as follows:
 In the above description, there are a number of ``appropriately.''
 The exact details are not quite trivial and described later on.
 
+
 \subsubsection{Meta-Arrow Tips}
 
 In \pgfname, arrows are ``meta-arrows'' in the same way that fonts in
@@ -96,7 +97,7 @@ drawn by \pgfname\ at four different sizes:
 
 \medskip
 Here, by comparison, is the same arrow when it is simply ``resized''
-(as done by most programs):
+(as done by some programs):
 
 \pgfarrowsdeclare{bad latex}{bad latex}
 {
@@ -155,6 +156,11 @@ Here, by comparison, is the same arrow when it is simply ``resized''
 \bigskip
 As can be seen, simple scaling produces arrow tips that are way too
 large at larger sizes and way too small at smaller sizes.
+
+In addition to the line width, other options may also influence the
+appearance of an arrow tip. In particular, the width of the inner line
+(the line used to create the effect of a double line) influences arrow
+tips as well as other options that are specific to the arrow tip.
 
 
 
@@ -341,6 +347,7 @@ used:
   line width by specifying all coordinates as multiples of
   |\pgflinewidth|.
 
+  \medskip
   \textbf{The left and right extend.}
   Let us have another look at the exact left and right ``ends'' of our
   arrow tip. Let us draw the arrow tip |arc'| at a very large size:
@@ -426,6 +433,104 @@ used:
   \draw[line width=2pt,white] (-2,0) -- (0,0);
 \end{tikzpicture}
 \end{codeexample}
+
+  \medskip
+  \textbf{Taking inner lines into account.}
+  In addition to the line width, there is another parameter that (may)
+  influence the way an arrow looks: The inner line width, which is the
+  line width of the second line that is stroked on top of a normal
+  line in order to create the effect of a ``double'' line. When this
+  line width changes, the arrow tip code is also reexecuted (and
+  cached), so your code may depend on the current value of the inner
+  line width.
+
+  The following example shows how this works. The |implies| arrow
+  defined below has to setup the line width not for the ``main'' line
+  width, but for the main line width minus the inner line width,
+  divided by~2.
+\begin{codeexample}[code only]
+\pgfarrowsdeclare{implies}{implies}{...}
+{
+  \pgfmathsetlength{\pgfutil@tempdimb}{.5\pgflinewidth-.5*\pgfinnerlinewidth}%
+  \pgfsetlinewidth{\pgfutil@tempdimb}
+  \pgfsetdash{}{0pt}
+  \pgfsetroundcap
+  \pgfsetroundjoin
+  \pgfmathsetlength{\pgfutil@tempdima}{.25\pgflinewidth+.25*\pgfinnerlinewidth}%
+  \pgfpathmoveto {\pgfpoint{-1.4\pgfutil@tempdima}{2.65\pgfutil@tempdima}}
+  \pgfpathcurveto{\pgfpoint{-0.75\pgfutil@tempdima}{1.25\pgfutil@tempdima}}
+                 {\pgfpoint{1\pgfutil@tempdima}{0.05\pgfutil@tempdima}}
+                 {\pgfpoint{2\pgfutil@tempdima}{0pt}}
+  \pgfpathcurveto{\pgfpoint{1\pgfutil@tempdima}{-0.05\pgfutil@tempdima}}
+                 {\pgfpoint{-.75\pgfutil@tempdima}{-1.25\pgfutil@tempdima}}
+                 {\pgfpoint{-1.4\pgfutil@tempdima}{-2.65\pgfutil@tempdima}}
+  \pgfusepathqstroke
+}
+\end{codeexample}
+  Here is the effect for different combinations of line width and
+  inner line width:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \foreach \linewidth in {2,2.4,...,4.4}
+    \foreach \innerlinewidth in {0.4,0.8,...,1.8}
+    {
+      \pgfsetlinewidth{\linewidth pt}
+      \pgfsetinnerlinewidth{\innerlinewidth pt}
+      \draw [-implies] (\innerlinewidth*50pt,\linewidth*40pt) -- ++(4mm,0);
+    }
+\end{tikzpicture}
+\end{codeexample}
+
+  \medskip
+  \textbf{Arrow options.}
+  You may wish to have further option influence the appearance of an
+  arrow tip. For instance, for a ``pointed'' arrow you may wish to set
+  the opening angle of the tip. Then, whenever this option changes
+  that arrow tip code also needs to be reexecuted, even though the
+  line width has stayed the same.
+
+  You can use the commands |\pgfsetarrowoptions| and
+  |\pgfgetarrowoptions| to set such options for an arrow tip. Whenever
+  an arrow tip needs to be rendered, it is checked whether the arrow
+  tip code has already been executed for the current (expanded) value of the
+  options. If so, the cached code is used; otherwise the code is
+  executed once more. Naturally, inside the code the current value of
+  the arrow options should be taken into account.
+
+  Arrow options can and must be specified individually for each arrow
+  type.
+
+  In the following example, we make the arc angle an option.
+\begin{codeexample}[]
+\pgfarrowsdeclare{var arc}{var arc} % options is an angle
+{
+  \arrowsize=0.2pt
+  \advance\arrowsize by .5\pgflinewidth
+  \pgfarrowsleftextend{-4\arrowsize-.5\pgflinewidth}
+  \pgfarrowsrightextend{.5\pgflinewidth}
+}
+{
+  \arrowsize=0.2pt
+  \advance\arrowsize by .5\pgflinewidth
+  \pgfsetdash{}{0pt} % do not dash
+  \pgfsetroundjoin   % fix join
+  \pgfsetroundcap    % fix cap
+  \pgfpathmoveto{\pgfpointorigin}
+  \pgfpatharc{-90}{-180+\pgfgetarrowoptions{var arc}}{4\arrowsize}
+  \pgfusepathqstroke
+  \pgfpathmoveto{\pgfpointorigin}
+  \pgfpatharc{90}{180-\pgfgetarrowoptions{var arc}}{4\arrowsize}
+  \pgfusepathqstroke
+}
+\begin{tikzpicture}
+  \draw[help lines] (-2,-4) grid (1,4);
+  \foreach \option in {-60,-50,...,60}
+  {
+    \pgfsetarrowoptions{var arc}{\option}
+    \draw[ultra thick,-var arc] (-2,\option/15) -- (0,\option/15);
+  }
+\end{tikzpicture}
+\end{codeexample}
 \end{command}
 
 \pgfarrowsdeclare{arcs''}{arcs''}
@@ -448,6 +553,17 @@ used:
   \pgfpatharc{90}{180}{4\arrowsize}
   \pgfusepathqstroke
 }
+
+\begin{command}{\pgfsetarrowoptions\marg{arrow tip}\marg{text}}
+  Sets the options for the \meta{arrow tip} to \meta{text}. The
+  default, before any call to this macro is made, is 0.
+\end{command}
+
+\begin{command}{\pgfgetarrowoptions\marg{arrow tip}}
+  This will expand to the current value of the options for the
+  \meta{arrow tip}. 
+\end{command}
+
 
 
 \subsection{Declaring a Derived Arrow Tip Kind}
