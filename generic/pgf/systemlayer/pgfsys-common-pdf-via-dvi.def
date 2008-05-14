@@ -12,43 +12,29 @@
 % Common driver commands for all drivers that produce pdf via the
 % detour of a dvi file
 
-\def\pgfsys@invoke#1{\special{pdf: content Q #1 q}}
-
 \def\pgfsys@hbox#1{%
-  \special{pdf: content Q q -1 0 0 -1 0 0 cm q}%
+  \pgfsys@invoke{q -1 0 0 -1 0 0 cm}%
   \special{pdf: content -1 0 0 -1 0 0 cm 3 Tr q}% translate to
                                 % original coordinate system and do
                                 % not show anything
   {\hbox to 0pt{\pgfutil@font@normalfont\pgfutil@selectfont.\hss}}% enforce font change
-  \special{pdf: content Q 0 Tr q}% end of font change enforcement.
+  \pgfsys@invoke{0 Tr}%
     \wd#1=0pt%
     \ht#1=0pt%
     \dp#1=0pt%
     \box#1
-  \special{pdf: content Q n Q}%
+  \pgfsys@invoke{n Q Q}%
 }
 \def\pgfsys@beginpicture{%
-  \special{pdf: content Q 3 Tr q}% do not show anything
+  \pgfsys@invoke{3 Tr}%
   \hbox to 0pt{\pgfutil@font@normalfont\pgfutil@selectfont.\hss}% enforce font change
-  \special{pdf: content Q 0 Tr q}% end of font change enforcement.
+  \pgfsys@invoke{0 Tr}%
   \special{pdf: content q}}
 \def\pgfsys@endpicture{%
-  \special{pdf: content n Q}%
+  \pgfsys@invoke{n Q}%
 }
 \def\pgfsys@beginpurepicture{\special{pdf: content q}}
 
-
-\def\pgf@sys@pdf@addtopageresources@extgs#1{%
-  \ifx\pgf@sys@pdf@obj\@undefined%
-    \global\let\pgf@sys@pdf@obj=\relax%
-    \special{pdf: obj @pgfopacities << >>}% <<
-  \fi%
-  \special{pdf: put @pgfopacities << #1 >>}% <<
-  \special{pdf: put @resources << /ExtGState @pgfopacities >>}% <<
-}
-\def\pgf@sys@pdf@readdtopageresources@extgs#1{%
-  \special{pdf: put @resources << /ExtGState @pgfopacities >>}% <<
-}
 
 \def\pgfsys@imagesuffixlist{.pdf:.jpg:.jpeg:.png:}
 \def\pgfsys@horishading#1#2#3{%
@@ -116,27 +102,6 @@
   }%
 }%
 
-% % The following is an ugly hack. We need something like
-% % "everyshipout".
-% % But it should be ultra-portable...
-% \def\pgf@sys@atbeginpage#1{\AtBeginDvi{#1}}
-% \AtBeginDocument{% hack for old hyperref
-%   \ifx\Hy@begindvi\@undefined%
-%     \let\pgf@sys@continue@hyper=\pgfutil@empty%
-%   \else%
-%     \pgf@sys@test@hyper%
-%   \fi%
-%   \def\@begindvi{\unvbox\@begindvibox\pgf@sys@continue@hyper}
-% }
-%
-% \def\pgf@sys@test@hyper{%
-%   \ifHy@implicit%
-%     \let\pgf@sys@continue@hyper=\Hy@begindvi%
-%   \else%
-%     \let\pgf@sys@continue@hyper=\HyPL@EveryPage%
-%   \fi%
-% }
-
 \def\pgf@sys@pdf@dvi@tracker{
   \def\pgfsys@markposition##1{%
     \pdfsavepos%
@@ -153,6 +118,61 @@
   }
   \def\pgf@sys@pdf@mark@pos@pgfpageorigin{\pgfpointorigin}
 }
+
+
+
+%
+% Resource management
+%
+
+\newif\ifpgf@sys@pdf@colorspaces@exists
+\newif\ifpgf@sys@pdf@patterns@exists
+\newif\ifpgf@sys@pdf@extgs@exists
+\newif\ifpgf@sys@pdf@colorspaces@created
+\newif\ifpgf@sys@pdf@patterns@created
+\newif\ifpgf@sys@pdf@extgs@created
+\newif\ifpgf@sys@pdf@any@resources
+
+\def\pgf@sys@setuppdfresources@plain{%
+  % This command will setup pdf resource in plain and in latex
+  % mode. ConTeXt has its own handler
+  \pgfutil@insertatbegineverypage{%
+    \pgf@sys@pdf@any@resourcesfalse%
+    \ifpgf@sys@pdf@extgs@exists%
+      \pgf@sys@pdf@any@resourcestrue%
+      \ifpgf@sys@pdf@extgs@created \else \special{pdf: obj @pgfextgs <<>>} \global\pgf@sys@pdf@extgs@createdtrue \fi% <<    
+    \fi%
+    \ifpgf@sys@pdf@colorspaces@exists%
+      \pgf@sys@pdf@any@resourcestrue%
+      \ifpgf@sys@pdf@colorspaces@created \else \special{pdf: obj @pgfcolorspaces <<>>} \global\pgf@sys@pdf@colorspaces@createdtrue \fi% <<    
+    \fi%
+    \ifpgf@sys@pdf@patterns@exists%
+      \pgf@sys@pdf@any@resourcestrue%
+      \ifpgf@sys@pdf@patterns@created \else \special{pdf: obj @pgfpatterns <<>>} \global\pgf@sys@pdf@patterns@createdtrue \fi% <<    
+    \fi%
+    \ifpgf@sys@pdf@any@resources%
+      \special{pdf: put @resources <<
+        \ifpgf@sys@pdf@extgs@exists /ExtGState @pgfextgs \fi
+        \ifpgf@sys@pdf@patterns@exists /Pattern @pgfpattern \fi
+        \ifpgf@sys@pdf@colorspaces@exists /ColorSpace @pgfcolorspaces \fi
+        >>}% <<
+    \fi%
+  }
+  \def\pgf@sys@addpdfresource@extgs@plain##1{%
+    \global\pgf@sys@pdf@extgs@existstrue%
+    \pgfutil@insertatbegincurrentpage{\special{pdf: put @pgfextgs << ##1 >>}}% <<
+  }
+  \def\pgf@sys@addpdfresource@colorspaces@plain##1{%
+    \global\pgf@sys@pdf@colorspaces@existstrue%
+    \pgfutil@insertatbegincurrentpage{\special{pdf: put @pgfcolorspaces << ##1 >>}}% <<
+  }
+  \def\pgf@sys@addpdfresource@patterns@plain##1{%
+    \global\pgf@sys@pdf@patterns@existstrue%
+    \pgfutil@insertatbegincurrentpage{\special{pdf: put @pgfpatterns << ##1 >>}}% <<
+  }
+}
+\pgfutil@setuppdfresources % possibly call the above
+
 
 \endinput
 
