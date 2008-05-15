@@ -334,8 +334,10 @@
 \tikzset{pattern/.code=\PackageError{tikz}{You need to say \string\usetikzlibrary{patterns}}{},
          pattern color/.style=pattern}
 
+% Path pictures
+\tikzset{path picture/.code=\tikz@addmode{\def\tikz@path@picture{#1}}}       
 
-% Shading options
+% Fading options
 \tikzset{path fading/.code={
   \def\tikz@temp{#1}%
   \ifx\tikz@temp\tikz@nonetext%
@@ -1540,6 +1542,7 @@
   %
   % Reset modes
   %
+  \let\tikz@path@picture=\pgfutil@empty%
   \tikz@mode@fillfalse%
   \tikz@mode@drawfalse%
   \tikz@mode@doublefalse%
@@ -1585,7 +1588,7 @@
       \tikz@options%
   \fi%
   % 
-  % Step 4: Do a fill if shade follows.
+  % Step 4: Do a fill if shade or a path picture follows.
   %
   \iftikz@mode@fill%
     \iftikz@mode@shade%
@@ -1595,6 +1598,16 @@
       \pgfsyssoftpath@invokecurrentpath%
       \pgfsys@fill%
       \tikz@mode@fillfalse% no more filling...
+    \else%
+      \ifx\tikz@path@picture\pgfutil@empty%
+      \else%
+        \pgfsyssoftpath@getcurrentpath\tikz@temppath
+        \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
+        \pgfsyssoftpath@setcurrentpath\tikz@temppath%
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgfsys@fill%
+        \tikz@mode@fillfalse% no more filling...
+      \fi%
     \fi%
   \fi%
   % 
@@ -1606,6 +1619,34 @@
     \pgfsyssoftpath@setcurrentpath\tikz@temppath%
     \pgfshadepath{\tikz@shading}{\tikz@shade@angle}%
     \tikz@mode@shadefalse% no more shading...
+  \fi%
+  % 
+  % Step 5a: Do a path picture if necessary.
+  %
+  \ifx\tikz@path@picture\pgfutil@empty%
+  \else%
+    \begingroup%
+      \pgfsys@beginscope%
+        \pgfsyssoftpath@getcurrentpath\tikz@temppath
+        \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
+        \pgfsyssoftpath@setcurrentpath\tikz@temppath%
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgfsys@clipnext%
+        \pgfsys@discardpath%
+        \pgf@relevantforpicturesizefalse%
+        \expandafter\def\csname pgf@sh@ns@path picture bounding box\endcsname{rectangle}
+        \expandafter\edef\csname pgf@sh@np@path picture bounding box\endcsname{%
+          \def\noexpand\southwest{\noexpand\pgfqpoint{\the\pgf@pathminx}{\the\pgf@pathminy}}%
+          \def\noexpand\northeast{\noexpand\pgfqpoint{\the\pgf@pathmaxx}{\the\pgf@pathmaxy}}%
+        }
+        \expandafter\def\csname pgf@sh@nt@path picture bounding box\endcsname{{1}{0}{0}{1}{0pt}{0pt}}
+        \expandafter\def\csname pgf@sh@pi@path picture bounding box\endcsname{\pgfpictureid}
+        \pgfinterruptpath%  
+          \tikz@path@picture%
+        \endpgfinterruptpath%
+      \pgfsys@endscope%
+    \endgroup%
+    \let\tikz@path@picture=\pgfutil@empty%  
   \fi%
   % 
   % Step 6: Double stroke, if necessary
