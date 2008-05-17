@@ -368,6 +368,7 @@
 	\endgroup
 }%
 
+
 % #1=mantisse which needs to be shifted (with smaller exponent)
 % #2=smaller exponent
 % #3=larger exponent
@@ -407,6 +408,62 @@
 
 \let\pgfmathfloatadd=\pgfmathfloatadd@
 
+
+% Subtracts two floating point numbers.
+\def\pgfmathfloatsubtract@#1#2{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#2\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@b@E
+	\ifcase\pgfmathfloat@b@S
+		\edef\pgfmathresult{#1}%
+	\or
+		\pgfmathfloatcreate{2}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@b@E}%
+		\let\pgfmathfloatsub@arg=\pgfmathresult
+		\pgfmathfloatadd@{#1}{\pgfmathfloatsub@arg}%
+	\or
+		\pgfmathfloatcreate{1}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@b@E}%
+		\let\pgfmathfloatsub@arg=\pgfmathresult
+		\pgfmathfloatadd@{#1}{\pgfmathfloatsub@arg}%
+	\else
+		\pgfmathfloatcreate{\the\pgfmathfloat@b@S}{0.0}{0}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+\let\pgfmathfloatsubtract=\pgfmathfloatsubtract@
+
+% Scales a floating point number #1 with a fixed point number #2 using pgfmathmultiply.
+% 
+% Use this method if #2 is small number.
+\def\pgfmathfloatmultiplyfixed@#1#2{%
+	\begingroup
+	%
+	% renormalize argument to 100 <= m < 1000 for extended accuracy:
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+		\edef\pgfmathresult{#1}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@arga{-\pgfmathfloat@arga}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{0.0}{0}%
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmathmultiply@{\pgfmathfloat@arga}{#2}%
+		% renormalize product. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+\let\pgfmathfloatmultiplyfixed=\pgfmathfloatmultiplyfixed@
 
 % Converts a composed floating point representation to fixed point.
 %
@@ -495,10 +552,15 @@
 %
 % see \pgfmathlog@
 \def\pgfmathlog@newton#1{%
+	\pgfmathfloatparsenumber{#1}%
+	\pgfmathlog@newton@float{\pgfmathresult}%
+}
+
+% the same as \pgfmathlog@newton, but this one takes a floating point number as input.
+\def\pgfmathlog@newton@float#1{%
 	\begingroup%
 		% compute #1 = M*10^E with normalised mantisse M = [+-]*[1-9].XXXXX
-		\pgfmathfloatparsenumber{#1}%
-		\expandafter\pgfmathfloat@decompose\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@M\pgfmathfloat@a@E
+		\expandafter\pgfmathfloat@decompose#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@M\pgfmathfloat@a@E
 		\let\pgfmathlog@loopcount=\pgfmathfloat@b@S% this counter is not used here... use it as loop counter.
 		%
 		\ifnum\pgfmathfloat@a@S=1
@@ -537,6 +599,8 @@
 %
 % The natural logarithm is computed using log(X*10^Y) = log(X) + log(10)*Y
 \let\pgfmathlog@=\pgfmathlog@newton
+
+\let\pgfmathlog@float=\pgfmathlog@newton@float
 
 % Public interface method. This is expected to use \pgfmathparse but
 % it DOESN'T do that. \pgfmathparse naturally can't handle numbers
