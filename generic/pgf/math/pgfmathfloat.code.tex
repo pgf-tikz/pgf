@@ -97,6 +97,20 @@
 	\endgroup
 }
 
+% The same as \pgfmathfloatparsenumber, but does not perform sanity checking.
+\def\pgfmathfloatqparsenumber#1{%
+	\begingroup
+	\let\pgfmathfloatparsenumber@sanitize@digit=\relax
+	\expandafter\pgfmathfloatparsenumber@impl#1\pgfmathfloat@EOI
+	\ifpgfmathfloatparsenumberpendingperiod
+		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
+	\fi
+	\edef\pgfmathresult{%
+		\the\pgfmathfloat@a@S\the\pgfmathfloat@a@Mtok e\the\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+
 
 % decomposes a lowlevel floating point representation into flags,
 % mantisse and exponent.
@@ -167,7 +181,7 @@
 % Defines \pgfmathresult as the floating point number encoded by
 % the flags #1, mantisse #2 and exponent #3.
 %
-% All arguments are characters.
+% All arguments are characters and will be expanded using '\edef'.
 \def\pgfmathfloatcreate#1#2#3{%
 	\edef\pgfmathresult{#1#2e#3}%
 }%
@@ -259,6 +273,140 @@
 	\fi
 }
 \let\pgfmathfloatmin=\pgfmathfloatmin@
+
+% Renormalizes #1 to extended precision mantisse, meaning
+% 100 <= m < 1000
+% instead of 1 <= m < 10.
+% 
+% The 'extended precision' means we have higher accuracy when we apply pgfmath operations to mantisses.
+%
+% The input argument is expected to be a normalized floating point number; the output argument is a non-normalized floating point number (well, normalized to extended precision).
+%
+% The operation is supposed to be very fast.
+\def\pgfmathfloattoextentedprecision#1{%
+	\begingroup
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\pgfmathfloatcreate{\pgfmathfloat@a@S}{\pgfmathresult}{\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+% Does the same work as \pgfmathfloattoextentedprecision, but this one here fills the 
+% registers \pgfmathfloat@a@S and \pgfmathfloat@a@E with the flags and (renormalized) exponent.
+% It destroys the content of \pgfmathfloat@a@Mtok.
+\def\pgfmathfloattoextentedprecision@a#1{%
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifnum\pgfmathfloat@a@S<3
+		\advance\pgfmathfloat@a@E by-2\relax% compensate for shift above
+		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
+	\else
+		\edef\pgfmathresult{#1}%
+	\fi
+}%
+\def\pgfmathfloattoextentedprecision@@#1.#2#3#4\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2#3.#4}%
+}%
+
+
+% Similar to \pgfmathfloattoextentedprecision@a, this one here fills the '@b' registers.
+\def\pgfmathfloattoextentedprecision@b#1{%
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@b@E
+	\ifnum\pgfmathfloat@b@S<3
+		\advance\pgfmathfloat@b@E by-2\relax
+		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
+	\else
+		\edef\pgfmathresult{#1}%
+	\fi
+}%
+
+% Addition of two floating point numbers using 8 significant digits.
+\def\pgfmathfloatadd@#1#2{%
+	\begingroup
+	%
+	% renormalize argument to 100 <= m < 1000 for extended accuracy:
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloattoextentedprecision@b{#2}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+		\edef\pgfmathresult{#2}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@arga{-\pgfmathfloat@arga}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{0.0}{0}%
+	\fi
+	\ifcase\pgfmathfloat@b@S
+		\edef\pgfmathresult{#1}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@argb{-\pgfmathfloat@argb}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@b@S}{0.0}{0}%
+	\fi
+	\ifpgfmathfloatcomparison
+		% Shift lesser mantisse to fit the larger one:
+		\ifnum\pgfmathfloat@a@E<\pgfmathfloat@b@E
+			\pgfmathfloatadd@shift{\pgfmathfloat@arga}{\pgfmathfloat@a@E}{\pgfmathfloat@b@E}%
+		\else
+			\pgfmathfloatadd@shift{\pgfmathfloat@argb}{\pgfmathfloat@b@E}{\pgfmathfloat@a@E}%
+		\fi
+		% add them!
+		\pgfmathadd@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+% #1=mantisse which needs to be shifted (with smaller exponent)
+% #2=smaller exponent
+% #3=larger exponent
+% 
+% ATTENTION: this helper method DESTROYS contents of \pgfmathfloat@a@S.
+\def\pgfmathfloatadd@shift#1#2#3{%
+	\pgf@xa=#1 pt
+	\pgfmathfloat@a@S=#3
+	\advance\pgfmathfloat@a@S by-#2
+	\ifcase\pgfmathfloat@a@S
+	\or
+		\divide\pgf@xa by10\relax
+	\or
+		\divide\pgf@xa by100\relax
+	\or
+		\divide\pgf@xa by1000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by10\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by100\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by1000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by10000\relax
+	\else
+		\pgf@xa=0pt	
+	\fi
+	#2=#3
+	\edef#1{\pgf@sys@tonumber\pgf@xa}%
+}
+
+\let\pgfmathfloatadd=\pgfmathfloatadd@
+
 
 % Converts a composed floating point representation to fixed point.
 %
@@ -1451,15 +1599,11 @@
 % Starts a finite-start-machine parser to read a number.
 %
 % It assigns \pgfmathfloat@a@S, \pgfmathfloat@a@Mtok, \pgfmathfloat@a@E.
-\def\pgfmathfloatparsenumber@impl{%
+\def\pgfmathfloatparsenumber@impl#1{%
 	\pgfmathfloatparsenumberpendingperiodfalse
 	\pgfmathfloat@tmptoks={}% this register is used to collect PENDING ZEROS
 	\pgfmathfloat@a@E=0
-	\pgfmathfloatparsenumber@impl@checksign
-}
-
-
-\def\pgfmathfloatparsenumber@impl@checksign#1{%
+	% start parsing: check for sign:
 	\def\pgfmathfloatparsenumber@curtok{#1}%
 	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@PLUS
 		\pgfmathfloat@a@S=1\relax%
@@ -1476,9 +1620,31 @@
 	\pgfmathfloatparsenumber@NEXT
 }
 
+\def\pgfmathfloatparsenumber@sanitize@digit{%
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
+	\else
+	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
+	\else
+		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
+	\fi\fi\fi\fi\fi\fi\fi\fi\fi
+}
+
 % FROM: checksign.
 %
-% I already know the contents of #1.
 \def\pgfmathfloatparsenumber@impl@init#1{%
 	\def\pgfmathfloatparsenumber@curtok{#1}%
 	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@n
@@ -1494,26 +1660,7 @@
 					\pgfmathfloat@a@Mtok={#1}%
 					\pgfmathfloatparsenumberpendingperiodtrue
 					\pgfmathfloatparsenumber@impl@positiveexp}%
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-				\else
-				\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-				\else
-					\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-				\fi\fi\fi\fi\fi\fi\fi\fi\fi
+				\pgfmathfloatparsenumber@sanitize@digit
 			\fi
 		\fi
 	\fi
@@ -1577,26 +1724,7 @@
 			\pgfmathfloat@a@Mtok={#1}%
 			\pgfmathfloatparsenumberpendingperiodtrue
 			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 		\fi
 	\fi
@@ -1635,26 +1763,7 @@
 			\pgfmathfloat@a@Mtok={#1}%
 			\pgfmathfloatparsenumberpendingperiodtrue
 			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 	\fi
 	\pgfmathfloatparsenumber@NEXT
@@ -1689,26 +1798,7 @@
 			\fi
 			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
 			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 		\fi
 	\fi
@@ -1749,26 +1839,7 @@
 			\pgfmathfloat@tmptoks={}%
 			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
 			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 		\fi
 	\fi
@@ -1800,26 +1871,7 @@
 			\pgfmathfloat@tmptoks={}%
 			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
 			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 	\fi
 	\pgfmathfloatparsenumber@NEXT
@@ -1850,26 +1902,7 @@
 			\pgfmathfloat@tmptoks={}%
 			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
 			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-		\else
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@error}%
-		\fi\fi\fi\fi\fi\fi\fi\fi\fi
+		\pgfmathfloatparsenumber@sanitize@digit
 		\fi\fi\fi
 	\fi
 	\pgfmathfloatparsenumber@NEXT
