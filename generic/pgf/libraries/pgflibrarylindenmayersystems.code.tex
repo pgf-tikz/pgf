@@ -1,0 +1,221 @@
+% Copyright 2008 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\pgfkeys{/pgf/lindenmayer system/.cd,
+	step/.initial=5pt,
+	randomize step/.initial=0,
+	left angle/.initial=90,
+	right angle/.initial=90,
+	angle/.style={/pgf/lindenmayer system/left angle=#1, /pgf/lindenmayer system/right angle=#1},
+	randomize angle/.initial=0
+}
+
+\long\def\pgfdeclarelindenmayersystem#1#2{%
+	\pgfutil@ifundefined{pgf@lsystem@#1}%
+		{%
+			\begingroup%
+				\edef\pgf@lsystem@name{#1}%
+				\expandafter\global\expandafter\let\csname pgf@lsystem@#1\endcsname=\pgf@lsystem@name%
+				\let\symbol=\pgf@lsystem@symbol%
+				\let\rule=\pgf@lsystem@rule%
+				#2%
+			\endgroup%
+		}%
+		{\PackageError{pgf}{Lindenmayer system `#1' is already defined}{}}%
+}
+
+\def\pgf@lsystem@symbol#1#2{%
+	\expandafter\gdef\csname pgf@lsystem@\pgf@lsystem@name @symbol@#1\endcsname{#2}%
+}
+
+\def\pgf@lsystem@rule#1{\expandafter\pgf@lsystem@rule@#1\pgf@stop}
+\def\pgf@lsystem@rule@#1{\def\pgf@lsystem@rule@head{#1}\pgf@lsystem@rule@@}
+\def\pgf@lsystem@rule@@#1->{% Now some `fooling around' to deal with unwanted spaces.
+	\let\pgf@lsystem@rule@body=\pgfutil@empty%
+	\pgfutil@ifnextchar x{\pgf@lsystem@rule@@@}{\pgf@lsystem@rule@@@}}
+\def\pgf@lsystem@rule@@@#1{%
+	\ifx#1\pgf@stop%
+		\expandafter\global\expandafter\let%
+			\csname pgf@lsystem@\pgf@lsystem@name @rule@\pgf@lsystem@rule@head\endcsname=\pgf@lsystem@rule@body%
+	\else%
+		\edef\pgf@lsystem@rule@body{\pgf@lsystem@rule@body#1}%
+		\expandafter\pgf@lsystem@rule@@@%
+	\fi%
+}
+
+
+\newcount\c@pgf@lsystem@iteration
+
+\newif\ifpgf@lsystem@randomize@step
+\newif\ifpgf@lsystem@randomize@angle
+
+\def\pgflindenmayersystem#1#2#3{%
+	\begingroup%
+		\edef\pgf@lsystem@name{#1}%
+		\edef\pgf@lsystem@axiom{#2}%
+		\edef\pgf@lsystem@order{#3}%
+		\let\pgf@lsystem@current@symbol=\relax%
+		%
+		\pgfmathsetlengthmacro\pgf@lsystem@step{\pgfkeysvalueof{/pgf/lindenmayer system/step}}%
+		%
+		\pgfmathparse{\pgfkeysvalueof{/pgf/lindenmayer system/randomize step}}%
+		\let\pgf@lsystem@randomize@step=\pgfmathresult%
+		\ifdim\pgf@lsystem@randomize@step pt=0pt\relax%
+			\pgf@lsystem@randomize@stepfalse%
+		\else%
+			\pgf@lsystem@randomize@steptrue%
+		\fi%
+		%
+		\pgfmathparse{\pgfkeysvalueof{/pgf/lindenmayer system/left angle}}%
+		\let\pgf@lsystem@left@angle=\pgfmathresult%
+		\pgfmathparse{\pgfkeysvalueof{/pgf/lindenmayer system/right angle}}%
+		\let\pgf@lsystem@right@angle=\pgfmathresult%
+		%
+		\pgfmathparse{\pgfkeysvalueof{/pgf/lindenmayer system/randomize angle}}%
+		\let\pgf@lsystem@randomize@angle=\pgfmathresult%
+		\ifdim\pgf@lsystem@randomize@angle pt=0pt\relax%
+			\pgf@lsystem@randomize@anglefalse%
+		\else%
+			\pgf@lsystem@randomize@angletrue%
+		\fi%
+		%
+		\c@pgf@lsystem@iteration=0\relax%
+		\ifnum\pgf@lsystem@order=0\relax%
+			\expandafter\pgf@lsystem@draw\pgf@lsystem@axiom\pgf@stop
+			\let\pgf@lsystem@next=\pgf@lsystem@end%
+		\else%
+			\let\pgf@lsystem@next=\pgf@lsystem@run%		
+		\fi%
+		\expandafter\pgf@lsystem@next\pgf@lsystem@axiom\pgf@lsystem@stop%
+}
+
+\def\pgf@lsystem@run#1{%
+	\ifx#1\pgf@lsystem@stop%
+		\def\pgf@lsystem@token{\pgf@lsystem@stop}%
+		\let\pgf@lsystem@next=\pgf@lsystem@end%
+	\else%
+		\ifx#1\pgf@stop%
+			\advance\c@pgf@lsystem@iteration by-1\relax%
+			\let\pgf@system@token=\pgfutil@empty%
+			\let\pgf@lsystem@next=\pgf@lsystem@run%
+		\else%
+			% Does #1 appear on the RHS of a rule...?
+			\expandafter\let\expandafter\pgf@lsystem@token\expandafter=%
+				\csname pgf@lsystem@\pgf@lsystem@name @rule@#1\endcsname%				
+			\ifx\pgf@lsystem@token\relax%
+				% ...nope. So draw it straight away.
+				\pgf@lsystem@draw#1\pgf@stop%
+				\let\pgf@lsystem@token=\pgfutil@empty%				
+			\else%
+				% ...yep. So, if the order has been reached draw the LHS 
+				% immediately. Otherwise add the LHS to the token stream
+				% and continue.
+				\advance\c@pgf@lsystem@iteration by1\relax%
+				\ifnum\c@pgf@lsystem@iteration=\pgf@lsystem@order%
+					\expandafter\pgf@lsystem@draw\pgf@lsystem@token \pgf@stop%
+					\advance\c@pgf@lsystem@iteration by-1\relax%
+					\let\pgf@lsystem@token=\pgfutil@empty%
+				\else%
+					\expandafter\def\expandafter\pgf@lsystem@token\expandafter{\pgf@lsystem@token \pgf@stop}%
+				\fi%
+			\fi%
+			\let\pgf@lsystem@next=\pgf@lsystem@run%
+		\fi%
+	\fi%
+	\expandafter\pgf@lsystem@next\pgf@lsystem@token}
+
+\def\pgf@lsystem@end#1\pgf@lsystem@stop{\endgroup}
+
+\def\pgf@lsystem@draw#1{%
+	\ifx#1\pgf@stop%
+		\let\pgf@lsystem@next=\relax%
+	\else%
+		\expandafter\let\expandafter\pgf@lsystem@current@symbol\expandafter=%
+			\csname pgf@lsystem@\pgf@lsystem@name @symbol@#1\endcsname%
+		\ifx\pgf@lsystem@current@symbol\relax% Try a default symbol.
+			\expandafter\let\expandafter\pgf@lsystem@current@symbol\expandafter=%
+				\csname pgf@lsystem@symbol@default@#1\endcsname%
+		\fi%
+		\let\pgf@lsystem@next=\pgf@lsystem@@draw%
+	\fi%
+	\pgf@lsystem@next}
+
+\def\pgf@lsystem@@draw{%
+	\let\pgflsystemstep=\pgf@lsystem@step%
+	\let\pgflsystemrightangle=\pgf@lsystem@right@angle%
+	\let\pgflsystemleftangle=\pgf@lsystem@left@angle%
+	\pgf@lsystem@current@symbol%
+	\pgf@lsystem@draw}
+
+\expandafter\def\csname	pgf@lsystem@symbol@default@F\endcsname{\pgflsystemdrawforward}
+\expandafter\def\csname	pgf@lsystem@symbol@default@f\endcsname{\pgflsystemmoveforward}
+\expandafter\def\csname	pgf@lsystem@symbol@default@+\endcsname{\pgflsystemturnleft}
+\expandafter\def\csname	pgf@lsystem@symbol@default@-\endcsname{\pgflsystemturnright}
+\expandafter\def\csname	pgf@lsystem@symbol@default@[\endcsname{\pgflsystemsavestate}
+\expandafter\def\csname	pgf@lsystem@symbol@default@]\endcsname{\pgflsystemrestorestate}
+
+\def\pgflsystemradonmizestep{%
+	\ifpgf@lsystem@randomize@step%
+		\pgfmathrand%
+		\pgf@x=\pgf@lsystem@randomize@step pt\relax%
+		\pgf@x=\pgfmathresult\pgf@x%
+		\divide\pgf@x by20\relax%
+		\advance\pgf@x by\pgf@lsystem@step\relax%
+		\edef\pgflsystemstep{\the\pgf@x}%
+	\else%
+		\let\pgflsystemstep=\pgf@lsystem@step%
+	\fi%
+}
+
+\def\pgflsystemdrawforward{%
+	\pgflsystemradonmizestep
+	\pgftransformxshift{+\pgflsystemstep}%
+	\pgfpathlineto{\pgfpointorigin}}
+
+\def\pgflsystemmoveforward{%
+	\pgflsystemradonmizestep
+	\pgftransformxshift{+\pgflsystemstep}%
+	\pgfpathmoveto{\pgfpointorigin}}
+
+\def\pgflsystemranomizerightangle{%
+	\ifpgf@lsystem@randomize@angle%
+		\pgf@x=\pgf@lsystem@randomize@angle pt\relax%
+		\divide\pgf@x by20\relax%
+		\pgfmathrand%
+		\pgf@x=\pgfmathresult\pgf@x%
+		\advance\pgf@x by\pgf@lsystem@right@angle pt\relax%
+		\edef\pgflsystemrightangle{\pgfmath@tonumber{\pgf@x}}%
+	\else%
+		\let\pgflsystemrightangle=\pgf@lsystem@right@angle%
+	\fi%
+}
+
+\def\pgflsystemranomizeleftangle{%
+	\ifpgf@lsystem@randomize@angle%
+		\pgf@x=\pgf@lsystem@randomize@angle pt\relax%
+		\divide\pgf@x by20\relax%
+		\pgfmathrand%
+		\pgf@x=\pgfmathresult\pgf@x%
+		\advance\pgf@x by\pgf@lsystem@left@angle pt\relax%
+		\edef\pgflsystemleftangle{\pgfmath@tonumber{\pgf@x}}%
+	\else%
+		\let\pgflsystemleftangle=\pgf@lsystem@left@angle%
+	\fi%
+}
+
+\def\pgflsystemturnright{%
+	\pgflsystemranomizerightangle
+	\pgftransformrotate{-\pgflsystemrightangle}}
+
+\def\pgflsystemturnleft{%
+	\pgflsystemranomizeleftangle
+	\pgftransformrotate{\pgflsystemleftangle}}
+
+\def\pgflsystemsavestate{\begingroup}
+\def\pgflsystemrestorestate{\endgroup\pgfpathmoveto{\pgfpointorigin}}
