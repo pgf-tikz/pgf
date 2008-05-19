@@ -126,7 +126,7 @@
 % data point should be visualized on the canvas. In detail, the
 % following happens:
 %
-% The next phase is special: A local scope is created and the
+% A local scope is created and the
 % transformation matrix is reset. Then, two signals are emitted: First,
 % "map data points" and then "transform data point". The first
 % lets listening objects "map" the object by setting up
@@ -181,7 +181,7 @@
 %
 % Description:
 %
-% This macors works like the previous macor, but the data point is
+% This macros works like the previous macro, but the data point is
 % considered to be "virtual". This happens when you wish to compute
 % the position where a data point should be visualized even when no
 % "real" data point is there. For virtual data points, bounders and
@@ -220,7 +220,7 @@
 %      should either "look like" a normal argument in curly braces
 %      (even though it will be parsed differently). Alternatively, if
 %      it is does not start with a curly brace, this argument ends
-%      with the first command other that \par or \data (such as \end,
+%      with the first command other than \par or \data (such as \end,
 %      for instance).
 %
 % Description:
@@ -495,7 +495,7 @@
 % Example:
 %
 % \pgfdataset[format=TeX code]
-% {
+% \data{
 %   \pgfkeyssetvalue{/data point/x}{5}
 %   \pgfkeyssetvalue{/data point/y}{5}
 %   \pgfdatapoint
@@ -513,12 +513,12 @@
 % Description:
 %
 % The lines of the data set are passed to \pgfkeys with the path set
-% to /data point. In this way, provided
+% to /data point.
 %
 % Example:
 %
 % \pgfdataset[format=key value pairs]
-% {
+% \data{
 %   x=5, y=6, hi=9
 %   x=7, y=6, lo=10
 % }
@@ -546,7 +546,7 @@
 %             column 2=dax/high,
 %             column 3=dax/entry,
 %             column 4=dax/exit]
-% {
+% \data{
 %   % today
 %   2000, 2300, 2100, 2200 
 %   2000, 2350, 2200  
@@ -683,21 +683,53 @@
 
 \pgfooclass{line transformer}
 {
+  % Class line transformer
+  %
+  % This class is a transformer class. It reacts to the transform
+  % datapoint signal. When this signal is raised, it will shift the
+  % coordinate system as follows: If the current value of /data
+  % point/this.attribute  is
+  % 0, then the system is shifted to the current value of this.origin. If
+  % the current value is 1, the system is shifted to this.origin + this.unit
+  % vector. For other values of /data point/this.attribuate, the shift
+  % is interpolated between these two values.
+
+  
+  \attribute attribute;
+  % The attribute (/data point/this.attribute) by which
+  % the unit vector is multiplied. If it is empty (which is
+  % different from 0), no transformation is done at all.
+
+  \attribute origin = \pgfpointorigin;
+  %   The shift in case the /data point/this.attribute is 0.
+
+  \attribute unit vector;
+  %   The coordinate system is additionally shifted by this amount
+  %   times the current value of /data point/this.attribute.
+
+  
+  % Constructor
+  %
+  % #1 = attribute that is being transformed. Example: x
+  % #2 = a vector corresponding to one unit of #1.
+  %      Example: \pgfpoint{1cm}{0cm}
   \method line transformer(#1,#2) {
     \pgfooset{attribute}{#1}
-    \pgfooset{origin}{\pgfpointorigin}%
-    \pgfooset{unit}{#2}%
+    \pgfooset{unit vector}{#2}%
   }
 
+  % Method
   \method default connects() {
     \pgfoothis.object(\pgf@dv@me)
     \pgfsignaltransformdatapoint.connect(\pgf@dv@me,transform)
   }
   
+  % Setter
   \method set origin(#1) {
     \pgfooset{origin}{#1}
   }
 
+  % Slot 
   \method transform() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
     \ifx\pgf@dv@val\pgfutil@empty%
@@ -705,7 +737,7 @@
       \ifx\pgf@dv@val\relax%
       \else%
         \pgftransformshift{\pgfoovalueof{origin}}%
-        \pgftransformshift{\pgfpointscale{\pgf@dv@val}{\pgfoovalueof{unit}}}%
+        \pgftransformshift{\pgfpointscale{\pgf@dv@val}{\pgfoovalueof{unit vector}}}%
       \fi%
     \fi%
   }
@@ -720,6 +752,64 @@
 
 \pgfooclass{attribute mapper}
 {
+  % Class attribute mapper
+  %
+  % This mapper reacts to the map datapoint signal. Its purpose is to
+  % map one attribute to another attribute. For the first attribute, a
+  % range [a,b] is specified and another range [c,d] is specifed for
+  % the second. Values in the range [a,b] are linearly mapped to the
+  % range [c,d] and the result is stored in the second attribute.
+  %
+  % For instance, if the first range is [10,20] and the second range
+  % is [0,100], then 10 is mapped to 0, 11 is mapped to 10, 20 is
+  % mapped to 100 and 30 is mapped to 200.
+  %
+  % It is permissible to specify an additional non-linear
+  % transformation function f. In this case, for an input value x the
+  % position of f(x) inside the interval [f(a),f(b)] is determined and
+  % this position is linearly mapped to [c,d]. 
+  %
+  % For example, if f(x) = log_10 (x) and the first range [a,b] =
+  % [10,1000] and the second range is [1,2], then 10 is mapped to 1,
+  % 100 is mapped to 1.5 (since f(100) = 3 lies in the middle
+  % between f(10) = 2 and f(1000) = 4) and 100000 is mapped to 3.
+  
+
+  \attribute in;
+  % The name of the input attribute. If the value of this attribute
+  % is empty or undefined, no mapping is done.
+  
+  \attribute out;
+  % The name of the output attribute.
+  
+  \attribute trans;
+  % Stores (more or less) transformation function.
+
+  \attribute out min;
+  % Start of the second range (the value of c).
+
+  \attribute trans in min;
+  % Transformed value of the start of the first range (the value
+  % f(a)).
+
+  \attribute scale;
+  %   The scaling factor, that is, the value of (f(d)-f(c))/(b-a).
+
+  
+  % Constructor
+  %
+  % #1 = input attribute. Example: velocity.
+  % #2 = start of input range. Example: 10
+  % #3 = end of input range. Example: 20
+  % #4 = output attribuate. Example: x
+  % #5 = start of output range. Example: -10
+  % #6 = end of output range. Example: 100
+  % #7 = optional transformation function. The input value for this
+  %      function is stored in the macro \pgfvalue, that is, when the
+  %      function is called the macro will expand to something like
+  %      "3.141". The output of the function should be stored in the
+  %      macro \pgfmathresult.
+  % 
   \method attribute mapper(#1,#2,#3,#4,#5,#6,#7) {
     {%
       % Let's start with the output, it's easier...
@@ -754,14 +844,15 @@
     }%
   } 
 
+  % Method
   \method default connects() {
     \pgfoothis.object(\pgf@dv@me)
     \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
+  % Slot
   \method map() {
-    \pgfkeysifdefined{/data point/\pgfoovalueof{out}}
-    {}% do nothing!
+    \pgfkeysifdefined{/data point/\pgfoovalueof{in}}
     {%
       \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgfmathresult%
       \ifx\pgfmathresult\pgfutil@empty%
@@ -776,12 +867,40 @@
         \fi%
       \fi%
     }
+    {}% do nothing!
   }
 }
 
 
 \pgfooclass{polar mapper}
 {
+  % Class plor mapper
+  %
+  % A polar mapper is used to map attributes given as (2d) polar
+  % coordinates to Cartesian coordinates. Note that no special ranges
+  % can be specified and that the angle must be given in degrees. You
+  % can, however, use attribute mappers to change these things.
+  
+  \attribute angle;
+  % The attribute from which the angle is read.
+  
+  \attribute radius;
+  % The attribute from which the radius is read.
+  
+  \attribute x;
+  % The attribute to which the resulting x coordinate is written.
+  
+  \attribute y;
+  % The attribute to which the resulting y coordinate is written. 
+
+  
+  % Constructor
+  %
+  % #1 = angle attribute. Example: rotation.
+  % #2 = radius attribute. Example: height.
+  % #3 = x attribute. Example: x.
+  % #4 = y attribute. Example: y.
+  %
   \method polar mapper(#1,#2,#3,#4) {
     \pgfooset{angle}{#1}
     \pgfooset{radius}{#2}
@@ -789,11 +908,16 @@
     \pgfooset{y}{#4}
   } 
 
+  % Method
   \method default connects() {
     \pgfoothis.object(\pgf@dv@me)
     \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
+  % Slot
+  %
+  % Mapping is done only if both the angle and the radius attribute
+  % have non-empty values.
   \method map() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{angle}}\pgf@dv@angle%
     \ifx\pgf@dv@angle\pgfutil@empty%
@@ -806,24 +930,17 @@
           \ifx\pgf@dv@radius\relax%
           \else%
             \pgfmathsincos{\pgf@dv@angle}%
-            \pgfkeysifdefined{/data point/\pgfoovalueof{x}}
-            {}% do nothing!
-            {%
-              \pgfmathmultiply{\pgfmathresultx}{\pgf@dv@radius}%
-              \pgfkeyslet{/data point/\pgfoovalueof{x}}\pgfmathresult%
-            }%
-            \pgfkeysifdefined{/data point/\pgfoovalueof{y}}
-            {}% do nothing!
-            {%
-              \pgfmathmultiply{\pgfmathresulty}{\pgf@dv@radius}%
-              \pgfkeyslet{/data point/\pgfoovalueof{y}}\pgfmathresult%
-            }%
+            \pgfmathmultiply{\pgfmathresultx}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalueof{x}}\pgfmathresult%
+            \pgfmathmultiply{\pgfmathresulty}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalueof{y}}\pgfmathresult%
           \fi%
         \fi%
       \fi%
     \fi%
   }
 
+  % Getter
   \method get angle and radius attributes() {
     \pgfooget{angle}\pgfdvangleattribute
     \pgfooget{radius}\pgfdvradiusattribute
@@ -838,16 +955,18 @@
 
 \pgfooclass{attribute bounder}
 {
+  \attribute attribute;
+  \attribute interval obj;
+  \attribute drop min;
+  \attribute drop max;
+  \attribute lift min;
+  \attribute lift max;
+  \attribute ignore min;
+  \attribute ignore max;
   
   \method attribute bounder(#1,#2) {
     \pgfooset{attribute}{#1}
     \pgfoolet{interval obj}#2
-    \pgfooset{drop min}{}
-    \pgfooset{drop max}{}
-    \pgfooset{lift min}{}
-    \pgfooset{lift max}{}
-    \pgfooset{ignore min}{}
-    \pgfooset{ignore max}{}
   }
 
   \method default connects() {
@@ -1001,13 +1120,16 @@
 
 \pgfooclass{interval}
 {
+  \attribute min;
+  \attribute max;
+  \attribute min adjust absolute;
+  \attribute min adjust relative;
+  \attribute max adjust absolute;
+  \attribute max adjust relative;
+  
   \method interval(#1,#2) {
     \pgfooeset{min}{#1}
     \pgfooeset{max}{#2}
-    \pgfooset{min adjust absolute}{}
-    \pgfooset{min adjust relative}{}
-    \pgfooset{max adjust absolute}{}
-    \pgfooset{max adjust relative}{}
   }
 
   \method default connects() {
@@ -1080,9 +1202,11 @@
 
 \pgfooclass{count up}
 {
+  \attribute attribute;
+  \attribute val=0;
+  
   \method count up(#1) {
     \pgfooset{attribute}{#1}
-    \pgfooset{val}{0}
   }
 
   \method default connects() {
@@ -1109,6 +1233,10 @@
 
 \pgfooclass{count down}
 {
+  \attribute attribute;
+  \attribute max;
+  \attribute val;
+  
   \method count down(#1,#2) {
     \pgfooset{attribute}{#1}
     \pgfooset{max}{#2}
@@ -1143,9 +1271,11 @@
 
 \pgfooclass{sum}
 {
+  \attribute attribute;
+  \attribute sum=0;
+  
   \method sum(#1) {
     \pgfooeset{attribute}{#1}
-    \pgfooeset{sum}{0}
     \pgfkeyssetvalue{/data point/#1/prev sum}{0}
     \pgfkeyssetvalue{/data point/#1/sum}{0}
   }
@@ -1171,12 +1301,15 @@
 
 \pgfooclass{straight axis}
 {
+  \attribute attribute;
+  \attribute interval obj;
+  \attribute tick vec;
+  \attribute use path=\pgfusepath{stroke};
+  \attribute use tick path=\pgfusepath{stroke};
+  
   \method straight axis(#1,#2) {
     \pgfooset{attribute}{#1}
     \pgfoolet{interval obj}#2
-    \pgfoolet{tick vec}\pgfutil@empty
-    \pgfooset{use path}{\pgfusepath{stroke}}
-    \pgfooset{use tick path}{\pgfusepath{stroke}}
   }
 
   \method default connects() {
@@ -1258,10 +1391,13 @@
 
 \pgfooclass{polar axis}
 {
+  \attribute mapper obj;
+  \attribute interval obj;
+  \attribute use patch=\pgfusepath{stroke};
+  
   \method polar axis(#1,#2) {
     \pgfoolet{mapper obj}#1
     \pgfoolet{interval obj}#2
-    \pgfooset{use path}{\pgfusepath{stroke}}
   }
 
   \method default connects() {
@@ -1329,10 +1465,12 @@
 
 \pgfooclass{plot mark visualizer}
 {
+  \attribute mark;
+  \attribute zero trigger=always 0;
+  \attribute size=\pgfplotmarksize;
+  
   \method plot mark visualizer(#1) {
     \pgfooeset{mark}{#1}
-    \pgfooeset{zero trigger}{always 0}
-    \pgfooeset{size}{\pgfplotmarksize}
   }
 
   \method default connects() {
@@ -1366,10 +1504,12 @@
 
 \pgfooclass{plot handler visualizer}
 {
+  \attribute handler;
+  \attribute use path=\pgfusepath{stroke};
+  \attribute positions;
+  
   \method plot handler visualizer(#1) {
     \pgfooset{handler}{#1}
-    \pgfooset{use path}{\pgfusepath{stroke}}
-    \pgfooset{positions}{}
   }
 
   \method default connects() {
@@ -1404,9 +1544,5 @@
   \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
 }
 
-
-\pgfooclass{rectangle visualizer}
-{
-}
 
 \endinput

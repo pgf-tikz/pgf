@@ -1,0 +1,618 @@
+% Copyright 2008 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+
+\section{Object-Oriented Programming}
+
+\label{section-oop}
+
+This section describes the |oo| module.
+
+\begin{pgfmodule}{oo}
+  This module defines a relatively small set of \TeX\ commands for
+  defining classes, methods, attributes and objects in the sense of
+  object-oriented programming. 
+\end{pgfmodule}
+
+In this chapter it is assumed that you are familiar with the basics
+of a typical object-oriented programming language like Java, C++ or
+Eiffel. 
+
+
+
+\subsection{Overview}
+
+\TeX\ does not support object-oriented programming, presumably because
+it was written at a time when this style of programming was not yet
+``en vogue.'' When one is used to the object-oriented style of
+thinking, some programming constructs in \TeX\ often seem overly
+complicated. The object-oriented programming module of \pgfname\ may
+help here. It is written completely using simple \TeX\ macros and is,
+thus, perfectly portable. This also means, however, that it is not
+particularly fast (but not too slow either), so you should use it only
+for non-time-critical things.
+
+Basically, the oo-system supports \emph{classes} (in the
+object-oriented sense, this has nothing to do with \LaTeX-classes),
+\emph{methods}, \emph{constructores}, \emph{attributes},
+\emph{objects}, and \emph{object identities}. It (currently) does not
+support either inheritance, overloading, destructors, or class nesting. 
+
+The first step is to define a class, using the macro |\pgfooclass|
+(all normal macros in \pgfname's object-oriented system start with 
+|\pgfoo|). This macro gets the name of a class and in its body a
+number of \emph{methods} are defined. These are defined using the
+|\method| macro (which is defined only inside such a class definition)
+and they look a bit like method definitions in, say, Java. Object
+attributes are declared using the |\attribute| command, which is also
+defined only inside a class definition.
+
+Once a class has been defined, you can create objects of this
+class. Objects are created using |\pgfoonew|. Such an object has many
+characteristics of objects in a normal object-oriented programming
+language: Each object has a \emph{unique identity}, so when you create
+another object this object is completely distinct from all other
+objects. Each object also has a set of private attributes, which may
+change over time. Suppose, for instance, that we have a |point|
+class. Then creating a new object (called an instance) of this class
+would typically have an |x|-attribute and a |y|-attribute. These can
+be changed over time. Creating another instance of the
+|point| class creates another object with its own |x|- and
+|y|-attributes.
+
+Given an object, you can call a method for this object. Inside the
+method the attributes of the object for which the method is being
+called can be accessed.
+
+The life of an object always ends with the end of the \TeX\ scope in
+which it was created. However, changes to attribute values are not
+local to scopes, so when you change an attribute anywhere, this change
+persists till the end of the life of the object or until the attribute
+is changed again.
+
+\subsection{A Running Example: The Stamp Class}
+
+As a running example we will develop a |stamp| class and |stamp|
+objects. The idea is that a stamp object is able to ``stamp
+something'' on a picture. This means that a stamp object has an
+attribute storing the ``stamp text'' and there is a method that asks
+the object to place this text somewhere on a
+canvas. The method can be called repeatedly and there can be several
+different stamp objects, each producing a different text. Stamp
+objects can either be created dynamically when needed or a library
+might define many such objects in an outer scope.
+
+Such stamps are similar to many things present in \pgfname\ such as
+arrow tips, patterns, or shadings and, indeed, these could all have
+been implemented in this object-oriented fashion (which might have
+been better, but the object-oriented subsystem is a fairly new
+addition to \pgfname).
+
+
+\subsection{Classes}
+
+We start with the definition of the |stamp| class. This is done using
+the |\pgfooclass| macro:
+
+\begin{command}{\pgfooclass\marg{class name}\marg{body}}
+  This command defines a class named \meta{class name}. The name of
+  the class can contain spaces and most other characters, but no
+  periods. So, valid class names are |MyClass| or |my class| or
+  |Class_C++_emulation??1|.
+
+  The \meta{body} is actually just executed, so any 
+  normal \TeX-code is permissible here. However, while the \meta{body} is
+  being executed, the macros |\method| and |\attribute| are setup so
+  that they can be used to define methods and attributes for this
+  class (the original meanings are restored afterward). 
+
+  The definition of a class is local to the scope where the class has
+  been defined.
+\begin{codeexample}[code only]
+\pgfooclass{stamp}{
+  % This is the class stamp
+
+  \attribute text;
+  \attribute rotation angle=20;
+  
+  \method stamp(#1) { % The constructor
+    ...
+  }
+
+  \method apply(#1,#2) { % Causes the stamp to be shown at coordinate (#1,#2)
+    ...
+  }
+}
+
+% We can now create objects of type "stamp"
+\end{codeexample}
+\end{command}
+
+The \meta{body} of a class usually just consists of calls to the macros
+|\attribute| and |\method|, which will be discussed in more detail in
+later sections.
+
+
+
+\subsection{Objects}
+
+Once a class has been declared, we can start creating objects for this
+class. For this the |\pgfoonew| command can be used, which has a
+peculiar syntax:
+
+\begin{command}{\pgfoonew\meta{object handle}|=new |\meta{class
+      name}|(|\meta{constructor arguments}|)|}
+  Causes a new object to be created. The class of the object will be
+  \meta{class name}, which must previously have been declared using
+  |\pgfooclass|. Once the object has been created, the constructor
+  method of the object will be called with the parameter list set to
+  \meta{constructor arguments}.
+
+  The resulting object is stored internally and its lifetime will
+  end exactly at the end of the current scope.
+
+  Here is an example in which three stamp objects are created.
+\begin{codeexample}[code only]
+\pgfoonew \firststamp  = new stamp()    
+\pgfoonew \secondstamp = new stamp()
+{
+  \pgfoonew \thirdstamp = new stamp()
+  ...
+}
+% \thirdstamp no longer exists, but \firststamp and \secondstamp do
+\end{codeexample}
+
+  The \meta{object handle} is a normal \TeX\ macro name that will
+  ``point'' to the object (handles are discussed in more detail in
+  Section~\ref{section-identities}). You can use this macro to call
+  methods of the object as discussed in the following section.
+\end{command}
+
+
+\subsection{Methods}
+
+Methods are defined inside the body of classes using the following
+command: 
+
+\begin{command}{\method \meta{method name}|(|\meta{parameter list}|)|\marg{method body}}
+  This macro, which is only defined inside a class definition, defines
+  a new method named \meta{method name}. Just like class names, method
+  names can contain spaces and other characters, so \meta{method names} like
+  |put_stamp_here| or |put stamp here| are both legal.
+
+  Three method names are special: First, a method having the same name
+  as the class is called the \emph{constructor} of the class. The must be
+  such a method, even if its body is empty. There are (currently) no
+  destructors; objects simply become ``undefined'' at the
+  end of the scope in which they have been created. The other two
+  methods are called |id| and |object|, which are always automatically
+  defined and which you cannot redefine. They are discussed in
+  Section~\ref{section-identities}. 
+
+  Overloading of methods is not possible, that is, it is illegal to
+  have two methods inside a single class with the same name (despite
+  possibly different parameter lists). However, two different classes
+  may contain a method with the same name, that is, classes form 
+  namespaces for methods.
+  
+  The \meta{method name} must be followed by a \meta{parameter list}
+  in parentheses, which must be present even when the \meta{parameter
+    list} is empty. The \meta{parameter list} is actually a normal
+  \TeX\ parameter list that will be matched against the parameters
+  inside the parentheses upon method invocation and, thus, could be
+  something like |#1#2 foo #3 bar.|, but a list like |#1,#2,#3| is
+  more customary. By setting the parameter list to just |#1| and then
+  calling, say,  |\pgfkeys{#1}| at the beginnig of a method, you can
+  implement Objective-C-like named parameters.
+
+  When a method is called, the \meta{body} of
+  the method will be executed. The main difference to a normal macro
+  is that while the \meta{body} is executed a special macro called
+  |\pgfoothis| is setup in such a way that it references that object
+  for which the method is executed. 
+\end{command}
+
+In order to call a method for an object, you first need to create the
+object and you need a handle for this object. In order to invoke a
+method for this object, a special syntax is used that is similar to
+Java or C++ syntax:
+
+\begin{pgfmanualentry}
+  \pgfmanualentryheadline{\meta{object handle}|.|\meta{method name}|(|\meta{parameters}|)|}%
+  \pgfmanualbody
+  This causes the method \meta{method name} to be called for the
+  object referenced by the \meta{object handle}. Naturally, the method
+  is the one defined in the class of the object. The \meta{parameters}
+  are matched against the parameters of the method and, then, the
+  method body is executed. The execution of the method body is
+  \emph{not} done inside a scope, so the effects of a method body
+  persist.
+
+\begin{codeexample}[code only]
+\pgfooclass{stamp}{
+  % This is the class stamp
+
+  \method stamp() { % The constructor
+  }
+
+  \method apply(#1,#2) { % Causes the stamp to be shown at coordinate (#1,#2)
+    % Draw the stamp:
+    \node [rotate=20,font=\huge] at (#1,#2) {Passed};
+  }
+}
+
+\pgfoonew \mystamp=new stamp()
+
+\begin{tikzpicture}
+  \mystamp.apply(1,2)
+  \mystamp.apply(3,4)
+\end{tikzpicture}
+\end{codeexample}
+
+  Inside a method, you can call other methods. If you have a handle
+  for another object, you can simply call it in the manner described
+  above. In order to call a method of the current object, you can use
+  the special object handle |\pgfoothis|.
+
+  \begin{command}{\pgfoothis}
+    This object handle is defined only when a method is being
+    executed. There, it is then set to point to the object for which
+    the method is being called, which allows you to call another
+    method for the same object.
+
+\begin{codeexample}[code only]
+\pgfooclass{stamp}{
+  % This is the class stamp
+
+  \method stamp() {}
+  
+  \method apply(#1,#2) {
+    \pgfoothis.shift origin(#1,#2)
+    
+    % Draw the stamp:
+    \node [rotate=20,font=\huge] {Passed};
+  }
+
+  % Private method:
+  \method shift origin(#1,#2) {
+    \tikzset{xshift=#1,yshift=#2}
+  }
+}
+\end{codeexample}
+  \end{command}
+\end{pgfmanualentry}
+
+
+
+\subsection{Attributes}
+
+Every object has a set of attributes, which may change over
+time. Attributes are declared using the |\attribute| command, which,
+like the |\method| command, is defined only inside the scope of
+|\pgfooclass|. Attributes can be modified (only) by methods. To take
+the |stamp| example, an attribute of a |stamp| object might be the
+text that should be stamped when the |apply| method is called.
+
+When an attribute is changed, this change is \emph{not} local to the
+current \TeX\ group. Changes will persist till the end
+of the object's life or until the attribute is changed once more.
+
+To declare an attribute you should use the |\attribute| command:
+\begin{command}{\attribute \meta{attribute name}\opt{|=|\meta{initial
+        value}}|;|}
+  This command can only be given inside the body of an |\pgfooclass|
+  command. It declares the attribute named \meta{attribute name}. This
+  name, like method or class names, can be quite arbitrary, but should
+  not contain periods. Valid names are |an_attribute?| or
+  |my attribute|.
+
+  You can optionally specify an \meta{initial value} for the
+  attribute; if none is given, the empty string is used
+  automatically. The initial value is the value that the attribute
+  will have just after the object has been created and before the
+  constructor is called.  
+
+\begin{codeexample}[code only]
+\pgfooclass{stamp}{
+  % This is the class stamp
+
+  \attribute text;
+  \attribute rotation angle = 20;
+  
+  \method stamp(#1) {
+    \pgfooset{text}{#1} % Set the text
+  }
+  
+  \method apply(#1,#2) {
+    \pgfoothis.shift origin(#1,#2)
+    
+    % Draw the stamp:
+    \node [rotate=\pgfoovalueof{rotation angle},font=\huge]
+      {\pgfoovalueof{text}};
+  }
+
+  \method shift origin(#1,#2) { ... }
+
+  \method set rotation (#1) {
+    \pgfooset{rotation angle}{#1}
+  }
+}
+\end{codeexample}
+\end{command}
+
+Attributes can be set and read only inside methods, it is not possible
+to do so using an object handle. Spoken in terms of traditional
+object-oriented programming, attributes are always private. You need
+to define getter and setter methods if you wish to read or modify
+attributes.
+
+Reading and writing attributes is not done using the ``dot-notation''
+that is used for method calls. This is mostly due to efficiency
+reasons. Instead, a set of special macros is used, all of which can
+\emph{only be used inside methods}.
+
+\begin{command}{\pgfooset\marg{attribute}\marg{value}}
+  Sets the \meta{attribute} of the current object to
+  \meta{value}. 
+\begin{codeexample}[code only]
+\method set rotation (#1) {
+  \pgfooset{rotation angle}{#1}
+}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfoolet\marg{attribute}\marg{macro}}
+  Sets the \meta{attribute} of the current value to the current value
+  of \meta{macro} using \TeX's |\let| command.
+\begin{codeexample}[code only]
+\method foo () {
+  \pgfoolet{my func}\myfunc
+  % Changing \myfunc now has no effect on the value of attribute my func
+}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfoovalueof\marg{attribute}}
+  Expands  (eventually) to the current value of \meta{attribute} of
+  the current object.
+\begin{codeexample}[code only]
+\method apply(#1,#2) {
+  \pgfoothis.shift origin(#1,#2)
+
+  \node [rotate=\pgfoovalueof{rotation angle},font=\huge]
+    {\pgfoovalueof{text}};
+}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfooget\marg{attribute}\marg{macro}}
+  Reads the current value of \meta{attribute} and stores the result in
+  \meta{macro}.
+\begin{codeexample}[code only]
+...
+  \method get rotation (#1) {
+    \pgfooget{rotation angle}{#1}
+  }
+...
+
+\mystamp.get rotation(\therotation)
+``\therotation'' is now ``20'' (or whatever).
+\end{codeexample}
+\end{command}
+
+
+\subsection{Identities}
+\label{section-identities}
+
+Every object has a unique identity, which is simply an integer. It is
+possible to retrieve the object id using the |id| method (discussed
+below), but normally you will not need to do so because the id itself
+cannot be used to access an object. Rather, you access objects via
+their methods and these, in turn, can only be called via object
+handles. 
+
+Object handles can be created in four ways:
+\begin{enumerate}
+\item Calling |\pgfoonew|\meta{object handle}|=...| will cause
+  \meta{object handle} to be a handle to the newly created object.
+\item Using |\let| to create an alias of an existing object handle: If
+  |\mystamp| is a handle, saying |\let\myotherstamp=\mystamp| creates
+  a second handle to the same object.
+\item |\pgfooobj|\marg{id} can be used as an object handle to the
+  object with the given \meta{id}.
+\item Using the |object| method to create a handle to a given object. 
+\end{enumerate}
+
+Let us have a look at the last two methods.
+
+\begin{command}{\pgfooobj\marg{id}}
+  Provided that \meta{id} is the id of an existing object (an object
+  whose life-time has not expired), calling this command yields a
+  handle to this object. The handle can then be used to call methods:
+\begin{codeexample}[code only]
+% Create a new object:
+\pgfoonew \mystamp=new stamp()
+
+% Get the object's id and store it in \myid:
+\mystamp.id(\myid)
+
+% The following two calls have the same effect:
+\mystamp.apply(1,1)
+\pgfooobj{\myid}.apply(1,1)
+\end{codeexample}
+\end{command}
+
+The |id| method can be used to retrieve the id of an object. This
+method is predefined for every class and you should not try to define
+a method of this name yourself.
+
+\begin{predefinedmethod}{id(\meta{macro})}
+  Calling \meta{obj}|.id(|\meta{macro}|)|  stores the id \meta{obj} in
+  \meta{macro}. This is mainly useful when you wish to store an
+  object for a longer time and you cannot guarantee that any handle
+  that you happen to have for this object will be available later on.
+
+  The only way to use the retrieved id later on is to call
+  |\pgfooobj|.
+
+  Different object that are alive (that are still within the scope in
+  which they were created) will always have different ids, so you can
+  use the id to test for equality of objects. However, after an object
+  has been destroyed because its scope has ended the same id may be
+  used again for newly created objects.
+
+  Here is a typical application where you need to call this method:
+  You wish to collect a list of objects for which you wish to call a
+  specific method from time to time. For the collection process you
+  wish to offer a macro called |\addtoobjectlist|, which takes an
+  object handle as parameter. It is quite easy to store this handle
+  somewhere, but a handle is, well, just a handle. Typically, shortly
+  after the call to |\addtoobjectlist| the handle will no longer be
+  valid or even exist, even though the object still exists. In this
+  case, you wish to store the object id somewhere instead of the
+  handle. Thus, for the object passed to |\addtoobjectlist| you call
+  the |id| method and store the resulting id, rather than the handle. 
+\end{predefinedmethod}
+
+There is a second predefined methods, called |object|, which is also
+used to create object handles.
+
+\begin{predefinedmethod}{object(\marg{macro name})}
+  Calling this method for an object will cause \meta{macro name} to
+  become a handle to the given object. For any object handle |\obj| --
+  other than |\pgfoothis| -- the following two have the same effect:
+  \begin{enumerate}
+  \item |\let|\meta{macro name}|=\obj|
+  \item |\obj.object(|\meta{macro name}|)|    
+  \end{enumerate}
+
+  The first method is simpler and faster. However, for |\pgfoothis|
+  there is a difference: The call |\pgfoothis.object(|\meta{macro name}|)| will
+  cause \meta{macro name} to be an object handle to the current
+  object and will persist to be so even after the method is done. By
+  comparison, |\let|\meta{macro name}|=\pgfoothis| causes |\obj| to be
+  the same as the very special macro |\pgfoothis|, so |\obj| will
+  always refer to the current object, which may change over time.
+\end{predefinedmethod}
+
+
+
+
+\subsection{The Signal Class}
+
+The object-oriented module predefines, in addition to the basic mechanism
+for defining and using classes and object, one class: |signal|. This
+class implements a so-called signal--slot mechanism.
+
+\begin{ooclass}{signal}
+  This class is used to implement a simple signal--slot
+  mechanism. The idea is the following: Form time to time special
+  things happen about which a number of objects need to be
+  informed. Different things can happen and different object will be
+  interested in these things. A |signal| object can be used to signal
+  that such special things of a certain kind have happend. For
+  example, on signal object might be used to signal the event that ``a
+  page has been shipped out.'' Another signal might be used to signal
+  that ``a figure is about to be typeset,'' and so on.
+
+  Objects can ``tune in'' to signals. They do so by \emph{connecting}
+  one of their methods (then called a \emph{slot}) to the
+  signal. Then, whenever the signal is \emph{emitted}, the method of
+  the connected object(s) get called. Different objects can connect
+  different slots to the same signal as long as the argument lists
+  will fit. For example, the object that is used to signal the ``end
+  of page has been reached'' might emit signals that have, say, the
+  box number in which the finished page can be found as a parameter
+  (actually, the finished page is always in box 255). Then one object
+  could connect a method |handle page(#1)| to this signal, another
+  might connad the method |emergency action(#1)| to this signal, and
+  so on.
+
+  Currently, it is not possible to ``unregister'' or ``detach'' a slot
+  from a signal, that is, once an object has been connect to a signal,
+  it will continue to recieve emmissions of this signal till the end
+  of the life-time of the signal. This is even true when the object no
+  longer exists (but the signal does), so care must be taken that
+  signal objects are always created before the objects that are
+  listening to them.
+
+  \begin{method}{signal()}
+    The constructor does nothing.
+  \end{method}
+
+  \begin{method}{connect(\meta{object handle},\meta{method name})}
+    This method gets an \meta{object handle} as parameter and a
+    \meta{method name} of this object. It will queue the object-method
+    pair in an internal list and each time the signal emits something,
+    this object's method is called.
+
+    Be careful not to pass |\pgfoothis| as \meta{object handle}. This
+    would cause the signal object to connect to itself. Rather, if you
+    wish to connect a signal to a method of the current object you
+    first need to create an alias using the |object| method:
+\begin{codeexample}[code only]
+\pgfooclass{some class}{
+  \method some class() {
+    \pgfoothis.object(\me)
+    \somesignal.connect(\me,foo)
+    \anothersignal.connect(\me,bar)
+  }
+  \method foo () {}
+  \method bar (#1,#2) {}
+}
+\pgfoonew \objA=new some class()
+\pgfoonew \objB=new some class()
+\end{codeexample}
+  \end{method}
+
+  \begin{method}{emit(\meta{arguments})}
+    This method emits a signal to all connected slots. This means that
+    for all objects that have previously been connected via a call of
+    |connect|, the method (slot) that was specified during the call of
+    |connect| is invoked with given \meta{arguments}.
+\begin{codeexample}[code only]
+\anothersignal.emit(1,2)
+% will call \objA.bar(1,2) and \objB.bar(1,2)
+\end{codeexample}
+  \end{method}
+\end{ooclass}
+
+
+\section{Implementation Notes}
+
+For the curious, here are some notes on how the oo-system is
+implemented:
+
+\begin{itemize}
+\item There is an object id counter that gets incremented each time an
+  object is created. However, this counter is local to the current
+  scope, which means that it is reset at the end of each scope,
+  corresponding to the fact that at the end of a scope all objects
+  created in this scope become invalid. Newly created objects will
+  then have the same id as ``deleted'' objects.
+\item Attributes are stored globally. For each attribute of each
+  object there is a macro whose name is composed of the object's id
+  and the attribute name. Changes to object attributes are always
+  global.
+\item Because of the object id reuse, attribute macros will be
+  recycled in new scopes. However, this process is not perfect since
+  the global macros storing old attributes of deleted objects will
+  only be overwritten (and thereby freed) when a new object having the
+  same attribute name is created for this id.
+\item When a method is called, before the method call some code is
+  executed that sets a global counter storing the current object id to
+  the object id of the object being called. After the method call some
+  code is inserted that restores the global counter to its original
+  value. This is done without scopes, so some tricky |\expandafter|
+  magic is needed. Note that, because of this process, you cannot use
+  commands like |\pgfutil@ifnextchar| at the end of a method.
+\item An object handle contains just the code to setup and restore the
+  current object number to the number of the object being called.
+\end{itemize}
