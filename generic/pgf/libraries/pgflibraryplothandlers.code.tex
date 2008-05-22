@@ -289,7 +289,9 @@
   \pgf@process{#1}%
   \pgf@xa=\pgf@x%
   \pgf@ya=\pgf@y%
+  \begingroup
   \pgfplotxzerolevelstreamnext
+  \endgroup
   \pgf@yb=\pgf@x
   \pgfpathmoveto{\pgfqpoint{\pgf@yb}{\pgf@ya}}%
   \pgfpathlineto{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
@@ -318,7 +320,9 @@
   \pgf@process{#1}%
   \pgf@xa=\pgf@x%
   \pgf@ya=\pgf@y%
+  \begingroup
   \pgfplotyzerolevelstreamnext
+  \endgroup
   \pgf@yb=\pgf@x
   \pgfpathmoveto{\pgfqpoint{\pgf@xa}{\pgf@yb}}%
   \pgfpathlineto{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
@@ -333,14 +337,14 @@
 % returns "zeros" for coordinate y.
 % 
 % \pgfplotxzerolevelstreamstart
-% \pgfplotxzerolevelstreamnext % assigns \pgf@x
+% \pgfplotxzerolevelstreamnext % assigns \pgf@x globally
 % \pgfplotxzerolevelstreamnext
 % \pgfplotxzerolevelstreamnext
 % \pgfplotxzerolevelstreamend
 %
 % and 
 % \pgfplotyzerolevelstreamstart
-% \pgfplotyzerolevelstreamnext % assigns \pgf@x
+% \pgfplotyzerolevelstreamnext % assigns \pgf@x globally
 % \pgfplotyzerolevelstreamend
 %
 \def\pgfplotxzerolevelstreamstart{\pgf@plotxzerolevelstreamstart}%
@@ -355,7 +359,7 @@
 	\edef\pgfplotxzerolevelstreamconstant@val{#1}%
 	\def\pgf@plotxzerolevelstreamstart{%
 		\global\let\pgf@plotxzerolevelstreamend=\relax
-		\gdef\pgf@plotxzerolevelstreamnext{\pgf@x=\pgfplotxzerolevelstreamconstant@val\relax}%
+		\gdef\pgf@plotxzerolevelstreamnext{\global\pgf@x=\pgfplotxzerolevelstreamconstant@val\relax}%
 	}%
 }%
 \pgfplotxzerolevelstreamconstant{0pt}%
@@ -365,16 +369,19 @@
 	\edef\pgfplotyzerolevelstreamconstant@val{#1}%
 	\def\pgf@plotyzerolevelstreamstart{%
 		\global\let\pgf@plotyzerolevelstreamend=\relax
-		\gdef\pgf@plotyzerolevelstreamnext{\pgf@x=\pgfplotyzerolevelstreamconstant@val\relax}%
+		\gdef\pgf@plotyzerolevelstreamnext{\global\pgf@x=\pgfplotyzerolevelstreamconstant@val\relax}%
 	}%
 }%
 \pgfplotyzerolevelstreamconstant{0pt}%
 
+\def\pgfplotbarwidth{\pgfkeysvalueof{/pgf/bar width}}
 
-
-% Assigns the (public) macro \pgfplotbarwidth.
-\def\pgfsetplotbarwidth#1{\pgfmathparse{#1}\edef\pgfplotbarwidth{\pgfmathresult pt}}%
-\pgfsetplotbarwidth{10pt}%
+\pgfqkeys{/pgf}{%
+	bar width/.initial=10pt,
+	bar shift/.initial=0pt,
+	bar interval width/.initial=1,
+	bar interval shift/.initial=0.5,
+}
 
 % This handler places a rectangle at each point in the plot stream, a
 % rectangle which touches the x-axis at one end and the current point
@@ -393,6 +400,10 @@
     \global\let\pgf@plotstreampoint=\pgf@plot@ybar@handler%
     \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
     \global\let\pgf@plotstreamend=\pgfplotyzerolevelstreamend%
+	\pgfmathparse{\pgfplotbarwidth}%
+	\xdef\pgfplotbarwidth@{\pgfmathresult pt}%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar shift}}%
+	\xdef\pgfplotbarshift@{\pgfmathresult pt}%
 	\pgfplotyzerolevelstreamstart
   }%
 }
@@ -400,10 +411,13 @@
 \def\pgf@plot@ybar@handler#1{%
   \pgf@process{#1}%
   \pgf@ya=\pgf@y
-  \expandafter\pgf@xb\pgfplotbarwidth\relax
+  \expandafter\pgf@xb\pgfplotbarwidth@\relax
   \pgf@xc=\pgf@x
   \advance\pgf@xc by-.5\pgf@xb
+  \advance\pgf@xc by\pgfplotbarshift@\relax
+  \begingroup
   \pgfplotyzerolevelstreamnext
+  \endgroup
   \pgf@yb=\pgf@x
   \advance\pgf@ya by-\pgf@yb
   \pgfpathrectangle
@@ -428,6 +442,10 @@
     \global\let\pgf@plotstreampoint=\pgf@plot@xbar@handler%
     \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
     \global\let\pgf@plotstreamend=\pgfplotxzerolevelstreamend%
+	\pgfmathparse{\pgfplotbarwidth}%
+	\xdef\pgfplotbarwidth@{\pgfmathresult pt}%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar shift}}%
+	\xdef\pgfplotbarshift@{\pgfmathresult pt}%
 	\pgfplotxzerolevelstreamstart
   }%
 }
@@ -435,16 +453,134 @@
 \def\pgf@plot@xbar@handler#1{%
   \pgf@process{#1}%
   \pgf@ya=\pgf@x
-  \expandafter\pgf@xb\pgfplotbarwidth\relax
+  \expandafter\pgf@xb\pgfplotbarwidth@\relax
   \pgf@xc=\pgf@y
   \advance\pgf@xc by-.5\pgf@xb
+  \advance\pgf@xc by\pgfplotbarshift@\relax
+  \begingroup
   \pgfplotxzerolevelstreamnext
+  \endgroup
   \pgf@yb=\pgf@x
   \advance\pgf@ya by-\pgf@yb
   \pgfpathrectangle
 	{\pgfqpoint{\pgf@yb}{\pgf@xc}}%
 	{\pgfqpoint{\pgf@ya}{\pgf@xb}}%
 }
+
+% This handler is a variant of \pgfplothandlerybar which works with
+% intervals instead of points.
+% 
+% Bars are drawn between successive input coordinates and the width is
+% determined relatively to the interval length.
+%
+% It looks like this:
+%
+%    |---|      |-----| 
+%    |   |      |     |    
+%    |   |      |     |     
+%    |   |      |     |       
+% (X)------(X)-----------(X)
+%
+% where (X) denotes the x-axis offsets of input coordinates.
+%
+% In more detail, if (x_i,y_i) and (x_{i+1},y_{i+1}) denote successive
+% input coordinates, the bar will be placed above the
+% interval [x_i,x_{i+1}], centered at
+%
+%    x_i + \pgfkeysvalueof{/pgf/bar interval shift} * (x_{i+1} - x_i)
+%
+% with width
+%
+%    \pgfkeysvalueof{/pgf/bar interval width} * (x_{i+1} - x_i).
+%
+% If you have N+1 input points, you will get N bars (one for each
+% interval). The y_i value of the last bar will be ignored.
+%
+% Example:
+%
+% \pgfplothandlerybarinterval
+% \pgfplotxyfile{mytable}
+\def\pgfplothandlerybarinterval{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@ybarinterval@handler@first%
+    \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
+    \global\let\pgf@plotstreamend=\pgfplotyzerolevelstreamend%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar interval width}}%
+	\xdef\pgfplotbarintervalwidth@{\pgfmathresult}%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar interval shift}}%
+	\xdef\pgfplotbarintervalshift@{\pgfmathresult}%
+	\pgfplotyzerolevelstreamstart
+  }%
+}
+
+\def\pgf@plot@ybarinterval@handler@first#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@barinterval@intervalstart{\the\pgf@x}%
+  \xdef\pgf@plot@barinterval@bar{\the\pgf@y}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@ybarinterval@handler%
+}
+\def\pgf@plot@ybarinterval@handler#1{%
+  \pgf@process{#1}%
+  \pgf@ya=\pgf@plot@barinterval@bar
+  \xdef\pgf@plot@barinterval@bar{\the\pgf@y}%
+  \pgf@xc=\pgf@plot@barinterval@intervalstart\relax
+  \xdef\pgf@plot@barinterval@intervalstart{\the\pgf@x}%
+  \pgf@xb=\pgf@x
+  \advance\pgf@xb by-\pgf@xc
+  \advance\pgf@xc by\pgfplotbarintervalshift@\pgf@xb
+  \pgf@xb=\pgfplotbarintervalwidth@\pgf@xb
+  \advance\pgf@xc by-.5\pgf@xb% center
+  \begingroup
+  \pgfplotyzerolevelstreamnext
+  \endgroup
+  \pgf@yb=\pgf@x
+  \advance\pgf@ya by-\pgf@yb
+  \pgfpathrectangle
+	{\pgfqpoint{\pgf@xc}{\pgf@yb}}%
+	{\pgfqpoint{\pgf@xb}{\pgf@ya}}%
+}
+
+% Like \pgfplothandlerybarinterval but for xbar.
+\def\pgfplothandlerxbarinterval{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@xbarinterval@handler@first%
+    \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
+    \global\let\pgf@plotstreamend=\pgfplotxzerolevelstreamend%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar interval width}}%
+	\xdef\pgfplotbarintervalwidth@{\pgfmathresult}%
+	\pgfmathparse{\pgfkeysvalueof{/pgf/bar interval shift}}%
+	\xdef\pgfplotbarintervalshift@{\pgfmathresult}%
+	\pgfplotxzerolevelstreamstart
+  }%
+}
+
+\def\pgf@plot@xbarinterval@handler@first#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@barinterval@intervalstart{\the\pgf@y}%
+  \xdef\pgf@plot@barinterval@bar{\the\pgf@x}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@xbarinterval@handler%
+}
+\def\pgf@plot@xbarinterval@handler#1{%
+  \pgf@process{#1}%
+  \pgf@ya=\pgf@plot@barinterval@bar
+  \xdef\pgf@plot@barinterval@bar{\the\pgf@x}%
+  \pgf@xc=\pgf@plot@barinterval@intervalstart\relax
+  \xdef\pgf@plot@barinterval@intervalstart{\the\pgf@y}%
+  \pgf@xb=\pgf@y
+  \advance\pgf@xb by-\pgf@xc
+  \advance\pgf@xc by\pgfplotbarintervalshift@\pgf@xb
+  \pgf@xb=\pgfplotbarintervalwidth@\pgf@xb
+  \advance\pgf@xc by-.5\pgf@xb% center
+  \begingroup
+  \pgfplotxzerolevelstreamnext
+  \endgroup
+  \pgf@yb=\pgf@x
+  \advance\pgf@ya by-\pgf@yb
+  \pgfpathrectangle
+	{\pgfqpoint{\pgf@yb}{\pgf@xc}}%
+	{\pgfqpoint{\pgf@ya}{\pgf@xb}}%
+}
+
 
 % This handler is very similar to \pgfplothandlerlineto, but it
 % produces CONSTANT connected pieces of the form
