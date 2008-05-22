@@ -195,6 +195,9 @@
 }
 
 
+% \begin{key}{/path/x=value}
+% \begin{key}{/path/x=value (initially XXX)}
+% \begin{key}{/path/x=value (default XXX)}
 \newenvironment{key}[1]{
   \begin{pgfmanualentry}
     \def\extrakeytext{}
@@ -261,6 +264,8 @@
   \decompose#1/\nil%
 }
 
+% Introduces a key alias '/#1/<name of current key>'
+% to be used inside of \begin{key} ... \end{key}
 \def\keyalias#1{\vspace{-3pt}\item{\small alias {\ttfamily/#1/\myname}}\vspace{-2pt}\par}
 
 \newif\iffirsttime
@@ -721,6 +726,7 @@
     (elatex) or (pdfelatex) to process this document}{}
 \fi
 
+% Define \find@example such that it doesn't destroy catcodes:
 \begingroup
 \catcode`|=0
 \catcode`[= 1
@@ -730,11 +736,15 @@
 \catcode`\\=12 |gdef|find@example#1\end{codeexample}[|endofcodeexample[#1]]
 |endgroup
 
+% define \returntospace.
+%
+% It should define NEWLINE as {}, spaces and tabs as \space.
 \begingroup
 \catcode`\^=7
 \catcode`\^^M=13
+\catcode`\^^I=13
 \catcode`\ =13%
-\gdef\returntospace{\catcode`\ =13\def {\space}\catcode`\^^M=13\def^^M{}}%
+\gdef\returntospace{\catcode`\ =13\def {\space}\catcode`\^^I=13\def^^I{\space}\catcode`\^^M=13\def^^M{}}%
 \endgroup
 
 \begingroup
@@ -747,16 +757,78 @@
 \gdef\@typeset@till@return#1^^M{{\def%{\char`\%}\textsl{\char`\%#1}}\par}
 \endgroup
 
-\define@key{codeexample}{width}{\setlength\codeexamplewidth{#1}}
-\define@key{codeexample}{graphic}{\colorlet{graphicbackground}{#1}}
-\define@key{codeexample}{code}{\colorlet{codebackground}{#1}}
-\define@key{codeexample}{execute code}{\csname code@execute#1\endcsname}
-\define@key{codeexample}{code only}[]{\code@executefalse}
-\define@key{codeexample}{pre}{\def\code@pre{#1}}
-\define@key{codeexample}{post}{\def\code@post{#1}}
-\define@key{codeexample}{vbox}[]{\def\code@pre{\vbox\bgroup\setlength{\hsize}{\linewidth-6pt}}\def\code@post{\egroup}}
-\define@key{codeexample}{ignorespaces}[]{\let\@gobble@till@return=\@gobble@till@return@ignore}
-\define@key{codeexample}{leave comments}[]{\def\code@catcode@hook{\catcode`\%=12}\let\commenthandler=\relax\let\typesetcomment=\relax}
+% Define tab-implementation functions
+%   \codeexample@tabinit@replacementchars@
+% and
+%   \codeexample@tabinit@catcode@
+%
+% They should ONLY be used in case that tab replacement is active.
+%
+% This here is merely a preparation step.
+%
+% Idea:
+% \codeexample@tabinit@catcode@ will make TAB active
+% and
+% \codeexample@tabinit@replacementchars@ will insert as many spaces as
+% /codeexample/tabsize contains.
+{
+\catcode`\^^I=13
+% ATTENTION: do NOT use tabs in these definitions!!
+\gdef\codeexample@tabinit@replacementchars@{%
+ \begingroup
+ \count0=\pgfkeysvalueof{/codeexample/tabsize}\relax
+ \toks0={}%
+ \loop
+ \ifnum\count0>0
+  \advance\count0 by-1
+  \toks0=\expandafter{\the\toks0\ }%
+ \repeat
+ \xdef\codeexample@tabinit@replacementchars@@{\the\toks0}%
+ \endgroup
+ \let^^I=\codeexample@tabinit@replacementchars@@
+}%
+\gdef\codeexample@tabinit@catcode@{\catcode`\^^I=13}%
+}%
+
+% Called after any options have been set. It assigns
+%   \codeexample@tabinit@catcode
+% and
+%   \codeexample@tabinit@replacementchars
+% which are used inside of 
+%\begin{codeexample}
+% ...
+%\end{codeexample}
+%
+% \codeexample@tabinit@catcode  is either \relax or it makes tab
+% active.
+%
+% \codeexample@tabinit@replacementchars is either \relax or it inserts
+% a proper replacement sequence for tabs (as many spaces as
+% configured)
+\def\codeexample@tabinit{%
+	\ifnum\pgfkeysvalueof{/codeexample/tabsize}=0\relax
+		\let\codeexample@tabinit@replacementchars=\relax
+		\let\codeexample@tabinit@catcode=\relax
+	\else
+		\let\codeexample@tabinit@catcode=\codeexample@tabinit@catcode@
+		\let\codeexample@tabinit@replacementchars=\codeexample@tabinit@replacementchars@
+	\fi
+}
+
+\pgfqkeys{/codeexample}{%
+	width/.code=	{\setlength\codeexamplewidth{#1}},
+	graphic/.code=	{\colorlet{graphicbackground}{#1}},
+	code/.code=	{\colorlet{codebackground}{#1}},
+	execute code/.code=	{\csname code@execute#1\endcsname},
+	code only/.code=	{\code@executefalse},
+	pre/.code=	{\def\code@pre{#1}},
+	post/.code=	{\def\code@post{#1}},
+	vbox/.code=	{\def\code@pre{\vbox\bgroup\setlength{\hsize}{\linewidth-6pt}}\def\code@post{\egroup}},
+	ignorespaces/.code=	{\let\@gobble@till@return=\@gobble@till@return@ignore},
+	leave comments/.code=	{\def\code@catcode@hook{\catcode`\%=12}\let\commenthandler=\relax\let\typesetcomment=\relax},
+	tabsize/.initial=0,
+	every codeexample/.style={width=4cm+7pt},
+}
 
 \def\code@pre{}
 \def\code@post{}
@@ -768,8 +840,8 @@
 \def\codeexample[#1]{%
   \begingroup%
   \code@executetrue
-  \setlength\codeexamplewidth{4cm+7pt}
-  \setkeys{codeexample}{#1}%
+  \pgfqkeys{/codeexample}{every codeexample,#1}%
+  \codeexample@tabinit% assigns \codeexample@tabinit@[catcode,replacementchars]
   \parindent0pt
   \begingroup%
   \par%
@@ -781,6 +853,7 @@
   \catcode`\%=13%
   \catcode`\^^M=13%
   \code@catcode@hook%
+  \codeexample@tabinit@catcode
   \relax%
   \find@example}
 \def\endofcodeexample#1{%
@@ -838,6 +911,7 @@
         \frenchspacing\@vobeyspaces
         \normalfont\ttfamily\footnotesize
         \typesetcomment%
+		\codeexample@tabinit@replacementchars
         \@tempswafalse
         \def\par{%
           \if@tempswa
