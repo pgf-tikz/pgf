@@ -605,7 +605,389 @@ inside a \tikzname{} coordinate.
  
  
  
-\subsection{Decorations with Shapes}
+\subsection{Marking Decorations}
+
+\subsubsection{Overview}
+
+A \emph{marking on a path} is any kind of graphic that is placed on a
+specific position on a path. Markings are useful in rather diverse
+situations: you can use them to, say, place little ``footsteps'' along
+a path as if someone where walking along the path; to place arrow tips
+on the middle of a path to indicate the ``direction'' in which
+something is flowing; or you can use them to place informative
+information at certain positions of a path.
+
+For historical reasons there are three different libraries for placing
+marks on a path. They differ in what kind of markings can be added to
+a path. We start with the most general and most useful of these libraries.
+
+
+
+\subsection{Arbitrary Markings}
+
+\begin{pgflibrary}{decorations.markings}
+  Markings are arbitrary ``marks'' that can be put on a path. Marks
+  can be arrow tips or nodes or even whole pictures. 
+\end{pgflibrary}
+
+\begin{decoration}{markings}
+  A \emph{marking} can be thought of a ``little picture'' or more
+  precisely of ``some scope contents'' that is placed ``on'' a path at
+  a certain position. Suppose the marking should be a simple cross. We
+  can produce this with the following code:
+\begin{codeexample}[code only]
+\draw (-2pt,-2pt) -- (2pt,2pt);
+\draw (2pt,-2pt) -- (-2pt,2pt);
+\end{codeexample}
+  If we use this code as a marking at position |2cm| on a path, then
+  the following happens: \pgfname\ determines the position on the path
+  that is 2cm along the path. Then is translates the coordiante system
+  to this position and rotates it such that the positive $x$-axis is
+  tangent to the path. Then a protective scope is created, inside
+  which the above code is executed -- resulting in a little cross on
+  the path.
+
+  The |markings| decoration allows you to place one or more such
+  markings on a path. The decoration destroys the input path, which
+  means that it uses the path for determining positions on the path,
+  but after the decoration is done this path is gone. You typically
+  need to use a |postaction| to add markings.
+
+  Let us start with the above example in real code:
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=% actually add a mark
+      at position 2cm
+      with
+      {
+        \draw (-2pt,-2pt) -- (2pt,2pt);
+        \draw (2pt,-2pt) -- (-2pt,2pt);
+      }
+    }
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+
+  We can also add the cross repeatedly:
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=% actually add a mark
+      between positions 0 and 1 step 5mm
+      with
+      {
+        \draw (-2pt,-2pt) -- (2pt,2pt);
+        \draw (2pt,-2pt) -- (-2pt,2pt);
+      }
+    }
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+
+  The |mark| decoration option is used to specify a marking. It comes
+  in two version:
+  \begin{key}{/pgf/decoration/mark=|at position|
+      \meta{pos}| with |\meta{code}}
+    The options specifies that when a |marking| decoration is applied,
+    there should be a marking at position \meta{pos} on the path whose
+    code is given by \meta{code}.
+
+    The \meta{pos} can have four different forms:
+    \begin{enumerate}
+    \item It can be a non-negative dimension like |0pt| or |2cm| or
+      |5cm/2|. In this case, it refers to the position along the path
+      that is this far removed from the start.
+    \item It can be a negative dimesion like |-1cm-2pt| or |-1sp|. In
+      this case, the position is taken from the end of the path. Thus,
+      |-1cm| is the position that is $-1$cm removed from the end of
+      the path.
+    \item It can be a dimensionless non-negative number like |1/2| or
+      |0.333+2*0.1|. In this case, the \meta{pos} is interpreted as a
+      factor of the total path lenght. Thus, a \meta{pos} or |0.5|
+      refers to the middle of the path, |0.1| is near the start, and
+      so on.
+    \item It can be a dimensionless negative number like |-0.1|. Then,
+      again, the fraction of the path length counts ``from the end.''
+    \end{enumerate}
+
+    The \meta{pos} determines a position on the path. When the marking
+    is applied, the (high level) coordinate system will have been
+    transformed so that the origin lies at this position and the
+    positive $x$-axis points along the path. For this coordinate
+    system, the \meta{code} is executed. It can contains all sorts of
+    graphic drawing commands, including (even named) nodes.
+
+    If the position position lies past the end of the path (for
+    instance if \meta{pos} is set to |1.2|), the marking will not be
+    drawn.
+
+    It is possible to give the |mark| option several times, which
+    causes several markings to be applied. In this case, however, it
+    is necessary that the positions on the path are in increasing
+    order. That is, it is not allowed (and will result in chaos) to
+    have a marking that lies earlier on the path to follow a marking
+    that is later on the path.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=at position 1cm  with \node[red]{1cm};,
+    mark=at position .5   with \node[green]{mid};,
+    mark=at position -1cm with {\node[blue,transform shape]{1cm from end};}}
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}  
+
+    Here is an example that shows how markings can be used to place text
+    on plots:
+\begin{codeexample}[]
+\begin{tikzpicture}[domain=0:4,label/.style={postaction={
+      decorate,
+      decoration={
+        markings,
+        mark=at position .75 with \node #1;}}}]
+  \draw[very thin,color=gray] (-0.1,-1.1) grid (3.9,3.9);
+  
+  \draw[->] (-0.2,0) -- (4.2,0) node[right] {$x$};
+  \draw[->] (0,-1.2) -- (0,4.2) node[above] {$f(x)$};
+  
+  \draw[red,label={[above left]{$f(x)=x$}}]                       plot (\x,\x);
+  \draw[blue,label={[below left]{$f(x)=\sin x$}}]                 plot (\x,{sin(\x r)});
+  \draw[orange,label={[right]{$f(x)= \frac{1}{20} \mathrm e^x$}}] plot (\x,{0.05*exp(\x)});
+\end{tikzpicture}
+\end{codeexample}
+
+    When the \meta{code} is begin executed, two special keys will have
+    been setup, whose value may be of interest:
+    \begin{key}{/pgf/decoration/mark info/sequence number}
+      This key can only be read. Its value (which can be obtained
+      using the |\pgfkeysvalueof| command) is a ``sequence number'' of
+      the mark. The first mark that is added to a path has number |1|,
+      the second number |2|, and so on. This key is mainly useful in
+      conjunction with repeated markings (see below).
+    \end{key}
+    \begin{key}{/pgf/decoration/mark info/distance from start}
+      This key can only be read. Its value is the distance of the
+      marking from the start of the path in points. For instance, if
+      the path length is 100pt and the marking is in the middle of the
+      path, the value of this key would be |50.0pt|.
+    \end{key}
+  \end{key}
+
+  A second way to use the |mark| key is the following''
+   \begin{key}{/pgf/decoration/mark=|between positions|
+      \meta{start pos} |and| \meta{end pos} |step| \meta{stepping}
+      |with| \meta{code}}
+    This works similarly to the |at position| versio of this option,
+    only multiple marks are placed, starting at \meta{start pos} and
+    then spaced apart by \meta{stepping}. The \meta{start pos}, the
+    \meta{end pos}, and also the \meta{stepping} may all be specified
+    in the same way as for the |at position| version, that is, either
+    using units or no units and also using positive or negative
+    values.
+
+    Let us start with a simple example in which we place ten crosses
+    along a path starting with the beginning of the 
+    path ($\meta{start pos} = 0$) and ending at the end ($\meta{end
+      pos} = 1$). 
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={markings,
+    mark=between positions 0 and 1 step 0.1
+         with { \draw (-2pt,-2pt) -- (2pt,2pt);
+                \draw (2pt,-2pt) -- (-2pt,2pt); }} ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}      
+
+    In the next example we place arrow shapes on the path instead of
+    crosses. Note the use of the |transform shape| option to ensure
+    that the nodes are actually rotated.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={markings,
+    mark=between positions 0 and 1 step 1cm
+      with { \node [single arrow,fill=red,
+                    single arrow head extend=3pt,transform shape] {};}}]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}      
+
+    Using the key |sequence number| we can also ``number'' the nodes
+    and even refer to them later on.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={markings,
+    mark=between positions 0 and 1 step 1cm with {
+      \node [draw,
+        name=mark-\pgfkeysvalueof{/pgf/decoration/mark info/sequence number},
+        transform shape]
+      {\pgfkeysvalueof{/pgf/decoration/mark info/sequence number}};}}]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+  \draw [red,->] (mark-3) -- (mark-7);
+\end{tikzpicture}
+\end{codeexample}      
+
+    In the following example we use the distance info to place
+    ``length information'' on a path:
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={markings,
+    % Main marks
+    mark=between positions 0 and 1 step 40pt with
+      { \draw [help lines] (0,0) -- (0,0.5)
+        node[above,font=\tiny]{
+          \pgfkeysvalueof{/pgf/decoration/mark info/distance from start}}; },
+    mark=at position -0.1pt with
+      { \draw [help lines] (0,0) -- (0,0.5)
+        node[above,font=\tiny]{
+          \pgfkeysvalueof{/pgf/decoration/mark info/distance from start}}; }}] 
+  \draw [help lines] grid (5,3);
+  \draw [postaction={decorate}]  (0,0) .. controls (8,3) and (0,3) .. (5,0) ;
+\end{tikzpicture}
+\end{codeexample}      
+  \end{key}
+
+  \begin{key}{/pgf/decoration/reset marks}
+    Since |mark| options accumulate, there needs to be a way to
+    ``reset'' things, so that any |mark| options set in an enclosing
+    scope do not interfere. This option does exactly this. Note that
+    when the \meta{code} of a marking is executed, the markings are
+    automatically reset.
+  \end{key}
+\end{decoration}
+
+
+\subsubsection{Arrow Tip Markings}
+
+Frequent markings that are hard to create correctly are arrow
+tips. For them, two special commands are available when the \meta{code} of
+a |mark| option is execute. (They are only defined in this code):
+
+\begin{command}{\arrow\opt{\oarg{options}}\marg{arrow end tip}}
+  This command simply draws the \meta{arrow end tip} at the origin,
+  pointing right. This is exactly what you need when you want to
+  draw an arrow tip as a marking.
+
+  The \meta{options} can only be given when \tikzname\ is used. In
+  this case, they are executed in a scope that contains the arrow
+  tip. 
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=at position 1cm  with {\node[red]{1cm};},
+    mark=at position .75  with {\arrow[blue,line width=2mm]{>}},
+    mark=at position -1cm with {\arrowreversed[black]{stealth};}}
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}
+
+  Here is a more useful example:
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={
+    markings,% switch on markings
+    mark=between positions 0 and .75 step 4mm with {\arrow{stealth}},
+    mark=between positions .75 and 1 step 4mm with {\arrowreversed{stealth}}}
+    ]
+  \draw [help lines] grid (3,2);
+  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\arrowreversed\opt{\oarg{options}}\marg{arrow end tip}}
+  As above, only the arrow end tip is flipped and points in the
+  other direction. 
+\end{command}
+
+
+\subsubsection{Footprint Markings}
+
+\begin{pgflibrary}{decorations.footprints}
+  The decorations of this library can be used to decorate a path with
+  little footprints, as if someone had ``walked'' along the path.
+\end{pgflibrary}
+
+\begin{decoration}{footprints}
+  The footprint decoration adds little footprints around the
+  path. They start with the left foot.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={footprints,foot length=5pt,stride length=10pt}]
+  \draw [help lines] grid (3,3);
+  \fill [decorate] (0,0) -- (3,2) arc (0:180:1.5 and 1);
+\end{tikzpicture}
+\end{codeexample}
+  You can influence the way this decoration looks using the following
+  options:
+  \begin{key}{/pgf/decoration/foot length (initially 10pt)}
+    The length or size of the footprint itself. A larger value makes
+    the footprint larger, but does not change the stride length.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={footprints,foot length=20pt}]
+  \fill [decorate] (0,0) -- (3,0);
+\end{tikzpicture}
+\end{codeexample}
+  \end{key}
+  \begin{key}{/pgf/decoration/stride length (initially 30pt)}
+    The length of strides. This is the distance between the beginnings
+    of left footprints along the path.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={footprints,stride length=50pt}]
+  \fill [decorate] (0,0) -- (3,0);
+\end{tikzpicture}
+\end{codeexample}
+  \end{key}
+  \begin{key}{/pgf/decoration/foot sep (initially 4pt)}
+    The separation in the middle between the footprints. The
+    footprints are moved away from the path by half this amount.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={footprints,foot sep=10pt}]
+  \fill [decorate] (0,0) -- (3,0);
+\end{tikzpicture}
+\end{codeexample}
+  \end{key}
+  \begin{key}{/pgf/decoration/foot angle (initially 10)}
+    Footprints are rotate by this much.
+\begin{codeexample}[]
+\begin{tikzpicture}[decoration={footprints,foot angle=60}]
+  \fill [decorate] (0,0) -- (3,0);
+\end{tikzpicture}
+\end{codeexample}
+  \end{key}
+  \begin{key}{/pgf/decoration/foot of (initially human)}
+    The species whose footprints are shown. Possible values are:
+
+    \def\render#1{
+      \texttt{#1} &
+      \tikz [baseline,decoration={footprints,foot of=#1}]
+        \fill [decorate] (0,0) -- (6,0); \\[3em]
+    }
+    \begin{tabular}{ll}
+      \emph{Species} & \emph{Result} \\[1em]
+      \render{gnome}
+      \render{human}
+      \render{bird}
+      \render{felis silvestris}
+    \end{tabular}
+  \end{key}
+\end{decoration}
+
+
+
+
+\subsubsection{Shape Background Markings}
+
+The third library for adding markings uses the background paths of
+certains shapes. This library is included mostly for historical
+reasons, using the |markings| library is usually preferable.
 
 \begin{pgflibrary}{decorations.shapes}
   This library defines decorations that use shapes or shape-like
@@ -672,15 +1054,19 @@ inside a \tikzname{} coordinate.
 \end{decoration}
 
 
-
 \begin{decoration}{shape backgrounds}
   This is a general decoration that replaces the to-be-decorated path by repeated
   copies of the background path of an arbitrary shape that has
   previously defined using the |\pgfdeclareshape| command (that is,
-  you can use any shape in the shape libraries). Please note that the
-  background path of the shapes is used, but \emph{no nodes are
-    created}. You cannot have text inside the shapes of this path, you
-  cannot name them, or refer to them. 
+  you can use any shape in the shape libraries).
+
+  Please note that the background path of the shapes is used, but
+  \emph{no nodes are created}. This means that \emph{you cannot have
+    text inside the shapes of this path, you cannot name them, or
+    refer to them.} Finally, this decoration \emph{will not work with
+    shapes that depend  strongly of the size of the text box (like the
+    arrow shapes).}  If any of these restrictions pose a poblem, use
+  the |markings| library instead.
 
 \begin{codeexample}[]
 \begin{tikzpicture}[decoration={shape backgrounds,shape=star,shape size=5pt}]
@@ -754,7 +1140,7 @@ inside a \tikzname{} coordinate.
     The shape whose background path is used.
   \end{key}
   
-  \begin{key}{/pgf/decorations/shape sep=\meta{spacing} (initially {.25cm, between centers})}
+  \begin{key}{/pgf/decoration/shape sep=\meta{spacing} (initially {.25cm, between centers})}
     Set the spacing between the shapes on the decorationd path. This can be
     just a distance on its own, but the additional keywords 
     |between centers|, and |between borders| (which must be preceded by a 
@@ -941,7 +1327,7 @@ inside a \tikzname{} coordinate.
     text within a group, for example, |W{\kern-1ptA}TER|. 
   \item
     Each character is positioned using the center of its baseline. To
-    move the text vertcally (relative to the path), the additional
+    move the text vertically (relative to the path), the additional
     transform key should be used.
   \item
     No attempt is made to ensure characters do not overlap when
@@ -1042,169 +1428,6 @@ inside a \tikzname{} coordinate.
 
 
 
-\subsection{Mark Decorations: Adding Arrow Tips and Nodes on a Path}
-
-\begin{pgflibrary}{decorations.markings}
-  Markings are arbitrary ``marks'' that can be put on a path. Marks
-  can be arrow tips or nodes or even whole pictures. 
-\end{pgflibrary}
-
-\begin{decoration}{markings}
-  A \emph{marking} can be thought of a ``little picture'' or a more
-  precisely of ``some scope contents'' that is placed ``on'' a path at
-  a certain position. Suppose the marking should be a simple cross. We
-  can produce this with the following code:
-\begin{codeexample}[code only]
-\draw (-2pt,-2pt) -- (2pt,2pt);
-\draw (2pt,-2pt) -- (-2pt,2pt);
-\end{codeexample}
-  If we use this code as a marking at position |2cm| on a path, then
-  the following happens: \pgfname\ determines the position on the path
-  that is 2cm along the path. Then is translates the coordiante system
-  to this position and rotates it such that the positive $x$-axis is
-  tangent to the path. Then a protective scope is created, inside
-  which the above code is executed -- resulting in a little cross on
-  the path.
-
-  The |markings| decoration allows you to place one or more such
-  markings on a path. The decoration destroys the input path, which
-  means that it uses the path for determining positions on the path,
-  but after the decoration is done this path is gone. You typically
-  need to use a |postaction| to add markings.
-
-  Let us start with the above example in real code:
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={
-    markings,% switch on markings
-    mark=% actually add a mark
-      at position 2cm
-      with
-      {
-        \draw (-2pt,-2pt) -- (2pt,2pt);
-        \draw (2pt,-2pt) -- (-2pt,2pt);
-      }
-    }
-    ]
-  \draw [help lines] grid (3,2);
-  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
-\end{tikzpicture}
-\end{codeexample}  
-
-  The |mark| decoration option is used to specify a marking. It has
-  the following syntax:
-  \begin{key}{/pgf/decoration/mark=|at position|
-      \meta{pos}| with |\meta{code}}
-    The options specifies that when a |marking| decoration is applied,
-    there should be a marking at position \meta{pos} on the path whose
-    code is given by \meta{code}.
-
-    The \meta{pos} can have four different forms:
-    \begin{enumerate}
-    \item It can be a non-negative dimension like |0pt| or |2cm| or
-      |5cm/2|. In this case, it refers to the position along the path
-      that is this far removed from the start.
-    \item It can be a negative dimesion like |-1cm-2pt| or |-1sp|. In
-      this case, the position is taken from the end of the path. Thus,
-      |-1cm| is the position that is $-1$cm removed from the end of
-      the path.
-    \item It can be a dimensionless non-negative number like |1/2| or
-      |0.333+2*0.1|. In this case, the \meta{pos} is interpreted as a
-      factor of the total path lenght. Thus, a \meta{pos} or |0.5|
-      refers to the middle of the path, |0.1| is near the start, and
-      so on.
-    \item It can be a dimensionless negative number like |-0.1|. Then,
-      again, the fraction of the path length counts ``from the end.''
-    \end{enumerate}
-
-    The \meta{pos} determines a position on the path. When the marking
-    is applied, the (high level) coordinate system will have been
-    transformed so that the origin lies at this position and the
-    positive $x$-axis points along the path. For this coordinate
-    system, the \meta{code} is executed. It can contains all sorts of
-    graphic drawing commands, including (even named) nodes.
-
-    If the position position lies past the end of the path (for
-    instance if \meta{pos} is set to |1.2|), the marking will not be
-    drawn.
-
-    It is possible to give the |mark| option several times, which
-    causes several markings to be applied. In this case, however, it
-    is necessary that the positions on the path are in increasing
-    order. That is, it is not allowed (and will result in chaos) to
-    have a marking that lies earlier on the path to follow a marking
-    that is later on the path.
-
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={
-    markings,% switch on markings
-    mark=at position 1cm  with \node[red]{1cm};,
-    mark=at position .5   with \node[green]{mid};,
-    mark=at position -1cm with {\node[blue,transform shape]{1cm from end};}}
-    ]
-  \draw [help lines] grid (3,2);
-  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
-\end{tikzpicture}
-\end{codeexample}  
-
-  Here is an example that shows how markings can be used to place text
-  on plots:
-\begin{codeexample}[]
-\begin{tikzpicture}[domain=0:4,label/.style={postaction={
-      decorate,
-      decoration={
-        markings,
-        mark=at position .75 with \node #1;}}}]
-  \draw[very thin,color=gray] (-0.1,-1.1) grid (3.9,3.9);
-  
-  \draw[->] (-0.2,0) -- (4.2,0) node[right] {$x$};
-  \draw[->] (0,-1.2) -- (0,4.2) node[above] {$f(x)$};
-  
-  \draw[red,label={[above left]{$f(x)=x$}}]                       plot (\x,\x);
-  \draw[blue,label={[below left]{$f(x)=\sin x$}}]                 plot (\x,{sin(\x r)});
-  \draw[orange,label={[right]{$f(x)= \frac{1}{20} \mathrm e^x$}}] plot (\x,{0.05*exp(\x)});
-\end{tikzpicture}
-\end{codeexample}
-
-    Frequent markings that are hard to create correctly are arrow
-    tips. For them, inside the \meta{code} two special commands can be
-    useful, which are only defined in this code:
-    \begin{command}{\arrow\opt{\oarg{options}}\marg{arrow end tip}}
-      This command simply draws the \meta{arrow end tip} at the origin,
-      pointing right. This is exactly what you need when you want to
-      draw an arrow tip as a marking.
-
-      The \meta{options} can only be given when \tikzname\ is used. In
-      this case, they are executed in a scope that contains the arrow
-      tip. 
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={
-    markings,% switch on markings
-    mark=at position 1cm  with {\node[red]{1cm};},
-    mark=at position .75  with {\arrow[blue,line width=2mm]{>}},
-    mark=at position -1cm with {\arrowreversed[black]{stealth};}}
-    ]
-  \draw [help lines] grid (3,2);
-  \draw [postaction={decorate}] (0,0) -- (3,1) arc (0:180:1.5 and 1);
-\end{tikzpicture}
-\end{codeexample}  
-   \end{command}
-    \begin{command}{\arrowreversed\opt{\oarg{options}}\marg{arrow end tip}}
-      As above, only the arrow end tip is flipped and points in the
-      other direction. 
-    \end{command}
-  \end{key}
-
-  \begin{key}{/pgf/decoration/reset marks}
-    Since |mark| options accumulate, there needs to be a way to
-    ``reset'' things, so that any |mark| options set in an enclosing
-    scope do not interfere. This option does exactly this. Note that
-    when the \meta{code} of a marking is executed, the markings are
-    automatically reset.
-  \end{key}
-\end{decoration}
-
-
-
 
 \subsection{Fractal Decorations}
 
@@ -1270,80 +1493,6 @@ inside a \tikzname{} coordinate.
 \end{decoration}
 
 
-
-
-\subsection{Footprint Decorations}
-
-
-\begin{pgflibrary}{decorations.footprints}
-  The decorations of this library can be used to decorate a path with
-  little footprints, as if someone had ``walked'' along the path.
-\end{pgflibrary}
-
-
-\begin{decoration}{footprints}
-  The footprint decoration adds little footprints around the
-  path. They start with the left foot.
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={footprints,foot length=5pt,stride length=10pt}]
-  \draw [help lines] grid (3,3);
-  \fill [decorate] (0,0) -- (3,2) arc (0:180:1.5 and 1);
-\end{tikzpicture}
-\end{codeexample}
-  You can influence the way this decoration looks using the following
-  options:
-  \begin{key}{/pgf/decoration/foot length (initially 10pt)}
-    The length or size of the footprint itself. A larger value makes
-    the footprint larger, but does not change the stride length.
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={footprints,foot length=20pt}]
-  \fill [decorate] (0,0) -- (3,0);
-\end{tikzpicture}
-\end{codeexample}
-  \end{key}
-  \begin{key}{/pgf/decoration/stride length (initially 30pt)}
-    The length of strides. This is the distance between the beginnings
-    of left footprints along the path.
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={footprints,stride length=50pt}]
-  \fill [decorate] (0,0) -- (3,0);
-\end{tikzpicture}
-\end{codeexample}
-  \end{key}
-  \begin{key}{/pgf/decoration/foot sep (initially 4pt)}
-    The separation in the middle between the footprints. The
-    footprints are moved away from the path by half this amount.
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={footprints,foot sep=10pt}]
-  \fill [decorate] (0,0) -- (3,0);
-\end{tikzpicture}
-\end{codeexample}
-  \end{key}
-  \begin{key}{/pgf/decoration/foot angle (initially 10)}
-    Footprints are rotate by this much.
-\begin{codeexample}[]
-\begin{tikzpicture}[decoration={footprints,foot angle=60}]
-  \fill [decorate] (0,0) -- (3,0);
-\end{tikzpicture}
-\end{codeexample}
-  \end{key}
-  \begin{key}{/pgf/decoration/foot of (initially human)}
-    The species whose footprints are shown. Possible values are:
-
-    \def\render#1{
-      \texttt{#1} &
-      \tikz [baseline,decoration={footprints,foot of=#1}]
-        \fill [decorate] (0,0) -- (6,0); \\[3em]
-    }
-    \begin{tabular}{ll}
-      \emph{Species} & \emph{Result} \\[1em]
-      \render{gnome}
-      \render{human}
-      \render{bird}
-      \render{felis silvestris}
-    \end{tabular}
-  \end{key}
-\end{decoration}
 
 
 

@@ -20,9 +20,15 @@
 
 \let\pgf@lib@dec@mark@marks=\pgfutil@empty
 
-\def\pgf@lib@dec@parsemark at position#1with#2\pgf@lib@dec@stop{%
+\def\pgf@lib@dec@parsemark{\pgfutil@ifnextchar b{\pgf@lib@dec@parsebetween}{\pgf@lib@dec@parseat}}
+\def\pgf@lib@dec@parseat at position#1with#2\pgf@lib@dec@stop{%
   \expandafter\def\expandafter\pgf@lib@dec@mark@marks\expandafter{\pgf@lib@dec@mark@marks%
     \pgf@lib@dec@domark{#1}{#2}%
+  }%
+}
+\def\pgf@lib@dec@parsebetween between positions#1and#2step#3with#4\pgf@lib@dec@stop{%
+  \expandafter\def\expandafter\pgf@lib@dec@mark@marks\expandafter{\pgf@lib@dec@mark@marks%
+    \pgf@lib@dec@dobetweenmark{#1}{#2}{#3}{#4}%
   }%
 }
 
@@ -48,8 +54,19 @@
 }
 
 
-\pgfdeclaredecoration{markings}{pre}
+\pgfdeclaredecoration{markings}{init}
 {
+  \state{init}
+  [
+    width=0pt,
+    persistent precomputation={%
+      \pgfkeys{/pgf/decoration/mark info/sequence number/.initial=0}%
+      \pgfkeys{/pgf/decoration/mark info/distance from start/.initial=}%
+    },
+    next state=pre
+  ]
+  {}
+  
   \state{pre}
   [
     width=0pt,
@@ -68,7 +85,13 @@
   \state{main}
   [
     width=1sp,
-    next state=pre
+    next state=pre,
+    persistent precomputation={%
+      \pgfutil@tempcnta=\pgfkeysvalueof{/pgf/decoration/mark info/sequence number}\relax%
+      \advance\pgfutil@tempcnta by1\relax%
+      \pgfkeys{/pgf/decoration/mark info/sequence number/.expanded=\the\pgfutil@tempcnta}%
+      \pgfkeys{/pgf/decoration/mark info/distance from start/.expanded=\pgf@lib@dec@computed@width}%
+    }%
   ]
   {%
     \pgfinterruptpath%
@@ -89,21 +112,45 @@
   \def\pgf@lib@dec@next@state{main}%
 }
 
+
+\def\pgf@lib@dec@dobetweenmark#1#2#3#4#5\pgf@lib@dec@mark@last{%
+  \pgf@lib@dec@parsenum{#1}%
+  \let\pgf@lib@dec@mark@start=\pgf@lib@dec@computed@width%
+  \pgf@lib@dec@parsenum{#2}%
+  \let\pgf@lib@dec@mark@end=\pgf@lib@dec@computed@width%
+  \ifdim\pgf@lib@dec@mark@end<\pgf@lib@dec@mark@start\relax%
+    % Skip!
+    #5\pgf@lib@dec@mark@last%
+  \else%
+    % 
+    \pgf@lib@dec@parsenum{#3}%
+    \pgfmathparse{\pgf@lib@dec@mark@start+\pgf@lib@dec@computed@width}%
+    % Update entry in mark list
+    \edef\pgf@temp{\noexpand\pgf@lib@dec@dobetweenmark{\pgfmathresult pt}{\pgf@lib@dec@mark@end}{\pgf@lib@dec@computed@width}}%
+    \expandafter\def\expandafter\pgf@lib@dec@mark@marks\expandafter{\pgf@temp{#4}#5}%
+    \let\pgf@lib@dec@computed@width\pgf@lib@dec@mark@start%
+    \def\pgf@lib@dec@computed@action{#4}%
+    \def\pgf@lib@dec@next@state{main}%
+  \fi%
+}
+
+
 \def\pgf@lib@dec@parsenum#1{%
   \pgfmathparse{#1}%
   \ifpgfmathunitsdeclared%
     \ifdim\pgfmathresult pt<0pt\relax%
-      \edef\pgf@lib@dec@computed@width{\pgfdecoratedpathlength\pgfmathresult pt}%
+      \pgfmathparse{\pgfdecoratedpathlength\pgfmathresult pt}%
     \else%
-      \edef\pgf@lib@dec@computed@width{\pgfmathresult pt}%
+      \pgfmathparse{\pgfmathresult pt}%
     \fi%
   \else%  
     \ifdim\pgfmathresult pt<0pt\relax%
-      \edef\pgf@lib@dec@computed@width{\pgfdecoratedpathlength\pgfmathresult*\pgfdecoratedpathlength}%
+      \pgfmathparse{\pgfdecoratedpathlength\pgfmathresult*\pgfdecoratedpathlength}%
     \else%
-      \edef\pgf@lib@dec@computed@width{\pgfmathresult*\pgfdecoratedpathlength}%
+      \pgfmathparse{\pgfmathresult*\pgfdecoratedpathlength}%
     \fi%
   \fi%
+  \edef\pgf@lib@dec@computed@width{\pgfmathresult pt}%  
 }
 
 \def\pgf@lib@dec@mark@last{%
