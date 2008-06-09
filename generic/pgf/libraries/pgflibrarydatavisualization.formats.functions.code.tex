@@ -83,13 +83,13 @@
 %   func height = \value x*\value x + \value y*\value y;
 % }
 
-\pgfdeclaredataformat{TeX code}
+\pgfdeclaredataformat{function}
 { % no catcode code
 }
 { % Startup
   % Init collectors
   \let\value=\relax% avoid expansion
-  \pgfkeysgetvalue\pgf@lib@dv@collector{/pgf/data visualization/vars}
+  \pgfkeysgetvalue{/pgf/data visualization/vars}\pgf@lib@dv@collector
 }
 {% Line arguments
   #1%
@@ -105,11 +105,16 @@
   \let\pgf@lib@dv@funcs\pgfutil@empty%
   % launch parser on the result
   \expandafter\pgf@lib@dv@func@parse \pgf@lib@dv@collector\pgf@stop%
-  \pgf@lib@dv@vars%
+  \let\value\pgf@lib@dv@getval
+  \pgf@lib@dv@vars\pgfdatapoint\pgf@stop%
 }
 
-\pgfkeys{/pgf/data visualization/funcs.vars={},/pgf/data visualization/funcs.initial=}
+\pgfkeys{
+  /pgf/data visualization/vars/.initial=,
+  /pgf/data visualization/funcs/.initial=,
+  /pgf/data visualization/samples/.initial=25}
 
+\def\pgf@lib@dv@getval#1{\pgfkeysvalueof{/data point/#1}}
 
 \def\pgf@lib@dv@func@parse{%
   \pgfutil@ifnextchar\pgf@stop{% done
@@ -125,14 +130,15 @@
 }
 
 \def\pgf@lib@dv@func func #1=#2;{%
-  \expandafter\def\expandafter\pgf@lib@dv@funcs\expandafter{\pgf@lib@dv@funcs\pgf@lib@dv@eval@func{#1}{#2}}
+  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@eval@func{#1}{#2}}
   \pgf@lib@dv@func@parse%
 }
 \def\pgf@lib@dv@var var #1=[#2:#3]{%
   \pgfutil@ifnextchar s{%
     \pgf@lib@dv@samplesorsteps{#1}{#2}{#3}%
   }{%
-    \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@plain{#1}{#2}{#3}}%
+    \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{%
+      \pgf@lib@dv@vars\pgf@lib@dv@samples@var{#1}{#2}{#3}{\pgfkeysvalueof{/pgf/data visualization/samples}}}%
     \expandafter\pgf@lib@dv@func@parse\pgfutil@gobble%
   }
 }
@@ -144,12 +150,50 @@
   }%
 }
 \def\pgf@lib@dv@step#1#2#3tep#4;{%
-  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@steps{#1}{#2}{#3}{#4}}%
+  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var{#1}{#2}{#3}{#4}}%
   \pgf@lib@dv@func@parse%
 }
 \def\pgf@lib@dv@samples#1#2#3amples#4;{%
-  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@samples{#1}{#2}{#3}{#4}}%
+  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@samples@var{#1}{#2}{#3}{#4}}%
   \pgf@lib@dv@func@parse%
 }
+
+%
+% Executer...
+%
+\def\pgf@lib@dv@samples@var#1#2#3#4{%
+  \pgfmathparse{#3}%
+  \let\pgf@lib@dv@temp=\pgfmathresult%
+  \pgfmathparse{#2}%
+  \pgfmathparse{\pgf@lib@dv@temp-\pgfmathresult}%
+  \pgfmathparse{\pgfmathresult/#4}%
+  \let\pgf@lib@dv@temp=\pgfmathresult%
+  \pgf@lib@dv@step@var{#1}{#2}{#3}{\pgf@lib@dv@temp}%
+}
+
+\def\pgf@lib@dv@step@var#1#2#3#4#5\pgf@stop{%
+  {%
+    \def\pgf@loop@body{#5}%
+    \pgfmathparse{#2}%
+    \pgfkeyslet{/data point/#1}{\pgfmathresult}%
+    \pgfmathparse{#3}%
+    \let\pgf@loop@end\pgfmathresult%
+    \pgfmathparse{#4}%
+    \let\pgf@loop@step\pgfmathresult%
+    \pgfmathloop%
+      \pgfmathlessthan{\pgf@loop@end}{\pgfkeysvalueof{/data point/#1}}
+    \ifdim\pgfmathresult pt<1pt\relax%
+      \pgf@loop@body%
+      \pgfmathparse{\pgfkeysvalueof{/data point/#1}+\pgf@loop@step}%
+      \pgfkeyslet{/data point/#1}{\pgfmathresult}%
+    \repeatpgfmathloop%%
+  }%
+}
+
+\def\pgf@lib@dv@eval@func#1#2{%
+  \pgfmathparse{#2}%
+  \pgfkeyslet{/data point/#1}{\pgfmathresult}%  
+}
+
 
 \endinput
