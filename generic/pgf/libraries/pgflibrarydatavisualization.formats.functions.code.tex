@@ -1,0 +1,155 @@
+% Copyright 2008 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+\usepgfmodule{datavisualization}
+
+
+
+
+% Function evaluator
+%
+% (This uses TeX evaluation and is slow. *You have been warned*.)
+%
+% Description:
+%
+% The data contains the description of variables, followed by
+% functions.
+%
+% The format for the variables is
+%
+%   var <name> = "["<start>:<end>"]" [ step <steps> | samples <samples>];
+%
+% (The first two [ and ] are "real", the second pair means "optional",
+% see the examples.)
+%
+% The format for the functions is
+%
+%   func <name> = <body>;
+%
+% Additionally, the variables and functions stored in the keys
+% /pgf/data visualization/vars and /pgf/data visualization/funcs will
+% also be used, the format for them is the same as above.
+%
+% The <name> is always the name of a (data point) attribute. Inside
+% the <body> it can be accessed using the \value macro, which is
+% defined locally, here.
+%
+% Newlines are not importants, everything is gathered into a single
+% line, the semicolons are used to detect the beginnings and ends of
+% declarations.
+%
+% With everything setup in this way, for each variable, the variable
+% ranges throught the values between start and end, either with the
+% given step or the given number of samples. If neither is given, the
+% current value of /pgf/data visualization/samples is used. If there
+% are multiple variables, they all range over their respective
+% intervals independently. Thus, "var x = [0,1]; var y = [0:1];", 
+% assuming samples=25, gives you 625 data points.
+%
+% As the variables range over their respective values, the functions
+% are evaluated using the function stored in /pgf/data
+% visualization/parser. By default this is set to \pgfmathparse, but
+% you can use a different parser, if you like.
+%
+% Example:
+%
+% \pgfdatavisualizationrender[format=function]
+% \data{
+%
+%   % This is a parametric plot with the parameter called t.
+%   var t = [0:360] samples 60;
+%
+%   % Let's draw a circle:
+%   func x = sin(\value t);
+%   func y = cos(\value t);
+% }
+%
+% \pgfdatavisualizationrender[format=function]
+% \data{
+%
+%   % This a surface plot data...
+%   var x = [0:1];
+%   var y = [0:1];
+%
+%   % Let's draw a circle:
+%   func height = \value x*\value x + \value y*\value y;
+% }
+
+\pgfdeclaredataformat{TeX code}
+{ % no catcode code
+}
+{ % Startup
+  % Init collectors
+  \let\value=\relax% avoid expansion
+  \pgfkeysgetvalue\pgf@lib@dv@collector{/pgf/data visualization/vars}
+}
+{% Line arguments
+  #1%
+}
+{ % Line action
+  \edef\pgf@lib@dv@collector{\pgf@lib@dv@collector\space #1}%
+}
+{% Ignore empty lines
+}
+{%
+  \edef\pgf@lib@dv@collector{\pgf@lib@dv@collector\space \pgfkeysvalueof{/pgf/data visualization/funcs}}%
+  \let\pgf@lib@dv@vars\pgfutil@empty%
+  \let\pgf@lib@dv@funcs\pgfutil@empty%
+  % launch parser on the result
+  \expandafter\pgf@lib@dv@func@parse \pgf@lib@dv@collector\pgf@stop%
+  \pgf@lib@dv@vars%
+}
+
+\pgfkeys{/pgf/data visualization/funcs.vars={},/pgf/data visualization/funcs.initial=}
+
+
+\def\pgf@lib@dv@func@parse{%
+  \pgfutil@ifnextchar\pgf@stop{% done
+    \pgfutil@gobble%
+  }
+  {%
+    \pgfutil@ifnextchar v{% variable
+      \pgf@lib@dv@var%
+    }{%
+      \pgf@lib@dv@func%
+    }%
+  }%
+}
+
+\def\pgf@lib@dv@func func #1=#2;{%
+  \expandafter\def\expandafter\pgf@lib@dv@funcs\expandafter{\pgf@lib@dv@funcs\pgf@lib@dv@eval@func{#1}{#2}}
+  \pgf@lib@dv@func@parse%
+}
+\def\pgf@lib@dv@var var #1=[#2:#3]{%
+  \pgfutil@ifnextchar s{%
+    \pgf@lib@dv@samplesorsteps{#1}{#2}{#3}%
+  }{%
+    \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@plain{#1}{#2}{#3}}%
+    \expandafter\pgf@lib@dv@func@parse\pgfutil@gobble%
+  }
+}
+\def\pgf@lib@dv@samplesorsteps#1#2#3s{%
+  \pgfutil@ifnextchar t{% step
+    \pgf@lib@dv@step{#1}{#2}{#3}%
+  }{% sample
+    \pgf@lib@dv@samples{#1}{#2}{#3}%
+  }%
+}
+\def\pgf@lib@dv@step#1#2#3tep#4;{%
+  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@steps{#1}{#2}{#3}{#4}}%
+  \pgf@lib@dv@func@parse%
+}
+\def\pgf@lib@dv@samples#1#2#3amples#4;{%
+  \expandafter\def\expandafter\pgf@lib@dv@vars\expandafter{\pgf@lib@dv@vars\pgf@lib@dv@step@var@samples{#1}{#2}{#3}{#4}}%
+  \pgf@lib@dv@func@parse%
+}
+
+\endinput

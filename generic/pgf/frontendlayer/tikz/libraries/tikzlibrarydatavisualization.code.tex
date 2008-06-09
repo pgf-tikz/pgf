@@ -12,4 +12,118 @@
 \usepgfmodule{datavisualization}
 
 
+% The main \datavisualization command
+%
+% This command must, as always, be given inside a tikz picture. It
+% will add a data visualization to the picture; use "shift" option and
+% friends to place the data visualization somewhere other than at the
+% origin.
+%
+% The \datavisualization gets a set of options as (optional) argument,
+% which can be used to setup the data visualization. Next come the
+% "data block". Then comes the "annotation block". While the data
+% block is mandatory, the annotation block is optional.
+%
+% The data block starts with the keyword "data" or "data sets",
+% followed by optional options that are executed in the /pgf/data
+% visualization path. If the source is set here, the data block may
+% not have a body and the data is read from that source. Otherwise, if
+% only "data" is used, the body must contain the data. If the keyword
+% "data sets" is used, the body is passed to the command
+% \pgfdatavisualizationrender unchanged, allowing multiple data 
+% sets to be visualized at once. 
+%
+% The annotation block must start, if present, with "annotate". It
+% contains any normal tikz code that will be executed inside the scope
+% of the data visualization.
+%
+% Examples:
+%
+% \datavisualization[schoolbook plot]
+%   data [source=my_data_file.cvs,format=comma separated columns]
+% ;
+%
+%  \datavisualization[schoolbook plot]
+%    data [format=key value pairs]
+%    {
+%      x=0, y=0
+%      x=1, y=1
+%      x=2, y=4
+%      x=3, y=9
+%    };
+%
+%  \datavisualization[schoolbook plot]
+%    data [format=function]
+%    {
+%      var x = [0:3];
+%      func y = \value x*\value x;
+%    }
+%    annotate
+%    {
+%      \draw (0,0) -- (3,3);
+%    };
+%
+%  \datavisualization[schoolbook plot]
+%    data sets [format=comma separated columns] {
+%      \dataset [/data point/label=first experiment,source=file_1]
+%      \dataset [/data point/label=second experiment,source=file_2]
+%      \dataset [/data point/label=third experiment,source=file_3]
+%      \dataset [/data point/label=prediction,format=function]
+%        { var x=[0,1]; func y = rand(\value x); }
+%    };
+
+\def\tikz@lib@datavisualization{\pgfutil@ifnextchar[\tikz@lib@datavisualization@opt{\tikz@lib@datavisualization@opt[]}}%}
+
+\def\tikz@lib@datavisualization@opt[#1]#2data{%
+  \begingroup%
+    % Ok, first, start a new data visualization
+    \pgfnewdatavisualization
+    % Now setup some options
+    \tikzset{#1}%
+    % Now handle the data
+    \pgfutil@ifnextchar s\tikz@lib@dv@handle@datasets{%
+      \pgfutil@ifnextchar[\tikz@lib@dv@handle@data{\tikz@lib@dv@handle@data[]}%}
+    }%
+}
+
+\def\tikz@lib@dv@handle@data[#1]{%
+  % Does a brace follow?
+  \pgfutil@ifnextchar\bgroup{%
+    % Yes. A single data set
+    \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont]\dataset[#1]%
+  }
+  {% No. Source must have been set
+    \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont]{\dataset[#1];}%
+  }%
+}%
+
+\def\tikz@lib@dv@handle@datasets sets{\pgfutil@ifnextchar[\tikz@lib@dv@handle@datasets@opt{\tikz@lib@dv@handle@datasets@opt[]}}%}
+\def\tikz@lib@dv@handle@datasets@opt[#1]{%
+  \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont,#1]%
+}
+
+
+\def\tikz@lib@dv@cont{%
+  \tikzset{every data visualization annotation/.try}%
+  \pgfutil@ifnextchar a{% an annotation!
+    \tikz@lib@dv@annotation
+  }{\tikz@lib@dv@close}%
+}
+\def\tikz@lib@dv@close{%
+  \pgfutil@ifnextchar ;{% Ok!
+    \endgroup% done
+    \pgfutil@gobble % get rid of semicolon
+  }{
+    \PackageError{pgf}{Semicolon expected at end of a data
+      visualization}{}%
+    \endgroup%
+  }
+}
+
+\def\tikz@lib@dv@annotation annotate{%
+  \bgroup\aftergroup\tikz@lib@dv@close\let\pgf@temp=%get rid of \bgroup%
+}
+
+
+
 \endinput

@@ -49,10 +49,13 @@
   \pgfoonew \pgfsignalfinishdatapoint=new signal()%
   \pgfoonew \pgfsignalsurveydatapoint=new signal()%
   \pgfoonew \pgfsignalphase=new signal()%
-  \pgfoonew \pgfsignalbegindatacluster=new signal()%
-  \pgfoonew \pgfsignalenddatacluster=new signal()%
 }      
 
+% The phase signal will emit the following constants:
+\def\pgfdvbeginsurvey{1}
+\def\pgfdvendsurvey{2}
+\def\pgfdvbeginvisualization{3}
+\def\pgfdvendvisualization{4}
 
 
 
@@ -213,32 +216,32 @@
 
 
 
-% Handle a dataset.
+% Run the rendering pipeline on a dataset.
 % 
 % #1 = options with path /pgf/data visualization/
-% #2 = a list of data sets, each starting with \data. This argument
-%      should either "look like" a normal argument in curly braces
-%      (even though it will be parsed differently). Alternatively, if
-%      it is does not start with a curly brace, this argument ends
-%      with the first command other than \par or \data (such as \end,
-%      for instance).
+% #2 = a list of data sets, each starting with \dataset. This argument
+%      should either "look like" a normal 
+%      argument in curly braces (even though it will be parsed
+%      differently). Alternatively, if it is does not start with a
+%      curly brace, this argument ends with the first command other
+%      than \par or \dataset (such as \end, for instance).
 %
 % Description:
 %
-% This command is used to define a dataset. A data set consists of a
-% list of calls to \data. Data can be in different formats, as
+% This command is used to render data sets. A data set consists of a
+% list of calls to \dataset. Data can be in different formats, as
 % specified by the "format" key, and you can define new formats. 
 %
 % In detail, the following happens:
 %
-% Both for the whole data set and for each \data group, a scope is
+% Both for the whole data set and for each \dataset group, a scope is
 % opened and the options are executed. This results in 
 % some keys to be set. Two keys are handled in a special way:
 %
 % /pgf/data visualization/format stores the format (see below)
 % /pgf/data visualization/source determines where the data is.
 %
-% Both the format and the source can change for each \data group. If
+% Both the format and the source can change for each \dataset group. If
 % source is empty, the data is stored in the argument that
 % follows. Otherwise, the file whose name is stored in source is read.  
 %
@@ -254,7 +257,7 @@
 % The whole format handling will be run twice for each data set. The
 % first time, the \pgfdatapoint command will only emit survey signals,
 % the second time the actual visualization signals are emitted. Only
-% upon the second run the data cluster signals will be emitted around
+% upon the second run the data set signals will be emitted around
 % the data.
 %
 % Example:
@@ -266,7 +269,7 @@
 %      column 3=dax/entry,
 %      column 4=dax/exit]
 %    {
-%      \data
+%      \dataset
 %      {
 %       % today
 %       2000 2300 2100 2200 
@@ -274,23 +277,23 @@
 %       2200 2300 2250 2260 
 %       1800 2260 2260 1900 
 %       2000 2300 2100 2200
-%     }
+%     };
 %    
-%     \data[format=comma separated columns]
+%     \dataset[format=comma separated columns]
 %     {
 %       % yesterday
 %       2000, 2350, 2200, 2250 
 %       2200, 2300, 2250, 2260 
-%     }
-%     \data[source=data,format=comma separated columns]
+%     };
+%     \dataset[source=data,format=comma separated columns];
 %   }
 
 
-\def\pgfdataset{\pgfutil@ifnextchar[{\pgf@dataset}{\pgf@dataset[]}}%}
+\def\pgfdatavisualizationrender{\pgfutil@ifnextchar[{\pgf@dataset}{\pgf@dataset[]}}%}
 
 
 %
-% Collection of \data groups into \pgf@dataset@collection
+% Collection of \dataset groups into \pgf@dataset@collection
 % 
 
 \def\pgf@dataset[#1]{%
@@ -309,16 +312,16 @@
 \def\pgf@dataset@collector{%
   \pgfutil@ifnextchar\egroup{\pgf@dataset@collector@stop}
   {\pgfutil@ifnextchar\par{\afterassignment\pgf@dataset@collector\let\pgf@next}
-    {\pgfutil@ifnextchar\data{\pgf@dataset@data}{\pgf@dataset@collector@stop\egroup}}}%
+    {\pgfutil@ifnextchar\dataset{\pgf@dataset@data}{\pgf@dataset@collector@stop\egroup}}}%
 }
 
-\def\pgf@dataset@data\data{%
+\def\pgf@dataset@data\dataset{%
   \pgfutil@ifnextchar[{\pgf@dataset@data@opt}{\pgf@dataset@data@opt[]}}%}
 \def\pgf@dataset@data@opt[#1]{%
   % Ok, add one data thing...
   \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection\pgf@do@data{#1}}%
   \begingroup%
-    \pgfkeys{/pgf/data visualization/.cd,#1}%
+    \pgfkeys{/pgf/data visualization/.cd,/pgf/every data/.try,#1}%
     \pgfkeysgetvalue{/pgf/data visualization/format}\pgf@dv@format%
     \expandafter\let\expandafter\pgf@dv@format@catcodes\csname pgfdv@format@\pgf@dv@format @catcodes\endcsname%
     \ifx\pgf@dv@format@catcodes\relax
@@ -360,22 +363,22 @@
 \def\pgf@@eol{\pgf@eol}
 
 
-
 %
 % Running the two phases after the collecting is done.
 %
 
 \def\pgf@dataset@collector@stop{%
     % Survey phase.
-    \pgfsignalphase.emit(survey)%
     \let\pgfdatapoint=\pgfdatapoint@surveyphase%
+    \pgfsignalphase.emit(\pgfdvbeginsurvey)%
     \pgf@dataset@collection%
+    \pgfsignalphase.emit(\pgfdvendsurvey)%
     % Visualization phase.
     \pgfsignalphase.emit(visualization)%
     \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
-    \pgfdatacluster%
+    \pgfsignalphase.emit(\pgfdvbeginvisualization)%
     \pgf@dataset@collection%
-    \endpgfdatacluster%
+    \pgfsignalphase.emit(\pgfdvendvisualization)%
 }
 
 \def\pgf@do@data#1#2{%
@@ -467,7 +470,7 @@
 % a data set is visualized and the format is set to #1, this handler
 % is used to parse the data.
 %
-% In detail, the \data command will select a source. Before this
+% In detail, the \dataset command will select a source. Before this
 % source is read, #2 will be executed to setup the
 % catcodes. Additionally, each time the data is parsed, #3 will be
 % called. Then, for each nonempty line of the source, the
@@ -498,8 +501,8 @@
 %
 % Example:
 %
-% \pgfdataset[format=TeX code]
-% \data{
+% \pgfdatavisualizationrender[format=TeX code]
+% \dataset{
 %   \pgfkeyssetvalue{/data point/x}{5}
 %   \pgfkeyssetvalue{/data point/y}{5}
 %   \pgfdatapoint
@@ -521,8 +524,8 @@
 %
 % Example:
 %
-% \pgfdataset[format=key value pairs]
-% \data{
+% \pgfdatavisualizationrender[format=key value pairs]
+% \dataset{
 %   x=5, y=6, hi=9
 %   x=7, y=6, lo=10
 % }
@@ -545,12 +548,12 @@
 %
 % Example:
 %
-% \pgfdataset[format=space separated columns,
+% \pgfdatavisualizationrender[format=space separated columns,
 %             column 1=dax/low,
 %             column 2=dax/high,
 %             column 3=dax/entry,
 %             column 4=dax/exit]
-% \data{
+% \dataset{
 %   % today
 %   2000, 2300, 2100, 2200 
 %   2000, 2350, 2200  
@@ -609,7 +612,7 @@
 %
 % Example:
 %
-% \pgfdataset[format=space separated columns,
+% \pgfdatavisualizationrender[format=space separated columns,
 %             column 1=dax/low,
 %             column 2=dax/high,
 %             column 3=dax/entry,
@@ -654,22 +657,6 @@
   \fi%
 }
 \def\pgf@atpgfattext{@\pgf @}
-
-
-
-
-% Start/stop a data cluster
-%
-% Description:
-%
-% Inside a data set the data can be further clustered using these
-% commands. Like the start/stop of data sets, they emit signal.
-
-\def\pgfdatacluster{\pgfsignalbegindatacluster.emit()}
-\def\endpgfdatacluster{\pgfsignalenddatacluster.emit()}
-
-\let\startpgfdatacluster=\pgfdatacluster
-\let\stoppgfdatacluster=\endpgfdatacluster
 
 
 
@@ -1519,7 +1506,7 @@
   \method default connects() {
     \pgfoothis.object(\pgf@dv@me)
     \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,protocol)
-    \pgfsignalenddatacluster.connect(\pgf@dv@me,render)
+    \pgfsignalphase.connect(\pgf@dv@me,render)
   }
 
   \method set use path(#1) {
@@ -1536,13 +1523,15 @@
     \pgfoolet{positions}\pgf@dv@temp
   }
 
-  \method render() {
-    \pgfoovalueof{handler}
-    \pgfplotstreamstart
-    \pgfoovalueof{positions}
-    \pgfplotstreamend
-    \pgfoovalueof{use path}
-    \pgfoolet{positions}\pgfutil@empty
+  \method render(#1) {
+    \ifx#1\pgfdvendvisualization
+      \pgfoovalueof{handler}
+      \pgfplotstreamstart
+      \pgfoovalueof{positions}
+      \pgfplotstreamend
+      \pgfoovalueof{use path}
+      \pgfoolet{positions}\pgfutil@empty
+    \fi
   }
 
   \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
