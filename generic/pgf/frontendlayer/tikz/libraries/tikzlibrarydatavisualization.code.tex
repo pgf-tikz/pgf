@@ -20,6 +20,15 @@
     \else%
       \pgfkeys{/errors/unknown key={/tikz/data visualization/\tikz@dv@key}{#1}}%
     \fi%
+  },
+  /tikz/data visualization/data/.unknown/.code={%
+    % Redirect to /pgf/data
+    \let\tikz@dv@key\pgfkeyscurrentname% 
+    \pgfkeys{/pgf/data/\tikz@dv@key/.try={#1}}%
+    \ifpgfkeyssuccess%
+    \else%
+      \pgfkeys{/errors/unknown key={/pgf/data/\tikz@dv@key}{#1}}%
+    \fi%
   }
 }
 
@@ -34,22 +43,23 @@
 % origin.
 %
 % The \datavisualization gets a set of options as (optional) argument,
-% which can be used to setup the data visualization. Next come the
-% "data block". Then comes the "annotation block". While the data
-% block is mandatory, the annotation block is optional.
+% which can be used to setup the data visualization.
 %
-% The data block starts with the keyword "data" or "data sets",
-% followed by optional options that are executed in the /pgf/data
-% visualization path. If the source is set here, the data block may
-% not have a body and the data is read from that source. Otherwise, if
-% only "data" is used, the body must contain the data. If the keyword
-% "data sets" is used, the body is passed to the command
-% \pgfdatavisualizationrender unchanged, allowing multiple data 
-% sets to be visualized at once. 
+% Next comes a sequence of block, each introduced with a keyword.
 %
-% The annotation block must start, if present, with "annotate". It
-% contains any normal tikz code that will be executed inside the scope
-% of the data visualization.
+% The data blocks.
+%   Each such block starts with "data", followed by
+%   optional arguments. The optional arguments may either specify an
+%   external data source or the data may follow inline.
+%
+%   The options are executed for the path /pgf/data. The style
+%   /tikz/every data is executed for each data, which can be useful to
+%   generally set, say, a certain data format.
+%
+% The before/after survey/visualization blocks.
+%   A block starting with "before survey", "after survey", "before
+%   visualization" or "after visualization" may contain any code. It
+%   will be executed at the time indicated by the block name.
 %
 % Examples:
 %
@@ -72,74 +82,67 @@
 %      var x = [0:3];
 %      func y = \value x*\value x;
 %    }
-%    annotate
+%    after visualization
 %    {
 %      \draw (0,0) -- (3,3);
 %    };
 %
-%  \datavisualization[schoolbook plot]
-%    data sets [format=comma separated columns] {
-%      \dataset [/data point/label=first experiment,source=file_1]
-%      \dataset [/data point/label=second experiment,source=file_2]
-%      \dataset [/data point/label=third experiment,source=file_3]
-%      \dataset [/data point/label=prediction,format=function]
-%        { var x=[0,1]; func y = rand(\value x); }
-%    };
+%  \datavisualization[schoolbook plot,
+%                     every data/.style={format=comma separated columns}]
+%    data [/data point/label=first experiment,source=file_1]
+%    data [/data point/label=second experiment,source=file_2]
+%    data [/data point/label=third experiment,source=file_3]
+%    data [/data point/label=prediction,format=function]
+%      { var x=[0,1]; func y = rand(\value x); }
+%    ;
 
 \def\tikz@lib@datavisualization{\pgfutil@ifnextchar[\tikz@lib@datavisualization@opt{\tikz@lib@datavisualization@opt[]}}%}
 
-\def\tikz@lib@datavisualization@opt[#1]#2data{%
+\def\tikz@lib@datavisualization@opt[#1]{%
   \begingroup%
     % Ok, first, start a new data visualization
-    \pgfnewdatavisualization
-    % Setup clearers:
-    \let\tikz@lib@dv@setup=\pgfutil@empty%
+    \pgfoonew \tikz@main@dv=new data visualization()%
     % Now setup some options
     \tikzdatavisualizationset{#1}%
-    % Setup objects now:
-    \tikz@lib@dv@setup
-    % Now handle the data
-    \pgfutil@ifnextchar s\tikz@lib@dv@handle@datasets{%
-      \pgfutil@ifnextchar[\tikz@lib@dv@handle@data{\tikz@lib@dv@handle@data[]}%}
+    %
+    \pgfset{/pgf/data/continue code=\tikz@lib@dv@parse@loop}%
+    % Now enter parse loop
+    \tikz@lib@dv@parse@loop
+}
+
+\def\tikz@lib@dv@parse@loop{%  
+  \pgfutil@ifnextchar d\tikz@lib@dv@handle@data{%
+    \pgfutil@ifnextchar a\tikz@lib@dv@handle@after{%
+      \pgfutil@ifnextchar b\tikz@lib@dv@handle@before{%
+        \pgfutil@ifnextchar ;{%
+          \tikz@lib@dv@parse@end%
+        }{%
+          \PackageError{tikz}{Semicolon expected}{}%
+          \endgroup%
+        }%
+      }%
     }%
-}
-
-\def\tikz@lib@dv@handle@data[#1]{%
-  % Does a brace follow?
-  \pgfutil@ifnextchar\bgroup{%
-    % Yes. A single data set
-    \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont]\dataset[#1]%
-  }
-  {% No. Source must have been set
-    \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont]{\dataset[#1];}%
   }%
-}%
-
-\def\tikz@lib@dv@handle@datasets sets{\pgfutil@ifnextchar[\tikz@lib@dv@handle@datasets@opt{\tikz@lib@dv@handle@datasets@opt[]}}%}
-\def\tikz@lib@dv@handle@datasets@opt[#1]{%
-  \pgfdatavisualizationrender[/utils/exec=\aftergroup\tikz@lib@dv@cont,#1]%
+}
+\def\tikz@lib@dv@parse@end{%
+    % Go!
+    \tikz@main@dv.survey()%
+    \tikz@main@dv.visualize()%
+  \endgroup%
 }
 
+\def\tikz@lib@dv@handle@data data{\pgfdata}
+\def\tikz@lib@dv@handle@before before{\pgfutil@ifnextchar s{\tikz@lib@dv@before@survey}{\tikz@lib@dv@before@visualization}}
+\def\tikz@lib@dv@handle@after after{\pgfutil@ifnextchar s{\tikz@lib@dv@after@survey}{\tikz@lib@dv@after@visualization}}
 
-\def\tikz@lib@dv@cont{%
-  \tikzdatavisualizationset{every annotation/.try}%
-  \pgfutil@ifnextchar a{% an annotation!
-    \tikz@lib@dv@annotation
-  }{\tikz@lib@dv@close}%
-}
-\def\tikz@lib@dv@close{%
-  \pgfutil@ifnextchar ;{% Ok!
-    \endgroup% done
-    \pgfutil@gobble % get rid of semicolon
-  }{
-    \PackageError{pgf}{Semicolon expected at end of a data visualization}{}%
-    \endgroup%
-  }
-}
+\def\tikz@lib@dv@before@survey survey#1{\tikz@main@dv.before survey({{#1}})\tikz@lib@dv@parse@loop}
+\def\tikz@lib@dv@after@survey survey#1{\tikz@main@dv.after survey({{#1}})\tikz@lib@dv@parse@loop}
 
-\def\tikz@lib@dv@annotation annotate{%
-  \bgroup\aftergroup\tikz@lib@dv@close\let\pgf@temp=%get rid of \bgroup%
-}
+\def\tikz@lib@dv@before@visualization visualization#1{\tikz@main@dv.before visualization({{#1}})\tikz@lib@dv@parse@loop}
+\def\tikz@lib@dv@after@visualization visualization#1{\tikz@main@dv.after visualization({{#1}})\tikz@lib@dv@parse@loop}
+
+\pgfset{/pgf/every data/.style={/tikz/every data/.try,/tikz/data visualization/every data/.try}}
+
 
 
 
@@ -155,11 +158,18 @@
 % other options of the \datavisualization command have been
 % processed. The value of the macro \obj is then stored in <key>/obj.
 
-\tikzdatavisualizationset{make object/.code 2 args={%
+\tikzdatavisualizationset{
+  make object before survey/.code 2 args={%
     % Clear the object, in case it exists:
     \pgfkeysalso{/tikz/data visualization/#1/obj/.initial=}
     % Queue the object creation:
-    \expandafter\def\expandafter\tikz@lib@dv@setup\expandafter{\tikz@lib@dv@setup\tikz@lib@dv@possibly@create{#1}{#2}}%
+    \tikz@main@dv.before survey(\tikz@lib@dv@possibly@create{#1}{#2})%
+  },
+  make object after survey/.code 2 args={%
+    % Clear the object, in case it exists:
+    \pgfkeysalso{/tikz/data visualization/#1/obj/.initial=}
+    % Queue the object creation:
+    \tikz@main@dv.after survey(\tikz@lib@dv@possibly@create{#1}{#2})%
   }
 }
 
@@ -169,7 +179,8 @@
 \def\tikz@lib@dv@possibly@create#1#2{%
   \pgfkeysgetvalue{/tikz/data visualization/#1/obj}\tikz@temp%
   \ifx\tikz@temp\pgfutil@empty%
-    \pgfoonew \tikz@lib@dv=new #2%
+    \edef\tikz@marshal{\noexpand\pgfoonew\noexpand\tikz@lib@dv=new #2}%
+    \tikz@marshal%
     \tikz@lib@dv.default connects()%
     \pgfkeyslet{/tikz/data visualization/#1/obj}\tikz@lib@dv%
   \fi%
@@ -184,30 +195,25 @@
 %
 
 \tikzdatavisualizationset{%
-  make linear axis/.style={
-    make object={#1/transformer}{line transformer(\tikz@dvvalue{#1/source} transformed,\tikz@dvvalue{#1/vec})},
-    make object={#1/mapper}{attribute mapper(%
+  make axis/.style={
+    make object before survey={#1/transformer}{line transformer(\tikz@dvvalue{#1/source}/transformed,\noexpand\tikz@dvvalue{#1/vec})},
+    make object before survey={#1/mapper}{attribute mapper(%
       \tikz@dvvalue{#1/source},%
-      \tikz@dvvalue{#1/in min},%
-      \tikz@dvvalue{#1/in max},%
-      \tikz@dvvalue{#1/source} transformed,%
+      \tikz@dvvalue{#1/source min},%
+      \tikz@dvvalue{#1/source max},%
+      \tikz@dvvalue{#1/source}/transformed,%
       \tikz@dvvalue{#1/out min},%
-      \tikz@dvvalue{#1/out max},)},
+      \tikz@dvvalue{#1/out max},%
+      \tikz@dvvalue{#1/function})},
     #1/source/.initial=,
-    #1/in min/.initial=0,
-    #1/in max/.initial=1,
+    #1/source min/.initial=0,
+    #1/source max/.initial=1,
     #1/out min/.initial=0,
     #1/out max/.initial=1,
+    #1/function/.initial=,
     #1/vec/.initial=\pgfpoint{0mm}{1cm}
   }
 }
-
-
-
-
-
-
-
 
 
 \endinput

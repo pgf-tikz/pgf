@@ -20,42 +20,144 @@
 % used. The "parameters" of the data point are just the current values
 % of the keys or macros in the current scope. 
 %
-% A set of data points created using the \pgfdataset command. Inside a
-% data set, you can use \pgfdatacluster and \endpgfdatacluster to
-% further cluster data. These will cause the "begin data cluster" and
-% "end data cluster" signals to be emitted. Every data set implicitly
-% opens a cluster. 
-%
+% A set of data points created using the \pgfdata command.
 % When a data point is created, a number of signals are emitted, see
 % the description of \pgfdatapoint. To actually visualize something,
 % objects should be created that listen to these signals and that
 % handle them. 
 %
-% The command \pgfnewdatavisualization inits these signals. 
+% The following class manages a data visualization
+
+\pgfooclass{data visualization}
+{
+  % Class data visualization
+  %
+  % This class is used to "manage" a data visualization. It provides
+  % methods for hooking into the data visualization process and its
+  % constructor initializes the signals that are issued during a data
+  % visualization. 
+  %
+  % A bit contrary to normal oo-programming, if there are two objects
+  % of this class, the second object will completely hide the first
+  % one. This means that you cannot create two objects of this class
+  % and then interleave calls to the two objects. However, you *can*
+  % create a data visualization object and then, inside a nested
+  % scope, create another such object, use it, and after the end of
+  % the nested scope, return to using the first object.
+  %
+  % When a data visualization object is created, a whole bunch of
+  % signal objects are also created. However, these are *not*
+  % attributes of the data visualization object. Rather, they have
+  % dedicated names of the type \pgfsignalxxxx.
+  %
+  % To use a data visualization object, you should (possibly
+  % repeatedly) call the macro \pgfdata, which will store the data
+  % in a variable that is local to the current scope. You should also
+  % create transformation, mapping and visualization objects. Then,
+  % you should, first, call the method survey, which will "survey" the
+  % data, allowing the mapping and bounding objects to compute the
+  % correct ranges. You may then create furhter objects based on this
+  % data. Then, you should cann the "visualize" method, which will
+  % invoke the visualization signals for the data points.
 
 
-% Initialize a data visualization
-%
-% Description:
-%
-% Use this command to start a data visualization. It creates the
-% necessary listeners (this works also with nesting).
+  \attribute before survey;
+  \attribute after survey;
+  % These attribute store code that should be executed before or after
+  % the survey phase.
 
-\def\pgfnewdatavisualization{%
-  \pgfoonew \pgfsignalpreparedatapoint=new signal()%
-  \pgfoonew \pgfsignalmapdatapoint=new signal()%
-  \pgfoonew \pgfsignaltransformdatapoint=new signal()%
-  \pgfoonew \pgfsignalvisualizedatapoint=new signal()%
-  \pgfoonew \pgfsignalfinishdatapoint=new signal()%
-  \pgfoonew \pgfsignalsurveydatapoint=new signal()%
-  \pgfoonew \pgfsignalphase=new signal()%
-}      
+  \attribute before visualization;
+  \attribute after visualization;
+  % As above
 
-% The phase signal will emit the following constants:
-\def\pgfdvbeginsurvey{1}
-\def\pgfdvendsurvey{2}
-\def\pgfdvbeginvisualization{3}
-\def\pgfdvendvisualization{4}
+  
+  % Constructor
+  %
+  % Inits the signals
+  \method data visualization() {
+    \pgfoonew \pgfsignalpreparedatapoint=new signal()%
+    \pgfoonew \pgfsignalmapdatapoint=new signal()%
+    \pgfoonew \pgfsignaltransformdatapoint=new signal()%
+    \pgfoonew \pgfsignalvisualizedatapoint=new signal()%
+    \pgfoonew \pgfsignalfinishdatapoint=new signal()%
+    \pgfoonew \pgfsignalsurveydatapoint=new signal()%
+    \pgfoonew \pgfsignalphase=new signal()%
+    %
+    \let\pgf@dataset@collection=\pgfutil@empty% this will store the data
+  }
+
+  % The phase signal will emit the following constants:
+  \def\pgfdvbeginsurvey{1}
+  \def\pgfdvendsurvey{2}
+  \def\pgfdvbeginvisualization{3}
+  \def\pgfdvendvisualization{4}
+
+
+  % Method
+  %
+  % Add code to be added before the survey phase
+  \method before survey(#1) {
+    \pgfooget{before survey}\pgf@temp
+    \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#1}
+    \pgfoolet{before survey}\pgf@temp
+  }
+
+  % Method
+  \method after survey(#1) {
+    \pgfooget{after survey}\pgf@temp
+    \def\pgf@@temp{#1}%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\pgf@temp%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@@temp\pgf@temp}
+    \pgfoolet{after survey}\pgf@temp
+  }
+  
+  % Method
+  \method before visualization(#1) {
+    \pgfooget{before visualization}\pgf@temp
+    \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#1}
+    \pgfoolet{before visualization}\pgf@temp
+  }
+
+  % Method
+  \method after visualization(#1) {
+    \pgfooget{after visualization}\pgf@temp
+    \def\pgf@@temp{#1}%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\pgf@temp%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@@temp\pgf@temp}
+    \pgfoolet{after visualization}\pgf@temp
+  }
+  
+  % Survey method
+  %
+  % Call this method to "survey" the data. This should be done before
+  % the "visualize" method is called.
+  \method survey() {
+    % Survey phase.
+    \let\pgfdatapoint=\pgfdatapoint@surveyphase%
+    \pgfoovalueof{before survey}
+    \pgfsignalphase.emit(\pgfdvbeginsurvey);
+    \pgf@dataset@collection%
+    \pgfsignalphase.emit(\pgfdvendsurvey)%
+    \pgfoovalueof{after survey}
+  }
+
+  
+  % Visualize method
+  %
+  % This method will cause the actual visualization.
+  \method visualize() {
+    % Visualization phase.
+    \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
+    \pgfoovalueof{before visualization}
+    \pgfsignalphase.emit(\pgfdvbeginvisualization)%
+    \pgf@dataset@collection%
+    \pgfsignalphase.emit(\pgfdvendvisualization)%
+    \pgfoovalueof{after visualization}
+  }
+}  
+
 
 
 
@@ -63,9 +165,9 @@
 %
 % Description:
 %
-% This command is called by data parses wheneven a complete data point
-% has been produced. Depending on the current circumstances, different
-% signals will be emitted.
+% This command is called by the survey and the visualize methods
+% whenever a complete data point has been produced. Depending on the
+% current circumstances, different signals will be emitted.
 %
 % The data that is represented by the data point is not given as a
 % parameter. Rather, it is stored in macros and keys, that is, the
@@ -87,10 +189,10 @@
 % for an object to manipulate the data point here (and also
 % in later on).
 %
-% Next, the command \pgfcanvaspositionofdatapoint is called. Mainly, the effect
-% of this command is to setup the keys /data point/canvas x and /data
-% point/canvas y, see the description of this command for more
-% details. 
+% Next, the command \pgfcanvaspositionofdatapoint is called. Mainly,
+% the effect of this command is to setup the keys /data point/canvas x
+% and /data point/canvas y, see the description of this command for
+% more details. 
 %
 % The next step consists of signaling "visualize data point". Objects
 % listening to this will cause some form of visualization of the
@@ -218,116 +320,87 @@
 
 % Run the rendering pipeline on a dataset.
 % 
-% #1 = options with path /pgf/data visualization/
-% #2 = a list of data sets, each starting with \dataset. This argument
-%      should either "look like" a normal 
-%      argument in curly braces (even though it will be parsed
-%      differently). Alternatively, if it is does not start with a
-%      curly brace, this argument ends with the first command other
-%      than \par or \dataset (such as \end, for instance).
+% #1 = options with path /pgf/dataset/
+% #2 = optionally data given inline in curly braces.
 %
 % Description:
 %
-% This command is used to render data sets. A data set consists of a
-% list of calls to \dataset. Data can be in different formats, as
-% specified by the "format" key, and you can define new formats. 
+% This command is define a data sets. For a single data visualization,
+% multiple data sets can be defined, they will accumulate. Data can be
+% in different formats, as specified by the "format" key, and you can
+% define new formats.  
 %
-% In detail, the following happens:
+% The setting of the following keys is important:
 %
-% Both for the whole data set and for each \dataset group, a scope is
-% opened and the options are executed. This results in 
-% some keys to be set. Two keys are handled in a special way:
+% /pgf/data/format stores the format (see below)
+% /pgf/data/source determines where the data is.
 %
-% /pgf/data visualization/format stores the format (see below)
-% /pgf/data visualization/source determines where the data is.
-%
-% Both the format and the source can change for each \dataset group. If
-% source is empty, the data is stored in the argument that
+% If source is empty, the data is stored in the argument that
 % follows. Otherwise, the file whose name is stored in source is read.  
+% This data is stored in an internal variable, which is local to the
+% current group.
 %
-% Independently of what source is used, a format handler is started
-% for each data. This works as follows: first, the handler's startup
-% code is executed. Then for each line of the data file, the line
-% handler function is called. Finally, the data format end handler is
-% called. 
+% After the group, the key "/pgf/data/continue code" will be
+% executed.
+%
+% When the data is actually used later on (during a survey or a
+% visualization), independently of what source is used, a format
+% handler is started for each data set. This works as follows: first,
+% the handler's startup code is executed. Then for each line of the
+% data file/the data given inline, the line handler function is
+% called. Finally, the data format end handler is called. 
 %
 % The format handler's job is to call \pgfdatapoint each time a
 % complete data point has been produced.
 %
-% The whole format handling will be run twice for each data set. The
-% first time, the \pgfdatapoint command will only emit survey signals,
-% the second time the actual visualization signals are emitted. Only
-% upon the second run the data set signals will be emitted around
-% the data.
-%
 % Example:
 %
-%   \pgfdataset
-%     [format=space separated columns,
-%      column 1=dax/low,
-%      column 2=dax/high,
-%      column 3=dax/entry,
-%      column 4=dax/exit]
-%    {
-%      \dataset
-%      {
-%       % today
-%       2000 2300 2100 2200 
-%       2000 2350 2200 2500
-%       2200 2300 2250 2260 
-%       1800 2260 2260 1900 
-%       2000 2300 2100 2200
-%     };
-%    
-%     \dataset[format=comma separated columns]
-%     {
-%       % yesterday
-%       2000, 2350, 2200, 2250 
-%       2200, 2300, 2250, 2260 
-%     };
-%     \dataset[source=data,format=comma separated columns];
-%   }
-
-
-\def\pgfdatavisualizationrender{\pgfutil@ifnextchar[{\pgf@dataset}{\pgf@dataset[]}}%}
-
-
+% \pgfoonew \dv=new data visualization()
+% \pgfoonew \obj=new attribute mapper(...)
+% ...
 %
-% Collection of \dataset groups into \pgf@dataset@collection
-% 
+% \pgfkeys{/pgf/dataset/.cd,
+%          column 1=dax/low,
+%          column 2=dax/high,
+%          column 3=dax/entry,
+%          column 4=dax/exit}
+%
+% \pgfdata[format=space separated columns]
+% {
+%   % today
+%   2000 2300 2100 2200 
+%   2000 2350 2200 2500
+%   2200 2300 2250 2260 
+%   1800 2260 2260 1900 
+%   2000 2300 2100 2200
+% }
+%
+% \pgfdata[format=comma separated columns]
+% {
+%   % yesterday
+%   2000, 2350, 2200, 2250 
+%   2200, 2300, 2250, 2260 
+% }
+%
+% \pgfdata[source=data,format=comma separated columns]
+%
+% \dv.survey()
+% \dv.visualize()
 
-\def\pgf@dataset[#1]{%
-  \bgroup%
-    \pgfkeys{/pgf/data visualization/.cd,#1}%
-    % Ok, let's start collecting 
-    \let\pgf@dataset@collection\pgfutil@empty%
-    \pgfutil@ifnextchar\bgroup{%
-      % Get rid of bgroup:
-      \afterassignment\pgf@dataset@collector%
-      \let\pgf@next%
-    }{%
-      \pgf@dataset@collector%
-    }%
-}
-\def\pgf@dataset@collector{%
-  \pgfutil@ifnextchar\egroup{\pgf@dataset@collector@stop}
-  {\pgfutil@ifnextchar\par{\afterassignment\pgf@dataset@collector\let\pgf@next}
-    {\pgfutil@ifnextchar\dataset{\pgf@dataset@data}{\pgf@dataset@collector@stop\egroup}}}%
-}
-
-\def\pgf@dataset@data\dataset{%
-  \pgfutil@ifnextchar[{\pgf@dataset@data@opt}{\pgf@dataset@data@opt[]}}%}
+\def\pgfdata{\pgfutil@ifnextchar[{\pgf@dataset@data@opt}{\pgf@dataset@data@opt[]}}%}
 \def\pgf@dataset@data@opt[#1]{%
   % Ok, add one data thing...
   \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection\pgf@do@data{#1}}%
   \begingroup%
-    \pgfkeys{/pgf/data visualization/.cd,/pgf/every data/.try,#1}%
-    \pgfkeysgetvalue{/pgf/data visualization/format}\pgf@dv@format%
+    \pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}%
+    \pgfkeysgetvalue{/pgf/data/continue code}\pgf@dv@cont@code%
+    \global\let\pgf@dv@cont@code\pgf@dv@cont@code%
+    \pgfkeysgetvalue{/pgf/data/format}\pgf@dv@format%
     \expandafter\let\expandafter\pgf@dv@format@catcodes\csname pgfdv@format@\pgf@dv@format @catcodes\endcsname%
     \ifx\pgf@dv@format@catcodes\relax
       \PackageError{pgf}{Unknown data format '\pgf@dv@format'}{}%
     \else%
-      \pgfkeysgetvalue{/pgf/data visualization/source}\pgf@dv@source%
+      \pgfkeysgetvalue{/pgf/data/source}\pgf@dv@source%
       \ifx\pgf@dv@source\pgfutil@empty%
         \let\pgf@next\pgf@dataset@grab@inline%
       \else%
@@ -347,7 +420,7 @@
     \fi%
   \endgroup%
   \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection{\pgf@dataset@do@external}}%
-  \pgf@dataset@collector%
+  \pgf@dv@cont@code%
 }
 
 {\catcode`\^^M=\active%
@@ -357,39 +430,20 @@
     \fi%
   \expandafter\endgroup%
   \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection}%  
-  \pgf@dataset@collector%
+  \pgf@dv@cont@code%
   }%
 }%
 \def\pgf@@eol{\pgf@eol}
 
-
-%
-% Running the two phases after the collecting is done.
-%
-
-\def\pgf@dataset@collector@stop{%
-    % Survey phase.
-    \let\pgfdatapoint=\pgfdatapoint@surveyphase%
-    \pgfsignalphase.emit(\pgfdvbeginsurvey)%
-    \pgf@dataset@collection%
-    \pgfsignalphase.emit(\pgfdvendsurvey)%
-    % Visualization phase.
-    \pgfsignalphase.emit(visualization)%
-    \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
-    \pgfsignalphase.emit(\pgfdvbeginvisualization)%
-    \pgf@dataset@collection%
-    \pgfsignalphase.emit(\pgfdvendvisualization)%
-}
-
 \def\pgf@do@data#1#2{%
   \begingroup%
-    \pgfkeys{/pgf/data visualization/.cd,#1}%
-    \pgfkeysgetvalue{/pgf/data visualization/format}\pgf@dv@format%
+    \pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}%
+    \pgfkeysgetvalue{/pgf/data/format}\pgf@dv@format%
     \expandafter\let\expandafter\pgf@dv@format@line\csname pgfdv@format@\pgf@dv@format @line\endcsname%
     \expandafter\let\expandafter\pgf@dv@format@emptyline\csname pgfdv@format@\pgf@dv@format @empty\endcsname%
-    \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@startup\endcsname%
+    \csname pgfdv@format@\pgfkeysvalueof{/pgf/data/format}@startup\endcsname%
     #2%
-    \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@end\endcsname%
+    \csname pgfdv@format@\pgfkeysvalueof{/pgf/data/format}@end\endcsname%
   \endgroup%
 }
 
@@ -399,10 +453,10 @@
 %
 
 \def\pgf@dataset@do@external{%
-  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data visualization/format}@catcodes\endcsname%
-  \immediate\openin1=\pgfkeysvalueof{/pgf/data visualization/source} %
+  \csname pgfdv@format@\pgfkeysvalueof{/pgf/data/format}@catcodes\endcsname%
+  \immediate\openin1=\pgfkeysvalueof{/pgf/data/source} %
   \ifeof1\relax
-     \PackageError{pgf}{Data source '\pgfkeysvalueof{/pgf/data visualization/source}' not found}{}%
+     \PackageError{pgf}{Data source '\pgfkeysvalueof{/pgf/data/source}' not found}{}%
   \else
     \pgf@dataset@readline%
   \fi
@@ -445,8 +499,9 @@
 }
 
 \pgfkeys{
-  /pgf/data visualization/format/.initial=,
-  /pgf/data visualization/source/.initial=
+  /pgf/data/format/.initial=,
+  /pgf/data/source/.initial=,
+  /pgf/data/continue code/.initial=
 }
 
 
@@ -567,7 +622,7 @@
 %   1800, 2260, 2260, 1900 
 % }
 
-\pgfkeys{/pgf/data visualization/.cd,
+\pgfkeys{/pgf/data/.cd,
   column 1/.initial=x,
   column 2/.initial=y,
   column 3/.initial=z,
@@ -593,14 +648,14 @@
 }
 
 \def\pgf@dv@separated@get{%
-  \pgfkeysgetvalue{/pgf/data visualization/column 1}\pgf@dv@cola%
-  \pgfkeysgetvalue{/pgf/data visualization/column 2}\pgf@dv@colb%
-  \pgfkeysgetvalue{/pgf/data visualization/column 3}\pgf@dv@colc%
-  \pgfkeysgetvalue{/pgf/data visualization/column 4}\pgf@dv@cold%
-  \pgfkeysgetvalue{/pgf/data visualization/column 5}\pgf@dv@cole%
-  \pgfkeysgetvalue{/pgf/data visualization/column 6}\pgf@dv@colf%
-  \pgfkeysgetvalue{/pgf/data visualization/column 7}\pgf@dv@colg%
-  \pgfkeysgetvalue{/pgf/data visualization/column 8}\pgf@dv@colh%
+  \pgfkeysgetvalue{/pgf/data/column 1}\pgf@dv@cola%
+  \pgfkeysgetvalue{/pgf/data/column 2}\pgf@dv@colb%
+  \pgfkeysgetvalue{/pgf/data/column 3}\pgf@dv@colc%
+  \pgfkeysgetvalue{/pgf/data/column 4}\pgf@dv@cold%
+  \pgfkeysgetvalue{/pgf/data/column 5}\pgf@dv@cole%
+  \pgfkeysgetvalue{/pgf/data/column 6}\pgf@dv@colf%
+  \pgfkeysgetvalue{/pgf/data/column 7}\pgf@dv@colg%
+  \pgfkeysgetvalue{/pgf/data/column 8}\pgf@dv@colh%
 }
 
 % Space separated columns
