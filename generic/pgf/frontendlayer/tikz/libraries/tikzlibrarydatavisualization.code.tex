@@ -12,6 +12,20 @@
 \usepgfmodule{datavisualization}
 
 
+\tikzset{/tikz/data visualization/.is family,
+  /tikz/data visualization/.unknown/.code={
+    \let\tikz@dv@key\pgfkeyscurrentname% 
+    \pgfkeys{/tikz/\tikz@dv@key/.try={#1}}%
+    \ifpgfkeyssuccess%
+    \else%
+      \pgfkeys{/errors/unknown key={/tikz/data visualization/\tikz@dv@key}{#1}}%
+    \fi%
+  }
+}
+
+\def\tikzdatavisualizationset{\pgfqkeys{/tikz/data visualization}}
+
+
 % The main \datavisualization command
 %
 % This command must, as always, be given inside a tikz picture. It
@@ -78,8 +92,12 @@
   \begingroup%
     % Ok, first, start a new data visualization
     \pgfnewdatavisualization
+    % Setup clearers:
+    \let\tikz@lib@dv@setup=\pgfutil@empty%
     % Now setup some options
-    \tikzset{#1}%
+    \tikzdatavisualizationset{#1}%
+    % Setup objects now:
+    \tikz@lib@dv@setup
     % Now handle the data
     \pgfutil@ifnextchar s\tikz@lib@dv@handle@datasets{%
       \pgfutil@ifnextchar[\tikz@lib@dv@handle@data{\tikz@lib@dv@handle@data[]}%}
@@ -104,7 +122,7 @@
 
 
 \def\tikz@lib@dv@cont{%
-  \tikzset{every data visualization annotation/.try}%
+  \tikzdatavisualizationset{every annotation/.try}%
   \pgfutil@ifnextchar a{% an annotation!
     \tikz@lib@dv@annotation
   }{\tikz@lib@dv@close}%
@@ -114,8 +132,7 @@
     \endgroup% done
     \pgfutil@gobble % get rid of semicolon
   }{
-    \PackageError{pgf}{Semicolon expected at end of a data
-      visualization}{}%
+    \PackageError{pgf}{Semicolon expected at end of a data visualization}{}%
     \endgroup%
   }
 }
@@ -123,6 +140,73 @@
 \def\tikz@lib@dv@annotation annotate{%
   \bgroup\aftergroup\tikz@lib@dv@close\let\pgf@temp=%get rid of \bgroup%
 }
+
+
+
+%
+% Object setup keys
+%
+
+% The following keys are used to create objects. They cannot be
+% created "directly" because a certain option might wish to create an
+% object, but later options may choose to configure the object when it
+% is "too late". Because of this, the "queue object" takes a key name
+% and some code and will execute this code exactly once after all
+% other options of the \datavisualization command have been
+% processed. The value of the macro \obj is then stored in <key>/obj.
+
+\tikzdatavisualizationset{make object/.code 2 args={%
+    % Clear the object, in case it exists:
+    \pgfkeysalso{/tikz/data visualization/#1/obj/.initial=}
+    % Queue the object creation:
+    \expandafter\def\expandafter\tikz@lib@dv@setup\expandafter{\tikz@lib@dv@setup\tikz@lib@dv@possibly@create{#1}{#2}}%
+  }
+}
+
+\def\tikz@dvvalue#1{\pgfkeysvalueof{/tikz/data visualization/#1}}
+
+
+\def\tikz@lib@dv@possibly@create#1#2{%
+  \pgfkeysgetvalue{/tikz/data visualization/#1/obj}\tikz@temp%
+  \ifx\tikz@temp\pgfutil@empty%
+    \pgfoonew \tikz@lib@dv=new #2%
+    \tikz@lib@dv.default connects()%
+    \pgfkeyslet{/tikz/data visualization/#1/obj}\tikz@lib@dv%
+  \fi%
+}%
+
+
+
+%
+%
+% Simple axes
+%
+%
+
+\tikzdatavisualizationset{%
+  make linear axis/.style={
+    make object={#1/transformer}{line transformer(\tikz@dvvalue{#1/source} transformed,\tikz@dvvalue{#1/vec})},
+    make object={#1/mapper}{attribute mapper(%
+      \tikz@dvvalue{#1/source},%
+      \tikz@dvvalue{#1/in min},%
+      \tikz@dvvalue{#1/in max},%
+      \tikz@dvvalue{#1/source} transformed,%
+      \tikz@dvvalue{#1/out min},%
+      \tikz@dvvalue{#1/out max},)},
+    #1/source/.initial=,
+    #1/in min/.initial=0,
+    #1/in max/.initial=1,
+    #1/out min/.initial=0,
+    #1/out max/.initial=1,
+    #1/vec/.initial=\pgfpoint{0mm}{1cm}
+  }
+}
+
+
+
+
+
+
 
 
 
