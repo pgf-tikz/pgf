@@ -159,33 +159,49 @@
 % processed. The value of the macro \obj is then stored in <key>/obj.
 
 \tikzdatavisualizationset{
-  make object before survey/.code 2 args={%
-    % Clear the object, in case it exists:
-    \pgfkeysalso{/tikz/data visualization/#1/obj/.initial=}
-    % Queue the object creation:
-    \tikz@main@dv.before survey(\tikz@lib@dv@possibly@create{#1}{#2})%
-  },
-  make object after survey/.code 2 args={%
-    % Clear the object, in case it exists:
-    \pgfkeysalso{/tikz/data visualization/#1/obj/.initial=}
-    % Queue the object creation:
-    \tikz@main@dv.after survey(\tikz@lib@dv@possibly@create{#1}{#2})%
-  }
+  request object/.code=\tikz@dv@make@object#1,
 }
 
-\def\tikz@dvvalue#1{\pgfkeysvalueof{/tikz/data visualization/#1}}
+\def\tikzdvval#1{\pgfkeysvalueof{/tikz/data visualization/#1}}
 
+\def\tikz@dv@make@object{\pgfutil@ifnextchar[\tikz@dv@make@object@opt{\tikz@dv@make@object@opt[before survey]}}%}
+\def\tikz@dv@make@object@opt[#1]#2#3#4#5{\tikz@dv@make@object@opt@[{#1}]{#2}{#3}#4{#5}\pgf@stop}%
+\def\tikz@dv@make@object@opt@[#1]#2#3#4(#5)#6\pgf@stop{%
+  \pgfkeysalso{#2/.initial=}%
+  % Queue the object creation:
+  \tikz@main@dv.#1(\tikz@lib@dv@possibly@create{#2}{#3}{#4}{#5}{#6})%
+}
 
-\def\tikz@lib@dv@possibly@create#1#2{%
-  \pgfkeysgetvalue{/tikz/data visualization/#1/obj}\tikz@temp%
+\def\tikz@lib@dv@possibly@create#1#2#3#4#5{%
+  \pgfkeysgetvalue{#1}\tikz@temp%
   \ifx\tikz@temp\pgfutil@empty%
-    \edef\tikz@marshal{\noexpand\pgfoonew\noexpand\tikz@lib@dv=new #2}%
-    \tikz@marshal%
-    \tikz@lib@dv.default connects()%
-    \pgfkeyslet{/tikz/data visualization/#1/obj}\tikz@lib@dv%
+    #2%
+    \pgfoonew\tikzdvobj=new #3(#4)%
+    \tikzdvobj.default connects()%
+    \pgfkeyslet{#1}\tikzdvobj%
+    #5%
   \fi%
 }%
 
+
+
+%
+%
+% Inspectors
+%
+%
+% An inspector inspects a given attribute. The inspector allows you to
+% find things out about an attribute like the minimum and maximum
+% values this attribute attains.
+
+\tikzdatavisualizationset{
+  request inspector/.style={
+    request object={/tikz/data visualization/#1/interval}{}{interval(,)}{},
+    request object={/tikz/data visualization/#1/inspector}
+                   {\tikzdvval{#1/interval}.get handle(\tikz@dv@handle)}
+                   {inspector(#1,\tikz@dv@handle)}{}
+  }
+}
 
 
 %
@@ -195,16 +211,16 @@
 %
 
 \tikzdatavisualizationset{%
-  make axis/.style={
-    make object before survey={#1/transformer}{line transformer(\tikz@dvvalue{#1/source}/transformed,\noexpand\tikz@dvvalue{#1/vec})},
-    make object before survey={#1/mapper}{attribute mapper(%
-      \tikz@dvvalue{#1/source},%
-      \tikz@dvvalue{#1/source min},%
-      \tikz@dvvalue{#1/source max},%
-      \tikz@dvvalue{#1/source}/transformed,%
-      \tikz@dvvalue{#1/out min},%
-      \tikz@dvvalue{#1/out max},%
-      \tikz@dvvalue{#1/function})},
+  request axis/.style={
+    request object=[after survey]{/tikz/data visualization/#1/line transformer}{}{line transformer(\tikzdvval{#1/source}/transformed,\tikzdvval{#1/vec})}{},
+    request object=[after survey]{/tikz/data visualization/#1/attribute mapper}{}{attribute mapper(%
+      \tikzdvval{#1/source},%
+      \tikzdvval{#1/source min},%
+      \tikzdvval{#1/source max},%
+      \tikzdvval{#1/source}/transformed,%
+      \tikzdvval{#1/out min},%
+      \tikzdvval{#1/out max},%
+      \tikzdvval{#1/function})}{},
     #1/source/.initial=#1,
     #1/source min/.initial=0,
     #1/source max/.initial=1,
@@ -224,11 +240,18 @@
 
 \tikzdatavisualizationset{
   school book plot/.style={
-    make axis=x,
-    make axis=y,
+    /utils/exec={\tikz@main@dv.after
+      survey({{
+          \tikzdvval{x/interval}.get interval()
+          \show\pgfdvmax
+          \pgfkeyslet{/tikz/data visualization/x/source max}\pgfdvmax
+        }})},
+    request inspector=x,
+    request axis=x,
+    request axis=y,
     x/vec=\pgfqpoint{1cm}{0cm},
     y/vec=\pgfqpoint{0cm}{1cm},
-    make object after survey={plot}{plot handler visualizer(\noexpand\pgfplothandlerlineto)}
+    request object=[after survey]{/tikz/data visualization/plot}{}{plot handler visualizer(\pgfplothandlerlineto)}{}
   }
 }       
 

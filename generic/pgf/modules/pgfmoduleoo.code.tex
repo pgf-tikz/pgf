@@ -64,12 +64,14 @@
   \let\method=\pgfoo@declaremethod%
   \let\attribute=\pgfoo@declareattribute%
   \let\pgfoo@attribute@collection=\pgfutil@empty%
+  \let\pgfoo@attribute@collection@gc=\pgfutil@empty%
   #2%
   % Attribute initializer:
-  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfooresetattributes\endcsname\pgfoo@attribute@collection%
+  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfooinit\endcsname\pgfoo@attribute@collection%
+  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfoogc\endcsname\pgfoo@attribute@collection@gc%
   % Always persent methods:
-  \expandafter\let\csname pgfooY\pgfoo@classname.object\endcsname\pgfoo@obj%
-  \expandafter\let\csname pgfooY\pgfoo@classname.id\endcsname\pgfoo@id%
+  \expandafter\let\csname pgfooY\pgfoo@classname.get handle\endcsname\pgfoo@obj%
+  \expandafter\let\csname pgfooY\pgfoo@classname.get id\endcsname\pgfoo@id%
   \let\method=\pgfoo@origmethod%
   \let\attribute=\pgfoo@origattribute%
 }
@@ -135,14 +137,17 @@
       \pgfoo@declareunpack#1;%
     \else%
       \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfoolet{#1}\pgfutil@empty}%  
+      \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
     \fi%  
   \fi%  
 }
 \def\pgfoo@declareunpack#1=#2;{%
   \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfooset{#1}{#2}}%  
+  \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
 }
 \def\pgfoo@declareunpackspace#1 =#2;{%
   \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfooset{#1}{#2}}%  
+  \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
 }
 
 
@@ -229,15 +234,19 @@
 
 \def\pgfoonew{\pgfutil@ifnextchar n{\pgfoo@new\pgfoo@dummy=}{\pgfoo@new}}
 \def\pgfoo@new#1=new #2(#3){%
-  \expandafter\ifx\csname pgfooY#2.id\endcsname\relax%
+  \expandafter\ifx\csname pgfooY#2.get id\endcsname\relax%
     \PackageError{pgfoo}{Unknown class '#2'}{}%
   \else%
     \advance\pgfoo@objectcount by 1\relax%
     \edef\pgfoolastobj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
     \expandafter\gdef\csname pgfooX\the\pgfoo@objectcount @class\endcsname{#2}%
     \let#1\pgfoolastobj%
-    \pgfoolastobj.@pgfooresetattributes()%
+    {%
+      \pgfoothis@count\pgfoo@objectcount%
+      \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.@pgfooinit\endcsname%
+    }%
     \pgfoolastobj.#2(#3)%
+    \aftergroup\pgfoogc% cleanup after group
   \fi%
 }
 
@@ -298,13 +307,47 @@
 % object. If \obj is an object, you could normally just say
 % \let#1=\obj. However, if \obj happens to be \pgfoothis, then you may
 % wish to get a handle to the object itself, not to the special macro
-% \pgfoothis. In this case you can say \obj.object(#1).
+% \pgfoothis. In this case you can say \obj.get handle(#1).
 
 \def\pgfoo@obj(#1){%
   \edef#1{\noexpand\pgfoo@caller{\the\pgfoothis@count}}%
 }
 
 
+
+% The garbage collector
+%
+% Description:
+%
+% This method frees space ocupied by unused objects. Garbage are
+% objects that have been destroyed because of the end of the scope in
+% which they were created. In this case, however, the memory used by
+% this object is not immediately reused because the attributes of the 
+% object are actually stored in global variables. When the garbage
+% collector is called, it will set all these global variables to
+% \relax, thereby ensuring that no memory is needed for them.
+
+\def\pgfoogc{%
+  {%
+    % We do this in a group...
+    \pgfoothis@count\pgfoo@objectcount% this is temporary...
+    \let\pgfoo@next=\pgfoo@dogc%
+    \pgfoo@next%
+  }%
+}
+\def\pgfoo@dogc{%
+  \advance\pgfoothis@count by 1\relax%
+  \expandafter\ifx\csname pgfooX\the\pgfoothis@count @class\endcsname\relax%
+    \let\pgfoo@next=\relax%
+  \else%
+    % Cleanup this object:
+    % The following is the fast version of \pgfooobj{\the\pgfoo@objectcount}.@pgfoogc:
+    \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.@pgfoogc\endcsname%
+    \expandafter\global\expandafter\let\csname pgfooX\the\pgfoothis@count @class\endcsname\relax%
+  \fi%
+  \pgfoo@next%
+}
+  
 
 
 
@@ -333,7 +376,7 @@
   % Connect a slot (method) #2 of object #1
   \method connect(#1,#2) {%
     {%
-      #1.id(\pgf@tempid)%
+      #1.get id(\pgf@tempid)%
       % Save in emmiter
       \pgfooget{emitter}\pgf@temp%
       \let\pgfoo@signal@call=\relax% avoid expansion
