@@ -207,6 +207,8 @@
 % of the data point.
 
 \def\pgfdatapoint@surveyphase{%
+  \pgfsignalpreparedatapoint.emit()%
+  \pgfsignalmapdatapoint.emit()%
   \pgfsignalsurveydatapoint.emit()%
 }
 
@@ -299,13 +301,6 @@
   \pgf@canvaspositionofdatapoint{\pgfdatapointvirtualtrue}%
 }
 
-\pgfkeys{% do not even think of changing the values of the following:
-  /data point/always true/.initial=true,
-  /data point/always false/.initial=false,
-  /data point/always 0/.initial=0,
-  /data point/always 1/.initial=1,
-  /data point/always empty/.initial=%
-}
 
 
 
@@ -796,14 +791,20 @@
 % Mappers
 %
 
-\pgfooclass{attribute mapper}
+\pgfooclass{mapper}
 {
-  % Class attribute mapper
+  % Class mapper
   %
   % This mapper reacts to the map datapoint signal. Its purpose is to
-  % map one attribute to another attribute. For the first attribute, a
-  % range [a,b] is specified and another range [c,d] is specifed for
-  % the second. Values in the range [a,b] are linearly mapped to the
+  % map one attribute to another attribute. For the first attribute,
+  % two intervals are specified: The cut interval and the in
+  % interval. Values outside the cut-interval are not mapped (they are
+  % cut away). Note that if the min-part of an interval is missing,
+  % this means that -infinity is the lower bound and if the max part
+  % is missing, then the max-part is infinity.
+  %
+  % In addition to the in interval [a,b] there is also an outinterval
+  % [c,d]. Values in the range [a,b] are linearly mapped to the
   % range [c,d] and the result is stored in the second attribute.
   %
   % For instance, if the first range is [10,20] and the second range
@@ -824,12 +825,16 @@
   \attribute in;
   % The name of the input attribute. If the value of this attribute
   % is empty or undefined, no mapping is done.
+
+  \attribute cutter;
+  % The code for cutting the interval. Will set \pgf@dvcuttrue, if a
+  % cut is necessary.
   
   \attribute out;
   % The name of the output attribute.
   
   \attribute trans;
-  % Stores (more or less) transformation function.
+  % Stores (more or less) the transformation function.
 
   \attribute out min;
   % Start of the second range (the value of c).
@@ -839,47 +844,49 @@
   % f(a)).
 
   \attribute scale;
-  %   The scaling factor, that is, the value of (f(d)-f(c))/(b-a).
+  % The scaling factor, that is, the value of (f(d)-f(c))/(b-a).
 
   
   % Constructor
   %
   % #1 = input attribute. Example: velocity.
-  % #2 = start of input range. Example: 10
-  % #3 = end of input range. Example: 20
-  % #4 = output attribuate. Example: x
-  % #5 = start of output range. Example: -10
-  % #6 = end of output range. Example: 100
-  % #7 = optional transformation function. The input value for this
+  % #2 = in interval object
+  % #3 = output attribute. Example: x
+  % #4 = out interval object
+  % #5 = optional transformation function. The input value for this
   %      function is stored in the macro \pgfvalue, that is, when the
   %      function is called the macro will expand to something like
   %      "3.141". The output of the function should be stored in the
   %      macro \pgfmathresult.
-  % 
-  \method attribute mapper(#1,#2,#3,#4,#5,#6,#7) {
+  %
+  % A cut interval is set using the method set cut interval.
+  %
+  \method mapper(#1,#2,#3,#4,#5) {
     {%
       % Let's start with the output, it's easier...
-      \pgfooset{out}{#4}
-      \pgfmathparse{#5}
+      \pgfooset{out}{#3}
+      #4.get min and max()%
+      \pgfmathparse{\pgfdvmin}
       \pgfooeset{out min}{\pgfmathresult}
-      \pgfmathsubtract{#6}{\pgfoovalueof{out min}}%
+      \pgfmathsubtract{\pgfdvmax}{\pgfdvmin}%
       \let\pgf@dv@out@diff=\pgfmathresult%
       % Now comes the transformation code:
-      \def\pgf@temp{#7}%
+      \def\pgf@temp{#5}%
       \ifx\pgf@temp\pgfutil@empty%
       \else%
         \pgfooset{trans}{%
           \let\pgfvalue\pgfmathresult%
-          \pgfmathparse{#7}%
+          \pgfmathparse{#5}%
         }%
       \fi%
       % Ok, now the transformed input:
       \pgfooset{in}{#1}
-      \pgfmathparse{#2}
+      #2.get min and max()%
+      \pgfmathparse{\pgfdvmin}
       \pgfoovalueof{trans}%
       \let\pgf@dv@min=\pgfmathresult
       \pgfooeset{trans in min}{\pgfmathresult}
-      \pgfmathparse{#3}
+      \pgfmathparse{\pgfdvmax}
       \pgfoovalueof{trans}%
       \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
       % 
@@ -896,14 +903,33 @@
     \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
   }
 
+  % Method
+  \method set cut interval(#1) {
+    #1.get min and max()%
+    \pgfooeset{cut}{%
+      \noexpand\pgf@dvcutfalse%
+      \ifx\pgfdvmin\pgfutil@empty%
+      \else%
+        \noexpand\ifdim\noexpand\pgfmathresult pt<\pgfdvmin pt\relax\noexpand\pgf@dvcuttrue\noexpand\fi%
+      \fi%
+      \ifx\pgfdvmax\pgfutil@empty%
+      \else%
+        \noexpand\ifdim\noexpand\pgfmathresult pt>\pgfdvmax pt\relax\noexpand\pgf@dvcuttrue\noexpand\fi%
+      \fi%
+    }
+  }
+  
   % Slot
   \method map() {
-    \pgfkeysifdefined{/data point/\pgfoovalueof{in}}
-    {%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgfmathresult%
-      \ifx\pgfmathresult\pgfutil@empty%
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgfmathresult%
+    \ifx\pgfmathresult\pgfutil@empty%
+    \else%
+      \ifx\pgfmathresult\relax%
       \else%
-        \ifx\pgfmathresult\relax%
+        % Cut?
+        \pgfoovalueof{cut}%
+        \ifpgf@dvcut%
+          \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfutil@empty%
         \else%
           \pgfoovalueof{trans}%
           \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
@@ -912,10 +938,13 @@
           \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfmathresult%
         \fi%
       \fi%
-    }
-    {}% do nothing!
+    \fi%
   }
 }
+
+\newif\ifpgf@dvcut
+\newif\ifpgf@dvignore
+
 
 
 \pgfooclass{polar mapper}
@@ -925,7 +954,7 @@
   % A polar mapper is used to map attributes given as (2d) polar
   % coordinates to Cartesian coordinates. Note that no special ranges
   % can be specified and that the angle must be given in degrees. You
-  % can, however, use attribute mappers to change these things.
+  % can, however, use a standard mapper to change these things.
   
   \attribute angle;
   % The attribute from which the angle is read.
@@ -995,167 +1024,205 @@
 
 
 
+% %
+% % Inspectors
+% %
+
+% \pgfooclass{inspector}
+% {
+%   \attribute attribute;
+%   \attribute interval obj;
+%   \attribute drop min;
+%   \attribute drop max;
+%   \attribute lift min;
+%   \attribute lift max;
+%   \attribute ignore min;
+%   \attribute ignore max;
+  
+%   \method inspector(#1,#2) {
+%     \pgfooset{attribute}{#1}
+%     \pgfoolet{interval obj}#2
+%   }
+
+%   \method default connects() {
+%     \pgfoothis.get handle(\pgf@dv@me)
+%     \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
+%   }
+
+%   \method drop values below(#1) {
+%     \pgfooset{drop min}{#1}
+%   }
+
+%   \method drop values above(#1) {
+%     \pgfooset{drop max}{#1}
+%   }
+
+%   \method ignore values below(#1) {
+%     \pgfooset{ignore min}{#1}
+%   }
+
+%   \method ignore values above(#1) {
+%     \pgfooset{ignore max}{#1}
+%   }
+
+%   \method raise values lower than(#1) {
+%     \pgfooset{lift min}{#1}
+%   }
+
+%   \method lower values higher than(#1) {
+%     \pgfooset{lift max}{#1}
+%   }
+
+%   \method goto min() {
+%     \pgfooget{interval obj}\pgf@dv@interval
+%     \pgf@dv@interval.get min and max()
+%     \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmin
+%   }
+
+%   \method goto max() {
+%     \pgfooget{interval obj}\pgf@dv@interval
+%     \pgf@dv@interval.get min and max()
+%     \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmax
+%   }
+  
+%   \method map() {
+%     \ifpgfdatapointvirtual%
+%     \else%
+%       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
+%       \ifx\pgf@dv@val\pgfutil@empty%
+%       \else%
+%         \ifx\pgf@dv@val\relax%
+%         \else%
+%           \pgfmathparse{\pgf@dv@val}%
+%           % Ignore?
+%           \pgfooget{ignore min}\pgf@dv@ignore%
+%           \ifx\pgf@dv@ignore\pgfutil@empty%
+%           \else%
+%             \ifdim\pgfmathresult pt<\pgf@dv@ignore pt%
+%               \pgf@dvignoretrue%
+%             \fi%
+%           \fi%
+%           \pgfooget{ignore max}\pgf@dv@ignore%
+%           \ifx\pgf@dv@ignore\pgfutil@empty%
+%           \else%
+%             \ifdim\pgfmathresult pt>\pgf@dv@ignore pt%
+%               \pgf@dvignoretrue%
+%             \fi%
+%           \fi%
+%           \ifpgf@dvignore%
+%           \else%
+%             % Drop?
+%             \pgfooget{drop min}\pgf@dv@drop%
+%             \ifx\pgf@dv@drop\pgfutil@empty%
+%             \else%
+%               \ifdim\pgfmathresult pt<\pgf@dv@drop pt%
+%                 \pgf@dvdroptrue%
+%               \fi%
+%             \fi%
+%             \pgfooget{drop max}\pgf@dv@drop%
+%             \ifx\pgf@dv@drop\pgfutil@empty%
+%             \else%
+%               \ifdim\pgfmathresult pt>\pgf@dv@drop pt%
+%                 \pgf@dvdroptrue%
+%               \fi%
+%             \fi%
+%             \ifpgf@dvdrop%
+%               \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfutil@empty%
+%             \else%
+%               % Lift?
+%               \pgfooget{lift min}\pgf@dv@lift%
+%               \ifx\pgf@dv@lift\pgfutil@empty%
+%               \else%
+%                 \ifdim\pgfmathresult pt<\pgf@dv@lift pt%
+%                   \let\pgfmathresult=\pgf@dv@lift%
+%                   \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult            
+%                 \fi%
+%               \fi%
+%               % Lift?
+%               \pgfooget{lift max}\pgf@dv@lift%
+%               \ifx\pgf@dv@lift\pgfutil@empty%
+%               \else%
+%                 \ifdim\pgfmathresult pt>\pgf@dv@lift pt%
+%                   \let\pgfmathresult=\pgf@dv@lift%
+%                   \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult            
+%                 \fi%
+%               \fi%
+%               % Now, protocol value
+%               \pgfooget{interval obj}\pgf@dv@interval
+%               \pgf@dv@interval.get min and max()%
+%               \ifx\pgfdvmin\pgfutil@empty%
+%                 \pgf@dv@interval.set min(\pgfmathresult)%
+%               \else%
+%                 \ifdim\pgfmathresult pt<\pgfdvmin pt%
+%                   \pgf@dv@interval.set min(\pgfmathresult)%
+%                 \fi%
+%               \fi%
+%               \ifx\pgfdvmax\pgfutil@empty%
+%                 \pgf@dv@interval.set max(\pgfmathresult)%
+%               \else%
+%                 \ifdim\pgfmathresult pt>\pgfdvmax pt%
+%                   \pgf@dv@interval.set max(\pgfmathresult)%
+%                 \fi%
+%               \fi%
+%             \fi%
+%           \fi%
+%         \fi%
+%       \fi%
+%     \fi%
+%   }
+% }
+
+
 %
-% Inspectors
+% Surveyors
 %
 
-\pgfooclass{inspector}
+\pgfooclass{range surveyor}
 {
   \attribute attribute;
   \attribute interval obj;
-  \attribute drop min;
-  \attribute drop max;
-  \attribute lift min;
-  \attribute lift max;
-  \attribute ignore min;
-  \attribute ignore max;
-  
-  \method inspector(#1,#2) {
+
+  \method range surveyor(#1,#2) {
     \pgfooset{attribute}{#1}
     \pgfoolet{interval obj}#2
   }
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
+    \pgfsignalsurveydatapoint.connect(\pgf@dv@me,survey)
   }
 
-  \method drop values below(#1) {
-    \pgfooset{drop min}{#1}
+  \method survey() {
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
+    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
   }
 
-  \method drop values above(#1) {
-    \pgfooset{drop max}{#1}
-  }
-
-  \method ignore values below(#1) {
-    \pgfooset{ignore min}{#1}
-  }
-
-  \method ignore values above(#1) {
-    \pgfooset{ignore max}{#1}
-  }
-
-  \method raise values lower than(#1) {
-    \pgfooset{lift min}{#1}
-  }
-
-  \method lower values higher than(#1) {
-    \pgfooset{lift max}{#1}
-  }
-
-  \method goto min() {
-    \pgfooget{interval obj}\pgf@dv@interval
-    \pgf@dv@interval.get interval()
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmin
-  }
-
-  \method goto max() {
-    \pgfooget{interval obj}\pgf@dv@interval
-    \pgf@dv@interval.get interval()
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmax
-  }
-
-  \method goto adjusted min() {
-    \pgfooget{interval obj}\pgf@dv@interval
-    \pgf@dv@interval.get adjusted interval()
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmin
-  }
-
-  \method goto adjusted max() {
-    \pgfooget{interval obj}\pgf@dv@interval
-    \pgf@dv@interval.get adjusted interval()
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfdvmax
-  }
-  
-  \method map() {
+  \def\pgf@dv@range@surv{%
     \ifpgfdatapointvirtual%
     \else%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
       \ifx\pgf@dv@val\pgfutil@empty%
       \else%
         \ifx\pgf@dv@val\relax%
         \else%
-          \pgfmathparse{\pgf@dv@val}%
-          % Ignore?
-          \pgfooget{ignore min}\pgf@dv@ignore%
-          \ifx\pgf@dv@ignore\pgfutil@empty%
+          % Now, protocol value
+          \ifx\pgfdvmin\pgfutil@empty%
+            \let\pgfdvmin\pgf@dv@val%
           \else%
-            \ifdim\pgfmathresult pt<\pgf@dv@ignore pt%
-              \pgf@dvignoretrue%
+            \ifdim\pgf@dv@val pt<\pgfdvmin pt%
+              \let\pgfdvmin\pgf@dv@val%
             \fi%
           \fi%
-          \pgfooget{ignore max}\pgf@dv@ignore%
-          \ifx\pgf@dv@ignore\pgfutil@empty%
+          \ifx\pgfdvmax\pgfutil@empty%
+            \let\pgfdvmax\pgf@dv@val%
           \else%
-            \ifdim\pgfmathresult pt>\pgf@dv@ignore pt%
-              \pgf@dvignoretrue%
-            \fi%
-          \fi%
-          \ifpgf@dvignore%
-          \else%
-            % Drop?
-            \pgfooget{drop min}\pgf@dv@drop%
-            \ifx\pgf@dv@drop\pgfutil@empty%
-            \else%
-              \ifdim\pgfmathresult pt<\pgf@dv@drop pt%
-                \pgf@dvdroptrue%
-              \fi%
-            \fi%
-            \pgfooget{drop max}\pgf@dv@drop%
-            \ifx\pgf@dv@drop\pgfutil@empty%
-            \else%
-              \ifdim\pgfmathresult pt>\pgf@dv@drop pt%
-                \pgf@dvdroptrue%
-              \fi%
-            \fi%
-            \ifpgf@dvdrop%
-              \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfutil@empty%
-            \else%
-              % Lift?
-              \pgfooget{lift min}\pgf@dv@lift%
-              \ifx\pgf@dv@lift\pgfutil@empty%
-              \else%
-                \ifdim\pgfmathresult pt<\pgf@dv@lift pt%
-                  \let\pgfmathresult=\pgf@dv@lift%
-                  \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult            
-                \fi%
-              \fi%
-              % Lift?
-              \pgfooget{lift max}\pgf@dv@lift%
-              \ifx\pgf@dv@lift\pgfutil@empty%
-              \else%
-                \ifdim\pgfmathresult pt>\pgf@dv@lift pt%
-                  \let\pgfmathresult=\pgf@dv@lift%
-                  \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult            
-                \fi%
-              \fi%
-              % Now, protocol value
-              \pgfooget{interval obj}\pgf@dv@interval
-              \pgf@dv@interval.get interval()%
-              \ifx\pgfdvmin\pgfutil@empty%
-                \pgf@dv@interval.set min(\pgfmathresult)%
-              \else%
-                \ifdim\pgfmathresult pt<\pgfdvmin pt%
-                  \pgf@dv@interval.set min(\pgfmathresult)%
-                \fi%
-              \fi%
-              \ifx\pgfdvmax\pgfutil@empty%
-                \pgf@dv@interval.set max(\pgfmathresult)%
-              \else%
-                \ifdim\pgfmathresult pt>\pgfdvmax pt%
-                  \pgf@dv@interval.set max(\pgfmathresult)%
-                \fi%
-              \fi%
+            \ifdim\pgf@dv@val pt>\pgfdvmax pt%
+              \let\pgfdvmax\pgf@dv@val%
             \fi%
           \fi%
         \fi%
       \fi%
-    \fi%
-  }
-
-  \newif\ifpgf@dvdrop
-  \newif\ifpgf@dvignore
+    \fi
+  }    
 }
 
 
@@ -1168,11 +1235,7 @@
 {
   \attribute min;
   \attribute max;
-  \attribute min adjust absolute;
-  \attribute min adjust relative;
-  \attribute max adjust absolute;
-  \attribute max adjust relative;
-  
+    
   \method interval(#1,#2) {
     \pgfooset{min}{#1}
     \pgfooset{max}{#2}
@@ -1180,42 +1243,41 @@
 
   \method default connects() {
   }
-  
+
   \method set min(#1) {
     \pgfooset{min}{#1}
   }
+  
   \method set max(#1) {
     \pgfooset{max}{#1}
   }
-  \method set min adjust absolute(#1) {
-    \pgfooset{min adjust absolute}{#1}    
-  }
-  \method set min adjust relative(#1) {
-    \pgfooset{min adjust relative}{#1}    
-  }
-  \method set max adjust absolute(#1) {
-    \pgfooset{max adjust absolute}{#1}    
-  }
-  \method set max adjust relative(#1) {
-    \pgfooset{max adjust relative}{#1}    
-  }
 
-  \method get interval() {
+  \method adjust(#1) {
+    {%
+      \pgfooget{min}\pgfdvmin
+      \pgfooget{max}\pgfdvmax
+      #1%
+      \pgfoolet{min}\pgfdvmin
+      \pgfoolet{max}\pgfdvmax
+    }%
+  }
+  
+  \method get min and max() {
     \pgfooget{min}\pgfdvmin
     \pgfooget{max}\pgfdvmax
   }
 
-  \method get adjusted interval() {
+  \method get adjusted interval(#1,#2,#3,#4) {
     \pgfooget{min}\pgfdvmin
     \pgfooget{max}\pgfdvmax
     \ifx\pgfdvmin\pgfutil@empty%
     \else%
       \ifx\pgfdvmax\pgfutil@empty%
       \else%
-        \pgfooget{min adjust absolute}\pgf@dv@minpa
-        \pgfooget{min adjust relative}\pgf@dv@minpr
-        \pgfooget{max adjust absolute}\pgf@dv@maxpa
-        \pgfooget{max adjust relative}\pgf@dv@maxpr
+        \pgfmathsetmarco\pgf@dv@minpa{#1}% min adjust aboslute
+        \pgfmathsetmarco\pgf@dv@minpr{#2}% min adjust relative
+        \pgfmathsetmarco\pgf@dv@maxpa{#3}% max adjust aboslute
+        \pgfmathsetmarco\pgf@dv@maxpr{#4}% max adjust relative
         \pgfmathsubtract{\pgfdvmax}{\pgfdvmin}%
         \let\pgf@dv@diff\pgfmathresult%
         % Start with minimum
@@ -1246,18 +1308,22 @@
 }
 
 
-\pgfooclass{count up}
+\pgfooclass{count}
 {
   \attribute attribute;
   \attribute val=0;
+  \attribute step=1;
+  \attribute start val=0;
+  \attribute zero action=;
   
-  \method count up(#1) {
+  \method count(#1) {
     \pgfooset{attribute}{#1}
   }
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
+    \pgfsignalphase.connect(\pgf@dv@me,phase)
   }
 
   \method set value(#1) {
@@ -1265,52 +1331,40 @@
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{#1}%
   }
 
-  \method apply() {
-    {%
-      \c@pgf@counta=\pgfoovalueof{val}\relax%
-      \advance\c@pgf@counta by1\relax%
-      \pgfooeset{val}{\the\c@pgf@counta}%
-    }%
-    \pgfooget{val}\pgf@dv@temp%
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgf@dv@temp%
-  }  
-}
+  \method set start value(#1) {
+    \pgfooset{start val}{#1}
+  }
 
+  \method set step(#1) {
+    \pgfooset{step}{#1}
+  }
 
-\pgfooclass{count down}
-{
-  \attribute attribute;
-  \attribute max;
-  \attribute val;
+  \method set zero action(#1) {
+    \pgfooset{zero action}{#1}
+  }
+
+  \method count down() {
+    \pgfooset{step}{-1}
+    \edef\pgf@temp{\noexpand\pgfooset{val}{\pgfoovalue{val}}}
+    \pgfoolet{zero action}\pgf@temp
+  }
   
-  \method count down(#1,#2) {
-    \pgfooset{attribute}{#1}
-    \pgfooset{max}{#2}
-    \pgfooset{val}{#2}
-  }
-
-  \method default connects() {
-    \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
-  }
-
-  \method set value(#1) {
-    \pgfooset{val}{#1}
-    \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{#1}%
-  }
-
   \method apply() {
-    {%
-      \c@pgf@counta=\pgfoovalueof{val}\relax%
-      \advance\c@pgf@counta by-1\relax%
-      \ifnum\c@pgf@counta<0\relax%
-        \advance\c@pgf@counta by\pgfoovalueof{max}\relax%
-      \fi%
-      \pgfooeset{val}{\the\c@pgf@counta}%
-    }%
-    \pgfooget{val}\pgf@dv@temp%
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgf@dv@temp%
-  }  
+    \pgfmathparse{\pgfoovalueof{val}+\pgfoovalueof{step}}%
+    \pgfoolet{val}\pgfmathresult%
+    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult%
+    \ifdim\pgfmathresult pt=0pt\relax%
+      \pgfoovalueof{zero action}%
+    \fi%
+  }
+
+  \method phase(#1) {
+    \ifx#1\pgfdvbeginsurvey
+      \pgfooeset{val}{\pgfoovalueof{start val}}
+    \else \ifx#1\pgfdvbeginvisualization
+      \pgfooeset{val}{\pgfoovalueof{start val}}
+    \fi\fi
+  }
 }
 
 
@@ -1322,8 +1376,7 @@
   
   \method sum(#1) {
     \pgfooset{attribute}{#1}
-    \pgfkeyssetvalue{/data point/#1/prev sum}{0}
-    \pgfkeyssetvalue{/data point/#1/sum}{0}
+    \pgfoothis.reset()
   }
 
   \method default connects() {
@@ -1338,6 +1391,20 @@
     \pgfoolet{sum}\pgfmathresult
     \pgfkeyslet{/data point/\pgfoovalueof{attribute}/sum}\pgfmathresult
   }
+
+  \method reset() {
+    \pgfooset{sum}{0}
+    \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/prev sum}{0}
+    \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/sum}{0}
+  }
+  
+  \method phase(#1) {
+    \ifx#1\pgfdvbeginsurvey
+      \pgfoothis.reset()
+    \else \ifx#1\pgfdvbeginvisualization
+      \pgfoothis.reset()
+    \fi\fi
+  }
 }
 
 
@@ -1345,158 +1412,158 @@
 % Axes
 %
 
-\pgfooclass{straight axis visualizer}
-{
-  \attribute attribute;
-  \attribute interval obj;
-  \attribute tick vec;
-  \attribute use path=\pgfusepath{stroke};
-  \attribute use tick path=\pgfusepath{stroke};
+% \pgfooclass{straight axis visualizer}
+% {
+%   \attribute attribute;
+%   \attribute interval obj;
+%   \attribute tick vec;
+%   \attribute use path=\pgfusepath{stroke};
+%   \attribute use tick path=\pgfusepath{stroke};
   
-  \method straight axis visualizer(#1,#2) {
-    \pgfooset{attribute}{#1}
-    \pgfoolet{interval obj}#2
-  }
+%   \method straight axis visualizer(#1,#2) {
+%     \pgfooset{attribute}{#1}
+%     \pgfoolet{interval obj}#2
+%   }
 
-  \method default connects() {
-  }
+%   \method default connects() {
+%   }
 
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
+%   \method set use path(#1) {
+%     \pgfooset{use path}{#1}
+%   }
   
-  \method set use tick path(#1) {
-    \pgfooset{use tick path}{#1}
-  }
+%   \method set use tick path(#1) {
+%     \pgfooset{use tick path}{#1}
+%   }
   
-  \method visualize() {
-    {%
-      % we assume that the current data point settings determine where
-      % the axis should go
-      %
-      % We now compute the start and the end points
-      %
-      \pgfooget{interval obj}\pgf@dv@interval
-      \pgf@dv@interval.get adjusted interval()%
-      % Ok, got the values
-      % Save them.
-      \let\pgf@dv@sa@min=\pgfdvmin
-      \let\pgf@dv@sa@max=\pgfdvmax
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@min}%
-      \pgfcanvaspositionofvirtualdatapoint%
-      % Ok, that's where we start
-      \pgfpathmoveto{\pgfpointcanvasposition}%
-      % now the end:
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@max}%
-      \pgfcanvaspositionofvirtualdatapoint%
-      \pgfpathlineto{\pgfpointcanvasposition}%
-      % Finally, use the path:
-      \pgfoovalueof{use path}%
-    }%
-  }
+%   \method visualize() {
+%     {%
+%       % we assume that the current data point settings determine where
+%       % the axis should go
+%       %
+%       % We now compute the start and the end points
+%       %
+%       \pgfooget{interval obj}\pgf@dv@interval
+%       \pgf@dv@interval.get adjusted interval()%
+%       % Ok, got the values
+%       % Save them.
+%       \let\pgf@dv@sa@min=\pgfdvmin
+%       \let\pgf@dv@sa@max=\pgfdvmax
+%       \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@min}%
+%       \pgfcanvaspositionofvirtualdatapoint%
+%       % Ok, that's where we start
+%       \pgfpathmoveto{\pgfpointcanvasposition}%
+%       % now the end:
+%       \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@max}%
+%       \pgfcanvaspositionofvirtualdatapoint%
+%       \pgfpathlineto{\pgfpointcanvasposition}%
+%       % Finally, use the path:
+%       \pgfoovalueof{use path}%
+%     }%
+%   }
 
-  \method visualize as tick() {
-    \pgfooget{tick vec}\pgf@dv@vec% cached tick vec
-    \ifx\pgf@dv@vec\pgfutil@empty%
-      {%
-        %
-        % This is only to compute the correct direction vector
-        %
-        \pgfooget{interval obj}\pgf@dv@interval
-        \pgf@dv@interval.get interval()%
-        % Ok, got the values
-        % Save them.
-        \let\pgf@dv@sa@min=\pgfdvmin
-        \let\pgf@dv@sa@max=\pgfdvmax
-        \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@min}%
-        \pgfcanvaspositionofvirtualdatapoint%
-        \pgf@process{\pgfpointcanvasposition}
-        \pgf@xc=\pgf@x%
-        \pgf@yc=\pgf@y%
-        % now the end:
-        \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@max}%
-        \pgfcanvaspositionofvirtualdatapoint%
-        \pgf@process{\pgfpointnormalised{\pgfpointdiff{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfpointcanvasposition}}}
-      }
-      \edef\pgf@dv@vec{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-      \pgfoolet{tick vec}\pgf@dv@vec%
-    \fi%
-    \pgfcanvaspositionofvirtualdatapoint%
-    {%
-      \pgftransformshift{\pgfpointcanvasposition}%
-      \pgfmathparse{\pgfkeysvalueof{/data point/tick lower length}}
-      \pgfpathmoveto{\pgfpointscale{-\pgfmathresult}{\pgf@dv@vec}}
-      \pgfmathparse{\pgfkeysvalueof{/data point/tick higher length}}
-      \pgfpathlineto{\pgfpointscale{\pgfmathresult}{\pgf@dv@vec}}
-      \pgfoovalueof{use tick path}%
-    }%
-  }
-}
+%   \method visualize as tick() {
+%     \pgfooget{tick vec}\pgf@dv@vec% cached tick vec
+%     \ifx\pgf@dv@vec\pgfutil@empty%
+%       {%
+%         %
+%         % This is only to compute the correct direction vector
+%         %
+%         \pgfooget{interval obj}\pgf@dv@interval
+%         \pgf@dv@interval.get min and max()%
+%         % Ok, got the values
+%         % Save them.
+%         \let\pgf@dv@sa@min=\pgfdvmin
+%         \let\pgf@dv@sa@max=\pgfdvmax
+%         \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@min}%
+%         \pgfcanvaspositionofvirtualdatapoint%
+%         \pgf@process{\pgfpointcanvasposition}
+%         \pgf@xc=\pgf@x%
+%         \pgf@yc=\pgf@y%
+%         % now the end:
+%         \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@sa@max}%
+%         \pgfcanvaspositionofvirtualdatapoint%
+%         \pgf@process{\pgfpointnormalised{\pgfpointdiff{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfpointcanvasposition}}}
+%       }
+%       \edef\pgf@dv@vec{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+%       \pgfoolet{tick vec}\pgf@dv@vec%
+%     \fi%
+%     \pgfcanvaspositionofvirtualdatapoint%
+%     {%
+%       \pgftransformshift{\pgfpointcanvasposition}%
+%       \pgfmathparse{\pgfkeysvalueof{/data point/tick lower length}}
+%       \pgfpathmoveto{\pgfpointscale{-\pgfmathresult}{\pgf@dv@vec}}
+%       \pgfmathparse{\pgfkeysvalueof{/data point/tick higher length}}
+%       \pgfpathlineto{\pgfpointscale{\pgfmathresult}{\pgf@dv@vec}}
+%       \pgfoovalueof{use tick path}%
+%     }%
+%   }
+% }
 
 
 
-\pgfooclass{polar axis visualizer}
-{
-  \attribute mapper obj;
-  \attribute interval obj;
-  \attribute use patch=\pgfusepath{stroke};
+% \pgfooclass{polar axis visualizer}
+% {
+%   \attribute mapper obj;
+%   \attribute interval obj;
+%   \attribute use patch=\pgfusepath{stroke};
   
-  \method polar axis visualizer(#1,#2) {
-    \pgfoolet{mapper obj}#1
-    \pgfoolet{interval obj}#2
-  }
+%   \method polar axis visualizer(#1,#2) {
+%     \pgfoolet{mapper obj}#1
+%     \pgfoolet{interval obj}#2
+%   }
 
-  \method default connects() {
-  }
+%   \method default connects() {
+%   }
 
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
+%   \method set use path(#1) {
+%     \pgfooset{use path}{#1}
+%   }
   
-  \method visualize axis() {
-    {%
-      %
-      \pgfooget{mapper obj}\pgf@dv@trans%
-      \pgf@dv@trans.get angle and radius attributes()%
-      % we assume that the current data point settings determine where
-      % the axis should go
-      %
-      % we also assume that the axis will, indeed, be visualized as an
-      % arc. 
-      %
-      % Compute the origin:
-      {%
-        \pgfkeyssetvalue{/data point/\pgfdvradiusattribute}{0}%
-        \pgfcanvaspositionofvirtualdatapoint%
-        \pgfsettocanvasposition\pgf@temp
-        \global\let\pgf@dv@temp@orig=\pgf@temp%
-      }%
-      % Compute the first axis:
-      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{0}%
-      \pgfcanvaspositionofvirtualdatapoint%
-      \pgfsettocanvasposition\pgf@dv@veczero%
-      % Compute the second axis:
-      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{90}%
-      \pgfcanvaspositionofvirtualdatapoint%
-      \pgfsettocanvasposition\pgf@dv@vecninety%
-      %
-      % Start and end angle
-      %
-      \pgfooget{interval obj}\pgf@dv@interval
-      \pgf@dv@interval.get adjusted interval()%
-      % Ok, got the values
-      % Compute the first axis:
-      \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{\pgfdvmin}%
-      \pgfcanvaspositionofvirtualdatapoint%
-      \pgfpathmoveto{\pgfpointcanvasposition}%
-      % Do arc:
-      \pgftransformtriangle{\pgf@dv@temp@orig}{\pgf@dv@veczero}{\pgf@dv@vecninety}%
-      \pgfpatharc{\pgfdvmin}{\pgfdvmax}{1pt}%
-      % Finally, use the path:
-      \pgfoovalueof{use path}%
-    }%
-  }
-}
+%   \method visualize axis() {
+%     {%
+%       %
+%       \pgfooget{mapper obj}\pgf@dv@trans%
+%       \pgf@dv@trans.get angle and radius attributes()%
+%       % we assume that the current data point settings determine where
+%       % the axis should go
+%       %
+%       % we also assume that the axis will, indeed, be visualized as an
+%       % arc. 
+%       %
+%       % Compute the origin:
+%       {%
+%         \pgfkeyssetvalue{/data point/\pgfdvradiusattribute}{0}%
+%         \pgfcanvaspositionofvirtualdatapoint%
+%         \pgfsettocanvasposition\pgf@temp
+%         \global\let\pgf@dv@temp@orig=\pgf@temp%
+%       }%
+%       % Compute the first axis:
+%       \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{0}%
+%       \pgfcanvaspositionofvirtualdatapoint%
+%       \pgfsettocanvasposition\pgf@dv@veczero%
+%       % Compute the second axis:
+%       \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{90}%
+%       \pgfcanvaspositionofvirtualdatapoint%
+%       \pgfsettocanvasposition\pgf@dv@vecninety%
+%       %
+%       % Start and end angle
+%       %
+%       \pgfooget{interval obj}\pgf@dv@interval
+%       \pgf@dv@interval.get adjusted interval()%
+%       % Ok, got the values
+%       % Compute the first axis:
+%       \pgfkeyssetvalue{/data point/\pgfdvangleattribute}{\pgfdvmin}%
+%       \pgfcanvaspositionofvirtualdatapoint%
+%       \pgfpathmoveto{\pgfpointcanvasposition}%
+%       % Do arc:
+%       \pgftransformtriangle{\pgf@dv@temp@orig}{\pgf@dv@veczero}{\pgf@dv@vecninety}%
+%       \pgfpatharc{\pgfdvmin}{\pgfdvmax}{1pt}%
+%       % Finally, use the path:
+%       \pgfoovalueof{use path}%
+%     }%
+%   }
+% }
 
 
 
@@ -1561,7 +1628,7 @@
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,protocol)
-    \pgfsignalphase.connect(\pgf@dv@me,render)
+    \pgfsignalphase.connect(\pgf@dv@me,phase)
   }
 
   \method set use path(#1) {
@@ -1578,19 +1645,42 @@
     \pgfoolet{positions}\pgf@dv@temp
   }
 
-  \method render(#1) {
-    \ifx#1\pgfdvendvisualization
-      \pgfoovalueof{handler}
-      \pgfplotstreamstart
-      \pgfoovalueof{positions}
-      \pgfplotstreamend
-      \pgfoovalueof{use path}
-      \pgfoolet{positions}\pgfutil@empty
-    \fi
+  \method phase(#1) {%
+    \ifx#1\pgfdvendvisualization%
+      \pgfoothis.render()%
+    \fi%
+  }
+  
+  \method render() {
+    \pgfoovalueof{handler}
+    \pgfplotstreamstart
+    \pgfoovalueof{positions}
+    \pgfplotstreamend
+    \pgfoovalueof{use path}
+    \pgfoolet{positions}\pgfutil@empty
   }
 
   \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
 }
+
+
+
+%
+%
+% Help keys and, attributes
+%
+%
+
+\pgfkeys{% do not even think of changing the values of the following:
+  /data point/always true/.initial=true,
+  /data point/always false/.initial=false,
+  /data point/always 0/.initial=0,
+  /data point/always 1/.initial=1,
+  /data point/always empty/.initial=%
+}
+
+\pgfoonew \pgfdatavisualizationunitinterval=new interval(0,1)
+\pgfoonew \pgfdatavisualizationemptyinterval=new interval(,)
 
 
 \endinput
