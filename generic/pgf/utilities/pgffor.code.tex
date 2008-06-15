@@ -22,24 +22,13 @@
 
 \pgfkeys{/pgf/foreach/.cd,
 	var/.code=\pgffor@var@add#1\pgffor@stop,
-	evaluate/.code=%
-		\pgfutil@in@{as}{#1}%
-		\ifpgfutil@in@%
-			\pgffor@var@evaluate#1\pgf@stop%
-		\else%
-			\pgfutil@in@({#1}%)
-			\ifpgfutil@in@%
-				\pgffor@var@evaluate@trim#1\pgf@stop%
-			\else%
-				\pgffor@var@evaluate#1 as #1\pgf@stop%
-			\fi%
-		\fi,
+	evaluate/.code=\pgffor@var@evaluate#1\pgffor@@stop,
 	remember/.code=%
 		\pgfutil@in@({#1}%)
 		\ifpgfutil@in@%
-			\pgffor@var@remember#1\pgf@stop%
+			\pgffor@var@remember#1\pgffor@@stop%
 		\else%
-			\pgffor@var@remember#1(initially 0)\pgf@stop%
+			\pgffor@var@remember#1(initially 0)\pgffor@@stop%
 		\fi,%
 	count/.code=%
 		\pgfutil@in@{from}{#1}%
@@ -60,7 +49,9 @@
 	\else%
 		\expandafter\def\expandafter\pgffor@var\expandafter{\pgffor@var/#1}%
 	\fi%	
+	\expandafter\let\csname pgffor@var@evaluate@\string#1@trim\endcsname=\relax%
 	\expandafter\let\csname pgffor@var@evaluate@\string#1@as\endcsname=\relax%
+	\expandafter\let\csname pgffor@var@evaluate@\string#1@using\endcsname=\relax%
 }
 
 \def\pgffor@var@count#1#2from #3\pgffor@stop{%
@@ -68,26 +59,44 @@
 	\def#1{#3}%
 }	
 
-\def\pgffor@var@evaluate#1#2as #3#4\pgf@stop{%
-	\pgfutil@in@({#4}%)
-	\ifpgfutil@in@
-		\expandafter\def\csname pgffor@var@evaluate@\string#1@as\endcsname{#3}%
-		\pgffor@var@evaluate@trim#1 #4\pgf@stop%
+\def\pgffor@var@evaluate#1#2\pgffor@@stop{%
+	\pgfutil@in@{as}{#2}%
+	\ifpgfutil@in@%
+		\pgffor@var@@evaluate#1#2\pgffor@@stop%
 	\else%
-		\expandafter\def\csname pgffor@var@evaluate@\string#1@as\endcsname{#3}%
+		\pgffor@var@@evaluate#1 as #1#2\pgffor@@stop%
+	\fi%
+}	
+
+\def\pgffor@var@@evaluate#1#2as #3#4\pgffor@@stop{%
+	\expandafter\def\csname pgffor@var@evaluate@\string#1@as\endcsname{#3}%
+	\expandafter\let\csname pgffor@var@remember@\string#1@as\endcsname=\relax%
+	\expandafter\let\csname pgffor@var@evaluate\string#1@using\endcsname=\relax%
+	\pgfutil@in@{(trim integers)}{#4}%
+	\ifpgfutil@in@%
+		\pgffor@var@@@evaluate{#1}#4\pgffor@@stop%
+	\else%
+		\pgffor@var@@@evaluate{#1}#4(\pgffor@@stop)\pgffor@@stop%
+	\fi%
+}
+
+\def\pgffor@var@@@evaluate#1#2(#3)#4\pgffor@@stop{%
+	\ifx#3\pgffor@@stop%
 		\expandafter\let\csname pgffor@var@integers@trim@\string#1@as\endcsname=\relax%
-		\expandafter\let\csname pgffor@var@remember@\string#1@as\endcsname=\relax%
+	\else%
+		\expandafter\def\csname pgffor@var@integers@trim@\string#1\endcsname{trim integers}%
+	\fi%
+	\pgfutil@in@{using}{#2}%
+	\ifpgfutil@in@%
+		\pgffor@var@@@@evaluate{#1}#2\pgffor@@stop%
 	\fi%
 }
 
-\def\pgffor@var@evaluate@trim#1#2(#3trim integers#4)#5\pgf@stop{%
-	\expandafter\ifx\csname pgffor@var@evaluate@\string#1@as\endcsname\relax%
-		\expandafter\def\csname pgffor@var@evaluate@\string#1@as\endcsname{#1}%
-	\fi%
-	\expandafter\def\csname pgffor@var@integers@trim@\string#1\endcsname{trim integers}%
+\def\pgffor@var@@@@evaluate#1#2using#3\pgffor@@stop{%
+	\expandafter\def\csname pgffor@var@evaluate@\string#1@using\endcsname{#3}%
 }
 
-\def\pgffor@var@remember#1#2as #3#4(initially #5)#6\pgf@stop{%
+\def\pgffor@var@remember#1#2as #3#4(initially #5)#6\pgffor@@stop{%
 	\expandafter\def\csname pgffor@var@remember@\string#1@as\endcsname{#3}%
 	\def#3{#5}}
 
@@ -168,9 +177,10 @@
 \def\pgffor@iterate{%
   \let\pgffor@last=\pgfutil@empty%
   \let\pgffor@prevlast=\pgfutil@empty%
-  \expandafter\pgffor@scan\pgffor@values}
+  \expandafter\pgffor@scan\pgffor@values}%
 
 \def\pgffor@stop{\pgffor@stop}%
+\def\pgffor@@stop{pgffor@@stop}%
 \def\pgffor@dots{...}%
 
 \def\pgffor@scan{\pgfutil@ifnextchar({\pgffor@scanround}{\pgffor@scanone}}
@@ -234,7 +244,14 @@
     	\expandafter\def\expandafter\pgffor@var@string\expandafter{\expandafter\string\pgffor@var}%
     	\pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @as}{}%
     	{%
-    		\pgfmathparse{\pgffor@value}%
+    		\pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @using}%
+    		{%
+    			\pgfmathparse{\pgffor@value}%
+    		}%
+    		{%
+    			\expandafter\let\pgffor@var=\pgffor@value%
+		  		\pgfmathparse{\csname pgffor@var@evaluate@\pgffor@var@string @using\endcsname}%
+		  	}%
     		\pgffor@integer@trim%
     	}%
     	\pgfutil@ifundefined{pgffor@var@remember@\pgffor@var@string @as}{}{\pgffor@remember\pgffor@var}%
@@ -297,7 +314,14 @@
   \expandafter\def\expandafter\pgffor@var@string\expandafter{\expandafter\string\pgffor@currentvar}%
   \pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @as}{\expandafter\def\pgffor@currentvar{#1}}%
   {%
-		\pgfmathparse{#1}%
+		\pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @using}%
+		{%
+			\pgfmathparse{#1}%
+		}%
+		{%
+			\expandafter\def\pgffor@currentvar{#1}%
+  		\pgfmathparse{\csname pgffor@var@evaluate@\pgffor@var@string @using\endcsname}%
+  	}%
 		\pgffor@integer@trim%
 	}%
 	\pgfutil@ifundefined{pgffor@var@remember@\pgffor@var@string @as}{}{\pgffor@remember\pgffor@currentvar}%
@@ -308,30 +332,30 @@
   \ifx\pgffor@last\pgfutil@empty%
     \PackageError{pgffor}{``...'' not allowed without prior value}{}%
   \fi%
-  \expandafter\pgffor@@handledots\pgffor@value\pgf@stop%
+  \expandafter\pgffor@@handledots\pgffor@value\pgffor@@stop%
 }
 
-\def\pgffor@@handledots#1...#2\pgf@stop{%
+\def\pgffor@@handledots#1...#2\pgffor@@stop{%
 	\def\pgffor@dots@pre{#1}%
 	\def\pgffor@dots@post{#2}%
-	\def\pgffor@dots@strip#1##1#2\pgf@stop{\def\pgffor@dotsvalue{##1}}%
+	\def\pgffor@dots@strip#1##1#2\pgffor@@stop{\def\pgffor@dotsvalue{##1}}%
 	\ifx\pgffor@dots@pre\pgfutil@empty%
 		\ifx\pgffor@dots@post\pgfutil@empty%
-			\def\pgffor@dots@strip##1\pgf@stop{\def\pgffor@dotsvalue{##1}}%
+			\def\pgffor@dots@strip##1\pgffor@@stop{\def\pgffor@dotsvalue{##1}}%
 		\fi%
 	\fi%
 	\pgfutil@ifnextchar x{\pgffor@dotsscanend}{\pgffor@dotsscanend}%
 }
 
 \def\pgffor@dotsscanend#1,{%
-  \pgffor@dots@strip#1\pgf@stop%
+  \pgffor@dots@strip#1\pgffor@@stop%
   \expandafter\def\expandafter\pgffor@var@string\expandafter{\expandafter\string\pgffor@var@first}%
   \pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @as}%
   {% No parsing, but check for characters...
-  	\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgf@stop%
+  	\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgffor@@stop%
   	\let\pgffor@dotsend=\pgffor@dotsvalue% 
-		\expandafter\pgffor@dots@strip\pgffor@last\pgf@stop% 
-		\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgf@stop%
+		\expandafter\pgffor@dots@strip\pgffor@last\pgffor@@stop% 
+		\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgffor@@stop%
 		\let\pgffor@dotslast=\pgffor@dotsvalue%
 		\ifx\pgffor@prevlast\pgfutil@empty%
 	  	\ifdim\pgffor@dotsend pt>\pgffor@dotslast pt%
@@ -340,8 +364,8 @@
 	      \pgffor@skip=-1pt%
 	    \fi%
 	  \else%
-	  	\expandafter\pgffor@dots@strip\pgffor@prevlast\pgf@stop% 
-	  	\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgf@stop%
+	  	\expandafter\pgffor@dots@strip\pgffor@prevlast\pgffor@@stop% 
+	  	\expandafter\pgffor@dotscharcheck\pgffor@dotsvalue\pgffor@@stop%
 			\let\pgffor@dotsprevlast=\pgffor@dotsvalue%
 			%
 			\pgffor@skip=\pgffor@dotslast pt%
@@ -352,7 +376,7 @@
   {% ...everything parsed here.
   	\pgfmathparse{\pgffor@dotsvalue}%
 		\let\pgffor@dotsend=\pgffor@dotsvalue%
-		\expandafter\pgffor@dots@strip\pgffor@last\pgf@stop%
+		\expandafter\pgffor@dots@strip\pgffor@last\pgffor@@stop%
 		\pgfmathparse{\pgffor@dotsvalue}%
 		\let\pgffor@dotslast=\pgfmathresult%
 		\ifx\pgffor@prevlast\pgfutil@empty%
@@ -362,7 +386,7 @@
 	      \pgffor@skip=-1pt%
 	    \fi%
 	  \else%
-	  	\expandafter\pgffor@dots@strip\pgffor@prevlast\pgf@stop%
+	  	\expandafter\pgffor@dots@strip\pgffor@prevlast\pgffor@@stop%
 	  	\pgfmathparse{\pgffor@dotsvalue}%
 			\let\pgffor@dotsprevlast=\pgfmathresult%
 			%
@@ -380,22 +404,25 @@
 \newif\ifpgffor@charuppercase
 \newif\ifpgffor@charlowercase
 
-\def\pgffor@dotscharcheck#1#2\pgf@stop{%
+
+
+\def\pgffor@gobbletil@pgffor@@stop#1\pgffor@@stop{}
+
+\def\pgffor@dotscharcheck#1#2\pgffor@@stop{%
   \pgffor@charuppercasefalse%
   \pgffor@charlowercasefalse%
-  \ifcat a\noexpand#1%
-    \expandafter\chardef\expandafter\pgffor@char\expandafter=\expandafter`#1\relax%
-    \edef\pgffor@char{\the\pgffor@char}%
-    \ifnum\pgffor@char>64\relax% From A-Z?
-      \ifnum\pgffor@char<91\relax%
-        \let\pgffor@dotsvalue=\pgffor@char%
-        \pgffor@charuppercasetrue%			
-      \else%
-        \ifnum\pgffor@char>96\relax% From a-z?
-          \ifnum\pgffor@char<123\relax%
-            \let\pgffor@dotsvalue=\pgffor@char%
-            \pgffor@charlowercasetrue%
-          \fi%
+  \afterassignment\pgffor@gobbletil@pgffor@@stop%
+  \expandafter\chardef\expandafter\pgffor@char\expandafter=\expandafter`#1\relax\pgffor@@stop%
+  \edef\pgffor@char{\the\pgffor@char}%
+  \ifnum\pgffor@char>64\relax% From A-Z?
+    \ifnum\pgffor@char<91\relax%
+      \let\pgffor@dotsvalue=\pgffor@char%
+      \pgffor@charuppercasetrue%			
+    \else%
+      \ifnum\pgffor@char>96\relax% From a-z?
+        \ifnum\pgffor@char<123\relax%
+          \let\pgffor@dotsvalue=\pgffor@char%
+          \pgffor@charlowercasetrue%
         \fi%
       \fi%
     \fi%
@@ -473,7 +500,13 @@
     	\expandafter\def\expandafter\pgffor@var@string\expandafter{\expandafter\string\pgffor@var}%
     	\pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @as}{}%
     	{%
-    		\pgfmathparse{\pgffor@temp}%
+    		\pgfutil@ifundefined{pgffor@var@evaluate@\pgffor@var@string @using}%
+    		{%
+    			\pgfmathparse{\pgffor@temp}%
+    		}%
+    		{%
+		  		\pgfmathparse{\csname pgffor@var@evaluate@\pgffor@var@string @using\endcsname}%
+		  	}%
     		\pgffor@integer@trim%
     	}%
     	\pgfutil@ifundefined{pgffor@var@remember@\pgffor@var@string @as}{}{\pgffor@remember\pgffor@var}%
