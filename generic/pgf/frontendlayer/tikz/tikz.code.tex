@@ -441,29 +441,39 @@
 
 
 % Pin options
-\tikzoption{pin}{\pgfutil@ifnextchar[{\tikz@parse@pin}{\tikz@parse@pin[]}#1\pgf@nil}
-\tikzoption{pin distance}{\def\tikz@pin@distance{#1}}
-\tikzoption{pin edge}{\def\tikz@pin@edge@style{#1}}
-
-\tikzoption{tikz@pin@post}[]{%
-  \tikz@compute@direction{\tikz@label@angle}{\tikz@pin@distance}%
-  \global\let\tikz@pin@edge@style@smuggle=\tikz@pin@edge@style%
+\tikzset{
+  pin/.code={\pgfutil@ifnextchar[{\tikz@parse@pin}{\tikz@parse@pin[]}#1:\pgf@nil},%}
+  pin distance/.store in=\tikz@pin@distance,
+  pin distance=3ex,
+  pin position/.store in=\tikz@pin@default@pos,
+  pin position=above,
+  pin edge/.store in=\tikz@pin@edge@style,
+  pin edge={},
+  tikz@pin@post/.code={\global\let\tikz@pin@edge@style@smuggle=\tikz@pin@edge@style},
+  tikz@pre@pin@edge/.code={%
+    \def\pgf@marshal{\tikzstyle{tikz@pin@options}=}
+    \expandafter\pgf@marshal\expandafter[\tikz@pin@edge@style@smuggle]%
+  }%
 }
-\tikzoption{tikz@pre@pin@edge}[]{\def\pgf@marshal{\tikzstyle{tikz@pin@options}=}
-  \expandafter\pgf@marshal\expandafter[\tikz@pin@edge@style@smuggle]%
-}
-
-\def\tikz@pin@distance{3ex}
-\def\tikz@pin@edge@style{}
 
 \def\tikz@parse@pin[#1]#2:#3\pgf@nil{%
+  \def\tikz@temp{#3}%
+  \ifx\tikz@temp\pgfutil@empty%
+    % no position, use default
+    \tikz@@parse@pin[#1]\tikz@pin@default@pos:#2:\pgf@nil%
+  \else%
+    \tikz@@parse@pin[#1]#2:#3\pgf@nil%
+  \fi%
+}
+
+\def\tikz@@parse@pin[#1]#2:#3:\pgf@nil{%
   \tikz@add@after@node@path{%
     \bgroup
       [current point is local=true]
       \pgfextra{\let\tikz@save@last@node=\tikzlastnode}%
-      node [every pin,tikz@label@angle=#2,#1,at=(\tikzlastnode.\tikz@label@angle),%
+      node [every pin,tikz@label@angle=#2,#1,%
             after node path={(\tikz@save@last@node) edge[every pin edge,tikz@pre@pin@edge,tikz@pin@options] (\tikzlastnode)},
-            tikz@pin@post]
+            tikz@label@post=\tikz@pin@distance,tikz@pin@post]
         {#3}
     \egroup%
   }
@@ -472,29 +482,85 @@
 
 % Label and pin options
 
-\tikzoption{label}{\pgfutil@ifnextchar[{\tikz@parse@label}{\tikz@parse@label[]}#1\pgf@nil}
-\tikzoption{label distance}{\def\tikz@label@distance{#1}}
+\tikzset{
+  label/.code={\pgfutil@ifnextchar[{\tikz@parse@label}{\tikz@parse@label[]}#1:\pgf@nil},%}
+  label distance/.store in=\tikz@label@distance,
+  label distance=0pt,
+  label position/.store in=\tikz@label@default@pos,
+  label position=above,
+  absolute/.is if=tikz@absolute,
+}
+
+\newif\iftikz@absolute
 
 \def\tikz@on@text{center}
 
 \tikzoption{tikz@label@angle}{\def\tikz@label@angle{#1}\csname tikz@label@angle@is@#1\endcsname}
 
-\tikzoption{tikz@label@post}[]{
+\tikzset{tikz@label@post/.code 2 args={
   \ifx\tikz@label@angle\tikz@on@text%
     \def\tikz@node@at{\pgfpointanchor{\tikzlastnode}{center}}%
     \def\tikz@anchor{center}%
   \else%
-    \iftikz@fullytransformed\else\pgftransformreset\fi%
-    \pgf@process{%
-      \pgfpointshapeborder{\tikzlastnode}%
-      {\pgfpointadd{\pgfpointanchor{\tikzlastnode}{center}}{\pgfpointpolar{\tikz@label@angle}{1pt}}}}%
-    \edef\tikz@node@at{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-    \tikz@compute@direction{\tikz@label@angle}{\tikz@label@distance}%
+    \iftikz@absolute%
+      \pgftransformreset%
+      \pgf@process{%
+        \pgfpointshapeborder{\tikzlastnode}%
+        {\pgfpointadd{\pgfpointanchor{\tikzlastnode}{center}}{\pgfpointpolar{\tikz@label@angle}{1pt}}}}%
+      \edef\tikz@node@at{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      \tikz@compute@direction{\tikz@label@angle}%
+      \tikz@addtransform{\pgftransformshift{\pgfpointpolar{\tikz@label@angle}{#1}}}%  
+    \else%
+      \pgf@process{\pgfpointanchor{\tikzlastnode}{\tikz@label@angle}}%
+      \edef\tikz@node@at{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      \pgf@xb=\pgf@x%
+      \pgf@yb=\pgf@y%
+      \pgf@process{\pgfpointanchor{\tikzlastnode}{center}}%
+      \pgf@xc=\pgf@x%
+      \pgf@yc=\pgf@y%
+      \tikz@label@simplefalse%
+      \iftikz@fullytransformed%
+        \tikz@label@simpletrue%
+      \else
+        \ifdim\pgf@xc=\pgf@xb\relax%
+          \ifdim\pgf@yc=\pgf@yb\relax%
+            \tikz@label@simpletrue%
+          \fi%
+        \fi%
+      \fi%
+      \iftikz@label@simple%  
+        \tikz@compute@direction{\tikz@label@angle}%
+        \tikz@addtransform{\pgftransformshift{\pgfpointpolar{\tikz@label@angle}{#1}}}%  
+      \else%
+        \pgf@process{\pgfpointnormalised{%
+            \pgfpointdiff{\pgfpointtransformed{\pgfqpoint{\pgf@xc}{\pgf@yc}}}{\pgfpointtransformed{\pgfqpoint{\pgf@xb}{\pgf@yb}}}}}%
+        \edef\pgf@marshal{%
+          \noexpand\tikz@addtransform{\noexpand\pgftransformshift{\noexpand\pgfpointscale{#1}{
+                \noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}}}%
+        \pgf@marshal%
+        \pgf@xc=\pgf@x%
+        \pgf@yc=\pgf@y%
+        \pgf@x=\pgf@yc%
+        \pgf@y=-\pgf@xc%
+        \tikz@auto@anchor%
+      \fi%
+    \fi%
   \fi}
-
-\def\tikz@label@distance{0pt}
+}
+  
+\newif\iftikz@label@simple%
 
 \def\tikz@parse@label[#1]#2:#3\pgf@nil{%
+  \def\tikz@temp{#3}%
+  \ifx\tikz@temp\pgfutil@empty%
+    % no position, use default
+    \tikz@@parse@label[#1]\tikz@label@default@pos:#2:\pgf@nil%
+  \else%
+    \tikz@@parse@label[#1]#2:#3\pgf@nil%
+  \fi%
+}
+
+\def\tikz@@parse@label[#1]#2:#3:\pgf@nil{%
   \tikz@add@after@node@path{
     \bgroup
     \pgfextra{%
@@ -503,7 +569,7 @@
     [every label,%
     tikz@label@angle=#2,%
     #1,%
-    tikz@label@post]%
+    tikz@label@post=\tikz@label@distance]%
     {#3}%
     \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}%
     \egroup%
@@ -519,7 +585,7 @@
 \expandafter\def\csname tikz@label@angle@is@below\endcsname{\def\tikz@label@angle{270}}
 \expandafter\def\csname tikz@label@angle@is@below right\endcsname{\def\tikz@label@angle{315}}
 
-\def\tikz@compute@direction#1#2{%
+\def\tikz@compute@direction#1{%
   \let\tikz@do@auto@anchor=\relax
   \pgfmathsetcount{\c@pgf@counta}{#1}%
   \ifnum\c@pgf@counta<0\relax
@@ -547,7 +613,6 @@
   \else%
     \def\tikz@anchor{west}%
   \fi\fi\fi\fi\fi\fi\fi\fi%
-  \tikz@addtransform{\pgftransformshift{\pgfpointpolar{#1}{#2}}}%  
 }
 
 
@@ -2155,11 +2220,12 @@
   \tikz@@to@collect%
 }
 \def\tikz@@to@collect{%
-  \pgfutil@ifnextchar(\tikz@@to@or@edge@coordinate
+  \pgfutil@ifnextchar(\tikz@@to@or@edge@coordinate%)
   {\pgfutil@ifnextchar n{\tikz@collect@label@onpath\tikz@@to@collect}%
-    {\pgfutil@ifnextchar c{\tikz@collect@coordinate@onpath\tikz@@to@collect}
-      {\PackageError{tikz}{( expected}{}%}
-        \tikz@@to@or@edge@coordinate()}}}%
+    {\pgfutil@ifnextchar c{\tikz@collect@coordinate@onpath\tikz@@to@collect}%
+      {\pgfutil@ifnextchar +{\tikz@scan@one@point\tikz@@to@or@edge@math}%}
+        {\PackageError{tikz}{(, +, coordinate, or node expected}{}%}
+          \tikz@@to@or@edge@coordinate()}}}}%
 }
 
 \def\tikz@@to@or@edge@coordinate({%
