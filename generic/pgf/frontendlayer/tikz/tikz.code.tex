@@ -329,6 +329,8 @@
 \let\tikz@fillcolor=\pgfutil@empty
 \let\tikz@strokecolor=\pgfutil@empty
 
+% Insert a path using an option
+\tikzset{insert path/.code=\tikz@scan@next@command#1\pgf@stop}
 
 % Pattern options
 \tikzset{pattern/.code=\PackageError{tikz}{You need to say \string\usetikzlibrary{patterns}}{},
@@ -467,16 +469,16 @@
 }
 
 \def\tikz@@parse@pin[#1]#2:#3:\pgf@nil{%
-  \tikz@add@after@node@path{%
+  \tikzset{append after command={%
     \bgroup
       [current point is local=true]
       \pgfextra{\let\tikz@save@last@node=\tikzlastnode}%
       node [every pin,tikz@label@angle=#2,#1,%
-            after node path={(\tikz@save@last@node) edge[every pin edge,tikz@pre@pin@edge,tikz@pin@options] (\tikzlastnode)},
+            append after command={(\tikz@save@last@node) edge[every pin edge,tikz@pre@pin@edge,tikz@pin@options] (\tikzlastnode)},
             tikz@label@post=\tikz@pin@distance,tikz@pin@post]
         {#3}
     \egroup%
-  }
+  }}
 }
 
 
@@ -561,7 +563,7 @@
 }
 
 \def\tikz@@parse@label[#1]#2:#3:\pgf@nil{%
-  \tikz@add@after@node@path{
+  \tikzset{append after command={
     \bgroup
     \pgfextra{%
       \let\tikz@save@last@fig@name=\tikz@last@fig@name}%
@@ -573,7 +575,7 @@
     {#3}%
     \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}%
     \egroup%
-  }
+  }}
 }
 
 \expandafter\def\csname tikz@label@angle@is@right\endcsname{\def\tikz@label@angle{0}}
@@ -628,14 +630,9 @@
 
 \tikzset{alias/.code={\tikz@fig@mustbenamed\expandafter\def\expandafter\tikz@alias\expandafter{\tikz@alias\pgfnodealias{#1}{\tikz@fig@name}}}}
 
-\tikzoption{after node path}{\tikz@add@after@node@path{#1}}%
-\def\tikz@add@after@node@path#1{\expandafter\def\expandafter\tikz@after@node\expandafter{\tikz@after@node#1}}
-
-\def\tikzaddafternodepathoption#1{%
-  #1%
-  \expandafter\def\expandafter\tikz@afternodepathoptions\expandafter{\tikz@afternodepathoptions#1}}
-
-\let\tikz@afternodepathoptions=\pgfutil@empty
+% deprecated:
+\def\tikzaddafternodepathoption#1{#1\tikzset{prefix after command={\pgfextra{#1}}}}
+\tikzset{after node path/.style={append after command={#1}}}
 
 \tikzoption{anchor}{\def\tikz@anchor{#1}\let\tikz@do@auto@anchor=\relax}
 
@@ -933,8 +930,18 @@
 \def\tikz@to@path{-- (\tikztotarget) \tikztonodes}
 
 
-% After path options
-\tikzset{after option path/.code=\expandafter\def\expandafter\tikz@after@options\expandafter{\tikz@after@options#1}}
+% After command options
+\tikzset{
+  append after command/.code=\expandafter\def\expandafter\tikz@after@path\expandafter{\tikz@after@path#1},
+  prefix after command/.code={%
+    \def\tikz@temp{#1}%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\tikz@after@path%
+    \expandafter\expandafter\expandafter{%
+      \expandafter\tikz@temp\tikz@after@path}%
+  }
+}
+\let\tikz@after@path\pgfutil@empty
 
 
 % Tree options
@@ -1871,7 +1878,12 @@
   \else%
       \xdef\tikz@scope@save@lastxsaved{\the\tikz@lastxsaved}%
       \xdef\tikz@scope@save@lastysaved{\the\tikz@lastysaved}%
+      \global\let\tikz@scope@save@bordername\tikz@shapeborder@name%
+      \global\let\tikz@moveto@waiting@saved\tikz@moveto@waiting%
+      \iftikz@shapeborder\aftergroup\tikz@shapebordertrue\else\aftergroup\tikz@shapeborderfalse\fi%
     \endgroup%
+    \let\tikz@shapeborder@name\tikz@scope@save@bordername%  
+    \let\tikz@moveto@waiting\tikz@moveto@waiting@saved%
     \tikz@lastxsaved=\tikz@scope@save@lastxsaved%
     \tikz@lastysaved=\tikz@scope@save@lastysaved%
   \fi%
@@ -2190,10 +2202,8 @@
 % Syntax for options: 
 % [options]
 \def\tikz@parse@options#1]{%
-  \let\tikz@after@options\pgfutil@empty%
   \tikzset{#1}%
-  \expandafter\tikz@scan@next@command%
-  \tikz@after@options%
+  \tikz@scan@next@command%
 }
 
 % Syntax for edges:
@@ -2266,8 +2276,10 @@
             \tikz@options%
             \tikz@transform%            
             % Typeset node:
+            \let\tikz@after@path\pgfutil@empty%
             \tikz@atbegin@to%
-            \path[style=every edge]\tikz@@to@local@options(\tikztostart)\tikz@to@path;%
+            \path[style=every edge]\tikz@@to@local@options(\tikztostart)\tikz@to@path
+            \pgfextra{\global\let\tikz@after@path@smuggle=\tikz@after@path};%
             \tikz@atend@to%
           \endpgfscope%
         \endpgfinterruptpath%
@@ -2277,7 +2289,7 @@
     \global\setbox\tikz@tempbox=\copy\tikz@figbox%
   \endgroup%
   \setbox\tikz@figbox=\box\tikz@tempbox%  
-  \tikz@scan@next@command%  
+  \expandafter\tikz@scan@next@command\tikz@after@path%  
 }
 
 \def\tikz@do@to{%
@@ -2285,9 +2297,14 @@
   \def\tikztonodes{{\pgfextra{\tikz@node@is@a@labeltrue}\tikz@tonodes}}%
   \let\tikz@collected@onpath=\pgfutil@empty%
   \tikz@scan@next@command%
-  \pgfextra{\tikz@atbegin@to}%
-  [style=every to]\tikz@@to@local@options\tikz@to@path%
-  \pgfextra{\tikz@atend@to}%
+  {%
+    \pgfextra{\let\tikz@after@path\pgfutil@empty}%
+    \pgfextra{\tikz@atbegin@to}%
+    [style=every to]\tikz@@to@local@options\tikz@to@path%
+    \pgfextra{\tikz@atend@to}%
+    \pgf@stop%
+    \expandafter\tikz@scan@next@command\expandafter%
+  }\tikz@after@path%
 }
 
 
@@ -2452,6 +2469,7 @@
 \def\tikz@gridB#1{%
   \tikz@make@last@position{#1}%
   {%
+    \let\tikz@after@path\pgfutil@empty%
     \expandafter\tikzset\expandafter{\tikz@grid@options}
     \tikz@checkunit{\tikz@grid@x}%
     \iftikz@isdimension%
@@ -2471,8 +2489,8 @@
     \advance\pgf@yb by\pgf@y%
     \pgfpathgrid[stepx=\pgf@xb,stepy=\pgf@yb]%
       {\pgfqpoint{\pgf@xa}{\pgf@ya}}{\pgfqpoint{\tikz@lastx}{\tikz@lasty}}%
-  }
-  \tikz@scan@next@command%
+  \expandafter}%
+  \expandafter\tikz@scan@next@command\tikz@after@path%
 }
 
 
@@ -2485,6 +2503,7 @@
   \pgfutil@ifnextchar[{\tikz@@plot}{\tikz@@plot[]}}%}
 \def\tikz@@plot[#1]{%
   \begingroup%
+    \let\tikz@after@path\pgfutil@empty%
     \let\tikz@options=\pgfutil@empty%
     \tikzset{every plot/.try}%
     \tikzset{#1}%
@@ -2568,10 +2587,11 @@
       }%
     \fi%
     \global\setbox\tikz@tempbox=\copy\tikz@figbox%
+    \global\let\tikz@after@path@smuggle=\tikz@after@path
   \endgroup%
   \setbox\tikz@figbox=\box\tikz@tempbox%  
   \tikz@make@last@position{\tikz@@@temp}%  
-  \tikz@scan@next@command%
+  \expandafter\tikz@scan@next@command\tikz@after@path@smuggle%
 }
 
 
@@ -2644,6 +2664,7 @@
   \pgf@xc=\tikz@lastx%
   \pgf@yc=\tikz@lasty%
   \begingroup% now calculate bend:
+    \let\tikz@after@path\pgfutil@empty%
     \expandafter\tikzset\expandafter{\tikz@parabola@option}%
     \tikz@lastxsaved=\tikz@parabola@bend@factor\tikz@lastx%
     \tikz@lastysaved=\tikz@parabola@bend@factor\tikz@lasty%
@@ -2659,9 +2680,9 @@
     \advance\tikz@lastx by-\pgf@xb%
     \advance\tikz@lasty by-\pgf@yb%
     \xdef\tikz@parabola@b{{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}}%
-  \endgroup%
-  \expandafter\pgfpathparabola\tikz@parabola@b%
-  \tikz@scan@next@command%
+  \expandafter\endgroup%
+  \expandafter\expandafter\expandafter\pgfpathparabola\expandafter\tikz@parabola@b%
+  \expandafter\tikz@scan@next@command\tikz@after@path%
 }
 
 
@@ -2823,8 +2844,7 @@
       \tikz@is@matrixfalse%
       \let\nodepart=\tikz@nodepart%
       \let\tikz@options=\pgfutil@empty%
-      \let\tikz@after@node=\pgfutil@empty%
-      \let\tikz@afternodepathoptions=\pgfutil@empty%
+      \let\tikz@after@path=\pgfutil@empty%
       \let\tikz@transform=\pgfutil@empty%
       \let\tikz@mode=\pgfutil@empty%
       \tikz@decoratepathfalse%
@@ -2919,7 +2939,7 @@
     {\pgfutil@ifnextchar[{\tikz@fig@mustbenamed\tikz@fig@continue}%
       {\pgfutil@ifnextchar t{\tikz@fig@mustbenamed\tikz@fig@continue}
         {\pgfutil@ifnextchar e{\tikz@fig@mustbenamed\tikz@fig@continue}
-          {\ifx\tikz@after@node\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\expandafter\tikz@fig@continue\fi}}}}}%}
+          {\ifx\tikz@after@path\pgfutil@empty\expandafter\tikz@fig@continue\else\expandafter\tikz@fig@mustbenamed\expandafter\tikz@fig@continue\fi}}}}}%}
 
 \def\tikz@do@matrix{%
     \tikzset{every matrix/.try}%
@@ -3090,8 +3110,7 @@
 
 \def\tikz@node@finish{%  
     \global\let\tikz@last@fig@name=\tikz@fig@name%
-    \global\let\tikz@after@node@smuggle=\tikz@after@node%
-    \global\let\tikz@afternodepathoptions@smuggle=\tikz@afternodepathoptions%
+    \global\let\tikz@after@path@smuggle=\tikz@after@path%
     % shift box outside group
     \global\setbox\tikz@tempbox=\copy\tikz@figbox%
   \endgroup\endgroup%
@@ -3100,9 +3119,9 @@
   \let\tikz@to@last@fig@name=\tikz@last@fig@name%
   \let\tikz@to@use@whom=\tikz@to@use@last@fig@name%
   \let\tikzlastnode=\tikz@last@fig@name%
-  \ifx\tikz@after@node@smuggle\pgfutil@empty%
+  \ifx\tikz@after@path@smuggle\pgfutil@empty%
   \else%
-    \tikz@scan@next@command{\pgfextra{\tikz@afternodepathoptions@smuggle}\tikz@after@node@smuggle}\pgf@stop%
+    \tikz@scan@next@command{\tikz@after@path@smuggle}\pgf@stop%
   \fi%
   \tikz@scan@next@command%
 }
@@ -3163,7 +3182,7 @@
     \fi%
     \tikz@is@matrixfalse%
     \let\tikz@options=\pgfutil@empty%
-    \let\tikz@after@node=\pgfutil@empty%
+    \let\tikz@after@path=\pgfutil@empty%
     \let\tikz@afternodepathoptions=\pgfutil@empty%
     \let\tikz@alias=\pgfutil@empty%
     \let\tikz@transform=\pgfutil@empty%
@@ -3177,15 +3196,14 @@
     \tikz@node@begin@hook%
     \tikz@alias%
     \global\let\tikz@last@fig@name=\tikz@fig@name%
-    \global\let\tikz@after@node@smuggle=\tikz@after@node%
-    \global\let\tikz@afternodepathoptions@smuggle=\tikz@afternodepathoptions%
+    \global\let\tikz@after@path@smuggle=\tikz@after@path%
   \endgroup%
   \let\tikz@to@last@fig@name=\tikz@last@fig@name%
   \let\tikz@to@use@whom=\tikz@to@use@last@fig@name%
   \let\tikzlastnode=\tikz@last@fig@name%
-  \ifx\tikz@after@node@smuggle\pgfutil@empty%
+  \ifx\tikz@after@path@smuggle\pgfutil@empty%
   \else%
-    \tikz@scan@next@command{\pgfextra{\tikz@afternodepathoptions@smuggle}\tikz@after@node@smuggle}\pgf@stop%
+    \tikz@scan@next@command{\tikz@after@path@smuggle}\pgf@stop%
   \fi%
 }
 
