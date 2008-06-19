@@ -7,7 +7,24 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\usetikzlibrary{decorations.markings}
+\usetikzlibrary{decorations.markings,calc}
+
+
+%
+% Indicate that the picture contains a circuit
+%
+\tikzset{
+  circuit/.style={
+    /utils/exec=\tikz@lib@circ@on@tofalse,
+    execute at begin to={
+      \tikz@lib@circ@on@totrue
+      \let\tikz@lib@circ@start@node\pgfutil@empty
+      \def\tikz@lib@circ@end{-- (\tikztotarget) \tikztonodes}
+    }
+  }
+}
+
+\newif\iftikz@lib@circ@on@to
 
 
 %
@@ -17,25 +34,56 @@
 \tikzset{
   to path with symbol on it/.style={
     to path={
+      \pgfextra{\tikz@lib@circ@on@tofalse}
       decorate [decoration={markings,mark connection node=mark node}]
-      {-- (\tikztotarget) \tikztonodes}
+      {
+        \tikz@lib@circ@start@node
+        \tikz@lib@circ@end
+      }
     },
   },
-  symbol on to path/.code 2 args={%
-    \pgfkeysalso{to path with symbol on it}
-    \edef\tikz@marshal{mark=at position \ifx\tikz@time\pgfutil@empty0.5\else\tikz@time\fi\space with}%
-    \def\tikz@marshala{decoration=}%
-    \expandafter\expandafter\expandafter\tikzset%
-    \expandafter\expandafter\expandafter{\expandafter\tikz@marshala\expandafter{\tikz@marshal{\node[name=mark node,#1]{#2};}}}
-  },
-  symbol along to path/.style 2 args={symbol on to path={transform shape,#1}{#2}},
-  symbol at end to path/.style 2 args={
-    to path={
-      node[at=(\tikztotarget),alias=circuit path node,#1]{#2} -- (circuit path node) \tikztonodes
-    }
-  },
+  handle circuit symbol/.code={%
+    \global\advance\tikz@lib@circ@count by1\relax%
+    \iftikz@lib@circ@on@to
+      \pgfkeysalso{to path with symbol on it}
+      \ifx\tikz@time\tikz@zero@text%
+        \def\tikz@lib@circ@start@node{%
+          {\tikz@lib@circ@compute@direction{\tikz@lib@circ@start}%
+          node[alias=tikz@lib@circ@node@start,at={(0,0)},#1]{}}(tikz@lib@circ@node@start)}%
+      \else%
+        \ifx\tikz@time\tikz@one@text%
+          \def\tikz@lib@circ@end{
+            {\tikz@lib@circ@compute@direction{\tikz@lib@circ@target}%
+              node[alias=tikz@lib@circ@node\the\tikz@lib@circ@count,at={(0,0)},#1]{}}
+            --(tikz@lib@circ@node\the\tikz@lib@circ@count)\tikztonodes
+          }%
+        \else%
+          \edef\tikz@marshal{mark=at position \ifx\tikz@time\pgfutil@empty0.5\else\tikz@time\fi\space with}%
+          \def\tikz@marshala{decoration=}%
+          \expandafter\expandafter\expandafter\tikzset%
+          \expandafter\expandafter\expandafter{\expandafter\tikz@marshala\expandafter{\tikz@marshal{\node[name=mark node,#1]{};}}}
+        \fi%
+      \fi%
+    \else
+      \pgfkeysalso{#1}
+    \fi
+  }
 }
+\newcount\tikz@lib@circ@count
+\def\tikz@zero@text{0}
+\def\tikz@one@text{1}
 
+\def\tikz@lib@circ@compute@direction#1{%
+  \pgfextra{%
+    \tikz@scan@one@point\tikz@lib@circ@save@start(\tikztostart)%
+    \tikz@scan@one@point\tikz@lib@circ@save@target(\tikztotarget)%
+    \pgf@process{\pgfpointnormalised{\pgfpointdiff{\tikz@lib@circ@start}{\tikz@lib@circ@target}}}%
+    \pgf@ya=-\pgf@y%
+    \pgftransformcm{\the\pgf@x}{\the\pgf@y}{\the\pgf@ya}{\the\pgf@x}{#1}%
+  }%
+}
+\def\tikz@lib@circ@save@start#1{\def\tikz@lib@circ@start{#1}}
+\def\tikz@lib@circ@save@target#1{\def\tikz@lib@circ@target{#1}}
 
 %
 % Labels
@@ -84,67 +132,10 @@
 
 \tikzset{
   every circuit symbol/.style={thick},
-  open symbol/.style={draw,fill=white},
+  open symbol/.style={draw},
   filled symbol/.style={draw,fill=black},
 }
 
-
-
-%
-% Resistors
-%
-
-\tikzset{
-  resistor node/.style={
-    every circuit symbol/.try,
-    open symbol,
-    minimum width=40pt,minimum height=15pt,inner sep=0pt,
-    every resistor node/.try
-  },
-  resistor/.style={symbol along to path={resistor node,#1}{}}
-}
-
-
-
-%
-% Inductors
-%
-
-\tikzset{
-  inductor node/.style={
-    every circuit symbol/.try,
-    filled symbol,
-    minimum width=40pt,minimum height=15pt,inner sep=0pt,
-    every resistor node/.try
-  },
-  inductor/.style={symbol along to path={inductor node,#1}{}}
-}
-
-
-
-%
-% Links and connections
-%
-
-\tikzset{
-  link node/.style={
-    every circuit symbol/.try,
-    filled symbol,
-    minimum size=4pt,inner sep=0pt,outer sep=0pt,circle,
-    every join node/.try
-  },
-  link/.style={link node,#1}
-}
-
-\tikzset{
-  connection node/.style={
-    every circuit symbol/.try,
-    open symbol,
-    minimum size=6pt,inner sep=0pt,outer sep=0pt,circle,
-    every join node/.try
-  },
-  connection/.style={connection node,#1,symbol at end to path={connection node,#1}{}}
-}
 
 
 \endinput
