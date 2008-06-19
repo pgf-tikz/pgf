@@ -1,0 +1,89 @@
+% Copyright 2008 by Christian Feuersaenger
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+%
+% It replaces \tikzpicture/ \endtikzpicture and \tikz and invokes the
+% \includegraphics with the correct file name instead.
+
+% FIXME: implement
+% - file name prefix
+\newcount\c@tikzexternal@picturenum
+\c@tikzexternal@picturenum=0
+
+\toksdef\t@tikzexternal@tmpa=0
+\toksdef\t@tikzexternal@tmpb=1
+
+\def\tikzexternalize{\@ifnextchar[{\tikzexternalize@opt}{\tikzexternalize@opt[]}}%
+\def\tikzexternalize@opt[#1]#2{%
+	% FIXME : acquire 'prefix'
+	\def\tikzexternal@filenameprefix{}%
+	\def\tikzexternal@realjob{#2}%
+}
+
+\def\tikzsetnextfilename#1{\gdef\tikzexternal@nextfile{#1}}
+\tikzsetnextfilename{}
+
+\long\def\tikzpicture#1\end#2{% collect every thing up to \end{tikzpicture}
+	\def\tikzexternal@laTeX@collectpicture@@{#2}%
+	\ifx\tikzexternal@laTeX@collectpicture@@\tikzexternal@laTeX@tikzpicturestring
+		\tikzexternal@image
+		\end{tikzpicture}%
+	\else
+		\expandafter
+		\tikzpicture
+	\fi
+}%
+\def\endtikzpicture{}
+\def\tikzexternal@laTeX@tikzpicturestring{tikzpicture}%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Replacement for \tikz short command:
+\def\tikz{\@ifnextchar[{\tikz@opt}{\tikz@opt[]}}
+\def\tikz@opt[#1]{\@ifnextchar\bgroup{\tikz@opt@{#1}}{\tikz@opt@@{#1}}}
+\def\tikz@opt@#1#2{\tikz@opt@process{#1}{#2}}
+\def\tikz@opt@@#1{%
+  \def\tikz@next{\tikz@collectnormalsemicolon{#1}}%
+  \ifnum\the\catcode`\;=\active\relax%
+    \def\tikz@next{\tikz@collectactivesemicolon{#1}}%
+  \fi%
+  \tikz@next}
+\def\tikz@collectnormalsemicolon#1#2;{\tikz@opt@process{#1}{#2;}}
+{
+  \catcode`\;=\active
+  \gdef\tikz@collectactivesemicolon#1#2;{%
+	\tikz@opt@process{#1}{#2;}%
+  }
+}
+\def\tikz@opt@process#1#2{\tikzexternal@image}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\def\tikzexternal@image{%
+	\begingroup
+	\t@tikzexternal@tmpa=\expandafter{\tikzexternal@filenameprefix}%
+	\ifx\tikzexternal@nextfile\empty
+		\t@tikzexternal@tmpb=\expandafter{\tikzexternal@realjob-figure}%
+		\xdef\tikzexternal@curfilename{\the\t@tikzexternal@tmpa\the\t@tikzexternal@tmpb\the\c@tikzexternal@picturenum}%
+		\global\advance\c@tikzexternal@picturenum by1\relax
+	\else
+		\t@tikzexternal@tmpb=\expandafter{\tikzexternal@nextfile}%
+		\xdef\tikzexternal@curfilename{\the\t@tikzexternal@tmpa\the\t@tikzexternal@tmpb}%
+	\fi
+	\endgroup
+	\global\let\tikzexternal@nextfile=\empty
+	% now check for (optional) .dpth files for the 'baseline' option:
+	\begingroup
+	\setbox1=\hbox{\includegraphics{\tikzexternal@curfilename}}%
+	\openin1=\tikzexternal@curfilename.dpth
+	\ifeof1	\box1 
+	\else
+		\read1 to\pgfincludeexternalgraphics@dp	\closein1
+		\dimen0=\pgfincludeexternalgraphics@dp\relax
+		\hbox{\lower\dimen0\box1}%
+	\fi
+	\endgroup
+}%

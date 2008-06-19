@@ -367,13 +367,34 @@
   \pgf@next%  
 }
 
-\long\def\pgf@replacepicturebygraphic#1\endpgfgraphicnamed{\includegraphics{\pgf@filename}\unskip}
+\long\def\pgf@replacepicturebygraphic#1\endpgfgraphicnamed{%
+	\pgfincludeexternalgraphics{\pgf@filename}\unskip
+}
+
+% This is almost the same as \includegraphics{#1}, but it checks
+% whether '#1.dpth' exists. In such case, it restores the boxes depth
+% stored in #1.dpth.
+\def\pgfincludeexternalgraphics#1{%
+	\begingroup
+	\openin1=#1.dpth
+	\setbox1=\hbox{\pgfimage{#1}}%
+	\ifeof1
+		\box1
+	\else
+		\read1 to\pgfincludeexternalgraphics@dp
+		\closein1
+		\dimen0=\pgfincludeexternalgraphics@dp\relax
+		\hbox{\lower\dimen0\box1}%
+	\fi
+	\endgroup
+}
 
 
 % Grab operation: If jobname matches the graphic name, typeset this
 % picture normall.
 
 \def\pgf@external@grab#1{%
+  \def\pgf@filename{#1}%
   \setbox\pgfpic=\hbox\bgroup\bgroup%
     \let\endpgfgraphicnamed=\pgf@externalend%
 }
@@ -386,6 +407,12 @@
     \rightmargin0pt%
     \dimen0\ht\pgfpic%
     \advance\dimen0\dp\pgfpic%
+	\ifdim\dp\pgfpic=0pt\relax
+	\else% store the picture's depth. Otherwise, it would be lost.
+		\immediate\openout\pgf@plotwrite=\pgf@filename.dpth
+		\immediate\write\pgf@plotwrite{\the\dp\pgfpic}%
+		\immediate\closeout\pgf@plotwrite
+	\fi
     \pgfsys@papersize{\the\wd\pgfpic}{\the\dimen0}%
     \setbox0=\vbox{%
       \kern -1truein%
@@ -406,3 +433,4 @@
 
 
 \endinput
+
