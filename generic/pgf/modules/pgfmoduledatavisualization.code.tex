@@ -37,53 +37,72 @@
   % constructor initializes the signals that are issued during a data
   % visualization. 
   %
-  % A bit contrary to normal oo-programming, if there are two objects
-  % of this class, the second object will completely hide the first
-  % one. This means that you cannot create two objects of this class
-  % and then interleave calls to the two objects. However, you *can*
-  % create a data visualization object and then, inside a nested
-  % scope, create another such object, use it, and after the end of
-  % the nested scope, return to using the first object.
-  %
   % When a data visualization object is created, a whole bunch of
-  % signal objects are also created. However, these are *not*
-  % attributes of the data visualization object. Rather, they have
-  % dedicated names of the type \pgfsignalxxxx.
+  % signal objects. You should then create objects that connect to
+  % these signals. They will be emitted when datapoints come
+  % available.
+  %
+  % It is permissible to have several data visualization objects
+  % active at the same time.
   %
   % To use a data visualization object, you should (possibly
-  % repeatedly) call the macro \pgfdata, which will store the data
-  % in a variable that is local to the current scope. You should also
+  % repeatedly) call the method add data() or the macro \pgfdata. You should also
   % create transformation, mapping and visualization objects. Then,
   % you should, first, call the method survey, which will "survey" the
   % data, allowing the mapping and bounding objects to compute the
-  % correct ranges. You may then create furhter objects based on this
-  % data. Then, you should cann the "visualize" method, which will
+  % correct ranges. You may then create further objects based on this
+  % data. Then, you should call the "visualize" method, which will
   % invoke the visualization signals for the data points.
 
 
-  \attribute before survey;
-  \attribute after survey;
   % These attribute store code that should be executed before or after
   % the survey phase.
+  \attribute before survey;
+  \attribute after survey;
 
+
+  % As above
   \attribute before visualization;
   \attribute after visualization;
-  % As above
+
+  
+  % Stores the to-be-visualized data
+  \attribute data;
+
+  
+  % Stores the signal objects
+  \attribute prepare datapoint signal;
+  \attribute map datapoint signal;
+  \attribute transform datapoint signal;
+  \attribute visualize datapoint signal;
+  \attribute finish datapoint signal;
+  \attribute survey datapoint signal;
+  \attribute phase signal;
 
   
   % Constructor
   %
   % Inits the signals
   \method data visualization() {
-    \pgfoonew \pgfsignalpreparedatapoint=new signal()%
-    \pgfoonew \pgfsignalmapdatapoint=new signal()%
-    \pgfoonew \pgfsignaltransformdatapoint=new signal()%
-    \pgfoonew \pgfsignalvisualizedatapoint=new signal()%
-    \pgfoonew \pgfsignalfinishdatapoint=new signal()%
-    \pgfoonew \pgfsignalsurveydatapoint=new signal()%
-    \pgfoonew \pgfsignalphase=new signal()%
+    \pgfoonew \pgf@signalpreparedatapoint=new signal()%
+    \pgfoolet{prepare datapoint signal}\pgf@signalpreparedatapoint
+    \pgfoonew \pgf@signalmapdatapoint=new signal()%
+    \pgfoolet{map datapoint signal}\pgf@signalmapdatapoint
+    \pgfoonew \pgf@signaltransformdatapoint=new signal()%
+    \pgfoolet{transform datapoint signal}\pgf@signaltransformdatapoint
+    \pgfoonew \pgf@signalvisualizedatapoint=new signal()%
+    \pgfoolet{visualize datapoint signal}\pgf@signalvisualizedatapoint
+    \pgfoonew \pgf@signalfinishdatapoint=new signal()%
+    \pgfoolet{finish datapoint signal}\pgf@signalfinishdatapoint
+    \pgfoonew \pgf@signalsurveydatapoint=new signal()%
+    \pgfoolet{survey datapoint signal}\pgf@signalsurveydatapoint
+    \pgfoonew \pgf@signalphase=new signal()%
+    \pgfoolet{phase signal}\pgf@signalphase
     %
-    \let\pgf@dataset@collection=\pgfutil@empty% this will store the data
+    % Store this object in a key
+    %
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeyslet{/pgf/data visualization/obj}\pgf@dv@me
   }
 
   % The phase signal will emit the following constants:
@@ -95,39 +114,56 @@
 
   % Method
   %
+  % Connect the object #1's slot "#2" to the signal named "#3"
+  \method connect(#1,#2,#3) {
+    \pgfoovalueof{#3}.connect(#1,#2)
+  }
+  
+  % Method
+  %
+  % Add data that is to be visualized. The code #1 should call the
+  % \pgfdatapoint macro for each data point it creates.
+  \method add data(#1) {
+    \pgfooappend{data}{#1}
+  }
+  
+
+  % Method
+  %
   % Add code to be added before the survey phase
   \method before survey(#1) {
-    \pgfooget{before survey}\pgf@temp
-    \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#1}
-    \pgfoolet{before survey}\pgf@temp
+    \pgfooappend{before survey}{#1}
   }
 
   % Method
   \method after survey(#1) {
-    \pgfooget{after survey}\pgf@temp
-    \def\pgf@@temp{#1}%
-    \expandafter\expandafter\expandafter\def%
-    \expandafter\expandafter\expandafter\pgf@temp%
-    \expandafter\expandafter\expandafter{\expandafter\pgf@@temp\pgf@temp}
-    \pgfoolet{after survey}\pgf@temp
+    \pgfooprefix{after survey}{#1}
   }
   
   % Method
   \method before visualization(#1) {
-    \pgfooget{before visualization}\pgf@temp
-    \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#1}
-    \pgfoolet{before visualization}\pgf@temp
+    \pgfooappend{before visualization}{#1}
   }
 
   % Method
   \method after visualization(#1) {
-    \pgfooget{after visualization}\pgf@temp
-    \def\pgf@@temp{#1}%
-    \expandafter\expandafter\expandafter\def%
-    \expandafter\expandafter\expandafter\pgf@temp%
-    \expandafter\expandafter\expandafter{\expandafter\pgf@@temp\pgf@temp}
-    \pgfoolet{after visualization}\pgf@temp
+    \pgfooprefix{after visualization}{#1}
   }
+
+
+  % Method
+  %
+  % Copy the signals to macros. This is just for efficiency (ha!)
+  \method prepare signal macros() {
+    \pgfooget{prepare datapoint signal}\pgf@signalpreparedatapoint
+    \pgfooget{map datapoint signal}\pgf@signalmapdatapoint
+    \pgfooget{transform datapoint signal}\pgf@signaltransformdatapoint
+    \pgfooget{visualize datapoint signal}\pgf@signalvisualizedatapoint
+    \pgfooget{finish datapoint signal}\pgf@signalfinishdatapoint
+    \pgfooget{survey datapoint signal}\pgf@signalsurveydatapoint
+    \pgfooget{phase signal}\pgf@signalphase
+  }
+
   
   % Survey method
   %
@@ -136,10 +172,11 @@
   \method survey() {
     % Survey phase.
     \let\pgfdatapoint=\pgfdatapoint@surveyphase%
+    \pgfoothis.prepare signal macros()
     \pgfoovalueof{before survey}%
-    \pgfsignalphase.emit(\pgfdvbeginsurvey);
-    \pgf@dataset@collection%
-    \pgfsignalphase.emit(\pgfdvendsurvey)%
+    \pgf@signalphase.emit(\pgfdvbeginsurvey);
+    \pgfoovalueof{data}%
+    \pgf@signalphase.emit(\pgfdvendsurvey)%
     \pgfoovalueof{after survey}
   }
 
@@ -150,10 +187,11 @@
   \method visualize() {
     % Visualization phase.
     \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
+    \pgfoothis.prepare signal macros()
     \pgfoovalueof{before visualization}
-    \pgfsignalphase.emit(\pgfdvbeginvisualization)%
-    \pgf@dataset@collection%
-    \pgfsignalphase.emit(\pgfdvendvisualization)%
+    \pgf@signalphase.emit(\pgfdvbeginvisualization)%
+    \pgfoovalueof{data}%
+    \pgf@signalphase.emit(\pgfdvendvisualization)%
     \pgfoovalueof{after visualization}
   }
 }  
@@ -207,20 +245,20 @@
 % of the data point.
 
 \def\pgfdatapoint@surveyphase{%
-  \pgfsignalpreparedatapoint.emit()%
-  \pgfsignalmapdatapoint.emit()%
-  \pgfsignalsurveydatapoint.emit()%
+  \pgf@signalpreparedatapoint.emit()%
+  \pgf@signalmapdatapoint.emit()%
+  \pgf@signalsurveydatapoint.emit()%
 }
 
 \def\pgfdatapoint@visualizationphase{%
-  \pgfsignalpreparedatapoint.emit()%
+  \pgf@signalpreparedatapoint.emit()%
   \pgfcanvaspositionofdatapoint%
   \pgfkeysifdefined{/data point/name}
   {%
     \pgfcoordinate{\pgfkeysvalueof{/data point/name}}{\pgfpointcanvasposition}%
   }{}%
-  \pgfsignalvisualizedatapoint.emit()%
-  \pgfsignalfinishdatapoint.emit()%
+  \pgf@signalvisualizedatapoint.emit()%
+  \pgf@signalfinishdatapoint.emit()%
 }
 
 
@@ -253,8 +291,8 @@
   {
     \pgftransformreset
     #1%
-    \pgfsignalmapdatapoint.emit()%
-    \pgfsignaltransformdatapoint.emit()%
+    \pgf@signalmapdatapoint.emit()%
+    \pgf@signaltransformdatapoint.emit()%
     \pgfpointtransformed{\pgfpointorigin}
     % Smuggle outside group
     \expandafter
@@ -327,6 +365,7 @@
 %
 % The setting of the following keys is important:
 %
+% /pgf/data visualization/obj contains a handle to the dv-object
 % /pgf/data/format stores the format (see below)
 % /pgf/data/source determines where the data is.
 %
@@ -385,7 +424,7 @@
 \def\pgfdata{\pgfutil@ifnextchar[{\pgf@dataset@data@opt}{\pgf@dataset@data@opt[]}}%}
 \def\pgf@dataset@data@opt[#1]{%
   % Ok, add one data thing...
-  \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection\pgf@do@data{#1}}%
+  \pgfkeysvalueof{/pgf/data visualization/obj}.add data(\pgf@do@data{#1})%
   \begingroup%
     \pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}%
     \pgfkeysgetvalue{/pgf/data/continue code}\pgf@dv@cont@code%
@@ -414,17 +453,16 @@
 \def\pgf@dataset@grab@external{%
     \fi%
   \endgroup%
-  \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection{\pgf@dataset@do@external}}%
+  \pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@external}}})%
   \pgf@dv@cont@code%
 }
 
 {\catcode`\^^M=\active%
   \gdef\pgf@dataset@grab@@inline#1{%
     \endgroup%
-    \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection{\pgf@dataset@do@inline#1^^M\pgf@@eol}}%
+    \pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@inline#1^^M\pgf@@eol}}})%
     \fi%
-  \expandafter\endgroup%
-  \expandafter\def\expandafter\pgf@dataset@collection\expandafter{\pgf@dataset@collection}%  
+  \endgroup%
   \pgf@dv@cont@code%
   }%
 }%
@@ -494,6 +532,7 @@
 }
 
 \pgfkeys{
+  /pgf/data/data visualization obj/.initial=\undefined,
   /pgf/data/format/.initial=,
   /pgf/data/source/.initial=,
   /pgf/data/continue code/.initial=
@@ -762,7 +801,7 @@
   % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignaltransformdatapoint.connect(\pgf@dv@me,transform)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,transform,transform datapoint signal)
   }
   
   % Setter
@@ -900,7 +939,7 @@
   % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,map,map datapoint signal)
   }
 
   % Method
@@ -986,7 +1025,7 @@
   % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,map,map datapoint signal)
   }
 
   % Slot
@@ -1046,7 +1085,7 @@
 
 %   \method default connects() {
 %     \pgfoothis.get handle(\pgf@dv@me)
-%     \pgfsignalmapdatapoint.connect(\pgf@dv@me,map)
+%     \pgf@signalmapdatapoint.connect(\pgf@dv@me,map)
 %   }
 
 %   \method drop values below(#1) {
@@ -1189,7 +1228,7 @@
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalsurveydatapoint.connect(\pgf@dv@me,survey)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,survey,survey datapoint signal)
   }
 
   \method survey() {
@@ -1322,8 +1361,8 @@
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
-    \pgfsignalphase.connect(\pgf@dv@me,phase)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,apply,prepare datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
   \method set value(#1) {
@@ -1381,7 +1420,8 @@
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalpreparedatapoint.connect(\pgf@dv@me,apply)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,apply,prepare datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
   \method apply() {
@@ -1588,7 +1628,7 @@
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,visualize)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
   }
 
   \method set size(#1) {
@@ -1627,8 +1667,8 @@
 
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
-    \pgfsignalvisualizedatapoint.connect(\pgf@dv@me,protocol)
-    \pgfsignalphase.connect(\pgf@dv@me,phase)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,protocol,visualize datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
   \method set use path(#1) {
