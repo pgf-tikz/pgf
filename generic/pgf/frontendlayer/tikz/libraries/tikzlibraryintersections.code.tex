@@ -1,0 +1,70 @@
+% Copyright 2008 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\usepgflibrary{intersections}
+
+\let\tikz@finish@orig=\tikz@finish
+\def\tikz@finish{% This is very crude. Currently ignores decorations.
+	\iftikz@path@named%
+		\pgfgetpath\tikz@temp@path%
+		\expandafter\global\expandafter\let\tikz@path@name=\tikz@temp@path%
+		\tikz@path@namedfalse%
+	\fi%
+	\tikz@finish@orig}
+
+\newif\iftikz@path@named%
+\pgfkeys{/tikz/path name/.code=%
+	\tikz@path@namedtrue%
+	\expandafter\def\expandafter\tikz@path@name\expandafter{\csname tikz@cs@path@name@#1\endcsname}%
+}%
+
+\pgfkeys{/tikz/cs/first path name/.code=\def\tikz@cs@path@a{#1}\def\tikz@cs@type@a{namedpath}}
+\pgfkeys{/tikz/cs/second path name/.code=\def\tikz@cs@path@b{#1}\def\tikz@cs@type@b{namedpath}}
+
+\tikzdeclarecoordinatesystem{intersection of paths}{%
+	\tikz@cs@intersectionofpaths{#1}%
+}
+
+\def\tikz@intersect@namedpath@and@namedpath{%
+	\pgfutil@ifundefined{tikz@cs@path@name@\tikz@cs@path@a}{%
+		\PackageError{tikz}{I do not know the path named `\tikz@cs@path@a'. Perhaps you misspelt it}{}}%
+		{\pgfutil@ifundefined{tikz@cs@path@name@\tikz@cs@path@b}{%
+			\PackageError{tikz}{I do not know the path named `\tikz@cs@path@b'. Perhaps you misspelt it}{}}%
+			{
+				\pgfintersectionofpaths%
+					{\expandafter\pgfsetpath\csname tikz@cs@path@name@\tikz@cs@path@a\endcsname}%
+					{\expandafter\pgfsetpath\csname tikz@cs@path@name@\tikz@cs@path@b\endcsname}%
+				\pgfpointintersectionsolution{\pgfkeysvalueof{/tikz/cs/solution}}%
+			}%
+		}%
+}
+
+
+\def\tikz@cs@namedpath@parse#1 and #2\tikz@stop{\def\tikz@cs@path@a{#1}\def\tikz@cs@path@b{#2}}
+\tikzset{%
+	intersection of named paths/.code={%
+		\expandafter\tikz@cs@namedpath@parse#1\tikz@stop%
+		\tikz@intersect@namedpath@and@namedpath%
+		\edef\solutions{\the\pgfintersectionsolutions}%
+		\tikz@intersect@translate@solutions%
+		\let\solution=\tikz@intersection@solution}%
+}
+
+\def\tikz@intersection@solution#1{\csname tikz@intersection@solution@#1\endcsname}
+
+\def\tikz@intersect@translate@solutions{%
+	\pgfmathloop%
+		\ifnum\pgfmathcounter>\pgfintersectionsolutions%
+		\else%
+			\pgfpointintersectionsolution{\pgfmathcounter}%
+			\expandafter\edef\csname tikz@intersection@solution@\pgfmathcounter\endcsname{\the\pgf@x,\the\pgf@y}%
+	\repeatpgfmathloop%
+}
+
+\endinput

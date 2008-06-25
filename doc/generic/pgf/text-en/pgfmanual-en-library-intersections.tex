@@ -1,0 +1,170 @@
+% Copyright 2008 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+\section{Intersections Library}
+
+{\bf\emph{This library is experimental and likely to change,
+move, or disappear, without warning.}}
+
+\begin{pgflibrary}{intersections}
+  This library enables the calculation of intersections of
+  two arbitrary paths.
+\end{pgflibrary}
+
+\subsection{Intesecting Two Paths in PGF}
+
+\begin{command}{\pgfintersectionofpaths\marg{path 1}\marg{path 2}}
+  This command finds the intersection points on the paths 
+  \meta{path 1} and \meta{path 2}. The number of intersection points
+  (``solutions'') that are found will be stored, and each point 
+  can be accessed separately. The code for \meta{path 1} and 
+  \meta{path 2} is executed within a \TeX{} group and so can contain
+  transformations (which will be in addition to any existing
+  transformations). The code should not use the path in any way, 
+  unless the path is saved first and restored afterwards.
+  \pgfname{} will regard solutions as ``a bit
+  special'', in that the points returned  will be ``absolute'' and 
+  unaffected by any further transformations.
+
+\begin{codeexample}[]
+\begin{pgfpicture}
+\pgfintersectionofpaths
+{
+  \pgfpathellipse{\pgfpointxy{0}{0}}{\pgfpointxy{1}{0}}{\pgfpointxy{0}{2}}
+  \pgfgetpath\temppath
+  \pgfusepath{stroke}
+  \pgfsetpath\temppath
+}
+{
+  \pgftransformrotate{-30}
+  \pgfpathrectangle{\pgfpointorigin}{\pgfpointxy{2}{2}}
+  \pgfgetpath\temppath
+  \pgfusepath{stroke}
+  \pgfsetpath\temppath
+}
+\foreach \s in {1,...,\pgfintersectionsolutions}
+  {\pgfpathcircle{\pgfpointintersectionsolution{\s}}{2pt}}
+\pgfusepath{stroke}
+\end{pgfpicture}
+\end{codeexample}
+
+\end{command}
+
+\begin{command}{\pgfintersectionsolutions}
+  After using the |\pgfintersectionofpaths| command, this \TeX-counter
+  will hold the number of solutions found.
+\end{command}
+
+\begin{command}{\pgfpointintersectionsolution\marg{number}}
+  After using the |\pgfintersectionofpaths| command, this command
+  will return the point for solution \meta{number}. Unfortunately
+  there can be no guarantee of a ``helpful'' ordering of solutions.
+\end{command}
+
+\subsection{Intersecting Two Paths in \tikzname}
+
+  To intersect two paths in \tikzname, they must first be
+  ``named''. A ``named path'' is a path that has been named using 
+  the following key:
+    
+\begin{key}{/tikz/path name=\meta{name}}
+
+  The effect of this key is that, after the path has been constructed,
+  just before it is used, it is associated \meta{name}. This 
+  association is global, so lasts after the final semi-colon. 
+  
+\begin{codeexample}[code only]
+\path [name=straight line] (0,0) -- (3,2);
+\end{codeexample}
+\end{key}
+
+  The solution(s) for the intersection can be accessed using the
+  |intersection| coodinate system, using the |/tikz/cs/solution| key
+  to access different solutions. This library adds two more keys
+  to specify the named paths:
+
+\begin{key}{/tikz/cs/first path name=\meta{name}}
+  Specify the first path name.
+\end{key}
+
+\begin{key}{/tikz/cs/second path name=\meta{name}}
+  Specify the second path name.
+\end{key}
+  
+  These keys can then be used as follows:
+  
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] grid (3,2);
+  \draw [path name=circle]  (1.5,1) circle (0.75cm);
+  \draw [path name=curve] (0,0) .. controls (0,2) and (3,0) .. (3,2);
+  \fill [red, opacity=0.5]
+    (intersection cs:first path name=circle, second path name=curve)
+     circle (2pt);
+\end{tikzpicture}
+\end{codeexample}
+
+  One drawback with the |intersection| coodinate system is that
+  evey time it is used, the solutions are recalculated. It would be
+  easier if the solutions could be calculated ``all at once'', and
+  then accessed later. This is possible by using the following key:
+  
+\begin{key}{/tikz/intersection of named paths=\meta{name 1}| |and| |\meta{name 2}}
+  This key will calculate all the intersections of the named paths
+  \meta{name 1} and \meta{name 2}. The following commands will then
+  be available until the end of the path or scope:
+
+\begin{command}{\solutions}
+  This will expand to the number of solutions found.
+\end{command}
+
+\begin{command}{\solution\marg{number}}
+  This will expand to the coordinates of the solution specified or the 
+  origin, if solution \meta{number} was found. For safety this should
+  be used with the |shift| key, but in most circumstances it can be
+  used in a coordinate in the usual way.
+  Unfortunately there is no easy way to guarantee the order of the
+  solutions.
+\end{command}
+
+  
+
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={opacity=1, circle, black, above left}]
+  \clip (-2,-2) rectangle (2,2);
+  \draw [path name=curve 1] (-2,-1) .. controls (8,-1) and (-8,1) .. (2,1);
+  \draw [path name=curve 2] [rotate=90] 
+     (-2,-1) .. controls (8,-1) and (-8,1) .. (2,1);
+  \fill [red, opacity=0.5, intersection of named paths=curve 1 and curve 2]
+    \foreach \s in {1,...,\solutions}
+      { (\solution \s) circle (2pt) node {\footnotesize\s} };
+\end{tikzpicture}
+\end{codeexample}
+
+   One important fact to bear in mind when using the |\solution|
+   command is that the points are \emph{not} immune to transformations.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={opacity=1, circle, black, above left}]
+  \draw [help lines] grid (3,2);
+  \draw [path name=circle] (1.5,1) circle (0.75cm);
+  \draw [path name=rectangle]  (0.5,0.5) rectangle +(2,1);
+  \tikzset{intersection of named paths=circle and rectangle}
+  \fill [red, opacity=0.5] \foreach \s in {1,...,\solutions}
+      { (\solution \s) circle (2pt) node {\footnotesize\s} };
+  \fill [blue, shift={(0.5,0.5)}, opacity=0.5] 
+    \foreach \s [count=\i from 4] in {1,...,\solutions}
+      { (\solution \s) circle (2pt) node {\footnotesize\i} };   
+\end{tikzpicture}%
+\end{codeexample}
+   
+\end{key}
+
+
