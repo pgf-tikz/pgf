@@ -9,127 +9,93 @@
 
 \usepgflibrary{intersections}
 
+\pgfkeys{%
+  /tikz/path name/.code={%
+    \tikz@addmode{%
+      \pgfsyssoftpath@getcurrentpath\tikz@intersect@temppath%
+      \ifx\tikz@intersect@namedpaths\pgfutil@empty%
+      \else%
+        \tikz@intersect@namedpaths%
+        \pgfutil@ifundefined{tikz@intersect@path@name@#1}{}%
+        {%
+          \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@intersect@@temppath%
+          \expandafter\expandafter\expandafter{\csname tikz@intersect@path@name@#1\endcsname}%
+          \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@intersect@temppath%
+          \expandafter\expandafter\expandafter{\expandafter\tikz@intersect@temppath\tikz@intersect@temppath}%
+        }%
+      \fi%
+      \tikz@intersect@addto@path@names{#1}%
+    }
+  }
+}
+
+\def\tikz@intersect@addto@path@names#1{%
+  \def\tikz@marshal{\expandafter\def\csname tikz@intersect@path@name@#1\endcsname}%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@marshal%
+    \expandafter\expandafter\expandafter{\expandafter\tikz@marshal\expandafter{\tikz@intersect@temppath}}%
+  \expandafter\pgfutil@g@addto@macro\expandafter\tikz@intersect@namedpaths\expandafter{\tikz@marshal}%
+}
+
+
 \let\tikz@finish@orig=\tikz@finish
-\def\tikz@finish{% 
-	\iftikz@path@named%
-		\pgfgetpath\tikz@temp@path%
-		\expandafter\expandafter\expandafter\pgfutil@g@addto@macro\expandafter\tikz@path@name\expandafter{\tikz@temp@path}%
-		\tikz@path@namedfalse%
-	\fi%
-	\tikz@finish@orig}
-
-\newif\iftikz@path@named%
-\def\tikz@cs@nonetext{none}
-\pgfkeys{/tikz/path name/.code={%
-	\def\tikz@cs@test{#1}%
-	\ifx\tikz@cs@test\tikz@cs@nonetext%
-		\tikz@path@namedfalse%
+\def\tikz@finish{%
+	\tikz@finish@orig%
+	\ifx\tikz@intersect@namedpaths\pgfutil@empty%
 	\else%
-		\tikz@path@namedtrue%
-		\expandafter\def\expandafter\tikz@path@name\expandafter{\csname tikz@cs@path@name@#1\endcsname}%
-		\expandafter\global\expandafter\let\tikz@path@name=\pgfutil@empty%
+		\tikz@intersect@namedpaths%
+		\let\tikz@intersect@namedpaths=\pgfutil@empty%
 	\fi%
-	}%
-}%
-
-\pgfkeys{/tikz/cs/id/.store in=\tikz@cs@intersect@id}
-
-\let\tikz@cs@intersect@id=\pgfutil@empty
-
-\tikzdeclarecoordinatesystem{solution}{%
-	\tikzset{/tikz/cs/.unknown/.code={%
-		\let\tikz@cs@value=\pgfkeyscurrentname%
-		\tikzset{/tikz/cs/solution=\tikz@cs@value}}}%
-	\tikzset{/tikz/cs/.cd,#1}%
-	\ifnum\pgfkeysvalueof{/tikz/cs/solution}<1\relax%
-		\pgfpoint@intersect@solution@orgin%
-	\else%
-		\ifnum\pgfkeysvalueof{/tikz/cs/solution}>\pgfintersectionsolutions\relax%
-			\pgfpoint@intersect@solution@orgin%
-		\else%
-			\csname tikz@intersection@solution@\tikz@cs@intersect@id @\pgfkeysvalueof{/tikz/cs/solution}\endcsname%
-		\fi%
-	\fi%
-}
-
-\pgfkeys{/tikz/cs/.cd,
-  first path/.code=\def\tikz@cs@path@a{#1}\def\tikz@cs@type@a{path},
-  second path/.code=\def\tikz@cs@path@b{#1}\def\tikz@cs@type@b{path}
-}
-
-\def\tikz@intersect@path@and@path{%
-	\pgfinterruptpath%
-		\expandafter\path\tikz@cs@path@a[path name=tikz@cs@path@a];%
-	\endpgfinterruptpath%
-	\pgfinterruptpath%
-		\expandafter\path\tikz@cs@path@b[path name=tikz@cs@path@b];%
-	\endpgfinterruptpath%
-	\tikz@intersectnamedpaths[]{tikz@cs@path@a}{tikz@cs@path@b}%
-	\pgfpointintersectionsolution{\pgfkeysvalueof{/tikz/cs/solution}}%
-}%
-
-\pgfkeys{/tikz/cs/.cd,
-	first path name/.code=\def\tikz@cs@path@a{#1}\def\tikz@cs@type@a{namedpath},
-	second path name/.code=\def\tikz@cs@path@b{#1}\def\tikz@cs@type@b{namedpath},
-	path names/.code=\tikz@cs@namedpath@parse#1\tikz@stop
-}
-
-\def\tikz@intersect@namedpath@and@namedpath{%
-	\tikz@@intersectnamedpaths%
-	\expandafter\pgfpointintersectionsolution{\pgfkeysvalueof{/tikz/cs/solution}}%
-}
-
-\def\tikzintersectnamedpaths{\pgfutil@ifnextchar[{\tikz@intersectnamedpaths}{\tikz@intersectnamedpaths[]}}
-
-\def\tikz@intersectnamedpaths[#1]#2#3{%
-	\tikzset{/tikz/cs/.cd,#1}%
-	\def\tikz@cs@path@a{#2}%
-	\def\tikz@cs@path@b{#3}%
-	\tikz@@intersectnamedpaths%	
-}%
-
-\def\tikz@@intersectnamedpaths{%
-	\pgfutil@ifundefined{tikz@cs@path@name@\tikz@cs@path@a}{%
-	\PackageError{tikz}{I do not know the path named `\tikz@cs@path@a'. Perhaps you misspelt it}{}}%
-	{\pgfutil@ifundefined{tikz@cs@path@name@\tikz@cs@path@b}{%
-		\PackageError{tikz}{I do not know the path named `\tikz@cs@path@b'. Perhaps you misspelt it}{}}%
-		{%
-			\pgfintersectionofpaths%
-				{\expandafter\pgfsetpath\csname tikz@cs@path@name@\tikz@cs@path@a\endcsname}%
-				{\expandafter\pgfsetpath\csname tikz@cs@path@name@\tikz@cs@path@b\endcsname}%
-				\expandafter\edef\csname\tikz@cs@intersect@id solutions\endcsname{\the\pgfintersectionsolutions}%
-				\tikz@intersect@translate@solutions%
-		}%
-	}%
-	\let\tikz@cs@intersect@id=\pgfutil@empty%
 }
 	
+\let\tikz@intersect@namedpaths=\pgfutil@empty
+\let\tikz@intersect@path@a=\pgfutil@empty
+\let\tikz@intersect@path@b=\pgfutil@empty
+\let\tikz@intersect@name=\pgfutil@empty
+\let\tikz@intersect@total=\pgfutil@empty
 
-\def\tikz@cs@namedpath@parse#1 and #2\tikz@stop{%
-	\def\tikz@cs@path@a{#1}%
-	\def\tikz@cs@path@b{#2}%
-	\def\tikz@cs@type@a{namedpath}
-	\def\tikz@cs@type@b{namedpath}
+\tikzset{
+  name intersections/.code={%
+	  \tikzset{/tikz/intersection/.cd,#1}%
+	  \pgfutil@ifundefined{tikz@intersect@path@name@\tikz@intersect@path@a}{
+	  	\PackageError{tikz}{I do not know the path named `\tikz@intersect@path@a'. Perhaps you misspelt it}{}}%
+			{\pgfutil@ifundefined{tikz@intersect@path@name@\tikz@intersect@path@b}{%
+				\PackageError{tikz}{I do not know the path named `\tikz@intersect@path@b'. Perhaps you misspelt it}{}}%
+				{%
+				\pgfintersectionofpaths%
+			  {%
+			  	\expandafter\pgfsetpath\csname tikz@intersect@path@name@\tikz@intersect@path@a\endcsname%
+			  }%
+			  {%
+			  	\expandafter\pgfsetpath\csname tikz@intersect@path@name@\tikz@intersect@path@b\endcsname%
+			  }%
+			  \ifx\tikz@intersect@total\pgfutil@empty%
+			  \else%
+			  	\expandafter\edef\tikz@intersect@total{\the\pgfintersectionsolutions}%
+			  \fi%
+			  \ifx\tikz@intersect@name\pgfutil@empty%
+			  	\def\tikz@intersect@@name{intersection}%
+			  \else%
+			  	\let\tikz@intersect@@name=\tikz@intersect@name%
+			  \fi%
+			  \pgfmathloop%
+		  	\ifnum\pgfmathcounter>\pgfintersectionsolutions%
+		  	\else%
+		  		\path\pgfextra{\pgftransformshift{\pgfpointintersectionsolution{\pgfmathcounter}}}%
+		  		  coordinate (\tikz@intersect@@name-\pgfmathcounter);
+		  	\repeatpgfmathloop%
+			}%
+		}%
+	},%
+	intersection/.cd,
+	of/.code=\tikz@intersect@path@names@parse#1\tikz@stop,%
+	name/.store in=\tikz@intersect@name,
+	total/.store in=\tikz@intersect@total
 }
 
-\pgfkeys{%
-	/tikz/intersect named paths/.code={%
-		\tikz@cs@namedpath@parse#1\tikz@stop%
-		\tikz@@intersectnamedpaths%
-	},
-	/tikz/intersection id/.store in=\tikz@cs@intersect@id,
-	/tikz/intersect named paths/.code={\tikzset{/tikz/cs/.cd, #1}\tikz@@intersectnamedpaths}
+\def\tikz@intersect@path@names@parse#1 and #2\tikz@stop{%
+	\def\tikz@intersect@path@a{#1}%
+	\def\tikz@intersect@path@b{#2}%
 }
 
-\def\tikz@intersect@translate@solutions{%
-	\pgfmathloop%
-		\ifnum\pgfmathcounter>\pgfintersectionsolutions%
-		\else%
-			\pgfpointintersectionsolution{\pgfmathcounter}%
-			\def\tikz@marshal{\expandafter\def\csname tikz@intersection@solution@\tikz@cs@intersect@id @\pgfmathcounter\endcsname}%
-			\expandafter\expandafter\expandafter\tikz@marshal\expandafter\expandafter\expandafter%
-			{\csname pgfpoint@intersect@solution@\pgfmathcounter\endcsname}%
-	\repeatpgfmathloop%
-}
 
 \endinput
