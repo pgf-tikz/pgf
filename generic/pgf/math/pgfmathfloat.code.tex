@@ -87,7 +87,8 @@
 % -> \pgfmathresult = 11.41212e2
 \def\pgfmathfloatparsenumber#1{%
 	\begingroup
-	\expandafter\pgfmathfloatparsenumber@impl#1\pgfmathfloat@EOI
+	\edef\pgfmathresult{#1}%
+	\expandafter\pgfmathfloatparsenumber@impl\pgfmathresult\pgfmathfloat@EOI
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
@@ -101,7 +102,8 @@
 \def\pgfmathfloatqparsenumber#1{%
 	\begingroup
 	\let\pgfmathfloatparsenumber@sanitize@digit=\relax
-	\expandafter\pgfmathfloatparsenumber@impl#1\pgfmathfloat@EOI
+	\edef\pgfmathresult{#1}%
+	\expandafter\pgfmathfloatparsenumber@impl\pgfmathresult\pgfmathfloat@EOI
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
@@ -291,20 +293,52 @@
 	\endgroup
 }%
 
+\def\pgfmathfloattoextentedprecision@@zero#1\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1}%
+}%
+\def\pgfmathfloattoextentedprecision@@one#1.#2#3\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2.#3}%
+}%
+\def\pgfmathfloattoextentedprecision@@two#1.#2#3#4\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2#3.#4}%
+}%
+
+% Sets extended precision to 10^#1.
+%
+% The default is 10^2, which means mantissas in extended precision are
+% normalised to  100 <= m < 1000.
+%
+% The case 10^1 means they are normalised to 10 <= m < 100 and 10^0
+% deactivates extended precision.
+%
+% #1 is the exponent, #1 = 0,1 or 2.
+%
+% This setting applies to \pgfmathfloattoextentedprecision.
+\def\pgfmathfloatsetextprecision#1{%
+	\ifcase#1\relax
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@zero
+		\def\pgfmathfloatextprec@shift{0}%
+	\or
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@one
+		\def\pgfmathfloatextprec@shift{1}%
+	\else
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@two
+		\def\pgfmathfloatextprec@shift{2}%
+	\fi
+}%
+\pgfmathfloatsetextprecision{2}%
+
 % Does the same work as \pgfmathfloattoextentedprecision, but this one here fills the 
 % registers \pgfmathfloat@a@S and \pgfmathfloat@a@E with the flags and (renormalized) exponent.
 % It destroys the content of \pgfmathfloat@a@Mtok.
 \def\pgfmathfloattoextentedprecision@a#1{%
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 	\ifnum\pgfmathfloat@a@S<3
-		\advance\pgfmathfloat@a@E by-2\relax% compensate for shift above
+		\advance\pgfmathfloat@a@E by-\pgfmathfloatextprec@shift\relax% compensate for shift
 		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
 	\else
 		\edef\pgfmathresult{#1}%
 	\fi
-}%
-\def\pgfmathfloattoextentedprecision@@#1.#2#3#4\pgfmathfloat@EOI{%
-	\edef\pgfmathresult{#1#2#3.#4}%
 }%
 
 
@@ -312,7 +346,7 @@
 \def\pgfmathfloattoextentedprecision@b#1{%
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@b@E
 	\ifnum\pgfmathfloat@b@S<3
-		\advance\pgfmathfloat@b@E by-2\relax
+		\advance\pgfmathfloat@b@E by-\pgfmathfloatextprec@shift\relax
 		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
 	\else
 		\edef\pgfmathresult{#1}%
@@ -464,6 +498,211 @@
 }%
 
 \let\pgfmathfloatmultiplyfixed=\pgfmathfloatmultiplyfixed@
+
+
+\def\pgfmathfloatmultiply@#1#2{%
+	\begingroup
+	\pgfmathfloatsetextprecision{1}%
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloattoextentedprecision@b{#2}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+	% 0
+		\pgfmathfloatcreate{0}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\def\pgfmathresult@S{2}%
+		\else
+			\expandafter\pgfmathfloatcreate\the\pgfmathfloat@b@S{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% nan
+		\pgfmathfloatcreate{3}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmathmultiply@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		\advance\pgfmathfloat@a@E by\pgfmathfloat@b@E
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\pgfmathfloatcreate{\pgfmathresult@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatmultiply=\pgfmathfloatmultiply@
+
+\def\pgfmathfloatdivide@#1#2{%
+	\begingroup
+	\pgfmathfloatsetextprecision{1}%
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloattoextentedprecision@b{#2}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+	% 0
+		\pgfmathfloatcreate{0}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\else
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\else
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% nan
+		\pgfmathfloatcreate{3}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}% what is inf/inf ?
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}% or inf/-inf ?
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmathdivide@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		\advance\pgfmathfloat@a@E by-\pgfmathfloat@b@E
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\pgfmathfloatcreate{\pgfmathresult@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatdivide=\pgfmathfloatdivide@
 
 % Converts a composed floating point representation to fixed point.
 %
