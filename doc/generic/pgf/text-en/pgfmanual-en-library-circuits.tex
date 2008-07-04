@@ -13,15 +13,16 @@
 
 \emph{by Massimo Redaelli, Till Tantau, and Mark Wibrow}
 
-
-\subsection{Overview}
+\subsection{Introduction}
 
 The circuit libraries can be used to draw different kinds of
 electrical or logical circuits. There is not a single library for
 this, but a whole hierarchy of libraries that work in concert. The
 main design goal was to create a balance between easy-of-use and
 easy-of-extending, while creating high-quality graphical
-representations of circuits. Here is a first example:
+representations of circuits. 
+
+\subsubsection{A First Example}
 
 \begin{codeexample}[]
 \begin{tikzpicture}[circuit ee IEC,x=3cm,y=2cm,semithick,
@@ -112,6 +113,9 @@ the options of the |{tikzpicture}| environment replaced by
                       to (right contact 5);
 \end{tikzpicture}
 
+
+\subsubsection{Symbols}
+
 A circuit typically consists of numerous electronic elements lke
 logical gates or resistors or diodes that are connected by wires. In
 \pgfname/\tikzname, we use nodes for the 
@@ -126,6 +130,9 @@ There are many different names that are used to refer to electrical
 will call such elements \emph{symbols}. A \emph{symbol shape} is a
 \pgfname\ shape declared using the |\pgfdeclareshape| command. A
 \emph{symbol node} is a node whose shape is a symbol shape.
+
+
+\subsubsection{Symbol Graphics}
 
 Symbols can be created by 
 |\node[shape=some symbol shape]|. However, in order to represent some
@@ -235,6 +242,25 @@ use another symbol graphic.
 \end{tikzpicture}
 \end{codeexample}
 
+
+
+\subsubsection{Annotations}
+
+An \emph{annotation} is a little extra drawing that can be added to a
+symbol. For instance, when you add two little parallel arrows pointing
+away from some electrical element, this usually means that the element
+is light emitting.
+
+Instead of having one symbol for ``diode'' and another for ``light
+emitting diode,'' there is just one |diode| symbol, but you can add
+the |light emitting| annotation to it. This is done by passing the
+annotation as a parameter to the symbol as in the following example:
+
+\begin{codeexample}[]
+\tikz [circuit ee IEC]
+  \draw (0,0) to [diode={light emitting}] (3,0)
+              to [resistor={adjustable}]  (3,2);
+\end{codeexample}
 
 
 
@@ -605,6 +631,97 @@ circuits.
 \begin{tikzpicture}[circuit ee IEC,circuit declare unit={my ohm}{O}]
   \draw (0,0) to[resistor={my ohm' sloped=3}] (3,2);
 \end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+
+\subsubsection{Declaring and Using Annotations}
+
+Annotations are quite similar to info labels. The main difference is
+that they generally cause something to be drawn by default rather than
+some text to be added (although an annotation might also add some
+text).
+
+Annotations can be declared using the following key:
+
+\begin{key}{/tikz/circuit declare annotation=\marg{name}\marg{distance}\marg{path}}
+  This key is used to declare an annotation named \meta{name}. Once
+  declared, it can be used as an argument of a symbol and will add the
+  drawing in \meta{path} to the symbol. In detail, the following
+  happens:
+
+  \textbf{The Main Keys.}
+  Two keys called \meta{name} and \meta{name}|'| are
+  defined. The second causes the annotation to be ``mirrored and
+  placed on the other side'' of the symbol. Both of these keys may
+  also take further keys as parameter like |info| keys.
+  Whenever the \meta{name} key is used, a local scope is opend and in
+  this scope the following things are done:
+  \begin{enumerate}
+  \item The style |every| \meta{name} is executed.
+  \item The following style is executed and then |arrows=->|:
+    \begin{stylekey}{/tikz/annotation arrow}
+      This style should set the |>| key to some desirable arrow tip.
+    \end{stylekey}
+  \item The coordinate system is shifted such that the origin is at
+    the north anchor of the symbol. (For the \meta{name}|'| key the
+    coordinate system is flipped and shifted such that the origin is
+    at the south anchor of the symbol.)
+  \item The |label distance| is locally set to \meta{distance}.
+  \item The parameter options given to the \meta{name} key are
+    executed. 
+  \item The \meta{path} is executed.
+  \end{enumerate}
+
+  \textbf{Usage.}
+  What all of the above amounts to is best explained by an
+  example. Suppose we wish to create an annotation that looks like a
+  little circular arrow (like \tikz \draw [->] (0,0) arc
+  (-270:80:1ex);). We could then say:
+\begin{codeexample}[code only]
+\tikzset{circuit declare annotation=
+  {circular annotation}
+  {9pt}
+  {(0pt,8pt) arc (-270:80:3.5pt)}
+}
+\end{codeexample}
+  We can then use it like this: 
+\tikzset{circuit declare annotation=
+  {circular annotation}
+  {8pt}
+  {(0pt,8pt) arc (-270:80:3.5pt)}
+}
+\begin{codeexample}[]
+\tikz[circuit ee IEC]
+  \draw (0,0) to [resistor={circular annotation}]   (3,0);
+\end{codeexample}
+  Well, not very impressive since we do not see anything. This is due to
+  the fact that the \meta{path} becomes part of a path that contains
+  the symbol node an nothing else. This path is not drawn or filled,
+  so we do not see anything. What we must do is to use an |edge| path
+  operation:
+\begin{codeexample}[]
+\tikzset{circuit declare annotation={circular annotation}{9pt}
+  {(0pt,8pt) edge[to path={arc(-270:80:3.5pt)}] ()}
+}
+\tikz[circuit ee IEC]
+  \draw (0,0) to [resistor={circular annotation}]   (3,0)
+              to [capacitor={circular annotation'}] (3,2);
+\end{codeexample}
+  The \meta{distance} is important for the correct placement of
+  additional |info| labels. When an annotation is present, the info
+  labels may need to be moved further away from the symbol, but not
+  always. For this reason, an annotation defines an additional
+  \meta{distance} that is applied to all info labels given
+  as parameters to the annotation. Here is an example, that shows the
+  difference: 
+\tikzset{circuit declare annotation={circular annotation}{9pt}
+  {(0pt,8pt) edge[to path={arc (-270:80:3.5pt)}] ()}
+}
+\begin{codeexample}[]
+\tikz[circuit ee IEC]
+  \draw (0,0) to [resistor={circular annotation,ohm=5}]   (2,0)
+              to [resistor={circular annotation={ohm=5}}] (4,0);
 \end{codeexample}
 \end{key}
 
@@ -1334,106 +1451,25 @@ logical gates, there are a base library and more specific libraries.
     \end{stylekey}
   \end{key}
 
-  The library also declare some standard annotations. Unlike 
+  The library also declares some standard annotations and units. 
 \end{tikzlibrary}
 
 As for logical circuits, to draw a circuit the first step is to
-include one of the logical circuit libraries. Currently, you have to
-include |circuits.ee.IEC|. Then, inside a 
-\tikzname\ picture you use the following styles:
+include a library containing the symbols graphics. Currently, you have to
+include |circuits.ee.IEC|.
 
-\begin{key}{/tikz/circuit ee IEC}
-  This style calls |circuit ee| and installs the IEC-like
-  graphics for the logical symbols like |resistor|. When
-  you include this library, you can use the following key to 
-  setup a scope that contains a circuit:
-
-
-    This key calls |circuit ee| and installs the IEC-like
-    graphics. As explained in Section~\ref{section-theming-symbols},
-    for each graphic symbol of the library there is also a style that
-    stores this  particular appearance.
-    These keys are called |resistor IEC graphic|,
-    |or gate IEC graphic|, and so on.
-\begin{codeexample}[]
-\begin{tikzpicture}[circuit logic IEC,
-                    every circuit symbol/.style={
-                      logic gate IEC symbol color=black,
-                      fill=blue!20,draw=blue,very thick}]
-  \matrix[column sep=7mm]
-  {
-    \node (i0) {0}; &                            & \\
-                    & \node [and gate] (a1) {};  & \\
-    \node (i1) {0}; &                            & \node [or gate] (o) {};\\
-                    & \node [nand gate] (a2) {}; & \\
-    \node (i2) {1}; &                            & \\
-  };
-  \draw (i0.east) -- ++(right:3mm) |- (a1.input 1);
-  \draw (i1.east) -- ++(right:3mm) |- (a1.input 2);
-  \draw (i1.east) -- ++(right:3mm) |- (a2.input 1);
-  \draw (i2.east) -- ++(right:3mm) |- (a2.input 2);
-  \draw (a1.output) -- ++(right:3mm) |- (o.input 1);
-  \draw (a2.output) -- ++(right:3mm) |- (o.input 2);
-  \draw (o.output) -- ++(right:3mm);
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-
-\begin{pgflibrary}{circuits.logic.US}
-  This library provides graphics showing ``American'' logic
-  gates. It defines the following key:
-
-  \begin{key}{/tikz/circuit logic US}
-    This style calls |circuit logic| and installs US-like graphics 
-    for the logical symbols like |and gate|. For instance, it says
-    \begin{codeexample}[code only]
-set and gate graphic = and gate US graphic
-    \end{codeexample}
-
-    Here is an example:
-\begin{codeexample}[]
-\begin{tikzpicture}[circuit logic CDH,
-                    tiny circuit symbols,
-                    every circuit symbol/.style={
-                      fill=white,draw}]
-  \matrix[column sep=7mm]
-  {
-    \node (i0) {0}; &                            & \\
-                    & \node [and gate] (a1) {};  & \\
-    \node (i1) {0}; &                            & \node [or gate] (o) {};\\
-                    & \node [nand gate] (a2) {}; & \\
-    \node (i2) {1}; &                            & \\
-  };
-  \draw (i0.east) -- ++(right:3mm) |- (a1.input 1);
-  \draw (i1.east) -- ++(right:3mm) |- (a1.input 2);
-  \draw (i1.east) -- ++(right:3mm) |- (a2.input 1);
-  \draw (i2.east) -- ++(right:3mm) |- (a2.input 2);
-  \draw (a1.output) -- ++(right:3mm) |- (o.input 1);
-  \draw (a2.output) -- ++(right:3mm) |- (o.input 2);
-  \draw (o.output) -- ++(right:3mm);
-\end{tikzpicture}
-\end{codeexample}
+\begin{tikzlibrary}{circuit.ee.IEC}
+  When this library is loaded, you can use the following style: 
+  \begin{key}{/tikz/circuit ee IEC}
+    This style calls |circuit ee| and installs the IEC-like
+    graphics for the logical symbols like |resistor|.
   \end{key}
-\end{pgflibrary}
+\end{tikzlibrary}
 
-\begin{pgflibrary}{circuits.logic.CDH}
-  This library provides graphics based on the logic symbols used in
-  A. Croft, R. Davidson, and M. Hargreaves (1992),  \emph{Engineering
-    Mathematics}, Addison-Wesley, 82--95. They are identical to the
-  US-style symbols, except for the and- and nand-gates.
-  
-  \begin{key}{/tikz/circuit logic CDH}
-    This key calls |circuit logic US| and installs the two special
-    and- and nand-gates, that is, it uses |set and gate graphic| with
-    |and gate CDH graphic| and likewise for nand-gates.
-  \end{key}
-\end{pgflibrary}
-
-
-Inside |circuit logic XYZ| scopes, you can now use the keys shown in
-Section~\ref{section-logic-symbols}. We have a more detailed look at
-one of them, all the other work the same way:
+Inside the |circuit ee IEC| scope, you can now use the keys for
+symbols, units, and annotations listed in the later sections. We have
+a more detailed look at one of each of them, all the other work the
+same way: 
 
 \begin{key}{/tikz/and gate}
   This key should be passed to a |node| command. It will cause the
@@ -1601,7 +1637,6 @@ you have to say |set| \meta{symbol name} |graphic=var| \meta{symbol name}
   \eelineexample{/tikz/contact}{}
   \eelineexample{/tikz/make contact}{make contact}
   \eelineexample{/tikz/break contact}{}
-  \eelineexample{/tikz/connection}{}
 \end{tabular}
 
 
@@ -1614,6 +1649,7 @@ you have to say |set| \meta{symbol name} |graphic=var| \meta{symbol name}
   \draw (0,3) to[resistor       = light dependent] (3,3);
   \draw (0,2) to[battery        = light dependent] (3,2);
   \draw (0,1) to[voltage source = direction info]  (3,1);
+  \draw (0,0) to[inductor       = adjustable]      (3,0);
 \end{tikzpicture}
 \end{codeexample}
 
