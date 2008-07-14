@@ -96,6 +96,7 @@
   \expandafter\tikz@addoption\expandafter{\expandafter\pgfsetdash\tikz@temp}%
 }%
 \def\tikz@dashphase{0pt}
+\def\tikz@dashpattern{}
 
 \def\tikz@scandashon n#1o{%
   \expandafter\def\expandafter\tikz@dashpattern\expandafter{\tikz@dashpattern{#1}}%
@@ -780,6 +781,20 @@
 
 \def\tikz@text@action{\raggedright\rightskip\z@ plus2em \spaceskip.3333em \xspaceskip.5em\relax}
 
+
+% Alignment
+\tikzset{
+  node halign header/.initial=,
+  align/.is choice,
+  align/left/.style  ={text ragged,node halign header={##\hfil\cr}},
+  align/flush left/.style  ={text badly ragged,node halign header={##\hfil\cr}},
+  align/right/.style ={text ragged left,node halign header={\hfil##\cr}},
+  align/flush right/.style ={text badly ragged left,node halign header={\hfil##\cr}},
+  align/center/.style={text centered,node halign header={\hfil##\hfil\cr}},
+  align/flush center/.style={text badly centered,node halign header={\hfil##\hfil\cr}},
+  align/justify/.style ={text justified,node halign header={##\hfil\cr}},
+  align/none/.style ={text justified,node halign header={}}
+}
 
 
 
@@ -2925,6 +2940,7 @@
             \setbox\tikz@figbox=\box\voidb@x%
             \tikz@uninstallcommands%
             \aftergroup\tikz@fig@collectresetcolor%
+            \tikz@halign@check%
             \ignorespaces%
 }
 \def\tikz@fig@collectresetcolor{%
@@ -3134,14 +3150,72 @@
 \let\tikz@fig@continue@orig=\tikz@fig@continue
 
 
+\newif\iftikz@do@align
+
+% Alignment handling
+\def\tikz@halign@check{%
+  \tikz@do@alignfalse
+  \ifx\tikz@text@width\pgfutil@empty%
+    \pgfkeysgetvalue{/tikz/node halign header}\tikz@align@header%
+    \ifx\tikz@align@header\pgfutil@empty%
+    \else%
+      \tikz@do@aligntrue%
+    \fi%
+  \fi%
+  \iftikz@do@align%
+    % Bingo
+    \setbox\tikz@align@aligned@box=\box\voidb@x% void
+    \let\\=\tikz@align@newline%
+    \expandafter\tikz@start@align%
+  \fi%    
+}
+\def\tikz@align@newline{\unskip\pgfutil@ifnextchar[\tikz@@align@newline{\tikz@@align@newline[0pt]}}%}
+\def\tikz@@align@newline[#1]{\egroup\tikz@align@continue\pgfmathparse{#1}\let\tikz@align@temp=\pgfmathresult\tikz@start@align}%
+% Two safe boxes for alignment:
+\let\tikz@align@aligned@box=\pgfnodeparttextbox
+\let\tikz@align@line@box=\tikz@figbox
+
+\def\tikz@start@align{%
+  % Start collecting text:
+  \setbox\tikz@align@line@box=\hbox\bgroup\bgroup%
+    \aftergroup\tikz@align@collectresetcolor\ignorespaces%
+}
+\def\tikz@align@collectresetcolor{%
+  \pgfutil@ifnextchar\reset@color%
+  {\reset@color\afterassignment\tikz@align@collectresetcolor\let\tikz@temp=}%
+  {\tikz@align@end@check}%
+}
+\def\tikz@align@end@check{%
+  \egroup%
+  \ifvoid\tikz@align@aligned@box%
+    \setbox\tikz@align@aligned@box=\box\tikz@align@line@box%
+  \else%
+    \setbox\tikz@align@aligned@box=\vbox{\expandafter\halign\expandafter{\tikz@align@header%
+        \box\tikz@align@aligned@box\cr%
+        \noalign{\vskip\tikz@align@temp pt}%
+        \unhbox\tikz@align@line@box\unskip\cr}}%
+  \fi%
+  \pgfutil@ifnextchar\tikz@align@continue{}
+  {%
+    % Main continue
+      \box\tikz@align@aligned@box%
+    \egroup%
+  }%
+}
+\def\tikz@align@continue{\tikz@@align@continue}
+\let\tikz@@align@continue=\pgfutil@empty
+
+
 
 % Syntax for parts of  nodes:
-% node ... {... \nodepart{name} ... \nodepart{name} ...}
+% node ... {... \nodepart[options]{name} ... \nodepart{name} ...}
 
-\def\tikz@nodepart#1{%
+\def\tikz@nodepart{\pgfutil@ifnextchar[\tikz@@nodepart{\tikz@@nodepart[]}}%}
+\def\tikz@@nodepart[#1]#2{%
   \tikz@atend@node%
   \unskip%
-  \gdef\tikz@nodepart@name{#1}%
+  \gdef\tikz@nodepart@options{#1}%
+  \gdef\tikz@nodepart@name{#2}%
   \global\let\tikz@fig@continue=\tikz@nodepart@continue%
   \pgfutil@ifnextchar x{\egroup\relax}{\egroup\relax}% gobble spaces
 }
@@ -3151,6 +3225,7 @@
    \expandafter\setbox\csname pgfnodepart\tikz@nodepart@name box\endcsname=\hbox%
       \bgroup%
         \tikzset{every \tikz@nodepart@name\space node part/.try}%
+        \expandafter\tikzset\expandafter{\tikz@nodepart@options}%
         \pgfinterruptpicture%
           \tikz@textfont%  
           \ifx\tikz@text@width\pgfutil@empty%
@@ -3171,6 +3246,7 @@
             \tikz@uninstallcommands%
             \tikz@atbegin@node%
             \aftergroup\tikz@fig@collectresetcolor%
+            \tikz@halign@check%
             \ignorespaces%
 }
 
