@@ -77,11 +77,30 @@
 	verbose IO=true,
 	optimize/.is if=tikzexternal@optimize,
 	optimize=true,
+	optimize/install/.code={},%
+	optimize/restore/.code={},%
+	% Expects one argument, the command name.
+	% Example: 'optimize command away=\includegraphics'
+	%
+	% It accepts commands which have '[]' arguments and whose first
+	% argument always begins with '{'.
+	optimize command away/.code={%
+		\expandafter\global\expandafter\let\csname\string#1@ORIG\endcsname=#1%
+		\pgfkeysalso{%
+			/tikz/external/optimize/install/.append code={%
+				\def#1{\tikzexternal@optimize@away@cmd{#1}}%
+			},
+			/tikz/external/optimize/restore/.append code={%
+				\expandafter\let\expandafter#1\csname\string#1@ORIG\endcsname
+			}
+		}%
+	},
+	optimize command away=\includegraphics,
 	only named/.is if=tikzexternal@onlynamed,
 	only named/.default=true,
 	prefix/.code={\tikzsetexternalprefix{#1}},
 }
-	
+
 % This method sets the file name prefix used for every import/export.
 %
 % It is invoked by the '/tikz/external/prefix' key.
@@ -122,7 +141,7 @@
 	\iftikzexternal@optimize
 		\ifpgf@external@grabshipout
 			% only use graphics inside of grabbed stuff
-			\let\includegraphics=\tikzexternal@includegraphics@optimizedaway
+			\tikzexternal@optimize@REPLACE
 		\fi
 	\fi
 }
@@ -165,17 +184,6 @@
 
 
 
-% Used by the optimization code.
-\def\tikzexternal@includegraphics@optimizedaway{%
-	\pgfutil@ifnextchar[{%
-		\tikzexternal@includegraphics@optimizedaway@
-	}{%
-		\tikzexternal@includegraphics@optimizedaway@[]%
-	}%
-}%
-\def\tikzexternal@includegraphics@optimizedaway@[#1]#2{%
-	\immediate\write16{Image '#2' optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
-	[ {\sc Image optimized away because it does not contribute to exported PDF}]}%
 
 \let\tikzexternal@origtikz=\tikz
 \let\tikzexternal@origpicture=\tikzpicture
@@ -322,7 +330,7 @@
 	\let\tikzpicture=\tikzexternal@origpicture
 	\iftikzexternal@optimize
 		\ifpgf@external@grabshipout
-			\let\includegraphics=\tikzexternal@orig@includegraphics
+			\tikzexternal@optimize@RESTORE
 		\fi
 	\fi
 	\expandafter\beginpgfgraphicnamed\expandafter{\tikzexternal@curfilename}%
@@ -333,10 +341,43 @@
 	\let\tikzpicture=\tikzexternal@tikzpicture@replacement
 	\iftikzexternal@optimize
 		\ifpgf@external@grabshipout
-			\let\includegraphics=\tikzexternal@includegraphics@optimizedaway
+			\tikzexternal@optimize@REPLACE
 		\fi
 	\fi
 	\tikzexternal@closeenvironments
+}%
+
+% Used by the optimization code.
+% It will be called if GRAB mode is on.
+% See the 'optimize command away' key.
+\def\tikzexternal@optimize@away@cmd#1{%
+	\pgfutil@ifnextchar[{%
+		\tikzexternal@optimize@away@cmd@{#1}%
+	}{%
+		\tikzexternal@optimize@away@cmd@{#1}[]%
+	}%
+}%
+\def\tikzexternal@optimize@away@cmd@#1[#2]{%
+	\pgfutil@ifnextchar\bgroup{%
+		\tikzexternal@optimize@away@cmd@@{#1}{#2}%
+	}{%
+		\tikzexternal@optimize@away@cmd@@{#1}{#2}@% give empty argument.
+	}%
+}%
+\def\tikzexternal@optimize@away@cmd@@#1#2#3{%
+	\begingroup
+	\toks0={#1[#2]{#3}}%
+	\immediate\write16{The command '\the\toks0' has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+	[ {\sc \string#1\ optimized away because it does not contribute to exported PDF}]%
+	\endgroup
+}%
+
+\def\tikzexternal@optimize@REPLACE{%
+	\pgfkeysvalueof{/tikz/external/optimize/install/.@cmd}\pgfeov
+}%
+
+\def\tikzexternal@optimize@RESTORE{%
+	\pgfkeysvalueof{/tikz/external/optimize/restore/.@cmd}\pgfeov
 }%
 
 % Closes one 'tikzpicture' environment. This is only used for LaTeX,
