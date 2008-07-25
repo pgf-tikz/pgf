@@ -221,18 +221,16 @@
 \def\tikz@dv@newobject#1#2{%
   \pgfkeysgetvalue{#1}\tikz@temp%
   \ifx\tikz@temp\pgfutil@empty%
-    \let\tikz@dv@arg@a=\relax%
-    \let\tikz@dv@arg@b=\relax%
-    \let\tikz@dv@arg@c=\relax%
-    \let\tikz@dv@arg@d=\relax%
-    \let\tikz@dv@arg@e=\relax%
-    \let\tikz@dv@arg@f=\relax%
-    \let\tikz@dv@arg@g=\relax%
-    \let\tikz@dv@arg@h=\relax%
-    \let\tikz@dv@new@before=\relax%
+    \let\tikz@dv@arg@a=\tikz@lib@notused%
+    \let\tikz@dv@arg@b=\tikz@lib@notused%
+    \let\tikz@dv@arg@c=\tikz@lib@notused%
+    \let\tikz@dv@arg@d=\tikz@lib@notused%
+    \let\tikz@dv@arg@e=\tikz@lib@notused%
+    \let\tikz@dv@arg@f=\tikz@lib@notused%
+    \let\tikz@dv@arg@g=\tikz@lib@notused%
+    \let\tikz@dv@arg@h=\tikz@lib@notused%
     \let\tikz@dv@new@after=\relax%
     \pgfkeys{/tikz/data visualization/new object/parse/.cd,#2}
-    \tikz@dv@new@before%
     \edef\pgf@marshal{\noexpand\pgfoonew\noexpand\tikzdvobj=new \tikz@dv@new@class(}%
     \tikz@dv@add@arg{}\tikz@dv@arg@a%
     \tikz@dv@add@arg{\expandafter,}\tikz@dv@arg@b%
@@ -249,9 +247,10 @@
     \tikz@dv@new@after%
   \fi%
 }       
+\def\tikz@lib@notused{\tikz@lib@notused}
 
 \def\tikz@dv@add@arg#1#2{%
-  \ifx#2\relax%
+  \ifx#2\tikz@lib@notused%
   \else%
     \expandafter\expandafter\expandafter\def%
     \expandafter\expandafter\expandafter\pgf@marshal%
@@ -264,7 +263,7 @@
   store/.code=,% ignore
   when/.code=,% ignore
   class/.store in=\tikz@dv@new@class,
-  before creation/.store in=\tikz@dv@new@before,
+  before creation/.code=#1,
   after creation/.store in=\tikz@dv@new@after,
   arg1/.store in=\tikz@dv@arg@a,
   arg2/.store in=\tikz@dv@arg@b,
@@ -314,8 +313,8 @@
       when=before survey,
       store=/tikz/data visualization/#1/source interval,
       class=interval,
-      arg1 from key=#1/source min,%
-      arg2 from key=#1/source max%
+      arg1 from key=#1/source/min,%
+      arg2 from key=#1/source/max%
     },
     new object={
       when=before survey,
@@ -325,39 +324,91 @@
       arg2 handle from key=#1/source interval%
     },
     new object={
-      when=before survey,
-      store=/tikz/data visualization/#1/target interval,
-      class=interval,
-      arg1 from key=#1/target min,%
-      arg2 from key=#1/target max%
-    },
-    new object={
       when=after survey,
       store=/tikz/data visualization/#1/line transformer,
       class=line transformer,
-      arg1 from key=#1/target,
-      arg2 from key=#1/vec
+      arg1/.expanded=\pgfkeysvalueof{/tikz/data visualization/#1/source}/mapped,
+      arg2=\pgfpointpolar{\pgfkeysvalueof{/tikz/data visualization/#1/angle}}{1pt},
+      after creation={\tikzdvobj.set origin(
+        \pgfpointpolar{\pgfkeysvalueof{/tikz/data visualization/#1/angle}}{\tikz@lib@dv@min@at})}
     },
     new object={
       when=after survey,
       store=/tikz/data visualization/#1/mapper,
       class=mapper,
       arg1 from key=#1/source,%
-      arg2 handle from key=#1/source interval,%
-      arg3 from key=#1/target,%
-      arg4 handle from key=#1/target interval,%
+      arg2 handle from key=#1/in interval,%
+      arg3=\pgfkeysvalueof{/tikz/data visualization/#1/source}/mapped,%
+      arg4 handle from key=#1/out interval,%
       arg5 from key=#1/function
     },
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/#1/out interval,
+      class=interval,
+      arg1/.expanded=0,
+      arg2/.expanded=\tikz@lib@dv@scaling,
+    },
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/#1/in interval,
+      class=interval,
+      before creation=\tikz@lib@compute@mapped{#1},
+      arg1/.expanded=\tikz@lib@dv@min,
+      arg2/.expanded=\tikz@lib@dv@max,
+    },
     #1/source/.initial=#1,
-    #1/source min/.initial=0,
-    #1/source max/.initial=1,
-    #1/target/.initial=#1 mapped,
-    #1/target min/.initial=0,
-    #1/target max/.initial=1,
+    #1/source/min/.initial=,
+    #1/source/max/.initial=,
     #1/function/.initial=,
-    #1/vec/.initial=\pgfpointorigin
+    #1/angle/.initial=0,
+    #1/scaling/.initial=,
+    #1/scaling default/.initial=0 at 0pt and 1 at 1cm,
+    #1/ln/.style={
+      #1/function=\pgfmathparse{ln(\pgfvalue)},
+      #1/scaling default=1 at 0pt and 10 at 1cm,
+    }
   }
 }
+
+% Computes the correct size of the mapped interval
+\def\tikz@lib@compute@mapped#1{%
+  \pgfkeysvalueof{/tikz/data visualization/#1/source interval}.get min and max()%
+  \pgfkeysgetvalue{/tikz/data visualization/#1/scaling}\tikz@temp%
+  \ifx\tikz@temp\pgfutil@empty%
+    \pgfkeysgetvalue{/tikz/data visualization/#1/scaling default}\tikz@temp%
+  \fi%
+  \expandafter\tikz@lib@dv@parse@scaling\tikz@temp\pgf@stop%
+  % Parse...
+}
+\def\tikz@lib@dv@parse@scaling#1 at#2and #3 at#4\pgf@stop{%
+  \def\tikz@lib@dv@min{#1}%
+  \pgfmathparse{#2}
+  \let\tikz@lib@dv@min@at\pgfmathresult%
+  \def\tikz@lib@dv@max{#3}%
+  \pgfmathparse{#4}
+  \let\tikz@lib@dv@max@at\pgfmathresult%
+  \ifx\tikz@lib@dv@min\pgf@min@text%
+    \let\tikz@lib@dv@min\pgfdvmin
+  \else
+    \pgfmathparse{\tikz@lib@dv@min}
+    \let\tikz@lib@dv@min\pgfmathresult
+  \fi
+  \ifx\tikz@lib@dv@max\pgf@max@text%
+    \let\tikz@lib@dv@max\pgfdvmax
+  \else
+    \pgfmathparse{\tikz@lib@dv@max}
+    \let\tikz@lib@dv@max\pgfmathresult
+  \fi
+  % now, compute distance between min at and max at
+  \pgfmathsubtract{\tikz@lib@dv@max@at}{\tikz@lib@dv@min@at}
+  \let\tikz@lib@dv@scaling=\pgfmathresult%
+}
+\def\pgf@min@text{min}
+\def\pgf@max@text{max}
+\let\tikz@lib@dv@scaling\relax
+\let\tikz@lib@dv@min\relax
+\let\tikz@lib@dv@max\relax
 
 
 %
@@ -370,8 +421,7 @@
   school book plot/.style={
     new axis=x,
     new axis=y,
-    x/vec=\pgfqpoint{1cm}{0cm},
-    y/vec=\pgfqpoint{0cm}{1cm},
+    y/angle=90,
     new object={
       when=after survey,
       store=/tikz/data visualization/plot,
