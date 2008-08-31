@@ -8,11 +8,10 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-\let\pgfmathparse@orig=\pgfmathparse
-
 \pgfkeys{/pgf/.cd,
 	fixed point arithmetic/.code={%
 		\pgfmathfp@plots@install%
+		\pgfmathfp@parser@install%
 		\let\pgfmathparse=\pgfmathfpparse%
 		\pgfkeys{/pgf/fixed point/.cd, #1}%
 	},%
@@ -27,27 +26,26 @@
 
 \def\pgfmathfpparse{%
 	\begingroup%
-		%
-		% Mysteriously, it seems that all \let statements must be 
-		% installed here, not within some outer scope (where loads
-		% of errors occur).  
-		%
-		\pgfmathfp@parser@install%
-		\afterassignment\pgfmathfpparse@%
-		\futurelet\pgfmathfp@token}
+		\let\pgfmathpostparse=\relax%
+		\pgfmath@catcodes%
+		\pgfmath@quickparsefalse%
+		\pgfmathfpparse@}
 
 \def\pgfmathfpparse@#1{%
-		\let\pgfmathpostparse=\relax%
-		\ifx\pgfmathfp@token*%
-			\pgfmathparse@{\pgfmathfpscale#1}%
-		\else%
-			\pgfmathparse@{#1}%
-		\fi%
-		\pgfmath@smuggleone\pgfmathresult%
-	\endgroup%
-	\ignorespaces%
-}
+	\edef\pgfmathfp@expression{#1}%
+	\expandafter\pgfmathfpparse@@\pgfmathfp@expression\pgfmathfp@}
 
+\def\pgfmathfp@char@asterisk{*}
+\def\pgfmathfpparse@@#1#2\pgfmathfp@{%
+	\def\pgfmathfp@test{#1}%
+	\ifx\pgfmathfp@test\pgfmathfp@char@asterisk%
+		\edef\pgfmathfp@expression{\pgfmathfpscale#1#2}%
+	\else%
+		\edef\pgfmathfp@expression{#1#2}%
+	\fi%
+	\expandafter\pgfmathparse@\expandafter{\pgfmathfp@expression}%
+	% \endgroup provided by \pgfpathmarse@end
+}
 
 % Crude handling of file plots
 %
@@ -122,9 +120,9 @@
 		\let\pgfmathexp@=\pgfmathfpexp@%
 		\let\pgfmathln@=\pgfmathfpln@%
 		\let\pgfmathsqrt@=\pgfmathfpsqrt@%
-		\let\pgfmath@pi=\FPpi%
+		\let\pgfmath@pi=\pgfmathfppi@%
 		\let\pgfmathveclen@=\pgfmathfpveclen@%
-		\let\pgfmath@e=\FPe%
+		\let\pgfmathe@=\pgfmathfpe@%
 		%
 		\let\pgfmathlessthan@=\pgfmathfplessthan@%
 		\let\pgfmathgreaterthan@=\pgfmathfpgreaterthan@%
@@ -135,17 +133,13 @@
 		\let\pgfmathsetseed=\pgfmathfpsetseed%
 		%
 		\let\pgfmathscientific=\pgfmathfpscientific%
-		%
-		\let\pgfmath@parse@startgroup=\pgfmathfp@parse@startgroup%
 	\fi%
 }%
 
-\def\pgfmathfp@parse@startgroup{%
-	\begingroup%
-		\let\pgfmath@parse@postgroup=\pgfmath@parse@operator%
-		\pgfmath@resetparsingparameters%
-		\pgfutil@ifnextchar*{\pgfmath@parse@\pgfmathfpscale}{\pgfmath@parse@}%
-}
+\def\pgfmathfpe@{let\pgfmathresult=\FPe}%
+\def\pgfmathfppi@{let\pgfmathresult=\FPpi}%
+
+
 % Scientific notation.
 
 \def\pgfmathfpscientific#1#2{%
@@ -213,15 +207,6 @@
 }
 
 		
-\def\pgfmath@parse@function@e{\pgfmathe@\pgfmath@postfunction}
-\def\pgfmathe@{\let\pgfmathresult=\pgfmath@e}
-\def\pgfmath@e{2.718281}
-
-
-
-
-
-
 % Basic arithmetic stuff...
 
 % add

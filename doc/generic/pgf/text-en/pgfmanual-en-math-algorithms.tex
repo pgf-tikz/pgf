@@ -8,74 +8,144 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-\section[Reimplementing the Computations of the Mathematical Engine]
-  {Reimplementing the Computations of the\\ Mathematical Engine}
+\section{Customising the Mathematical Engine}
 
 \label{pgfmath-reimplement}
 
-Perhaps you are not satisfied with the Maclaurin series for
-$e^x$. Perhaps you have a fantastically more accurate
-and efficient way of calculating the sine or cosine of angles. Perhaps
- you would like the library to interface with a package such as |fp| 
- for fixed-point arithmetic (but you may find that exclusively
- using |fp| can cause a significant increase in compile time for
- documents involving many hundreds of calculations).
-In these cases you will want to replace the current implementations of
-the computations done by the mathematical engine by your own code. 
 
-The mathematical engine was designed with such a replacement in
-mind. For this reason, the operations and functions like |\pgfmathadd|
-are implemented in the following manner: 
+Perhaps you have a desire for some function that \pgfname\ does not 
+provide. Perhaps you are not happy with the accuracy or efficiency of 
+some of the algorithms that are implemented in \pgfname. In these 
+cases you will want to add a function to the parser or replace the 
+current implementations of the algorithms with your own code.
 
-\begin{itemize}
-\item |\pgfmath|\meta{function name} 
+The mathematical engine was designed with such customisation in mind.
+It is possible to add new functions, or modify the code for for 
+existing functions. Note, however, that whilst adding new operators 
+is possible, it can be a rather tricky business and is only 
+recommended for adventurous users.
 
-  This macro is the ``public'' interface for the function
-  \meta{function name}. All arguments passed to this macro are 
-  evaluated using |\pgfmathparse| and then passed on to the following
-  function:
+To add a new function to the math engine the following command can be
+used:
+
+\begin{command}{\pgfmathdeclarefunction\marg{function name}\marg{number of arguments}\marg{code}}
+
+  This will set up the parser to recognise a function called 
+  \meta{name}. The name of the function can consist of, uppercase or
+  lower case letters, numbers or the underscore |_|. In line with 
+  many programming languages, a function name cannot begin with a 
+  number or contain any spaces.
   
-\item |\pgfmath|\meta{function name}|@|
+  The \meta{number of arguments} can be any positive integer, zero,
+  or the value |...|, which indicates a variable number of 
+  arguments. \pgfname{} treats constants, such as |pi| and |e|, as
+  functions with zero arguments. Functions with more than nine
+  arguments or with variable arguments are a ``bit special'' and
+  are discussed below.
   
-  This macro is the ``non-public'' implementation of the functions 
-  algorithm (but note that, for speed, the parser calls this macro 
-  rather than the ``public'' one). Arguments passed to this macro 
-  are expected to be numbers \emph{without units}. This is the macro 
-  which should be rewritten with your prize-winning new algorithm.
-
-  Note, furthermore, that if the function takes more than one
-  argument, the second argument should not involve the dimensions
-  |\pgfmath@x| nor |\pgfmath@xa| nor |\pgf@x| nor |\pgf@xa| since
-  these may be set to the value of the first argument when the
-  second argument is parsed.
-\end{itemize}
-
-The effect of |\pgfmath|\meta{function name}|@| should be to set the
-macro |\pgfmathresult| to the correct value (namely to the result of
-the computation without units). Furthermore, the function should have
-no other side effects, that is, it should not change any global
-values. One way to achieve this is to use the following code:
-
-\begin{codeexample}[code only]
-\def\pgfmath...@#1#2...{%
-   \begingroup%
-      ... code for algorithm ...
-      \pgfmath@returnone\pgfmath@x%
-   \endgroup%
+  The effect of \meta{code} should be to set the macro 
+  |\pgfmathresult| to the correct value (namely to the result of the 
+  computation without units).  Furthermore, the function should have 
+  no other side effects, that is, it should not change any global 
+  values. As an example, consider the creation of a new function
+  |double|, which takes one argument, and returns the value of that
+  argument times two.
+  
+\begin{codeexample}[]
+\makeatletter
+\pgfmathdeclarefunction{double}{1}{
+  \begingroup
+    \pgf@x=#1pt\relax
+    \multiply\pgf@x by2\relax
+    \pgfmathreturn\pgf@x
+  \endgroup
 }
+\makeatother
+\pgfmathparse{double(44.3)}\pgfmathresult
 \end{codeexample}
 
+  The macro |\pgfmathreturn|\meta{tokens} must be 
+  directly followed by an |\endgroup| and will save the result of the 
+  computation, by defining |\pgfmathresult| as the expansion of 
+  \meta{tokens} (without units) outside the group, so \meta{tokens}
+  must be somthing that can be assigned to a dimension register.
+  
+  Alternatively, the |\pgfmathsmuggle|\meta{macro} can be used. This
+  must also be directly followed by an |\endgroup| and will simply
+  ``smuggle'' the definition of \meta{macro} outside the \TeX-group.
+  
+	By performing computations within a \TeX-group, \pgfname{}
+	registers such as |\pgf@x|, |\pgf@y| and |\c@pgf@counta|, 
+	|\c@pgfcountb|, and so forth, can be used at will.
+  
+  Beyond setting up the parser, this command also defines two macros
+  which provide access to the function independently of the parser:  
+    
+  \begin{itemize}
+  \item
+  |\pgfmath|\meta{function name}
+  
+  This macro will provide ``public'' interface for the function 
+  \meta{function name} allowing the function to be called 
+  independently of the parser. All arguments passed to this macro are
+  evaluated using |\pgfmathparse| and then passed on to the following 
+  macro:
+  
+  \item
+  |\pgfmath|\meta{function name}|@|
+  
+  This macro is the ``private'' implementation of the functions 
+  algorithm (but note that, for speed, the parser calls this macro 
+  rather than the ``public'' one). Arguments passed to this macro 
+  are expected to be numbers without units. It is defined using
+  \meta{code}, but need not be self contained.
+  
+  \end{itemize}
+  
+  For functions that are declared with less than ten arguments,
+  the public macro is defined in the same way as normal \TeX{} 
+  macros using, for example, |\def\pgfmathNoArgs{|\meta{code}|}| 
+  for a function with no arguments, or
+   |\def\pgfmathThreeArgs#1#2#3{|\meta{code}|}| for a function with
+   three arguments.
+  The private macro is defined in the same way, and each argument 
+  can therefore be accessed in \meta{code}
+  using |#1|, |#2| and so on.
+  
+  For functions with more than nine arguments, or functions with
+  a variable number of arguments, these macros are only
+  defined as taking \emph{one} argument. The public macro
+  expects its arguments to be comma separated, for example,
+  |\pgfmathVariableArgs{1.1,3.5,-1.5,2.6}|. Each
+  argument is parsed and 
+  passed on to the private macro as follows:
+  |\pgfmathVariableArgs@{{1.1}{3.5}{-1.5}{2.6}}|.
+  This means that some ``extra work'' will be required to access
+  each argument (although it is a fairly simple task).
+  
+  Note, that there are, two execptions to this arrangement:
+  the public versions of the |min| and |max| functions still
+  take two arguments for compatibility with older versions, but
+  each of these arguments can take several comma separated values.
+  
 
-The macro |\pgfmath@returnone|\meta{code} must be directly followed by an
-|\endgroup| and will save result of the algorithm, by defining
-|\pgfmathresult| as the  expansion of \meta{code} \emph{without units}
-outside the group. The \meta{code} should expand to a dimension
-register or to a dimension. By performing the algorithm within a
-\TeX{} group, \pgfname{} registers such as |\pgf@x|, |\pgf@y| and 
-|\c@pgf@counta|, |\c@pgfcountb|, and so forth, can be used at will.
 
-\pgfname{} uses the last known definition of a function within the
-prevailing scope, so it is possible for a function to be redefined 
-or |\let| to an alternative definition locally.
-You should also remember that any |.sty| or |.tex| file contatining any
-re-implementions should be loaded \emph{after} \pgfname-Math.
+  
+\end{command}
+
+  To redefine a function use the following command: 
+
+\begin{command}{\pgfmathredeclarefunction\marg{function name}\marg{algorithm code}}
+  
+  This command redefines the |\pgfmath|\meta{function name}|@| macro 
+  with the new \meta{algorithm code}. See the description of the
+  |\pgfmathdeclarefunction| for details. You cannot change the number
+  of arguments for an existing function.
+
+\end{command}
+
+  \pgfname{} uses the last known definition of a function within the
+  prevailing scope, so it is possible for a function to be redefined 
+  locally. You should also remember that any |.sty| or |.tex| file
+  contatining any re-implementions should be loaded after pgf-Math.
+  

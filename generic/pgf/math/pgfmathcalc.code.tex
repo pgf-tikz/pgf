@@ -13,8 +13,8 @@
 
 \input pgfmathutil.code.tex
 \input pgfmathparser.code.tex
-\input pgfmathoperations.code.tex
-\input pgfmathbase.code.tex
+\input pgfmathfunctions.code.tex
+%\input pgfmathbase.code.tex
 
 % \pgfmathsetlength, \pgfmathaddtolength
 %
@@ -244,14 +244,327 @@
 % \pgfmath@onquick+0pt\pgfmath@{is quick}{is slow}
 
 \def\pgfmath@onquick{%
-  \afterassignment\pgfmath@afterquick%
-  \let\pgfmath@next=%
+  \futurelet\pgfmath@next%
+  \pgfmath@@onquick}
+\def\pgfmath@@onquick#1\pgfmath@{%
+	\ifx\pgfmath@next+%
+	  \let\pgfmath@next=\pgfmath@firstoftwo%
+	\else%
+	  \let\pgfmath@next=\pgfmath@secondoftwo%
+	\fi%
+	\pgfmath@next%
 }
 
-\def\pgfmath@afterquick#1\pgfmath@{%
-  \ifx\pgfmath@next+%
-    \expandafter\pgfmath@firstoftwo%
-  \else%
-    \expandafter\pgfmath@secondoftwo%
-  \fi%
+% *** The following commands DO NOT WORK without the rest of PGF ***
+%
+% (a dumping ground for stuff that doesn't really belong anywhere else)
+	
+% \pgfmathanglebetweenpoints
+%
+% Define \pgfmathresult as the angle between points #1 and #2
+% Should get the quadrants right as well.
+%
+\def\pgfmathanglebetweenpoints#1#2{%
+	\begingroup%
+		\pgf@process{\pgfpointdiff{#1}{#2}}%
+		%
+		% First approximate the angle of the external point...
+		%
+		\pgf@xa\pgf@x%
+		\pgf@ya\pgf@y%
+		\pgf@xb\pgf@x%
+		\pgf@yb\pgf@y%
+		\ifdim\pgf@xa<0pt\relax%
+			\pgf@xa-\pgf@xa%
+		\fi%
+		\ifdim\pgf@ya<0pt\relax%
+			\pgf@ya-\pgf@ya%
+		\fi%
+		\ifdim\pgf@ya>\pgf@xa%
+			\pgf@x\pgf@xa%
+			\pgf@y\pgf@ya%
+		\else%
+			\pgf@x\pgf@ya%
+			\pgf@y\pgf@xa%
+		\fi%
+		\ifdim\pgf@y=0pt\relax%
+			\pgf@x0pt%
+		\else%
+			\pgfmathreciprocal@{\pgfmath@tonumber{\pgf@y}}%
+			\pgf@x\pgfmathresult\pgf@x%
+		\fi%
+		\multiply\pgf@x1000\relax%
+		\afterassignment\pgfmath@gobbletilpgfmath@%
+		\expandafter\c@pgf@counta\the\pgf@x\relax\pgfmath@%
+		\expandafter\pgf@x\csname pgfmath@atan@\the\c@pgf@counta\endcsname pt\relax%
+		\ifdim\pgfmath@ya>\pgfmath@xa\relax%
+			\pgf@x-\pgf@x%
+			\advance\pgf@x90pt%
+		\fi%
+		\ifdim\pgf@xb<0pt%
+			\ifdim\pgf@yb>0pt%
+				\pgf@x-\pgf@x%
+			\fi%
+			\advance\pgf@x180pt\relax%
+		\else%
+			\ifdim\pgf@yb<0pt%
+			\pgf@x-\pgf@x%
+			\advance\pgf@x360pt\relax%
+		\fi\fi%
+		\pgfmath@returnone\pgf@x%
+	\endgroup%
+}
+
+%
+% \pgfmathrotatepointaround
+%
+% Rotate point #1 about point #2 by #3 degrees.
+%
+\def\pgfmathrotatepointaround#1#2#3{%
+	\pgf@process{%
+		\pgf@process{#1}%
+		\pgf@xc=\pgf@x%
+		\pgf@yc=\pgf@y%
+		\pgf@process{#2}%
+		\pgf@xa\pgf@x%
+		\pgf@ya\pgf@y%
+		\pgf@xb\pgf@x%
+		\pgf@yb\pgf@y%
+		\pgf@x=\pgf@xc%
+		\pgf@y=\pgf@yc%
+		\advance\pgf@x-\pgf@xa%
+		\advance\pgf@y-\pgf@ya%
+		\pgfmathsetmacro\angle{#3}%
+		\pgfmathsin@{\angle}%
+		\let\sineangle\pgfmathresult%
+		\pgfmathcos@{\angle}%
+		\let\cosineangle\pgfmathresult%
+		\pgf@xa\cosineangle\pgf@x%
+		\advance\pgf@xa-\sineangle\pgf@y%
+		\pgf@ya\sineangle\pgf@x%
+		\advance\pgf@ya\cosineangle\pgf@y%
+		\pgf@x\pgf@xb%
+		\pgf@y\pgf@yb%
+		\advance\pgf@x\pgf@xa%
+		\advance\pgf@y\pgf@ya%
+	}%
+}
+
+% \pgfmathanglebetweenlines
+%
+% Calculate the clockwise angle between a line from point #1
+% to point #2 and a line from #3 to point #4.
+%
+\def\pgfmathanglebetweenlines#1#2#3#4{%
+	\begingroup%
+		\pgfmathanglebetweenpoints{#1}{#2}%
+		\let\firstangle\pgfmathresult%
+		\pgfmathanglebetweenpoints{#3}{#4}%
+		\let\secondangle\pgfmathresult%
+		\ifdim\firstangle pt>\secondangle pt\relax%
+			\pgfmathadd@{\secondangle}{360}%
+			\let\secondangle\pgfmathresult%
+		\fi%
+		\pgfmathsubtract@{\secondangle}{\firstangle}%
+		\pgfmath@smuggleone\pgfmathresult%
+	\endgroup%
+}
+
+% \pgfmathpointreflectalongaxis
+%
+% Reflects point #2 around an axis centered on #2 at an angle #3.
+%
+\def\pgfmathreflectpointalongaxis#1#2#3{%
+	\pgf@process{%
+		\pgfmathanglebetweenpoints{#2}{#1}%
+		\pgfmath@tempdima\pgfmathresult pt\relax%
+		\pgfmathparse{#3}%
+		\advance\pgfmath@tempdima-\pgfmathresult pt\relax%
+		\pgfmath@tempdima-2.0\pgfmath@tempdima%
+		\pgfmathrotatepointaround{#1}{#2}{\pgfmath@tonumber{\pgfmath@tempdima}}%
+	}%
+}
+
+
+
+% \pgfmathpointintersectionoflineandarc 
+%
+% A bit experimental at the moment:
+%
+% Locates the point where a line crosses an eliptical arc. If the line
+% does not cross the arc, a meaningless point will result.
+%
+% #1 the point of the line on the "convex" side of the arc.
+% #2 the point of the line on the "concave" side of the arc.
+% #3 the center of the eliptical arc.
+% #4 start angle of the arc.
+% #5 end angle of the arc.
+% #6 radii of the arc.
+%
+\def\pgfmathpointintersectionoflineandarc#1#2#3#4#5#6{%
+	\pgf@process{%
+		%
+		% Get the required angle.
+		%
+		\pgfmathanglebetweenpoints{#2}{#1}%
+		\let\x\pgfmathresult%
+		%
+		% Get the radii of the arc.
+		%
+		\pgfmath@in@{and }{#6}%
+	  \ifpgfmath@in@%
+	    \pgf@polar@#6\@@%
+	  \else%
+	    \pgf@polar@#6 and #6\@@%
+	  \fi%
+	  \edef\xarcradius{\the\pgf@x}%
+	  \edef\yarcradius{\the\pgf@y}% 
+	   %
+	  % Get the start and end angles of the arc...
+	  % 
+	  \pgfmathsetmacro\s{#4}%
+	  \pgfmathsetmacro\e{#5}%
+	  %
+	  % ...and also with rounding.
+	  %
+	  \pgfmathmod@{\s}{360}%
+	  \ifdim\pgfmathresult pt<0pt\relax%
+	  	\pgfmathadd@{\pgfmathresult}{360}%
+	  \fi%
+	  \let\ss\pgfmathresult%
+	  \pgfmathmod@{\e}{360}%
+	  \ifdim\pgfmathresult pt<0pt\relax%
+	  	\pgfmathadd@{\pgfmathresult}{360}%
+	  \fi%
+	  \let\ee\pgfmathresult%
+	  %
+	  % Hackery for when arc straddles zero.
+	  %
+	  \ifdim\ee pt<\ss pt\relax%
+	  	\pgfmathadd@{\x}{180}%
+	  	\pgfmathmod@{\pgfmathresult}{360}%
+	  	\let\x\pgfmathresult%
+	  \fi%
+	  \def\m{360}% Measure of nearness.
+		\pgfmathadd@{\s}{\e}%
+		\pgfmathdivide@{\pgfmathresult}{2}%
+		\let\n\pgfmathresult% The best estimate (default to middle of arc).
+		\pgfmathloop%
+			\pgfmathadd@{\s}{\e}%
+			\pgfmathdivide@{\pgfmathresult}{2}%
+			\let\p\pgfmathresult%
+			\ifdim\p pt=\s pt\relax% 
+			\else%
+				\pgfmathanglebetweenpoints{#2}{%
+					\pgfpointadd{#3}{%
+						\pgf@x\xarcradius\relax%
+						\pgfmathcos@{\p}%
+						\pgf@x\pgfmathresult\pgf@x%
+						\pgf@y\yarcradius\relax%
+						\pgfmathsin@{\p}%
+						\pgf@y\pgfmathresult\pgf@y%
+					}%
+				}%
+				%
+			  % Hackery for when arc straddles zero.
+			  %
+				\ifdim\ee pt<\ss pt\relax%
+			  	\pgfmathadd@{\pgfmathresult}{180}%
+			  	\pgfmathmod@{\pgfmathresult}{360}%
+			  \fi%
+				\let\q\pgfmathresult%
+				%
+				% More hackery...
+				%
+				\ifdim\x pt>335pt\relax%
+					\ifdim\q pt<45pt\relax%
+						\pgfmathadd@{\q}{360}%
+						\let\q\pgfmathresult%
+					\fi%
+				\fi%
+				\ifdim\x pt=\q pt% Found it!
+						\pgfmathbreakloop% Breaks after current iteration is complete.
+					\else
+						\ifdim\x pt<\q pt\relax%
+							\let\e\p%
+						\else%
+							\let\s\p%
+						\fi%
+					\fi%
+					\pgfmathsubtract@{\x}{\q}%
+					\pgfmathabs@{\pgfmathresult}%
+					%
+					% Save the estimate if it is better than any previous estimate.
+					%
+					\ifdim\pgfmathresult pt<\m pt\relax%
+						\let\m\pgfmathresult%
+						\let\n\p%
+					\fi%				
+		\repeatpgfmathloop%
+		\pgfpointadd{#3}{\pgfpointpolar{\n}{\xarcradius and \yarcradius}}%
+	}%
+}
+
+% \pgfmathangleonellipse
+% 
+% Find the angle corresponding to a point on the border of an ellispe.
+%
+% #1 - the point on the border.
+% #2 - the radii of the ellipse.
+%
+\def\pgfmathangleonellipse#1#2{%
+	\begingroup%
+		\pgfmath@in@{and }{#2}%
+	  \ifpgfmath@in@%
+	    \pgf@polar@#2\@@%
+	  \else%
+	    \pgf@polar@#2 and #2\@@%
+	  \fi%
+	  \pgf@xa\pgf@x%
+	  \pgf@ya\pgf@y%
+	  \pgf@process{#1}% 
+	  \ifdim\pgf@x=0pt\relax%
+			\pgfutil@tempdima1pt\relax%
+		\else%
+			\pgfutil@tempdima\pgf@x%
+			\pgfmathdivide@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgfutil@tempdima}}%
+			\pgfutil@tempdima\pgfmathresult pt\relax%
+		\fi%
+		\ifdim\pgf@y=0pt\relax%
+			\pgfutil@tempdima1pt\relax%
+		\else%
+			\pgfmathdivide@{\pgfmath@tonumber{\pgf@y}}{\pgfmath@tonumber{\pgf@ya}}%
+			\pgfutil@tempdima\pgfmathresult\pgfutil@tempdima%
+			\pgfmathatan@{\pgfmath@tonumber{\pgfutil@tempdima}}%
+		\fi%
+		%
+		\pgfutil@tempdima\pgfmathresult pt\relax%
+		\ifdim\pgfutil@tempdima<0pt\relax%
+  		\advance\pgfutil@tempdima360pt\relax%
+  	\fi%
+		\ifdim\pgf@x<0pt\relax%
+			\ifdim\pgf@y=0pt\relax%
+				\pgfutil@tempdima180pt\relax%
+			\else%
+				\ifdim\pgf@y<0pt\relax%
+					\advance\pgfutil@tempdima180pt\relax%
+				\else%
+					\advance\pgfutil@tempdima-180pt\relax%
+				\fi%
+			\fi%
+		\else%
+			\ifdim\pgf@x=0pt\relax%
+				\ifdim\pgf@y<0pt\relax%
+					\pgfutil@tempdima270pt\relax%
+				\else%
+					\pgfutil@tempdima90pt\relax%
+				\fi%
+			\else%
+				\ifdim\pgf@y=0pt\relax%
+					\pgfutil@tempdima0pt\relax%
+				\fi%
+			\fi%				
+		\fi%
+		\pgfmath@returnone\pgfutil@tempdima%
+	\endgroup%
 }

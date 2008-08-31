@@ -1,154 +1,76 @@
-% Copyright 2007 Mark Wibrow
-%
-% This file may be distributed and/or modified
-%
-% 1. under the LaTeX Project Public License and/or
-% 2. under the GNU Public License.
-%
-% See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-% This file parses/evaluates a decimal expression.
-%
-% Version 1.414213 29/9/2007
+\newdimen\pgfmath@dimen
+\newcount\pgfmath@count
+\newbox\pgfmath@box
+\newtoks\pgfmath@toks
 
-% \pgfmathparse, \pgfmathqparse
-%
-% Evaluates a decimal expression.
-%
-% #1 - the expression.
-%
-% returns
-%
-% x = the result as a dimension.
-%
-% E.g.
-% \pgfmathparse{3pt*2cm+1.5}
-% \pgfmathqparse{3pt*2cm+1.5pt}
-%
-% Every number in \pgfmathqparse *must*
-% specify a unit.
-%
 \newif\ifpgfmath@quickparse
-
-%\def\pgfmathparse{%
-%	\pgfmath@quickparsefalse%
-%	\pgfmathparse@}
-
 \newif\ifpgfmathfloat
+\newif\ifpgfmathunitsdeclared
+\newif\ifpgfmathignoreunitscale
+
+\def\pgfmathprint#1{\pgfmathparse{#1}\pgfmathresult}
 
 \def\pgfmathparse{%
-	\pgfmath@quickparsefalse%
-	\ifpgfmathfloat%
-		\let\pgfmath@parse@next\pgfmathfloatparsenumber%
-	\else%
-		\let\pgfmath@parse@next\pgfmathparse@%
-	\fi%
-	\pgfmath@parse@next}
+	\begingroup%
+		\pgfmath@catcodes%
+		\pgfmath@quickparsefalse%
+		\ifpgfmathfloat%
+			\let\pgfmath@parse@next=\pgfmathfloatparsenumber%
+		\else%
+			\let\pgfmath@parse@next=\pgfmathparse@%
+		\fi%
+		\pgfmath@parse@next}
+
+\def\pgfmath@catcodes{% Maybe unecessary.
+	\catcode`\==12%
+	\catcode`\,=12%
+	\catcode`\|=12%
+	\catcode`\&=12%
+}
 
 \def\pgfmathqparse{%
-	\pgfmath@quickparsetrue%
-	\pgfmathparse@}
-
-% Stuff for compatability with the calc package.
-%
-\def\pgfmath@calc@real#1{#1}
-\def\pgfmath@calc@minof#1#2{min(#1,#2)}
-\def\pgfmath@calc@maxof#1#2{max(#1,#2)}
-\def\pgfmath@calc@ratio#1#2{#1/#2}
-\def\pgfmath@calc@widthof#1{widthof(#1)}
-\def\pgfmath@calc@heightof#1{heightof(#1)}
-\def\pgfmath@calc@depthof#1{depthof(#1)}
-
+	\begingroup%
+		\pgfmath@catcodes%
+		\pgfmath@quickparsetrue%
+		\pgfmathparse@}
+	
 \def\pgfmathparse@#1{%
-  \begingroup%    
-    % Reinstall correct font, so that dimensions like 1em are correct
-    \pgfmath@selectfont%
-    \let\real=\pgfmath@calc@real%
+		% Stuff for calc compatiability.
+		\let\real=\pgfmath@calc@real%
     \let\minof=\pgfmath@calc@minof%
     \let\maxof=\pgfmath@calc@maxof%
     \let\ratio=\pgfmath@calc@ratio%
     \let\widthof=\pgfmath@calc@widthof%
     \let\heightof=\pgfmath@calc@heightof%
     \let\depthof=\pgfmath@calc@depthof%
-    \edef\pgfmath@temp{#1}%
-    \pgfmath@resetparsingparameters%
+    % Restore font.
+    \pgfmath@selectfont%
+    % Expand expression so any reamining CSs are registers
+    % or box dimensions (i.e., \wd, \ht, \dp).
+    \edef\pgfmath@expression{#1}%
+    % No units yet. 
     \global\pgfmathunitsdeclaredfalse%
-    \ifpgfmath@quickparse%
-      \let\pgfmath@parse@operand=\pgfmath@qparse@operand%
-    \else%
-      \let\pgfmath@parse@operand=\pgfmath@parse@operand%
-    \fi%
-    \let\pgfmath@parse@postgroup=\pgfmath@parse@operator%
-    \expandafter\pgfmath@parse@\pgfmath@temp @@@@@@@@@@@\pgfmath@empty}
-    
+    % Set up stack.
+    \pgfmath@stack@operation={{}{}{}}%
+		\pgfmath@stack@operand={{}{}{}}%
+		\let\pgfmath@stack@operation@top=\pgfmath@stack@empty%
+		\let\pgfmath@stack@operand@top=\pgfmath@stack@empty%
+		% An expression always begins with an operand.
+		\expandafter\pgfmath@bgroup@strip\expandafter{\pgfmath@expression}%
+		\expandafter\pgfmath@parse@@operand\pgfmath@bgroup@stripped @@@@\pgfmath@parse@stop%
+}%
 
-% \pgfmath@resetparsingparameters
-%
-% Reset the stack at the begining of the parse/group.
-%
-\def\pgfmath@resetparsingparameters{%
-	\pgfmath@stack{\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
-	\def\pgfmath@stacknextoperator{\pgfmath@empty}% Will not work with \let
-}
+\def\pgfmath@parse@end#1\pgfmath@parse@stop{%
+		\pgfmathpostparse%
+		\pgfmath@smuggleone\pgfmathresult%
+	\endgroup%
+	\ignorespaces}%	
 
-% Check to see if the parse starts with a TeX-group.
-%
-\def\pgfmath@parse@{\futurelet\pgfmath@token\pgfmath@parse@@}
+\let\pgfmathpostparse=\relax%
 
-\def\pgfmath@parse@@{%
-	\ifx\pgfmath@token\bgroup% 
-		\let\pgfmath@next=\pgfmath@parse@@@%
-	\else%
-		\let\pgfmath@next=\pgfmath@parse@@@@%
-	\fi%
-	\def\pgfmath@token{}%
-	\pgfmath@next}%
-	
-% Remove any surrounding braces.
+% For compatiability with older version.
 %
-\def\pgfmath@parse@@@#1{\expandafter\pgfmath@parse@@@@#1}%
-
-% Start parsing. Expect one of
-%
-% 1) the end of the parse.
-% 2) the start of a group. 
-% 3) a (possible) operand.
-%
-\def\pgfmath@parse@@@@#1{%
-	\def\pgfmath@token{}%
-	\ifx#1@%
-		\let\pgfmath@parse@next=\pgfmath@parse@end%
-	\else%
-		\ifx#1(%
-			\let\pgfmath@parse@next=\pgfmath@parse@startgroup%
-		\else%
-			\edef\pgfmath@token{#1}%
-			\let\pgfmath@parse@next=\pgfmath@parse@operand%
-	\fi\fi%
-	\pgfmath@parse@next%
-}
-
-% If no TeX units are declared *at any point* in the parse
-% the result is scaled by \pgfmathresultunitscale.
-\newif\ifpgfmathunitsdeclared
-\newif\ifpgfmathignoreunitscale
-\def\pgfmathsetresultunitscale#1{\def\pgfmathresultunitscale{#1}}
-\def\pgfmathresultunitscale{1}
-
-% \pgfmath@parse@end
-%
-% Everything stops here.
-%
-\def\pgfmath@parse@end#1\pgfmath@empty{%
-    \pgfmath@processalloperations%
-    \pgfmath@stackpop{\pgfmathresult}% 
-    \pgfmathpostparse%
-    \pgfmath@smuggleone{\pgfmathresult}%
-  \endgroup%
-  \ignorespaces%
-}
-
-
 \def\pgfmathscaleresult{%
 	\ifpgfmathunitsdeclared%
   \else%
@@ -161,865 +83,670 @@
     \fi%
   \fi%
 }
+\def\pgfmathsetresultunitscale#1{\def\pgfmathresultunitscale{#1}}
+\def\pgfmathresultunitscale{1}
 
-\let\pgfmathpostparse=\pgfmathscaleresult
- 
-% \pgfmath@parse@startgroup
+% Stuff for compatability with the calc package.
 %
-% When opening ( is scanned start a new group.
+\def\pgfmath@calc@real#1{#1}
+\def\pgfmath@calc@minof#1#2{min(#1,#2)}
+\def\pgfmath@calc@maxof#1#2{max(#1,#2)}
+\def\pgfmath@calc@ratio#1#2{#1/#2}
+\def\pgfmath@calc@widthof#1{width("#1")}
+\def\pgfmath@calc@heightof#1{height("#1")}
+\def\pgfmath@calc@depthof#1{depth("#1")}
+
+\def\pgfmath@bgroup{\string\pgfmath@bgroup}
+\def\pgfmath@egroup{\string\pgfmath@egroup}
+\def\pgfmath@egroup@token{\pgfmath@egroup}
+
+\def\pgfmath@text@@{@}
+\def\pgfmath@text@operator{operator}
+\def\pgfmath@text@function{function}
+\def\pgfmath@dots{...}
+\def\pgfmath@char@zero{0}
+\def\pgfmath@char@quote{"}
+\def\pgfmath@char@exclamation{!}
+\def\pgfmath@char@plus{+}
+\def\pgfmath@char@minus{-}
+\def\pgfmath@char@period{.}
+\def\pgfmath@char@leftangle{<}
+
+\pgfmath@toks={#}
+\edef\pgfmath@char@hash{\the\pgfmath@toks}
+
+\def\pgfmath@tokens@make#1#2{%
+	\def\pgfmath@prefix{#1}%
+	\expandafter\pgfmath@tokens@@make#2{}}
+	
+\def\pgfmath@tokens@@make#1{%
+	\def\pgfmath@token{#1}%
+	\ifx\pgfmath@token\pgfmath@empty%
+	\else%
+		\pgfmath@namedef{pgfmath@token@\pgfmath@prefix @\string#1}{#1}%
+		\expandafter\pgfmath@tokens@@make%
+	\fi}
+
+\pgfmath@tokens@make{box}{\wd\ht\dp}
+\pgfmath@tokens@make{unit}{{bp}{cc}{cm}{dd}{em}{ex}{in}{mm}{pc}{pt}{sp}}
+\pgfmath@tokens@make{numeric}{.0123456789}
+\pgfmath@tokens@make{number}{0123456789}
+\pgfmath@tokens@make{functional}{_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXYZ}
+\pgfmath@tokens@make{exponent}{eE}
+\pgfmath@tokens@make{group}{{()}{[]}{\pgfmath@bgroup\pgfmath@egroup}}
+\pgfmath@tokens@make{specials}{@)]\pgfmath@egroup}
+\pgfmath@tokens@make{hexadecimal}{0123456789ABCDEFabcdef}
+\pgfmath@tokens@make{octal}{01234567}
+\pgfmath@tokens@make{binary}{01}
+
+\pgfmath@namedef{pgfmath@base@0x}{16}
+\pgfmath@namedef{pgfmath@base@0X}{16}
+\pgfmath@namedef{pgfmath@base@0b}{2}
+\pgfmath@namedef{pgfmath@base@0B}{2}
+
+% Determine if a register is a count or a dimension/skip register.
 %
-\def\pgfmath@parse@startgroup{%
+\newif\ifpgfmath@dimen@
+\def\pgfmath@dimen@#1{%
 	\begingroup%
-		\let\pgfmath@parse@postgroup=\pgfmath@parse@operator%
-		\pgfmath@resetparsingparameters%
-		\pgfmath@parse@}
-
-% \pgfmath@parse@endgroup
-%
-% When closing ) is scanned, processes all waiting
-% operations (within the group) and close the group.
-%
-\def\pgfmath@parse@endgroup{%
-		\pgfmath@processalloperations%
-		\pgfmath@stackpop{\pgfmathresult}%
-		\pgfmath@smuggleone{\pgfmathresult}%
+		\afterassignment\pgfmath@dimen@@%
+		#1=0.0pt\relax\pgfmath@}
+\def\pgfmath@dimen@@#1#2\pgfmath@{%
 	\endgroup%
-	\pgfmath@parse@postgroup%
-}
-
-% \pgfmath@parse@operator
-%
-% An operator is expected here. 
-% Or the end of the parse or parse group.
-% 
-\def\pgfmath@parse@operator#1{%
-	\def\pgfmath@token{}%
-	% Push the operand in \pgfmathresult on to the stack. 
-	\expandafter\pgfmath@stackpushoperand\expandafter{\pgfmathresult}%
-	\ifx#1@%
-		\let\pgfmath@next=\pgfmath@parse@end%
+	\ifx#1.%
+		\pgfmath@dimen@false%
 	\else%
-		\ifx#1+%
-			\let\pgfmath@next=\pgfmath@parse@add%
+		\pgfmath@dimen@true%
+	\fi}
+
+\def\pgfmath@parse@ifbgroup#1#2{%
+	\let\pgfmath@parse@bgroup@after=#1%
+	\let\pgfmath@parse@nobgroup@after=#2%
+	\futurelet\pgfmath@token@let%
+	\pgfmath@parse@@ifbgroup}
+	
+\def\pgfmath@parse@@ifbgroup{%
+	\ifx\pgfmath@token@let\bgroup%
+		\let\pgfmath@parse@next=\pgfmath@parse@@@ifbgroup%
+	\else%
+		\let\pgfmath@parse@next=\pgfmath@parse@nobgroup@after%
+	\fi%
+	\pgfmath@parse@next}
+
+\def\pgfmath@parse@@@ifbgroup#1{\pgfmath@parse@bgroup@after\pgfmath@bgroup#1\pgfmath@egroup}
+
+% Parse an operand.
+%	
+\def\pgfmath@parse@operand{\expandafter\pgfmath@parse@@operand\pgfmath@token@next}%
+
+\def\pgfmath@parse@@operand{\pgfmath@parse@ifbgroup{\pgfmath@parse@@operand}{\pgfmath@parse@@operand@}}
+\def\pgfmath@parse@@operand@#1{%
+	\def\pgfmath@token{#1}%
+	\ifx\pgfmath@token\pgfmath@char@plus% Ignore.
+		\let\pgfmath@parse@next=\pgfmath@parse@@operand%
+	\else%
+		\ifx\pgfmath@token\pgfmath@char@minus%
+			\pgfmath@stack@push@operation{neg}% Unary minus.
+			\let\pgfmath@parse@next=\pgfmath@parse@@operand%
 		\else%
-			\ifx#1-%
-				\let\pgfmath@next=\pgfmath@parse@subtract%
+			\expandafter\ifx\csname pgfmath@operation@\expandafter\string\pgfmath@token @prefix\endcsname\pgfmath@token%
+				\let\pgfmath@parse@next=\pgfmath@parse@prefix@operator%
 			\else%
-				\ifx#1*%
-					\let\pgfmath@next=\pgfmath@parse@multiply%
+				\ifpgfmath@quickparse%
+					\let\pgfmath@parse@next=\pgfmath@qparse@operand%
 				\else%
-					\ifx#1/%
-						\let\pgfmath@next=\pgfmath@parse@divide%
-					\else
-						\ifx#1)%
-							\let\pgfmath@next=\pgfmath@parse@endgroup%
-						\else%
-							\ifx#1r%
-								\let\pgfmath@next=\pgfmath@parse@radians%
-							\else%
-								\ifx#1>%
-									\let\pgfmath@next=\pgfmath@parse@greaterthan%
-								\else%
-									\ifx#1<%
-										\let\pgfmath@next=\pgfmath@parse@lessthan%
-									\else%
-										\if#1=%
-											\let\pgfmath@next=\pgfmath@parse@equalto%
-										\else%
-											\if#1^%
-												\let\pgfmath@next=\pgfmath@parse@power%
-											\else%
-												\pgfmath@error{Unknown operator `#1'}%
-												\let\pgfmath@next\relax%
-	\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
-	\pgfmath@next%
-}
-	
-% Use a \toks register as a stack.
-\newtoks\pgfmath@stack
-
-% \pgfmath@stackpushoperator
-% 
-% Push an operator (actually its macro e.g., \pgfmathadd@)
-% on to the stack. And keep track of it using the macro
-% \pgfmath@stacknextoperator.
-%
-\def\pgfmath@stackpushoperator#1{%
-	\edef\pgfmath@temp{\noexpand#1\the\pgfmath@stack}%
-	\expandafter\pgfmath@stack\expandafter{\pgfmath@temp}%
-	\def\pgfmath@stacknextoperator{#1}}% <- Must \def. Cannot \let.
-
-% \pgfmath@stackpushoperand
-%
-% Push an operand (i.e. a number) on the stack. It is
-% put within a TeX group to make popping a lot simpler.
-%
-\def\pgfmath@stackpushoperand#1{%
-	\def\pgfmath@temp{{#1}}%
-	\expandafter\expandafter\expandafter\def%
-		\expandafter\expandafter\expandafter\pgfmath@@temp%
-			\expandafter\expandafter\expandafter{\expandafter\pgfmath@temp\the\pgfmath@stack}%
-	\expandafter\pgfmath@stack\expandafter{\pgfmath@@temp}%
-}
-
-% \pgfmath@stackpeek
-%
-% Peek (i.e. without removal) at the top of the stack.
-%
-\def\pgfmath@stackpeek{\expandafter\pgfmath@stackpeek@\the\pgfmath@stack\pgfmath@}
-\def\pgfmath@stackpeek@#1#2\pgfmath@{#1}%
-
-% \pgfmath@stackpop
-%
-% Pop (i.e. remove) the top of the stack into #1.
-%
-\def\pgfmath@stackpop#1{\expandafter\pgfmath@stackpop@\expandafter#1\the\pgfmath@stack\pgfmath@}
-\def\pgfmath@stackpop@#1#2#3\pgfmath@{\def#1{#2}\pgfmath@stack{#3}}%
-
-% \pgfmath@stackpopoperation
-%
-% Remove and perform an operation from the stack.
-%
-\def\pgfmath@stackpopoperation{%
-	\expandafter\pgfmath@stackpopoperation@\the\pgfmath@stack\pgfmath@%
-}
-\def\pgfmath@stackpopoperation@#1#2#3#4#5\pgfmath@{%
-	\ifx\pgfmath@empty#1\relax%
-			\pgfmath@stack{\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
-	\else%
-		\ifx\pgfmath@empty#2\relax%
-			\pgfmath@stack{{#1}\pgfmath@empty\pgfmath@empty\pgfmath@empty\pgfmath@empty}%
-		\else%
-			#2{#3}{#1}%
-			\pgfmath@stack{#4#5}%
-			\expandafter\pgfmath@stackpushoperand\expandafter{\pgfmathresult}%
-	\fi\fi%
-	\def\pgfmath@stacknextoperator{#4}}
-
-% \pgfmath@processalloperations
-%
-% Process all operation in the stack. The 
-% overall result is at the top of the stack.
-%
-\def\pgfmath@processalloperations{%
-	\expandafter\pgfmath@in@\pgfmath@stacknextoperator{\pgfmath@empty}%
-	\ifpgfmath@in@%
-		\let\pgfmath@next=\relax%		
-	\else%
-		\pgfmath@stackpopoperation%
-		\let\pgfmath@next=\pgfmath@processalloperations%
-	\fi%
-	\pgfmath@next}
-
-% \pgfmath@processoperationsuntil
-%
-% Process operations in the stack, until the specified
-% operation/s is/are encountered. The overall result is 
-% at the top of the stack.
-%
-\def\pgfmath@processoperationsuntil#1{%
-	\expandafter\pgfmath@in@\pgfmath@stacknextoperator{#1\pgfmath@empty}%
-	\ifpgfmath@in@%
-		\let\pgfmath@next\pgfmath@processoperationsuntil@end%		
-	\else%
-		\pgfmath@stackpopoperation%
-		\let\pgfmath@next\pgfmath@processoperationsuntil%
-	\fi%
-	\pgfmath@next{#1}}
-\def\pgfmath@processoperationsuntil@end#1{}
-
-
-% OK. Now the operators are parsed.
-% These correspond to the + - / * ^ < > = operators and r (postfix) function.
-%
-\def\pgfmath@parse@add{%	
-	% If no operator has been assigned (i.e. + is the first operator scanned),
-	% do nothing, except add addition to the stack.
-	\ifx\pgfmath@stacknextoperator\pgfmath@empty%
-	\else%
-		% Empty the process stack up to any inequalities.
-		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@}%
-	\fi%
-	\pgfmath@stackpushoperator{\pgfmathadd@}%
-	\pgfmath@parse@}
-	
-\def\pgfmath@parse@subtract{%	
-	% If no operator has been assigned (i.e. - is the first operator scanned),
-	% do nothing, except add subtract to the stack.
-	\ifx\pgfmath@stacknextoperator\pgfmath@empty%
-	\else%
-		% Empty the process stack up to any inequalities.
-		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@}%
-	\fi%
-	\pgfmath@stackpushoperator{\pgfmathsubtract@}%
-	\pgfmath@parse@}
-	
-\def\pgfmath@parse@multiply{%
-	% If no operator has been assigned (i.e. * is the first operator scanned),
-	% do nothing, except push multiply onto the stack.
-	\ifx\pgfmath@stacknextoperator\pgfmath@empty%
-	\else%
-		% Process all operations up to inequalites or addition/subtraction
-		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
-			\pgfmathadd@\pgfmathsubtract@}%
-	\fi%
-	\pgfmath@stackpushoperator{\pgfmathmultiply@}%
-	\pgfmath@parse@}
-	
-\def\pgfmath@parse@divide{%
-	% If no operator has been assigned (i.e. / is the first operator scanned),
-	% do nothing, except push divide onto the stack.
-	\ifx\pgfmath@stacknextoperator\pgfmath@empty%
-	\else%
-		% Process all operations up to inequalites or addition/subtraction
-		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
-			\pgfmathadd@\pgfmathsubtract@}%
-	\fi%
-	\pgfmath@stackpushoperator{\pgfmathdivide@}%
-	\pgfmath@parse@}
-
-\def\pgfmath@parse@greaterthan{%
-	% On scanning an equality/inequality operator everything up to
-	% (but not including) the operator is evaluated... 
-	\pgfmath@processalloperations%
-	% ...and the operation pushed onto the stack.
-	\pgfmath@stackpushoperator{\pgfmathgreaterthan@}%
-	\pgfmath@parse@}
-
-\def\pgfmath@parse@lessthan{%
-	\pgfmath@processalloperations%
-	\pgfmath@stackpushoperator{\pgfmathlessthan@}%
-	\pgfmath@parse@}
-
-\def\pgfmath@parse@equalto={%
-	\pgfmath@processalloperations%
-	\pgfmath@stackpushoperator{\pgfmathequalto@}%
-	\pgfmath@parse@}
-
-\def\pgfmath@parse@power{%
-	% Easy, just push power onto the stack.
-	\pgfmath@stackpushoperator{\pgfmathpow@}%
-	\pgfmath@parse@}
-
-\def\pgfmath@parse@radians{%
-	% r is a post-fix function...
-	\ifx\pgfmath@primaryoperation\pgfmath@empty%
-	\else%
-		\pgfmath@processoperationsuntil{\pgfmathequalto@\pgfmathlessthan@\pgfmathgreaterthan@%
-			\pgfmathadd@\pgfmathsubtract@}%
-	\fi%	
-	\pgfmath@stackpop{\pgfmath@temp}%
-	\pgfmathdeg@{\pgfmath@temp}%
-	% ...so processing returns to \pgfmath@parse@operator
-	\pgfmath@parse@operator}
-	
-\newdimen\pgfmath@dimen
-\newcount\c@pgfmath@count
-
-% \pgfmath@qparse@operand
-%
-% An operand can *only* be a dimension.
-%
-\def\pgfmath@qparse@operand{%
-	\afterassignment\pgfmath@qparse@operand@%
-	\pgfmath@dimen\pgfmath@token}
-\def\pgfmath@qparse@operand@{%
-	\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
-	\pgfmath@parse@operator%
-}
-
-\def\pgfmath@parse@operand{%
-	\let\pgfmathresult=\pgfmath@empty%
-	\let\pgfmath@mantisse=\pgfmath@empty%
-	\let\pgfmath@exponent=\pgfmath@empty%
-	\let\pgfmath@number=\pgfmath@empty%
-	\c@pgfmath@count=1\relax%
-	\expandafter\pgfmath@parse@sign\pgfmath@token}
-	
-\def\pgfmath@parse@sign#1{%
-	% Remove multiple signs.
-	\ifx#1-%
-		\c@pgfmath@count=-\c@pgfmath@count%
-		\let\pgfmath@next=\pgfmath@parse@sign%
-	\else%
-		\ifx#1+%
-			\let\pgfmath@next=\pgfmath@parse@sign%
-		\else%
-			\ifnum\c@pgfmath@count>0\relax%
-				\let\pgfmath@sign=\pgfmath@empty%
-			\else%
-				\def\pgfmath@sign{-}%
-			\fi%
-			\def\pgfmath@insert@token{#1}%
-			\let\pgfmath@insert@after=\pgfmath@parse@postsign%
-			\let\pgfmath@next=\pgfmath@insert%
-		\fi%
-	\fi%
-	\pgfmath@next%
-}
-
-\def\pgfmath@parse@postsign{%
-	\if\pgfmath@insert@token(% Check for the start of a group.
-		\let\pgfmath@next=\pgfmath@parse@startgroup%
-	\else%
-		\let\pgfmath@token=\pgfmath@insert@token%
-		\let\pgfmath@next=\pgfmath@parse@number%
-	\fi%
-	\pgfmath@next}
-	
-\def\pgfmath@ifregister@dimen#1{%
-	\let\pgfmath@register=#1%
-	\edef\pgfmath@register@value{\the#1}%
-	\afterassignment\pgfmath@@ifregister@dimen%
-	#1=0pt\relax\pgfmath@}
-	
-\def\pgfmath@@ifregister@dimen#1#2\pgfmath@{%
-	\ifx#1p%
-		\let\pgfmath@next=\pgfmath@secondoftwo%
-	\else%
-		\let\pgfmath@next=\pgfmath@firstoftwo%
-	\fi%
-	\pgfmath@register=\pgfmath@register@value\relax% Restore value.
-	\pgfmath@next%
-}
-
-\def\pgfmath@parse@number#1{%
-	\ifx#1@% The end of the parse?
-		\ifx\pgfmathresult\pgfmath@empty%
-			\edef\pgfmathresult{\pgfmath@sign\pgfmath@number}%
-		\fi%
-		\let\pgfmath@next=\pgfmath@parse@operator%
-	\else%
-		\ifcat#1\relax% An unexpandable control sequence?
-			\ifx#1\wd%
-				\let\pgfmath@boxdimen=\wd%
-				\let\pgfmath@next=\pgfmath@parse@box%
-			\else%
-				\ifx#1\ht%
-					\let\pgfmath@boxdimen=\ht%
-					\let\pgfmath@next=\pgfmath@parse@box%
-				\else%
-					\ifx#1\dp%
-						\let\pgfmath@boxdimen=\dp%
-						\let\pgfmath@next=\pgfmath@parse@box%
+					\let\pgfmath@number=\pgfmath@empty%
+					\expandafter\ifx\csname pgfmath@token@functional@\string#1\endcsname\relax%
+						\let\pgfmath@base=\pgfmath@empty%
+						\let\pgfmath@token@next=\pgfmath@token%
+						\if#10% Check for octal prefix.
+							\def\pgfmath@base{8}%
+						\fi%
+						\let\pgfmath@parse@next=\pgfmath@parse@number%
 					\else%
-						\pgfmath@ifregister@dimen#1{% A dimension or skip register?
-							\ifx\pgfmath@number\pgfutil@empty%
-								\edef\pgfmathresult{\pgfmath@sign\pgfmath@tonumber{#1}}%
-							\else%
-								\pgfmath@dimen=\pgfmath@number#1\relax%
-								\edef\pgfmathresult{\pgfmath@sign\pgfmath@tonumber{\pgfmath@dimen}}%
-							\fi%
-							\global\pgfmathunitsdeclaredtrue% A dimension has units.
-							\let\pgfmath@next=\pgfmath@parse@operator%
-						}%
-						{% So, a count register.
-							\let\pgfmath@number=\pgfmath@register@value%
-							\let\pgfmathresult=\pgfmath@register@value%
-							\let\pgfmath@next=\pgfmath@parse@number%
-						}%
+						\let\pgfmath@function=\pgfmath@token%
+						\let\pgfmath@parse@next=\pgfmath@parse@function%
 					\fi%
 				\fi%
 			\fi%
-		\else%
-			\chardef\pgfmath@char=`#1\relax%
-			\edef\pgfmath@char{\the\pgfmath@char}% Strange, but necessary.
-			\ifnum\pgfmath@char=46\relax% A Period?
-				\edef\pgfmath@number{\pgfmath@number.}%
-				\let\pgfmath@next=\pgfmath@parse@number%
-			\else%
-				\let\pgfmath@next=\relax%
-				\ifnum\pgfmath@char<58\relax% A digit?
-					\ifnum\pgfmath@char>47\relax%
-						\edef\pgfmath@number{\pgfmath@number#1}%
-						\let\pgfmath@next=\pgfmath@parse@number%
+		\fi%
+	\fi%
+	\pgfmath@parse@next%
+}
+
+% Parse prefix operators.
+%
+\def\pgfmath@parse@prefix@operator{%
+	\ifx\pgfmath@token\pgfmath@char@quote% Quote character.
+		\let\pgfmath@parse@next=\pgfmath@parse@operand@quote%
+	\else%
+		\ifx\pgfmath@token\pgfmath@char@exclamation% Prefix !.
+			\pgfmath@stack@push@operation{not}%
+			\let\pgfmath@parse@next=\pgfmath@parse@@operand%
+		\else% Anything else, just push and hope.
+			\expandafter\pgfmath@stack@push@operation\expandafter{\pgfmath@token}%
+			\let\pgfmath@parse@next=\pgfmath@parse@@operand%
+		\fi%
+	\fi%
+	\pgfmath@parse@next%
+}%
+
+
+% Quote part of an expression.
+%
+\def\pgfmath@parse@operand@quote#1"{%
+	\def\pgfmathresult{{#1}}%
+	\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+	\pgfmath@parse@@operator%
+}
+
+% Quick operand parsing. Should always have units.
+% No functions, base conversion, quoting or scientific notation
+% are permitted.
+\def\pgfmath@qparse@operand{%
+	\afterassignment\pgfmath@qparse@@operand%
+	\pgfmath@dimen\pgfmath@token}
+\def\pgfmath@qparse@@operand{%
+	\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
+	\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+	\pgfmath@parse@@operator%
+}
+
+% Parse a number, which can take the form:
+%
+% 1. An integer, or a decimal, with or without units.
+% 2. A dimension/skip or a count register.
+% 3. A dimension register preceded by a number or count register.
+% 4. A box dimension (e.g., \wd\mybox).
+% 5. A box dimension preceded by a number or a count register.
+% 6. Scientific notation (e.g., 1.234567e-10).
+% 7. A binary, hexadeciaml, or octal number.
+%  
+\def\pgfmath@parse@number{\pgfmath@parse@ifbgroup{\pgfmath@parse@number}{\pgfmath@parse@number@}}
+\def\pgfmath@parse@number@#1{%
+	\let\pgfmath@token=\pgfmath@token@next%
+	\def\pgfmath@token@next{#1}%
+	\pgfmath@parse@@number}
+
+\def\pgfmath@parse@@number{%
+	\ifx\pgfmath@token\pgfmath@egroup@token%
+		\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmath@number}%
+		\let\pgfmath@parse@next=\pgfmath@parse@@@operator%
+	\else%
+		\expandafter\ifcat\pgfmath@token\relax% A CS?
+			\expandafter\ifx\csname pgfmath@token@box@\expandafter\string\pgfmath@token\endcsname\relax%
+			  % So, is the CS is a dimension or a count register?
+				\expandafter\pgfmath@dimen@\pgfmath@token%
+				\ifpgfmath@dimen@% A dimension register.
+					\global\pgfmathunitsdeclaredtrue%
+					\pgfmath@dimen=\pgfmath@number\pgfmath@token%
+					\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
+					\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+					\let\pgfmath@parse@next=\pgfmath@parse@operator%
+				\else% A count register.
+					\pgfmath@count=\pgfmath@token%
+					\expandafter\def\expandafter\pgfmath@number\expandafter{\the\pgfmath@count}%
+					\expandafter\ifcat\pgfmath@token@next\relax%
+						% A CS following a count register should be \wd, \ht or \dp. 
+						\let\pgfmath@parse@next=\pgfmath@parse@number%
+					\else%
+						\let\pgfmathresult=\pgfmath@number%
+						\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+						\let\pgfmath@parse@next=\pgfmath@parse@operator%
 					\fi%
 				\fi%
-				\ifx\pgfmath@next\relax%
-					\def\pgfmath@insert@token{#1}%
-					\ifnum\pgfmath@char>64\relax% From A-Z?
-						\ifnum\pgfmath@char<91\relax%
-							\let\pgfmath@next=\pgfmath@parse@alpha%
-						\else%
-							\ifnum\pgfmath@char>96\relax% From a-z?
-								\ifnum\pgfmath@char<123\relax%
-									\let\pgfmath@next=\pgfmath@parse@alpha%
+			\else%
+				% This should be a box specification, for example, 0.5\wd\mybox.
+				\global\pgfmathunitsdeclaredtrue%
+				\pgfmath@dimen=\pgfmath@number\pgfmath@token\pgfmath@token@next%
+				\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
+				\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+				\let\pgfmath@parse@next=\pgfmath@parse@@operator%
+			\fi%
+		\else%
+			\expandafter\ifx\csname pgfmath@token@numeric@\expandafter\string\pgfmath@token\endcsname\relax%
+				% It isn't numeric (i.e., 012345679.), so it might be units...
+				\expandafter\ifx\csname pgfmath@token@unit@\pgfmath@token\expandafter\string\pgfmath@token@next\endcsname\relax%
+					% ...or the exponent characters...
+					\expandafter\ifx\csname pgfmath@token@exponent@\pgfmath@token\endcsname\relax%
+						% ...or a base prefix...
+						\expandafter\ifx\csname pgfmath@base@\pgfmath@number\pgfmath@token\endcsname\relax%
+							% ...none of the above...
+							\ifx\pgfmath@base\pgfmath@empty%
+								\let\pgfmathresult=\pgfmath@number% 
+							\else%
+								\ifx\pgfmath@number\pgfmath@char@zero%
+									\let\pgfmathresult=\pgfmath@number%
+								\else%
+									% Convert from octal.
+									\expandafter\pgfmathbasetobase\expandafter\pgfmathresult\expandafter{\pgfmath@number}{8}{10}%
 								\fi%
 							\fi%
+							\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+							\let\pgfmath@parse@next=\pgfmath@parse@@@operator%
+						\else%
+						  % ...here, it is a base prefix 0x, 0X, 0b or 0B
+						  \expandafter\let\expandafter\pgfmath@base\expandafter=%
+						  	\csname pgfmath@base@\pgfmath@number\pgfmath@token\endcsname%
+						  \let\pgfmath@parse@next=\pgfmath@parse@base%
 						\fi%
+					\else% ... and here, it is the exponent characters.
+						\let\pgfmath@parse@next=\pgfmath@parse@exponent%					
 					\fi%
-					\ifx\pgfmath@next\relax% Must be an operator.
-						\edef\pgfmathresult{\pgfmath@sign\pgfmath@number}%
-						\let\pgfmath@insert@after=\pgfmath@parse@operator%
-						\let\pgfmath@next=\pgfmath@insert%
-					\fi%
+				\else% ...but here it is units.
+					\global\pgfmathunitsdeclaredtrue%
+					\pgfmath@dimen=\pgfmath@number\pgfmath@token\pgfmath@token@next\relax%
+					\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
+					\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+					\let\pgfmath@parse@next=\pgfmath@parse@@operator%
 				\fi%
+			\else% It is numeric.
+				\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfmath@number%
+					\expandafter\expandafter\expandafter{\expandafter\pgfmath@number\pgfmath@token}%
+				\ifx\pgfmath@token\pgfmath@char@period%
+					\let\pgfmath@base=\pgfmath@empty%
+				\fi%
+				\let\pgfmath@parse@next=\pgfmath@parse@number%
 			\fi%
 		\fi%
 	\fi%
-	\pgfmath@next%
+	\pgfmath@parse@next%
 }
 
-\def\pgfmath@parse@box#1{%
-	\ifx\pgfmath@number\pgfutil@empty%
-		\edef\pgfmathresult{\pgfmath@sign\the\pgfmath@boxdimen#1}%
-	\else%
-		\pgfmath@dimen=\pgfmath@sign\pgfmath@number\pgfmath@boxdimen#1\relax%
-		\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
-	\fi%
-	\global\pgfmathunitsdeclaredtrue% a box dimension has units.
-	\pgfmath@parse@operator%
-}
-
-\def\pgfmath@parse@alpha#1{%
-	\ifx\pgfmath@number\pgfmath@empty% A function.
-		\edef\pgfmath@insert@token{\pgfmath@insert@token#1}%
-		\let\pgfmath@insert@after=\pgfmath@parse@function%
-		\let\pgfmath@next\pgfmath@insert%
-	\else%
-		\expandafter\if\pgfmath@insert@token e%
-			\if#1x% Check for ex unit...
-				\def\pgfmath@unit{ex}%
-				\let\pgfmath@next=\pgfmath@parse@units%
-			\else%
-				\if#1m% ...check for em unit...
-					\def\pgfmath@unit{em}%
-					\let\pgfmath@next=\pgfmath@parse@units%
-				\else% ...it's an exponent.
-					\let\pgfmath@e@token\pgfmath@insert@token%
-					\def\pgfmath@insert@token{#1}%
-					\let\pgfmath@insert@after=\pgfmath@parse@exponent%
-					\let\pgfmath@next=\pgfmath@insert%
-				\fi%
-			\fi%
-		\else%
-			\expandafter\if\pgfmath@insert@token E% The capital exponent.
-				\let\pgfmath@e@token\pgfmath@insert@token%
-				\def\pgfmath@insert@token{#1}%
-				\let\pgfmath@insert@after=\pgfmath@parse@exponent%
-				\let\pgfmath@next=\pgfmath@insert%
-			\else%
-				\expandafter\if\pgfmath@insert@token r\relax% The postfix r function?
-					\edef\pgfmathresult{\pgfmath@sign\pgfmath@number}%
-					\edef\pgfmath@insert@token{\pgfmath@insert@token#1}%
-					\let\pgfmath@insert@after=\pgfmath@parse@operator%
-					\let\pgfmath@next=\pgfmath@insert%
-				\else%
-					\edef\pgfmath@unit{\pgfmath@insert@token#1}%
-					\edef\pgfmathresult{\pgfmath@sign\pgfmath@number}% Must be units.
-					\let\pgfmath@next=\pgfmath@parse@units%
-				\fi%
-			\fi%
-		\fi%
-	\fi%
-	\pgfmath@next%
-}
-
+% Parse the exponent of a number.
+%
 \def\pgfmath@parse@exponent{%
-	\let\pgfmath@mantisse=\pgfmath@number%
-	\afterassignment\pgfmath@@parse@exponent% Parse exponent by assignment...
-	\c@pgfmath@count=}
-
-\def\pgfmath@@parse@exponent{% ...as it shouldn't be as big as 2^31-1
-	\edef\pgfmath@exponent{\the\c@pgfmath@count}%
-	\edef\pgfmathresult{\pgfmath@sign\pgfmath@number\pgfmath@e@token\the\c@pgfmath@count}%
-	\pgfmath@parse@scientific}
-	
-\def\pgfmath@parse@units{%
-	\edef\pgfmathresult{\pgfmath@sign\pgfmath@number}%
-	\global\pgfmathunitsdeclaredtrue%
-	\pgfmath@dimen\pgfmathresult\pgfmath@unit\relax%
-	\edef\pgfmathresult{\pgfmath@tonumber{\pgfmath@dimen}}%
-	\pgfmath@parse@operator%
+	\afterassignment\pgfmath@parse@@exponent%
+	\pgfmath@count\pgfmath@token@next}
+\def\pgfmath@parse@@exponent{%
+	\pgfmathscientific{\pgfmath@number}{\the\pgfmath@count}%
+	\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+	\pgfmath@parse@@operator%
 }
 
-\def\pgfmath@insert{\expandafter\pgfmath@insert@after\pgfmath@insert@token}%
-
-
-% Process 'Scientific' notation in the form xEy
+% Parse binary or hexadecimal numbers (octal numbers done elsehwere).
 %
-\def\pgfmath@parse@scientific{%
-	\pgfmathscientific{\pgfmath@mantisse}{\pgfmath@exponent}% Comment this line out.
-	% 
-	% Here is an example of the creation of a result object. To test it,
-	% comment out the first line in this macro to prevent evaluation.
-	% 
-	%	\let\pgfmathresultobject=\pgfmath@empty%
-	%	\pgfmath@adddef@tomacro{\pgfmath@mantisse}{\pgfmathresultobject}%
-	%	\pgfmath@adddef@tomacro{\pgfmath@exponent}{\pgfmathresultobject}%
-	%	\pgfmath@adddef@tomacro{\pgfmathresult}{\pgfmathresultobject}%
-	%	\let\pgfmathresult=\pgfmathresultobject%
-	%
-	\pgfmath@parse@operator}
+\def\pgfmath@parse@base{%
+	\ifnum\pgfmath@base=2\relax%
+		\let\pgfmath@parse@next=\pgfmath@parse@binary%
+	\else%
+		\ifnum\pgfmath@base=16\relax%
+			\let\pgfmath@parse@next=\pgfmath@parse@hexadecimal%
+		\else%
+			\pgfmath@error{Unexpected numerical base `\pgfmath@base'}{}%
+			\def\pgfmathresult{0}%
+			\let\pgfmath@parse@next=\pgfmath@parse@end%
+		\fi%
+	\fi%
+	\let\pgfmath@number=\pgfmath@empty%
+	\expandafter\pgfmath@parse@next\pgfmath@token@next%
+}
 	
-\def\pgfmath@adddef@tomacro#1#2{%
-	\edef\pgfmath@deftemp{\noexpand\def\noexpand#1{#1}}%
-	\expandafter\expandafter\expandafter\def%
-		\expandafter\expandafter\expandafter#2%
-			\expandafter\expandafter\expandafter{\expandafter#2\pgfmath@deftemp}%
+\def\pgfmath@parse@binary#1{%
+	\expandafter\ifx\csname pgfmath@token@binary@#1\endcsname\relax%
+		\expandafter\pgfmathbasetobase\expandafter\pgfmathresult\expandafter{\pgfmath@number}{2}{10}%
+		\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+		\def\pgfmath@token@next{#1}%
+		\let\pgfmath@parse@next=\pgfmath@parse@operator%
+	\else%
+		\expandafter\def\expandafter\pgfmath@number\expandafter{\pgfmath@number#1}%
+		\let\pgfmath@parse@next=\pgfmath@parse@binary%
+	\fi%
+	\pgfmath@parse@next%
 }
 
-
-
-% Functions parsed (not calculated) here are:
+\def\pgfmath@parse@hexadecimal#1{%
+	\expandafter\ifx\csname pgfmath@token@hexadecimal@#1\endcsname\relax%
+		\expandafter\pgfmathbasetobase\expandafter\pgfmathresult\expandafter{\pgfmath@number}{16}{10}%
+		\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+		\def\pgfmath@token@next{#1}%
+		\let\pgfmath@parse@next=\pgfmath@parse@operator%
+	\else%
+		\expandafter\def\expandafter\pgfmath@number\expandafter{\pgfmath@number#1}%
+		\let\pgfmath@parse@next=\pgfmath@parse@hexadecimal%
+	\fi%
+	\pgfmath@parse@next%
+}
+	
+% Parse a function.
 %
-% round(X)         'half-up' rounding.
-% floor(X)         floor function.
-% ciel(X)          ceiling function.
-% abs(X)           absolute function.
-%
-% exp(X)           e^X (0 <= X <~= 9.7).
-% ln(X)            logarithm of X.
-% pow(X,Y)         X^Y,
-%
-% sin(X)           sine function.
-% cos(X)           cosine function.
-% tan(X)           tan function.
-% asin(X)          arcsine of X (in radians)    -1 <= X <= 1
-% acos(X)          arccosine of X (in radians)  -1 <= X <= 1
-% atan(X)          arctangent of X (in radians) -1 <= X <= 1
-% veclen(X,Y)      the length Z where Z^2 = X^2 + Y^2
-% mod(X,Y)         X modulo Y
-% max(X,Y)         the maximum of X or Y
-% min(X,Y)         the minimum of X or Y
-%
-% NB veclen, mod, max, and min *cannot* be nested.
-%
-% deg(X)           converts X to degrees (X in radians)
-% rad(X)           converts X to radians (X in degrees)
-%
-% rnd              generate pseudo-random number X (0 <= X <= 1).
-% rand             generate pseudo-random number X (1 <= X <= -1).
-% sqrt(X)          square root.
-% 
-% pi               the constant PI.
-%
+\def\pgfmath@parse@function{\pgfmath@parse@ifbgroup{\pgfmath@parse@function}{\pgfmath@parse@@function}}
 
-
-% Functions for compatability with calc.
-%
-\def\pgfmath@parse@function@widthof(#1){%
-	\setbox\pgfmath@box=\hbox{{\let\nullfont=\relax\pgfmath@selectfont#1}}%
-	\edef\pgfmathresult{\pgfmath@tonumber{\wd\pgfmath@box}}%
-	\pgfmath@parse@operator}
-
-\def\pgfmath@parse@function@heightof(#1){%
-	\setbox\pgfmath@box=\hbox{{\let\nullfont=\relax\pgfmath@selectfont#1}}%
-	\edef\pgfmathresult{\pgfmath@tonumber{\ht\pgfmath@box}}%
-	\pgfmath@parse@operator}
-
-\def\pgfmath@parse@function@depthof(#1){%
-	\setbox\pgfmath@box=\hbox{{\let\nullfont=\relax\pgfmath@selectfont#1}}%
-	\edef\pgfmathresult{\pgfmath@tonumber{\dp\pgfmath@box}}%
-	\pgfmath@parse@operator}
-
-\def\pgfmath@parse@function{%
-	\let\pgfmath@parse@function@name=\pgfmath@empty%
-	\pgfmath@parse@@function}
-
-\def\pgfmath@parse@@function{\futurelet\pgfmath@let@token\pgfmath@parse@@@function}
+\def\pgfmath@parse@@function{%
+	\ifx\pgfmath@token@let\pgfmath@sptoken%
+		\let\pgfmath@token=\pgfmath@empty%
+		\let\pgfmath@parse@next=\pgfmath@parse@@@@function%
+	\else%
+		\let\pgfmath@parse@next=\pgfmath@parse@@@function%
+	\fi%
+	\pgfmath@parse@next}
 
 \def\pgfmath@parse@@@function#1{%
-	\def\pgfmath@parse@token{#1}%
-	\ifx\pgfmath@let@token\pgfutil@sptoken%
-		\let\pgfmath@next=\pgfmath@parse@@@@function%
+	\expandafter\ifx\csname pgfmath@token@functional@\expandafter\string#1\endcsname\relax%
+		\expandafter\ifx\csname pgfmath@token@number@\expandafter\string#1\endcsname\relax%
+			\def\pgfmath@token{#1}% Not from A-Z, a-z, 0-9, or _.
+			\let\pgfmath@parse@next=\pgfmath@parse@@@@function%
+		\else% It is from 0-9.
+			\expandafter\def\expandafter\pgfmath@function\expandafter{\pgfmath@function#1}%
+			\let\pgfmath@parse@next=\pgfmath@parse@function%
+		\fi%
+	\else% It is from from A-Z, a-z, or _.
+		\edef\pgfmath@function{\pgfmath@function#1}%
+		\let\pgfmath@parse@next=\pgfmath@parse@function%
+	\fi%
+	\pgfmath@parse@next}
+
+\def\pgfmath@parse@@@@function{%
+	\expandafter\ifx\csname pgfmath@function@\pgfmath@function\endcsname\relax%
+		\pgfmath@error{Unknown function `\pgfmath@function'}{}%
+		\def\pgfmathresult{0}%
+		\let\pgfmath@parse@next=\pgfmath@parse@end%
 	\else%
-		\chardef\pgfmath@char=`#1\relax%
-		\edef\pgfmath@char{\the\pgfmath@char}%
-		\let\pgfmath@next=\pgfmath@parse@@@@function%
-		\ifnum\pgfmath@char>96\relax% From a-z?
-			\ifnum\pgfmath@char<123\relax%
-				\expandafter\def\expandafter\pgfmath@parse@function@name\expandafter{%
-					\pgfmath@parse@function@name#1}%
-				\let\pgfmath@next=\pgfmath@parse@@function%
+		\expandafter\ifnum\csname pgfmath@operation@\pgfmath@function @arity\endcsname=0\relax%
+		 % Functions with zero arity are called directly.
+			\csname pgfmath\pgfmath@function @\endcsname%
+			\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+			\let\pgfmath@parse@next=\pgfmath@parse@@operator%
+		\else% Otherwise, they are pushed onto the operator stack
+			\expandafter\pgfmath@stack@push@operation\expandafter{\pgfmath@function}%
+			\let\pgfmath@parse@next=\pgfmath@parse@@operand%
+		\fi%
+	\fi%
+	\expandafter\pgfmath@parse@next\pgfmath@token}
+
+% Parse an operator.
+%
+\def\pgfmath@parse@operator{\pgfmath@parse@ifbgroup{\pgfmath@parse@operator}{\pgfmath@parse@operator@}}%
+\def\pgfmath@parse@operator@#1{% Get one token.
+	\let\pgfmath@token=\pgfmath@token@next%
+	\def\pgfmath@token@next{#1}%
+	\pgfmath@parse@@@operator}
+
+\def\pgfmath@parse@@operator{\pgfmath@parse@ifbgroup{\pgfmath@parse@@operator}{\pgfmath@parse@@operator@}}%
+\def\pgfmath@parse@@operator@#1{% Get first token...
+	\def\pgfmath@token{#1}%
+	\pgfmath@parse@ifbgroup{\pgfmath@parse@@operator@@}{\pgfmath@parse@@operator@@}}%
+\def\pgfmath@parse@@operator@@#1{% ...and second token.
+	\def\pgfmath@token@next{#1}%
+	\pgfmath@parse@@@operator}	
+
+\def\pgfmath@parse@@@operator{%
+	\expandafter\ifx\csname pgfmath@operator@\pgfmath@token\expandafter\string\pgfmath@token@next\endcsname\relax%
+		% Not a double character operator.
+		\expandafter\ifx\csname pgfmath@operator@\pgfmath@token\endcsname\relax%
+			% Not a single character operator.
+			\pgfmath@error{Unknown operator `\pgfmath@token' or `\pgfmath@token\pgfmath@token@next'}{}%
+			\def\pgfmathresult{0}%
+		\let\pgfmath@parse@next=\pgfmath@parse@end%
+		\else%
+			\expandafter\pgfmath@operation@process\expandafter{\pgfmath@token}%
+			\ifx\pgfmath@token\pgfmath@text@@%
+				\let\pgfmath@parse@next=\pgfmath@parse@end%
+			\else%
+				\expandafter\ifx\csname pgfmath@operation@\pgfmath@token @postfix\endcsname\pgfmath@token%
+					% Postfix operators are followed by an operator.
+					\let\pgfmath@parse@next=\pgfmath@parse@operator%
+				\else%
+					% Any other operator is followed by an operand.
+					\let\pgfmath@parse@next=\pgfmath@parse@operand%
+				\fi%
+			\fi%
+		\fi%
+	\else%
+		% A double character operator...
+		\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+			\pgfmath@token\expandafter\expandafter\expandafter%
+				{\expandafter\pgfmath@token\pgfmath@token@next}%
+		\expandafter\pgfmath@operation@process\expandafter{\pgfmath@token}%
+		% ...is always followed by an operand.
+		\let\pgfmath@parse@next=\pgfmath@parse@@operand%
+	\fi%
+	\pgfmath@parse@next%
+}
+
+% Process an operation.
+%
+\def\pgfmath@operation@process#1{%
+	\def\pgfmath@operator{#1}%
+	\ifx\pgfmath@stack@operation@top\pgfmath@stack@empty%
+	\else%
+		\pgfmath@operation@@process%
+	\fi%
+	\expandafter\ifx\csname pgfmath@token@specials@#1\endcsname\relax%
+		\pgfmath@stack@push@operation{#1}%
+	\fi%
+}
+
+% Process the operation stack.
+%
+\def\pgfmath@operation@@process{%
+	%\typeout{Processing \pgfmath@operator: \the\pgfmath@stack@operand, \the\pgfmath@stack@operation }%
+	\ifx\pgfmath@stack@operation@top\pgfmath@stack@empty%
+		\let\pgfmath@parse@next=\relax%
+	\else%
+		\ifnum\csname pgfmath@operation@\pgfmath@operator @precedence\endcsname>%
+			\csname pgfmath@operation@\pgfmath@stack@operation@top @precedence\endcsname\relax%
+			% If the precedence of the scanned operator is greater than the
+			% precedence of the operator at the top of the stack, do nothing.
+			\let\pgfmath@parse@next=\relax%
+		\else%
+			\let\pgfmath@stack@operation@last=\pgfmath@stack@operation@top%
+			\expandafter\ifx\csname pgfmath@operator@\pgfmath@stack@operation@top\endcsname\relax%
+				\pgfmath@function@@@process%
+			\else%
+				\pgfmath@operator@@@process%
+			\fi%
+			\expandafter\pgfmath@stack@push@operand\expandafter{\pgfmathresult}%
+			\expandafter\ifx\csname pgfmath@token@group@\pgfmath@stack@operation@last\pgfmath@operator\endcsname\relax%
+				\let\pgfmath@parse@next=\pgfmath@operation@@process%
+			\else%
+				\let\pgfmath@parse@next=\relax%
 			\fi%
 		\fi%
 	\fi%
-	\pgfmath@next}
+	%\typeout{\the\pgfmath@stack@operand, \the\pgfmath@stack@operation }%
+	\pgfmath@parse@next%
+}
 
-
-\def\pgfmath@parse@@@@function{%
-	\expandafter\ifx\csname pgfmath@parse@function@\pgfmath@parse@function@name\endcsname\relax%
-		\pgfmath@parse@function@unknown%
-		\let\pgfmath@next=\relax%
+% Process an operator.
+%
+\def\pgfmath@operator@@@process{% Process an operator.
+	\pgfmath@stack@pop@operation\pgfmath@@operator%
+	\pgfmath@stack@pop@operand\pgfmath@operand@a%	
+	\ifcase\csname pgfmath@operation@\pgfmath@@operator @arity\endcsname\relax%
+		% Zero arity operators (!).
+	\or%		
+		\pgfmath@operator@@@@process{\pgfmath@operand@a}%
+	\or%
+		\pgfmath@stack@pop@operand\pgfmath@operand@b%
+		\pgfmath@operator@@@@process{\pgfmath@operand@b}{\pgfmath@operand@a}%
+	\or%
+		\pgfmath@stack@pop@operand\pgfmath@operand@b%
+		\expandafter\pgfmath@operator@@@@process\expandafter%
+			{\expandafter\pgfmath@operand@b\expandafter}\pgfmath@operand@a%		
 	\else%
-		\expandafter\let\expandafter\pgfmath@next\expandafter=%
-			\csname pgfmath@parse@function@\pgfmath@parse@function@name\endcsname%
+		% No operators with more than tenary arity.
 	\fi%
-	\expandafter\pgfmath@next\pgfmath@parse@token}
-
-\def\pgfmath@parse@function@unknown{%
-	\pgfmath@error{Unknown function `\pgfmath@parse@function@name'}{}%
 }
 
-% \pgfmath@postfunction
-% 
-% In scanning a function e.g. sin(40), we subvert the normal parsing 
-% group mechanism by messing around with \pgfmath@parse@postgroup, so 
-% that after scanning ), the parser doesn't scan for an operator, but 
-% returns to the macros scanning the function. 
-% Here the mechanism is restored, and the value of the function is 
-% stored along with the approprate sign, which was saved earlier.
+\def\pgfmath@operator@@@@process{%
+	\csname pgfmath%
+		\csname pgfmath@operation@\pgfmath@@operator @name\endcsname%
+	@\endcsname}
+
+% Process a function.
 %
-\def\pgfmath@postfunction{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@operator%
-	\edef\pgfmathresult{\pgfmath@sign\pgfmathresult}%
-	\pgfmath@parse@operator}
+\def\pgfmath@function@@@process{% Process a function.
+	\ifnum\csname pgfmath@operation@\pgfmath@stack@operation@top @arity\endcsname>0\relax%
+		\pgfmath@stack@pop@operation\pgfmath@@function%
+		\pgfmath@stack@pop@operand\pgfmath@@operand%
+		\ifnum\csname pgfmath@operation@\pgfmath@@function @arity\endcsname>1\relax%
+			\ifnum\csname pgfmath@operation@\pgfmath@@function @arity\endcsname>9\relax%
+				\csname pgfmath\pgfmath@@function @\endcsname{\pgfmath@@operand}%
+			\else%
+				\expandafter\pgfmath@function@@@@process\pgfmath@@operand%
+			\fi
+		\else%
+			\expandafter\pgfmath@function@@@@process\expandafter{\pgfmath@@operand}%
+		\fi%
+	\fi%		
+}
+
+\def\pgfmath@function@@@@process{\csname pgfmath\pgfmath@@function @\endcsname}
+
+% Stack.
+%
+\newtoks\pgfmath@stack@operand
+\newtoks\pgfmath@stack@operation
+\let\pgfmath@stack@empty=\pgfmath@empty
+
+\def\pgfmath@stack@push#1#2{%
+	\def\pgfmath@stack@top{#2}%
+	\expandafter\expandafter\expandafter#1%
+		\expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter%
+			{\expandafter\pgfmath@stack@top\expandafter}\the#1}}%
+
+\def\pgfmath@stack@pop#1#2{\expandafter\pgfmath@stack@@pop\the#1\pgfmath@stack@stop{#1}{#2}}
+\def\pgfmath@stack@@pop#1#2#3\pgfmath@stack@stop#4#5{\def#5{#1}#4={{#2}#3}\def\pgfmath@stack@top{#2}}
+
+\def\pgfmath@stack@push@operation#1{%
+	\pgfmath@stack@push\pgfmath@stack@operation{#1}%
+	\let\pgfmath@stack@operation@top=\pgfmath@stack@top}
+
+\def\pgfmath@stack@pop@operation#1{%
+	\pgfmath@stack@pop\pgfmath@stack@operation{#1}%
+	\let\pgfmath@stack@operation@top=\pgfmath@stack@top}
+	
+\def\pgfmath@stack@push@operand#1{%
+	\pgfmath@stack@push\pgfmath@stack@operand{#1}%
+	\let\pgfmath@stack@operand@top=\pgfmath@stack@top}
+
+\def\pgfmath@stack@pop@operand#1{%
+	\pgfmath@stack@pop\pgfmath@stack@operand{#1}%
+	\let\pgfmath@stack@operand@top=\pgfmath@stack@top}
 	
 
-% \pgfmath@parse@function@abs
+% Declare an operator for the parser.
 %
-\def\pgfmath@parse@function@abs{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@abs@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@abs@{%	
-	\expandafter\pgfmathabs@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
+% It is not recommended that new operators be created as 
+% the parser is not fully robust for arbitrary operators.
+%
+\def\pgfmathdeclareoperator#1#2#3#4#5{%
+	\pgfmath@namedef{pgfmath@operator@\string#1}{#1}%
+	\pgfmath@namedef{pgfmath@operation@\string#1@name}{#2}%
+	\pgfmath@namedef{pgfmath@operation@\string#1@arity}{#3}%
+	\pgfmath@namedef{pgfmath@operation@\string#1@#4}{#1}%
+	\pgfmath@namedef{pgfmath@operation@\string#1@precedence}{#5}%
 }
 
-% \pgfmath@parse@function@sqrt
+\pgfmathdeclareoperator{+}{add}     {2}{infix}{500}
+\pgfmathdeclareoperator{-}{subtract}{2}{infix}{500}
+\pgfmathdeclareoperator{*}{multiply}{2}{infix}{700}
+\pgfmathdeclareoperator{/}{divide}  {2}{infix}{700}
+\pgfmathdeclareoperator{^}{pow}     {2}{infix}{900}
+
+\pgfmathdeclareoperator{<} {}       {1}{prefix} {1}
+
+\pgfmathdeclareoperator{>} {greater}   {2}{infix} {250}
+\pgfmathdeclareoperator{<} {less}      {2}{infix} {250}
+\pgfmathdeclareoperator{==}{equal}     {2}{infix} {250}
+\pgfmathdeclareoperator{>=}{notless}   {2}{infix} {250}
+\pgfmathdeclareoperator{<=}{notgreater}{2}{infix} {250}
+\pgfmathdeclareoperator{&&}{and}       {2}{infix} {200}
+\pgfmathdeclareoperator{||}{or}        {2}{infix} {200}
+\pgfmathdeclareoperator{!=}{notequalto}{2}{infix} {250}
+\pgfmathdeclareoperator{!} {not}       {1}{prefix}{975}
+\pgfmathdeclareoperator{?} {ifthenelse}{3}{infix} {100}
+\pgfmathdeclareoperator{:} {@@collect}  {2}{infix}{101}
+
+\pgfmathdeclareoperator{!}{factorial}{1}{postfix}{800}% Must be defined after prefix ! operator.
+\pgfmathdeclareoperator{r}{deg}      {1}{postfix}{600}
+
+\pgfmathdeclareoperator{,}{@collect}   {2}{infix}  {10}
+\pgfmathdeclareoperator{[}{@startindex}{2}{prefix} {7}
+\pgfmathdeclareoperator{]}{@endindex}  {0}{postfix}{6}
+\pgfmathdeclareoperator{(}{@startgroup}{1}{prefix} {5}
+\pgfmathdeclareoperator{)}{@endgroup}  {0}{postfix}{4}
+
+\pgfmathdeclareoperator{\pgfmath@bgroup}{@startarray}{1}{prefix} {3}
+\pgfmathdeclareoperator{\pgfmath@egroup}{@endarray}  {1}{postfix}{2}% 
+
+% Special operators.
+\pgfmathdeclareoperator{"}{}{1}{prefix}{1}
+\pgfmathdeclareoperator{@}{}{0}{postfix}{0}
+
+% Internal functions.
+
+% Begin and end parenthesis ().
 %
-\def\pgfmath@parse@function@sqrt{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@sqrt@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@sqrt@{%	
-	\expandafter\pgfmathsqrt@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
+\def\pgfmath@startgroup@#1{\edef\pgfmathresult{#1}}
+\def\pgfmath@endgroup@{}% Never actually called.
+
+% Begin and end array access [].
+%
+\def\pgfmath@startindex@#1#2{%
+	\expandafter\pgfmatharray@#1{#2}%
+	\expandafter\pgfmath@bgroup@strip\expandafter{\pgfmathresult}%
+	\ifx\pgfmath@token@let\bgroup%
+		\expandafter\def\expandafter\pgfmathresult\expandafter{\expandafter{\pgfmathresult}}%
+	\fi}
+\def\pgfmath@endindex@{}% Never actually called.
+
+% Begin and end array {}.
+%
+\def\pgfmath@startarray@#1{\expandafter\def\expandafter\pgfmathresult\expandafter{\expandafter{#1}}}
+\def\pgfmath@endarray@#1{\expandafter\def\expandafter\pgfmathresult\expandafter{#1}}% Never actually called.
+
+
+\def\pgfmath@@collect@#1#2{%
+	\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+		\pgfmathresult\expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter%
+			{\expandafter#1\expandafter}\expandafter{#2}}
+}
+% Collect items separated by ,.
+%
+\def\pgfmath@collect@#1#2{%
+	\expandafter\def\expandafter\pgfmath@collect@original\expandafter{#1}%
+	\expandafter\pgfmath@bgroup@strip\expandafter{#1}%
+	\ifx\pgfmath@token@let\bgroup%
+		\ifx\pgfmath@collect@original\pgfmath@bgroup@stripped%
+			\expandafter\def\expandafter\pgfmathresult\expandafter{\pgfmath@bgroup@stripped}%
+		\else%
+			\expandafter\def\expandafter\pgfmathresult\expandafter{\expandafter{\pgfmath@bgroup@stripped}}%
+		\fi%
+	\else%
+		\expandafter\def\expandafter\pgfmathresult\expandafter{\expandafter{\pgfmath@bgroup@stripped}}%
+	\fi%
+	\expandafter\pgfmath@bgroup@strip\expandafter{#2}%
+	\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+		\pgfmathresult\expandafter\expandafter\expandafter%
+			{\expandafter\pgfmathresult\expandafter{\pgfmath@bgroup@stripped}}%
 }
 
-% \pgfmath@parse@function@round
+% Strip braces from a token sequence.
 %
-\def\pgfmath@parse@function@round{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@round@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@round@{%	
-	\expandafter\pgfmathround@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
+\def\pgfmath@bgroup@strip#1{%
+	\def\pgfmath@bgroup@strip@last{#1}%
+	\pgfmath@bgroup@@strip{#1}\pgfmath@\pgfmath@@\pgfmath@@@}
+
+\def\pgfmath@bgroup@strip@#1{%
+	\def\pgfmath@bgroup@strip@last{#1}%
+	\pgfmath@bgroup@@strip#1\pgfmath@\pgfmath@@\pgfmath@@@}
+
+\def\pgfmath@bgroup@@strip{\futurelet\pgfmath@token@let\pgfmath@bgroup@@@strip}
+\def\pgfmath@bgroup@@@strip#1#2#3\pgfmath@@@{%
+	\ifx\pgfmath@token@let\bgroup%
+		\ifx#2\pgfmath@%
+			\def\pgfmath@next{\pgfmath@bgroup@strip@{#1}}%
+		\else%
+			\let\pgfmath@bgroup@stripped=\pgfmath@bgroup@strip@last%
+			\let\pgfmath@next=\relax%
+		\fi%
+	\else%
+		\pgfmath@bgroup@@@@strip#1#2#3%
+		\let\pgfmath@next=\relax%
+	\fi%
+	\pgfmath@next%
 }
 
-% \pgfmath@parse@function@floor
-%
-\def\pgfmath@parse@function@floor{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@floor@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@floor@{%	
-	\expandafter\pgfmathfloor@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@ceil
-%
-\def\pgfmath@parse@function@ceil{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@ceil@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@ceil@{%	
-	\expandafter\pgfmathceil@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@sin
-%
-\def\pgfmath@parse@function@sin{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@sin@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@sin@{%	
-	\expandafter\pgfmathsin@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@cos
-%
-\def\pgfmath@parse@function@cos{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@cos@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@cos@{%	
-	\expandafter\pgfmathcos@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@asin
-%
-\def\pgfmath@parse@function@asin{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@asin@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@asin@{%	
-	\expandafter\pgfmathasin@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@acos
-%
-\def\pgfmath@parse@function@acos{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@acos@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@acos@{%	
-	\expandafter\pgfmathacos@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction}
-
-% \pgfmath@parse@function@atan
-%
-\def\pgfmath@parse@function@atan{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@atan@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@atan@{%	
-	\expandafter\pgfmathatan@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@tan
-%
-\def\pgfmath@parse@function@tan{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@tan@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@tan@{%	
-	\expandafter\pgfmathtan@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@cot
-%
-\def\pgfmath@parse@function@cot{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@cot@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@cot@{%	
-	\expandafter\pgfmathcot@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@sec
-%
-\def\pgfmath@parse@function@sec{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@sec@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@sec@{%	
-	\expandafter\pgfmathsec@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@cosec
-%
-\def\pgfmath@parse@function@cosec{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@cosec@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@cosec@{%	
-	\expandafter\pgfmathcosec@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@rad
-%
-\def\pgfmath@parse@function@rad{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@rad@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@rad@{%
-	\expandafter\pgfmathrad@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction}%
-	
-% \pgfmath@parse@function@rad
-%
-\def\pgfmath@parse@function@deg{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@deg@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@deg@{%
-	\expandafter\pgfmathdeg@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction}%
-	
-% \pgfmath@parse@function@rnd
-%
-\def\pgfmath@parse@function@rnd{%
-	\pgfmathrnd%
-	\pgfmath@postfunction}
-			
-% \pgfmath@parse@function@rand
-%
-\def\pgfmath@parse@function@rand{%
-	\pgfmathrand%
-	\pgfmath@postfunction}%
-			
-% \pgfmath@parse@function@exp
-%
-\def\pgfmath@parse@function@exp{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@exp@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@exp@{%	
-	\expandafter\pgfmathexp@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@ln
-%
-\def\pgfmath@parse@function@ln{%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@ln@%
-	\pgfmath@parse@}
-\def\pgfmath@parse@function@ln@{%	
-	\expandafter\pgfmathln@\expandafter{\pgfmathresult}%
-	\pgfmath@postfunction%
-}
-	
-% \pgfmath@parse@function@pi
-%
-\def\pgfmath@parse@function@pi{%
-	\pgfmathpi%
-	\pgfmath@postfunction%
-}
-
-% \pgfmath@parse@function@veclen
-%
-\def\pgfmath@parse@function@veclen(#1,{%
-	\pgfmathparse@{#1}%
-	\let\pgfmath@firstoperand=\pgfmathresult%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@veclen@%
-	\pgfmath@parse@startgroup}
-\def\pgfmath@parse@function@veclen@{%
-	\let\pgfmath@secondoperand=\pgfmathresult%
-	\pgfmathveclen@{\pgfmath@firstoperand}{\pgfmath@secondoperand}%
-	\pgfmath@postfunction}
-
-% \pgfmath@parse@function@mod 
-%
-\def\pgfmath@parse@function@mod(#1,{%
-	\pgfmathparse@{#1}%
-	\let\pgfmath@firstoperand=\pgfmathresult%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@mod@%
-	\pgfmath@parse@startgroup}
-\def\pgfmath@parse@function@mod@{%
-	\let\pgfmath@secondoperand=\pgfmathresult%
-	\pgfmathmod@{\pgfmath@firstoperand}{\pgfmath@secondoperand}%
-	\pgfmath@postfunction}
-
-% \pgfmath@parse@function@max
-%
-\def\pgfmath@parse@function@max(#1,{%
-	\pgfmathparse@{#1}%
-	\let\pgfmath@firstoperand=\pgfmathresult%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@max@%
-	\pgfmath@parse@startgroup}
-\def\pgfmath@parse@function@max@{%
-	\let\pgfmath@secondoperand=\pgfmathresult%
-	\pgfmathmax@{\pgfmath@firstoperand}{\pgfmath@secondoperand}%
-	\pgfmath@postfunction}	
-
-% \pgfmath@parse@function@min 
-%
-\def\pgfmath@parse@function@min(#1,{%
-	\pgfmathparse@{#1}%
-	\let\pgfmath@firstoperand=\pgfmathresult%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@min@@
-	\pgfmath@parse@startgroup}
-\def\pgfmath@parse@function@min@@{%
-	\let\pgfmath@secondoperand=\pgfmathresult%
-	\pgfmathmin@{\pgfmath@firstoperand}{\pgfmath@secondoperand}%
-	\pgfmath@postfunction}
-	
-% \pgfmath@parse@function@pow 
-%
-\def\pgfmath@parse@function@pow(#1,{%
-	\pgfmathparse@{#1}%
-	\let\pgfmath@firstoperand=\pgfmathresult%
-	\let\pgfmath@parse@postgroup=\pgfmath@parse@function@pow@@
-	\pgfmath@parse@startgroup}
-\def\pgfmath@parse@function@pow@@{%
-	\let\pgfmath@secondoperand=\pgfmathresult%
-	\pgfmathpow@{\pgfmath@firstoperand}{\pgfmath@secondoperand}%
-	\pgfmath@postfunction}	
-	
+\def\pgfmath@bgroup@@@@strip#1\pgfmath@\pgfmath@@{\def\pgfmath@bgroup@stripped{#1}}%
