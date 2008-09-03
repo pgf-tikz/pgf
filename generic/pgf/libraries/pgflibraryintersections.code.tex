@@ -8,13 +8,26 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-\newcount\pgfintersectionsolutions
+\newcount\pgf@intersect@solutions
+
+\newif\ifpgf@intersect@sort
+\newif\ifpgf@intersect@sort@by@second@path
+
+\def\pgfintersectionsortbyfirstpath{%
+	\pgf@intersect@sorttrue%
+	\pgf@intersect@sort@by@second@pathfalse%
+}
+
+\def\pgfintersectionsortbysecondpath{%
+	\pgf@intersect@sorttrue%
+	\pgf@intersect@sort@by@second@pathtrue%
+}
 
 \def\pgfpointintersectionsolution#1{%
 	\ifnum#1<1\relax%
 		\pgfpoint@intersect@solution@orgin%
 	\else%
-		\ifnum#1>\pgfintersectionsolutions%
+		\ifnum#1>\pgfintersectionsolutions\relax%
 			\pgfpoint@intersect@solution@orgin%
 		\else%
 			\csname pgfpoint@intersect@solution@#1\endcsname%
@@ -51,28 +64,30 @@
 	\endgroup%
 	\let\pgf@intersect@path@b=\pgf@intersect@path@temp%
 	%
-	\pgfintersectionsolutions=0\relax%
+	\pgf@intersect@solutions=0\relax%
+	\def\pgf@intersect@time@offset{0}%
+	%
+	\ifpgf@intersect@sort@by@second@path%
+		\let\pgf@intersect@temp=\pgf@intersect@path@a%
+		\let\pgf@intersect@path@a=\pgf@intersect@path@b%
+		\let\pgf@intersect@path@b=\pgf@intersect@temp%
+	\fi%
 	\let\pgf@intersect@token@after=\pgf@intersect@path@process@a%
 	\expandafter\pgf@intersectionofpaths\pgf@intersect@path@a\pgf@stop%
-%	%
-%	% Now make solutions `survive' transformations.
-%	%
-%	\pgfmathloop%
-%		\ifnum\pgfmathcounter>\pgfintersectionsolutions%
-%		\else%
-%			\def\pgf@marshal{\expandafter\def\csname pgfpoint@intersect@solution@\pgfmathcounter\endcsname}%
-%			\pgfextract@process\pgf@intersect@solution@temp%
-%				{\csname pgfpoint@intersect@solution@\pgfmathcounter\endcsname}%
-%			\expandafter\pgf@marshal\expandafter{%
-%				\expandafter\begingroup\expandafter%
-%				\pgftransforminvert%
-%				\pgf@intersect@solution@temp%
-%				\pgf@pos@transform{\pgf@x}{\pgf@y}%
-%				\global\pgf@x=\pgf@x%
-%				\global\pgf@y=\pgf@y%
-%				\endgroup%
-%			}%
-%	\repeatpgfmathloop%
+	\edef\pgfintersectionsolutions{\the\pgf@intersect@solutions}%
+	\pgfmathloop%
+		\ifnum\pgfmathcounter>\pgfintersectionsolutions\relax%
+		\else%
+			\pgfutil@namelet{pgfpoint@intersect@solution@\pgfmathcounter}%
+				{pgfpoint@g@intersect@solution@\pgfmathcounter}%
+			\ifpgf@intersect@sort%
+				\pgfutil@namelet{pgf@intersect@solution@\pgfmathcounter @time@a}%
+					{pgf@g@intersect@solution@\pgfmathcounter @time@a}%
+			\fi%
+	\repeatpgfmathloop%
+	\ifpgf@intersect@sort%
+		\pgfintersectionsolutionsortbytime%
+	\fi%
 }
 
 \def\pgf@intersectionofpaths#1{%
@@ -140,6 +155,9 @@
 	\expandafter\pgf@intersectionofpaths\pgf@intersect@path@b\pgf@stop%
 	\let\pgfpoint@intersect@start=\pgfpoint@intersect@end@a%
 	\let\pgf@intersect@token@after=\pgf@intersect@path@process@a%
+	\c@pgf@counta=\pgf@intersect@time@offset\relax%
+	\advance\c@pgf@counta by1\relax%
+	\edef\pgf@intersect@time@offset{\the\c@pgf@counta}%
 	\pgf@intersectionofpaths%
 }
 
@@ -178,10 +196,10 @@
 }
 
 \def\pgf@intersect@curve@and@line{%
-	\pgf@intersectionoflineandcurve%
-		{\pgf@process{\pgfpoint@intersect@start@b}}{\pgf@process{\pgfpoint@intersect@end@b}}%
+	\pgf@intersectionofcurveandline%
 		{\pgf@process{\pgfpoint@intersect@start@a}}{\pgf@process{\pgfpoint@intersect@firstsupport@a}}%
 		{\pgf@process{\pgfpoint@intersect@secondsupport@a}}{\pgf@process{\pgfpoint@intersect@end@a}}%
+		{\pgf@process{\pgfpoint@intersect@start@b}}{\pgf@process{\pgfpoint@intersect@end@b}}%
 }
 
 \def\pgf@intersect@curve@and@curve{%
@@ -192,42 +210,40 @@
 		{\pgf@process{\pgfpoint@intersect@secondsupport@b}}{\pgf@process{\pgfpoint@intersect@end@b}}%
 }
 
-\def\pgf@intersect@generate@solution@transformed#1{%
-  \pgfextract@process\pgfpoint@intersect@temp{#1}%
-  \def\pgf@marshal{\expandafter\def\csname pgfpoint@intersect@solution@\the\pgfintersectionsolutions\endcsname}%
-  \expandfter\pgf@marshal\expandafter{%
-  	\expandafter\begingroup
-	  	\expandfter\pgftransforminvert%
-	  	\pgfpoint@intersect@temp\relax%
-	  	\pgfpos@transform{\pgf@x}{\pgf@y}%
-	  	\global\pgf@x=\pgf@x%
-	  	\global\pgf@y=\pgf@y%
-		\endgroup%
-	}%
-}%
-
-\def\pgf@intersect@generate@solution@normal#1{%
-	\expandafter\pgfextract@process%
-		\csname pgfpoint@intersect@solution@\the\pgfintersectionsolutions\endcsname{#1}%	
-}%
-
-\let\pgf@intersect@generate@solution=\pgf@intersect@generate@solution@transformed
-
-
 
 \def\pgfintersectionoflines#1#2#3#4{%
-	\pgfintersectionsolutions=0\relax%
+	\pgf@intersect@solutions=0\relax%
 	\pgf@intersectionoflines{#1}{#2}{#3}{#4}%
 }
 
 \def\pgf@intersectionoflines#1#2#3#4{%
 	\pgf@iflinesintersect{#1}{#2}{#3}{#4}%
 	{%
-		\advance\pgfintersectionsolutions by1\relax%
-			\expandafter\pgfextract@process\csname pgfpoint@intersect@solution@\the\pgfintersectionsolutions\endcsname{%
-				\pgfpointintersectionoflines{\pgfpoint@intersect@start@a}{\pgfpoint@intersect@end@a}%
-					{\pgfpoint@intersect@start@b}{\pgfpoint@intersect@end@b}%
+		\global\advance\pgf@intersect@solutions by1\relax%
+		\expandafter\pgfextract@process\csname pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions\endcsname{%
+			\pgfpointintersectionoflines{\pgfpoint@intersect@start@a}{\pgfpoint@intersect@end@a}%
+				{\pgfpoint@intersect@start@b}{\pgfpoint@intersect@end@b}%
+		}%
+		\ifpgf@intersect@sort%
+			\pgf@xc=\pgf@x%
+			\pgf@yc=\pgf@y%
+			\pgf@process{\pgfpointdiff{\pgfpoint@intersect@start@a}{\pgfpoint@intersect@end@a}}%
+			\edef\pgf@marshal{%
+				\noexpand\pgfmathveclen@{\pgfmath@tonumber{\pgf@xa}}{\pgfmath@tonumber{\pgf@ya}}%
 			}%
+			\pgf@marshal%
+			\let\pgf@intersect@length@a=\pgfmathresult%
+			\pgf@process{\pgfpointdiff{\pgfpoint@intersect@start@a}{\pgfqpoint{\pgf@xc}{\pgf@yc}}}%
+			\edef\pgf@marshal{%
+				\noexpand\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
+			}%
+			\pgf@marshal%
+			\pgfmathdivide@{\pgfmathresult}{\pgf@intersect@length@a}%
+			\pgf@x=\pgfmathresult pt\relax%
+			\advance\pgf@x by\pgf@intersect@time@offset pt\relax%		
+			\expandafter\xdef\csname pgf@g@intersect@solution@\the\pgf@intersect@solutions @time@a\endcsname%
+				{\pgfmath@tonumber{\pgf@x}}%
+		\fi%
 	}{}%		
 }
 
@@ -364,7 +380,7 @@
 
 
 \def\pgfintersectionoflineandcurve#1#2#3#4#5#6{%
-	\pgfintersectionsolutions=0\relax%
+	\pgf@intersect@solutions=0\relax%
 	\pgf@intersectionoflineandcurve{#1}{#2}{#3}{#4}{#5}{#6}%
 }
 
@@ -390,6 +406,28 @@
 		{\pgf@process{#6}}%
 }%
 
+\def\pgf@intersectionofcurveandline#1#2#3#4#5#6{%
+	\pgf@intersectionofcurves%
+		{\pgf@process{#1}}%
+		{\pgf@process{#2}}%
+		{\pgf@process{#3}}%
+		{\pgf@process{#4}}%
+		{\pgf@process{#5}}%
+		{%
+			\pgf@process{%
+				\pgfpointadd{#5\relax\pgf@x=0.666666\pgf@x\pgf@y=0.666666\pgf@y}%
+					{#6\relax\pgf@x=0.333333\pgf@x\pgf@y=0.333333\pgf@y}%
+			}%
+		}%
+		{%
+			\pgf@process{%
+				\pgfpointadd{#5\relax\pgf@x=0.333333\pgf@x\pgf@y=0.333333\pgf@y}%
+					{#6\relax\pgf@x=0.666666\pgf@x\pgf@y=0.666666\pgf@y}%
+			}%
+		}%
+		{\pgf@process{#6}}%
+}%
+
 
 
 
@@ -408,7 +446,7 @@
 % no solutions, the origin is returned.
 %
 \def\pgfpointintersectionofcurves#1#2#3#4#5#6#7#8#9{%
-	\pgfintersectionsolutions=0\relax%
+	\pgf@intersect@solutions=0\relax%
 	\pgf@intersectionofcurves%
 		{\pgf@process{#1}}{\pgf@process{#2}}{\pgf@process{#3}}{\pgf@process{#4}}%
 		{\pgf@process{#5}}{\pgf@process{#6}}{\pgf@process{#7}}{\pgf@process{#8}}%
@@ -423,7 +461,7 @@
 %
 % Returns:
 %
-% \pgfintersectionsolutions          - the number of solutions.
+% \pgf@intersect@solutions          - the number of solutions.
 %	\pgfpointintersectionsolution{<S>} - the point for soultion S.
 %
 % (Sort of) use:
@@ -449,15 +487,25 @@
 % where q is a small value (tolerance).
 %
 \def\pgfintersectionofcurves#1#2#3#4#5#6#7#8{%
-	\pgfintersectionsolutions=0\relax%
+	\pgf@intersect@solutions=0\relax%
 	\pgf@intersectionofcurves%
 		{\pgf@process{#1}}{\pgf@process{#2}}{\pgf@process{#3}}{\pgf@process{#4}}%
 		{\pgf@process{#5}}{\pgf@process{#6}}{\pgf@process{#7}}{\pgf@process{#8}}%
 }%
-
 \def\pgf@intersectionofcurves#1#2#3#4#5#6#7#8{%
-	\let\pgf@curve@subdivde@after=\pgf@@intersectionofcurves%
-	\pgf@@intersectionofcurves{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
+	\begingroup%
+		\dimendef\pgf@time@a=2\relax%
+		\dimendef\pgf@time@aa=4\relax%
+		\dimendef\pgf@time@b=6\relax%
+		\dimendef\pgf@time@bb=8\relax%
+		\pgf@time@a=0pt\relax%
+		\pgf@time@aa=1pt\relax%
+		\pgf@time@b=0pt\relax%
+		\pgf@time@bb=1pt\relax%
+		\let\pgf@intersect@subdivide@curve=\pgf@intersect@subdivide@curve@b%
+		\let\pgf@curve@subdivde@after=\pgf@@intersectionofcurves%
+		\pgf@@intersectionofcurves{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
+	\endgroup%
 }
 
 \def\pgf@@intersectionofcurves#1#2#3#4#5#6#7#8{%
@@ -516,15 +564,22 @@
 									}%
 									% We must avoid duplicate solutions.
 									\let\pgf@intersect@subdivde=\pgf@stop%
-									\pgf@ifsolution@duplicate\pgf@intersect@solution@candidate%
+									\pgf@ifsolution@duplicate\pgf@intersect@solution@candidate{}%
 									{%
-										%\let\pgf@intersect@subdivde=\pgf@stop%
-									}%
-									{%
-										\advance\pgfintersectionsolutions by1\relax%
-										\expandafter\pgfextract@process%
-											\csname pgfpoint@intersect@solution@\the\pgfintersectionsolutions\endcsname%
-												{\pgf@intersect@solution@candidate}%
+										\global\advance\pgf@intersect@solutions by1\relax%
+										\expandafter\global\expandafter\let%
+											\csname pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions\endcsname=%
+												\pgf@intersect@solution@candidate%
+										{%
+											\ifpgf@intersect@sort%
+												\advance\pgf@time@a by\pgf@time@aa%
+												\divide\pgf@time@a by2\relax%
+												\advance\pgf@time@a by\pgf@intersect@time@offset pt\relax%
+												\expandafter\xdef%
+												\csname pgf@g@intersect@solution@\the\pgf@intersect@solutions @time@a\endcsname%	
+													{\pgfmath@tonumber{\pgf@time@a}}%						
+											\fi%
+										}%		
 									}%
 								\fi%
 							\fi%
@@ -532,8 +587,7 @@
 					\fi%
 					\ifx\pgf@intersect@subdivde\pgf@stop%
 					\else%
-						\pgf@curve@subdivide@left{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
-						\pgf@curve@subdivide@right{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+						\pgf@intersect@subdivide@curve{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
 					\fi%
 				\fi%
 			\fi%
@@ -541,9 +595,34 @@
 	\fi%
 }
 
-\def\pgf@@@@intersectionoflineandcurve#1#2#3#4{%
-	\pgf@curve@subdivide@left{#1}{#2}{#3}{#4}%
-	\pgf@curve@subdivide@right{#1}{#2}{#3}{#4}%
+\def\pgf@intersect@subdivide@curve@b#1#2#3#4#5#6#7#8{%
+	\begingroup%
+		\advance\pgf@time@bb by\pgf@time@b\relax%
+		\divide\pgf@time@bb by2\relax%
+		\let\pgf@intersect@subdivide@curve=\pgf@intersect@subdivide@curve@a%
+		\pgf@curve@subdivide@left{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+	\endgroup%
+	\begingroup%
+		\advance\pgf@time@b by\pgf@time@bb\relax%
+		\divide\pgf@time@b by2\relax%
+		\let\pgf@intersect@subdivide@curve=\pgf@intersect@subdivide@curve@a%
+		\pgf@curve@subdivide@right{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+	\endgroup%
+}
+
+\def\pgf@intersect@subdivide@curve@a#1#2#3#4#5#6#7#8{%
+	\begingroup%
+		\advance\pgf@time@aa by\pgf@time@a\relax%
+		\divide\pgf@time@aa by2\relax%
+		\let\pgf@intersect@subdivide@curve=\pgf@intersect@subdivide@curve@b%
+		\pgf@curve@subdivide@left{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+	\endgroup%
+	\begingroup%
+		\advance\pgf@time@a by\pgf@time@aa\relax%
+		\divide\pgf@time@a by2\relax%
+		\let\pgf@intersect@subdivide@curve=\pgf@intersect@subdivide@curve@b%
+		\pgf@curve@subdivide@right{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+	\endgroup%
 }
 
 \def\pgf@intersect@boundingbox@reset{%
@@ -560,6 +639,7 @@
 	\ifdim\pgf@x>\pgf@xb\pgf@xb=\pgf@x\fi%
 	\ifdim\pgf@y>\pgf@yb\pgf@yb=\pgf@y\fi%
 }
+
 
 \def\pgf@curve@subdivide@left#1#2#3#4{%
 	%
@@ -632,9 +712,9 @@
 	\pgf@ya=\pgf@y%
 	\let\pgf@intersect@next=\pgfutil@secondoftwo%
 	\pgfmathloop%
-		\ifnum\pgfmathcounter>\pgfintersectionsolutions\relax%
+		\ifnum\pgfmathcounter>\pgf@intersect@solutions\relax%
 		\else%			
-			\pgf@process{\csname pgfpoint@intersect@solution@\pgfmathcounter\endcsname}%
+			\pgf@process{\csname pgfpoint@g@intersect@solution@\pgfmathcounter\endcsname}%
 			\advance\pgf@x by-\pgf@xa%
 			\advance\pgf@y by-\pgf@ya%
 			\ifdim\pgf@x<0pt\relax\pgf@x=-\pgf@x\fi%
@@ -652,61 +732,36 @@
 }
 
 
-% Sort solutions according to their distance from a specified
-% reference point.
-%
-% #1 - the reference point.
-%
-\def\pgfintersectionsolutionsortbydistance#1{%
-	\pgf@intersect@solutions@sort{#1}%
-}
-% A crude sorting algorithm to sort solutions according
-% to their distance from a specified reference point.
-%
-% #1 - the reference point.
-%
 \newif\ifpgf@intersect@solutions@sortfinish
-\def\pgf@intersect@solutions@sort#1{%
-	\ifnum\pgfintersectionsolutions<2\relax%
-	\else%
-		\pgfmathloop%
-			\ifnum\pgfmathcounter>\pgfintersectionsolutions\relax%
-			\else%
-				\pgfpointdiff{#1}{\csname pgfpoint@intersect@solution@\pgfmathcounter\endcsname}%
-				\pgfmathveclen@{\pgfmath@tonumber{\pgf@x}}{\pgfmath@tonumber{\pgf@y}}%
-				\pgfutil@namelet{pgf@intersect@solution@\pgfmathcounter @distance}{pgfmathresult}%
-		\repeatpgfmathloop%
-		\pgf@intersect@solution@@sort%	
-	\fi%		
-}
 
-\def\pgf@intersect@solution@@sort{%	
+% Sort solutions according to their time index.
+%
+\def\pgfintersectionsolutionsortbytime{%
 	\pgf@intersect@solutions@sortfinishtrue%
 	\pgfmathloop%
-		\ifnum\pgfmathcounter=\pgfintersectionsolutions%
+		\ifnum\pgfmathcounter=\pgfintersectionsolutions\relax%
 		\else%
 			\pgfutil@tempcnta=\pgfmathcounter%
 			\advance\pgfutil@tempcnta by1\relax%
-			\ifdim\csname pgf@intersect@solution@\pgfmathcounter @distance\endcsname pt>%
-				\csname pgf@intersect@solution@\the\pgfutil@tempcnta @distance\endcsname pt\relax%
+			\ifdim\csname pgf@intersect@solution@\pgfmathcounter @time@a\endcsname pt>%
+				\csname pgf@intersect@solution@\the\pgfutil@tempcnta @time@a\endcsname pt\relax%
 				\pgf@intersect@solutions@sortfinishfalse%
-				\pgf@intersect@solution@swap{\pgfmathcounter}{\the\pgfutil@tempcnta}%
+				%
+				\pgfutil@namelet{pgf@intersect@temp}{pgfpoint@intersect@solution@\pgfmathcounter}%
+				\pgfutil@namelet{pgfpoint@intersect@solution@\pgfmathcounter}%
+					{pgfpoint@intersect@solution@\the\pgfutil@tempcnta}%
+				\pgfutil@namelet{pgfpoint@intersect@solution@\the\pgfutil@tempcnta}{pgf@intersect@temp}%
+				%
+				\pgfutil@namelet{pgf@intersect@temp}{pgf@intersect@solution@\pgfmathcounter @time@a}%
+				\pgfutil@namelet{pgf@intersect@solution@\pgfmathcounter @time@a}%
+					{pgf@intersect@solution@\the\pgfutil@tempcnta @time@a}%
+				\pgfutil@namelet{pgf@intersect@solution@\the\pgfutil@tempcnta @time@a}{pgf@intersect@temp}%
 			\fi%
 	\repeatpgfmathloop%
-	\ifpgf@intersect@solutions@sortfinish
+	\ifpgf@intersect@solutions@sortfinish%
 	\else%
-		\expandafter\pgf@intersect@solution@@sort%
+		\expandafter\pgfintersectionsolutionsortbytime%
 	\fi%
-}
-
-\def\pgf@intersect@solution@swap#1#2{%
-	\pgfutil@namelet{pgf@intersect@temp}{pgfpoint@intersect@solution@#1}%
-	\pgfutil@namelet{pgfpoint@intersect@solution@#1}{pgfpoint@intersect@solution@#2}%
-	\pgfutil@namelet{pgfpoint@intersect@solution@#2}{pgf@intersect@temp}%
-	%
-	\pgfutil@namelet{pgf@intersect@temp}{pgf@intersect@solution@#1@distance}%
-	\pgfutil@namelet{pgf@intersect@solution@#1@distance}{pgf@intersect@solution@#2@distance}%
-	\pgfutil@namelet{pgf@intersect@solution@#2@distance}{pgf@intersect@temp}%
 }
 
 \endinput
