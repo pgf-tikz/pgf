@@ -341,6 +341,17 @@
 
 
 
+%
+% Special path constructions commands
+%
+%
+% The following commands are used to construct paths based on
+% datapoints.
+%
+% The moveto-command is easy: It simply causes a moveto to the
+% position of the current datapoint (which is virtual). 
+
+
 
 
 %
@@ -692,6 +703,53 @@
   \pgfkeysgetvalue{/pgf/data/column 8}\pgf@dv@colh%
 }
 
+
+% Semicolon separated columns
+%
+% Description:
+%
+% Like comma separated columns, only with a semicolon as separator
+
+\pgfdeclaredataformat{semicolon separated columns}{}{\pgf@dv@separated@get}{#1}
+{\pgf@dv@scsc#1;;;;;;;;;\pgfeol}{}{}
+
+\def\pgf@dv@scsc#1;#2;#3;#4;#5;#6;#7;#8;#9\pgfeol{%
+  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
+  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
+  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
+  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
+  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
+  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
+  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
+  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
+  \pgfdatapoint%
+}
+
+
+% Colon separated columns
+%
+% Description:
+%
+% Like comma separated columns, only with a colon as separator
+
+\pgfdeclaredataformat{colon separated columns}{}{\pgf@dv@separated@get}{#1}
+{\pgf@dv@scsc#1:::::::::\pgfeol}{}{}
+
+\def\pgf@dv@scsc#1:#2:#3:#4:#5:#6:#7:#8:#9\pgfeol{%
+  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
+  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
+  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
+  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
+  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
+  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
+  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
+  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
+  \pgfdatapoint%
+}
+
+
+
+
 % Space separated columns
 %
 % Description:
@@ -781,11 +839,11 @@
   % different from 0), no transformation is done at all.
 
   \attribute origin = \pgfpointorigin;
-  %   The shift in case the /data point/this.attribute is 0.
+  % The shift in case the /data point/this.attribute is 0.
 
   \attribute unit vector;
-  %   The coordinate system is additionally shifted by this amount
-  %   times the current value of /data point/this.attribute.
+  % The coordinate system is additionally shifted by this amount
+  % times the current value of /data point/this.attribute.
 
   
   % Constructor
@@ -813,7 +871,11 @@
     \pgfoolet{origin}\pgf@temp%
   }
 
-  % Slot 
+  % Slot
+  %
+  % This slot should be connected to the transform datapoint
+  % signal. When this signal is emitted, the coordinate system will be
+  % shifted according to the current value of the attribute.
   \method transform() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
     \ifx\pgf@dv@val\pgfutil@empty%
@@ -825,6 +887,28 @@
       \fi%
     \fi%
   }
+
+  % Shifts the coordinate system by the given amount
+  %
+  % This command will offset the coordinate system by the given
+  % dimension in the direction of the unit vector.
+  \method shift(#1) {
+    \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+    \pgfmathparse{#1}
+    \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@x}{\pgfmathresult\pgf@y}}
+  }
+  
+  % Shifts the coordinate system by the given amount orthogonally
+  %
+  % This command will offset the coordinate system by the given
+  % dimension orthogonally to the direction of the unit vector.
+  \method shift orthogonally(#1) {
+    \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+    \pgfmathparse{#1}
+    \pgf@x=-\pgf@x
+    \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@y}{\pgfmathresult\pgf@x}}
+  }
+  
 }
 
 
@@ -1074,19 +1158,43 @@
 
 \pgfooclass{range surveyor}
 {
-  \attribute attribute;
-  \attribute interval obj;
+  % Class range surveyor
+  %
+  % A range surveyor is used only in the survey phase. Its job is to
+  % determine the minimum and maximum values of an attribute that are
+  % "seen" during the survey phase. Based on this value, the size of,
+  % say, an axis can be detemined later on.
 
+  \attribute attribute;
+  % The to-be-surveyed attribute
+
+  \attribute interval obj;
+  % The interval object that protocols the minimum and maximum
+  % values. 
+
+
+  % Constructor
+  %
+  % #1 = the attribute
+  % #2 = handle to the interval object
+  %
   \method range surveyor(#1,#2) {
     \pgfooset{attribute}{#1}
     \pgfoolet{interval obj}#2
   }
 
+  % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,survey,survey datapoint signal)
   }
 
+  % Slot
+  %
+  % This slot should be connected to the survey datapoint signal. For
+  % each datapoint, this method will call the adjust method of the
+  % interval.
+  %
   \method survey() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
     \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
@@ -1122,31 +1230,63 @@
 
 
 
+
 %
 % Help class: Interval
 %
 
 \pgfooclass{interval}
 {
+  % Class interval
+  %
+  % Instances of this class store intervals. When either the min or
+  % the max value is empty, this corresponds to "not yet set", (not to
+  % "infinity). 
+
   \attribute min;
+  % The minimum value of the interval
+  
   \attribute max;
-    
+  % The maximum value of the interval
+
+  % Constructor
+  %
+  % #1 = initial minimum value
+  % #2 = initial maximum value
+  %
   \method interval(#1,#2) {
     \pgfooset{min}{#1}
     \pgfooset{max}{#2}
   }
 
+  % Method
   \method default connects() {
   }
 
+  % Sets the minimum/maximum to a new value
   \method set min(#1) {
     \pgfooset{min}{#1}
-  }
-  
+  }  
   \method set max(#1) {
     \pgfooset{max}{#1}
   }
 
+  % Returns the current values of the minimum and maximum in the
+  % macros \pgfdvmin and \pgfdvmax.
+  \method get min and max() {
+    \pgfooget{min}\pgfdvmin
+    \pgfooget{max}\pgfdvmax
+  }
+
+  % Adjusts the mimum and maximum values
+  %
+  % #1 = some code. When this code is executed, the values of
+  %      \pgfdvmin and \pgfdvmax will be set to the current values of
+  %      the minimum/maximum. The code may change these values. The
+  %      changed values will then be stored.
+  %
+  % This method does nothing that cannot be achieved also by calling
+  % set/get methods, but it is easier to use and faster.
   \method adjust(#1) {
     {%
       \pgfooget{min}\pgfdvmin
@@ -1156,12 +1296,27 @@
       \pgfoolet{max}\pgfdvmax
     }%
   }
-  
-  \method get min and max() {
-    \pgfooget{min}\pgfdvmin
-    \pgfooget{max}\pgfdvmax
-  }
 
+  % Returns an interval that is "adjusted" according to given values
+  %
+  % Description:
+  %
+  % Returns the interval minimum and maximum, but adjusted in the
+  % following ways: First, you can specify additional absolute
+  % offsets, which will simply be added to the
+  % minimum/maximum. Second, you can specify additional relative
+  % offsets, which are expressed as multiples of the difference
+  % between maximum and minimum. For instance, a relative maximum
+  % offset of 0.1 means that the returned value will be the maximum
+  % plus 10% of the difference between maximum and minimum.
+  %
+  % #1 = absolute minimum adjustment (typically negative, may be empty)
+  % #2 = relative minimum adjustment (typically negative, may be empty)
+  % #3 = absolute maximum adjustment (may be empty)
+  % #4 = relative maximum adjustment (may be empty)
+  %
+  % The adjusted minimum and maximum valued are stored in \pgfdvmin
+  % and \pgfdvmax.
   \method get adjusted interval(#1,#2,#3,#4) {
     \pgfooget{min}\pgfdvmin
     \pgfooget{max}\pgfdvmax
@@ -1201,6 +1356,7 @@
     \fi%
   }
 }
+
 
 
 \pgfooclass{count}
@@ -1304,9 +1460,10 @@
 }
 
 
-%
-% Axes
-%
+
+
+
+
 
 % \pgfooclass{straight axis visualizer}
 % {
