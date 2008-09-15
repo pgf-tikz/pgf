@@ -28,26 +28,103 @@
 
 \newcount\pgf@sys@svg@picnum
 
+%%
+%% initial support of Mathml and xhtml inside svg through the svg:foreignelement tag
+%%
+%% it'll allow us to have complicated text nodes in the tex4ht driver
+%%
 
-\def\pgfsys@beginpicture{%
-  \Configure{[]}{$}{$}
-  \Configure{()}{$}{$}
-  \Configure{$$}{}{}{}%$$
-  \Configure{$}{}{}{}%$
-  \Configure{SUB}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
-  \Configure{SUP}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
-  \Configure{SUBSUP}{}{}{}
-  \Configure{htf} 
-    {0}{+}{<tspan font-family="}
-    {\%s}{" font-size="\%s}{}{}
-    {">}{</tspan>}
-}
+
+%Example  (to improve the display, you have to use css)
+%
+%\tikzpicture[text only=false]
+%\draw (0,0) node[inner sep=0pt,draw] {tight}
+%(0cm,2em) node[inner sep=5pt,draw] {loose}
+%(0cm,4em) node[fill=red!20] {default};
+%\draw (3,0) node[inner sep=0pt,draw] {TIGHT}
+%(3cm,2em) node[inner sep=5pt,draw] {LOOSE}
+%(3cm,4em) node[fill=red!20] {DEFAULT};
+%\draw (6,0) node[inner sep=0pt,draw] {$tight$}
+%(6cm,2em) node[inner sep=5pt,draw] {$loose$}
+%(6cm,4em) node[fill=red!20] {$default$};
+%\draw (9,0) node[inner sep=0pt,draw] {$TIGHT$}
+%(9cm,2em) node[inner sep=5pt,draw] {$LOOSE$}
+%(9cm,4em) node[fill=red!20] {$Default$};
+%\endtikzpicture
+%
+% you can use the options "css=filename", "id=idname", "class=classname" to customize the display through the use of css
+%
+
+
+
+
+
+
+
+%\def\pgfsys@beginpicture{%
+% % \Configure{[]}{$}{$}   these two lines aren't needed for tex4ht and moreother they produce errors with plain tex !
+% % \Configure{()}{$}{$}
+% \Configure{$$}{}{}{}%$$
+% \Configure{$}{}{}{}%$
+%  \Configure{SUB}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
+%  \Configure{SUP}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
+%  \Configure{SUBSUP}{}{}{}
+%  \Configure{htf} 
+%    {0}{+}{<tspan font-family="}
+%    {\%s}{" font-size="\%s}{}{}
+%    {">}{</tspan>}
+%}
+
+
+
+%\def\pgfsys@endpicture{%
+%  % undo:
+%  \Configure{htf}{0}{+}{<span\Hnewline
+%     class="}{\%s}{-\%s}{x-x-\%d}{}{">}{</span>}
+%}
+
+% we don't want tex4ht putting <p> and </p> tags automatically in our svg code and causing invalid xhtml in our svg pictures
+\newif\ifpgfsys@CssIncluded@\pgfsys@CssIncluded@false
+\def\pgfsys@beginpicture{% 
+	\EndP\HtmlParOff
+	\pgfkeys{/tikz/text only=true}%  text only nodes are the default. Advantage : pure svg pictures are the default, nicer for text only nodes. 
+	% Disadvantages : this rendering methods produce more invalid or degraded svg pictures than with the foreignelement tag
+  %% we use css to control the display of foreignelement rendered text nodes
+  	\ifpgfsys@CssIncluded@
+	\else
+  		\Css{
+			.foreignobject {%
+				line-height:100\%;
+				font-size:100\%; % this is the trick....a font of size 100% in a box scaled down to half size makes it a half size font.
+% you'll have to double the size of things that you want to have a regular size in this half-scaled box though 
+	 			font-family:STIXgeneral,Times,Symbol,cmr10,CMSY10,CMEX10;% can't wait for the stix font...the cmr10, etc font are available from the mozilla site, times and symbols should be okey
+				padding:0;
+				margin:0;
+%				background-color:\#12ff55;  usefull for debugging positioning
+				text-align:center; % good for centered text nodes...will have to improve that later on...with more integration with tikz options for text nodes
+			}
+		}%
+		\Css{%
+			math {%, math[mode="inline"] {
+				vertical-align:baseline;
+				line-height:100\%;
+				font-size:100\%;
+				font-family:STIXGeneral,Times,Symbol, cmr10,cmsy10,cmex10,cmmi10;
+				font-style: normal;
+				margin:0;
+%				background-color:\#99ff99;
+				padding:0;
+			}%
+		}%
+		\pgfsys@CssIncluded@true
+	\fi
+}%
+
 \def\pgfsys@endpicture{%
-  % undo:
-  \Configure{htf}{0}{+}{<span\Hnewline
-     class="}{\%s}{-\%s}{x-x-\%d}{}{">}{</span>}
-}
- 
+	\HtmlParOn\Par
+}%
+
+% this is okey for both rendering methods for text nodes (mtext or foreignelement)...
 \def\pgfsys@typesetpicturebox#1{%
   \global\advance\pgf@sys@svg@picnum by 1\relax%
   % Ok, compute width/height
@@ -81,6 +158,13 @@
   \pgfsysprotocol@flushcurrentprotocol%
   \pgfsys@invoke{" type="image/svg+xml"><p>SVG-Viewer needed.</p></object>}%
   \special{t4ht>\jobname-\the\pgf@sys@svg@picnum.svg}%
+%%%%%%%% This is necessary to control the svg through css
+	\pgfkeys{%
+		/tikz/text css/.get=\pgfsys@foreignobject@css,%
+	}%
+   \pgfsys@invoke{<?xml version="1.0" encoding="iso-8859-1" standalone="no"?>\Hnewline% added that
+  <?xml-stylesheet href="\pgfsys@foreignobject@css.css" type="text/css"?>\Hnewline}% added that 
+%%%%%%%%%%%%%%% maybee I should add an option to change the css, for the whole picture
   \pgfsys@invoke{<svg xmlns="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink" width="\the\pgf@xc"
     height="\the\pgf@yc" viewBox="}%
@@ -103,8 +187,9 @@
   \leavevmode\raise-\pgf@x\box#1%
   \pgfsys@invoke{</g>\Hnewline </svg>\Hnewline }%
   \special{t4ht<\jobname-\the\pgf@sys@svg@picnum.svg}%
-}
+}%
 
+%% we'll use this hbox for the mtext rendering method (the "text only=true" option)
 \def\pgfsys@hbox#1{%
   \pgf@x=.5\wd#1%
   \ifx\tikz@textcolor\relax%
@@ -130,7 +215,169 @@
     \dp#1=0pt%
     \box#1
   \HCode{</text>\Hnewline }%
-}
+}%
+
+%% we save this definition
+\let\pgfsys@mtext@hbox\pgfsys@hbox
+
+%% we have to use some "evil" ^^ tex4ht hackery
+% tex4ht hackery
+{% grouping necessary cause we change the catcode of ":"
+	\catcode`:=11\relax
+	%%% this is necessary to calculate the size of text nodes with inline maths 
+	% (it is an improvement of tex4ht, got to ask eitan gurary if he could put it in the tex4ht code)
+	\gdef\DviMathAlt{%
+		\a:DviMath\leavevmode \MathClass \ht:special{t4ht@(}\hbox\bgroup{\expandafter\ifx\csname ht:everypar\endcsname\relax\expandafter\everypar\else \expandafter\ht:everypar\fi{}\leavevmode\ht:special{t4ht@)}}\DviSend
+	}%
+%     these are configures for the foreignelement rendering method of text nodes : we let tex4ht write xhtml and mathml in the svg picture
+%
+	\gdef\pgfsys@foreignobject@configure{%
+		\Configure{$}{\Configure{@math}{%\a:mathml
+	 		display="inline" }\DviMathAlt}{\EndDviMath}{}%%% we REALLY need to use \DviMathAlt here instead of \DviMath see above remark
+		\Configure{$$}{\Configure{@math}{%\a:mathml
+			display="block" }\IgnorePar
+			\ifvmode\else \HCode{<!--tex4ht:inline-->}\fi\EndP
+			 \DviMath}{\EndDviMath\ShowPar\par{\csname HCondtrue\endcsname\noindent}
+		 	}{\DisplayMathtrue}%
+		\Configure{SUB}{\Send{BACK}{<\a:mathml msub><\a:mathml mrow\Hnewline>}%
+			\Tg</\a:mathml mrow>\Tg<\a:mathml mrow\Hnewline>\trap:base}{\Tg</\a:mathml mrow>\TG</\a:mathml msub\Hnewline>}%
+		\Configure{SUP}{\Send{BACK}{<\a:mathml msup><\a:mathml mrow\Hnewline>}%
+			\Tg</\a:mathml mrow>\Tg<\a:mathml mrow\Hnewline>\trap:base}{\Tg</\a:mathml mrow>\TG</\a:mathml msup\Hnewline>}%
+		\Configure{SUBSUP}{\Send{BACK}{<\a:mathml msubsup><\a:mathml mrow\Hnewline>}%
+			\Tg</\a:mathml mrow>\Tg<\a:mathml mrow\Hnewline>\trap:base}{\Tg</\a:mathml mrow>\Tg<\a:mathml mrow\Hnewline>\trap:base}{\Tg</\a:mathml mrow>\TG</\a:mathml msubsup\Hnewline>}%
+		\Configure{htf}{0}{+}{<span\Hnewline
+		     class="}{\%s}{-\%s}{x-x-\%d}{}{">}{</span>}%
+	}%
+% these are the configures for the mtext rendering method of text nodes : we turn everything into regular character (don't want math modes or subsup)
+% and we hope it works (it doesn't if the text nodes aren't simple)
+	\gdef\pgfsys@mtext@configure{%
+		% no configures for \(\) and \[\] those might be needed for context or Latex. Let me know !
+		\Configure{$$}{}{}{}% no block maths
+		\Configure{$}{}{}{}%$ no inline maths
+		\Configure{SUB}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}%
+		\Configure{SUP}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}%
+		\Configure{SUBSUP}{}{}{}% not both sub and sup
+		\Configure{htf} {0}{+}{<tspan font-family="}{\%s}{" font-size="\%s}{}{}{">}{</tspan>}%
+	}%
+}%
+
+% a counter to produce unique ids for each text node rendered with foreign element
+\newcount\pgf@sys@svg@nodenum
+
+
+% pgfutil@minipage
+%
+%  I had to change it to make it play nice with the way tex4ht puts <p> and <\p> tags 
+%
+
+\newif\ifpgfsys@textonly
+\def\pgfutil@minipage[#1]#2{%
+  \hbox to#2\bgroup
+    \hsize=#2\relax
+    \vbox\bgroup    
+% though it works, I'm desabling the above mentioned hack to make tex4ht behave with <p> <\p>, because it blurps the positioning 
+% (I''l try to fix that later, it's a css thing)
+%
+%    \ifpgfsys@textonly\else\HtmlParOn\fi
+%
+% \noindent is better as it doesn't produce indentation AND it makes you leave vertical mode
+    \noindent%\leavevmode 
+}%
+\def\pgfutil@endminipage{%
+%  same thing here
+%
+%	\ifpgfsys@textonly\else\EndP\HtmlParOff\fi
+	\egroup\egroup
+}%
+
+
+% I'll have to fix those names later
+\newbox\pgfsys@foreignobject@Box
+\newdimen\pgf@s
+\newdimen\pgf@t
+% this is the alternate hbox routine that renders text nodes through the foreignobject tag 
+\def\pgfsys@foreignobject@hbox#1{%
+	% Compute box y translation  (x translation is correct).
+	\pgf@y=-\ht#1\relax
+	\HCode{<g transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
+	scale(0.5,0.5)">\Hnewline}% scaling work around (damn dumb browsers !)
+	% Compute box size (scaled 2 times)
+	% this is necessary to make the browser scale the font down 50% (the STUPID browsers won't make font-size:50% happen, 
+	% so we have to work around this by making svg scale the things down 50%, doubling the size of the text node frame (i.e. no changement there)
+	\pgf@x=2\wd#1\relax
+	\pgf@y=2\ht#1\relax
+	\advance\pgf@y by 2\dp#1\relax
+	% this is to adjust the y translation to compensate for the differences between the TeX and the Html models for lines
+	\setbox\pgfsys@foreignobject@Box=\hbox{abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+	$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZf_1^1\overline D)_1^1\vec i\vec j$}%
+	\pgf@t=\ht#1\relax
+	\advance\pgf@t by -\ht\pgfsys@foreignobject@Box\relax
+	\pgf@s=\pgf@t\relax
+	\advance\pgf@s by \dp#1\relax
+	\advance\pgf@s by -\dp\pgfsys@foreignobject@Box\relax
+	\ifnum\pgf@s>0\relax
+		\pgf@s=0pt
+		\pgf@t=0pt
+	\else
+		\advance \pgf@y by -2\pgf@s\relax
+		\pgf@t=2\pgf@t\relax	
+	\fi
+	%
+	\HCode{<foreignObject x="0" y="\pgf@sys@tonumber{\pgf@t}"
+	width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}">}%
+	% this is to make use of the css, class and id options through which you can control the way things display
+	\pgfkeys{%
+		/tikz/text css/.get=\pgfsys@foreignobject@css,%
+		/tikz/text class/.get=\pgfsys@foreignobject@class,%
+		/tikz/text id/.get=\pgfsys@foreignobject@id
+	}%
+	\HCode{<head>\Hnewline
+		<link rel="stylesheet" type="text/css" href="\pgfsys@foreignobject@css.css" />\Hnewline
+		</head>\Hnewline
+% I'll have to look into this, perhaps there are better doctype....&nbsp; aren't recognised and produces invalid svg pictures
+% a workaround (not implemented yet) would be to make them into entities of the svg picture.
+		<body id="\pgfsys@foreignobject@id" class="\pgfsys@foreignobject@class" xmlns="http://www.w3.org/1999/xhtml" >\Hnewline
+		<div>\Hnewline
+	}%
+	\box#1%
+	\HCode{%
+		</div>\Hnewline
+		</body>\Hnewline
+		</foreignObject>\Hnewline
+	}%
+%		debug positioning not needed but it would be nice to let it there to control things later on
+%		\HCode{<rect x="0" y="0" width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}" 
+%		style="fill:yellow;stroke:red; fill-opacity:0.5;stroke-opacity:0.5"/>}
+	\HCode{</g>\Hnewline}%
+		\global\advance\pgf@sys@svg@nodenum by 1\relax	
+}%
+
+% the options and the code that controls it all (switches between \pgfsys@mtext@hbox and \pgfsys@foreignelement@hbox)
+
+\pgfkeys{%
+	/tikz/.cd,
+	text only/.is choice,
+	text only/true/.code={\let\pgfsys@hbox\pgfsys@mtext@hbox\pgfsys@mtext@configure\pgfsys@textonlytrue},
+	text only/false/.code={\let\pgfsys@hbox\pgfsys@foreignobject@hbox\pgfsys@foreignobject@configure\pgfsys@textonlyfalse},
+	text css/.initial=\jobname,
+	text class/.initial=foreignobject,
+	text id/.initial=\jobname\the\pgf@sys@svg@picnum-\the\pgf@sys@svg@nodenum
+}%
+
+
+
+
+
+
+% this might be needed 
+%\font\SvgText=cmr10\relax
+
+
+
+
+% There is something rellay wrong with the way "%" chars are used in here... you should code "}%" to avoid unnecessary spaces
+% and it is unnecessary to code \cs%
+% got to be carefull with numbers though, cf the texbook...2\relax and 2 % are okey
 
 \def\pgfsys@outerinvoke{\ifpgfpicture\expandafter\pgfsys@invoke\else\expandafter\pgfutil@gobble\fi}
 
@@ -182,8 +429,9 @@
   \let\pgf@texht@undeclaredcolor=\@undeclaredcolor
   \def\@declaredcolor{\ifpgfpicture\expandafter\pgf@xcolor@declaredcolor\else\expandafter\pgf@texht@declaredcolor\fi}
   \def\@undeclaredcolor{\ifpgfpicture\expandafter\pgf@xcolor@undeclaredcolor\else\expandafter\pgf@texht@undeclaredcolor\fi}
-  \ConfigureEnv{pgfpicture}{}{}{}{}
-}
+  %\ConfigureEnv{pgfpicture}{}{}{}{} there is no environment in plain TeX and this produces errors
+  % this might be needed for context or latex though....let me know !
+}%
 
 \endinput
 
