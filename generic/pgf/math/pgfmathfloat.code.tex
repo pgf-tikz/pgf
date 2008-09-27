@@ -90,7 +90,7 @@
 \def\pgfmathfloatparsenumber#1{%
 	\begingroup
 	\edef\pgfmathresult{#1}%
-	\expandafter\pgfmathfloatparsenumber@impl\pgfmathresult\pgfmathfloat@EOI
+	\expandafter\pgfflt@impl\pgfmathresult\pgfmathfloat@EOI
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
@@ -103,9 +103,8 @@
 % The same as \pgfmathfloatparsenumber, but does not perform sanity checking.
 \def\pgfmathfloatqparsenumber#1{%
 	\begingroup
-	\let\pgfmathfloatparsenumber@sanitize@digit=\relax
 	\edef\pgfmathresult{#1}%
-	\expandafter\pgfmathfloatparsenumber@impl\pgfmathresult\pgfmathfloat@EOI
+	\expandafter\pgfflt@impl\pgfmathresult\pgfmathfloat@EOI
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
@@ -304,6 +303,9 @@
 \def\pgfmathfloattoextentedprecision@@two#1.#2#3#4\pgfmathfloat@EOI{%
 	\edef\pgfmathresult{#1#2#3.#4}%
 }%
+\def\pgfmathfloattoextentedprecision@@three#1.#2#3#4#5\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2#3#4.#5}%
+}%
 
 % Sets extended precision to 10^#1.
 %
@@ -313,7 +315,7 @@
 % The case 10^1 means they are normalised to 10 <= m < 100 and 10^0
 % deactivates extended precision.
 %
-% #1 is the exponent, #1 = 0,1 or 2.
+% #1 is the exponent, #1 = 0,1,2 or 3.
 %
 % This setting applies to \pgfmathfloattoextentedprecision.
 \def\pgfmathfloatsetextprecision#1{%
@@ -323,9 +325,12 @@
 	\or
 		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@one
 		\def\pgfmathfloatextprec@shift{1}%
-	\else
+	\or
 		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@two
 		\def\pgfmathfloatextprec@shift{2}%
+	\else
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@three
+		\def\pgfmathfloatextprec@shift{3}%
 	\fi
 }%
 \pgfmathfloatsetextprecision{2}%
@@ -338,7 +343,7 @@
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 	\ifnum\pgfmathfloat@a@S<3
 		\advance\pgfmathfloat@a@E by-\pgfmathfloatextprec@shift\relax% compensate for shift
-		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
+		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 000\pgfmathfloat@EOI
 	\else
 		\edef\pgfmathresult{#1}%
 	\fi
@@ -783,35 +788,9 @@
 }
 \let\pgfmathfloatshift=\pgfmathfloatshift@
 
-% Computes a good guess for log(X.XXXX) where the input number should
-% be between 0 < x < 10.
-%
-% If it is not in this range, the returned value will be bad.
-%
-% For use in the newton implementation of log(x). Please note that we
-% first compute a normalized floating point representation of x, and
-% the mantisse is always between 0 and 10.
-\def\pgfmathlog@smaller@ten@newton@startval#1.#2\to#3{%
-	\ifcase#1
-	\pgfmath@error{pgfmathlog@newton: INTERNAL ERROR: should not happen! 
-		[\#1=0 should have been caught before!]}%
-	\or#3=0.530628pt
-	\or#3=0.993pt
-	\or#3=1.308pt
-	\or#3=1.5pt
-	\or#3=1.71pt
-	\or#3=1.872pt
-	\or#3=2.01pt
-	\or#3=2.145pt
-	\or#3=2.24pt
-	\else#3=2.30pt
-	\fi
-}
-
-% FIXME : eliminate \pgfmathlog@invoke@expanded ?
-
 % Expands #2 using \edef and invokes #1 with the resulting string.
 %
+% DEPRECATED
 % Example:
 %   \pgfmath@y=7.9pt
 %   \pgfmathlog@invoke@expanded\pgfmathexp@{{\pgf@sys@tonumber{\pgfmath@y}}}%
@@ -822,36 +801,26 @@
 	\expandafter#1\pgfmath@resulttemp
 }
 
-% This implementation of log(X) is done with a newton method applied to x-exp(y) = 0.
-% The implementation \pgfmathexp is used for exp(y).
+% Computes log(x) into \pgfmathresult.
 %
-% see \pgfmathlog@
-\def\pgfmathlog@newton#1{%
+% This allows numbers such at 10000000 or 5.23e-10 to be represented
+% properly, although TeX-registers would produce overflow/underflow
+% errors in these cases. 
+%
+% The natural logarithm is computed using log(X*10^Y) = log(X) + log(10)*Y
+\def\pgfmathlog@#1{%
 	\pgfmathfloatparsenumber{#1}%
-	\pgfmathlog@newton@float{\pgfmathresult}%
+	\pgfmathlog@float{\pgfmathresult}%
 }
-
-% the same as \pgfmathlog@newton, but this one takes a floating point number as input.
-\def\pgfmathlog@newton@float#1{%
+\let\pgfmathlog=\pgfmathlog@
+\def\pgfmathlog@float#1{%
 	\begingroup%
 		% compute #1 = M*10^E with normalised mantisse M = [+-]*[1-9].XXXXX
-		\expandafter\pgfmathfloat@decompose#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@M\pgfmathfloat@a@E
-		\let\pgfmathlog@loopcount=\pgfmathfloat@b@S% this counter is not used here... use it as loop counter.
-		%
+		\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 		\ifnum\pgfmathfloat@a@S=1
-		% Now, compute log(#1) = log(M) + E*log(10)
-			\expandafter\pgfmathlog@smaller@ten@newton@startval\the\pgfmathfloat@a@M.\to\pgfmathfloat@b@M
-			\pgfmathlog@loopcount=0
-			\pgfutil@loop
-			\ifnum\pgfmathlog@loopcount<3
-				\pgfmathlog@invoke@expanded\pgfmathexp@{{\pgf@sys@tonumber{\pgfmathfloat@b@M}}}%
-				\let\pgfmathlog@tmp=\pgfmathresult
-				\pgfmathlog@invoke@expanded\pgfmathdivide@{{\pgf@sys@tonumber{\pgfmathfloat@a@M}}{\pgfmathlog@tmp}}%
-				\expandafter\pgfmath@ya\pgfmathresult pt
-				\advance\pgfmathfloat@b@M by\pgfmath@ya
-				\advance\pgfmathfloat@b@M by-1pt
-				\advance\pgfmathlog@loopcount by1
-			\pgfutil@repeat
+			% Now, compute log(#1) = log(M) + E*log(10)
+			\expandafter\pgfmathln@\expandafter{\the\pgfmathfloat@a@Mtok}%
+			\pgfmathfloat@b@M=\pgfmathresult pt%
 			\pgfmathfloat@a@M=2.302585pt% = log(10)
 			\multiply\pgfmathfloat@a@M by\pgfmathfloat@a@E\relax
 			\advance\pgfmathfloat@b@M by\pgfmathfloat@a@M
@@ -862,29 +831,6 @@
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup%
 }
-
-% Computes log(x) into \pgfmathresult.
-%
-% REMARK
-% This method does NOT use TeX Registers to represent the numbers! The
-% computation is COMPLETELY STRING BASED.
-% This allows numbers such at 10000000 or 5.23e-10 to be represented
-% properly, although TeX-registers would produce overflow/underflow
-% errors in these cases. 
-%
-% The natural logarithm is computed using log(X*10^Y) = log(X) + log(10)*Y
-\let\pgfmathlog@=\pgfmathlog@newton
-
-\let\pgfmathlog@float=\pgfmathlog@newton@float
-
-% Public interface method. This is expected to use \pgfmathparse but
-% it DOESN'T do that. \pgfmathparse naturally can't handle numbers
-% which exceed TeX's numerical capabilities. However, exponentials are
-% typically either too large or too small for TeX.
-%
-% @see \pgfmathnormalisedfloatingpoint for how we parse arguments.
-% @see \pgfmathlog@
-\let\pgfmathlog=\pgfmathlog@newton
 
 % Rounds a fixed point number #1 to \pgfmathfloat@round@precision digits precision and returns
 % the result into \pgfmathresult.
@@ -1532,7 +1478,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % equals only itsself when compared with \ifx:
-\def\pgfmathfloat@EOI{\pgfmathfloat@EOI}%
+\def\pgfmathfloat@EOI{\pgfmathfloat@EOI@}%
+\def\pgfmathfloat@EOI@{pgfflt@EOI}%
 
 % Re-use counters internally.
 %
@@ -2013,140 +1960,91 @@
 
 
 % accepted parser tokens:
-\def\pgfmathfloatparsenumber@tok@ONE{1}
-\def\pgfmathfloatparsenumber@tok@TWO{2}
-\def\pgfmathfloatparsenumber@tok@THREE{3}
-\def\pgfmathfloatparsenumber@tok@FOUR{4}
-\def\pgfmathfloatparsenumber@tok@FIVE{5}
-\def\pgfmathfloatparsenumber@tok@SIX{6}
-\def\pgfmathfloatparsenumber@tok@SEVEN{7}
-\def\pgfmathfloatparsenumber@tok@EIGHT{8}
-\def\pgfmathfloatparsenumber@tok@NINE{9}
 \def\pgfmathfloatparsenumber@tok@ZERO{0}
-\def\pgfmathfloatparsenumber@tok@e{e}
-\def\pgfmathfloatparsenumber@tok@E{E}
 \def\pgfmathfloatparsenumber@tok@PLUS{+}
 \def\pgfmathfloatparsenumber@tok@MINUS{-}
-\def\pgfmathfloatparsenumber@tok@n{n}
-\def\pgfmathfloatparsenumber@tok@N{N}
-\def\pgfmathfloatparsenumber@tok@i{i}
-\def\pgfmathfloatparsenumber@tok@I{I}
 \def\pgfmathfloatparsenumber@tok@PERIOD{.}
 
 \newif\ifpgfmathfloatparsenumberpendingperiod
 
 % Starts a finite-start-machine parser to read a number.
 %
+% The machine's state is represented by the macro which is currently
+% processed; state transitions are realised using \csname...#1\endcsname
+% constructions.
+%
 % It assigns \pgfmathfloat@a@S, \pgfmathfloat@a@Mtok, \pgfmathfloat@a@E.
-\def\pgfmathfloatparsenumber@impl#1{%
+\def\pgfflt@impl#1{%
 	\pgfmathfloatparsenumberpendingperiodfalse
 	\pgfmathfloat@tmptoks={}% this register is used to collect PENDING ZEROS
 	\pgfmathfloat@a@E=0
 	% start parsing: check for sign:
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@PLUS
-		\pgfmathfloat@a@S=1\relax%
-		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@init}%
+	\expandafter\ifx\csname pgfflt@#1\endcsname\relax
+		\pgfmathfloat@a@S=1 % leave this space!
+		\expandafter\pgfflt@init\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@MINUS
-			\pgfmathfloat@a@S=2\relax%
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@init}%
-		\else
-			\pgfmathfloat@a@S=1\relax%
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@init#1}%
-		\fi
+		\expandafter\expandafter\csname pgfflt@#1\endcsname
 	\fi
-	\pgfmathfloatparsenumber@NEXT
 }
-
-\def\pgfmathfloatparsenumber@sanitize@digit{%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-	\else
-		\def\pgfmathfloatparsenumber@NEXT{\expandafter\pgfmathfloatparsenumber@impl@error\pgfmathfloatparsenumber@curtok}%
-	\fi\fi\fi\fi\fi\fi\fi\fi\fi
-}
+% State transitions:
+\expandafter\def\csname pgfflt@+\endcsname{%
+	\pgfmathfloat@a@S=1 %
+	\pgfflt@init}%
+\expandafter\def\csname pgfflt@-\endcsname{%
+	\pgfmathfloat@a@S=2 %
+	\pgfflt@init}%
 
 % FROM: checksign.
 %
-\def\pgfmathfloatparsenumber@impl@init#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\def\pgfmathfloatparsenumber@NEXT{%
-		\pgfmathfloat@a@Mtok={#1}%
-		\pgfmathfloatparsenumberpendingperiodtrue
-		\pgfmathfloatparsenumber@impl@positiveexp}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@leadingzero}%
+\def\pgfflt@init#1{%
+	\expandafter\ifx\csname pgffltA@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ONE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@TWO
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@THREE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FOUR
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@FIVE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SIX
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@SEVEN
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@EIGHT
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@NINE
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@n
-		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readnan}%
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@N
-		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readNaN}%
-	\else
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@i
-		\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readinf}%
-	\else
-		\def\pgfmathfloatparsenumber@NEXT{\expandafter\pgfmathfloatparsenumber@impl@error\pgfmathfloatparsenumber@curtok}%
-	\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+		\expandafter\expandafter\csname pgffltA@#1\endcsname
+	\fi}
+% state transitions:
+\expandafter\def\csname pgffltA@0\endcsname{\pgfflt@leadingzero}% FIXME: inline optimization!
+\expandafter\def\csname pgffltA@1\endcsname{\pgfflt@nonzerodigit1}%
+\expandafter\def\csname pgffltA@2\endcsname{\pgfflt@nonzerodigit2}%
+\expandafter\def\csname pgffltA@3\endcsname{\pgfflt@nonzerodigit3}%
+\expandafter\def\csname pgffltA@4\endcsname{\pgfflt@nonzerodigit4}%
+\expandafter\def\csname pgffltA@5\endcsname{\pgfflt@nonzerodigit5}%
+\expandafter\def\csname pgffltA@6\endcsname{\pgfflt@nonzerodigit6}%
+\expandafter\def\csname pgffltA@7\endcsname{\pgfflt@nonzerodigit7}%
+\expandafter\def\csname pgffltA@8\endcsname{\pgfflt@nonzerodigit8}%
+\expandafter\def\csname pgffltA@9\endcsname{\pgfflt@nonzerodigit9}%
+\def\pgfflt@nonzerodigit#1{%
+	\pgfmathfloat@a@Mtok={#1}%
+	\pgfmathfloatparsenumberpendingperiodtrue
+	\pgfflt@positiveexp}%
+\expandafter\def\csname pgffltA@n\endcsname{\pgfflt@readnan}% FIXME: inlining?
+\expandafter\def\csname pgffltA@N\endcsname{\pgfflt@readNaN}% FIXME: inlining?
+\expandafter\def\csname pgffltA@i\endcsname{\pgfflt@readinf}% FIXME: inlining?
+\expandafter\def\csname pgffltA@I\endcsname{\pgfflt@readINF}% FIXME: inlining?
 
-\def\pgfmathfloatparsenumber@impl@error#1\pgfmathfloat@EOI{%
+
+\def\pgfflt@error#1\pgfmathfloat@EOI{%
 	\begingroup
 	\pgfmathfloat@a@Mtok={#1}%
-	\pgfmath@error{Could not read input number, sorry. The unreadable part was near '\the\pgfmathfloat@a@Mtok'.}%
+	\pgfmath@error{Could not read input number '\pgfmathresult', sorry. The unreadable part was near '\the\pgfmathfloat@a@Mtok'.}%
 	\endgroup
 }%
 
-\def\pgfmathfloatparsenumber@impl@finish#1\pgfmathfloat@EOI{}
+\def\pgfflt@finish#1\pgfmathfloat@EOI{}
 
-\def\pgfmathfloatparsenumber@impl@readnan an{%
+\def\pgfflt@readnan an{%
 	\pgfmathfloat@a@S=3\relax%
 	\pgfmathfloat@a@Mtok={0.0}%
 	\pgfmathfloat@a@E=0%
-	\pgfmathfloatparsenumber@impl@finish
+	\pgfflt@finish
 }
-\def\pgfmathfloatparsenumber@impl@readNaN aN{%
+\def\pgfflt@readNaN aN{%
 	\pgfmathfloat@a@S=3\relax%
 	\pgfmathfloat@a@Mtok={0.0}%
 	\pgfmathfloat@a@E=0%
-	\pgfmathfloatparsenumber@impl@finish
+	\pgfflt@finish
 }
-\def\pgfmathfloatparsenumber@impl@readinf nf{%
+\def\pgfflt@readinf nf{%
 	\ifnum\pgfmathfloat@a@S=1
 		\pgfmathfloat@a@S=4\relax%
 		\pgfmathfloat@a@Mtok={0.0}%
@@ -2155,227 +2053,216 @@
 		\pgfmathfloat@a@Mtok={0.0}%
 	\fi
 	\pgfmathfloat@a@E=0%
-	\pgfmathfloatparsenumber@impl@finish
+	\pgfflt@finish
 }
-\def\pgfmathfloatparsenumber@impl@leadingzero#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloatparsenumber@impl@leadingzero}%
+\def\pgfflt@readINF NF{%
+	\ifnum\pgfmathfloat@a@S=1
+		\pgfmathfloat@a@S=4\relax%
+		\pgfmathfloat@a@Mtok={0.0}%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@PERIOD
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@E=-1
-				\pgfmathfloatparsenumber@impl@leadingzero@foundperiod}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloat@a@Mtok={#1}%
-			\pgfmathfloatparsenumberpendingperiodtrue
-			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
-		\fi
+		\pgfmathfloat@a@S=5\relax%
+		\pgfmathfloat@a@Mtok={0.0}%
 	\fi
-	\pgfmathfloatparsenumber@NEXT
+	\pgfmathfloat@a@E=0%
+	\pgfflt@finish
 }
-
-\def\pgfmathfloatparsenumber@impl@leadingzero@foundperiod#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\advance\pgfmathfloat@a@E by-1
-			\pgfmathfloatparsenumber@impl@leadingzero@foundperiod}%
+\def\pgfflt@leadingzero#1{%
+	\expandafter\ifx\csname pgffltB@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{%
-				\pgfmathfloat@a@S=0\relax%
-				\pgfmathfloat@a@Mtok={0.0}%
-				\pgfmathfloat@a@E=0%
-				}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloat@a@Mtok={#1}%
-			\pgfmathfloatparsenumberpendingperiodtrue
-			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
-	\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+		\expandafter\expandafter\csname pgffltB@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltB@0\endcsname{\pgfflt@leadingzero}%
+\expandafter\def\csname pgffltB@1\endcsname{\pgfmathfloat@a@Mtok={1}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@2\endcsname{\pgfmathfloat@a@Mtok={2}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@3\endcsname{\pgfmathfloat@a@Mtok={3}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@4\endcsname{\pgfmathfloat@a@Mtok={4}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@5\endcsname{\pgfmathfloat@a@Mtok={5}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@6\endcsname{\pgfmathfloat@a@Mtok={6}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@7\endcsname{\pgfmathfloat@a@Mtok={7}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@8\endcsname{\pgfmathfloat@a@Mtok={8}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@9\endcsname{\pgfmathfloat@a@Mtok={9}\pgfmathfloatparsenumberpendingperiodtrue \pgfflt@positiveexp}
+\expandafter\def\csname pgffltB@.\endcsname{%
+	\pgfmathfloat@a@E=-1
+	\pgfflt@leadingzero@foundperiod}%
+\expandafter\def\csname pgffltB@e\endcsname{%
+	\pgfmathfloat@a@S=0\relax%
+	\pgfmathfloat@a@Mtok={0.0}%
+	\pgfmathfloat@a@E=0%
+	\pgfflt@readexponent}%
+\let\pgffltB@E=\pgffltB@e
+\expandafter\def\csname pgffltB@\pgfmathfloat@EOI\endcsname{%
+	\pgfmathfloat@a@S=0\relax%
+	\pgfmathfloat@a@Mtok={0.0}%
+	\pgfmathfloat@a@E=0}%
 
-
-\def\pgfmathfloatparsenumber@impl@positiveexp#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\advance\pgfmathfloat@a@E by1
-			\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
-			\pgfmathfloatparsenumber@impl@pendingzeros@positiveexp}%
+\def\pgfflt@leadingzero@foundperiod#1{%
+	\expandafter\ifx\csname pgffltC@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@PERIOD
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\advance\pgfmathfloat@a@E by1
-			\ifpgfmathfloatparsenumberpendingperiod
-				\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
-				\pgfmathfloatparsenumberpendingperiodfalse
-			\fi
-			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
-			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
-		\fi
-	\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+		\expandafter\expandafter\csname pgffltC@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltC@0\endcsname{%
+	\advance\pgfmathfloat@a@E by-1
+	\pgfflt@leadingzero@foundperiod}%
+\expandafter\def\csname pgffltC@1\endcsname{\pgfmathfloat@a@Mtok={1}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@2\endcsname{\pgfmathfloat@a@Mtok={2}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@3\endcsname{\pgfmathfloat@a@Mtok={3}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@4\endcsname{\pgfmathfloat@a@Mtok={4}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@5\endcsname{\pgfmathfloat@a@Mtok={5}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@6\endcsname{\pgfmathfloat@a@Mtok={6}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@7\endcsname{\pgfmathfloat@a@Mtok={7}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@8\endcsname{\pgfmathfloat@a@Mtok={8}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@9\endcsname{\pgfmathfloat@a@Mtok={9}\pgfmathfloatparsenumberpendingperiodtrue\pgfflt@finish@number@after@period}%
+\expandafter\def\csname pgffltC@e\endcsname{%
+	\pgfmathfloat@a@S=0\relax%
+	\pgfmathfloat@a@Mtok={0.0}%
+	\pgfmathfloat@a@E=0%
+	\pgfflt@readexponent}%
+\let\pgffltC@E=\pgffltC@e
+\expandafter\def\csname pgffltC@\pgfmathfloat@EOI\endcsname{%
+	\pgfmathfloat@a@S=0\relax%
+	\pgfmathfloat@a@Mtok={0.0}%
+	\pgfmathfloat@a@E=0}%
 
-\def\pgfmathfloatparsenumber@impl@readexponent#1\pgfmathfloat@EOI{%
+
+\def\pgfflt@positiveexp#1{%
+	\expandafter\ifx\csname pgffltD@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
+	\else
+		\expandafter\expandafter\csname pgffltD@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltD@0\endcsname{%
+	\advance\pgfmathfloat@a@E by1
+	\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
+	\pgfflt@pendingzeros@positiveexp}%
+\expandafter\def\csname pgffltD@1\endcsname{\pgffltD@nonzerodigit1}%
+\expandafter\def\csname pgffltD@2\endcsname{\pgffltD@nonzerodigit2}%
+\expandafter\def\csname pgffltD@3\endcsname{\pgffltD@nonzerodigit3}%
+\expandafter\def\csname pgffltD@4\endcsname{\pgffltD@nonzerodigit4}%
+\expandafter\def\csname pgffltD@5\endcsname{\pgffltD@nonzerodigit5}%
+\expandafter\def\csname pgffltD@6\endcsname{\pgffltD@nonzerodigit6}%
+\expandafter\def\csname pgffltD@7\endcsname{\pgffltD@nonzerodigit7}%
+\expandafter\def\csname pgffltD@8\endcsname{\pgffltD@nonzerodigit8}%
+\expandafter\def\csname pgffltD@9\endcsname{\pgffltD@nonzerodigit9}%
+\expandafter\def\csname pgffltD@.\endcsname{\pgfflt@finish@number@after@period}% FIXME : inlining?
+\expandafter\def\csname pgffltD@e\endcsname{\pgfflt@readexponent}% FIXME : inlining?
+\let\pgffltD@E=\pgffltD@e
+\expandafter\def\csname pgffltD@\pgfmathfloat@EOI\endcsname{}% NOP
+\def\pgffltD@nonzerodigit#1{%
+	\advance\pgfmathfloat@a@E by1
+	\ifpgfmathfloatparsenumberpendingperiod
+		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
+		\pgfmathfloatparsenumberpendingperiodfalse
+	\fi
+	\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
+	\pgfflt@positiveexp}%
+
+\def\pgfflt@readexponent#1\pgfmathfloat@EOI{%
 	\advance\pgfmathfloat@a@E by#1\relax
 }
 
-\def\pgfmathfloatparsenumber@impl@pendingzeros@positiveexp#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
-			\advance\pgfmathfloat@a@E by1
-			\pgfmathfloatparsenumber@impl@pendingzeros@positiveexp}%
+\def\pgfflt@pendingzeros@positiveexp#1{%
+	\expandafter\ifx\csname pgffltE@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@PERIOD
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\advance\pgfmathfloat@a@E by1
-			\ifpgfmathfloatparsenumberpendingperiod
-				\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
-				\pgfmathfloatparsenumberpendingperiodfalse
-			\fi
-			\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
-			\pgfmathfloat@tmptoks={}%
-			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
-			\pgfmathfloatparsenumber@impl@positiveexp}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
-		\fi
+		\expandafter\expandafter\csname pgffltE@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltE@0\endcsname{%
+	\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
+	\advance\pgfmathfloat@a@E by1
+	\pgfflt@pendingzeros@positiveexp}%
+\expandafter\def\csname pgffltE@1\endcsname{\pgffltE@nonzerodigit1}%
+\expandafter\def\csname pgffltE@2\endcsname{\pgffltE@nonzerodigit2}%
+\expandafter\def\csname pgffltE@3\endcsname{\pgffltE@nonzerodigit3}%
+\expandafter\def\csname pgffltE@4\endcsname{\pgffltE@nonzerodigit4}%
+\expandafter\def\csname pgffltE@5\endcsname{\pgffltE@nonzerodigit5}%
+\expandafter\def\csname pgffltE@6\endcsname{\pgffltE@nonzerodigit6}%
+\expandafter\def\csname pgffltE@7\endcsname{\pgffltE@nonzerodigit7}%
+\expandafter\def\csname pgffltE@8\endcsname{\pgffltE@nonzerodigit8}%
+\expandafter\def\csname pgffltE@9\endcsname{\pgffltE@nonzerodigit9}%
+\expandafter\def\csname pgffltE@.\endcsname{\pgfflt@finish@number@after@period}% FIXME : inlining?
+\def\pgffltE@e{\pgfflt@readexponent}% FIXME : inlining?
+\let\pgffltE@E=\pgffltE@e
+\expandafter\def\csname pgffltE@\pgfmathfloat@EOI\endcsname{}% NOP
+\def\pgffltE@nonzerodigit#1{%
+	\advance\pgfmathfloat@a@E by1
+	\ifpgfmathfloatparsenumberpendingperiod
+		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
+		\pgfmathfloatparsenumberpendingperiodfalse
 	\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+	\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
+	\pgfmathfloat@tmptoks={}%
+	\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
+	\pgfflt@positiveexp}%
 
-\def\pgfmathfloatparsenumber@impl@finish@number@after@period#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
-			\pgfmathfloatparsenumber@impl@pendingzeros}%
+\def\pgfflt@finish@number@after@period#1{%
+	\expandafter\ifx\csname pgffltF@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\ifpgfmathfloatparsenumberpendingperiod
-				\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
-				\pgfmathfloatparsenumberpendingperiodfalse
-			\fi
-			\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
-			\pgfmathfloat@tmptoks={}%
-			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
-			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
+		\expandafter\expandafter\csname pgffltF@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltF@0\endcsname{%
+	\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
+	\pgfflt@pendingzeros}%
+\expandafter\def\csname pgffltF@1\endcsname{\pgffltF@nonzerodigit1}%
+\expandafter\def\csname pgffltF@2\endcsname{\pgffltF@nonzerodigit2}%
+\expandafter\def\csname pgffltF@3\endcsname{\pgffltF@nonzerodigit3}%
+\expandafter\def\csname pgffltF@4\endcsname{\pgffltF@nonzerodigit4}%
+\expandafter\def\csname pgffltF@5\endcsname{\pgffltF@nonzerodigit5}%
+\expandafter\def\csname pgffltF@6\endcsname{\pgffltF@nonzerodigit6}%
+\expandafter\def\csname pgffltF@7\endcsname{\pgffltF@nonzerodigit7}%
+\expandafter\def\csname pgffltF@8\endcsname{\pgffltF@nonzerodigit8}%
+\expandafter\def\csname pgffltF@9\endcsname{\pgffltF@nonzerodigit9}%
+\def\pgffltF@e{\pgfflt@readexponent}%
+\let\pgffltF@E=\pgffltF@e
+\expandafter\def\csname pgffltF@\pgfmathfloat@EOI\endcsname{}% NOP
+\def\pgffltF@nonzerodigit#1{%
+	\ifpgfmathfloatparsenumberpendingperiod
+		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
+		\pgfmathfloatparsenumberpendingperiodfalse
 	\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+	\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
+	\pgfmathfloat@tmptoks={}%
+	\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
+	\pgfflt@finish@number@after@period}%
 
-\def\pgfmathfloatparsenumber@impl@pendingzeros#1{%
-	\def\pgfmathfloatparsenumber@curtok{#1}%
-	\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@ZERO
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
-			\pgfmathfloatparsenumber@impl@pendingzeros}%
+
+\def\pgfflt@pendingzeros#1{%
+	\expandafter\ifx\csname pgffltG@#1\endcsname\relax
+		\expandafter\pgfflt@error\expandafter#1%
 	\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@e
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloatparsenumber@tok@E
-			\def\pgfmathfloatparsenumber@NEXT{\pgfmathfloatparsenumber@impl@readexponent}%
-		\else
-		\ifx\pgfmathfloatparsenumber@curtok\pgfmathfloat@EOI
-			\def\pgfmathfloatparsenumber@NEXT{}%
-		\else
-		\def\pgfmathfloatparsenumber@NEXT{%
-			\ifpgfmathfloatparsenumberpendingperiod
-				\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
-				\pgfmathfloatparsenumberpendingperiodfalse
-			\fi
-			\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
-			\pgfmathfloat@tmptoks={}%
-			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
-			\pgfmathfloatparsenumber@impl@finish@number@after@period}%
-		\pgfmathfloatparsenumber@sanitize@digit
-		\fi\fi\fi
+		\expandafter\expandafter\csname pgffltG@#1\endcsname
+	\fi}
+% State transitions:
+\expandafter\def\csname pgffltG@0\endcsname{%
+	\pgfmathfloat@tmptoks=\expandafter{\the\pgfmathfloat@tmptoks0}%
+	\pgfflt@pendingzeros}%
+\expandafter\def\csname pgffltG@1\endcsname{\pgffltG@nonzerodigit1}%
+\expandafter\def\csname pgffltG@2\endcsname{\pgffltG@nonzerodigit2}%
+\expandafter\def\csname pgffltG@3\endcsname{\pgffltG@nonzerodigit3}%
+\expandafter\def\csname pgffltG@4\endcsname{\pgffltG@nonzerodigit4}%
+\expandafter\def\csname pgffltG@5\endcsname{\pgffltG@nonzerodigit5}%
+\expandafter\def\csname pgffltG@6\endcsname{\pgffltG@nonzerodigit6}%
+\expandafter\def\csname pgffltG@7\endcsname{\pgffltG@nonzerodigit7}%
+\expandafter\def\csname pgffltG@8\endcsname{\pgffltG@nonzerodigit8}%
+\expandafter\def\csname pgffltG@9\endcsname{\pgffltG@nonzerodigit9}%
+\def\pgffltG@e{\pgfflt@readexponent}% FIXME: inlining?
+\let\pgffltG@E=\pgffltG@e
+\expandafter\def\csname pgffltG@\pgfmathfloat@EOI\endcsname{}% NOP
+\def\pgffltG@nonzerodigit#1{%
+	\ifpgfmathfloatparsenumberpendingperiod
+		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.}%
+		\pgfmathfloatparsenumberpendingperiodfalse
 	\fi
-	\pgfmathfloatparsenumber@NEXT
-}
+	\pgfmathfloat@a@Mtok=\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgfmathfloat@a@Mtok\the\pgfmathfloat@tmptoks}%
+	\pgfmathfloat@tmptoks={}%
+	\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
+	\pgfflt@finish@number@after@period}%
 
-
-
+\endinput
