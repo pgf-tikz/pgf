@@ -111,7 +111,7 @@
 \def\pgfmath@char@minus{-}
 \def\pgfmath@char@period{.}
 \def\pgfmath@char@leftangle{<}
-
+\def\pgfmath@char@leftbracket{[}
 \pgfmath@toks={#}
 \edef\pgfmath@char@hash{\the\pgfmath@toks}
 
@@ -169,17 +169,27 @@
 	\ifx\pgfmath@token@let\bgroup%
 		\let\pgfmath@parse@next=\pgfmath@parse@@@ifbgroup%
 	\else%
-		\let\pgfmath@parse@next=\pgfmath@parse@nobgroup@after%
+		\ifx\pgfmath@token@let\pgfmath@sptoken%
+			\let\pgfmath@parse@next=\pgfmath@parse@@@@ifbgroup%
+		\else%
+			\let\pgfmath@parse@next=\pgfmath@parse@nobgroup@after%
+		\fi%
 	\fi%
 	\pgfmath@parse@next}
 
 \def\pgfmath@parse@@@ifbgroup#1{\pgfmath@parse@bgroup@after\pgfmath@bgroup#1\pgfmath@egroup}
+
+{
+\def\:{\pgfmath@parse@@@@ifbgroup}
+\expandafter\gdef\: {\futurelet\pgfmath@token@let\pgfmath@parse@@ifbgroup}
+}
 
 % Parse an operand.
 %	
 \def\pgfmath@parse@operand{\expandafter\pgfmath@parse@@operand\pgfmath@token@next}%
 
 \def\pgfmath@parse@@operand{\pgfmath@parse@ifbgroup{\pgfmath@parse@@operand}{\pgfmath@parse@@operand@}}
+
 \def\pgfmath@parse@@operand@#1{%
 	\def\pgfmath@token{#1}%
 	\ifx\pgfmath@token\pgfmath@char@plus% Ignore.
@@ -411,7 +421,7 @@
 % Parse a function.
 %
 \def\pgfmath@parse@function{\pgfmath@parse@ifbgroup{\pgfmath@parse@function}{\pgfmath@parse@@function}}
-
+\def\pgfmath@parse@function@{\futurelet\pgfmath@token@let\pgfmath@parse@@function}
 \def\pgfmath@parse@@function{%
 	\ifx\pgfmath@token@let\pgfmath@sptoken%
 		\let\pgfmath@token=\pgfmath@empty%
@@ -428,11 +438,11 @@
 			\let\pgfmath@parse@next=\pgfmath@parse@@@@function%
 		\else% It is from 0-9.
 			\expandafter\def\expandafter\pgfmath@function\expandafter{\pgfmath@function#1}%
-			\let\pgfmath@parse@next=\pgfmath@parse@function%
+			\let\pgfmath@parse@next=\pgfmath@parse@function@%
 		\fi%
 	\else% It is from from A-Z, a-z, or _.
 		\edef\pgfmath@function{\pgfmath@function#1}%
-		\let\pgfmath@parse@next=\pgfmath@parse@function%
+		\let\pgfmath@parse@next=\pgfmath@parse@function@%
 	\fi%
 	\pgfmath@parse@next}
 
@@ -485,7 +495,11 @@
 			\else%
 				\expandafter\ifx\csname pgfmath@operation@\pgfmath@token @postfix\endcsname\pgfmath@token%
 					% Postfix operators are followed by an operator.
-					\let\pgfmath@parse@next=\pgfmath@parse@operator%
+					\ifx\pgfmath@token@next\pgfmath@char@leftbracket% Except [.
+						\let\pgfmath@parse@next=\pgfmath@parse@operand%
+					\else%
+						\let\pgfmath@parse@next=\pgfmath@parse@operator%
+					\fi%
 				\else%
 					% Any other operator is followed by an operand.
 					\let\pgfmath@parse@next=\pgfmath@parse@operand%
@@ -504,6 +518,7 @@
 	\pgfmath@parse@next%
 }
 
+
 % Process an operation.
 %
 \def\pgfmath@operation@process#1{%
@@ -520,7 +535,6 @@
 % Process the operation stack.
 %
 \def\pgfmath@operation@@process{%
-	%\typeout{Processing \pgfmath@operator: \the\pgfmath@stack@operand, \the\pgfmath@stack@operation }%
 	\ifx\pgfmath@stack@operation@top\pgfmath@stack@empty%
 		\let\pgfmath@parse@next=\relax%
 	\else%
@@ -544,7 +558,6 @@
 			\fi%
 		\fi%
 	\fi%
-	%\typeout{\the\pgfmath@stack@operand, \the\pgfmath@stack@operation }%
 	\pgfmath@parse@next%
 }
 
