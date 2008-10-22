@@ -286,6 +286,12 @@
 % The input argument is expected to be a normalized floating point number; the output argument is a non-normalized floating point number (well, normalized to extended precision).
 %
 % The operation is supposed to be very fast.
+%
+% @see \pgfmathfloatsetextprecision
+%
+% There is a routine for internal usage,
+% \pgfmathfloattoextentedprecision@a. It also provides exponent and
+% sign of #1 in output arguments and may be used to increase speed.
 \def\pgfmathfloattoextentedprecision#1{%
 	\begingroup
 	\pgfmathfloattoextentedprecision@a{#1}%
@@ -309,15 +315,16 @@
 
 % Sets extended precision to 10^#1.
 %
-% The default is 10^2, which means mantissas in extended precision are
-% normalised to  100 <= m < 1000.
-%
-% The case 10^1 means they are normalised to 10 <= m < 100 and 10^0
-% deactivates extended precision.
+% The different choices are
+% 
+% - 0:  normalization      0 <= m < 1 (disable extended precision)
+% - 1:  normalization     10 <= m < 100
+% - 2:  normalization    100 <= m < 1000  (default)
+% - 3:  normalization   1000 <= m < 10000
 %
 % #1 is the exponent, #1 = 0,1,2 or 3.
 %
-% This setting applies to \pgfmathfloattoextentedprecision.
+% This setting applies to \pgfmathfloattoextentedprecision and friends.
 \def\pgfmathfloatsetextprecision#1{%
 	\ifcase#1\relax
 		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@zero
@@ -335,10 +342,18 @@
 }%
 \pgfmathfloatsetextprecision{2}%
 
-% Does the same work as \pgfmathfloattoextentedprecision, but this one here fills the 
-% registers \pgfmathfloat@a@S and \pgfmathfloat@a@E with the flags and (renormalized) exponent.
-% It destroys the content of \pgfmathfloat@a@Mtok.
-% #1 maybe a macro (it will be expanded ONCE)
+% Does the "hard" work for \pgfmathfloattoextentedprecision. It
+% provides additional outputs.
+%
+% INPUT:
+% #1  normalized floating point number. Maybe a macro (it will be expanded ONCE)
+% 
+% OUTPUT:
+% - \pgfmathresult : the mantisse in extended precision
+% - \pgfmathfloat@a@S : the sign of #1
+% - \pgfmathfloat@a@E : the exponent of #1, adjusted for extended precision
+% - \pgfmathfloat@a@Mtok : undefined (its contents will be destroyed.
+%
 \def\pgfmathfloattoextentedprecision@a#1{%
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 	\ifnum\pgfmathfloat@a@S<3
@@ -619,9 +634,12 @@
 }%
 \let\pgfmathfloatmultiply=\pgfmathfloatmultiply@
 
+% Defines \pgfmathresult to be #1 / #2 for two floating point numbers.
+%
+% It employs the basic math engine internally to divide mantissas.
 \def\pgfmathfloatdivide@#1#2{%
 	\begingroup
-	\pgfmathfloatsetextprecision{1}%
+	\pgfmathfloatsetextprecision{1}% is not too important, I think. After all, 0.1 <= #1/#2 < 10 or so due to normalization (no matter, which)
 	\edef\pgfmathfloat@arga{#1}%
 	\pgfmathfloattoextentedprecision@a{\pgfmathfloat@arga}%
 	\let\pgfmathfloat@arga=\pgfmathresult
@@ -712,9 +730,10 @@
 	\ifpgfmathfloatcomparison
 		\pgfmathdivide@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
 		\advance\pgfmathfloat@a@E by-\pgfmathfloat@b@E
-		% renormalize sum. This is the only part were an expensive routine comes into play:
+		% renormalize. This is the only part were an expensive float routine comes into play:
 		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
 		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+		% And re-insert the proper sign:
 		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 		\pgfmathfloatcreate{\pgfmathresult@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
 	\fi
@@ -728,7 +747,7 @@
 % It employs sqrt( m * 10^e ) = sqrt(m) * sqrt(10^e).
 \def\pgfmathfloatsqrt@#1{%
 	\begingroup
-	\pgfmathfloatsetextprecision{2}%
+	\pgfmathfloatsetextprecision{3}%
 	\edef\pgfmathfloat@arga{#1}%
 	\pgfmathfloattoextentedprecision@a{\pgfmathfloat@arga}%
 	\let\pgfmathfloat@arga=\pgfmathresult
@@ -827,6 +846,48 @@
 	\endgroup
 }
 \let\pgfmathfloatshift=\pgfmathfloatshift@
+
+% Defines \pgfmathresult to be |#1|, the absolute value of the
+% normalized floating point number #1.
+\def\pgfmathfloatabs@#1{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifcase\pgfmathfloat@a@S
+		% 0: do nothing.
+	\or
+		% +: ok, is positive.
+	\or
+		% -: multiply with -1:
+		\pgfmathfloat@a@S=1
+	\or
+		% nan: do nothing.
+	\or
+		% +infty: ok.
+	\or
+		% -infty: multiply with -1:
+		\pgfmathfloat@a@S=4
+	\fi
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatabs=\pgfmathfloatabs@
+
+% Computes the absolute error |#1 - #2| into \pgfmathresult.
+\def\pgfmathfloatabserror@#1#2{%
+	\pgfmathfloatsubtract@{#1}{#2}%
+	\pgfmathfloatabs@{\pgfmathresult}%
+}%
+\let\pgfmathfloatabserror=\pgfmathfloatabserror@
+
+% Computes the relative error |#1 - #2|/|#2| into \pgfmathresult,
+% assuming #2 != 0.
+\def\pgfmathfloatrelerror@#1#2{%
+	\pgfmathfloatsubtract@{#1}{#2}%
+	\pgfmathfloatdivide@{\pgfmathresult}{#2}%
+	\pgfmathfloatabs@{\pgfmathresult}%
+}%
+\let\pgfmathfloatrelerror=\pgfmathfloatrelerror@
 
 % Expands #2 using \edef and invokes #1 with the resulting string.
 %
