@@ -888,27 +888,6 @@
     \fi%
   }
 
-  % Shifts the coordinate system by the given amount
-  %
-  % This command will offset the coordinate system by the given
-  % dimension in the direction of the unit vector.
-  \method shift(#1) {
-    \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
-    \pgfmathparse{#1}
-    \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@x}{\pgfmathresult\pgf@y}}
-  }
-  
-  % Shifts the coordinate system by the given amount orthogonally
-  %
-  % This command will offset the coordinate system by the given
-  % dimension orthogonally to the direction of the unit vector.
-  \method shift orthogonally(#1) {
-    \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
-    \pgfmathparse{#1}
-    \pgf@x=-\pgf@x
-    \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@y}{\pgfmathresult\pgf@x}}
-  }
-  
 }
 
 
@@ -924,9 +903,9 @@
   %
   % This mapper reacts to the map datapoint signal. Its purpose is to
   % map one attribute to another attribute. For the first attribute,
-  % two intervals are specified: The cut interval and the in
-  % interval. Values outside the cut-interval are not mapped (they are
-  % cut away). Note that if the min-part of an interval is missing,
+  % two intervals are specified: The clip interval and the in
+  % interval. Values outside the clip-interval are not mapped (they are
+  % clip away). Note that if the min-part of an interval is missing,
   % this means that -infinity is the lower bound and if the max part
   % is missing, then the max-part is infinity.
   %
@@ -953,9 +932,9 @@
   % The name of the input attribute. If the value of this attribute
   % is empty or undefined, no mapping is done.
 
-  \attribute cutter;
-  % The code for cutting the interval. Will set \pgf@dvcuttrue, if a
-  % cut is necessary.
+  \attribute clip;
+  % The code for clipping the interval. Will set \pgf@dvcliptrue, if a
+  % clip is necessary.
   
   \attribute out;
   % The name of the output attribute.
@@ -986,7 +965,7 @@
   %      "3.141". The output of the function should be stored in the
   %      macro \pgfmathresult.
   %
-  % A cut interval is set using the method set cut interval.
+  % A clip interval is set using the method set clip interval.
   %
   \method mapper(#1,#2,#3,#4,#5) {
     {%
@@ -1032,17 +1011,17 @@
   }
 
   % Method
-  \method set cut interval(#1) {
+  \method set clip interval(#1) {
     #1.get min and max()%
-    \pgfooeset{cut}{%
-      \noexpand\pgf@dvcutfalse%
+    \pgfooeset{clip}{%
+      \noexpand\pgf@dvclipfalse%
       \ifx\pgfdvmin\pgfutil@empty%
       \else%
-        \noexpand\ifdim\noexpand\pgfmathresult pt<\pgfdvmin pt\relax\noexpand\pgf@dvcuttrue\noexpand\fi%
+        \noexpand\ifdim\noexpand\pgfmathresult pt<\pgfdvmin pt\relax\noexpand\pgf@dvcliptrue\noexpand\fi%
       \fi%
       \ifx\pgfdvmax\pgfutil@empty%
       \else%
-        \noexpand\ifdim\noexpand\pgfmathresult pt>\pgfdvmax pt\relax\noexpand\pgf@dvcuttrue\noexpand\fi%
+        \noexpand\ifdim\noexpand\pgfmathresult pt>\pgfdvmax pt\relax\noexpand\pgf@dvcliptrue\noexpand\fi%
       \fi%
     }
   }
@@ -1054,9 +1033,9 @@
     \else%
       \ifx\pgfmathresult\relax%
       \else%
-        % Cut?
-        \pgfoovalueof{cut}%
-        \ifpgf@dvcut%
+        % Clip?
+        \pgfoovalueof{clip}%
+        \ifpgf@dvclip%
           \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfutil@empty%
         \else%
           \pgfoovalueof{trans}%
@@ -1070,7 +1049,7 @@
   }
 }
 
-\newif\ifpgf@dvcut
+\newif\ifpgf@dvclip
 \newif\ifpgf@dvignore
 
 
@@ -1233,7 +1212,7 @@
 
 
 %
-% Help class: Interval
+% Help classes
 %
 
 \pgfooclass{interval}
@@ -1362,54 +1341,116 @@
 
 \pgfooclass{count}
 {
-  \attribute attribute;
-  \attribute val=0;
-  \attribute step=1;
-  \attribute start val=0;
-  \attribute zero action=;
+  % Class count
+  %
+  % This class can be used to count the number of data points that are
+  % present or that have a certain property. By default, for every
+  % data point a counter is incremented and the value of this counter
+  % is stored in an attribute. You can also specify an increment for
+  % the counter and some action that should be taken when the counter
+  % reaches zero. You can also specify that certain data points should
+  % not have an effect on the counter.
+  %
+  % Counters can serve different purposes.
+  %
+  % 1. For plotting points in a table or sequence, the counter can be
+  %    used to provide the position along one axis.
+  % 2. By using the counter as a repetitive count down one can for
+  %    instance have only every 10th data point be marked.
   
+  \attribute attribute;
+  % The attribute that will be set to the current value of the counter
+  
+  \attribute val=0;
+  % The current value of the counter
+  
+  \attribute step=1;
+  % The stepping by which the counter is incremented for each
+  % datapoint
+  
+  \attribute start val=0;
+  % The start value of the counter
+  
+  \attribute zero action=;
+  % Some action to be taken when the counter has the value zero.
+  
+  \attribute filter=;
+  % This attribute stores some code that is executed for each
+  % data point. If the data point sets the TeX-if ifpgfdvfilterout to
+  % true, then the counter is not incremented.
+
+  
+  % Constructor
+  %
+  % #1 = The attribute in which the counter value is stored
+  %
   \method count(#1) {
     \pgfooset{attribute}{#1}
   }
 
+  % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,apply,prepare datapoint signal)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
+  % Setter
   \method set value(#1) {
     \pgfooset{val}{#1}
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{#1}%
   }
 
+  % Setter
   \method set start value(#1) {
     \pgfooset{start val}{#1}
   }
 
+  % Setter
+  \method set filter(#1) {
+    \pgfooset{filter}{#1}
+  }
+
+  % Setter
   \method set step(#1) {
     \pgfooset{step}{#1}
   }
 
+  % Setter
   \method set zero action(#1) {
     \pgfooset{zero action}{#1}
   }
 
-  \method count down() {
+  % Method
+  %
+  % #1 = a value from which we count down.
+  %
+  % This method can be used to turn the counter into a count
+  % down. Each time zero is reached, the counter is reset to #1.
+  %
+  \method count down(#1) {
     \pgfooset{step}{-1}
-    \edef\pgf@temp{\noexpand\pgfooset{val}{\pgfoovalue{val}}}
+    \edef\pgf@temp{\noexpand\pgfooset{val}{#1}}
     \pgfoolet{zero action}\pgf@temp
+    \pgfooeset{start val}{#1}
   }
-  
+
+  % Slot
   \method apply() {
-    \pgfmathparse{\pgfoovalueof{val}+\pgfoovalueof{step}}%
-    \pgfoolet{val}\pgfmathresult%
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult%
-    \ifdim\pgfmathresult pt=0pt\relax%
-      \pgfoovalueof{zero action}%
+    \pgfdvfilteroutfalse%
+    \pgfoovalueof{filter}%
+    \ifpgfdvfilterout%
+    \else%
+      \pgfmathparse{\pgfoovalueof{val}+\pgfoovalueof{step}}%
+      \pgfoolet{val}\pgfmathresult%
+      \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult%
+      \ifdim\pgfmathresult pt=0pt\relax%
+        \pgfoovalueof{zero action}%
+      \fi%
     \fi%
   }
 
+  % Slot 
   \method phase(#1) {
     \ifx#1\pgfdvbeginsurvey
       \pgfooeset{val}{\pgfoovalueof{start val}}
@@ -1419,24 +1460,43 @@
   }
 }
 
+\newif\ifpgfdvfilterout
 
 
-\pgfooclass{sum}
+\pgfooclass{accumulator}
 {
+  % Class accumulator
+  %
+  % This class is used to keep track of the sum of the values of some
+  % attribute. When this object is connected to some attribute, the
+  % subkey attribute/sum will always contain the sum of all values in
+  % all previous data points with respect to this
+  % attribute. Furthermore, the subkey attribute/prev key will hold
+  % the previous sum, which is sometimes also useful to have access
+  % to. 
+
   \attribute attribute;
-  \attribute sum=0;
+  % The attribute to-be-accumulated
   
-  \method sum(#1) {
+  \attribute sum=0;
+  % The initial value of the sum
+
+  % Constructor
+  %
+  % #1 = to-be-accumulated attribute
+  \method accumulator(#1) {
     \pgfooset{attribute}{#1}
     \pgfoothis.reset()
   }
 
+  % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,apply,prepare datapoint signal)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
+  % Slot
   \method apply() {
     \pgfooget{sum}\pgf@temp
     \pgfkeyslet{/data point/\pgfoovalueof{attribute}/prev sum}\pgf@temp
@@ -1445,12 +1505,17 @@
     \pgfkeyslet{/data point/\pgfoovalueof{attribute}/sum}\pgfmathresult
   }
 
+  % Method
+  %
+  % Use this method to reset the sum at any point.
+  %
   \method reset() {
     \pgfooset{sum}{0}
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/prev sum}{0}
     \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/sum}{0}
   }
-  
+
+  % Slot
   \method phase(#1) {
     \ifx#1\pgfdvbeginsurvey
       \pgfoothis.reset()
@@ -1462,6 +1527,210 @@
 
 
 
+
+
+
+
+
+%
+% Visualizers
+%
+
+\usepgflibrary{plothandlers}
+
+
+\pgfooclass{plot mark visualizer}
+{
+  % Class plot mark visualizer
+  %
+  % This visualizer will put a little marking at each data point. The
+  % marking is a plot mark as defined in pgf's plot mark library.
+  %
+  % By default, each data point is visualized by a plot mark. This can
+  % be changed by setting the "zero trigger" to a different value. The
+  % zero trigger is the name of an attribute and the plot mark is
+  % shown only when this attribute is zero. For instance, you can set
+  % the zero trigger to an attribute that holds the value of a
+  % repetive count down from 10 downward. The effect of this will be
+  % that only every tenth data point will be marked.
+  
+  \attribute mark;
+  % A plot mark like "star" or "oplus", see the plot mark library for
+  % possible values.  
+  
+  \attribute zero trigger=always 0;
+  % Name of an attribute that, when its value is zero, causes a plot
+  % mark to be placed at the data point's position. The default
+  % attribute is always 0, so every data point gets a plot mark.
+  
+  \attribute size=\pgfplotmarksize;
+  % The size of the plot mark.
+
+  
+  % Constructor
+  %
+  % #1 = plot mark like "star" or "asterix"
+  %
+  \method plot mark visualizer(#1) {
+    \pgfooset{mark}{#1}
+  }
+
+  % Method
+  \method default connects() {
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
+  }
+
+  % Setter
+  \method set size(#1) {
+    \pgfooset{size}{#1}
+  }
+
+  % Setter
+  \method set zero trigger(#1) {
+    \pgfooset{zero trigger}{#1}
+  }
+
+  % Slot
+  \method visualize() {
+    {%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{zero trigger}}\pgf@dv@trig%
+      \ifx\pgf@dv@trig\pgf@dv@zero@text%
+        \pgfplotmarksize\pgfoovalueof{size}
+        \pgftransformshift{\pgfpointcanvasposition}
+        \pgfuseplotmark{\pgfoovalueof{mark}}
+      \fi%
+    }%
+  }
+
+  \def\pgf@dv@zero@text{0}
+}
+
+
+
+\pgfooclass{plot handler visualizer}
+{
+  % Class plot hanlder visualizer
+  %
+  % This visualizer uses a plot handler to visualize data points. As
+  % the data points are processed, the canvas positions of the data
+  % points are recorded. At the end of the visualization phase, the
+  % recorded stream of canvas position is the visualized (rendered)
+  % using a plot handler. For instance, when the lineto plot handler
+  % is used, the data points are connected by straight lines, when the
+  % curveto plot handler is used, they are connected by smooth curves
+  % and so on.
+  %
+  % Since plot lines are not drawn immediately, but only at the end,
+  % when everything has been collected, multiple plot handlers can
+  % coexist peacefully at the same time.
+
+  \attribute handler;
+  % The to-be-used handler
+  
+  \attribute use path=\pgfusepath{stroke};
+  % The default action to be taken on the path
+  
+  \attribute positions;
+  % An internal protocol of the positions on the stream
+  
+  \attribute cache;
+  % An internal cache. Positions are first inserted into this
+  % cache. Every 100 steps this cache is moved to positions. The idea
+  % behind this is that it will avoid the quadratic time increase that
+  % is normally caused when a protocol is build in TeX.
+
+  
+  % Constructor
+  %
+  % #1 = A handler like \pgfplothandlerlineto
+  %
+  \method plot handler visualizer(#1) {
+    \pgfooset{handler}{#1}
+  }
+
+  % Method
+  \method default connects() {
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,protocol,visualize datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
+  }
+
+  % Setter
+  \method set use path(#1) {
+    \pgfooset{use path}{#1}
+  }
+
+  % Slot
+  \method protocol() {
+    % Cache it
+    \pgfooget{cache}\pgf@dv@cache
+    \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\pgf@dv@cache%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@dv@cache\pgf@dv@add}%
+    % Possibly flush cache
+    \global\advance\pgf@lib@dv@cache@count by1\relax%
+    \ifnum\pgf@lib@dv@cache@count=100\relax%
+      \global\pgf@lib@dv@cache@count=0\relax%
+      % Append cache to positions
+      \pgfooget{positions}\pgf@dv@temp
+      \expandafter\expandafter\expandafter\def%
+      \expandafter\expandafter\expandafter\pgf@dv@temp%
+      \expandafter\expandafter\expandafter{\expandafter\pgf@dv@temp\pgf@dv@cache}%
+      \pgfoolet{positions}\pgf@dv@temp
+      \let\pgf@dv@cache\pgfutil@empty
+    \fi
+    \pgfoolet{cache}\pgf@dv@cache
+  }
+
+  % Slot
+  \method phase(#1) {%
+    \ifx#1\pgfdvendvisualization%
+      \pgfoothis.render()%
+    \fi%
+  }
+
+  % Internal method
+  \method render() {
+    \pgfoovalueof{handler}
+    \pgfplotstreamstart
+    \pgfoovalueof{positions}
+    \pgfoovalueof{cache}
+    \pgfplotstreamend
+    \pgfoovalueof{use path}
+    \pgfoolet{positions}\pgfutil@empty
+  }
+
+  \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
+}
+
+\newcount\pgf@lib@dv@cache@count
+
+
+%
+%
+% Help keys and, attributes
+%
+%
+
+\pgfkeys{% do not even think of changing the values of the following:
+  /data point/always true/.initial=true,
+  /data point/always false/.initial=false,
+  /data point/always 0/.initial=0,
+  /data point/always 1/.initial=1,
+  /data point/always empty/.initial=%
+}
+
+\pgfoonew \pgfdatavisualizationunitinterval=new interval(0,1)
+\pgfoonew \pgfdatavisualizationemptyinterval=new interval(,)
+
+
+\endinput
+
+
+
+% Old stuff
 
 
 
@@ -1620,121 +1889,24 @@
 % }
 
 
-
-
-
-%
-% Visualizers
-%
-
-\usepgflibrary{plothandlers}
-
-
-\pgfooclass{plot mark visualizer}
-{
-  \attribute mark;
-  \attribute zero trigger=always 0;
-  \attribute size=\pgfplotmarksize;
+%   % Shifts the coordinate system by the given amount
+%   %
+%   % This command will offset the coordinate system by the given
+%   % dimension in the direction of the unit vector.
+%   \method shift(#1) {
+%     \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+%     \pgfmathparse{#1}
+%     \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@x}{\pgfmathresult\pgf@y}}
+%   }
   
-  \method plot mark visualizer(#1) {
-    \pgfooset{mark}{#1}
-  }
-
-  \method default connects() {
-    \pgfoothis.get handle(\pgf@dv@me)
-    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
-  }
-
-  \method set size(#1) {
-    \pgfooset{size}{#1}
-  }
-
-  \method set zero trigger(#1) {
-    \pgfooset{zero trigger}{#1}
-  }
+%   % Shifts the coordinate system by the given amount orthogonally
+%   %
+%   % This command will offset the coordinate system by the given
+%   % dimension orthogonally to the direction of the unit vector.
+%   \method shift orthogonally(#1) {
+%     \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+%     \pgfmathparse{#1}
+%     \pgf@x=-\pgf@x
+%     \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@y}{\pgfmathresult\pgf@x}}
+%   }
   
-  \method visualize() {
-    {%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{zero trigger}}\pgf@dv@trig%
-      \ifx\pgf@dv@trig\pgf@dv@zero@text%
-        \pgfplotmarksize\pgfoovalueof{size}
-        \pgftransformshift{\pgfpointcanvasposition}
-        \pgfuseplotmark{\pgfoovalueof{mark}}
-      \fi%
-    }%
-  }
-
-  \def\pgf@dv@zero@text{0}
-}
-
-
-
-\pgfooclass{plot handler visualizer}
-{
-  \attribute handler;
-  \attribute use path=\pgfusepath{stroke};
-  \attribute positions;
-  
-  \method plot handler visualizer(#1) {
-    \pgfooset{handler}{#1}
-  }
-
-  \method default connects() {
-    \pgfoothis.get handle(\pgf@dv@me)
-    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,protocol,visualize datapoint signal)
-    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
-  }
-
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
-  
-  \method protocol() {
-    % Just append it to positions
-    \pgfooget{positions}\pgf@dv@temp
-    \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
-    \expandafter\expandafter\expandafter\def%
-    \expandafter\expandafter\expandafter\pgf@dv@temp%
-    \expandafter\expandafter\expandafter{\expandafter\pgf@dv@temp\pgf@dv@add}%
-    \pgfoolet{positions}\pgf@dv@temp
-  }
-
-  \method phase(#1) {%
-    \ifx#1\pgfdvendvisualization%
-      \pgfoothis.render()%
-    \fi%
-  }
-  
-  \method render() {
-    \pgfoovalueof{handler}
-    \pgfplotstreamstart
-    \pgfoovalueof{positions}
-    \pgfplotstreamend
-    \pgfoovalueof{use path}
-    \pgfoolet{positions}\pgfutil@empty
-  }
-
-  \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
-}
-
-
-
-%
-%
-% Help keys and, attributes
-%
-%
-
-\pgfkeys{% do not even think of changing the values of the following:
-  /data point/always true/.initial=true,
-  /data point/always false/.initial=false,
-  /data point/always 0/.initial=0,
-  /data point/always 1/.initial=1,
-  /data point/always empty/.initial=%
-}
-
-\pgfoonew \pgfdatavisualizationunitinterval=new interval(0,1)
-\pgfoonew \pgfdatavisualizationemptyinterval=new interval(,)
-
-
-\endinput
