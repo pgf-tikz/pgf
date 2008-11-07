@@ -84,20 +84,13 @@
   %
   % Inits the signals
   \method data visualization() {
-    \pgfoonew \pgf@signalpreparedatapoint=new signal()%
-    \pgfoolet{prepare datapoint signal}\pgf@signalpreparedatapoint
-    \pgfoonew \pgf@signalmapdatapoint=new signal()%
-    \pgfoolet{map datapoint signal}\pgf@signalmapdatapoint
-    \pgfoonew \pgf@signaltransformdatapoint=new signal()%
-    \pgfoolet{transform datapoint signal}\pgf@signaltransformdatapoint
-    \pgfoonew \pgf@signalvisualizedatapoint=new signal()%
-    \pgfoolet{visualize datapoint signal}\pgf@signalvisualizedatapoint
-    \pgfoonew \pgf@signalfinishdatapoint=new signal()%
-    \pgfoolet{finish datapoint signal}\pgf@signalfinishdatapoint
-    \pgfoonew \pgf@signalsurveydatapoint=new signal()%
-    \pgfoolet{survey datapoint signal}\pgf@signalsurveydatapoint
-    \pgfoonew \pgf@signalphase=new signal()%
-    \pgfoolet{phase signal}\pgf@signalphase
+    \pgfoonew{prepare datapoint signal}=new signal()%
+    \pgfoonew{map datapoint signal}=new signal()%
+    \pgfoonew{transform datapoint signal}=new signal()%
+    \pgfoonew{visualize datapoint signal}=new signal()%
+    \pgfoonew{finish datapoint signal}=new signal()%
+    \pgfoonew{survey datapoint signal}=new signal()%
+    \pgfoonew{phase signal}=new signal()%
     %
     % Store this object in a key
     %
@@ -195,6 +188,17 @@
     \pgfoovalueof{after visualization}
   }
 }  
+
+
+%
+% The data point keys
+%
+% Unlike other keys, the subkeys of /data point/ can simply be set
+% directly. If the key has not been initialized, it will automatically
+% be.
+\pgfkeys{/data point/.unknown/.code={%
+    \pgfkeyssetvalue{\pgfkeyscurrentname}{#1}
+  }}
 
 
 
@@ -894,7 +898,7 @@
 
 
 %
-% Mappers
+% Numerical mapping of attributes to other attributes
 %
 
 \pgfooclass{mapper}
@@ -1128,6 +1132,157 @@
     \pgfooget{radius}\pgfdvradiusattribute
   }
 }
+
+
+\pgfooclass{scaling}
+{
+  % Class scaling
+  %
+  % A scaling is (mainly) used to scale an attribute in such a way
+  % that it can be rendered easily on a page. The idea is that you
+  % specify some attribute and a desired target interval size (like
+  % [0,5]). The scaling will then survey the data and will setup a
+  % mapper in such a way that the minimum value present in the data is
+  % mapped to 0 and the maximum to 5. However, it is also possible to,
+  % say, only have the maximum value mapped to 5 and have 0 be mapped
+  % to 0. Other, more complicated specifications are also possible.
+  %
+  % The scaling internally creates several objects: First, a surveyor
+  % for determining the minimum and maximum values of the attribute
+  % and a mapper for then mapping the values to the scaled
+  % values. Additionally, interval objects are needed.
+
+  \attribute in;
+  % The to-be-scaled attribute;
+
+  \attribute out;
+  % The attribute storing the scaled value.
+
+  \attribute in range obj;
+  % This interval keep track of the range of the in attribute
+  
+  \attribute scaling spec;
+  % A specification of how the scaling should be performed.
+  %
+  % The format is the following:
+  %
+  % #1 at #2 and #3 at #4
+  %
+  % Here, #2 and #4 must be numbers. #1 and #3 can either be numbers
+  % or #1 can be the text "min" and #3 can be the text "max".
+  %
+  % The effect of such a specification is the following: The value #1
+  % is mapped to #2, the value #3 is mapped to #4 and values between
+  % #1 and #3 (or outside this range) are mapped linearly to a value
+  % between (or outside) #2 and #4. In case #1 is set to "min", the
+  % smallest observed value of the in-attribute is mapped to #3 and
+  % similarly for a value of "max" for #3.
+  %
+  % Additionally, as for a mapper, a function f might be specified
+  % that deforms the linear mapping. In case f is specified,
+  % f(#1) is mapped to #2 and f(#3) is mapped to #4.
+
+  \attribute function;
+  % Stores the function
+  
+  
+  % Constructor
+  %
+  % #1 = in attribute
+  % #2 = out attribute
+  % #3 = scaling specification
+  % #4 = optional function
+  %
+  \method scaling(#1,#2,#3,#4) {
+    %
+    % Save the parameters in attributes
+    %
+    \pgfooset{in}{#1}
+    \pgfooset{out}{#2}
+    \pgfooset{scaling spec}{#3}
+    \pgfooset{function}{#4}
+    %
+    % Now setup the objects for the before survey phase
+    %
+    %
+    % First, the in range interval
+    \pgfoonew \pgf@dv@in@range@obj=new interval(,)
+    \pgfoolet{in range obj}\pgf@dv@in@range@obj
+    % Second, the in range surveyor. We do not need to store this
+    % object, it will "do its work in the background"
+    \pgfoonew \pgf@temp=new range surveyor(#1,\pgf@dv@in@range@obj)
+    \pgf@temp.default connects()
+  }
+
+  % Method
+  \method default connects() {
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
+  }
+  
+  % Slot 
+  \method phase(#1) {
+    \ifx#1\pgfdvbeginvisualization
+      % Ok, we setup the mapper.
+      %
+      % We start by computing the interval borders:
+      \pgfoovalueof{in range obj}.get min and max()
+      \pgfooget{scaling spec}\pgf@temp
+      \expandafter\pgf@lib@dv@parse@scaling\pgf@temp\pgf@stop%
+      % Create the in-interval for the mapper
+      \edef\pgf@marshal{
+        \noexpand\pgfoonew \noexpand\pgf@dv@in
+          =new interval(\pgf@lib@dv@min,\pgf@lib@dv@max)
+      }
+      \pgf@marshal
+      % Create the out-interval for the mapper
+      \edef\pgf@marshal{
+        \noexpand\pgfoonew \noexpand\pgf@dv@out
+          =new interval(\pgf@lib@dv@min@at,\pgf@lib@dv@max@at)
+      }
+      \pgf@marshal
+      %
+      % Now, we can create the mapper!
+      %
+      \edef\pgf@marshal{
+        \noexpand\pgfoonew \noexpand\pgf@dv@temp=new mapper(%
+          \pgfoovalueof{in},%
+          \noexpand\pgf@dv@in,%
+          \pgfoovalueof{out},%
+          \noexpand\pgf@dv@out,%
+      }
+      \pgfooget{function}\pgf@temp
+      \expandafter\pgf@marshal\pgf@temp) % ok, this was ugly, yikes...
+      \pgf@dv@temp.default connects()
+    \fi
+  }
+
+  
+  % Internal helper
+  \def\pgf@lib@dv@parse@scaling#1 at#2and #3 at#4\pgf@stop{%
+    \def\pgf@lib@dv@min{#1}%
+    \pgfmathparse{#2}
+    \let\pgf@lib@dv@min@at\pgfmathresult%
+    \def\pgf@lib@dv@max{#3}%
+    \pgfmathparse{#4}
+    \let\pgf@lib@dv@max@at\pgfmathresult%
+    \ifx\pgf@lib@dv@min\pgf@min@text%
+      \let\pgf@lib@dv@min\pgfdvmin
+    \else
+      \pgfmathparse{\pgf@lib@dv@min}
+      \let\pgf@lib@dv@min\pgfmathresult
+    \fi
+    \ifx\pgf@lib@dv@max\pgf@max@text%
+      \let\pgf@lib@dv@max\pgfdvmax
+    \else
+      \pgfmathparse{\pgf@lib@dv@max}
+      \let\pgf@lib@dv@max\pgfmathresult
+    \fi
+  }
+  \def\pgf@min@text{min}
+  \def\pgf@max@text{max}
+}
+
 
 
 
