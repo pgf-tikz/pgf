@@ -35,6 +35,8 @@
 \def\tikzdatavisualizationset{\pgfqkeys{/tikz/data visualization}}
 
 
+
+
 % The main \datavisualization command
 %
 % This command must, as always, be given inside a tikz picture. It
@@ -42,24 +44,35 @@
 % friends to place the data visualization somewhere other than at the
 % origin.
 %
-% The \datavisualization gets a set of options as (optional) argument,
-% which can be used to setup the data visualization.
+% The \datavisualization is followed by a sequence of blocks and ended
+% with a semicolon. Each block may be one of the following:
 %
-% Next comes a sequence of block, each introduced with a keyword.
+% "data" blocks.
 %
-% The data blocks.
-%   Each such block starts with "data", followed by
-%   optional arguments. The optional arguments may either specify an
+%   Syntax: data [options]                  % options specify an external source
+%   Syntax: data [options] { inline data }  
+%
+%   The optional arguments may either specify an
 %   external data source or the data may follow inline.
 %
 %   The options are executed for the path /pgf/data. The style
 %   /tikz/every data is executed for each data, which can be useful to
 %   generally set, say, a certain data format.
 %
-% The before/after survey/visualization blocks.
-%   A block starting with "before survey", "after survey", "before
-%   visualization" or "after visualization" may contain any code. It
-%   will be executed at the time indicated by the block name.
+% "infos" blocks.
+%
+%   Syntax: infos [options] {code}
+%
+%   A block starting with "infos" may contain any code. It
+%   will be executed after the visualization. In order to execute code
+%   at some other time (like, say, before the visualization), use
+%   options like "before visualization".
+%
+% Options blocks.
+%
+%   Syntax: [options]
+%
+%   The options will be executed immediately.
 %
 % Examples:
 %
@@ -82,9 +95,12 @@
 %      var x: interval [0:3];
 %      func y = \value x*\value x;
 %    }
-%    after visualization
+%    [before visualization={
+%      \fill [black!10] (visualization cs:x=0,y=0) -- (visualization cs:x=3,y=9);
+%    }]
+%    infos[red]
 %    {
-%      \draw (0,0) -- (3,3);
+%      \draw (visualization cs:x=0,y=0) -- (visualization cs:x=3,y=9);
 %    };
 %
 %  \datavisualization[schoolbook plot,
@@ -96,14 +112,10 @@
 %      { var x: interval [0,1]; func y = rand(\value x); }
 %    ;
 
-\def\tikz@lib@datavisualization{\pgfutil@ifnextchar[\tikz@lib@datavisualization@opt{\tikz@lib@datavisualization@opt[]}}%}
-
-\def\tikz@lib@datavisualization@opt[#1]{%
+\def\tikz@lib@datavisualization{
   \begingroup%
     % Ok, first, start a new data visualization
     \pgfoonew \tikz@main@dv=new data visualization()%
-    % Now setup some options
-    \tikzdatavisualizationset{#1}%
     %
     \pgfset{/pgf/data/continue code=\tikz@lib@dv@parse@loop}%
     % Now enter parse loop
@@ -112,11 +124,11 @@
 
 \def\tikz@lib@dv@parse@loop{%  
   \pgfutil@ifnextchar d\tikz@lib@dv@handle@data{%
-    \pgfutil@ifnextchar a\tikz@lib@dv@handle@after{%
-      \pgfutil@ifnextchar b\tikz@lib@dv@handle@before{%
-        \pgfutil@ifnextchar ;\tikz@lib@dv@parse@end{%
-          \pgfutil@ifnextchar \par\tikz@lib@dv@handle@par{%
-            \pgfutil@ifnextchar s\tikz@lib@dv@handle@beginscope{%
+    \pgfutil@ifnextchar ;\tikz@lib@dv@parse@end{%
+      \pgfutil@ifnextchar \par\tikz@lib@dv@handle@par{%
+        \pgfutil@ifnextchar s\tikz@lib@dv@handle@beginscope{%
+          \pgfutil@ifnextchar i\tikz@lib@dv@handle@info{%
+            \pgfutil@ifnextchar [\tikz@lib@dv@handle@options{%
               \pgfutil@ifnextchar \egroup\tikz@lib@dv@handle@endscope{%
                 \PackageError{tikz}{Semicolon expected}{}%
                 \endgroup%
@@ -135,6 +147,11 @@
   \endgroup%
 }
 \def\tikz@lib@dv@handle@par\par{\tikz@lib@dv@parse@loop}
+
+\def\tikz@lib@dv@handle@options[#1]{%
+  \tikzdatavisualizationset{#1}%
+  \tikz@lib@dv@parse@loop%
+}
 
 \def\tikz@lib@dv@handle@beginscope scope{%
   \begingroup%
@@ -158,19 +175,32 @@
 }
 
 \def\tikz@lib@dv@handle@data data{\pgfdata}
-\def\tikz@lib@dv@handle@before before{\pgfutil@ifnextchar s{\tikz@lib@dv@before@survey}{\tikz@lib@dv@before@visualization}}
-\def\tikz@lib@dv@handle@after after{\pgfutil@ifnextchar s{\tikz@lib@dv@after@survey}{\tikz@lib@dv@after@visualization}}
 
-\def\tikz@lib@dv@before@survey survey#1{\tikz@main@dv.before survey({{#1}})\tikz@lib@dv@parse@loop}
-\def\tikz@lib@dv@after@survey survey#1{\tikz@main@dv.after survey({{#1}})\tikz@lib@dv@parse@loop}
+\def\tikz@lib@dv@handle@info infos{
+  \pgfutil@ifnextchar[{\tikz@lib@dv@handle@info@block@opt}{\tikz@lib@dv@handle@info@block@opt[]}}%}
+\def\tikz@lib@dv@handle@info@block@opt[#1]#2{%
+  \tikz@main@dv.after visualization({{\scope[#1]#2\endscope}})%
+  \tikz@lib@dv@parse@loop
+}
 
-\def\tikz@lib@dv@before@visualization visualization#1{\tikz@main@dv.before visualization({{#1}})\tikz@lib@dv@parse@loop}
-\def\tikz@lib@dv@after@visualization visualization#1{\tikz@main@dv.after visualization({{#1}})\tikz@lib@dv@parse@loop}
 
 \pgfset{/pgf/every data/.style={/tikz/every data/.try,/tikz/data visualization/every data/.try}}
 
 
+%
+% Performing before/after stuff via keys
+% 
 
+\tikzdatavisualizationset{
+  before survey/.code=\tikz@main@dv.before survey({{#1}}),
+  after survey/.code=\tikz@main@dv.after survey({{#1}}),
+  before visualization/.code=\tikz@main@dv.before visualization({{#1}}),
+  after visualization/.code=\tikz@main@dv.after visualization({{#1}}),
+  at start survey/.code=\tikz@main@dv.at start survey({{#1}}),
+  at end survey/.code=\tikz@main@dv.at end survey({{#1}}),
+  at start visualization/.code=\tikz@main@dv.at start visualization({{#1}}),
+  at end visualization/.code=\tikz@main@dv.at end visualization({{#1}}),
+}
 
 
 
@@ -279,14 +309,14 @@
   arg6/.store in=\tikz@dv@arg@f,
   arg7/.store in=\tikz@dv@arg@g,
   arg8/.store in=\tikz@dv@arg@h,
-  arg1 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@a},
-  arg2 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@b},
-  arg3 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@c},
-  arg4 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@d},
-  arg5 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@e},
-  arg6 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@f},
-  arg7 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@g},
-  arg8 from key/.code=\pgfkeysgetvalue{/tikz/data visualization/#1}{\tikz@dv@arg@h}
+  arg1 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@a},
+  arg2 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@b},
+  arg3 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@c},
+  arg4 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@d},
+  arg5 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@e},
+  arg6 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@f},
+  arg7 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@g},
+  arg8 from key/.code=\pgfkeysgetvalue{#1}{\tikz@dv@arg@h}
   arg1 handle from key/.code=\tikz@dv@handle@from@key{#1}{\tikz@dv@handle@a}{\tikz@dv@arg@a},
   arg2 handle from key/.code=\tikz@dv@handle@from@key{#1}{\tikz@dv@handle@b}{\tikz@dv@arg@b},
   arg3 handle from key/.code=\tikz@dv@handle@from@key{#1}{\tikz@dv@handle@c}{\tikz@dv@arg@c},
@@ -298,26 +328,48 @@
 }
 
 \def\tikz@dv@handle@from@key#1#2#3{%
-  \pgfkeysvalueof{/tikz/data visualization/#1}.get handle(#2)%
+  \pgfkeysvalueof{#1}.get handle(#2)%
   \def#3{#2}%
 }
 
 
 
 
+%
+% Data visualization coordinate system
+%
+%
+% This cs is used to refer to points in a datavisualization. The
+% parameters are keys that are set in the /data point key
+% directory. Then, a (virtual) data point is created and the
+% calculated position is returned
+
+\tikzdeclarecoordinatesystem{visualization}
+{%
+  \tikzset{/data point/.cd,#1}%
+  \pgfcanvaspositionofvirtualdatapoint%
+}
+
+
 
 
 %
 %
-% Simple axes
+% Axes
 %
+%
+
+
+
+%
+% Axes base
 %
 
 \tikzdatavisualizationset{%
   new axis/.style={
     new object={
-      class=scaling,
-      store=/tikz/data visualization/#1/scaling obj,
+      class=scaling mapper,
+      store=/tikz/data visualization/#1/scaling mapper,
       before creation={
         \pgfkeysgetvalue{/tikz/data visualization/#1/scaling}\tikz@temp
         \ifx\tikz@temp\pgfutil@empty%
@@ -325,81 +377,255 @@
           \pgfkeyslet{/tikz/data visualization/#1/scaling}\tikz@temp
         \fi
       },
-      arg1 from key=#1/attribute,
+      arg1 from key=/tikz/data visualization/#1/attribute,
       arg2/.expanded=\pgfkeysvalueof{/tikz/data visualization/#1/attribute}/scaled,
-      arg3 from key=#1/scaling,
-      arg4 from key=#1/function
-    },
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/#1/line transformer,
-      class=line transformer,
-      arg1/.expanded=\pgfkeysvalueof{/tikz/data visualization/#1/attribute}/scaled,
-      arg2 from key=#1/unit vector
+      arg3 from key=/tikz/data visualization/#1/scaling,
+      arg4 from key=/tikz/data visualization/#1/function
     },
     #1/attribute/.initial=#1,
     #1/function/.initial=,
-    #1/unit vector/.initial=,
     #1/scaling/.initial=,
-    #1/scaling/default/.initial=0 at 0 and 1 at 1cm,
+    #1/scaling/default/.initial=0 at 0 and 1 at 1,
     #1/.code={
       \def\tikz@dv@axis{/tikz/data visualization/#1}
       \pgfkeys{/tikz/data visualization/axis options/.cd,##1}}
   }
 }
+
 \tikzset{
   /tikz/data visualization/axis options/.cd,
   attribute/.style={\tikz@dv@axis/attribute=#1},
   function/.style={\tikz@dv@axis/function=#1},
-  unit vector/.code=\tikz@scan@one@point\tikz@lib@dv@uv#1,
   scaling/.style={\tikz@dv@axis/scaling=#1},
   log axis/.style={
     \tikz@dv@axis/function=\pgfmathparse{ln(\pgfvalue)},
-    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1cm
-  },
+    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1
+  }
+}
+
+\tikzset{
+  /tikz/data visualization/axis options/.cd,
+  set attribute to/.code={%
+    % Set the attribute to a specific value
+    \def\tikz@temp{#1}%
+    \ifx\tikz@temp\tikz@dv@mintext%
+      \pgfkeysvalueof{\tikz@dv@axis/scaling mapper}.get in range interval()
+      \pgfdvinrangeinterval.get min and max()
+      \pgfkeyslet{/data point/\pgfkeysvalueof{\tikz@dv@axis/attribute}}\pgfdvmin
+    \else%
+      \ifx\tikz@temp\tikz@dv@maxtext%
+        \pgfkeysvalueof{\tikz@dv@axis/scaling mapper}.get in range interval()
+        \pgfdvinrangeinterval.get min and max()
+        \pgfkeyslet{/data point/\pgfkeysvalueof{\tikz@dv@axis/attribute}}\pgfdvmax
+      \else%
+        \pgfkeyssetvalue{/data point/\pgfkeysvalueof{\tikz@dv@axis/attribute}}{#1}
+      \fi%
+    \fi%
+  }
+}
+
+\def\tikz@dv@mintext{min}
+\def\tikz@dv@maxtext{max}
+
+%
+% Cartesian base
+%
+
+\tikzdatavisualizationset{%
+  new Cartesian axis/.style={
+    new axis={#1},
+    new object={
+      class=linear transformer,
+      store=/tikz/data visualization/#1/linear transformer,
+      arg1/.expanded=\pgfkeysvalueof{/tikz/data visualization/#1/attribute}/scaled,
+      arg2 from key=/tikz/data visualization/#1/unit vector,
+    },
+    #1/scaling/default/.initial=0 at 0 and 1 at 1cm,
+    #1/unit vector/.initial=,
+  }
+}
+
+\tikzset{
+  /tikz/data visualization/axis options/.cd,
+  unit vector/.code=\tikz@scan@one@point\tikz@lib@dv@uv#1,
   axis length/.style={\tikz@dv@axis/scaling=min at 0 and max at #1},
   positive axis length/.style={\tikz@dv@axis/scaling=0 at 0 and max at #1},
   negative axis length/.style={\tikz@dv@axis/scaling=min at -#1 and 0 at 0},
   unit length/.style={\tikz@dv@axis/scaling=0 at 0 and 1 at #1},
-  power unit length/.style={\tikz@dv@axis/scaling=1 at 0 and 10 at #1},
+  power unit length/.style={\tikz@dv@axis/scaling=1 at 0 and 10 at #1}
 }
+
 \def\tikz@lib@dv@uv#1{%
   \pgfkeyssetvalue{\tikz@dv@axis/unit vector}{#1}
 }
 
+
+
+%
+% Axes visualization 
+%
+
+\tikzset{
+  /tikz/data visualization/axis options/.cd,
+  visualize/.code=\expandafter\tikz@lib@dv@av\expandafter{\tikz@dv@axis}{#1},
+}
+
+\def\tikz@lib@dv@av#1#2{
+  \tikzdatavisualizationset{
+    new object={
+      store=#1/axis visualizer,
+      class=axis visualizer,
+      when=after survey,
+      before creation={\pgfkeysvalueof{#1/scaling mapper}.get in range interval()},      
+      arg1 from key=#1/attribute,
+      arg2=\pgfdvinrangeinterval
+    },
+    after visualization=%
+    {
+      \foreach\tikz@lib@dv@action in{#2}%
+      {\expandafter\tikz@lib@dv@parse@action\tikz@lib@dv@action\pgf@stop{#1}}
+    }
+  }
+}
+
+\def\tikz@lib@dv@parse@action[#1]\pgf@stop#2{%
+  \scope[/tikz/data visualization/.cd,#1]
+    \pgfkeysvalueof{#2/axis visualizer}.visualize(,)
+  \endscope
+}
+
+
+
 %
 %
-% Simple plots
+% Basic axis systems
 %
 %
 
 \tikzdatavisualizationset{
-  2d axes/.style={
-    new axis=x axis,
+  xy Cartesian/.style={
+    new Cartesian axis=x axis,
     x axis={attribute=x,unit vector={(1pt,0cm)}},
-    new axis=y axis,
+    new Cartesian axis=y axis,
     y axis={attribute=y,unit vector={(0cm,1pt)}}
-  }
+  },
+  xy axes/.style={x axis={#1},y axis={#1}},
+  uv Cartesian/.style={
+    new Cartesian axis=u axis,
+    u axis={attribute=u,unit vector={(1pt,0cm)}},
+    new Cartesian axis=v axis,
+    v axis={attribute=v,unit vector={(0cm,1pt)}}
+  },
+  uv axes/.style={u axis={#1},v axis={#1}},
 }
 
 \tikzdatavisualizationset{
-  3d axes/.style={
-    2d axes,
-    new axis=z axis,
+  xyz Cartesian/.style={
+    xy Cartesian,
+    new Cartesian axis=z axis,
     z axis={attribute=z,unit vector={(-0.385pt,-0.385pt)}}
+  },
+  xyz axes/.style={x axis={#1},y axis={#1},z axis={#1}},
+  uvw Cartesian/.style={
+    uv Cartesian,
+    new Cartesian axis=w axis,
+    w axis={attribute=w,unit vector={(-0.385pt,-0.385pt)}}
+  }
+  uvw axes/.style={u axis={#1},v axis={#1},w axis={#1}},
+}
+
+
+%
+% Basic plot visualizers
+%
+
+\tikzdatavisualizationset{
+  line plot/.style={
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/plot handler visualizer,
+      class=plot handler visualizer,
+      arg1=\tikz@plot@handler
+    }
   }
 }
+
+
+%
+% Basic plots
+%
+
+
+% The school book plot
+%
+% This plot can be used to create plots that look like plots in a
+% typical school book: There are two axes called "x axis" and "y axis"
+% that meet at the origin, there are arrows at the ends of the axes,
+% pointing in the directions of the positive axes. No scaling is done
+% by default, rather one unit equals one 1cm. This ensures that the
+% even when multiple plots are created, the same scaling will be
+% used each time. 
 
 \tikzdatavisualizationset{
   school book plot/.style={
-    2d axes,
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/plot,
-      class=plot handler visualizer,
-      arg1=\pgfplothandlerlineto
-    }
+    xy Cartesian,
+    x axis={visualize=[{y axis={set attribute to=0},arrows=->}]},
+    y axis={visualize=[{x axis={set attribute to=0},arrows=->}]},
+    line plot,
+    every school book plot/.try
+  },
+  school book 3d plot/.style={
+    xyz Cartesian,
+    x axis={visualize=[{y axis={set attribute to=0},z axis={set attribute to=0},arrows=->}]},
+    y axis={visualize=[{x axis={set attribute to=0},z axis={set attribute to=0},arrows=->}]},
+    z axis={visualize=[{y axis={set attribute to=0},z axis={set attribute to=0},arrows=->}]},
+    line plot,
+    every school book plot/.try
   }
-}       
+}
+
+\tikzdatavisualizationset{
+  scientific plot/width/.initial=161.8pt,% golden ratio...
+  scientific plot/height/.initial=100pt,
+  scientific plot/.style={
+    xy Cartesian,
+    x axis={axis length=\pgfkeysvalueof{/tikz/data visualization/scientific plot/width},
+      visualize={
+        [y axis={set attribute to=min}],
+        [y axis={set attribute to=max}]}},
+    y axis={axis length=\pgfkeysvalueof{/tikz/data visualization/scientific plot/height},
+      visualize={
+        [x axis={set attribute to=min}],
+        [x axis={set attribute to=max}]}},
+    line plot,
+  },
+  scientific 3d plot/axis length/.initial=100pt,
+  scientific 3d plot/.style={
+    xyz Cartesian,
+    x axis={axis length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/axis length},
+      visualize={
+        [{y axis={set attribute to=min},z axis={set attribute to=min}}],
+        [{y axis={set attribute to=max},z axis={set attribute to=min}}],
+        [{y axis={set attribute to=min},z axis={set attribute to=max}}],
+        [{y axis={set attribute to=max},z axis={set attribute to=max}}]
+      }},
+    y axis={axis length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/axis length},
+      visualize={
+        [{x axis={set attribute to=min},z axis={set attribute to=min}}],
+        [{x axis={set attribute to=max},z axis={set attribute to=min}}],
+        [{x axis={set attribute to=min},z axis={set attribute to=max}}],
+        [{x axis={set attribute to=max},z axis={set attribute to=max}}]
+      }},
+    z axis={axis length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/axis length},
+      visualize={
+        [{x axis={set attribute to=min},y axis={set attribute to=min}}],
+        [{x axis={set attribute to=max},y axis={set attribute to=min}}],
+        [{x axis={set attribute to=min},y axis={set attribute to=max}}],
+        [{x axis={set attribute to=max},y axis={set attribute to=max}}]
+      }},
+    line plot
+  }
+}
+
 
 \endinput

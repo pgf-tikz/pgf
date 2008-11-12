@@ -1,0 +1,206 @@
+% Copyright 2008 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+\usepgfmodule{datavisualization}
+
+% This file defines code for doing plots involving polar
+% coordinates. This includes not only standard polar plots, but also
+% pie charts. 
+
+
+
+
+\pgfooclass{polar mapper}
+{
+  % Class plor mapper
+  %
+  % A polar mapper is used to map attributes given as (2d) polar
+  % coordinates to Cartesian coordinates. Note that no special ranges
+  % can be specified and that the angle must be given in degrees. You
+  % can, however, use a standard mapper to change these things.
+  
+  \attribute angle;
+  % The attribute from which the angle is read. If the angle attribute/const
+  % is set, this value will be used instead.
+  
+  \attribute radius;
+  % The attribute from which the radius is read. If the radius attribute/const
+  % is set, this value will be used instead.
+  
+  \attribute x;
+  % The attribute to which the resulting x coordinate is written.
+  
+  \attribute y;
+  % The attribute to which the resulting y coordinate is written. 
+
+  
+  % Constructor
+  %
+  % #1 = angle attribute. Example: rotation.
+  % #2 = radius attribute. Example: height.
+  % #3 = x attribute. Example: x.
+  % #4 = y attribute. Example: y.
+  %
+  \method polar mapper(#1,#2,#3,#4) {
+    \pgfooset{angle}{#1}
+    \pgfooset{radius}{#2}
+    \pgfooset{x}{#3}
+    \pgfooset{y}{#4}
+  } 
+
+  % Method
+  \method default connects() {
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,map,map datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,path,path signal)
+  }
+
+  % Slot
+  %
+  % Mapping is done only if both the angle and the radius attribute
+  % have non-empty values.
+  \method map() {
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{angle}/const}\pgf@dv@angle%
+    \ifx\pgf@dv@angle\relax%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{angle}}\pgf@dv@angle%
+    \fi%
+    \ifx\pgf@dv@angle\relax%
+    \else%
+      \ifx\pgf@dv@angle\pgfutil@empty%
+      \else%
+        \pgfkeysgetvalue{/data point/\pgfoovalueof{radius}/const}\pgf@dv@radius%
+        \ifx\pgf@dv@radius\relax%
+          \pgfkeysgetvalue{/data point/\pgfoovalueof{radius}}\pgf@dv@radius%
+        \fi%
+        \ifx\pgf@dv@radius\pgfutil@empty%
+        \else%
+          \ifx\pgf@dv@radius\relax%
+          \else%
+            \pgfmathsincos{\pgf@dv@angle}%
+            \pgfmathmultiply{\pgfmathresultx}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalueof{x}}\pgfmathresult%
+            \pgfmathmultiply{\pgfmathresulty}{\pgf@dv@radius}%
+            \pgfkeyslet{/data point/\pgfoovalueof{y}}\pgfmathresult%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+  }
+
+  % Getters
+  \method get angle attribute(#1) {
+    \pgfooget{angle}{#1}
+  }
+
+  \method get radius attribute(#1) {
+    \pgfooget{radius}{#1}
+  }
+
+  % Reaction to the path signal
+  %
+  % We try to be smart, which may well go wrong...
+  %
+  % Here is what we do: When a pgfdvpathmoveto is done, the radius and
+  % the angle are recorded. When a pgfdvpathlineto is done, the saved
+  % radius and angle are compared with the new angle and radius. If,
+  % and only if, the radius is the same, but the angle is different,
+  % the lineto is caught and replaced by an arc from the previous
+  % position to the new position.
+
+  \attribute prev angle;
+  \attribute prev radius;
+  
+  \method path(#1) {%
+    \ifpgfdvpathcommandhandled%
+    \else%
+      \ifx#1\pgfdvpathlinetotoken
+        % Ok, let us have a look...
+        \pgfooget{prev radius}\pgf@dv@prev@rad
+        \pgfkeysgetvalue{/data point/\pgfoovalueof{radius}}\pgf@dv@current@rad
+        \ifx\pgf@dv@current@rad\relax
+        \else
+          \ifdim\pgf@dv@current@rad pt=\pgf@dv@prev@rad pt%
+            \pgfooget{prev angle}\pgf@dv@prev@angle
+            \pgfkeysgetvalue{/data point/\pgfoovalueof{angle}}\pgf@dv@current@angle
+            \ifx\pgf@dv@current@angle\relax
+            \else
+              \ifdim\pgf@dv@current@angle pt=\pgf@dv@prev@angle pt%
+              % do nothing
+              \else%
+                \pgf@lib@dv@handle@arc%
+              \fi%
+            \fi%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+    % No matter what, record the current position
+    \pgfooeset{prev angle}{\pgfkeysvalueof{/data point/\pgfoovalueof{angle}}}
+    \pgfooeset{prev radius}{\pgfkeysvalueof{/data point/\pgfoovalueof{radius}}}
+  }
+
+  \def\pgf@lib@dv@handle@arc{%
+    {%
+      % Compute the main axes
+      % Compute the first axis:
+      {%
+        \pgfkeyssetvalue{/data point/\pgfoovalueof{angle}/const}{0}%
+        \pgfpointdvlocaldatapoint%
+        \xdef\pgf@dv@veczero{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }%
+      % Compute the second axis:
+      {%
+        \pgfkeyssetvalue{/data point/\pgfoovalueof{angle}/const}{90}%
+        \pgfpointdvlocaldatapoint%
+        \xdef\pgf@dv@vecninety{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }%
+      % Compute origin:
+      {%
+        \pgfkeyssetvalue{/data point/\pgfoovalueof{radius}/const}{0}%
+        \pgfpointdvlocaldatapoint%
+        \xdef\pgf@dv@veccenter{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }%
+      % Do arc:
+      \pgftransformtriangle{\pgf@dv@veccenter}{\pgf@dv@veczero}{\pgf@dv@vecninety}%
+      \pgfpatharc{\pgf@dv@prev@angle}{\pgf@dv@current@angle}{1pt}%
+    }%
+    \pgfdvpathcommandhandledtrue%
+  }
+}
+
+
+
+
+\endinput
+
+
+
+%   % Shifts the coordinate system by the given amount
+%   %
+%   % This command will offset the coordinate system by the given
+%   % dimension in the direction of the unit vector.
+%   \method shift(#1) {
+%     \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+%     \pgfmathparse{#1}
+%     \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@x}{\pgfmathresult\pgf@y}}
+%   }
+  
+%   % Shifts the coordinate system by the given amount orthogonally
+%   %
+%   % This command will offset the coordinate system by the given
+%   % dimension orthogonally to the direction of the unit vector.
+%   \method shift orthogonally(#1) {
+%     \pgf@process{\pgfpointnormalised{\pgfoovalueof{unit vector}}}
+%     \pgfmathparse{#1}
+%     \pgf@x=-\pgf@x
+%     \pgftransformshift{\pgfqpoint{\pgfmathresult\pgf@y}{\pgfmathresult\pgf@x}}
+%   }
+  
