@@ -115,6 +115,7 @@
   \attribute survey datapoint signal;
   \attribute phase signal;
   \attribute path signal;
+  \attribute direction signal;
 
   
   % Constructor
@@ -129,6 +130,7 @@
     \pgfoonew{survey datapoint signal}=new signal()%
     \pgfoonew{phase signal}=new signal()%
     \pgfoonew{path signal}=new signal()%
+    \pgfoonew{direction signal}=new signal()%
     %
     % Store this object in a key
     %
@@ -143,8 +145,10 @@
   \def\pgfdvendvisualization{4}
 
   % The path signale will meit the following constants:
-  \def\pgfdvpathmovetotoken{1}
-  \def\pgfdvpathlinetotoken{2}
+  \def\pgfdvpathmovetotoken{5}
+  \def\pgfdvpathlinetotoken{6}
+  \def\pgfdvdirectionfromtoken{7}
+  \def\pgfdvdirectiontotoken{8}
 
   % Method
   %
@@ -203,6 +207,7 @@
     \pgfooget{survey datapoint signal}\pgf@signalsurveydatapoint
     \pgfooget{phase signal}\pgf@signalphase
     \pgfooget{path signal}\pgf@signalpath
+    \pgfooget{direction signal}\pgf@signaldirection
   }
 
   
@@ -404,13 +409,13 @@
 % datapoints.
 %
 % Normally, all these methods need to do is to compute the current
-% canvas position of the current data point and then do a moveto or
-% lineto to this position.
+% canvas position of the current data point and then do a moveto,
+% lineto or some other operation to this position.
 %
 % However, when the coordinate system is weird, like with polar
 % coordinates or spherical or log-polar coordinate or whatever, a
 % straight line "along an attribute" is no longer a straight line.
-% In this case, three actions can be taken:
+% In this case, two actions can be taken:
 %
 % 1. The problem can be ignored, resulting in a wrong line.
 % 2. Some clever algorithm kicks in an replaces the straight line by
@@ -422,9 +427,26 @@
 % visualization path signal. This signal is emitted every time the
 % lineto or moveto commands are executed. If an object reacts to such
 % a command and handles it, it should set
-% \pgfdvpathcommandhandledtrue. 
+% \pgfdvhandledtrue.
 
-\newif\ifpgfdvpathcommandhandled
+\newif\ifpgfdvhandled
+
+\def\pgfdv@generic#1#2#3{%
+  {%
+    \pgfdvhandledfalse%
+    \pgf@signalmapdatapoint.emit()%
+    #1.emit(#2)%
+    \ifpgfdvhandled%
+    \else%
+      \pgf@process{%
+        \pgftransformreset%
+        \pgf@signaltransformdatapoint.emit()%
+        \pgfpointtransformed{\pgfpointorigin}%
+      }%
+      #3{}%
+    \fi%
+  }%
+}
 
 
 % Handle a moveto
@@ -432,23 +454,7 @@
 % This command has no parameters since the target of the moveto is
 % given by the canvas position of the current local data point.
 \def\pgfpathdvmoveto{%
-  \pgfpathdv@generic{\pgfdvpathmovetotoken}{\pgfpathmoveto}
-}
-\def\pgfpathdv@generic#1#2{%
-  {%
-    \pgfdvpathcommandhandledfalse%
-    \pgf@signalmapdatapoint.emit()%
-    \pgf@signalpath.emit(#1)%
-    \ifpgfdvpathcommandhandled%
-    \else%
-      \pgf@process{%
-        \pgftransformreset%
-        \pgf@signaltransformdatapoint.emit()%
-        \pgfpointtransformed{\pgfpointorigin}%
-      }%
-      #2{}%
-    \fi%
-  }%
+  \pgfdv@generic{\pgf@signalpath}{\pgfdvpathmovetotoken}{\pgfpathmoveto}
 }
 
 
@@ -457,7 +463,46 @@
 % This command has no parameters since the target of the moveto is
 % given by the canvas position of the current local data point.
 \def\pgfpathdvlineto{%
-  \pgfpathdv@generic{\pgfdvpathlinetotoken}{\pgfpathlineto}
+  \pgfdv@generic{\pgf@signalpath}{\pgfdvpathlinetotoken}{\pgfpathlineto}
+}
+
+
+
+% Compute a normalized vector pointing from some point to another.
+%
+% #1 = code for setting the attributes of the first point
+% #2 = code for setting the attributes of the second point
+%
+% Using #1 and #2 you specify two data points. These are then
+% localized on the canvas and a vector pointing from the first data
+% point to the second one is returned. However, for instance in polar
+% coordinates the vector may actually "point along" the angle axis.
+%
+% Internally, this command first sets up the first data point and then
+% emits a "path" signal with the \pgfdvpathdirectionfromtoken set and
+% then sets up the second point and emits the corresponding
+% ...totoken.
+%
+
+\def\pgfpointdvdirection#1#2{%
+  {
+    {
+      #1
+      \pgfdv@generic{\pgf@signaldirection}{\pgfdvdirectionfromtoken}{\xdef\pgf@dv@from{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}
+    }
+    {
+      #2
+      \pgfdv@generic{\pgf@signaldirection}{\pgfdvdirectiontotoken}{
+        \edef\pgf@dv@dir@xa{\the\pgf@x}
+        \edef\pgf@dv@dir@ya{\the\pgf@y}
+        \pgf@process{
+          \pgfpointnormalised{%
+            \pgfpointdiff{\pgf@dv@from}{\pgfqpoint{\pgf@dv@dir@xa}{\pgf@dv@dir@ya}}
+          }
+        }
+      }
+    }
+  }
 }
 
 
@@ -474,7 +519,7 @@
 
 % Run the rendering pipeline on a dataset.
 % 
-% #1 = options with path /pgf/dataset/
+% #1 = options with path /pgf/data/
 % #2 = optionally data given inline in curly braces.
 %
 % Description:
@@ -514,7 +559,7 @@
 % \pgfoonew \obj=new attribute mapper(...)
 % ...
 %
-% \pgfkeys{/pgf/dataset/.cd,
+% \pgfkeys{/pgf/data/.cd,
 %          column 1=dax/low,
 %          column 2=dax/high,
 %          column 3=dax/entry,
@@ -1165,15 +1210,31 @@
           \ifpgf@dvclip%
             \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfutil@empty%
           \else%
-            \pgfoovalueof{trans}%
-            \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
-            \pgfmathmultiply{\pgfmathresult}{\pgfoovalueof{scale}}%
-            \pgfmathadd{\pgfmathresult}{\pgfoovalueof{out min}}%
-            \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfmathresult%
+            \pgf@dv@mapper@trans{}
           \fi%
         \fi%
       \fi%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgfmathresult%
+      \ifx\pgfmathresult\pgfutil@empty\else%
+        \ifx\pgfmathresult\relax\else%
+          \pgf@dv@mapper@trans{/min}
+        \fi
+      \fi
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgfmathresult%
+      \ifx\pgfmathresult\pgfutil@empty\else%
+        \ifx\pgfmathresult\relax\else%
+          \pgf@dv@mapper@trans{/max}
+        \fi
+      \fi
     \fi%
+  }
+
+  \def\pgf@dv@mapper@trans#1{
+    \pgfoovalueof{trans}%
+    \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
+    \pgfmathmultiply{\pgfmathresult}{\pgfoovalueof{scale}}%
+    \pgfmathadd{\pgfmathresult}{\pgfoovalueof{out min}}%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}#1}\pgfmathresult%
   }
 }
 
@@ -1282,6 +1343,36 @@
   \method get in range interval() {
     \pgfooget{in range obj}\pgfdvinrangeinterval
   }
+
+  
+  % Method
+  %
+  % #1 = value for the attribute
+  %
+  % Sets the attribute to the (evaluated) given value (evaluation
+  % using \pgfmathparse). When the value  is evaluated, the values of
+  % \pgfdvmin and \pgfdvmax will be set to the minimum and maximum
+  % values of the in interval. Thus, a value of
+  % ".5*\pgfdvmin+.5*\pgfdvmax" yields the middle of the interval.
+  %
+  % In case #1 is set to the special value "min", it evaluates to
+  % \pgfdvmin, when set to "max" it evaluates to \pgfdvmax.
+  %
+  \method set in to(#1) {
+    \pgfooget{in range obj}\pgfdvinrangeinterval
+    \pgfdvinrangeinterval.get min and max()%
+    \def\pgf@temp{#1}
+    \ifx\pgf@temp\pgf@min@text
+      \let\pgfmathresult\pgfdvmin
+    \else
+      \ifx\pgf@temp\pgf@max@text
+        \let\pgfmathresult\pgfdvmax
+      \else
+        \pgfmathparse{\pgf@temp}
+      \fi
+    \fi
+    \pgfkeyslet{/data point/\pgfoovalueof{in}}\pgfmathresult
+  }
   
   % Slot 
   \method phase(#1) {
@@ -1343,6 +1434,9 @@
   % determine the minimum and maximum values of an attribute that are
   % "seen" during the survey phase. Based on this value, the size of,
   % say, an axis can be detemined later on.
+  %
+  % In case the attribute has the sub-attributes "min" and "max", they
+  % are also taken into account.   
 
   \attribute attribute;
   % The to-be-surveyed attribute
@@ -1377,25 +1471,32 @@
   \method survey() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
     \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}/min}\pgf@dv@val%
+    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}/max}\pgf@dv@val%
+    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
   }
 
   \def\pgf@dv@range@surv{%
-    \ifx\pgf@dv@val\pgfutil@empty%
+    \ifx\pgf@dv@val\relax%
     \else%
-      \ifx\pgf@dv@val\relax%
+      \edef\pgf@dv@val{\pgf@dv@val}%
+      \ifx\pgf@dv@val\pgfutil@empty%
       \else%
         % Now, protocol value
         \ifx\pgfdvmin\pgfutil@empty%
           \let\pgfdvmin\pgf@dv@val%
         \else%
-          \ifdim\pgf@dv@val pt<\pgfdvmin pt%
+          \pgfmathlessthan{\pgf@dv@val}{\pgfdvmin}%
+          \ifdim\pgfmathresult pt=1.0pt%
             \let\pgfdvmin\pgf@dv@val%
           \fi%
         \fi%
         \ifx\pgfdvmax\pgfutil@empty%
           \let\pgfdvmax\pgf@dv@val%
         \else%
-          \ifdim\pgf@dv@val pt>\pgfdvmax pt%
+          \pgfmathgreaterthan{\pgf@dv@val}{\pgfdvmax}%
+          \ifdim\pgfmathresult pt=1.0pt%
             \let\pgfdvmax\pgf@dv@val%
           \fi%
         \fi%
@@ -1413,84 +1514,16 @@
 \usepgflibrary{plothandlers}
 
 
-\pgfooclass{plot mark visualizer}
-{
-  % Class plot mark visualizer
-  %
-  % This visualizer will put a little marking at each data point. The
-  % marking is a plot mark as defined in pgf's plot mark library.
-  %
-  % By default, each data point is visualized by a plot mark. This can
-  % be changed by setting the "zero trigger" to a different value. The
-  % zero trigger is the name of an attribute and the plot mark is
-  % shown only when this attribute is zero. For instance, you can set
-  % the zero trigger to an attribute that holds the value of a
-  % repetive count down from 10 downward. The effect of this will be
-  % that only every tenth data point will be marked.
-  
-  \attribute mark;
-  % A plot mark like "star" or "oplus", see the plot mark library for
-  % possible values.  
-  
-  \attribute zero trigger=always 0;
-  % Name of an attribute that, when its value is zero, causes a plot
-  % mark to be placed at the data point's position. The default
-  % attribute is always 0, so every data point gets a plot mark.
-  
-  \attribute size=\pgfplotmarksize;
-  % The size of the plot mark.
-
-  
-  % Constructor
-  %
-  % #1 = plot mark like "star" or "asterix"
-  %
-  \method plot mark visualizer(#1) {
-    \pgfooset{mark}{#1}
-  }
-
-  % Method
-  \method default connects() {
-    \pgfoothis.get handle(\pgf@dv@me)
-    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
-  }
-
-  % Setter
-  \method set size(#1) {
-    \pgfooset{size}{#1}
-  }
-
-  % Setter
-  \method set zero trigger(#1) {
-    \pgfooset{zero trigger}{#1}
-  }
-
-  % Slot
-  \method visualize() {
-    {%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{zero trigger}}\pgf@dv@trig%
-      \ifx\pgf@dv@trig\pgf@dv@zero@text%
-        \pgfplotmarksize\pgfoovalueof{size}
-        \pgftransformshift{\pgfpointdvdatapoint}
-        \pgfuseplotmark{\pgfoovalueof{mark}}
-      \fi%
-    }%
-  }
-
-  \def\pgf@dv@zero@text{0}
-}
-
-
 
 \pgfooclass{plot handler visualizer}
 {
   % Class plot hanlder visualizer
   %
-  % This visualizer uses a plot handler to visualize data points. As
-  % the data points are processed, the canvas positions of the data
-  % points are recorded. At the end of the visualization phase, the
+  % This visualizer uses a plot handler to visualize data points.
+  % As the data points are processed, the canvas positions of the data 
+  % points are recorded. At the end of a group of data points, the
   % recorded stream of canvas position is the visualized (rendered)
-  % using a plot handler. For instance, when the lineto plot handler
+  % using a plot handler. For instance, when the lineto plot handler 
   % is used, the data points are connected by straight lines, when the
   % curveto plot handler is used, they are connected by smooth curves
   % and so on.
@@ -1498,12 +1531,27 @@
   % Since plot lines are not drawn immediately, but only at the end,
   % when everything has been collected, multiple plot handlers can
   % coexist peacefully at the same time.
+  %
+  % A group of data points is given by a list of consecutive data
+  % points. Both membership and the end of this list are determined by
+  % a control attribute. When the control attribute is empty, the data
+  % point is ignored. When the control attribute's value changes, the
+  % old data group ends and a new data group starts. In order to
+  % render the data group, the control's subkey "use path" is used
+  % with the value it had for the first data point of the group.
+  % 
 
   \attribute handler;
   % The to-be-used handler
   
-  \attribute use path=\pgfusepath{stroke};
-  % The default action to be taken on the path
+  \attribute control;
+  % The control attribute
+  
+  \attribute control value;
+  % The control attribute
+  
+  \attribute use path;
+  % The action to be taken on the path
   
   \attribute positions;
   % An internal protocol of the positions on the stream
@@ -1518,9 +1566,11 @@
   % Constructor
   %
   % #1 = A handler like \pgfplothandlerlineto
+  % #2 = A control attribute
   %
-  \method plot handler visualizer(#1) {
+  \method plot handler visualizer(#1,#2) {
     \pgfooset{handler}{#1}
+    \pgfooset{control}{#2}
   }
 
   % Method
@@ -1530,34 +1580,48 @@
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
-  % Setter
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
-
   % Slot
   \method protocol() {
-    % Cache it
-    \pgfooget{cache}\pgf@dv@cache
-    \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
-    \expandafter\expandafter\expandafter\def%
-    \expandafter\expandafter\expandafter\pgf@dv@cache%
-    \expandafter\expandafter\expandafter{\expandafter\pgf@dv@cache\pgf@dv@add}%
-    % Possibly flush cache
-    \global\advance\pgf@lib@dv@cache@count by1\relax%
-    \ifnum\pgf@lib@dv@cache@count=100\relax%
-      \global\pgf@lib@dv@cache@count=0\relax%
-      % Append cache to positions
-      \pgfooget{positions}\pgf@dv@temp
-      \expandafter\expandafter\expandafter\def%
-      \expandafter\expandafter\expandafter\pgf@dv@temp%
-      \expandafter\expandafter\expandafter{\expandafter\pgf@dv@temp\pgf@dv@cache}%
-      \pgfoolet{positions}\pgf@dv@temp
-      \let\pgf@dv@cache\pgfutil@empty
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{control}}\pgf@dv@control%
+    \ifx\pgf@dv@control\relax%
+    \else%
+      \ifx\pgf@dv@control\pgfutil@empty%
+      \else%
+        \pgfooget{control value}\pgf@dv@control@prev%
+        \ifx\pgf@dv@control@prev\pgf@dv@control%
+        \else%
+          \ifx\pgf@dv@control@prev\pgfutil@empty%
+            % first
+          \else
+            \pgfoothis.render()% flush out this group
+          \fi%
+          \pgfkeysgetvalue{/data point/\pgfoovalueof{control}/use path}\pgf@temp
+          \pgfoolet{use path}\pgf@temp
+          \pgfoolet{control value}\pgf@dv@control%
+        \fi%
+        % Cache it
+        \pgfooget{cache}\pgf@dv@cache
+        \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+        \expandafter\expandafter\expandafter\def%
+        \expandafter\expandafter\expandafter\pgf@dv@cache%
+        \expandafter\expandafter\expandafter{\expandafter\pgf@dv@cache\pgf@dv@add}%
+        % Possibly flush cache
+        \global\advance\pgf@lib@dv@cache@count by1\relax%
+        \ifnum\pgf@lib@dv@cache@count=100\relax%
+          \global\pgf@lib@dv@cache@count=0\relax%
+          % Append cache to positions
+          \pgfooget{positions}\pgf@dv@temp
+          \expandafter\expandafter\expandafter\def%
+          \expandafter\expandafter\expandafter\pgf@dv@temp%
+          \expandafter\expandafter\expandafter{\expandafter\pgf@dv@temp\pgf@dv@cache}%
+          \pgfoolet{positions}\pgf@dv@temp
+          \let\pgf@dv@cache\pgfutil@empty
+        \fi
+        \pgfoolet{cache}\pgf@dv@cache
+      \fi
     \fi
-    \pgfoolet{cache}\pgf@dv@cache
   }
-
+ 
   % Slot
   \method phase(#1) {%
     \ifx#1\pgfdvendvisualization%
@@ -1567,13 +1631,16 @@
 
   % Internal method
   \method render() {
-    \pgfoovalueof{handler}
-    \pgfplotstreamstart
-    \pgfoovalueof{positions}
-    \pgfoovalueof{cache}
-    \pgfplotstreamend
-    \pgfoovalueof{use path}
-    \pgfoolet{positions}\pgfutil@empty
+    \pgfscope
+      \pgfoovalueof{handler}
+      \pgfplotstreamstart
+      \pgfoovalueof{positions}
+      \pgfoovalueof{cache}
+      \pgfplotstreamend
+      \pgfoovalueof{use path}
+      \pgfoolet{positions}\pgfutil@empty
+      \pgfoolet{cache}\pgfutil@empty
+    \endpgfscope
   }
 
   \def\pgf@dv@ph#1#2{\pgfplotstreampoint{\pgfqpoint{#1}{#2}}}
@@ -1598,9 +1665,9 @@
   \attribute attribute 1;
   \attribute attribute 2;
   % The attributes
-  
-  \attribute use path=\pgfusepath{stroke};
-  % The default action to be taken on the path
+
+  \attribute use path attribute;
+  % The attribute that stores the to-be-taken action
 
   
   % Constructor
@@ -1608,9 +1675,10 @@
   % #1 = first attribute 
   % #2 = second attribute 
   %
-  \method rectangle visualizer(#1,#2) {
+  \method rectangle visualizer(#1,#2,#3) {
     \pgfooset{attribute 1}{#1}
     \pgfooset{attribute 2}{#2}
+    \pgfooset{use path attribute}{#3}
   }
 
   % Method
@@ -1619,23 +1687,17 @@
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
   }
 
-  % Setter
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
-
   % Slot
   \method visualize() {
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 1}/min}\pgf@temp%
-    \ifx\pgf@temp\relax%
-    \else
-    \ifx\pgf@temp\pgfutil@empty%
-    \else
     {
       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 1}/min}\pgf@dv@amin
       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 1}/max}\pgf@dv@amax
       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 2}/min}\pgf@dv@bmin
       \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 2}/max}\pgf@dv@bmax
+      \ifx\pgf@dv@amin\relax\else\ifx\pgf@dv@amin\pgfutil@empty\else
+      \ifx\pgf@dv@bmin\relax\else\ifx\pgf@dv@bmin\pgfutil@empty\else
+      \ifx\pgf@dv@amax\relax\else\ifx\pgf@dv@amax\pgfutil@empty\else
+      \ifx\pgf@dv@bmax\relax\else\ifx\pgf@dv@bmax\pgfutil@empty\else
       \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 1}}{\pgf@dv@amin}
       \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 2}}{\pgf@dv@bmin}
       \pgfpathdvmoveto
@@ -1648,132 +1710,16 @@
       \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 1}}{\pgf@dv@amin}
       \pgfpathdvlineto
       \pgfpathclose
-      \pgfoovalueof{use path}
+      \pgfkeysvalueof{/data point/\pgfoovalueof{use path attribute}}
+      \fi\fi
+      \fi\fi
+      \fi\fi
+      \fi\fi
     }
-    \fi\fi
   }
 }
 
 \newcount\pgf@lib@dv@cache@count
-
-
-
-
-%
-% Axis visualizers
-%
-
-\pgfooclass{axis visualizer}
-{
-  % Class axis visualizer
-  %
-  % The job of this class is to visualize an axis. By (my) definition,
-  % an axis is the line that results when a single attribute is varied
-  % between two values. 
-  %
-  % Visualizing an axis is somewhat more tricky than one might expect:
-  % In order to visualize a horizontal axis, we might need to
-  % visualize it several time in different ways and at different
-  % vertical positions. Indeed, when the plot is three-dimensional or
-  % of an even higher dimension, it may be necessary to visualize the
-  % axis many times and different logical and canvas positions.
-  %
-  % Axes will also often be slightly larger than the scaling area in
-  % order to create an effect of "continuity".
-  %
-  % Ticks on an axis also need special treatment. In order to draw a
-  % tick, another axis is typically needed; this second axis
-  % determines the direction of the ticks (which is not necessarily
-  % orthogonal to the axis itself, for instance in a
-  % 3d-plot). However, the second axis may also be missing, in which
-  % case the tick is drawn orthogonally to the first tick.
-
-  \attribute attribute;
-  % The attribute whose variation produces the axis
-
-  \attribute interval obj;
-  % An interval object that stores the minimum and maximum values of
-  % the attribute between which the axis is drawn.
-
-  \attribute use path=\pgfusepath{stroke};
-  % Path usage command for drawing the axis
-  
-  \attribute use tick path=\pgfusepath{stroke};
-  % Path usage command for drawing a tick
-  
-
-  % Constructor
-  %
-  % #1 = attribute
-  % #2 = interval obj
-  %
-  \method axis visualizer(#1,#2) {
-    \pgfooset{attribute}{#1}
-    \pgfoolet{interval obj}{#2}
-  }
-
-  % Method
-  \method default connects() {
-    % Does not listen to any signals, you have to invoke methods the
-    % visualization methods directly. 
-  }
-
-  % Setter
-  \method set use path(#1) {
-    \pgfooset{use path}{#1}
-  }
-
-  % Setter
-  \method set use tick path(#1) {
-    \pgfooset{use tick path}{#1}
-  }
- 
-
-
-  %
-  % Visualization methods
-  %
-
-  % Method
-  %
-  % #1 = offset at minimum value given as a dimension (typically negative)
-  % #2 = offset at maximum value given as a dimension (typically positive)
-  %
-  % Description:
-  %
-  % This method will create a line path and then apply the "use path"
-  % attribute to it. This line path results from the "attribute" to be
-  % varied from the minimum value of the "interval obj" to the maximum
-  % value of this interval. The values of the other attributes are
-  % also important since they determine the position of the
-  % axis. Additionally, the start point of the line is offset by #1
-  % along the direction of the axis, where #1 should be given as a
-  % dimension like "2pt". Similarly for the end point. 
-  %
-  \method visualize(#1,#2) {
-    {%
-      % we assume that the current data point settings determine where
-      % the axis should go
-      %
-      % We now compute the start and the end points
-      %
-      \pgfooget{interval obj}\pgf@dv@interval
-      \pgf@dv@interval.get min and max()%
-      % Ok, got the values
-      % Save them.
-      \let\pgf@dv@av@min=\pgfdvmin
-      \let\pgf@dv@av@max=\pgfdvmax
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@av@min}%
-      % Ok, that's where we start
-      \pgfpathdvmoveto%
-      % now the end:
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@dv@av@max}%
-      \pgfpathdvlineto%
-      % Finally, use the path:
-      \pgfoovalueof{use path}%
-    }%
-  }  
-}
 
 
 
@@ -2053,7 +1999,8 @@
   /data point/always false/.initial=false,
   /data point/always 0/.initial=0,
   /data point/always 1/.initial=1,
-  /data point/always empty/.initial=%
+  /data point/always empty/.initial=,
+  /data point/always pgfusepath stroke/.initial=\pgfusepath{stroke}
 }
 
 \pgfoonew \pgfdatavisualizationunitinterval=new interval(0,1)
