@@ -69,7 +69,7 @@ pdflatex -jobname main-figure1 main
 \end{codeexample}
 In the default configuration |mode=convert with system call|, these commands are issued automatically by using the |\write18| method to call system commands. It is also possible to output every required file name; users will need to issue these command manually (or with a script). The probably most comfortable way is to use the default configuration with
 \begin{codeexample}[code only]
-pdflatex --shell-escape main
+pdflatex -shell-escape main
 \end{codeexample}
 \noindent which automatically calls |pdflatex -jobname |\marg{image} \marg{main}.
 
@@ -191,11 +191,12 @@ figures/main-figure0
 
 	Please note that system calls may be disabled for security reasons. For pdflatex, they can be enabled using
 \begin{codeexample}[code only]
-pdflatex --shell-escape
+pdflatex -shell-escape
 \end{codeexample}
 	while other \TeX\ variants may need other switches. The feature is sometimes called |\write18|.
 \end{key}
 
+\label{extlib:systemcall:option}
 \begin{key}{/tikz/external/system call=\marg{template}}
 	A template string used to generate system calls. Inside of \marg{template}, the macro |\image| can be used as placeholder for the image which is about to be generated while |\texsource| contains the main file name.
 
@@ -203,6 +204,13 @@ pdflatex --shell-escape
 \begin{codeexample}[code only]
 \tikzset{external/system call={pdflatex -shell-escape -halt-on-error 
     -interaction=batchmode -jobname "\image" "\texsource"}
+\end{codeexample}
+
+	For |eps| output, you can (and need to) use
+\begin{codeexample}[code only]
+\tikzset{external/system call={latex -shell-escape -halt-on-error
+    -interaction=batchmode -jobname "\image" "\texsource"; 
+    dvips -o "\image".ps "\image".dvi}}
 \end{codeexample}
 	
 	The argument \marg{template} will be expanded using |\edef|, so any control sequences will be expanded. During this evaluation, `|\\|' will result in a normal backslash, `|\|'. Furthermore, double quotes `|"|', single quotes `|'|', semicolons and dashes `|-|' will be made to normal characters if any package uses them as macros. This ensures compatibility with the |german| package, for example.
@@ -335,6 +343,29 @@ And this here: \myExpensiveMacro{Argument} also.
 	If enabled, only pictures for which file names have been set explicitly using |\tikzsetnextfilename| will be considered, no file names will be generated automatically.
 \end{key}
 
+\begin{key}{/pgf/images/include external (initially \textbackslash pgfimage\{\#1\})}
+\index{External Graphics!Bounding Box Issues}
+	This key constitutes the public interface to exchange the |\includegraphics| command used for the image inclusion.
+
+	Its description can be found in the corresponding basic layer documentation on page~\pageref{pgf:includeexternalkey}.
+
+	Just one example here: you can use
+\begin{codeexample}[code only]
+\pgfkeys{/pgf/images/include external/.code={\includegraphics[viewport=0 0 211.28 175.686]{#1}}}
+\end{codeexample}
+	to manually change the viewport (bounding box) for included graphics.
+	
+	If you want to limit the effects of this key to just one externalized figure, use
+\begin{codeexample}[code only]
+{
+\pgfkeys{/pgf/images/include external/.code={\includegraphics[viewport=0 0 211.28 175.686]{#1}}}
+\begin{tikzpicture}
+	...
+\end{tikzpicture}
+}% this brace ends the effect of `include external'
+\end{codeexample}
+\end{key}
+
 \subsection{Using external graphics without \textmd{\pgfname}\ installed}
 \label{section-libs-external-nopgf}
 Given that every picture has been exported correctly, one may want to compile a file without \pgfname\ and \tikzname\ installed. \tikzname\ comes with a minimal package which contains just enough commands to replace every |tikzpicture| environment and the |\tikz| short command with the appropriate external graphics. It can be found at
@@ -382,10 +413,13 @@ Please keep in mind, that only |tikzpicture| environments and |\tikz| short imag
 
 Please use |\tikzsetexternalprefix| instead of the |prefix| option.
 
+\subsection{Externalization and bounding box restrictions}
+Bounding box restrictions provide no problem when used with \eps\ graphics (see the next section). However, they pose problems for |pdflatex|, so you may need to use the |latex| / |dvips| combination if you use bounding box restrictions and externalization.
+
 \subsection{\eps\ Graphics}
 It is also possible to use \eps\ graphics instead of \pdf\ files. There are different ways to produce them, for example to use |pdflatex| and call |pdftops -eps |\marg{pdf file} \marg{eps file} afterwards. You could add this command to the |system call| option.
 
-Alternatively, you can use |latex| for image conversion. See the documentation for the basic level externalization in section~\ref{section-external} for restrictions of other drivers.
+Alternatively, you can use |latex| and |dvips| for image conversion as is explained for the |system call| option, see page~\pageref{extlib:systemcall:option}. See the documentation for the basic level externalization in section~\ref{section-external} for restrictions of other drivers.
 
 \subsection{Interoperability with the basic layer externalization}
 This library is fully compatible with |\beginpgfgraphicnamed|$\dotsc$|\endpgfgraphicnamed| environments. However, you will need to use the |export next=false| key to avoid conflicts:
