@@ -699,7 +699,7 @@
 
 \pgfkeys{
   /pgf/data/data visualization obj/.initial=\undefined,
-  /pgf/data/format/.initial=,
+  /pgf/data/format/.initial=table,% the default format
   /pgf/data/source/.initial=,
   /pgf/data/continue code/.initial=
 }
@@ -751,7 +751,7 @@
 %
 % Description:
 %
-% The lines of the data set are assumed to contains executable TeX
+% The lines of the data set are assumed to contain executable TeX
 % code that will call \pgfdatapoint.
 %
 % Example:
@@ -779,186 +779,158 @@
 %
 % Example:
 %
-% \pgfdatavisualizationrender[format=key value pairs]
-% \dataset{
+% \data[format=key value pairs] {
 %   x=5, y=6, hi=9
 %   x=7, y=6, lo=10
 % }
 
-\pgfdeclaredataformat{key value pairs}{}{}{#1}{\pgfkeys{/data point/.cd,#1}\pgfdatapoint}{}{}
+\pgfdeclaredataformat{key value pairs}{}{}{#1}{{\pgfkeys{/data point/.cd,#1}\pgfdatapoint}}{}{}
 
 
 
-% Comma separated columns
+
+
+% Table format
 %
 % Description:
 %
-% Each input line for this format should contain values separated by
-% commas. For each nonempty line, the first value will be stored in
-% /data point/<col1>, where <col1> is the value stored in /pgf/data
-% visualization/column 1, the second value is stored in /data
-% point/<col2>, where <col2> is the value stored in /pgf/data
-% visualization/column 2, and so on. If a <colX> is empty, the value
-% is ignored.
+% A table consists of a head line, which contains the attribute names
+% of the values that will be found in the following lines. Each line
+% (except for the headline) contains one data point.
+% 
+% Inside each line the data points are separated by a separator like a
+% comma or a space or a colon. The separator can be configured using
+% the key /pgf/data/separator (leave the separator empty or set it to
+% \space for a space as separator). The default separator is a comma.
+% 
+% Some tables will miss the headline. In this case, using the
+% /pgf/data/headline key you can provide a headline yourself.
 %
 % Example:
 %
-% \pgfdatavisualizationrender[format=space separated columns,
-%             column 1=dax/low,
-%             column 2=dax/high,
-%             column 3=dax/entry,
-%             column 4=dax/exit]
-% \dataset{
-%   % today
-%   2000, 2300, 2100, 2200 
-%   2000, 2350, 2200  
-%   2200, 2300, 2250, 2260 
-%   1800, 2260, 2260, 1900 
-%   2000, 2300, 2100, 2200
-%    
-%   % yesterday
-%   2000, 2350, 2200, 2250 
-%   2200, 2300, 2250, 2260 
-%   1800, 2260, 2260, 1900 
+% \data[format=table] {
+%    x  y
+%   10  5
+%   11  6
+%    6  7
+%  }
+%
+% \data[format=table,separator={,}] {
+%    x, y
+%   10, 5
+%   11, 6
+%    6, 7
+% }
+%
+% \data[format=table,headline=x y] {
+%   10 5
+%   11 6
+%    6 7
 % }
 
-\pgfkeys{/pgf/data/.cd,
-  column 1/.initial=x,
-  column 2/.initial=y,
-  column 3/.initial=z,
-  column 4/.initial=,
-  column 5/.initial=,
-  column 6/.initial=,
-  column 7/.initial=,
-  column 8/.initial=}
-
-\pgfdeclaredataformat{comma separated columns}{}{\pgf@dv@separated@get}{#1}
-{\pgf@dv@csc#1,,,,,,,,,\pgfeol}{}{}
-
-\def\pgf@dv@csc#1,#2,#3,#4,#5,#6,#7,#8,#9\pgfeol{%
-  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
-  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
-  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
-  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
-  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
-  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
-  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
-  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
-  \pgfdatapoint%
+\pgfdeclaredataformat{table}
+{} % no catcodes
+{
+  \pgfkeysgetvalue{/pgf/data/headline}\pgf@dv@headline
+  \pgfkeysgetvalue{/pgf/data/separator}\pgf@dv@separator
+  \ifx\pgf@dv@separator\pgfutil@empty
+    \let\pgf@dv@separator\space
+  \fi
+  \ifx\pgf@dv@separator\pgf@dv@spacetext
+    \let\pgf@dv@separator\space
+  \fi
+  \expandafter\def\expandafter\pgf@dv@till@separator%
+  \expandafter##\expandafter1\pgf@dv@separator{\pgf@dv@table@handle{##1}}  
+  \expandafter\def\expandafter\pgf@dv@till@separator@head%
+  \expandafter##\expandafter1\pgf@dv@separator{\pgf@dv@head@handle{##1}}  
+  \ifx\pgf@dv@headline\pgfutil@empty
+    % Ok, read headline from file
+    \pgfdv@firstlinetrue
+  \else
+    % Headline already set  
+    \pgfdv@firstlinefalse
+    \expandafter\pgf@dv@parse@headline\expandafter{\pgf@dv@headline}
+  \fi
 }
-
-\def\pgf@dv@separated@get{%
-  \pgfkeysgetvalue{/pgf/data/column 1}\pgf@dv@cola%
-  \pgfkeysgetvalue{/pgf/data/column 2}\pgf@dv@colb%
-  \pgfkeysgetvalue{/pgf/data/column 3}\pgf@dv@colc%
-  \pgfkeysgetvalue{/pgf/data/column 4}\pgf@dv@cold%
-  \pgfkeysgetvalue{/pgf/data/column 5}\pgf@dv@cole%
-  \pgfkeysgetvalue{/pgf/data/column 6}\pgf@dv@colf%
-  \pgfkeysgetvalue{/pgf/data/column 7}\pgf@dv@colg%
-  \pgfkeysgetvalue{/pgf/data/column 8}\pgf@dv@colh%
+{#1} % special line pattern, so read everything
+{
+  \ifpgfdv@firstline
+    \pgfdv@firstlinefalse
+    \pgf@dv@parse@headline{#1}
+  \else
+    {
+      \c@pgf@counta=0\relax% keep track of attribute number
+      \def\pgf@marshal{\pgf@dv@parse@table#1}
+      \expandafter\expandafter\expandafter\pgf@marshal%
+      \expandafter\pgf@dv@separator\expandafter\pgfeol\pgf@dv@separator  
+      \pgfdatapoint
+    }
+  \fi
 }
+{} % ignore empty lines
+{} % no special end code
 
+\newif\ifpgfdv@firstline
 
-% Semicolon separated columns
-%
-% Description:
-%
-% Like comma separated columns, only with a semicolon as separator
-
-\pgfdeclaredataformat{semicolon separated columns}{}{\pgf@dv@separated@get}{#1}
-{\pgf@dv@scsc#1;;;;;;;;;\pgfeol}{}{}
-
-\def\pgf@dv@scsc#1;#2;#3;#4;#5;#6;#7;#8;#9\pgfeol{%
-  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
-  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
-  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
-  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
-  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
-  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
-  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
-  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
-  \pgfdatapoint%
+\pgfkeys{
+  /pgf/data/separator/.initial={,},
+  /pgf/data/headline/.initial=
 }
+\def\pgf@dv@spacetext{\space}
 
-
-% Colon separated columns
-%
-% Description:
-%
-% Like comma separated columns, only with a colon as separator
-
-\pgfdeclaredataformat{colon separated columns}{}{\pgf@dv@separated@get}{#1}
-{\pgf@dv@scsc#1:::::::::\pgfeol}{}{}
-
-\def\pgf@dv@scsc#1:#2:#3:#4:#5:#6:#7:#8:#9\pgfeol{%
-  \ifx\pgf@dv@cola\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cola}{#1}\fi%
-  \ifx\pgf@dv@colb\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colb}{#2}\fi%
-  \ifx\pgf@dv@colc\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colc}{#3}\fi%
-  \ifx\pgf@dv@cold\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cold}{#4}\fi%
-  \ifx\pgf@dv@cole\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@cole}{#5}\fi%
-  \ifx\pgf@dv@colf\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colf}{#6}\fi%
-  \ifx\pgf@dv@colg\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colg}{#7}\fi%
-  \ifx\pgf@dv@colh\pgfutil@empty\else\pgfkeyssetvalue{/data point/\pgf@dv@colh}{#8}\fi%
-  \pgfdatapoint%
+\def\pgf@dv@parse@table{%
+  \pgfutil@ifnextchar"% Special, but ignored right now...
+  {\PackageError{pgf}{csv with quotes not yet implemented}{}}
+  {\pgf@dv@till@separator}
 }
-
-
-
-
-% Space separated columns
-%
-% Description:
-%
-% Each input line for this format should contain values separated by
-% spaces. Otherwise, the format works like comma separated columns.
-%
-% Example:
-%
-% \pgfdatavisualizationrender[format=space separated columns,
-%             column 1=dax/low,
-%             column 2=dax/high,
-%             column 3=dax/entry,
-%             column 4=dax/exit]
-% {
-%   % today
-%   2000 2300 2100 2200 
-%   2000 2350 2200  
-%   2200 2300 2250 2260 
-%   1800 2260 2260 1900 
-%   2000 2300 2100 2200
-%    
-%   % yesterday
-%   2000 2350 2200 2250 
-%   2200 2300 2250 2260 
-%   1800 2260 2260 1900 
-% }
-
-
-\pgfdeclaredataformat{space separated columns}{}{\pgf@dv@separated@get}{#1}
-{\pgf@dv@ssc#1 @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @ @\pgf @\pgfeol}{}{}
-
-\def\pgf@dv@ssc#1 #2 #3 #4 #5 #6 #7 #8 #9\pgfeol{%
-  \pgf@dv@css@handle\pgf@dv@cola{#1}%
-  \pgf@dv@css@handle\pgf@dv@colb{#2}%
-  \pgf@dv@css@handle\pgf@dv@colc{#3}%
-  \pgf@dv@css@handle\pgf@dv@cold{#4}%
-  \pgf@dv@css@handle\pgf@dv@cole{#5}%
-  \pgf@dv@css@handle\pgf@dv@colf{#6}%
-  \pgf@dv@css@handle\pgf@dv@colg{#7}%
-  \pgf@dv@css@handle\pgf@dv@colh{#8}%
-  \pgfdatapoint%
-}
-\def\pgf@dv@css@handle#1#2{%
-  \ifx#1\pgfutil@empty%
+\def\pgf@dv@table@handle#1{%
+  \def\pgf@temp{#1}%
+  \ifx\pgf@temp\pgfeoltext%
+    % Bingo! Stop
+    \let\pgf@next=\relax%
   \else%
-    \def\pgf@temp{#2}%
-    \ifx\pgf@temp\pgf@atpgfattext%
-      \let\pgf@temp\pgfutil@empty%
-    \fi%
-    \pgfkeyslet{/data point/#1}\pgf@temp%
+    \advance\c@pgf@counta by1\relax%
+    \pgfkeysgetvalue{/pgf/data/table/attribute \the\c@pgf@counta}\pgf@dv@target
+    \ifx\pgf@dv@target\relax%
+      \edef\pgf@dv@target{attribute \the\c@pgf@counta}
+      \pgfkeyslet{/pgf/data/table/attribute \the\c@pgf@counta}\pgf@dv@target
+    \fi
+    \pgfkeyssetvalue{/data point/\pgf@dv@target}{#1}
+    \let\pgf@next=\pgf@dv@parse@table%
   \fi%
+  \pgf@next% 
 }
-\def\pgf@atpgfattext{@\pgf @}
+
+
+
+\def\pgf@dv@parse@headline#1{
+  \c@pgf@counta=0\relax% keep track of attribute number
+  \def\pgf@marshal{\pgf@dv@doparse@headline#1}
+  \expandafter\expandafter\expandafter\pgf@marshal%
+  \expandafter\pgf@dv@separator\expandafter\pgfeol\pgf@dv@separator  
+}
+
+\def\pgf@dv@doparse@headline{%
+  \pgfutil@ifnextchar"% Special, but ignored right now...
+  {\PackageError{pgf}{csv with quotes not yet implemented}{}}
+  {\pgf@dv@till@separator@head}
+}
+\def\pgf@dv@head@handle#1{%
+  \def\pgf@temp{#1}%
+  \ifx\pgf@temp\pgfeoltext%
+    % Bingo! Stop
+    \let\pgf@next=\relax%
+  \else%
+    \advance\c@pgf@counta by1\relax%
+    \pgfkeyssetvalue{/pgf/data/table/attribute \the\c@pgf@counta}{#1}
+    \let\pgf@next=\pgf@dv@doparse@headline%
+  \fi%
+  \pgf@next% 
+}
+
+\def\pgfeoltext{\pgfeol}
+
+
 
 
 
