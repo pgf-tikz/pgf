@@ -929,7 +929,7 @@
 \def\pgfmathfloatshift@#1#2{%
 	\begingroup
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
-	\expandafter\advance\expandafter\pgfmathfloat@a@E#2\relax
+	\advance\pgfmathfloat@a@E by#2\relax
 	\edef\pgfmathresult{\the\pgfmathfloat@a@S\the\pgfmathfloat@a@Mtok e\the\pgfmathfloat@a@E}%
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
@@ -1021,6 +1021,79 @@
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup%
 }
+
+
+% Computes exp(#1) in floating point.
+%
+% The algorithm employs the identity 
+%  exp(x) = exp(x - log(10^k) + log(10^k)
+%         = 10^k exp( x - k*log 10 )
+% with k choosen such that exp( x - k*log10) can be computed with the
+% basic level math engine.
+%
+% The precision (relative error) is between 10^{-4} and 10^{-6}. For
+% #1 = 700, it is even 10^{-3}. I will need to improve that someday.
+\def\pgfmathfloatexp@#1{%
+	\begingroup
+		\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\ifcase\pgfmathfloat@a@S
+		% #1 = 0:
+			\pgfmathfloatcreate{1}{1.0}{0}%
+		\or% #1 > 0
+			\pgfmathfloatexp@@{#1}%
+		\or% #1 < 0
+			\pgfmathfloatexp@@{#1}%
+		\else
+			\edef\pgfmathresult{#1}%
+		\fi
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\def\pgfmathfloatexp@@#1{%
+	% Employ the identity
+	% exp(x) = exp(x - log(10^k) + log(10^k)) = 10^k exp( x - k *log(10))
+	%
+	% I'd like to have x - k*log(10) <= 1
+	% => compute k := int( (x - 1) * 1/log(10) )
+	% that should suffice since \pgfmathexp@ should be
+	% accurate enough for those numbers.
+	%
+	% please note that we can do all this in TeX registers.
+	% exp(700) is almost the maximum of double precision
+	% anyway, and exp(16000) is certainly the largest we will
+	% ever need.
+	\pgfmathfloattofixed@{#1}%
+	\pgf@xa=\pgfmathresult pt
+	\pgf@xa=0.434294481\pgf@xa\relax
+	\edef\pgfmathfloat@loc@TMPa{\pgf@sys@tonumber{\pgf@xa}}%
+	\expandafter\pgfmathfloatexp@@toint\pgfmathfloat@loc@TMPa\relax
+	\pgf@xa=2.302585092pt
+	\multiply\pgf@xa by-\pgfmathfloat@k\relax
+	\advance\pgf@xa by\pgfmathresult pt
+	\edef\pgfmathfloat@loc@TMPa{\pgf@sys@tonumber{\pgf@xa}}%
+\message{computing exp(\pgfmathresult) = 10^\pgfmathfloat@k * exp(\pgfmathfloat@loc@TMPa)...}%
+	\pgfmath@basic@exp@{\pgfmathfloat@loc@TMPa}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatparsenumber{\pgfmathfloat@loc@TMPa}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatshift@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@k}%
+}
+% determine 'k'. This is a heuristics. The exponential series
+% converges best for |x| <= 1. However, the fixed point arithmetics
+% for tex results in best results for large |x|. Well, I'll need to
+% tune this here.
+\def\pgfmathfloatexp@@toint#1.#2\relax{%
+	\c@pgf@counta=#1\relax
+	\ifnum\c@pgf@counta<0
+\advance\c@pgf@counta by-1 % FIXME . this is a test for optimizations.
+		\c@pgf@countb=#2\relax
+		\ifnum\c@pgf@countb>0
+			\advance\c@pgf@counta by-1
+		\fi
+	\fi
+	\edef\pgfmathfloat@k{\the\c@pgf@counta}%
+}%
+\let\pgfmathfloatexp=\pgfmathfloatexp@
 
 % Rounds a fixed point number #1 to \pgfmathfloat@round@precision digits precision and returns
 % the result into \pgfmathresult.
