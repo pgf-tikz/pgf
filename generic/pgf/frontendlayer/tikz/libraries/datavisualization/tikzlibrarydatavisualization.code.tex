@@ -122,6 +122,26 @@
   \begingroup%
     % Ok, first, start a new data visualization
     \pgfoonew \tikz@main@dv=new data visualization()%
+    % Clear the axis list
+    \pgfkeyslet{/tikz/data visualization/axes list}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/axes actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/grid actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/minor grid actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/subminor grid actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/ticks actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/minor ticks actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/subminor ticks actions}\pgfutil@empty%
+    \tikz@main@dv.before visualization(%
+      \pgfkeysvalueof{/tikz/data visualization/subminor grid actions}
+      \pgfkeysvalueof{/tikz/data visualization/minor grid actions}
+      \pgfkeysvalueof{/tikz/data visualization/grid actions}
+    )%
+    \tikz@main@dv.after visualization(%
+      \pgfkeysvalueof{/tikz/data visualization/axes actions}
+      \pgfkeysvalueof{/tikz/data visualization/subminor ticks actions}
+      \pgfkeysvalueof{/tikz/data visualization/minor ticks actions}
+      \pgfkeysvalueof{/tikz/data visualization/ticks actions}
+    )%
     %
     \pgfset{/pgf/data/continue code=\tikz@lib@dv@parse@loop}%
     % Now enter parse loop
@@ -395,11 +415,22 @@
     #1/ticks/.initial=,
     #1/minor ticks/.initial=,
     #1/subminor ticks/.initial=,
-    #1/ticks direction axis/.initial=,
+    #1/grid/.initial=,
+    #1/minor grid/.initial=,
+    #1/subminor grid/.initial=,
+    #1/label/.initial=,
+    #1/min extend/.initial=0pt,
+    #1/max extend/.initial=0pt,
     #1/.code={
       \let\tikz@temp\tikz@dv@axis%
       \def\tikz@dv@axis{/tikz/data visualization/#1}%
-      \expandafter\tikz@do@axis@options\expandafter{\tikz@temp}{##1}}
+      \expandafter\tikz@do@axis@options\expandafter{\tikz@temp}{##1}%
+    },
+    axes list/.append={\tikz@lib@dv@do@axis{#1}}
+  },
+  all axes/.code={
+    \def\tikz@lib@dv@args{#1}%
+    \pgfkeysvalueof{/tikz/data visualization/axes list}%
   },
   % General styling
   styling/.style=,
@@ -411,8 +442,10 @@
   only ticks/.initial=,
   only minor ticks/.initial=,
   only subminor ticks/.initial=,
-  ticks direction axis/.initial=,
+  direction axis/.initial=,
   at/.initial=,
+  pos/.initial=,
+  auto/.style={at={0,1}},
   tick text at min extend/.is if=tikz@dv@min@tick@node,
   tick text at max extend/.is if=tikz@dv@max@tick@node,
   no tick text/.style={tick text at min extend=false,tick text at max extend=false},
@@ -420,6 +453,20 @@
   every ticks/.style={styling/.style={line cap=round},min extend=-2pt,max extend=2pt},
   every minor ticks/.style={styling/.style={help lines,thin,line cap=round},min extend=-1.4pt,max extend=1.4pt},
   every subminor ticks/.style={styling/.style={help lines,line cap=round},min extend=-0.8pt,max extend=0.8pt},
+  % Default grid styles
+  only grid/.initial=,
+  only minor grid/.initial=,
+  only subminor grid/.initial=,
+  every grid line/.style={max extend=max,min extend=min},
+  every grid/.style={styling/.style={help lines,thin,black!25}},
+  every minor grid/.style={styling/.style={help lines,black!25}},
+  every subminor grid/.style={styling/.style={help lines,black!10}}
+}
+
+\def\tikz@lib@dv@do@axis#1{%
+  \def\tikz@marshal{#1=}
+  \expandafter\expandafter\expandafter\tikzdatavisualizationset%
+  \expandafter\expandafter\expandafter{\expandafter\tikz@marshal\expandafter{\tikz@lib@dv@args}}
 }
 
 \def\tikz@do@axis@options#1#2{
@@ -429,7 +476,20 @@
 \let\tikz@dv@axis\pgfutil@empty
 
 \tikzset{
-  every tick text node/.style={font=\pgfutil@font@footnotesize}
+  every tick node/.style={%
+    font=\pgfutil@font@footnotesize,
+    text=black,
+    inner sep=1pt,
+    outer sep=.1666em,
+    rounded corners=1.5pt,
+    fill=white
+  }
+}
+
+\tikzset{
+  every axis node/.style={%
+    font=\pgfutil@font@small
+  }
 }
 
 \tikzset{
@@ -444,6 +504,9 @@
     \tikz@dv@axis/function=\pgfmathparse{ln(\pgfvalue)},
     \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1
   },
+  min extend/.style={\tikz@dv@axis/min extend={#1}},
+  max extend/.style={\tikz@dv@axis/max extend={#1}},
+  label/.style={\tikz@dv@axis/label={#1}},
   %
   % Attribute setter
   %
@@ -451,14 +514,32 @@
   %
   % Visualization setters
   %
-  visualize/.code=\expandafter\tikz@lib@dv@av\expandafter{\tikz@dv@axis}{#1},
+  visualize axis/.code=\expandafter\tikz@lib@dv@av\expandafter{\tikz@dv@axis}{#1},
   %
   % Ticks settings
   %
   ticks/.style={\tikz@dv@axis/ticks={#1}},
+  ticks/.default=auto,
   minor ticks/.style={\tikz@dv@axis/minor ticks={#1}},
+  minor ticks/.default=auto,
   subminor ticks/.style={\tikz@dv@axis/subminor ticks={#1}},
+  subminor ticks/.default=auto,
   visualize ticks/.code=\expandafter\tikz@lib@dv@tv\expandafter{\tikz@dv@axis}{#1},
+  %
+  % Grid settings
+  %
+  grid/.style={\tikz@dv@axis/grid={#1}},
+  grid/.default=auto,
+  minor grid/.style={\tikz@dv@axis/minor grid={#1}},
+  minor grid/.default=auto,
+  subminor grid/.style={\tikz@dv@axis/subminor grid={#1}},
+  subminor grid/.default=auto,
+  visualize
+  grid/.code=\expandafter\tikz@lib@dv@gv\expandafter{\tikz@dv@axis}{#1},
+  % 
+  % Visualizing axis labels
+  % 
+  visualize label/.code=\expandafter\tikz@lib@dv@lv\expandafter{\tikz@dv@axis}{#1},
 }
 
 
@@ -469,19 +550,32 @@
 
 \def\tikz@lib@dv@av#1#2{
   \tikzdatavisualizationset{
-    after visualization=%
-    {
-      \let\tikz@dv@s@temp=\pgfutil@empty
-      \scope[/tikz/data visualization/.cd,every axis/.try,#2]
-        \pgfkeysvalueof{#1/scaling mapper}.set in to(min)
-        \pgfpathdvmoveto%
-        \pgfkeysvalueof{#1/scaling mapper}.set in to(max)
-        \pgfpathdvlineto%
-        \path[draw,/tikz/data visualization/styling];
-      \endscope
-    }
+    axes actions/.append={\tikz@lib@dv@show@axis{#1}{#2}}
   }
 }
+
+\def\tikz@lib@dv@show@axis#1#2{%
+  \scope[/tikz/data visualization/.cd,every axis/.try,#2]
+    \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@axis@mapper
+    % Ok, calculate direction vector:
+    \tikzpointandanchordirection{\tikz@dv@axis@mapper.set in to(min)}{\tikz@dv@axis@mapper.set in to(max)}
+    \xdef\tikz@dv@axis@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
+    \path[draw,/tikz/data visualization/styling]
+    \pgfextra{
+      {
+        \pgftransformshift{\pgfpointscale{\pgfkeysvalueof{#1/min extend}}{\tikz@dv@axis@dir}}
+        \pgfkeysvalueof{#1/scaling mapper}.set in to(min)
+        \pgfpathdvmoveto%
+      }
+      {
+        \pgftransformshift{\pgfpointscale{\pgfkeysvalueof{#1/max extend}}{\tikz@dv@axis@dir}}
+        \pgfkeysvalueof{#1/scaling mapper}.set in to(max)
+        \pgfpathdvlineto%
+      }
+    };
+  \endscope
+}
+
 
 
 % Ticks visualization 
@@ -491,12 +585,9 @@
 
 \def\tikz@lib@dv@tv#1#2{
   \tikzdatavisualizationset{
-    after visualization=%
-    {
-      \tikz@lib@dv@show@ticks{subminor ticks}{#1}{#2}
-      \tikz@lib@dv@show@ticks{minor ticks}{#1}{#2}
-      \tikz@lib@dv@show@ticks{ticks}{#1}{#2}
-    }
+    ticks actions/.append={\tikz@lib@dv@show@ticks{ticks}{#1}{#2}},
+    minor ticks actions/.append={\tikz@lib@dv@show@ticks{minor ticks}{#1}{#2}},
+    subminor ticks actions/.append={\tikz@lib@dv@show@ticks{subminor ticks}{#1}{#2}}
   }
 }
 
@@ -507,7 +598,6 @@
     % Great, nothing to do
   \else
     {%
-      \let\tikz@dv@s@temp=\pgfutil@empty
       \scope[/tikz/data visualization/.cd,every tick/.try,every #1/.try,#3]
         % Setup options
         \def\tikz@dv@tick@tempa{\pgfqkeys{/tikz/data visualization}}
@@ -518,6 +608,7 @@
         \expandafter\tikz@dv@tick@tempa\expandafter{\tikz@dv@ticks@settings}
         \pgfkeysgetvalue{/tikz/data visualization/at}\tikz@dv@tick@list
         \pgfkeysgetvalue{#2/scaling mapper}\pgf@dv@tick@mapper
+        \pgfkeysgetvalue{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/direction axis}/scaling mapper}\pgf@dv@tick@dir@mapper
         % Ok, now it's time to draw the ticks!
         \foreach \tikz@dv@tick@pos/\tikz@dv@tick@text in \tikz@dv@tick@list 
         {
@@ -526,9 +617,7 @@
           \pgf@process{\pgfpointdvlocaldatapoint}
           \xdef\pgf@dv@tick@origin{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
           % Ok, calculate direction vector:
-          \tikzpointandanchordirection
-          {\pgfkeysvalueof{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/ticks direction axis}/scaling mapper}.set in to(min)}
-          {\pgfkeysvalueof{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/ticks direction axis}/scaling mapper}.set in to(max)}
+          \tikzpointandanchordirection{\pgf@dv@tick@dir@mapper.set in to(min)}{\pgf@dv@tick@dir@mapper.set in to(max)}
           \xdef\pgf@dv@tick@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
           % Now, show something:
           \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/max extend}}{\pgf@dv@tick@dir}}}
@@ -552,7 +641,7 @@
     \ifx\tikz@dv@tick@text\pgfutil@empty%
       \global\tikz@dv@tick@marshal=\pgfutil@empty% Skip!
     \else
-      \def\tikz@dv@tick@marshal{node[anchor=#1,every tick text node/.try,}%
+      \def\tikz@dv@tick@marshal{node[anchor=#1,every tick node/.try,}%
       \expandafter\pgfutil@g@addto@macro\expandafter\tikz@dv@tick@marshal\expandafter{\tikz@dv@tick@options]}
       \expandafter\pgfutil@g@addto@macro\expandafter\tikz@dv@tick@marshal\expandafter{\expandafter{\tikz@dv@tick@text}}
     \fi
@@ -584,6 +673,125 @@
     \xdef\tikz@dv@min@anchor{\tikz@anchor}
   }
 }
+
+
+
+
+% Grid visualization 
+%
+% #1 = name of axis on which grid lines should be shown
+% #2 = options for the visualization
+
+\def\tikz@lib@dv@gv#1#2{
+  \tikzdatavisualizationset{
+    grid actions/.append={\tikz@lib@dv@show@grid{grid}{#1}{#2}},
+    minor grid actions/.append={\tikz@lib@dv@show@grid{minor grid}{#1}{#2}},
+    subminor grid actions/.append={\tikz@lib@dv@show@grid{subminor grid}{#1}{#2}}
+  }
+}
+
+\def\tikz@lib@dv@show@grid#1#2#3{%
+  % First, check whether there is anything to do at all:
+  \pgfkeysgetvalue{#2/#1}\tikz@dv@grid@settings%
+  \ifx\tikz@dv@grid@settings\pgfutil@empty%
+    % Great, nothing to do
+  \else
+    {%
+      \scope[/tikz/data visualization/.cd,every grid line,every #1/.try,#3]
+        % Setup options
+        \def\tikz@dv@grid@tempa{\pgfqkeys{/tikz/data visualization}}
+        \pgfkeysgetvalue{/tikz/data visualization/common}\tikz@dv@grid@tempb
+        \expandafter\tikz@dv@grid@tempa\expandafter{\tikz@dv@grid@tempb}
+        \pgfkeysgetvalue{/tikz/data visualization/only #1}\tikz@dv@grid@tempb
+        \expandafter\tikz@dv@grid@tempa\expandafter{\tikz@dv@grid@tempb}
+        \expandafter\tikz@dv@grid@tempa\expandafter{\tikz@dv@grid@settings}
+        \pgfkeysgetvalue{/tikz/data visualization/at}\tikz@dv@grid@list
+        \pgfkeysgetvalue{#2/scaling mapper}\pgf@dv@grid@mapper
+        \pgfkeysgetvalue{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/direction axis}/scaling mapper}\pgf@dv@grid@dir@mapper
+        % Ok, now it's time to draw the grid!
+        \foreach \tikz@dv@grid@pos in \tikz@dv@grid@list 
+        {
+          \pgf@dv@grid@mapper.set in to(\tikz@dv@grid@pos)%
+          \draw[/tikz/data visualization/styling]
+            \pgfextra{
+              % First, compute start of grid:
+              \pgf@dv@grid@dir@mapper.set in to(\pgfkeysvalueof{/tikz/data visualization/min extend})%
+              \pgfpathdvmoveto%
+              \pgf@dv@grid@dir@mapper.set in to(\pgfkeysvalueof{/tikz/data visualization/max extend})%
+              \pgfpathdvlineto%
+            };
+        }
+      \endscope
+    }
+  \fi
+}
+
+
+% 
+% Label visualization 
+%
+
+\def\tikz@lib@dv@lv#1#2{
+  \tikzdatavisualizationset{
+    axes actions/.append={\tikz@lib@dv@show@label{#1}{#2}}
+  }
+}
+
+\def\tikz@lib@dv@show@label#1#2{%
+  % First, check whether there is anything to do at all:
+  \pgfkeysgetvalue{#1/label}\tikz@dv@lib@label%
+  \ifx\tikz@dv@lib@label\pgfutil@empty%
+    % Great, nothing to do
+  \else
+    \scope[/tikz/data visualization/.cd,every label/.try,#2]
+      \pgfkeysgetvalue{/tikz/data visualization/at}\tikz@lib@dv@at%
+      \pgfkeysgetvalue{/tikz/data visualization/pos}\tikz@lib@dv@pos%
+      \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@mapper
+      \ifx\tikz@lib@dv@pos\pgfutil@empty%
+        \tikz@dv@mapper.set in to(\tikz@lib@dv@at)%
+        \pgftransformshift{\pgfpointdvlocaldatapoint}
+        % Special treatment of "min" and "max"
+        \ifx\tikz@lib@dv@at\pgf@min@text%
+          % Ok, calculate direction vector:
+          \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
+          \xdef\tikz@dv@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
+          \pgftransformshift{\pgfpointscale{\pgfkeysvalueof{#1/min extend}}{\tikz@dv@dir}}
+          \tikzset{anchor=\tikz@dv@min@anchor}
+        \else%
+          \ifx\tikz@lib@dv@at\pgf@max@text%
+            % Ok, calculate direction vector:
+            \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
+            \xdef\tikz@dv@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
+            \pgftransformshift{\pgfpointscale{\pgfkeysvalueof{#1/max extend}}{\tikz@dv@dir}}
+            \tikzset{anchor=\tikz@dv@max@anchor}
+          \fi%
+        \fi%
+      \else%
+        \tikz@dv@mapper.set in to(min)%
+        \pgftransformshift{\pgfpointscale{1-\tikz@lib@dv@pos}{\pgfpointdvlocaldatapoint}}
+        \tikz@dv@mapper.set in to(max)%
+        \pgftransformshift{\pgfpointscale{\tikz@lib@dv@pos}{\pgfpointdvlocaldatapoint}}
+      \fi
+      \expandafter\tikz@lib@dv@parse@node\tikz@dv@lib@label\pgf@stop
+    \endscope
+  \fi
+}
+
+\def\tikz@lib@dv@parse@node{\pgfutil@ifnextchar[\tikz@lib@dv@parse@node@opt{\tikz@lib@dv@parse@node@opt[]}}%}
+\def\tikz@lib@dv@parse@node@opt[#1]#2\pgf@stop{
+  \node [every axis node/.try,/tikz/data visualization/styling,#1] {#2};
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 %
@@ -719,84 +927,120 @@
   school book plot/.style={
     xy Cartesian,
     x axis={
-      visualize={y axis={goto=0},styling/.style=->},
-      visualize ticks={common={y axis={goto=0},ticks direction axis=y axis},only ticks={tick text at min extend}},
+      visualize axis={y axis={goto=0},styling/.style=->},
+      visualize ticks={common={y axis={goto=0},direction axis=y axis},only ticks={tick text at min extend}},
+      visualize grid={common={direction axis=y axis}},
+      ticks,
+      min extend=-.666em,
+      max extend=.666em,
+      visualize label={at=max,y axis={goto=0}},
     },
     y axis={
-      visualize={x axis={goto=0},styling/.style=->},
-      visualize ticks={common={x axis={goto=0},ticks direction axis=x axis},only ticks={tick text at min extend}},
-    },
-    new line plot,
-    every school book plot/.try
-  },
-  school book 3d plot/.style={
-    xyz Cartesian,
-    x axis={
-      visualize={y axis={goto=0},z axis={goto=0},styling/.style=->},
-      visualize ticks={common={y axis={goto=0},z axis={goto=0},ticks direction axis=y axis},only ticks={tick text at min extend}},
-%      visualize ticks={common={y axis={goto=0},z axis={goto=0},ticks direction axis=z axis}},
-    },
-    y axis={
-      visualize={x axis={goto=0},z axis={goto=0},styling/.style=->},
-      visualize ticks={common={x axis={goto=0},z axis={goto=0},ticks direction axis=x axis},only ticks={tick text at min extend}},
-%      visualize ticks={common={x axis={goto=0},z axis={goto=0},ticks direction axis=z axis}},
-    },
-    z axis={
-      visualize={x axis={goto=0},y axis={goto=0},styling/.style=->},
-      visualize ticks={common={x axis={goto=0},y axis={goto=0},ticks direction axis=x axis},only ticks={tick text at min extend}},
-%      visualize ticks={common={x axis={goto=0},y axis={goto=0},ticks direction axis=y axis}}
+      visualize axis={x axis={goto=0},styling/.style=->},
+      visualize ticks={common={x axis={goto=0},direction axis=x axis},only ticks={tick text at min extend}},
+      visualize grid={common={direction axis=x axis}},
+      ticks,
+      min extend=-.666em,
+      max extend=.666em,
+      visualize label={at=max,x axis={goto=0}},
     },
     new line plot,
     every school book plot/.try
   }
 }
 
+% The 3d version of the school book plot
+
 \tikzdatavisualizationset{
-  scientific plot/width/.initial=161.8pt,% golden ratio...
-  scientific plot/height/.initial=100pt,
+  school book 3d plot/.style={
+    xyz Cartesian,
+    x axis={
+      visualize axis={y axis={goto=0},z axis={goto=0},styling/.style=->},
+      visualize ticks={common={y axis={goto=0},z axis={goto=0},direction axis=y axis},only ticks={tick text at min extend}},
+%      visualize ticks={common={y axis={goto=0},z axis={goto=0},direction axis=z axis}},
+    },
+    y axis={
+      visualize axis={x axis={goto=0},z axis={goto=0},styling/.style=->},
+      visualize ticks={common={x axis={goto=0},z axis={goto=0},direction axis=x axis},only ticks={tick text at min extend}},
+%      visualize ticks={common={x axis={goto=0},z axis={goto=0},direction axis=z axis}},
+    },
+    z axis={
+      visualize axis={x axis={goto=0},y axis={goto=0},styling/.style=->},
+      visualize ticks={common={x axis={goto=0},y axis={goto=0},direction axis=x axis},only ticks={tick text at min extend}},
+%      visualize ticks={common={x axis={goto=0},y axis={goto=0},direction axis=y axis}}
+    },
+    new line plot,
+    every school book plot/.try
+  }
+}
+
+
+
+% The scientific plot
+%
+% The scientific plot is a 2d plot that has a predetermined width and
+% height. The data is then scaled in such a way that it fits inside
+% this given rectangle. 
+
+\tikzdatavisualizationset{
+  scientific plot/width/.initial=125pt,
+  scientific plot/height/.initial=0.618*125pt,% golden ratio...
   scientific plot/.style={
     xy Cartesian,
     every axis/.style={styling/.style={thin,black!50}},
     every ticks/.append style={styling/.style={thin,black!50}},
     x axis={
-      length=\pgfkeysvalueof{/tikz/data visualization/scientific plot/width},
-      visualize={y axis={goto=min}},
-      visualize={y axis={goto=max}},
-      visualize ticks={common={y axis={goto=min},ticks direction axis=y axis,max extend=0pt},only ticks={tick text at min extend}},
-      visualize ticks={common={y axis={goto=max},ticks direction axis=y axis,min extend=0pt}},
+      length=\pgfkeysvalueof{/tikz/data visualization/scientific    plot/width},
+      ticks,
+      visualize ticks={common={y axis={goto=min},direction axis=y axis,min extend=0pt},only ticks={tick text at min extend}},
+      visualize ticks={common={y axis={goto=max},direction axis=y axis,max extend=0pt}},
+      visualize axis={y axis={goto=min}},
+      visualize axis={y axis={goto=max}},
+      visualize grid={common={direction axis=y axis}},
+      visualize label={pos=.5,styling/.style={below=1em},y axis={goto=min}},
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific plot/height},
-      visualize={x axis={goto=min}},
-      visualize={x axis={goto=max}},
-      visualize ticks={common={x axis={goto=min},ticks direction axis=x axis,max extend=0pt},only ticks={tick text at min extend}},
-      visualize ticks={common={x axis={goto=max},ticks direction axis=x axis,min extend=0pt}},
+      ticks,
+      visualize ticks={common={x axis={goto=min},direction axis=x axis,min extend=0pt},only ticks={tick text at min extend}},
+      visualize ticks={common={x axis={goto=max},direction axis=x axis,max extend=0pt}},
+      visualize axis={x axis={goto=min}},
+      visualize axis={x axis={goto=max}},
+      visualize grid={common={direction axis=x axis}},
+      visualize label={pos=.5,styling/.style={xshift=-1em,rotate=90,above},x axis={goto=min}},
     },
     new line plot,
-  },
+  }
+}
+
+% The 3d version. Here, a "length" is used for the length of the three
+% axes, rather than a predetermined rectangle (this does not really
+% make sense for the z-axis. You overrule these settings easily.
+
+\tikzdatavisualizationset{
   scientific 3d plot/length/.initial=100pt,
   scientific 3d plot/.style={
     xyz Cartesian,
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/length},
-      visualize={y axis={goto=min},z axis={goto=min}},
-      visualize={y axis={goto=max},z axis={goto=min}},
-      visualize={y axis={goto=min},z axis={goto=max}},
-      visualize={y axis={goto=max},z axis={goto=max}}
+      visualize axis={y axis={goto=min},z axis={goto=min}},
+      visualize axis={y axis={goto=max},z axis={goto=min}},
+      visualize axis={y axis={goto=min},z axis={goto=max}},
+      visualize axis={y axis={goto=max},z axis={goto=max}}
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/length},
-      visualize={x axis={goto=min},z axis={goto=min}},
-      visualize={x axis={goto=max},z axis={goto=min}},
-      visualize={x axis={goto=min},z axis={goto=max}},
-      visualize={x axis={goto=max},z axis={goto=max}}
+      visualize axis={x axis={goto=min},z axis={goto=min}},
+      visualize axis={x axis={goto=max},z axis={goto=min}},
+      visualize axis={x axis={goto=min},z axis={goto=max}},
+      visualize axis={x axis={goto=max},z axis={goto=max}}
     },
     z axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific 3d plot/length},
-      visualize={x axis={goto=min},y axis={goto=min}},
-      visualize={x axis={goto=max},y axis={goto=min}},
-      visualize={x axis={goto=min},y axis={goto=max}},
-      visualize={x axis={goto=max},y axis={goto=max}}
+      visualize axis={x axis={goto=min},y axis={goto=min}},
+      visualize axis={x axis={goto=max},y axis={goto=min}},
+      visualize axis={x axis={goto=min},y axis={goto=max}},
+      visualize axis={x axis={goto=max},y axis={goto=max}}
     },
     new line plot
   }
