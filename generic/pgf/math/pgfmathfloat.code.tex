@@ -128,8 +128,7 @@
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
-	\edef\pgfmathresult{%
-		\the\pgfmathfloat@a@S\the\pgfmathfloat@a@Mtok e\the\pgfmathfloat@a@E}%
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }
@@ -142,12 +141,23 @@
 	\ifpgfmathfloatparsenumberpendingperiod
 		\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok.0}%
 	\fi
-	\edef\pgfmathresult{%
-		\the\pgfmathfloat@a@S\the\pgfmathfloat@a@Mtok e\the\pgfmathfloat@a@E}%
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }
 
+% Assigns \pgfmathresult to be a float encoded as
+% <FLAGS><MANTISSE>e<EXPONENT>
+%
+% example:
+% \pgfmathfloatcreate{1}{2.0}{10}
+% \pgfmathfloat@to@FMeE@style\pgfmathresult
+% ->
+% \pgfmathresult is now '12.0e10' regardless of the internal float
+% format.
+\def\pgfmathfloat@to@FMeE@style#1{\expandafter\pgfmathfloat@to@FMeE@style@#1\relax}%
+% this here is a NOP. It may change in the future.
+\def\pgfmathfloat@to@FMeE@style@#1#2e#3\relax{\def\pgfmathresult{#1#2e#3}}%
 
 % decomposes a lowlevel floating point representation into flags,
 % mantisse and exponent.
@@ -930,7 +940,7 @@
 	\begingroup
 	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
 	\advance\pgfmathfloat@a@E by#2\relax
-	\edef\pgfmathresult{\the\pgfmathfloat@a@S\the\pgfmathfloat@a@Mtok e\the\pgfmathfloat@a@E}%
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }
@@ -977,6 +987,103 @@
 	\pgfmathfloatabs@{\pgfmathresult}%
 }%
 \let\pgfmathfloatrelerror=\pgfmathfloatrelerror@
+
+% Computes \pgfmathresult = #1 mod #2 using truncated division.
+%
+\def\pgfmathfloatmod@#1#2{%
+	\begingroup
+	\pgfmathfloatdivide@{#1}{#2}%
+	\pgfmathfloatint@{\pgfmathresult}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{#2}%
+	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+	\pgfmathfloatsubtract@{#1}{\pgfmathfloat@loc@TMPb}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\let\pgfmathfloatmod=\pgfmathfloatmod@
+
+% A modification of \pgfmathfloatmod@ where #3 = 1/#2 is already
+% known. This may be faster.
+\def\pgfmathfloatmodknowsinverse@#1#2#3{%
+	\begingroup
+	\pgfmathfloatmultiply@{#1}{#3}%
+	\pgfmathfloatint@{\pgfmathresult}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{#2}%
+	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+	\pgfmathfloatsubtract@{#1}{\pgfmathfloat@loc@TMPb}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\let\pgfmathfloatmodknowsinverse=\pgfmathfloatmodknowsinverse@
+
+\pgfmathfloatcreate{1}{3.14159265358979}{0}%
+\let\pgfmathfloatpi@=\pgfmathresult
+\let\pgfmathfloatpi=\pgfmathfloatpi@
+
+\pgfmathfloatcreate{1}{2.71828182845905}{0}%
+\let\pgfmathfloate@=\pgfmathresult
+\let\pgfmathfloate=\pgfmathfloate@
+
+% Converts #1 from radians to degrees.
+\def\pgfmathfloatdeg@#1{%
+	\ifx\pgfmathfloatdeg@factor\relax
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{5.72957795130823}{1}%
+		\global\let\pgfmathfloatdeg@factor=\pgfmathresult
+	\fi
+	\pgfmathfloatmultiply@{#1}\pgfmathfloatdeg@factor%
+}
+\let\pgfmathfloatdeg=\pgfmathfloatdeg@
+
+% Converts #1 from degree to radians.
+\def\pgfmathfloatrad@#1{%
+	\ifx\pgfmathfloatrad@factor\relax
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{1.74532925199433}{-2}%
+		\global\let\pgfmathfloatrad@factor=\pgfmathresult
+	\fi
+	\pgfmathfloatmultiply@{#1}\pgfmathfloatrad@factor%
+}
+\let\pgfmathfloatrad=\pgfmathfloatrad@
+
+% Computes #1(#2) where #1 is a trigonometric function, i.e.
+% #1(#2) = #1( #2 + r*360 )
+%
+% #1 is a one-argument macro which assigns \pgfmathresult.
+\def\pgfmathfloatTRIG@#1#2{%
+	\expandafter\ifx\csname pgfmathfloatTRIG@NUM\endcsname\relax% why not directly!??? Did not work!??
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{3.6}{2}%
+		\global\let\pgfmathfloatTRIG@NUM=\pgfmathresult
+		\pgfmathfloatcreate{1}{2.77777777777778}{-3}%
+		\global\let\pgfmathfloatTRIG@NUM@INV=\pgfmathresult
+	\fi
+	\pgfmathfloatmodknowsinverse@{#2}{\pgfmathfloatTRIG@NUM}{\pgfmathfloatTRIG@NUM@INV}%
+	\pgfmathfloattofixed@{\pgfmathresult}%
+	\expandafter#1\expandafter{\pgfmathresult}%
+	\pgfmathfloatparsenumber{\pgfmathresult}%
+}%
+
+\def\pgfmathfloatsin@#1{\pgfmathfloatTRIG@\pgfmath@basic@sin@{#1}}
+\let\pgfmathfloatsin=\pgfmathfloatsin@
+\def\pgfmathfloatcos@#1{\pgfmathfloatTRIG@\pgfmath@basic@cos@{#1}}
+\let\pgfmathfloatcos=\pgfmathfloatcos@
+\def\pgfmathfloattan@#1{\pgfmathfloatTRIG@\pgfmath@basic@tan@{#1}}
+\let\pgfmathfloattan=\pgfmathfloattan@
+\def\pgfmathfloatsec@#1{\pgfmathfloatTRIG@\pgfmath@basic@sec@{#1}}
+\let\pgfmathfloatsec=\pgfmathfloatsec@
+\def\pgfmathfloatcosec@#1{\pgfmathfloatTRIG@\pgfmath@basic@cosec@{#1}}
+\let\pgfmathfloatcosec=\pgfmathfloatcosec@
+\def\pgfmathfloatcot@#1{\pgfmathfloatTRIG@\pgfmath@basic@cot@{#1}}
+\let\pgfmathfloatcot=\pgfmathfloatcot@
+\def\pgfmathfloatasin@#1{\pgfmathfloatTRIG@\pgfmath@basic@asin@{#1}}
+\let\pgfmathfloatasin=\pgfmathfloatasin@
+\def\pgfmathfloatacos@#1{\pgfmathfloatTRIG@\pgfmath@basic@acos@{#1}}
+\let\pgfmathfloatacos=\pgfmathfloatacos@
+\def\pgfmathfloatatan@#1{\pgfmathfloatTRIG@\pgfmath@basic@atan@{#1}}
+\let\pgfmathfloatatan=\pgfmathfloatatan@
 
 % Expands #2 using \edef and invokes #1 with the resulting string.
 %
@@ -1347,7 +1454,9 @@
 
 % Input: 
 % #1  the fixed point number to be displayed (maybe a macro).
-% #2#3e#4:  the (possibly unformatted) floating point representation which belongs to #1.
+% #2#3e#4:  the (possibly unformatted) floating point representation
+%     which belongs to #1. This format is returned (only!) by
+%     \pgfmathfloat@to@FMeE@style.
 %     It is used to determine sign and exponent.
 \let\pgfmathprintnumber@fixed@style=\pgfmathprintnumber@fixed@styleDEFAULT
 
@@ -1478,7 +1587,7 @@
 	\expandafter\pgfmathfloat@loc@TMPb\expandafter{\pgfmathresult}%
 }
 
-% A macro which takes three arguments, sign, mantisse and exponent and
+% A macro which takes the argument '<SIGN><MANTISSE>e<EXPONENT>' and
 % expands to the final TeX-representation for that floating point
 % number.
 %
@@ -1486,9 +1595,8 @@
 %   the floating point number has already been rounded properly and
 %   the mantisse has been rounded correcty.
 %
-% #1: SIGN
-% #2: MANTISSE
-% #3: EXPONENT
+% The argument needs to be in the format returned by
+% \pgfmathfloat@to@FMeE@style and terminated by '\relax'.
 \let\pgfmathfloatrounddisplaystyle=\pgfmathfloatrounddisplaystyle@std
 \newif\ifpgfmathfloat@usezerofill@sci
 \newif\ifpgfmathfloat@usezerofill@fixed
@@ -1545,6 +1653,7 @@
 \def\pgfmathprintnumber@STD#1{%
 	% parse the input:
 	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathprintnumber@STD@issci\pgfmathresult\relax
 }
 
@@ -1572,6 +1681,7 @@
 
 \def\pgfmathprintnumber@INT@TRUNC#1{%
 	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathprintnumber@INT@TRUNC@issci\pgfmathresult\relax
 }
 
@@ -1581,7 +1691,8 @@
 }
 \def\pgfmathprintnumber@INT@TRUNC@issci#1#2e#3\relax{%
 	\ifnum#1<3\relax
-		\pgfmathfloattofixed{#1#2e#3}%
+		\pgfmathfloatcreate{#1}{#2}{#3}%
+		\pgfmathfloattofixed{\pgfmathresult}%
 		\expandafter\pgfmathprintnumber@INT@TRUNC@impl\pgfmathresult\relax#1#2e#3\relax
 	\else
 		\pgfmathfloatrounddisplaystyle#1#2e#3\relax%
@@ -1591,13 +1702,15 @@
 
 \def\pgfmathprintnumber@INT@DETECT#1{%
 	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathprintnumber@INT@DETECT@issci\pgfmathresult\relax
 }
 
 \def\pgfmathprintnumber@INT@DETECT@issci#1#2e#3\relax{%
 	\begingroup
 	\ifnum#1<3\relax
-		\pgfmathfloattofixed{#1#2e#3}%
+		\pgfmathfloatcreate{#1}{#2}{#3}%
+		\pgfmathfloattofixed{\pgfmathresult}%
 		\def\pgfmathfloat@round@precision{6}%
 		\expandafter\pgfmathroundto\expandafter{\pgfmathresult}%
 		\ifpgfmathfloatroundhasperiod
@@ -1614,13 +1727,15 @@
 
 \def\pgfmathprintnumber@FIXED#1{%
 	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathprintnumber@FIXED@issci\pgfmathresult\relax
 }
 
 \def\pgfmathprintnumber@FIXED@issci#1#2e#3\relax{%
 	\begingroup
 	\ifnum#1<3
-		\pgfmathfloattofixed{#1#2e#3}%
+		\pgfmathfloatcreate{#1}{#2}{#3}%
+		\pgfmathfloattofixed{\pgfmathresult}%
 		\ifpgfmathfloat@usezerofill@fixed
 			\expandafter\pgfmathroundtozerofill\expandafter{\pgfmathresult}%
 		\else
@@ -1644,15 +1759,18 @@
 
 \def\pgfmathprintnumber@SCI#1{%
 	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathprintnumber@SCI@issci\pgfmathresult\relax
 }
 
 \def\pgfmathprintnumber@SCI@issci#1#2e#3\relax{%
+	\pgfmathfloatcreate{#1}{#2}{#3}%
 	\ifpgfmathfloat@usezerofill@sci
-		\pgfmathfloatroundzerofill{#1#2e#3}%
+		\pgfmathfloatroundzerofill{\pgfmathresult}%
 	\else
-		\pgfmathfloatround{#1#2e#3}%
+		\pgfmathfloatround{\pgfmathresult}%
 	\fi
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathfloatrounddisplaystyle\pgfmathresult\relax
 }
 
@@ -2154,7 +2272,7 @@
 		\fi
 		\advance\pgfmathfloat@a@E by1
 	\fi
-	\edef\pgfmathresult{\the\pgfmathfloat@a@S\pgfmathresult e\the\pgfmathfloat@a@E}%
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\pgfmathresult}{\the\pgfmathfloat@a@E}%
 }
 
 \def\pgfmathfloatround@impl@renormalize#1#2.#3\pgfmathfloat@EOI{%
