@@ -1,0 +1,1188 @@
+% Copyright 2008/2009 by Christian Feuersaenger
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU General Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\newif\ifpgfmathfloatparseactive
+\newif\ifpgfmathfloat@scaleactive
+
+\pgfqkeys{/pgf}{
+	% enable the FPU parser
+	%
+	% It will be deactivated after the current TeX group
+	fpu/.code={%
+		\pgfmathfloat@plots@install%
+		\pgfmathfloat@parser@install%
+		\let\pgfmathparse=\pgfmathfloatparse%
+		\pgfqkeys{/pgf/fpu}{#1}%
+		\pgfmathfloatparseactivetrue
+	},%
+	% Use this to introduce a result scaling.
+	% Every expression in which the prefix '*' occurs
+	% will be multiplied with the result and converted to fixed point
+	% representation.
+	fpu/scale results/.code={%
+		\ifpgfmathfloatparseactive
+			\pgfmathparse{#1}%
+		\else
+			\pgfmathfloatparsenumber{#1}%
+		\fi
+		\let\pgfmathfloatscale=\pgfmathresult%
+	}%		
+}
+
+\def\pgfmathfloatscale{1}
+
+% This is the replacement parser invocation.
+% It does two things which are different to \pgfmathparse:
+% 1. it disables any dimension dependand scalings,
+% 2. it implements the 'scale results' feature.
+\def\pgfmathfloatparse{%
+	\begingroup%
+		% disable any dimension-dependant scalings:
+		\let\pgfmathpostparse=\relax%
+		\pgfmath@catcodes%
+		\pgfmath@quickparsefalse%
+		\pgfmathfloatparse@}
+
+\def\pgfmathfloatparse@#1{%
+	\edef\pgfmathfloat@expression{#1}%
+	\expandafter\pgfmathfloatparse@@\pgfmathfloat@expression\pgfmathfloat@
+	\ifpgfmathfloat@scaleactive
+		\expandafter\pgfmathfloatmultiply@\expandafter{\pgfmathresult}{\pgfmathfloatscale}
+		\pgfmathfloattofixed{\pgfmathresult}%
+	\fi
+}
+
+\def\pgfmathfloat@char@asterisk{*}
+\def\pgfmathfloatparse@@#1#2\pgfmathfloat@{%
+	\def\pgfmathfloat@test{#1}%
+	\ifx\pgfmathfloat@test\pgfmathfloat@char@asterisk%
+		\def\pgfmathfloat@expression{#2}%
+		\pgfmathfloat@scaleactivetrue
+	\fi%
+	\expandafter\pgfmathparse@\expandafter{\pgfmathfloat@expression}%
+	% \endgroup provided by \pgfpathmarse@end
+}
+
+% Crude handling of file plots
+%
+\pgfkeys{/pgf/fixed point/.cd,
+  scale file plot x/.code=\pgfmathfloatparse{#1}\edef\pgfmathfloatplotscalex{\pgfmathresult*},
+  scale file plot y/.code=\pgfmathfloatparse{#1}\edef\pgfmathfloatplotscaley{\pgfmathresult*},
+  scale file plot z/.code=\pgfmathfloatparse{#1}\edef\pgfmathfloatplotscalez{\pgfmathresult*}
+}
+\def\pgfmathfloat@plots@install{%
+	\let\pgfmathfloatplotscalex=\pgfutil@empty
+	\let\pgfmathfloatplotscaley=\pgfutil@empty
+	\let\pgfmathfloatplotscalez=\pgfutil@empty
+	\let\pgf@parsexyline=\pgfmathfloat@parsexyline%
+	\let\pgf@parsexyzline=\pgfmathfloat@parsexyzline%
+}
+\def\pgfmathfloat@parsexyline#1 #2 #3\pgf@stop{%
+	\edef\pgfmathfloat@marshal{%
+		\noexpand\pgfplotstreampoint{\noexpand\pgfpointxy{\pgfmathfloatplotscalex#1}{\pgfmathfloatplotscaley#2}}%
+	}%
+	\pgfmathfloat@marshal%
+}
+\def\pgfmathfloat@parsexyzline#1 #2 #3 #4\pgf@stop{%
+  \edef\pgfmathfloat@marshal{%
+		\noexpand\pgfplotstreampoint{%
+			\noexpand\pgfpointxyz{\pgfmathfloatplotscalex#1}{\pgfmathfloatplotscaley#2}{\pgfmathfloatplotscalez#3}%
+		}%
+	}%
+	\pgfmathfloat@marshal%
+}
+
+% 
+\def\pgfmathfloat@parser@install{%
+	%
+	%
+	% Install float commands...
+	%
+	\let\pgfmathadd@=\pgfmathfloatadd@%
+	\let\pgfmathsubtract@=\pgfmathfloatsubtract@%
+	\let\pgfmathmultiply@=\pgfmathfloatmultiply@%
+	\let\pgfmathdivide@=\pgfmathfloatdivide@%
+	\let\pgfmathabs@=\pgfmathfloatabs@%
+	\let\pgfmathround@=\pgfmathfloatround@%
+	\let\pgfmathfloor@=\pgfmathfloatfloor@%
+	\let\pgfmathceil@=\pgfmathfloatceil@%
+	\let\pgfmathmod@=\pgfmathfloatmod@%
+	\let\pgfmathmax@=\pgfmathfloatmax@%
+	\let\pgfmathmin@=\pgfmathfloatmin@%
+	\let\pgfmathsin@=\pgfmathfloatsin@%
+	\let\pgfmathcos@=\pgfmathfloatcos@%
+	\let\pgfmathtan@=\pgfmathfloattan@%
+	\let\pgfmathdeg@=\pgfmathfloatdeg@%
+	\let\pgfmathrad@=\pgfmathfloatrad@%
+	\let\pgfmathatan@=\pgfmathfloatatan@%
+	\let\pgfmathasin@=\pgfmathfloatasin@%
+	\let\pgfmathacos@=\pgfmathfloatacos@%
+	\let\pgfmathcot@=\pgfmathfloatcot@%
+	\let\pgfmathsec@=\pgfmathfloatsec@%
+	\let\pgfmathcosec@=\pgfmathfloatcosec@%
+	\let\pgfmathpow@=\pgfmathfloatpow@%
+	\let\pgfmathexp@=\pgfmathfloatexp@%
+	\let\pgfmathln@=\pgfmathfloatln@%
+	\let\pgfmathsqrt@=\pgfmathfloatsqrt@%
+	\let\pgfmath@pi=\pgfmathfloatpi@%
+	\let\pgfmathveclen@=\pgfmathfloatveclen@%
+	\let\pgfmathe@=\pgfmathfloate@%
+	%
+	\let\pgfmathlessthan@=\pgfmathfloatlessthan@%
+	\let\pgfmathgreaterthan@=\pgfmathfloatgreaterthan@%
+	\let\pgfmathequalto@=\pgfmathfloatequalto@%
+	%
+	\let\pgfmathrnd=\pgfmathfloatrnd%
+	\let\pgfmathrand=\pgfmathfloatrand%
+	\let\pgfmathsetseed=\pgfmathfloatsetseed%
+	%
+	\let\pgfmathscientific=\pgfmathfloatscientific%
+	%
+	% The following methods actually enable the parser to work with
+	% the internal floating point number representation.
+	%
+	% The idea is as follows:
+	% 1. Every operand must be given in internal float representation.
+	% 2. The internal float repr can be distinguished by a normal
+	% number. This is accomplished by introducing a new "exponent"
+	% token.
+	% 3. The stack-push-operation checks whether the argument is a
+	% float. If not, it is parsed properly before pushing it.
+	\pgfmath@tokens@make{exponent}{Y}%
+	\let\pgfmath@basic@parse@exponent=\pgfmath@parse@exponent%
+	\let\pgfmath@basic@stack@push@operand=\pgfmath@stack@push@operand
+	\let\pgfmath@stack@push@operand=\pgfmathfloat@stack@push@operand
+	\let\pgfmath@parse@exponent=\pgfmathfloat@parse@float@or@exponent
+%	\let\pgfmath@basic@parse@number=\pgfmath@parse@number
+%	\let\pgfmath@parse@number=\pgfmathfloat@parse@number
+}%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Hacks to the basic level pgf math engine:
+%
+% WARNING: These methods rely heavily on the internal float representation!
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% PRECONDITION:
+% either
+% 	<number>e
+% 	        ^
+% 	-> read the exponent.
+% or
+%   <sign>Y
+%         ^
+%   -> we have a parsed floating point number -> read it.
+\def\pgfmathfloat@parse@float@or@exponent{%
+	\if\pgfmath@token Y%
+		% Ok, we actually HAVE a pre-parsed floating point number!
+		% Return it.
+		\expandafter\pgfmathfloat@return@float
+	\else
+		% We have a standard number in scientific format. Parse it.
+		\expandafter\pgfmath@basic@parse@exponent
+	\fi
+}%
+\def\pgfmathfloat@return@float#1]{%
+	\edef\pgfmathresult{\pgfmath@number Y#1]}%
+	\expandafter\pgfmath@basic@stack@push@operand\expandafter{\pgfmathresult}%
+	\pgfmath@parse@@operator%
+}%
+
+% This extends the functionality of the basic level operand stack: it
+% assures every element on the stack is a float.
+\def\pgfmathfloat@stack@push@operand#1{%
+	\pgfutil@in@ Y{#1}%
+	\ifpgfutil@in@
+		\pgfmath@basic@stack@push@operand{#1}%
+	\else
+		\pgfmathfloatparsenumber{#1}%
+		\expandafter\pgfmath@basic@stack@push@operand\expandafter{\pgfmathresult}%
+	\fi
+}%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% --- END --- Hacks to the basic level pgf math engine
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Here starts the implementation of the floating point
+% routines.
+%
+% They can be used even if the FPU parser is not active.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Remember the basic math commands. They will be invoked as subroutines in floating point routines.
+\let\pgfmath@basic@add@=\pgfmathadd@
+\let\pgfmath@basic@subtract@=\pgfmathsubtract@
+\let\pgfmath@basic@multiply@=\pgfmathmultiply@
+\let\pgfmath@basic@divide@=\pgfmathdivide@
+\let\pgfmath@basic@abs@=\pgfmathabs@
+\let\pgfmath@basic@round@=\pgfmathround@
+\let\pgfmath@basic@floor@=\pgfmathfloor@
+\let\pgfmath@basic@ceil@=\pgfmathceil@
+\let\pgfmath@basic@mod@=\pgfmathmod@
+\let\pgfmath@basic@max@=\pgfmathmax@
+\let\pgfmath@basic@min@=\pgfmathmin@
+\let\pgfmath@basic@sin@=\pgfmathsin@
+\let\pgfmath@basic@cos@=\pgfmathcos@
+\let\pgfmath@basic@tan@=\pgfmathtan@
+\let\pgfmath@basic@deg@=\pgfmathdeg@
+\let\pgfmath@basic@rad@=\pgfmathrad@
+\let\pgfmath@basic@atan@=\pgfmathatan@
+\let\pgfmath@basic@asin@=\pgfmathasin@
+\let\pgfmath@basic@acos@=\pgfmathacos@
+\let\pgfmath@basic@cot@=\pgfmathcot@
+\let\pgfmath@basic@sec@=\pgfmathsec@
+\let\pgfmath@basic@cosec@=\pgfmathcosec@
+\let\pgfmath@basic@pow@=\pgfmathpow@
+\let\pgfmath@basic@exp@=\pgfmathexp@
+\let\pgfmath@basic@ln@=\pgfmathln@
+\let\pgfmath@basic@sqrt@=\pgfmathsqrt@
+\let\pgfmath@basic@@pi=\pgfmath@pi
+\let\pgfmath@basic@veclen@=\pgfmathveclen@
+\let\pgfmath@basic@e@=\pgfmathe@
+\let\pgfmath@basic@lessthan@=\pgfmathlessthan@
+\let\pgfmath@basic@greaterthan@=\pgfmathgreaterthan@
+\let\pgfmath@basic@equalto@=\pgfmathequalto@
+
+\def\pgfmathfloatscientific#1#2{%
+	\edef\pgfmathresult{#1e#2}%
+	\expandafter\pgfmathfloatparsenumber\expandafter{\pgfmathresult}%
+}
+% Compares #1 with #2 and sets \pgfmathresult either to 1.0 or 0.0.
+% 
+% It also sets the boolean \ifpgfmathfloatcomparison (globally.
+\def\pgfmathfloatlessthan@#1#2{%
+%\def\pgfmathfloatlessthan#1#2#3\and#4#5#6{%
+	\global\pgfmathfloatcomparisonfalse
+	\begingroup
+	\expandafter\pgfmathfloat@decompose#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@M\pgfmathfloat@a@E
+	\expandafter\pgfmathfloat@decompose#2\relax\pgfmathfloat@b@S\pgfmathfloat@b@M\pgfmathfloat@b@E
+	\ifcase\pgfmathfloat@a@S
+		% x = 0 -> (x<y <=> y >0)
+		\ifnum1=\pgfmathfloat@b@S
+			\global\pgfmathfloatcomparisontrue
+		\fi
+	\or
+		% x > 0 -> (x<y <=> ( y > 0 && |x| < |y|) )
+		\ifnum1=\pgfmathfloat@b@S
+			% y>0:
+			\pgfmathfloatlessthan@positive
+		\fi
+	\or
+		% x < 0 -> (x<y <=> (y >= 0 ||   |x| > |y|) )
+		\ifnum2=\pgfmathfloat@b@S
+			% 'y<0':
+			\pgfmathfloatgreaterthan@positive
+		\else
+			\global\pgfmathfloatcomparisontrue
+		\fi
+	\else
+		\pgfmath@error{Sorry, 'pgfmathfloatlessthan@{#1}{#2}' not yet supported.}%
+	\fi
+	\endgroup
+	\ifpgfmathfloatcomparison
+		\def\pgfmathresult{1.0}%
+	\else
+		\def\pgfmathresult{0.0}%
+	\fi
+}
+\let\pgfmathfloatlessthan=\pgfmathfloatlessthan@
+
+% compares \pgfmathfloat@a@[SME] < \pgfmathfloat@b@[SME]
+\def\pgfmathfloatlessthan@positive{%
+	\ifnum\pgfmathfloat@a@E<\pgfmathfloat@b@E
+		\global\pgfmathfloatcomparisontrue
+	\else
+		\ifnum\pgfmathfloat@a@E=\pgfmathfloat@b@E
+			\ifdim\pgfmathfloat@a@M<\pgfmathfloat@b@M
+				\global\pgfmathfloatcomparisontrue
+			\fi
+		\fi
+	\fi
+}
+
+% compares \pgfmathfloat@a@[SME] > \pgfmathfloat@b@[SME]
+\def\pgfmathfloatgreaterthan@positive{%
+	\ifnum\pgfmathfloat@a@E>\pgfmathfloat@b@E
+		\global\pgfmathfloatcomparisontrue
+	\else
+		\ifnum\pgfmathfloat@a@E=\pgfmathfloat@b@E
+			\ifdim\pgfmathfloat@a@M>\pgfmathfloat@b@M
+				\global\pgfmathfloatcomparisontrue
+			\fi
+		\fi
+	\fi
+}
+
+
+\def\pgfmathfloatmax@#1#2{%
+	\pgfmathfloatlessthan{#1}{#2}%
+	\ifpgfmathfloatcomparison
+		\edef\pgfmathresult{#2}%
+	\else
+		\edef\pgfmathresult{#1}%
+	\fi
+}
+\let\pgfmathfloatmax=\pgfmathfloatmax@
+
+\def\pgfmathfloatmin@#1#2{%
+	\pgfmathfloatlessthan{#1}{#2}%
+	\ifpgfmathfloatcomparison
+		\edef\pgfmathresult{#1}%
+	\else
+		\edef\pgfmathresult{#2}%
+	\fi
+}
+\let\pgfmathfloatmin=\pgfmathfloatmin@
+
+% Renormalizes #1 to extended precision mantisse, meaning
+% 100 <= m < 1000
+% instead of 1 <= m < 10.
+% 
+% The 'extended precision' means we have higher accuracy when we apply pgfmath operations to mantisses.
+%
+% The input argument is expected to be a normalized floating point number; the output argument is a non-normalized floating point number (well, normalized to extended precision).
+%
+% The operation is supposed to be very fast.
+%
+% @see \pgfmathfloatsetextprecision
+%
+% There is a routine for internal usage,
+% \pgfmathfloattoextentedprecision@a. It also provides exponent and
+% sign of #1 in output arguments and may be used to increase speed.
+\def\pgfmathfloattoextentedprecision#1{%
+	\begingroup
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\pgfmathfloatcreate{\pgfmathfloat@a@S}{\pgfmathresult}{\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+\def\pgfmathfloattoextentedprecision@@zero#1\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1}%
+}%
+\def\pgfmathfloattoextentedprecision@@one#1.#2#3\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2.#3}%
+}%
+\def\pgfmathfloattoextentedprecision@@two#1.#2#3#4\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2#3.#4}%
+}%
+\def\pgfmathfloattoextentedprecision@@three#1.#2#3#4#5\pgfmathfloat@EOI{%
+	\edef\pgfmathresult{#1#2#3#4.#5}%
+}%
+
+% Sets extended precision to 10^#1.
+%
+% The different choices are
+% 
+% - 0:  normalization      0 <= m < 1 (disable extended precision)
+% - 1:  normalization     10 <= m < 100
+% - 2:  normalization    100 <= m < 1000  (default)
+% - 3:  normalization   1000 <= m < 10000
+%
+% #1 is the exponent, #1 = 0,1,2 or 3.
+%
+% This setting applies to \pgfmathfloattoextentedprecision and friends.
+\def\pgfmathfloatsetextprecision#1{%
+	\ifcase#1\relax
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@zero
+		\def\pgfmathfloatextprec@shift{0}%
+	\or
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@one
+		\def\pgfmathfloatextprec@shift{1}%
+	\or
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@two
+		\def\pgfmathfloatextprec@shift{2}%
+	\else
+		\let\pgfmathfloattoextentedprecision@@=\pgfmathfloattoextentedprecision@@three
+		\def\pgfmathfloatextprec@shift{3}%
+	\fi
+}%
+\pgfmathfloatsetextprecision{2}%
+
+% Does the "hard" work for \pgfmathfloattoextentedprecision. It
+% provides additional outputs.
+%
+% INPUT:
+% #1  normalized floating point number. Maybe a macro (it will be expanded ONCE)
+% 
+% OUTPUT:
+% - \pgfmathresult : the mantisse in extended precision
+% - \pgfmathfloat@a@S : the sign of #1
+% - \pgfmathfloat@a@E : the exponent of #1, adjusted for extended precision
+% - \pgfmathfloat@a@Mtok : undefined (its contents will be destroyed.
+%
+\def\pgfmathfloattoextentedprecision@a#1{%
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifnum\pgfmathfloat@a@S<3
+		\advance\pgfmathfloat@a@E by-\pgfmathfloatextprec@shift\relax% compensate for shift
+		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 000\pgfmathfloat@EOI
+	\else
+		\edef\pgfmathresult{#1}%
+	\fi
+}%
+
+
+% Similar to \pgfmathfloattoextentedprecision@a, this one here fills the '@b' registers.
+\def\pgfmathfloattoextentedprecision@b#1{%
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@b@E
+	\ifnum\pgfmathfloat@b@S<3
+		\advance\pgfmathfloat@b@E by-\pgfmathfloatextprec@shift\relax
+		\expandafter\pgfmathfloattoextentedprecision@@\the\pgfmathfloat@a@Mtok 00\pgfmathfloat@EOI
+	\else
+		\edef\pgfmathresult{#1}%
+	\fi
+}%
+
+% Addition of two floating point numbers using 8 significant digits.
+\def\pgfmathfloatadd@#1#2{%
+	\begingroup
+	%
+	% renormalize argument to 100 <= m < 1000 for extended accuracy:
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloattoextentedprecision@b{#2}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+		\edef\pgfmathresult{#2}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@arga{-\pgfmathfloat@arga}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{0.0}{0}%
+	\fi
+	\ifcase\pgfmathfloat@b@S
+		\edef\pgfmathresult{#1}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@argb{-\pgfmathfloat@argb}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@b@S}{0.0}{0}%
+	\fi
+	\ifpgfmathfloatcomparison
+		% Shift lesser mantisse to fit the larger one:
+		\ifnum\pgfmathfloat@a@E<\pgfmathfloat@b@E
+			\pgfmathfloatadd@shift{\pgfmathfloat@arga}{\pgfmathfloat@a@E}{\pgfmathfloat@b@E}%
+		\else
+			\pgfmathfloatadd@shift{\pgfmathfloat@argb}{\pgfmathfloat@b@E}{\pgfmathfloat@a@E}%
+		\fi
+		% add them!
+		\pgfmath@basic@add@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+% #1= floating point number
+% #2= TeX code to execute if #1 == 0
+% #3= TeX code to execute if #1 != 0
+\def\pgfmathfloatifzero#1#2#3{%
+	\expandafter\pgfmathfloat@decompose@F#1\relax\pgfmathfloat@a@S
+	\ifnum\pgfmathfloat@a@S=0 #2\else#3\fi
+}%
+
+% #1=mantisse which needs to be shifted (with smaller exponent)
+% #2=smaller exponent
+% #3=larger exponent
+% 
+% ATTENTION: this helper method DESTROYS contents of \pgfmathfloat@a@S.
+\def\pgfmathfloatadd@shift#1#2#3{%
+	\pgf@xa=#1 pt%
+	\pgfmathfloat@a@S=#3\relax
+	\advance\pgfmathfloat@a@S by-#2\relax
+	\ifcase\pgfmathfloat@a@S
+	\or
+		\divide\pgf@xa by10\relax
+	\or
+		\divide\pgf@xa by100\relax
+	\or
+		\divide\pgf@xa by1000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by10\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by100\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by1000\relax
+	\or
+		\divide\pgf@xa by10000\relax
+		\divide\pgf@xa by10000\relax
+	\else
+		\pgf@xa=0pt%
+	\fi
+	#2=#3\relax
+	\edef#1{\pgf@sys@tonumber\pgf@xa}%
+}
+
+\let\pgfmathfloatadd=\pgfmathfloatadd@
+
+
+% Subtracts two floating point numbers.
+\def\pgfmathfloatsubtract@#1#2{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#2\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@b@E
+	\ifcase\pgfmathfloat@b@S
+		\edef\pgfmathresult{#1}%
+	\or
+		\pgfmathfloatcreate{2}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@b@E}%
+		\let\pgfmathfloatsub@arg=\pgfmathresult
+		\pgfmathfloatadd@{#1}{\pgfmathfloatsub@arg}%
+	\or
+		\pgfmathfloatcreate{1}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@b@E}%
+		\let\pgfmathfloatsub@arg=\pgfmathresult
+		\pgfmathfloatadd@{#1}{\pgfmathfloatsub@arg}%
+	\else
+		\pgfmathfloatcreate{\the\pgfmathfloat@b@S}{0.0}{0}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+\let\pgfmathfloatsubtract=\pgfmathfloatsubtract@
+
+% Scales a floating point number #1 with a fixed point number #2 using pgfmathmultiply.
+% 
+% Use this method if #2 is small number.
+\def\pgfmathfloatmultiplyfixed@#1#2{%
+	\begingroup
+	%
+	% renormalize argument to 100 <= m < 1000 for extended accuracy:
+	\pgfmathfloattoextentedprecision@a{#1}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+		\edef\pgfmathresult{#1}%
+		\pgfmathfloatcomparisonfalse
+	\or
+	\or
+		\edef\pgfmathfloat@arga{-\pgfmathfloat@arga}%
+	\else
+		\pgfmathfloatcomparisonfalse
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{0.0}{0}%
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmath@basic@multiply@{\pgfmathfloat@arga}{#2}%
+		% renormalize product. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+\let\pgfmathfloatmultiplyfixed=\pgfmathfloatmultiplyfixed@
+
+
+\def\pgfmathfloatmultiply@#1#2{%
+	\begingroup
+	\pgfmathfloatsetextprecision{1}%
+	\edef\pgfmathfloat@arga{#1}%
+	\pgfmathfloattoextentedprecision@a{\pgfmathfloat@arga}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\edef\pgfmathfloat@argb{#2}%
+	\pgfmathfloattoextentedprecision@b{\pgfmathfloat@argb}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+	% 0
+		\pgfmathfloatcreate{0}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\def\pgfmathresult@S{2}%
+		\else
+			\expandafter\pgfmathfloatcreate\the\pgfmathfloat@b@S{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% nan
+		\pgfmathfloatcreate{3}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmath@basic@multiply@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		\advance\pgfmathfloat@a@E by\pgfmathfloat@b@E
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\pgfmathfloatcreate{\pgfmathresult@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatmultiply=\pgfmathfloatmultiply@
+
+% Defines \pgfmathresult to be #1 / #2 for two floating point numbers.
+%
+% It employs the basic math engine internally to divide mantissas.
+\def\pgfmathfloatdivide@#1#2{%
+	\begingroup
+	\pgfmathfloatsetextprecision{1}% is not too important, I think. After all, 0.1 <= #1/#2 < 10 or so due to normalization (no matter, which)
+	\edef\pgfmathfloat@arga{#1}%
+	\pgfmathfloattoextentedprecision@a{\pgfmathfloat@arga}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\edef\pgfmathfloat@argb{#2}%
+	\pgfmathfloattoextentedprecision@b{\pgfmathfloat@argb}%
+	\let\pgfmathfloat@argb=\pgfmathresult
+	%
+	\pgfmathfloatcomparisontrue% re-use this boolean here to handle special cases.
+	\ifcase\pgfmathfloat@a@S
+	% 0
+		\pgfmathfloatcreate{0}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\else
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\def\pgfmathresult@S{2}%
+		\or
+			\def\pgfmathresult@S{1}%
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\else
+			\pgfmathfloatcreate{0}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% nan
+		\pgfmathfloatcreate{3}{0.0}{0}%
+		\pgfmathfloatcomparisonfalse
+	\or% +infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}% what is inf/inf ?
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}% or inf/-inf ?
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\or% -infty
+		\ifcase\pgfmathfloat@b@S
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{3}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{5}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\or
+			\pgfmathfloatcreate{4}{0.0}{0}%
+			\pgfmathfloatcomparisonfalse
+		\fi
+	\fi
+	\ifpgfmathfloatcomparison
+		\pgfmath@basic@divide@{\pgfmathfloat@arga}{\pgfmathfloat@argb}%
+		\advance\pgfmathfloat@a@E by-\pgfmathfloat@b@E
+		% renormalize. This is the only part were an expensive float routine comes into play:
+		\edef\pgfmathresult{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\expandafter\pgfmathfloatqparsenumber\expandafter{\pgfmathresult}%
+		% And re-insert the proper sign:
+		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\pgfmathfloatcreate{\pgfmathresult@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatdivide=\pgfmathfloatdivide@
+
+% Computes sqrt(#1) in floating point arithmetics.
+%
+% It employs sqrt( m * 10^e ) = sqrt(m) * sqrt(10^e).
+\def\pgfmathfloatsqrt@#1{%
+	\begingroup
+	\pgfmathfloatsetextprecision{3}%
+	\edef\pgfmathfloat@arga{#1}%
+	\pgfmathfloattoextentedprecision@a{\pgfmathfloat@arga}%
+	\let\pgfmathfloat@arga=\pgfmathresult
+	%
+	\ifcase\pgfmathfloat@a@S
+	% 0
+		\pgfmathfloatcreate{0}{0.0}{0}%
+	\or% +
+		\pgfmath@basic@sqrt@{\pgfmathfloat@arga}%
+		\ifodd\pgfmathfloat@a@E
+			\ifnum\pgfmathfloat@a@E>0
+				\expandafter\pgfmathmultiply@\expandafter{\pgfmathresult}{3.16227766}% * sqrt(10)
+			\else
+				\expandafter\pgfmathmultiply@\expandafter{\pgfmathresult}{0.316227766}% * sqrt(0.1)
+			\fi
+		\fi
+		\divide\pgfmathfloat@a@E by2 % sqrt(10^e) = 10^{e/2} (see above for odd e)
+		% renormalize sum. This is the only part were an expensive routine comes into play:
+		\edef\pgfmathfloat@arga{\pgfmathresult e\the\pgfmathfloat@a@E}%
+		\pgfmathfloatqparsenumber{\pgfmathfloat@arga}%
+	\or% -
+		\pgfmathfloatcreate{3}{0.0}{0}%
+	\or% nan
+		\pgfmathfloatcreate{3}{0.0}{0}%
+	\or% +infty
+		\pgfmathfloatcreate{4}{0.0}{0}%
+	\or% -infty
+		\pgfmathfloatcreate{3}{0.0}{0}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatsqrt=\pgfmathfloatsqrt@
+
+% Returns the integer part of the floating point number #1.
+%
+% The result is returned as floating point as well. 
+%
+% This operation is not limited to TeX's range of count registers (it
+% works symbolly)
+\def\pgfmathfloatint@#1{%
+	\begingroup
+	\edef\pgfmathresult{#1}%
+	\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifcase\pgfmathfloat@a@S
+		% 0: nothing to do.
+	\or% +
+		\expandafter\pgfmathfloatint@@\the\pgfmathfloat@a@Mtok\pgfmathfloat@EOI
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\or% -
+		\expandafter\pgfmathfloatint@@\the\pgfmathfloat@a@Mtok\pgfmathfloat@EOI
+		\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\else
+		% nothing to do
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\def\pgfmathfloatint@@#1.{%
+	\ifnum\pgfmathfloat@a@E<0
+		\pgfmathfloat@a@S=0
+		\pgfmathfloat@a@Mtok={0.0}%
+		\pgfmathfloat@a@E=0
+		\expandafter\pgfmathfloatint@@loop@gobble
+	\else
+		\pgfmathfloat@a@Mtok={#1.}%
+		\pgfmathfloat@b@E=\pgfmathfloat@a@E
+		\expandafter\pgfmathfloatint@@loop
+	\fi
+}%
+\def\pgfmathfloatint@@loop#1{%
+	\def\pgfmathfloatint@@loop@{#1}%
+	\ifx\pgfmathfloatint@@loop@\pgfmathfloat@EOI
+		\let\pgfmathfloatint@@loop@next=\relax
+	\else
+		\ifnum\pgfmathfloat@b@E=0
+			\let\pgfmathfloatint@@loop@next=\pgfmathfloatint@@loop@gobble
+		\else
+			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
+			\advance\pgfmathfloat@b@E by-1
+			\let\pgfmathfloatint@@loop@next=\pgfmathfloatint@@loop
+		\fi
+	\fi
+	\pgfmathfloatint@@loop@next
+}%
+\def\pgfmathfloatint@@loop@gobble#1\pgfmathfloat@EOI{}%
+\let\pgfmathfloatint=\pgfmathfloatint@
+
+% Divides or multiplies the input number by 10^#4 using an arithmetic
+% left/right shift.
+%
+% Input:
+% #1 a normalised floating point number.
+% #2 a positive or negative integer number denoting the shift.
+%
+% Example:
+% \pgfmathfloatshift{11e3}{4}%
+% -> pgfmathresult = 11e7
+\def\pgfmathfloatshift@#1#2{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\advance\pgfmathfloat@a@E by#2\relax
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\let\pgfmathfloatshift=\pgfmathfloatshift@
+
+% Defines \pgfmathresult to be |#1|, the absolute value of the
+% normalized floating point number #1.
+\def\pgfmathfloatabs@#1{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifcase\pgfmathfloat@a@S
+		% 0: do nothing.
+	\or
+		% +: ok, is positive.
+	\or
+		% -: multiply with -1:
+		\pgfmathfloat@a@S=1
+	\or
+		% nan: do nothing.
+	\or
+		% +infty: ok.
+	\or
+		% -infty: multiply with -1:
+		\pgfmathfloat@a@S=4
+	\fi
+	\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\let\pgfmathfloatabs=\pgfmathfloatabs@
+
+% Computes the absolute error |#1 - #2| into \pgfmathresult.
+\def\pgfmathfloatabserror@#1#2{%
+	\pgfmathfloatsubtract@{#1}{#2}%
+	\pgfmathfloatabs@{\pgfmathresult}%
+}%
+\let\pgfmathfloatabserror=\pgfmathfloatabserror@
+
+% Computes the relative error |#1 - #2|/|#2| into \pgfmathresult,
+% assuming #2 != 0.
+\def\pgfmathfloatrelerror@#1#2{%
+	\pgfmathfloatsubtract@{#1}{#2}%
+	\pgfmathfloatdivide@{\pgfmathresult}{#2}%
+	\pgfmathfloatabs@{\pgfmathresult}%
+}%
+\let\pgfmathfloatrelerror=\pgfmathfloatrelerror@
+
+% Computes \pgfmathresult = #1 mod #2 using truncated division.
+%
+\def\pgfmathfloatmod@#1#2{%
+	\begingroup
+	\pgfmathfloatdivide@{#1}{#2}%
+	\pgfmathfloatint@{\pgfmathresult}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{#2}%
+	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+	\pgfmathfloatsubtract@{#1}{\pgfmathfloat@loc@TMPb}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\let\pgfmathfloatmod=\pgfmathfloatmod@
+
+% A modification of \pgfmathfloatmod@ where #3 = 1/#2 is already
+% known. This may be faster.
+\def\pgfmathfloatmodknowsinverse@#1#2#3{%
+	\begingroup
+	\pgfmathfloatmultiply@{#1}{#3}%
+	\pgfmathfloatint@{\pgfmathresult}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{#2}%
+	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+	\pgfmathfloatsubtract@{#1}{\pgfmathfloat@loc@TMPb}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\let\pgfmathfloatmodknowsinverse=\pgfmathfloatmodknowsinverse@
+
+\def\pgfmathfloatpi@{%
+	\pgfmathfloatcreate{1}{3.14159265358979}{0}%
+}%
+\let\pgfmathfloatpi=\pgfmathfloatpi@
+
+\def\pgfmathfloate@{%
+	\pgfmathfloatcreate{1}{2.71828182845905}{0}%
+}
+\let\pgfmathfloate=\pgfmathfloate@
+
+% Converts #1 from radians to degrees.
+\def\pgfmathfloatdeg@#1{%
+	\ifx\pgfmathfloatdeg@factor\relax
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{5.72957795130823}{1}%
+		\global\let\pgfmathfloatdeg@factor=\pgfmathresult
+	\fi
+	\pgfmathfloatmultiply@{#1}\pgfmathfloatdeg@factor%
+}
+\let\pgfmathfloatdeg=\pgfmathfloatdeg@
+
+% Converts #1 from degree to radians.
+\def\pgfmathfloatrad@#1{%
+	\ifx\pgfmathfloatrad@factor\relax
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{1.74532925199433}{-2}%
+		\global\let\pgfmathfloatrad@factor=\pgfmathresult
+	\fi
+	\pgfmathfloatmultiply@{#1}\pgfmathfloatrad@factor%
+}
+\let\pgfmathfloatrad=\pgfmathfloatrad@
+
+% Computes #1(#2) where #1 is a trigonometric function, i.e.
+% #1(#2) = #1( #2 + r*360 )
+%
+% #1 is a one-argument macro which assigns \pgfmathresult.
+\def\pgfmathfloatTRIG@#1#2{%
+	\expandafter\ifx\csname pgfmathfloatTRIG@NUM\endcsname\relax% why not directly!??? Did not work!??
+		% Lazy evaluation:
+		\pgfmathfloatcreate{1}{3.6}{2}%
+		\global\let\pgfmathfloatTRIG@NUM=\pgfmathresult
+		\pgfmathfloatcreate{1}{2.77777777777778}{-3}%
+		\global\let\pgfmathfloatTRIG@NUM@INV=\pgfmathresult
+	\fi
+	\pgfmathfloatmodknowsinverse@{#2}{\pgfmathfloatTRIG@NUM}{\pgfmathfloatTRIG@NUM@INV}%
+	\pgfmathfloattofixed@{\pgfmathresult}%
+	\expandafter#1\expandafter{\pgfmathresult}%
+	\pgfmathfloatparsenumber{\pgfmathresult}%
+}%
+
+\def\pgfmathfloatsin@#1{\pgfmathfloatTRIG@\pgfmath@basic@sin@{#1}}
+\let\pgfmathfloatsin=\pgfmathfloatsin@
+\def\pgfmathfloatcos@#1{\pgfmathfloatTRIG@\pgfmath@basic@cos@{#1}}
+\let\pgfmathfloatcos=\pgfmathfloatcos@
+\def\pgfmathfloattan@#1{\pgfmathfloatTRIG@\pgfmath@basic@tan@{#1}}
+\let\pgfmathfloattan=\pgfmathfloattan@
+\def\pgfmathfloatsec@#1{\pgfmathfloatTRIG@\pgfmath@basic@sec@{#1}}
+\let\pgfmathfloatsec=\pgfmathfloatsec@
+\def\pgfmathfloatcosec@#1{\pgfmathfloatTRIG@\pgfmath@basic@cosec@{#1}}
+\let\pgfmathfloatcosec=\pgfmathfloatcosec@
+\def\pgfmathfloatcot@#1{\pgfmathfloatTRIG@\pgfmath@basic@cot@{#1}}
+\let\pgfmathfloatcot=\pgfmathfloatcot@
+\def\pgfmathfloatasin@#1{\pgfmathfloatTRIG@\pgfmath@basic@asin@{#1}}
+\let\pgfmathfloatasin=\pgfmathfloatasin@
+\def\pgfmathfloatacos@#1{\pgfmathfloatTRIG@\pgfmath@basic@acos@{#1}}
+\let\pgfmathfloatacos=\pgfmathfloatacos@
+\def\pgfmathfloatatan@#1{\pgfmathfloatTRIG@\pgfmath@basic@atan@{#1}}
+\let\pgfmathfloatatan=\pgfmathfloatatan@
+
+% Expands #2 using \edef and invokes #1 with the resulting string.
+%
+% DEPRECATED
+% Example:
+%   \pgfmath@y=7.9pt
+%   \pgfmathlog@invoke@expanded\pgfmathexp@{{\pgf@sys@tonumber{\pgfmath@y}}}%
+% will invoke
+%   \pgfmathexp@{7.9}
+\def\pgfmathlog@invoke@expanded#1#2{%
+	\edef\pgfmath@resulttemp{#2}%
+	\expandafter#1\pgfmath@resulttemp
+}
+
+% Computes log(x) into \pgfmathresult.
+%
+% This allows numbers such at 10000000 or 5.23e-10 to be represented
+% properly, although TeX-registers would produce overflow/underflow
+% errors in these cases. 
+%
+% The natural logarithm is computed using log(X*10^Y) = log(X) + log(10)*Y
+\def\pgfmathlog@#1{%
+	\pgfmathfloatparsenumber{#1}%
+	\pgfmathlog@float{\pgfmathresult}%
+}
+\let\pgfmathlog=\pgfmathlog@
+\def\pgfmathlog@float#1{%
+	\begingroup%
+		% compute #1 = M*10^E with normalised mantisse M = [+-]*[1-9].XXXXX
+		\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\ifnum\pgfmathfloat@a@S=1
+			% Now, compute log(#1) = log(M) + E*log(10)
+			\expandafter\pgfmath@basic@ln@\expandafter{\the\pgfmathfloat@a@Mtok}%
+			\pgfmathfloat@b@M=\pgfmathresult pt%
+			\pgfmathfloat@a@M=2.302585pt% = log(10)
+			\multiply\pgfmathfloat@a@M by\pgfmathfloat@a@E\relax
+			\advance\pgfmathfloat@b@M by\pgfmathfloat@a@M
+			\edef\pgfmathresult{\pgf@sys@tonumber{\pgfmathfloat@b@M}}%
+		\else
+			\let\pgfmathresult=\pgfutil@empty%
+		\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup%
+}
+
+
+% Computes exp(#1) in floating point.
+%
+% The algorithm employs the identity 
+%  exp(x) = exp(x - log(10^k) + log(10^k)
+%         = 10^k exp( x - k*log 10 )
+% with k choosen such that exp( x - k*log10) can be computed with the
+% basic level math engine.
+%
+% The precision (relative error) is between 10^{-4} and 10^{-6}. For
+% #1 = 700, it is even 10^{-3}. I will need to improve that someday.
+\def\pgfmathfloatexp@#1{%
+	\begingroup
+		\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\ifcase\pgfmathfloat@a@S
+		% #1 = 0:
+			\pgfmathfloatcreate{1}{1.0}{0}%
+		\or% #1 > 0
+			\pgfmathfloatexp@@{#1}%
+		\or% #1 < 0
+			\pgfmathfloatexp@@{#1}%
+		\else
+			\edef\pgfmathresult{#1}%
+		\fi
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\def\pgfmathfloatexp@@#1{%
+	% Employ the identity
+	% exp(x) = exp(x - log(10^k) + log(10^k)) = 10^k exp( x - k *log(10))
+	%
+	% I'd like to have x - k*log(10) <= 1
+	% => compute k := int( (x - 1) * 1/log(10) )
+	% that should suffice since \pgfmathexp@ should be
+	% accurate enough for those numbers.
+	%
+	% please note that we can do all this in TeX registers.
+	% exp(700) is almost the maximum of double precision
+	% anyway, and exp(16000) is certainly the largest we will
+	% ever need.
+	\pgfmathfloattofixed@{#1}%
+	\pgf@xa=\pgfmathresult pt
+	\pgf@xa=0.434294481\pgf@xa\relax
+	\edef\pgfmathfloat@loc@TMPa{\pgf@sys@tonumber{\pgf@xa}}%
+	\expandafter\pgfmathfloatexp@@toint\pgfmathfloat@loc@TMPa\relax
+	\pgf@xa=2.302585092pt
+	\multiply\pgf@xa by-\pgfmathfloat@k\relax
+	\advance\pgf@xa by\pgfmathresult pt
+	\edef\pgfmathfloat@loc@TMPa{\pgf@sys@tonumber{\pgf@xa}}%
+%\message{computing exp(\pgfmathresult) = 10^\pgfmathfloat@k * exp(\pgfmathfloat@loc@TMPa)...}%
+	\pgfmath@basic@exp@{\pgfmathfloat@loc@TMPa}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatparsenumber{\pgfmathfloat@loc@TMPa}%
+	\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+	\pgfmathfloatshift@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@k}%
+}
+% determine 'k'. This is a heuristics. The exponential series
+% converges best for |x| <= 1. However, the fixed point arithmetics
+% for tex results in best results for large |x|. Well, I'll need to
+% tune this here.
+\def\pgfmathfloatexp@@toint#1.#2\relax{%
+	\c@pgf@counta=#1\relax
+	\ifnum\c@pgf@counta<0
+\advance\c@pgf@counta by-1 % FIXME . this is a test for optimizations.
+		\c@pgf@countb=#2\relax
+		\ifnum\c@pgf@countb>0
+			\advance\c@pgf@counta by-1
+		\fi
+	\fi
+	\edef\pgfmathfloat@k{\the\c@pgf@counta}%
+}%
+\let\pgfmathfloatexp=\pgfmathfloatexp@
+
+\endinput
