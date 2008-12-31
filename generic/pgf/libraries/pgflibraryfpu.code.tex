@@ -18,8 +18,20 @@
 		\ifpgfmathfloatparseactive
 		\else
 			\pgfmathfloat@plots@install%
-			\pgfmathfloat@parser@install%
-			\let\pgfmathparse=\pgfmathfloatparse%
+			\pgfutil@ifundefined{pgfmathdeclarefunction}{%
+				% Ohoh - we are running on a TeX distribution with 
+				% PGF 2.00 which doesn't have the new math engine.
+				% I can provide special treatment here, provided that
+				% all float commands are still able to run (that means
+				% more information needs to be copied from the pgf cvs
+				% to pgf 2.00 - for example pgfmathfloat.code.tex).
+				% 
+				% I employ this to work with pgfplots and pgf 2.00
+				% using all new features.
+				\pgfmathfloat@parser@install@pgf@two@null@null%
+			}{%
+				\pgfmathfloat@parser@install%
+			}%
 			\pgfqkeys{/pgf/fpu}{#1}%
 			\pgfmathfloatparseactivetrue
 		\fi
@@ -51,6 +63,11 @@
 		\pgfmath@catcodes%
 		\pgfmath@quickparsefalse%
 		\pgfmathfloatparse@}
+
+% for pgf 2.00 :
+\def\pgfmathfloatparse@pgf@two@null@null{%
+	\pgfmath@quickparsefalse%
+	\pgfmathfloatparse@}
 
 \def\pgfmathfloatparse@#1{%
 	\edef\pgfmathfloat@expression{#1}%
@@ -102,9 +119,7 @@
 }
 
 % 
-\def\pgfmathfloat@parser@install{%
-	%
-	%
+\def\pgfmathfloat@parser@install@functions{%
 	% Install float commands...
 	%
 	\let\pgfmathadd@=\pgfmathfloatadd@%
@@ -133,10 +148,12 @@
 	\let\pgfmathln@=\pgfmathfloatln@%
 	\let\pgfmathsqrt@=\pgfmathfloatsqrt@%
 	\let\pgfmath@pi=\pgfmathfloatpi@%
+	\let\pgfmathpi=\pgfmathfloatpi@%
 	\let\pgfmathe@=\pgfmathfloate@%
 	\let\pgfmathlessthan@=\pgfmathfloatlessthan@%
+	\let\pgfmathpow@=\pgfmathfloatpow@
 	\pgfmathfloat@install@unimplemented{ceil}%
-	\pgfmathfloat@install@unimplemented{pow}%
+	%\pgfmathfloat@install@unimplemented{pow}%
 	\pgfmathfloat@install@unimplemented{factorial}%
 	\pgfmathfloat@install@unimplemented{oct}%
 	\pgfmathfloat@install@unimplemented{frac}%
@@ -164,6 +181,11 @@
 	%
 	%
 	\let\pgfmathscientific=\pgfmathfloatscientific%
+}
+\def\pgfmathfloat@parser@install{%
+	\pgfmathfloat@parser@install@functions
+	%
+	%
 	%
 	% The following methods actually enable the parser to work with
 	% the internal floating point number representation.
@@ -180,8 +202,31 @@
 	\let\pgfmath@basic@stack@push@operand=\pgfmath@stack@push@operand
 	\let\pgfmath@stack@push@operand=\pgfmathfloat@stack@push@operand
 	\let\pgfmath@parse@exponent=\pgfmathfloat@parse@float@or@exponent
-%	\let\pgfmath@basic@parse@number=\pgfmath@parse@number
-%	\let\pgfmath@parse@number=\pgfmathfloat@parse@number
+	%
+	\let\pgfmathparse=\pgfmathfloatparse%
+}%
+
+\def\pgfmathfloat@parser@install@pgf@two@null@null{%
+	\pgfmathfloat@parser@install@functions
+	%
+	% The following methods actually enable the parser to work with
+	% the internal floating point number representation.
+	%
+	% The idea is as follows:
+	% 1. Every operand must be given in internal float representation.
+	% 2. The internal float repr can be distinguished by a normal
+	% number. This is accomplished by introducing a new "exponent"
+	% token.
+	% 3. The stack-push-operation checks whether the argument is a
+	% float. If not, it is parsed properly before pushing it.
+	\let\pgfmath@basic@parseunits@=\pgfmath@parseunits@%
+	\let\pgfmath@basic@stack@push@operand=\pgfmath@stackpushoperand
+	\let\pgfmath@stackpushoperand=\pgfmathfloat@stack@push@operand
+	\let\pgfmath@parseunits@=\pgfmathfloat@parseunits@pgf@two@null@null
+	\let\pgfmath@endparse=\pgfmathfloat@endparse@pgf@two@null@null
+	\let\pgfmath@endparsegroup=\pgfmathfloat@endparsegroup@pgf@two@null@null
+	%
+	\let\pgfmathparse=\pgfmathfloatparse@pgf@two@null@null%
 }%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -190,6 +235,42 @@
 %
 % WARNING: These methods rely heavily on the internal float representation!
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% for pgf2.00 :
+\def\pgfmathfloat@parseunits@pgf@two@null@null#1#2{%
+	\if#1Y% check whether it is a float
+		\def\pgfmath@next{\pgfmathfloat@return@float@pgf@two@null@null#2}%
+	\else
+		\def\pgfmath@next{\pgfmath@basic@parseunits@#1#2}%
+	\fi
+	\pgfmath@next
+}
+% for pgf2.00:
+\def\pgfmathfloat@return@float@pgf@two@null@null#1]{%
+	\edef\pgfmathresult{\pgfmath@resulttemp Y#1]}%
+	\let\pgfmath@resulttemp=\pgfmathresult
+	\pgfmath@parseoperator%
+}%
+% for pgf2.00:
+\def\pgfmathfloat@endparse@pgf@two@null@null#1\pgfmath@empty{%
+    \pgfmath@processalloperations%
+    \pgfmath@stackpop{\pgfmathresult}%
+	% delete the final unit scalings
+    \pgfmath@smuggleone{\pgfmathresult}%
+  \endgroup%
+  \ignorespaces%
+}
+% for pgf2.00:
+\def\pgfmathfloat@endparsegroup@pgf@two@null@null{%
+		\pgfmath@processalloperations%
+		\pgfmath@stackpop{\pgfmathresult}%
+		% eliminated register usage here...
+		\pgfmath@smuggleone{\pgfmathresult}%
+	\endgroup%
+	\pgfmath@parsepostgroup%
+}
+
+
 
 % PRECONDITION:
 % either
@@ -834,6 +915,16 @@
 }%
 \let\pgfmathfloatdivide=\pgfmathfloatdivide@
 
+\def\pgfmathfloatreciprocal@#1{%
+	\begingroup
+	% FIXME optimize
+	\edef\pgfmathfloat@loc@TMPa{#1}%
+	\pgfmathfloatcreate{1}{1.0}{0}%
+	\pgfmathfloatdivide@{\pgfmathresult}{\pgfmathfloat@loc@TMPa}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
 % Computes sqrt(#1) in floating point arithmetics.
 %
 % It employs sqrt( m * 10^e ) = sqrt(m) * sqrt(10^e).
@@ -1267,4 +1358,71 @@
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }%
+
+
+\def\pgfmathfloatpow@#1#2{%
+	\begingroup%
+	\expandafter\pgfmathfloat@decompose@tok#2\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\ifcase\pgfmathfloat@a@S\relax
+		% #1 ^ 0 = 1
+		\pgfmathfloatcreate{1}{1.0}{0}%
+	\or
+		% #2 > 0
+		\pgfmathfloatpow@@{#1}{#2}%
+	\or
+		% #2 < 0
+		\pgfmathfloatpow@@{#1}{#2}%
+	\or
+		% #2 = nan
+		\edef\pgfmathresult{#2}%
+	\or
+		% #2 = inf
+		\edef\pgfmathresult{#2}%
+	\or
+		% #2 = -inf
+		\pgfmathfloatcreate{0}{0.0}{0}%
+	\fi
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+% computes #1^#2
+% PRECONDITIONS
+% - #2 is positive.
+\def\pgfmathfloatpow@@#1#2{%
+	\pgfmathfloattofixed@{#2}%
+	\afterassignment\pgfmath@x%
+	\expandafter\c@pgfmath@counta\pgfmathresult pt\relax%
+	\ifdim\pgfmath@x=0pt %
+		% loop "manually"; we have an integer exponent!
+		\ifnum\c@pgfmath@counta<0
+			\pgfmathfloatreciprocal@{#1}%
+			\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+			\c@pgfmath@counta=-\c@pgfmath@counta
+		\else
+			\edef\pgfmathfloat@loc@TMPa{#1}%
+		\fi
+		\pgfmathfloatcreate{1}{1.0}{0}%
+		\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+		\pgfmathloop
+			\ifnum\c@pgfmath@counta>0\relax%
+				\ifodd\c@pgfmath@counta%
+					\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPb}{\pgfmathfloat@loc@TMPa}%
+					\let\pgfmathfloat@loc@TMPb=\pgfmathresult
+				\fi
+				\ifnum\c@pgfmath@counta>1\relax%
+					\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@loc@TMPa}%
+					\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+				\fi%
+				\divide\c@pgfmath@counta by2\relax%
+		\repeatpgfmathloop%
+	\else
+		% employ #1^#2 = exp( #2 * ln(#1) )
+		\pgfmathfloatln@{#1}%
+		\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+		\edef\pgfmathfloat@loc@TMPb{#2}%
+		\pgfmathfloatmultiply@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@loc@TMPb}%
+		\pgfmathfloatexp@{\pgfmathresult}%
+	\fi
+}
 \endinput
