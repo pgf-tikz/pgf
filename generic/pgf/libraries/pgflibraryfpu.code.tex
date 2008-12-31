@@ -47,10 +47,18 @@
 			\pgfmathfloatparsenumber{#1}%
 		\fi
 		\let\pgfmathfloatscale=\pgfmathresult%
-	}%		
+	},%		
+	% determines the output format of each complete expression parsing
+	% process. If 'scale results' is active, 'fixed' is assumed
+	% automatically.
+	fpu/output format/.is choice,
+	fpu/output format/float/.code=	{\let\pgfmathfloatparse@output=\relax},
+	fpu/output format/sci/.code=	{\def\pgfmathfloatparse@output{\pgfmathfloattosci@{\pgfmathresult}}},
+	fpu/output format/fixed/.code=	{\def\pgfmathfloatparse@output{\pgfmathfloattofixed@{\pgfmathresult}}},
+	fpu/output format/float,
 }
 
-\def\pgfmathfloatscale{1}
+\pgfmathfloatcreate{1}{1.0}{0}\let\pgfmathfloatscale=\pgfmathresult
 
 % This is the replacement parser invocation.
 % It does two things which are different to \pgfmathparse:
@@ -75,6 +83,8 @@
 	\ifpgfmathfloat@scaleactive
 		\expandafter\pgfmathfloatmultiply@\expandafter{\pgfmathresult}{\pgfmathfloatscale}
 		\pgfmathfloattofixed{\pgfmathresult}%
+	\else
+		\pgfmathfloatparse@output
 	\fi
 }
 
@@ -150,17 +160,17 @@
 	\let\pgfmath@pi=\pgfmathfloatpi@%
 	\let\pgfmathpi=\pgfmathfloatpi@%
 	\let\pgfmathe@=\pgfmathfloate@%
+	\let\pgfmathe=\pgfmathfloate@%
 	\let\pgfmathlessthan@=\pgfmathfloatlessthan@%
+	\let\pgfmathgreaterthan@=\pgfmathfloatgreaterthan@%
 	\let\pgfmathpow@=\pgfmathfloatpow@
 	\pgfmathfloat@install@unimplemented{ceil}%
-	%\pgfmathfloat@install@unimplemented{pow}%
 	\pgfmathfloat@install@unimplemented{factorial}%
 	\pgfmathfloat@install@unimplemented{oct}%
 	\pgfmathfloat@install@unimplemented{frac}%
 	\pgfmathfloat@install@unimplemented{log2}%
 	\pgfmathfloat@install@unimplemented{log10}%
 	\pgfmathfloat@install@unimplemented{veclen}%
-	\pgfmathfloat@install@unimplemented{greaterthan}%
 	\pgfmathfloat@install@unimplemented{equalto}%
 	\pgfmathfloat@install@unimplemented{rnd}%
 	\pgfmathfloat@install@unimplemented{rand}%
@@ -197,7 +207,7 @@
 	% token.
 	% 3. The stack-push-operation checks whether the argument is a
 	% float. If not, it is parsed properly before pushing it.
-	\pgfmath@tokens@make{exponent}{Y}%
+	\pgfmath@tokens@make{exponent}{\pgfmathfloat@POSTFLAGSCHAR}%
 	\let\pgfmath@basic@parse@exponent=\pgfmath@parse@exponent%
 	\let\pgfmath@basic@stack@push@operand=\pgfmath@stack@push@operand
 	\let\pgfmath@stack@push@operand=\pgfmathfloat@stack@push@operand
@@ -247,7 +257,7 @@
 }
 % for pgf2.00:
 \def\pgfmathfloat@return@float@pgf@two@null@null#1]{%
-	\edef\pgfmathresult{\pgfmath@resulttemp Y#1]}%
+	\edef\pgfmathresult{\pgfmath@resulttemp \pgfmathfloat@POSTFLAGSCHAR#1]}%
 	\let\pgfmath@resulttemp=\pgfmathresult
 	\pgfmath@parseoperator%
 }%
@@ -278,21 +288,21 @@
 % 	        ^
 % 	-> read the exponent.
 % or
-%   <sign>Y
+%   <sign>\pgfmathfloat@POSTFLAGSCHAR
 %         ^
 %   -> we have a parsed floating point number -> read it.
 \def\pgfmathfloat@parse@float@or@exponent{%
-	\if\pgfmath@token Y%
+	\if\pgfmath@token \pgfmathfloat@POSTFLAGSCHAR%
 		% Ok, we actually HAVE a pre-parsed floating point number!
 		% Return it.
-		\expandafter\pgfmathfloat@return@float
+		\expandafter\pgfmathfloat@return@float\expandafter\pgfmath@token@next
 	\else
 		% We have a standard number in scientific format. Parse it.
 		\expandafter\pgfmath@basic@parse@exponent
 	\fi
 }%
 \def\pgfmathfloat@return@float#1]{%
-	\edef\pgfmathresult{\pgfmath@number Y#1]}%
+	\edef\pgfmathresult{\pgfmath@number \pgfmathfloat@POSTFLAGSCHAR#1]}%
 	\expandafter\pgfmath@basic@stack@push@operand\expandafter{\pgfmathresult}%
 	\pgfmath@parse@@operator%
 }%
@@ -300,7 +310,7 @@
 % This extends the functionality of the basic level operand stack: it
 % assures every element on the stack is a float.
 \def\pgfmathfloat@stack@push@operand#1{%
-	\pgfutil@in@ Y{#1}%
+	\pgfutil@in@ \pgfmathfloat@POSTFLAGSCHAR{#1}%
 	\ifpgfutil@in@
 		\pgfmath@basic@stack@push@operand{#1}%
 	\else
@@ -429,6 +439,9 @@
 	\fi
 }
 
+
+\def\pgfmathfloatgreaterthan@#1#2{\pgfmathfloatlessthan@{#2}{#1}}
+\let\pgfmathfloatgreaterthan=\pgfmathfloatgreaterthan@
 
 \def\pgfmathfloatmax@#1#2{%
 	\pgfmathfloatlessthan{#1}{#2}%
