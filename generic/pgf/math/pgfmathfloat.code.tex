@@ -452,7 +452,7 @@
 		% \def\pgfmathfloat@loc@TMPc{#1#2#3}%
 		% \ifx\pgfmathfloat@loc@TMPc\pgfmathfloat@loc@TMPb
 		% \else
-		% 	\pgfmath@error{INTERNAL ERROR in fixed style - The input sequence did not terminate as expected; which indicates a wrong exponent argument provided to \string\pgfmathprintnumber@fixed@style}%
+		% 	\pgfmath@error{INTERNAL ERROR in fixed style - The input sequence did not terminate as expected; which indicates a wrong exponent argument provided to \string\pgfmathprintnumber@fixed@style}{}%
 		% \fi
 		%-------------------------------------------------- 
 		\let\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT=\relax
@@ -1040,14 +1040,14 @@
 			\fi
 		\else
 			%\ifnum\c@pgfmathroundto@offsetbehindperiod>\c@pgfmathroundto@prec
-			%	\pgfmath@error{Internal logic error in pgfmathroundto at [I] - should not have happened!?}%
+			%	\pgfmath@error{Internal logic error in pgfmathroundto at [I] - should not have happened!?}{}%
 			%\fi
 			\pgfmathroundto@impl@finish@with@truncation
 		\fi
 	\else
 		%\ifnum\c@pgfmathroundto@offsetbehindperiod=\c@pgfmathroundto@prec
 		%\else
-		%	\pgfmath@error{Internal logic error in pgfmathroundto at [II] - should not have happened!? I have offsetbehindperiod=\the\c@pgfmathroundto@offsetbehindperiod and prec = \the\c@pgfmathroundto@prec}%
+		%	\pgfmath@error{Internal logic error in pgfmathroundto at [II] - should not have happened!? I have offsetbehindperiod=\the\c@pgfmathroundto@offsetbehindperiod and prec = \the\c@pgfmathroundto@prec}{}%
 		%\fi
 		\expandafter\ifnum\pgfmathround@next<5\relax
 			\pgfmathroundto@impl@finish@with@truncation
@@ -1469,7 +1469,7 @@
 	\pgfmathfloat@a@E=0
 	% start parsing: check for sign:
 	\expandafter\ifx\csname pgfflt@#1\endcsname\relax
-		\pgfmathfloat@a@S=1 % leave this space!
+		\pgfmathfloat@a@S=1
 		\expandafter\pgfflt@init\expandafter#1%
 	\else
 		\expandafter\expandafter\csname pgfflt@#1\endcsname
@@ -1482,6 +1482,44 @@
 \expandafter\def\csname pgfflt@-\endcsname{%
 	\pgfmathfloat@a@S=2 %
 	\pgfflt@init}%
+\expandafter\def\csname pgfflt@\pgfflt@EOI\endcsname{%
+	\pgfmathfloatparsenumber@handleerror{empty number}{}{}}%
+
+\pgfkeys{
+	/pgf/fpu/handlers/empty number/.style 2 args={%
+		/pgf/fpu/handlers/invalid number={#1}{#2}%
+	},
+	/pgf/fpu/handlers/invalid number/.code 2 args={%
+		\pgfmath@error{Could not parse input '#1' as a floating point number, sorry. The unreadable part was near '#2'.}{}%
+	},
+}
+
+% #1 the error handler
+% #2 the number which was invalid.
+% #3 the part which produced the error
+\def\pgfmathfloatparsenumber@handleerror#1#2#3{%
+	\let\pgfmathresult=\pgfutil@empty
+	\pgfmathfloatparsenumberpendingperiodfalse
+	\pgfkeys{/pgf/fpu/handlers/#1={#2}{#3}}%
+	\ifx\pgfmathresult\pgfutil@empty
+		\pgfmathfloat@a@S=3
+		\pgfmathfloat@a@Mtok={0.0}%
+		\pgfmathfloat@a@E=0
+	\else
+		\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\fi
+}
+\def\pgfflt@error#1\pgfflt@EOI{%
+	\begingroup
+	\pgfmathfloat@a@Mtok={#1}%
+	\xdef\pgfmathfloat@glob@TMP{%
+		\noexpand\pgfmathfloatparsenumber@handleerror
+			{invalid number}{\pgfmathresult}{\the\pgfmathfloat@a@Mtok}}%
+	\endgroup
+	\pgfmathfloat@glob@TMP
+}%
+
+
 
 % FROM: checksign.
 %
@@ -1510,14 +1548,6 @@
 \expandafter\def\csname pgffltA@N\endcsname{\pgfflt@readNaN}% FIXME: inlining?
 \expandafter\def\csname pgffltA@i\endcsname{\pgfflt@readinf}% FIXME: inlining?
 \expandafter\def\csname pgffltA@I\endcsname{\pgfflt@readINF}% FIXME: inlining?
-
-
-\def\pgfflt@error#1\pgfflt@EOI{%
-	\begingroup
-	\pgfmathfloat@a@Mtok={#1}%
-	\pgfmath@error{Could not parse input '\pgfmathresult' as a floating point number, sorry. The unreadable part was near '\the\pgfmathfloat@a@Mtok'.}%
-	\endgroup
-}%
 
 \def\pgfflt@finish#1\pgfflt@EOI{}
 
