@@ -1,0 +1,267 @@
+% Copyright 2009 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+
+\usepgfmodule{parser}
+
+
+
+
+% Scan an SVG-Path
+%
+% #1 = the path
+%
+% Description:
+%
+% This command takes a path in the compressed SVG-syntax. It then
+% issues a sequences of appropriate \pgfpath commands for this
+% path. For a description of the compressed svg path syntax, see a
+% book on svg.
+% 
+% Currently, the arc path command (A) is not supported. 
+% 
+% The notion of a pixel used by svg makes no sense in pgf (actually
+% it does not really make sense in svg either, but never mind), and
+% instead of pixels "pt" is used as the basic unit. Use coordinate
+% transformation to change this.
+%
+% Example:
+%
+% \pgfpathsvg{M10 20 L 30-20 0 1}
+% 
+% % this has the same effect as
+% 
+% \pgfpathmoveto{\pgfpoint{10pt}{20pt}}
+% \pgfpathlineto{\pgfpint{30pt}{-20pt}}
+% \pgfpathlineto{\pgfpint{0pt}{1pt}}
+% 
+
+\def\pgfpathsvg#1{%
+  { 
+    \let\pgf@lib@svg@finish@prev\relax%
+    \pgfparserparse{svgpath}#1"%
+  }
+}
+
+
+
+\newdimen\pgf@lib@svg@last@x
+\newdimen\pgf@lib@svg@last@y
+\newdimen\pgf@lib@svg@last@c@x
+\newdimen\pgf@lib@svg@last@c@y
+
+
+
+%
+% Here comes the DFA:
+%
+
+% Handle a moveto:
+
+\pgfparserdef{svgpath}{all}{the letter M}
+{
+  \pgf@lib@svg@finish@prev
+  \let\pgf@lib@svg@finish@prev=\pgf@lib@svg@moveto
+  \pgfparserswitch{num1}
+  \let\pgf@lib@svg@num=\pgfutil@empty%
+  \let\pgf@lib@svg@first@num=\pgfutil@empty%
+}
+
+\def\pgf@lib@svg@moveto{%
+  \pgf@lib@svg@last@x=\pgf@lib@svg@first@num pt%
+  \pgf@lib@svg@last@y=\pgf@lib@svg@num pt%
+  \pgfpathmoveto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+  \let\pgf@lib@svg@finish@prev=\relax
+}
+
+
+% Handle a relative moveto:
+
+\pgfparserdef{svgpath}{all}{the letter m}
+{
+  \pgf@lib@svg@finish@prev
+  \let\pgf@lib@svg@finish@prev=\pgf@lib@svg@moveto@rel
+  \pgfparserswitch{num1}
+  \let\pgf@lib@svg@num=\pgfutil@empty%
+  \let\pgf@lib@svg@first@num=\pgfutil@empty%
+}
+
+\def\pgf@lib@svg@moveto@rel{%
+  \advance\pgf@lib@svg@last@x by\pgf@lib@svg@first@num pt%
+  \advance\pgf@lib@svg@last@y by\pgf@lib@svg@num pt%
+  \pgfpathmoveto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+  \let\pgf@lib@svg@finish@prev=\relax
+}
+
+
+% Handle a lineto:
+
+\pgfparserdef{svgpath}{all}{the letter L}
+{
+  \pgf@lib@svg@finish@prev
+  \let\pgf@lib@svg@finish@prev=\pgf@lib@svg@lineto
+  \pgfparserswitch{num1}
+  \let\pgf@lib@svg@num=\pgfutil@empty%
+}
+
+\def\pgf@lib@svg@lineto{%
+  \ifx\pgf@lib@svg@first@num\pgfutil@empty% nothing read
+  \else%
+    \pgf@lib@svg@last@x=\pgf@lib@svg@first@num pt%
+    \pgf@lib@svg@last@y=\pgf@lib@svg@num pt%
+    \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+    \pgfparserswitch{num1}
+    \let\pgf@lib@svg@num=\pgfutil@empty%
+    \let\pgf@lib@svg@first@num=\pgfutil@empty%
+  \fi
+}
+
+
+% Handle a relative lineto:
+
+\pgfparserdef{svgpath}{all}{the letter l}
+{
+  \pgf@lib@svg@finish@prev
+  \let\pgf@lib@svg@finish@prev=\pgf@lib@svg@lineto@rel
+  \pgfparserswitch{num1}
+  \let\pgf@lib@svg@num=\pgfutil@empty%
+  \let\pgf@lib@svg@first@num=\pgfutil@empty%
+}
+
+\def\pgf@lib@svg@lineto@rel{%
+  \ifx\pgf@lib@svg@first@num\pgfutil@empty% nothing read
+  \else%
+    \advance\pgf@lib@svg@last@x by\pgf@lib@svg@first@num pt%
+    \advance\pgf@lib@svg@last@y by\pgf@lib@svg@num pt%
+    \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+    \pgfparserswitch{num1}
+    \let\pgf@lib@svg@num=\pgfutil@empty%
+    \let\pgf@lib@svg@first@num=\pgfutil@empty%
+  \fi%
+}
+
+
+
+% Handle to end of the world
+
+\pgfparserdef{svgpath}{all}{the character "}
+{
+  \pgf@lib@svg@finish@prev
+  \pgfparserswitch{final}
+}
+
+
+% Handle spacers for first number
+
+\pgfparserdef{svgpath}{num1}{the character ,}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    % ignore
+  \else
+    \let\pgf@lib@svg@first@num=\pgf@lib@svg@num
+    \let\pgf@lib@svg@num=\pgfutil@empty%
+    \pgfparserswitch{num2}
+  \fi
+}
+
+\pgfparserdef{svgpath}{num1}{\meaning\pgfutil@sptoken}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    % ignore
+  \else
+    \let\pgf@lib@svg@first@num=\pgf@lib@svg@num
+    \let\pgf@lib@svg@num=\pgfutil@empty%
+    \pgfparserswitch{num2}
+  \fi
+}
+
+\pgfparserdef{svgpath}{num1}{the character -}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    % first char...
+    \def\pgf@lib@svg@num{-}%
+    % stay here...
+  \else
+    \let\pgf@lib@svg@first@num=\pgf@lib@svg@num
+    \def\pgf@lib@svg@num{-}%
+    \pgfparserswitch{num2}
+  \fi  
+}
+
+% Handle spacers for second number
+
+\pgfparserdef{svgpath}{num2}{the character ,}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    % ignore
+  \else
+    \pgf@lib@svg@finish@prev%
+  \fi
+}
+
+\pgfparserdef{svgpath}{num2}{\meaning\pgfutil@sptoken}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    % ignore
+  \else
+    \pgf@lib@svg@finish@prev%
+  \fi
+}
+
+\pgfparserdef{svgpath}{num2}{the character -}
+{
+  \ifx\pgf@lib@svg@num\pgfutil@empty%
+    \def\pgf@lib@svg@num{-}%
+  \else
+    \pgf@lib@svg@finish@prev%
+    \def\pgf@lib@svg@num{-}%
+  \fi
+}
+
+
+% Handle digits
+
+\pgfparserdef{svgpath}{all}{the character .}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num.}}
+
+\pgfparserdef{svgpath}{all}{the character 0}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num0}}
+
+\pgfparserdef{svgpath}{all}{the character 1}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num1}}
+
+\pgfparserdef{svgpath}{all}{the character 2}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num2}}
+
+\pgfparserdef{svgpath}{all}{the character 3}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num3}}
+
+\pgfparserdef{svgpath}{all}{the character 4}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num4}}
+
+\pgfparserdef{svgpath}{all}{the character 5}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num5}}
+
+\pgfparserdef{svgpath}{all}{the character 6}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num6}}
+
+\pgfparserdef{svgpath}{all}{the character 7}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num7}}
+
+\pgfparserdef{svgpath}{all}{the character 8}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num8}}
+
+\pgfparserdef{svgpath}{all}{the character 9}
+{\expandafter\def\expandafter\pgf@lib@svg@num\expandafter{\pgf@lib@svg@num9}}
+
+
+
+
