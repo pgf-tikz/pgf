@@ -65,6 +65,19 @@
 \newif\pgf@lib@svg@relative
 
 
+
+% For the smooth commands (S, s, T, t) we need to keep track of the
+% previous control points. This is done in the following two
+% variables. If they are empty, there was no previous control point of
+% the desired kind, in which case the specification prescribes that
+% the start point is used. 
+
+\def\pgf@lib@svg@clear@bezier@quad{
+  \let\pgf@lib@svg@bezier@last=\pgfutil@empty
+  \let\pgf@lib@svg@quad@last=\pgfutil@empty
+}
+\pgf@lib@svg@clear@bezier@quad
+
 %
 % Here comes the DFA:
 %
@@ -78,6 +91,7 @@
 }
 
 \def\pgf@lib@svg@moveto{%
+  \pgf@lib@svg@clear@bezier@quad%
   \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{0}pt%
   \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{1}pt%
   \pgfpathmoveto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
@@ -94,6 +108,7 @@
 }
 
 \def\pgf@lib@svg@moveto@rel{%
+  \pgf@lib@svg@clear@bezier@quad%
   \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{0}pt%
   \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{1}pt%
   \pgfpathmoveto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
@@ -105,13 +120,14 @@
 
 \pgfparserdef{svgpath}{all}{the letter L}
 {
-  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@finish@prev%
   \pgf@lib@svg@read@nums{2}{\pgf@lib@svg@lineto}
 }
 
 \def\pgf@lib@svg@lineto{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{0}pt%
     \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{1}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
@@ -131,6 +147,7 @@
 \def\pgf@lib@svg@lineto@rel{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{0}pt%
     \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{1}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
@@ -155,6 +172,7 @@
   \pgf@lib@svg@finish@prev
   \pgfpathclose
   \let\pgf@lib@svg@finish@prev=\relax
+  \pgf@lib@svg@clear@bezier@quad%
   \pgfparserswitch{initial}%
 }
 
@@ -173,6 +191,7 @@
 \def\pgf@lib@svg@hlineto{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{0}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
     \pgf@lib@svg@read@nums{1}{\pgf@lib@svg@hlineto}
@@ -188,6 +207,7 @@
 \def\pgf@lib@svg@hlineto@rel{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{0}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
     \pgf@lib@svg@read@nums{1}{\pgf@lib@svg@hlineto@rel}
@@ -206,6 +226,7 @@
 \def\pgf@lib@svg@vlineto{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{0}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
     \pgf@lib@svg@read@nums{1}{\pgf@lib@svg@vlineto}
@@ -221,11 +242,14 @@
 \def\pgf@lib@svg@vlineto@rel{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    \pgf@lib@svg@clear@bezier@quad%
     \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{0}pt%
     \pgfpathlineto{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
     \pgf@lib@svg@read@nums{1}{\pgf@lib@svg@vlineto@rel}
   \fi
 }
+
+
 
 
 % Handle a Bezier curve:
@@ -239,12 +263,18 @@
 \def\pgf@lib@svg@curveto{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@quad@last=\pgfutil@empty%
+    \edef\pgf@lib@svg@bezier@last{%
+      \noexpand\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}%
+    % Draw curve
     \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{4}pt%
     \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{5}pt%
     \pgfpathcurveto
     {\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
     {\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}%
     {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+    % Go on
     \pgf@lib@svg@read@nums{6}{\pgf@lib@svg@curveto}
   \fi
 }
@@ -259,6 +289,11 @@
 \def\pgf@lib@svg@curveto@rel{%
   \ifnum\pgf@lib@svg@count=0\relax% nothing read
   \else%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@quad@last=\pgfutil@empty%
+    \pgf@process{\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}}
+    \edef\pgf@lib@svg@bezier@last{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % Draw curve
     \pgfpathcurveto
     {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}}%
     {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}}%
@@ -268,6 +303,225 @@
     \pgf@lib@svg@read@nums{6}{\pgf@lib@svg@curveto@rel}
   \fi
 }
+
+
+
+
+
+\pgfparserdef{svgpath}{all}{the letter S}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@curveto@smooth}
+}
+
+\def\pgf@lib@svg@curveto@smooth{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Draw curve
+    % Compute first control point
+    \ifx\pgf@lib@svg@bezier@last\pgfutil@empty%
+      \def\pgf@lib@svg@first@cp{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+    \else
+      \def\pgf@lib@svg@first@cp{
+        \pgfpointadd
+        {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        {\pgfpointdiff
+          {\pgf@lib@svg@bezier@last}
+          {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        }
+      }
+    \fi
+    \pgfpathcurveto
+    {\pgf@lib@svg@first@cp}
+    {\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
+    {\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@quad@last=\pgfutil@empty%
+    \edef\pgf@lib@svg@bezier@last{%
+      \noexpand\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
+    % Update
+    \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{2}pt%
+    \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{3}pt%
+    % Go on
+    \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@curveto@smooth}
+  \fi
+}
+
+
+\pgfparserdef{svgpath}{all}{the letter s}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@curveto@rel@smooth}
+}
+
+\def\pgf@lib@svg@curveto@rel@smooth{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Draw curve
+    % Compute first control point
+    \ifx\pgf@lib@svg@bezier@last\pgfutil@empty%
+      \def\pgf@lib@svg@first@cp{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+    \else
+      \def\pgf@lib@svg@first@cp{
+        \pgfpointadd
+        {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        {\pgfpointdiff
+          {\pgf@lib@svg@bezier@last}
+          {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        }
+      }
+    \fi
+    \pgfpathcurveto
+    {\pgf@lib@svg@first@cp}
+    {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}}%
+    {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}}%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@quad@last=\pgfutil@empty%
+    \pgf@process{\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}}
+    \edef\pgf@lib@svg@bezier@last{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % update
+    \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{2}pt%
+    \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{3}pt%
+    % Go on
+    \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@curveto@rel@smooth}
+  \fi
+}
+
+
+
+
+% Handle a quadratic curve:
+
+\pgfparserdef{svgpath}{all}{the letter Q}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@quad@curveto}
+}
+
+\def\pgf@lib@svg@quad@curveto{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Clear bezier last point and save new last control point:
+    \let\pgf@lib@svg@bezier@last=\pgfutil@empty%
+    \edef\pgf@lib@svg@quad@last{%
+      \noexpand\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
+    % Draw curve
+    \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{2}pt%
+    \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{3}pt%
+    \pgfpathquadraticcurveto
+    {\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
+    {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}%
+    % Go on
+    \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@quad@curveto}
+  \fi
+}
+
+
+\pgfparserdef{svgpath}{all}{the letter q}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@quad@curveto@rel}
+}
+
+\def\pgf@lib@svg@quad@curveto@rel{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@bezier@last=\pgfutil@empty%
+    \pgf@process{\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}}
+    \edef\pgf@lib@svg@quad@last{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % Draw curve
+    \pgfpathquadraticcurveto
+    {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}}%
+    {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{2}pt}{\pgf@lib@svg@get@num{3}pt}}}%
+    \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{2}pt%
+    \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{3}pt%
+    \pgf@lib@svg@read@nums{4}{\pgf@lib@svg@quad@curveto@rel}
+  \fi
+}
+
+
+
+
+\pgfparserdef{svgpath}{all}{the letter T}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{2}{\pgf@lib@svg@quad@curveto@smooth}
+}
+
+\def\pgf@lib@svg@quad@curveto@smooth{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Draw curve
+    % Compute first control point
+    \pgf@process{
+      \ifx\pgf@lib@svg@quad@last\pgfutil@empty%
+        \pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}
+      \else
+        \pgfpointadd
+        {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        {\pgfpointdiff
+          {\pgf@lib@svg@quad@last}
+          {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        }
+      \fi
+    }
+    \edef\pgf@lib@svg@first@cp{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    \pgfpathquadraticcurveto
+    {\pgf@lib@svg@first@cp}
+    {\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@bezier@last=\pgfutil@empty%
+    \let\pgf@lib@svg@quad@last=\pgf@lib@svg@first@cp%
+    % Update
+    \pgf@lib@svg@last@x=\pgf@lib@svg@get@num{0}pt%
+    \pgf@lib@svg@last@y=\pgf@lib@svg@get@num{1}pt%
+    % Go on
+    \pgf@lib@svg@read@nums{2}{\pgf@lib@svg@quad@curveto@smooth}
+  \fi
+}
+
+
+\pgfparserdef{svgpath}{all}{the letter t}
+{
+  \pgf@lib@svg@finish@prev
+  \pgf@lib@svg@read@nums{2}{\pgf@lib@svg@quad@curveto@rel@smooth}
+}
+
+\def\pgf@lib@svg@quad@curveto@rel@smooth{%
+  \ifnum\pgf@lib@svg@count=0\relax% nothing read
+  \else%
+    % Draw curve
+    % Compute first control point
+     \pgf@process{
+      \ifx\pgf@lib@svg@quad@last\pgfutil@empty%
+        \pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}
+      \else
+        \pgfpointadd
+        {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        {\pgfpointdiff
+          {\pgf@lib@svg@quad@last}
+          {\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}
+        }
+      \fi
+    }
+    \edef\pgf@lib@svg@first@cp{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    \pgfpathquadraticcurveto
+    {\pgf@lib@svg@first@cp}
+    {\pgfpointadd{\pgfqpoint{\pgf@lib@svg@last@x}{\pgf@lib@svg@last@y}}{\pgfqpoint{\pgf@lib@svg@get@num{0}pt}{\pgf@lib@svg@get@num{1}pt}}}%
+    % Clear quadratic last point and save new last control point:
+    \let\pgf@lib@svg@bezier@last=\pgfutil@empty%
+    \let\pgf@lib@svg@quad@last=\pgf@lib@svg@first@cp%
+    % update
+    \advance\pgf@lib@svg@last@x by\pgf@lib@svg@get@num{0}pt%
+    \advance\pgf@lib@svg@last@y by\pgf@lib@svg@get@num{1}pt%
+    % Go on
+    \pgf@lib@svg@read@nums{2}{\pgf@lib@svg@quad@curveto@rel@smooth}
+  \fi
+}
+
+
+
 
 
 
