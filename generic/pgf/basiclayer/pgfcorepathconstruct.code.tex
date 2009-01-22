@@ -207,6 +207,8 @@
   \global\pgf@path@lasty=\pgf@yb%
 }
 
+
+
 % Append a quadratic bezier spline from the current point to #2 with
 % control point #1 to the current path.
 %
@@ -244,6 +246,8 @@
 }
 
 
+
+
 % Append an arc to the current point, where the current point is at
 % angle #1 and the end is at angle #2. If #2 > #1, the arc is drawn
 % counter-clockwise, otherwise it is clockwise.
@@ -270,19 +274,6 @@
     \fi%
     \pgf@arc@local@angle@a=\pgf@temp@a pt%
     \pgf@arc@local@angle@b=\pgf@temp@b pt%
-%     \relax%
-%     \ifdim\pgf@arc@local@angle@a>360pt\relax%
-%       \advance\pgf@arc@local@angle@a by-360pt\relax%
-%     \fi%
-%     \ifdim\pgf@arc@local@angle@a<-360pt\relax%
-%       \advance\pgf@arc@local@angle@a by360pt\relax%
-%     \fi%
-%     \ifdim\pgf@arc@local@angle@b>360pt\relax%
-%       \advance\pgf@arc@local@angle@b by-360pt\relax%
-%     \fi%
-%     \ifdim\pgf@arc@local@angle@b<-360pt\relax%
-%       \advance\pgf@arc@local@angle@b by360pt\relax%
-%     \fi%
     \loop%
       \pgfutil@tempdima=\pgf@arc@local@angle@a%
       \advance\pgfutil@tempdima by-\pgf@arc@local@angle@b\relax%
@@ -329,40 +320,22 @@
 
 \def\pgf@arc{%
   {%
-  % \pgfmathsetlength{\pgfutil@tempdima}{#3}%
-  % \pgfmathsetlength{\pgfutil@tempdimb}{#4}%
   \pgfutil@tempdima=\pgf@arc@radius@a pt%
   \pgfutil@tempdimb=\pgf@arc@radius@b pt%
   %
   \pgf@xa=\pgf@arc@local@angle@a\relax% 
   \pgf@xb=\pgf@arc@local@angle@b\relax%
-  % \pgfutil@tempcnta=#1\relax%
-  %    \pgfutil@tempcntb=#2\relax%
   \advance\pgf@xb by-\pgf@xa\relax%
   \ifdim\pgf@xb<0pt\relax%
     \pgf@xb=-\pgf@xb\relax%
   \fi%
-  \ifdim\pgf@xb>85pt\relax% hackery to correct the control points
-    \pgfutil@tempdima=0.05522847\pgfutil@tempdima\relax%
-    \pgfutil@tempdimb=0.05522847\pgfutil@tempdimb\relax%
+  \ifdim\pgf@xb=90.0pt%
+    \def\pgfmathresult{0.55228475}%
   \else%
-    \ifdim\pgf@xb>75pt\relax%  
-      \pgfutil@tempdima=0.0546\pgfutil@tempdima\relax%
-      \pgfutil@tempdimb=0.0546\pgfutil@tempdimb\relax%
-    \else%
-      \ifdim\pgf@xb>60pt\relax%  
-        \pgfutil@tempdima=0.054025\pgfutil@tempdima\relax%
-        \pgfutil@tempdimb=0.054025\pgfutil@tempdimb\relax%
-      \else%
-        \pgfutil@tempdima=0.054\pgfutil@tempdima\relax%
-        \pgfutil@tempdimb=0.054\pgfutil@tempdimb\relax%
-      \fi%
-    \fi%
-  \fi
-  \pgfutil@tempdima=\pgf@sys@tonumber{\pgf@xb}\pgfutil@tempdima\relax%
-  \divide\pgfutil@tempdima by 9\relax%
-  \pgfutil@tempdimb=\pgf@sys@tonumber{\pgf@xb}\pgfutil@tempdimb\relax%
-  \divide\pgfutil@tempdimb by 9\relax%
+    \pgfmathparse{1.333333333*tan(.25*\pgf@sys@tonumber{\pgf@xb})}% many thanks to Ken Starks
+  \fi%
+  \pgfutil@tempdima=\pgfmathresult\pgfutil@tempdima%
+  \pgfutil@tempdimb=\pgfmathresult\pgfutil@tempdimb%
   %.. controls +(\pgf@xa+90:\pgfutil@tempdima) and +(\pgf@xb-90:\pgfutil@tempdima) .. +(-(#1:#3)+(#2:#3))%
   % store first support vector in xa/ya:
   \pgf@xa=\pgf@arc@local@angle@a\relax%
@@ -410,6 +383,7 @@
   }%
 }
 
+
 % Append an arc to the current point, where the arc is on an ellipse
 % given by two axis vectors.
 %
@@ -430,6 +404,251 @@
     \pgfpatharc{#1}{#2}{1pt}%
   }%
 }
+
+
+
+% Append an arc to the current point that ends at a given position. 
+%
+% #1 = x-radius
+% #2 = y-radius
+% #3 = x-axis-rotation (in degrees)
+% #4 = large-arc-sweep-flag (0 or 1)
+% #5 = sweep-flag (0 or 1)
+% #6 = target point
+%
+% Description:
+%
+% This command implements an arc drawing where a given target
+% coordinate (#6) is given and the task is to draw an arc of an
+% ellipse with the given radii. The center point of the ellipse is not
+% give, but computed automatically. 
+%
+% This kind of "endpoint parameterization" of an arc is exactly the
+% same as the one specified by the SVG-specification for the "A" and
+% "a" path commands. Please see the SVG-specification for details.
+% 
+% Note that the problem is internally converted to drawing an arc
+% using \pgfpatharc. This means that there may be a heavy loss of
+% accuracy.
+% 
+% Example:
+% 
+% \pgfpathmoveto{\pgfpoint{1cm}{1cm}}
+% \pgfpatharcto{1cm}{1cm}{0}{0}{0}{\pgfpoint{0cm}{2cm}}
+
+\def\pgfpatharcto#1#2#3#4#5#6{%
+  {%
+    % The following code is based on the transformation described in svg
+    % 1.1 specification Section F.6.5
+    % 
+    % Step 1: store the simple parameters (xa=x1 since TeX does not
+    % allow numbers in names)
+    % 
+    \pgfmathsetmacro\pgf@arcto@rx{abs(#1)}%
+    \pgfmathsetmacro\pgf@arcto@ry{abs(#2)}%
+    \ifdim\pgf@arcto@rx pt=0pt% special rule: zero radius=straight line
+      \gdef\pgf@marshal{\pgfpathlineto{#6}}%
+    \else
+    \ifdim\pgf@arcto@ry pt=0pt% special rule: zero radius=straight line
+      \gdef\pgf@marshal{\pgfpathlineto{#6}}%
+    \else
+    \pgfmathsetmacro\pgf@arcto@phi{#3}%
+    \pgfmathsetmacro\pgf@arcto@fA{#4}%
+    \ifdim\pgf@arcto@fA pt=0pt
+    \else
+      \pgfmathsetmacro\pgf@arcto@fA{1.0} % Special rule: every non-zero value is 1.
+    \fi
+    \pgfmathsetmacro\pgf@arcto@fS{#5}%
+    \ifdim\pgf@arcto@fS pt=0pt
+    \else
+      \pgfmathsetmacro\pgf@arcto@fS{1.0} % Special rule: every non-zero value is 1.
+    \fi
+    \pgf@process{#6}
+    \edef\pgf@arcto@xb{\the\pgf@x}%
+    \edef\pgf@arcto@yb{\the\pgf@y}%
+    % 
+    % Step 2: x1,y1 is more complicated to compute: It is given by lastx
+    % and lasty, but these are transformed coordinates, we need the
+    % untransformed ones. So, we inverse the transformation (arghh...)
+    % 
+    \pgftransforminvert%
+    \pgf@process{\pgfpointtransformed{\pgfqpoint{\pgf@path@lastx}{\pgf@path@lasty}}}
+    \edef\pgf@arcto@xa{\the\pgf@x}
+    \edef\pgf@arcto@ya{\the\pgf@y}
+    \edef\pgf@temp@a{\pgf@arcto@xa,\pgf@arcto@ya}
+    \edef\pgf@temp@b{\pgf@arcto@xb,\pgf@arcto@yb}
+    \ifx\pgf@temp@a\pgf@temp@b% special rule: skip!
+      \global\let\pgf@marshal\pgfutil@empty
+    \else
+    %
+    % Ok, now we got all the parameters setup. Now comes the
+    % computation...
+    % 
+    % 
+    % Step 3: Start with a new coordinate system and rotate everything
+    % by the negated phi.
+    % 
+    \pgftransformreset
+    \pgftransformrotate{-\pgf@arcto@phi}
+    % Ok, using \pgfpointtransformed we now get transformed points...
+    % 
+    % Step 4: Compute x1' and y1' (xaprime and yaprime)
+    %
+    \pgf@process{
+      \pgfpointtransformed{\pgfpointscale{.5}{\pgfpointdiff
+          {\pgfqpoint{\pgf@arcto@xb}{\pgf@arcto@yb}}
+          {\pgfqpoint{\pgf@arcto@xa}{\pgf@arcto@ya}}
+        }
+      }
+    }
+    \edef\pgf@arcto@xaprime{\pgf@sys@tonumber\pgf@x}
+    \edef\pgf@arcto@yaprime{\pgf@sys@tonumber\pgf@y}
+    % 
+    % Compute Lambda 
+    %
+    \pgfmathsetmacro\pgf@arcto@frac@x{\pgf@arcto@xaprime/\pgf@arcto@rx}
+    \pgfmathsetmacro\pgf@arcto@frac@y{\pgf@arcto@yaprime/\pgf@arcto@ry}
+    \pgfmathsetmacro\pgf@arcto@lambda{
+      \pgf@arcto@frac@x*\pgf@arcto@frac@x+\pgf@arcto@frac@y*\pgf@arcto@frac@y
+    }
+    \ifdim\pgf@arcto@lambda pt>1pt%
+      \pgfmathsetmacro\pgf@arcto@sqrt@lambda{sqrt(\pgf@arcto@lambda)}
+      \pgfmathsetmacro\pgf@arcto@rx{\pgf@arcto@sqrt@lambda*\pgf@arcto@rx}
+      \pgfmathsetmacro\pgf@arcto@ry{\pgf@arcto@sqrt@lambda*\pgf@arcto@ry}
+    \fi
+    % 
+    % Do some scaling 
+    % 
+    \pgfmathsetmacro\pgf@arcto@xaprime@abs{abs(\pgf@arcto@xaprime)}
+    \pgfmathsetmacro\pgf@arcto@yaprime@abs{abs(\pgf@arcto@yaprime)}
+    \pgfmathmax@{\pgf@arcto@rx,\pgf@arcto@ry,\pgf@arcto@xaprime@abs,\pgf@arcto@yaprime@abs}
+    \pgfmathsetmacro\pgf@arcto@scaling{20/\pgfmathresult}
+    \pgfmathsetmacro\pgf@arcto@rx@scaled{\pgf@arcto@scaling*\pgf@arcto@rx}
+    \pgfmathsetmacro\pgf@arcto@ry@scaled{\pgf@arcto@scaling*\pgf@arcto@ry}
+    \pgfmathsetmacro\pgf@arcto@xaprime@scaled{\pgf@arcto@scaling*\pgf@arcto@xaprime}
+    \pgfmathsetmacro\pgf@arcto@yaprime@scaled{\pgf@arcto@scaling*\pgf@arcto@yaprime}
+    % 
+    % Step 5: Now comes the messy computation of c1' and c2'. 
+    % 
+    \ifdim\pgf@arcto@rx pt>\pgf@arcto@ry pt%
+      \pgfmathsetmacro\pgf@arcto@rx@over@ry{\pgf@arcto@rx/\pgf@arcto@ry}
+      \pgfmathsetmacro\pgf@arcto@ry@over@rx{\pgf@arcto@ry/\pgf@arcto@rx}
+      \pgfmathsetmacro\pgf@arcto@temp{\pgf@arcto@ry@over@rx*\pgf@arcto@xaprime@scaled}
+      \pgfmathsetmacro\pgf@arcto@numerator{
+        \pgf@arcto@ry@scaled*\pgf@arcto@ry@scaled-
+        \pgf@arcto@yaprime@scaled*\pgf@arcto@yaprime@scaled-
+        \pgf@arcto@temp*\pgf@arcto@temp
+      }
+      \pgfmathsetmacro\pgf@arcto@denominator{
+        \pgf@arcto@yaprime@scaled*\pgf@arcto@yaprime@scaled+
+        \pgf@arcto@temp*\pgf@arcto@temp
+      }
+    \else
+      \pgfmathsetmacro\pgf@arcto@rx@over@ry{\pgf@arcto@rx/\pgf@arcto@ry}
+      \pgfmathsetmacro\pgf@arcto@ry@over@rx{\pgf@arcto@ry/\pgf@arcto@rx}
+      \pgfmathsetmacro\pgf@arcto@temp{\pgf@arcto@rx@over@ry*\pgf@arcto@yaprime@scaled}
+      \pgfmathsetmacro\pgf@arcto@numerator{
+        \pgf@arcto@rx@scaled*\pgf@arcto@rx@scaled-
+        \pgf@arcto@xaprime@scaled*\pgf@arcto@xaprime@scaled-
+        \pgf@arcto@temp*\pgf@arcto@temp
+      }
+      \pgfmathsetmacro\pgf@arcto@denominator{
+        \pgf@arcto@xaprime@scaled*\pgf@arcto@xaprime@scaled+
+        \pgf@arcto@temp*\pgf@arcto@temp
+      }
+    \fi
+    \pgfmathsetmacro\pgf@arcto@frac{
+      \pgf@arcto@numerator/\pgf@arcto@denominator
+    }
+    \ifdim\pgf@arcto@frac pt<0pt
+      \pgfmathsetmacro\pgf@arcto@factor{0}
+    \else
+      \pgfmathsetmacro\pgf@arcto@factor{sqrt(\pgf@arcto@frac)}
+    \fi
+    \ifx\pgf@arcto@fA\pgf@arcto@fS
+      \pgfmathsetmacro\pgf@arcto@factor{-\pgf@arcto@factor}
+    \fi
+    \pgfmathsetmacro\pgf@arcto@cxprime{
+      \pgf@arcto@factor*\pgf@arcto@rx@over@ry*\pgf@arcto@yaprime
+    }
+    \pgfmathsetmacro\pgf@arcto@cyprime{
+      -\pgf@arcto@factor*\pgf@arcto@ry@over@rx*\pgf@arcto@xaprime
+    }
+    % 
+    % Step 6: Ok, now compute cx,cy 
+    % 
+    \pgftransformreset
+    \pgftransformrotate{\pgf@arcto@phi}
+    \pgf@process{
+      \pgfpointtransformed{\pgfqpoint{\pgf@arcto@cxprime pt}{\pgf@arcto@cyprime pt}}
+    }
+    \edef\pgf@arcto@temp{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
+    \pgf@process{\pgfpointadd{\pgf@arcto@temp}{
+        \pgfpointscale{.5}{
+          \pgfpointadd
+          {\pgfqpoint{\pgf@arcto@xa}{\pgf@arcto@ya}}
+          {\pgfqpoint{\pgf@arcto@xb}{\pgf@arcto@yb}}        }
+      }
+    }
+    \edef\pgf@arcto@cx{\the\pgf@x}
+    \edef\pgf@arcto@cy{\the\pgf@y}
+    % 
+    % Step 7: Compute start angle: 
+    % 
+    \pgfmathsetmacro\pgf@arcto@vec@x{(\pgf@arcto@xaprime-\pgf@arcto@cxprime)/\pgf@arcto@rx}
+    \pgfmathsetmacro\pgf@arcto@vec@y{(\pgf@arcto@yaprime-\pgf@arcto@cyprime)/\pgf@arcto@ry}
+    \pgfmathsetmacro\pgf@arcto@denominator{veclen(\pgf@arcto@vec@x,\pgf@arcto@vec@y)}
+    \pgfmathsetmacro\pgf@arcto@frac{\pgf@arcto@vec@x/\pgf@arcto@denominator}
+    \pgfmathsetmacro\pgf@arcto@theta@start{acos(\pgf@arcto@frac)}
+    \ifdim\pgf@arcto@vec@y pt<0pt
+      \pgfmathsetmacro\pgf@arcto@theta@start{-\pgf@arcto@theta@start}
+    \fi
+    % 
+    % Step 8: Compute end angle: 
+    % 
+    \pgfmathsetmacro\pgf@arcto@vec@x{(-\pgf@arcto@xaprime-\pgf@arcto@cxprime)/\pgf@arcto@rx}
+    \pgfmathsetmacro\pgf@arcto@vec@y{(-\pgf@arcto@yaprime-\pgf@arcto@cyprime)/\pgf@arcto@ry}
+    \pgfmathsetmacro\pgf@arcto@denominator{veclen(\pgf@arcto@vec@x,\pgf@arcto@vec@y)}
+    \pgfmathsetmacro\pgf@arcto@frac{\pgf@arcto@vec@x/\pgf@arcto@denominator}
+    \pgfmathsetmacro\pgf@arcto@theta@end{acos(\pgf@arcto@frac)}
+    \ifdim\pgf@arcto@vec@y pt<0pt
+      \pgfmathsetmacro\pgf@arcto@theta@end{-\pgf@arcto@theta@end}
+    \fi
+    \pgfmathsetmacro\pgf@arcto@delta@theta{abs(\pgf@arcto@theta@start-\pgf@arcto@theta@end)}
+    \ifdim\pgf@arcto@fA pt=0pt%
+      \ifdim\pgf@arcto@delta@theta pt>180pt%
+        % Ok, we need to adjust the angle!
+        \ifdim\pgf@arcto@theta@end pt>\pgf@arcto@theta@start pt
+          \pgfmathsetmacro\pgf@arcto@theta@end{\pgf@arcto@theta@end-360}
+        \else
+          \pgfmathsetmacro\pgf@arcto@theta@end{\pgf@arcto@theta@end+360}
+        \fi
+      \fi
+    \else
+      \ifdim\pgf@arcto@delta@theta pt<180pt%
+        % Ok, we need to adjust the angle!
+        \ifdim\pgf@arcto@theta@end pt>\pgf@arcto@theta@start pt
+          \pgfmathsetmacro\pgf@arcto@theta@end{\pgf@arcto@theta@end-360}
+        \else
+          \pgfmathsetmacro\pgf@arcto@theta@end{\pgf@arcto@theta@end+360}
+        \fi
+      \fi
+    \fi
+    \xdef\pgf@marshal{\noexpand
+      \pgfpatharcaxes{\pgf@arcto@theta@start}{\pgf@arcto@theta@end}
+      {\noexpand\pgfpointpolar{\pgf@arcto@phi}{\pgf@arcto@rx}}
+      {\noexpand\pgfpointpolar{\pgf@arcto@phi+90}{\pgf@arcto@ry}}
+    }
+    \fi\fi\fi
+  }
+  \pgf@marshal
+}
+
+
+
+
+
+
 
 
 
@@ -469,16 +688,16 @@
     \pgfsyssoftpath@moveto{\the\pgf@xa}{\the\pgf@ya}%
     \pgf@protocolsizes{\pgf@xa}{\pgf@ya}%
   }%
-  \pgf@x=0.5522847\pgf@xb% first arc
-  \pgf@y=0.5522847\pgf@yb%
+  \pgf@x=0.55228475\pgf@xb% first arc
+  \pgf@y=0.55228475\pgf@yb%
   \advance\pgf@x by\pgf@xa%
   \advance\pgf@y by\pgf@ya%
   \advance\pgf@x by\pgf@xc%
   \advance\pgf@y by\pgf@yc%
   \edef\pgf@temp{{\the\pgf@x}{\the\pgf@y}}%
   \pgf@protocolsizes{\pgf@x}{\pgf@y}%
-  \pgf@x=0.5522847\pgf@xa%
-  \pgf@y=0.5522847\pgf@ya%
+  \pgf@x=0.55228475\pgf@xa%
+  \pgf@y=0.55228475\pgf@ya%
   \advance\pgf@x by\pgf@xb%
   \advance\pgf@y by\pgf@yb%
   {%
@@ -492,16 +711,16 @@
   }%
   \pgf@xa=-\pgf@xa% flip first axis
   \pgf@ya=-\pgf@ya%
-  \pgf@x=0.5522847\pgf@xa% second arc
-  \pgf@y=0.5522847\pgf@ya%
+  \pgf@x=0.55228475\pgf@xa% second arc
+  \pgf@y=0.55228475\pgf@ya%
   \advance\pgf@x by\pgf@xb%
   \advance\pgf@y by\pgf@yb%
   \advance\pgf@x by\pgf@xc%
   \advance\pgf@y by\pgf@yc%
   \edef\pgf@temp{{\the\pgf@x}{\the\pgf@y}}%
   \pgf@protocolsizes{\pgf@x}{\pgf@y}%
-  \pgf@x=0.5522847\pgf@xb%
-  \pgf@y=0.5522847\pgf@yb%
+  \pgf@x=0.55228475\pgf@xb%
+  \pgf@y=0.55228475\pgf@yb%
   \advance\pgf@x by\pgf@xa%
   \advance\pgf@y by\pgf@ya%
   {%
@@ -515,16 +734,16 @@
   }%
   \pgf@xb=-\pgf@xb% flip second axis
   \pgf@yb=-\pgf@yb%
-  \pgf@x=0.5522847\pgf@xb% third arc
-  \pgf@y=0.5522847\pgf@yb%
+  \pgf@x=0.55228475\pgf@xb% third arc
+  \pgf@y=0.55228475\pgf@yb%
   \advance\pgf@x by\pgf@xa%
   \advance\pgf@y by\pgf@ya%
   \advance\pgf@x by\pgf@xc%
   \advance\pgf@y by\pgf@yc%
   \edef\pgf@temp{{\the\pgf@x}{\the\pgf@y}}%
   \pgf@protocolsizes{\pgf@x}{\pgf@y}%
-  \pgf@x=0.5522847\pgf@xa%
-  \pgf@y=0.5522847\pgf@ya%
+  \pgf@x=0.55228475\pgf@xa%
+  \pgf@y=0.55228475\pgf@ya%
   \advance\pgf@x by\pgf@xb%
   \advance\pgf@y by\pgf@yb%
   {%
@@ -538,16 +757,16 @@
   }%
   \pgf@xa=-\pgf@xa% flip first axis once more
   \pgf@ya=-\pgf@ya%
-  \pgf@x=0.5522847\pgf@xa% fourth arc
-  \pgf@y=0.5522847\pgf@ya%
+  \pgf@x=0.55228475\pgf@xa% fourth arc
+  \pgf@y=0.55228475\pgf@ya%
   \advance\pgf@x by\pgf@xb%
   \advance\pgf@y by\pgf@yb%
   \advance\pgf@x by\pgf@xc%
   \advance\pgf@y by\pgf@yc%
   \edef\pgf@temp{{\the\pgf@x}{\the\pgf@y}}%
   \pgf@protocolsizes{\pgf@x}{\pgf@y}%
-  \pgf@x=0.5522847\pgf@xb%
-  \pgf@y=0.5522847\pgf@yb%
+  \pgf@x=0.55228475\pgf@xb%
+  \pgf@y=0.55228475\pgf@yb%
   \advance\pgf@x by\pgf@xa%
   \advance\pgf@y by\pgf@ya%
   {%
@@ -925,113 +1144,108 @@
 
 
 
-%	Draw part of a curve between two specified times s and t.
-%	
-%	#1 - s.
-%	#2 - t.
-%	#3,#4,#5,#6 - the curve.
-%	
-%	There are two versions, \pgfpathcurvebetweentime and 
-%	\pgfpathcurvebetweentime*. The latter does not insert a moveto
-%	to the first point.
+% Draw part of a curve between two specified times s and t.
 %
+% #1 - a start time s.
+% #2 - an end time t.
+% #3 - start point of the curve
+% #4 - first control
+% #5 - second control
+% #6 - end point of the curve
+%
+% There are two versions, \pgfpathcurvebetweentime and 
+% \pgfpathcurvebetweentimecontinue. The latter does not insert a
+% moveto to the first point.
+%
+\def\pgfpathcurvebetweentime{\pgf@ignoremovetofalse\pgf@@pathcurvebetweentime}
+\def\pgfpathcurvebetweentimecontinue{\pgf@ignoremovetotrue\pgf@@pathcurvebetweentime}
 \newif\ifpgf@ignoremoveto
-\def\pgfpathcurvebetweentime{\futurelet\pgf@lettoken\pgf@pathcurvebetweentime}
-\def\pgf@pathcurvebetweentime{%
-	\ifx\pgf@lettoken*%
-		\pgf@ignoremovetotrue%
-		\def\pgf@next{\afterassignment\pgf@@pathcurvebetweentime\let\pgf@lettoken=}%
-	\else%
-		\pgf@ignoremovetofalse%
-		\let\pgf@next=\pgf@@pathcurvebetweentime%
-	\fi%
-	\pgf@next}
 
 \def\pgf@@pathcurvebetweentime#1#2#3#4#5#6{%
-	\pgfmathparse{#1}%
-	\let\pgf@time@s=\pgfmathresult%
-	\pgfmathparse{#2}%
-	\let\pgf@time@t=\pgfmathresult%
-	\ifdim\pgf@time@s pt>\pgf@time@t pt\relax%
-		\pgfmathsetmacro\pgf@time@s{1-#1}%
-		\pgfmathsetmacro\pgf@time@t{1-#2}%
-		\pgf@@@pathcurvebetweentime{\pgf@time@t}{#6}{#5}{#4}{#3}%
-	\else%
-		\pgf@@@pathcurvebetweentime{\pgf@time@t}{#3}{#4}{#5}{#6}%
-	\fi%
+  \pgfmathparse{#1}%
+  \let\pgf@time@s=\pgfmathresult%
+  \pgfmathparse{#2}%
+  \let\pgf@time@t=\pgfmathresult%
+  \ifdim\pgf@time@s pt>\pgf@time@t pt\relax%
+    \pgfmathsetmacro\pgf@time@s{1-#1}%
+    \pgfmathsetmacro\pgf@time@t{1-#2}%
+    \pgf@@@pathcurvebetweentime{\pgf@time@t}{#6}{#5}{#4}{#3}%
+  \else%
+    \pgf@@@pathcurvebetweentime{\pgf@time@t}{#3}{#4}{#5}{#6}%
+  \fi%
 }
 
 \def\pgf@@@pathcurvebetweentime#1#2#3#4#5{%
-	% Q1 = P1.
-	\pgf@process{#2}% 
-	\pgf@xc=\pgf@x%
-	\pgf@yc=\pgf@y%
-	% Q2 = P1 + t*(P2-P1).
-	\pgf@process{%
-		\pgf@process{#3}%
-		\pgf@xa=#1\pgf@x%
-		\pgf@ya=#1\pgf@y%
-		\pgf@process{#2}%
-		\pgf@xb=\pgf@x%
-		\pgf@yb=\pgf@y%
-		\advance\pgf@x by-#1\pgf@xb%
-		\advance\pgf@y by-#1\pgf@yb%
-		\advance\pgf@x by\pgf@xa%
-		\advance\pgf@y by\pgf@ya%
-	}%
-	\pgf@xb=\pgf@x%
-	\pgf@yb=\pgf@y%
-	% Q3 = Q2 + t*((P2 + t*(P3-P2)) - Q2).
-	\pgf@process{%
-		\pgf@process{#4}%
-		\pgf@xa=#1\pgf@x%
-		\pgf@ya=#1\pgf@y%	
-		%
-		\pgf@process{#3}%
-		\pgf@xc=\pgf@x%
-		\pgf@yc=\pgf@y%
-		\advance\pgf@xc by-#1\pgf@x%
-		\advance\pgf@yc by-#1\pgf@y%
-		%
-		\pgf@x=\pgf@xb%
-		\pgf@y=\pgf@yb%
-		\advance\pgf@x by#1\pgf@xa%
-		\advance\pgf@y by#1\pgf@ya%		
-		\advance\pgf@x by-#1\pgf@xb%
-		\advance\pgf@y by-#1\pgf@yb%
-		\advance\pgf@x by#1\pgf@xc%
-		\advance\pgf@y by#1\pgf@yc%
-	}%
-	\pgf@xa=\pgf@x%
-	\pgf@ya=\pgf@y%
-	% Q4 = (1-t)^3*P1 + 3*t(1-t)^2*P2 + 3*t^2(1-t)*P3 + t^3*P4.
-	\pgf@process{\pgfpointcurveattime{#1}{#2}{#3}{#4}{#5}}% 
-	\ifx#1\pgf@time@t%
-		% First time round...
-		\pgfmathdivide@{\pgf@time@s}{\pgf@time@t}%
-		\pgfmathadd@{-\pgfmathresult}{1}%
-		\let\pgf@time@s=\pgfmathresult%
-		\edef\pgf@marshal{%
-			\noexpand\pgf@@@pathcurvebetweentime{\noexpand\pgf@time@s}%
-				{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
-				{\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
-		}%
-	\else%
-	  % ...second time round.
-		\ifpgf@ignoremoveto%
-			\edef\pgf@marshal{%
-				\noexpand\pgfpathcurveto{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
-					{\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
-			}%
-		\else%
-			\edef\pgf@marshal{%
-				\noexpand\pgfpathmoveto{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-				\noexpand\pgfpathcurveto{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
-					{\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
-			}%
-		\fi%
-	\fi%
-	\pgf@marshal%
+  % Q1 = P1.
+  \pgf@process{#2}% 
+  \pgf@xc=\pgf@x%
+  \pgf@yc=\pgf@y%
+  % Q2 = P1 + t*(P2-P1).
+  \pgf@process{%
+    \pgf@process{#3}%
+    \pgf@xa=#1\pgf@x%
+    \pgf@ya=#1\pgf@y%
+    \pgf@process{#2}%
+    \pgf@xb=\pgf@x%
+    \pgf@yb=\pgf@y%
+    \advance\pgf@x by-#1\pgf@xb%
+    \advance\pgf@y by-#1\pgf@yb%
+    \advance\pgf@x by\pgf@xa%
+    \advance\pgf@y by\pgf@ya%
+  }%
+  \pgf@xb=\pgf@x%
+  \pgf@yb=\pgf@y%
+  % Q3 = Q2 + t*((P2 + t*(P3-P2)) - Q2).
+  \pgf@process{%
+    \pgf@process{#4}%
+    \pgf@xa=#1\pgf@x%
+    \pgf@ya=#1\pgf@y%  
+    %
+    \pgf@process{#3}%
+    \pgf@xc=\pgf@x%
+    \pgf@yc=\pgf@y%
+    \advance\pgf@xc by-#1\pgf@x%
+    \advance\pgf@yc by-#1\pgf@y%
+    %
+    \pgf@x=\pgf@xb%
+    \pgf@y=\pgf@yb%
+    \advance\pgf@x by#1\pgf@xa%
+    \advance\pgf@y by#1\pgf@ya%    
+    \advance\pgf@x by-#1\pgf@xb%
+    \advance\pgf@y by-#1\pgf@yb%
+    \advance\pgf@x by#1\pgf@xc%
+    \advance\pgf@y by#1\pgf@yc%
+  }%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  % Q4 = (1-t)^3*P1 + 3*t(1-t)^2*P2 + 3*t^2(1-t)*P3 + t^3*P4.
+  \pgf@process{\pgfpointcurveattime{#1}{#2}{#3}{#4}{#5}}% 
+  \ifx#1\pgf@time@t%
+    % First time round...
+    \pgfmathdivide@{\pgf@time@s}{\pgf@time@t}%
+    \pgfmathadd@{-\pgfmathresult}{1}%
+    \let\pgf@time@s=\pgfmathresult%
+    \edef\pgf@marshal{%
+      \noexpand\pgf@@@pathcurvebetweentime{\noexpand\pgf@time@s}%
+        {\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
+        {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+    }%
+  \else%
+    % ...second time round.
+    \ifpgf@ignoremoveto%
+      \edef\pgf@marshal{%
+        \noexpand\pgfpathcurveto{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
+          {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+      }%
+    \else%
+      \edef\pgf@marshal{%
+        \noexpand\pgfpathmoveto{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+        \noexpand\pgfpathcurveto{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
+          {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+      }%
+    \fi%
+  \fi%
+  \pgf@marshal%
 }
 
 
