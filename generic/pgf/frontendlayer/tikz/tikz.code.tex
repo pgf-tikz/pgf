@@ -195,6 +195,13 @@
 \tikzoption{rounded corners}[4pt]{\pgfsetcornersarced{\pgfpoint{#1}{#1}}}
 \tikzoption{sharp corners}[]{\pgfsetcornersarced{\pgfpointorigin}}
 
+% Radii and arc options
+\tikzset{x radius/.initial=0pt}
+\tikzset{y radius/.initial=0pt}
+\tikzset{radius/.style={/tikz/x radius=#1,/tikz/y radius=#1}}
+\tikzset{start angle/.initial=}
+\tikzset{end angle/.initial=}
+\tikzset{delta angle/.initial=}
 
 
 % Coordinate options
@@ -1505,7 +1512,7 @@
     \tikz@snakedfalse%
     \tikz@decoratepathfalse%
     \tikz@node@is@a@labelfalse%
-    \tikz@expandcount=1000\relax%
+    \tikz@expandcount=100\relax%
     \tikz@lastx=0pt%
     \tikz@lasty=0pt%
     \tikz@lastxsaved=0pt%
@@ -1585,7 +1592,7 @@
         \let\@next=\tikz@grid%
       \else%
         \ifx\@let@token s%
-           \let\@next=\tikz@sine%
+           \let\@next=\tikz@schar%
         \else%
           \ifx\@let@token |%
              \let\@next=\tikz@vh@lineto%
@@ -1660,6 +1667,13 @@
   \pgfutil@ifnextchar l{\tikz@ellipse}{\tikz@@e@char}}%
 \def\tikz@@e@char dge{%
   \pgfutil@ifnextchar f{\tikz@edgetoparent}{\tikz@edge@plain}}%
+
+\def\tikz@schar{\pgfutil@ifnextchar i{\tikz@sine}{\tikz@svg@path}}
+
+\def\tikz@svg@path{%
+  \PackageError{tikz}{You need to say \string\usetikzlibrary{svg.path} to
+    use the svg path command}{}
+}
 
 
 \def\tikz@finish{%
@@ -2606,7 +2620,7 @@
             \pgfscope%
               \let\tikz@options=\pgfutil@empty%
               \let\tikz@transform=\pgfutil@empty%
-			  \tikzset{every mark}%
+              \tikzset{every mark}%
               \tikz@options%
               \ifx\tikz@mark@list\pgfutil@empty%
                 \pgfplothandlermark{\tikz@transform\pgfuseplotmark{\tikz@plot@mark}}%
@@ -2720,44 +2734,66 @@
 
 
 % Syntax for circles:
-% circle (radius)
+% circle [options] % where options should set, at least, radius
+% circle (radius) % deprecated
 %
 % Syntax for ellipses:
-% ellipse (x-radius and y-radius)
+% ellipse [options] % identical to circle.
+% ellipse (x-radius and y-radius) % deprecated
 %
 % radii can be dimensionless, then they are in the xy-system
 \def\tikz@circle ircle{\tikz@flush@moveto\tikz@@circle}
 \def\tikz@ellipse llipse{\tikz@flush@moveto\tikz@@circle}
 \def\tikz@@circle{%
-  \pgfutil@ifnextchar(\tikz@@@circle{%)
-    \advance\tikz@expandcount by -1%
+  \pgfutil@ifnextchar(\tikz@@@circle
+  {\pgfutil@ifnextchar[\tikz@circle@opt{%])
+    \advance\tikz@expandcount by -10\relax% go down quickly
     \ifnum\tikz@expandcount<0\relax%
-      \let\@next=\tikz@@circle@scangiveup%
+      \let\@next=\tikz@@circle@normal%
     \else%
       \let\@next=\tikz@@circle@scanexpand%
     \fi%
     \@next%
-  }%
+  }}%
 }
 \def\tikz@@circle@scanexpand{\expandafter\tikz@@circle}
-\def\tikz@@circle@scangiveup#1{\PackageError{tikz}{Cannot parse this radius}{}#1{\tikz@scan@next@command}}
+\def\tikz@@circle@normal{\tikz@circle@opt[]}
+
+\def\tikz@circle@opt[#1]{%
+  {%
+    \def\tikz@node@at{\tikz@last@position}%
+    \let\tikz@transform=\pgfutil@empty%
+    \tikzset{every circle/.try,#1}%
+    \pgftransformshift{\tikz@node@at}%
+    \tikz@transform%
+    \tikz@do@circle{\pgfkeysvalueof{/tikz/x radius}}{\pgfkeysvalueof{/tikz/y radius}}
+  }%
+  \tikz@scan@next@command%
+}
+
 \def\tikz@@@circle(#1){%
-  \pgfutil@in@{ and }{#1}%
-  \ifpgfutil@in@%
-    \tikz@@ellipseB(#1)%
-  \else%
-    \tikz@@ellipseB({#1} and {#1})%
-  \fi%
+  {%
+    \pgftransformshift{\tikz@last@position}%
+    \pgfutil@in@{ and }{#1}%
+    \ifpgfutil@in@%
+      \tikz@@ellipseB(#1)%
+    \else%
+      \tikz@do@circle{#1}{#1}%
+    \fi%
+  }%
   \tikz@scan@next@command%
 }
 \def\tikz@@ellipseB(#1 and #2){%
+  \tikz@do@circle{#1}{#2}
+}
+\def\tikz@do@circle#1#2{
   \pgfmathparse{#1}%
   \let\tikz@ellipse@x=\pgfmathresult%
   \ifpgfmathunitsdeclared%
     \pgfmathparse{#2}%
     \let\tikz@ellipse@y=\pgfmathresult%
     \ifpgfmathunitsdeclared%
-      \pgfpathellipse{\tikz@last@position}{%
+      \pgfpathellipse{\pgfpointorigin}{%
         \pgfqpoint{\tikz@ellipse@x pt}{0pt}}{\pgfpoint{0pt}{\tikz@ellipse@y pt}}%
     \else%
       \PackageError{tikz}{You cannot mix dimensions and dimensionless values in an ellipse}{}%
@@ -2768,7 +2804,7 @@
     \ifpgfmathunitsdeclared%
       \PackageError{tikz}{You cannot mix dimensions and dimensionless values in an ellipse}{}%
     \else%
-      \pgfpathellipse{\tikz@last@position}{%
+      \pgfpathellipse{\pgfpointorigin}{%
         \pgfpointxy{\tikz@ellipse@x}{0}}{\pgfpointxy{0}{\tikz@ellipse@y}}%
     \fi%
   \fi%
@@ -2781,13 +2817,50 @@
 % arc (start angle:end angle:x-radius and y-radius)
 %
 % radius can be dimensionless, then the arc is in the xy-coordinate system
-\def\tikz@arcA rc{%
-  \tikz@flush@moveto%
-  \pgfutil@ifnextchar({\tikz@@arcto}{\expandafter\tikz@arcA\expandafter r\expandafter c}}
+\def\tikz@arcA rc{\tikz@flush@moveto\tikz@arc@cont}%
+\def\tikz@arc@cont{%
+  \pgfutil@ifnextchar(%)
+  {\tikz@@arcto}{%
+    \pgfutil@ifnextchar[%]
+    {\tikz@arc@opt}%
+    {%
+      \advance\tikz@expandcount by -10\relax% go down quickly
+      \ifnum\tikz@expandcount<0\relax%
+        \let\@next=\tikz@@arc@normal%
+      \else%
+        \let\@next=\tikz@@arc@scanexpand%
+      \fi%
+      \@next%
+    }%
+  }%
+}
+\def\tikz@@arc@scanexpand{\expandafter\tikz@arc@cont}
+\def\tikz@@arc@normal{\tikz@arc@opt[]}
+
+
+\def\tikz@arc@opt[#1]{%
+  {%
+    \tikzset{every arc/.try,#1}%
+    \pgfkeysgetvalue{/tikz/start angle}\tikz@s
+    \pgfkeysgetvalue{/tikz/end angle}\tikz@e
+    \pgfkeysgetvalue{/tikz/delta angle}\tikz@d
+    \ifx\tikz@s\pgfutil@empty%
+      \pgfmathsetmacro\tikz@s{\tikz@e-\tikz@d}
+    \else
+      \ifx\tikz@e\pgfutil@empty%    
+        \pgfmathsetmacro\tikz@e{\tikz@s+\tikz@d}
+      \fi%
+    \fi
+    \tikz@do@arc{\tikz@s}{\tikz@e}
+      {\pgfkeysvalueof{/tikz/x radius}}
+      {\pgfkeysvalueof{/tikz/y radius}}
+  }%
+  \tikz@arcfinal%  
+}
 
 \def\tikz@@arcto(#1){%
   \edef\tikz@temp{(#1)}%
-   \expandafter\tikz@@@arcto@check@slashand\tikz@temp%
+  \expandafter\tikz@@@arcto@check@slashand\tikz@temp%
 }
 
 \def\tikz@@@arcto@check@slashand(#1:#2:#3){%
@@ -2797,9 +2870,13 @@
   \else%
     \tikz@parse@arc@and(#1:#2:{#3} and {#3})%
   \fi%
+  \tikz@arcfinal%  
 }
 
 \def\tikz@parse@arc@and(#1:#2:#3 and #4){%
+  \tikz@do@arc{#1}{#2}{#3}{#4}%
+}
+\def\tikz@do@arc#1#2#3#4{%
   \pgfmathparse{#3}%
   \let\tikz@arc@x=\pgfmathresult%
   \ifpgfmathunitsdeclared%
@@ -2826,10 +2903,17 @@
 
 \def\tikz@@@arcfinal#1#2#3{%
   #1%
-  \pgf@process{#2}%
+  \pgf@process{#2}
+  \xdef\tikz@arc@save@first{\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@process{#3}
+  \xdef\tikz@arc@save@second{\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+}
+
+\def\tikz@arcfinal{%
+  \pgf@process{\tikz@arc@save@first}%
   \advance\tikz@lastx by-\pgf@x%
   \advance\tikz@lasty by-\pgf@y%
-  \pgf@process{#3}%
+  \pgf@process{\tikz@arc@save@second}%
   \advance\tikz@lastx by\pgf@x%
   \advance\tikz@lasty by\pgf@y%
   \tikz@lastxsaved=\tikz@lastx%
