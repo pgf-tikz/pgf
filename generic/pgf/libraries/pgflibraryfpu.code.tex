@@ -125,10 +125,30 @@
   scale file plot z/.code=\pgfmathfloatparse{#1}\edef\pgfmathfloatplotscalez{\pgfmathresult*}
 }
 
+\def\pgfmathfloat@uninstall@appendcmd#1{%
+	\expandafter\gdef\expandafter\pgfmathfloat@uninstall\expandafter{\pgfmathfloat@uninstall #1}%
+}%
+
+% If the uninstall command is already assembled, it will skip the
+% uninstall assemblation.
+\def\pgfmathfloat@plots@checkuninstallcmd{%
+	\pgfutil@ifundefined{pgfmathfloat@uninstall}{%
+		\global\let\pgfmathfloat@uninstall=\pgfutil@empty
+	}{%
+		% We already HAVE an uninstall command (prepared globally).
+		% So: don't waste time assembling one!
+		\def\pgfmathfloat@uninstall@appendcmd##1{}%
+		\def\pgfmathfloat@prepareuninstallcmd##1{}%
+	}%
+}%
+
+% This assembles an uninstall command globally ON FIRST USAGE.
+% See \pgfmathfloat@plots@checkuninstallcmd
 \def\pgfmathfloat@prepareuninstallcmd#1{%
-	% and store backup information:
-	\expandafter\let\csname pgfmathfloat@backup@\string#1\endcsname=#1%
-	\expandafter\def\expandafter\pgfmathfloat@uninstall\expandafter{\pgfmathfloat@uninstall
+	% and store backup information (globally - I don't want to do that
+	% all the time when the FPU is used!):
+	\expandafter\global\expandafter\let\csname pgfmathfloat@backup@\string#1\endcsname=#1%
+	\expandafter\gdef\expandafter\pgfmathfloat@uninstall\expandafter{\pgfmathfloat@uninstall
 		\expandafter\let\expandafter#1\csname pgfmathfloat@backup@\string#1\endcsname%
 	}%
 }
@@ -231,8 +251,9 @@
 	%
 	\pgfmathfloat@install\pgfmathscientific=\pgfmathfloatscientific%
 }
+
 \def\pgfmathfloat@parser@install{%
-	\let\pgfmathfloat@uninstall=\pgfutil@empty
+	\pgfmathfloat@plots@checkuninstallcmd
 	\pgfmathfloat@plots@install%
 	\pgfmathfloat@parser@install@functions
 	%
@@ -249,7 +270,7 @@
 	% 3. The stack-push-operation checks whether the argument is a
 	% float. If not, it is parsed properly before pushing it.
 	\pgfmath@tokens@make{exponent}{\pgfmathfloat@POSTFLAGSCHAR}%
-	\expandafter\def\expandafter\pgfmathfloat@uninstall\expandafter{\pgfmathfloat@uninstall
+	\pgfmathfloat@uninstall@appendcmd{%
 		\expandafter\let\csname pgfmath@token@exponent@\pgfmathfloat@POSTFLAGSCHAR\endcsname=\relax
 	}%
 	\let\pgfmath@basic@parse@exponent=\pgfmath@parse@exponent%
@@ -261,7 +282,7 @@
 }%
 
 \def\pgfmathfloat@parser@install@pgf@two@null@null{%
-	\let\pgfmathfloat@uninstall=\pgfutil@empty
+	\pgfmathfloat@plots@checkuninstallcmd
 	\pgfmathfloat@plots@install%
 	\pgfmathfloat@parser@install@functions
 	%
