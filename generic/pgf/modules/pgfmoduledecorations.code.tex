@@ -57,10 +57,11 @@
   start radius/.initial=2.5pt,
   end radius/.initial=2.5pt,
   radius/.style={start radius=#1,end radius=#1},
-  path has corners/.is if=pgfdecoratepathhascorners
+  path has corners/.is if=pgfdecoratepathhascorners,
+  reverse path/.is if=pgf@decorate@inputsegmentobjects@reverse
 } 
 \newif\ifpgfdecoratepathhascorners
-
+\newif\ifpgf@decorate@inputsegmentobjects@reverse
 
 % Declare a decoration
 %
@@ -659,6 +660,16 @@
     % Parse the soft path into a series of decorated input segment objects.
     % 
     \pgf@decorate@parsesoftpath{\pgfdecoratedpath}{\pgf@decorate@inputsegmentobjects}%
+    %
+    % Setup further options
+    %
+    \pgfkeys{/pgf/every decoration/.try}%
+    %
+    % Reverse objects if necessary.
+    %
+    \ifpgf@decorate@inputsegmentobjects@reverse%
+    	\pgf@decorate@inputsegmentobjects@reverse{\pgf@decorate@inputsegmentobjects}{\pgf@decorate@inputsegmentobjects}%
+    \fi%
     % 
     \let\pgf@decorated@remainingdistance\pgf@decorate@totalpathlength%
     % 
@@ -675,13 +686,8 @@
     \pgf@decorate@getnextinputsegmentobject\pgf@decorate@nextinputsegmentobject%
     \pgf@decorate@processnextinputsegmentobject%
     \pgf@decorate@distancetomove0pt\relax%
-    %
-    % Setup further options
-    %
-    \pgfkeys{/pgf/every decoration/.try}%
   \fi%
-}%		
-
+}%	
 
 
 
@@ -1591,7 +1597,7 @@
 %	\pgfpathlineto{\pgfpoint{12pt}{0pt}}
 %	\pgfgetpath\softpath
 %	
-%	\pgf@decorate@parsesoftpath{\softpath}{\parsedsoftpath}{}
+%	\pgf@decorate@parsesoftpath{\softpath}{\parsedsoftpath}
 %	
 %	results in:
 %	
@@ -1951,6 +1957,150 @@
 	}%
 	\pgf@marshal%
 }
+
+
+% Macro to reverse a set of input segment objects.
+%
+% #1 - a macro holding the input segment objects.
+% #2 - a macro holding the reversed input segment objects.
+%
+\def\pgf@decorate@inputsegmentobjects@reverse#1#2{%
+	\def\pgf@decorate@path@storein{#2}%
+	\def\pgf@decorate@inputsegments@@temp{}%
+	\expandafter\pgf@decorate@inputsegments@@reverse@pass@first#1\pgf@stop}
+
+\def\pgf@decorate@inputsegments@@reverse@pass@first#1#2\pgf@stop{%
+	\def\pgf@decorate@temp{#1}%
+	\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+		\pgf@decorate@inputsegments@@temp\expandafter\expandafter\expandafter%
+			{\expandafter\pgf@decorate@temp\pgf@decorate@inputsegments@@temp}%
+	\def\pgf@decorate@test{#2}
+	\ifx\pgf@decorate@test\pgfutil@empty%
+		\def\pgf@decorate@next{%
+			\expandafter\pgf@decorate@inputsegmentobjects@reverse@pass@second\pgf@decorate@inputsegments@@temp\pgf@stop%
+		}%
+	\else%
+		\def\pgf@decorate@next{\pgf@decorate@inputsegments@@reverse@pass@first#2\pgf@stop}%
+	\fi%
+	\pgf@decorate@next%
+}	
+\def\pgf@decorate@inputsegmentobjects@reverse@pass@second#1#2#3\pgf@stop{%
+	\def\pgf@decorate@inputsegments@temp{#3}%
+	\def\pgf@decorate@inputsegments@@temp{}%
+	\let\pgf@decorate@current@inputsegmentobject=\pgfutil@empty
+	\let\pgf@decorate@last@object=\pgfutil@empty
+	\pgf@decorate@inputsegmentobjects@reverse@moveto@waitingtrue%
+	\pgf@decorate@inputsegmentobjects@reverse@closepath@waitingfalse%
+	\expandafter\pgf@decorate@path@@reverse@pass@second\pgf@decorate@inputsegments@temp\pgf@stop}%
+
+
+\def\pgf@decorate@path@@reverse@pass@second#1{%
+	\ifx#1\pgf@stop%
+		\expandafter\def\expandafter\pgf@decorate@inputsegments@@temp\expandafter{%
+			\pgf@decorate@inputsegments@@temp%
+			{\pgf@decorate@inputsegmentobject@endofinputsegments}%
+			{\pgf@decorate@inputsegmentobject@endofinputsegments}
+		}%
+		\expandafter\let\pgf@decorate@path@storein=\pgf@decorate@inputsegments@@temp%
+		\let\pgf@decorate@next=\relax%
+	\else%
+		\ifx#1\pgf@decorate@inputsegmentobject@moveto%
+			\let\pgf@decorate@next=\pgf@decorate@inputsegmentobjects@reverse@moveto%
+		\else%
+			\ifx#1\pgf@decorate@inputsegmentobject@lineto%
+				\let\pgf@decorate@next=\pgf@decorate@inputsegmentobjects@reverse@lineto%
+			\else%
+				\ifx#1\pgf@decorate@inputsegmentobject@curveto%
+					\let\pgf@decorate@next=\pgf@decorate@inputsegmentobjects@reverse@curveto%
+				\else%
+					\ifx#1\pgf@decorate@inputsegmentobject@closepath%	
+						\let\pgf@decorate@next=\pgf@decorate@inputsegmentobjects@reverse@closepath%
+					\else%
+					\fi%
+				\fi%
+			\fi%
+		\fi%
+	\fi%
+	\pgf@decorate@next%			
+}
+
+\newif\ifpgf@decorate@inputsegmentobjects@reverse@moveto@waiting
+
+\def\pgf@decorate@inputsegmentobjects@reverse@moveto#1{%
+	\ifpgf@decorate@inputsegmentobjects@reverse@closepath@waiting%
+		\edef\pgf@decorate@current@inputsegmentobject{%
+			{\noexpand\pgf@decorate@inputsegmentobject@closepath%
+				{\pgf@decorate@reverse@closepath@length}%
+				{\pgf@decorate@last}%
+				{#1}%
+			}%
+		}%
+		\pgf@decorate@inputsegmentobjects@reverse@closepath@waitingfalse%
+	\else%
+		\let\pgf@decorate@current@inputsegmentobject=\pgfutil@empty%
+	\fi%
+	\pgf@decorate@inputsegmentobjects@reverse@moveto@waitingtrue%
+	\pgf@decorate@path@@@reverse@pass@second%
+}
+
+\newif\ifpgf@decorate@inputsegmentobjects@reverse@closepath@waiting
+
+\def\pgf@decorate@inputsegmentobjects@reverse@closepath#1#2#3{%
+	\pgf@decorate@inputsegmentobjects@reverse@closepath@waitingtrue%
+	\def\pgf@decorate@reverse@closepath@length{#1}%
+	\def\pgf@decorate@current@inputsegmentobject{}%
+	\pgf@decorate@inputsegmentobjects@reverse@lineto{#1}{#2}{#3}%
+}
+
+\def\pgf@decorate@inputsegmentobjects@reverse@lineto#1#2#3#4{%
+	\ifpgf@decorate@inputsegmentobjects@reverse@moveto@waiting%
+		\def\pgf@decorate@current@inputsegmentobject{{\pgf@decorate@inputsegmentobject@moveto{#3}}}%
+		\pgf@decorate@inputsegmentobjects@reverse@moveto@waitingfalse%
+	\else%
+		\let\pgf@decorate@current@inputsegmentobject=\pgfutil@empty%
+	\fi%
+	\def\pgf@decorate@append@inputsegmentobject{{\pgf@decorate@inputsegmentobject@lineto{#1}{#3}{#2}}}%
+	\ifx#4\pgf@decorate@inputsegmentobject@moveto%
+		\ifpgf@decorate@inputsegmentobjects@reverse@closepath@waiting%
+			\def\pgf@decorate@append@inputsegmentobject{{\pgf@decorate@inputsegmentobject@closepath{#1}{#3}{#2}}}%
+			\pgf@decorate@inputsegmentobjects@reverse@closepath@waitingfalse%
+		\else%
+			\def\pgf@decorate@append@inputsegmentobject{{\pgf@decorate@inputsegmentobject@lineto{#1}{#3}{#2}}}%
+		\fi%
+	\fi%
+	\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+		\pgf@decorate@current@inputsegmentobject\expandafter\expandafter\expandafter%
+			{\expandafter\pgf@decorate@current@inputsegmentobject\pgf@decorate@append@inputsegmentobject}
+	\def\pgf@decorate@last{#2}%
+	\pgf@decorate@path@@@reverse@pass@second#4%
+}
+
+\def\pgf@decorate@inputsegmentobjects@reverse@curveto#1#2#3#4#5{%
+	\ifpgf@decorate@inputsegmentobjects@reverse@moveto@waiting%
+		\def\pgf@decorate@current@inputsegmentobject{%
+			{\pgf@decorate@inputsegmentobject@moveto{#5}}%
+			{\pgf@decorate@inputsegmentobject@curveto{#1}{#5}{#4}{#3}{#2}}%
+		}%
+		\pgf@decorate@inputsegmentobjects@reverse@moveto@waitingfalse%
+	\else%
+		\def\pgf@decorate@current@inputsegmentobject{{\pgf@decorate@inputsegmentobject@curveto{#1}{#5}{#4}{#3}{#2}}}%
+	\fi%
+	\def\pgf@decorate@last{#2}%
+	\pgf@decorate@path@@@reverse@pass@second%
+}
+
+\def\pgf@decorate@path@@@reverse@pass@second{%
+	\ifx\pgf@decorate@current@inputsegmentobject\pgfutil@empty%
+	\else%
+		\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter%
+			\pgf@decorate@inputsegments@@temp\expandafter\expandafter\expandafter%
+				{\expandafter\pgf@decorate@inputsegments@@temp\pgf@decorate@current@inputsegmentobject}%
+	\fi%	
+	\pgf@decorate@path@@reverse@pass@second%
+}%
+
+
+
 
 
 \let\startpgfdecoration=\pgfdecoration
