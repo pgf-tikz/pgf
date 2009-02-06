@@ -99,7 +99,126 @@
 \def\pgfmath@addto@toks#1{%
 	\edef\pgfmath@toks@expanded{\the\pgfmath@toks}%
 	\expandafter\pgfmath@toks\expandafter{\pgfmath@toks@expanded#1}}	
-	
+
+% Key for declaring local functions.
+%
+\pgfkeys{%
+	/pgf/declare function/.code={%
+		\pgfmath@local@functions#1@=@;%
+	}
+}
+
+\def\pgfmath@local@gobbleone#1{}
+\def\pgfmath@local@at{@}%
+
+\def\pgfmath@local@functions{%
+	\pgfutil@ifnextchar x{\pgfmath@local@@functions}{\pgfmath@local@@functions}%
+}
+
+\def\pgfmath@local@@functions#1=#2;{%
+	\def\pgfmath@local@temp{#1}%
+	\ifx\pgfmath@local@temp\pgfmath@local@at%
+		\let\pgfmath@local@next=\relax%
+	\else%
+		\pgfmath@local@function#1=#2;%
+		\let\pgfmath@local@next=\pgfmath@local@functions%
+	\fi%
+	\pgfmath@local@next%
+}
+
+\def\pgfmath@local@function{%
+	\let\pgfmath@local@name=\pgfutil@empty%
+	\let\pgfmath@local@args=\pgfutil@empty%
+	\let\pgfmath@local@body=\pgfutil@empty%
+	\pgfmath@local@@function}
+
+\def\pgfmath@local@@function#1{%
+	\if#1=%
+		\let\pgfmath@local@next=\pgfmath@local@function@body%
+	\else%
+		\if#1(%
+			\let\pgfmath@local@next=\pgfmath@local@function@args%
+		\else%
+			\expandafter\def\expandafter\pgfmath@local@name\expandafter{\pgfmath@local@name#1}%
+			\let\pgfmath@local@next=\pgfmath@local@@function%
+		\fi%
+	\fi%
+	\pgfmath@local@next%
+}
+
+\def\pgfmath@local@function@args#1){%
+	\def\pgfmath@local@args{#1}%
+	\pgfmath@local@@function}
+
+\def\pgfmath@local@function@body#1;{%
+	\def\pgfmath@local@body{#1}%
+	\begingroup%
+		\c@pgf@counta=0\relax%
+		\ifx\pgfmath@local@args\pgfmath@empty%
+			\expandafter\pgfmath@toks\expandafter=\expandafter{\pgfmath@local@body}%
+		\else%
+			\pgfmath@toks={}%
+			\expandafter\pgfmath@local@function@@body\pgfmath@local@args,,%
+		\fi%
+		\xdef\pgfmath@local@temp{%
+			\noexpand\pgfmathdeclarefunction{\pgfmath@local@name}{\the\c@pgf@counta}%
+				{\noexpand\pgfmathparse{\the\pgfmath@toks}}%
+		}%
+	\endgroup%
+	\pgfmath@local@temp%
+}
+
+\def\pgfmath@local@function@@body#1,{%
+	\def\pgfmath@local@test{#1}%
+	\ifx\pgfmath@local@test\pgfutil@empty%
+		\let\pgfmath@local@next=\relax%
+	\else%
+		\edef\pgfmath@local@var@string{@\expandafter\pgfmath@local@gobbleone\string#1}%
+		\advance\c@pgf@counta by1\relax%
+		\expandafter\expandafter\expandafter\pgfmath@toks\expandafter\expandafter\expandafter=%
+			\expandafter\expandafter\expandafter{\expandafter\pgfmath@char@hash\the\c@pgf@counta}%
+		\edef#1{\the\pgfmath@toks}%
+		\pgfmath@toks={}%
+		\expandafter\pgfmath@local@function@@@body\pgfmath@local@body @%
+		\edef\pgfmath@local@body{\the\pgfmath@toks}%
+		\let\pgfmath@local@next=\pgfmath@local@function@@body%
+	\fi%
+	\pgfmath@local@next%	
+}
+		
+\def\pgfmath@local@function@@@body{%
+	\pgfutil@ifnextchar\bgroup{\pgfmath@local@function@@@body@bgroup}%
+		{\pgfmath@local@function@@@body@nobgroup}}%
+
+\def\pgfmath@local@function@@@body@bgroup#1{%
+	\begingroup%
+		\pgfmath@toks={}%
+		\pgfmath@local@function@@@body#1 @%
+		\xdef\pgfmath@local@temp{{\the\pgfmath@toks}}%
+	\endgroup%
+	\expandafter\pgfmath@addto@toks\expandafter{\pgfmath@local@temp}%
+	\pgfmath@local@function@@@body%
+}
+
+\def\pgfmath@local@function@@@body@nobgroup#1{%
+	\ifx#1@%
+		\let\pgfmath@local@next=\relax%
+	\else%
+		\let\pgfmath@local@next=\pgfmath@local@function@@@body%
+		\edef\pgfmath@local@var@@string{@\expandafter\pgfmath@local@gobbleone\string#1}%
+		\ifx\pgfmath@local@var@@string\pgfmath@local@var@string%
+			\expandafter\pgfmath@addto@toks\expandafter{#1}%
+		\else%
+			\edef\pgfmath@local@temp{\the\pgfmath@toks}%
+			\pgfmath@toks={#1}%
+			\edef\pgfmath@local@@temp{\the\pgfmath@toks}%
+			\expandafter\pgfmath@toks\expandafter=\expandafter{\pgfmath@local@temp}%
+			\expandafter\pgfmath@addto@toks\expandafter{\pgfmath@local@@temp}%
+		\fi%
+	\fi%
+	\pgfmath@local@next%			
+}
+
 	
 \input pgfmathfunctions.basic.code.tex
 \input pgfmathfunctions.trigonometric.code.tex
