@@ -128,19 +128,23 @@
     \pgfkeyslet{/tikz/data visualization/axes list}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/axes actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/label actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/grid actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/major grid actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/minor grid actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/subminor grid actions}\pgfutil@empty%
+    \pgfkeyslet{/tikz/data visualization/ticks actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/major ticks actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/minor ticks actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/subminor ticks actions}\pgfutil@empty%
     \tikz@main@dv.before visualization(%
+      \pgfkeysvalueof{/tikz/data visualization/grid actions}
       \pgfkeysvalueof{/tikz/data visualization/subminor grid actions}
       \pgfkeysvalueof{/tikz/data visualization/minor grid actions}
       \pgfkeysvalueof{/tikz/data visualization/major grid actions}
       \pgfkeysvalueof{/tikz/data visualization/axes actions}
     )%
     \tikz@main@dv.after visualization(%
+      \pgfkeysvalueof{/tikz/data visualization/ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/subminor ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/minor ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/major ticks actions}
@@ -417,10 +421,12 @@
     #1/scaling/.initial=,
     #1/scaling/default/.initial=0 at 0 and 1 at 1,
     #1/ticks at/.initial=,
+    #1/default ticks at/.initial=,
     #1/major ticks/.initial=,
     #1/minor ticks/.initial=,
     #1/subminor ticks/.initial=,
     #1/grid at/.initial=,
+    #1/default grid at/.initial=,
     #1/major grid/.initial=,
     #1/minor grid/.initial=,
     #1/subminor grid/.initial=,
@@ -450,13 +456,16 @@
   max extend/.initial=0pt,
   % General tick and grid keys:
   common/.initial=,
-  common/.code={\pgfkeysaddvalue{/tikz/data visualization/common}{}{,#1}},
   major/.initial=,
-  major/.code=\tikz@lib@dv@add@major{#1},
   minor/.initial=,
-  minor/.code=\tikz@lib@dv@add@minor{#1},
   subminor/.initial=,
-  subminor/.code=\tikz@lib@dv@add@subminor{#1},
+  @setup at setters/.style={
+    common/.code=\tikz@lib@dv@add@{common}{##1},
+    major/.code=\tikz@lib@dv@add@{major}{##1},
+    minor/.code=\tikz@lib@dv@add@{minor}{##1},
+    subminor/.code=\tikz@lib@dv@add@{subminor}{##1}
+  },
+  @setup at setters,
   % Tick keys
   direction axis/.initial=,
   value/.initial=,
@@ -475,14 +484,15 @@
   every subminor grid/.style={style={help lines,black!10}}
 }
 
-\def\tikz@lib@dv@add@major#1{\pgfkeysaddvalue{/tikz/data visualization/major}{}{,#1}}
-\def\tikz@lib@dv@add@minor#1{\pgfkeysaddvalue{/tikz/data visualization/minor}{}{,#1}}
-\def\tikz@lib@dv@add@subminor#1{\pgfkeysaddvalue{/tikz/data visualization/subminor}{}{,#1}}
+\def\tikz@lib@dv@add@#1#2{\pgfkeysaddvalue{/tikz/data visualization/#1}{}{,#2}}
 
 % Ticks at
 \tikzdatavisualizationset{
   at/.code={\def\tikz@dv@at@list{#1}},
   also at/.code={\expandafter\def\expandafter\tikz@dv@at@list\expandafter{\tikz@dv@at@list,#1}},
+  major at/.style={major={at={#1}}},
+  minor at/.style={minor={at={#1}}},
+  subminor at/.style={subminor={at={#1}}},
 }
 
 
@@ -541,17 +551,11 @@
   % Ticks settings
   %
   ticks/.style={\tikz@dv@axis/ticks at/.append={,#1}},
-  major ticks at/.style={ticks={major={at={#1}}}},
-  minor ticks at/.style={ticks={minor={at={#1}}}},
-  subminor ticks at/.style={ticks={subminor={at={#1}}}},
   visualize ticks/.code=\expandafter\tikz@lib@dv@tv\expandafter{\tikz@dv@axis}{#1},
   %
   % Grid settings
   %
   grid/.style={\tikz@dv@axis/grid at/.append={,#1}},
-  major grid at/.style={grid={major={at={#1}}}},
-  minor grid at/.style={grid={minor={at={#1}}}},
-  subminor grid at/.style={grid={subminor={at={#1}}}},
   visualize grid/.code=\expandafter\tikz@lib@dv@gv\expandafter{\tikz@dv@axis}{#1},
   % 
   % Visualizing axis labels
@@ -602,17 +606,47 @@
 
 \def\tikz@lib@dv@tv#1#2{
   \tikzdatavisualizationset{
+    ticks actions/.append={\tikz@lib@dv@default@action{ticks}{#1}{#2}},
     major ticks actions/.append={\tikz@lib@dv@show@ticks{major}{#1}{#2}},
     minor ticks actions/.append={\tikz@lib@dv@show@ticks{minor}{#1}{#2}},
     subminor ticks actions/.append={\tikz@lib@dv@show@ticks{subminor}{#1}{#2}}
   }
 }
 
-
+\def\tikz@lib@dv@default@action#1#2#3{%
+  {%
+    \pgfkeysgetvalue{#2/#1 at}\tikz@lib@dv@settings%
+    \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
+    % Normal minor etc. have no effect.
+    \tikzdatavisualizationset{major/.code=,minor/.code=,subminor/.code=,common/.code=}
+    \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@settings}%
+    \tikzdatavisualizationset{@setup at setters}%
+    \pgfkeysgetvalue{/tikz/data visualization/@compute default ats}\tikz@temp%
+    \ifx\tikz@temp\pgfutil@empty%
+      \global\let\tikz@marshal\pgfutil@empty%
+    \else
+      \tikzdatavisualizationset{@compute default ats}%  
+      % Save the values of the major/minor/subminor ats:
+      \xdef\tikz@marshal{
+        major={\pgfkeysvalueof{/tikz/data visualization/major}},
+        minor={\pgfkeysvalueof{/tikz/data visualization/minor}},
+        subminor={\pgfkeysvalueof{/tikz/data visualization/subminor}}}
+    \fi
+  }%
+  \pgfkeyslet{#2/default #1 at}\tikz@marshal
+}
 
 \def\tikz@lib@dv@show@ticks#1#2#3{%
   % First, check whether there is anything to do at all:
-  \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@settings%
+  \pgfkeysgetvalue{#2/default ticks at}\tikz@lib@dv@default@settings%
+  \ifx\tikz@lib@dv@default@settings\pgfutil@empty%
+    \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@settings%
+  \else%
+    \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@settings%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\tikz@lib@dv@settings%
+    \expandafter\expandafter\expandafter{\expandafter\tikz@lib@dv@default@settings\expandafter,\tikz@lib@dv@settings}
+  \fi%
   \ifx\tikz@lib@dv@settings\pgfutil@empty%
     % Great, nothing to do
   \else
@@ -720,6 +754,7 @@
 
 \def\tikz@lib@dv@gv#1#2{
   \tikzdatavisualizationset{
+    grid actions/.append={\tikz@lib@dv@default@action{grid}{#1}{#2}},
     major grid actions/.append={\tikz@lib@dv@show@grid{major}{#1}{#2}},
     minor grid actions/.append={\tikz@lib@dv@show@grid{minor}{#1}{#2}},
     subminor grid actions/.append={\tikz@lib@dv@show@grid{subminor}{#1}{#2}},
@@ -728,7 +763,15 @@
 
 \def\tikz@lib@dv@show@grid#1#2#3{%
   % First, check whether there is anything to do at all:
-  \pgfkeysgetvalue{#2/grid at}\tikz@lib@dv@settings%
+  \pgfkeysgetvalue{#2/default grid at}\tikz@lib@dv@default@settings%
+  \ifx\tikz@lib@dv@default@settings\pgfutil@empty%
+    \pgfkeysgetvalue{#2/grid at}\tikz@lib@dv@settings%
+  \else%
+    \pgfkeysgetvalue{#2/grid at}\tikz@lib@dv@settings%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\tikz@lib@dv@settings%
+    \expandafter\expandafter\expandafter{\expandafter\tikz@lib@dv@default@settings\expandafter,\tikz@lib@dv@settings}
+  \fi%
   \ifx\tikz@lib@dv@settings\pgfutil@empty%
     % Great, nothing to do
   \else
@@ -835,9 +878,12 @@
 
 \tikzdatavisualizationset{
   step/.initial=1,
+  minor steps between steps/.initial=,
+  minor steps between steps/.default=9,
   phase/.initial=0,
   typesetter/.initial=\pgfmathprintnumber,
-  linear/.code=\tikz@lib@dv@linear
+  @compute default ats/.initial=,
+  linear ats/.style={@compute default ats=\tikz@lib@dv@linear}
 }
 
 \def\tikz@lib@dv@linear{%
@@ -849,8 +895,22 @@
   \pgfmathsetmacro\tikz@temp{floor(\tikz@temp)}
   \pgfmathsetmacro\tikz@lib@dv@current{\tikz@temp*\pgfkeysvalueof{/tikz/data visualization/step}+\pgfkeysvalueof{/tikz/data visualization/phase}}
   \let\tikz@lib@dv@ats\pgfutil@empty%
+  \let\tikz@lib@dv@minor@ats\pgfutil@empty%
   \pgfmathsetmacro\tikz@lib@dv@epsilon{0.01*\pgfdvmax-0.01*\pgfdvmin}
+  \pgfkeysgetvalue{/tikz/data visualization/minor steps between steps}\tikz@lib@dv@substeps%
+  \ifx\tikz@lib@dv@substeps\pgfutil@empty
+  \else
+    \pgfmathsetmacro\tikz@temp{\tikz@lib@dv@substeps+1}%  
+    \pgfmathsetmacro\tikz@lib@dv@substep{\pgfkeysvalueof{/tikz/data visualization/step}/\tikz@temp}%
+  \fi
   \loop%
+    \ifx\tikz@lib@dv@substeps\pgfutil@empty%
+    \else%
+      \let\tikz@lib@dv@subcurrent=\tikz@lib@dv@current%
+      \pgfmathsetcount{\c@pgf@counta}{\tikz@lib@dv@substeps}%
+      \let\tikz@lib@dv@next=\tikz@lib@dv@subloop%
+      \tikz@lib@dv@subloop
+    \fi%
     \pgfmathlessthan{\tikz@lib@dv@current}{\pgfdvmin-\tikz@lib@dv@epsilon}
     \ifdim\pgfmathresult pt=1pt\relax
     \else
@@ -860,9 +920,25 @@
     \pgfmathlessthan{\tikz@lib@dv@current}{\pgfdvmax+\tikz@lib@dv@epsilon}
   \ifdim\pgfmathresult pt=1pt\relax
   \repeat%    
-  \tikzdatavisualizationset{major/.expanded={at={\tikz@lib@dv@ats}}}%
+  \tikzdatavisualizationset{major/.expanded={at={\tikz@lib@dv@ats}},minor/.expanded={at={\tikz@lib@dv@minor@ats}}}%
 }
 
+\def\tikz@lib@dv@subloop{
+  \pgfmathsetmacro{\tikz@lib@dv@subcurrent}{\tikz@lib@dv@subcurrent+\tikz@lib@dv@substep}
+  \pgfmathlessthan{\tikz@lib@dv@subcurrent}{\pgfdvmin}
+  \ifdim\pgfmathresult pt=1pt\relax
+  \else
+    \pgfmathlessthan{\tikz@lib@dv@subcurrent}{\pgfdvmax}
+    \ifdim\pgfmathresult pt=1pt\relax
+      \edef\tikz@lib@dv@minor@ats{\tikz@lib@dv@minor@ats,\tikz@lib@dv@subcurrent}
+    \fi
+  \fi
+  \advance\c@pgf@counta by-1\relax%
+  \ifnum\c@pgf@counta=0\relax%
+    \let\tikz@lib@dv@next=\relax
+  \fi
+  \tikz@lib@dv@next
+}
 
 %
 % Ticks about settings
@@ -870,7 +946,13 @@
 
 \tikzdatavisualizationset{
   about/.code=\tikz@lib@dv@about{#1},
-  about strategy/.initial={1.5pt/1.0pt,2.3pt/2.0pt,4pt/2.5pt,7pt/5pt,11pt/10pt},
+  about strategy/.initial=,
+  standard about strategy/.style={about strategy={1.5pt/1.0pt,2.3pt/2.0pt,4pt/2.5pt,7pt/5pt,11pt/10pt}},
+  standard about strategy,
+  euro about strategy/.style={about strategy={1.5pt/1.0pt,3pt/2.0pt,7pt/5pt,11pt/10pt}},
+  half about strategy/.style={about strategy={2pt/1.0pt,7pt/5pt,11pt/10pt}},
+  quarter about strategy/.style={about strategy={1.8pt/1.0pt,4pt/2.5pt,7pt/5pt,11pt/10pt}},
+  int about strategy/.style={about strategy={1.5pt/1.0pt,2.5pt/2.0pt,3.5pt/3.0pt,4.5pt/4.0pt,7pt/5pt,11pt/10pt}},
   few/.style={about=3},
   some/.style={about=5},
   many/.style={about=10}
@@ -1046,7 +1128,7 @@
       visualize axis={y axis={goto=0},style=->},
       visualize ticks={common={y axis={goto=0},direction axis=y axis},major={tick text at min extend}},
       visualize grid={common={direction axis=y axis}},
-      ticks={linear},
+      ticks={linear ats},
       min extend=-.666em,
       max extend=.666em,
       visualize label=visualize x axis label
@@ -1055,7 +1137,7 @@
       visualize axis={x axis={goto=0},style=->},
       visualize ticks={common={x axis={goto=0},direction axis=x axis},major={tick text at min extend}},
       visualize grid={common={direction axis=x axis}},
-      ticks={linear},
+      ticks={linear ats},
       min extend=-.666em,
       max extend=.666em,
       visualize label=visualize y axis label
@@ -1099,7 +1181,7 @@
     every ticks/.append style={style={thin,draw=black!50}},
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
-      ticks={linear},
+      ticks={linear ats},
       visualize ticks={common={y axis={goto=min},direction axis=y axis,min extend=0pt},major={tick text at min extend}},
       visualize ticks={common={y axis={goto=max},direction axis=y axis,max extend=0pt}},
       visualize axis={y axis={goto=min}},
@@ -1109,7 +1191,7 @@
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
-      ticks={linear},
+      ticks={linear ats},
       visualize ticks={common={x axis={goto=min},direction axis=x axis,min extend=0pt},major={tick text at min extend}},
       visualize ticks={common={x axis={goto=max},direction axis=x axis,max extend=0pt}},
       visualize axis={x axis={goto=min}},
