@@ -545,9 +545,70 @@ name) and assign the parameter value to it.
 \pgfkeys{/my key=hallo}
 \end{codeexample}
 
-There is a parameter for handled keys which proves to be useful in some (possibly rare) special cases:
+There are some parameters for handled keys which prove to be useful in some (possibly rare) special cases:
+\begin{key}{/handler config=\mchoice{all,only existing,full or existing} (initially all)}
+	Changes the initial configuration how key handlers will be used.
+
+	\begin{description}
+	\item[\texttt{all}]
+	The preconfigured setting |all| works as described above and imposes no restriction on the key setting process.
+
+	\item[\texttt{only existing}]
+	The value |only existing| modifies the algorithm for handled keys as follows: a handler \meta{key name}|/.|\meta{handler} will be executed only if \meta{key name} is either a key which stores its value directly or a command key for which |/.@cmd| exists. If \meta{key name} does \emph{not} exist already, the complete string \meta{key name}|/.|\meta{handler} is considered to be an unknown key and the procedure described in the next section applies (for the path of \meta{key name}).
+\begin{codeexample}[]
+% preparation:
+\pgfkeys{/the/key/.code={Initial definition. }}
+\pgfkeys{/handlers/.unknown/.code={Unknown key `\pgfkeyscurrentkey'. }}
+
+% calling the key yields 'Initial definition. ':
+\pgfkeys{/the/key}
+
+% Change configuration:
+\pgfkeys{/handler config=only existing}
+
+% allowed: key *re*-definition:
+\pgfkeys{/the/key/.code={Re-Definition. }}
+% calling the key yields 'Re-Definition. ':
+\pgfkeys{/the/key}
+
+% not allowed: definition of new keys:
+% this checks for '/the/other key/.unknown' 
+% and '/handlers/.unknown' 
+% and yields finally 
+% 'Unknown key `/the/other key/.code`'
+\pgfkeys{/the/other key/.code={New definition. }}
+\end{codeexample}
+	It is necessary to exclude some key handlers from this procedure. Altogether, the detailed procedure is as follows:
+	\begin{enumerate}
+		\item If a handled key like |/a path/a key/.a handler=value| is encountered, it is checked whether the handler should be invoked. This is the case if
+			\begin{itemize}
+				\item An exception from |only existing| for this key exists (see below),
+				\item The key |/a path/a key| exists already -- either directly as storage key or with the |.@cmd| suffix.
+			\end{itemize}
+		\item If the check passes, everything works as before.
+		\item If the check fails, the complete key will be considered to be unknown. In that case, the handling of unknown keys as described in the next section applies. There, the current key path will be set to |/a path| and the current key's name to |key/.a handler|.
+	\end{enumerate}
+
+	A consequence of this configuration is to provide more meaningful processing of handled keys if a search path for keys is in effect, see section~\ref{sec:pgf:unknown:keys} for an example.
+
+	\item[\texttt{full or existing}] Finally, the choice |full or existing| is a variant of |only existing|: it works in the same way for keys which do not have a full key path. For example, the style
+	
+	|\pgfkeys{/my path/.cd,key/.style={|$\dotsc$|}}|
+	
+	can only be redefined: it doesn't have a full path, so the |only existing| mechanism applies. But the style
+	
+	|\pgfkeys{/my path/key/.style={|$\dotsc$|}}| 
+	
+	will still work. This allows users to override the |only existing| feature if they know what they're doing (and provide full key paths).
+	\end{description}
+\end{key}
+\begin{key}{/handler config/only existing/add exception=\marg{key handler name}}
+	Allows to add exceptions to the |/handler config=only existing| feature. Initially exceptions for the key handlers
+	|.cd|, |.try|, |.retry|, |.lastretry| and |.unknown| are defined. The value \marg{key handler name} should be the name of a key handler.
+\end{key}
+
 \begin{command}{\pgfkeyssetdefaultpathforhandled\marg{key path prefix}}
-	Allows to change the default path for handled keys.
+	Changes the initial configuration how key handlers will be used: Allows to change the default path for handled keys.
 
 	The effect is: if a handled key was not fully qualified, its key path will be set to \meta{key path prefix}|/|.
 \begin{codeexample}[]
@@ -566,6 +627,8 @@ There is a parameter for handled keys which proves to be useful in some (possibl
 	\noindent shows that fully qualified handled keys won't be affected by the changed default path.
 
 	The Motivation for such changes is to provide well-defined handled keys if multiple search paths are in effect, see section~\ref{sec:pgf:unknown:keys} for an example.
+
+	Please note that |handler config| and |\pgfkeyssetdefaultpathforhandled| can't be combined.
 \end{command}
 
 \subsubsection{Keys That Are Unknown}
@@ -617,15 +680,46 @@ There is one special keys which occurs in the search path example above. What ha
 \noindent could mean a style in |/my search path/|, |/a/|, |/b/| or even |/b/c/|!
 
 Due to the rules for handled keys, the answer is |/my search path/custom/.style={variables}|.
+It may be useful to modify this default behavior. One useful thing would be to search for \emph{existing} styles named |custom| and redefine them. For example, if a style |/b/custom| exists, the assignment |custom/.style={variables}| should probably redefine |/b/custom| instead of |/my search path/custom|. This can be done using |handler config|:
+\begin{codeexample}[]
+\pgfkeys{/my search path/.unknown/.code=
+  {%
+    \let\searchname=\pgfkeyscurrentname%
+    \pgfkeysalso{%
+      /a/\searchname/.try=#1,
+      /b/\searchname/.retry=#1,
+      /b/c/\searchname/.retry=#1%
+    }%
+  }%
+}
 
-The command |\pgfkeyssetdefaultpathforhandled| can be used to change the default key path for handled keys (only). For example, 
+% Let's define /b/custom here:
+\pgfkeys{/b/custom/.code={This is `\pgfkeyscurrentkey'. }}
+
+% Reconfigure treatment of key handlers:
+\pgfkeys{/handler config=only existing}
+
+% The search path procedure will find /b/custom
+% -> leads to This is `/b/custom'
+\pgfkeys{/my search path/.cd,custom}
+
+% Due to the reconfiguration, this will find /b/custom instead of
+% defining /my search path/custom:
+\pgfkeys{/my search path/.cd,custom/.append code={Modified. }}
+
+% So using the search path, we again find /b/custom which 
+% leads to This is `/b/custom' Modified
+\pgfkeys{/my search path/.cd,custom}
+\end{codeexample}
+
+Alternatively, the command |\pgfkeyssetdefaultpathforhandled| can be used to change the default key path for handled keys (only). For example, 
 \begin{codeexample}[code only]
 \pgfkeyssetdefaultpathforhandled{/a}
 \pgfkeys{/my search path/.cd,custom/.style={variables}}
 \end{codeexample}
 \noindent leads to |/a/custom/.style|, although the remaining search ordering is unaffected. See the documentation of |\pgfkeyssetdefaultpathforhandled| for details.
 
-
+A slightly different approach to search paths can be realized using the |.search also| key handler, see below.
 \subsection{Key Handlers}
 
 We now describe which key handlers are defined by default. You can
@@ -654,6 +748,13 @@ also define new ones as described in Section~\ref{section-key-handlers}.
   \meta{key}|/.style=|\meta{key}|/.cd|, only the code produced by the
   |.is family| handler is quicker.
 \end{handler}
+
+\begin{handler}{{.search also}=\marg{path list}}
+	A style which installs a |.unknown| handler into \meta{key}. This |.unknown| handler will then search for unknown keys in every path provided in \marg{path list}.
+
+	To also enable searching for styles (or other handled keys), consider changing the configuration for handled keys to |/hander config=full or existing| when you use |.search also|.
+\end{handler}
+
 
 
 \subsubsection{Setting Defaults}

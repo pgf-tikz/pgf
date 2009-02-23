@@ -173,6 +173,18 @@
 
 \def\pgfkeysifdefined#1#2#3{\pgfkeys@ifcsname pgfk@#1\endcsname#2\else#3\fi}
 
+% Tests whether a key is assignable. For standard keys which just
+% store their value, this is identical to \pgfkeysifdefined.
+%
+% But \pgfkeysifassignable is true for command keys as well (but not
+% for handled keys).
+\def\pgfkeysifassignable#1#2#3{%
+  \pgfkeysifdefined{#1}%
+  	{#2}
+	{\pgfkeysifdefined{#1/.@cmd}%
+	  {#2}%
+	  {#3}}%
+}%
 
 
 
@@ -328,6 +340,10 @@
 }
 
 
+% either handled key or unknown.
+%
+% This macro will be replaced by the /handler config/handle only existing
+% configuration, see below.
 \def\pgfkeys@case@three{%
   \pgfkeys@split@path%
   \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}%
@@ -335,6 +351,37 @@
   	\pgfkeys@case@three@modifydefaultpath@if@needed
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
   {\pgfkeys@unknown}%
+}
+\let\pgfkeys@case@three@handleall=\pgfkeys@case@three
+\def\pgfkeys@case@three@handle@restricted{%
+  \pgfkeys@split@path%
+  \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}{%
+    \pgfkeys@ifexecutehandler{%
+	  \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+      \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov
+	}{%
+      % this here is necessary:  /my search path/key/.code
+      % won't be called, so \pgfkeyscurrentpath == '/my search path/key'
+      % -> it should be one directory higher! We want to invoke the
+	  %  .unknown handler in
+	  % '/my search path'
+	  %
+	  % Idea:
+	  % set 
+	  % - path := '/my search path'
+	  % - name := 'key/.code'
+	  % - key = '/my search path/key/.code'
+	  \let\pgfkeys@temp=\pgfkeyscurrentkey
+	  \let\pgfkeys@tempb=\pgfkeyscurrentname
+      \edef\pgfkeyscurrentkey{\pgfkeyscurrentpath}%
+      \pgfkeys@split@path%
+	  \let\pgfkeyscurrentkey=\pgfkeys@temp
+	  \edef\pgfkeyscurrentname{\pgfkeyscurrentname/\pgfkeys@tempb}%
+  	  \pgfkeys@unknown
+	}%
+  }{%
+  	\pgfkeys@unknown
+  }%
 }
 
 % Allows to change the default path for handled keys.
@@ -382,6 +429,49 @@
 	\fi
 }%
 
+% this macro is to implement the |handly only existing| key in key filtering:
+% #1: the code to invoke IF the key handler shall be executed
+% #2: the code to invoke if it shall not run.
+\def\pgfkeys@ifexecutehandler#1#2{#1}%
+\let\pgfkeys@ifexecutehandler@handleall=\pgfkeys@ifexecutehandler
+\def\pgfkeys@ifexecutehandler@handleonlyexisting#1#2{%
+  \pgfkeys@ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+     #1% ok, this particular key handler is known and be processed in any case (for example .try)
+  \else
+     % implement the 'only existing' feature here:
+     \pgfkeysifdefined{\pgfkeyscurrentpath}{#1}{%
+		\pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{#1}{#2}%
+     }%
+  \fi%
+}%
+\def\pgfkeys@ifexecutehandler@handlefullorexisting#1#2{%
+  \ifpgfkeysaddeddefaultpath
+    \pgfkeys@ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+%\message{ifexecutehandler(\pgfkeyscurrentkeyRAW, path \pgfkeysdefaultpath): '\pgfkeyscurrentname' is an exception; processing it (on \pgfkeyscurrentpath).}%
+       #1% ok, this particular key handler is known and be processed in any case (for example .try)
+    \else
+       % implement the 'only existing' feature here:
+       \pgfkeysifdefined{\pgfkeyscurrentpath}{%
+%\message{ifexecutehandler(\pgfkeyscurrentkeyRAW, path \pgfkeysdefaultpath): '\pgfkeyscurrentpath' does exist. Executing '\pgfkeyscurrentname'.}%
+          #1%
+		}{%
+			\pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{%
+%\message{ifexecutehandler(\pgfkeyscurrentkeyRAW, path \pgfkeysdefaultpath): '\pgfkeyscurrentpath/.@cmd' does exist. Executing '\pgfkeyscurrentname'.}%
+               #1%
+            }{%
+%\message{ifexecutehandler(\pgfkeyscurrentkeyRAW, path \pgfkeysdefaultpath): '\pgfkeyscurrentpath' does NOT exist. Skipping '\pgfkeyscurrentname'.}%
+               #2
+            }%
+        }%
+    \fi%
+  \else
+%\message{ifexecutehandler(\pgfkeyscurrentkeyRAW, path \pgfkeysdefaultpath): Fully qualified key provided. Executing '\pgfkeyscurrentname'.}%
+    #1% ok, always true if the USER explicitly provided the full key path.
+  \fi
+}%
+\def\pgfkeysaddhandlyonlyexistingexception#1{\expandafter\def\csname pgfk@excpt@#1\endcsname{1}}%
+
+
 \def\pgfkeys@unknown{%
   \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
   {%
@@ -418,16 +508,22 @@
 \newif\ifpgfkeysaddeddefaultpath
 \def\pgfkeys@check@slash{%
   \ifx\pgfkeys@possibleslash/%
-  	\pgfkeysaddeddefaultpathfalse
     \expandafter\pgfkeys@nevermind%
   \else%
-  	\pgfkeysaddeddefaultpathtrue
     \expandafter\pgfkeys@addpath%
   \fi%
 }
 
-\def\pgfkeys@nevermind#1\relax{}
-\def\pgfkeys@addpath#1\relax{\edef\pgfkeyscurrentkey{\pgfkeysdefaultpath#1}}
+\def\pgfkeys@nevermind#1\relax{%
+  \pgfkeysaddeddefaultpathfalse
+  \let\pgfkeyscurrentkeyRAW\pgfkeyscurrentkey
+}
+\def\pgfkeys@addpath#1\relax{%
+  \pgfkeysaddeddefaultpathtrue
+  \def\pgfkeyscurrentkeyRAW{#1}%
+  \edef\pgfkeyscurrentkey{\pgfkeysdefaultpath#1}%
+}
+
 
 \def\pgfkeys@split@path{% Should assign the two codes
                        % \pgfkeyscurrentname and \pgfcurrentlkeypath
@@ -677,8 +773,67 @@
 
 % Path handling
 
-\pgfkeys{/handlers/.is family/.code=\pgfkeys{\pgfkeyscurrentpath/.ecode=\edef\noexpand\pgfkeysdefaultpath{\pgfkeyscurrentpath/}}}
-\pgfkeys{/handlers/.cd/.code=\edef\pgfkeysdefaultpath{\pgfkeyscurrentpath/}}
+% Prepares the .unknown handler used by '.search also'.
+% It will be stored into \pgfkeys@global@temp.
+\def\pgfkeys@searchalso@prepare@unknown@handler#1{%
+  \global\def\pgfkeys@global@temp##1\pgfeov{}%
+  \pgfkeys@searchalso@parse#1,\pgfkeys@mainstop
+  {%
+  	\toks0=\expandafter{\pgfkeys@global@temp##1\pgfeov}%
+	\toks1={\def\pgfutilnext{\pgfkeysvalueof{/handlers/.unknown/.@cmd}##1\pgfeov}\pgfutilnext}%
+	\xdef\pgfkeys@global@temp{%
+		\noexpand\ifpgfkeysaddeddefaultpath
+			\noexpand\pgfkeyssuccessfalse
+			\noexpand\let\noexpand\pgfkeys@searchalso@name=\noexpand\pgfkeyscurrentkeyRAW
+			\the\toks0 % one or more /.try things; one for each path. The last element won't have a /.try
+			%\noexpand\ifpgfkeyssuccess
+			%\noexpand\else
+			%	\the\toks1 % invoke /handlers/.unknown handler
+			%\noexpand\fi
+		\noexpand\else
+			\the\toks1 % invoke /handlers/.unknown handler
+		\noexpand\fi
+	}%
+	\expandafter\gdef\expandafter\pgfkeys@global@temp\expandafter##\expandafter1\expandafter\pgfeov\expandafter{\pgfkeys@global@temp}%
+  }%
+}%
+
+\def\pgfkeys@searchalso@parse{\futurelet\pgfkeys@possiblerelax\pgfkeys@searchalso@parse@main}
+\def\pgfkeys@searchalso@parse@main{%
+  \ifx\pgfkeys@possiblerelax\pgfkeys@mainstop%
+    \expandafter\pgfkeys@cleanup%
+  \else%
+    \expandafter\pgfkeys@searchalso@appendentry%
+  \fi%
+}
+\def\pgfkeys@searchalso@appendentry#1,#2{%
+  \def\pgfkeys@searchalso@nexttok{#2}%
+  \pgfkeys@spdef\pgfkeys@temp{#1}%
+  {%
+    \toks0=\expandafter{\pgfkeys@global@temp##1\pgfeov}%
+	\toks1=\expandafter{\pgfkeys@temp}%
+	\toks2={##1}%
+	\xdef\pgfkeys@global@temp{%
+		\the\toks0 % the space is important!
+		\noexpand\ifpgfkeyssuccess\noexpand\else
+			\noexpand\pgfqkeys{\the\toks1 }{\noexpand\pgfkeys@searchalso@name
+               \ifx\pgfkeys@searchalso@nexttok\pgfkeys@mainstop\else/.try\fi={\the\toks2 }}%
+%\noexpand%
+%\message{Found \noexpand\pgfkeys@searchalso@name\space in #1: \noexpand\ifpgfkeyssuccess true!\noexpand\else false.\noexpand\fi}%
+		\noexpand\fi}%
+	\expandafter\gdef\expandafter\pgfkeys@global@temp\expandafter##\expandafter1\expandafter\pgfeov\expandafter{\pgfkeys@global@temp}%
+  }%
+  \pgfkeys@searchalso@parse#2%
+}
+\pgfkeys{%
+	/handlers/.is family/.code=\pgfkeys{\pgfkeyscurrentpath/.ecode=\edef\noexpand\pgfkeysdefaultpath{\pgfkeyscurrentpath/}},%
+	/handlers/.cd/.code=\edef\pgfkeysdefaultpath{\pgfkeyscurrentpath/},%
+	/handlers/.search also/.code={%
+		\pgfkeys@searchalso@prepare@unknown@handler{#1}%
+%\message{I prepared the '\pgfkeyscurrentpath/.unknown' handler \meaning\pgfkeys@global@temp\space for '#1'.}%
+		\pgfkeyslet{\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@global@temp}%
+	}
+}%
 
 
 % Value expansion
@@ -695,16 +850,15 @@
 \pgfkeys{/handlers/.try/.code=\pgfkeys@try}
 \pgfkeys{/handlers/.retry/.code=\ifpgfkeyssuccess\else\pgfkeys@try\fi}
 \def\pgfkeys@try{%
+  \edef\pgfkeyscurrentkey{\pgfkeyscurrentpath}% make sure that \pgfkeys@code doesn't know about 'try'. Important for .is choice
+  \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text% Hmm... no value
+    \pgfkeysifdefined{\pgfkeyscurrentpath/.@def}%
+    {\pgfkeysgetvalue{\pgfkeyscurrentpath/.@def}{\pgfkeyscurrentvalue}}
+    {}% no default, so leave it
+  \fi%
   \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}%
   {%
     \pgfkeysgetvalue{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@code}%
-    \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text% Hmm... no value
-      \pgfkeysifdefined{\pgfkeyscurrentpath/.@def}%
-      {\pgfkeysgetvalue{\pgfkeyscurrentpath/.@def}{\pgfkeyscurrentvalue}}
-      {}% no default, so leave it
-    \fi%
-	\let\pgfkeyscurrentkey=\pgfkeyscurrentpath% make sure that \pgfkeys@code doesn't know about 'try'. Important for .is choice
-	% FIXME: maybe there are more things like that - also adjust currentname!?
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov%
     \pgfkeyssuccesstrue%
   }%
@@ -718,7 +872,23 @@
       \fi%
       \pgfkeyssuccesstrue%
     }%
-    {\pgfkeyssuccessfalse}%
+    {%
+      \pgfkeys@split@path%
+      \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}{%
+	    % in the standard configuration, this check here is redundand
+	    % because pgfkeys@ifexecutehandler === true.
+		% It is only interesting for 'handle only existing'.
+        \pgfkeys@ifexecutehandler{%
+	      \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+          \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov
+          \pgfkeyssuccesstrue%
+    	}{%
+	      \pgfkeyssuccessfalse
+    	}%
+      }{%
+	    \pgfkeyssuccessfalse
+      }%
+	}%
   }%
 }
 
@@ -750,6 +920,28 @@
     \pgfkeysalso{/errors/unknown key=\pgfkeys@orig@key{}}%
   }
 }
+
+\pgfkeys{
+	/handler config/.is choice,
+	/handler config/all/.code={%
+		\let\pgfkeys@case@three=\pgfkeys@case@three@handleall
+		\let\pgfkeys@ifexecutehandler=\pgfkeys@ifexecutehandler@handleall
+	},
+	/handler config/only existing/.code={%
+		\let\pgfkeys@case@three=\pgfkeys@case@three@handle@restricted
+		\let\pgfkeys@ifexecutehandler=\pgfkeys@ifexecutehandler@handleonlyexisting
+	},
+	/handler config/full or existing/.code={%
+		\let\pgfkeys@case@three=\pgfkeys@case@three@handle@restricted
+		\let\pgfkeys@ifexecutehandler=\pgfkeys@ifexecutehandler@handlefullorexisting
+	},
+	/handler config/only existing/add exception/.code={\pgfkeysaddhandlyonlyexistingexception{#1}},
+}%
+\pgfkeysaddhandlyonlyexistingexception{.cd}%
+\pgfkeysaddhandlyonlyexistingexception{.try}%
+\pgfkeysaddhandlyonlyexistingexception{.retry}%
+\pgfkeysaddhandlyonlyexistingexception{.lastretry}%
+\pgfkeysaddhandlyonlyexistingexception{.unknown}%
 
 
 \input pgfkeysfiltered.code.tex
