@@ -433,6 +433,8 @@
     #1/label/.initial=,
     #1/min/.initial=min,
     #1/max/.initial=max,
+    #1/padding min/.initial=,
+    #1/padding max/.initial=,
     #1/.code={
       \let\tikz@temp\tikz@dv@axis%
       \def\tikz@dv@axis{/tikz/data visualization/#1}%
@@ -451,9 +453,11 @@
   node style/.style={node styling/.append style={#1}},
   grid styling/.style=,
   grid style/.style={grid styling/.append style={#1}},
-  % General extends (both axis and ticks)
-  min extend/.initial=0pt,
-  max extend/.initial=0pt,
+  % General extends (both axes, grid and ticks)
+  low/.initial=0,
+  high/.initial=0,
+  padded/.style={low=padded min,high=padded max},
+  tick length/.style={low={-#1},high={#1}},
   % General tick and grid keys:
   common/.initial=,
   major/.initial=,
@@ -470,15 +474,15 @@
   direction axis/.initial=,
   value/.initial=,
   pos/.initial=,
-  tick text at min extend/.is if=tikz@dv@min@tick@node,
-  tick text at max extend/.is if=tikz@dv@max@tick@node,
-  no tick text/.style={tick text at min extend=false,tick text at max extend=false},
-  every major ticks/.style={style={line cap=round},min extend=-2pt,max extend=2pt},
-  every minor ticks/.style={style={help lines,thin,line cap=round},min extend=-1.4pt,max extend=1.4pt},
-  every subminor ticks/.style={style={help lines,line cap=round},min extend=-0.8pt,max extend=0.8pt},
+  tick text at low/.is if=tikz@dv@min@tick@node,
+  tick text at high/.is if=tikz@dv@max@tick@node,
+  no tick text/.style={tick text at low=false,tick text at high=false},
+  every major ticks/.style={style={line cap=round},tick length=2pt},
+  every minor ticks/.style={style={help lines,thin,line cap=round},tick length=1.4pt},
+  every subminor ticks/.style={style={help lines,line cap=round},tick length=0.8pt},
   clean ticks/.style={node style={fill=white}},
   % Default grid styles
-  grid style={max extend=max,min extend=min},
+  grid style={high=max,low=min},
   every major grid/.style={style={help lines,thin,black!25}},
   every minor grid/.style={style={help lines,black!25}},
   every subminor grid/.style={style={help lines,black!10}}
@@ -536,13 +540,14 @@
     \tikz@dv@axis/function=\pgfmathparse{ln(\pgfvalue)},
     \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1
   },
-  min/.style={\tikz@dv@axis/min={#1}},
-  max/.style={\tikz@dv@axis/max={#1}},
+  padding min/.style={\tikz@dv@axis/padding min={#1}},
+  padding max/.style={\tikz@dv@axis/padding max={#1}},
+  padding/.style={padding min={-#1},padding max={#1}},
   label/.style={\tikz@dv@axis/label={#1}},
   %
   % Attribute setter
   %
-  goto/.code={\pgfkeysvalueof{\tikz@dv@axis/scaling mapper}.set in to(#1)},
+  goto/.code={\tikz@dv@goto{\tikz@dv@axis}{#1}},
   %
   % Visualization setters
   %
@@ -576,7 +581,7 @@
 }
 
 \def\tikz@lib@dv@show@axis#1#2{%
-  \scope[/tikz/data visualization/.cd,every axis/.try,#2]
+  \scope[/tikz/data visualization/.cd,low=min,high=max,every axis/.try,#2]
     \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@axis@mapper
     % Ok, calculate direction vector:
     \tikzpointandanchordirection{\tikz@dv@axis@mapper.set in to(min)}{\tikz@dv@axis@mapper.set in to(max)}
@@ -584,32 +589,38 @@
     \path[draw,/tikz/data visualization/styling]
     \pgfextra{
       {
-        \pgfkeysgetvalue{#1/min}\tikz@dv@temp%
-        \expandafter\tikz@dv@parse@position@value\tikz@dv@temp\pgf@stop{\pgfkeysvalueof{#1/scaling mapper}}
+        \tikz@dv@goto{#1}{\pgfkeysvalueof{/tikz/data visualization/low}}%
         \pgfpathdvmoveto%
       }
       {
-        \pgfkeysgetvalue{#1/max}\tikz@dv@temp%
-        \expandafter\tikz@dv@parse@position@value\tikz@dv@temp\pgf@stop{\pgfkeysvalueof{#1/scaling mapper}}
+        \tikz@dv@goto{#1}{\pgfkeysvalueof{/tikz/data visualization/high}}%
         \pgfpathdvlineto%
       }
     };
   \endscope
 }
 
-\def\tikz@dv@parse@position@value#1\pgf@stop#2{%
-  \pgfutil@in@{padding}{#1}%
-  \ifpgfutil@in@%
-    \tikz@dv@parse@position@value@#1\pgf@stop{#2}%
-  \else
-    \tikz@dv@parse@position@value@#1 padding\pgf@stop{#2}%
-  \fi
-}
-\def\tikz@dv@parse@position@value@#1 padding#2\pgf@stop#3{%
-  #3.set in to(#1)
-  #3.get out()
-  \pgfkeyssetvalue{/data point/\pgfdvout/offset}{#2}
-}
+\def\tikz@dv@goto#1#2{%
+  \edef\pgf@temp{#2}%
+  \ifx\pgf@temp\tikz@lib@dv@padded@min@text%
+    \pgfkeysvalueof{#1/scaling mapper}.set in to(min)%
+    \pgfkeysvalueof{#1/scaling mapper}.get out()%
+    \pgfkeysgetvalue{#1/padding min}\pgf@temp%
+    \pgfkeyslet{/data point/\pgfdvout/offset}\pgf@temp%
+  \else%
+    \ifx\pgf@temp\tikz@lib@dv@padded@max@text%
+      \pgfkeysvalueof{#1/scaling mapper}.set in to(max)%
+      \pgfkeysvalueof{#1/scaling mapper}.get out()%
+      \pgfkeysgetvalue{#1/padding max}\pgf@temp%
+      \pgfkeyslet{/data point/\pgfdvout/offset}\pgf@temp%
+    \else%
+      \pgfkeysvalueof{#1/scaling mapper}.set in to(#2)%
+    \fi%
+  \fi%
+}       
+
+\def\tikz@lib@dv@padded@min@text{padded min}
+\def\tikz@lib@dv@padded@max@text{padded max}
 
 % Ticks visualization 
 %
@@ -693,9 +704,9 @@
             \tikzpointandanchordirection{\pgf@dv@tick@dir@mapper.set in to(min)}{\pgf@dv@tick@dir@mapper.set in to(max)}
             \xdef\pgf@dv@tick@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
             % Now, show something:
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/max extend}}{\pgf@dv@tick@dir}}}
+            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
             \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/min extend}}{\pgf@dv@tick@dir}}}
+            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
             \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
             \draw[/tikz/data visualization/styling]
                  (\tikz@dv@min@tick) \iftikz@dv@min@tick@node \tikz@dv@handle@tick{\tikz@dv@min@anchor} \fi
@@ -802,7 +813,7 @@
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@temp}
         \pgfkeysgetvalue{/tikz/data visualization/#1}\tikz@temp
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@temp}
-        \pgfkeysgetvalue{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/direction axis}/scaling mapper}\pgf@dv@grid@dir@mapper
+        \edef\tikz@lib@dv@dir@axis{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/direction axis}}%
         % Ok, now it's time to draw the grid!
         \foreach \tikz@dv@grid@pos in \tikz@dv@at@list 
         {
@@ -815,9 +826,9 @@
             \draw[/tikz/data visualization/styling]
               \pgfextra{
                 % First, compute start of grid:
-                \pgf@dv@grid@dir@mapper.set in to(\pgfkeysvalueof{/tikz/data visualization/min extend})%
+                \tikz@dv@goto{\tikz@lib@dv@dir@axis}{\pgfkeysvalueof{/tikz/data visualization/low}}%
                 \pgfpathdvmoveto%
-                \pgf@dv@grid@dir@mapper.set in to(\pgfkeysvalueof{/tikz/data visualization/max extend})%
+                \tikz@dv@goto{\tikz@lib@dv@dir@axis}{\pgfkeysvalueof{/tikz/data visualization/high}}%
                 \pgfpathdvlineto%
               };
           \fi
@@ -854,22 +865,15 @@
         \else%
           % Special treatment of "min" and "max"
           \ifx\tikz@lib@dv@at\pgf@min@text%
-            % Ok, calculate direction vector:
-            \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
-            \tikzset{anchor=\tikz@dv@min@anchor}
-            \pgfkeysgetvalue{#1/min}{\tikz@dv@temp}
-            \expandafter\tikz@dv@parse@position@value\tikz@dv@temp\pgf@stop{\tikz@dv@mapper}%
-          \else%
-            \ifx\tikz@lib@dv@at\pgf@max@text%
-              % Ok, calculate direction vector:
-              \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
-              \tikzset{anchor=\tikz@dv@max@anchor}
-              \pgfkeysgetvalue{#1/max}{\tikz@dv@temp}
-              \expandafter\tikz@dv@parse@position@value\tikz@dv@temp\pgf@stop{\tikz@dv@mapper}%
-            \else%
-              \expandafter\tikz@dv@parse@position@value\tikz@lib@dv@at\pgf@stop{\tikz@dv@mapper}%
-            \fi%
-          \fi%
+            \tikz@lib@dv@special@at{\tikz@dv@min@anchor}
+          \else \ifx\tikz@lib@dv@at\tikz@lib@dv@padded@min@text%
+            \tikz@lib@dv@special@at{\tikz@dv@min@anchor}
+          \else \ifx\tikz@lib@dv@at\pgf@max@text%
+            \tikz@lib@dv@special@at{\tikz@dv@max@anchor}
+          \else \ifx\tikz@lib@dv@at\tikz@lib@dv@padded@max@text%
+            \tikz@lib@dv@special@at{\tikz@dv@max@anchor}
+          \fi\fi\fi\fi%
+          \tikz@dv@goto{#1}{\tikz@lib@dv@at}%
           \pgftransformshift{\pgfpointdvlocaldatapoint}%           
         \fi%
       \else%
@@ -881,6 +885,11 @@
       \expandafter\tikz@lib@dv@parse@node\tikz@dv@lib@label\pgf@stop
     \endscope
   \fi
+}
+\def\tikz@lib@dv@special@at#1{%
+  % Ok, calculate direction vector:
+  \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
+  \tikzset{anchor=#1}
 }
 
 \def\tikz@lib@dv@parse@node{\pgfutil@ifnextchar[\tikz@lib@dv@parse@node@opt{\tikz@lib@dv@parse@node@opt[]}}%}
@@ -1163,22 +1172,20 @@
   school book axes/.style={
     xy Cartesian,
     x axis={
-      visualize axis={y axis={goto=0},style=->},
-      visualize ticks={common={y axis={goto=0},direction axis=y axis},major={tick text at min extend}},
-      visualize grid={common={direction axis=y axis}},
+      visualize axis={y axis={goto=0},style=->,padded},
+      visualize ticks={common={y axis={goto=0},direction axis=y axis},major={tick text at low}},
+      visualize grid={common={direction axis=y axis,padded}},
       ticks={step=1},
-      min=min padding -.666em,
-      max=max padding .666em,
-      visualize label=visualize x axis label
+      padding=.666em,
+      visualize label={visualize x axis label}
     },
     y axis={
-      visualize axis={x axis={goto=0},style=->},
-      visualize ticks={common={x axis={goto=0},direction axis=x axis},major={tick text at min extend}},
-      visualize grid={common={direction axis=x axis}},
+      visualize axis={x axis={goto=0},style=->,padded},
+      visualize ticks={common={x axis={goto=0},direction axis=x axis},major={tick text at low}},
+      visualize grid={common={direction axis=x axis,padded}},
       ticks={step=1},
-      min=min padding -.666em,
-      max=max padding .666em,
-      visualize label=visualize y axis label
+      padding=.666em,
+      visualize label={visualize y axis label}
     },
     school book axes standard labels,
     every school book axes/.try
@@ -1193,11 +1200,11 @@
   % Place labels at the ends of the axes
   school book axes standard labels/.style={
     visualize x axis label/.style={
-      value=max,
+      value=padded max,
       y axis={goto=0}
     },
     visualize y axis label/.style={
-      value=max,
+      value=padded max,
       x axis={goto=0}
     }
   }
@@ -1215,28 +1222,79 @@
   scientific axes/height/.initial=0.618*\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},% golden ratio...
   scientific axes/.style={
     xy Cartesian,
-    every axis/.append style={style={thin,draw=black!50}},
-    every ticks/.append style={style={thin,draw=black!50}},
+    every axis/.append style={style={draw=black!50}},
+    every ticks/.append style={style={draw=black!50}},
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
       ticks={some},
-      visualize ticks={common={y axis={goto=min},direction axis=y axis,min extend=0pt},major={tick text at min extend}},
-      visualize ticks={common={y axis={goto=max},direction axis=y axis,max extend=0pt}},
-      visualize axis={y axis={goto=min}},
-      visualize axis={y axis={goto=max}},
-      visualize grid={common={direction axis=y axis}},
+      visualize ticks={common={y axis={goto=padded min},direction axis=y axis,high=0pt},major={tick text at low}},
+      visualize ticks={common={y axis={goto=padded max},direction axis=y axis,low=0pt}},
+      visualize axis={y axis={goto=padded min},padded},
+      visualize axis={y axis={goto=padded max},padded},
+      visualize grid={common={direction axis=y axis,padded}},
       visualize label=visualize x axis label
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
       ticks={some},
-      visualize ticks={common={x axis={goto=min},direction axis=x axis,min extend=0pt},major={tick text at min extend}},
-      visualize ticks={common={x axis={goto=max},direction axis=x axis,max extend=0pt}},
-      visualize axis={x axis={goto=min}},
-      visualize axis={x axis={goto=max}},
-      visualize grid={common={direction axis=x axis}},
+      visualize ticks={common={x axis={goto=padded min},direction axis=x axis,high=0pt},major={tick text at low}},
+      visualize ticks={common={x axis={goto=padded max},direction axis=x axis,low=0pt}},
+      visualize axis={x axis={goto=padded min},padded},
+      visualize axis={x axis={goto=padded max},padded},
+      visualize grid={common={direction axis=x axis,padded}},
       visualize label=visualize y axis label
     },
+    scientific axes standard labels,
+    every scientific axes/.try
+  },
+  scientific inner axes/.style={
+    xy Cartesian,
+    every axis/.append style={style={draw=black!50}},
+    every ticks/.append style={style={draw=black!50}},
+    x axis={
+      length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
+      ticks={some},
+      visualize ticks={common={y axis={goto=padded min},direction axis=y axis,low=0pt},major={tick text at low}},
+      visualize ticks={common={y axis={goto=padded max},direction axis=y axis,high=0pt}},
+      visualize axis={y axis={goto=padded min},padded},
+      visualize axis={y axis={goto=padded max},padded},
+      visualize grid={common={direction axis=y axis,padded}},
+      visualize label=visualize x axis label
+    },
+    y axis={
+      length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
+      ticks={some},
+      visualize ticks={common={x axis={goto=padded min},direction axis=x axis,low=0pt},major={tick text at low}},
+      visualize ticks={common={x axis={goto=padded max},direction axis=x axis,high=0pt}},
+      visualize axis={x axis={goto=padded min},padded},
+      visualize axis={x axis={goto=padded max},padded},
+      visualize grid={common={direction axis=x axis,padded}},
+      visualize label=visualize y axis label
+    },
+    scientific axes standard labels,
+    every scientific axes/.try
+  },
+  scientific clear axes/.style={
+    xy Cartesian,
+    x axis={
+      length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
+      ticks={some},
+      visualize ticks={common={y axis={goto=padded min},direction axis=y axis,high=0pt},major={tick text at low}},
+      visualize axis={y axis={goto=padded min}},
+      visualize grid={common={direction axis=y axis}},
+      visualize label=visualize x axis label,
+      grid={major={also at={min,max}}},
+    },
+    y axis={
+      length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
+      ticks={some},
+      visualize ticks={common={x axis={goto=padded min},direction axis=x axis,high=0pt},major={tick text at low}},
+      visualize axis={x axis={goto=padded min}},
+      visualize grid={common={direction axis=x axis}},
+      visualize label=visualize y axis label,
+      grid={major={also at={min,max}}},
+    },
+    all axes={padding=.5em},
     scientific axes standard labels,
     every scientific axes/.try
   },
@@ -1254,7 +1312,7 @@
     visualize x axis label/.style={
       % Horizontal position is middle of axis:
       pos=0.5,
-      y axis={goto=min},
+      y axis={goto=padded min},
       % Vertical position comes from bounding box:
       node style={
         at={(0,0 |- data visualization bounding box.south)},
@@ -1264,7 +1322,7 @@
     visualize y axis label/.style={%
       % Vertical position is middle of axis:
       pos=0.5,
-      x axis={goto=min},
+      x axis={goto=padded min},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.west)},
@@ -1280,7 +1338,7 @@
     visualize y axis label/.style={%
       % Vertical position is middle of axis:
       pos=0.5,
-      x axis={goto=min},
+      x axis={goto=padded min},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.west)},
@@ -1294,7 +1352,7 @@
   scientific axes end labels/.style={
     visualize x axis label/.style={
       value=max,
-      y axis={goto=min},
+      y axis={goto=padded min},
       % Vertical position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.east)},
@@ -1303,7 +1361,7 @@
     },
     visualize y axis label/.style={
       value=max,
-      x axis={goto=min},
+      x axis={goto=padded min},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 |- data visualization bounding box.north)},
