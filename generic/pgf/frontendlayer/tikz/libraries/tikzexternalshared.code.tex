@@ -104,6 +104,19 @@
 		}%
 	},
 	optimize command away=\includegraphics,
+	% EXPERIMENTAL (UNTESTED):
+	optimize latex env away/.code={%
+		\expandafter\let\expandafter\pgf@tempa\csname #1\endcsname
+		\expandafter\global\expandafter\let\csname #1@ORIG\endcsname=\pgf@tempa%
+		\pgfkeysalso{%
+			/tikz/external/optimize/install/.append code={%
+				\pgfutil@namedef{#1}{\tikzexternal@optimize@away@latex@env{#1}}%
+			},
+			/tikz/external/optimize/restore/.append code={%
+				\pgfutil@namelet{#1}{#1@ORIG}%
+			}%
+		}%
+	},
 	only named/.is if=tikzexternal@onlynamed,
 	only named/.default=true,
 	prefix/.code={\tikzsetexternalprefix{#1}},
@@ -174,6 +187,9 @@
 %    This is really difficult for LaTeX because \end{tikzpicture} either involves dirty
 %    catcode-hacks to parse the braces or an ugly loop which loops until it
 %	finds \end followed by {tikzpicture}. 
+% 
+% #1: a macro which will be called with the collected environment contents.
+% all following tokens: the environment contents.
 \long\gdef\tikzexternal@TEXDIALECT@collectpicture#1#2\endtikzpicture{#1{#2}}
 %
 % 2. the following commands should expand to the TeX-dialect specific begin and end image command, i.e.
@@ -207,8 +223,16 @@
 	\leavevmode
 	\tikzexternal@getnextfilename\tikzexternal@curfilename
 	\ifx\tikzexternal@curfilename\pgfutil@empty
-		% no externalization:
-		\let\tikzexternal@next=\tikzexternal@normalpicture@nographics
+		% This picture won't be externalized.
+		% But maybe we can optimize it away:
+		\iftikzexternal@optimize
+			% -> it won't be shipped out anyway, so save typesetting time!
+			\let\tikzexternal@next=\tikzexternal@skipfigure
+		\else
+			% include this graphics into the output (even it
+			% it will be discarded anyway).
+			\let\tikzexternal@next=\tikzexternal@normalpicture@nographics
+		\fi
 	\else
 		\ifpgf@external@grabshipout
 			\edef\pgf@tempa{\expandafter\string\csname\tikzexternal@curfilename\endcsname}%
@@ -382,6 +406,21 @@
 	\immediate\write16{The command '\the\toks0' has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
 	[ {\sc \string#1\ optimized away because it does not contribute to exported PDF}]%
 	\endgroup
+}%
+
+\def\tikzexternal@optimize@away@latex@env#1{%
+	\def\tikzexternal@optimize@away@latex@env@{#1}%
+	\begingroup
+		\def\tikzexternal@laTeX@collect@until@end@tikzpicturetikzpicturestring{#1}%
+		\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@optimize@away@latex@env@close
+}%
+\long\def\tikzexternal@optimize@away@latex@env@close#1{%
+	\immediate\write16{The complete contents of \string\begin{tikzexternal@optimize@away@latex@env@} up to the next \end{tikzexternal@optimize@away@latex@env@} has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+	\endgroup
+	% we still need to invoke \end{<name>} in latex because \begin{<name>}
+	% starts a local group - that must be closed properly. Make sure then \end<name> does nothing:
+	\expandafter\let\csname end\tikzexternal@optimize@away@latex@env@\endcsname=\relax
+	\expandafter\end\expandafter{\tikzexternal@optimize@away@latex@env@}%
 }%
 
 \def\tikzexternal@optimize@REPLACE{%
