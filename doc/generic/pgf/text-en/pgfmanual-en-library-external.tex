@@ -89,6 +89,48 @@ Finally, all images will be converted. From this point on, successive runs of \L
 	The \meta{optional argument} can be any of the keys described below.
 \end{command}
 
+\begin{key}{/tikz/external/system call=\marg{template}}
+\label{extlib:systemcall:option}
+	A template string used to generate system calls. Inside of \marg{template}, the macro |\image| can be used as placeholder for the image which is about to be generated while |\texsource| contains the main file name.
+
+	The default is 
+\begin{codeexample}[code only]
+\tikzset{external/system call={pdflatex -shell-escape -halt-on-error 
+    -interaction=batchmode -jobname "\image" "\texsource"}
+\end{codeexample}
+
+	For |eps| output, you can (and need to) use
+\begin{codeexample}[code only]
+\tikzset{external/system call={latex -shell-escape -halt-on-error
+    -interaction=batchmode -jobname "\image" "\texsource"; 
+    dvips -o "\image".ps "\image".dvi}}
+\end{codeexample}
+	
+	The argument \marg{template} will be expanded using |\edef|, so any control sequences will be expanded. During this evaluation, `|\\|' will result in a normal backslash, `|\|'. Furthermore, double quotes `|"|', single quotes `|'|', semicolons and dashes `|-|' will be made to normal characters if any package uses them as macros. This ensures compatibility with the |german| package, for example.
+\end{key}
+
+\subsubsection{Customizing the Generated File Names}
+The default filename for externalized graphics is `\meta{real file name}|-figure_|\meta{number}' where \meta{number} ranges from $0$ to whatever is required. However, there are a couple of ways to change the generated filenames:
+\begin{itemize}
+	\item Changing the overall file name using a |prefix|,
+	\item Changing the file name for a single figure using |\tikzsetnextfilename|,
+	\item Changing the file name for a restricted set of figures using |figure name|.
+\end{itemize}
+
+\begin{key}{/tikz/external/prefix=\marg{file name prefix} (initially empty)}
+	A shortcut for |\tikzsetexternalprefix|\marg{file name prefix}.
+\end{key}
+
+\begin{command}{\tikzsetexternalprefix\marg{file name prefix}}
+	Assigns a common prefix used by all file names. For example,
+\begin{codeexample}[code only]
+\tikzsetexternalprefix{figures/}
+\end{codeexample}
+	will prepend |figure/| to every external graphics file name.
+
+	Please note that |\tikzsetexternalprefix| is the \emph{only} way to assign a prefix in case you want to prepare your document for environments where \pgfname\ is not installed (see section~\ref{section-libs-external-nopgf}).
+\end{command}
+
 \begin{command}{\tikzsetnextfilename\marg{file name}}
 	Sets the file name for the \emph{next} \tikzname\ picture or |\tikz| short command. It will \emph{only} be used for the next picture.
 
@@ -128,6 +170,111 @@ pdflatex -shell-escape main
 \end{codeexample}
 \end{command}
 
+\begin{key}{/tikz/external/figure name=\marg{name}}
+	Changes the names of all figures. It is possible to change |figure name| during the document using |\tikzset{external/figure name|=\marg{name}|}|. A unique counter will be used for each different \marg{name}, and each counter will start at $0$.
+
+	The value of |prefix| will be applied after |figure name| has been evaluated.
+\begin{codeexample}[code only]
+\documentclass{article}
+% main document, called main.tex
+\usepackage{tikz}
+
+\usetikzlibrary{external}
+\tikzexternalize{main} % provide the file's real name
+
+\begin{document}
+
+\begin{tikzpicture} % will be written to 'main-figure0.pdf'
+  \node {root}
+    child {node {left}}
+    child {node {right}
+      child {node {child}}
+      child {node {child}}
+    };
+\end{tikzpicture}
+
+{
+  \tikzset{external/file name={subset_}}
+  A simple image is \tikz \fill (0,0) circle(5pt);. % will be written to 'subset_0.pdf'
+
+  \begin{tikzpicture} % will be written to 'subset_1.pdf'
+     \draw[help lines] (0,0) grid (5,5);
+  \end{tikzpicture}
+}% here, the old file name will be restored:
+
+\begin{tikzpicture} % will be written to 'main-figure1.pdf'
+   \draw (0,0) -- (5,5);
+\end{tikzpicture}
+\end{document}
+\end{codeexample}
+	The scope of |file name| ends with the next closing brace (as all values set by |\tikzset| do).
+
+	Remark: Use |\tikzset{external/figure name/.add={prefix_}{_suffix_}}| to add a |prefix_| and a |_suffix_| to the actual value of |figure name|.
+\end{key}
+
+
+\subsubsection{Remaking Figures or Skipping Figures}
+\begin{key}{/tikz/external/force remake=\marg{boolean} (default true)}
+	A boolean which is used by |mode=convert with system call|. Every up-to-date check will fail, resulting in automatic regeneration of every figure.
+
+\begin{codeexample}[code only]
+\tikzset{external/force remake}
+\begin{tikzpicture}
+	\draw (0,0) circle(5pt);
+\end{tikzpicture}
+\end{codeexample}
+	You can also use |force remake| inside of a local \TeX\ group to remake only selected pictures. The example
+\begin{codeexample}[code only]
+\tikz \draw (0,0) -- (1,1);
+
+{
+\tikzset{external/force remake}
+\begin{tikzpicture}
+   \draw (0,0) circle(5pt);
+\end{tikzpicture}
+}
+
+\tikz \draw (0,0) -- (1,1);
+\end{codeexample}
+	will only apply |force remake| to the second figure.
+\end{key}
+
+\begin{key}{/tikz/external/remake next=\marg{boolean} (default true)}
+	A variant of |force remake| which applies only to the next image.
+\end{key}
+
+\begin{key}{/tikz/external/export next=\marg{boolean} (default true)}
+	A boolean which can be used to disable the export mechanism for single pictures.
+\end{key}
+
+\begin{key}{/tikz/external/export=\marg{boolean} (initially true)}
+	A boolean which can be used to disable the export mechanism for all pictures inside of the current \TeX-scope. 
+
+\begin{codeexample}[code only]
+\begin{document}
+\begin{tikzpicture} % will be exported
+	...
+\end{tikzpicture}
+
+{
+\tikzset{external/export=false}
+\begin{tikzpicture} % won't be exported
+	...
+\end{tikzpicture}
+...
+} 
+
+\begin{tikzpicture} % will be exported
+	...
+\end{tikzpicture}
+\end{document}
+\end{codeexample}
+	For \LaTeX, the feature lasts until the next |\end|\marg{$\cdot$} (this holds for every call to |\tikzset|).
+\end{key}
+
+
+
+\subsubsection{Customizing the Externalization}
 \begin{key}{/tikz/external/figure list=\marg{boolean} (initially true)}
 	A boolean which configures whether a figure list shall be generated. A figure list is an output file named \marg{jobname}|.figlist| which is filled with file names of each figure, one per line.
 
@@ -196,97 +343,6 @@ pdflatex -shell-escape
 	while other \TeX\ variants may need other switches. The feature is sometimes called |\write18|.
 \end{key}
 
-\label{extlib:systemcall:option}
-\begin{key}{/tikz/external/system call=\marg{template}}
-	A template string used to generate system calls. Inside of \marg{template}, the macro |\image| can be used as placeholder for the image which is about to be generated while |\texsource| contains the main file name.
-
-	The default is 
-\begin{codeexample}[code only]
-\tikzset{external/system call={pdflatex -shell-escape -halt-on-error 
-    -interaction=batchmode -jobname "\image" "\texsource"}
-\end{codeexample}
-
-	For |eps| output, you can (and need to) use
-\begin{codeexample}[code only]
-\tikzset{external/system call={latex -shell-escape -halt-on-error
-    -interaction=batchmode -jobname "\image" "\texsource"; 
-    dvips -o "\image".ps "\image".dvi}}
-\end{codeexample}
-	
-	The argument \marg{template} will be expanded using |\edef|, so any control sequences will be expanded. During this evaluation, `|\\|' will result in a normal backslash, `|\|'. Furthermore, double quotes `|"|', single quotes `|'|', semicolons and dashes `|-|' will be made to normal characters if any package uses them as macros. This ensures compatibility with the |german| package, for example.
-\end{key}
-
-\begin{key}{/tikz/external/prefix=\marg{file name prefix} (initially empty)}
-	A shortcut for |\tikzsetexternalprefix|\marg{file name prefix}.
-\end{key}
-
-\begin{command}{\tikzsetexternalprefix\marg{file name prefix}}
-	Assigns a common prefix used by all file names. For example,
-\begin{codeexample}[code only]
-\tikzsetexternalprefix{figures/}
-\end{codeexample}
-	will prepend |figure/| to every external graphics file name.
-
-	Please note that |\tikzsetexternalprefix| is the \emph{only} way to assign a prefix in case you want to prepare your document for environments where \pgfname\ is not installed (see section~\ref{section-libs-external-nopgf}).
-\end{command}
-
-\begin{key}{/tikz/external/force remake=\marg{boolean} (default true)}
-	A boolean which is used by |mode=convert with system call|. Every up-to-date check will fail, resulting in automatic regeneration of every figure.
-
-\begin{codeexample}[code only]
-\tikzset{external/force remake}
-\begin{tikzpicture}
-	\draw (0,0) circle(5pt);
-\end{tikzpicture}
-\end{codeexample}
-	You can also use |force remake| inside of a local \TeX\ group to remake only selected pictures. The example
-\begin{codeexample}[code only]
-\tikz \draw (0,0) -- (1,1);
-
-{
-\tikzset{external/force remake}
-\begin{tikzpicture}
-   \draw (0,0) circle(5pt);
-\end{tikzpicture}
-}
-
-\tikz \draw (0,0) -- (1,1);
-\end{codeexample}
-	will only apply |force remake| to the second figure.
-\end{key}
-
-\begin{key}{/tikz/external/remake next=\marg{boolean} (default true)}
-	A variant of |force remake| which applies only to the next image.
-\end{key}
-
-\begin{key}{/tikz/external/export next=\marg{boolean} (default true)}
-	A boolean which can be used to disable the export mechanism for single pictures.
-\end{key}
-
-\begin{key}{/tikz/external/export=\marg{boolean} (initially true)}
-	A boolean which can be used to disable the export mechanism for all pictures inside of the current \TeX-scope. 
-
-\begin{codeexample}[code only]
-\begin{document}
-\begin{tikzpicture} % will be exported
-	...
-\end{tikzpicture}
-
-{
-\tikzset{external/export=false}
-\begin{tikzpicture} % won't be exported
-	...
-\end{tikzpicture}
-...
-} 
-
-\begin{tikzpicture} % will be exported
-	...
-\end{tikzpicture}
-\end{document}
-\end{codeexample}
-	For \LaTeX, the feature lasts until the next |\end|\marg{$\cdot$} (this holds for every call to |\tikzset|).
-\end{key}
 
 \begin{key}{/tikz/external/verbose IO=\marg{boolean} (initially true)}
 	A boolean which configures whether I/O operations shall be listed in the logfile.

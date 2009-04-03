@@ -22,9 +22,6 @@
 % It replaces \tikzpicture/ \endtikzpicture and \tikz and invokes \beginpgfgraphicnamed ... \endpgfgraphicnamed
 % commands if necessary.
 
-\newcount\c@tikzexternal@picturenum
-\c@tikzexternal@picturenum=0
-
 % handle with extreme care and only in small, local groups:
 \toksdef\t@tikzexternal@tmpa=0
 \toksdef\t@tikzexternal@tmpb=1
@@ -119,6 +116,10 @@
 	},
 	only named/.is if=tikzexternal@onlynamed,
 	only named/.default=true,
+	figure name/.initial=\tikzexternal@realjob-figure,
+	reset counter/.code={%
+		\expandafter\gdef\csname tikzexternal@figurename@#1@num\endcsname{0}%
+	},%
 	prefix/.code={\tikzsetexternalprefix{#1}},
 }
 
@@ -151,9 +152,6 @@
 	\pgfrealjobname{#2}%
 	\tikzexternal@TEXDIALECT@installreplacement@picture
 	\let\tikz=\tikzexternal@tikz@replacement
-	\iftikzexternal@genfigurelist
-		\immediate\openout\tikzexternal@outfile=\tikzexternal@realjob.figlist\relax
-	\fi
 	\ifx\includegraphics\relax
 		\let\tikzexternal@orig@includegraphics=\relax
 	\else
@@ -338,9 +336,17 @@
 				\iftikzexternal@onlynamed
 					\xdef\pgf@tempa{}%
 				\else
-					\t@tikzexternal@tmpb=\expandafter{\tikzexternal@realjob-figure}%
-					\xdef\pgf@tempa{\the\t@tikzexternal@tmpa\the\t@tikzexternal@tmpb\the\c@tikzexternal@picturenum}%
-					\global\advance\c@tikzexternal@picturenum by1\relax
+					\pgfkeysgetvalue{/tikz/external/figure name}\tikzexternal@figurename
+					\pgfutil@ifundefined{tikzexternal@figurename@\tikzexternal@figurename @num}{%
+						% initialise on first usage:
+						\expandafter\gdef\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname{0}%
+					}{}%
+					\t@tikzexternal@tmpb=\expandafter{\tikzexternal@figurename}%
+					\xdef\pgf@tempa{\the\t@tikzexternal@tmpa\the\t@tikzexternal@tmpb\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname}%
+					% advance the counter for 'figure name':
+					\c@pgf@counta=\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname\relax
+					\advance\c@pgf@counta by1
+					\expandafter\xdef\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname{\the\c@pgf@counta}%
 				\fi
 			\else
 				\t@tikzexternal@tmpb=\expandafter{\tikzexternal@nextfile}%
@@ -355,6 +361,12 @@
 	\iftikzexternal@genfigurelist
 		\ifx#1\pgfutil@empty
 		\else
+			\pgfutil@ifundefined{tikzexternal@listmode@openedfile}{%
+				\message{Opening '\tikzexternal@realjob.figlist' for writing.}%
+				\immediate\openout\tikzexternal@outfile=\tikzexternal@realjob.figlist\relax
+				\gdef\tikzexternal@listmode@openedfile{1}%
+			}{}%
+			\immediate\write16{Writing '#1' to '\tikzexternal@realjob.figlist'.}%
 			\immediate\write\tikzexternal@outfile{#1}%
 		\fi
 	\fi
