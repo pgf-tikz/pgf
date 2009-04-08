@@ -84,16 +84,23 @@
 	optimize=true,
 	optimize/install/.code={},%
 	optimize/restore/.code={},%
-	% Expects one argument, the command name.
-	% Example: 'optimize command away=\includegraphics'
+	% Expects two arguments, the command name and (optionally) a count
+	% of expected arguments.
+	% Example: 
+	% 	'optimize command away=\includegraphics'
+	% 	'optimize command away={\mycommand}{3}'
 	%
 	% It accepts commands which have '[]' arguments and whose first
 	% argument always begins with '{'.
-	optimize command away/.code={%
+	%
+	% #1: the command name
+	% #2: either empty or a number of EXPECTED arguments. It will be checked
+	% for one optional argument in square brackets as well.
+	optimize command away/.code 2 args={%
 		\expandafter\global\expandafter\let\csname\string#1@ORIG\endcsname=#1%
 		\pgfkeysalso{%
 			/tikz/external/optimize/install/.append code={%
-				\def#1{\tikzexternal@optimize@away@cmd{#1}}%
+				\def#1{\tikzexternal@optimize@away@cmd{#1}{#2}}%
 			},
 			/tikz/external/optimize/restore/.append code={%
 				\expandafter\let\expandafter#1\csname\string#1@ORIG\endcsname
@@ -402,23 +409,77 @@
 % Used by the optimization code.
 % It will be called if GRAB mode is on.
 % See the 'optimize command away' key.
-\def\tikzexternal@optimize@away@cmd#1{%
+\def\tikzexternal@optimize@away@cmd#1#2{%
 	\pgfutil@ifnextchar[{%
-		\tikzexternal@optimize@away@cmd@{#1}%
+		\tikzexternal@optimize@away@cmd@{#1}{#2}%
 	}{%
-		\tikzexternal@optimize@away@cmd@{#1}[]%
+		\tikzexternal@optimize@away@cmd@{#1}{#2}[]%
 	}%
 }%
-\def\tikzexternal@optimize@away@cmd@#1[#2]{%
+\def\tikzexternal@optimize@away@cmd@#1#2[#3]{%
+	\def\tikz@temp{#2}%
+	\ifx\tikz@temp\pgfutil@empty
+		\def\tikz@temp{\tikzexternal@optimize@away@cmd@auto{#1}{#3}}%
+	\else
+		\ifcase#2\relax
+			\def\tikzexternal@optimize@away@cmd@manual{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4##5{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}{##5}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4##5##6{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}{##5}{##6}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4##5##6##7{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}{##5}{##6}{##7}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4##5##6##7##8{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}{##5}{##6}{##7}{##8}}%
+			}%
+		\or
+			\def\tikzexternal@optimize@away@cmd@manual##1##2##3##4##5##6##7##8##9{%
+				\tikzexternal@optimize@away@cmd@@@{#1}{#3}{{##1}{##2}{##3}{##4}{##5}{##6}{##7}{##8}{##9}}%
+			}%
+		\fi
+		\def\tikz@temp{\tikzexternal@optimize@away@cmd@manual}%
+	\fi
+	\tikz@temp
+}%
+\def\tikzexternal@optimize@away@cmd@auto#1#2{%
 	\pgfutil@ifnextchar\bgroup{%
-		\tikzexternal@optimize@away@cmd@@{#1}{#2}%
+		\tikzexternal@optimize@away@cmd@auto@{#1}{#2}%
 	}{%
-		\tikzexternal@optimize@away@cmd@@{#1}{#2}{<no argument in curly braces>}% give empty argument.
-	}%
+		\tikzexternal@optimize@away@cmd@auto@{#1}{#2}{<no argument in curly braces>}% give empty argument.
+	}
 }%
-\def\tikzexternal@optimize@away@cmd@@#1#2#3{%
+
+\def\tikzexternal@optimize@away@cmd@auto@#1#2#3{%
+	\tikzexternal@optimize@away@cmd@@@{#1}{#2}{{#3}}% <-- provide braces
+}%
+\def\tikzexternal@optimize@away@cmd@@@#1#2#3{%
 	\begingroup
-	\toks0={#1[#2]{#3}}%
+	\toks0={#1[#2]#3}%
 	\immediate\write16{The command '\the\toks0' has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
 	[ {\sc \string#1\ optimized away because it does not contribute to exported PDF}]%
 	\endgroup
