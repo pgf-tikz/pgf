@@ -379,56 +379,89 @@
 	\fi
 }%
 
-% Converts the current tikzpicture into an image.
-% It collects the environment content and surrounds it with
-% \beginpgfgraphicnamed ... \endpgfgraphicnamed.
+% This command is invoked 
+%  if and only if ( (grab mode && --jobname matches) || 'mode=graphics if exists' )
+%
+% It converts the current tikzpicture into an image in grab mode
+% or processes the 'graphics if exist' mode.
 \def\tikzexternal@externalizefig{%
-	% this works, but does not respect catcode changes:
-	\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@externalizefig@@
-	% FIXME :
-	% I need to re-implement the code of
-	% \pgf@external@normal [which is invoked if we are not currently in 'grab' mode]
-	% and
-	% \pgf@external@grab [invoked only in grab mode (--jobname matches)]
-	% 
-	% -> then, overwrite \tikzpicture and \endtikzpicture without
-	%  collecting the contents! Only collect anything if there is a
-	%  graphics file!
-	%  So:
-	%   if grab mode && --jobname matches
-	%   	-> grab! (re-implement the code if \pgf@external@grab)
-	%  	else
-	%  		if graphics exists
-	%  			include it and skip image
-	%  		else
-	%  			process image normally
-	%  		fi
-	%  	fi
-	% This should provide an implementation which doesn't conflict
-	% with catcode changes. If I am not mistaken, this is the ONLY
-	% place in the external library where catcode changes might hurt.
+	\ifpgf@external@grabshipout%
+		% In this case, we already KNOW that the filename matches.
+		\expandafter\tikzexternal@externalizefig@GRAB%
+	\else
+		\expandafter\tikzexternal@externalizefig@mode@graphics@if@exists
+	\fi%
 }
-% FIXME : this does not respect catcode changes!
-\long\def\tikzexternal@externalizefig@@#1{%
-	\let\tikzpicture=\tikzexternal@origpicture
+\def\tikzexternal@externalizefig@mode@graphics@if@exists{%
+	% check if there is already a file.
+	% In that case, use it. If not, typeset the picture normally.
+	\gdef\pgf@filename{}%
+	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
+	\pgf@tempa
+	\ifx\pgf@filename\pgfutil@empty%
+		% Note: since we have no 'GRAB' mode, we do not have to deal with optimization.
+		% there is no graphics.
+		\expandafter\tikzexternal@normalpicture@nographics
+	\else
+		\expandafter\tikzexternal@forcegraphics
+	\fi
+}%
+
+\def\tikzexternal@externalizefig@GRAB{%
 	\iftikzexternal@optimize
 		\ifpgf@external@grabshipout
 			\tikzexternal@optimize@RESTORE
 		\fi
 	\fi
-	\expandafter\beginpgfgraphicnamed\expandafter{\tikzexternal@curfilename}%
-	\tikzpicture
-	#1
-	\endtikzpicture
-	\endpgfgraphicnamed
-	\let\tikzpicture=\tikzexternal@tikzpicture@replacement
-	\iftikzexternal@optimize
-		\ifpgf@external@grabshipout
-			\tikzexternal@optimize@REPLACE
+	\def\tikzpicture{%
+		\def\tikzpicture{% make sure that nested \tikzpicture are processed normally.
+			\begingroup
+			\def\endtikzpicture{%
+				\tikzexternal@origendpicture
+				\endgroup
+			}%
+			\tikzexternal@origpicture
+		}%
+		\pgf@external@grab{\tikzexternal@curfilename}%
+		\tikzexternal@origpicture
+	}%
+	\def\endtikzpicture{%
+		\tikzexternal@origendpicture
+		\pgf@externalend
+		\let\tikzpicture=\tikzexternal@tikzpicture@replacement
+		\let\endtikzpicture=\tikzexternal@origendpicture
+		\iftikzexternal@optimize
+			\ifpgf@external@grabshipout
+				\tikzexternal@optimize@REPLACE
+			\fi
 		\fi
-	\fi
-	\tikzexternal@closeenvironments
+	}%
+	\tikzpicture
 }%
+
+% FIXME : this does not respect catcode changes!
+%--------------------------------------------------
+% \long\def\tikzexternal@externalizefig@@#1{%
+% 	\let\tikzpicture=\tikzexternal@origpicture
+% 	\iftikzexternal@optimize
+% 		\ifpgf@external@grabshipout
+% 			\tikzexternal@optimize@RESTORE
+% 		\fi
+% 	\fi
+% 	\expandafter\beginpgfgraphicnamed\expandafter{\tikzexternal@curfilename}%
+% 	\tikzpicture
+% 	#1
+% 	\endtikzpicture
+% 	\endpgfgraphicnamed
+% 	\let\tikzpicture=\tikzexternal@tikzpicture@replacement
+% 	\iftikzexternal@optimize
+% 		\ifpgf@external@grabshipout
+% 			\tikzexternal@optimize@REPLACE
+% 		\fi
+% 	\fi
+% 	\tikzexternal@closeenvironments
+% }%
+%-------------------------------------------------- 
 
 % Used by the optimization code.
 % It will be called if GRAB mode is on.
