@@ -46,6 +46,8 @@
 %
 % It applies only to *one* picture.
 \newif\iftikzexternalremakenext
+\newif\iftikzexternal@verbose@optimize
+\tikzexternal@verbose@optimizetrue
 
 % A global boolean which can be used to skip single figures.
 \newif\iftikzexternalexportnext
@@ -75,6 +77,7 @@
 	verbose IO/.is if=tikzexternal@verboseio,
 	verbose IO/.default=true,
 	verbose IO=true,
+	verbose optimize/.is if=tikzexternal@verbose@optimize,
 	optimize/.is choice,
 	optimize/true/.code={\tikzexternal@optimizetrue},
 	optimize/false/.code={%
@@ -106,6 +109,13 @@
 				\expandafter\let\expandafter#1\csname\string#1@ORIG\endcsname
 			}
 		}%
+		\iftikzexternal@optimize
+			\ifpgf@external@grabshipout
+				% we have already started the externalization! Install
+				% optimization commands to activate the new one:
+				\tikzexternal@optimize@REPLACE
+			\fi
+		\fi
 	},
 	optimize command away=\includegraphics,
 	% EXPERIMENTAL (UNTESTED):
@@ -159,17 +169,11 @@
 	\pgfrealjobname{#2}%
 	\tikzexternal@TEXDIALECT@installreplacement@picture
 	\let\tikz=\tikzexternal@tikz@replacement
-	\ifx\includegraphics\relax
+	\pgfutil@ifundefined{includegraphics}{%
 		\let\tikzexternal@orig@includegraphics=\relax
-	\else
+	}{%
 		\let\tikzexternal@orig@includegraphics=\includegraphics
-	\fi
-	\iftikzexternal@optimize
-		\ifpgf@external@grabshipout
-			% only use graphics inside of grabbed stuff
-			\tikzexternal@optimize@REPLACE
-		\fi
-	\fi
+	}%
 }
 
 % Sets the filename for the next tikzpicture or \tikz shortcommand.
@@ -537,7 +541,9 @@
 \def\tikzexternal@optimize@away@cmd@@@#1#2#3{%
 	\begingroup
 	\toks0={#1[#2]#3}%
-	\immediate\write16{The command '\the\toks0' has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+	\iftikzexternal@verbose@optimize
+		\immediate\write16{The command '\the\toks0' has been optimized away. Use '/tikz/external/optimize=false' to disable this.}%
+	\fi
 	[ {\sc \string#1\ optimized away because it does not contribute to exported PDF}]%
 	\endgroup
 }%
@@ -549,7 +555,9 @@
 		\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@optimize@away@latex@env@close
 }%
 \long\def\tikzexternal@optimize@away@latex@env@close#1{%
-	\immediate\write16{The complete contents of \string\begin{tikzexternal@optimize@away@latex@env@} up to the next \end{tikzexternal@optimize@away@latex@env@} has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+	\iftikzexternal@verbose@optimize
+		\immediate\write16{The complete contents of \string\begin{tikzexternal@optimize@away@latex@env@} up to the next \end{tikzexternal@optimize@away@latex@env@} has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+	\fi
 	\endgroup
 	% we still need to invoke \end{<name>} in latex because \begin{<name>}
 	% starts a local group - that must be closed properly. Make sure then \end<name> does nothing:
@@ -576,13 +584,16 @@
 
 % Throws a tikzpicture away - without further notice.
 % Used if we are currently converting *another* picture. No need to waste time
-% with expensive picture if they are not shipped out anyway.
+% with expensive pictures if they are not shipped out anyway.
 %
 % See the 'optimize' key to disable this.
 \def\tikzexternal@skipfigure{%
 	\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@skipfigure@@
 }
 \long\def\tikzexternal@skipfigure@@#1{%
+	\iftikzexternal@verbose@optimize
+		\immediate\write16{A tikzpicture has been optimized away. Use '/tikz/external/optimize=false' to disable this.}%
+	\fi
 	\tikzexternal@closeenvironments
 }
 
