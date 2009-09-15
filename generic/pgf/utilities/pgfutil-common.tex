@@ -255,5 +255,85 @@
 
 \def\pgfutil@guessdriver{\edef\pgfsysdriver{pgfsys-\Gin@driver}}
 
+\begingroup
+	\catcode`\"=12
+	\edef\pgf@loc@TMPa{"}%
+	%
+	% prepares file names by checking for double colons.
+	%
+	% If '#1' is a usual file name without anything fancy, \pgfretval
+	% will simply contain it. However, if '#1' contains double colons
+	% (introduces, for example, by pdftex because there are white
+	% spaces in '#1'), the routine 
+	% - removes the double colons,
+	% - re-inserts them outside of the string.
+	%
+	% \pgfutilpreparefilename{file.tex} -> file.tex
+	% \pgfutilpreparefilename{"A file name".file} -> "A file name.file"
+	%
+	% The resulting file name is returned in '\pgfretval',
+	% furthermore, a *quoted* version of the file name is returned in
+	% \pgfretvalquoted. The latter result is to have some sort of
+	% output normalisation: if the file name as such contains double
+	% quotes, we don't want to insert another set of them.
+	%
+	% This special handling has the following purposes:
+	% 1. Both, treatment of white spaces and double colons is not
+	% properly defined in TeX. Thus, we should only work with them if
+	% necessary and maintain backwards compatibility as far as
+	% possible.
+	% 2. It *should* work if there are spaces.
+	%
+	\gdef\pgfutilpreparefilename#1{%
+		\begingroup
+			\ifnum\the\catcode`\"=13
+				\pgfutilconvertdcolon
+			\fi
+			\xdef\pgf@temp{#1}%
+		\endgroup
+		\expandafter\pgfutil@in@\expandafter"\expandafter{\pgf@temp}%
+		\ifpgfutil@in@
+			\def\pgf@loc@TMPa{\pgfutilstrreplace{"}{}}%
+			\expandafter\pgf@loc@TMPa\expandafter{\pgf@temp}%
+			\edef\pgfretval{"\pgfretval"}% re-insert quotes! Otherwise, TeX can't use the file name.
+			\let\pgfretvalquoted=\pgfretval
+		\else
+			\let\pgfretval=\pgf@temp
+			\edef\pgfretvalquoted{"\pgfretval"}%
+		\fi
+	}%
+	\catcode`\"=13
+	\xdef\pgfutilconvertdcolon{%
+		\noexpand\def\noexpand"{\pgf@loc@TMPa}%
+	}%
+\endgroup
+
+% Usage:
+% \pgfutilstrreplace{<token>}{<replacement>}{<string>}
+%
+% -> will assign the modified string into \pgfretval.
+%
+% #1: the string to search (one or more tokens)
+% #2: zero, one or more tokens which will be inserted instead of '#1'.
+% #3: the string to search in
+\long\def\pgfutilstrreplace#1#2#3{%
+	\def\pgfretval{}%
+	\long\def\pgfutil@search@and@replace@@##1#1##2\pgf@EOI{%
+		\expandafter\def\expandafter\pgfretval\expandafter{\pgfretval ##1#2}%
+		\pgfutil@search@and@replace@loop{#1}{##2}%
+	}%
+	\pgfutil@search@and@replace@loop{#1}{#3}%
+}
+\long\def\pgfutil@search@and@replace@loop#1#2{%
+	\pgfutil@in@{#1}{#2}%
+	\ifpgfutil@in@
+		\def\pgf@loc@TMPa{\pgfutil@search@and@replace@@ #2\pgf@EOI}%
+	\else
+		\expandafter\def\expandafter\pgfretval\expandafter{\pgfretval #2}%
+		\let\pgf@loc@TMPa=\relax
+	\fi
+	\pgf@loc@TMPa
+}%
+
 
 \endinput
