@@ -335,5 +335,116 @@
 	\pgf@loc@TMPa
 }%
 
+% Solves a linear equation system of size 2x2 using gauss elimination.
+%
+% It employs TeX register arithmetics to do so.
+% #1: should contain 4 sets of braces with matrix entries, 
+% 	{<a11>}{<a12>}
+% 	{<a21>}{<a22>}
+% 	where each entry should be a number without unit.
+% #2: should contain 2 sets of braces with the right-hand-side,
+% 	{<r1>}{<r2>}
+% 	where each entry should be a number without unit.
+%
+% It will assign \pgfmathresult to contain two sets of braces with the
+% result.
+%
+% Example:
+% \pgfutilsolvetwotwoleq{
+% 	{0.24}{1}
+% 	{-0.97}{0}
+% }{
+% 	{-7}
+% 	{18}
+% }
+% -> yields \pgfmathresult={−18.55618}{−2.54642}
+%
+% The algorithm employs column pivotisation.
+\def\pgfutilsolvetwotwoleq#1#2{%
+	\begingroup
+		\dimendef\aa=0
+		\dimendef\ab=1
+		\dimendef\ba=2
+		\dimendef\bb=3
+		\dimendef\ra=4
+		\dimendef\rb=5
+		\dimendef\tmpa=6
+		\dimendef\tmpb=7
+		\edef\pgf@temp{#1}%
+		\expandafter\pgfutilsolvetwotwoleq@A\pgf@temp
+		\edef\pgf@temp{#2}%
+		\expandafter\pgfutilsolvetwotwoleq@r\pgf@temp
+		%
+		\pgfutilsolvetwotwoleq@ifislarger\aa\ba{%
+			% identity "permutation":
+			\def\Pa{a}%
+			\def\Pb{b}%
+		}{%
+			% permutation matrix: switch rows!
+			\def\Pa{b}%
+			\def\Pb{a}%
+		}%
+		% \pivot := 1/aa
+		\pgfmathreciprocal@
+			{\csname m\Pa a\endcsname}%
+		\let\pivot=\pgfmathresult
+		%
+		% \factor := 1/aa * ba 
+		\csname \Pb a\endcsname=\pivot\csname \Pb a\endcsname
+		\edef\factor{\expandafter\pgf@sys@tonumber\csname \Pb a\endcsname}%
+		%
+		% bb -= ba/aa * ab
+		\tmpa=-\factor\csname \Pa b\endcsname
+		\advance\csname \Pb b\endcsname by\tmpa
+		%
+		% rb -= ba/aa * ra
+		\tmpa=-\factor\csname r\Pa\endcsname
+		\advance\csname r\Pb\endcsname by\tmpa
+		%
+		% xb := rb / bb (the modified rb and modified bb!)
+		\pgfmathdivide@
+			{\expandafter\pgf@sys@tonumber\csname r\Pb\endcsname}
+			{\expandafter\pgf@sys@tonumber\csname \Pb b\endcsname}%
+		\expandafter\let\csname pgfmathresult\Pb\endcsname=\pgfmathresult
+		%
+		% ra -= xb * ab
+		\tmpa=\csname pgfmathresult\Pb\endcsname\csname \Pa b\endcsname
+		\advance\csname r\Pa\endcsname by-\tmpa
+		%
+		% xa := 1/aa * ra  (the modified ra!)
+		\tmpa=\pivot\csname r\Pa\endcsname
+		\expandafter\edef\csname pgfmathresult\Pa\endcsname{\pgf@sys@tonumber\tmpa}%
+		%
+		\edef\pgfmathresult{%
+			{\csname pgfmathresult\Pa\endcsname}%
+			{\csname pgfmathresult\Pb\endcsname}%
+		}%
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\def\pgfutilsolvetwotwoleq@ifislarger#1#2#3#4{%
+	\tmpa=#1
+	\ifdim\tmpa<0pt
+		\multiply\tmpa by-1
+	\fi
+	\tmpb=#2
+	\ifdim\tmpb<0pt
+		\multiply\tmpb by-1
+	\fi
+	\ifdim\tmpa>\tmpb
+		#3%
+	\else
+		#4%
+	\fi
+}%
+\def\pgfutilsolvetwotwoleq@A#1#2#3#4{%
+	\def\maa{#1}\def\mab{#2}%
+	\def\mba{#3}\def\mbb{#3}%
+	\aa=#1pt \ab=#2pt
+	\ba=#3pt \bb=#4pt
+}
+\def\pgfutilsolvetwotwoleq@r#1#2{%
+	\ra=#1pt \rb=#2pt
+}%
 
 \endinput
