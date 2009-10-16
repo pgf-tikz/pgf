@@ -151,7 +151,20 @@
 		\pgfmanualpdf@hasxyzoptiontrue
 	\fi
 	\edef\pgfmanualpdflabel@@{#1}%
-	\pgfutil@ifundefined{pgfd@w@lbl@\pgfmanualpdflabel@@}{%
+	\def\pgfmanualpdflabel@generateone{0}%
+	\pgfutil@ifundefined{pgfd@lbl@\pgfmanualpdflabel@@}{%
+		% ok, no such label is known.
+		\def\pgfmanualpdflabel@generateone{1}%
+	}{%
+		\if\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname a% "a"ux
+			% ah, it is "just" known from a previous run, but there is
+			% no code in the pdf! Write it!
+			\def\pgfmanualpdflabel@generateone{1}%
+		\else
+			% ok, we already wrote one before. Skip.
+		\fi
+	}%
+	\if\pgfmanualpdflabel@generateone1%
 		\pgfmanualpdflabel@generate{#1}{#2}%
 		\ifpgfmanualpdf@hasxyzoption
 			\def\x{y}%
@@ -159,9 +172,9 @@
 			\def\x{z}%
 			\pgfmanualpdflabel@generate{#1}{#2}%
 		\fi
-	}{%
+	\else
 		#2%
-	}%
+	\fi
 	\endgroup
 }%
 \def\pgfmanualpdflabel@generate#1#2{%
@@ -172,10 +185,9 @@
 	%
 	\immediate\write\@auxout{%
 		\noexpand\expandafter\noexpand\gdef
-		\noexpand\csname pgfd@lbl@\pgfmanualpdflabel@@\noexpand\endcsname{1}%
+		\noexpand\csname pgfd@lbl@\pgfmanualpdflabel@@\noexpand\endcsname{a}% a = known in "a"ux file
 	}%
-	\expandafter\gdef\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname{1}% remember the label.
-	\expandafter\gdef\csname pgfd@w@lbl@\pgfmanualpdflabel@@\endcsname{1}% "wrote label"
+	\expandafter\gdef\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname{w}% 1. remember the label AND remember that we "w"rote it into the pdf.
 	\edef\pgfmanualpdflabel@@{\pgfkeysvalueof{/pdflinks/internal link prefix}.\pgfmanualpdflabel@@}%
 	\expandafter\hypertarget\expandafter{\pgfmanualpdflabel@@}{#2}%
 }%
@@ -186,29 +198,30 @@
 	\pgfmanualpdf@installreplacements
 	\pgfmanual@handletextbackslash@in{#1}%
 	%
-	\pgfutil@ifundefined{pgfd@lbl@\pgfmanualpdflabel@@}{%
+	\ifcsname pgfd@lbl@\pgfmanualpdflabel@@\endcsname
+	\else
 		\global\let\pgfmanual@glob=\pgfmanualpdflabel@@
 		\def\pgfmanual@tempa{\foreach \prefix in }%
 		\pgfkeysgetvalue{/pdflinks/search key prefixes in}\pgfmanual@tempb
 		\expandafter\pgfmanual@tempa\expandafter{\pgfmanual@tempb}{%
-			\pgfutil@ifundefined{pgfd@lbl@\prefix\pgfmanualpdflabel@@}{%
-			}{%
+			\ifcsname pgfd@lbl@\prefix\pgfmanualpdflabel@@\endcsname
 				\xdef\pgfmanual@glob{\prefix\pgfmanualpdflabel@@}%
 				\breakforeach
-			}%
+			\fi
 		}%
 		\let\pgfmanualpdflabel@@=\pgfmanual@glob
-		\pgfutil@ifundefined{pgfd@lbl@\pgfmanualpdflabel@@}{%
+		\ifcsname pgfd@lbl@\pgfmanualpdflabel@@\endcsname
+		\else
 			\ifpgfmanualpdfwarnings
 				\begingroup
 					\toks0={#1}%
-					\pgfplots@warning{pgfmanualpdfref{\the\toks0 }: target label does not exist.}%
+					\pgfmanual@warning{pgfmanualpdfref{\the\toks0 }: target label does not exist.}%
 				\endgroup
 			\fi
 			#2%
 			\let\pgfmanualpdflabel@@=\pgfutil@empty
-		}{}%
-	}{}%
+		\fi
+	\fi
 	\ifx\pgfmanualpdflabel@@\pgfutil@empty
 	\else
 		\expandafter\pgfmanualpdfref@\expandafter{\pgfmanualpdflabel@@}{#2}%
@@ -298,8 +311,8 @@
 		% ok, finish:
 		\edef\pgfmanual@verb@collect@next{%
 			% this command will also handle control sequences.
-			\noexpand\texttt{\noexpand\pgfmanualprettyprintpgfkeys{\the\t@pgfmanual@verb}}%
 			\noexpand\endgroup
+			\noexpand\texttt{\noexpand\pgfmanualprettyprintpgfkeys{\the\t@pgfmanual@verb}}%
 		}%
 	\else
 		\ifx\pgfmanual@temp\pgfmanual@verb@activebar
@@ -307,8 +320,8 @@
 			% |...| within an argument; I couln't change catcodes.
 			% Ok, resort to simple fallback solution.
 			\edef\pgfmanual@verb@collect@next{%
-				\noexpand\texttt{\the\t@pgfmanual@verb}%
 				\noexpand\endgroup
+				\noexpand\texttt{\the\t@pgfmanual@verb}%
 			}%
 		\else
 			\t@pgfmanual@verb=\expandafter{\the\t@pgfmanual@verb #1}%
