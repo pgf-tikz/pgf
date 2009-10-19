@@ -268,7 +268,7 @@
 				% -> it won't be shipped out anyway, so save typesetting time!
 				\let\tikzexternal@next=\tikzexternal@skipfigure
 			\else
-				% include this graphics into the output (even it
+				% include this graphics into the output (even if
 				% it will be discarded anyway).
 				\let\tikzexternal@next=\tikzexternal@normalpicture@nographics
 			\fi
@@ -830,6 +830,7 @@
 		\iftikzexternal@verboseio
 			\immediate\write16{===== Image '\tikzexternal@curfilename' is up-to-date. ======}%
 		\fi
+		\let\pgf@filename=\tikzexternal@curfilename
 	\else
 		\begingroup
 		% no such image. Generate it!
@@ -839,10 +840,33 @@
 		\fi
 		\immediate\write18{\pgf@tempa}%
 		\expandafter\tikzexternal@externalizefig@systemcall@assertsuccess\expandafter{\pgf@tempa}%
+		\pgfmath@smuggleone\pgf@filename
 		\endgroup
 	\fi
-	\expandafter\pgfincludeexternalgraphics\expandafter{\tikzexternal@curfilename}%
-	\tikzexternal@closeenvironments
+	\ifx\pgf@filename\pgfutil@empty
+		% error recovery: something did not work! Try to load it
+		% anyway. Perhaps it was just that shell-escape wasn't
+		% enabled.
+		\begingroup
+		\t@tikzexternal@tmpa={%
+			\tikzexternaldisable
+			\pgfutil@ifundefined{scantokens}{\long\def\scantokens##1{##1}}{}%
+			%  try reading them again as if they were in the input file.
+			\scantokens{%
+				\tikzpicture
+				#1%
+			}%
+			\tikzexternal@TEXDIALECT@endpicture
+			\tikzexternalenable
+		}%
+		\xdef\tikzexternal@externalizefig@systemcall@next{\the\t@tikzexternal@tmpa}%
+		\endgroup
+	\else
+		% ok, take the image!
+		\expandafter\pgfincludeexternalgraphics\expandafter{\tikzexternal@curfilename}%
+		\def\tikzexternal@externalizefig@systemcall@next{\tikzexternal@closeenvironments}%
+	\fi
+	\tikzexternal@externalizefig@systemcall@next
 }%
 
 % Checks whether the current picture needs to be externalized.
@@ -874,13 +898,14 @@
 	\fi
 }%
 
+% \pgf@filename will be empty if the assertion failed.
 \def\tikzexternal@externalizefig@systemcall@assertsuccess#1{%
 	% check if there is a file now and raise an error message if not.
 	\gdef\pgf@filename{}%
 	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
 	\pgf@tempa
 	\ifx\pgf@filename\pgfutil@empty%
-		\PackageError{tikz}{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist).         Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'.}%
+		\PackageError{tikz}{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist).         Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'. If you continue now, I'll try to typeset the picture.}%
 	\fi
 }%
 
