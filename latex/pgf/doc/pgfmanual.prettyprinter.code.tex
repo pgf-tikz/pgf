@@ -95,6 +95,30 @@
 	% typeset the value as such.
 	/codeexample/prettyprint/key value display only/.code={#1},
 	%
+	% Used to typeset a single word. A word is something which has not
+	% been identified in any other context; a maximal sequence of
+	% non-white-space tokens.
+	/codeexample/prettyprint/word/.code={#1},
+	%
+	% A two-argument code key which invokes '#1' if spaces shall
+	% delimit words and '#2' if not.
+	% This may be useless. Handle with care!
+	/codeexample/prettyprint/if space is word delim/.code 2 args={%
+		#1%
+	},%
+	%
+	% A three-argument code key which should invoke '#2' if the single
+	% token '#1' is a word delimiter and '#3' if that is not the case.
+	% Note that '#1' doesn't have the usual catcodes (see the
+	% \pgfmanual@pretty@** macros)!
+	% Furthermore, white spaces are treated separately.
+	/codeexample/prettyprint/if is word delim/.code args={#1#2#3}{%
+		\edef\pgfmanual@check{,;().;\pgfmanual@pretty@lbrace\pgfmanual@pretty@rbrace}%
+		\def\pgfmanual@check@{\pgfutil@in@{#1}}%
+		\expandafter\pgfmanual@check@\expandafter{\pgfmanual@check}%
+		\ifpgfutil@in@ #2\else #3\fi
+	},%
+	%
 	% Used to typeset a single control sequence.
 	% #1 is the control sequence's name as a sequence of catcode 12
 	% tokens.
@@ -165,6 +189,7 @@
 		/codeexample/prettyprint/cs/begin/.code 2 args={\textcolor{green}{##1}\{\textcolor{orange}{##2}\pgfmanualclosebrace},
 		/codeexample/prettyprint/cs arguments/end/.initial=1,
 		/codeexample/prettyprint/cs/end/.code 2 args={\textcolor{green}{##1}\{\textcolor{orange}{##2}\pgfmanualclosebrace},
+		/codeexample/prettyprint/word/.code={\textcolor{brown}{##1}},
 	},%
 	% A further debuggin helper.
 	/codeexample/prettyprint/colored and verbose/.style={%
@@ -174,6 +199,7 @@
 		/codeexample/prettyprint/key value display only/.code={\def\temp{##1}\message{[key value=\meaning\temp]}\textcolor{yellow}{##1}},
 		/codeexample/prettyprint/cs/.code={\message{[cs=##1]}\textcolor{green}{##1}},
 		/codeexample/prettyprint/cs with args/.code 2 args={\def\temp{##2}\message{[cs with args={##1}{\meaning\temp}]}\textcolor{green}{##1}\{\textcolor{orange}{##2}\pgfmanualclosebrace},
+		/codeexample/prettyprint/word/.code={\message{[word=##1]}\textcolor{brown}{##1}},
 	},%
 	/codeexample/prettyprint/colored,
 	/codeexample/prettyprint/colored and verbose,
@@ -219,6 +245,7 @@
 	\def\{{\pgfmanual@pretty@lbrace}%
 	\def\}{\pgfmanual@pretty@rbrace}%
 	\pgfmanual@pretty@installcommenthandler
+	\let\pgfmanualprettyprintstyles=\relax
 }%
 
 
@@ -286,37 +313,76 @@
 
 % loops through all tokens.
 % #1 is a single token.
-\long\def\pgfmanual@pretty@mainloop#1{%
+\def\pgfmanual@pretty@mainloop{%
+	\def\pgfmanual@pretty@mainloop@currentword{}%
+	\pgfmanual@pretty@mainloop@
+}%
+\long\def\pgfmanual@pretty@mainloop@#1{%
 	\def\pgfmanual@loc@TMPa{#1}%
+	\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@mainloop@
 	\ifx\pgfmanual@loc@TMPa\pgfmanual@EOI
 		% stop iteration.
+		\pgfmanual@pretty@mainloop@finishword
 		\let\pgfmanual@pretty@mainloop@NEXT=\relax
 	\else
 		\ifpgfmanualprettycommentactive
-			\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@mainloop
 			#1%
 		\else
 			\ifx\pgfmanual@loc@TMPa\pgfmanual@pretty@lbracket%
 				% we found the start of OPTIONS '[ ... ]'.
+				\pgfmanual@pretty@mainloop@finishword
 				% Attempt syntax highlighting for pgfkeys:
 				\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@pgfkeys
 			\else
 				\ifx\pgfmanual@loc@TMPa\pgfmanual@pretty@backslash
-					% we found the start of a control sequence '\command':
+					% we found the start of a control sequence '\command'
+					\pgfmanual@pretty@mainloop@finishword
 					%
 					% collect the control sequence name into
 					% \pgfmanual@loc@TMPa, but without the backslash:
 					\let\pgfmanual@loc@TMPa=\pgfutil@empty
 					\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@collectcs@loop
 				\else
-					% normal processing. Just typeset the token.
-					\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@mainloop
-					#1%
+					\def\pgfmanual@isspace{0}%
+					\ifnum13=\catcode`#1
+						% we found a white space (space, TAB or NL) or comment
+						\def\pgfmanual@isspace{1}%
+					\else
+						\ifnum10=\catcode`#1
+							\def\pgfmanual@isspace{1}%
+						\fi
+					\fi
+					\if\pgfmanual@isspace1%
+						\pgfkeysvalueof{/codeexample/prettyprint/if space is word delim/.@cmd}{%
+							\pgfmanual@pretty@mainloop@finishword
+							#1% ok, show it.
+						}{%
+							% collect the word.
+							\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
+						}%
+					\else
+						\pgfkeysvalueof{/codeexample/prettyprint/if is word delim/.@cmd}{#1}{%
+							\pgfmanual@pretty@mainloop@finishword
+							#1% ok, show the delimiter.
+						}{%
+							% collect the word.
+							\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
+						}\pgfeov%
+					\fi
 				\fi
 			\fi
 		\fi
 	\fi
 	\pgfmanual@pretty@mainloop@NEXT
+}%
+
+\def\pgfmanual@pretty@mainloop@finishword{%
+	\ifx\pgfmanual@pretty@mainloop@currentword\pgfutil@empty
+	\else
+		\def\pgfmanual@loc@TMPa{\pgfkeysvalueof{/codeexample/prettyprint/word/.@cmd}}%
+		\expandafter\pgfmanual@loc@TMPa\pgfmanual@pretty@mainloop@currentword\pgfeov
+		\let\pgfmanual@pretty@mainloop@currentword=\pgfutil@empty
+	\fi
 }%
 
 
