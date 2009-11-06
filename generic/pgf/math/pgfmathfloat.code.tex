@@ -103,58 +103,6 @@
 % FIXME: there is no longer any difference here.
 \let\pgfmathfloatqparsenumber=\pgfmathfloatparsenumber
 
-% Assigns \pgfmathresult to be a float encoded as
-% <FLAGS><MANTISSE>e<EXPONENT>
-%
-% example:
-% \pgfmathfloatcreate{1}{2.0}{10}
-% \pgfmathfloat@to@FMeE@style\pgfmathresult
-% ->
-% \pgfmathresult is now '12.0e10' regardless of the internal float
-% format.
-\def\pgfmathfloat@to@FMeE@style#1{\expandafter\pgfmathfloat@to@FMeE@style@#1\relax}%
-\def\pgfmathfloat@to@FMeE@style@#1Y#2e#3]\relax{\def\pgfmathresult{#1#2e#3}}%
-
-% decomposes a lowlevel floating point representation into flags,
-% mantisse and exponent.
-%
-% #4: integer register for the flags.
-% #5: dimen registers for the mantisse.
-% #6: integer register for the exponent.
-\def\pgfmathfloat@decompose#1Y#2e#3]\relax#4#5#6{%
-   #4=#1\relax
-   #5=#2pt%
-   #6=#3\relax%
-}
-% overloaded, #5 needs to be a token register for the mantisse.
-% @see also \pgfmathfloatvalueof  which does also employ the load
-% level repr.
-\def\pgfmathfloat@decompose@tok#1Y#2e#3]\relax#4#5#6{%
-   #4=#1\relax
-   #5={#2}%
-   #6=#3\relax%
-}
-% overloaded, returns only ONE of the three components into #4:
-\def\pgfmathfloat@decompose@F#1Y#2e#3]\relax#4{#4=#1\relax}%
-\def\pgfmathfloat@decompose@M#1Y#2e#3]\relax#4{#4=#2pt}%
-\def\pgfmathfloat@decompose@Mtok#1Y#2e#3]\relax#4{#4={#2}}%
-\def\pgfmathfloat@decompose@E#1Y#2e#3]\relax#4{#4=#3\relax}%
-
-% Takes a floating point number #1 as input and writes flags to macro
-% #2, mantisse to macro #3 and exponent to macro #4.
-\def\pgfmathfloattomacro#1#2#3#4{%
-	\begingroup
-	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
-	\xdef\pgfmathfloat@glob@TMP{%
-		\noexpand\def\noexpand#2{\the\pgfmathfloat@a@S}%
-		\noexpand\def\noexpand#3{\the\pgfmathfloat@a@Mtok}%
-		\noexpand\def\noexpand#4{\the\pgfmathfloat@a@E}%
-	}%
-	\endgroup
-	\pgfmathfloat@glob@TMP
-}
-
-
 % Takes a floating point number #1 as input and writes flags to count
 % register #2, mantisse to dimen register #3 and exponent to count
 % register #4.
@@ -193,6 +141,183 @@
 \def\pgfmathfloatgetexponent#1#2{%
 	\expandafter\pgfmathfloat@decompose@E#1\relax{#2}%
 }
+
+
+% Assigns \pgfmathresult to be a float encoded as
+% <FLAGS><MANTISSE>e<EXPONENT>
+%
+% example:
+% \pgfmathfloatcreate{1}{2.0}{10}
+% \pgfmathfloat@to@FMeE@style\pgfmathresult
+% ->
+% \pgfmathresult is now '12.0e10' regardless of the internal float
+% format.
+\def\pgfmathfloat@to@FMeE@style#1{\expandafter\pgfmathfloat@to@FMeE@style@#1\relax\relax}%
+\def\pgfmathfloat@to@FMeE@style@#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@to@FMeE@style@@%
+	\else
+		\expandafter\pgfmathfloat@to@FMeE@style@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@to@FMeE@style@@#1Y#2e#3]\relax\relax{\def\pgfmathresult{#1#2e#3}}%
+\def\pgfmathfloat@to@FMeE@style@error#1\relax\relax{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{%
+		\noexpand\pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\the\pgfmathfloat@a@Mtok}{\the\pgfmathfloat@a@E}%
+	}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+
+
+% decomposes a lowlevel floating point representation into flags,
+% mantisse and exponent.
+%
+% #4: integer register for the flags.
+% #5: dimen registers for the mantisse.
+% #6: integer register for the exponent.
+%
+% \expandafter\pgfmathfloat@decompose\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@M\pgfmathfloat@a@E
+% -> the three temp registers contain flags, mantisse and exponent
+\def\pgfmathfloat@decompose#1#2{% sanitize!
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@%
+	\else
+		\expandafter\pgfmathfloat@decompose@error%
+	\fi
+	#1#2%
+}
+\def\pgfmathfloat@decompose@#1Y#2e#3]\relax#4#5#6{%
+   #4=#1\relax
+   #5=#2pt % keep space here.
+   #6=#3\relax%
+}
+
+% overloaded, #5 needs to be a token register for the mantisse.
+% @see also \pgfmathfloatvalueof  which does also employ the load
+% level repr.
+% \expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+% -> the three temp registers contain flags, mantisse and exponent
+\def\pgfmathfloat@decompose@tok#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@tok@%
+	\else
+		\expandafter\pgfmathfloat@decompose@tok@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@decompose@tok@#1Y#2e#3]\relax#4#5#6{%
+   #4=#1\relax
+   #5={#2}%
+   #6=#3\relax%
+}
+% overloaded, returns only ONE of the three components into #4:
+% \expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S
+% -> \pgfmathfloat@a@S contains the flags field.
+\def\pgfmathfloat@decompose@F#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@F@%
+	\else
+		\expandafter\pgfmathfloat@decompose@F@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@decompose@M#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@M@%
+	\else
+		\expandafter\pgfmathfloat@decompose@M@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@decompose@E#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@E@%
+	\else
+		\expandafter\pgfmathfloat@decompose@E@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@decompose@Mtok#1#2{%
+	\ifx#2Y%
+		\expandafter\pgfmathfloat@decompose@Mtok@%
+	\else
+		\expandafter\pgfmathfloat@decompose@Mtok@error%
+	\fi
+	#1#2%
+}%
+\def\pgfmathfloat@decompose@F@#1Y#2e#3]\relax#4{#4=#1\relax}%
+\def\pgfmathfloat@decompose@M@#1Y#2e#3]\relax#4{#4=#2pt}%
+\def\pgfmathfloat@decompose@Mtok@#1Y#2e#3]\relax#4{#4={#2}}%
+\def\pgfmathfloat@decompose@E@#1Y#2e#3]\relax#4{#4=#3\relax}%
+
+\def\pgfmathfloat@decompose@error#1\relax#2#3#4{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{%
+		\noexpand#2=\the\pgfmathfloat@a@S\space
+		\noexpand#3=\the\pgfmathfloat@a@Mtok pt
+		\noexpand#4=\the\pgfmathfloat@a@E\space
+	}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+\def\pgfmathfloat@decompose@tok@error#1\relax#2#3#4{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{%
+		\noexpand#2=\the\pgfmathfloat@a@S\space
+		\noexpand#3={\the\pgfmathfloat@a@Mtok}%
+		\noexpand#4=\the\pgfmathfloat@a@E\space
+	}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+\def\pgfmathfloat@decompose@F@error#1\relax#2{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{\noexpand#2=\the\pgfmathfloat@a@S\space}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+\def\pgfmathfloat@decompose@M@error#1\relax#2{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{\noexpand#2=\the\pgfmathfloat@a@Mtok pt }%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+\def\pgfmathfloat@decompose@Mtok@error#1\relax#2{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{\noexpand#2={\the\pgfmathfloat@a@Mtok}}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+\def\pgfmathfloat@decompose@E@error#1\relax#2{%
+	\begingroup
+	\pgfmathfloatparsenumber@handleerror{wrong lowlevel format}{#1}{#1}%
+	\xdef\pgfmathfloat@decompose@TMP{\noexpand#2=\the\pgfmathfloat@a@E\space}%
+	\endgroup
+	\pgfmathfloat@decompose@TMP
+}%
+% Takes a floating point number #1 as input and writes flags to macro
+% #2, mantisse to macro #3 and exponent to macro #4.
+\def\pgfmathfloattomacro#1#2#3#4{%
+	\begingroup
+	\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\xdef\pgfmathfloat@glob@TMP{%
+		\noexpand\def\noexpand#2{\the\pgfmathfloat@a@S}%
+		\noexpand\def\noexpand#3{\the\pgfmathfloat@a@Mtok}%
+		\noexpand\def\noexpand#4{\the\pgfmathfloat@a@E}%
+	}%
+	\endgroup
+	\pgfmathfloat@glob@TMP
+}
+
 
 % Defines \pgfmathresult as the floating point number encoded by
 % the flags #1, mantisse #2 and exponent #3.
@@ -1518,11 +1643,21 @@
 	/pgf/fpu/handlers/invalid number/.code 2 args={%
 		\pgfmath@error{Could not parse input '#1' as a floating point number, sorry. The unreadable part was near '#2'.}{}%
 	},
+	/pgf/fpu/handlers/wrong lowlevel format/.code 2 args={%
+		\pgfmath@error{Sorry, an internal routine of the floating point unit got an ill-formatted floating point number `#1'. The unreadable part was near '#2'.}{}%
+		\let\pgfmathresult=\pgfutil@empty
+	},
 }
 
 % #1 the error handler
 % #2 the number which was invalid.
 % #3 the part which produced the error
+%
+% POSTCONDITION: the three registers
+% 	\pgfmathfloat@a@S
+% 	\pgfmathfloat@a@Mtok
+% 	\pgfmathfloat@a@E
+% will contain the number which results from the error handler.
 \def\pgfmathfloatparsenumber@handleerror#1#2#3{%
 	\let\pgfmathresult=\pgfutil@empty
 	\pgfmathfloatparsenumberpendingperiodfalse
@@ -1722,7 +1857,19 @@
 }%
 
 \def\pgfflt@readexponent#1\pgfflt@EOI{%
-	\advance\pgfmathfloat@a@E by#1\relax
+	\afterassignment\pgfflt@readexponent@
+	\pgfmathfloat@b@E=#1\relax\pgfflt@EOI
+}
+\def\pgfflt@readexponent@{%
+	\advance\pgfmathfloat@a@E by\pgfmathfloat@b@E\relax
+	\afterassignment\pgfflt@readexponent@@
+	\let\pgfmathfloat@loc@TMPb=}%
+\def\pgfflt@readexponent@@#1\pgfflt@EOI{%
+	\ifx\pgfmathfloat@loc@TMPb\relax
+	\else
+		\def\pgfmathfloat@loc@TMPb{\pgfflt@error#1\pgfflt@EOI}%
+		\expandafter\pgfmathfloat@loc@TMPb
+	\fi
 }
 
 \def\pgfflt@pendingzeros@positiveexp#1{%

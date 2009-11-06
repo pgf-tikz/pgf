@@ -59,8 +59,42 @@
 % 	\ensuremath{[#1] \cdot #2 \cdot 10^{#3}}%
 % }%
 %-------------------------------------------------- 
-\def\showlowlevelfloatmacro#1{%
-	#1%
+\long\def\showlowlevelfloatmacro#1{#1}
+
+\long\def\showlowlevelfloatmacrolong#1{%
+	#1 is decomposed into 
+
+	{%
+		\gdef\testerror{}%
+		\pgfmathfloattoregisters{#1}{\count0 }{\dimen0 }{\count1 }%
+		pgfmathfloattoregisters: flags \the\count0; M=\the\dimen0; E=\the\count1
+		\ifx\testerror\empty
+		\else
+			\par (caught \texttt{\testerror})%
+		\fi
+	}%
+		
+	{%
+		\gdef\testerror{}%
+		pgfmathfloattoregisterstok: \pgfmathfloattoregisterstok{#1}{\count0 }{\toks0 }{\count1 }%
+		flags \the\count0; M=\the\toks0; E=\the\count1
+		\ifx\testerror\empty
+		\else
+			\par (caught \texttt{\testerror})%
+		\fi
+	}%
+
+	{%
+		\gdef\testerror{}%
+		pgfmathfloatgetflags \pgfmathfloatgetflags{#1}{\count0 }
+		flags \the\count0;
+		\ifx\testerror\empty
+		\else
+			\par (caught \texttt{\testerror})%
+		\fi
+	}%
+
+	\medskip
 	%\expandafter\showlowlevelfloat#1\relax
 }%
 
@@ -68,11 +102,17 @@
 %\tracingmacros=2\tracingcommands=2
 	\begingroup
 	\message{PARSING NUMBER #1...}%
+	\gdef\testerror{}%
 	\pgfmathfloatparsenumber{#1}%
 	\let\resultasfloat=\pgfmathresult
 	\pgfmathfloattofixed\resultasfloat
 	\let\resultasfixed=\pgfmathresult
-	\[ #1 \mapsto \resultasfloat = \showlowlevelfloatmacro\resultasfloat \mapsto \resultasfixed \]
+	\[ #1 \mapsto \resultasfloat = \showlowlevelfloatmacro\resultasfloat \mapsto \resultasfixed 
+	\]
+		\ifx\testerror\empty
+		\else
+			\par (caught \texttt{\testerror})%
+		\fi
 	\endgroup
 %\tracingmacros=0\tracingcommands=0
 }
@@ -124,6 +164,7 @@
 \showsinglenumberparsing{99999}
 \showsinglenumberparsing{999.000}
 
+%\tracingmacros=2 \tracingcommands=2
 \showsinglenumberparsing{8.31160034e-02}%
 \showsinglenumberparsing{2.54685628e-02}%
 \showsinglenumberparsing{7.40715288e-03}%
@@ -150,6 +191,39 @@
 \showsinglenumberparsing{1141}
 \showsinglenumberparsing{-53e-5}
 
+\testsubsection{Error handling}
+{
+	\pgfkeys{
+		/pgf/fpu/handlers/empty number/.code 2 args={%
+			\gdef\testerror{handlers/empty number=\{#1\}\{#2\}}%
+		},
+		/pgf/fpu/handlers/invalid number/.code 2 args={%
+			\gdef\testerror{handlers/invalid number=\{#1\}\{#2\}}%
+		},
+		/pgf/fpu/handlers/wrong lowlevel format/.code 2 args={%
+			\gdef\testerror{handlers/wrong lowlevel format=\{#1\}\{#2\}}%
+		},
+	}
+	\showsinglenumberparsing{-53e-5 not terminated}
+	%\showsinglenumberparsing{-53e-}
+	\showsinglenumberparsing{}
+	\showsinglenumberparsing{ ASDZ@414e12}
+
+	This one has trailing spaces and should work:
+	\showsinglenumberparsing{10   }
+
+	This one has leading spaces and should work:
+	\showsinglenumberparsing{   10}
+
+	\testsubsection{Error handling of decompose routines}
+
+	\pgfmathfloatparsenumber{100}
+	\showlowlevelfloatmacrolong{\pgfmathresult}
+		
+	\showlowlevelfloatmacrolong{132}
+
+	\showlowlevelfloatmacrolong{Z}
+}
 
 \testsection{logarithms, compared with PGF arithmetics}
 
