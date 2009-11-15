@@ -70,6 +70,8 @@
 		/codeexample/prettyprint/cs arguments/end/.initial=1,
 		/codeexample/prettyprint/cs/end/.code 2 args={##1\{\pgfmanualpdfref{##2}{##2}\pgfmanualclosebrace},
 		/codeexample/prettyprint/word/.code={\begingroup\pgfkeyssetvalue{/pdflinks/search key prefixes in}{}\pgfmanualpdfref{##1}{##1}\endgroup},
+		/codeexample/prettyprint/point/.code={##1},%
+		/codeexample/prettyprint/point with cs/.code 2 args={(\pgfmanualpdfref{##1}{##1}:##2},%
 	},%
 	/codeexample/prettyprint/autolinks,
 }%
@@ -125,7 +127,7 @@
 % contain '\x' where '\x' iterates through 'x,y,z'.
 \newif\ifpgfmanualpdf@hasxyzoption
 
-\def\pgfmanualpdf@installreplacements{%
+\gdef\pgfmanualpdf@installreplacements{%
 	\def\marg##1{{##1}}%
 	\def\oarg##1{[##1]}%
 	\def\meta##1{<##1>}%
@@ -137,21 +139,37 @@
 	\def\printanat{@}%
 	\def\protect{}%
 	\def\textasciicircum{o}%
+	\expandafter\edef\pgfmanual@verb@activebar{\pgfmanual@verb@bar}%
 }%
 
 % Defines a new pdf cross ref label for use with \pgfmanualpdfref.
 %
+% Usage:
+% 	\pgfmanualpdflabel{<label>}{<text>}
 % #1: the label.
 % The text #2 will be shown in the resulting pdf (if it is not empty).
-\def\pgfmanualpdflabel#1#2{%
+%
+% There is also support for catcode changes if <label> contains
+% something which shouldn't be written as-is into .aux files:
+% 	\pgfmanualpdflabel[\catcode`\|=12 ]{|-}{}
+% -> this will write
+% \begingroup \catcode `\|=12 
+%   <code to deal with the label |-  >
+% \endgroup 
+% into the .aux file.
+\def\pgfmanualpdflabel{\pgfutil@ifnextchar[{\pgfmanualpdflabel@opt}{\pgfmanualpdflabel@opt[]}}%
+\def\pgfmanualpdflabel@opt[#1]#2#3{%
 	\begingroup
 	\pgfmanualpdf@installreplacements%
 	%
-	\pgfutil@in@\x{#1}%
+	\def\pgfmanualpdf@catcode{#1}%
+	\pgfmanualpdf@catcode
+	%
+	\pgfutil@in@\x{#2}%
 	\ifpgfutil@in@
 		\pgfmanualpdf@hasxyzoptiontrue
 	\fi
-	\edef\pgfmanualpdflabel@@{#1}%
+	\edef\pgfmanualpdflabel@@{#2}%
 	\def\pgfmanualpdflabel@generateone{0}%
 	\pgfutil@ifundefined{pgfd@lbl@\pgfmanualpdflabel@@}{%
 		% ok, no such label is known.
@@ -166,15 +184,15 @@
 		\fi
 	}%
 	\if\pgfmanualpdflabel@generateone1%
-		\pgfmanualpdflabel@generate{#1}{#2}%
+		\pgfmanualpdflabel@generate{#2}{#3}%
 		\ifpgfmanualpdf@hasxyzoption
 			\def\x{y}%
-			\pgfmanualpdflabel@generate{#1}{#2}%
+			\pgfmanualpdflabel@generate{#2}{#3}%
 			\def\x{z}%
-			\pgfmanualpdflabel@generate{#1}{#2}%
+			\pgfmanualpdflabel@generate{#2}{#3}%
 		\fi
 	\else
-		#2%
+		#3%
 	\fi
 	\endgroup
 }%
@@ -184,10 +202,22 @@
 		\pgfkeysvalueof{/pdflinks/show labels code/.@cmd}{\pgfmanualpdflabel@@}\pgfeov
 	\fi
 	%
+	\ifx\pgfmanualpdf@catcode\pgfutil@empty
+	\else
+		\toks0=\expandafter{\pgfmanualpdf@catcode}%
+		\immediate\write\@auxout{%
+			\noexpand\begingroup
+			\the\toks0
+		}%
+	\fi
 	\immediate\write\@auxout{%
 		\noexpand\expandafter\noexpand\gdef
 		\noexpand\csname pgfd@lbl@\pgfmanualpdflabel@@\noexpand\endcsname{a}% a = known in "a"ux file
 	}%
+	\ifx\pgfmanualpdf@catcode\pgfutil@empty
+	\else
+		\immediate\write\@auxout{\noexpand\endgroup}%
+	\fi
 	\expandafter\gdef\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname{w}% 1. remember the label AND remember that we "w"rote it into the pdf.
 	\edef\pgfmanualpdflabel@@{\pgfkeysvalueof{/pdflinks/internal link prefix}.\pgfmanualpdflabel@@}%
 	\expandafter\hypertarget\expandafter{\pgfmanualpdflabel@@}{#2}%

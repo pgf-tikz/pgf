@@ -173,6 +173,15 @@
 	/codeexample/prettyprint/cs arguments/end/.initial=1,
 	/codeexample/prettyprint/cs/end/.code 2 args={#1\{#2\pgfmanualclosebrace},
 	%
+	% a point coordinate (#1) 
+	% Note that '#1' will contain the braces (if there was one),
+	/codeexample/prettyprint/point/.code={#1},%
+	%
+	% a point coordinate with explicit coordinate system: (#1:#2)
+	% Note that '#2' will contain the terminating brace (if there was one)
+	/codeexample/prettyprint/point with cs/.code 2 args={(#1:#2},%
+	% the same with specialised code:
+	%/codeexample/prettyprint/point with cs/<CS NAME>/.code 2 args={(#1:#2},%
 	%
 	% 
 	% A predefined style which colors every identified token. It's
@@ -190,6 +199,8 @@
 		/codeexample/prettyprint/cs arguments/end/.initial=1,
 		/codeexample/prettyprint/cs/end/.code 2 args={\textcolor{green}{##1}\{\textcolor{orange}{##2}\pgfmanualclosebrace},
 		/codeexample/prettyprint/word/.code={\textcolor{brown}{##1}},
+		/codeexample/prettyprint/point/.code={\textcolor{red}{##1}},%
+		/codeexample/prettyprint/point with cs/.code 2 args={(\textcolor{green}{##1}:\textcolor{red}{##2}},%
 	},%
 	% A further debuggin helper.
 	/codeexample/prettyprint/colored and verbose/.style={%
@@ -200,9 +211,11 @@
 		/codeexample/prettyprint/cs/.code={\message{[cs=##1]}\textcolor{green}{##1}},
 		/codeexample/prettyprint/cs with args/.code 2 args={\def\temp{##2}\message{[cs with args={##1}{\meaning\temp}]}\textcolor{green}{##1}\{\textcolor{orange}{##2}\pgfmanualclosebrace},
 		/codeexample/prettyprint/word/.code={\message{[word=##1]}\textcolor{brown}{##1}},
+		/codeexample/prettyprint/point/.code={\message{[point=##1]}\textcolor{red}{##1}},%
+		/codeexample/prettyprint/point with cs/.code 2 args={\message{[point with cs={##1}{##2}]}(\textcolor{green}{##1}:\textcolor{red}{##2}},%
 	},%
-	/codeexample/prettyprint/colored,
-	/codeexample/prettyprint/colored and verbose,
+	%/codeexample/prettyprint/colored,
+	%/codeexample/prettyprint/colored and verbose,
 }%
 
 \newif\ifpgfmanualprettyenabled
@@ -282,6 +295,12 @@
 	[gdef[pgfmanual@pretty@backslash{\}%
 }
 \begingroup
+	\catcode`\:=12
+	\catcode`\(=12
+	\catcode`\)=12
+	\gdef\pgfmanual@pretty@colon{:}%
+	\gdef\pgfmanual@pretty@lroundbrace{(}%
+	\gdef\pgfmanual@pretty@rroundbrace{)}%
 	\catcode`\[=1
 	\catcode`\]=2
 	\catcode`\{=12
@@ -343,31 +362,36 @@
 					\let\pgfmanual@loc@TMPa=\pgfutil@empty
 					\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@collectcs@loop
 				\else
-					\def\pgfmanual@isspace{0}%
-					\ifnum13=\catcode`#1
-						% we found a white space (space, TAB or NL) or comment
-						\def\pgfmanual@isspace{1}%
+					\ifx\pgfmanual@loc@TMPa\pgfmanual@pretty@lroundbrace%
+						\pgfmanual@pretty@mainloop@finishword
+						\let\pgfmanual@pretty@mainloop@NEXT=\pgfmanual@pretty@collectpoint
 					\else
-						\ifnum10=\catcode`#1
+						\def\pgfmanual@isspace{0}%
+						\ifnum13=\catcode`#1
+							% we found a white space (space, TAB or NL) or comment
 							\def\pgfmanual@isspace{1}%
+						\else
+							\ifnum10=\catcode`#1
+								\def\pgfmanual@isspace{1}%
+							\fi
 						\fi
-					\fi
-					\if\pgfmanual@isspace1%
-						\pgfkeysvalueof{/codeexample/prettyprint/if space is word delim/.@cmd}{%
-							\pgfmanual@pretty@mainloop@finishword
-							#1% ok, show it.
-						}{%
-							% collect the word.
-							\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
-						}%
-					\else
-						\pgfkeysvalueof{/codeexample/prettyprint/if is word delim/.@cmd}{#1}{%
-							\pgfmanual@pretty@mainloop@finishword
-							#1% ok, show the delimiter.
-						}{%
-							% collect the word.
-							\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
-						}\pgfeov%
+						\if\pgfmanual@isspace1%
+							\pgfkeysvalueof{/codeexample/prettyprint/if space is word delim/.@cmd}{%
+								\pgfmanual@pretty@mainloop@finishword
+								#1% ok, show it.
+							}{%
+								% collect the word.
+								\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
+							}%
+						\else
+							\pgfkeysvalueof{/codeexample/prettyprint/if is word delim/.@cmd}{#1}{%
+								\pgfmanual@pretty@mainloop@finishword
+								#1% ok, show the delimiter.
+							}{%
+								% collect the word.
+								\expandafter\def\expandafter\pgfmanual@pretty@mainloop@currentword\expandafter{\pgfmanual@pretty@mainloop@currentword #1}%
+							}\pgfeov%
+						\fi
 					\fi
 				\fi
 			\fi
@@ -385,6 +409,47 @@
 	\fi
 }%
 
+\def\pgfmanual@pretty@collectpoint{%
+	\let\pgfmanualprettyprinterhandlecollectedargs=\pgfmanual@pretty@collectargs@finish@collectpoint
+	\expandafter\pgfmanualprettyprintercollectupto\pgfmanual@pretty@rroundbrace
+		{\afterpgfmanual@pretty@collectpoint}%
+}
+
+{
+\catcode`\:=12
+\gdef\pgfmanual@pretty@collectargs@finish@collectpoint#1{%
+	\expandafter\pgfutil@in@\pgfmanual@pretty@colon{#1}%
+	\ifpgfutil@in@
+		\def\pgfmanual@pretty@collectpoint@getcoordsystem##1:##2\relax{%
+			\begingroup
+				\pgfmanual@pretty@restorespaces
+				% remove active spaces from ##1:
+				\xdef\pgfmanual@pretty@glob@TMPa{##1}%
+			\endgroup
+			\pgfkeysifdefined{/codeexample/prettyprint/point with cs/\pgfmanual@pretty@glob@TMPa/.@cmd}{%
+				\def\pgfmanual@loc@TMPb{\pgfkeysvalueof{/codeexample/prettyprint/point with cs/\pgfmanual@pretty@glob@TMPa/.@cmd}}%
+			}{%
+				\def\pgfmanual@loc@TMPb{\pgfkeysvalueof{/codeexample/prettyprint/point with cs/.@cmd}}%
+			}%
+			\expandafter\def\expandafter\pgfmanual@loc@TMPa\expandafter{\expandafter{\pgfmanual@pretty@glob@TMPa}{##2}}%
+			\expandafter\pgfmanual@loc@TMPb\pgfmanual@loc@TMPa\pgfeov
+		}%
+		\ifpgfmanualprettyprinterfoundterminator
+			\pgfmanual@pretty@collectpoint@getcoordsystem#1)\relax
+		\else
+			\pgfmanual@pretty@collectpoint@getcoordsystem#1\relax
+		\fi
+	\else
+		\def\pgfmanual@loc@TMPb{\pgfkeysvalueof{/codeexample/prettyprint/point/.@cmd}}%
+		\ifpgfmanualprettyprinterfoundterminator
+			\pgfmanual@loc@TMPb(#1)\pgfeov
+		\else
+			\pgfmanual@loc@TMPb(#1\pgfeov
+		\fi
+	\fi
+}%
+}
+\def\afterpgfmanual@pretty@collectpoint{\pgfmanual@pretty@mainloop}%
 
 % loops through all tokens, assembling the cs name as it goes.
 % #1 is a single token.
@@ -607,6 +672,7 @@
 	\pgfmanual@pretty@collectargs@loop@NEXT
 }%
 
+\newif\ifpgfmanualprettyprinterfoundterminator
 
 % Collects tokens inside of a token list up to a single delimiting token, dealing with nested
 % catcode-12-braces. 
@@ -620,17 +686,19 @@
 % 	\pgfmanualprettyprintercollectargcount with balanced braces. The braces
 % 	have \catcode 12.
 % POSTCONDITION:
-% 	the arguments will be collected as 
+% 	- the arguments will be collected as 
 % 		'<result> := <token list>'
 % 	and then, \pgfmanualprettyprinterhandlecollectedargs{<result>} will be
 % 	invoked. Just define \pgfmanualprettyprinterhandlecollectedargs
 % 	properly.
 %   Then, #2 will be invoked.
+%	- The boolean \ifpgfmanualprettyprinterfoundterminator will be set to true if and only if '#1' has been found.
 %
 % @see \pgfmanualprettyprintercollectargcount for more details.
 % 	
 \def\pgfmanualprettyprintercollectupto#1#2{%
 	\pgfmanualprettyprinterarghasunmatchedbracesfalse
+	\pgfmanualprettyprinterfoundterminatortrue
 	\begingroup
 	\def\pgfmanual@loc@delimittoken{#1}%
 	\toksdef\t@afterpgfmanualprettyprinterhandlecollected=10
@@ -659,6 +727,7 @@
 			\ifnum\c@pgfmanual@pretty@openbracecount>0
 				\noexpand\pgfmanualprettyprinterarghasunmatchedbracestrue
 			\fi
+			\noexpand\pgfmanualprettyprinterfoundterminatortrue
 			\noexpand\pgfmanualprettyprinterhandlecollectedargs{\the\t@pgfmanual@currentarg}%
 			\the\t@afterpgfmanualprettyprinterhandlecollected
 			\noexpand\pgfmanual@EOI% <- put this token back into token list!
