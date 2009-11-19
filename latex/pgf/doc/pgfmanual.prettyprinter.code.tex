@@ -147,6 +147,14 @@
 	%
 	% Please note that the value do not contain braces! The braces
 	% need to be inserted manually.
+	%
+	% Special cases:
+	% 1. If end-of-input is encountered BEFORE the expected number of
+	% arguments has been found, the following happens:
+	% - if not even one (partial) argument has been found, the
+	%   /codeexample/prettyprint/cs/.@cmd key will be used instead.
+	% - the \ifpgfmanualprettyprinterarghasunmatchedbraces boolean
+	%   indicates if the trailing brace is missing.
 	/codeexample/prettyprint/cs with args/.code 2 args={#1\{#2\pgfmanualclosebrace},
 	%
 	% For every identified control sequence, the key
@@ -159,7 +167,8 @@
 	% For every identified control sequence, the key
 	%	/codeexample/prettyprint/cs/<CSNAME>/.@cmd
 	% will be checked. If it exists, it will be used instead of 
-	% 'cs with args'. 
+	% 'cs with args' (with the same special case restrictions for
+	% early end-of-input). 
 	%
 	% The <CSNAME> must not contain the '\'.
 	%
@@ -459,13 +468,13 @@
 	\ifx\pgfmanual@loc@TMPb\pgfmanual@EOI
 		\def\pgfmanual@pretty@collectcs@loop@NEXT{\pgfmanual@pretty@collectcs@loop@END #1}%
 	\else
+		% a csname may only use letters. And: only letters have a
+		% positive lcccode!
 		\ifnum\lccode`#1=0
 			\ifx\pgfmanual@loc@TMPb @%
 				% ok, we may also accept an `@':
 				\edef\pgfmanual@loc@TMPa{\pgfmanual@loc@TMPa #1}%
 			\else
-				% a csname may only use letters. And: only letters have a
-				% positive lcccode!
 				% This here is the first non-letter.
 				\def\pgfmanual@pretty@collectcs@loop@NEXT{\pgfmanual@pretty@collectcs@loop@END #1}%
 			\fi
@@ -516,12 +525,17 @@
 % 	\pgfmanualprettyprintercollectargcount with balanced braces. The braces
 % 	have \catcode 12.
 % POSTCONDITION:
-% 	the arguments will be collected as 
-% 		'<result> := {<first arg>}{<second arg>}'
-% 	and then, \pgfmanualprettyprinterhandlecollectedargs{<result>} will be
+% 	1. the arguments will be collected as 
+% 		'<result> := {<first arg>}{<second arg>}',
+% 	2.1 the macro \pgfmanualprettyprinternumcollectedargs will contain
+% 	the *actual* number of *completely* collected arguments,
+%	2.2 the if \ifpgfmanualprettyprinterarghasunmatchedbraces will be
+%	set to \c true if the last found argument had an unmatched brace,
+% 	3. then, \pgfmanualprettyprinterhandlecollectedargs{<result>} will be
 % 	invoked. Just define \pgfmanualprettyprinterhandlecollectedargs
 % 	properly.
-% 	Afterwards, #2 will be invoked.
+% 	Afterwards, #2 will be invoked to recover from the argument
+% 	collection.
 % 
 %
 % Example:
@@ -546,12 +560,18 @@
 % 		\pgfmanualprettyprinterhandlecollectedargs{{<first arg>}{<second arg>}}
 %   for two and more arguments. Note the extra set of braces for one
 %   arg.
+%   It might happen that not all arguments have been found if
+%   end-of-input occured before. The
+%   \pgfmanualprettyprinterhandlecollectedargs routine has to check
+%   this using the macro \pgfmanualprettyprinternumcollectedargs which
+%   contains the actual number of collected args.
 %
 % @remark This macro checks for the end-of-input indicator, \pgfmanual@EOI. In case it encounters
 % \pgfmanual@EOI, it
 % 1. stops collecting, leaving the \pgfmanual@EOI as next token to be read,
 % 2. sets \ifpgfmanualprettyprinterarghasunmatchedbraces to \iftrue if necessary,
-% 3. invokes the finish routine.
+% 3. assigns \pgfmanualprettyprinternumcollectedargs
+% 4. invokes the finish routine.
 % The \pgfmanual@EOI needs to be collected by following routines in
 % this case. You can also use \pgfutil@ifnextchar\pgfmanual@EOI{}{} in
 % following routines to check for \pgfmanual@EOI.
@@ -594,6 +614,7 @@
 			\ifnum\c@pgfmanual@pretty@openbracecount>0
 				\noexpand\pgfmanualprettyprinterarghasunmatchedbracestrue
 			\fi
+			\noexpand\def\noexpand\pgfmanualprettyprinternumcollectedargs{\the\c@pgfmanual@pretty@curargcount}%
 			\noexpand\pgfmanualprettyprinterhandlecollectedargs{\the\t@pgfmanual@allargs\the\t@pgfmanual@currentarg}%
 			\the\t@afterpgfmanualprettyprinterhandlecollected
 			\noexpand\pgfmanual@EOI% <- put this token back into token list!
@@ -629,6 +650,7 @@
 							\ifnum\c@pgfmanual@pretty@curargcount=\pgfmanual@loc@csargcount\relax
 								\edef\pgfmanual@pretty@collectargs@loop@NEXT{%
 									\noexpand\endgroup
+									\noexpand\def\noexpand\pgfmanualprettyprinternumcollectedargs{\the\c@pgfmanual@pretty@curargcount}%
 									\noexpand\pgfmanualprettyprinterhandlecollectedargs{\the\t@pgfmanual@allargs}%
 									\the\t@afterpgfmanualprettyprinterhandlecollected
 								}%
@@ -655,6 +677,7 @@
 									\fi
 									\edef\pgfmanual@pretty@collectargs@loop@NEXT{%
 										\noexpand\endgroup
+										\noexpand\def\noexpand\pgfmanualprettyprinternumcollectedargs{\the\c@pgfmanual@pretty@curargcount}%
 										\noexpand\pgfmanualprettyprinterhandlecollectedargs{\the\t@pgfmanual@allargs\the\t@pgfmanual@currentarg}%
 										\the\t@afterpgfmanualprettyprinterhandlecollected
 										\noexpand#1% <- put this token back into token list!
@@ -774,17 +797,33 @@
 }%
 
 \def\pgfmanual@pretty@collectargs@finish@cs#1{%
-	% report the macro and its arguments:
-	\pgfkeysifdefined{/codeexample/prettyprint/cs/\pgfmanual@loc@TMPa/.@cmd}{%
-		% oh, we have a separate routine for this macro! Ok, use it:
-		\edef\pgfmanual@loc@TMPb{\noexpand\pgfkeysvalueof{/codeexample/prettyprint/cs/\pgfmanual@loc@TMPa/.@cmd}}%
-	}{%
-		% use the generic routine:
+	\def\pgfmanual@pretty@collectargs@finish@cs@hasargs{1}%
+	\ifnum\pgfmanualprettyprinternumcollectedargs=0
+		\ifpgfmanualprettyprinterarghasunmatchedbraces
+		\else
+			\def\pgfmanual@pretty@collectargs@finish@cs@hasargs{0}%
+		\fi
+	\fi
+	\if\pgfmanual@pretty@collectargs@finish@cs@hasargs1%
+		% report the macro and its arguments:
+		\pgfkeysifdefined{/codeexample/prettyprint/cs/\pgfmanual@loc@TMPa/.@cmd}{%
+			% oh, we have a separate routine for this macro! Ok, use it:
+			\edef\pgfmanual@loc@TMPb{\noexpand\pgfkeysvalueof{/codeexample/prettyprint/cs/\pgfmanual@loc@TMPa/.@cmd}}%
+		}{%
+			% use the generic routine:
+			\edef\pgfmanual@loc@TMPb{\noexpand\pgfkeysvalueof{/codeexample/prettyprint/cs with args/.@cmd}}%
+		}%
 		% re-insert the backslash:
-		\edef\pgfmanual@loc@TMPb{\noexpand\pgfkeysvalueof{/codeexample/prettyprint/cs with args/.@cmd}}%
-	}%
-	\edef\pgfmanual@loc@TMPa{{\pgfmanual@pretty@backslash\pgfmanual@loc@TMPa}}%
-	\expandafter\pgfmanual@loc@TMPb\pgfmanual@loc@TMPa #1\pgfeov
+		\edef\pgfmanual@loc@TMPa{{\pgfmanual@pretty@backslash\pgfmanual@loc@TMPa}}%
+		\expandafter\pgfmanual@loc@TMPb\pgfmanual@loc@TMPa #1\pgfeov
+	\else
+		% Oh. We probably got |\pgfkeys| instead of |\pgfkeys{arg}|
+		% re-insert the backslash:
+		\edef\pgfmanual@loc@TMPa{{\pgfmanual@pretty@backslash\pgfmanual@loc@TMPa}}%
+		\edef\pgfmanual@loc@TMPb{\noexpand\pgfkeysvalueof{/codeexample/prettyprint/cs/.@cmd}}%
+		\expandafter\pgfmanual@loc@TMPb\pgfmanual@loc@TMPa\pgfeov
+		#1\relax% simply typeset any encountered tokens after the control sequence.
+	\fi
 }%
 
 % A user macro which pretty prints a set of keys.
