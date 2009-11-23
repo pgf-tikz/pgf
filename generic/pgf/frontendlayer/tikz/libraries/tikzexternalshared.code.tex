@@ -60,6 +60,25 @@
 \def\tikzifexternalizing#1#2{%
 	\ifpgf@external@grabshipout #1\else #2\fi
 }%
+% Invokes '#1' if the external lib is currently externalizing the NEXT FOLLOWING
+% tikzpicture. It invokes '#2' if that is not the case.
+\def\tikzifexternalizingnext#1#2{%
+	\ifpgf@external@grabshipout 
+		\tikzexternalgetnextfilename\tikzexternal@temp
+		\tikzifexternaljobnamematches\tikzexternal@temp{#1}{#2}%
+	\else 
+		#2
+	\fi
+}%
+
+% Invokes '#2' if \jobname equals '#1' and '#3' if not.
+% I suppose that '#1' is a macro containing the file name.
+%
+\def\tikzifexternaljobnamematches#1#2#3{%
+	\edef\pgf@tempa{\expandafter\string\csname#1\endcsname}%
+	\edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
+	\ifx\pgf@tempa\pgf@tempb #2\else#3 \fi%
+}%
 
 \pgfqkeys{/tikz/external}{
 	figure list/.is if=tikzexternal@genfigurelist,
@@ -325,14 +344,12 @@
 		\fi
 	\else
 		\ifpgf@external@grabshipout
-			\edef\pgf@tempa{\expandafter\string\csname\tikzexternal@curfilename\endcsname}%
-			\edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
-			\ifx\pgf@tempa\pgf@tempb%
+			\tikzifexternaljobnamematches\tikzexternal@curfilename{%
 				% ok, this here IS the picture for which
 				% pdflatex --jobname <my name>
 				% has been invoked.
 				\let\tikzexternal@next=\tikzexternal@externalizefig
-			\else%
+			}{%
 				\iftikzexternal@optimize
 					% No, another picture should be exported. Simply skip this one
 					% -> it won't be shipped out anyway, so save typesetting time!
@@ -342,7 +359,7 @@
 					% it will be discarded anyway).
 					\let\tikzexternal@next=\tikzexternal@normalpicture@nographics
 				\fi
-			\fi%
+			}%
 		\else
 			\ifcase\tikzexternal@opmode\relax
 				% 'mode=only graphics'
@@ -404,6 +421,23 @@
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\def\tikzexternal@getnextfilename@advancecount{%
+	\begingroup
+	\c@pgf@counta=\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname\relax
+	\advance\c@pgf@counta by1 
+	\expandafter\xdef\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname{\the\c@pgf@counta}%
+	\endgroup
+}%
+
+% Returns the file name which will be used for the next tikzpicture (based on the currently available information only, of course).
+\def\tikzexternalgetnextfilename#1{%
+	\begingroup
+	\let\tikzexternal@getnextfilename@advancecount\relax% NOP
+	\tikzexternal@getnextfilename#1%
+	\pgfmath@smuggleone#1%
+	\endgroup
+}%
+
 % Fills #1 with a filename for the current picture.
 %
 % The filename will be generated automatically by appending '-figure<number>' to the real jobname.
@@ -418,6 +452,7 @@
 % affect only ONE picture. They will be reset afterwards.
 \def\tikzexternal@getnextfilename#1{%
 	\let#1=\pgfutil@empty
+	% determine next file name:
 	\iftikzexternal@export@enabled
 		\iftikzexternalexportnext
 			\begingroup
@@ -434,9 +469,7 @@
 					\t@tikzexternal@tmpb=\expandafter{\tikzexternal@figurename}%
 					\xdef\pgf@tempa{\the\t@tikzexternal@tmpa\the\t@tikzexternal@tmpb\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname}%
 					% advance the counter for 'figure name':
-					\c@pgf@counta=\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname\relax
-					\advance\c@pgf@counta by1
-					\expandafter\xdef\csname tikzexternal@figurename@\tikzexternal@figurename @num\endcsname{\the\c@pgf@counta}%
+					\tikzexternal@getnextfilename@advancecount
 				\fi
 			\else
 				\t@tikzexternal@tmpb=\expandafter{\tikzexternal@nextfile}%
@@ -446,8 +479,12 @@
 			\let#1=\pgf@tempa
 		\fi
 	\fi
+	% 
+	% Reset global flags:
 	\global\let\tikzexternal@nextfile=\pgfutil@empty
 	\global\tikzexternalexportnexttrue
+	%
+	% Handle verbose output:
 	\ifpgf@external@grabshipout%
 	\else
 		\iftikzexternal@genfigurelist
