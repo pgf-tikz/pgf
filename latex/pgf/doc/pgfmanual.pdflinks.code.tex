@@ -123,10 +123,6 @@
 	/pdflinks/internal link prefix/.initial=pgf,
 }
 
-% this is pgfplots-specific: pgfplots supports generic styles which
-% contain '\x' where '\x' iterates through 'x,y,z'.
-\newif\ifpgfmanualpdf@hasxyzoption
-
 \gdef\pgfmanualpdf@installreplacements{%
 	\def\marg##1{{##1}}%
 	\def\oarg##1{[##1]}%
@@ -134,6 +130,7 @@
 	\def\x{x}%
 	\def\textbackslash{<CS>}%
 	\def\\{\textbackslash}%
+	\def\space{:}%
 	\edef\ {\space}%
 	\edef\#{}%
 	\def\printanat{@}%
@@ -161,16 +158,26 @@
 \def\pgfmanualpdflabel{\pgfutil@ifnextchar[{\pgfmanualpdflabel@opt}{\pgfmanualpdflabel@opt[]}}%
 \def\pgfmanualpdflabel@opt[#1]#2#3{%
 	\begingroup
-	\pgfmanualpdf@installreplacements%
 	%
 	\def\pgfmanualpdf@catcode{#1}%
 	\pgfmanualpdf@catcode
 	%
+	\pgfmanualpdflabel@generate{#2}{#3}%
+	%
+	% this is pgfplots-specific: pgfplots supports generic styles which
+	% contain '\x' where '\x' iterates through 'x,y,z'.
 	\pgfutil@in@\x{#2}%
 	\ifpgfutil@in@
-		\pgfmanualpdf@hasxyzoptiontrue
+		\def\x{y}%
+		\pgfmanualpdflabel@generate{#2}{#3}%
+		\def\x{z}%
+		\pgfmanualpdflabel@generate{#2}{#3}%
 	\fi
-	\edef\pgfmanualpdflabel@@{#2}%
+	\endgroup
+}%
+\def\pgfmanualpdflabel@generate#1#2{%
+	\pgfmanual@handlespeciallabeltokens@in{#1}%
+	%
 	\def\pgfmanualpdflabel@generateone{0}%
 	\pgfutil@ifundefined{pgfd@lbl@\pgfmanualpdflabel@@}{%
 		% ok, no such label is known.
@@ -185,51 +192,39 @@
 		\fi
 	}%
 	\if\pgfmanualpdflabel@generateone1%
-		\pgfmanualpdflabel@generate{#2}{#3}%
-		\ifpgfmanualpdf@hasxyzoption
-			\def\x{y}%
-			\pgfmanualpdflabel@generate{#2}{#3}%
-			\def\x{z}%
-			\pgfmanualpdflabel@generate{#2}{#3}%
+		\ifpgfmanualshowlabels
+			\pgfkeysvalueof{/pdflinks/show labels code/.@cmd}{\pgfmanualpdflabel@@}\pgfeov
 		\fi
-	\else
-		#3%
-	\fi
-	\endgroup
-}%
-\def\pgfmanualpdflabel@generate#1#2{%
-	\pgfmanual@handletextbackslash@in{#1}%
-	\ifpgfmanualshowlabels
-		\pgfkeysvalueof{/pdflinks/show labels code/.@cmd}{\pgfmanualpdflabel@@}\pgfeov
-	\fi
-	%
-	\ifx\pgfmanualpdf@catcode\pgfutil@empty
-	\else
-		\toks0=\expandafter{\pgfmanualpdf@catcode}%
+		%
+		\ifx\pgfmanualpdf@catcode\pgfutil@empty
+		\else
+			\toks0=\expandafter{\pgfmanualpdf@catcode}%
+			\immediate\write\@auxout{%
+				\noexpand\begingroup
+				\the\toks0
+			}%
+		\fi
 		\immediate\write\@auxout{%
-			\noexpand\begingroup
-			\the\toks0
+			\noexpand\expandafter\noexpand\gdef
+			\noexpand\csname pgfd@lbl@\pgfmanualpdflabel@@\noexpand\endcsname{a}% a = known in "a"ux file
 		}%
-	\fi
-	\immediate\write\@auxout{%
-		\noexpand\expandafter\noexpand\gdef
-		\noexpand\csname pgfd@lbl@\pgfmanualpdflabel@@\noexpand\endcsname{a}% a = known in "a"ux file
-	}%
-	\ifx\pgfmanualpdf@catcode\pgfutil@empty
+		\ifx\pgfmanualpdf@catcode\pgfutil@empty
+		\else
+			\immediate\write\@auxout{\noexpand\endgroup}%
+		\fi
+		\expandafter\gdef\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname{w}% 1. remember the label AND remember that we "w"rote it into the pdf.
+		\edef\pgfmanualpdflabel@@{\pgfkeysvalueof{/pdflinks/internal link prefix}.\pgfmanualpdflabel@@}%
+		\expandafter\hypertarget\expandafter{\pgfmanualpdflabel@@}{#2}%
 	\else
-		\immediate\write\@auxout{\noexpand\endgroup}%
+		#2%
 	\fi
-	\expandafter\gdef\csname pgfd@lbl@\pgfmanualpdflabel@@\endcsname{w}% 1. remember the label AND remember that we "w"rote it into the pdf.
-	\edef\pgfmanualpdflabel@@{\pgfkeysvalueof{/pdflinks/internal link prefix}.\pgfmanualpdflabel@@}%
-	\expandafter\hypertarget\expandafter{\pgfmanualpdflabel@@}{#2}%
 }%
 
 % A pdf reference to label `#1' with (TeX) text `#2'.
 % @see also \verbpdfref.
 \def\pgfmanualpdfref#1#2{%
 	\begingroup
-	\pgfmanualpdf@installreplacements
-	\pgfmanual@handletextbackslash@in{#1}%
+	\pgfmanual@handlespeciallabeltokens@in{#1}%
 	%
 	\ifcsname pgfd@lbl@\pgfmanualpdflabel@@\endcsname
 	\else
@@ -269,7 +264,10 @@
 	\fi
 }%
 
-% backslashes might produce problems. 
+% Handles special tokens in a pdf label which should be treated with
+% care.
+%
+% For example, backslashes might produce problems. 
 % This occurs quite frequently with automatically generated hyperrefs 
 % inside of codeexamples where \pgfmanualpdfref will be invoked - 
 % there, we get the catcode 12 backslashes. 
@@ -280,7 +278,9 @@
 %
 % On output, the macro \pgfmanualpdflabel@@ will be '\edef'ed to the
 % new, possibly modified value.
-\def\pgfmanual@handletextbackslash@in#1{%
+\def\pgfmanual@handlespeciallabeltokens@in#1{%
+	\begingroup
+	\pgfmanualpdf@installreplacements
 	\expandafter\pgfutil@in@\pgfmanual@pretty@backslash{#1}%
 	\ifpgfutil@in@
 		% assume the backslash is the first char and substitute it:
@@ -288,6 +288,11 @@
 	\else
 		\edef\pgfmanualpdflabel@@{#1}%
 	\fi
+	\def\pgfmanual@tmp{\pgfutilstrreplace{ }{\space}}%
+	\expandafter\pgfmanual@tmp\expandafter{\pgfmanualpdflabel@@}%
+	\edef\pgfmanualpdflabel@@{\pgfretval}%
+	\pgfmath@smuggleone\pgfmanualpdflabel@@
+	\endgroup
 }%
 \expandafter\def\expandafter\pgfmanualpdfref@substitute@backslash\expandafter#\expandafter1\pgfmanual@pretty@backslash#2\relax{%
 	\edef\pgfmanualpdflabel@@{#1\textbackslash #2}%
