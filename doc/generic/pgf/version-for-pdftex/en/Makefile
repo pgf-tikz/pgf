@@ -12,7 +12,7 @@ all: $(doc).pdf
 dist: FORCE
 	export TEXMFCNF="../../text-en:$(TEXMFCNF)"; \
 	export TEXINPUTS="$(TEXINPUTS)"; \
-	$(latex) '\def\pgfautoxrefs{1}\input{$(doc)}'
+	$(latex) '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 \input{$(doc)}'
 	@echo "$(doc).pdf remade with auto-xref support. Check if auto-xrefs work and rerun make dist if not."
 
 pgfmanual.idx: 
