@@ -19,6 +19,248 @@
 %
 %--------------------------------------------
 
+\pgfutil@ifundefined{pdfelapsedtime}{%
+	\PackageError{pgf}{library 'profiler' can only be used with pdftex Rev. >= 1.671 because it needs the \string\pdfelapsedtime\space command}{}%
+	\global\let\pdfelapsedtime=\c@pgf@counta
+}{}
+
+% Defines a new profiler entry named `#1'.
+%
+% This allocates a set of counters.
+\def\pgfprofilenew#1{%
+	\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
+	\pgfprofile@all@registered@list@add{#1}%
+}%
+
+\def\pgfprofile@TeX@DIALECT@toenvironment@begin#1{\csname #1\endcsname}%
+\def\pgfprofile@TeX@DIALECT@toenvironment@end#1{\csname end#1\endcsname}%
+
+\def\pgfprofile@@to@pgfretval#1{%
+	\expandafter\let\expandafter\pgfretval#1%
+}%
+
+% Defines a new profiler entry for the environment `#1'.
+%
+% This calls \pgfprofilenew and handles the begin/end of the
+% environment automatically.
+%
+% #1 the environment name (a string)
+\def\pgfprofilenewforenvironment#1{%
+	\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@begin{#1}%
+	\ifx\pgfretval\relax
+		\PackageError{pgf}{\string\pgfprofilenewforenvironment{#1} doesn't work: the environment `#1' is (not yet?) known or not known in this context}{}%
+	\else
+		\expandafter\global\expandafter\let\csname pgfprofile@orig@begin@#1\endcsname=\pgfretval
+		\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@end{#1}%
+		\expandafter\global\expandafter\let\csname pgfprofile@orig@end@#1\endcsname=\pgfretval
+		%
+		\pgfprofilenew{\pgfprofileenv #1}%
+		\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@begin{#1}{%
+			\pgfprofilestart{\pgfprofileenv #1}%
+			\csname pgfprofile@orig@begin@#1\endcsname
+		}%
+		\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@end{#1}{%
+			\csname pgfprofile@orig@end@#1\endcsname
+			\pgfprofileend{\pgfprofileenv #1}%
+		}%
+	\fi
+}%
+
+
+\def\pgfprofilecs{<CS>}%
+\def\pgfprofileenv{<ENV>}%
+
+% Defines a new profiler entry for the control sequence '#1'.
+%
+% This calls \pgfprofilenew and enhances the control sequence with
+% support for timings.
+% 
+% #1: the control sequence (with backslash!)
+% #2: the number of arguments (see below).
+% 
+% The following commands are supported:
+% - commands which take one (optional) argument in square brackets,
+% - commands which take one (optional) argument in square brackets
+%   followed by one optional argument which has to be delimited with
+%   curly braces (use an empty argument for '#2' in this case),
+% - commands which take one (optional) argument in square brackets
+%   and *exactly* #2 arguments afterwards.
+\def\pgfprofilenewforcommand#1#2{%
+	\ifx#1\undefined
+		\PackageError{pgf}{\string\pgfprofilenewforcommand{\string#1} doesn't work: the command `\string#1' is (not yet?) known or not known in this context}{}%
+	\else
+	\begingroup
+	\pgfprofile@cs@to@name{#1}%
+	\let\pgfprofilenew@cmdname=\pgfretval
+	\pgfprofilenew{\pgfprofilecs\pgfprofilenew@cmdname}%
+	\expandafter\global\expandafter\let\csname pgfprofile@orig@\pgfprofilenew@cmdname\endcsname=#1%
+	\def\pgfprofile@temp{#2}%
+	\ifx\pgfprofile@temp\pgfutil@empty
+		\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@uptoonearg
+	\else
+		\ifcase#2\relax
+			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@noarg
+		\or
+			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@onearg
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}}%
+			}%
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4##5{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}}%
+			}%
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}}%
+			}%
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}}%
+			}%
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7##8{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}{##8}}%
+			}%
+		\or
+			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7##8##9{%
+				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}{##8}{##9}}%
+			}%
+		\else
+			\PackageError{pgf}{library 'profiler' can't replace control sequences with '#2' arguments automatically, sorry.}%
+		\fi
+	\fi
+	\expandafter\global\expandafter\let\csname pgfprofile@repl@\pgfprofilenew@cmdname\endcsname=\pgfprofile@temp@replacement
+	\xdef#1{\noexpand\pgfprofileinvokecommand{\pgfprofilenew@cmdname}}%
+	\endgroup
+	\fi
+}%
+
+\def\pgfprofile@no@optional@arg@text{<noarg>}
+\def\pgfprofileinvokecommand#1{%
+	\pgfutil@ifnextchar[{\pgfprofileinvokecommand@{#1}}{\pgfprofileinvokecommand@{#1}[<noarg>]}%
+}%
+\def\pgfprofileinvokecommand@#1[#2]{%
+	\csname pgfprofile@repl@#1\endcsname{#1}[#2]%
+}%
+
+% #3 contains ALL arguments, including any braces.
+\def\pgfprofile@invokeorig#1[#2]#3{%
+	\pgfprofilestart{\pgfprofilecs #1}%
+	\def\pgfprofile@temp{#2}%
+	\ifx\pgfprofile@temp\pgfprofile@no@optional@arg@text
+		\csname pgfprofile@orig@#1\endcsname#3%
+	\else
+		\csname pgfprofile@orig@#1\endcsname[#2]#3%
+	\fi
+	\pgfprofileend{\pgfprofilecs #1}%
+}%
+
+
+\def\pgfprofileinvokecommand@uptoonearg#1[#2]{%
+	\pgfutil@ifnextchar\bgroup{\pgfprofileinvokecommand@onearg{#1}[#2]}{\pgfprofileinvokecommand@noarg{#1}[#2]}%
+}%
+\def\pgfprofileinvokecommand@onearg#1[#2]#3{%
+	\pgfprofile@invokeorig{#1}[#2]{{#3}}%
+}%
+\def\pgfprofileinvokecommand@noarg#1[#2]{%
+	\pgfprofile@invokeorig{#1}[#2]{}%
+}%
+
+
+
+% Starts / Resumes timing of the profiler entry named `#1'.
+%
+% The timing will continue until \pgfprofileend{#1} is called.
+%
+% Nested calls of \pgfprofilestart{#1} (with the same argument) will
+% result in the same result as if just one \pgfprofilestart command
+% has been issued.
+\def\pgfprofilestart#1{%
+	\pgfprofileifisrunning{#1}{%
+		\relax
+	}{%
+		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pdfelapsedtime}%
+		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+	}%
+	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{1}%
+}%
+
+% Stops / Interrupts timing of the profiler entry named `#1'.
+\def\pgfprofileend#1{%
+	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{-1}%
+	\pgfprofileifisrunning{#1}{%
+		\relax
+	}{%
+		\begingroup
+			\c@pgf@countb=\pdfelapsedtime\relax
+			\advance\c@pgf@countb by-\csname c@pgfprofile@elapsed@at@start@#1\endcsname\relax
+			\pgfprofile@all@registered@list@foreach{%
+				\pgfprofileifisrunning{##1}{%
+					\pgfprofile@advance{c@pgfprofile@subtractforself@##1}{\c@pgf@countb}%
+				}{}%
+			}%
+			\pgfprofile@advance{c@pgfprofile@elapsedtotal@#1}{\c@pgf@countb}%
+			\advance\c@pgf@countb by-\csname c@pgfprofile@subtractforself@#1\endcsname\relax
+			\pgfprofile@advance{c@pgfprofile@elapsedself@#1}{\c@pgf@countb}%
+		\endgroup
+	}%
+}%
+
+% invokes '#2' if '#1' is currently running and '#3' if not.
+\def\pgfprofileifisrunning#1#2#3{%
+	\ifnum\csname c@pgfprofile@semaphor@#1\endcsname=0 #3\else #2\fi
+}%
+
+% Stops all running timings and postprocesses them.
+\def\pgfprofilepostprocess{%
+	\begingroup
+	%
+	% prepare files.
+	\immediate\openout\w@pgf@writea=\jobname.profiler.dat
+	\immediate\write\w@pgf@writea{profilerentry\pgfprofile@TAB totaltime[s]\pgfprofile@TAB selftime[s]}%
+	%
+	\pgfprofile@all@registered@list@foreach{%
+		\pgfprofileifisrunning{##1}{%
+			\pgfprofileend{##1}%
+		}{}%
+		\pgfprofilepostprocess@single{##1}%
+	}%
+	\immediate\closeout\w@pgf@writea
+	\endgroup
+}%
+
+{%
+\catcode`\[=1 %
+\catcode`\]=2 %
+\catcode`\{=12 %
+\catcode`\}=12 %
+\catcode`\^^I=12
+\gdef\pgfprofile@lbrace[{]%
+\gdef\pgfprofile@rbrace[}]%
+\gdef\pgfprofile@TAB[^^I]%
+]
+
+\def\pgfprofilepostprocess@single#1{%
+	\begingroup
+	\pgf@xa=\csname c@pgfprofile@elapsedtotal@#1\endcsname sp
+	\pgf@xb=\csname c@pgfprofile@elapsedself@#1\endcsname sp
+	\edef\pgfprofilecur@total{\pgf@sys@tonumber\pgf@xa}%
+	\edef\pgfprofilecur@self{\pgf@sys@tonumber\pgf@xb}%
+	\immediate\write16{
+		pgflibraryprofiler(#1) 
+		\pgfprofile@lbrace 
+			total time=\pgfprofilecur@total sec; 
+			self time=\pgfprofilecur@self sec; 
+		\pgfprofile@rbrace
+	}%
+	\immediate\write\w@pgf@writea{#1\pgfprofile@TAB \pgfprofilecur@total\pgfprofile@TAB \pgfprofilecur@self\pgfprofile@TAB}%
+	\endgroup
+}%
 % Invokes '#2' for each element of the command separated list '#1'.
 % the current list element is available as '#1' inside of '#2'.
 \long\def\pgfprofileforeachentryinCSV#1#2{%
@@ -55,96 +297,18 @@
 		\expandafter\xdef\csname #1\endcsname{\the\c@pgf@counta}%
 	\endgroup
 }%
-\def\pgfprofilenew#1{%
-	\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
-	\pgfprofile@all@registered@list@add{#1}%
-}%
 
+\def\pgfprofile@cs@to@name@#1->#2#3\relax{\def\pgfretval{#3}}
 
-\pgfutil@ifundefined{pdfelapsedtime}{%
-	\PackageError{pgf}{library 'profiler' can only be used with pdftex Rev. >= 1.671.}{}%
-	\global\let\pdfelapsedtime=\c@pgf@counta
-}{}
-
-
-\def\pgfprofilestart#1{%
-	\pgfprofileifisrunning{#1}{%
-		\relax
-	}{%
-		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pdfelapsedtime}%
-		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
-	}%
-	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{1}%
-}%
-
-\def\pgfprofileend#1{%
-	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{-1}%
-	\pgfprofileifisrunning{#1}{%
-		\relax
-	}{%
-		\begingroup
-			\c@pgf@countb=\pdfelapsedtime\relax
-			\advance\c@pgf@countb by-\csname c@pgfprofile@elapsed@at@start@#1\endcsname\relax
-			\pgfprofile@all@registered@list@foreach{%
-				\pgfprofileifisrunning{##1}{%
-					\pgfprofile@advance{c@pgfprofile@subtractforself@##1}{\c@pgf@countb}%
-				}{}%
-			}%
-			\pgfprofile@advance{c@pgfprofile@elapsedtotal@#1}{\c@pgf@countb}%
-			\advance\c@pgf@countb by-\csname c@pgfprofile@subtractforself@#1\endcsname\relax
-			\pgfprofile@advance{c@pgfprofile@elapsedself@#1}{\c@pgf@countb}%
-		\endgroup
-	}%
-}%
-
-% invokes '#2' if '#1' is currently running and '#3' if not.
-\def\pgfprofileifisrunning#1#2#3{%
-	\ifnum\csname c@pgfprofile@semaphor@#1\endcsname=0 #3\else #2\fi
-}%
-
-\def\pgfprofilepostprocess{%
-	\begingroup
-	\pgfprofile@all@registered@list@foreach{%
-		\pgfprofileifisrunning{##1}{%
-			\pgfprofileend{##1}%
-		}{}%
-		\pgfprofilepostprocess@single{16}{##1}%
-	}%
-	\endgroup
-}%
-
-{%
-\catcode`\[=1 %
-\catcode`\]=2 %
-\catcode`\{=12 %
-\catcode`\}=12 %
-\gdef\pgfprofile@lbrace[{]%
-\gdef\pgfprofile@rbrace[}]%
-]
-
-\def\pgfprofilepostprocess@single#1#2{%
-	\begingroup
-	\pgf@xa=\csname c@pgfprofile@elapsedtotal@#2\endcsname sp
-	\pgf@xb=\csname c@pgfprofile@elapsedself@#2\endcsname sp
-	\edef\pgfprofilecur@total{\pgf@sys@tonumber\pgf@xa}%
-	\edef\pgfprofilecur@self{\pgf@sys@tonumber\pgf@xb}%
-	\immediate\write#1{
-		pgflibraryprofiler(#2) 
-		\pgfprofile@lbrace 
-			total time=\pgfprofilecur@total sec; 
-			self time=\pgfprofilecur@self sec; 
-		\pgfprofile@rbrace
-	}%
-	\endgroup
+% defines '\pgfretval' to be the control sequences name of '#1' *without* the backslash.
+\def\pgfprofile@cs@to@name#1{%
+	\expandafter\pgfprofile@cs@to@name@\meaning#1\relax
 }%
 
 \pgfutil@ifundefined{AtEndDocument}{}{\AtEndDocument{\pgfprofilepostprocess}}%
 
 \pgfprofilenew{main job}
 \pgfprofilestart{main job}
+\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
 
 \endinput
