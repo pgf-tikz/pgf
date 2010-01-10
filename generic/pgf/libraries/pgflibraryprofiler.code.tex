@@ -1,0 +1,150 @@
+%--------------------------------------------
+%
+% TeX profiling library
+% 
+% Copyright 2009 by Christian Feuersänger.
+%
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% (at your option) any later version.
+% 
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+%
+%--------------------------------------------
+
+% Invokes '#2' for each element of the command separated list '#1'.
+% the current list element is available as '#1' inside of '#2'.
+\long\def\pgfprofileforeachentryinCSV#1#2{%
+	\long\def\pgfprofileinvokeforeach@@##1{#2}%
+	\pgfprofileforeachentryinCSVisterminated@loop#1,\pgfeov
+}%
+\long\def\pgfprofileforeachentryinCSVisterminated@loop{%
+	\pgfutil@ifnextchar\pgfeov{\pgfutil@gobble}{\pgfprofileforeachentryinCSV@next}%
+}%
+\long\def\pgfprofileforeachentryinCSV@next#1,{%
+	\pgfprofileinvokeforeach@@{#1}%
+	\pgfprofileforeachentryinCSVisterminated@loop%
+}%
+
+\xdef\pgfprofile@all@registered@list{}
+\xdef\pgfprofile@currently@running@list{}
+
+\def\pgfprofile@all@registered@list@add#1{%
+	\ifx\pgfprofile@all@registered@list\pgfutil@empty
+		\xdef\pgfprofile@all@registered@list{#1}%
+	\else
+		\xdef\pgfprofile@all@registered@list{\pgfprofile@all@registered@list,#1}%
+	\fi
+}%
+
+\def\pgfprofile@all@registered@list@foreach#1{%
+	\expandafter\pgfprofileforeachentryinCSV\expandafter{\pgfprofile@all@registered@list}{#1}%
+}%
+
+\def\pgfprofile@advance#1#2{%
+	\begingroup
+		\c@pgf@counta=\csname #1\endcsname\relax
+		\advance\c@pgf@counta by#2\relax
+		\expandafter\xdef\csname #1\endcsname{\the\c@pgf@counta}%
+	\endgroup
+}%
+\def\pgfprofilenew#1{%
+	\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
+	\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
+	\pgfprofile@all@registered@list@add{#1}%
+}%
+
+
+\pgfutil@ifundefined{pdfelapsedtime}{%
+	\PackageError{pgf}{library 'profiler' can only be used with pdftex Rev. >= 1.671.}{}%
+	\global\let\pdfelapsedtime=\c@pgf@counta
+}{}
+
+
+\def\pgfprofilestart#1{%
+	\pgfprofileifisrunning{#1}{%
+		\relax
+	}{%
+		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pdfelapsedtime}%
+		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+	}%
+	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{1}%
+}%
+
+\def\pgfprofileend#1{%
+	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{-1}%
+	\pgfprofileifisrunning{#1}{%
+		\relax
+	}{%
+		\begingroup
+			\c@pgf@countb=\pdfelapsedtime\relax
+			\advance\c@pgf@countb by-\csname c@pgfprofile@elapsed@at@start@#1\endcsname\relax
+			\pgfprofile@all@registered@list@foreach{%
+				\pgfprofileifisrunning{##1}{%
+					\pgfprofile@advance{c@pgfprofile@subtractforself@##1}{\c@pgf@countb}%
+				}{}%
+			}%
+			\pgfprofile@advance{c@pgfprofile@elapsedtotal@#1}{\c@pgf@countb}%
+			\advance\c@pgf@countb by-\csname c@pgfprofile@subtractforself@#1\endcsname\relax
+			\pgfprofile@advance{c@pgfprofile@elapsedself@#1}{\c@pgf@countb}%
+		\endgroup
+	}%
+}%
+
+% invokes '#2' if '#1' is currently running and '#3' if not.
+\def\pgfprofileifisrunning#1#2#3{%
+	\ifnum\csname c@pgfprofile@semaphor@#1\endcsname=0 #3\else #2\fi
+}%
+
+\def\pgfprofilepostprocess{%
+	\begingroup
+	\pgfprofile@all@registered@list@foreach{%
+		\pgfprofileifisrunning{##1}{%
+			\pgfprofileend{##1}%
+		}{}%
+		\pgfprofilepostprocess@single{16}{##1}%
+	}%
+	\endgroup
+}%
+
+{%
+\catcode`\[=1 %
+\catcode`\]=2 %
+\catcode`\{=12 %
+\catcode`\}=12 %
+\gdef\pgfprofile@lbrace[{]%
+\gdef\pgfprofile@rbrace[}]%
+]
+
+\def\pgfprofilepostprocess@single#1#2{%
+	\begingroup
+	\pgf@xa=\csname c@pgfprofile@elapsedtotal@#2\endcsname sp
+	\pgf@xb=\csname c@pgfprofile@elapsedself@#2\endcsname sp
+	\edef\pgfprofilecur@total{\pgf@sys@tonumber\pgf@xa}%
+	\edef\pgfprofilecur@self{\pgf@sys@tonumber\pgf@xb}%
+	\immediate\write#1{
+		pgflibraryprofiler(#2) 
+		\pgfprofile@lbrace 
+			total time=\pgfprofilecur@total sec; 
+			self time=\pgfprofilecur@self sec; 
+		\pgfprofile@rbrace
+	}%
+	\endgroup
+}%
+
+\pgfutil@ifundefined{AtEndDocument}{}{\AtEndDocument{\pgfprofilepostprocess}}%
+
+\pgfprofilenew{main job}
+\pgfprofilestart{main job}
+
+\endinput
