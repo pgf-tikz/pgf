@@ -1,0 +1,101 @@
+% Copyright 2010 by Christian Feuersaenger
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\section{Profiler Library}
+{\noindent {\emph{by Christian Feuers\"anger}}}
+
+\begin{pgflibrary}{profiler}
+	A library to simplify the optimization of runtime speed of \TeX\ programs.
+
+	It relies on the |pdftex| primitive \declareandlabel{\pdfelapsedtime} to count (fractional) seconds and counts total time and self time for macro invocations.
+\end{pgflibrary}
+
+\subsection{Overview}
+The intended audience for this library are people writing \TeX\ code which should be optimized. It is certainly \emph{not} useful for the end-user.
+
+The work flow for the optimization is simple: the preamble contains configuration commands like
+\begin{codeexample}[code only]
+\usepgflibrary{profiler}
+\pgfprofilenewforenvironment{tikzpicture}
+\pgfprofilenewforcommand{\pgfkeys}{1}
+\end{codeexample}
+\noindent and then, the time between |\begin{tikzpicture}| and |\end{tikzpicture}| and the time required to call |\pgfkeys| will be collected.
+
+At the end, a short usage summary like
+\begin{codeexample}[code only]
+ pgflibraryprofiler(main job) {total time=1.07378sec; (100.0122%) self time=0.034sec; (3.1662%) }
+ pgflibraryprofiler(<ENV>tikzpicture) {total time=1.03978sec; (96.84601%) self time=1.00415sec; (93.52722%) }
+ pgflibraryprofiler(<CS>pgfkeys) {total time=0.03563sec; (3.31726%) self time=0.03563sec; (3.31726%) }
+\end{codeexample}
+\noindent will be provided in the log file, furthermore, the same information is available in a text table called |\jobname.profiler.dat| which is of the form:
+\begin{codeexample}[code only]
+profilerentry       totaltime[s]        totaltime[percent]  selftime[s]         selftime[percent]   
+main job            1.07378             100.0122            0.034               3.1662              
+<ENV>tikzpicture    1.03978             96.84601            1.00415             93.52722            
+<CS>pgfkeys         0.03563             3.31726             0.03563             3.31726             
+\end{codeexample}
+Here, the |totaltime| means the time used for all invocations of the respective profiler entry (one row in the table). The |selftime| measures time which is not already counted for in another profiler entry which has been invoked within the current one. The example above is not very exiting: the main job consists only in several (quite complex) pictures and nothing else. Thus, its total time is large. However, the self time is very small because the |tikzpicture|s are counted separately, and they have been invoked within the |main job|. The |\pgfkeys| control sequence has been invoked within the |tikzpicture|, that's why the |selftime| for the |tikzpicture| is a little bit smaller than its |totaltime|.
+
+\subsection{Requirements}
+The library doesn't work without |pdftex|. Furthermore, it requires a more or less recent version which supports the |\pdfelapsedtime| directive.
+
+\subsection{Defining Profiler Entries}
+Unlike profilers for C/C++ or java, this library doesn't extract information about every \TeX\ macro automatically, nor does it collect information for each of them. Instead, every profiler entry needs to be defined explicitly. Only defined profiler entries will be processed.
+
+\begin{command}{\pgfprofilenew\marg{name}}
+	Defines a new profiler entry named \meta{name}.
+
+	This updates a set of internal registers used to track the profiler entry. The \meta{name} can be arbitrary, it doesn't need to be related to any \TeX\ macro.
+
+	The actual job of counting seconds is accomplished using |\pgfprofilestart|\marg{name} followed eventually by the command |\pgfprofileend|\marg{name}.
+\end{command}
+
+\begin{command}{\pgfprofilenewforcommand\marg{\textbackslash macro}\marg{arguments}}
+	Defines a new profiler entry which will measure the time spent in \meta{\textbackslash macro}. This calls |\pgfprofilenew| and replaces the current definition of \meta{\textbackslash macro} with a new one. The replacement macro will collect all required arguments, start counting, invoke the original macro definition and stop counting.
+
+	The following macro types are supported:
+	\begin{itemize}
+ \item commands which take one (optional) argument in square brackets
+   followed by one optional argument which has to be delimited by
+   curly braces (use an empty argument for \meta{arguments} in this case),
+ \item commands which take one (optional) argument in square brackets
+   and \emph{exactly} \meta{arguments} arguments afterwards.
+	\end{itemize}
+
+	If you like to profile a command which doesn't match here, you'll have to redefine it manually and insert |\pgfprofilestart| and |\pgfprofileend| in appropriate places.
+\end{command}
+
+\begin{command}{\pgfprofilenewforenvironment\marg{environment name}}
+	Defines a new profiler entry which measures time spent in the environment \meta{environment name}.
+
+	This calls |\pgfprofilenew| and handles the begin/end of the environment automatically.
+\end{command}
+
+
+\begin{command}{\pgfprofilestart\marg{profiler entry name}}
+	Starts (or resumes) timing of \meta{profiler entry name}. The argument must have been declared in the preamble using |\pgfprofilenew|.
+
+	Nested calls of |\pgfprofilestart| with the same argument will be ignored.
+
+	The invocation of this command doesn't change the environment: it doesn't introduce any \TeX\ groups nor does it modify the token list.
+\end{command}
+
+\begin{command}{\pgfprofileend\marg{profiler entry name}}
+	Stops (or interrupts) timing of \meta{profiler entry name}. 
+	
+	This command finishes a preceding call to |\pgfprofilestart|.
+\end{command}
+
+\begin{command}{\pgfprofilepostprocess}
+	For \LaTeX, this command is installed automatically in |\end{document}|. It stops all running timings, evaluates them and returns the result into the logfile. Furthermore, it generates a text table |\jobname.profiler.dat|.
+\end{command}
+
+\begin{command}{\pgfprofileifisrunning\marg{profiler entry name}\marg{true code}\marg{false code}}
+	Invokes \marg{true code} if \marg{profiler entry name} is currently running and \marg{false code} otherwise.
+\end{command}
