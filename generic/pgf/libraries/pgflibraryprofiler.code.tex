@@ -28,12 +28,17 @@
 %
 % This allocates a set of counters.
 \def\pgfprofilenew#1{%
-	\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
-	\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
-	\pgfprofile@all@registered@list@add{#1}%
+	\pgfutil@ifundefined{c@pgfprofile@elapsedtotal@#1}{%
+		\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
+		\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
+		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+		\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
+		\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
+		\pgfprofile@all@registered@list@add{#1}%
+	}{%
+		% it is already defined and registered. Shouldn't hurt, might
+		% even be a good feature.
+	}%
 }%
 
 \def\pgfprofile@TeX@DIALECT@toenvironment@begin#1{\csname #1\endcsname}%
@@ -49,26 +54,39 @@
 % environment automatically.
 %
 % #1 the environment name (a string)
-\def\pgfprofilenewforenvironment#1{%
-	\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@begin{#1}%
+%
+% Optionally in square brackets: the profiler entry name
+% \pgfprofilenewforenvironment{<environment name>}
+% \pgfprofilenewforenvironment[<profiler entry name>]{<environment name>}
+\def\pgfprofilenewforenvironment{\pgfutil@ifnextchar[{\pgfprofilenewforenvironment@}{\pgfprofilenewforenvironment@[]}}%
+\def\pgfprofilenewforenvironment@[#1]#2{%
+	\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@begin{#2}%
 	\ifx\pgfretval\relax
-		\PackageError{pgf}{\string\pgfprofilenewforenvironment{#1} doesn't work: the environment `#1' is (not yet?) known or not known in this context}{}%
+		\PackageError{pgf}{\string\pgfprofilenewforenvironment{#2} doesn't work: the environment `#2' is (not yet?) known or not known in this context}{}%
 	\else
-		\expandafter\global\expandafter\let\csname pgfprofile@orig@begin@#1\endcsname=\pgfretval
-		\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@end{#1}%
-		\expandafter\global\expandafter\let\csname pgfprofile@orig@end@#1\endcsname=\pgfretval
+		\expandafter\global\expandafter\let\csname pgfprofile@orig@begin@#2\endcsname=\pgfretval
+		\expandafter\pgfprofile@@to@pgfretval\pgfprofile@TeX@DIALECT@toenvironment@end{#2}%
+		\expandafter\global\expandafter\let\csname pgfprofile@orig@end@#2\endcsname=\pgfretval
 		%
-		\pgfprofilenew{\pgfprofileenv #1}%
-		\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@begin{#1}{%
-			\pgfprofilestart{\pgfprofileenv #1}%
-			\csname pgfprofile@orig@begin@#1\endcsname
-		}%
-		\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@end{#1}{%
-			\csname pgfprofile@orig@end@#1\endcsname
-			\pgfprofileend{\pgfprofileenv #1}%
-		}%
+		\def\pgfprofile@temp{#1}%
+		\ifx\pgfprofile@temp\pgfutil@empty
+			\pgfprofilenewforenvironment@@{\pgfprofileenv #2}{#2}%
+		\else
+			\pgfprofilenewforenvironment@@{#1}{#2}%
+		\fi
 	\fi
 }%
+\def\pgfprofilenewforenvironment@@#1#2{%
+	\pgfprofilenew{#1}%
+	\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@begin{#2}{%
+		\pgfprofilestart{#1}%
+		\csname pgfprofile@orig@begin@#2\endcsname
+	}%
+	\expandafter\expandafter\expandafter\gdef\pgfprofile@TeX@DIALECT@toenvironment@end{#2}{%
+		\csname pgfprofile@orig@end@#2\endcsname
+		\pgfprofileend{#1}%
+	}%
+}
 
 
 \def\pgfprofilecs{<CS>}%
@@ -89,20 +107,30 @@
 %   curly braces (use an empty argument for '#2' in this case),
 % - commands which take one (optional) argument in square brackets
 %   and *exactly* #2 arguments afterwards.
-\def\pgfprofilenewforcommand#1#2{%
-	\ifx#1\undefined
-		\PackageError{pgf}{\string\pgfprofilenewforcommand{\string#1} doesn't work: the command `\string#1' is (not yet?) known or not known in this context}{}%
+\def\pgfprofilenewforcommand{\pgfutil@ifnextchar[{\pgfprofilenewforcommand@}{\pgfprofilenewforcommand@[]}}
+\def\pgfprofilenewforcommand@[#1]#2#3{%
+	\ifx#2\undefined
+		\PackageError{pgf}{\string\pgfprofilenewforcommand{\string#2} doesn't work: the command `\string#2' is (not yet?) known or not known in this context}{}%
 	\else
 	\begingroup
-	\pgfprofile@cs@to@name{#1}%
+	\pgfprofile@cs@to@name{#2}%
 	\let\pgfprofilenew@cmdname=\pgfretval
-	\pgfprofilenew{\pgfprofilecs\pgfprofilenew@cmdname}%
-	\expandafter\global\expandafter\let\csname pgfprofile@orig@\pgfprofilenew@cmdname\endcsname=#1%
-	\def\pgfprofile@temp{#2}%
+	%
+	\def\pgfprofile@temp{#1}%
+	\ifx\pgfprofile@temp\pgfutil@empty
+		\edef\pgfprofilenew@profilerentryname{\pgfprofilecs\pgfprofilenew@cmdname}%
+	\else
+		\edef\pgfprofilenew@profilerentryname{#1}%
+	\fi
+	\expandafter\global\expandafter\let\csname pgfprofile@name@for@\pgfprofilenew@cmdname\endcsname=\pgfprofilenew@profilerentryname
+	\pgfprofilenew{\pgfprofilenew@profilerentryname}%
+	%
+	\expandafter\global\expandafter\let\csname pgfprofile@orig@\pgfprofilenew@cmdname\endcsname=#2%
+	\def\pgfprofile@temp{#3}%
 	\ifx\pgfprofile@temp\pgfutil@empty
 		\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@uptoonearg
 	\else
-		\ifcase#2\relax
+		\ifcase#3\relax
 			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@noarg
 		\or
 			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@onearg
@@ -131,11 +159,11 @@
 				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}{##8}{##9}}%
 			}%
 		\else
-			\PackageError{pgf}{library 'profiler' can't replace control sequences with '#2' arguments automatically, sorry.}%
+			\PackageError{pgf}{library 'profiler' can't replace control sequences with '#3' arguments automatically, sorry.}%
 		\fi
 	\fi
 	\expandafter\global\expandafter\let\csname pgfprofile@repl@\pgfprofilenew@cmdname\endcsname=\pgfprofile@temp@replacement
-	\xdef#1{\noexpand\pgfprofileinvokecommand{\pgfprofilenew@cmdname}}%
+	\xdef#2{\noexpand\pgfprofileinvokecommand{\pgfprofilenew@cmdname}}%
 	\endgroup
 	\fi
 }%
@@ -150,14 +178,18 @@
 
 % #3 contains ALL arguments, including any braces.
 \def\pgfprofile@invokeorig#1[#2]#3{%
-	\pgfprofilestart{\pgfprofilecs #1}%
+	\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
+	\expandafter\pgfprofilestart\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+	%
 	\def\pgfprofile@temp{#2}%
 	\ifx\pgfprofile@temp\pgfprofile@no@optional@arg@text
 		\csname pgfprofile@orig@#1\endcsname#3%
 	\else
 		\csname pgfprofile@orig@#1\endcsname[#2]#3%
 	\fi
-	\pgfprofileend{\pgfprofilecs #1}%
+	%
+	\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
+	\expandafter\pgfprofileend\expandafter{\pgfprofile@invokeorig@profilerentryname}%
 }%
 
 
@@ -239,6 +271,8 @@
 		selftime[s]\pgfprofile@TAB
 		selftime[percent]\pgfprofile@TAB}%
 	%
+	%
+	% compute main time and prepare computation of relative times:
 	\pgfprofileifisrunning{main job}{%
 		\pgfprofileend{main job}%
 	}{}%
@@ -247,6 +281,7 @@
 	\pgfmath@basic@reciprocal@{\pgfprofiletotaltime}%
 	\let\pgfprofiletotaltime@inv=\pgfmathresult
 	%
+	% postprocess each of them:
 	\pgfprofile@all@registered@list@foreach{%
 		\pgfprofileifisrunning{##1}{%
 			\pgfprofileend{##1}%
@@ -368,6 +403,6 @@
 
 \pgfprofilenew{main job}
 \pgfprofilestart{main job}
-\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
+\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@main job\endcsname{0}%
 
 \endinput
