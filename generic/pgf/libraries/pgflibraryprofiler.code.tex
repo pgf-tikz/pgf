@@ -109,8 +109,43 @@
 %   and *exactly* #2 arguments afterwards.
 \def\pgfprofilenewforcommand{\pgfutil@ifnextchar[{\pgfprofilenewforcommand@}{\pgfprofilenewforcommand@[]}}
 \def\pgfprofilenewforcommand@[#1]#2#3{%
+	\def\pgfprofile@temp{#3}%
+	\ifx\pgfprofile@temp\pgfutil@empty
+		\pgfprofilenewforcommandpattern[#1]{#2}{<autocheck>}{}%
+	\else
+		\ifcase#3\relax
+			\pgfprofilenewforcommandpattern[#1]{#2}{}{}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1}{{##1}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2}{{##1}{##2}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2##3}{{##1}{##2}{##3}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2##3##4}{{##1}{##2}{##3}{##4}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2##3##4##5}{{##1}{##2}{##3}{##4}{##5}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2##3##4##5##6}{{##1}{##2}{##3}{##4}{##5}{##6}}%
+		\or
+			\pgfprofilenewforcommandpattern[#1]{#2}{##1##2##3##4##5##6##7}{{##1}{##2}{##3}{##4}{##5}{##6}{##7}}%
+		\else
+			\PackageError{pgf}{library 'profiler' can't replace control sequences with '#3' arguments automatically, sorry.}%
+		\fi
+	\fi
+}%
+
+% \pgfprofilenewforcommandpattern[<profile entry name>]{<\CS>}{<definition pattern>}{<invocation pattern>}
+%
+% example:
+% \pgfprofilenewforcommandpattern{\pgfqkeys}{##1##2}{{##1}{##2}}
+%
+% \def\mymacro##1\to##2\in##3{ .... }
+% \pgfprofilenewforcommandpattern{\mymacro}{##1\to##2\in##3}{{##1}\to{##2}\in{##3}}
+\def\pgfprofilenewforcommandpattern{\pgfutil@ifnextchar[{\pgfprofilenewforcommandpattern@}{\pgfprofilenewforcommandpattern@[]}}
+\def\pgfprofilenewforcommandpattern@[#1]#2#3#4{%
 	\ifx#2\undefined
-		\PackageError{pgf}{\string\pgfprofilenewforcommand{\string#2} doesn't work: the command `\string#2' is (not yet?) known or not known in this context}{}%
+		\PackageError{pgf}{\string\pgfprofilenewforcommandpattern{\string#2} doesn't work: the command `\string#2' is (not yet?) known or not known in this context}{}%
 	\else
 	\begingroup
 	\pgfprofile@cs@to@name{#2}%
@@ -126,43 +161,16 @@
 	\pgfprofilenew{\pgfprofilenew@profilerentryname}%
 	%
 	\expandafter\global\expandafter\let\csname pgfprofile@orig@\pgfprofilenew@cmdname\endcsname=#2%
-	\def\pgfprofile@temp{#3}%
-	\ifx\pgfprofile@temp\pgfutil@empty
-		\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@uptoonearg
+	\toks0={#3}%
+	\edef\pgfprofile@temp{\the\toks0}%%
+	\def\pgfprofile@tempb{<autocheck>}%
+	\ifx\pgfprofile@temp\pgfprofile@tempb
+		\expandafter\global\expandafter\let\csname pgfprofile@repl@\pgfprofilenew@cmdname\endcsname=\pgfprofileinvokecommand@uptoonearg
 	\else
-		\ifcase#3\relax
-			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@noarg
-		\or
-			\let\pgfprofile@temp@replacement=\pgfprofileinvokecommand@onearg
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}}%
-			}%
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4##5{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}}%
-			}%
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}}%
-			}%
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}}%
-			}%
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7##8{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}{##8}}%
-			}%
-		\or
-			\def\pgfprofile@temp@replacement##1[##2]##3##4##5##6##7##8##9{%
-				\pgfprofile@invokeorig{##1}[##2]{{##3}{##4}{##5}{##6}{##7}{##8}{##9}}%
-			}%
-		\else
-			\PackageError{pgf}{library 'profiler' can't replace control sequences with '#3' arguments automatically, sorry.}%
-		\fi
+		\expandafter\gdef\csname pgfprofile@repl@\pgfprofilenew@cmdname\endcsname#3{%
+			\pgfprofile@invokeorig{#4}%
+		}%
 	\fi
-	\expandafter\global\expandafter\let\csname pgfprofile@repl@\pgfprofilenew@cmdname\endcsname=\pgfprofile@temp@replacement
 	\xdef#2{\noexpand\pgfprofileinvokecommand{\pgfprofilenew@cmdname}}%
 	\endgroup
 	\fi
@@ -173,34 +181,54 @@
 	\pgfutil@ifnextchar[{\pgfprofileinvokecommand@{#1}}{\pgfprofileinvokecommand@{#1}[<noarg>]}%
 }%
 \def\pgfprofileinvokecommand@#1[#2]{%
-	\csname pgfprofile@repl@#1\endcsname{#1}[#2]%
+	\def\pgfprofileinvokecommand@cs{#1}%
+	\def\pgfprofileinvokecommand@optarg{#2}%
+	\csname pgfprofile@repl@#1\endcsname%
 }%
 
-% #3 contains ALL arguments, including any braces.
-\def\pgfprofile@invokeorig#1[#2]#3{%
-	\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
-	\expandafter\pgfprofilestart\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+% #1 contains ALL arguments, including any braces.
+\def\pgfprofile@invokeorig#1{%
+	% re-insert the control sequence name and the optional argument:
+	% this wasn't possible directly.
+	\begingroup
+	\toks1=\expandafter{\pgfprofileinvokecommand@optarg}%
+	\toks2={#1}%
+	\toks3=\expandafter{\csname pgfprofile@orig@\pgfprofileinvokecommand@cs\endcsname}%
 	%
-	\def\pgfprofile@temp{#2}%
-	\ifx\pgfprofile@temp\pgfprofile@no@optional@arg@text
-		\csname pgfprofile@orig@#1\endcsname#3%
+	\ifx\pgfprofileinvokecommand@optarg\pgfprofile@no@optional@arg@text
+		% no [] argument after original command:
+		\xdef\pgfprofile@invokeorig@doitfinally{\the\toks3 \the\toks2 }%%
 	\else
-		\csname pgfprofile@orig@#1\endcsname[#2]#3%
+		\xdef\pgfprofile@invokeorig@doitfinally{\the\toks3[\the\toks1]\the\toks2 }%
 	\fi
-	%
+	\endgroup
+	\expandafter\pgfprofile@invokeorig@\expandafter{\pgfprofileinvokecommand@cs}%
+}%
+% #1: control sequence name (without backslash)
+\def\pgfprofile@invokeorig@#1{%
 	\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
-	\expandafter\pgfprofileend\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+	% this check should avoid save stack impact
+	\pgfprofileifisrunning{\pgfprofile@invokeorig@profilerentryname}{%
+		\pgfprofile@invokeorig@doitfinally%
+	}{%
+		\expandafter\pgfprofilestart\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+		%
+		\pgfprofile@invokeorig@doitfinally%
+		%
+		\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
+		\expandafter\pgfprofileend\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+	}%
 }%
 
 
-\def\pgfprofileinvokecommand@uptoonearg#1[#2]{%
-	\pgfutil@ifnextchar\bgroup{\pgfprofileinvokecommand@onearg{#1}[#2]}{\pgfprofileinvokecommand@noarg{#1}[#2]}%
+\def\pgfprofileinvokecommand@uptoonearg{%
+	\pgfutil@ifnextchar\bgroup{\pgfprofileinvokecommand@onearg}{\pgfprofileinvokecommand@noarg}%
 }%
-\def\pgfprofileinvokecommand@onearg#1[#2]#3{%
-	\pgfprofile@invokeorig{#1}[#2]{{#3}}%
+\def\pgfprofileinvokecommand@onearg#1{%
+	\pgfprofile@invokeorig{{#1}}%
 }%
-\def\pgfprofileinvokecommand@noarg#1[#2]{%
-	\pgfprofile@invokeorig{#1}[#2]{}%
+\def\pgfprofileinvokecommand@noarg{%
+	\pgfprofile@invokeorig{}%
 }%
 
 
@@ -255,7 +283,8 @@
 
 % invokes '#2' if '#1' is currently running and '#3' if not.
 \def\pgfprofileifisrunning#1#2#3{%
-	\ifnum\csname c@pgfprofile@semaphor@#1\endcsname=0 #3\else #2\fi
+	\ifnum\csname c@pgfprofile@semaphor@#1\endcsname=0 \def\pgfprofileifisrunning@next{#3}\else \def\pgfprofileifisrunning@next{#2}\fi
+	\pgfprofileifisrunning@next
 }%
 
 % Stops all running timings and postprocesses them.
