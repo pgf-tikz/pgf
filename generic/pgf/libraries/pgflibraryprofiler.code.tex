@@ -144,7 +144,15 @@
 % \pgfprofilenewforcommandpattern{\mymacro}{##1\to##2\in##3}{{##1}\to{##2}\in{##3}}
 \def\pgfprofilenewforcommandpattern{\pgfutil@ifnextchar[{\pgfprofilenewforcommandpattern@}{\pgfprofilenewforcommandpattern@[]}}
 \def\pgfprofilenewforcommandpattern@[#1]#2#3#4{%
+	\def\pgfprofile@known{1}%
 	\ifx#2\undefined
+		\def\pgfprofile@known{0}%
+	\else
+		\ifx#2\relax
+			\def\pgfprofile@known{0}%
+		\fi
+	\fi
+	\if\pgfprofile@known0%
 		\PackageError{pgf}{\string\pgfprofilenewforcommandpattern{\string#2} doesn't work: the command `\string#2' is (not yet?) known or not known in this context}{}%
 	\else
 	\begingroup
@@ -287,12 +295,20 @@
 	\pgfprofileifisrunning@next
 }%
 
+% Sets the profiler entry whose total time is used to compute all
+% other relative times.
+\def\pgfprofilesetrel#1{\edef\pgfprofile@rel{#1}}%
+
 % Stops all running timings and postprocesses them.
 \def\pgfprofilepostprocess{%
 	\begingroup
 	%
 	% prepare files.
 	\immediate\openout\w@pgf@writea=\jobname.profiler.dat
+	\immediate\write\w@pgf@writea{%
+		\pgfprofile@percent relative values are measured against the totaltime of `\pgfprofile@rel'.%
+	}%
+	\immediate\write16{pgflibraryprofiler: relative values are measured against the totaltime of `\pgfprofile@rel'.}%
 	\immediate\write\w@pgf@writea{%
 		profilerentry\pgfprofile@TAB 
 		totaltime[s]\pgfprofile@TAB 
@@ -302,10 +318,10 @@
 	%
 	%
 	% compute main time and prepare computation of relative times:
-	\pgfprofileifisrunning{main job}{%
-		\pgfprofileend{main job}%
+	\pgfprofileifisrunning{\pgfprofile@rel}{%
+		\pgfprofileend{\pgfprofile@rel}%
 	}{}%
-	\pgf@xa=\csname c@pgfprofile@elapsedtotal@main job\endcsname sp
+	\pgf@xa=\csname c@pgfprofile@elapsedtotal@\pgfprofile@rel\endcsname sp
 	\edef\pgfprofiletotaltime{\pgf@sys@tonumber\pgf@xa}%
 	\pgfmath@basic@reciprocal@{\pgfprofiletotaltime}%
 	\let\pgfprofiletotaltime@inv=\pgfmathresult
@@ -428,10 +444,21 @@
 	\ifnum\c@pgfprofile@stacktop<0 #1\else #2\fi
 }%
 
-\pgfutil@ifundefined{AtEndDocument}{}{\AtEndDocument{\pgfprofilepostprocess}}%
 
 \pgfprofilenew{main job}
 \pgfprofilestart{main job}
 \expandafter\xdef\csname c@pgfprofile@elapsed@at@start@main job\endcsname{0}%
+\pgfprofilesetrel{main job}
 
+\pgfutil@ifundefined{AtEndDocument}{%
+	% no latex. ok.
+}{%
+	% do latex specific stuff:
+	\pgfprofilenew{preamble}
+	\pgfprofilestart{preamble}
+	\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@preamble\endcsname{0}%
+	\AtBeginDocument{\pgfprofileend{preamble}}%
+	%
+	\AtEndDocument{\pgfprofilepostprocess}%
+}%
 \endinput
