@@ -209,7 +209,7 @@
 	\pgfrealjobname{#2}%
 	\def\tikzexternalize@hasbeencalled{1}%
 	\tikzexternalenable
-	\def\tikzexternal@determineimgextension##1:##2\relax{\gdef\tikzexternal@imgext{##1}}%
+	\def\tikzexternal@determineimgextension##1:##2\relax{\gdef\tikzexternalimgextension{##1}}%
 	\xdef\pgf@tempa{\pgfsys@imagesuffixlist}%
 	\expandafter\tikzexternal@determineimgextension\pgf@tempa\relax
 	\pgfutil@ifundefined{includegraphics}{%
@@ -218,6 +218,15 @@
 		\let\tikzexternal@orig@includegraphics=\includegraphics
 	}%
 }
+
+% Expands to the default image extension (it is set by
+% \tikzexternalize).
+%
+% This image extension may not resemble the correct one; you may need
+% to overwrite this macro *after* \tikzexternalize in this case.
+%
+% The default setting uses the first registered image extension.
+\def\tikzexternalimgextension{}%
 
 % can be used to (temporarily) disable the externalization.
 \def\tikzexternaldisable{%
@@ -497,25 +506,7 @@
 					\immediate\openout\tikzexternal@outfile=\tikzexternal@realjob.figlist\relax
 					\gdef\tikzexternal@listmode@openedfile{1}%
 					\if\tikzexternal@opmode5% mode='list and make'
-						\iftikzexternal@verboseio
-							\immediate\write16{Opening '\tikzexternal@realjob.makefile' for writing.}%
-						\fi
-						\begingroup
-							% this makes \tikzexternal@outmakefile global:
-							\globaldefs=1
-							% this gets round '\outer\newwrite' in plain TeX:
-							\csname newwrite\endcsname\tikzexternal@outmakefile
-						\endgroup
-						\immediate\openout\tikzexternal@outmakefile=\tikzexternal@realjob.makefile\relax
-						\immediate\write\tikzexternal@outmakefile{ALL_FIGURE_NAMES=\tikzexternal@DOLLARchar(shell cat \tikzexternal@realjob.figlist)}%
-						\immediate\write\tikzexternal@outmakefile{ALL_FIGURES=\tikzexternal@DOLLARchar(ALL_FIGURE_NAMES:\tikzexternal@PERCENTchar=\tikzexternal@PERCENTchar\tikzexternal@imgext)}%
-						\immediate\write\tikzexternal@outmakefile{}%
-						\immediate\write\tikzexternal@outmakefile{allimages: \tikzexternal@DOLLARchar(ALL_FIGURES)}%
-						\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar @echo All images exist now. Use make -B to re-generate them.}%
-						\immediate\write\tikzexternal@outmakefile{}%
-						\pgfutil@ifundefined{AtEndDocument}{}{%
-							\AtEndDocument{\immediate\write16{===== mode=`list and make': Use 'make -f \tikzexternal@realjob.makefile' to generate all images. Then, re-run (pdf)latex \tikzexternal@realjob. =====}}%
-						}%
+						\tikzexternal@list@and@make@prepare
 					\fi
 				}{}%
 				\iftikzexternal@verboseio
@@ -527,13 +518,55 @@
 					\iftikzexternal@verboseio
 						\immediate\write16{Writing '#1' to '\tikzexternal@realjob.makefile'.}%
 					\fi
-					\immediate\write\tikzexternal@outmakefile{#1\tikzexternal@imgext:}%
+					\immediate\write\tikzexternal@outmakefile{#1\tikzexternalimgextension:}%
 					\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar\pgf@tempa}%
 					\immediate\write\tikzexternal@outmakefile{}%
 				\fi
 			\fi
 		\fi
 	\fi
+}%
+
+\def\tikzexternal@list@and@make@prepare{%
+	\iftikzexternal@verboseio
+		\immediate\write16{Opening '\tikzexternal@realjob.makefile' for writing.}%
+	\fi
+	\begingroup
+		% this makes \tikzexternal@outmakefile global:
+		\globaldefs=1
+		% this gets round '\outer\newwrite' in plain TeX:
+		\csname newwrite\endcsname\tikzexternal@outmakefile
+	\endgroup
+	\immediate\openout\tikzexternal@outmakefile=\tikzexternal@realjob.makefile\relax
+	\immediate\write\tikzexternal@outmakefile{ALL_FIGURE_NAMES=\tikzexternal@DOLLARchar(shell cat \tikzexternal@realjob.figlist)}%
+	\immediate\write\tikzexternal@outmakefile{ALL_FIGURES=\tikzexternal@DOLLARchar(ALL_FIGURE_NAMES:\tikzexternal@PERCENTchar=\tikzexternal@PERCENTchar\tikzexternalimgextension)}%
+	\immediate\write\tikzexternal@outmakefile{}%
+	\immediate\write\tikzexternal@outmakefile{allimages: \tikzexternal@DOLLARchar(ALL_FIGURES)}%
+	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar @echo All images exist now. Use make -B to re-generate them.}%
+	\immediate\write\tikzexternal@outmakefile{}%
+	\tikzexternal@outmakefile@pendingcommands
+	\pgfutil@ifundefined{AtEndDocument}{}{%
+		\AtEndDocument{\immediate\write16{===== mode=`list and make': Use 'make -f \tikzexternal@realjob.makefile' to generate all images. Then, re-run (pdf)latex \tikzexternal@realjob. =====}}%
+	}%
+}%
+
+% Invokes '#1' if a makefile is to be written and '#2' if not.
+\def\tikzexternalifwritesmakefile#1#2{%
+	\if5\tikzexternal@opmode #1\else #2\fi
+}%
+\def\tikzexternal@outmakefile@pendingcommands{}%
+
+% Will write something to the make file. If the makefile is not yet
+% opened, #1 will be written as soon as it *is* opened.
+\def\tikzexternalwritetomakefile#1{%
+	\pgfutil@ifundefined{tikzexternal@outmakefile}{%
+		\expandafter\gdef\expandafter\tikzexternal@outmakefile@pendingcommands\expandafter{%
+			\tikzexternal@outmakefile@pendingcommands
+			\immediate\write\tikzexternal@outmakefile{#1}%
+		}%
+	}{%
+		\immediate\write\tikzexternal@outmakefile{#1}%
+	}%
 }%
 
 % This command is invoked 
