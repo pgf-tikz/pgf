@@ -24,6 +24,7 @@
 	\global\let\pdfelapsedtime=\c@pgf@counta
 }{}
 
+
 % Defines a new profiler entry named `#1'.
 %
 % This allocates a set of counters.
@@ -31,6 +32,7 @@
 	\pgfutil@ifundefined{c@pgfprofile@elapsedtotal@#1}{%
 		\expandafter\gdef\csname c@pgfprofile@elapsedtotal@#1\endcsname{0}%
 		\expandafter\gdef\csname c@pgfprofile@elapsedself@#1\endcsname{0}%
+		\expandafter\gdef\csname c@pgfprofile@numinvocations@#1\endcsname{0}%
 		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
 		\expandafter\gdef\csname c@pgfprofile@semaphor@#1\endcsname{0}%
 		\expandafter\gdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{0}%
@@ -167,6 +169,7 @@
 	\fi
 	\expandafter\global\expandafter\let\csname pgfprofile@name@for@\pgfprofilenew@cmdname\endcsname=\pgfprofilenew@profilerentryname
 	\pgfprofilenew{\pgfprofilenew@profilerentryname}%
+	\expandafter\gdef\csname b@pgfprofile@show@\pgfprofilenew@profilerentryname\endcsname{0}%
 	%
 	\expandafter\global\expandafter\let\csname pgfprofile@orig@\pgfprofilenew@cmdname\endcsname=#2%
 	\toks0={#3}%
@@ -184,6 +187,23 @@
 	\fi
 }%
 
+\def\pgfprofileshowinvocationsfor#1{%
+	\pgfutil@ifundefined{b@pgfprofile@show@#1}{%
+		\PackageError{pgf}{\string\pgfprofileshowinvocationsfor{#1} doesn't work: the argument is no profiler entry}{}%
+	}{%
+		\expandafter\gdef\csname b@pgfprofile@show@#1\endcsname{1}%
+		\expandafter\gdef\csname b@pgfprofile@show@edef@#1\endcsname{0}%
+	}%
+}%
+\def\pgfprofileshowinvocationsexpandedfor#1{%
+	\pgfutil@ifundefined{b@pgfprofile@show@#1}{%
+		\PackageError{pgf}{\string\pgfprofileshowinvocationsfor{#1} doesn't work: the argument is no profiler entry}{}%
+	}{%
+		\expandafter\gdef\csname b@pgfprofile@show@#1\endcsname{1}%
+		\expandafter\gdef\csname b@pgfprofile@show@edef@#1\endcsname{1}%
+	}%
+}%
+
 \def\pgfprofile@no@optional@arg@text{<noarg>}
 \def\pgfprofileinvokecommand#1{%
 	\pgfutil@ifnextchar[{\pgfprofileinvokecommand@{#1}}{\pgfprofileinvokecommand@{#1}[<noarg>]}%
@@ -191,6 +211,7 @@
 \def\pgfprofileinvokecommand@#1[#2]{%
 	\def\pgfprofileinvokecommand@cs{#1}%
 	\def\pgfprofileinvokecommand@optarg{#2}%
+	\edef\pgfprofileinvokecommand@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
 	\csname pgfprofile@repl@#1\endcsname%
 }%
 
@@ -209,22 +230,39 @@
 	\else
 		\xdef\pgfprofile@invokeorig@doitfinally{\the\toks3[\the\toks1]\the\toks2 }%
 	\fi
+	\if1\csname b@pgfprofile@show@\pgfprofileinvokecommand@profilerentryname\endcsname
+		\pgfprofile@orig@show
+	\fi
 	\endgroup
-	\expandafter\pgfprofile@invokeorig@\expandafter{\pgfprofileinvokecommand@cs}%
+	\edef\pgfprofile@temp{{\pgfprofileinvokecommand@cs}{\pgfprofileinvokecommand@profilerentryname}}%
+	\expandafter\pgfprofile@invokeorig@\pgfprofile@temp%
 }%
+\def\pgfprofile@orig@show{%
+	\toks4=\expandafter{\csname\pgfprofileinvokecommand@cs\endcsname}%
+	\ifx\pgfprofileinvokecommand@optarg\pgfprofile@no@optional@arg@text
+		\def\pgfprofile@orig@show@args{\the\toks2 }%
+	\else
+		\def\pgfprofile@orig@show@args{[\the\toks1] \the\toks2 }%
+	\fi
+	\if1\csname b@pgfprofile@show@edef@\pgfprofileinvokecommand@profilerentryname\endcsname
+		\edef\pgfprofile@orig@show@args{\pgfprofile@orig@show@args}%
+		\edef\pgfprofile@orig@show@args{\pgfprofile@orig@show@args}%
+	\fi
+	\immediate\write16{pgflibraryprofiler: calling 
+		\#\csname c@pgfprofile@numinvocations@\pgfprofileinvokecommand@profilerentryname\endcsname\space
+		(\the\toks4 \pgfprofile@orig@show@args)}%
+}%
+
 % #1: control sequence name (without backslash)
-\def\pgfprofile@invokeorig@#1{%
-	\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
+% #2: profiler entry name
+\def\pgfprofile@invokeorig@#1#2{%
 	% this check should avoid save stack impact
-	\pgfprofileifisrunning{\pgfprofile@invokeorig@profilerentryname}{%
+	\pgfprofileifisrunning{#2}{%
 		\pgfprofile@invokeorig@doitfinally%
 	}{%
-		\expandafter\pgfprofilestart\expandafter{\pgfprofile@invokeorig@profilerentryname}%
-		%
+		\pgfprofilestart{#2}%
 		\pgfprofile@invokeorig@doitfinally%
-		%
-		\edef\pgfprofile@invokeorig@profilerentryname{\csname pgfprofile@name@for@#1\endcsname}%
-		\expandafter\pgfprofileend\expandafter{\pgfprofile@invokeorig@profilerentryname}%
+		\pgfprofileend{#2}%
 	}%
 }%
 
@@ -254,6 +292,7 @@
 	}{%
 		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pdfelapsedtime}%
 		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
+		\pgfprofile@advance{c@pgfprofile@numinvocations@#1}{1}%
 		\pgfprofilestackpush{#1}%
 	}%
 	\pgfprofile@advance{c@pgfprofile@semaphor@#1}{1}%
@@ -304,7 +343,13 @@
 	\begingroup
 	%
 	% prepare files.
-	\immediate\openout\w@pgf@writea=\jobname.profiler.dat
+	\c@pgf@countb=\time
+	\divide\c@pgf@countb by60
+	\c@pgf@countd=\c@pgf@countb
+	\multiply\c@pgf@countd by60
+	\c@pgf@countc=\time
+	\advance\c@pgf@countc by-\c@pgf@countd
+	\immediate\openout\w@pgf@writea=\jobname.profiler.\the\year-\pgfprofiletotwodigitstr\month-\pgfprofiletotwodigitstr\day_\pgfprofiletotwodigitstr\c@pgf@countb h_\pgfprofiletotwodigitstr\c@pgf@countc m.dat
 	\immediate\write\w@pgf@writea{%
 		\pgfprofile@percent relative values are measured against the totaltime of `\pgfprofile@rel'.%
 	}%
@@ -314,7 +359,8 @@
 		totaltime[s]\pgfprofile@TAB 
 		totaltime[percent]\pgfprofile@TAB
 		selftime[s]\pgfprofile@TAB
-		selftime[percent]\pgfprofile@TAB}%
+		selftime[percent]\pgfprofile@TAB
+		numinvocations\pgfprofile@TAB}%
 	%
 	%
 	% compute main time and prepare computation of relative times:
@@ -370,6 +416,7 @@
 		\pgfprofile@lbrace 
 			total time=\pgfprofilecur@total sec; (\pgfprofilecur@total@rel\pgfprofile@percent)
 			self time=\pgfprofilecur@self sec; (\pgfprofilecur@self@rel\pgfprofile@percent)
+			invocations=\csname c@pgfprofile@numinvocations@#1\endcsname;
 		\pgfprofile@rbrace
 	}%
 	\immediate\write\w@pgf@writea{%
@@ -377,7 +424,9 @@
 		\pgfprofilecur@total\pgfprofile@TAB 
 		\pgfprofilecur@total@rel\pgfprofile@TAB
 		\pgfprofilecur@self\pgfprofile@TAB
-		\pgfprofilecur@self@rel\pgfprofile@TAB}%
+		\pgfprofilecur@self@rel\pgfprofile@TAB
+		\csname c@pgfprofile@numinvocations@#1\endcsname\pgfprofile@TAB
+	}%
 	\endgroup
 }%
 % Invokes '#2' for each element of the command separated list '#1'.
@@ -444,6 +493,8 @@
 	\ifnum\c@pgfprofile@stacktop<0 #1\else #2\fi
 }%
 
+
+\def\pgfprofiletotwodigitstr#1{\ifnum#1<10 0\the#1\else\the#1\fi}
 
 \pgfprofilenew{main job}
 \pgfprofilestart{main job}
