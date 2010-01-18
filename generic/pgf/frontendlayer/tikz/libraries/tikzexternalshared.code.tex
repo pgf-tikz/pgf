@@ -1,4 +1,4 @@
-% Copyright 2008 by Christian Feuersaenger
+% Copyright 2008-2010 by Christian Feuersaenger
 %
 % This file may be distributed and/or modified
 %
@@ -328,6 +328,7 @@
 \let\tikzexternal@origtikz=\tikz
 \let\tikzexternal@origpicture=\tikzpicture
 \let\tikzexternal@origendpicture=\endtikzpicture
+\let\tikzexternal@curfilename=\relax
 
 % Replacement for '\tikzpicture'.
 %
@@ -544,10 +545,21 @@
 	\immediate\write\tikzexternal@outmakefile{allimages: \tikzexternal@DOLLARchar(ALL_FIGURES)}%
 	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar @echo All images exist now. Use make -B to re-generate them.}%
 	\immediate\write\tikzexternal@outmakefile{}%
+	%
+	% support for .dep files and auto-dependencies:
+	\immediate\write\tikzexternal@outmakefile{include $(ALL_FIGURE_NAMES:\tikzexternal@PERCENTchar=\tikzexternal@PERCENTchar.dep)}%
+	\immediate\write\tikzexternal@outmakefile{}%
+	\tikzexternalmakefiledefaultdeprule
+	\immediate\write\tikzexternal@outmakefile{}%
 	\tikzexternal@outmakefile@pendingcommands
 	\pgfutil@ifundefined{AtEndDocument}{}{%
 		\AtEndDocument{\immediate\write16{===== mode=`list and make': Use 'make -f \tikzexternal@realjob.makefile' to generate all images. Then, re-run (pdf)latex \tikzexternal@realjob. =====}}%
 	}%
+}%
+
+\def\tikzexternalmakefiledefaultdeprule{%
+	\immediate\write\tikzexternal@outmakefile{\tikzexternal@PERCENTchar.dep:}%
+	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar touch $@ \tikzexternal@ROUTEchar\space will be filled later.}%
 }%
 
 % Invokes '#1' if a makefile is to be written and '#2' if not.
@@ -568,6 +580,67 @@
 		\immediate\write\tikzexternal@outmakefile{#1}%
 	}%
 }%
+
+\def\tikzexternal@dep@file@name{}
+
+% Adds a dependency for the externalized picture file name `#1',
+% namely another file `#2'.
+%
+% #1: the fully qualified path name (without image extension) of the
+% external graphics for which we are adding a dependency.
+% #2: a file name. If this file gets changed, #1 shall be remade.
+\def\tikzexternalfiledependsonfile#1#2{%
+	\begingroup
+	\def\tikzpicturedependsonfile@name{#1}%
+	\ifx\tikzpicturedependsonfile@name\pgfutil@empty
+		% could be auto-generated: empty file name means "picture
+		% won't be externalized". Skip it.
+	\else
+		\edef\tikzpicturedependsonfile@name{#1.dep}%
+		\ifx\tikzexternal@dep@file@name\tikzpicturedependsonfile@name
+			% file is open and ready.
+		\else
+			% create new output file.
+			\pgfutil@ifundefined{tikzexternal@dep@file}{%
+				\begingroup
+					% this makes \tikzexternal@dep@file global:
+					\globaldefs=1
+					% this gets round '\outer\newwrite' in plain TeX:
+					\csname newwrite\endcsname\tikzexternal@dep@file
+				\endgroup
+			}{}%
+			\ifx\tikzexternal@dep@file@name\pgfutil@empty
+			\else
+				% it is already open. Close it.
+				\immediate\closeout\tikzexternal@dep@file
+			\fi
+			\global\let\tikzexternal@dep@file@name=\tikzpicturedependsonfile@name
+			\immediate\openout\tikzexternal@dep@file=\tikzexternal@dep@file@name\relax
+		\fi
+		\immediate\write\tikzexternal@dep@file{#1\tikzexternalimgextension: #2}%
+	\fi
+	\endgroup
+}%
+
+% Adds a dependency for the NEXT picture which is about to be
+% externalized. If we are currently inside of a picture, the
+% dependency is added for this current picture.
+%
+% #1: a file name. If this file gets changed, the tikzpicture's
+% externalized graphics shall be remade.
+\def\tikzpicturedependsonfile#1{%
+	\begingroup
+	\ifx\tikzexternal@curfilename\relax
+		% we are *not* inside of the exported file.
+		% use next file name.
+		\tikzexternalgetnextfilename\tikzpicturedependsonfile@name
+	\else
+		\let\tikzpicturedependsonfile@name=\tikzexternal@curfilename
+	\fi
+	\expandafter\tikzexternalfiledependsonfile\expandafter{\tikzpicturedependsonfile@name}{#1}%
+	\endgroup
+}%
+
 
 % This command is invoked 
 %  if and only if ( (grab mode && --jobname matches) || 'mode=graphics if exists' )
@@ -629,29 +702,6 @@
 	\tikzpicture
 }%
 
-% FIXME : this does not respect catcode changes!
-%--------------------------------------------------
-% \long\def\tikzexternal@externalizefig@@#1{%
-% 	\let\tikzpicture=\tikzexternal@origpicture
-% 	\iftikzexternal@optimize
-% 		\ifpgf@external@grabshipout
-% 			\tikzexternal@optimize@RESTORE
-% 		\fi
-% 	\fi
-% 	\expandafter\beginpgfgraphicnamed\expandafter{\tikzexternal@curfilename}%
-% 	\tikzpicture
-% 	#1
-% 	\endtikzpicture
-% 	\endpgfgraphicnamed
-% 	\let\tikzpicture=\tikzexternal@tikzpicture@replacement
-% 	\iftikzexternal@optimize
-% 		\ifpgf@external@grabshipout
-% 			\tikzexternal@optimize@REPLACE
-% 		\fi
-% 	\fi
-% 	\tikzexternal@closeenvironments
-% }%
-%-------------------------------------------------- 
 
 % Used by the optimization code.
 % It will be called if GRAB mode is on.
@@ -766,6 +816,7 @@
 	\let\endtikzpicture=\relax
 	\tikzexternal@TEXDIALECT@endpicture
 	\let\endtikzpicture=\tikzexternal@origendpicture
+	\let\tikzexternal@curfilename=\relax
 }
 
 % Throws a tikzpicture away - without further notice.
@@ -934,7 +985,9 @@
 \catcode`\^^I=12 
 \catcode`\$=12
 \catcode`\%=12
-\xdef\tikzexternal@TABchar{^^I}\xdef\tikzexternal@PERCENTchar{%}\xdef\tikzexternal@DOLLARchar{$}}
+\catcode`\#=12 
+\gdef\tikzexternal@ROUTEchar{#}
+\gdef\tikzexternal@TABchar{^^I}\gdef\tikzexternal@PERCENTchar{%}\xdef\tikzexternal@DOLLARchar{$}}
 
 % Creates the '/tikz/external/system call' command as string and
 % returns it into the (global!) macro #1.
