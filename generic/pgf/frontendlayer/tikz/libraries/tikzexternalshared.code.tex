@@ -341,6 +341,7 @@
 %   externalize the picture selected by 'jobname' (and only this picture).
 \def\tikzexternal@tikzpicture@replacement{%
 	\leavevmode
+	\global\tikzexternal@file@isuptodatetrue% may be set to false during checks.
 	\tikzexternal@getnextfilename\tikzexternal@curfilename
 	\ifx\tikzexternal@curfilename\pgfutil@empty
 		\ifpgf@external@grabshipout
@@ -518,18 +519,23 @@
 				\fi
 				\immediate\write\tikzexternal@outfile{#1}%
 				\if\tikzexternal@opmode5% mode='list and make'
-					\tikzexternal@assemble@systemcall{\pgf@tempa}%
-					\iftikzexternal@verboseio
-						\immediate\write16{Writing '#1' to '\tikzexternal@realjob.makefile'.}%
-					\fi
-					\immediate\write\tikzexternal@outmakefile{#1\tikzexternalimgextension:}%
-					\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar\pgf@tempa}%
-					\immediate\write\tikzexternal@outmakefile{}%
+					\tikzexternal@list@and@make@gentarget{#1}%
 				\fi
 			\fi
 		\fi
 	\fi
 }%
+\def\tikzexternal@list@and@make@gentarget#1{%
+	\tikzexternal@assemble@systemcall{\pgf@tempa}%
+	\iftikzexternal@verboseio
+		\immediate\write16{Writing '#1' to '\tikzexternal@realjob.makefile'.}%
+	\fi
+	\global\tikzexternal@file@isuptodatetrue% only check for force remake:
+	\tikzexternal@checkforceremake%
+	\immediate\write\tikzexternal@outmakefile{#1\tikzexternalimgextension: \iftikzexternal@file@isuptodate\else FORCEREMAKE\fi}%
+	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar\pgf@tempa}%
+	\immediate\write\tikzexternal@outmakefile{}%
+}
 
 \def\tikzexternal@list@and@make@prepare{%
 	\iftikzexternal@verboseio
@@ -548,6 +554,8 @@
 	\immediate\write\tikzexternal@outmakefile{allimages: \tikzexternal@DOLLARchar(ALL_FIGURES)}%
 	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar @echo All images exist now. Use make -B to re-generate them.}%
 	\immediate\write\tikzexternal@outmakefile{}%
+	\immediate\write\tikzexternal@outmakefile{FORCEREMAKE:}%
+	\immediate\write\tikzexternal@outmakefile{}%
 	%
 	% support for .dep files and auto-dependencies:
 	\immediate\write\tikzexternal@outmakefile{include $(ALL_FIGURE_NAMES:\tikzexternal@PERCENTchar=\tikzexternal@PERCENTchar.\tikzexternaldepext)}%
@@ -563,7 +571,7 @@
 
 \def\tikzexternalmakefiledefaultdeprule{%
 	\immediate\write\tikzexternal@outmakefile{\tikzexternal@PERCENTchar.\tikzexternaldepext:}%
-	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar touch $@ \tikzexternal@ROUTEchar\space will be filled later.}%
+	\immediate\write\tikzexternal@outmakefile{\tikzexternal@TABchar touch $@ \tikzexternal@HASHchar\space will be filled later.}%
 }%
 
 % Invokes '#1' if a makefile is to be written and '#2' if not.
@@ -990,7 +998,7 @@
 \catcode`\$=12
 \catcode`\%=12
 \catcode`\#=12 
-\gdef\tikzexternal@ROUTEchar{#}
+\gdef\tikzexternal@HASHchar{#}
 \gdef\tikzexternal@TABchar{^^I}\gdef\tikzexternal@PERCENTchar{%}\xdef\tikzexternal@DOLLARchar{$}}
 
 % Creates the '/tikz/external/system call' command as string and
@@ -1059,6 +1067,19 @@
 	\tikzexternal@externalizefig@systemcall@next
 }%
 
+% Sets \iftikzexternal@file@isuptodate to false if one of the "force
+% remake" things is active.
+\def\tikzexternal@checkforceremake{%
+	\iftikzexternal@force@remake
+		\global\tikzexternal@file@isuptodatefalse
+	\else
+		\iftikzexternalremakenext
+			\global\tikzexternal@file@isuptodatefalse
+			\global\tikzexternalremakenextfalse
+		\fi
+	\fi
+}
+
 % Checks whether the current picture needs to be externalized.
 % 
 % This is the case if 
@@ -1067,23 +1088,15 @@
 %
 % It returns \iftikzexternal@file@isuptodate accordingly.
 \def\tikzexternal@externalizefig@systemcall@uptodatecheck{%
-	\iftikzexternal@force@remake
-		\global\tikzexternal@file@isuptodatefalse
-	\else
-		\iftikzexternalremakenext
+	\tikzexternal@checkforceremake
+	\iftikzexternal@file@isuptodate
+		% check if there is already a file.
+		% In that case, use it. If that is not the case, generate it and include it afterwards.
+		\gdef\pgf@filename{}%
+		\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
+		\pgf@tempa
+		\ifx\pgf@filename\pgfutil@empty%
 			\global\tikzexternal@file@isuptodatefalse
-			\global\tikzexternalremakenextfalse
-		\else
-			% check if there is already a file.
-			% In that case, use it. If that is not the case, generate it and include it afterwards.
-			\gdef\pgf@filename{}%
-			\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
-			\pgf@tempa
-			\ifx\pgf@filename\pgfutil@empty%
-				\global\tikzexternal@file@isuptodatefalse
-			\else
-				\global\tikzexternal@file@isuptodatetrue
-			\fi
 		\fi
 	\fi
 }%
