@@ -229,8 +229,12 @@
 	}{%
 		\let\tikzexternal@orig@includegraphics=\includegraphics
 	}%
+	\let\tikzexternalfiledependsonfile=\tikzexternalfiledependsonfile@INACTIVE
+	\let\tikzpicturedependsonfile=\tikzpicturedependsonfile@INACTIVE
+	%
 	% suppress generation of LaTeX .aux, .toc etc files. 
 	% generation of these files is not thread-safe.
+	% the \csname \endcsname yields \relax if \nofiles doesn't exist.
 	\tikzifexternalizing{\csname nofiles\endcsname}{}%
 }
 
@@ -461,6 +465,7 @@
 \def\tikzexternalgetnextfilename#1{%
 	\begingroup
 	\let\tikzexternal@getnextfilename@advancecount\relax% NOP
+	\def\tikzexternal@protocol@to@file##1{}% NOP
 	\tikzexternal@getnextfilename#1%
 	\pgfmath@smuggleone#1%
 	\endgroup
@@ -512,11 +517,17 @@
 	\global\let\tikzexternal@nextfile=\pgfutil@empty
 	\global\tikzexternalexportnexttrue
 	%
-	% Handle verbose output:
+	\tikzexternal@protocol@to@file#1%
+}%
+
+% #1: the image file name which should be protocolled. (can be a
+% macro)
+\def\tikzexternal@protocol@to@file#1{%
 	\ifpgf@external@grabshipout%
 	\else
 		\iftikzexternal@genfigurelist
-			\ifx#1\pgfutil@empty
+			\edef\tikzexternal@temp{#1}%
+			\ifx\tikzexternal@temp\pgfutil@empty
 			\else
 				\pgfutil@ifundefined{tikzexternal@listmode@openedfile}{%
 					\message{Opening '\tikzexternal@realjob.figlist' for writing.}%
@@ -537,8 +548,9 @@
 		\fi
 	\fi
 }%
+
 \def\tikzexternal@list@and@make@gentarget#1{%
-	\tikzexternal@assemble@systemcall{\pgf@tempa}%
+	\tikzexternal@assemble@systemcall{#1}{\pgf@tempa}%
 	\iftikzexternal@verboseio
 		\immediate\write16{Writing '#1' to '\tikzexternal@realjob.makefile'.}%
 	\fi
@@ -613,7 +625,10 @@
 % #1: the fully qualified path name (without image extension) of the
 % external graphics for which we are adding a dependency.
 % #2: a file name. If this file gets changed, #1 shall be remade.
-\def\tikzexternalfiledependsonfile#1#2{%
+%
+% This command will be actived as soons as \tikzexternalize has been
+% called.
+\def\tikzexternalfiledependsonfile@INACTIVE#1#2{%
 	\begingroup
 	\def\tikzpicturedependsonfile@name{#1}%
 	\ifx\tikzpicturedependsonfile@name\pgfutil@empty
@@ -645,6 +660,7 @@
 	\fi
 	\endgroup
 }%
+\def\tikzexternalfiledependsonfile#1#2{}% NO-OP until \tikzexternalize has been called.
 
 % Adds a dependency for the NEXT picture which is about to be
 % externalized. If we are currently inside of a picture, the
@@ -652,7 +668,10 @@
 %
 % #1: a file name. If this file gets changed, the tikzpicture's
 % externalized graphics shall be remade.
-\def\tikzpicturedependsonfile#1{%
+%
+% This command will be actived as soons as \tikzexternalize has been
+% called.
+\def\tikzpicturedependsonfile@INACTIVE#1{%
 	\begingroup
 	\ifx\tikzexternal@curfilename\relax
 		% we are *not* inside of the exported file.
@@ -664,6 +683,7 @@
 	\expandafter\tikzexternalfiledependsonfile\expandafter{\tikzpicturedependsonfile@name}{#1}%
 	\endgroup
 }%
+\def\tikzpicturedependsonfile#1{}% NO-OP until \tikzexternalize has been called.
 
 
 % This command is invoked 
@@ -1014,17 +1034,21 @@
 \gdef\tikzexternal@TABchar{^^I}\gdef\tikzexternal@PERCENTchar{%}\xdef\tikzexternal@DOLLARchar{$}}
 
 % Creates the '/tikz/external/system call' command as string and
-% returns it into the (global!) macro #1.
-\def\tikzexternal@assemble@systemcall#1{%
+% returns it into the (global!) macro #2.
+% #1: the image file name (as returned by
+% \tikzexternalgetnextfilename)
+% #2: the global return value macro
+%
+\def\tikzexternal@assemble@systemcall#1#2{%
 	\begingroup
-		\let\image=\tikzexternal@curfilename
+		\def\image{#1}%
 		\let\texsource=\tikzexternal@realjob
 		\ifnum\the\catcode`\"=13 \tikzexternal@activate@normal@dq\fi
 		\ifnum\the\catcode`\'=13 \tikzexternal@activate@normal@sq\fi
 		\ifnum\the\catcode`\;=13 \tikzexternal@activate@normal@semic\fi
 		\ifnum\the\catcode`\-=13 \tikzexternal@activate@normal@dash\fi
 		\let\\=\tikzexternal@normal@backslash
-		\xdef#1{\pgfkeysvalueof{/tikz/external/system call}}%
+		\xdef#2{\pgfkeysvalueof{/tikz/external/system call}}%
 	\endgroup
 }%
 \long\def\tikzexternal@externalizefig@systemcall@@#1{%
@@ -1037,7 +1061,7 @@
 	\else
 		\begingroup
 		% no such image. Generate it!
-		\tikzexternal@assemble@systemcall{\pgf@tempa}%
+		\tikzexternal@assemble@systemcall{\tikzexternal@curfilename}{\pgf@tempa}%
 		\iftikzexternal@verboseio
 			\immediate\write16{===== 'mode=convert with system call': Invoking '\pgf@tempa' ========}%
 		\fi
