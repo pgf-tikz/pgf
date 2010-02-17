@@ -220,6 +220,7 @@
 	\else
 		\pgfqkeys{/tikz/external}{#1}%
 		\def\tikzexternal@realjob{#2}%
+		\tikzexternalauxlock@init
 		\pgfrealjobname{#2}%
 		\def\tikzexternalize@hasbeencalled{1}%
 		\tikzexternalenable
@@ -236,6 +237,88 @@
 	\fi
 }
 \def\tikzexternalize@hasbeencalled{0}%
+
+% If mode=`convert with system call', the boolean \ifpgfexternalreadmainaux 
+% will be set depending on the current lock file.
+%
+% The idea is as follows: Suppose
+% pdflatex -shell-escape mainjob.tex 
+% is running.
+% 
+% While it runs, 
+% a) it modifies its mainjob.aux file,
+% b) it issues pdflatex -jobname mainjob-figure0 mainjob.tex .
+%
+% The call (b) will try to read mainjob.aux in order to resolve \ref
+% commands. This may fail since the aux
+% file is not complete; it may be subject to output buffering. To
+% avoid such failure, a locking mechanism is established.
+%
+% The locking mechanisms causes (a) to write a lock command into
+% mainjob.auxlock 
+% just before (b) is called. Then, (b) will check it. After (b) has
+% completed, the lock will be reset.
+%
+% Thus: mode=convert with system call does NOT support \ref commands
+% inside of images. You will need to call the externalization command
+% manually. In this case, it should work.
+%
+% @PRECONDITION : this command must be invoked AFTER
+% \tikzexternal@realjob has been defined but BEFORE \pgfrealjobname is
+% called.
+%
+% @POSTCONDITION : \ifpgfexternalreadmainaux is correct now.
+\def\tikzexternalauxlock@init{%
+	\if4\tikzexternal@opmode
+		\ifpgfexternalreadmainaux
+			% mode=convert with system call
+			\edef\pgf@tempa{\expandafter\string\csname\tikzexternal@realjob\endcsname}%
+			\edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
+			\ifx\pgf@tempa\pgf@tempb
+				% we are *not* externalizing. Set lock into its
+				% initial "unlocked" state.
+				\tikzexternalauxlock@setlock{0}%
+			\else
+				% we are externalizing. Query the lock's value:
+				\tikzexternalauxlock@getlockvalue
+				\if1\tikzexternallocked
+					\pgfexternalreadmainauxfalse
+				\else
+					\pgfexternalreadmainauxtrue
+				\fi
+			\fi
+		\else
+			% NO-OP. We won't read the main aux file anyway.
+			\def\tikzexternalauxlock@setlock##1{}%
+		\fi
+	\fi
+}
+% defines \tikzexternallocked to be either 0 or 1, depending on the
+% lock file.
+\def\tikzexternalauxlock@getlockvalue{%
+	\openin\r@pgf@reada=\tikzexternal@realjob.auxlock
+	\ifeof\r@pgf@reada
+		% no lock file. Unlock.
+		\def\tikzexternallocked{0}%
+	\else
+		% read first line...
+		\read\r@pgf@reada to\pgf@tempa
+		% ... and execute it.
+		\pgf@tempa
+		% it should contain a definition of \tikzexternallocked. If
+		% not, lock it anyway.
+		\pgfutil@ifundefined
+			{tikzexternallocked}
+			{\def\tikzexternallocked{1}}%
+			{}%
+	\fi
+	\closein\r@pgf@reada
+}%
+\def\tikzexternalauxlock@setlock#1{%
+	\immediate\openout\w@pgf@writea=\tikzexternal@realjob.auxlock
+	\immediate\write\w@pgf@writea{\noexpand\def\noexpand\tikzexternallocked{#1}}%
+	\immediate\closeout\w@pgf@writea
+}
 
 % Expands to the default image extension (it is set by
 % \tikzexternalize).
@@ -1065,11 +1148,9 @@
 			\immediate\write16{===== 'mode=convert with system call': Invoking '\pgf@tempa' ========}%
 		\fi
 		%
-		% FIXME : here is a problem with .aux files -- if the \@auxout
-		% file is not complete (for example due to write buffers), the
-		% system call may fail!
-		%
+		\tikzexternalauxlock@setlock1%
 		\immediate\write18{\pgf@tempa}%
+		\tikzexternalauxlock@setlock0%
 		\expandafter\tikzexternal@externalizefig@systemcall@assertsuccess\expandafter{\pgf@tempa}%
 		\pgfmath@smuggleone\pgf@filename
 		\endgroup
