@@ -10,6 +10,7 @@
 \ProvidesFileRCS $Header$
 
 \usepgfmodule{oo,shapes}
+\usepgflibrary{fpu}
 
 
 % This module defines the basic framework for data visualization. 
@@ -931,6 +932,374 @@
 \def\pgfeoltext{\pgfeol}
 
 
+%
+%
+% Micro math kernel for dv
+%
+%
+
+% The idea behind the following methods is to "abstract away" which
+% math engine is used. In the future, something fancy build on luatex
+% might be used, so it would we should not rely directly on the
+% fpu library code.
+% 
+% The system works as follows: First, you "enter" a number into the
+% engine. When you do so, it is converted into some internal
+% representation that cannot be accessed any more and is called a
+% "math variable" henceforth. All commands of the
+% math system only work on math variables.
+% 
+% In order to "exit" a value stored in a math variable from the
+% engine, some other macros can be used.
+% 
+% Operations like addition or multiplication take two math variables
+% and store the result in another math variable.
+
+
+
+% Store a value in a math variable of the math engine
+%
+% #1 = a math variable (a macro name) that is to store the value
+% #2 = an expression describing a number
+% 
+%
+% Description:
+% 
+% The #2 should be an expression that evaluates to a number. However,
+% due to the way the pgf math engine(s) work, currently, there are
+% several restrictions/the syntax is not as simple as one might
+% hope. Fortunately, the syntax is hopefully compatible with
+% easier-to-use future systems.
+% 
+% The syntax is as follows: #2 may be
+% 
+% 1. a simple high-precision number. This number is currently directly
+%    passed to \pgfmathfloatparsenumber, so typical permissible values
+%    are "100" or "10000000000000" or "nan" or "-5.673543345345e9000"
+%    
+% 2. a mathematical expression, which *must* be surrounded by
+%    parantheses. From a "mathematical" point of view these
+%    parantheses are superfluous, but the they are used to help pgf
+%    distinguish expressions from high-precision numbers. (If, in the
+%    future, expressions may contain high precision numbers, the
+%    parantheses will simply be ignored.)
+%    
+%    The expression is evaluated using \pgfmathparse, which means that
+%    TeX-precision is used. This means, for instance, that numbers
+%    larger than about 16500 will create error messages.
+%    
+%    The advantage is that you may say write things like "(5+6)" or
+%    "(pi/2)".
+%    
+% 3. In case #2 starts with an exclamation mark (indicating an
+%    "escape"), everything following the mark is simply evaluated by
+%    TeX. The effect of evaluating #2 should be that the math
+%    variable "\pgfdvmathvalue" is set to some value. This value will
+%    then be transferred to #1.
+%    
+% 4. In case #2 is the result of calling \pgfdvmathexitbyserializing, the
+%    "serialized" value is restored. The idea is that the serialized
+%    will turn its internal representation of a number into something
+%    that can be stored as a text somewhere.
+%    
+%    Currently, "@" at the beginning of #2 is used to indicate that
+%    what follows is a serialized version of a math variable.
+%    
+% In order to determine which of the above cases is to be used for a
+% variable, the first symbol #2 is checked, *after* the first symbol
+% of #2 has been expanded once (using \expandafter once).    
+%
+% Example:
+%
+% \pgfdvmathenter{\mymacro}{20000000000000}
+% \pgfdvmathenter{\mymacro}{(5+pi)}
+% \pgfdvmathenter{\mymacro}{!\pgfdvmathadd{\pgfdvmathvalue}{\a}{\b}}
+% 
+% \pgfdvmathenter{\foo}{5}
+% \pgfdvmathexitbyserializing{\somevalue}{\foo}
+% \pgfdvmathenter{\mymacro}{\somevalue}
+
+\def\pgfdvmathenter#1#2{%
+  \expandafter\pgfdvmathenter@check\expandafter#1#2\pgfdvmath@end%
+}
+\def\pgfdvmathenter@check#1{%
+  \pgfutil@ifnextchar @{\pgfdvmath@internal#1}{%
+    \pgfutil@ifnextchar ({\pgfdvmath@expression#1}{%)
+      \pgfutil@ifnextchar !{\pgfdvmath@execute#1}{\pgfdvmath@normal#1}}}%
+}
+
+\def\pgfdvmath@internal#1@#2\pgfdvmath@end{%
+  \def#1{#2}%
+}
+\def\pgfdvmath@expression#1(#2)#3\pgfdvmath@end{%
+  \pgfmathparse{#2}%
+  \pgfmathfloatparsenumber{\pgfmathresult}%
+  \let#1=\pgfmathresult%
+}
+\def\pgfdvmath@execute#1!#2\pgfdvmath@end{%
+  #2%
+  \let#1=\pgfdvmathvalue%
+}
+\def\pgfdvmath@normal#1#2\pgfdvmath@end{%
+  \pgfmathfloatparsenumber{#2}%
+  \let#1=\pgfmathresult%
+}
+
+
+
+% Print a math variable in the math engine using \pgfmathprintnumber
+%
+% #1 = math variable 
+%
+% Description:
+%
+% See the description of \pgfmathprintnumber
+%
+% Example:
+%
+% \pgfdvmathenter{\mymacro}{20000000000000}
+% \pgfdvmathexitbyprinting{\mymacro}
+
+\def\pgfdvmathexitbyprinting#1{%
+  \pgfmathprintnumber{#1}%
+}
+
+
+
+% Exit a math variable as a number in a scientific and portable number
+% format in a macro 
+%
+% #1 = macro in which to store the value
+% #2 = math variable 
+%
+% Description:
+%
+% You can exit a number using this operation. You can then directly
+% reenter the number using \pgfdvmathenter
+%
+% Example:
+%
+% \pgfdvmathenter{\mynumber}{20000000000000}
+% \pgfdvmathexitbyscientificformat{\mymacro}{\mynumber}
+
+\def\pgfdvmathexitbyscientificformat#1#2{%
+  \edef#1{\pgfmathfloatvalueof#2}%
+}
+
+
+
+% Exit a math variable as a "serialized" (= string-based)
+% version. 
+%
+% #1 = macro in which to store the value
+% #2 = math variable 
+%
+% Description:
+% 
+% The serialized version can be reentered using
+% \pgfmathenter and is similar to \pgfdvmathexitbyscientificformat,
+% but exiting and entering are (a bit) faster.
+%
+% Example:
+%
+% \pgfdvmathenter{\mynumber}{20000000000000}
+% \pgfdvmathexitbyserializing{\mymacro}{\mynumber}
+
+\def\pgfdvmathexitbyserializing#1#2{%
+  \edef#1{@#2}%
+}
+
+
+
+
+
+% Operations on two numbers
+%
+% #1 = macro that should store the result of applying the
+%      corresponding operation to the following:
+% #2 = entered number
+% #3 = entered number
+%
+% Description:
+%
+% Sets #1 to the result of applying an operation to #2 and #3
+%
+% Example:
+%
+% \pgfdvmathenter{\a}{2000}
+% \pgfdvmathenter{\b}{5+6}
+% \pgfdvmathadd{\c}{\a}{\b}
+
+\def\pgfdvmathadd#1#2#3{%
+  \pgfmathfloatadd{#2}{#3}%
+  \let#1=\pgfmathresult%
+}
+\def\pgfdvmathsub#1#2#3{%
+  \pgfmathfloatsubtract{#2}{#3}%
+  \let#1=\pgfmathresult%
+}
+\def\pgfdvmathmul#1#2#3{%
+  \pgfmathfloatmultiply{#2}{#3}%
+  \let#1=\pgfmathresult%
+}
+\def\pgfdvmathdiv#1#2#3{%
+  \pgfmathfloatdivide{#2}{#3}%
+  \let#1=\pgfmathresult%
+}
+
+
+
+
+% Log, ln and exponent functions
+% 
+% #1 = a math variable
+% #2 = a math variable
+% 
+% Description
+% 
+% \pgfdvmathln will compute #1 = ln(#2)
+% \pgfdvmathlog will compute #1 = log_{10}(#2)
+% \pgfdvmathexp will compute #1 = exp(#2)
+% \pgfdvmathpowten will compute #1 = 10^{#2}
+
+\def\pgfdvmathln#1#2{%
+  \pgfmathfloatln{#2}%
+  \let#1=\pgfmathresult%
+}
+
+\def\pgfdvmathlog#1#2{%
+  \pgfmathfloatln{#2}%
+  \pgfmathfloatmultiply{\pgfmathresult}{\pgfdvmathalwaysloge}%
+  \let#1=\pgfmathresult%
+}
+
+\def\pgfdvmathexp#1#2{%
+  \pgfmathfloatexp{#2}%
+  \let#1=\pgfmathresult%
+}
+
+\def\pgfdvmathpowten#1#2{%
+  \pgfmathfloattofixed{#2}%
+  \let\pgf@dv@temp=\pgfmathresult%
+  \pgfmathround{\pgf@dv@temp}%
+  \let\pgf@dv@temp@round=\pgfmathresult%
+  \pgf@x=\pgf@dv@temp@round pt%
+  \pgf@x=-\pgf@x%
+  \advance\pgf@x by\pgf@dv@temp pt\relax%
+  \ifdim\pgf@x>0.0002pt%
+    \pgfmathfloatmultiply{#2}{\pgfdvmathalwayslnten}%
+    \pgfmathfloatexp{\pgfmathresult}%
+  \else
+    \ifdim\pgf@x<-0.0002pt%
+      \pgfmathfloatmultiply{#2}{\pgfdvmathalwayslnten}%
+      \pgfmathfloatexp{\pgfmathresult}%
+    \else
+      \pgf@x=\pgf@dv@temp@round sp%
+      \c@pgf@counta=\pgf@x%
+      \pgfmathfloatcreate{1}{1.0}{\the\c@pgf@counta}%
+    \fi
+  \fi
+  \let#1=\pgfmathresult%
+}
+
+
+% Floor functions
+% 
+% #1 = a math variable
+% #2 = a math variable
+% 
+% Description
+% 
+% Sets #1 to the largest integer less or equal to #2
+
+\def\pgfdvmathfloor#1#2{%
+  \pgfmathifisint{#2}{%
+    \let#1=#2%
+  }{%
+    \pgfmathfloatgetflags#2\c@pgf@counta%
+    \ifcase\c@pgf@counta
+      \let#1=\pgfdvmathalwayszero%
+    \or
+      \pgfmathfloatfloor{#2}%
+      \let#1=\pgfmathresult%
+    \or
+      \pgfmathfloatsubtract{\pgfdvmathalwaysone}{#2}%
+      \pgfmathfloatfloor{\pgfmathresult}%
+      \pgfmathfloatsubtract{\pgfdvmathalwayszero}{\pgfmathresult}%
+      \let#1=\pgfmathresult%
+    \or\let#1=#2%
+    \or\let#1=#2%
+    \or\let#1=#2%
+    \fi%
+  }%
+}
+
+
+% Advanced unary operations
+%
+% #1 = macro that should store the result of applying the
+%      operation to an entered number
+% #2 = the operation (as a string like "ln")
+% #3 = entered number
+%
+% Description:
+%
+% Sets #1 to the result of applying #2 to #3
+%
+% Example:
+%
+% \pgfdvmathenter{\a}{2000}
+% \pgfdvmathunaryop{\b}{ln}{\a}
+
+\def\pgfdvmathunaryop#1#2#3{%
+  \csname pgfmathfloat#2\endcsname{#3}%
+  \let#1=\pgfmathresult%
+}
+
+
+% Advanced binary operations
+%
+% #1 = macro that should store the result of applying the
+%      operation to two entered number
+% #2 = the operation (as a string like "veclen")
+% #3 = first argument (an entered number)
+% #4 = second argument (an entered number)
+%
+% Description:
+%
+% Sets #1 to the result of applying #2 to #3
+%
+% Example:
+%
+% \pgfdvmathenter{\a}{3}
+% \pgfdvmathenter{\b}{4}
+% \pgfdvmathbinop{\c}{veclen}{\a}{\b}
+
+\def\pgfdvmathbinop#1#2#3#4{%
+  \csname pgfmathfloat#2\endcsname{#3}{#4}%
+  \let#1=\pgfmathresult%
+}
+
+
+
+% Comparing values
+%
+% #1 = first math variable
+% #2 = second math variable
+% #3 = code to-be-executed if #1 < #2
+% #4 = code to-be-executed if #1 >= #2
+%
+%
+% Example:
+%
+% \pgfdvmathenter{\a}{3}
+% \pgfdvmathenter{\b}{4}
+% \pgfdvmathifless{\a}{\b}{yes}{should not happen}
+
+\def\pgfdvmathifless#1#2#3#4{%
+  \pgfmathfloatlessthan{#1}{#2}%
+  \ifpgfmathfloatcomparison#3\else#4\fi%
+}
 
 
 
@@ -1005,12 +1374,18 @@
   % shifted according to the current value of the attribute.
   \method transform() {
     \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
+    \pgfdvmathenter{\pgf@dv@math@var}{\pgf@dv@val}%
+    \pgfdvmathexitbyscientificformat{\pgf@dv@val}{\pgf@dv@math@var}%
     \ifx\pgf@dv@val\pgfutil@empty%
     \else%
       \ifx\pgf@dv@val\relax%
       \else%
         \pgftransformshift{\pgfoovalueof{origin}}%
-        \pgftransformshift{\pgfpointscale{\pgf@dv@val}{\pgfoovalueof{unit vector}}}%
+        \pgfmathfloatgetexponent\pgf@dv@math@var\c@pgf@counta%
+        \ifnum\c@pgf@counta<-3\relax%
+        \else%
+          \pgftransformshift{\pgfpointscale{\pgf@dv@val}{\pgfoovalueof{unit vector}}}%
+        \fi%
       \fi%
     \fi%
   }
@@ -1088,10 +1463,9 @@
   % #1 = input attribute. Example: velocity.
   % #2 = output attribute. Example: x
   % #3 = optional transformation function. The input value for this
-  %      function is stored in the macro \pgfvalue, that is, when the
-  %      function is called the macro will expand to something like
-  %      "3.141". The output of the function should be stored in the
-  %      macro \pgfmathresult.
+  %      function is stored in entered number \pgfvalue.
+  %      The output of the function should be stored in the
+  %      same entered number.
   %
   % The intervals are set using setter methods later on.
   %
@@ -1102,7 +1476,6 @@
     \ifx\pgf@temp\pgfutil@empty%
     \else%
       \pgfooset{trans}{%
-        \let\pgfvalue\pgfmathresult%
         #3%
       }%
     \fi%
@@ -1117,15 +1490,27 @@
   % Method
   \method set clip interval(#1) {
     #1.get min and max()%
+    \ifx\pgfdvmin\pgfutil@empty%
+    \else%
+      \pgfdvmathenter{\pgf@dv@temp}{\pgfdvmin}%
+      \pgfdvmathexitbyserializing{\pgfdvmin}{\pgf@dv@temp}%
+    \if
+    \ifx\pgfdvmax\pgfutil@empty%
+    \else%
+      \pgfdvmathenter{\pgf@dv@temp}{\pgfdvmax}%
+      \pgfdvmathexitbyserializing{\pgfdvmax}{\pgf@dv@temp}%
+    \if
     \pgfooeset{clip}{%
       \noexpand\pgf@dvclipfalse%
       \ifx\pgfdvmin\pgfutil@empty%
       \else%
-        \noexpand\ifdim\noexpand\pgfmathresult pt<\pgfdvmin pt\relax\noexpand\pgf@dvcliptrue\noexpand\fi%
+        \noexpand\pgfdvmathenter{\noexpand\pgf@dv@temp}{\pgfdvmin}%
+        \noexpand\pgfdvmathifless{\noexpand\pgfvalue}{\noexpand\pgf@dv@temp}{\noexpand\pgf@dvcliptrue}{}%
       \fi%
       \ifx\pgfdvmax\pgfutil@empty%
       \else%
-        \noexpand\ifdim\noexpand\pgfmathresult pt>\pgfdvmax pt\relax\noexpand\pgf@dvcliptrue\noexpand\fi%
+        \noexpand\pgfdvmathenter{\noexpand\pgf@dv@temp}{\pgfdvmax}%
+        \noexpand\pgfdvmathifless{\noexpand\pgf@dv@temp}{\noexpand\pgfvalue}{\noexpand\pgf@dvcliptrue}{}%
       \fi%
     }
   }
@@ -1141,25 +1526,26 @@
   % mapper. 
   \method set interval values(#1,#2,#3,#4) {
     {%
+      \pgfdvmathenter{\pgf@in@interval@min}{#1}
+      \pgfdvmathenter{\pgf@in@interval@max}{#2}
+      \pgfdvmathenter{\pgf@out@interval@min}{#3}
+      \pgfdvmathenter{\pgf@out@interval@max}{#4}
       % Let's start with the output, it's easier...
-      \pgfmathparse{#3}
-      \pgfooeset{out min}{\pgfmathresult}
-      \pgfmathsubtract{#4}{#3}%
-      \let\pgf@dv@out@diff=\pgfmathresult%
-      % Ok, now the transformed input:
-      \pgfmathparse{#1}
-      \pgfoovalueof{trans}%
-      \let\pgf@dv@min=\pgfmathresult
-      \pgfooeset{trans in min}{\pgfmathresult}
-      \pgfmathparse{#2}
-      \pgfoovalueof{trans}%
-      \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
+      \pgfoolet{out min}{\pgf@out@interval@min}
+      \pgfdvmathsub{\pgf@out@diff}{\pgf@out@interval@max}{\pgf@out@interval@min}
+      \let\pgfvalue=\pgf@in@interval@min
+      \pgfoovalueof{trans}
+      \let\pgf@in@interval@min@transformed=\pgfvalue
+      \pgfoolet{trans in min}{\pgf@in@interval@min@transformed}%
+      \let\pgfvalue=\pgf@in@interval@max
+      \pgfoovalueof{trans}
+      \let\pgf@in@interval@max@transformed=\pgfvalue
+      \pgfdvmathsub{\pgf@diff@in@transformed}{\pgf@in@interval@max@transformed}{\pgf@in@interval@min@transformed}
       % 
       % Precompute the scaling
-      %
-      \let\pgf@dv@temp\pgfmathresult%
-      \pgfmathdivide{\pgf@dv@out@diff}{\pgf@dv@temp}%
-      \pgfooeset{scale}{\pgfmathresult}%
+      % 
+      \pgfdvmathdiv{\pgf@scale}{\pgf@out@diff}{\pgf@diff@in@transformed}%
+      \pgfoolet{scale}{\pgf@scale}%
     }%
   } 
 
@@ -1169,15 +1555,16 @@
     \ifx\pgf@temp\pgfutil@empty%
       % not yet setup
     \else%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/const}\pgfmathresult%
-      \ifx\pgfmathresult\relax%
-        \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgfmathresult%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/const}\pgf@dv@external@value%
+      \ifx\pgf@dv@external@value\relax%
+        \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgf@dv@external@value%
       \fi%
-      \ifx\pgfmathresult\pgfutil@empty%
+      \ifx\pgf@dv@external@value\pgfutil@empty%
       \else%
-        \ifx\pgfmathresult\relax%
+        \ifx\pgf@dv@external@value\relax%
         \else%
           % Clip?
+          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
           \pgfoovalueof{clip}%
           \ifpgf@dvclip%
             \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfutil@empty%
@@ -1186,15 +1573,17 @@
           \fi%
         \fi%
       \fi%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgfmathresult%
-      \ifx\pgfmathresult\relax\else%
-        \ifx\pgfmathresult\pgfutil@empty\else%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgf@dv@external@value%
+      \ifx\pgf@dv@external@value\relax\else%
+        \ifx\pgf@dv@external@value\pgfutil@empty\else%
+          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
           \pgf@dv@mapper@trans{/min}
         \fi
       \fi
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgfmathresult%
-      \ifx\pgfmathresult\relax\else%
-        \ifx\pgfmathresult\pgfutil@empty\else%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgf@dv@external@value%
+      \ifx\pgf@dv@external@value\relax\else%
+        \ifx\pgf@dv@external@value\pgfutil@empty\else%
+          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
           \pgf@dv@mapper@trans{/max}
         \fi
       \fi
@@ -1202,19 +1591,28 @@
   }
 
   \def\pgf@dv@mapper@trans#1{
+    \pgfooget{trans in min}{\pgf@dv@trans@in@min}%
+    \pgfooget{scale}{\pgf@dv@scale}%
+    \pgfooget{out min}{\pgf@dv@out@min}%
     \pgfoovalueof{trans}%
-    \pgfmathsubtract{\pgfmathresult}{\pgfoovalueof{trans in min}}%
-    \pgfmathmultiply{\pgfmathresult}{\pgfoovalueof{scale}}%
-    \pgfmathadd{\pgfmathresult}{\pgfoovalueof{out min}}%
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{out}#1/offset}\pgf@dv@offset%
-    \ifx\pgf@dv@offset\relax\else%
-      \ifx\pgf@dv@offset\pgfutil@empty\else%
-        \pgfmathadd{\pgfmathresult}{\pgf@dv@offset}
+    \pgfdvmathsub{\pgfvalue}{\pgfvalue}{\pgf@dv@trans@in@min}%
+    \pgfdvmathmul{\pgfvalue}{\pgfvalue}{\pgf@dv@scale}%
+    \pgfdvmathadd{\pgfvalue}{\pgfvalue}{\pgf@dv@out@min}%
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{out}#1/offset}\pgf@dv@external@offset%
+    \ifx\pgf@dv@external@offset\relax\else%
+      \ifx\pgf@dv@external@offset\pgfutil@empty\else%
+        \pgfdvmathenter{\pgf@dv@offset}{\pgf@dv@external@offset}%
+        \pgfdvmathadd{\pgfvalue}{\pgfvalue}{\pgf@dv@offset}
       \fi
     \fi
-    \pgfkeyslet{/data point/\pgfoovalueof{out}#1}\pgfmathresult%
+    \pgfdvmathexitbyserializing{\pgf@temp}{\pgfvalue}%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}#1}\pgf@temp%
   }
 }
+
+
+
+
 
 \newif\ifpgf@dvclip
 \newif\ifpgf@dvignore
@@ -1338,27 +1736,32 @@
   % Sets the attribute to the (evaluated) given value (evaluation
   % using \pgfmathparse). When the value  is evaluated, the values of
   % \pgfdvmin and \pgfdvmax will be set to the minimum and maximum
-  % values of the in interval. Thus, a value of
-  % ".5*\pgfdvmin+.5*\pgfdvmax" yields the middle of the interval.
+  % values of the in interval. (See \pgfdvmathenter with the "!"-notation). 
   %
   % In case #1 is set to the special value "min", it evaluates to
   % \pgfdvmin, when set to "max" it evaluates to \pgfdvmax.
   %
   \method set in to(#1) {
-    \pgfooget{in range obj}\pgfdvinrangeinterval
-    \pgfdvinrangeinterval.get min and max()%
     \edef\pgf@temp{#1}
     \ifx\pgf@temp\pgf@min@text
-      \let\pgfmathresult\pgfdvmin
+      \pgf@dv@lib@set@mm%
+      \let\pgf@dv@value\pgfdvmin
     \else
       \ifx\pgf@temp\pgf@max@text
-        \let\pgfmathresult\pgfdvmax
+        \pgf@dv@lib@set@mm%
+        \let\pgf@dv@value\pgfdvmax
       \else
-        \pgfmathparse{\pgf@temp}
+        \pgfdvmathenter{\pgf@dv@value}{\pgf@temp}
       \fi
     \fi
-    \pgfkeyslet{/data point/\pgfoovalueof{in}}\pgfmathresult
+    \pgfdvmathexitbyserializing{\pgf@dv@serial}{\pgf@dv@value}
+    \pgfkeyslet{/data point/\pgfoovalueof{in}}\pgf@dv@serial
   }
+  \def\pgf@dv@lib@set@mm{
+    \pgfooget{in range obj}\pgfdvinrangeinterval
+    \pgfdvinrangeinterval.get min and max()%
+  }
+
   
   % Slot 
   \method phase(#1) {
@@ -1371,8 +1774,8 @@
       \else%
         \pgfooget{scaling spec}\pgf@temp
         \expandafter\pgf@lib@dv@parse@scaling\pgf@temp\pgf@stop%
-        \pgfoovalueof{interval mapper}.set interval values(
-          \pgf@lib@dv@min,\pgf@lib@dv@max,
+        \pgfoovalueof{interval mapper}.set interval values(%
+          \pgf@lib@dv@min,\pgf@lib@dv@max,%
           \pgf@lib@dv@min@at,\pgf@lib@dv@max@at)
       \fi
     \fi
@@ -1382,23 +1785,23 @@
   % Internal helper
   \def\pgf@lib@dv@parse@scaling#1 at#2and #3 at#4\pgf@stop{%
     \def\pgf@lib@dv@min{#1}%
-    \pgfmathparse{#2}
-    \let\pgf@lib@dv@min@at\pgfmathresult%
+    \pgfdvmathenter{\pgf@lib@dv@min@at@mv}{#2}
     \def\pgf@lib@dv@max{#3}%
-    \pgfmathparse{#4}
-    \let\pgf@lib@dv@max@at\pgfmathresult%
+    \pgfdvmathenter{\pgf@lib@dv@max@at@mv}{#4}
     \ifx\pgf@lib@dv@min\pgf@min@text%
-      \let\pgf@lib@dv@min\pgfdvmin
+      \let\pgf@lib@dv@min@mv\pgfdvmin
     \else
-      \pgfmathparse{\pgf@lib@dv@min}
-      \let\pgf@lib@dv@min\pgfmathresult
+      \pgfdvmathenter{\pgf@lib@dv@min@mv}{\pgf@lib@dv@min}
     \fi
     \ifx\pgf@lib@dv@max\pgf@max@text%
-      \let\pgf@lib@dv@max\pgfdvmax
+      \let\pgf@lib@dv@max@mv\pgfdvmax
     \else
-      \pgfmathparse{\pgf@lib@dv@max}
-      \let\pgf@lib@dv@max\pgfmathresult
+      \pgfdvmathenter{\pgf@lib@dv@max@mv}{\pgf@lib@dv@max}
     \fi
+    \pgfdvmathexitbyserializing{\pgf@lib@dv@min}{\pgf@lib@dv@min@mv}
+    \pgfdvmathexitbyserializing{\pgf@lib@dv@min@at}{\pgf@lib@dv@min@at@mv}
+    \pgfdvmathexitbyserializing{\pgf@lib@dv@max}{\pgf@lib@dv@max@mv}
+    \pgfdvmathexitbyserializing{\pgf@lib@dv@max@at}{\pgf@lib@dv@max@at@mv}
   }
   \def\pgf@min@text{min}
   \def\pgf@max@text{max}
@@ -1469,26 +1872,21 @@
       \edef\pgf@dv@val{\pgf@dv@val}%
       \ifx\pgf@dv@val\pgfutil@empty%
       \else%
+        \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
         % Now, protocol value
         \ifx\pgfdvmin\pgfutil@empty%
-          \let\pgfdvmin\pgf@dv@val%
+          \let\pgfdvmin\pgf@dv@value%
         \else%
-          \pgfmathlessthan{\pgf@dv@val}{\pgfdvmin}%
-          \ifdim\pgfmathresult pt=1.0pt%
-            \let\pgfdvmin\pgf@dv@val%
-          \fi%
+          \pgfdvmathifless{\pgf@dv@value}{\pgfdvmin}{\let\pgfdvmin\pgf@dv@value}{}%
         \fi%
         \ifx\pgfdvmax\pgfutil@empty%
-          \let\pgfdvmax\pgf@dv@val%
+          \let\pgfdvmax\pgf@dv@value%
         \else%
-          \pgfmathgreaterthan{\pgf@dv@val}{\pgfdvmax}%
-          \ifdim\pgfmathresult pt=1.0pt%
-            \let\pgfdvmax\pgf@dv@val%
-          \fi%
+          \pgfdvmathifless{\pgfdvmax}{\pgf@dv@value}{\let\pgfdvmax\pgf@dv@value}{}%
         \fi%
       \fi%
     \fi
-  }    
+  }
 }
 
 
@@ -1921,7 +2319,7 @@
   \attribute attribute;
   % The attribute to-be-accumulated
   
-  \attribute sum=0;
+  \attribute sum;
   % The initial value of the sum
 
   % Constructor
@@ -1940,12 +2338,20 @@
   }
 
   % Slot
-  \method apply() {
-    \pgfooget{sum}\pgf@temp
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/prev sum}\pgf@temp
-    \pgfmathadd{\pgfkeysvalueof{/data point/\pgfoovalueof{attribute}}}{\pgfoovalueof{sum}}
-    \pgfoolet{sum}\pgfmathresult
-    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/sum}\pgfmathresult
+  \method apply() {%
+    % Save old sum
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}/sum}\pgf@temp%    
+    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/prev sum}\pgf@temp%
+    % Add new attribute...
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}{\pgf@temp@b}%
+    \pgfdvmathenter{\pgf@dv@new@val}{\pgf@temp@b}%
+    % ... to sum
+    \pgfooget{sum}\pgf@dv@sum%
+    \pgfdvmathadd{\pgf@dv@sum}{\pgf@dv@new@val}{\pgf@dv@sum}%
+    \pgfoolet{sum}\pgf@dv@sum
+    % Record in attribute
+    \pgfdvmathexitbyscientificformat{\pgf@dv@serial@sum}{\pgf@dv@sum}
+    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/sum}\pgf@dv@serial@sum
   }
 
   % Method
@@ -1953,9 +2359,11 @@
   % Use this method to reset the sum at any point.
   %
   \method reset() {
-    \pgfooset{sum}{0}
-    \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/prev sum}{0}
-    \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute}/sum}{0}
+    \pgfdvmathenter{\pgf@dv@temp}{0}
+    \pgfoolet{sum}{\pgf@dv@temp}
+    \pgfdvmathexitbyserializing{\pgf@dv@zero}{\pgf@dv@temp}
+    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/prev sum}{\pgf@dv@zero}
+    \pgfkeyslet{/data point/\pgfoovalueof{attribute}/sum}{\pgf@dv@zero}
   }
 
   % Slot
@@ -1989,10 +2397,10 @@
   /data point/always pgfusepath stroke/.initial=\pgfusepath{stroke}
 }
 
-\pgfoonew \pgfdatavisualizationunitinterval=new interval(0,1)
-\pgfoonew \pgfdatavisualizationemptyinterval=new interval(,)
-
-
+\pgfdvmathenter{\pgfdvmathalwaysloge}{0.434294481903252}
+\pgfdvmathenter{\pgfdvmathalwayslnten}{2.302585092994046}
+\pgfdvmathenter{\pgfdvmathalwayszero}{0}
+\pgfdvmathenter{\pgfdvmathalwaysone}{1}
 
 
 \endinput

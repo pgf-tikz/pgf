@@ -408,8 +408,9 @@
         \pgfkeysgetvalue{/tikz/data visualization/#1/scaling}\tikz@temp
         \ifx\tikz@temp\pgfutil@empty%
           \pgfkeysgetvalue{/tikz/data visualization/#1/scaling/default}\tikz@temp
-          \pgfkeyslet{/tikz/data visualization/#1/scaling}\tikz@temp
         \fi
+        \expandafter\tikz@dv@lib@parse@scaling\tikz@temp\pgf@stop%
+        \pgfkeyslet{/tikz/data visualization/#1/scaling}\tikz@temp
       },
       arg1 from key=/tikz/data visualization/#1/attribute,
       arg2/.expanded=\pgfkeysvalueof{/tikz/data visualization/#1/attribute}/scaled,
@@ -490,6 +491,13 @@
 
 \def\tikz@lib@dv@add@#1#2{\pgfkeysaddvalue{/tikz/data visualization/#1}{}{,#2}}
 
+\def\tikz@dv@lib@parse@scaling#1 at#2and #3 at#4\pgf@stop{%
+  \pgfmathsetmacro{\tikz@dv@lib@min@at}{#2}
+  \pgfmathsetmacro{\tikz@dv@lib@max@at}{#4}
+  \edef\tikz@temp{#1 at \tikz@dv@lib@min@at and #3 at \tikz@dv@lib@max@at}%
+}
+
+
 % Ticks at
 \tikzdatavisualizationset{
   at/.code={\def\tikz@dv@at@list{#1}},
@@ -537,8 +545,8 @@
   function/.style={\tikz@dv@axis/function={#1}},
   scaling/.style={\tikz@dv@axis/scaling={#1}},
   log axis/.style={
-    \tikz@dv@axis/function=\pgfmathparse{ln(\pgfvalue)},
-    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1
+    \tikz@dv@axis/function=\pgfdvmathln{\pgfvalue}{\pgfvalue},
+    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1,
   },
   padding min/.style={\tikz@dv@axis/padding min={#1}},
   padding max/.style={\tikz@dv@axis/padding max={#1}},
@@ -606,13 +614,15 @@
     \pgfkeysvalueof{#1/scaling mapper}.set in to(min)%
     \pgfkeysvalueof{#1/scaling mapper}.get out()%
     \pgfkeysgetvalue{#1/padding min}\pgf@temp%
-    \pgfkeyslet{/data point/\pgfdvout/offset}\pgf@temp%
+    \pgfmathparse{\pgf@temp}%
+    \pgfkeyslet{/data point/\pgfdvout/offset}\pgfmathresult%
   \else%
     \ifx\pgf@temp\tikz@lib@dv@padded@max@text%
       \pgfkeysvalueof{#1/scaling mapper}.set in to(max)%
       \pgfkeysvalueof{#1/scaling mapper}.get out()%
       \pgfkeysgetvalue{#1/padding max}\pgf@temp%
-      \pgfkeyslet{/data point/\pgfdvout/offset}\pgf@temp%
+      \pgfmathparse{\pgf@temp}%
+      \pgfkeyslet{/data point/\pgfdvout/offset}\pgfmathresult%
     \else%
       \pgfkeysvalueof{#1/scaling mapper}.set in to(#2)%
     \fi%
@@ -648,8 +658,11 @@
     \pgfkeysgetvalue{/tikz/data visualization/@compute default at positions}\tikz@temp%
     \ifx\tikz@temp\pgfutil@empty%
     \else
-      \tikzdatavisualizationset{@compute default step}%  
-      \pgfkeysgetvalue{/tikz/data visualization/step}\tikz@temp
+      \pgfkeysgetvalue{/tikz/data visualization/step}\tikz@temp%
+      \ifx\tikz@temp\pgfutil@empty%
+        \tikzdatavisualizationset{@compute default step}%  
+        \pgfkeysgetvalue{/tikz/data visualization/step}\tikz@temp%
+      \fi%
       \ifx\tikz@temp\pgfutil@empty
       \else
         \tikzdatavisualizationset{@compute default at positions}%  
@@ -738,7 +751,11 @@
   \def\tikz@lib@dv@tick@text{#1}%
 }
 
-\def\tikz@lib@dv@typeset{\pgfkeysvalueof{/tikz/data visualization/typesetter}{\tikz@dv@tick@pos}}
+\def\tikz@lib@dv@typeset{%
+  \pgfdvmathenter{\tikz@lib@dv@typesetnum}{\tikz@dv@tick@pos}%
+  \pgfdvmathexitbyscientificformat{\tikz@lib@dv@typesetnum}{\tikz@lib@dv@typesetnum}% hmm... not sure about this...
+  \pgfkeysvalueof{/tikz/data visualization/typesetter}{\tikz@lib@dv@typesetnum}%
+}
 
 \newif\iftikz@dv@min@tick@node
 \newif\iftikz@dv@max@tick@node
@@ -911,26 +928,45 @@
   typesetter/.initial=\pgfmathprintnumber,
   @compute default step/.initial=,
   @compute default at positions/.initial=,
-  linear at positions/.style={@compute default at positions=\tikz@lib@dv@linear},
+  @about method/.initial=,
+  linear at positions/.style={
+    @compute default at positions=\tikz@lib@dv@linear@at@positions,
+    @about method=\tikz@lib@dv@about@linear
+  },
+  log at positions/.style={
+    @compute default at positions=\tikz@lib@dv@log@at@positions,
+    @about method=\tikz@lib@dv@about@log,
+  },
   linear at positions
 }
 
-\def\tikz@lib@dv@linear{%
+\def\tikz@lib@dv@linear@at@positions{%
+  % Gather interesting values
   \tikz@lib@dv@mapper.get in range interval()%
   \pgfdvinrangeinterval.get min and max()%
+  \pgfkeysgetvalue{/tikz/data visualization/phase}\tikz@temp
+  \pgfdvmathenter{\tikz@dv@lib@phase}{\tikz@temp}
+  \pgfkeysgetvalue{/tikz/data visualization/step}\tikz@temp
+  \pgfdvmathenter{\tikz@dv@lib@step}{\tikz@temp}
   % Compute start:
-  \pgfmathsetmacro\tikz@temp{\pgfdvmin-\pgfkeysvalueof{/tikz/data visualization/phase}}
-  \pgfmathsetmacro\tikz@temp{\tikz@temp/\pgfkeysvalueof{/tikz/data visualization/step}}
-  \pgfmathsetmacro\tikz@temp{floor(\tikz@temp)}
-  \pgfmathsetmacro\tikz@lib@dv@current{\tikz@temp*\pgfkeysvalueof{/tikz/data visualization/step}+\pgfkeysvalueof{/tikz/data visualization/phase}}
+  \pgfdvmathsub{\tikz@dv@lib@temp}{\pgfdvmin}{\tikz@dv@lib@phase}% temp = dvmin - phase
+  \pgfdvmathdiv{\tikz@dv@lib@temp}{\tikz@dv@lib@temp}{\tikz@dv@lib@step}% temp = temp/step
+  \pgfdvmathfloor{\tikz@dv@lib@temp}{\tikz@dv@lib@temp}% temp = floor(temp)
+  \pgfdvmathmul{\tikz@lib@dv@current}{\tikz@dv@lib@temp}{\tikz@dv@lib@step}% current = temp*step ...
+  \pgfdvmathadd{\tikz@lib@dv@current}{\tikz@lib@dv@current}{\tikz@dv@lib@phase}% + phase
   \let\tikz@lib@dv@ats\pgfutil@empty%
   \let\tikz@lib@dv@minor@ats\pgfutil@empty%
-  \pgfmathsetmacro\tikz@lib@dv@epsilon{0.01*\pgfdvmax-0.01*\pgfdvmin}
+  \pgfdvmathenter{\tikz@one@hundreth}{0.001}%
+  \pgfdvmathsub{\tikz@lib@temp}{\pgfdvmax}{\pgfdvmin}%
+  \pgfdvmathmul{\tikz@lib@dv@epsilon}{\tikz@lib@temp}{\tikz@one@hundreth}% epsilon = (max - min)/100
+  \pgfdvmathsub{\tikz@lib@dv@min@minus@epsilon}{\pgfdvmin}{\tikz@lib@dv@epsilon}%
+  \pgfdvmathadd{\tikz@lib@dv@max@plus@epsilon}{\pgfdvmax}{\tikz@lib@dv@epsilon}%
   \pgfkeysgetvalue{/tikz/data visualization/minor steps between steps}\tikz@lib@dv@substeps%
   \ifx\tikz@lib@dv@substeps\pgfutil@empty
   \else
-    \pgfmathsetmacro\tikz@temp{\tikz@lib@dv@substeps+1}%  
-    \pgfmathsetmacro\tikz@lib@dv@substep{\pgfkeysvalueof{/tikz/data visualization/step}/\tikz@temp}%
+    \pgfmathsetmacro\tikz@temp{\tikz@lib@dv@substeps+1}%
+    \pgfdvmathenter{\tikz@dv@lib@substeps}{\tikz@temp}%
+    \pgfdvmathdiv{\tikz@lib@dv@substep}{\tikz@dv@lib@step}{\tikz@dv@lib@substeps}%
   \fi
   \loop%
     \ifx\tikz@lib@dv@substeps\pgfutil@empty%
@@ -940,28 +976,25 @@
       \let\tikz@lib@dv@next=\tikz@lib@dv@subloop%
       \tikz@lib@dv@subloop
     \fi%
-    \pgfmathlessthan{\tikz@lib@dv@current}{\pgfdvmin-\tikz@lib@dv@epsilon}
-    \ifdim\pgfmathresult pt=1pt\relax
-    \else
-      \edef\tikz@lib@dv@ats{\tikz@lib@dv@ats,\tikz@lib@dv@current}
-    \fi
-    \pgfmathsetmacro\tikz@lib@dv@current{\tikz@lib@dv@current+\pgfkeysvalueof{/tikz/data visualization/step}}%
-    \pgfmathlessthan{\tikz@lib@dv@current}{\pgfdvmax+\tikz@lib@dv@epsilon}
-  \ifdim\pgfmathresult pt=1pt\relax
+    \pgfdvmathifless{\tikz@lib@dv@current}{\tikz@lib@dv@min@minus@epsilon}{}{%
+      \pgfdvmathexitbyserializing{\tikz@temp}{\tikz@lib@dv@current}%
+      \edef\tikz@lib@dv@ats{\tikz@lib@dv@ats,\tikz@temp}%
+    }
+    \pgfdvmathadd{\tikz@lib@dv@current}{\tikz@lib@dv@current}{\tikz@dv@lib@step}%
+    \pgfdvmathifless{\tikz@lib@dv@current}{\tikz@lib@dv@max@plus@epsilon}{\tikz@lib@dv@continuetrue}{\tikz@lib@dv@continuefalse}%
+  \iftikz@lib@dv@continue%
   \repeat%    
   \tikzdatavisualizationset{major/.expanded={at={\tikz@lib@dv@ats}},minor/.expanded={at={\tikz@lib@dv@minor@ats}}}%
 }
+\newif\iftikz@lib@dv@continue
 
 \def\tikz@lib@dv@subloop{
-  \pgfmathsetmacro{\tikz@lib@dv@subcurrent}{\tikz@lib@dv@subcurrent+\tikz@lib@dv@substep}
-  \pgfmathlessthan{\tikz@lib@dv@subcurrent}{\pgfdvmin}
-  \ifdim\pgfmathresult pt=1pt\relax
-  \else
-    \pgfmathlessthan{\tikz@lib@dv@subcurrent}{\pgfdvmax}
-    \ifdim\pgfmathresult pt=1pt\relax
-      \edef\tikz@lib@dv@minor@ats{\tikz@lib@dv@minor@ats,\tikz@lib@dv@subcurrent}
-    \fi
-  \fi
+  \pgfdvmathadd{\tikz@lib@dv@subcurrent}{\tikz@lib@dv@subcurrent}{\tikz@lib@dv@substep}%
+  \pgfdvmathifless{\tikz@lib@dv@subcurrent}{\pgfdvmin}{}{%
+    \pgfdvmathifless{\tikz@lib@dv@subcurrent}{\pgfdvmax}{%
+      \pgfdvmathexitbyserializing{\tikz@temp}{\tikz@lib@dv@subcurrent}%
+      \edef\tikz@lib@dv@minor@ats{\tikz@lib@dv@minor@ats,\tikz@temp}
+      }{}}
   \advance\c@pgf@counta by-1\relax%
   \ifnum\c@pgf@counta=0\relax%
     \let\tikz@lib@dv@next=\relax
@@ -969,12 +1002,74 @@
   \tikz@lib@dv@next
 }
 
+
+\def\tikz@lib@dv@log@at@positions{%
+  % Gather interesting values
+  \tikz@lib@dv@mapper.get in range interval()%
+  \pgfdvinrangeinterval.get min and max()%
+  \pgfdvmathlog{\pgfdvminlog}{\pgfdvmin}%
+  \pgfdvmathlog{\pgfdvmaxlog}{\pgfdvmax}%
+  \pgfkeysgetvalue{/tikz/data visualization/phase}\tikz@temp
+  \pgfdvmathenter{\tikz@dv@lib@phase}{\tikz@temp}
+  \pgfkeysgetvalue{/tikz/data visualization/step}\tikz@temp
+  \pgfdvmathenter{\tikz@dv@lib@step}{\tikz@temp}
+  % Compute start:
+  \pgfdvmathsub{\tikz@dv@lib@temp}{\pgfdvminlog}{\tikz@dv@lib@phase}% temp = dvmin - phase
+  \pgfdvmathdiv{\tikz@dv@lib@temp}{\tikz@dv@lib@temp}{\tikz@dv@lib@step}% temp = temp/step
+  \pgfdvmathfloor{\tikz@dv@lib@temp}{\tikz@dv@lib@temp}% temp = floor(temp)
+  \pgfdvmathmul{\tikz@lib@dv@current}{\tikz@dv@lib@temp}{\tikz@dv@lib@step}% current = temp*step ...
+  \pgfdvmathadd{\tikz@lib@dv@current}{\tikz@lib@dv@current}{\tikz@dv@lib@phase}% + phase
+  \let\tikz@lib@dv@ats\pgfutil@empty%
+  \let\tikz@lib@dv@minor@ats\pgfutil@empty%
+  \pgfdvmathenter{\tikz@one@hundreth}{0.001}%
+  \pgfdvmathsub{\tikz@lib@temp}{\pgfdvmaxlog}{\pgfdvminlog}%
+  \pgfdvmathmul{\tikz@lib@dv@epsilon}{\tikz@lib@temp}{\tikz@one@hundreth}% epsilon = (max - min)/100
+  \pgfdvmathsub{\tikz@lib@dv@min@minus@epsilon}{\pgfdvminlog}{\tikz@lib@dv@epsilon}%
+  \pgfdvmathadd{\tikz@lib@dv@max@plus@epsilon}{\pgfdvmaxlog}{\tikz@lib@dv@epsilon}%
+  \pgfkeysgetvalue{/tikz/data visualization/minor steps between steps}\tikz@lib@dv@substeps%
+  \ifx\tikz@lib@dv@substeps\pgfutil@empty
+  \else
+    \pgfmathsetmacro\tikz@temp{\tikz@lib@dv@substeps+1}%
+    \pgfdvmathenter{\tikz@dv@lib@substeps}{\tikz@temp}%
+  \fi
+  \loop%
+    \ifx\tikz@lib@dv@substeps\pgfutil@empty%
+    \else%
+      \let\tikz@lib@dv@subcurrent=\tikz@lib@dv@current%
+      \pgfdvmathadd{\tikz@lib@dv@subcurrent@next}{\tikz@lib@dv@subcurrent}{\tikz@dv@lib@step}%
+      \pgfdvmathpowten{\tikz@lib@dv@subcurrent}{\tikz@lib@dv@subcurrent}%
+      \pgfdvmathpowten{\tikz@lib@dv@subcurrent@max}{\tikz@lib@dv@subcurrent@next}%
+      \pgfdvmathsub{\tikz@lib@dv@subcurrent@diff}{\tikz@lib@dv@subcurrent@max}{\tikz@lib@dv@subcurrent}%
+      \pgfdvmathdiv{\tikz@lib@dv@substep}{\tikz@lib@dv@subcurrent@diff}{\tikz@dv@lib@substeps}%
+      \pgfmathsetcount{\c@pgf@counta}{\tikz@lib@dv@substeps}%
+      \let\tikz@lib@dv@next=\tikz@lib@dv@subloop%
+      \tikz@lib@dv@subloop
+    \fi%
+    \pgfdvmathifless{\tikz@lib@dv@current}{\tikz@lib@dv@min@minus@epsilon}{}{%
+      \pgfdvmathpowten{\tikz@lib@dv@current@pow}{\tikz@lib@dv@current}%
+      \pgfdvmathexitbyserializing{\tikz@temp}{\tikz@lib@dv@current@pow}%
+      \edef\tikz@lib@dv@ats{\tikz@lib@dv@ats,\tikz@temp}%
+    }
+    \pgfdvmathadd{\tikz@lib@dv@current}{\tikz@lib@dv@current}{\tikz@dv@lib@step}%
+    \pgfdvmathifless{\tikz@lib@dv@current}{\tikz@lib@dv@max@plus@epsilon}{\tikz@lib@dv@continuetrue}{\tikz@lib@dv@continuefalse}%
+  \iftikz@lib@dv@continue%
+  \repeat%    
+  \tikzdatavisualizationset{major/.expanded={at={\tikz@lib@dv@ats}},minor/.expanded={at={\tikz@lib@dv@minor@ats}}}%
+}
+\newif\iftikz@lib@dv@continue
+
+
+
+
+
+
+
 %
 % Ticks about settings
 % 
 
 \tikzdatavisualizationset{
-  about/.style={@compute default step=\tikz@lib@dv@about{#1}},
+  about/.style={@compute default step=\tikz@lib@dv@about{#1},step=},
   about strategy/.initial=,
   standard about strategy/.style={about strategy={1.5pt/1.0pt,2.3pt/2.0pt,4pt/2.5pt,7pt/5pt,11pt/10pt}},
   standard about strategy,
@@ -984,17 +1079,19 @@
   int about strategy/.style={about strategy={1.5pt/1.0pt,2.5pt/2.0pt,3.5pt/3.0pt,4.5pt/4.0pt,7pt/5pt,11pt/10pt}},
   few/.style={about=3},
   some/.style={about=5},
-  many/.style={about=10}
+  many/.style={about=10},
 }
 
-\def\tikz@lib@dv@about#1{%
+\def\tikz@lib@dv@about#1{\pgfkeysvalueof{/tikz/data visualization/@about method}{#1}}
+
+\def\tikz@lib@dv@about@linear#1{%
   \tikz@lib@dv@mapper.get in range interval()%
   \pgfdvinrangeinterval.get min and max()%
-  \pgfmathparse{\pgfdvmax-\pgfdvmin}
-  \pgfmathdivide{\pgfmathresult}{#1}
-  \pgfmathfloatparsenumber{\pgfmathresult}
+  \pgfdvmathsub{\tikz@lib@dv@diff}{\pgfdvmax}{\pgfdvmin}
+  \pgfdvmathenter{\tikz@lib@dv@about@val}{#1}%
+  \pgfdvmathdiv{\tikz@lib@dv@around}{\tikz@lib@dv@diff}{\tikz@lib@dv@about@val}%
   % Make mantisse sensible
-  \pgfmathfloattomacro{\pgfmathresult}{\tikz@lib@dv@flags}{\tikz@lib@dv@mant}{\tikz@lib@dv@exp}
+  \pgfmathfloattomacro{\tikz@lib@dv@around}{\tikz@lib@dv@flags}{\tikz@lib@dv@mant}{\tikz@lib@dv@exp}
   \pgf@xc=\tikz@lib@dv@mant pt%
   \pgfkeysgetvalue{/tikz/data visualization/about strategy}\tikz@lib@dv@strat
   \foreach \tikz@lib@dv@threshold/\tikz@lib@replace in \tikz@lib@dv@strat
@@ -1012,7 +1109,36 @@
     \pgfmathfloatcreate{\tikz@lib@dv@flags}{\pgf@sys@tonumber{\pgf@xc}}{\tikz@lib@dv@exp}
   \fi
   \pgfmathfloattofixed{\pgfmathresult}
-   \pgfkeyslet{/tikz/data visualization/step}\pgfmathresult
+  \pgfkeyslet{/tikz/data visualization/step}\pgfmathresult
+}
+
+\def\tikz@lib@dv@about@log#1{%
+  \tikz@lib@dv@mapper.get in range interval()%
+  \pgfdvinrangeinterval.get min and max()%
+  \pgfdvmathlog{\pgfdvmin}{\pgfdvmin}%
+  \pgfdvmathlog{\pgfdvmax}{\pgfdvmax}%
+  \pgfdvmathsub{\tikz@lib@dv@diff}{\pgfdvmax}{\pgfdvmin}
+  \pgfdvmathenter{\tikz@lib@dv@about@val}{#1}%
+  \pgfdvmathdiv{\tikz@lib@dv@around}{\tikz@lib@dv@diff}{\tikz@lib@dv@about@val}%
+  % Make mantisse sensible
+  \pgfmathfloattomacro{\tikz@lib@dv@around}{\tikz@lib@dv@flags}{\tikz@lib@dv@mant}{\tikz@lib@dv@exp}
+  \ifdim\tikz@lib@dv@exp pt<0pt%
+    \pgfmathfloatcreate{1}{1.0}{0}%
+  \else
+    \pgf@xc=\tikz@lib@dv@mant pt\relax%
+    \ifdim\pgf@xc<2.5pt
+      \pgfmathfloatcreate{1}{1.0}{\tikz@lib@dv@exp}
+    \else\ifdim\pgf@xc<5pt
+      \pgfmathfloatcreate{1}{3.0}{\tikz@lib@dv@exp}
+    \else\ifdim\pgf@xc<7pt\relax \pgf@xc=5pt%
+      \pgfmathfloatcreate{1}{5.0}{\tikz@lib@dv@exp}
+    \else
+      \pgfmathsetmacro\tikz@lib@dv@exp{\tikz@lib@dv@exp+1}
+      \pgfmathfloatcreate{1}{1.0}{\tikz@lib@dv@exp}
+    \fi\fi\fi
+  \fi%
+  \pgfmathfloattofixed{\pgfmathresult}
+  \pgfkeyslet{/tikz/data visualization/step}\pgfmathresult
 }
 
 
