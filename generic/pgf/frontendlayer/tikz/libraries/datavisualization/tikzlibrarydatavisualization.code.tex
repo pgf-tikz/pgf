@@ -506,6 +506,8 @@
   major at/.style={major={at={#1}}},
   minor at/.style={minor={at={#1}}},
   subminor at/.style={subminor={at={#1}}},
+  options at/.code={\expandafter\def\expandafter\tikz@dv@style@at@list\expandafter{\tikz@dv@style@at@list,#1}},
+  no tick text at/.style={options at={#1 as [no tick text]}}
 }
 
 
@@ -545,19 +547,21 @@
   attribute/.style={\tikz@dv@axis/attribute={#1}},
   function/.style={\tikz@dv@axis/function={#1}},
   scaling/.style={\tikz@dv@axis/scaling={#1}},
-  logarithmic/.style={
-    \tikz@dv@axis/function=\pgfdvmathln{\pgfvalue}{\pgfvalue},
-    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1,
-    \tikz@dv@axis/@compute at positions=\tikz@lib@dv@compute@at@log,
-  },
   padding min/.style={\tikz@dv@axis/padding min={#1}},
   padding max/.style={\tikz@dv@axis/padding max={#1}},
   padding/.style={padding min={-#1},padding max={#1}},
   label/.style={\tikz@dv@axis/label={#1}},
+  linear steps/.style={\tikz@dv@axis/@compute at positions=\tikz@lib@dv@compute@at@linear},
   %
   % Attribute setter
   %
   goto/.code={\tikz@dv@goto{\tikz@dv@axis}{#1}},
+  fake value/.style={%
+    /tikz/data visualization/before survey/.expanded={%
+      \noexpand\pgfkeysgetvalue{\tikz@dv@axis/scaling mapper}\noexpand\tikz@dv@axis@mapper%
+      \noexpand\tikz@dv@axis@mapper.fake in value({#1})%
+    }%
+  },
   %
   % Visualization setters
   %
@@ -687,6 +691,7 @@
   \else
     {%
       \let\tikz@dv@at@list\pgfutil@empty%
+      \let\tikz@dv@style@at@list\pgfutil@empty%
       \scope[/tikz/data visualization/.cd,every ticks/.try,every #1 ticks/.try,#3]%
         % Setup options
         \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
@@ -711,11 +716,14 @@
             \tikzpointandanchordirection{\pgf@dv@tick@dir@mapper.set in to(min)}{\pgf@dv@tick@dir@mapper.set in to(max)}
             \xdef\pgf@dv@tick@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
             % Now, show something:
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
-            \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
-            \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
+            \tikz@lib@handle@at@style%
             \draw[/tikz/data visualization/styling]
+              \pgfextra{
+                \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
+                \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
+                \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
+                \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
+              }
                  (\tikz@dv@min@tick) \iftikz@dv@min@tick@node \tikz@dv@handle@tick{\tikz@dv@min@anchor} \fi
               -- (\tikz@dv@max@tick) \iftikz@dv@max@tick@node \tikz@dv@handle@tick{\tikz@dv@max@anchor} \fi;
           \fi      
@@ -767,6 +775,35 @@
 }       
 
 
+\def\tikz@lib@handle@at@style{%
+  \ifx\tikz@dv@style@at@list\pgfutil@empty% nothing to do
+  \else%
+    \let\tikz@dv@lib@this@at@style=\pgfutil@empty%
+    \pgfdvmathenter{\tikz@temp}{\tikz@dv@tick@pos}%
+    \pgfdvmathexitbyscientificformat{\tikz@dv@compare@to}{\tikz@temp}%
+    \foreach \tikz@dv@at@style in \tikz@dv@style@at@list {%
+      \ifx\tikz@dv@at@style\pgfutil@empty%
+      \else%
+        \expandafter\tikz@dv@lib@handle@one@at@style\tikz@dv@at@style\tikz@stop%
+      \fi%
+    }
+    \ifx\tikz@dv@lib@this@at@style\pgfutil@empty%
+    \else%
+      \expandafter\tikzdatavisualizationset\expandafter{\tikz@dv@lib@this@at@style}%
+    \fi%
+  \fi%
+}
+
+\def\tikz@dv@lib@handle@one@at@style#1as#2[#3]#4\tikz@stop{%
+  \pgfdvmathenter{\tikz@lib@dv@at@math@var}{#1}%
+  \pgfdvmathexitbyscientificformat{\tikz@dv@temp}{\tikz@lib@dv@at@math@var}%
+  \ifx\tikz@dv@temp\tikz@dv@compare@to%
+    % Bingo!
+    \expandafter\gdef\expandafter\tikz@dv@lib@this@at@style\expandafter{\tikz@dv@lib@this@at@style,#3}%
+  \fi%
+}
+
+
 % Help function
 \def\tikzpointandanchordirection#1#2{%
   % This function works like pgfpointdvdirection, but also computes
@@ -816,6 +853,7 @@
   \else
     {%
       \let\tikz@dv@at@list\pgfutil@empty
+      \let\tikz@dv@style@at@list\pgfutil@empty
       \scope[/tikz/data visualization/.cd,every #1 grid/.try,grid styling,grid styling/.style=,#3]
         % Setup options
         \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
@@ -944,9 +982,14 @@
     \pgfdvmathadd{\tikz@lib@dv@current}{\tikz@lib@dv@current}{\tikz@dv@lib@phase}% + phase
     \let\tikz@lib@dv@ats\pgfutil@empty%
     \let\tikz@lib@dv@minor@ats\pgfutil@empty%
-    \pgfdvmathenter{\tikz@one@hundreth}{0.001}%
-    \pgfdvmathsub{\tikz@lib@temp}{\pgfdvmax}{\pgfdvmin}%
-    \pgfdvmathmul{\tikz@lib@dv@epsilon}{\tikz@lib@temp}{\tikz@one@hundreth}% epsilon = (max - min)/100
+    \tikz@lib@dv@mapper.get function(\tikz@temp)%
+    \ifx\tikz@temp\pgfutil@empty%
+      \pgfdvmathenter{\tikz@one@hundreth}{0.001}%
+      \pgfdvmathsub{\tikz@lib@temp}{\pgfdvmax}{\pgfdvmin}%
+      \pgfdvmathmul{\tikz@lib@dv@epsilon}{\tikz@lib@temp}{\tikz@one@hundreth}% epsilon = (max - min)/1000
+    \else
+      \let\tikz@lib@dv@epsilon\pgfdvmathalwayszero
+    \fi
     \pgfdvmathsub{\tikz@lib@dv@min@minus@epsilon}{\pgfdvmin}{\tikz@lib@dv@epsilon}%
     \pgfdvmathadd{\tikz@lib@dv@max@plus@epsilon}{\pgfdvmax}{\tikz@lib@dv@epsilon}%
     \pgfkeysgetvalue{/tikz/data visualization/minor steps between steps}\tikz@lib@dv@substeps%
@@ -1042,6 +1085,25 @@
 
 
 
+
+%
+% Logarithmic axes
+%
+
+\tikzset{
+  /tikz/data visualization/axis options/.cd,
+  exponential steps/.style={
+    \tikz@dv@axis/@compute at positions=\tikz@lib@dv@compute@at@log
+  },
+  %
+  % Basic setters
+  %
+  logarithmic/.style={
+    \tikz@dv@axis/function=\pgfdvmathln{\pgfvalue}{\pgfvalue},
+    \tikz@dv@axis/scaling/default=1 at 0 and 10 at 1,
+    exponential steps
+  }
+}
 
 \def\tikz@lib@dv@compute@at@log{%
   % Setup about:
@@ -1295,19 +1357,27 @@
   school book axes/.style={
     xy Cartesian,
     x axis={
+      fake value=0,
       visualize axis={y axis={goto=0},style=->,padded},
-      visualize ticks={common={y axis={goto=0},direction axis=y axis},major={tick text at low}},
+      visualize ticks={common={y axis={goto=0},direction axis=y axis},
+        major={tick text at low,
+          options at=0 as [{style={draw=none},no tick text}]
+        }},
       visualize grid={common={direction axis=y axis,padded}},
       ticks={step=1},
-      padding=.666em,
+      padding=1em,
       visualize label={visualize x axis label}
     },
     y axis={
+      fake value=0,
       visualize axis={x axis={goto=0},style=->,padded},
-      visualize ticks={common={x axis={goto=0},direction axis=x axis},major={tick text at low}},
+      visualize ticks={
+        common={x axis={goto=0},direction axis=x axis},
+        major={tick text at low,options at=0 as [{high=0,low=0,style={draw=none},node style={anchor=north east}}]}
+      },
       visualize grid={common={direction axis=x axis,padded}},
       ticks={step=1},
-      padding=.666em,
+      padding=1em,
       visualize label={visualize y axis label}
     },
     school book axes standard labels,
