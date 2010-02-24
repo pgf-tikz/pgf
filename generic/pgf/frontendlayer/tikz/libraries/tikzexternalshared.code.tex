@@ -67,7 +67,24 @@
 		\tikzexternalgetnextfilename\tikzexternal@temp
 		\tikzifexternaljobnamematches\tikzexternal@temp{#1}{#2}%
 	\else 
-		#2
+		#2%
+	\fi
+}%
+% Invokes '#1' if the external lib is currently externalizing the
+% current picture. It invokes '#2' if that is not the case.
+%
+% If the command is invoked outside of a picture, '#2' will be
+% invoked.
+\def\tikzifexternalizingcurrent#1#2{%
+	\ifpgf@external@grabshipout 
+		\tikzexternalgetcurrentfilename\tikzexternal@temp
+		\ifx\tikzexternal@temp\pgfutil@empty
+			#2%
+		\else
+			\tikzifexternaljobnamematches\tikzexternal@temp{#1}{#2}%
+		\fi
+	\else 
+		#2%
 	\fi
 }%
 
@@ -232,8 +249,8 @@
 		}{%
 			\let\tikzexternal@orig@includegraphics=\includegraphics
 		}%
-		\let\tikzexternalfiledependsonfile=\tikzexternalfiledependsonfile@INACTIVE
-		\let\tikzpicturedependsonfile=\tikzpicturedependsonfile@INACTIVE
+		\let\tikzexternalfiledependsonfile=\tikzexternalfiledependsonfile@ACTIVE
+		\let\tikzpicturedependsonfile=\tikzpicturedependsonfile@ACTIVE
 	\fi
 }
 \def\tikzexternalize@hasbeencalled{0}%
@@ -553,6 +570,22 @@
 	\endgroup
 }%
 
+% Returns the file name of the current picture.
+%
+% It returns the empty string in case the command is invoked outside
+% of a picture.
+% #1 the macro which will contain the file name.
+% @see \tikzexternalgetnextfilename
+\def\tikzexternalgetcurrentfilename#1{%
+	\ifx\tikzexternal@curfilename\relax
+		% we are outside of a picture.
+		\let#1=\pgfutil@empty
+	\else
+		% we are inside of a picture.
+		\let#1=\tikzexternal@curfilename
+	\fi
+}
+
 % Fills #1 with a filename for the current picture.
 %
 % The filename will be generated automatically by appending '-figure<number>' to the real jobname.
@@ -710,7 +743,7 @@
 %
 % This command will be actived as soons as \tikzexternalize has been
 % called.
-\def\tikzexternalfiledependsonfile@INACTIVE#1#2{%
+\def\tikzexternalfiledependsonfile@ACTIVE#1#2{%
 	\begingroup
 	\def\tikzpicturedependsonfile@name{#1}%
 	\ifx\tikzpicturedependsonfile@name\pgfutil@empty
@@ -753,14 +786,11 @@
 %
 % This command will be actived as soons as \tikzexternalize has been
 % called.
-\def\tikzpicturedependsonfile@INACTIVE#1{%
+\def\tikzpicturedependsonfile@ACTIVE#1{%
 	\begingroup
-	\ifx\tikzexternal@curfilename\relax
-		% we are *not* inside of the exported file.
-		% use next file name.
+	\tikzexternalgetcurrentfilename\tikzpicturedependsonfile@name
+	\ifx\tikzpicturedependsonfile@name\pgfutil@empty
 		\tikzexternalgetnextfilename\tikzpicturedependsonfile@name
-	\else
-		\let\tikzpicturedependsonfile@name=\tikzexternal@curfilename
 	\fi
 	\expandafter\tikzexternalfiledependsonfile\expandafter{\tikzpicturedependsonfile@name}{#1}%
 	\endgroup
