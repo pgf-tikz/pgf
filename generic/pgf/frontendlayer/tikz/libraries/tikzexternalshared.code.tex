@@ -107,6 +107,7 @@
 		\def\tikzexternalcheckshellescape{}%
 	\fi
 }%
+\newif\iftikzexternal@auto@detect@jobname
 
 \pgfqkeys{/tikz/external}{
 	figure list/.is if=tikzexternal@genfigurelist,
@@ -217,11 +218,20 @@
 
 % This method initialises automatic externalization.
 % 
-% The first argument is the job's real name, without suffix.
+% The command does need any argument, but it has two optional ones:
 %
-% \tikzexternalize{myarticle}
+% 1. \tikzexternalize[<options>]
 %
-% Doing so will 
+% 2. \tikzexternalize{<real job's name>}
+%
+% 3. \tikzexternalize[<options>]{<real job's name>}
+%
+% The <real job's name> is the job's file name, without the suffix
+% .tex .
+% If the <real job's name> is omitted, it will be deduced
+% automatically.
+%
+% The effect is:
 % 1. automatically surround EVERY tikzpicture by \beginpgfgraphicnamed % sections.
 % 2. in case that the job's real name and the current \jobname differ,
 % it will process ONLY the matching tikzpicture.
@@ -232,7 +242,22 @@
 		\tikzexternalize@opt[]%
 	}%
 }%
-\def\tikzexternalize@opt[#1]#2{%
+\def\tikzexternalize@opt[#1]{%
+	\pgfutil@ifnextchar\bgroup{%
+		\tikzexternal@auto@detect@jobnamefalse
+		\tikzexternalize@opt@withname[#1]%
+	}{%
+		\tikzexternal@auto@detect@jobnametrue
+		\pgfutil@ifundefined{tikzexternalrealjob}{%
+			% ok, \tikzexternalrealjob is not known. 
+			% Assume we are currently *not* externalizing.
+			\let\tikzexternalrealjob=\jobname
+		}{}%
+		\def\pgf@tempa{\tikzexternalize@opt@withname[#1]}%
+		\expandafter\pgf@tempa\expandafter{\tikzexternalrealjob}%
+	}%
+}%
+\def\tikzexternalize@opt@withname[#1]#2{%
 	\if1\tikzexternalize@hasbeencalled
 	\else
 		\pgfqkeys{/tikz/external}{#1}%
@@ -1154,7 +1179,11 @@
 \def\tikzexternal@assemble@systemcall#1#2{%
 	\begingroup
 		\def\image{#1}%
-		\let\texsource=\tikzexternal@realjob
+		\iftikzexternal@auto@detect@jobname
+			\edef\texsource{\string\def\string\tikzexternalrealjob{\tikzexternal@realjob}\string\input{\tikzexternal@realjob}}%
+		\else
+			\let\texsource=\tikzexternal@realjob
+		\fi
 		\ifnum\the\catcode`\"=13 \tikzexternal@activate@normal@dq\fi
 		\ifnum\the\catcode`\'=13 \tikzexternal@activate@normal@sq\fi
 		\ifnum\the\catcode`\;=13 \tikzexternal@activate@normal@semic\fi
