@@ -822,7 +822,8 @@
 	/pgf/number format,
 	fixed/.code=			\pgfmath@set@number@printer{pgfmathprintnumber@FIXED},
 	sci/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@SCI},
-	std/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@STD},
+	std/.code=				{\pgfmath@set@number@printer{pgfmathprintnumber@STD}\pgfmathprintnumber@STD@setparam{#1}},
+	std/.default=,%
 	int detect/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@DETECT},
 	int trunc/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@TRUNC},
 	assume math mode/.is if=pgfmathprintnumber@assumemathmode,
@@ -834,6 +835,16 @@
 	zerofill/.style=		{/pgf/number format/fixed zerofill=#1,/pgf/number format/sci zerofill=#1},
 	zerofill/.default=		true,
 	precision/.store in=	\pgfmathfloat@round@precision,
+	sci precision/.code={%
+		\edef\pgfmathfloat@loc@TMPa{#1}%
+		\ifx\pgfmathfloat@loc@TMPa\pgfutil@empty
+			\def\pgfmathprintnumber@sci@precision{\pgfmathfloat@round@precision}%
+		\else
+			\let\pgfmathprintnumber@sci@precision=\pgfmathfloat@loc@TMPa
+		\fi
+	},%
+	sci precision/.default=,
+	sci precision=,
 	fixed default/.code=		{\let\pgfmathprintnumber@fixed@style=\pgfmathprintnumber@fixed@styleDEFAULT},
 	set decimal separator/.initial=,
 	dec sep/.style={/pgf/number format/set decimal separator=#1},
@@ -891,14 +902,44 @@
 	\expandafter\pgfmathprintnumber@STD@issci\pgfmathresult\relax
 }
 
+\def\pgfmathprintnumber@STD@setparam#1{%
+	\edef\pgfmathfloat@loc@TMPb{#1}%
+	\ifx\pgfmathfloat@loc@TMPb\pgfutil@empty
+		% DEFAULT for lower and upper bound.
+		\def\pgfmathprintnumber@STD@getlowerbound{%
+			\c@pgf@counta=\pgfmathfloat@round@precision\relax
+			\divide\c@pgf@counta by-2\relax
+		}%
+		\def\pgfmathprintnumber@STD@upperbound{4}%
+	\else
+		\expandafter\pgfutil@in@\expandafter:\expandafter{\pgfmathfloat@loc@TMPb}%
+		\ifpgfutil@in@
+			% we have -4:5 or something like that.
+			% parse both values:
+			\def\pgfmathfloat@loc@TMPa##1:##2\relax{%
+				\edef\pgfmathprintnumber@STD@getlowerbound{%
+					\noexpand\c@pgf@counta=##1\space
+				}%
+				\edef\pgfmathprintnumber@STD@upperbound{##2}%
+			}%
+			\expandafter\pgfmathfloat@loc@TMPa\pgfmathfloat@loc@TMPb\relax
+		\else
+			% we have just the lower bound:
+			\def\pgfmathprintnumber@STD@upperbound{4}%
+			\edef\pgfmathprintnumber@STD@getlowerbound{%
+				\noexpand\c@pgf@counta=\pgfmathfloat@loc@TMPb\space
+			}%
+		\fi
+	\fi
+}%
+
 \def\pgfmathprintnumber@STD@issci#1#2e#3\relax{%
 	\expandafter\ifnum#1<3
-		\expandafter\ifnum#3>4
+		\expandafter\ifnum#3>\pgfmathprintnumber@STD@upperbound\relax
 			\pgfmathprintnumber@SCI@issci#1#2e#3\relax%
 		\else
 			\begingroup
-			\c@pgf@counta=\pgfmathfloat@round@precision\relax
-			\divide\c@pgf@counta by-2\relax
+			\pgfmathprintnumber@STD@getlowerbound
 			\ifnum#3<\c@pgf@counta
 				\pgfmathprintnumber@SCI@issci#1#2e#3\relax%
 			\else
@@ -976,8 +1017,10 @@
 	\ifnum#1<3\relax
 		\pgfmathfloatcreate{#1}{#2}{#3}%
 		\pgfmathfloattofixed{\pgfmathresult}%
+		\let\pgfmathfloat@round@precision@=\pgfmathfloat@round@precision
 		\def\pgfmathfloat@round@precision{6}%
 		\expandafter\pgfmathroundto\expandafter{\pgfmathresult}%
+		\let\pgfmathfloat@round@precision=\pgfmathfloat@round@precision@
 		\ifpgfmathfloatroundhasperiod
 			\pgfmathprintnumber@SCI@issci#1#2e#3\relax
 		\else
@@ -1029,7 +1072,9 @@
 }
 
 \def\pgfmathprintnumber@SCI@issci#1#2e#3\relax{%
+	\begingroup
 	\pgfmathfloatcreate{#1}{#2}{#3}%
+	\edef\pgfmathfloat@round@precision{\pgfmathprintnumber@sci@precision}%
 	\ifpgfmathfloat@usezerofill@sci
 		\pgfmathfloatroundzerofill{\pgfmathresult}%
 	\else
@@ -1037,6 +1082,8 @@
 	\fi
 	\pgfmathfloat@to@FMeE@style\pgfmathresult
 	\expandafter\pgfmathfloatrounddisplaystyle\pgfmathresult\relax
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
 }
 
 % Prints argument #1 using the current pretty printer environment (all
@@ -1113,11 +1160,7 @@
 	\expandafter\let\expandafter\pgfmathprintnumber@issci\csname #1@issci\endcsname
 }
 
-\pgfmath@set@number@printer{pgfmathprintnumber@STD}
-%\pgfmath@set@number@printer{pgfmathprintnumber@FIXED}
-%\pgfmath@set@number@printer{pgfmathprintnumber@FIXED@ZEROFILL}
-%\pgfmath@set@number@printer{pgfmathprintnumber@SCI@ZEROFILL}
-%\pgfmath@set@number@printer{pgfmathprintnumber@SCI}
+\pgfkeys{/pgf/number format/std}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % 
