@@ -614,6 +614,85 @@
   \pgfkeyssetvalue{#1/.@body}{#3}%
 }
 
+% Like \pgfkeysdefargs, but `#2' is an integer denoting the expected
+% *number* of arguments.
+%
+% There is a subtle difference between the 'args' command, when it
+% comes to spaces:
+%  a key defined with defargs{#1#2} must not have spaces between the
+%  arguments when it is used.
+%
+% See this:
+%
+%--------------------------------------------------
+% % defnargs:
+% \pgfkeysdefnargs{/a}{2}{1=`#1', 2=`#2'}
+% \pgfkeys{
+% 	/a=
+% 		{1}
+% 		{2}
+% }
+% ->defnargs: 1=`1', 2=`2'
+% 
+% defargs:
+% \pgfkeysdefargs{/b}{#1#2}{1=`#1', 2=`#2'}
+% \pgfkeys{
+% 	/b=
+% 		{1}
+% 		{2}
+% }
+% ->defargs: 1=`1', 2=` 2'  (note the space!)
+%
+% defargs:
+% \pgfkeysdefargs{/b}{#1#2}{1=`#1', 2=`#2'}
+% \pgfkeys{
+% 	/b=
+% 		{1}% 
+% 		{2}
+% }
+% ->defargs: 1=`1', 2=`2'
+%-------------------------------------------------- 
+\long\def\pgfkeysdefnargs#1#2#3{\pgfkeysdefnargs@{#1}{#2}{#3}{\def}}%
+\long\def\pgfkeysedefnargs#1#2#3{\pgfkeysdefnargs@{#1}{#2}{#3}{\edef}}%
+\long\def\pgfkeysdefnargs@#1#2#3#4{%
+  \ifcase#2\relax
+	  \pgfkeyssetvalue{#1/.@args}{}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6##7}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6##7##8}%
+  \or
+	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6##7##8##9}%
+  \else
+	  \pgfkeys@error{\string\pgfkeysdefnargs: expected  <= 9 arguments, got #2}%
+  \fi
+  \pgfkeysgetvalue{#1/.@args}\pgfkeys@tempargs
+  \def\pgfkeys@temp{\expandafter#4\csname pgfk@#1/.@@body\endcsname}%
+  \expandafter\pgfkeys@temp\pgfkeys@tempargs{#3}%
+  % eliminate the \pgfeov at the end such that TeX gobbles spaces
+  % by using
+  % \pgfkeysdef{#1}{\pgfkeysvalueof{#1/.@@body}##1}
+  % (with expansion of '#1'):
+  \edef\pgfkeys@tempargs{\noexpand\pgfkeysvalueof{#1/.@@body}}%
+  \def\pgfkeys@temp{\pgfkeysdef{#1}}%
+  \expandafter\pgfkeys@temp\expandafter{\pgfkeys@tempargs##1}%
+  \pgfkeyssetvalue{#1/.@body}{#3}%
+}
+
 
 
 % Defining a key command
@@ -622,8 +701,10 @@
 \pgfkeysdef{/handlers/.code 2 args}{\pgfkeysdefargs{\pgfkeyscurrentpath}{##1##2}{#1}}
 \pgfkeysdef{/handlers/.ecode}{\pgfkeysedef{\pgfkeyscurrentpath}{#1}}
 \pgfkeysdef{/handlers/.ecode 2 args}{\pgfkeysedefargs{\pgfkeyscurrentpath}{##1##2}{#1}}
-\pgfkeysdefargs{/handlers/.code args}{#1#2}{\pgfkeysdefargs{\pgfkeyscurrentpath}{#1}{#2}}
-\pgfkeysdefargs{/handlers/.ecode args}{#1#2}{\pgfkeysedefargs{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdefnargs{/handlers/.code args}{2}{\pgfkeysdefargs{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdefnargs{/handlers/.ecode args}{2}{\pgfkeysedefargs{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdefnargs{/handlers/.code n args}{2}{\pgfkeysdefnargs{\pgfkeyscurrentpath}{#1}{#2}}
+\pgfkeysdefnargs{/handlers/.ecode n args}{2}{\pgfkeysedefnargs{\pgfkeyscurrentpath}{#1}{#2}}
 
 % Adding to a key command
 
@@ -631,15 +712,24 @@
   % Find out, whether with args or not.
   \pgfkeysifdefined{\pgfkeyscurrentpath/.@args}%
   {% Yes, so add to body and reuse args
-    \pgfkeysaddvalue{\pgfkeyscurrentpath/.@body}{#1}{#2}%
-    % Redefine code
-    \pgfkeysgetvalue{\pgfkeyscurrentpath/.@args}{\pgfkeys@tempargs}%
-    \pgfkeysgetvalue{\pgfkeyscurrentpath/.@body}{\pgfkeys@tempbody}%
-    \expandafter\expandafter\expandafter\def\expandafter\pgfkeys@temp\expandafter\pgfkeys@tempargs\expandafter{\pgfkeys@tempbody}%
-    \pgfkeyslet{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@temp}%
+	\pgfkeysaddvalue{\pgfkeyscurrentpath/.@body}{#1}{#2}%
+	% Redefine code
+	{%
+	  \pgfkeysgetvalue{\pgfkeyscurrentpath/.@args}{\pgfkeys@tempargs}%
+	  \pgfkeysgetvalue{\pgfkeyscurrentpath/.@body}{\pgfkeys@tempbody}%
+	  \def\pgfkeys@marshal{\expandafter\gdef\expandafter\pgfkeys@global@temp\pgfkeys@tempargs}%
+	  \expandafter\pgfkeys@marshal\expandafter{\pgfkeys@tempbody}%
+	}%
+    \pgfkeysifdefined{\pgfkeyscurrentpath/.@@body}{%
+	  % support for \pgfkeysndefargs:
+	  \pgfkeyslet{\pgfkeyscurrentpath/.@@body}{\pgfkeys@global@temp}%
+	}{%
+	  % support for \pgfkeysdefargs:
+      \pgfkeyslet{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@global@temp}%
+	}%
   }%
   {%
-    % No, so single argument. Redefine accordingly.
+    % No, so single argument (simple \pgfkeysdef). Redefine accordingly.
     {%
       \toks0{#1}%
       \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}%
