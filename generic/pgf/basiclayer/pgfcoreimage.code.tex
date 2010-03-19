@@ -58,8 +58,12 @@
   \expandafter\global\expandafter\let\csname pgf@image@#2!\endcsname=\pgf@image%
 }
 
+\newif\ifpgfexternal@allow@aux
+
 \pgfkeys{
 	/pgf/images/include external/.code={\pgfimage{#1}},
+	/pgf/images/aux in dpth/.is if=pgfexternal@allow@aux,
+	/pgf/images/aux in dpth/.default=true,
 	/pgf/images/draft/.is if=pgf@draftmode,
 	/pgf/images/draft/.default=true}
 \pgfkeys{/pgf/images/width/.estore in=\pgf@imagewidth}
@@ -315,6 +319,9 @@
 		% which won't be found otherwise)
 		\gdef\jobname{#1}%
 	\fi
+	\ifpgfexternal@allow@aux
+		\csname newwrite\endcsname\w@pgfexternal@auxout
+	\fi
   \fi%
   \gdef\pgfrealjobname##1{}% avoid multiple calls.
 }
@@ -406,20 +413,57 @@
 % This is almost the same as \includegraphics{#1}, but it checks
 % whether '#1.dpth' exists. In such case, it restores the boxes depth
 % stored in #1.dpth.
+%
+% Furthermore, the .dpth file may contain .aux related information
+% collected for the external graphics (references). They start after
+% the first line (if any).
 \def\pgfincludeexternalgraphics#1{%
 	\begingroup
 	\setbox1=\hbox{\pgfkeysvalueof{/pgf/images/include external/.@cmd}{#1}\pgfeov}%
+	%
+	\let\pgfincludeexternalgraphics@dp=\pgfutil@empty
+	\endlinechar=-1 % suppress white space at end
+	\catcode`\@=11
 	\openin\r@pgf@reada=#1.dpth
-	\ifeof\r@pgf@reada
+	\pgfincludeexternalgraphics@read@dpth
+	\ifx\pgfincludeexternalgraphics@dp\pgfutil@empty
 		\box1
 	\else
-		\read\r@pgf@reada to\pgfincludeexternalgraphics@dp
-		\closein\r@pgf@reada
 		\dimen0=\pgfincludeexternalgraphics@dp\relax
 		\hbox{\lower\dimen0 \box1 }%
 	\fi
 	\endgroup
 }
+\def\pgfincludeexternalgraphics@read@dpth{%
+	\ifeof\r@pgf@reada
+		\closein\r@pgf@reada
+	\else
+		\read\r@pgf@reada to\pgfincludeexternalgraphics@auxline
+		\ifx\pgfincludeexternalgraphics@auxline\pgfutil@empty
+		\else
+			\expandafter\pgfincludeexternalgraphics@read@dpth@line\pgfincludeexternalgraphics@auxline\pgfincludeexternalgraphics@read@dpth@line@EOI
+		\fi
+		\expandafter\pgfincludeexternalgraphics@read@dpth
+	\fi
+}%
+\long\def\pgfincludeexternalgraphics@read@dpth@line#1#2\pgfincludeexternalgraphics@read@dpth@line@EOI{%
+	\ifcat\noexpand#1\relax
+		% #1#2\relax% do NOT set the information! many LaTeX commands
+		% don't support it (\label for example)
+		\pgfutil@ifundefined{if@filesw}{%
+			% sorry, .aux file support only for latex
+		}{%
+			% append to main .aux file (for forward references)
+			\if@filesw
+				{\toks0={#1#2}%
+				\immediate\write\@auxout{\the\toks0 }}%
+			\fi				
+		}%
+	\else
+		\def\pgfincludeexternalgraphics@dp{#1#2}%
+	\fi
+}%
+
 
 
 % Grab operation: If jobname matches the graphic name, typeset this
@@ -428,42 +472,75 @@
 %   this method is also invoked from within the tikz external library.
 \def\pgf@external@grab#1{%
   \def\pgf@filename{#1}%
+  \ifpgfexternal@allow@aux	
+  	\begingroup
+	\pgf@external@init@aux@in@dpth
+  \fi
   \setbox\pgfpic=\hbox\bgroup\bgroup%
     \let\endpgfgraphicnamed=\pgf@externalend%
 }
+
+\let\pgf@external@@protected@write@orig=\protected@write
+\long\def\pgf@external@@protected@write@immediate#1#2#3{%
+	\begingroup
+		\let\pgf@write@=\write
+		\def\write{\noexpand\immediate\pgf@write@}%
+		\pgf@external@@protected@write@orig{#1}{#2}{#3}%
+	\endgroup
+}%
+
+\def\pgf@external@init@aux@in@dpth{%
+	% tell LaTeX to write aux files...
+	\csname @fileswtrue\endcsname
+	% ... but redirect output to the .dpth file!
+	\immediate\openout\w@pgfexternal@auxout=\pgf@filename.dpth
+	\let\@auxout=\w@pgfexternal@auxout
+	% ... and disable the correct page numbers. I can't get that
+	% (because the correct page number is only available in the
+	% shipout routine). Use immediate output:
+	\let\protected@write=\pgf@external@@protected@write@immediate
+}%
 
 % REMARK:
 %   this method is also invoked from within the tikz external library.
 \def\pgf@externalend{%
   \unskip\egroup\egroup%
   {%
-    \parindent0pt%
+    \parindent0pt % leave the space
 %    \leftmargin0pt%
 %    \rightmargin0pt%
     \dimen0\ht\pgfpic%
     \advance\dimen0\dp\pgfpic%
 	\ifdim\dp\pgfpic=0pt\relax
 	\else% store the picture's depth. Otherwise, it would be lost.
-		\immediate\openout\pgf@plotwrite=\pgf@filename.dpth
-		\immediate\write\pgf@plotwrite{\the\dp\pgfpic}%
-		\immediate\closeout\pgf@plotwrite
+		\ifpgfexternal@allow@aux
+			\immediate\write\@auxout{\the\dp\pgfpic}%
+			\immediate\closeout\@auxout
+		\else
+			\immediate\openout\pgf@plotwrite=\pgf@filename.dpth
+			\immediate\write\pgf@plotwrite{\the\dp\pgfpic}%
+			\immediate\closeout\pgf@plotwrite
+		\fi
 	\fi
     \pgfsys@papersize{\the\wd\pgfpic}{\the\dimen0}%
     \setbox0=\vbox{%
-      \kern -1truein%
+      \kern -1truein %
       \hbox{%
-        \kern -1truein%
+        \kern -1truein %
         \hbox to0pt{%
-          \wd\pgfexternal@startupbox=0pt%
-          \ht\pgfexternal@startupbox=0pt%
-          \dp\pgfexternal@startupbox=0pt%
+          \wd\pgfexternal@startupbox=0pt %
+          \ht\pgfexternal@startupbox=0pt %
+          \dp\pgfexternal@startupbox=0pt %
           \box\pgfexternal@startupbox%
           \pgfsys@atbegindocument\hss}%
         \box\pgfpic%
-        \kern 1truein}%
-      \kern1truein}%
-    \pgfexternal@originalshipout\box0%
+        \kern 1truein }%
+      \kern1truein }%
+    \pgfexternal@originalshipout\box0 %
   }%
+  \ifpgfexternal@allow@aux
+  	\endgroup
+  \fi
 }
 
 
