@@ -7,9 +7,9 @@ tikzexternaltest.pdf: FORCE
 
 tikzexternaltestmakefile.pdf: FORCE
 	pdflatex tikzexternaltestmakefile.tex
-	make -f tikzexternaltestmakefile.makefile
+	$(MAKE) -f tikzexternaltestmakefile.makefile
 	pdflatex tikzexternaltestmakefile.tex
-	make -f tikzexternaltestmakefile.makefile
+	$(MAKE) -f tikzexternaltestmakefile.makefile
 	pdflatex tikzexternaltestmakefile.tex
 
 FORCE:
