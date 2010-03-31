@@ -828,7 +828,7 @@
 	int trunc/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@TRUNC},
 	frac/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@frac},%
 	frac TeX/.initial=\frac,
-	frac precision/.initial=4,
+	frac shift/.initial=4,
 	assume math mode/.is if=pgfmathprintnumber@assumemathmode,
 	assume math mode/.default=true,
 	fixed zerofill/.is if=	pgfmathfloat@usezerofill@fixed,
@@ -1031,14 +1031,32 @@
 			}%
 			\expandafter\pgfmathfloat@loc@TMPa\the\pgfmathfloat@a@Mtok\relax
 			%
+			\def\pgfmathfloat@loc@@to@int##1.##2\relax##3{%
+				##3=##1
+				\ifdim0.##2pt>0.5pt
+					\advance##3 by1
+				\fi
+			}%
+			%
 			\ifdim\pgfmathfloat@mantisse@ltone pt=0pt
 				\def\pgfmathfloat@factor{1}%
 				\edef\pgfmathfloat@scaled@counter{\the\pgfmathfloat@a@Mtok}%
 			\else
-				\pgfmathfloatparsenumber{\pgfmathfloat@mantisse@ltone}%
-				\pgfmathfloatreciprocal@{\pgfmathresult}%
+				% FIXME : this here is numerically instable.
+				%
+				% The errors of 1/r are magnified by 10^k which
+				% doesn't work.
+				\pgfutil@ifundefined{FPdiv}{%
+					\pgfmathfloatparsenumber{\pgfmathfloat@mantisse@ltone}%
+					\pgfmathfloatreciprocal@{\pgfmathresult}%
+				}{%
+					% \usepackage{fp}.
+					% yields higher absolute precision.
+					\FPdiv\pgfmathresult{1}{\pgfmathfloat@mantisse@ltone}%
+					\pgfmathfloatparsenumber{\pgfmathresult}%
+				}%
 				\let\pgfmathfloat@inv=\pgfmathresult
-				\pgfmathfloatcreate{1}{1.0}{\pgfkeysvalueof{/pgf/number format/frac precision}}%
+				\pgfmathfloatcreate{1}{1.0}{\pgfkeysvalueof{/pgf/number format/frac shift}}%
 				\let\pgfmathfloat@scalebaseten=\pgfmathresult
 				\pgfmathfloatmultiply@{\pgfmathfloat@inv}{\pgfmathfloat@scalebaseten}%
 				\let\pgfmathfloat@factor=\pgfmathresult
@@ -1050,8 +1068,7 @@
 				\let\pgfmathfloat@scaled@counter=\pgfmathresult
 				%
 				\pgfmathfloattofixed\pgfmathfloat@factor
-				\afterassignment\pgfmathfloat@gobble@until@relax
-				\pgfmathfloat@b@S=\pgfmathresult pt\relax
+				\expandafter\pgfmathfloat@loc@@to@int\pgfmathresult\relax{\pgfmathfloat@b@S}%
 				\edef\pgfmathfloat@factor{\the\pgfmathfloat@b@S}%
 			\fi
 			%
@@ -1061,14 +1078,8 @@
 			\pgfmathresultdenom=\pgfmathfloat@factor\relax
 			\pgfmathfloat@multiply@ten@to@the@E\pgfmathresultdenom
 			%
-			%
-			\def\pgfmathfloat@loc@@to@int##1.##2\relax{%
-				\pgfmathresultcounter=##1
-				\ifdim0.##2pt>0.5pt
-					\advance\pgfmathresultcounter by1
-				\fi
-			}%
-			\expandafter\pgfmathfloat@loc@@to@int\pgfmathfloat@scaled@counter\relax
+			\expandafter\pgfmathfloat@loc@@to@int\pgfmathfloat@scaled@counter\relax{\pgfmathresultcounter}%
+%\message{scale = \pgfmathfloat@factor;  Z = \the\pgfmathresultcounter\space ( von \pgfmathfloat@scaled@counter), N = \the\pgfmathresultdenom.}%
 			%
 			\pgfmathgreatestcommondivisor{\pgfmathresultcounter}{\pgfmathresultdenom}%
 			\divide\pgfmathresultcounter by\pgfmathresult\relax
