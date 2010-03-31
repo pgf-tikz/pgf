@@ -826,6 +826,9 @@
 	std/.default=,%
 	int detect/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@DETECT},
 	int trunc/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@TRUNC},
+	frac/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@frac},%
+	frac TeX/.initial=\frac,
+	frac precision/.initial=4,
 	assume math mode/.is if=pgfmathprintnumber@assumemathmode,
 	assume math mode/.default=true,
 	fixed zerofill/.is if=	pgfmathfloat@usezerofill@fixed,
@@ -953,6 +956,175 @@
 	\fi
 }
 
+\def\pgfmathprintnumber@frac#1{%
+	% parse the input:
+	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloatgetfrac{\pgfmathresult}%
+	\expandafter\pgfmathprintnumber@frac@formatresult\pgfmathresult
+}
+\def\pgfmathprintnumber@frac@issci#1#2e#3\relax{%
+	\pgfmathfloatcreate{#1}{#2}{#3}%
+	\pgfmathfloatgetfrac{\pgfmathresult}%
+	\expandafter\pgfmathprintnumber@frac@formatresult\pgfmathresult
+}
+\def\pgfmathprintnumber@frac@formatresult#1#2#3{%
+	\begingroup
+	\pgfkeysgetvalue{/pgf/number format/frac TeX}\pgfmathresult
+	\toks0=\expandafter{\pgfmathresult}%
+	\def\pgfmathfloat@loc@TMPa{#1}%
+	\edef\pgfmathresult{%
+		\ifx\pgfmathfloat@loc@TMPa\pgfutil@empty
+			\ifpgfmathprintnumber@showpositive
+				+%
+			\fi
+		\else
+			#1%
+		\fi
+		\the\toks0{#2}{#3}%
+	}%
+	\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+% Defines \pgfmathresult to contain three sets of braces containing
+% the sign (optionally containing any components >1), the counter and the denominator for #1.
+%
+% \pgfmathfloatgetfrac{0.5}  -> \pgfmathresult contains {}{1}{2}
+% \pgfmathfloatgetfrac{-0.5} -> \pgfmathresult contains {-}{1}{2}
+\def\pgfmathfloatgetfrac#1{%
+	\begingroup
+		\expandafter\pgfmathfloat@decompose@tok#1\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\def\pgfmathfloat@loc@TMPa{0}%
+		\ifcase\pgfmathfloat@a@S
+		% #1 = 0:
+			\def\pgfmathresult{{}{0}{1}}%
+		\or% #1 > 0
+			\pgfmathfloat@a@S=1
+			\def\pgfmathfloat@loc@TMPa{1}%
+		\or% #1 < 0
+			\pgfmathfloat@a@S=-1
+			\def\pgfmathfloat@loc@TMPa{1}%
+		\or
+			\edef\pgfmathresult{{}{NaN}{1}}%
+		\or
+			\edef\pgfmathresult{{}{\infty}{1}}%
+		\or
+			\edef\pgfmathresult{{-}{\infty}{1}}%
+		\fi
+		\if1\pgfmathfloat@loc@TMPa
+			\ifnum\pgfmathfloat@a@E<0
+				\def\pgfmathfloat@wholenumber{}%
+			\else
+				\pgfmathfloattofixed{#1}%
+				\def\pgfmathfloat@loc@TMPa##1.##2\relax{%
+					\def\pgfmathfloat@wholenumber{##1}%
+					\pgfmathfloatparsenumber{0.##2}%
+				}%
+				\expandafter\pgfmathfloat@loc@TMPa\pgfmathresult\relax
+				\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@b@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+			\fi
+			\pgfmathfloat@a@E=-\pgfmathfloat@a@E
+			%
+			\def\pgfmathfloat@loc@TMPa##1.##2\relax{%
+				\def\pgfmathfloat@mantisse@first{##1}%
+				\def\pgfmathfloat@mantisse@ltone{0.##2}%
+			}%
+			\expandafter\pgfmathfloat@loc@TMPa\the\pgfmathfloat@a@Mtok\relax
+			%
+			\ifdim\pgfmathfloat@mantisse@ltone pt=0pt
+				\def\pgfmathfloat@factor{1}%
+				\edef\pgfmathfloat@scaled@counter{\the\pgfmathfloat@a@Mtok}%
+			\else
+				\pgfmathfloatparsenumber{\pgfmathfloat@mantisse@ltone}%
+				\pgfmathfloatreciprocal@{\pgfmathresult}%
+				\let\pgfmathfloat@inv=\pgfmathresult
+				\pgfmathfloatcreate{1}{1.0}{\pgfkeysvalueof{/pgf/number format/frac precision}}%
+				\let\pgfmathfloat@scalebaseten=\pgfmathresult
+				\pgfmathfloatmultiply@{\pgfmathfloat@inv}{\pgfmathfloat@scalebaseten}%
+				\let\pgfmathfloat@factor=\pgfmathresult
+				%
+				\expandafter\pgfmathfloatparsenumber\expandafter{\the\pgfmathfloat@a@Mtok}%
+				\let\pgfmathfloat@loc@TMPa=\pgfmathresult
+				\pgfmathfloatmultiply@{\pgfmathfloat@factor}{\pgfmathfloat@loc@TMPa}%
+				\pgfmathfloattofixed\pgfmathresult
+				\let\pgfmathfloat@scaled@counter=\pgfmathresult
+				%
+				\pgfmathfloattofixed\pgfmathfloat@factor
+				\afterassignment\pgfmathfloat@gobble@until@relax
+				\pgfmathfloat@b@S=\pgfmathresult pt\relax
+				\edef\pgfmathfloat@factor{\the\pgfmathfloat@b@S}%
+			\fi
+			%
+			\let\pgfmathresultcounter=\pgfmathfloat@b@S
+			\let\pgfmathresultdenom=\pgfmathfloat@b@E
+			%
+			\pgfmathresultdenom=\pgfmathfloat@factor\relax
+			\pgfmathfloat@multiply@ten@to@the@E\pgfmathresultdenom
+			%
+			%
+			\def\pgfmathfloat@loc@@to@int##1.##2\relax{%
+				\pgfmathresultcounter=##1
+				\ifdim0.##2pt>0.5pt
+					\advance\pgfmathresultcounter by1
+				\fi
+			}%
+			\expandafter\pgfmathfloat@loc@@to@int\pgfmathfloat@scaled@counter\relax
+			%
+			\pgfmathgreatestcommondivisor{\pgfmathresultcounter}{\pgfmathresultdenom}%
+			\divide\pgfmathresultcounter by\pgfmathresult\relax
+			\divide\pgfmathresultdenom by\pgfmathresult\relax
+			\ifnum\pgfmathfloat@a@S<0
+				\edef\pgfmathresult{{-\pgfmathfloat@wholenumber}{\the\pgfmathresultcounter}{\the\pgfmathresultdenom}}%
+			\else
+				\edef\pgfmathresult{{\pgfmathfloat@wholenumber}{\the\pgfmathresultcounter}{\the\pgfmathresultdenom}}%
+			\fi
+		\fi
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+\def\pgfmathfloat@gobble@until@relax#1\relax{}
+
+% computes the greatest common divisor of two integer numbers (in
+% integer arithmetics).
+\def\pgfmathgreatestcommondivisor#1#2{%
+	\begingroup
+		\count0=#1\relax
+		\count1=#2\relax
+		\ifnum\count0=0
+			\edef\pgfmathresult{\the\count1}%
+		\else
+			\pgfmathgreatestcommondivisor@loop
+			\edef\pgfmathresult{\the\count0}%
+		\fi
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}
+\def\pgfmathgreatestcommondivisor@loop{%
+	\ifnum\count1=0
+	\else
+		\ifnum\count0>\count1
+			\advance\count0 by-\count1
+		\else
+			\advance\count1 by-\count0
+		\fi
+		\expandafter\pgfmathgreatestcommondivisor@loop
+	\fi
+}%
+
+% multiplies a TeX register by 10^E where E is stored in the register
+% \pgfmathfloat@a@E (and it should be positive!)%
+%
+% #1 a TeX register
+\def\pgfmathfloat@multiply@ten@to@the@E#1{%
+	\ifnum\pgfmathfloat@a@E>0
+		\multiply#1 by10
+		\advance\pgfmathfloat@a@E by-1
+		\def\pgfmathfloat@multiply@ten@to@the@E@next{\pgfmathfloat@multiply@ten@to@the@E{#1}}%
+	\else
+		\let\pgfmathfloat@multiply@ten@to@the@E@next=\relax%
+	\fi
+	\pgfmathfloat@multiply@ten@to@the@E@next
+}%
 
 \def\pgfmathprintnumber@INT@TRUNC#1{%
 	\pgfmathfloatparsenumber{#1}%
