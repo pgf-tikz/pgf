@@ -190,21 +190,37 @@
 % the first line (if any).
 \def\pgfincludeexternalgraphics#1{%
 	\begingroup
+	\pgfexternalreaddpth{#1}%
 	\setbox1=\hbox{\pgfkeysvalueof{/pgf/images/include external/.@cmd}{#1}\pgfeov}%
-	%
-	\let\pgfincludeexternalgraphics@dp=\pgfutil@empty
-	\endlinechar=-1 % suppress white space at end
-	\catcode`\@=11
-	\openin\r@pgf@reada=#1.dpth
-	\pgfincludeexternalgraphics@read@dpth
-	\ifx\pgfincludeexternalgraphics@dp\pgfutil@empty
+	\ifdim\pgfretval=0pt
 		\box1
 	\else
-		\dimen0=\pgfincludeexternalgraphics@dp\relax
+		\dimen0=\pgfretval\relax
 		\hbox{\lower\dimen0 \box1 }%
 	\fi
 	\endgroup
 }
+
+% Defines \pgfretval to be the depth of the external picture '#1'.
+%
+% Furthermore, it handles any auxiliary information stored in the
+% .dpth file (it appends it to the main aux file).
+%
+\def\pgfexternalreaddpth#1{%
+	% no \begingroup. Handle that manually:
+	\edef\pgfexternalreaddpth@restore{%
+		\noexpand\endlinechar=\the\endlinechar\space
+		\noexpand\catcode`\noexpand\@=\the\catcode`\@\space
+	}%
+	%
+	\def\pgfretval{0pt}%
+	\endlinechar=-1 % suppress white space at end
+	\catcode`\@=11
+	\openin\r@pgf@reada=#1.dpth
+	\pgfincludeexternalgraphics@read@dpth
+	%
+	\pgfexternalreaddpth@restore
+}%
 %
 % The .dpth consists of 0-N lines, where each is either a single
 % dimension (the box' depth) or something which belongs to the .aux
@@ -226,7 +242,7 @@
 		% Ah -- the first token is a control sequence. It belongs to
 		% the .aux file.
 		%
-		% #1#2\relax% do NOT set the information! many LaTeX commands don't support it (\label for example)
+		% do NOT execute #1#2! many LaTeX commands don't support it (\label for example)
 		\pgfutil@ifundefined{if@filesw}{%
 			% sorry, .aux file support only for latex
 		}{%
@@ -236,14 +252,13 @@
 				\toks0={#1#2}%
 				% believe it or not, but the
 				% \def\dpthimport{...}\dpthimport *makes* a
-				% difference! In ensures any occuring `##' characters
-				% are properly expanded to `#'.
+				% difference! In ensures any occuring `##' characters are properly expanded to `#'.
 				\immediate\write\@auxout{\noexpand\def\noexpand\dpthimport{\the\toks0 }\noexpand\dpthimport }%
 				}%
 			\fi				
 		}%
-	\else
-		\def\pgfincludeexternalgraphics@dp{#1#2}%
+	\else% it is the depth (which is simply a number for backwards compatibility)
+		\def\pgfretval{#1#2}%
 	\fi
 }%
 
