@@ -141,13 +141,13 @@
       \pgfkeysvalueof{/tikz/data visualization/subminor grid actions}
       \pgfkeysvalueof{/tikz/data visualization/minor grid actions}
       \pgfkeysvalueof{/tikz/data visualization/major grid actions}
-      \pgfkeysvalueof{/tikz/data visualization/axes actions}
-    )%
-    \tikz@main@dv.after visualization(%
       \pgfkeysvalueof{/tikz/data visualization/ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/subminor ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/minor ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/major ticks actions}
+      \pgfkeysvalueof{/tikz/data visualization/axes actions}
+    )%
+    \tikz@main@dv.after visualization(%
       \pgfkeysvalueof{/tikz/data visualization/label actions}
     )%
     %
@@ -432,8 +432,6 @@
     #1/minor grid/.initial=,
     #1/subminor grid/.initial=,
     #1/label/.initial=,
-    #1/min/.initial=min,
-    #1/max/.initial=max,
     #1/padding min/.initial=,
     #1/padding max/.initial=,
     #1/.code={
@@ -556,10 +554,15 @@
   % Attribute setter
   %
   goto/.code={\tikz@dv@goto{\tikz@dv@axis}{#1}},
-  fake value/.style={%
+  % 
+  % Modification of the range 
+  %
+  include values/.style={%
     /tikz/data visualization/before survey/.expanded={%
       \noexpand\pgfkeysgetvalue{\tikz@dv@axis/scaling mapper}\noexpand\tikz@dv@axis@mapper%
-      \noexpand\tikz@dv@axis@mapper.fake in value({#1})%
+      \noexpand\foreach \noexpand\tikz@lib@dv@temp in {#1} {%
+        \noexpand\tikz@dv@axis@mapper.include in value(\noexpand\tikz@lib@dv@temp)%
+      }%
     }%
   },
   %
@@ -577,10 +580,15 @@
   grid/.style={\tikz@dv@axis/grid at/.append={,#1}},
   visualize grid/.code=\expandafter\tikz@lib@dv@gv\expandafter{\tikz@dv@axis}{#1},
   % 
+  % Shortcut
+  % 
+  ticks and grid/.style={ticks={#1},grid={#1}},
+  % 
   % Visualizing axis labels
   % 
   visualize label/.code=\expandafter\tikz@lib@dv@lv\expandafter{\tikz@dv@axis}{#1},
 }
+
 
 
 % Axis visualization
@@ -756,7 +764,9 @@
 \def\tikz@lib@dv@typeset{%
   \pgfdvmathenter{\tikz@lib@dv@typesetnum}{\tikz@dv@tick@pos}%
   \pgfdvmathexitbyscientificformat{\tikz@lib@dv@typesetnum}{\tikz@lib@dv@typesetnum}% hmm... not sure about this...
-  \pgfkeysvalueof{/tikz/data visualization/typesetter}{\tikz@lib@dv@typesetnum}%
+  \pgfkeysvalueof{/tikz/data visualization/label prefix}%
+  \pgfkeysvalueof{/tikz/data visualization/label typesetter}{\tikz@lib@dv@typesetnum}%
+  \pgfkeysvalueof{/tikz/data visualization/label suffix}%
 }
 
 \newif\iftikz@dv@min@tick@node
@@ -958,7 +968,10 @@
   minor steps between steps/.initial=,
   minor steps between steps/.default=9,
   phase/.initial=0,
-  typesetter/.initial=\pgfmathprintnumber,
+  label typesetter/.initial=\pgfmathprintnumber,
+  label prefix/.initial=,
+  label suffix/.initial=,
+  label unit/.style={label suffix={#1}},% this is an alias
 }
 
 \def\tikz@lib@dv@compute@at@linear{%
@@ -1275,30 +1288,239 @@
 }
 
 
-%
-% Basic plot visualizers
+% 
+% Common visualizer interface 
 %
 
 \tikzdatavisualizationset{
-  new line plot/.style={
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/plot handler visualizer,
-      class=plot handler visualizer,
-      arg1=\tikz@plot@handler,
-      arg2=#1
+  new visualizer/.style 2 args={
+    /pgf/data/#1/.style={/data point/visualizer=#1},
+    #1/.code={
+      \def\tikz@visualizer{#1}%
+      \pgfkeys{/tikz/data visualization/visualizer options/.cd,##1}
     },
-    /data point/#1/.initial=line plot,
-    /data point/#1/use path/.initial=\pgfusepath{stroke},
-    /pgf/data/#1/label/.code=\pgfkeysalso{/data point/#1=##1},
-    /pgf/data/#1/style/.code=\pgfkeysalso{/data point/#1/use path={\path[draw,every line plot/.try,##1];}},
+    /utils/exec={
+      \advance\tikzdvvisualizercounter by 1\relax
+      \edef\tikz@temp{/data point/#1/number/.initial=\the\tikzdvvisualizercounter}
+      \expandafter\tikzset\expandafter{\tikz@temp}
+    },
+    /data point/#1/execute at begin stream/.initial={
+      \scope[
+        /tikz/data visualization/every visualizer/.try,
+        /tikz/data visualization/compute visualizer style/.expanded=\pgfkeysvalueof{/data point/#1/number},
+        /tikz/data visualization/#2,
+        /data point/#1/style/.try
+        ]
+    },
+    /data point/#1/execute at end stream/.initial={
+        \path; % invokes every path implicitly
+      \endscope
+    },
   },
-  new line plot/.default=line plot,
-  line plot/.style=new line plot
+  new visualizers/.code 2 args={%
+    \let\tikz@temp=\pgfutil@empty
+    \foreach \name in {#1}{%
+      \expandafter\pgfutil@g@addto@macro\expandafter\tikz@temp\expandafter{\expandafter\tikz@do@visualizer\expandafter{\name}{#2}}
+    }
+    \tikz@temp
+  },
+  compute visualize style/.style=
 }
 
+\def\tikz@do@visualizer#1#2{%
+  \tikzdatavisualizationset{
+    #2=#1
+  }
+}
+
+\newcount\tikzdvvisualizercounter
+
+\pgfkeys{
+  /tikz/data visualization/visualizer options/.cd,
+  label/.style={\tikz@visualizer/label/.initial=#1},
+  style/.style={/data point/\tikz@visualizer/style/.style={#1}},
+  smooth/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlercurveto},
+  smooth cycle/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlerclosedcurve},
+  polygon/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlerpolygon},
+}
+
+
+
+
+% 
+% Basic visualizer styles
+%
+
 \tikzdatavisualizationset{
-  new rectangles/.style={
+  compute visualizer style/.style=,
+  style sheet/reset/.style={
+    compute visualizer style/.style=
+  },
+  style sheet/visualizer styles/.style={%
+    compute visualizer style/.append style={@invoke style series={##1}{#1}}%
+  },
+  style sheet/line styles/.is choice,
+  style sheet/line styles/vary thickness/.style={
+    compute visualizer style/.append style={line width={##1*0.4pt}}
+  },
+  style sheet/line styles/vary dashing/.style={
+    style sheet/visualizer styles={
+      solid,
+      dash pattern=on 5\pgflinewidth off 2\pgflinewidth,
+      dash pattern=on 1.5\pgflinewidth off 1.5\pgflinewidth,
+      dash pattern=on 5\pgflinewidth off 1.5\pgflinewidth on 1.5\pgflinewidth off 1.5\pgflinewidth,
+      dash pattern=on 10\pgflinewidth off 3\pgflinewidth,
+      dash pattern=on 10\pgflinewidth off 2\pgflinewidth on 2\pgflinewidth off 2\pgflinewidth,
+      dash pattern=on 8\pgflinewidth off 2\pgflinewidth on 1.5\pgflinewidth off 1.5\pgflinewidth on 1.5\pgflinewidth off
+      1.5\pgflinewidth on 1.5\pgflinewidth off 1.5\pgflinewidth,
+    }
+  },
+  style sheet/line styles/vary thickness and dashing/.style={
+    style sheet/visualizer styles={
+      thin,
+      thick,
+      {
+        dash pattern=on 5\pgflinewidth off 2\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 5\pgflinewidth off 2\pgflinewidth,
+        thick,
+      },
+      {
+        dash pattern=on 1.5\pgflinewidth off 1.5\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 1.5\pgflinewidth off 1.5\pgflinewidth,
+        thick
+      },
+      {
+        dash pattern=on 5\pgflinewidth off 1.5\pgflinewidth on
+        1.5\pgflinewidth off 1.5\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 5\pgflinewidth off 1.5\pgflinewidth on
+        1.5\pgflinewidth off 1.5\pgflinewidth,
+        thick
+      },
+      {
+        dash pattern=on 10\pgflinewidth off 3\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 10\pgflinewidth off 3\pgflinewidth,
+        thick
+      },
+      {
+        dash pattern=on 10\pgflinewidth off 2\pgflinewidth on
+        2\pgflinewidth off 2\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 10\pgflinewidth off 2\pgflinewidth on
+        2\pgflinewidth off 2\pgflinewidth,
+        thick
+      },
+      {
+        dash pattern=on 8\pgflinewidth off 2\pgflinewidth on
+        1.5\pgflinewidth off 1.5\pgflinewidth on 1.5\pgflinewidth off
+        1.5\pgflinewidth on 1.5\pgflinewidth off 1.5\pgflinewidth,
+        thin
+      },
+      {
+        dash pattern=on 8\pgflinewidth off 2\pgflinewidth on
+        1.5\pgflinewidth off 1.5\pgflinewidth on 1.5\pgflinewidth off
+        1.5\pgflinewidth on 1.5\pgflinewidth off 1.5\pgflinewidth,
+        thick
+      },
+    }
+  },
+  style sheet/colors/.style={
+    /utils/exec=\resetcolorseries{tikzdvcolorseries#1},
+    compute visualizer style/.append style={%
+      /utils/exec=\colorlet{tikz@dv@temp}[rgb]{tikzdvcolorseries#1!![##1]},
+      color=tikz@dv@temp
+    }
+  },
+  style sheet/colors/.default=hue
+}
+
+\definecolorseries{tikzdvcolorserieshue}{hsb}{step}[hsb]{.4,0.9,0.8}{.213,0,0}
+\definecolorseries{tikzdvcolorseriesblue}{hsb}{step}[hsb]{.65,1.4,1}{0,-.4,-.0}
+\definecolorseries{tikzdvcolorseriesred}{hsb}{step}[hsb]{0,1.4,1}{0,-.4,-.0}
+
+
+\tikzset{%
+  @invoke style series/.code 2 args={%
+    \c@pgf@counta=#1\relax%
+    \tikz@dv@check@sequence@end#2,\pgf@stop
+  }
+}
+
+\def\tikz@dv@check@sequence@end{%
+  \pgfutil@ifnextchar\pgf@stop%
+  {\tikz@dv@gobble@sequence}%
+  {\tikz@dv@do@sequence}%
+}
+
+\def\tikz@dv@do@sequence#1,{%
+  \ifnum\c@pgf@counta=1\relax%
+    \pgfkeysalso{#1}%
+    \expandafter\tikz@dv@gobble@sequence%
+  \else%
+    \advance\c@pgf@counta by-1\relax%
+    \expandafter\tikz@dv@check@sequence@end%
+  \fi%
+}
+
+\def\tikz@dv@gobble@sequence#1\pgf@stop{}
+
+
+
+%
+% Basic visualizers
+%
+
+\tikzdatavisualizationset{
+  new line visualizer/.style={
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/visualizers/#1,
+      class=plot handler visualizer,
+      arg1 from key=/tikz/data visualization/visualizers/#1/plot handler,
+      arg2=#1
+    },
+    new visualizer={#1}{every line visualizer},
+    /tikz/data visualization/visualizers/#1/plot handler/.initial=\pgfplothandlerlineto
+  },
+  visualize as lines/.style={new visualizers={#1}{new line visualizer}},
+  line plot/.style={visualize as lines=line,/data point/visualizer=line},
+  every line visualizer/.style={every path/.append style={draw,semithick}}
+}
+
+
+\tikzdatavisualizationset{
+  new scatter visualizer/.style={
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/visualizers/#1,
+      class=plot handler visualizer,
+      arg1=\pgfplothandlermark{\pgfuseplotmark{\tikz@plot@mark}},
+      arg2=#1
+    },
+    new visualizer={#1}{every line visualizer},
+  },
+  visualize as scatters/.style={new visualizers={#1}{new scatter visualizer}},
+  scatter plot/.style={visualize as scatters=scatter,/pgf/data/scatter},
+  every scatter visualizer/.style={}
+}
+
+
+% The following needs to be fixed...
+\tikzdatavisualizationset{
+  new rectangles visualizer/.style={
     new object={
       store=/tikz/data visualization/rectangle visualizer,
       class=rectangle visualizer,
@@ -1311,25 +1533,7 @@
     /data point/#1/use path/.initial=\pgfusepath{stroke},
     /data point/#1/style/.code=\pgfkeysalso{/data point/#1/use path={\path[every rectangles/.try,##1];}}
   },
-  new rectangles/.default=rectangles
-}
-
-\tikzdatavisualizationset{
-  new scatter plot/.style={
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/plot handler visualizer,
-      class=plot handler visualizer,
-      arg1=\pgfplothandlermark{\pgfuseplotmark{\tikz@plot@mark}},
-      arg2=#1
-    },
-    /data point/#1/.initial=scatter plot,
-    /data point/#1/use path/.initial=,
-    /pgf/data/#1/label/.code=\pgfkeysalso{/data point/#1=##1},
-    /pgf/data/#1/style/.code=\pgfkeysalso{/data point/#1/use path=???},
-  },
-  new scatter plot/.default=scatter plot,
-  scatter plot/.style=new scatter plot
+  rectangle visualizer/.default=rectangles
 }
 
 
@@ -1357,7 +1561,7 @@
   school book axes/.style={
     xy Cartesian,
     x axis={
-      fake value=0,
+      include values=0,
       visualize axis={y axis={goto=0},style=->,padded},
       visualize ticks={common={y axis={goto=0},direction axis=y axis},
         major={tick text at low,
@@ -1365,11 +1569,11 @@
         }},
       visualize grid={common={direction axis=y axis,padded}},
       ticks={step=1},
-      padding=1em,
+      padding=0.75em,
       visualize label={visualize x axis label}
     },
     y axis={
-      fake value=0,
+      include values=0,
       visualize axis={x axis={goto=0},style=->,padded},
       visualize ticks={
         common={x axis={goto=0},direction axis=x axis},
@@ -1377,7 +1581,7 @@
       },
       visualize grid={common={direction axis=x axis,padded}},
       ticks={step=1},
-      padding=1em,
+      padding=0.75em,
       visualize label={visualize y axis label}
     },
     school book axes standard labels,
@@ -1570,10 +1774,10 @@
 % Shorthands 
 %
 
-\tikzdatavisualizationset{
-  school book plot/.style={school book axes,line plot},
-  scientific plot/.style={scientific axes,line plot},
-}
+%\tikzdatavisualizationset{
+%  school book plot/.style={school book axes,line plot},
+%  scientific plot/.style={scientific axes,line plot},
+%}
 
 
 \endinput
