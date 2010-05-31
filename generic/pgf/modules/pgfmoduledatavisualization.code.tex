@@ -1947,11 +1947,11 @@
 {
   % Class plot handler visualizer
   %
-  % This visualizer uses a plot handler to visualize data points.
+  % This visualizer uses one or more plot handlers to visualize data points.
   % As the data points are processed, the canvas positions of the data 
   % points are recorded. At the end of a group of data points, the
-  % recorded stream of canvas position is the visualized (rendered)
-  % using a plot handler. For instance, when the lineto plot handler 
+  % recorded stream of canvas position is visualized (rendered)
+  % using plot handlers. For instance, when the lineto plot handler 
   % is used, the data points are connected by straight lines, when the
   % curveto plot handler is used, they are connected by smooth curves
   % and so on.
@@ -1965,15 +1965,15 @@
   % key /data point/visualizer equals this name will become part of the
   % plot. This makes it easy to specify multiple plots. 
   %
-  % The keys /data point/<name>/execute at begin stream and /data
-  % point/<name>/execute at end stream, where <name> is the name of
+  % The keys /data point/<name>/execute at begin and /data
+  % point/<name>/execute at end, where <name> is the name of
   % the visualizer, should store code that is to be executed directly
   % before and after the stream of coordinates is created. Typically,
   % these keys will store commands to use the path created by the plot
   % handler. 
 
-  \attribute handler;
-  % The to-be-used handler
+  \attribute handlers;
+  % The to-be-used handlers
   
   \attribute name;
   % The name of the visualizer
@@ -1990,13 +1990,13 @@
   
   % Constructor
   %
-  % #1 = A handler like \pgfplothandlerlineto
-  % #2 = A name
-  % #3 = The use path attribute
+  % #1 = A name
+  % #2 = A comma-separated list of handlers like
+  %      "\pgfplothandlerlineto,\pgfplothandlercurveto"
   %
   \method plot handler visualizer(#1,#2) {
-    \pgfooset{handler}{#1}
-    \pgfooset{name}{#2}
+    \pgfooset{name}{#1}
+    \pgfooset{handlers}{#2}
   }
 
   % Method
@@ -2047,13 +2047,19 @@
   % Internal method
   \method render() {
     \pgfscope
-      \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at begin stream}
-      \pgfoovalueof{handler}
-      \pgfplotstreamstart
-      \pgfoovalueof{positions}
-      \pgfoovalueof{cache}
-      \pgfplotstreamend
-      \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at end stream}
+      \pgfooget{handlers}\tikz@dv@temp@list
+      \foreach\tikz@dv@temp in\tikz@dv@temp@list{
+        \ifx\tikz@dv@temp\pgfutil@empty
+        \else
+          \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at begin}
+          \tikz@dv@temp
+          \pgfplotstreamstart
+          \pgfoovalueof{positions}
+          \pgfoovalueof{cache}
+          \pgfplotstreamend
+          \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at end}
+        \fi
+      }
     \endpgfscope
     \pgfoolet{positions}\pgfutil@empty
     \pgfoolet{cache}\pgfutil@empty
@@ -2137,6 +2143,127 @@
 
 \newcount\pgf@lib@dv@cache@count
 
+
+
+%
+% Label positioning classes
+%
+
+\pgfooclass{label visualizer}
+{
+  % Class label visualizer
+  %
+  % The job of this class is to visualize a label of a curve or some
+  % other object.
+  % 
+  % The idea is as follows: This class monitors a certain
+  % attribute. When this attribute reaches a certain value for the
+  % first time, the following happens: A normalized vector of the line
+  % connecting the current canvas position to the canvas position of
+  % the previous data point is computed and stored in pgf@x/pgf@y. The
+  % coordinate system is shifted so that the current data point is at
+  % the origin. Then, some drawing code is executed.
+
+  \attribute attribute;
+  % The monitored attribute
+  
+  \attribute name;
+  % Name of the to-be-monitored visualizer
+  
+  \attribute threshold;
+  % When the attribute exceeds this threshold, the drawing code is
+  % executed
+
+  \attribute before canvas position=;
+  % Stores canvas position of the data point before the interesting one
+  
+  \attribute canvas position=;
+  % Stores canvas position of the data point
+
+  \attribute code;
+  % To-be-executed code when the label should be drawn
+  
+  
+  % Constructor
+  %
+  % #1 = attribute 
+  % #2 = threshold
+  % #3 = code
+  % #4 = name of the visualizer
+  %
+  \method label visualizer(#1,#2,#3,#4) {
+    \pgfooset{attribute}{#1}
+    \def\pgf@temp{#2}
+    \ifx\pgf@temp\pgfutil@empty
+    \else
+      \pgfdvmathenter{\pgf@temp}{#2}
+    \fi
+    \pgfoolet{threshold}\pgf@temp
+    \pgfooset{code}{#3}
+    \pgfooset{name}{#4}
+  }
+
+  % Method
+  \method default connects() {
+    \pgfoothis.get handle(\pgf@dv@me)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,test,visualize datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
+  }
+
+  % Slot
+  \method test() {
+    \pgfkeysgetvalue{/data point/visualizer}\pgf@dv@visualizer%
+    \pgfooget{name}\pgf@dv@name%
+    \ifx\pgf@dv@name\pgf@dv@visualizer%
+     % Do sth only for the correct visualizer
+      \pgfooget{attribute}\pgf@dv@attribute
+      \ifx\pgf@dv@attribute\pgfutil@empty%
+      % nothing to do (anymore)
+      \else%
+        \pgf@dv@label@vis@record
+      \fi%
+    \fi%
+  }
+
+  \def\pgf@dv@label@vis@record{
+    % Record current position
+    \edef\pgf@dv@pos{%
+      \noexpand\pgfqpoint%
+      {\pgfkeysvalueof{/data point/canvas x}}%
+      {\pgfkeysvalueof{/data point/canvas y}}}%
+    \pgfooget{canvas position}\pgf@dv@temp%
+    \pgfoolet{before canvas position}\pgf@dv@temp%
+    \pgfoolet{canvas position}\pgf@dv@pos%
+    % Now check threshold
+    \pgfooget{threshold}\pgf@dv@thres%
+    \ifx\pgf@dv@thres\pgfutil@empty%
+    \else%
+      % Hmm, have to check, whether the value is, indeed, correct
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val
+    \ifx\pgf@dv@val\relax%
+    \else\ifx\pgf@dv@val\pgfutil@empty%
+    \else%
+      \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
+      \pgfooget{threshold}{\pgf@dv@thres}
+      % Now, protocol value
+      \pgfdvmathifless{\pgf@dv@value}{\pgf@dv@thres}{}{%
+        \pgfoolet{attribute}\pgfutil@empty% Stop!
+      }%
+      \fi\fi%
+    \fi%
+  }
+  
+  % Slot
+  \method phase(#1) {%
+    \ifx#1\pgfdvendvisualization%
+      \scope
+        \pgftransformshift{\pgfoovalueof{canvas position}}
+        \pgfoovalueof{code}
+      \endscope
+    \fi%
+  }
+
+}
 
 
 %

@@ -500,11 +500,11 @@
 % Ticks at
 \tikzdatavisualizationset{
   at/.code={\def\tikz@dv@at@list{#1}},
-  also at/.code={\expandafter\def\expandafter\tikz@dv@at@list\expandafter{\tikz@dv@at@list,#1}},
+  also at/.code={\expandafter\def\expandafter\tikz@dv@at@list\expandafter{\tikz@dv@at@list,{#1}}},
   major at/.style={major={at={#1}}},
   minor at/.style={minor={at={#1}}},
   subminor at/.style={subminor={at={#1}}},
-  options at/.code={\expandafter\def\expandafter\tikz@dv@style@at@list\expandafter{\tikz@dv@style@at@list,#1}},
+  options at/.code={\expandafter\def\expandafter\tikz@dv@style@at@list\expandafter{\tikz@dv@style@at@list,{#1}}},
   no tick text at/.style={options at={#1 as [no tick text]}}
 }
 
@@ -1062,6 +1062,7 @@
   half about strategy/.style={about strategy={2pt/1.0pt,7pt/5pt,11pt/10pt}},
   quarter about strategy/.style={about strategy={1.8pt/1.0pt,4pt/2.5pt,7pt/5pt,11pt/10pt}},
   int about strategy/.style={about strategy={1.5pt/1.0pt,2.5pt/2.0pt,3.5pt/3.0pt,4.5pt/4.0pt,7pt/5pt,11pt/10pt}},
+  none/.style={@compute step=},
   few/.style={about=3},
   some/.style={about=5},
   many/.style={about=10},
@@ -1304,25 +1305,17 @@
       \edef\tikz@temp{/data point/#1/number/.initial=\the\tikzdvvisualizercounter}
       \expandafter\tikzset\expandafter{\tikz@temp}
     },
-    /data point/#1/execute at begin stream/.initial={
+    /data point/#1/execute at begin/.initial={
       \scope[
         /tikz/data visualization/every visualizer/.try,
+        #2,
         /tikz/data visualization/compute visualizer style/.expanded=\pgfkeysvalueof{/data point/#1/number},
-        /tikz/data visualization/#2,
-        /data point/#1/style/.try
-        ]
+        /tikz/data visualization/visualizers/#1/style/.try]
     },
-    /data point/#1/execute at end stream/.initial={
+    /data point/#1/execute at end/.initial={
         \path; % invokes every path implicitly
       \endscope
     },
-  },
-  new visualizers/.code 2 args={%
-    \let\tikz@temp=\pgfutil@empty
-    \foreach \name in {#1}{%
-      \expandafter\pgfutil@g@addto@macro\expandafter\tikz@temp\expandafter{\expandafter\tikz@do@visualizer\expandafter{\name}{#2}}
-    }
-    \tikz@temp
   },
   compute visualize style/.style=
 }
@@ -1337,11 +1330,110 @@
 
 \pgfkeys{
   /tikz/data visualization/visualizer options/.cd,
-  label/.style={\tikz@visualizer/label/.initial=#1},
-  style/.style={/data point/\tikz@visualizer/style/.style={#1}},
-  smooth/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlercurveto},
-  smooth cycle/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlerclosedcurve},
-  polygon/.style={/tikz/data visualization/visualizers/\tikz@visualizer/plot handler=\pgfplothandlerpolygon},
+  label/.style={/tikz/data visualization/visualizers/\tikz@visualizer/label/.initial=#1},
+  style/.style={/tikz/data visualization/visualizers/\tikz@visualizer/style/.style={#1}},
+}
+
+\tikzset{
+  @set plot handler/.code={\let\tikz@plot@handler=#1},
+  no lines/.style={@set plot handler=\pgfplothandlerdiscard},
+  smooth line/.style={@set plot handler=\pgfplothandlercurveto},
+  smooth cycle/.style={@set plot handler=\pgfplothandlerclosedcurve},
+  straight line/.style={@set plot handler=\pgfplothandlerlineto},
+  straight cycle/.style={@set plot handler=\pgfplothandlerpolygon},
+  polygon/.style={straight cycle=cycle},% alias
+  gapped line/.style={@set plot handler=\pgfplothandlergaplineto},
+  gapped cycle/.style={@set plot handler=\pgfplothandlergapcycle}
+}
+
+
+
+
+%
+% Basic visualizers
+%
+
+\tikzdatavisualizationset{
+  visualize as line/.style={
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/visualizers/#1,
+      class=plot handler visualizer,
+      arg1=#1,
+      arg2={%
+        \tikz@plot@handler,%
+        \let\tikz@options=\pgfutil@empty%
+        \let\tikz@transform=\pgfutil@empty%
+        \tikzset{solid,every mark}%
+        \tikz@options%
+        \pgfplothandlermark{\tikz@transform\pgfuseplotmark{\tikz@plot@mark}}
+      },
+    },
+    new visualizer={#1}{%
+      every path/.style={draw},
+      straight line,
+      semithick,
+      mark=none,
+      /tikz/data visualization/every visualize as line/.try,
+    }
+  },
+  visualize as smooth line/.style={
+    visualize as line={#1},
+    #1={style=smooth line}
+  },
+  visualize as scatter/.style={
+    visualize as line=#1,
+    #1={style=no lines,
+      /tikz/data visualization/every visualize as scatter/.try},
+    style sheet/marks
+  }
+}
+
+\tikzdatavisualizationset{
+  line plot/.style={visualize as line=line,/data point/visualizer=line},
+  smooth line plot/.style={visualize as smooth line=line,/data point/visualizer=line},
+  scatter plot/.style={visualize as scatter=scatter,/data point/visualizer=scatter},
+}
+
+
+
+% The following needs to be fixed...
+\tikzdatavisualizationset{
+  new rectangles visualizer/.style={
+    new object={
+      store=/tikz/data visualization/rectangle visualizer,
+      class=rectangle visualizer,
+      arg1 from key=/tikz/data visualization/#1/attribute 1,
+      arg2 from key=/tikz/data visualization/#1/attribute 2,
+      arg3=#1/use path
+    },
+    #1/attribute 1/.initial=x,
+    #1/attribute 2/.initial=y,
+    /data point/#1/use path/.initial=\pgfusepath{stroke},
+    /data point/#1/style/.code=\pgfkeysalso{/data point/#1/use path={\path[every rectangles/.try,##1];}}
+  },
+  rectangle visualizer/.default=rectangles
+}
+
+
+
+
+% 
+% Label visualizer 
+%
+
+\tikzdatavisualizationset{
+  new label visualizer/.style={
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/visualizers/#1/label,
+      class=label visualizer,
+      arg1=x,
+      arg2=1.5,
+      arg3={\node{foo};},
+      arg4=line
+    }
+  }
 }
 
 
@@ -1437,20 +1529,59 @@
       },
     }
   },
-  style sheet/colors/.style={
-    /utils/exec=\resetcolorseries{tikzdvcolorseries#1},
-    compute visualizer style/.append style={%
-      /utils/exec=\colorlet{tikz@dv@temp}[rgb]{tikzdvcolorseries#1!![##1]},
-      color=tikz@dv@temp
+  style sheet/colors/.code={
+    \pgfkeysgetvalue{/tikz/data visualization/style sheet/colors/#1}\pgf@temp
+    \tikz@dv@color@seriesfalse
+    \ifx\pgf@temp\relax%
+      \tikz@dv@color@seriestrue
+    \else
+      \ifx\pgf@temp\pgfutil@empty
+        \tikz@dv@color@seriestrue
+      \fi
+    \fi
+    \iftikz@dv@color@series
+      \resetcolorseries{tikzdvcolorseries#1}
+      \pgfkeysalso{%
+        compute visualizer style/.append style={%
+          /utils/exec=\colorlet{tikz@dv@temp}[rgb]{tikzdvcolorseries#1!![##1]},
+          color=tikz@dv@temp
+        }
+      }%
+    \else
+      \pgfkeysalso{%
+        style sheet/visualizer styles/.expand once=\pgf@temp
+      }%
+    \fi
+  },
+  style sheet/colors/.default=hue,
+  style sheet/colors/strong/.initial={
+    color=black,
+    color=red!80!black,
+    color=blue!80!black,
+    color=green!60!black,
+    color=orange!80!black,
+    color=black!60
+  },
+  style sheet/marks/.is choice,
+  style sheet/marks/crosses/.style={
+    style sheet/visualizer styles={
+      {mark=x,mark options=thin,mark size=1.8pt},
+      {mark=+,mark options=thin,mark size=1.8pt},
+      {mark=Mercedes star,mark options=thin,mark size=1.8pt},
+      {mark=Mercedes star flipped,mark options=thin,mark size=1.8pt},
+      {mark=star,mark options=thin,mark size=1.8pt},
+      {mark=10-pointed star,mark options={line width=.3pt,mark size=1.6pt}}
     }
   },
-  style sheet/colors/.default=hue
+  style sheet/marks/.default=crosses
 }
+
 
 \definecolorseries{tikzdvcolorserieshue}{hsb}{step}[hsb]{.4,0.9,0.8}{.213,0,0}
 \definecolorseries{tikzdvcolorseriesblue}{hsb}{step}[hsb]{.65,1.4,1}{0,-.4,-.0}
 \definecolorseries{tikzdvcolorseriesred}{hsb}{step}[hsb]{0,1.4,1}{0,-.4,-.0}
 
+\newif\iftikz@dv@color@series
 
 \tikzset{%
   @invoke style series/.code 2 args={%
@@ -1479,68 +1610,10 @@
 
 
 
-%
-% Basic visualizers
-%
-
-\tikzdatavisualizationset{
-  new line visualizer/.style={
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/visualizers/#1,
-      class=plot handler visualizer,
-      arg1 from key=/tikz/data visualization/visualizers/#1/plot handler,
-      arg2=#1
-    },
-    new visualizer={#1}{every line visualizer},
-    /tikz/data visualization/visualizers/#1/plot handler/.initial=\pgfplothandlerlineto
-  },
-  visualize as lines/.style={new visualizers={#1}{new line visualizer}},
-  line plot/.style={visualize as lines=line,/data point/visualizer=line},
-  every line visualizer/.style={every path/.append style={draw,semithick}}
-}
-
-
-\tikzdatavisualizationset{
-  new scatter visualizer/.style={
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/visualizers/#1,
-      class=plot handler visualizer,
-      arg1=\pgfplothandlermark{\pgfuseplotmark{\tikz@plot@mark}},
-      arg2=#1
-    },
-    new visualizer={#1}{every line visualizer},
-  },
-  visualize as scatters/.style={new visualizers={#1}{new scatter visualizer}},
-  scatter plot/.style={visualize as scatters=scatter,/pgf/data/scatter},
-  every scatter visualizer/.style={}
-}
-
-
-% The following needs to be fixed...
-\tikzdatavisualizationset{
-  new rectangles visualizer/.style={
-    new object={
-      store=/tikz/data visualization/rectangle visualizer,
-      class=rectangle visualizer,
-      arg1 from key=/tikz/data visualization/#1/attribute 1,
-      arg2 from key=/tikz/data visualization/#1/attribute 2,
-      arg3=#1/use path
-    },
-    #1/attribute 1/.initial=x,
-    #1/attribute 2/.initial=y,
-    /data point/#1/use path/.initial=\pgfusepath{stroke},
-    /data point/#1/style/.code=\pgfkeysalso{/data point/#1/use path={\path[every rectangles/.try,##1];}}
-  },
-  rectangle visualizer/.default=rectangles
-}
-
-
 
 
 %
-% Basic plots
+% Basic Axes & Coordinate Systems
 %
 
 
@@ -1680,7 +1753,7 @@
       visualize axis={y axis={goto=padded min}},
       visualize grid={common={direction axis=y axis}},
       visualize label=visualize x axis label,
-      grid={major={also at={min,max}}},
+      grid={major={also at=min,also at=max}},
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
@@ -1689,7 +1762,7 @@
       visualize axis={x axis={goto=padded min}},
       visualize grid={common={direction axis=x axis}},
       visualize label=visualize y axis label,
-      grid={major={also at={min,max}}},
+      grid={major={also at=min,also at=max}},
     },
     all axes={padding=.5em},
     scientific axes standard labels,
@@ -1768,16 +1841,6 @@
   }
 }
 
-
-
-% 
-% Shorthands 
-%
-
-%\tikzdatavisualizationset{
-%  school book plot/.style={school book axes,line plot},
-%  scientific plot/.style={scientific axes,line plot},
-%}
 
 
 \endinput
