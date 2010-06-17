@@ -1960,10 +1960,10 @@
   % when everything has been collected, multiple plot handlers can
   % coexist peacefully at the same time.
   %
-  % When you create a plot handler visualizer, you must give it a "name". 
-  % Only those data points where the current value of the
-  % key /data point/visualizer equals this name will become part of the
-  % plot. This makes it easy to specify multiple plots. 
+  % You can specify a "filter", which will cause only those data
+  % points to be visualized by the visualizer that pass the test. The
+  % filter should set \pgfdvfilterpassedfalse for to-be-filtered data
+  % point. 
   %
   % The keys /data point/<name>/execute at begin and /data
   % point/<name>/execute at end, where <name> is the name of
@@ -1976,7 +1976,10 @@
   % The to-be-used handlers
   
   \attribute name;
-  % The name of the visualizer
+  % Filter code
+  
+  \attribute filter=\pgfdvnamedvisualizerfilter;
+  % Filter code
     
   \attribute positions;
   % An internal protocol of the positions on the stream
@@ -1998,7 +2001,7 @@
     \pgfooset{name}{#1}
     \pgfooset{handlers}{#2}
   }
-
+  
   % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
@@ -2006,11 +2009,16 @@
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
+  % Setter
+  \method set filter(#1) {
+    \pgfooset{filter}{#1}
+  }
+
   % Slot
   \method protocol() {
-    \pgfkeysgetvalue{/data point/visualizer}\pgf@dv@visualizer%
-    \pgfooget{name}\pgf@dv@name%
-    \ifx\pgf@dv@name\pgf@dv@visualizer%
+    \pgfdvfilterpassedtrue
+    \pgfoovalueof{filter}
+    \ifpgfdvfilterpassed%
       \pgf@dv@line@cache@it
     \fi%
   }
@@ -2071,7 +2079,48 @@
 \newcount\pgf@lib@dv@cache@count
 
 
+% A possible filter for unnamed visualizers
+%
+% #1 = Text to be compared with key /data point/visualizer
+%
+% Description:
+%
+% In a data visualization with multiple visualizers, data points
+% typically "belong" only to a single visualizer. It is, thus,
+% necessary to filter data points accoring to the current
+% visualizer. This current visualizer is assumed to be stored in /data
+% point/visualizer.
+% 
+% When objects allow you to set a filter, you can use this filter to
+% test against /data point/visualizer being equal to #1.
 
+\def\pgfdvvisualizerfilter#1{%
+  \pgfkeysgetvalue{/data point/visualizer}\pgf@dv@visualizer%
+  \def\pgf@temp{#1}%
+  \ifx\pgf@temp\pgf@dv@visualizer%
+  \else
+    \pgfdvfilterpassedfalse
+  \fi%
+}
+
+
+
+% A filter for named visualizer
+% 
+% Description:
+% 
+% This filter works like \pgfdvvisualizerfilter, only it assumes the
+% the object defines a "name" attribute. In this case, the value of
+% /data point/visualizer is tested against this attribute.
+
+\def\pgfdvnamedvisualizerfilter{%
+  \pgfkeysgetvalue{/data point/visualizer}\pgf@dv@visualizer%
+  \pgfooget{name}\pgf@temp%
+  \ifx\pgf@temp\pgf@dv@visualizer%
+  \else
+    \pgfdvfilterpassedfalse
+  \fi%
+}
 
 
 
@@ -2187,14 +2236,13 @@
   % Constructor
   %
   % #1 = attribute 
-  % #2 = threshold
+  % #2 = a macro, storing the threshold
   % #3 = code
   % #4 = name of the visualizer
   %
   \method label visualizer(#1,#2,#3,#4) {
     \pgfooset{attribute}{#1}
-    \def\pgf@temp{#2}
-    \ifx\pgf@temp\pgfutil@empty
+    \ifx#2\pgfutil@empty
     \else
       \pgfdvmathenter{\pgf@temp}{#2}
     \fi
@@ -2257,7 +2305,8 @@
   \method phase(#1) {%
     \ifx#1\pgfdvendvisualization%
       \scope
-        \pgftransformshift{\pgfoovalueof{canvas position}}
+        \pgfcoordinate{label visualizer coordinate}{\pgfoovalueof{canvas position}}
+        \pgfcoordinate{label visualizer coordinate'}{\pgfoovalueof{before canvas position}}
         \pgfoovalueof{code}
       \endscope
     \fi%
@@ -2368,13 +2417,10 @@
   
   \attribute start val=0;
   % The start value of the counter
-  
-  \attribute zero action=;
-  % Some action to be taken when the counter has the value zero.
-  
+
   \attribute filter=;
   % This attribute stores some code that is executed for each
-  % data point. If the data point sets the TeX-if ifpgfdvfilterout to
+  % data point. If the data point sets the TeX-if ifpgfdvfilterpassed to
   % true, then the counter is not incremented.
 
   
@@ -2414,37 +2460,14 @@
     \pgfooset{step}{#1}
   }
 
-  % Setter
-  \method set zero action(#1) {
-    \pgfooset{zero action}{#1}
-  }
-
-  % Method
-  %
-  % #1 = a value from which we count down.
-  %
-  % This method can be used to turn the counter into a count
-  % down. Each time zero is reached, the counter is reset to #1.
-  %
-  \method count down(#1) {
-    \pgfooset{step}{-1}
-    \edef\pgf@temp{\noexpand\pgfooset{val}{#1}}
-    \pgfoolet{zero action}\pgf@temp
-    \pgfooeset{start val}{#1}
-  }
-
   % Slot
   \method apply() {
-    \pgfdvfilteroutfalse%
+    \pgfdvfilterpassedtrue%
     \pgfoovalueof{filter}%
-    \ifpgfdvfilterout%
-    \else%
+    \ifpgfdvfilterpassed%
       \pgfmathparse{\pgfoovalueof{val}+\pgfoovalueof{step}}%
       \pgfoolet{val}\pgfmathresult%
       \pgfkeyslet{/data point/\pgfoovalueof{attribute}}\pgfmathresult%
-      \ifdim\pgfmathresult pt=0pt\relax%
-        \pgfoovalueof{zero action}%
-      \fi%
     \fi%
   }
 
@@ -2458,7 +2481,7 @@
   }
 }
 
-\newif\ifpgfdvfilterout
+\newif\ifpgfdvfilterpassed
 
 
 

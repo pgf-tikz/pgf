@@ -275,8 +275,6 @@
     \let\tikz@dv@grabbed@store\pgfutil@empty
     \pgfkeys{/tikz/data visualization/new object/grab/.cd,#1}%
     \ifx\tikz@dv@grabbed@store\pgfutil@empty
-      \PackageError{tikz}{Internal error: new object must be stored to
-        avoid duplicated on repeated styles}{}
     \else
       \pgfkeyslet{\tikz@dv@grabbed@store}\pgfutil@empty%
     \fi
@@ -289,8 +287,13 @@
 }
 
 \def\tikz@dv@newobject#1#2{%
-  \pgfkeysgetvalue{#1}\tikz@dv@temp
-  \ifx\tikz@dv@temp\pgfutil@empty
+  \def\tikz@dv@new@obj@store{#1}%
+  \ifx\tikz@dv@new@obj@store\pgfutil@empty%
+    \let\tikz@dv@new@obj=\pgfutil@empty%
+  \else%
+    \pgfkeysgetvalue\tikz@dv@new@obj@store\tikz@dv@new@obj%
+  \fi%
+  \ifx\tikz@dv@new@obj\pgfutil@empty
     \let\tikz@dv@arg@a=\tikz@lib@notused%
     \let\tikz@dv@arg@b=\tikz@lib@notused%
     \let\tikz@dv@arg@c=\tikz@lib@notused%
@@ -313,7 +316,10 @@
     \expandafter\def\expandafter\pgf@marshal\expandafter{\pgf@marshal)}%
     \pgf@marshal%
     \tikzdvobj.default connects()%
-    \pgfkeyslet{#1}\tikzdvobj%
+    \ifx\tikz@dv@new@obj@store\pgfutil@empty%
+    \else%
+      \pgfkeyslet\tikz@dv@new@obj@store\tikzdvobj%
+    \fi%
     \tikz@dv@new@after%
   \fi
 }       
@@ -485,7 +491,12 @@
   grid style={high=max,low=min},
   every major grid/.style={style={help lines,thin,black!25}},
   every minor grid/.style={style={help lines,black!25}},
-  every subminor grid/.style={style={help lines,black!10}}
+  every subminor grid/.style={style={help lines,black!10}},
+  at default ticks/.code={%
+    \expandafter\pgfkeysalso\expandafter{\tikz@lib@dv@ticks@default@at}},
+  at ticks/.code={%
+    \expandafter\pgfkeysalso\expandafter{\tikz@lib@dv@ticks@default@at}%
+    \expandafter\pgfkeysalso\expandafter{\tikz@lib@dv@ticks@at}},
 }
 
 \def\tikz@lib@dv@add@#1#2{\pgfkeysaddvalue{/tikz/data visualization/#1}{}{,#2}}
@@ -504,6 +515,9 @@
   major at/.style={major={at={#1}}},
   minor at/.style={minor={at={#1}}},
   subminor at/.style={subminor={at={#1}}},
+  major also at/.style={major={also at={#1}}},
+  minor also at/.style={minor={also at={#1}}},
+  subminor also at/.style={subminor={also at={#1}}},
   options at/.code={\expandafter\def\expandafter\tikz@dv@style@at@list\expandafter{\tikz@dv@style@at@list,{#1}}},
   no tick text at/.style={options at={#1 as [no tick text]}}
 }
@@ -530,7 +544,13 @@
       rounded corners=1.5pt
     }
   },
-  every label/.style={
+  every visualizer label/.style={
+    every ticks,
+    node style={
+      font=\pgfutil@font@small
+    }
+  },
+  every axis label/.style={
     node style={%
       font=\pgfutil@font@small
     }
@@ -578,11 +598,8 @@
   % Grid settings
   %
   grid/.style={\tikz@dv@axis/grid at/.append={,#1}},
+  grid/.default=at default ticks,
   visualize grid/.code=\expandafter\tikz@lib@dv@gv\expandafter{\tikz@dv@axis}{#1},
-  % 
-  % Shortcut
-  % 
-  ticks and grid/.style={ticks={#1},grid={#1}},
   % 
   % Visualizing axis labels
   % 
@@ -663,6 +680,8 @@
 \def\tikz@lib@dv@default@action#1#2#3{%
   \let\tikz@marshal\pgfutil@empty%
   {%
+    \let\tikz@lib@dv@ticks@at\pgfutil@empty%
+    \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@ticks@default@at%
     \pgfkeysgetvalue{#2/#1 at}\tikz@lib@dv@settings%
     \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
     % Normal minor etc. have no effect.
@@ -764,9 +783,9 @@
 \def\tikz@lib@dv@typeset{%
   \pgfdvmathenter{\tikz@lib@dv@typesetnum}{\tikz@dv@tick@pos}%
   \pgfdvmathexitbyscientificformat{\tikz@lib@dv@typesetnum}{\tikz@lib@dv@typesetnum}% hmm... not sure about this...
-  \pgfkeysvalueof{/tikz/data visualization/label prefix}%
-  \pgfkeysvalueof{/tikz/data visualization/label typesetter}{\tikz@lib@dv@typesetnum}%
-  \pgfkeysvalueof{/tikz/data visualization/label suffix}%
+  \pgfkeysvalueof{/tikz/data visualization/tick prefix}%
+  \pgfkeysvalueof{/tikz/data visualization/tick typesetter}{\tikz@lib@dv@typesetnum}%
+  \pgfkeysvalueof{/tikz/data visualization/tick suffix}%
 }
 
 \newif\iftikz@dv@min@tick@node
@@ -867,6 +886,8 @@
       \scope[/tikz/data visualization/.cd,every #1 grid/.try,grid styling,grid styling/.style=,#3]
         % Setup options
         \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
+        \let\tikz@lib@dv@ticks@default@at\pgfutil@empty%
+        \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@ticks@at%
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@settings}%
         \pgfkeysgetvalue{/tikz/data visualization/common}\tikz@temp
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@temp}
@@ -914,7 +935,7 @@
   \ifx\tikz@dv@lib@label\pgfutil@empty%
     % Great, nothing to do
   \else
-    \scope[/tikz/data visualization/.cd,every label/.try,#2]
+    \scope[/tikz/data visualization/.cd,every axis label/.try,#2]
       \pgfkeysgetvalue{/tikz/data visualization/value}\tikz@lib@dv@at%
       \pgfkeysgetvalue{/tikz/data visualization/pos}\tikz@lib@dv@pos%
       \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@mapper
@@ -968,10 +989,10 @@
   minor steps between steps/.initial=,
   minor steps between steps/.default=9,
   phase/.initial=0,
-  label typesetter/.initial=\pgfmathprintnumber,
-  label prefix/.initial=,
-  label suffix/.initial=,
-  label unit/.style={label suffix={#1}},% this is an alias
+  tick typesetter/.initial=\pgfmathprintnumber,
+  tick prefix/.initial=,
+  tick suffix/.initial=,
+  tick unit/.style={tick suffix={#1}},% this is an alias
 }
 
 \def\tikz@lib@dv@compute@at@linear{%
@@ -1316,6 +1337,7 @@
         \path; % invokes every path implicitly
       \endscope
     },
+    /tikz/data visualization/visualizers/#1/style/.style=,
   },
   compute visualize style/.style=
 }
@@ -1330,9 +1352,11 @@
 
 \pgfkeys{
   /tikz/data visualization/visualizer options/.cd,
-  label/.style={/tikz/data visualization/visualizers/\tikz@visualizer/label/.initial=#1},
-  style/.style={/tikz/data visualization/visualizers/\tikz@visualizer/style/.style={#1}},
+  label/.code=\tikzdatavisualizationset{new label visualizer={#1}},
+  style/.style={/tikz/data visualization/visualizers/\tikz@visualizer/style/.append style={#1}},
 }
+
+\newif\iftikz@dv@visualizer@label@inline
 
 \tikzset{
   @set plot handler/.code={\let\tikz@plot@handler=#1},
@@ -1346,6 +1370,92 @@
   gapped cycle/.style={@set plot handler=\pgfplothandlergapcycle}
 }
 
+
+
+% 
+% Label visualizer 
+%
+
+\tikzdatavisualizationset{
+  new label visualizer/.style={
+    new object={
+      when=after survey,
+      class=label visualizer,
+      before creation={
+        \begingroup
+        \pgfkeys{/tikz/data visualization/visualizer label options/.cd,#1}
+        \pgfkeysgetvalue{/tikz/data visualization/visualizer label options/text}\tikz@dv@temp@lab
+        \pgfkeysgetvalue{/tikz/data visualization/visualizer label options/styling}\tikz@dv@temp@style
+        \def\tikz@tempa{
+          \path [/tikz/data visualization/.cd,every visualizer label]
+          (label visualizer coordinate') --
+          (label visualizer coordinate)
+          node [
+            auto,
+            at end,
+            /tikz/data visualization/node styling,
+        }
+        \expandafter\expandafter\expandafter\def%
+        \expandafter\expandafter\expandafter\tikz@tempb%
+        \expandafter\expandafter\expandafter{%
+          \expandafter\tikz@dv@temp@style\expandafter]\expandafter{\tikz@dv@temp@lab};}%
+        \expandafter\expandafter\expandafter\gdef%
+        \expandafter\expandafter\expandafter\tikz@dv@label@code%
+        \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter\relax%
+          \expandafter\expandafter\expandafter{\expandafter\tikz@tempa\tikz@tempb}}
+        \global\let\tikz@dv@label@attribute=\tikz@dv@label@attribute
+        \global\let\tikz@dv@label@threshold=\tikz@dv@label@threshold
+        \endgroup
+      },
+      arg1/.expand once=\tikz@dv@label@attribute,
+      arg2=\tikz@dv@label@threshold,
+      arg3/.expand once=\tikz@dv@label@code,
+      arg4/.expand once=\tikz@visualizer
+    },
+    /utils/exec=\expandafter\tikz@create@label@count\expandafter{\tikz@visualizer}
+  }
+}
+
+\def\tikz@create@label@count#1{
+  \tikzdatavisualizationset{
+    new object={
+      when=after survey,
+      store=/tikz/data visualization/visualizers/#1/count/obj,
+      class=count,
+      arg1=/tikz/data visualization/visualizers/#1/count,
+      after creation={
+        \tikzdvobj.set filter({%
+          \pgfkeysgetvalue{/data point/visualizer}\pgf@tempa%
+          \def\pgf@tempb{#1}%
+          \ifx\pgf@tempa\pgf@tempb%
+          \else
+            \pgfdvfilterpassedfalse%
+          \fi
+        }) 
+      }
+    }
+  }
+}
+
+\pgfkeys{
+  /tikz/data visualization/visualizer label options/.cd,
+  at/.code args={#1>=#2}{%
+    \def\tikz@dv@label@attribute{#1}%
+    \def\tikz@dv@label@threshold{#2}%
+  },
+  index/.code={%
+    \edef\tikz@dv@label@attribute{/tikz/data visualization/visualizers/\tikz@visualizer/count}%
+    \def\tikz@dv@label@threshold{#1}%
+  },
+  text/.initial=,
+  text'/.style={text={#1},style=swap},
+  styling/.initial=,
+  style/.style={styling/.append={,#1}}
+}
+
+\let\tikz@dv@label@attribute\pgfutil@empty
+\let\tikz@dv@label@threshold\pgfutil@empty
+\let\tikz@dv@label@code\pgfutil@empty
 
 
 
@@ -1367,7 +1477,7 @@
         \tikzset{solid,every mark}%
         \tikz@options%
         \pgfplothandlermark{\tikz@transform\pgfuseplotmark{\tikz@plot@mark}}
-      },
+      }
     },
     new visualizer={#1}{%
       every path/.style={draw},
@@ -1382,7 +1492,7 @@
     #1={style=smooth line}
   },
   visualize as scatter/.style={
-    visualize as line=#1,
+    visualize as line={#1},
     #1={style=no lines,
       /tikz/data visualization/every visualize as scatter/.try},
     style sheet/marks
@@ -1401,7 +1511,7 @@
 \tikzdatavisualizationset{
   new rectangles visualizer/.style={
     new object={
-      store=/tikz/data visualization/rectangle visualizer,
+      store=/tikz/data visualization/visualizers/#1,
       class=rectangle visualizer,
       arg1 from key=/tikz/data visualization/#1/attribute 1,
       arg2 from key=/tikz/data visualization/#1/attribute 2,
@@ -1417,24 +1527,6 @@
 
 
 
-
-% 
-% Label visualizer 
-%
-
-\tikzdatavisualizationset{
-  new label visualizer/.style={
-    new object={
-      when=after survey,
-      store=/tikz/data visualization/visualizers/#1/label,
-      class=label visualizer,
-      arg1=x,
-      arg2=1.5,
-      arg3={\node{foo};},
-      arg4=line
-    }
-  }
-}
 
 
 
