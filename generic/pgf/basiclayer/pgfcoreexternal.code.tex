@@ -208,21 +208,19 @@
 		\pgfkeysgetlet{/pgf/images/include external/.@cmd}\pgf@tempa
 	}{}%
 	\setbox1=\hbox{\pgfkeysvalueof{/pgf/images/include external/.@cmd}{#1}\pgfeov}%
-	\ifdim\pgfexternalhskip=0sp
-	\else
-		\hskip\pgfexternalhskip\relax
-	\fi
+	\ifdim\pgfexternaltrimleft=0sp \else \kern\pgfexternaltrimleft\relax \fi
 	\ifdim\pgfexternaldepth=0pt
 		\box1
 	\else
 		\dimen0=\pgfexternaldepth\relax
 		\hbox{\lower\dimen0 \box1 }%
 	\fi
+	\ifdim\pgfexternaltrimright=0sp \else \kern\pgfexternaltrimright\relax \fi
 	\endgroup
 }
 
 % Defines \pgfexternaldepth to be the depth of the external picture
-% '#1' and \pgfexternalhskip to be the 'hbaseline' shift.
+% '#1' and \pgfexternaltrimleft / \pgfexternaltrimright to be the 'hbaseline' shift.
 %
 %
 % Furthermore, it handles any auxiliary information stored in the
@@ -235,8 +233,9 @@
 		\noexpand\catcode`\noexpand\@=\the\catcode`\@\space
 	}%
 	%
-	\def\pgfexternaldepth{0pt}%
-	\def\pgfexternalhskip{0pt}%
+	\def\pgfexternaldepth{0sp}%
+	\def\pgfexternaltrimleft{0sp}%
+	\def\pgfexternaltrimright{0sp}%
 	\endlinechar=-1 % suppress white space at end
 	\catcode`\@=11
 	\openin\r@pgf@reada=#1.dpth
@@ -304,7 +303,8 @@
   	\begingroup
 	\pgf@external@init@aux@in@dpth
   \fi
-  \global\let\pgf@hshift@baseline=\pgfutil@empty
+  \gdef\pgf@trimleft@final{0sp}%
+  \gdef\pgf@trimright@final{0sp}%
   \setbox\pgfpic=\hbox\bgroup\bgroup%
     \let\endpgfgraphicnamed=\pgf@externalend%
 }
@@ -332,8 +332,11 @@
 
 \def\pgf@externalend@storeshifts#1{%
 	\immediate\write#1{\the\dp\pgfpic}%
-	\ifdim\pgf@hshift@baseline=0sp \else
-		\immediate\write#1{\noexpand\tikzexternal@restore{\noexpand\def\noexpand\pgfexternalhskip{\pgf@hshift@baseline}}}%
+	\ifx\pgf@trimleft@final\pgfutil@empty\else
+		\immediate\write#1{\noexpand\tikzexternal@restore{\noexpand\def\noexpand\pgfexternaltrimleft{\pgf@trimleft@final}}}%
+	\fi
+	\ifx\pgf@trimright@final\pgfutil@empty\else
+		\immediate\write#1{\noexpand\tikzexternal@restore{\noexpand\def\noexpand\pgfexternaltrimright{\pgf@trimright@final}}}%
 	\fi
 }
 % REMARK:
@@ -341,6 +344,24 @@
 \def\pgf@externalend{%
   \unskip\egroup\egroup%
   {%
+  	\def\pgf@external@trim{0}%
+	\def\pgf@external@store@dpth{0}%
+	%
+	\ifdim\pgf@trimleft@final=0sp  \gdef\pgf@trimleft@final{}  \else\def\pgf@external@trim{1}\fi
+	\ifdim\pgf@trimright@final=0sp \gdef\pgf@trimright@final{} \else\def\pgf@external@trim{1}\fi
+	\if1\pgf@external@trim
+		% UNDO the trimming! export to pdf doesn't supported trimmed
+		% bounding boxes (has to do with the mediabox/trimbox etc).
+		% I'll keep the bounding box intact and store the trim information 
+		% into the .dpth file.
+		\setbox\pgfpic=\hbox{%
+			\ifx\pgf@trimleft@final\pgfutil@empty\else\kern-\pgf@trimleft@final\fi
+			\box\pgfpic
+			\ifx\pgf@trimright@final\pgfutil@empty\else\kern-\pgf@trimright@final\fi
+		}%
+		\def\pgf@external@store@dpth{1}%
+	\fi
+	%
     \parindent0pt % leave the space
 %    \leftmargin0pt%
 %    \rightmargin0pt%
@@ -348,6 +369,10 @@
     \advance\dimen0\dp\pgfpic%
 	\ifdim\dp\pgfpic=0pt\relax
 	\else% store the picture's depth. Otherwise, it would be lost.
+		\def\pgf@external@store@dpth{1}%
+	\fi
+	%
+	\if1\pgf@external@store@dpth
 		\ifpgfexternal@allow@aux
 			\pgf@externalend@storeshifts\@auxout
 			\immediate\closeout\@auxout
@@ -356,9 +381,6 @@
 			\pgf@externalend@storeshifts\pgf@plotwrite
 			\immediate\closeout\pgf@plotwrite
 		\fi
-	\fi
-	\ifdim\pgf@hshift@baseline=0sp \else
-		\setbox\pgfpic=\hbox{\hskip-\pgf@hshift@baseline\box\pgfpic}%
 	\fi
     \pgfsys@papersize{\the\wd\pgfpic}{\the\dimen0}%
     \setbox0=\vbox{%
