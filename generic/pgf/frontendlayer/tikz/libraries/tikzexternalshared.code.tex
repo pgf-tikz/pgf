@@ -139,6 +139,7 @@
 %	system call/.initial={pdflatex -interaction=batchmode -jobname '\image' '\texsource'; pdftops -eps \image.pdf},
 	force remake/.is if=tikzexternal@force@remake,
 	force remake/.default=true,
+	failed ref warnings for/.initial={\ref,\cite,\pageref},
 	export next/.is if=tikzexternalexportnext,
 	export/.is if=tikzexternal@export@enabled,
 	remake next/.is if=tikzexternalremakenext,
@@ -360,8 +361,12 @@
 % with system call' if necessary.
 \def\tikzexternalauxlock@init{%
 	\if4\tikzexternal@opmode
+		% mode=convert with system call
 		\ifpgfexternalreadmainaux
-			% mode=convert with system call
+			% ohoh. This case needs care because the main.aux might
+			% not be ready at this time!
+			% check.
+			%
 			\edef\pgf@tempa{\expandafter\string\csname\tikzexternal@realjob\endcsname}%
 			\edef\pgf@tempb{\expandafter\string\csname\jobname\endcsname}%
 			\ifx\pgf@tempa\pgf@tempb
@@ -373,6 +378,8 @@
 				\tikzexternalauxlock@getlockvalue
 				\if1\tikzexternallocked
 					\pgfexternalreadmainauxfalse
+					% the main .aux file won't be read. Handle \ref commands:
+					\tikzexternalauxlock@handleref
 				\else
 					\pgfexternalreadmainauxtrue
 				\fi
@@ -408,6 +415,58 @@
 	\immediate\openout\w@pgf@writea=\tikzexternal@realjob.auxlock
 	\immediate\write\w@pgf@writea{\noexpand\def\noexpand\tikzexternallocked{#1}}%
 	\immediate\closeout\w@pgf@writea
+}
+
+
+% Installs a special \ref{} command such that externalized pictures
+% can use \ref and the user gets a warning if something fails.
+%
+% The special \ref handling is installed for every reference command
+% in the list '/tikz/external/failed ref warnings for' which contains
+% '\ref,\pageref,\cite'.
+%
+% For use in the aux lock handling only.
+\def\tikzexternalauxlock@handleref{%
+	\let\pgf@external@grab@refundefinedtrue=\pgf@external@grab@refundefinedtrue@orig
+	%
+	\pgfkeysgetvalue{/tikz/external/failed ref warnings for}\tikzexternal@temp
+	\expandafter\tikzexternalauxlock@handleref@loop\tikzexternal@temp,\@EOI,%
+}
+\def\tikzexternalauxlock@handleref@loop#1,{%
+	\def\tikzexternal@temp{#1}%
+	\ifx\tikzexternal@temp\pgfutil@empty
+		\expandafter\tikzexternalauxlock@handleref@loop
+	\else
+		\ifx#1\@EOI
+		\else
+			\expandafter\let\csname tikzexternalauxlock@handleref@orig@\string#1\endcsname=#1%
+			\def#1{\tikzexternalauxlock@handleref@repl{#1}}%
+			\expandafter\expandafter\expandafter\tikzexternalauxlock@handleref@loop
+		\fi
+	\fi
+}%
+\def\tikzexternalauxlock@handleref@repl#1{\pgfutil@ifnextchar[{\tikzexternalauxlock@handleref@repl@{#1}}{\tikzexternalauxlock@handleref@repl@{#1}[]}}%
+\def\tikzexternalauxlock@handleref@repl@#1[#2]#3{%
+	\csname tikzexternalauxlock@handleref@orig@\string#1\endcsname{#3}%
+	\begingroup
+	\def\n{\pgfexternal@hat\pgfexternal@hat J}%
+	\tikzexternal@assemble@systemcall{\pgfactualjobname}{\pgf@tempa}%
+	\def\space{\noexpand\space}%
+	\pgfexternalstorecommand{%
+		\noexpand\begingroup
+		\noexpand\toks0={\pgf@tempa}%
+		\noexpand\immediate\noexpand\write16{\tikzexternalauxlock@handleref@warning{#3}{\noexpand\the\noexpand\toks0}}%
+		\noexpand\G@refundefinedtrue
+		\noexpand\endgroup
+	}%
+	\endgroup
+}%
+\def\tikzexternalauxlock@handleref@warning#1#2{%
+	\n
+	LaTeX Warning: Reference `#1' in external picture `\pgfactualjobname' could not be resolved\noexpand\on@line.\n
+	This is because the \tikzexternal@realjob.aux file is not accessable in this context, you will need to issue the externalize command\n
+	\space\space\space#2\n
+	manually.\n%
 }
 
 % Expands to the default image extension (it is set by
@@ -1290,7 +1349,7 @@
 	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
 	\pgf@tempa
 	\ifx\pgf@filename\pgfutil@empty%
-		\PackageError{tikz}{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist).         Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'. If you continue now, I'll try to typeset the picture.}%
+		\PackageError{tikz}{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist). Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'. If you continue now, I'll try to typeset the picture}%
 	\fi
 }%
 

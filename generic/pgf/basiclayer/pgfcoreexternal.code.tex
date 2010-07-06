@@ -11,11 +11,11 @@
 
 
 
-\newif\ifpgfexternal@allow@aux
+\newif\ifpgfexternal@aux@in@dpth
 
 \pgfkeys{
 	/pgf/images/include external/.code={\pgfimage{#1}},
-	/pgf/images/aux in dpth/.is if=pgfexternal@allow@aux,
+	/pgf/images/aux in dpth/.is if=pgfexternal@aux@in@dpth,
 	/pgf/images/aux in dpth/.default=true
 }
 
@@ -83,14 +83,14 @@
   \ifx\pgf@tempa\pgf@tempb%
   \else%
     \pgf@external@grabshipouttrue%
-	\pgfexternal@nofiles
+	\pgfexternal@nofiles% see also \pgf@external@init@aux@in@dpth
 	\ifpgfexternalreadmainaux
 		% and reset the jobname. This should allow to handle any
 		% \label/\ref constructions which are stored in \jobname.aux (and
 		% which won't be found otherwise)
 		\gdef\jobname{#1}%
 	\fi
-	\ifpgfexternal@allow@aux
+	\ifpgfexternal@aux@in@dpth
 		\csname newwrite\endcsname\w@pgfexternal@auxout
 	\fi
   \fi%
@@ -260,14 +260,14 @@
 	\fi
 }%
 
-\def\tikzexternal@restore#1{}%
+\def\pgfexternal@restore#1{}%
 
 \long\def\pgfincludeexternalgraphics@read@dpth@line#1#2\pgfincludeexternalgraphics@read@dpth@line@EOI{%
 	\ifcat\noexpand#1\relax
 		% Ah -- the first token is a control sequence. It belongs to
 		% the .aux file.
 		%
-		\ifx#1\tikzexternal@restore
+		\ifx#1\pgfexternal@restore
 			#2%
 		\else
 			% do NOT execute #1#2! many LaTeX commands don't support it (\label for example)
@@ -291,6 +291,19 @@
 	\fi
 }%
 
+% Stores '#1' into (expanded!) into the .dpth file of the currently
+% exported image. 
+%
+% Just before the image is included into the main document, '#1' will be
+% invoked.
+%
+% This command has only an effect if an image is being exported.
+\def\pgfexternalstorecommand#1{%
+}%
+\def\pgfexternalstorecommand@isexporting#1{%
+	\immediate\write\w@pgfexternal@auxout{\noexpand\pgfexternal@restore{#1}}%
+}%
+
 
 
 % Grab operation: If jobname matches the graphic name, typeset this
@@ -299,15 +312,34 @@
 %   this method is also invoked from within the tikz external library.
 \def\pgf@external@grab#1{%
   \def\pgf@filename{#1}%
-  \ifpgfexternal@allow@aux	
+  \ifpgfexternal@aux@in@dpth	
   	\begingroup
 	\pgf@external@init@aux@in@dpth
+	\let\G@refundefinedtrue=\pgf@external@grab@refundefinedtrue
   \fi
   \gdef\pgf@trimleft@final{0sp}%
   \gdef\pgf@trimright@final{0sp}%
   \setbox\pgfpic=\hbox\bgroup\bgroup%
     \let\endpgfgraphicnamed=\pgf@externalend%
 }
+
+{\catcode`\^=12 \gdef\pgfexternal@hat{^}}
+
+\expandafter\let\expandafter\pgf@external@grab@refundefinedtrue@orig\csname G@refundefinedtrue\endcsname
+
+\def\pgf@external@grab@refundefinedtrue{%
+	\pgf@external@grab@refundefinedtrue@orig
+	\begingroup
+	\def\n{\pgfexternal@hat\pgfexternal@hat J}%
+	\pgfexternalstorecommand{%
+		\noexpand\immediate\noexpand\write16{\pgf@external@grab@refundefinedtrue@warning}%
+		\noexpand\G@refundefinedtrue
+	}%
+	\endgroup
+}%
+\def\pgf@external@grab@refundefinedtrue@warning{%
+	LaTeX Warning: External picture `\pgfactualjobname' contains undefined references\noexpand\on@line.\n
+}%
 
 \let\pgf@external@@protected@write@orig=\protected@write
 \long\def\pgf@external@@protected@write@immediate#1#2#3{%
@@ -319,6 +351,8 @@
 }%
 
 \def\pgf@external@init@aux@in@dpth{%
+	\let\pgfexternalstorecommand=\pgfexternalstorecommand@isexporting
+	%
 	% tell LaTeX to write aux files...
 	\csname @fileswtrue\endcsname
 	% ... but redirect output to the .dpth file!
@@ -333,10 +367,10 @@
 \def\pgf@externalend@storeshifts#1{%
 	\immediate\write#1{\the\dp\pgfpic}%
 	\ifx\pgf@trimleft@final\pgfutil@empty\else
-		\immediate\write#1{\noexpand\tikzexternal@restore{\noexpand\def\noexpand\pgfexternaltrimleft{\pgf@trimleft@final}}}%
+		\immediate\write#1{\noexpand\pgfexternal@restore{\noexpand\def\noexpand\pgfexternaltrimleft{\pgf@trimleft@final}}}%
 	\fi
 	\ifx\pgf@trimright@final\pgfutil@empty\else
-		\immediate\write#1{\noexpand\tikzexternal@restore{\noexpand\def\noexpand\pgfexternaltrimright{\pgf@trimright@final}}}%
+		\immediate\write#1{\noexpand\pgfexternal@restore{\noexpand\def\noexpand\pgfexternaltrimright{\pgf@trimright@final}}}%
 	\fi
 }
 % REMARK:
@@ -373,7 +407,7 @@
 	\fi
 	%
 	\if1\pgf@external@store@dpth
-		\ifpgfexternal@allow@aux
+		\ifpgfexternal@aux@in@dpth
 			\pgf@externalend@storeshifts\@auxout
 			\immediate\closeout\@auxout
 		\else
@@ -399,7 +433,7 @@
     \pgfexternal@originalshipout\box0 %
 	\gdef\pgfexternal@did@a@shipout{1}%
   }%
-  \ifpgfexternal@allow@aux
+  \ifpgfexternal@aux@in@dpth
   	\endgroup
   \fi
 }
