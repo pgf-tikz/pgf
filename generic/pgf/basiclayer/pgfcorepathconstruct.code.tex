@@ -761,13 +761,19 @@
 	\pgf@process{#1}%
 	\edef\pgfpath@center@x{\the\pgf@x}%
 	\edef\pgfpath@center@y{\the\pgf@y}%
+	\def\pgfpath@completearcend{#4}%
 	% compute scale (#3-#2) * pi/(3*180) = (#3 - #2) * pi/27 * 1/20
 	% splitting pi/(3*180) into two scales has higher TeX accuracy
 	\pgf@xa=#2pt
 	\pgf@xb=#3pt
 	\ifdim\pgf@xa>\pgf@xb
-		\advance\pgf@xb by360pt
+		\pgf@xc=\pgf@xa
+		\pgf@xa=\pgf@xb
+		\pgf@xb=\pgf@xc
+		\edef\pgfpath@completearcend{\global\pgf@x=\the\pgf@path@lastx\global\pgf@y=\the\pgf@path@lasty\space}%
+		\pgfpathmoveto{#4}%
 	\fi
+	\edef\pgfpath@startangle{\the\pgf@xa}%
 	\edef\pgfpath@endangle{\pgf@sys@tonumber\pgf@xb}%
 	%
 	\pgf@ya=\pgf@xb
@@ -775,27 +781,29 @@
 	%
 	\ifx\pgfpatharctomaxstepsize\pgfutil@empty
 		\def\pgfpath@N{1}%
+		\pgf@xc=\pgf@ya
 	\else
-		\pgf@xa=\pgf@ya% compute N = floor((gamma_1 - gamma_0) / max) +1
-		\divide\pgf@xa by\pgfpatharctomaxstepsize\relax
+		\pgf@xc=\pgf@ya% compute N = floor((gamma_1 - gamma_0) / max) +1
+		\divide\pgf@xc by\pgfpatharctomaxstepsize\relax
 		\afterassignment\pgfutil@gobble@until@relax
-		\c@pgf@counta=\the\pgf@xa\relax
+		\c@pgf@counta=\the\pgf@xc\relax
 		\advance\c@pgf@counta by1
 		\edef\pgfpath@N{\the\c@pgf@counta}%
 		%
-		\divide\pgf@ya by\c@pgf@counta
+		\pgf@xc=\pgf@ya
+		\divide\pgf@xc by\c@pgf@counta
 	\fi
 	%
-	\edef\pgfpath@h{\pgf@sys@tonumber\pgf@ya}%
+	\edef\pgfpath@h{\pgf@sys@tonumber\pgf@xc}%
 	%
-%\message{pgfpathellipse: using N =\pgfpath@N\space spline points y0 = #2, y0+i*h, yN=#3, i=1,...,(\pgfpath@N-1), with h=\pgfpath@h\space mesh width.}%
+\message{pgfpathellipse: using N =\pgfpath@N\space spline points y0 = \pgfpath@startangle, y0+i*h, yN=\pgfpath@endangle, i=1,...,(\pgfpath@N-1), with h=\pgfpath@h\space mesh width (total arc angle \pgf@sys@tonumber\pgf@ya).}%
 	%
 	%
-	\pgf@ya=0.116355283466289\pgf@ya % pi/27
-	\divide\pgf@ya by20
-	\pgf@xa=#7\pgf@ya
+	\pgf@xc=0.116355283466289\pgf@xc % pi/27
+	\divide\pgf@xc by20
+	\pgf@xa=#7\pgf@xc
 	\edef\pgfpath@scale@A{\pgf@sys@tonumber\pgf@xa}%
-	\pgf@xa=#8\pgf@ya
+	\pgf@xa=#8\pgf@xc
 	\edef\pgfpath@scale@B{\pgf@sys@tonumber\pgf@xa}%
 	%
 	% compute intermediate spline segments for
@@ -805,12 +813,12 @@
 	\pgfutil@loop
 	\ifnum\c@pgf@countd<\pgfpath@N\relax
 		%
-		\pgf@xa=#2pt % compute \pgf@xa = y_0 + i*h
+		\pgf@xa=\pgfpath@startangle % compute \pgf@xa = y_0 + i*h
 		\pgf@xb=\pgfpath@h pt
 		\multiply\pgf@xb by\c@pgf@countd
 		\advance\pgf@xa by\pgf@xb
 		\edef\pgfpath@angle@i{\pgf@sys@tonumber\pgf@xa}%
-%\message{angle \the\c@pgf@countd: \pgfpath@angle@i...}%
+\message{angle \the\c@pgf@countd: \pgfpath@angle@i...}%
 		%
 		\pgfpatharcofellipse@{%
 			\pgfpoint
@@ -824,8 +832,8 @@
 	% compute final spline segment. It only differs insofar as the
 	% final point is already known explicitly and should be
 	% interpolated without additional math error.
-%\message{angle \pgfpath@N: #3...}%
-	\pgfpatharcofellipse@{#4}%
+\message{angle \pgfpath@N: \pgfpath@endangle...}%
+	\pgfpatharcofellipse@{\pgfpath@completearcend}%
 	\endgroup
 }%
 \def\pgfpatharcofellipse@#1{%
