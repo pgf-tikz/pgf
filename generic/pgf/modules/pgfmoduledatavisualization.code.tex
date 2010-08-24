@@ -142,10 +142,14 @@
   }
 
   % The phase signal will emit the following constants:
-  \def\pgfdvbeginsurvey{1}
-  \def\pgfdvendsurvey{2}
-  \def\pgfdvbeginvisualization{3}
-  \def\pgfdvendvisualization{4}
+  \def\pgfdvbeforesurvey{1}
+  \def\pgfdvbeginsurvey{2}
+  \def\pgfdvendsurvey{3}
+  \def\pgfdvaftersurvey{4}
+  \def\pgfdvbeforevisualization{5}
+  \def\pgfdvbeginvisualization{6}
+  \def\pgfdvendvisualization{7}
+  \def\pgfdvaftervisualization{8}
 
   % The path signale will meit the following constants:
   \def\pgfdvpathmovetotoken{5}
@@ -225,6 +229,7 @@
     \pgfoothis.prepare signal macros()
     \pgfooset{survey count}{1}
     \pgfutil@loop
+      \pgf@signalphase.emit(\pgfdvbeforesurvey)
       \pgfoovalueof{before survey}%
       \pgf@signalphase.emit(\pgfdvbeginsurvey)
       \pgfoovalueof{at start survey}
@@ -232,6 +237,7 @@
       \pgfoovalueof{at end survey}
       \pgf@signalphase.emit(\pgfdvendsurvey)%
       \pgfoovalueof{after survey}
+      \pgf@signalphase.emit(\pgfdvaftersurvey)
       \c@pgf@counta=\pgfoovalueof{survey count}\relax
       \c@pgf@countb=\pgfoovalueof{number of surveys}\relax
     \ifnum\c@pgf@counta<\c@pgf@countb
@@ -259,6 +265,7 @@
     % Visualization phase.
     \let\pgfdatapoint=\pgfdatapoint@visualizationphase%
     \pgfoothis.prepare signal macros()
+    \pgf@signalphase.emit(\pgfdvbeforevisualization)%
     \pgfoovalueof{before visualization}
     \pgf@signalphase.emit(\pgfdvbeginvisualization)%
     \pgfoovalueof{at start visualization}
@@ -266,6 +273,7 @@
     \pgfoovalueof{at end visualization}
     \pgf@signalphase.emit(\pgfdvendvisualization)%
     \pgfoovalueof{after visualization}
+    \pgf@signalphase.emit(\pgfdvaftervisualization)%
   }
 }  
 
@@ -2289,16 +2297,16 @@
     \ifx\pgf@dv@thres\pgfutil@empty%
     \else%
       % Hmm, have to check, whether the value is, indeed, correct
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val
-    \ifx\pgf@dv@val\relax%
-    \else\ifx\pgf@dv@val\pgfutil@empty%
-    \else%
-      \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
-      \pgfooget{threshold}{\pgf@dv@thres}
-      % Now, protocol value
-      \pgfdvmathifless{\pgf@dv@value}{\pgf@dv@thres}{}{%
-        \pgfoolet{attribute}\pgfutil@empty% Stop!
-      }%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val
+      \ifx\pgf@dv@val\relax%
+      \else\ifx\pgf@dv@val\pgfutil@empty%
+      \else%
+        \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
+        \pgfooget{threshold}{\pgf@dv@thres}
+        % Now, protocol value
+        \pgfdvmathifless{\pgf@dv@value}{\pgf@dv@thres}{}{%
+          \pgfoolet{attribute}\pgfutil@empty% Stop!
+        }%
       \fi\fi%
     \fi%
   }
@@ -2388,6 +2396,364 @@
 \def\pgfdvdeclarestylesheet#1#2{
   \pgfkeys{/pgf/data visualization/style sheets/#1/.cd,#2}
 }
+
+
+
+
+
+
+
+
+
+%
+% Legend container class
+%
+
+\pgfooclass{legend}
+{
+  % Class legend
+  % 
+  % This class is used to collect entries into a legend. The idea is
+  % that, say, for each line of a picture you would like to have an
+  % entry in a legend. Then you prepare these entries and send
+  % them to a legend container object. It will collect the entries
+  % and, at the end, arrange them in rows and columns by 
+  % separating them using \pgfdvnextcell and \pgfdvendrow.
+  %
+  % By surrounding the resulting arrangement by a call to \pgfmatrix or
+  % a call to \halign you can then create a legend.
+  % 
+  % To specify how the entries should be arranged, a size
+  % specification and two directions are needed.
+  % 
+  % For the size specification you specify either the ideal number of
+  % columns and the maximum number of rows or you specify the ideal
+  % number of rows and the maximum number of columns. In the first
+  % case, the class first tries to create as many columns as specified
+  % by the "ideal" parameter. If there are less entries than this
+  % parameter, you obviously get less columns, namely as many as there
+  % are entries, each column containing only one entry. If there are
+  % more entries that the ideal number of columns, you get multiple
+  % columns, each containing as many entries to make sure that the
+  % ideal number is met. However, if a column would get more than the
+  % specified maximum number of elements per column, you get more
+  % columns that the ideal number -- to ensure that no column contains
+  % more than the desired number. The case is symmetric, but with the
+  % roles of columns and rows exchanged.
+  % 
+  % Here is an example: You specify that you want 2 columns, ideally,
+  % each having a maximum of 4 entries. Here is what you would get:
+  % 
+  % Number of entries & Number of resulting columns ... & ... and rows
+  % 1                 & 1                               & 1
+  % 2                 & 2                               & 1
+  % 3                 & 2                               & 2
+  % 4                 & 2                               & 2
+  % 5                 & 2                               & 3
+  % 6                 & 2                               & 3
+  % 7                 & 2                               & 4
+  % 8                 & 2                               & 4
+  % 9                 & 3                               & 4
+  % 10                & 3                               & 4
+  % 11                & 3                               & 4
+  % 12                & 3                               & 4
+  % 13                & 4                               & 4
+  %
+  % 
+  % Once the number of columns and rows has been computed, the next
+  % step is to "fill" the table. For this, eight strategies may be
+  % specified: right then down, right then up, left then down, left
+  % then up, up then right, up then left, down then right, down then
+  % left. A strategy like "right then up" means the following: Each
+  % new entry should placed right of the previous entry in the
+  % arrangement. However, once the maximum number of elements in a row
+  % has been reached, the a new row should be started that is placed
+  % above ("up") then just-assembled row.
+  % 
+  % 
+  %  
+  %
+  % Example:
+  % 
+  % You create an object \legend and then call
+  % 
+  % \pgfoofnew \legend=new legend(columns,2,3,down then right)
+  % \legend.add entry(first)
+  % \legend.add entry(second)
+  % \legend.add entry(third)
+  % \legend.add entry(fourth)
+  % \legend.add entry(fifth)
+  % \legend.add entry(sixth)
+  % \legend.add entry(seventh)
+  % \legend.get arrangment(\arrangement)
+  % 
+  % Then \arrangment will expand to
+  % 
+  %   first  \pgfdvnextcell   fourth  \pgfdvnextcell  seventh  \pgfdvendrow
+  %   second \pgfdvnextcell   fifth   \pgfdvnextcell  third    \pgfdvendrow
+  %   third  \pgfdvendrow   sixth   \pgfdvnextcell           \pgfdvendrow
+  %   
+  % By saying \let\pgfdvendrow=\\ and \let\pgfdvnextcell=&, you
+  % can use \arrangment inside a table.
+  
+  
+  \attribute entries;
+  % Collectes the entries
+
+  \attribute columns or rows;
+  % Specifies whether columns or rows are specified
+
+  \attribute ideal;
+  % The ideal number of columns/rows
+
+  \attribute max;
+  % The maximum number of entries per column/row
+
+  \attribute strategy;
+  % Specifies how the matrix should be filled
+  
+  \attribute number of entries=0;
+  % Counts the number of entries that have been stored
+  
+  
+  % Constructor
+  %
+  % #1 = "columns" or "rows" -> specifies whether the ideal number and
+  %      the max entries number refer to columns or the row
+  % #2 = the ideal number of #1's
+  % #3 = the maximum number of entries in a #1
+  % #4 = one of the eight strategies
+  %
+  \method legend(#1,#2,#3,#4) {
+    \pgfooset{columns or rows}{#1}
+    \pgfooset{ideal}{#2}
+    \pgfooset{max}{#3}
+    \pgfooset{strategy}{#4}
+  }
+
+  % Method
+  \method add entry(#1) {
+    \pgfooappend{entries}{{#1}}
+    \c@pgf@counta=\pgfoovalueof{number of entries}\relax%
+    \advance\c@pgf@counta by1\relax%
+    \pgfooeset{number of entries}{\the\c@pgf@counta}
+  }
+
+  % Method
+  \method get arrangement(#1) {
+    {
+      % 
+      % Step 1: Compute the desired number of rows or columns
+      % 
+      % 
+      % Compute the ideal number of entries per row/column (called
+      % "target" in the following) and entries per colum/row (called
+      % "per target" in the following)
+      % 
+      % if (number of entries > ideal)
+      \ifnum\pgfoovalueof{number of entries}>\pgfoovalueof{ideal}\relax%
+      % {
+        % if (ideal * max > number of entries)
+        \c@pgf@counta=\pgfoovalueof{ideal}\relax%
+        \multiply\c@pgf@counta by\pgfoovalueof{max}\relax%
+        \ifnum\c@pgf@counta>\pgfoovalueof{number of entries}\relax
+        % {
+        %   target = ideal;
+        %   per target = ceil (number of entries / ideal);
+          \c@pgf@counta=\pgfoovalueof{ideal}\relax%
+          \c@pgf@countb=\pgfoovalueof{number of entries}\relax
+          \advance\c@pgf@countb by-1\relax
+          \divide\c@pgf@countb by\c@pgf@counta\relax%
+          \advance\c@pgf@countb by1\relax%
+        % }
+        % else
+        % {
+        %   target = ceil(number of entries / max);
+        %   per target = max;
+        \else
+          \c@pgf@countb=\pgfoovalueof{max}\relax%
+          \c@pgf@counta=\pgfoovalueof{number of entries}\relax
+          \advance\c@pgf@counta by-1\relax
+          \divide\c@pgf@counta by\c@pgf@countb\relax%
+          \advance\c@pgf@counta by1\relax%
+        \fi
+        % }
+      % }
+      % else
+      % {
+      %   target = number of entries;
+      %   per target = 1;
+      % }
+      \else
+        \c@pgf@counta=\pgfoovalueof{number of entries}\relax%
+        \c@pgf@countb=1\relax%
+      \fi%
+      % 
+      % Ensure that counta = rows, countb = columns 
+      % 
+      \pgfooget{columns or rows}\pgf@temp
+      \ifx\pgf@temp\pgf@dv@columnstext%
+        \c@pgf@countc=\c@pgf@counta\relax
+        \c@pgf@counta=\c@pgf@countb\relax
+        \c@pgf@countb=\c@pgf@countc\relax
+      \fi
+      \edef\temp{rows: \the\c@pgf@counta, columns: \the\c@pgf@countb}\temp
+      % 
+      % Now arrange the matrix 
+      % 
+      \csname pgf@dv@legend@init@\pgfoovalueof{strategy}\endcsname
+      \expandafter\let\expandafter\pgf@dv@updater\csname pgf@dv@legend@update@\pgfoovalueof{strategy}\endcsname
+      \pgfooget{entries}\pgf@temp
+      \expandafter\pgf@dv@legend@arrange\pgf@temp\pgf@stop
+      % 
+      % Now assemble the matrix
+      %
+      \edef\pgf@dv@row@list{1,...,\the\c@pgf@counta}
+      \edef\pgf@dv@column@list{1,...,\the\c@pgf@countb}
+      \global\let\pgf@dv@matrix\pgfutil@empty
+      \foreach \pgf@dv@row in \pgf@dv@row@list
+      {
+        \global\let\pgf@dv@matrix@row\pgf@dv@first@mark
+        \foreach \pgf@dv@column in \pgf@dv@column@list
+        {
+          \expandafter\let\expandafter\pgf@temp\csname pgf@dv@legend@entry@\pgf@dv@row @\pgf@dv@column\endcsname
+          \ifx\pgf@temp\relax
+            \let\pgf@temp\pgfutil@empty
+          \fi
+          \ifx\pgf@dv@matrix@row\pgf@dv@first@mark
+            \global\let\pgf@dv@matrix@row\pgf@temp
+          \else
+            \expandafter\pgfutil@g@addto@macro\expandafter\pgf@dv@matrix@row\expandafter{\expandafter\pgfdvnextcell\pgf@temp}
+          \fi
+        }
+        \pgfutil@g@addto@macro\pgf@dv@matrix@row{\pgfdvendrow}
+        \expandafter\pgfutil@g@addto@macro\expandafter\pgf@dv@matrix\expandafter{\pgf@dv@matrix@row}
+      }
+      \global\let\pgf@dv@matrix@row\relax
+    }
+    \let#1\pgf@dv@matrix
+    \global\let\pgf@dv@matrix\relax
+  }
+  
+  \def\pgf@dv@first@mark{\pgf@dv@first@mark}
+  
+  \def\pgf@dv@legend@arrange{%
+    \pgfutil@ifnextchar\pgf@stop{\pgfutil@gobble}{\pgf@dv@legend@handle@entry}
+  }
+
+  \def\pgf@dv@legend@handle@entry#1{
+    \expandafter\def\csname pgf@dv@legend@entry@\the\c@pgf@countc @\the\c@pgf@countd\endcsname{#1}%
+    \pgf@dv@updater%
+    \pgf@dv@legend@arrange%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@init@down then right\endcsname{%
+    \c@pgf@countc=1\relax%
+    \c@pgf@countd=1\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@down then right\endcsname{%
+    \advance\c@pgf@countc by1\relax
+    \ifnum\c@pgf@countc>\c@pgf@counta\relax%
+      \c@pgf@countc=1\relax%
+      \advance\c@pgf@countd by1\relax%
+    \fi%
+  }  
+
+  \expandafter\def\csname pgf@dv@legend@init@right then down\endcsname{%
+    \c@pgf@countc=1\relax%
+    \c@pgf@countd=1\relax%
+  }
+  
+  \expandafter\def\csname pgf@dv@legend@update@right then down\endcsname{%
+    \advance\c@pgf@countd by1\relax
+    \ifnum\c@pgf@countd>\c@pgf@countb\relax%
+      \c@pgf@countd=1\relax%
+      \advance\c@pgf@countc by1\relax%
+    \fi%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@init@up then right\endcsname{%
+    \c@pgf@countc=\c@pgf@counta\relax%
+    \c@pgf@countd=1\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@up then right\endcsname{%
+    \advance\c@pgf@countc by-1\relax
+    \ifnum\c@pgf@countc=0\relax%
+      \c@pgf@countc=\c@pgf@counta\relax%
+      \advance\c@pgf@countd by1\relax%
+    \fi%
+  }  
+  
+  \expandafter\def\csname pgf@dv@legend@init@right then up\endcsname{%
+    \c@pgf@countc=\c@pgf@counta\relax%
+    \c@pgf@countd=1\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@right then up\endcsname{%
+    \advance\c@pgf@countd by1\relax
+    \ifnum\c@pgf@countd>\c@pgf@countb\relax%
+      \c@pgf@countd=1\relax%
+      \advance\c@pgf@countc by-1\relax%
+    \fi%
+  }  
+  
+  \expandafter\def\csname pgf@dv@legend@init@left then up\endcsname{%
+    \c@pgf@countc=\c@pgf@counta\relax%
+    \c@pgf@countd=\c@pgf@countb\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@left then up\endcsname{%
+    \advance\c@pgf@countd by-1\relax
+    \ifnum\c@pgf@countd=0\relax%
+      \c@pgf@countd=\c@pgf@countb\relax%
+      \advance\c@pgf@countc by-1\relax%
+    \fi%
+  }
+  
+  \expandafter\def\csname pgf@dv@legend@init@up then left\endcsname{%
+    \c@pgf@countc=\c@pgf@counta\relax%
+    \c@pgf@countd=\c@pgf@countb\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@up then left\endcsname{%
+    \advance\c@pgf@countc by-1\relax
+    \ifnum\c@pgf@countc=0\relax%
+      \c@pgf@countc=\c@pgf@counta\relax%
+      \advance\c@pgf@countd by-1\relax%
+    \fi%
+  }
+  
+  \expandafter\def\csname pgf@dv@legend@init@left then down\endcsname{%
+    \c@pgf@countc=1\relax%
+    \c@pgf@countd=\c@pgf@countb\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@left then down\endcsname{%
+    \advance\c@pgf@countd by-1\relax
+    \ifnum\c@pgf@countd=0\relax%
+      \c@pgf@countd=\c@pgf@countb\relax%
+      \advance\c@pgf@countc by1\relax%
+    \fi%
+  }
+  
+  \expandafter\def\csname pgf@dv@legend@init@down then left\endcsname{%
+    \c@pgf@countc=1\relax%
+    \c@pgf@countd=\c@pgf@countb\relax%
+  }
+
+  \expandafter\def\csname pgf@dv@legend@update@down then left\endcsname{%
+    \advance\c@pgf@countc by1\relax
+    \ifnum\c@pgf@countc>\c@pgf@countb\relax%
+      \c@pgf@countc=1\relax%
+      \advance\c@pgf@countd by-1\relax%
+    \fi%
+  }
+  
+  \def\pgf@dv@columnstext{columns}
+}       
+
 
 
 %
