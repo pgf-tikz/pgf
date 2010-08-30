@@ -625,10 +625,45 @@ Please keep in mind, that only |tikzpicture| environments and |\tikz| short imag
 
 \paragraph{Remark:} Some of the features of this library are mainly useful to improve the speed of successive document compilations. In other words: you can't use all features in this context, Keep it simple.
 
-\subsection{\eps\ Graphics}
+\subsection{\eps\ Graphics Export}
 It is also possible to use \eps\ graphics instead of \pdf\ files. There are different ways to produce them, for example to use |pdflatex| and call |pdftops -eps |\marg{pdf file} \marg{eps file} afterwards. You could add this command to the |system call| option.
 
 Alternatively, you can use |latex| and |dvips| for image conversion as is explained for the |system call| option, see page~\pageref{extlib:systemcall:option}. See the documentation for the basic level externalization in section~\ref{section-external} for restrictions of other drivers.
+
+\subsection{Bitmap Graphics Export}
+Occasionally, you may have an extremely large graphics which takes long times to render. It might be interesting to generate a bitmap (raster) image, which displays much faster (for example in a presentation). 
+
+The |external| library can be customized to export bitmap images -- with the help of external programs. Due to the dependence of external programs, you may need to adjust these commands manually. For example, on my computer, the ImageMagick Suite is installed which comes with the |convert| tool. Together with |pdflatex|, I can define the following style:
+\begin{codeexample}[code only]
+\tikzset{
+    % Defines a custom style which generates BOTH, .pdf and .png export
+    % but prefers the .png on inclusion.
+    %
+    % This style is not pre-defined, you may need to copy-paste and
+    % adjust it.
+    png export/.style={
+        external/system call/.add=
+            {}
+            {; convert -density 300 -transparent white "\image.pdf" "\image.png"},
+        %
+        /pgf/images/external info,
+        /pgf/images/include external/.code={%
+            \includegraphics
+                [width=\pgfexternalwidth,height=\pgfexternalheight]
+                {##1.png}%
+        },
+    }
+}
+\end{codeexample}
+\noindent The example above defines a new style called `|png export|' which, when it is set with |\tikzset{png export}| somewhere in the document, modifies the configuration for both, file generation and file input. The file generation is modified by appending the ImageMagick command to |system call| (separated by `|;|' as usual on linux). This is, in principle, enough to generate a |.png| file. The |include external| command is overwritten such that it uses the |.png| file instead of the |.pdf| file (which exists as well in the configuration above). But since a |.png| file can have a much higher resolution than the desired image dimensions, we have to add |width| and |height| explicitly. Usually, the |external| library does not provide size information (it is unnecessary for |.pdf| or |.eps| since these formats have their bounding box information). To enable size information, the style uses the |external info| key which, in turn, provides the |\pgfexternalwidth| and |\pgfexternalheight| commands. 
+
+Now, we can use |\tikzset{png export}| either document--wide or just for one particular image. The configuration remains in effect until the end of the actual environment (or until the next closing curly brace `|}|').
+
+\begin{key}{/pgf/images/external info=\mchoice{true,false} (initially false)}
+	If this key is activated, the size for any externalized image will be stored explicitly into the associated |.dpth| file.
+
+	When the file is included by |\pgfincludeexternalgraphics| (or automatically by the |external| library), the width is available as \declareandlabel{\pgfexternalwidth} and the height as \declareandlabel{\pgfexternalheight}.
+\end{key}
 
 \subsection{Compatibility Issues}
 \subsubsection{References In External Pictures}
