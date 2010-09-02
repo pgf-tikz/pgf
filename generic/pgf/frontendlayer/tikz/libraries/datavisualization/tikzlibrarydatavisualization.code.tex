@@ -10,6 +10,7 @@
 \ProvidesFileRCS[v\pgfversion] $Header$
 
 \usepgfmodule{datavisualization}
+\usetikzlibrary{backgrounds}
 
 
 \tikzset{/tikz/data visualization/.is family,
@@ -138,6 +139,8 @@
     \pgfkeyslet{/tikz/data visualization/minor ticks actions}\pgfutil@empty%
     \pgfkeyslet{/tikz/data visualization/subminor ticks actions}\pgfutil@empty%
     \tikz@main@dv.before visualization(%
+    )%
+    \tikz@main@dv.after visualization(%
       \pgfkeysvalueof{/tikz/data visualization/grid actions}
       \pgfkeysvalueof{/tikz/data visualization/subminor grid actions}
       \pgfkeysvalueof{/tikz/data visualization/minor grid actions}
@@ -147,8 +150,6 @@
       \pgfkeysvalueof{/tikz/data visualization/minor ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/major ticks actions}
       \pgfkeysvalueof{/tikz/data visualization/axes actions}
-    )%
-    \tikz@main@dv.after visualization(%
       \pgfkeysvalueof{/tikz/data visualization/label actions}
       \pgfkeysvalueof{/tikz/data visualization/legend actions}
     )%
@@ -580,7 +581,11 @@
   padding max/.style={\tikz@dv@axis/padding max={#1}},
   padding/.style={padding min={-#1},padding max={#1}},
   label/.style={\tikz@dv@axis/label={#1}},
-  linear steps/.style={\tikz@dv@axis/@compute at positions=\tikz@lib@dv@compute@at@linear},
+  %
+  % Strategies
+  %
+  basic strategy/.style={\tikz@dv@axis/@compute at positions={#1}},
+  linear steps/.style={basic strategy=\tikz@lib@dv@compute@at@linear},
   %
   % Attribute setter
   %
@@ -618,6 +623,14 @@
 }
 
 
+% Layer options
+\tikzdatavisualizationset{
+  axis layer/.style=on background layer,
+  ticks layer/.style=on background layer,
+  ticks node layer/.style=,
+  grid layer/.style=on background layer,
+}
+
 
 % Axis visualization
 %
@@ -631,7 +644,7 @@
 }
 
 \def\tikz@lib@dv@show@axis#1#2{%
-  \scope[/tikz/data visualization/.cd,low=min,high=max,every axis/.try,#2]
+  \scope[data visualization/axis layer,/tikz/data visualization/.cd,low=min,high=max,every axis/.try,#2]
     \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@axis@mapper
     % Ok, calculate direction vector:
     \tikzpointandanchordirection{\tikz@dv@axis@mapper.set in to(min)}{\tikz@dv@axis@mapper.set in to(max)}
@@ -755,15 +768,15 @@
             \xdef\pgf@dv@tick@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
             % Now, show something:
             \tikz@lib@handle@at@style%
-            \draw[/tikz/data visualization/styling]
-              \pgfextra{
-                \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
-                \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
-                \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
-                \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
-              }
-                 (\tikz@dv@min@tick) \iftikz@dv@min@tick@node \tikz@dv@handle@tick{\tikz@dv@min@anchor} \fi
-              -- (\tikz@dv@max@tick) \iftikz@dv@max@tick@node \tikz@dv@handle@tick{\tikz@dv@max@anchor} \fi;
+            \scope[/tikz/data visualization/styling]
+              \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
+              \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
+              \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
+              \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
+              \scope[data visualization/ticks layer] \draw (\tikz@dv@min@tick) -- (\tikz@dv@max@tick); \endscope
+              \iftikz@dv@min@tick@node \scope[data visualization/ticks node layer] \path (\tikz@dv@min@tick) \tikz@dv@handle@tick{\tikz@dv@min@anchor}; \endscope \fi
+              \iftikz@dv@max@tick@node \scope[data visualization/ticks node layer] \path (\tikz@dv@max@tick) \tikz@dv@handle@tick{\tikz@dv@max@anchor}; \endscope\fi
+            \endscope
           \fi      
         }
       \endscope
@@ -894,7 +907,7 @@
     {%
       \let\tikz@dv@at@list\pgfutil@empty
       \let\tikz@dv@style@at@list\pgfutil@empty
-      \scope[/tikz/data visualization/.cd,every #1 grid/.try,grid styling,grid styling/.style=,#3]
+      \scope[data visualization/grid layer,/tikz/data visualization/.cd,every #1 grid/.try,grid styling,grid styling/.style=,#3]
         % Setup options
         \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
         \let\tikz@lib@dv@ticks@default@at\pgfutil@empty%
@@ -1145,9 +1158,7 @@
 
 \tikzset{
   /tikz/data visualization/axis options/.cd,
-  exponential steps/.style={
-    \tikz@dv@axis/@compute at positions=\tikz@lib@dv@compute@at@log
-  },
+  exponential steps/.style={basic strategy=\tikz@lib@dv@compute@at@log},
   %
   % Basic setters
   %
@@ -1774,10 +1785,11 @@
       arg2={\tikz@plot@handler,\tikz@dv@plot@mark@maker}
     },
     new visualizer={#1}{%
-      every path/.style={draw,color=visualizer color},
+      every path/.style={draw},
       style={every mark/.append style={color=visualizer color}},
       straight line,
       semithick,
+      color=visualizer color,
       mark=none,
       /tikz/data visualization/every visualize as line/.try,
     },
@@ -1985,7 +1997,7 @@
   }
 }
 
-\tikzdvdeclarestylesheetcolorseries{changing hue}{hsb}{.4,0.9,0.8}{.213,0,0}
+\tikzdvdeclarestylesheetcolorseries{varying hue}{hsb}{.4,0.9,0.8}{.213,0,0}
 \tikzdvdeclarestylesheetcolorseries{shades of blue}{hsb}{.65,1.4,1}{0,-.4,-.0}
 \tikzdvdeclarestylesheetcolorseries{shades of red}{hsb}{0,1.4,1}{0,-.4,-.0}
 
@@ -2166,7 +2178,7 @@
     scientific axes standard labels,
     every scientific axes/.try
   },
-  scientific clear axes/.style={
+  scientific clean axes/.style={
     xy Cartesian,
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
