@@ -56,17 +56,27 @@
       	\pgf@sh@reanchor{#1}{#2}% FIXME : this is double work!
       }%
       % Save the saved points and the transformation matrix
-      \edef\pgf@test{#3}%
-      \ifx\pgf@test\pgfutil@empty%
+      \edef\pgf@node@name{#3}%
+      \ifx\pgf@positionnodelater@macro\relax%
       \else%
-        \expandafter\xdef\csname pgf@sh@ns@#3\endcsname{#1}%
-        \edef\pgf@sh@@temp{\noexpand\gdef\expandafter\noexpand\csname pgf@sh@np@#3\endcsname}%
+        % Rename node
+        \edef\pgf@node@name{not yet positioned@\pgf@node@name}%
+        % Interrupt bounding box!
+        \pgfinterruptboundingbox%
+          % Put everything in our box:
+          \setbox\pgfpositionnodelaterbox=\hbox\bgroup%
+        %
+      \fi%
+      \ifx\pgf@node@name\pgfutil@empty%
+      \else%
+        \expandafter\xdef\csname pgf@sh@ns@\pgf@node@name\endcsname{#1}%
+        \edef\pgf@sh@@temp{\noexpand\gdef\expandafter\noexpand\csname pgf@sh@np@\pgf@node@name\endcsname}%
         \expandafter\pgf@sh@@temp\expandafter{\pgf@sh@savedpoints}%
-        \edef\pgf@sh@@temp{\noexpand\gdef\expandafter\noexpand\csname pgf@sh@ma@#3\endcsname}% MW
+        \edef\pgf@sh@@temp{\noexpand\gdef\expandafter\noexpand\csname pgf@sh@ma@\pgf@node@name\endcsname}% MW
         \expandafter\pgf@sh@@temp\expandafter{\pgf@sh@savedmacros}% MW
         \pgfgettransform\pgf@temp
-        \expandafter\xdef\csname pgf@sh@nt@#3\endcsname{\pgf@temp}%
-        \expandafter\xdef\csname pgf@sh@pi@#3\endcsname{\pgfpictureid}%
+        \expandafter\xdef\csname pgf@sh@nt@\pgf@node@name\endcsname{\pgf@temp}%
+        \expandafter\xdef\csname pgf@sh@pi@\pgf@node@name\endcsname{\pgfpictureid}%
       \fi%
       \pgfutil@ifundefined{pgf@sh@bbg@#1}{}
       {{\pgfscope\csname pgf@sh@bbg@#1\endcsname\endpgfscope}}%
@@ -88,7 +98,18 @@
       {\csname pgf@sh@fg@#1\endcsname#4}%
       \pgfutil@ifundefined{pgf@sh@ffg@#1}{}%
       {{\pgfscope\csname pgf@sh@ffg@#1\endcsname\endpgfscope}}%
-      \pgf@nodecallback{#3}%
+      \ifx\pgf@positionnodelater@macro\relax%
+        \expandafter\pgf@nodecallback\expandafter{\pgf@node@name}%
+      \else%
+          \egroup% Close box
+          \edef\pgfpositionnodelaterminx{\the\pgf@picminx}%
+          \edef\pgfpositionnodelaterminy{\the\pgf@picminy}%
+          \edef\pgfpositionnodelatermaxx{\the\pgf@picmaxx}%
+          \edef\pgfpositionnodelatermaxy{\the\pgf@picmaxy}%
+          \let\pgfpositionnodelatername=\pgf@node@name%
+          \pgf@positionnodelater@macro%
+        \endpgfinterruptboundingbox%
+      \fi%
     }%
   }%
 }
@@ -145,6 +166,109 @@
   }
 }  
 
+
+
+% Create a node that is positioned later
+%
+% #1 = macro to be called after the next node has been created
+%
+% Description:
+%
+% You can use this command to create a node that is "positioned
+% later". The idea is the following: Normally, when a node is created
+% using a command like \pgfnode, the node is immediately inserted into
+% the current picture. In particular, you have no chance to change the
+% position of a created node after it has been create.
+%
+% Using \pgfpositionnodelater, you can change the default
+% behaviour. This command is not a replacement for \pgfnode, but is
+% called before such a command and will cause the following to happen:
+% The node is created, but not inserted into the picture. Instead, it
+% is stored in the box \pgfpositionnodelaterbox. Furthermore, the node
+% is not relevant for the picture's bounding box, but a bounding box
+% for the node is computed and stored in the macros
+% \pgfpositionnodelaterboundboxminx to
+% \pgfpositionnodelaterboundboxmaxy. Finally, the 
+% macro #1 is called with the following macros setup:
+% 
+%   \pgfpositionnodelaterbox
+%   A box register (box 0 by default) that stores the node's paths and
+%   texts. You should move the contents of this box to a box of your
+%   choice. 
+%
+%   \pgfpositionnodelatername
+%   The name of the just-created-node. This name will be the
+%   originally "desired" name of the box plus the prefix "not yet
+%   positioned box@".
+%
+%   \pgfpositionnodelaterminx
+%   \pgfpositionnodelatermaxx
+%   \pgfpositionnodelaterminy
+%   \pgfpositionnodelatermaxy
+%   These four macros store the bounding box as dimensions that are
+%   guarenteed to end with "pt".
+%   
+% By setting #1 to \relax (which is the default), you can switch off
+% the whole mechanism
+% 
+% Once a late node has been created, you can add arbitrary code in the
+% same picture. Then, at some later point, you call
+% \pgfpositionnodenow to finally position the node at a given position.
+% 
+% When \pgfpositionnodenow is called, the macros mentioned above
+% should have the exact same values they had when #1 is called.
+
+\def\pgfpositionnodelater#1{\let\pgf@positionnodelater@macro=#1\relax}
+\pgfpositionnodelater{\relax}
+\def\pgfpositionnodelaterbox{0}
+
+
+% Position a node that has been scheduled for later insertion
+%
+% #1 = position in the picture, where the original anchor should go,
+%      now 
+%
+% Description:
+%
+% This command works in concert with \pgfpositionnodelater, see the
+% description there. When \pgfpositionnodenow is called, the macros
+% \pgfpositionnodelaterbox and so one should be set to the values they
+% had when the macro given to \pgfpositionnodelater was called. Then,
+% the box described by these macros will be inserted into the picture
+% at the position given #1. More precisely, the original node will
+% have been positioned such that the anchor given upon invocation is
+% at (0,0) and the node is now shifted by #1 before being inserted
+% into the actual picture.
+
+\def\pgfpositionnodenow#1{%
+  {%
+    \pgfpointtransformed{#1}%
+    \edef\pgf@temp@shift{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
+    \pgftransformreset%
+    \pgftransformshift{\pgf@temp@shift}%
+    \setbox\pgfpositionnodelaterbox=\hbox{\pgfsys@beginpicture\box\pgfpositionnodelaterbox\pgfsys@endpicture}%
+    \pgfqboxsynced{\pgfpositionnodelaterbox}%
+    \pgf@shift@node{\pgfpositionnodelatername}{\pgf@temp@shift}%
+    % Bounding box update...
+    \pgfpointtransformed{\pgfqpoint{\pgfpositionnodelaterminx}{\pgfpositionnodelaterminy}}%
+    \pgf@protocolsizes{\pgf@x}{\pgf@y}
+    \pgfpointtransformed{\pgfqpoint{\pgfpositionnodelatermaxx}{\pgfpositionnodelatermaxy}}%
+    \pgf@protocolsizes{\pgf@x}{\pgf@y}
+    % Naming and callbacks
+    \expandafter\pgfpositionnodenow@rename\pgfpositionnodelatername\relax%
+  }%
+}
+
+\def\pgfpositionnodenow@rename not yet positioned@#1\relax{%
+  \pgfnoderename{#1}{not yet positioned@#1}
+  \pgf@nodecallback{#1}%
+}
+
+
+
+
+
+
 % Alias a node
 %
 % #1 = new node name
@@ -171,6 +295,25 @@
 \def\pgf@node@gnamelet#1#2{%
   \expandafter\let\expandafter\pgf@temp\csname #2\endcsname%
   \expandafter\global\expandafter\let\csname #1\endcsname=\pgf@temp%
+}
+
+% Rename a node
+% 
+% #1 = new name
+% #2 = old name
+% 
+% Description:
+% 
+% Renames a node. This is like an alias, only the memory used for the
+% old name is freed.
+
+\def\pgfnoderename#1#2{%
+  \pgfnodealias{#1}{#2}%
+  \expandafter\global\expandafter\let\csname pgf@sh@ns@#2\endcsname\relax
+  \expandafter\global\expandafter\let\csname pgf@sh@np@#2\endcsname\relax
+  \expandafter\global\expandafter\let\csname pgf@sh@nt@#2\endcsname\relax
+  \expandafter\global\expandafter\let\csname pgf@sh@pi@#2\endcsname\relax
+  \expandafter\global\expandafter\let\csname pgf@sh@ma@#2\endcsname\relax
 }
 
 

@@ -150,7 +150,8 @@ the description of |\pgfmultipartnode| for more details.
 
 \subsection{Creating Nodes}
 
-You create a node using one of the following commands:
+
+\subsubsection{Creating Simple Nodes}
 
 \begin{command}{\pgfnode\marg{shape}\marg{anchor}\marg{label
       text}\marg{name}\marg{path usage command}} 
@@ -211,6 +212,10 @@ You create a node using one of the following commands:
   node, if the node has a |text| part. See the description of
   |\pgfmultipartnode| for details.
 \end{command}
+
+
+
+\subsubsection{Creating Multi-Part Nodes}
 
 \begin{command}{\pgfmultipartnode\marg{shape}\marg{anchor}\marg{name}\marg{path
       usage command}}
@@ -278,6 +283,10 @@ You create a node using one of the following commands:
   name \meta{new name}.
 \end{command}
 
+
+\begin{command}{\pgfnoderename\marg{new name}\marg{existing node}}
+  This command renames an existing node. 
+\end{command}
 
 
 There are a number of values that have an influence on the size of a
@@ -378,6 +387,110 @@ node. These values are stored in the following keys.
   This style sets both |/pgf/outer xsep| and |/pgf/outer ysep| to \meta{dimension}.
 \end{key}
 
+
+\subsubsection{Deferred Node Positioning}
+
+Normally, when a node is created using a command like |\pgfnode|, the
+node is immediately inserted into the current picture. In particular,
+you have no chance to change the position of a created node after it
+has been create. Using |\pgfpositionnodelater| in concert with
+|\pgfpositionnodenow|, you can create a node whose position is
+determined only at some later time.
+
+\begin{command}{\pgfpositionnodelater\marg{macro name}}
+  This command is not a replacement for |\pgfnode|. Rather, when this
+  command is used in a scope, all subsequent node creations in this
+  scope will be affected in the following way:  When a node is
+  created, it is not inserted into the current picture. Instead, it
+  is stored in the box |\pgfpositionnodelaterbox|. Furthermore, the
+  node is not relevant for the picture's bounding box, but a bounding
+  box for the node is computed and stored in the macros
+  |\pgfpositionnodelaterminx| to |\pgfpositionnodelatermaxy|. Then,
+  the \meta{macro name} is called with the following macros setup:
+  
+  \begin{command}{\pgfpositionnodelaterbox}
+    A box register number (|0| currently) that stores the node's paths
+    and texts. You should move the contents of this box to a box of
+    your choice inside \meta{macro name}.
+  \end{command}
+
+  \begin{command}{\pgfpositionnodelatername}
+    The name of the just-created-node. This name will be the
+    originally "desired" name of the box plus the fixed prefix
+    |not yet positioned@|. The idea is to ensure that the original
+    name is not inadvertently used before the node is actually
+    positioned. When |\pgfpositionnodenow| is called, it will change
+    the name to the original name.
+  \end{command}
+  
+  \begin{command}{\pgfpositionnodelaterminx}
+    The minimal $x$-position of a bounding box of the node. This
+    bounding box refers to the node when it is positioned with the
+    anchor at the origin.
+  \end{command}
+  \begin{command}{\pgfpositionnodelaterminy}
+  \end{command}
+  \begin{command}{\pgfpositionnodelatermaxx}
+  \end{command}
+  \begin{command}{\pgfpositionnodelatermaxy}
+  \end{command}
+  
+  Once a late node has been created, you can add arbitrary code in the  
+  same picture. Then, at some later point, you call
+  |\pgfpositionnodenow| to finally position the node at a given
+  position.  At this point, the above macros must have the exact same
+  values they had when \meta{macro name} was called. Note that the
+  above macros are local to a scope that ends right after the call to
+  \meta{macro name}, so it is your job to copy the values to safety
+  inside \meta{macro name}.
+  
+  By setting \meta{macro name} to |\relax| (which is the default), you
+  can switch off the whole mechanism. When a picture is interrupted,
+  this is done automatically.
+\end{command}
+
+
+\begin{command}{\pgfpositionnodenow\marg{coordinate}}
+  This command is used to position a node that has previously been
+  created with |\pgfpositionnodelater|. When |\pgfpositionnodenow| is
+  called, the macros and boxes mentioned in the description of
+  |\pgfpositionnodenow| must be set to the value they had when the
+  \meta{macro name} was called. Provided this is the case, this
+  command will insert the box into the current picture, shifted by
+  \meta{coordinate}. Subsequently, you can refer to the node with its
+  original name as if it had just been created.
+
+  \begin{codeexample}[]
+\newbox\mybox
+
+\def\mysaver{
+  \global\setbox\mybox=\box\pgfpositionnodelaterbox
+  \global\let\myname=\pgfpositionnodelatername
+  \global\let\myminx=\pgfpositionnodelaterminx
+  \global\let\myminy=\pgfpositionnodelaterminy
+  \global\let\mymaxx=\pgfpositionnodelatermaxx
+  \global\let\mymaxy=\pgfpositionnodelatermaxy
+}
+
+\begin{tikzpicture}
+  {
+    \pgfpositionnodelater{\mysaver}
+    \node [fill=blue!20,below,rotate=30] (hi) {Hello world};
+  }
+  \draw [help lines] (0,0) grid (3,2);
+  
+  \let\pgfpositionnodelatername=\myname
+  \let\pgfpositionnodelaterminx=\myminx
+  \let\pgfpositionnodelaterminy=\myminy
+  \let\pgfpositionnodelatermaxx=\mymaxx
+  \let\pgfpositionnodelatermaxy=\mymaxy
+  \setbox\pgfpositionnodelaterbox=\box\mybox
+  \pgfpositionnodenow{\pgfqpoint{2cm}{2cm}}
+  
+  \draw (hi) -- (0,0);
+\end{tikzpicture}
+  \end{codeexample}
+\end{command}
 
 
 \subsection{Using Anchors}
