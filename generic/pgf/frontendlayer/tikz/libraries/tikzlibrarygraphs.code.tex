@@ -1,0 +1,227 @@
+% Copyright 2010 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+
+\def\tikz@lib@graph@parser{%
+  \pgfutil@ifnextchar[{\tikz@lib@graph@parser@}{\tikz@lib@graph@parser@[]}%]
+}
+
+\long\def\tikz@lib@graph@parser@[#1]#2{%
+  \scope[as/.code=\def\tikz@lib@graph@as{##1},#1]%
+    \let\tikz@lib@graph@options\pgfutil@empty%
+    \tikz@lib@graph@parse@group{#2}%
+  \endscope%
+  \tikz@lib@graph@parser@done%
+}
+
+
+
+
+\long\def\tikz@lib@graph@parse@group#1{%
+  \let\tikz@lib@graph@group@c\pgfutil@empty%
+  \let\tikz@lib@graph@group@cont\pgfutil@empty%
+  \let\tikz@lib@graph@group@conta\pgfutil@empty%
+  \tikz@lib@graph@par#1\par\pgf@stop@eogroup%
+}
+
+% 
+% Remove \par 
+%
+
+\long\def\tikz@lib@graph@par#1\par{%
+  \pgfutil@ifnextchar\pgf@stop@eogroup{%
+    \expandafter\tikz@lib@graph@encloser\tikz@lib@graph@group@c#1[}{%
+    \expandafter\def\expandafter\tikz@lib@graph@group@c\expandafter{\tikz@lib@graph@group@c#1}%
+    \tikz@lib@graph@par%
+  }%
+}
+
+
+% 
+% Replace ...[...]... by ...[{...}]...
+% 
+\def\tikz@lib@graph@encloser#1[{%
+  \pgfutil@ifnextchar\pgf@stop@eogroup{%
+    \expandafter\tikz@lib@graph@semi\tikz@lib@graph@group@cont#1;%
+  }{%
+    \expandafter\def\expandafter\tikz@lib@graph@group@cont\expandafter{\tikz@lib@graph@group@cont#1[}%]
+    \tikz@lib@graph@encloser@cont%
+  }%
+}
+
+\def\tikz@lib@graph@encloser@cont#1]#2[{%
+  \pgfutil@ifnextchar\pgf@stop@eogroup{%
+    \expandafter\tikz@lib@graph@semi\tikz@lib@graph@group@cont{#1}]#2;}{%
+    \expandafter\def\expandafter\tikz@lib@graph@group@cont\expandafter{\tikz@lib@graph@group@cont{#1}]#2[}%
+    \tikz@lib@graph@encloser@cont}%
+}
+
+
+% 
+% Replace ; by , 
+%
+
+\def\tikz@lib@graph@semi#1;{%
+  \pgfutil@ifnextchar\pgf@stop@eogroup{%
+    \expandafter\tikz@lib@graph@main@parser\tikz@lib@graph@group@conta#1,}{%
+    \expandafter\def\expandafter\tikz@lib@graph@group@conta\expandafter{\tikz@lib@graph@group@conta#1,}%
+    \tikz@lib@graph@semi%
+  }%
+}
+
+
+
+% 
+% Main parse 
+%
+
+
+\def\tikz@lib@graph@main@parser#1,{%
+  \tikz@lib@graph@parse@one#1-\pgf@stop@eodashes%
+}
+
+
+\def\tikz@lib@graph@parse@one{%
+  \pgfutil@ifnextchar\bgroup\tikz@lib@graph@group\tikz@lib@graph@node%
+}
+
+
+% A normal node
+
+\def\tikz@lib@graph@node#1-{%
+  % Detect trailing <
+  \tikz@lib@graph@@node#1<\pgf@stop%
+}
+
+\def\tikz@lib@graph@@node#1<#2\pgf@stop%
+{
+  % 
+  % #1 will be a node (not a group)
+  % 
+  % Syntax: node name [options]
+  % 
+  % Grab node name
+  \tikz@lib@graph@grab@name#1[\pgf@stop%
+  \pgfutil@ifnextchar\pgf@stop@eodashes{%
+    \tikz@lib@graph@graph@done%
+  }{%
+    % 
+    % Now, get arrow kind 
+    % 
+    \def\pgf@test{#2}%
+    \ifx\pgf@test\pgfutil@empty%
+      \expandafter\tikz@lib@graph@no@back@arrow%
+    \else%
+      \expandafter\tikz@lib@graph@back@arrow%
+    \fi%
+  }%
+}
+
+\def\tikz@lib@graph@no@back@arrow{%
+  \pgfutil@ifnextchar>\tikz@lib@graph@forward@arrow{%
+    \pgfutil@ifnextchar-\tikz@lib@graph@undirected@arrow{%
+      \PackageError{graphs library}{One of the arrow types <-, --, ->, or <-> expected}{}%
+      \tikz@lib@graph@undirected@arrow%
+    }%
+  }%
+}
+
+\let\tikz@lib@graph@undirected=0
+\let\tikz@lib@graph@forward=1
+\let\tikz@lib@graph@backward=2
+\let\tikz@lib@graph@bi=3
+
+\def\tikz@lib@graph@undirected@arrow-{%
+  \let\tikz@lib@graph@arrow@type\tikz@lib@graph@undirected%
+  \tikz@lib@graph@next@node%
+}
+
+\def\tikz@lib@graph@forward@arrow>{%
+  \let\tikz@lib@graph@arrow@type\tikz@lib@graph@forward%
+  \tikz@lib@graph@next@node%
+}
+
+\def\tikz@lib@graph@bi@arrow>{%
+  \let\tikz@lib@graph@arrow@type\tikz@lib@graph@bi%
+  \tikz@lib@graph@next@node%
+}
+
+\def\tikz@lib@graph@back@arrow{%
+  \pgfutil@ifnextchar>{\tikz@lib@graph@bi@arrow}{%
+    \let\tikz@lib@graph@arrow@type\tikz@lib@graph@backward%
+    \tikz@lib@graph@next@node%
+  }%
+}
+
+\def\tikz@lib@graph@next@node{%
+  % Test
+  \draw (\tikz@lib@graph@name) -- +(1,0);
+  \tikzset{xshift=3cm}%
+  % 
+  \tikz@lib@graph@parse@one%
+}
+
+
+\def\tikz@lib@graph@graph@done\pgf@stop@eodashes{%
+  % Handle end of graph...
+  % 
+  % Test 
+  % 
+  \tikzset{yshift=1cm}%
+  \pgfutil@ifnextchar\pgf@stop@eogroup%
+  \tikz@lib@graph@graph@group@done%
+  \tikz@lib@graph@main@parser%
+}
+
+\def\tikz@lib@graph@graph@group@done\pgf@stop@eogroup{%
+  % 
+  % Test 
+  % 
+  % 
+}
+
+
+
+%
+% Handle node
+%
+\def\tikz@lib@graph@grab@name#1[{%
+  \pgfkeys@spdef\tikz@lib@graph@name{#1}%
+  \let\tikz@lib@graph@as\tikz@lib@graph@as@default%
+  \pgfutil@ifnextchar\pgf@stop{%
+    \ifx\tikz@lib@graph@name\pgfutil@empty%
+    \else
+      \expandafter\tikz@lib@graph@noskip%
+    \fi%
+  }{\tikz@lib@graph@node@opt[}%
+}
+\def\tikz@lib@graph@noskip{\tikz@lib@graph@node@opt[][}%]
+
+\def\tikz@lib@graph@as@default{%
+  \expandafter\tikz@lib@graph@typesetter\tikz@lib@graph@name\pgf@stop%
+}
+
+
+\def\tikz@lib@graph@node@opt[#1]#2[\pgf@stop{%
+  \pgfutil@ifundefined{pgf@sh@ns@\tikz@lib@graph@name}
+  {\node [name=\tikz@lib@graph@name,#1] {\tikz@lib@graph@as};}
+  {}
+}
+
+
+\def\tikz@lib@graph@typeset@def#1 as #2\pgf@stop{
+  \def\tikz@lib@graph@typesetter#1\pgf@stop{#2}
+}
+
+\tikzset{
+  typeset/.code=\tikz@lib@graph@typeset@def#1\pgf@stop,
+  typeset=#1#2 as $#1_{#2}$
+}

@@ -1304,23 +1304,14 @@
 
 \def\tikz{\pgfutil@ifnextchar[{\tikz@opt}{\tikz@opt[]}}
 \def\tikz@opt[#1]{\tikzpicture[#1]\pgfutil@ifnextchar\bgroup{\tikz@}{\tikz@@}}
-\def\tikz@#1{#1\endtikzpicture}
-\def\tikz@@{%
-  \let\tikz@next=\tikz@collectnormalsemicolon%
-  \ifnum\the\catcode`\;=\active\relax%
-    \let\tikz@next=\tikz@collectactivesemicolon%
-  \fi%
-  \tikz@next}
-\def\tikz@collectnormalsemicolon#1;{#1;\endtikzpicture}
-{
-  \catcode`\;=\active
-  \gdef\tikz@collectactivesemicolon#1;{#1;\endtikzpicture}
-}
+\def\tikz@{\bgroup\tikz@auto@end@pathtrue\aftergroup\endtikzpicture\let\pgf@temp=}
+\def\tikz@@{\begingroup\def\tikz@path@do@at@end{\endgroup\endtikzpicture}}
 
 % Invokes '#1' if the command is invoked withing a tikzpicture and
 % '#2' if not.
 \def\tikzifinpicture#1#2{%
-	\pgfutil@ifundefined{filldraw}{#2}{#1}%
+	\pgfutil@ifundefined{filldraw}{#2}{#1}% TT: This is a wrong
+                                % test! Who uses this?...
 }%
 
 
@@ -1399,6 +1390,7 @@
   \let\tikz@origmatrix=\matrix%
   \let\tikz@origcalendar=\calendar%
   \let\tikz@origdv=\datavisualization%
+  \let\tikz@origgraph=\graph%
   %
   \tikz@deactivatthings%
   %
@@ -1416,6 +1408,7 @@
   \def\shade{\path[shade]}
   \def\shadedraw{\path[shade,draw]}
   \def\clip{\path[clip]}
+  \def\graph{\path graph}
   \def\useasboundingbox{\path[use as bounding box]}
   \def\node{\tikz@path@overlay{node}}
   \def\coordinate{\tikz@path@overlay{coordinate}}
@@ -1458,6 +1451,7 @@
   \let\matrix=\tikz@origmatrix%
   \let\calendar=\tikz@origcalendar%
   \let\datavisualization=\tikz@origdv%
+  \let\graph=\tikz@origgraph%
 }
 
 
@@ -1510,15 +1504,16 @@
     \let\tikz@next=\tikz@eargactivesemicolon%
   \fi%
   \tikz@next}
-\long\def\tikz@eargnormalsemicolon<#1>#2;{\only<#1>{\tikz@@command@path#2;}}
+\long\def\tikz@eargnormalsemicolon<#1>#2;{\alt<#1>{\tikz@@command@path#2;}{\tikz@path@do@at@end}}
 {
   \catcode`\;=\active
-  \long\global\def\tikz@eargactivesemicolon<#1>#2;{\only<#1>{\tikz@@command@path#2;}}
+  \long\global\def\tikz@eargactivesemicolon<#1>#2;{\alt<#1>{\tikz@@command@path#2;}{\tikz@path@do@at@end}}
 }
 
 \def\tikz@@command@path{%
   \edef\tikzscope@linewidth{\the\pgflinewidth}%
   \begingroup%
+    \let\tikz@path@do@at@end=\tikz@lib@scope@check%
     \let\tikz@options=\pgfutil@empty%
     \let\tikz@mode=\pgfutil@empty%
     \let\tikz@moveto@waiting=\relax%
@@ -1606,7 +1601,7 @@
       \let\@next=\tikz@e@char%
     \else%
       \ifx\@let@token g%
-        \let\@next=\tikz@grid%
+        \let\@next=\tikz@g@char%
       \else%
         \ifx\@let@token s%
            \let\@next=\tikz@schar%
@@ -1686,6 +1681,11 @@
   \pgfutil@ifnextchar f{\tikz@edgetoparent}{\tikz@edge@plain}}%
 
 \def\tikz@schar{\pgfutil@ifnextchar i{\tikz@sine}{\tikz@svg@path}}
+
+\def\tikz@g@char r{\pgfutil@ifnextchar i{\tikz@grid}{\tikz@graph}}
+
+% svg syntax
+% svg[options] "..."
 
 \def\tikz@svg@path{%
   \PackageError{tikz}{You need to say \string\usetikzlibrary{svg.path} to
@@ -1879,9 +1879,10 @@
   \fi%
   \endgroup%
   \global\pgflinewidth=\tikzscope@linewidth%
-  \tikz@lib@scope@check%
+  \tikz@path@do@at@end%
 }
 \let\tikz@lib@scope@check\pgfutil@empty% this is a hook for the scopes library
+\def\tikz@path@do@at@end{\tikz@lib@scope@check}
 
 % Extra actions
 
@@ -1928,8 +1929,13 @@
 % Syntax for scopes: 
 % {scoped path commands}
 
-\def\tikz@beginscope{\begingroup\tikz@scan@next@command}
+\newif\iftikz@auto@end@path
+
+\def\tikz@beginscope{\begingroup\tikz@auto@end@pathfalse\tikz@scan@next@command}
 \def\tikz@endscope{%
+  \iftikz@auto@end@path\expandafter\tikz@finish\expandafter\egroup\else\expandafter\tikz@@endscope\fi%
+}
+\def\tikz@@endscope{% 
     \global\setbox\tikz@tempbox=\box\tikz@figbox%
     \edef\tikz@marshal{%
       \tikz@lastx=\the\tikz@lastx%
@@ -2275,7 +2281,7 @@
 % edge [options] node {node text} (coordinate)
 \def\tikz@edge@plain{%
   \begingroup%
-    \tikz@to@use@whom%
+    \ifx\tikz@to@use@whom\pgfutil@undefined\else\tikz@to@use@whom\fi
     \let\tikz@to@or@edge@function=\tikz@do@edge%
     \tikz@to@or@edge}
 
@@ -2297,9 +2303,9 @@
   \pgfutil@ifnextchar(\tikz@@to@or@edge@coordinate%)
   {\pgfutil@ifnextchar n{\tikz@collect@label@onpath\tikz@@to@collect}%
     {\pgfutil@ifnextchar c{\tikz@collect@coordinate@onpath\tikz@@to@collect}%
-      {\pgfutil@ifnextchar +{\tikz@scan@one@point\tikz@@to@or@edge@math}%}
-        {\PackageError{tikz}{(, +, coordinate, or node expected}{}%}
-          \tikz@@to@or@edge@coordinate()}}}}%
+      {\pgfutil@ifnextchar +{\tikz@scan@one@point\tikz@@to@or@edge@math}%
+        {\PackageError{tikz}{(, +, coordinate, or node expected}{}%)
+            \tikz@@to@or@edge@coordinate()}}}}%
 }
 
 \def\tikz@@to@or@edge@coordinate({%
@@ -2382,6 +2388,26 @@
 \def\tikz@to@use@last@fig@name{%
   \edef\tikztostart{\tikz@to@last@fig@name}%
 }
+
+
+
+% Syntax for graph path command:
+% graph {...}
+% See the graph library for details
+
+\def\tikz@graph aph{\tikz@lib@graph@parser}
+
+\def\tikz@lib@graph@parser{\pgfutil@ifnextchar[\tikz@graph@error{\tikz@graph@error[]}}%]
+\def\tikz@graph@error[#1]#2{%
+  \PackageError{tikz}{You need to say \string\usetikzlibrary{graph} in
+  order to use the graph syntax}{}% 
+  \tikz@lib@graph@parser@done%
+}
+
+\def\tikz@lib@graph@parser@done{%
+  \tikz@scan@next@command%
+}
+
 
 
 
@@ -2522,7 +2548,7 @@
 
 % Syntax for grids: 
 % grid <corner point> 
-\def\tikz@grid rid{%
+\def\tikz@grid id{%
   \tikz@flush@moveto%
   \pgf@xa=\tikz@lastx\relax%
   \pgf@ya=\tikz@lasty\relax%
@@ -2981,6 +3007,7 @@
     \begingroup%
       \tikz@is@matrixfalse%
       \let\nodepart=\tikz@nodepart%
+      \let\tikz@do@after@node=\tikz@scan@next@command%
       \let\tikz@options=\pgfutil@empty%
       \let\tikz@after@path=\pgfutil@empty%
       \let\tikz@transform=\pgfutil@empty%
@@ -3265,10 +3292,11 @@
   \else%
     \tikz@scan@next@command{\tikz@after@path@smuggle}\pgf@stop%
   \fi%
-  \tikz@scan@next@command%
+  \tikz@do@after@node%
 }
 \let\tikz@fig@continue@orig=\tikz@fig@continue
 
+\def\tikz@do@after@node{\tikz@scan@next@command}
 
 \newif\iftikz@do@align
 
