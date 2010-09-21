@@ -14,14 +14,6 @@
 % \file{pgfutil-common.tex}).
 \usepgflibrary{plothandlers}
 
-% Setting up the tikz key family (key management needs
-% \file{pgfkeys.code.tex});
-\pgfkeys{/tikz/.is family}
-
-% |\tikzset| is a shortcut to set keys that belongs to the tikz
-% family.
-\def\tikzset{\pgfqkeys{/tikz}}
-
 \newdimen\tikz@lastx
 \newdimen\tikz@lasty
 \newdimen\tikz@lastxsaved
@@ -64,20 +56,35 @@
   \fi}
 
 
+% TikZ options management.
 
-% TikZ options:
+% Setting up the tikz key family (key management needs
+% \file{pgfkeys.code.tex});
+\pgfkeys{/tikz/.is family}
 
-% This command is supported for compatibility only:
+% |\tikzset| is a shortcut to set keys that belongs to the tikz
+% family.
+\def\tikzset{\pgfqkeys{/tikz}}
 
-\def\tikzoption#1{\pgfutil@ifnextchar[{\tikzoption@opt{#1}}{\tikzoption@noopt{#1}}}%}
-
-\def\tikzoption@opt#1[#2]#3{\pgfkeysdef{/tikz/#1}{#3}\pgfkeyssetvalue{/tikz/#1/.@def}{#2}}
-\def\tikzoption@noopt#1#2{\pgfkeysdef{/tikz/#1}{#2}\pgfkeyssetvalue{/tikz/#1/.@def}{\pgfkeysvaluerequired}}
+% Note: |\tikzoption| is supported for compatibility only. |\tikzset|
+% should be used instead.
+\def\tikzoption#1{%
+  \pgfutil@ifnextchar[%]
+    {\tikzoption@opt{#1}}{\tikzoption@noopt{#1}}}
+\def\tikzoption@opt#1[#2]#3{%
+  \pgfkeysdef{/tikz/#1}{#3}%
+  \pgfkeyssetvalue{/tikz/#1/.@def}{#2}}
+\def\tikzoption@noopt#1#2{%
+  \pgfkeysdef{/tikz/#1}{#2}%
+  \pgfkeyssetvalue{/tikz/#1/.@def}{\pgfkeysvaluerequired}}
 
 % Baseline options
-\tikzoption{baseline}[0pt]{\pgfutil@ifnextchar({\tikz@baseline@coordinate}{\tikz@baseline@simple}#1\@nil}%)
+\tikzoption{baseline}[0pt]{%
+  \pgfutil@ifnextchar(%)
+    {\tikz@baseline@coordinate}{\tikz@baseline@simple}#1\@nil}
 \def\tikz@baseline@simple#1\@nil{\pgfsetbaseline{#1}}
-\def\tikz@baseline@coordinate#1\@nil{\pgfsetbaselinepointlater{\tikz@scan@one@point\pgfutil@firstofone#1}}
+\def\tikz@baseline@coordinate#1\@nil{%
+  \pgfsetbaselinepointlater{\tikz@scan@one@point\pgfutil@firstofone#1}}
 
 \tikzoption{trim left}[0pt]{\pgfutil@ifnextchar({\tikz@trim@coordinate{left}}{\tikz@trim@simple{left}}#1\@nil}%)
 \tikzoption{trim right}{\pgfutil@ifnextchar({\tikz@trim@coordinate{right}}{\tikz@trim@simple{right}}#1\@nil}%)
@@ -1313,10 +1320,31 @@
 % The rectangle \tikz{\draw (0,0) rectangle (1em,1ex)} has width 1em and
 % height 1ex.
 
+% This code does not work for some inline \tikz. For example
+% \tikz\foreach \x in {1,...,10} \draw (\x,0) circle (0.4cm);
+% makes tikz crash.
+% Begin suspected code
+% \def\tikz{\pgfutil@ifnextchar[{\tikz@opt}{\tikz@opt[]}}
+% \def\tikz@opt[#1]{\tikzpicture[#1]\pgfutil@ifnextchar\bgroup{\tikz@}{\tikz@@}}
+% \def\tikz@{\bgroup\tikz@auto@end@pathtrue\aftergroup\endtikzpicture\let\pgf@temp=}
+% \def\tikz@@{\begingroup\def\tikz@path@do@at@end{\endgroup\endtikzpicture}}
+% End suspected code
+% Begin old code
 \def\tikz{\pgfutil@ifnextchar[{\tikz@opt}{\tikz@opt[]}}
 \def\tikz@opt[#1]{\tikzpicture[#1]\pgfutil@ifnextchar\bgroup{\tikz@}{\tikz@@}}
-\def\tikz@{\bgroup\tikz@auto@end@pathtrue\aftergroup\endtikzpicture\let\pgf@temp=}
-\def\tikz@@{\begingroup\def\tikz@path@do@at@end{\endgroup\endtikzpicture}}
+\def\tikz@#1{#1\endtikzpicture}
+\def\tikz@@{%
+  \let\tikz@next=\tikz@collectnormalsemicolon%
+  \ifnum\the\catcode`\;=\active\relax%
+    \let\tikz@next=\tikz@collectactivesemicolon%
+  \fi%
+  \tikz@next}
+\def\tikz@collectnormalsemicolon#1;{#1;\endtikzpicture}
+{
+  \catcode`\;=\active
+  \gdef\tikz@collectactivesemicolon#1;{#1;\endtikzpicture}
+}
+% End old code
 
 % Invokes '#1' if the command is invoked withing a tikzpicture and
 % '#2' if not.
@@ -1324,8 +1352,6 @@
 	\pgfutil@ifundefined{filldraw}{#2}{#1}% TT: This is a wrong
                                 % test! Who uses this?...
 }%
-
-
 
 %
 % Environment for scoping graphic state settings
