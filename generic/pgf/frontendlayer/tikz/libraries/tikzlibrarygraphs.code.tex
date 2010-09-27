@@ -15,10 +15,10 @@
 %
 
 \tikzset{
-  graphs/new edge directed/.code 2 args={\path (#1) edge[->] (#2);},
-  graphs/new edge undirected/.code 2 args={\path (#1) edge[-] (#2);},
-  graphs/new edge bidirected/.code 2 args={\path (#1) edge[<->] (#2);},
-  graphs/new edge back directed/.style 2 args={new edge directed={#2}{#1}},
+  graphs/new edge directed/.code n args={3}{\path (#1) edge[->,#3] (#2);},
+  graphs/new edge undirected/.code n args={3}{\path (#1) edge[-,#3] (#2);},
+  graphs/new edge bidirected/.code n args={3}{\path (#1) edge[<->,#3] (#2);},
+  graphs/new edge back directed/.style n args={3}{new edge directed={#2}{#1}{#3}},
   graphs/default edge kind/.initial=undirected
 }
 
@@ -164,27 +164,31 @@
 
 \def\tikz@lib@graph@undirected@arrow-{%
   \def\tikz@lib@graph@arrow@type{undirected}%
-  \tikz@lib@graph@next@node%
+  \tikz@lib@graph@after@arrow%
 }
 
 \def\tikz@lib@graph@forward@arrow>{%
   \def\tikz@lib@graph@arrow@type{directed}%
-  \tikz@lib@graph@next@node%
+  \tikz@lib@graph@after@arrow%
 }
 
 \def\tikz@lib@graph@bi@arrow>{%
   \def\tikz@lib@graph@arrow@type{bidirected}%
-  \tikz@lib@graph@next@node%
+  \tikz@lib@graph@after@arrow%
 }
 
 \def\tikz@lib@graph@back@arrow{%
   \pgfutil@ifnextchar>{\tikz@lib@graph@bi@arrow}{%
     \def\tikz@lib@graph@arrow@type{back directed}%
-    \tikz@lib@graph@next@node%
+    \tikz@lib@graph@after@arrow%
   }%
 }
 
-\def\tikz@lib@graph@next@node{%
+\def\tikz@lib@graph@after@arrow{%
+  \pgfutil@ifnextchar[{\tikz@lib@graph@after@arrow@opt}{\tikz@lib@graph@after@arrow@opt[]}%]
+}
+
+\def\tikz@lib@graph@after@arrow@opt[#1]{%
   % 
   % Ok, first recolor 
   % 
@@ -192,17 +196,19 @@
   \pgfkeys{/tikz/graph node/recolor out by=out'}
   % Save action for next node
   \expandafter\def\expandafter\tikz@lib@graph@stored@actions\expandafter{%
-    \expandafter\tikz@lib@graph@joiner\expandafter{\tikz@lib@graph@arrow@type}}%
-  % 
+    \expandafter\tikz@lib@graph@joiner\expandafter{\tikz@lib@graph@arrow@type}{#1}}%
   \tikz@lib@graph@parse@one%
 }
 
-\def\tikz@lib@graph@joiner#1{%
+\def\tikz@lib@graph@joiner#1#2{%
   \pgfkeys{/tikz/graph node/recolor in by=in'}
   \pgfkeys{/tikz/graph node/recolor in'' by=in}
   {%
     \pgfkeyssetvalue{/tikz/graphs/default edge kind}{#1}%
-    \pgfkeysgetvalue{/tikz/join connector}\pgf@temp%
+    \def\pgf@temp{#2}%
+    \ifx\pgf@temp\pgfutil@empty%
+      \pgfkeysgetvalue{/tikz/join connector}\pgf@temp%
+    \fi%
     \expandafter\tikz@lg@do@connector\expandafter{\pgf@temp}%
   }%
   \pgfkeys{/tikz/graph node/!in',/tikz/graph node/!out'}
@@ -351,7 +357,7 @@
     \let\tikz@key\pgfkeyscurrentname% 
     \pgfkeys{/tikz/\tikz@key={#1}}%
   },
-  graph node/as/.code=\def\tikz@lib@graph@as{##1}%
+  graph node/as/.code=\def\tikz@lib@graph@as{#1}%
 }
 
 
@@ -454,6 +460,76 @@
 
 
 
+%
+% Color functions
+%
+
+% Do something for all nodes having a certain color
+%
+% #1 = the color name
+% #2 = a macro
+% 
+% Description:
+% 
+% For each node having color #1, the macro #2 will be called. This
+% macro should take a single parameter, which will be set 
+% to the node's name.
+
+\def\tikzlibgraphforeachcolorednode#1#2{%
+  \expandafter\def\expandafter\iftikz@lib@graph@color@picker\expandafter{\csname iftikz@lgc@#1@\endcsname}%
+  \let\tikz@lib@graph@action#2%
+  \let\tikz@lg@do\tikz@lg@pick%
+  \tikz@lib@graph@node@list%  
+}
+\def\tikz@lg@pick#1{
+  {%
+    \csname tikz@lgc@#1\endcsname%
+    \iftikz@lib@graph@color@picker
+      \global\tikz@color@testtrue%
+    \else%
+      \global\tikz@color@testfalse%
+    \fi%
+  }%
+  \iftikz@color@test\tikz@lib@graph@action{#1}\fi%
+}
+
+
+% Prepare a color 
+%
+% #1 is the color name
+% #2 is a counter
+% #3 is a prefix
+% 
+% Description:
+% 
+% You can call this function inside a connector. It will do the
+% following: First, its counts how many nodes exist that have color
+% #1. This number is stored in the counter passed as #2. Furthermore,
+% let <name> be the name of the <i>-th vertex that has color #1. Then, a
+% macro called \#3<i> will store <name>. For instance, if #1 is "red"
+% and the third red node is called foo and if #3 is "bar", then a
+% macro called "\bar3" is set to "foo" as if you had said
+% "\expandafter\def\csname bar3\endcsname{foo}".
+% 
+% The bottom line of all this is that after a preparation you can
+% easily iterate over nodes having a certain color. If you wish to
+% iterate over a single color, it will be quicker and easier to call
+% \tikzlibgraphforeachcolorednode, but if you need to iterate over two
+% colors simultaneously, it will be better to first prepare the color.
+
+\def\tikzlibgraphpreparecolor#1#2#3{%
+  \let\tikz@lib@graph@count#2%
+  \def\tikz@lib@graph@prefix{#3}%
+  \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@prepare%
+}
+
+\def\tikz@lib@graph@prepare#1{%
+  \advance\tikz@lib@graph@count by1\relax%
+  \expandafter\def\csname \tikz@lib@graph@prefix\the\tikz@lib@graph@count\endcsname{#1}%
+}
+
+
+
 % 
 % Connectors
 % 
@@ -462,7 +538,7 @@
 
 \tikzset{
   connector/.initial=,
-  join connector/.initial=bipartite,
+  join connector/.initial=match,
 }
 
 
@@ -471,35 +547,29 @@
 %
 
 \tikzset{
-  connectors/bipartite/.code 2 args=
-  \let\tikz@lg@do\tikz@lib@graph@bipartite@outer%
-  \def\tikz@lg@shorea{#1}%
-  \def\tikz@lg@shoreb{#2}%
-  \tikz@lib@graph@node@list,
+  connectors/bipartite/.code 2 args={
+    \def\tikz@lg@shoreb{#2}%
+    \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@bipartite@outer
+  },
   connectors/bipartite/.default={out'}{in'}
 }
 
 \def\tikz@lib@graph@bipartite@outer#1{%
-  \tikz@lg@if@has@color{#1}\tikz@lg@shorea%
+  \def\tikz@lib@graph@from{#1}%
   {%
-    {%
-      \def\tikz@lib@graph@from{#1}%
-      \let\tikz@lg@do\tikz@lib@graph@bipartite@inner%
-      \tikz@lib@graph@node@list%
-    }%
-  }{}%
+    \tikzlibgraphforeachcolorednode{\tikz@lg@shoreb}\tikz@lib@graph@bipartite@inner%
+  }%
 }
 
 \def\tikz@lib@graph@bipartite@inner#1{%
   \def\pgf@temp{#1}%
   \ifx\pgf@temp\tikz@lib@graph@from\else%
-    \tikz@lg@if@has@color{#1}\tikz@lg@shoreb{%
-      \tikz@lib@graph@default@new@edge{\tikz@lib@graph@from}{#1}}{}%
+    \tikz@lib@graph@default@new@edge{\tikz@lib@graph@from}{#1}%
   \fi%
 }
 
 \def\tikz@lib@graph@default@new@edge#1#2{%
-  \pgfkeys{/tikz/graphs/.cd,new edge \pgfkeysvalueof{/tikz/graphs/default edge kind}={#1}{#2}}%
+  \pgfkeys{/tikz/graphs/.cd,new edge \pgfkeysvalueof{/tikz/graphs/default edge kind}={#1}{#2}{}}%
 }
 
   
@@ -508,8 +578,29 @@
 %
 
 \tikzset{
-  connectors/clique/.style={bipartite={#1}{#1}},
+  connectors/clique/.code={
+    \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
+    \tikz@lg@clique@loop%
+  },
   connectors/clique/.default=all
+}
+
+\def\tikz@lg@clique@loop{%
+  \ifnum\c@pgf@counta=0\relax%
+  \else
+    \c@pgf@countb=\c@pgf@counta\relax%
+    \tikz@lg@clique@loop@inner%
+    \advance\c@pgf@counta by-1\relax%
+    \expandafter\tikz@lg@clique@loop%
+  \fi%
+}
+
+\def\tikz@lg@clique@loop@inner{%
+  \advance\c@pgf@countb by-1\relax%
+  \ifnum\c@pgf@countb>0\relax%
+    \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@counta\endcsname}{\csname tikz@lg\the\c@pgf@countb\endcsname}%
+    \expandafter\tikz@lg@clique@loop@inner%
+  \fi%
 }
 
 
@@ -518,21 +609,19 @@
 %
 
 \tikzset{
-  connectors/list/.code=
-  \let\tikz@lg@prev\relax%
-  \let\tikz@lg@do\tikz@lib@graph@list@do%
-  \def\tikz@lg@filter@color{#1}%
-  \tikz@lib@graph@node@list,%
+  connectors/list/.code={%
+    \let\tikz@lg@prev\relax%
+    \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@list@do%
+  },
   connectors/list/.default=all
 }
 
 \def\tikz@lib@graph@list@do#1{%
-  \tikz@lg@if@has@color{#1}\tikz@lg@filter@color{%
-    \ifx\tikz@lg@prev\relax%
-    \else%
-      \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{#1}%
-    \fi
-    \def\tikz@lg@prev{#1}}{}%
+  \ifx\tikz@lg@prev\relax%
+  \else%
+    \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{#1}%
+  \fi
+  \def\tikz@lg@prev{#1}%
 }
 
 
@@ -544,9 +633,7 @@
   connectors/cycle/.code={%
     \let\tikz@lg@prev\relax%
     \let\tikz@lg@first\relax%
-    \let\tikz@lg@do\tikz@lib@graph@list@do%
-    \def\tikz@lg@filter@color{#1}%
-    \tikz@lib@graph@node@list%
+    \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@cycle@do%
     \ifx\tikz@lg@first\relax%
     \else%
       \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{\tikz@lg@first}%
@@ -555,14 +642,115 @@
   connectors/cycle/.default=all
 }
 
-\def\tikz@lib@graph@list@do#1{%
-  \tikz@lg@if@has@color{#1}\tikz@lg@filter@color{%
-    \ifx\tikz@lg@prev\relax%
-      \def\tikz@lg@prev{#1}%
-      \let\tikz@lg@first\tikz@lg@prev%
-    \else%
-      \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{#1}%
-      \def\tikz@lg@prev{#1}%
-    \fi}{}%
+\def\tikz@lib@graph@cycle@do#1{%
+  \ifx\tikz@lg@prev\relax%
+    \def\tikz@lg@prev{#1}%
+    \let\tikz@lg@first\tikz@lg@prev%
+  \else%
+    \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{#1}%
+    \def\tikz@lg@prev{#1}%
+  \fi%
 }
 
+
+
+
+% 
+% The match connector 
+%
+
+\tikzset{
+  connectors/match/.code 2 args={
+    {%
+      \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}
+      \c@pgf@countb=0\relax%
+      \let\tikz@lg@prev\relax
+      \tikzlibgraphforeachcolorednode{#2}\tikz@lib@graph@match@do%
+      \tikz@lib@graph@match@rest%
+    }%
+  },
+  connectors/match/.default={out'}{in'}
+}
+
+\def\tikz@lib@graph@match@do#1{%
+  \advance\c@pgf@countb by1\relax%
+  \ifnum\c@pgf@countb>\c@pgf@counta\relax%
+    \c@pgf@countb=\c@pgf@counta\relax%
+  \fi%
+  \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countb\endcsname}{#1}%
+  \def\tikz@lg@prev{#1}%
+}
+
+\def\tikz@lib@graph@match@rest{%
+  \ifnum\c@pgf@countb<\c@pgf@counta\relax%
+    \advance\c@pgf@countb by1\relax%
+    \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countb\endcsname}{\tikz@lg@prev}%
+    \expandafter\tikz@lib@graph@match@rest%
+  \fi%
+}
+
+
+
+% 
+% The butterfly connector 
+%
+
+\tikzset{
+  connectors/butterfly/.code={
+    {}{%
+      \pgfkeys{/tikz/connectors/butterfly/.cd,#1}%
+      \ifnum\pgfkeysvalueof{/tikz/connectors/butterfly/level}=0\relax%
+        \pgfkeysalso{/tikz/connectors/match={\pgfkeysvalueof{/tikz/connectors/butterfly/from}}{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}}%
+      \else%
+        {%
+          \tikzlibgraphpreparecolor{\pgfkeysvalueof{/tikz/connectors/butterfly/from}}\c@pgf@counta{tikz@lg}
+          \c@pgf@countb=0\relax%
+          \tikzlibgraphforeachcolorednode{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}\tikz@lib@graph@butterfly@do%
+        }%
+        \iftikz@butterfly@prime\else\pgfkeysalso{/tikz/connectors/match={\pgfkeysvalueof{/tikz/connectors/butterfly/from}}{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}}\fi%
+      \fi%
+    }%
+  },
+  connectors/butterfly/.default=,
+  connectors/butterfly/level/.initial=1,
+  connectors/butterfly/from/.initial=out',
+  connectors/butterfly/to/.initial=in',
+  connectors/butterfly'/.code={%
+    {}{\tikz@butterfly@primetrue\pgfkeysalso{butterfly={#1}}}},
+  connectors/butterfly'/.default=,
+}
+
+\newif\iftikz@butterfly@prime
+
+\def\tikz@lib@graph@butterfly@do#1{%
+  \advance\c@pgf@countb by1\relax%
+  % Compute other side...
+  \c@pgf@countc=\pgfkeysvalueof{/tikz/connectors/butterfly/level}\relax%
+  {%
+    % Computer countb mod (2level)
+    \count0=\c@pgf@countc\relax%
+    \multiply\count0 by2\relax%
+    \count1=\c@pgf@countb\relax%
+    \advance\count1 by-1\relax%
+    \count2=\count1\relax%
+    \count3=\count1\relax%
+    \divide\count1 by\count0\relax%
+    \multiply\count1 by\count0\relax%
+    \advance\count2 by-\count1\relax%
+    % count0 = 2*level
+    % count2 = countb mod (2level) (starting with 0)
+    % count1 = countb - count2 (starting with 0)
+    \ifnum\count2<\c@pgf@countc\relax%
+      \advance\count3 by \c@pgf@countc\relax%
+    \else%
+      \advance\count3 by -\c@pgf@countc\relax%
+    \fi%
+    \expandafter%
+  }%
+  \expandafter\c@pgf@countc\the\count3\relax%
+  \advance\c@pgf@countc by1\relax%
+  \ifnum\c@pgf@countc>\c@pgf@counta\relax%
+    \c@pgf@countc=\c@pgf@counta\relax%
+  \fi%
+  \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countc\endcsname}{#1}%
+}
