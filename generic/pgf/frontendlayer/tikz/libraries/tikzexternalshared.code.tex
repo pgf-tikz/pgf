@@ -155,7 +155,7 @@
 	shell escape/.initial=-shell-escape,
 	read main aux/.is if=pgfexternalreadmainaux,
 	image discarded text/.initial={%
-		[[ {\sc Image Discarded Due To} {\tt`/tikz/external/%
+		[[ \textsc{Image Discarded Due To} \texttt{`/tikz/external/%
 				\ifcase\tikzexternal@opmode\relax
 					mode=only graphics%
 				\or
@@ -195,6 +195,7 @@
 		\tikzexternal@optimize@RESTORE
 	},%
 	optimize=true,
+	optimize away text/.code={[ \textsc{\string#1\ optimized away because it does not contribute to exported PDF}]},
 	optimize/install/.code={},%
 	optimize/restore/.code={},%
 	% Expects two arguments, the command name and (optionally) a count
@@ -439,27 +440,40 @@
 	\else
 		\ifx#1\@EOI
 		\else
-			\expandafter\let\csname tikzexternalauxlock@handleref@orig@\string#1\endcsname=#1%
-			\def#1{\tikzexternalauxlock@handleref@repl{#1}}%
+			{%
+				% strip the leading '\'
+				% this allows proper \protect ion when you write
+				% \caption{...\cite{..}} and #1=\cite
+				\escapechar=-1
+				\xdef\pgf@temp{\string#1}%
+			}%
+			\expandafter\let\csname tikzexternalauxlock@handleref@orig@\pgf@temp\endcsname=#1%
+			\edef#1{\noexpand\pgf@texdist@protect\noexpand\tikzexternalauxlock@handleref@repl{\pgf@temp}}%
 			\expandafter\expandafter\expandafter\tikzexternalauxlock@handleref@loop
 		\fi
 	\fi
 }%
 \def\tikzexternalauxlock@handleref@repl#1{\pgfutil@ifnextchar[{\tikzexternalauxlock@handleref@repl@{#1}}{\tikzexternalauxlock@handleref@repl@{#1}[]}}%
 \def\tikzexternalauxlock@handleref@repl@#1[#2]#3{%
-	\csname tikzexternalauxlock@handleref@orig@\string#1\endcsname{#3}%
-	\begingroup
-	\def\n{\pgfexternal@hat\pgfexternal@hat J}%
-	\tikzexternal@assemble@systemcall{\pgfactualjobname}{\pgf@tempa}%
-	\def\space{\noexpand\space}%
-	\pgfexternalstorecommand{%
-		\noexpand\begingroup
-		\noexpand\toks0={\pgf@tempa}%
-		\noexpand\immediate\noexpand\write16{\tikzexternalauxlock@handleref@warning{#3}{\noexpand\the\noexpand\toks0}}%
-		\noexpand\G@refundefinedtrue
-		\noexpand\endgroup
+	\tikzifexternalizingcurrent{%
+		% note that '#1' is NO control sequence! it is a protected string
+		\csname tikzexternalauxlock@handleref@orig@#1\endcsname{#3}%
+		\begingroup
+		\def\n{\pgfexternal@hat\pgfexternal@hat J}%
+		\tikzexternal@assemble@systemcall{\pgfactualjobname}{\pgf@tempa}%
+		\def\space{\noexpand\space}%
+		\pgfexternalstorecommand{%
+			\noexpand\begingroup
+			\noexpand\toks0={\pgf@tempa}%
+			\noexpand\immediate\noexpand\write16{\tikzexternalauxlock@handleref@warning{#3}{\noexpand\the\noexpand\toks0}}%
+			\noexpand\G@refundefinedtrue
+			\noexpand\endgroup
+		}%
+		\endgroup
+	}{%
+		% ok. We are not externalizing this part of the document. 
+		% Throw the citation away without further notice.
 	}%
-	\endgroup
 }%
 \def\tikzexternalauxlock@handleref@warning#1#2{%
 	\n
@@ -1036,7 +1050,9 @@
 	\iftikzexternal@verbose@optimize
 		\immediate\write16{The command '\the\toks0' has been optimized away. Use '/tikz/external/optimize=false' to disable this.}%
 	\fi
-	[ {\sc \string#1\ optimized away because it does not contribute to exported PDF}]%
+	\endgroup
+	\begingroup
+	\pgfkeysvalueof{/tikz/external/optimize away text/.@cmd}#1\pgfeov%
 	\endgroup
 }%
 
