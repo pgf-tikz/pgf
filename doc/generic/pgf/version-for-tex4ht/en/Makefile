@@ -13,5 +13,27 @@ pgfmanual.html: $(doc).tex $(doc).ind
 	TEXINPUTS="$(TEXINPUTS)" htlatex $(doc).tex
 
 clean:
-	rm -f pgfmanual*.aux pgfmanual{.out,.log,.idx,.ind,.ilg,.pdf,.toc,.bbl,.blg,.ps,*.gif,*.html,*.svg,.xref,.css,.4ct,.4tc,.dvi,.lg,.idv} *.png
-
+	rm -f  \
+		plots/* \
+		pgfmanual.out \
+		pgfmanual.log \
+		pgfmanual.idx \
+		pgfmanual.ind \
+		pgfmanual.ilg \
+		pgfmanual.pdf \
+		pgfmanual.toc \
+		pgfmanual.bbl \
+		pgfmanual.blg \
+		pgfmanual.ps \
+		pgfmanual.*gif \
+		pgfmanual.*html \
+		pgfmanual.*svg \
+		pgfmanual.xref \
+		pgfmanual.css \
+		pgfmanual.4ct \
+		pgfmanual.4tc \
+		pgfmanual.dvi \
+		pgfmanual.lg \
+		pgfmanual.idv \
+		pgfmanual*.aux \
+		*.png

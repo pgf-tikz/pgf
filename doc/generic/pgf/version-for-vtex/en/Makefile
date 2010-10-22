@@ -16,5 +16,17 @@ pgfmanual.ps: $(doc).tex $(doc).ind
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 
 clean:
-	rm -f pgfmanual*.aux pgfmanual.{out,log,idx,ind,ilg,pdf,toc,bbl,blg,ps}
-
+	rm -f  \
+		plots/* \
+		pgfmanual.out \
+		pgfmanual.log \
+		pgfmanual.idx \
+		pgfmanual.ind \
+		pgfmanual.ilg \
+		pgfmanual.pdf \
+		pgfmanual.toc \
+		pgfmanual.bbl \
+		pgfmanual.blg \
+		pgfmanual.ps \
+		pgfmanual.dvi \
+		pgfmanual*.aux 

@@ -29,4 +29,17 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 FORCE:
 
 clean:
-	rm -f pgfmanual*.aux pgfmanual.{out,log,idx,ind,ilg,pdf,toc,bbl,blg}
+	rm -f  \
+		plots/* \
+		pgfmanual.out \
+		pgfmanual.log \
+		pgfmanual.idx \
+		pgfmanual.ind \
+		pgfmanual.ilg \
+		pgfmanual.pdf \
+		pgfmanual.toc \
+		pgfmanual.bbl \
+		pgfmanual.blg \
+		pgfmanual.ps \
+		pgfmanual.dvi \
+		pgfmanual*.aux 

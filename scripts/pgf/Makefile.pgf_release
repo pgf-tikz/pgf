@@ -1,0 +1,84 @@
+# dummy release script
+#
+# DO NOT invoke this from a pgf directory, 
+# use 
+# make -f pgf/scripts/pgf/Makefile.pgf_release
+VERSION=_2.1
+
+ZIP=pgf$(VERSION).tds.zip
+PDF=pgf$(VERSION).pdf
+CHANGELOG=ChangeLog$(VERSION)
+
+files: zip pdf
+
+zip: $(ZIP)
+
+pdf: $(PDF)
+
+#upload: $(ZIP) $(PDF) $(CHANGELOG)
+#	scp $^ ludewich,pgf@web.sourceforge.net:htdocs/
+
+FORCE:
+
+$(ZIP): FORCE
+	rm -fr /tmp/pgf /tmp/$@
+	rsync --copy-links \
+		--exclude=CVS \
+		--exclude='.*.sw?' \
+		--exclude='*.aux' \
+		--exclude='*.log' \
+		--exclude='*~' \
+		--exclude='*.bbl' \
+		--exclude='*.blg' \
+		--exclude='*.idx' \
+		--exclude='*.ilg' \
+		--exclude='*.log' \
+		--exclude='*.ind' \
+		--exclude='*.toc' \
+		--exclude='*.out' \
+		--exclude='*.djs' \
+		--exclude='*.tmp' \
+		--exclude='*.tuo' \
+		--exclude='*.tui' \
+		--exclude='*.top' \
+		--exclude='*.pgf' \
+		--exclude='*.mp' \
+		--exclude='.gitignore' \
+		--exclude='.cvsignore' \
+		--exclude='Makefile.pgf_release' \
+		-r pgf /tmp
+	# cleanup docs:
+	make -C /tmp/pgf/doc/generic/pgf/version-for-dvipdfm/en clean
+	make -C /tmp/pgf/doc/generic/pgf/version-for-dvipdfmx/en clean
+	make -C /tmp/pgf/doc/generic/pgf/version-for-dvips/en clean
+	make -C /tmp/pgf/doc/generic/pgf/version-for-tex4ht/en clean
+	make -C /tmp/pgf/doc/generic/pgf/version-for-vtex/en clean
+	make -C /tmp/pgf/doc/generic/pgf/version-for-xetex/en clean
+	# but keep just the pdf from pdftex:
+	cp /tmp/pgf/doc/generic/pgf/version-for-pdftex/en/pgfmanual.pdf /tmp
+	make -C /tmp/pgf/doc/generic/pgf/version-for-pdftex/en clean
+	cp /tmp/pgfmanual.pdf /tmp/pgf/doc/generic/pgf/version-for-pdftex/en/pgfmanual.pdf
+	# now produce TDS structure:
+	mkdir -p /tmp/pgf/tex/context/third /tmp/pgf/source/latex/pgf
+	cd /tmp/pgf; \
+		mv context/pgf tex/context/third; \
+		rmdir context; \
+		mv latex tex; \
+		mv plain tex; \
+		mv generic tex; \
+		mv incoming source/latex/pgf; \
+		mv tex/generic/pgf/testsuite source/latex/pgf; \
+		cp doc/generic/pgf/README .; 
+	# generate zip archive:
+	cd /tmp/pgf && zip -r /tmp/$@ *
+	# copy archive to make target:
+	cp /tmp/$@ $@
+	# show file size(s)
+	find `pwd` -maxdepth 1 \( -name '$(@:.zip=)*' \) -ls
+
+$(CHANGELOG):
+	cp pgf/doc/generic/pgf/ChangeLog $(CHANGELOG)
+
+$(PDF): pgf/doc/generic/pgf/version-for-pdftex/en/pgfmanual.pdf
+	cp $< $@
+

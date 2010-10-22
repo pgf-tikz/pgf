@@ -18,5 +18,18 @@ pgfmanual.ps: $(doc).tex $(doc).ind
 	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -sOutputFile=$(doc).pdf $(doc).ps
 
 clean:
-	rm -f pgfmanual*.aux pgfmanual.{out,log,idx,ind,ilg,pdf,toc,bbl,blg,ps,dvi}
+	rm -f  \
+		plots/* \
+		pgfmanual.out \
+		pgfmanual.log \
+		pgfmanual.idx \
+		pgfmanual.ind \
+		pgfmanual.ilg \
+		pgfmanual.pdf \
+		pgfmanual.toc \
+		pgfmanual.bbl \
+		pgfmanual.blg \
+		pgfmanual.ps \
+		pgfmanual.dvi \
+		pgfmanual*.aux 
 
