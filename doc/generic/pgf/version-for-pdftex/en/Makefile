@@ -1,7 +1,7 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
 latex = pdflatex
-TEXINPUTS := ../../text-en:$(TEXINPUTS)
+TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 
 all: $(doc).pdf
 
