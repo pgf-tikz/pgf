@@ -73,7 +73,10 @@
   \scope[graphs/.cd,every graph/.try,#1]%
     \let\tikz@lib@graph@options\pgfutil@empty%
     \let\tikz@lib@graph@node@list\pgfutil@empty%
-    \tikz@lib@graph@parse@group{#2}%
+    \pgfkeyslet{/tikz/graphs/hints/stack}\pgfutil@empty%
+    \tikz@lib@graph@start@hint@group%
+      \tikz@lib@graph@parse@group{#2}%
+    \tikz@lib@graph@end@hint@group
     \let\tikz@lg@do=\tikz@lib@graph@cleanup%
     \tikz@lib@graph@node@list%
   \endscope%
@@ -90,6 +93,35 @@
   \tikz@lib@graph@par#1\par\pgf@stop@eogroup%
 }
 
+\def\tikz@lib@graph@push@hints{
+  \pgfkeysgetvalue{/tikz/graphs/hints/stack}\tikz@temp@stack%
+  \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@temp@chain%
+  \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@temp@group%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@temp@addme%
+  \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter{\expandafter%
+      \tikz@temp@chain\expandafter}\expandafter/\expandafter{\tikz@temp@group}}%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@temp%
+  \expandafter\expandafter\expandafter{%
+    \expandafter\tikz@temp@stack\expandafter,\tikz@temp@addme}
+  \pgfkeyslet{/tikz/graphs/hints/stack}\tikz@temp%
+}
+
+\def\tikz@lib@graph@start@hint@group{%
+  \pgfkeysgetvalue{/tikz/graphs/hints/group/initial}\tikz@temp%
+  \pgfkeyslet{/tikz/graphs/hints/group}\tikz@temp%
+}
+
+\def\tikz@lib@graph@end@hint@group{%
+  \pgfkeys{/tikz/graphs/hints/last/update from group}%
+  \pgfkeysgetvalue{/tikz/graphs/hints/last}\tikz@lib@graph@last@hint%
+  \global\let\tikz@lib@graph@last@hint\tikz@lib@graph@last@hint%
+}
+
+\def\tikz@lib@graph@hint@aftergroup{%
+  \pgfkeyslet{/tikz/graphs/hints/last}\tikz@lib@graph@last@hint%
+  \pgfkeys{/tikz/graphs/hints/chain/update}%
+}
 
 
 % 
@@ -158,6 +190,8 @@
 
 \def\tikz@lib@graph@main@parser#1,{%
   \begingroup%
+    \pgfkeysgetvalue{/tikz/graphs/hints/chain/initial}\tikz@temp%
+    \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp%
     \let\tikz@lib@graph@stored@actions\pgfutil@empty%
     \let\tikz@lib@graph@node@list\pgfutil@empty% reset
     \tikz@lib@graph@parse@one#1-\pgf@stop@eodashes%
@@ -263,12 +297,17 @@
 }
 
 \def\tikz@lib@graph@graph@done\pgf@stop@eodashes{%
+    % Get hints outside
+    \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@temp%
+    \global\let\tikz@temp@chain@hint\tikz@temp%
     % Get node list outside...
     \expandafter%  
   \endgroup%
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}%
+  \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp@chain@hint%
+  \pgfkeys{/tikz/graphs/hints/group/update}%
   \pgfutil@ifnextchar\pgf@stop@eogroup%
   \tikz@lib@graph@graph@group@done%
   \tikz@lib@graph@main@parser%
@@ -294,13 +333,13 @@
 
 \def\tikz@lib@graph@do@foreach\foreach#1in#2#3[\pgf@stop{%
   % Ok, we do a parse on a foreach loop.
-  % We have to make sure that we
   \begingroup
     \let\tikz@lib@graph@node@list@saved\pgfutil@empty%
     \foreach #1 in {#2}%
     {%
       \let\tikz@lib@graph@node@list\tikz@lib@graph@node@list@saved%
       \tikz@lib@graph@parse@group{#3}%
+      % TODO: Need to also save hints!
       \global\let\tikz@lib@graph@node@list@saved\tikz@lib@graph@node@list%
     }%
     \expandafter%  
@@ -324,18 +363,20 @@
 \def\tikz@lib@graph@noskip{\tikz@lib@graph@node@opt[][}%]
 
 \def\tikz@lib@graph@as@default{%
-  \let\tikzgraphnodename\tikz@lib@graph@name%
+  \let\tikzgraphnodename\tikz@lib@graph@name@only%
+  \let\tikzgraphnodepath\tikz@lib@graph@path%
+  \let\tikzgraphnodefullname\tikz@lib@graph@name%
   \tikz@lib@graph@typesetter%
 }
 
 \def\tikz@lib@graph@read#1\pgf@stop{%
-  \pgfkeys@spdef\tikz@lib@graph@name{#1}%
-  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name}%
+  \pgfkeys@spdef\tikz@lib@graph@name@only{#1}%
+  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
 }
 
 
 \def\tikz@lib@graph@node@opt[#1]#2[\pgf@stop{%
-  \ifx\tikz@lib@graph@name\tikz@lib@graph@usetext
+  \ifx\tikz@lib@graph@name@only\tikz@lib@graph@usetext
     % Ok, make a list of the nodes stored in #1:
     \let\tikz@lg@temp\pgfutil@empty%
     \foreach \tikz@lg@node@name in {#1} {\expandafter\tikz@lib@graph@handle@use\expandafter{\tikz@lg@node@name}}
@@ -348,7 +389,7 @@
     \let\tikz@lg@do\tikz@lib@graph@do@use%
     \tikz@lg@temp%
   \else%
-    \expandafter\ifx\csname tikz@lib@graph@def@\tikz@lib@graph@name\endcsname\relax%
+    \expandafter\ifx\csname tikz@lib@graph@def@\tikz@lib@graph@name@only\endcsname\relax%
       {%
         \edef\tikz@lib@graph@node@list{\noexpand\tikz@lg@do{\tikz@lib@graph@name}}%
         \tikz@lg@if@local@node{\tikz@lib@graph@name}%
@@ -358,12 +399,14 @@
           \iftikz@lib@graph@all%
             \tikzset{/tikz/graph node/.cd,#1}%
           \else%
-            \node [name=\tikz@lib@graph@name,/tikz/graph
-              node/.cd,/tikz/graphs/@nodes styling,#1]
+            \pgfkeys{/tikz/graphs/hints/place}
+            \node [name=\tikz@lib@graph@name,/tikz/graph node/.cd,/tikz/graphs/@nodes styling,#1]
               {\tikz@lib@graph@as};% 
           \fi
         }%
       }%
+      \pgfkeys{/tikz/graphs/hints/last/update from node/.expand once=\tikz@lib@graph@name}
+      \pgfkeys{/tikz/graphs/hints/chain/update}
       \expandafter\expandafter\expandafter\def%
       \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
       \expandafter\expandafter\expandafter{%
@@ -409,12 +452,16 @@
 \def\tikz@lib@graph@scope#1{
   \begingroup
     \let\tikz@lib@graph@node@list\pgfutil@empty%
-    \tikz@lib@graph@parse@group{#1}%
+    \tikz@lib@graph@push@hints%
+    \tikz@lib@graph@start@hint@group%
+      \tikz@lib@graph@parse@group{#1}%
+    \tikz@lib@graph@end@hint@group%
     \expandafter%  
   \endgroup%
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}%
+  \tikz@lib@graph@hint@aftergroup%
   \tikz@lib@graph@stored@actions%
   \pgfutil@ifnextchar-{\tikz@lib@graph@scope@minus}{%
     \pgfutil@ifnextchar<{\tikz@lib@graph@scope@less}{%
@@ -444,25 +491,28 @@
 % Predefining graphs 
 % 
 
-\def\tikzdefgraph#1#2#3{%
-  \expandafter\def\csname tikz@lib@graph@def@#1\endcsname{\tikz@lib@graph@do@graph{#2}{#3}}%
+\def\tikzdefgraph#1#2{%
+  \expandafter\def\csname tikz@lib@graph@def@#1\endcsname{\tikz@lib@graph@do@graph{#2}}%
 }
 
 \def\tikz@lib@graph@handle@graph#1{%
   \begingroup%
     \let\tikz@lib@graph@node@list\pgfutil@empty%
     \tikzset{graphs/.cd,#1}%
-    \csname tikz@lib@graph@def@\tikz@lib@graph@name\endcsname%
+    \tikz@lib@graph@push@hints%
+    \tikz@lib@graph@start@hint@group%
+      \csname tikz@lib@graph@def@\tikz@lib@graph@name@only\endcsname%
+    \tikz@lib@graph@end@hint@group%
     \expandafter%  
   \endgroup%
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}% 
+  \tikz@lib@graph@hint@aftergroup%
 }
 
-\def\tikz@lib@graph@do@graph#1#2{%
-  #1%
-  \tikz@lib@graph@parse@group{#2}%
+\def\tikz@lib@graph@do@graph#1{%
+  \tikz@lib@graph@parse@group{#1}%
 }
 
 \let\tikz@lib@graph@path\pgfutil@empty
@@ -644,13 +694,14 @@
 
 \def\tikzlibgraphpreparecolor#1#2#3{%
   \let\tikz@lib@graph@count#2%
+  \tikz@lib@graph@count0\relax
   \def\tikz@lib@graph@prefix{#3}%
   \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@prepare%
 }
 
 \def\tikz@lib@graph@prepare#1{%
   \advance\tikz@lib@graph@count by1\relax%
-  \expandafter\def\csname \tikz@lib@graph@prefix\the\tikz@lib@graph@count\endcsname{#1}%
+  \expandafter\def\csname\tikz@lib@graph@prefix\the\tikz@lib@graph@count\endcsname{#1}%
 }
 
 
@@ -808,70 +859,188 @@
 }
 
 
-
-% 
-% The butterfly connector 
+% Positioning
 %
+% It is not the job of the graph library to compute good positions for
+% nodes in a graph. However, some basic support is provided for simple
+% cases.
+% 
+% The idea is at follows: Graphs are specified hierarchically. For
+% instance, consider the following graph specification:
+% 
+% graph { a, b, c -> d -> {e -> f -> g, h} -> i, j -> k }
+% 
+% Here, we have the *group* {e->f->g,h} inside the larger graph
+% specification. Each group consists of sequence of *chains* like
+% e->f->g or j->k.
+% 
+% In order to facilitate the automatic positioning of nodes, the graph
+% library will provide you with information about the position of
+% nodes inside their groups and chains. A general approach is taken
+% that allows you to plug in your own favorite placement mechanism.
+% 
+% The graph system keeps track of what I call *node placement hints*
+% for the nodes that have already been positioned.  
+%
+% Let us start with a single node. Whenever such a node has been
+% created, the key "/tikz/graphs/hints/last/update from node" is
+% called with the node's name as a parameter. The code stored in this
+% key should set the key hints/last to some text like a number of a
+% sequence of dimensions like its width and height or the name of the
+% node or whatever. This is the "node placement hint" for the node.   
+%
+% Next, conside a chain of nodes. For each node a placement hint
+% can be computed. Each time it has been computed, this information
+% is added to the current "chain placement hints". More precisely, the
+% key hints/chain/update is called, which should update the current
+% value of hints/chain, taking the value of hints/last into account.
+% 
+% Now, when the next node is created, it can take the value of
+% hints/chain into account. For instance, the node
+% placement hint might be the width of the node and the chain
+% placement hint might always store the sum of the width of the node
+% placement hints. Then, we could place a new node at the position
+% that is given by this sum.
+% 
+% Following chains, consider a group, which consists of a list of such
+% chains. Similar to the situation with chains and nodes, each time a
+% chain is finished, the key hints/group/update is called that should
+% update hints/group and it can take hints/chain into account.
+% 
+% As another example, a placement hint for a node might not only be
+% the width of the node, but also its height. Then, the chain
+% placement hint might store the sum of the width of the nodes in the
+% chain, but also the maximum of the heights of the nodes. The group
+% placement hint might now store the sum of the heights, which we
+% could use to place each new chain below the previous chain.
+% 
+% Finally, a whole group may be nested inside a larger graph
+% specification. In this case, two things happen:
+% 
+% First, once a group specification is done, the key
+% "hints/last/update from group" is called that should set hints/last
+% to some value and takes hints/last/group into account. This
+% placement hint should store a placement hint that "represents the
+% whole group as if it were a single node".
+% 
+% Second, when a group starts, the current chain and group placement
+% hints are "pushed" onto the current hint stack. This allows you to
+% access the current value of the hint stack when computing a good
+% placement for the current node. In detail, the keys
+% hints/stack stores a comma-separated list of values of the form
+% {chain hint}/{group hint} of all parent graph specifications.
+% 
+% For both the chain hints and the group hints, whenever they are
+% reset at the beginning of a chain or group, they are set to the
+% current values of hints/chain/initial and hints/group/initial,
+% respectively. 
 
-\tikzset{
-  connectors/butterfly/.code={
-    {}{%
-      \pgfkeys{/tikz/connectors/butterfly/.cd,#1}%
-      \ifnum\pgfkeysvalueof{/tikz/connectors/butterfly/level}=0\relax%
-        \pgfkeysalso{/tikz/connectors/match={\pgfkeysvalueof{/tikz/connectors/butterfly/from}}{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}}%
-      \else%
-        {%
-          \tikzlibgraphpreparecolor{\pgfkeysvalueof{/tikz/connectors/butterfly/from}}\c@pgf@counta{tikz@lg}
-          \c@pgf@countb=0\relax%
-          \tikzlibgraphforeachcolorednode{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}\tikz@lib@graph@butterfly@do%
-        }%
-        \iftikz@butterfly@prime\else\pgfkeysalso{/tikz/connectors/match={\pgfkeysvalueof{/tikz/connectors/butterfly/from}}{\pgfkeysvalueof{/tikz/connectors/butterfly/to}}}\fi%
-      \fi%
-    }%
+\tikzset{graphs/hints/.cd,
+  last/.initial=,
+  last/update from node/.code=,
+  last/update from group/.code=,
+  chain/.initial=,
+  chain/initial/.initial=,
+  chain/update/.code=,
+  group/.initial=,
+  group/initial/.initial=,
+  group/update/.code=,
+  stack/.initial=,
+  place/.code=,
+}
+
+
+
+% A grid-based placement strategy 
+% 
+% This strategy works as follows: You specify a "chain shift vector"
+% and a "group shift vector". Then each new element on a chain is
+% shifted by the chain shift vector relative to the previous element
+% on the chain. Similarly for each new element of a group. 
+
+\tikzset{graphs/.cd,
+  grid placement/.style={
+    hints/last/update from node/.code={
+      \pgfkeyssetvalue{/tikz/graphs/hints/last}{1/1}
+      % A single node has logical unit height and width.
+    },
+    hints/last/update from group/.code={
+      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@temp
+      \pgfkeyslet{/tikz/graphs/hints/last}\tikz@temp      
+    },
+    hints/chain/initial=0/0,
+    hints/chain/update/.code={
+      \pgfkeysgetvalue{/tikz/graphs/hints/last}\tikz@lib@graph@hint@last
+      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
+      \expandafter\expandafter\expandafter%
+      \tikz@lib@graph@chain@hint@up\expandafter\tikz@lib@graph@hint@last\expandafter/\tikz@lib@graph@chain@last\relax%
+    },
+    hints/group/initial=0/0,
+    hints/group/update/.code={
+      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
+      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@lib@graph@group@last
+      \expandafter\expandafter\expandafter%
+      \tikz@lib@graph@group@hint@up\expandafter\tikz@lib@graph@chain@last\expandafter/\tikz@lib@graph@group@last\relax%
+    },
+    hints/place/.code={%
+      \pgfkeysgetvalue{/tikz/graphs/hints/stack}\tikz@temp%
+      \expandafter\tikz@lib@graph@place@group@grid\tikz@temp\relax%
+      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
+      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@lib@graph@group@last
+      \expandafter\expandafter\expandafter%
+      \tikz@lib@graph@grid@place\expandafter\tikz@lib@graph@chain@last\expandafter/\tikz@lib@graph@group@last\relax%
+    }
   },
-  connectors/butterfly/.default=,
-  connectors/butterfly/level/.initial=1,
-  connectors/butterfly/from/.initial=out',
-  connectors/butterfly/to/.initial=in',
-  connectors/butterfly'/.code={%
-    {}{\tikz@butterfly@primetrue\pgfkeysalso{butterfly={#1}}}},
-  connectors/butterfly'/.default=,
+  chain shift/.initial={(0,1)},
+  group shift/.initial={(1,0)}
 }
 
-\newif\iftikz@butterfly@prime
-
-\def\tikz@lib@graph@butterfly@do#1{%
-  \advance\c@pgf@countb by1\relax%
-  % Compute other side...
-  \c@pgf@countc=\pgfkeysvalueof{/tikz/connectors/butterfly/level}\relax%
-  {%
-    % Computer countb mod (2level)
-    \count0=\c@pgf@countc\relax%
-    \multiply\count0 by2\relax%
-    \count1=\c@pgf@countb\relax%
-    \advance\count1 by-1\relax%
-    \count2=\count1\relax%
-    \count3=\count1\relax%
-    \divide\count1 by\count0\relax%
-    \multiply\count1 by\count0\relax%
-    \advance\count2 by-\count1\relax%
-    % count0 = 2*level
-    % count2 = countb mod (2level) (starting with 0)
-    % count1 = countb - count2 (starting with 0)
-    \ifnum\count2<\c@pgf@countc\relax%
-      \advance\count3 by \c@pgf@countc\relax%
-    \else%
-      \advance\count3 by -\c@pgf@countc\relax%
-    \fi%
-    \expandafter%
-  }%
-  \expandafter\c@pgf@countc\the\count3\relax%
-  \advance\c@pgf@countc by1\relax%
-  \ifnum\c@pgf@countc>\c@pgf@counta\relax%
-    \c@pgf@countc=\c@pgf@counta\relax%
+\def\tikz@lib@graph@chain@hint@up#1/#2/#3/#4\relax{%
+  \c@pgf@counta=#3\relax%
+  \advance\c@pgf@counta by#1\relax%
+  \c@pgf@countb=#4\relax%
+  \ifnum\c@pgf@countb<#2\relax%
+    \c@pgf@countb=#2\relax%
   \fi%
-  \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countc\endcsname}{#1}%
+  \edef\tikz@temp{\the\c@pgf@counta/\the\c@pgf@countb}%
+  \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp%
+}
+
+\def\tikz@lib@graph@group@hint@up#1/#2/#3/#4\relax{%
+  \c@pgf@counta=#3\relax%
+  \ifnum\c@pgf@counta<#1\relax%
+    \c@pgf@counta=#1\relax%
+  \fi%
+  \c@pgf@countb=#4\relax%
+  \advance\c@pgf@countb by#2\relax%
+  \edef\tikz@temp{\the\c@pgf@counta/\the\c@pgf@countb}%
+  \pgfkeyslet{/tikz/graphs/hints/group}\tikz@temp%
+}
+
+\def\tikz@lib@graph@grid@place#1/#2/#3/#4\relax{%
+  \pgfkeysgetvalue{/tikz/graphs/chain shift}\tikz@temp
+  \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp
+  \pgf@process{\pgfpointscale{#1}{}}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgfkeysgetvalue{/tikz/graphs/group shift}\tikz@temp
+  \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp
+  \pgf@process{\pgfpointscale{#4}{}}%
+  \advance\pgf@xa by\pgf@x%
+  \advance\pgf@ya by\pgf@y%
+  \edef\tikz@lib@graph@shift{(\the\pgf@xa,\the\pgf@ya)}
+  \pgfkeys{/tikz/graphs/nodes/.expanded={shift={\tikz@lib@graph@shift}}}
 }
 
 
+\def\tikz@lib@graph@place@group@grid{%
+  \pgfutil@ifnextchar\relax{\pgfutil@gobble}{\tikz@lib@graph@place@group@grid@cont}%
+}
 
+\def\tikz@lib@graph@place@group@grid@cont,#1/#2{%
+  \tikz@lib@graph@grid@place#1/#2\relax%
+  \tikz@lib@graph@place@group@grid%
+}
+
+
+\endinput
