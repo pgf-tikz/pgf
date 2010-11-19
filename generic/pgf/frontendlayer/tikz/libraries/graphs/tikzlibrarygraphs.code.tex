@@ -15,10 +15,10 @@
 %
 
 \tikzset{
-  graphs/new edge directed/.code n args={3}{\path (#1) edge[->,#3] (#2);},
-  graphs/new edge undirected/.code n args={3}{\path (#1) edge[-,#3] (#2);},
-  graphs/new edge bidirected/.code n args={3}{\path (#1) edge[<->,#3] (#2);},
-  graphs/new edge back directed/.style n args={3}{new edge directed={#2}{#1}{#3}},
+  graphs/new edge directed/.code n args={4}{\path (#1) edge[->,#3] #4 (#2);},
+  graphs/new edge undirected/.code n args={4}{\path (#1) edge[-,#3] #4 (#2);},
+  graphs/new edge bidirected/.code n args={4}{\path (#1) edge[<->,#3] #4 (#2);},
+  graphs/new edge back directed/.style n args={4}{new edge directed={#2}{#1}{#3}{#4}},
   graphs/default edge kind/.initial=undirected
 }
 
@@ -56,6 +56,9 @@
   graphs/nodes/.style={/tikz/graphs/@nodes styling/.append style={,#1}},
   graphs/@edges styling/.initial=,
   graphs/edges/.style={/tikz/graphs/@edges styling/.append={,#1}},
+  graphs/@edges node/.initial=,
+  graphs/edge node/.style={/tikz/graphs/@edges node/.append={#1}},
+  graphs/edge label/.style={/tikz/graphs/@edges node/.append={node[auto]{#1}}},
   graphs/join/.initial=match,
   graphs/connect as/.initial=,
 }
@@ -73,7 +76,8 @@
   \scope[graphs/.cd,every graph/.try,#1]%
     \let\tikz@lib@graph@options\pgfutil@empty%
     \let\tikz@lib@graph@node@list\pgfutil@empty%
-    \pgfkeyslet{/tikz/graphs/hints/stack}\pgfutil@empty%
+    \pgfkeyssetvalue{/tikz/graphs/placement/depth}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/width}{0}%
     \tikz@lib@graph@start@hint@group%
       \tikz@lib@graph@parse@group{#2}%
     \tikz@lib@graph@end@hint@group
@@ -93,34 +97,70 @@
   \tikz@lib@graph@par#1\par\pgf@stop@eogroup%
 }
 
-\def\tikz@lib@graph@push@hints{
-  \pgfkeysgetvalue{/tikz/graphs/hints/stack}\tikz@temp@stack%
-  \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@temp@chain%
-  \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@temp@group%
-  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@temp@addme%
-  \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter{\expandafter%
-      \tikz@temp@chain\expandafter}\expandafter/\expandafter{\tikz@temp@group}}%
-  \expandafter\expandafter\expandafter\def%
-  \expandafter\expandafter\expandafter\tikz@temp%
-  \expandafter\expandafter\expandafter{%
-    \expandafter\tikz@temp@stack\expandafter,\tikz@temp@addme}
-  \pgfkeyslet{/tikz/graphs/hints/stack}\tikz@temp%
-}
-
 \def\tikz@lib@graph@start@hint@group{%
-  \pgfkeysgetvalue{/tikz/graphs/hints/group/initial}\tikz@temp%
-  \pgfkeyslet{/tikz/graphs/hints/group}\tikz@temp%
+  \pgfkeyssetvalue{/tikz/graphs/placement/local depth}{0}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/local width}{0}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/chain count}{0}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/element count}{0}%
 }
 
 \def\tikz@lib@graph@end@hint@group{%
-  \pgfkeys{/tikz/graphs/hints/last/update from group}%
-  \pgfkeysgetvalue{/tikz/graphs/hints/last}\tikz@lib@graph@last@hint%
-  \global\let\tikz@lib@graph@last@hint\tikz@lib@graph@last@hint%
+  % Get local depth and width outside
+  \xdef\tikz@lib@graph@group@depth{\pgfkeysvalueof{/tikz/graphs/placement/local depth}}
+  \xdef\tikz@lib@graph@group@width{\pgfkeysvalueof{/tikz/graphs/placement/local width}}
 }
 
 \def\tikz@lib@graph@hint@aftergroup{%
-  \pgfkeyslet{/tikz/graphs/hints/last}\tikz@lib@graph@last@hint%
-  \pgfkeys{/tikz/graphs/hints/chain/update}%
+  \pgfkeysgetvalue{/tikz/graphs/placement/width}\tikz@temp@h%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+  \pgfmathsetmacro\tikz@temp@h{\tikz@lib@graph@group@width+\tikz@temp@h}
+  \pgfmathsetmacro\tikz@temp@lh{\tikz@lib@graph@group@width+\tikz@temp@lh}
+  \pgfmathsetmacro\tikz@temp@lw{max(\tikz@lib@graph@group@depth,\tikz@temp@lw)}
+  \pgfkeyslet{/tikz/graphs/placement/width}\tikz@temp@h%
+  \pgfkeyslet{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeyslet{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+}
+
+\def\tikz@lib@graph@placement@update{%
+  \pgfkeys{/tikz/graphs/placement/logical node depth/.expand once=\tikz@lib@graph@name}
+  \let\tikz@lib@graph@node@depth\pgfmathresult
+  \pgfkeys{/tikz/graphs/placement/logical node width/.expand once=\tikz@lib@graph@name}
+  \let\tikz@lib@graph@node@width\pgfmathresult
+  % This is a single node, so update the lengths accordingly
+  \pgfkeysgetvalue{/tikz/graphs/placement/width}\tikz@temp@h%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+  \pgfmathsetmacro\tikz@temp@h{\tikz@lib@graph@node@width+\tikz@temp@h}
+  \pgfmathsetmacro\tikz@temp@lh{\tikz@lib@graph@node@width+\tikz@temp@lh}
+  \pgfmathsetmacro\tikz@temp@lw{max(\tikz@lib@graph@node@depth,\tikz@temp@lw)}
+  \pgfkeyslet{/tikz/graphs/placement/width}\tikz@temp@h%
+  \pgfkeyslet{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeyslet{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+  % 
+  \pgfkeysgetvalue{/tikz/graphs/placement/element count}\tikz@temp%
+  \c@pgf@counta=\tikz@temp\relax%
+  \advance\c@pgf@counta by1\relax%
+  \edef\tikz@tmep{\the\c@pgf@counta}%
+  \pgfkeyslet{/tikz/graphs/placement/element count}\tikz@temp%  
+}
+
+\def\tikz@lib@graph@placement@after@chain@update{%
+  \pgfkeysgetvalue{/tikz/graphs/placement/depth}\tikz@temp@w%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeysgetvalue{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+  \pgfmathsetmacro\tikz@temp@w{\tikz@lib@graph@chain@depth+\tikz@temp@w}
+  \pgfmathsetmacro\tikz@temp@lw{\tikz@lib@graph@chain@depth+\tikz@temp@lw}
+  \pgfmathsetmacro\tikz@temp@lh{max(\tikz@lib@graph@chain@width,\tikz@temp@lh)}
+  \pgfkeyslet{/tikz/graphs/placement/depth}\tikz@temp@w%
+  \pgfkeyslet{/tikz/graphs/placement/local width}\tikz@temp@lh%
+  \pgfkeyslet{/tikz/graphs/placement/local depth}\tikz@temp@lw%
+  % 
+  \pgfkeysgetvalue{/tikz/graphs/placement/chain count}\tikz@temp%
+  \c@pgf@counta=\tikz@temp\relax%
+  \advance\c@pgf@counta by1\relax%
+  \edef\tikz@tmep{\the\c@pgf@counta}%
+  \pgfkeyslet{/tikz/graphs/placement/chain count}\tikz@temp%  
 }
 
 
@@ -188,15 +228,25 @@
 % Main parse 
 %
 
-\def\tikz@lib@graph@main@parser#1,{%
+\def\tikz@lib@graph@main@parser{%
   \begingroup%
-    \pgfkeysgetvalue{/tikz/graphs/hints/chain/initial}\tikz@temp%
-    \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp%
+    \pgfkeyssetvalue{/tikz/graphs/placement/local depth}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/local width}{0}%
     \let\tikz@lib@graph@stored@actions\pgfutil@empty%
     \let\tikz@lib@graph@node@list\pgfutil@empty% reset
-    \tikz@lib@graph@parse@one#1-\pgf@stop@eodashes%
+    \tikz@lib@graph@main@parser@start%
+}
+\def\tikz@lib@graph@main@parser@start{%
+  \pgfutil@ifnextchar\bgroup{\tikz@lib@graph@protect@group}{\tikz@lib@graph@main@parser@cont}%
 }
 
+\def\tikz@lib@graph@protect@group#1{% skip space
+  \pgfutil@ifnextchar\relax{\tikz@lib@graph@main@parser@cont{{#1}}}{\tikz@lib@graph@main@parser@cont{{#1}}}%
+}
+
+\def\tikz@lib@graph@main@parser@cont#1,{%
+  \tikz@lib@graph@parse@one#1-\pgf@stop@eodashes%
+}
 
 \def\tikz@lib@graph@parse@one{%
   \pgfutil@ifnextchar\bgroup\tikz@lib@graph@scope\tikz@lib@graph@node%
@@ -228,7 +278,7 @@
     % 
     % Now, get arrow kind 
     % 
-    \def\pgf@test{#2}%
+    \def\pgf@test{#2}% 
     \ifx\pgf@test\pgfutil@empty%
       \expandafter\tikz@lib@graph@no@back@arrow%
     \else%
@@ -276,8 +326,8 @@
   % 
   % Ok, first recolor 
   % 
-  \pgfkeys{/tikz/graph node/recolor in by=in''}
-  \pgfkeys{/tikz/graph node/recolor out by=out'}
+  \pgfkeys{/tikz/graphs/node/recolor in by=in''}
+  \pgfkeys{/tikz/graphs/node/recolor out by=out'}
   % Save action for next node
   \expandafter\def\expandafter\tikz@lib@graph@stored@actions\expandafter{%
     \expandafter\tikz@lib@graph@joiner\expandafter{\tikz@lib@graph@arrow@type}{#1}}%
@@ -285,29 +335,30 @@
 }
 
 \def\tikz@lib@graph@joiner#1#2{%
-  \pgfkeys{/tikz/graph node/recolor in by=in'}
-  \pgfkeys{/tikz/graph node/recolor in'' by=in}
+  \pgfkeys{/tikz/graphs/node/recolor in by=in'}
+  \pgfkeys{/tikz/graphs/node/recolor in'' by=in}
   {%
     \pgfkeyssetvalue{/tikz/graphs/default edge kind}{#1}%
     \pgfkeys{/tikz/graphs/.cd,#2}%
     \pgfkeysgetvalue{/tikz/graphs/join}\pgf@temp%
     \expandafter\tikz@lg@do@connector\expandafter{\pgf@temp}%
   }%
-  \pgfkeys{/tikz/graph node/!in',/tikz/graph node/!out'}
+  \pgfkeys{/tikz/graphs/node/!in',/tikz/graphs/node/!out'}
 }
 
 \def\tikz@lib@graph@graph@done\pgf@stop@eodashes{%
-    % Get hints outside
-    \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@temp%
-    \global\let\tikz@temp@chain@hint\tikz@temp%
+    % Get local depth and width outside
+    \xdef\tikz@lib@graph@chain@depth{\pgfkeysvalueof{/tikz/graphs/placement/local depth}}
+    \xdef\tikz@lib@graph@chain@width{\pgfkeysvalueof{/tikz/graphs/placement/local width}}
     % Get node list outside...
     \expandafter%  
   \endgroup%
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}%
-  \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp@chain@hint%
-  \pgfkeys{/tikz/graphs/hints/group/update}%
+  % Compute new local depth and width of group...
+  \tikz@lib@graph@placement@after@chain@update
+  % 
   \pgfutil@ifnextchar\pgf@stop@eogroup%
   \tikz@lib@graph@graph@group@done%
   \tikz@lib@graph@main@parser%
@@ -335,10 +386,27 @@
   % Ok, we do a parse on a foreach loop.
   \begingroup
     \let\tikz@lib@graph@node@list@saved\pgfutil@empty%
+    \xdef\tikz@lib@graph@saved@placement{%
+      {\pgfkeysvalueof{/tikz/graphs/placement/local depth}}%
+      {\pgfkeysvalueof{/tikz/graphs/placement/local width}}%
+      {\pgfkeysvalueof{/tikz/graphs/placement/chain count}}%
+      {\pgfkeysvalueof{/tikz/graphs/placement/element count}}%
+      {\pgfkeysvalueof{/tikz/graphs/placement/width}}%
+      {\pgfkeysvalueof{/tikz/graphs/placement/depth}}%
+    }%
     \foreach #1 in {#2}%
     {%
       \let\tikz@lib@graph@node@list\tikz@lib@graph@node@list@saved%
+      \expandafter\tikz@lib@graph@setup@placement\tikz@lib@graph@saved@placement%
       \tikz@lib@graph@parse@group{#3}%
+      \xdef\tikz@lib@graph@saved@placement{%
+        {\pgfkeysvalueof{/tikz/graphs/placement/local depth}}%
+        {\pgfkeysvalueof{/tikz/graphs/placement/local width}}%
+        {\pgfkeysvalueof{/tikz/graphs/placement/chain count}}%
+        {\pgfkeysvalueof{/tikz/graphs/placement/element count}}%
+        {\pgfkeysvalueof{/tikz/graphs/placement/width}}%
+        {\pgfkeysvalueof{/tikz/graphs/placement/depth}}%
+      }%
       % TODO: Need to also save hints!
       \global\let\tikz@lib@graph@node@list@saved\tikz@lib@graph@node@list%
     }%
@@ -347,8 +415,17 @@
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list@saved}%  
+  \expandafter\tikz@lib@graph@setup@placement\tikz@lib@graph@saved@placement%
 }
 
+\def\tikz@lib@graph@setup@placement#1#2#3#4#5#6{%
+  \pgfkeyssetvalue{/tikz/graphs/placement/local depth}{#1}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/local width}{#2}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/chain count}{#3}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/element count}{#4}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/width}{#5}%
+  \pgfkeyssetvalue{/tikz/graphs/placement/depth}{#6}%
+}
 
 \def\tikz@lib@graph@grab@name@@#1[{%
   \tikz@lib@graph@read#1\pgf@stop%
@@ -392,21 +469,22 @@
     \expandafter\ifx\csname tikz@lib@graph@def@\tikz@lib@graph@name@only\endcsname\relax%
       {%
         \edef\tikz@lib@graph@node@list{\noexpand\tikz@lg@do{\tikz@lib@graph@name}}%
+        \global\tikz@lib@graph@node@createdfalse%
         \tikz@lg@if@local@node{\tikz@lib@graph@name}%
-        {\tikzset{/tikz/graph node/.cd,in,out,#1}}%
+        {\tikzset{/tikz/graphs/node/.cd,in,out,#1}}%
         {%
           \tikz@lg@init@color{\tikz@lib@graph@name}{\tikz@lgc@all@true\tikz@lgc@in@true\tikz@lgc@out@true}%
           \iftikz@lib@graph@all%
-            \tikzset{/tikz/graph node/.cd,#1}%
+            \tikzset{/tikz/graphs/node/.cd,#1}%
           \else%
-            \pgfkeys{/tikz/graphs/hints/place}
-            \node [name=\tikz@lib@graph@name,/tikz/graph node/.cd,/tikz/graphs/@nodes styling,#1]
-              {\tikz@lib@graph@as};% 
+            \pgfkeys{/tikz/graphs/placement/place}
+            \node [name=\tikz@lib@graph@name,/tikz/graphs/node/.cd,/tikz/graphs/@nodes styling,#1]
+            {\tikz@lib@graph@as};%
+            \global\tikz@lib@graph@node@createdtrue%
           \fi
         }%
       }%
-      \pgfkeys{/tikz/graphs/hints/last/update from node/.expand once=\tikz@lib@graph@name}
-      \pgfkeys{/tikz/graphs/hints/chain/update}
+      \iftikz@lib@graph@node@created\tikz@lib@graph@placement@update\fi%
       \expandafter\expandafter\expandafter\def%
       \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
       \expandafter\expandafter\expandafter{%
@@ -417,6 +495,8 @@
     \fi
   \fi%  
 }
+
+\newif\iftikz@lib@graph@node@created
 
 \def\tikz@lib@graph@handle@use#1{%
   % Is #1 the name of a node set?
@@ -452,7 +532,6 @@
 \def\tikz@lib@graph@scope#1{
   \begingroup
     \let\tikz@lib@graph@node@list\pgfutil@empty%
-    \tikz@lib@graph@push@hints%
     \tikz@lib@graph@start@hint@group%
       \tikz@lib@graph@parse@group{#1}%
     \tikz@lib@graph@end@hint@group%
@@ -499,7 +578,6 @@
   \begingroup%
     \let\tikz@lib@graph@node@list\pgfutil@empty%
     \tikzset{graphs/.cd,#1}%
-    \tikz@lib@graph@push@hints%
     \tikz@lib@graph@start@hint@group%
       \csname tikz@lib@graph@def@\tikz@lib@graph@name@only\endcsname%
     \tikz@lib@graph@end@hint@group%
@@ -528,35 +606,35 @@
 % 
 
 \tikzset{
-  graph node/.unknown/.code={%
+  graphs/node/.unknown/.code={%
     \let\tikz@key\pgfkeyscurrentname% 
     \pgfkeys{/tikz/\tikz@key={#1}}%
   },
-  graph node/as/.code=\def\tikz@lib@graph@as{#1}%
+  graphs/node/as/.code=\def\tikz@lib@graph@as{#1}%
 }
 
 
 \tikzset{%
   new graph color/.style={%
     /utils/exec=\expandafter\newif\csname iftikz@lgc@#1@\endcsname,
-    graph node/#1/.code={%
+    graphs/node/#1/.code={%
       \edef\tikz@lg@col{\expandafter\noexpand\csname tikz@lgc@#1@true\endcsname}%
       \let\tikz@lg@do\tikz@lg@colorize%
       \tikz@lib@graph@node@list%
     },
-    graph node/!#1/.code={%
+    graphs/node/!#1/.code={%
       \edef\tikz@lg@old@col{\expandafter\noexpand\csname tikz@lgc@#1@true\endcsname}%
       \def\tikz@lg@new@col{}%
       \let\tikz@lg@do\tikz@lg@change@color%
       \tikz@lib@graph@node@list%
     },
-    graph node/recolor #1 by/.code={%
+    graphs/node/recolor #1 by/.code={%
       \edef\tikz@lg@old@col{\expandafter\noexpand\csname tikz@lgc@#1@true\endcsname}%
       \edef\tikz@lg@new@col{\expandafter\noexpand\csname tikz@lgc@##1@true\endcsname}%
       \let\tikz@lg@do\tikz@lg@change@color%
       \tikz@lib@graph@node@list%
     },
-    graph node/not #1/.style=!#1,
+    graphs/node/not #1/.style=!#1,
   },
   new graph color=in,
   new graph color=in',
@@ -735,10 +813,12 @@
 
 \def\tikz@lib@graph@default@new@edge{%
   \pgfkeysgetvalue{/tikz/graphs/@edges styling}\pgf@temp
-  \expandafter\tikz@lib@graph@default@new@edge@\expandafter{\pgf@temp}%
+  \pgfkeysgetvalue{/tikz/graphs/@edges node}\pgf@temp@b
+  \expandafter\expandafter\expandafter\tikz@lib@graph@default@new@edge@%
+  \expandafter\expandafter\expandafter{\expandafter\pgf@temp\expandafter}\expandafter{\pgf@temp@b}%
 }
-\def\tikz@lib@graph@default@new@edge@#1#2#3{%
-  \pgfkeys{/tikz/graphs/.cd,new edge \pgfkeysvalueof{/tikz/graphs/default edge kind}={#2}{#3}{#1}}%
+\def\tikz@lib@graph@default@new@edge@#1#2#3#4{%
+  \pgfkeys{/tikz/graphs/.cd,new edge \pgfkeysvalueof{/tikz/graphs/default edge kind}={#3}{#4}{#1}{#2}}%
 }
 
   
@@ -859,6 +939,10 @@
 }
 
 
+
+
+
+
 % Positioning
 %
 % It is not the job of the graph library to compute good positions for
@@ -876,82 +960,73 @@
 % 
 % In order to facilitate the automatic positioning of nodes, the graph
 % library will provide you with information about the position of
-% nodes inside their groups and chains. A general approach is taken
-% that allows you to plug in your own favorite placement mechanism.
+% nodes inside their groups and chains.
 % 
-% The graph system keeps track of what I call *node placement hints*
-% for the nodes that have already been positioned.  
+% As a chain is being parsed, a counter stored in
+% /tikz/graphs/placement/element count is available that is advanced for
+% each element in the chain. 
+% 
+% Additionally, a counter stored in placement/width is
+% available. This "logical" width is defined recursively as follows: The
+% width of a single node is computed by calling the key
+% placement/logical node width, which should return a real or logical
+% width of the node passed as a parameter in the macor \pgfmathresult. The
+% width of a chain is the sum of the widths of its elements. The
+% width of a  group is the maximum of the widths of its elements.
+% 
 %
-% Let us start with a single node. Whenever such a node has been
-% created, the key "/tikz/graphs/hints/last/update from node" is
-% called with the node's name as a parameter. The code stored in this
-% key should set the key hints/last to some text like a number of a
-% sequence of dimensions like its width and height or the name of the
-% node or whatever. This is the "node placement hint" for the node.   
+% Symmetrically, as a group is being constructed, a counter stored in
+% placement/chain count is available that is advanced for each chain
+% in the group. The number placement/depth is the defined
+% recursively as follows: For a single node, the depth is
+% computed by the key placement/logical node depth. The depth
+% of a group is the sum of the depths of its elements. The depth of a
+% chain is the maximum of the depth of its elements. 
 %
-% Next, conside a chain of nodes. For each node a placement hint
-% can be computed. Each time it has been computed, this information
-% is added to the current "chain placement hints". More precisely, the
-% key hints/chain/update is called, which should update the current
-% value of hints/chain, taking the value of hints/last into account.
 % 
-% Now, when the next node is created, it can take the value of
-% hints/chain into account. For instance, the node
-% placement hint might be the width of the node and the chain
-% placement hint might always store the sum of the width of the node
-% placement hints. Then, we could place a new node at the position
-% that is given by this sum.
+% The above keys get updated automatically. You should setup the key
+% placement/compute position such that it uses the above keys to
+% compute a good position for a new node based on the above
+% keys. Typically, this key should execute node={shift=(...)} to setup
+% the necessary shift for a new node.
 % 
-% Following chains, consider a group, which consists of a list of such
-% chains. Similar to the situation with chains and nodes, each time a
-% chain is finished, the key hints/group/update is called that should
-% update hints/group and it can take hints/chain into account.
+% The key placment/compute position should not be called
+% directly. Instead, the key placement/place should be used. This key
+% has two effects: First, it calls placement/compute position. Second,
+% it resets the length and normal counters. It will setup a completely
+% new counting of lengths and counters inside the current scope.
 % 
-% As another example, a placement hint for a node might not only be
-% the width of the node, but also its height. Then, the chain
-% placement hint might store the sum of the width of the nodes in the
-% chain, but also the maximum of the heights of the nodes. The group
-% placement hint might now store the sum of the heights, which we
-% could use to place each new chain below the previous chain.
-% 
-% Finally, a whole group may be nested inside a larger graph
-% specification. In this case, two things happen:
-% 
-% First, once a group specification is done, the key
-% "hints/last/update from group" is called that should set hints/last
-% to some value and takes hints/last/group into account. This
-% placement hint should store a placement hint that "represents the
-% whole group as if it were a single node".
-% 
-% Second, when a group starts, the current chain and group placement
-% hints are "pushed" onto the current hint stack. This allows you to
-% access the current value of the hint stack when computing a good
-% placement for the current node. In detail, the keys
-% hints/stack stores a comma-separated list of values of the form
-% {chain hint}/{group hint} of all parent graph specifications.
-% 
-% For both the chain hints and the group hints, whenever they are
-% reset at the beginning of a chain or group, they are set to the
-% current values of hints/chain/initial and hints/group/initial,
-% respectively. 
+% The placmenet/place key is executed automatically whenever a new
+% node is automatically created. Furthermore, placement strategies
+% will call this key.
 
-\tikzset{graphs/hints/.cd,
-  last/.initial=,
-  last/update from node/.code=,
-  last/update from group/.code=,
-  chain/.initial=,
-  chain/initial/.initial=,
-  chain/update/.code=,
-  group/.initial=,
-  group/initial/.initial=,
-  group/update/.code=,
-  stack/.initial=,
-  place/.code=,
+\tikzset{graphs/placement/.cd,
+  compute position/.code=,
+  place/.code={%
+    \pgfkeys{/tikz/graphs/placement/compute position}%
+    \aftergroup\tikz@lib@graph@reset@locals%
+    \pgfkeyssetvalue{/tikz/graphs/placement/element count}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/chain count}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/depth}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/width}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/local depth}{0}%
+    \pgfkeyssetvalue{/tikz/graphs/placement/local width}{0}%
+  },
+  element count/.initial=0,
+  chain count/.initial=0,
+  depth/.initial=0,
+  width/.initial=0,
+  logical node depth/.code=\def\pgfmathresult{1},
+  logical node width/.code=\def\pgfmathresult{1},
+}
+
+\def\tikz@lib@graph@reset@locals{%
+  \gdef\tikz@lib@graph@group@depth{0}%
+  \gdef\tikz@lib@graph@group@width{0}%
 }
 
 
-
-% A grid-based placement strategy 
+% Arrange nodes evenly 
 % 
 % This strategy works as follows: You specify a "chain shift vector"
 % and a "group shift vector". Then each new element on a chain is
@@ -959,73 +1034,23 @@
 % on the chain. Similarly for each new element of a group. 
 
 \tikzset{graphs/.cd,
-  grid placement/.style={
-    hints/last/update from node/.code={
-      \pgfkeyssetvalue{/tikz/graphs/hints/last}{1/1}
-      % A single node has logical unit height and width.
-    },
-    hints/last/update from group/.code={
-      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@temp
-      \pgfkeyslet{/tikz/graphs/hints/last}\tikz@temp      
-    },
-    hints/chain/initial=0/0,
-    hints/chain/update/.code={
-      \pgfkeysgetvalue{/tikz/graphs/hints/last}\tikz@lib@graph@hint@last
-      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
-      \expandafter\expandafter\expandafter%
-      \tikz@lib@graph@chain@hint@up\expandafter\tikz@lib@graph@hint@last\expandafter/\tikz@lib@graph@chain@last\relax%
-    },
-    hints/group/initial=0/0,
-    hints/group/update/.code={
-      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
-      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@lib@graph@group@last
-      \expandafter\expandafter\expandafter%
-      \tikz@lib@graph@group@hint@up\expandafter\tikz@lib@graph@chain@last\expandafter/\tikz@lib@graph@group@last\relax%
-    },
-    hints/place/.code={%
-      \pgfkeysgetvalue{/tikz/graphs/hints/stack}\tikz@temp%
-      \expandafter\tikz@lib@graph@place@group@grid\tikz@temp\relax%
-      \pgfkeysgetvalue{/tikz/graphs/hints/chain}\tikz@lib@graph@chain@last
-      \pgfkeysgetvalue{/tikz/graphs/hints/group}\tikz@lib@graph@group@last
-      \expandafter\expandafter\expandafter%
-      \tikz@lib@graph@grid@place\expandafter\tikz@lib@graph@chain@last\expandafter/\tikz@lib@graph@group@last\relax%
-    }
+  evenly spaced/.style={
+    placement/place,
+    placement/compute position/.code=\tikz@lib@graph@linear@pos%
   },
-  chain shift/.initial={(0,1)},
-  group shift/.initial={(1,0)}
+  chain shift/.initial={(1,0)},
+  group shift/.initial={(0,-1)},
 }
 
-\def\tikz@lib@graph@chain@hint@up#1/#2/#3/#4\relax{%
-  \c@pgf@counta=#3\relax%
-  \advance\c@pgf@counta by#1\relax%
-  \c@pgf@countb=#4\relax%
-  \ifnum\c@pgf@countb<#2\relax%
-    \c@pgf@countb=#2\relax%
-  \fi%
-  \edef\tikz@temp{\the\c@pgf@counta/\the\c@pgf@countb}%
-  \pgfkeyslet{/tikz/graphs/hints/chain}\tikz@temp%
-}
-
-\def\tikz@lib@graph@group@hint@up#1/#2/#3/#4\relax{%
-  \c@pgf@counta=#3\relax%
-  \ifnum\c@pgf@counta<#1\relax%
-    \c@pgf@counta=#1\relax%
-  \fi%
-  \c@pgf@countb=#4\relax%
-  \advance\c@pgf@countb by#2\relax%
-  \edef\tikz@temp{\the\c@pgf@counta/\the\c@pgf@countb}%
-  \pgfkeyslet{/tikz/graphs/hints/group}\tikz@temp%
-}
-
-\def\tikz@lib@graph@grid@place#1/#2/#3/#4\relax{%
+\def\tikz@lib@graph@linear@pos{%
   \pgfkeysgetvalue{/tikz/graphs/chain shift}\tikz@temp
   \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp
-  \pgf@process{\pgfpointscale{#1}{}}%
+  \pgf@process{\pgfpointscale{\pgfkeysvalueof{/tikz/graphs/placement/width}}{}}%
   \pgf@xa=\pgf@x%
   \pgf@ya=\pgf@y%
   \pgfkeysgetvalue{/tikz/graphs/group shift}\tikz@temp
   \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp
-  \pgf@process{\pgfpointscale{#4}{}}%
+  \pgf@process{\pgfpointscale{\pgfkeysvalueof{/tikz/graphs/placement/depth}}{}}%
   \advance\pgf@xa by\pgf@x%
   \advance\pgf@ya by\pgf@y%
   \edef\tikz@lib@graph@shift{(\the\pgf@xa,\the\pgf@ya)}
@@ -1033,13 +1058,66 @@
 }
 
 
-\def\tikz@lib@graph@place@group@grid{%
-  \pgfutil@ifnextchar\relax{\pgfutil@gobble}{\tikz@lib@graph@place@group@grid@cont}%
+
+% Circular arrangements 
+% 
+% This strategy works a bit like the arrange evenly strategy, but in
+% polar coordinates. Both for the chains and the groups you specify a
+% polar shift, which must be in the form "(delta degree:delta
+% distance)". For each element in a chain, the delta degree is added
+% to the chain degree, likewise for each element the delta distance is
+% added. Similarly for groups.
+% 
+% There is an initial degree and radius, stored in the key "phase" and
+% "radius".
+
+\tikzset{graphs/.cd,
+  circular/.style={
+    placement/place,
+    placement/compute position/.code=\tikz@lib@graph@circular@pos%
+  },
+  clockwise/.style={
+    circular,
+    group polar shift/.initial={(-360/#1:0)}
+  },
+  clockwise/.default=\tikz@lib@graph@node@n,
+  counterclockwise/.style={
+    circular,
+    group polar shift/.initial={(360/#1:0)}
+  },
+  counterclockwise/.default=\tikz@lib@graph@node@n,
+  chain polar shift/.initial={(0:1cm)},
+  group polar shift/.initial={(60:0)},
+  n/.store in=\tikz@lib@graph@node@n,
+  n=1,
+  m/.store in=\tikz@lib@graph@node@m,
+  m=1,
+  radius/.initial=1cm,
+  phase/.initial=90,
 }
 
-\def\tikz@lib@graph@place@group@grid@cont,#1/#2{%
-  \tikz@lib@graph@grid@place#1/#2\relax%
-  \tikz@lib@graph@place@group@grid%
+\def\tikz@lib@graph@circular@pos{%
+  \pgfkeysgetvalue{/tikz/graphs/chain polar shift}\tikz@temp
+  \expandafter\tikz@lib@graph@decompose@polar\tikz@temp%
+  \pgf@process{\pgfpointscale{\pgfkeysvalueof{/tikz/graphs/placement/width}}{}}%
+  \pgf@xa=\pgf@x%
+  \pgf@ya=\pgf@y%
+  \pgfkeysgetvalue{/tikz/graphs/group polar shift}\tikz@temp
+  \expandafter\tikz@lib@graph@decompose@polar\tikz@temp%
+  \pgf@process{\pgfpointscale{\pgfkeysvalueof{/tikz/graphs/placement/depth}}{}}%
+  \advance\pgf@xa by\pgf@x%
+  \advance\pgf@ya by\pgf@y%
+  \pgfmathparse{\pgfkeysvalueof{/tikz/graphs/radius}}%
+  \advance\pgf@ya by\pgfmathresult pt%
+  \pgfmathsetmacro\tikz@temp{\the\pgf@xa+\pgfkeysvalueof{/tikz/graphs/phase}}%
+  \edef\tikz@lib@graph@shift{(\tikz@temp:\the\pgf@ya)}
+  \pgfkeys{/tikz/graphs/nodes/.expanded={shift={\tikz@lib@graph@shift}}}
+}
+
+
+\def\tikz@lib@graph@decompose@polar(#1:#2){%
+  \pgfmathsetlength\pgf@x{#1}%
+  \pgfmathsetlength\pgf@y{#2}%
 }
 
 
