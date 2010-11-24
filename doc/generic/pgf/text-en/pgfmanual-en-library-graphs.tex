@@ -25,10 +25,11 @@ in a graph are connected by edges and arcs: The |graph| path
 command, which becomes available when you load the |graph| library.
 
 In this section, by \emph{graph} we refer to a set of nodes together
-with some edges such as the following:
+with some edges (sometimes also called arcs, in case they are
+directed) such as the following:
 
 \begin{codeexample}[]
-\tikz \graph [nodes={draw, circle}] { K_n [n=5, clockwise] };
+\tikz \graph { a -> {b, c} -> d };  
 \end{codeexample}
 
 \begin{codeexample}[]
@@ -40,19 +41,7 @@ with some edges such as the following:
 \begin{codeexample}[]
 \tikz
   \graph [nodes={draw, circle}, clockwise, radius=.75cm, typeset=, n=8]
-  { C_n [name=inner] -- C_n [name=outer] };
-\end{codeexample}
-
-
-\begin{codeexample}[]
-\tikz [x=8mm, y=6mm, font=\footnotesize, circle]
-  \graph [nodes={fill=blue!70, text=white}, typeset=, n=8, evenly spaced] {
-    I_n [name=A] -- [join = {butterfly={level=4}}]
-    I_n [name=B] -- [join = {butterfly={level=2}}]
-    I_n [name=C] -- [join = butterfly]
-    I_n [name=D] -- 
-    I_n [name=E]  
-  };
+  { C_n [name=inner] <-> [shorten <=1pt, shorten >=1pt] C_n [name=outer] };
 \end{codeexample}
 
 The nodes of a graph are normal \tikzname\ nodes, the edges are
@@ -60,9 +49,9 @@ normal lines drawn between nodes. There is nothing in the |graph|
 library that you cannot do using the normal |\node| and the |edge|
 command. Rather, its purpose is to offer a concise and powerful way of
 \emph{specifying} which nodes are present 
-and how they are connected. The |graph| library makes little attempt
-at trying to ``layout'' the graph in some pretty way, its main
-strength is in specifying which nodes and edges are present in
+and how they are connected. The |graph| library only offers simple
+methods for specifying \emph{where} the nodes should be shown, its
+main strength is in specifying which nodes and edges are present in 
 principle. 
 
 The |graph| library uses a syntax that is quite different from the
@@ -72,11 +61,215 @@ specify all the nodes using |\node| repeatedly and then using a great
 number of |edge| command; possibly with complicated |\foreach|
 statements. Instead, the syntax of the |graph| library is loosely
 inspired by the \textsc{dot} format, which is quite useful for
-specifying medium-sized graphs.
+specifying medium-sized graphs, with some extensions on top.
 
 
 
+\subsection{Concepts}
 
+The present section aims at giving a quick overview of the main
+concepts behind the |graph| command. The exact syntax is explained in
+more detail in later sections.
+
+
+\subsubsection{Node Chains}
+
+The basic way of specifying a graph is to write down a \emph{node
+  chain} as in the following example: 
+
+\begin{codeexample}[]
+\tikz [every node/.style = draw]
+  \graph { foo -> bar -> blub };  
+\end{codeexample}
+
+As can be seen, the text |foo -> bar -> my node| creates three nodes,
+one with the text |foo|, one with |bar| and one with the text
+|blub|. These nodes are connected by arrows, which are caused by
+the |->| between the node texts. Such a sequence of node texts and
+arrows between them is called a \emph{chain} in the following. 
+
+Inside a graph there can be more than one chain:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a -> b -> c;
+  d -> e -> f;
+  g -> f;
+};  
+\end{codeexample}
+
+Multiple chains are separated by a semicolon or a comma (both have
+exactly the same effect). As the example shows, when a node text is
+seen for the second time, instead of creating a new node, a connection
+is created to the already existing node.
+
+When a node like |f| is created, both the node name and the node text
+are identical by default. This is not always desirable and can be
+changed by using the |as| key:
+
+\begin{codeexample}[]
+\tikz \graph {
+  x1 [as=$x_1$] -> x2 [as=$x_2$, red] -> x3 [as=$x_3$];
+  x1 -> [bend left] x3;
+};  
+\end{codeexample}
+
+
+\subsubsection{Chain Groups}
+
+Multiple chains that are separated by a semicolon or a comma and that
+are surrounded by curly braces form what will be called a \emph{chain
+  group} or just a \emph{group}. A group in itself has no special
+effect. However, things get interesting when you write down a node or
+even a whole group and connect it to another group. In this case, the
+``exist points'' of the first node or group get connected to the
+``entry points'' of the second node or group:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a -> {
+    b -> c,
+    d -> e
+  }
+};  
+\end{codeexample}
+
+Chain groups make it easy to create tree structures:
+
+\begin{codeexample}[]
+\tikz \graph [grow down, branch right=2.5cm] {
+  root -> {
+    child 1,
+    child 2 -> {
+      grand child 1,
+      grand child 2
+    },
+    child 3 -> {
+      grand child 3
+    }
+  }
+};
+\end{codeexample}
+
+As can be seen, the placement is not particularly nice by default, but
+may suffice in some situations.
+
+
+\subsubsection{Node Sets}
+
+When you write down some node text inside a |graph| command, a new
+node is created by default unless this node has already been created
+inside the same |graph| command. In particular, if a node has
+already been declared outside of the current |graph| command, a new
+node of the same name gets created.
+
+This is not always the desired behaviour. Often, you may wish to make
+nodes part of a graph than have already been defined prior to the use
+of the |graph| command. For this, simply surround a node name by
+parentheses. This will cause a reference to be created to an already
+existing node:
+
+\begin{codeexample}[]
+\tikz {
+  \node (a) at (0,0) {A};
+  \node (b) at (1,0) {B};
+  \node (c) at (2,0) {C};
+  
+  \graph { (a) -> (b) -> (c) };
+}
+\end{codeexample}
+
+You can even go a step further: A whole collection of nodes can all be
+flagged to belong to a \emph{node set} by adding the option
+|set=|\meta{node set name}. Then, inside a |graph| command, you can
+collectively refer to these nodes by surrounding the node set name in
+parentheses: 
+
+\begin{codeexample}[]
+\tikz [new set=my nodes] {
+  \node [set=my nodes, circle,    draw] at (1,1)   {A};
+  \node [set=my nodes, rectangle, draw] at (1.5,0) {B};
+  \node [set=my nodes, diamond,   draw] at (1,-1)  {C};
+  \node (d)           [star,      draw] at (3,0)   {D};
+
+  \graph { X -> (my nodes) -> (d) };
+}
+\end{codeexample}
+
+
+\subsubsection{Graph Macros}
+
+Often, a graph will consist -- at least in parts -- of standard
+parts. For instance, a graph might contain a cycle of certain size or
+a path or a clique. To facilitate specifying such graphs, you can
+define a \emph{graph macro}. Once a graph macro has been defined, you
+can use the name of the graph make a copy of the graph part of the
+graph currently being specified:
+
+\begin{codeexample}[]
+\tikz \graph { K_n [n=6, clockwise] };
+\end{codeexample}
+
+\begin{codeexample}[]
+\tikz \graph { C_n [n=5, clockwise] -> mid };
+\end{codeexample}
+
+The library |graphs.standard| defines a number of such graphs,
+including the complete clique $K_n$ on $n$ nodes, the complete
+bipartite graph $K_{n,m}$ with shores sized $n$ and $m$, the cycle
+$C_n$ on $n$ nodes, the path $P_n$ on $n$ nodes, and the independent
+set $I_n$ on $n$ nodes.
+
+
+\subsubsection{Color Classes}
+
+When a graph is being constructed using the |graph| command, the nodes
+of the graph are implicitly \emph{colored} (conceptually) and you can
+also explicitly assign colors to individual nodes and even change the
+colors as the graph is being specified. All nodes having the same
+color form what is called a \emph{color class}.
+
+The power of color class is that special \emph{connector keys} allow
+you to add edges between nodes having certain colors. For instance,
+saying |connect as = {clique=red}| at the beginning of a group will
+cause all nodes that have been flagged as being (conceptually) ``red''
+to be connected as a clique. Similarly, saying
+|connect as = {bipartite={red}{green}}| will cause edges to be added
+between all red and all green nodes. More advanced connectors, like
+the |butterfly| connector, allow you to add edges between color
+classes in a fancy manner.
+
+
+\begin{codeexample}[]
+\tikz [x=8mm, y=6mm, font=\footnotesize, circle]
+  \graph [nodes={fill=blue!70, text=white}, typeset=, n=8] {
+    I_n [name=A] -- [join = {butterfly={level=4}}]
+    I_n [name=B] -- [join = {butterfly={level=2}}]
+    I_n [name=C] -- [join = butterfly]
+    I_n [name=D] -- 
+    I_n [name=E]  
+  };
+\end{codeexample}
+
+
+\subsection{The Graph Path Command}
+
+To be written...
+
+
+\subsection{Color Classes}
+
+To be written...
+
+
+\subsection{Graph Macros}
+
+To be written...
+
+
+\subsection{Reference: Standard Library}
+
+To be written...
 
 %%% Local Variables: 
 %%% mode: latex
