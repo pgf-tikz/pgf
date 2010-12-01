@@ -272,9 +272,13 @@ you could also use a command like, say, |plot| or |--|.
   When this command is encountered on a path, the construction of the
   current path is suspended (similarly to an |edge| command or a
   |node| command). In a local scope, the \meta{options} are first
-  executed with the key path |/tikz/graphs|. Apart from the keys
-  explained in the following, further premissible keys will
-  be listed during the course of the rest of this section.
+  executed with the key path |/tikz/graphs| using the following
+  command:
+  \begin{command}{\tikzgraphsset\marg{options}}
+    Executes the \meta{options} with the path prefix |/tikz/graphs|.    
+  \end{command}
+  Apart from the keys explained in the following, further permissible
+  keys will be listed during the course of the rest of this section.
 
   \begin{stylekey}{/tikz/graphs/every graph}
     This style is executed at the beginning of every |graph| path
@@ -970,10 +974,6 @@ specified by starting with small graphs and then applying
 \emph{operators} to them that form larger graphs and that connect and
 recolor colored subsets of the graph's node in different ways. 
 
-In the following, color classes and graph operators are first
-explained in an informal way. Interested readers will find a more
-formal treatment of graph expressions at the end of this section.
-
 
 \subsubsection{Color Classes}
 
@@ -1053,38 +1053,562 @@ following key:
   \end{key}
 \end{key}
 
+The following color classes are available by default:
+\begin{itemize}
+\item 
+  Color class |all|. Every node is part of this class by default. This
+  is useful to access all nodes of a (sub)graph, since you can simply
+  access all nodes of this color class. 
+\item
+  Color classes |source| and |target|. These classes are used to
+  identify nodes that lead ``into'' a group of nodes and nodes from
+  which paths should ``leave'' the group. Details on how these colors
+  are assigned are explained in
+  Section~\ref{section-library-graphs-join}. By saying |not source| or
+  |not target| with a node, you can influence how it is connected:
+  \begin{codeexample}[]
+\tikz \graph { a -> { b, c, d } -> e };    
+  \end{codeexample}
+  \begin{codeexample}[]
+\tikz \graph { a -> { b[not source], c, d[not target] } -> e };    
+  \end{codeexample}
+\item
+  Color classes |source'| and |target'|. These are temporary colors
+  that are also explained in
+  Section~\ref{section-library-graphs-join}.
+\end{itemize}
 
 
-\subsubsection{Simple Graph Operators}
 
-Graph operators are applied to the nodes of a set of nodes. As
-explained in 
-Section~\ref{section-library-graphs-node-spec}, you can form such a
-set by forming a group of nodes, which is nodes surrounded by curly
-braces. Also, when you \emph{connect} two groups by putting on of the
-five possible edge specification |--|, |<-|, |->|, |<->|, or |-!-|
-between them, a larger set of nodes results. In all these cases, you
-can apply a graph operator to the set.
+\subsubsection{Graph Operators on Groups of Nodes}
 
-\begin{key}{/tikz/graphs/operator}
-  To be written...
+Recall that the |graph| command constructs graphs recursively from
+nested \meta{group specifications}. Each such \meta{group
+  specification} describes a subset of the nodes of the final graph. A
+\emph{graph operator} is an algorithm that gets the nodes of a group
+as input and (typically) adds edges between these nodes in some
+sensible way. For instance, the |clique| operator will simply add
+edges between all nodes of the group.
+
+\begin{key}{/tikz/graphs/operator=\meta{code}}
+  This key has an effect in three places:
+  \begin{enumerate}
+  \item It can be used in the \meta{options} of a \meta{direct node specification}.
+  \item It can be used in the \meta{options} of a \meta{group
+      specification}.
+  \item It can be used in the \meta{options} of an \meta{edge specification}.
+  \end{enumerate}
+  The first case is a special case of the second, since it is treated
+  like a group specification containing a single node. The last case
+  is more complicated and discussed in the next section.
+  So, let us focus on the second case.
+
+  Even though the \meta{options} of a group are given at the beginning
+  of the \meta{group specification}, the \meta{code} is only executed
+  when the group has been parsed completely and all its nodes have
+  been identified. If you use the |operator| multiple times in the
+  \meta{options}, the effect accumulates, that is, all code passed to
+  the different calls of |operator| gets executed in the order it is
+  encountered. 
+
+  The \meta{code} can do ``whatever it wants,'' but it will typically
+  add edges between certain nodes. You can configure what kind of
+  edges (directed, undirected, etc.) are created by using the
+  following keys:
+  \begin{key}{/tikz/graphs/default edge kind=\meta{value} (initially --)}
+    This key stores one of the five edge kinds |--|, |<-|, |->|,
+    |<->|, and |-!-|. When an operator wishes to create a new edge, it
+    should typically set
+    \begin{codeexample}[code only]
+\tikzgraphsset{new \pfkeysvalueof{/tikz/graphs/default edge kind}=...}      
+    \end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/graphs/--}
+    Sets the |default edge kind| to |--|.
+\begin{codeexample}[]
+\tikz \graph { subgraph K_n [--, n=5, clockwise, radius=6mm] };      
+\end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/graphs/->}
+    Sets the |default edge kind| to |->|.
+\begin{codeexample}[]
+\tikz \graph { subgraph K_n [->, n=5, clockwise, radius=6mm] };      
+\end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/graphs/<-}
+    Sets the |default edge kind| to |<-|.
+\begin{codeexample}[]
+\tikz \graph { subgraph K_n [<-, n=5, clockwise, radius=6mm] };      
+\end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/graphs/<->}
+    Sets the |default edge kind| to |<->|.
+\begin{codeexample}[]
+\tikz \graph { subgraph K_n [<->, n=5, clockwise, radius=6mm] };      
+\end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/graphs/-!-}
+    Sets the |default edge kind| to |-!-|.
+  \end{key}
+  
+  When the \meta{code} of an operator is executed, the following
+  commands can be used to find the nodes that should be connected:
+  \begin{command}{\tikzlibgraphforeachcolorednode\marg{color name}\marg{macro}}
+    When this command is called inside \meta{code}, the following will
+    happen: \tikzname\ will iterate over all nodes inside the
+    just-specified group that have the color \meta{color name}. The
+    order in which they are iterated over is the order in which they
+    appear inside the group specification (if a node is encountered
+    several times inside the specification, only the first occurrence
+    counts). Then, for each node the \meta{macro} is executed with the
+    node's name as the only argument.
+
+    In the following example we use an operator to connect every
+    node colored |all| inside the subgroup to he node |root|. 
+    \begin{codeexample}[]
+\def\myconnect#1{\tikzset{graphs/new ->={root}{#1}{}{}}}      
+
+\begin{tikzpicture}
+  \node (root) at (-1,-1) {root};
+  
+  \graph {
+    x,
+    {
+      [operator=\tikzlibgraphforeachcolorednode{all}{\myconnect}]
+      a, b, c
+    }
+  };
+\end{tikzpicture}
+    \end{codeexample}
+  \end{command}
+  
+  \begin{command}{\tikzlibgraphpreparecolor\marg{color
+        name}\marg{counter}\marg{prefix}}
+    This command is used to ``prepare'' the nodes of a certain color
+    for random access. The effect is the following: It is counted how
+    many nodes there are having color \meta{color name} in the current
+    group and the result is stored in \meta{counter}. Next, macros
+    named \meta{prefix}|1|, \meta{prefix}|2|, and so on are defined,
+    that store the names of the first, second, third, and so on node
+    having the color \meta{color name}.
+
+    The net effect is that after you have prepared a color, you can
+    quickly iterate over them. This is especially useful when you
+    iterate over several color at the same time.
+
+    As an example, let us create an operator then adds a zig-zag path
+    between two color classes:
+    \begin{codeexample}[]
+\newcount\leftshorecount   \newcount\rightshorecount
+\newcount\mycount          \newcount\myothercount
+\def\zigzag{
+  \tikzlibgraphpreparecolor{left shore}\leftshorecount{left shore prefix}
+  \tikzlibgraphpreparecolor{right shore}\rightshorecount{right shore prefix}
+  \mycount=0\relax
+  \loop
+    \advance\mycount by 1\relax%
+    % Add the "forward" edge
+    \tikzgraphsset{new ->=
+      {\csname left shore prefix\the\mycount\endcsname}
+      {\csname right shore prefix\the\mycount\endcsname}{}{}}
+    \myothercount=\mycount\relax%
+    \advance\myothercount by1\relax%
+    \tikzgraphsset{new <-=
+      {\csname left shore prefix\the\myothercount\endcsname}
+      {\csname right shore prefix\the\mycount\endcsname}{}{}}    
+  \ifnum\myothercount<\leftshorecount\relax
+  \repeat
+}
+\begin{tikzpicture}
+  \graph [color class=left shore, color class=right shore]
+  { [operator=\zigzag]
+    { [left shore, even shifts]                        a, b, c },
+    { [right shore, even shifts, nodes={xshift=1cm}]   d, e, f }
+  };
+\end{tikzpicture}
+\end{codeexample}
+    Naturally, in order to turn the above code into a usable operator,
+    some more code would be needed (like default values and taking
+    care of shores of different sizes).
+  \end{command}
 \end{key}
 
-\subsubsection{Joining Graph Operators}
+There are a number of predefined operators, like |clique| or |cycle|,
+see the reference Section~\ref{section-library-graphs-reference} for a
+complete list.
 
-\begin{key}{/tikz/graphs/default edge operator}
-  To be written...
-\end{key}
-\begin{key}{/tikz/graphs/default edge kind}
-  To be written...
-\end{key}
+
+
+\subsubsection{Graph Operators for Joining Groups}
+\label{section-library-graphs-join}
+
+When you join two nodes |foo| and |bar| by the edge specification
+|->|, it is fairly obvious, what should happen: An edge from |(foo)|
+to |(bar)| should be created. However, suppose we use an edge
+specification between two node sets like |{a,b,c}| and |{d,e,f}|. In
+this case, it is not so clear which edges should be created. One might
+argue that all possible edges from any node in the first set to any node
+in the second set should be added. On the other hand, one might also
+argue that only a matching between these two sets should be
+created. Things get even more muddy when a longer chain of node sets
+are joined.
+
+Instead of fixing how edges are created between two node sets,
+\tikzname\ takes a somewhat more general, but also more complicated
+approach, which can be broken into two parts. In the following, assume
+that the following chain specification is given:
+\begin{quote}
+  \meta{spec$_1$} \meta{edge specification} \meta{spec$_2$}
+\end{quote}
+An example might be |{a,b,c} -> {d, e->f}|.
+
+\medskip
+\textbf{The source and target vertices.} Let us start with the
+question of which vertices of the first node set should be connected to
+vertices in the second node set.
+
+There are two predefined special color classes that are used for this:
+|source| and |target|. For every group specification, some vertices
+are colored as |source| vertices and some vertices are |target|
+vertices (a node can both be a target and a source). Initially, every
+vertex is both a source and a target, but that can change as we will
+see in a moment.
+
+The intuition behind source and target vertices is that, in some
+sense, edges ``from the outside'' lead into the group via the source
+vertices and lead out of the group via the target vertices. To be more
+precise, the following happens:
+\begin{enumerate}
+\item The target vertices of the first group are connected to
+  the source vertices of the second group.
+\item In the group resulting from the union of the nodes from
+  \meta{spec$_1$} and \meta{spec$_2$}, the source vertices are only
+  those from the first group, and the target vertices are only those
+  from the second group.
+\end{enumerate}
+
+Let us go over the effect of these rules for the example
+|{a,b,c} -> {d, e->f}|. First, each individual node is initially both
+a |source| and a |target| vertex. Then, in |{a,b,c}| all nodes are
+still both source and target vertices since just grouping vertices
+does not change their colors. Now, in |e->f| something interesting
+happens for the first time: the target vertices of the ``group'' |e|
+(which is just the node |e|) are connected to the source vertices of
+the ``group'' |f|. This means, that an edge is added from |e| to
+|f|. Then, in the resulting group |e->f| the only source vertex is |e|
+and the only target vertex is |f|. This implies that in the group
+|{d,e->f}| the sources are |d| and |e| and the targets are |d| and~|f|.
+
+Now, in |{a,b,c} -> {d,e->f}| the targets  of |{a,b,c}| (which are all
+three of them) are connected to the sources of |{d,e->f}| (which are
+just |d| and~|e|). Finally, in the whole graph only |a|, |b|, and |c|
+are sources while only  |d| and |f| are targets.
+
+\begin{codeexample}[]
+\def\hilightsource#1{\fill [green, opacity=.25] (#1) circle [radius=2mm]; }  
+\def\hilighttarget#1{\fill [red,   opacity=.25] (#1) circle [radius=2mm]; }  
+\tikz \graph
+  [operator=\tikzlibgraphforeachcolorednode{source}{\hilightsource},
+   operator=\tikzlibgraphforeachcolorednode{target}{\hilighttarget}]
+  { {a,b,c} -> {d, e->f} };
+\end{codeexample}
+
+The next objective is to make more precise what it means that ``the
+targets of the first graph'' and the ``sources of the second graph''
+should be connected. We know already of a general way of connecting
+nodes of a graph: operators! Thus, we use an operator for this job.
+For instance, the |bipartite| operator adds an edge from every node
+having a certain color to every node have a certain other color. This
+is exactly what we need here: The first color is ``the color |target|
+restricted to the nodes of the first graph'' and the second color is
+``the color |source| restricted to the nodes of the second graph.''
+
+However, we cannot really specify that only nodes from a certain
+subgraph are meant -- the |operator| machinery only operates on all
+nodes of the current graph. For this reason, what really happens is
+the following: When the |graph| command encounters \meta{spec$_1$}
+\meta{edge specification} \meta{spec$_2$}, it first computes and
+colors the nodes of the first and the second specification
+independently. Then, the |target| nodes of the first graph are
+recolored to |target'| and the |source| nodes of the second graph are
+recolored to |source'|. Then, the two graphs are united into one
+graph and a \emph{joining operator} is executed, which should add
+edges between |target'| and |source'|. Once this is done, 
+the colors |target'| and |source'| get erased. Note that in the
+resulting graph only the |source| nodes from the first graph are still
+|source| nodes and likewise for the |target| nodes of the second graph.
+
+
+\medskip
+\textbf{The joining operators.} The job of a joining operator is
+to add edges between nodes colored |target'| and |source'|. The
+following rule is used to determine which operator should be chosen
+for performing this job:
+\begin{enumerate}
+\item If the \meta{edge specification} explicitly sets the |operator|
+  key to something non-empty (and also not to |\relax|), then the
+  \meta{code} of this |operator| call is used.
+\item Otherwise, the current value of the following key is used: 
+  \begin{key}{/tikz/graphs/default edge operator=\meta{key}}
+    This key stores the name of a \meta{key} that is executed for every
+    \meta{edge specification} whose \meta{options} do not contain the
+    |operator| key.
+\begin{codeexample}[]
+\tikz \graph [default edge operator=matching] {
+  {a, b}    ->[flow]
+  {c, d, e} --[bipartite]
+  {f, g, h} -- 
+  {i, j, k}
+};    
+\end{codeexample}
+  \end{key}
+\end{enumerate}
+
+A typical joining operator is |bipartite|. It takes the names of two
+color classes as input and adds edges from all vertices of the first
+class to all vertices of the second class. Now, the trick is that the
+default value for the |bipartite| key is |{target'}{source'}|. Thus,
+if you just write |->[bipartite]|, the same happens as if you had
+written |->[bipartite={target'}{source'}]| -- which is exactly what we
+want to happen. The same default values are also set for other
+joining operators like |matching| or |butterfly|.
+
+Note that even though an operator like |bipartite| is typically used
+together with an edge specification, it can also be used as a normal
+operator together with a group specification. In this case, however,
+the color classes must be named explicitly:
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \graph [color class=red, color class=green, math nodes]
+  { [bipartite={red}{green}]
+    { [red,   even shifts]                      r_1, r_2, r_3 },
+    { [green, even shifts, nodes={xshift=1cm}]  g_1, g_2, g_3 }
+  };
+\end{tikzpicture}
+\end{codeexample}
+
+A list of predefined joining operators can be found in the reference
+Section~\ref{section-library-graphs-reference}.
+
+Note that when the joining operator is executed for an \meta{edge
+  specification}, the value of |default edge kind| will be temporarily
+be set to the value of the \meta{edge specification}, 
+
+
+% \subsubsection{Advanced: Semantics of Graph Specifications}
+
+% \label{section-library-graphs-semantics}
+
+% In the present section I describe the semantics of graph
+% specifications on a more formal level. If you are not a graph
+% theoretician, you may wish to skip this section. If you are a graph
+% theoretician, enjoy.
+
+% The graphs that the |graph| library handles are ``ordered
+% multi-colored multi-graphs.'' Formally, we fix set $C$ of colors. Then
+% in the following by ``graph'' we refer to a tuple consisting of:
+% \begin{enumerate}
+% \item A (finite) vertex set $V$.
+% \item A set of edges $E$ together with a type function $\tau \colon E
+%   \to \{ \leftarrow, \rightarrow,\leftrightarrow,-, \neg\}$ and two
+%   mappings $s \colon E \to V$ and $t \colon E \to V$ assigning a start
+%   and an end to each edge.
+% \item For each color $i \in C$ a set $C_i \subseteq V$ of nodes
+%   colored by $i$ (called the \emph{color class} $C_i$).
+% \item A total ordering $<$ of $V$.
+% \end{enumerate}
+
+% The first three parts of the tuple are fairly standard, except perhaps
+% for the type function $\tau$ that is used to tell us how the edge
+% should be rendered (the ``kind $\neg$'' is used typically rendered as
+% ``no edge,'' but formally it is just another type). Note that a graph
+% node can have several different colors at the same time; you may also
+% think of the colors as predicates. 
+
+% Given two (or more) graphs over the same vertex set~$V$, their union
+% is defined in the obvious way by taking the disjoint union of their
+% edge sets (recall that we consider multi-graphs) and joining the color
+% classes. 
+
+% A \emph{graph expression} is a term $t$ over a certain set of
+% operators and atomic expressions. Every such term \emph{evaluates} to
+% a graph~$G$, and we write $G(t)$ for the graph that $t$
+% evaluates to. First, for a set $V$ of nodes together with a total
+% ordering $<$ on $V$, let $\nu(V,<)$ be the
+% atomic expression that evaluates to the graph $G(\nu(V, <))$ whose
+% vertex set is $V$, whose edge set and color classes are empty, and
+% whose total ordering is~$<$. Second, let $X$ be an $n$-ary
+% function that takes $n$ graphs and yields a new graph. Then for
+% $n$ graph expressions $t_1$ to $t_n$, let $\mu_X(t_1,\dots,t_n)$ also be
+% a graph expression. It is evaluated as follows:
+% $G\bigl(\mu_X(t_1,\dots,t_n)\bigr) = X\bigl(G(t_1),\dots, G(t_n)\bigr)$.
+
+% Let $\kappa_i^X$ be the function that takes a graph $G$ as input and
+% outputs the graph $G'$ that is identical to $G$ but with all nodes in
+% $X$ being colored by $i$, that is, $C_i'= C_i \cup X$. Similarly, let
+% $\bar \kappa_i^X$ be the function that maps $G$ to $G'$ with $C_i'=C_i
+% \setminus X$.
+
+% As the |graph| command parses its \meta{group specification}, it
+% builds a graph expression internally and evaluates it ``on the fly''
+% to a graph. The set of nodes $V$ is (conceptually, not
+% algorithmically) computed first: It is the set of all nodes names 
+% ``mentioned'' in the specification (this includes direct nodes and
+% also referenced nodes). The ordering $<$ is the ordering in which the
+% nodes are first encountered when the \meta{group specification} is
+% read sequentially.
+
+% With $V$ and $<$ fixed, the graph expression described below are
+% (conceptually) created as the specification is parsed. Then,
+% (conceptually) the expression is evaluated and the edges in the
+% resulting graph are then created using the keys
+% like |new ->|.
+
+% \begin{description}
+% \item[Direct node specification] The syntactic construct
+%   \meta{text}|[|\meta{options}|]| that corresponds to what was earlier
+%   called a \emph{direct} node specification corresponds to the 
+%   graph expression
+%   $$\mu_{\kappa_{\mathtt{all}}^{\{\meta{text}\}}}(\mu_{\kappa_{\mathtt{source}}^{\{\meta{text}\}}}(
+%   \mu_{\kappa_{\mathtt{target}}^{\{\meta{text}\}}}
+%   (\nu(V, <)))).$$ In other words, the graph expression evaluates to a
+%   graph in which there is exactly one node that is colored, namely the
+%   node \meta{name}, and this node has the three colors |all|,
+%   |source|, and |target|.
+
+%   The \meta{options} are largely ignored, except if the
+%   |operator=|\meta{op} key is used inside. In this case, 
+%   \begin{quote}
+%     \meta{text}|[|\meta{more options}|,operator=|\meta{$op_1$}%
+%     |, operator=|\meta{$op_2$}%
+%     |, |\dots|, operator=|\meta{$op_n$}|]|
+%   \end{quote}
+%   is mapped to the graph expression
+%   $\mu_{\meta{$op_n$}}\bigl(\dots\bigr(\mu_{\meta{$op_1$}}(t)\bigr)\dots\bigr)$,
+%   where $t$ is the expression from above.  
+% \item[Group specifications] The syntactic construct
+%   \begin{quote}
+%     |{[|\meta{more
+%         options}|, operator=|\meta{$op_1$}|, |\dots|, operator=|\meta{$op_n$}|] |
+%       \meta{$A_1$}|, |\dots|, |\meta{$A_m$}|}|
+%   \end{quote}
+%   is handled as follows: Let $t_1$ to $t_m$ be the graph expressions
+%   corresponding to $A_1$ to $A_m$. Then the resulting graph expression
+%   is 
+%   $$\mu_{\meta{$op_n$}}\bigl(\dots\mu_{\meta{$op_1$}}\bigr(\mu_{\cup}(t_1,\dots,t_m)\bigr)\dots\bigr).$$
+%   Typically, the operators \meta{$op_i$} will add edges between the nodes
+%   colored |all|. 
+% \item [Chain specifications]
+%   The syntactic construct
+%   \begin{quote}
+%     \meta{A} \meta{edge specification}|[|\meta{more
+%       options}|, operator=|\meta{$op_1$}|, |\dots|, operator=|\meta{$op_n$}|]|
+%     \meta{B}
+%   \end{quote}
+%   is handled as follows: Let $t$ and $t'$ be the graph expressions
+%   corresponding to \meta{A} and \meta{B}. Then the resulting graph
+%   expression is
+%   $$\mu_Y\bigl(\mu_{\meta{$op_n$}}\bigl(\dots\bigr(\mu_{\meta{$op_1$}}(\mu_X(t,t')\bigr)\dots\bigr)\bigr).$$
+%   Here, the operations $X$ and $Y$ work as follows:
+
+%   The function $X$ takes two graphs $G$ and $H$ as input. Then in $G$,
+%   the following \emph{recoloring} is performed: all
+%   nodes that used to be colored |target| get colored |target'| instead
+%   (no node is colored |target| afterward). In the
+%   graph $H$, all nodes that used to be colored |source| get colored
+%   |source'| instead. Then, the two graphs are united.
+
+%   The function $Y$ takes a graph and simply removes the colors
+%   |source'| and |target'|, that is, it is the concatenation  $\bar
+%   \kappa_{\mathtt{source'}}^V \circ 
+%   \kappa_{\mathtt{target'}}^V$.
+
+%   The net effect of all of the above is that the operators \meta{$op_i$}
+%   should add edges to their input graphs between nodes colored
+%   |target'| and |source'|.
+% \end{description}
+
+
+\subsection{Graph Macros}
+\label{section-library-graphs-macros}
+
+To be written...
+
+
+
+\subsection{Placement Strategies}
+\label{section-library-graphs-placement}
+
+To be written...
+
+
+\subsection{Reference: Predefined Elements}
+
+\label{section-library-graphs-reference}
+
+\begin{tikzlibrary}{graph.standard}
+  This library defines some additional graph macros and operators. 
+\end{tikzlibrary}
+
+
+\subsubsection{Subgraphs}
+
+
+\subsubsection{Joining Operators}
 
 \begin{key}{/tikz/graphs/bipartite}
-  To be written...
+  The |bipartite| connector simply adds edges
+  between \emph{all} nodes of the sets:
+\begin{codeexample}[]
+\tikz \graph { {a, b}       ->[bipartite]  {c, d, e} --[bipartite]
+               {g, h, i, j} --[bipartite]  k };    
+\end{codeexample}
+  To be continued...
 \end{key}
 \begin{key}{/tikz/graphs/induced bipartite}
   To be written...
 \end{key}
+\begin{key}{/tikz/graphs/matching}
+  The |matching| connector forms a maximum
+  \emph{matching} between the nodes of the two sets. The first node of
+  the first set is connected to the first node of 
+  the second set, the second node of the first set is connected to the
+  second node of the second set, and so on. If the sets have the same
+  size, what results is what graph theoreticians call a \emph{perfect
+    matching}, otherwise only a maximum, but not perfect matching
+  results. 
+\begin{codeexample}[]
+\tikz \graph { {a, b, c} ->[matching] {d, e, f} --[matching]
+               {g, h}    --[matching] {i, j, k} };    
+\end{codeexample}
+           To be continued...
+\end{key}
+\begin{key}{/tikz/graphs/flow}
+ The |flow| connector works like the |matching|
+  connector, only it behaves differently when the two to-be-connected
+  sets have different size. In this case, all the surplus nodes get
+  connected to the last node of the other set. This simple rule allows
+  for some powerful effects (since this connector is the default,
+  there is no need to add it here):
+  \begin{codeexample}[]
+\tikz \graph { a -> {b, c} -> {d, e} -- f};    
+  \end{codeexample}
+  The |flow| connector also makes it easy to create trees and
+  series-parallel graphs.
+  To be continued...
+\end{key}
+
+This following joining operator is defined in the |graphs.standard|
+library:  
+
+\begin{key}{/tikz/graphs/butterfly}
+  To be written...
+\end{key}
+
+
+\subsubsection{Group Operators}
+
 \begin{key}{/tikz/graphs/clique}
   To be written...
 \end{key}
@@ -1103,232 +1627,7 @@ can apply a graph operator to the set.
 \begin{key}{/tikz/graphs/independent set}
   To be written...
 \end{key}
-\begin{key}{/tikz/graphs/flow}
-  To be written...
-\end{key}
-\begin{key}{/tikz/graphs/matching}
-  To be written...
-\end{key}
 
-The following needs to be rewritten / modified...
-
-Section~\ref{section-library-graphs-node-spec} explained in detail,
-how you can configure the appearance of an edge created using the edge
-specification, but left it open, which nodes should be connected. If
-there are just a single left node and a single right node, the
-situation is pretty obvious, but if there are whole groups of nodes to
-the left and the right of an edge specification, the situation is more
-complex.
-
-What happens is the following: Whenever two sets of nodes need to be
-connected by edges, a \emph{connection operator} or just
-\emph{connector} is applied. This is, essentially, an algorithm that
-gets two lists of nodes and must then produce a list of edges between
-them. The two most important join connectors are the following:
-\begin{description}
-\item[Bipartite] The |bipartite| connector simply adds edges
-  between \emph{all} nodes of the sets:
-  \begin{codeexample}[]
-\tikz \graph { {a, b}       ->[bipartite]  {c, d, e} --[bipartite]
-               {g, h, i, j} --[bipartite]  k };    
-  \end{codeexample}
-\item[Matching] The |matching| connector forms a maximum
-  \emph{matching} between the nodes of the two sets. The first node of
-  the first set is connected to the first node of 
-  the second set, the second node of the first set is connected to the
-  second node of the second set, and so on. If the sets have the same
-  size, what results is what graph theoreticians call a \emph{perfect
-    matching}, otherwise only a maximum, but not perfect matching
-  results. 
-  \begin{codeexample}[]
-\tikz \graph { {a, b, c} ->[matching] {d, e, f} --[matching]
-               {g, h}    --[matching] {i, j, k} };    
-  \end{codeexample}
-\item[Flow] The |flow| connector works like the |matching|
-  connector, only it behaves differently when the two to-be-connected
-  sets have different size. In this case, all the surplus nodes get
-  connected to the last node of the other set. This simple rule allows
-  for some powerful effects (since this connector is the default,
-  there is no need to add it here):
-  \begin{codeexample}[]
-\tikz \graph { a -> {b, c} -> {d, e} -- f};    
-  \end{codeexample}
-  The |flow| connector also makes it easy to create trees and
-  series-parallel graphs.
-\end{description}
-
-You can set the to-be-used connector both globally as well as
-locally:
-
-\begin{codeexample}[]
-\tikz \graph [default edge operator=matching] {
-  {a, b}    ->[flow]
-  {c, d, e} --[bipartite]
-  {f, g, h} -- 
-  {i, j, k}
-};    
-\end{codeexample}
-
-
-
-
-
-
-\subsubsection{Advanced: Semantics of Graph Specifications}
-
-\label{section-library-graphs-semantics}
-
-In the present section I describe the semantics of graph
-specifications on a more formal level. If you are not a graph
-theoretician, you may wish to skip this section. If you are a graph
-theoretician, enjoy.
-
-The graphs that the |graph| library handles are ``ordered
-multi-colored multi-graphs.'' Formally, we fix set $C$ of colors. Then
-in the following by ``graph'' we refer to a tuple consisting of:
-\begin{enumerate}
-\item A (finite) vertex set $V$.
-\item A set of edges $E$ together with a type function $\tau \colon E
-  \to \{ \leftarrow, \rightarrow,\leftrightarrow,-, \neg\}$ and two
-  mappings $s \colon E \to V$ and $t \colon E \to V$ assigning a start
-  and an end to each edge.
-\item For each color $i \in C$ a set $C_i \subseteq V$ of nodes
-  colored by $i$ (called the \emph{color class} $C_i$).
-\item A total ordering $<$ of $V$.
-\end{enumerate}
-
-The first three parts of the tuple are fairly standard, except perhaps
-for the type function $\tau$ that is used to tell us how the edge
-should be rendered (the ``kind $\neg$'' is used typically rendered as
-``no edge,'' but formally it is just another type). Note that a graph
-node can have several different colors at the same time; you may also
-think of the colors as predicates. 
-
-Given two (or more) graphs over the same vertex set~$V$, their union
-is defined in the obvious way by taking the disjoint union of their
-edge sets (recall that we consider multi-graphs) and joining the color
-classes. 
-
-A \emph{graph expression} is a term $t$ over a certain set of
-operators and atomic expressions. Every such term \emph{evaluates} to
-a graph~$G$, and we write $G(t)$ for the graph that $t$
-evaluates to. First, for a set $V$ of nodes together with a total
-ordering $<$ on $V$, let $\nu(V,<)$ be the
-atomic expression that evaluates to the graph $G(\nu(V, <))$ whose
-vertex set is $V$, whose edge set and color classes are empty, and
-whose total ordering is~$<$. Second, let $X$ be an $n$-ary
-function that takes $n$ graphs and yields a new graph. Then for
-$n$ graph expressions $t_1$ to $t_n$, let $\mu_X(t_1,\dots,t_n)$ also be
-a graph expression. It is evaluated as follows:
-$G\bigl(\mu_X(t_1,\dots,t_n)\bigr) = X\bigl(G(t_1),\dots, G(t_n)\bigr)$.
-
-Let $\kappa_i^X$ be the function that takes a graph $G$ as input and
-outputs the graph $G'$ that is identical to $G$ but with all nodes in
-$X$ being colored by $i$, that is, $C_i'= C_i \cup X$. Similarly, let
-$\bar \kappa_i^X$ be the function that maps $G$ to $G'$ with $C_i'=C_i
-\setminus X$.
-
-As the |graph| command parses its \meta{group specification}, it
-builds a graph expression internally and evaluates it ``on the fly''
-to a graph. The set of nodes $V$ is (conceptually, not
-algorithmically) computed first: It is the set of all nodes names 
-``mentioned'' in the specification (this includes direct nodes and
-also referenced nodes). The ordering $<$ is the ordering in which the
-nodes are first encountered when the \meta{group specification} is
-read sequentially.
-
-With $V$ and $<$ fixed, the graph expression described below are
-(conceptually) created as the specification is parsed. Then,
-(conceptually) the expression is evaluated and the edges in the
-resulting graph are then created using the keys
-like |new ->|.
-
-\begin{description}
-\item[Direct node specification] The syntactic construct
-  \meta{text}|[|\meta{options}|]| that corresponds to what was earlier
-  called a \emph{direct} node specification corresponds to the 
-  graph expression
-  $$\mu_{\kappa_{\mathtt{all}}^{\{\meta{text}\}}}(\mu_{\kappa_{\mathtt{source}}^{\{\meta{text}\}}}(
-  \mu_{\kappa_{\mathtt{target}}^{\{\meta{text}\}}}
-  (\nu(V, <)))).$$ In other words, the graph expression evaluates to a
-  graph in which there is exactly one node that is colored, namely the
-  node \meta{name}, and this node has the three colors |all|,
-  |source|, and |target|.
-
-  The \meta{options} are largely ignored, except if the
-  |operator=|\meta{op} key is used inside. In this case, 
-  \begin{quote}
-    \meta{text}|[|\meta{more options}|,operator=|\meta{$op_1$}%
-    |, operator=|\meta{$op_2$}%
-    |, |\dots|, operator=|\meta{$op_n$}|]|
-  \end{quote}
-  is mapped to the graph expression
-  $\mu_{\meta{$op_n$}}\bigl(\dots\bigr(\mu_{\meta{$op_1$}}(t)\bigr)\dots\bigr)$,
-  where $t$ is the expression from above.  
-\item[Group specifications] The syntactic construct
-  \begin{quote}
-    |{[|\meta{more
-        options}|, operator=|\meta{$op_1$}|, |\dots|, operator=|\meta{$op_n$}|] |
-      \meta{$A_1$}|, |\dots|, |\meta{$A_m$}|}|
-  \end{quote}
-  is handled as follows: Let $t_1$ to $t_m$ be the graph expressions
-  corresponding to $A_1$ to $A_m$. Then the resulting graph expression
-  is 
-  $$\mu_{\meta{$op_n$}}\bigl(\dots\mu_{\meta{$op_1$}}\bigr(\mu_{\cup}(t_1,\dots,t_m)\bigr)\dots\bigr).$$
-  Typically, the operators \meta{$op_i$} will add edges between the nodes
-  colored |all|. 
-\item [Chain specifications]
-  The syntactic construct
-  \begin{quote}
-    \meta{A} \meta{edge specification}|[|\meta{more
-      options}|, operator=|\meta{$op_1$}|, |\dots|, operator=|\meta{$op_n$}|]|
-    \meta{B}
-  \end{quote}
-  is handled as follows: Let $t$ and $t'$ be the graph expressions
-  corresponding to \meta{A} and \meta{B}. Then the resulting graph
-  expression is
-  $$\mu_Y\bigl(\mu_{\meta{$op_n$}}\bigl(\dots\bigr(\mu_{\meta{$op_1$}}(\mu_X(t,t')\bigr)\dots\bigr)\bigr).$$
-  Here, the operations $X$ and $Y$ work as follows:
-
-  The function $X$ takes two graphs $G$ and $H$ as input. Then in $G$,
-  the following \emph{recoloring} is performed: all
-  nodes that used to be colored |target| get colored |target'| instead
-  (no node is colored |target| afterward). In the
-  graph $H$, all nodes that used to be colored |source| get colored
-  |source'| instead. Then, the two graphs are united.
-
-  The function $Y$ takes a graph and simply removes the colors
-  |source'| and |target'|, that is, it is the concatenation  $\bar
-  \kappa_{\mathtt{source'}}^V \circ 
-  \kappa_{\mathtt{target'}}^V$.
-
-  The net effect of all of the above is that the operators \meta{$op_i$}
-  should add edges to their input graphs between nodes colored
-  |target'| and |source'|.
-\end{description}
-
-
-\subsection{Graph Macros}
-\label{section-library-graphs-macros}
-
-To be written...
-
-
-
-\subsection{Placement Strategies}
-\label{section-library-graphs-placement}
-
-To be written...
-
-
-\subsection{Reference: Standard Library}
-
-\begin{key}{/tikz/graphs/butterfly}
-  To be written...
-\end{key}
-
-
-To be written...
 
 %%% Local Variables: 
 %%% mode: latex
