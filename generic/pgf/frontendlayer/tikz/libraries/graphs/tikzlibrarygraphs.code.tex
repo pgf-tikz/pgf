@@ -272,9 +272,9 @@
   \pgfkeysgetvalue{/tikz/graphs/placement/depth}\tikz@temp@w%
   \pgfkeysgetvalue{/tikz/graphs/placement/local width}\tikz@temp@lh%
   \pgfkeysgetvalue{/tikz/graphs/placement/local depth}\tikz@temp@lw%
-  \pgfmathsetmacro\tikz@temp@w{\tikz@lib@graph@chain@depth+\tikz@temp@w}
-  \pgfmathsetmacro\tikz@temp@lw{\tikz@lib@graph@chain@depth+\tikz@temp@lw}
-  \pgfmathsetmacro\tikz@temp@lh{max(\tikz@lib@graph@chain@width,\tikz@temp@lh)}
+  \pgfmathsetmacro\tikz@temp@w{\tikz@lib@graph@chain@depth+\tikz@temp@w}%
+  \pgfmathsetmacro\tikz@temp@lw{\tikz@lib@graph@chain@depth+\tikz@temp@lw}%
+  \pgfmathsetmacro\tikz@temp@lh{max(\tikz@lib@graph@chain@width,\tikz@temp@lh)}%
   \pgfkeyslet{/tikz/graphs/placement/depth}\tikz@temp@w%
   \pgfkeyslet{/tikz/graphs/placement/local width}\tikz@temp@lh%
   \pgfkeyslet{/tikz/graphs/placement/local depth}\tikz@temp@lw%
@@ -291,11 +291,10 @@
 % Parse a group
 % 
 
-\long\def\tikz@lib@graph@parse@group#1{%
+\long\def\tikz@lib@graph@parse@group#1{
   \let\tikz@lib@graph@group@c\pgfutil@empty%
   \let\tikz@lib@graph@group@cont\pgfutil@empty%
   \let\tikz@lib@graph@group@conta\pgfutil@empty%
-  %\tikz@lib@graph@par#1\par\pgf@stop@eogroup%
   \tikz@lib@graph@group@check#1\par\pgf@stop@eogroup%
 }
 
@@ -341,7 +340,10 @@
 % 
 % Replace ...[...]... by ...[{...}]...
 % 
-\def\tikz@lib@graph@encloser#1[{%
+\def\tikz@lib@graph@encloser{%
+  \pgfutil@ifnextchar\bgroup{\tikz@lib@graph@encloser@@}{\tikz@lib@graph@encloser@}%
+}%
+\def\tikz@lib@graph@encloser@#1[{%
   \pgfutil@ifnextchar\pgf@stop@eogroup{%
     \expandafter\tikz@lib@graph@semi\tikz@lib@graph@group@cont#1;%
   }{%
@@ -355,6 +357,11 @@
     \expandafter\tikz@lib@graph@semi\tikz@lib@graph@group@cont{#1}]#2;}{%
     \expandafter\def\expandafter\tikz@lib@graph@group@cont\expandafter{\tikz@lib@graph@group@cont{#1}]#2[}%
     \tikz@lib@graph@encloser@cont}%
+}
+
+\def\tikz@lib@graph@encloser@@#1{%
+  \expandafter\def\expandafter\tikz@lib@graph@group@cont\expandafter{\tikz@lib@graph@group@cont{#1}}%
+  \tikz@lib@graph@encloser%
 }
 
 
@@ -550,7 +557,14 @@
   \pgfutil@ifnextchar\foreach\tikz@lib@graph@do@foreach\tikz@lib@graph@grab@name@@%
 }
 
-\def\tikz@lib@graph@do@foreach\foreach#1in#2#3[\pgf@stop{%
+\def\tikz@lib@graph@do@foreach\foreach#1in{%
+  \pgfutil@ifnextchar\bgroup{\tikz@lib@graph@do@foreach@normal{#1}}{\def\tikz@temp{#1}\tikz@lib@graph@do@foreach@macro}%
+}
+\def\tikz@lib@graph@do@foreach@macro#1{%
+  \expandafter\expandafter\expandafter\tikz@lib@graph@do@foreach@normal\expandafter\tikz@temp\expandafter{#1}%
+}
+
+\def\tikz@lib@graph@do@foreach@normal#1#2#3[\pgf@stop{%
   % Ok, we do a parse on a foreach loop.
   \begingroup
     \let\tikz@lib@graph@node@list@saved\pgfutil@empty%
@@ -673,7 +687,7 @@
               },%
               graphs/.unknown/.code={%
                 \let\tikz@key\pgfkeyscurrentname% 
-                \pgfkeys{/tikz/\tikz@key={##1}}%
+                \pgfkeys{tikz/.cd,\tikz@key={##1},/tikz/graphs/.cd}%
               },%
               /tikz/graphs/.cd,%
               /tikz/graphs/@nodes styling,%
@@ -768,8 +782,8 @@
 % Predefining graphs 
 % 
 
-\def\tikzdefgraph#1#2{%
-  \expandafter\def\csname tikz@lib@graph@def@#1\endcsname{\tikz@lib@graph@do@graph{#2}}%
+\tikzgraphsset{
+  declare/.code 2 args={\expandafter\def\csname tikz@lib@graph@def@#1\endcsname{\tikz@lib@graph@do@graph{#2}}}%
 }
 
 \def\tikz@lib@graph@handle@graph#1{%
@@ -938,7 +952,7 @@
 % macro should take a single parameter, which will be set 
 % to the node's name.
 
-\def\tikzlibgraphforeachcolorednode#1#2{%
+\def\tikzgraphforeachcolorednode#1#2{%
   \tikz@lib@graph@pack@node@list%
   \expandafter\def\expandafter\iftikz@lib@graph@color@picker\expandafter{\csname iftikz@lgc@#1@\endcsname}%
   \let\tikz@lib@graph@action#2%
@@ -978,14 +992,14 @@
 % The bottom line of all this is that after a preparation you can
 % easily iterate over nodes having a certain color. If you wish to
 % iterate over a single color, it will be quicker and easier to call
-% \tikzlibgraphforeachcolorednode, but if you need to iterate over two
+% \tikzgraphforeachcolorednode, but if you need to iterate over two
 % colors simultaneously, it will be better to first prepare the color.
 
-\def\tikzlibgraphpreparecolor#1#2#3{%
+\def\tikzgraphpreparecolor#1#2#3{%
   \let\tikz@lib@graph@count#2%
   \tikz@lib@graph@count0\relax
   \def\tikz@lib@graph@prefix{#3}%
-  \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@prepare%
+  \tikzgraphforeachcolorednode{#1}\tikz@lib@graph@prepare%
 }
 
 \def\tikz@lib@graph@prepare#1{%
@@ -1003,7 +1017,7 @@
 \tikzgraphsset{
   complete bipartite/.style 2 args={operator={
     \def\tikz@lg@shoreb{#2}%
-    \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@bipartite@outer
+    \tikzgraphforeachcolorednode{#1}\tikz@lib@graph@bipartite@outer
   }},
   complete bipartite/.default={target'}{source'},
   induced complete bipartite/.style 2 args={
@@ -1017,7 +1031,7 @@
 \def\tikz@lib@graph@bipartite@outer#1{%
   \def\tikz@lib@graph@from{#1}%
   {%
-    \tikzlibgraphforeachcolorednode{\tikz@lg@shoreb}\tikz@lib@graph@bipartite@inner%
+    \tikzgraphforeachcolorednode{\tikz@lg@shoreb}\tikz@lib@graph@bipartite@inner%
   }%
 }
 
@@ -1050,7 +1064,7 @@
 
 \tikzgraphsset{
   clique/.style={operator={
-      \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
+      \tikzgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
       \tikz@lg@clique@loop%
     }},
   clique/.default=all
@@ -1083,7 +1097,7 @@
   induced independent set/.style={operator={
       \pgfkeysgetvalue{/tikz/graphs/default edge kind}\tikz@lg@default%
       \pgfkeyssetvalue{/tikz/graphs/default edge kind}{-!-}%
-      \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
+      \tikzgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
       \tikz@lg@indep@loop%
       \pgfkeyslet{/tikz/graphs/default edge kind}\tikz@lg@default%
     }},
@@ -1116,7 +1130,7 @@
 \tikzgraphsset{
   path/.style={operator={%
       \let\tikz@lg@prev\relax%
-        \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@path@do%
+        \tikzgraphforeachcolorednode{#1}\tikz@lib@graph@path@do%
   }},   
   path/.default=all,
   induced path/.style={induced independent set={#1},path={#1}},
@@ -1140,7 +1154,7 @@
   cycle/.style={operator={%
     \let\tikz@lg@prev\relax%
     \let\tikz@lg@first\relax%
-    \tikzlibgraphforeachcolorednode{#1}\tikz@lib@graph@cycle@do%
+    \tikzgraphforeachcolorednode{#1}\tikz@lib@graph@cycle@do%
     \ifx\tikz@lg@first\relax%
     \else%
       \tikz@lib@graph@default@new@edge{\tikz@lg@prev}{\tikz@lg@first}%
@@ -1171,10 +1185,10 @@
 \tikzgraphsset{
   matching and star/.style 2 args={operator=%
     {%
-      \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}
+      \tikzgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}
       \c@pgf@countb=0\relax%
       \let\tikz@lg@prev\relax
-      \tikzlibgraphforeachcolorednode{#2}\tikz@lib@graph@flow@do%
+      \tikzgraphforeachcolorednode{#2}\tikz@lib@graph@flow@do%
       \tikz@lib@graph@flow@rest%
     }%
   },
@@ -1207,9 +1221,9 @@
 \tikzgraphsset{
   matching/.style 2 args={operator=
     {%
-      \tikzlibgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}
+      \tikzgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}
       \c@pgf@countb=0\relax%
-      \tikzlibgraphforeachcolorednode{#2}\tikz@lib@graph@matching@do%
+      \tikzgraphforeachcolorednode{#2}\tikz@lib@graph@matching@do%
     }%
   },
   matching/.default={target'}{source'}
@@ -1239,9 +1253,9 @@
         \tikzgraphinvokeoperator{matching and star={\pgfkeysvalueof{/tikz/graphs/butterfly/from}}{\pgfkeysvalueof{/tikz/graphs/butterfly/to}}}%
       \else%
         {%
-          \tikzlibgraphpreparecolor{\pgfkeysvalueof{/tikz/graphs/butterfly/from}}\c@pgf@counta{tikz@lg}
+          \tikzgraphpreparecolor{\pgfkeysvalueof{/tikz/graphs/butterfly/from}}\c@pgf@counta{tikz@lg}
           \c@pgf@countb=0\relax%
-          \tikzlibgraphforeachcolorednode{\pgfkeysvalueof{/tikz/graphs/butterfly/to}}\tikz@lib@graph@butterfly@do%
+          \tikzgraphforeachcolorednode{\pgfkeysvalueof{/tikz/graphs/butterfly/to}}\tikz@lib@graph@butterfly@do%
         }%
         \iftikz@butterfly@prime\else\tikzgraphinvokeoperator{matching and star={\pgfkeysvalueof{/tikz/graphs/butterfly/from}}{\pgfkeysvalueof{/tikz/graphs/butterfly/to}}}\fi%
       \fi%
@@ -1356,7 +1370,7 @@
 
 \tikzgraphsset{
   placement/.cd,
-  compute position/.code=,
+  compute position/.code=\tikz@lib@graph@linear@pos,
   place/.code={%
     \pgfkeys{/tikz/graphs/placement/compute position}%
     \aftergroup\tikz@lib@graph@reset@locals%
@@ -1388,37 +1402,148 @@
 % shifted by the chain shift vector relative to the previous element
 % on the chain. Similarly for each new element of a group. 
 
-\tikzgraphsset{,
-  even shifts/.style={
+\tikzgraphsset{
+  Cartesian placement/.style={
     placement/place,
     placement/compute position/.code=\tikz@lib@graph@linear@pos%
   },
-  grow right/.style={chain shift/.initial={(#1,0)}},
+  chain shift/.initial={(1,0)},
+  group shift/.initial={(0,-1)},
+  grow right/.style={
+    chain shift={(#1,0)},
+    @auto anchor horizontal=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   grow right/.default=1,
-  grow left/.style={chain shift/.initial={(-#1,0)}},
+  grow right/.default=1,
+  grow left/.style={
+    chain shift={(-#1,0)},
+    @auto anchor horizontal=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   grow left/.default=1,
-  grow up/.style={chain shift/.initial={(0,#1)}},
+  grow up/.style={
+    chain shift={(0,#1)},
+    @auto anchor horizontal=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   grow up/.default=1,
-  grow down/.style={chain shift/.initial={(0,-#1)}},
+  grow down/.style={
+    chain shift={(0,-#1)},
+    @auto anchor vertical=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   grow down/.default=1,
-  branch right/.style={group shift/.initial={(#1,0)}},
+  branch right/.style={
+    group shift={(#1,0)},
+    @auto anchor horizontal=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   branch right/.default=1,
-  branch left/.style={group shift/.initial={(-#1,0)}},
+  branch left/.style={
+    group shift={(-#1,0)},
+    @auto anchor horizontal=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   branch left/.default=1,
-  branch up/.style={group shift/.initial={(0,#1)}},
+  branch up/.style={
+    group shift={(0,#1)},
+    @auto anchor vertical=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   branch up/.default=1,
-  branch down/.style={group shift/.initial={(0,-#1)}},
+  branch down/.style={
+    group shift={(0,-#1)},
+    @auto anchor vertical=center,
+    placement/logical node width/.code=\def\pgfmathresult{1}
+  },
   branch down/.default=1,
-  grow right,
-  branch down,
-  even shifts,
+  % 
+  % Sep shifts 
+  % 
+  grow right sep/.style={
+    chain shift={(1pt,0)},
+    @auto anchor horizontal=west,
+    placement/logical node width/.code=\tikz@lib@graph@width@sep{##1}{#1}
+  },
+  grow right sep/.default=1em,
+  grow left sep/.style={
+    chain shift={(-1pt,0)},
+    @auto anchor horizontal=east,
+    placement/logical node width/.code=\tikz@lib@graph@width@sep{##1}{#1}
+  },
+  grow left sep/.default=1em,
+  grow up sep/.style={
+    chain shift={(0,1pt)},
+    @auto anchor vertical=south,
+    placement/logical node width/.code=\tikz@lib@graph@depth@sep{##1}{#1}
+  },
+  grow up sep/.default=1em,
+  grow down sep/.style={
+    chain shift={(0,-1pt)},
+    @auto anchor vertical=north,
+    placement/logical node width/.code=\tikz@lib@graph@depth@sep{##1}{#1}
+  },
+  grow down sep/.default=1em,
+    grow right sep/.style={
+    chain shift={(1pt,0)},
+    @auto anchor horizontal=west,
+    placement/logical node width/.code=\tikz@lib@graph@width@sep{##1}{#1}
+  },
+  %
+  branch right sep/.style={
+    group shift={(1pt,0)},
+    @auto anchor horizontal=west,
+    placement/logical node depth/.code=\tikz@lib@graph@width@sep{##1}{#1}
+  },
+  branch right sep/.default=1em,
+  branch left sep/.style={
+    group shift={(-1pt,0)},
+    @auto anchor horizontal=east,
+    placement/logical node depth/.code=\tikz@lib@graph@width@sep{##1}{#1}
+  },
+  branch left sep/.default=1em,
+  branch up sep/.style={
+    group shift={(0,1pt)},
+    @auto anchor vertical=south,
+    placement/logical node depth/.code=\tikz@lib@graph@depth@sep{##1}{#1}
+  },
+  branch up sep/.default=1em,
+  branch down sep/.style={
+    group shift={(0,-1pt)},
+    @auto anchor vertical=north,
+    placement/logical node depth/.code=\tikz@lib@graph@depth@sep{##1}{#1}
+  },
+  branch down sep/.default=1em,
+  %
+  @auto anchor horizontal/.style={
+    nodes={anchor=\csname tikz@lib@graph@auto@\tikz@lib@graph@auto@h @\tikz@lib@graph@auto@v\endcsname},
+    /utils/exec=\def\tikz@lib@graph@auto@h{#1}
+  },
+  @auto anchor vertical/.style={
+    nodes={anchor=\csname tikz@lib@graph@auto@\tikz@lib@graph@auto@h @\tikz@lib@graph@auto@v\endcsname},
+    /utils/exec=\def\tikz@lib@graph@auto@v{#1}
+  },
   % 
   % 
-  no shifts/.style={
+  no placement/.style={
     placement/place,
     placement/compute position/.code=%
   }
 }
+
+\def\tikz@lib@graph@auto@h{center}
+\def\tikz@lib@graph@auto@v{center}
+
+\def\tikz@lib@graph@auto@center@center{center}
+\def\tikz@lib@graph@auto@west@center{west}
+\def\tikz@lib@graph@auto@east@center{east}
+\def\tikz@lib@graph@auto@center@north{north}
+\def\tikz@lib@graph@auto@west@north{north west}
+\def\tikz@lib@graph@auto@east@north{north east}
+\def\tikz@lib@graph@auto@center@south{south}
+\def\tikz@lib@graph@auto@west@south{south west}
+\def\tikz@lib@graph@auto@east@south{south east}
 
 \def\tikz@lib@graph@linear@pos{%
   \pgfkeysgetvalue{/tikz/graphs/chain shift}\tikz@temp
@@ -1436,6 +1561,16 @@
 }
 
 
+\def\tikz@lib@graph@width@sep#1#2{%
+  \pgf@process{\pgfpointdiff{\pgfpointanchor{#1}{west}}{\pgfpointanchor{#1}{east}}}%
+  \pgfmathparse{#2+\the\pgf@x}%
+}
+
+\def\tikz@lib@graph@depth@sep#1#2{%
+  \pgf@process{\pgfpointdiff{\pgfpointanchor{#1}{south}}{\pgfpointanchor{#1}{north}}}%
+  \pgfmathparse{#2+\the\pgf@y}%
+}
+
 
 % Circular arrangements 
 % 
@@ -1450,26 +1585,24 @@
 % "radius".
 
 \tikzgraphsset{,
-  circular/.style={
+  circular placement/.style={
     placement/place,
-    placement/compute position/.code=\tikz@lib@graph@circular@pos%
+    placement/compute position/.code=\tikz@lib@graph@circular@pos,%
+    placement/logical node depth/.code=\def\pgfmathresult{1},
+    placement/logical node width/.code=\def\pgfmathresult{1},
   },
   clockwise/.style={
-    circular,
-    group polar shift/.initial={(-360/#1:0)}
+    circular placement,
+    group polar shift={(-360/#1:0)}
   },
-  clockwise/.default=\tikz@lib@graph@node@n,
+  clockwise/.default=\tikzgraphVnum,
   counterclockwise/.style={
-    circular,
-    group polar shift/.initial={(360/#1:0)}
+    circular placement,
+    group polar shift={(360/#1:0)}
   },
-  counterclockwise/.default=\tikz@lib@graph@node@n,
+  counterclockwise/.default=\tikzgraphVnum,
   chain polar shift/.initial={(0:1cm)},
   group polar shift/.initial={(60:0)},
-  n/.store in=\tikz@lib@graph@node@n,
-  n=1,
-  m/.store in=\tikz@lib@graph@node@m,
-  m=1,
   radius/.initial=1cm,
   phase/.initial=90,
 }
@@ -1498,5 +1631,22 @@
   \pgfmathsetlength\pgf@y{#2}%
 }
 
+
+\tikzgraphsset{
+  V/.code={%
+    \def\tikzgraphV{#1}
+    \c@pgf@counta=0\foreach \tikz@dummy in {#1} {\global\advance\c@pgf@counta by1\relax}
+    \edef\tikzgraphVnum{\the\c@pgf@counta}
+  },
+  V={1},
+  n/.style={V={1,...,#1}},
+  W/.code={%
+    \def\tikzgraphW{#1}
+    \c@pgf@counta=0\foreach \tikz@dummy in {#1} {\global\advance\c@pgf@counta by1\relax}
+    \edef\tikzgraphWnum{\the\c@pgf@counta}
+  },
+  W={1},
+  m/.style={W={1,...,#1}},
+}
 
 \endinput
