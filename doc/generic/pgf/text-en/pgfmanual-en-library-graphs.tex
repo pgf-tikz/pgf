@@ -570,13 +570,16 @@ we have written |->| between them. Then the following happens:
     \end{enumerate}
     By default, the key executes the following code:
     \begin{quote}
-      |\path [draw,->,|\meta{edge options}|]|\\
+      |\path [draw,->,every new ->,|\meta{edge options}|]|\\
       \hbox{}\quad|(|\meta{left
         node}|\tikzgraphleftanchor) to |\meta{edge
         nodes}||\\
       \hbox{}\quad|(|\meta{right node}|\tikzgraphrightanchor);|
     \end{quote}
     You are welcome to change the code underlying the key.
+    \begin{stylekey}{/tikz/every new ->}
+      This key gets executed by default for a |new ->|.
+    \end{stylekey}
   \end{key}
   \begin{key}{/tikz/graphs/left anchor=\meta{anchor}}
     This anchor is used for the node that is to the left of an edge
@@ -604,22 +607,26 @@ we have written |->| between them. Then the following happens:
     This key is called for |--| with the same parameters as above. The
     only difference in the definition is that in the |\path| command
     the |->| gets replaced by |-|.
+    \begin{stylekey}{/tikz/every new --}
+    \end{stylekey}
   \end{key}
   \begin{key}{/tikz/graphs/new <->=\marg{left node}\marg{right node}\marg{edge options}\marg{edge nodes}}
     Called for |<->| with the same parameters as above. The |->| is
     replaced by |<-|
+    \begin{stylekey}{/tikz/every new <->}
+    \end{stylekey}
   \end{key}
   \begin{key}{/tikz/graphs/new <-=\marg{left node}\marg{right node}\marg{edge options}\marg{edge nodes}}
-    Called for |<-| with the same parameters as above. This will call
-    |new ->| with the first two arguments exchanged.%
+    Called for |<-| with the same parameters as above.%
     \footnote{You might
       wonder why this key is needed: It seems more logical at first
       sight to just call |new edge directed| with swapped first
-      parameters. Indeed, the default implementation of this key is to
-      call |new edge directed| in such a way. However, a positioning
+      parameters. However, a positioning
       algorithm might wish to take the fact that an edge is
       ``backward'' rater than ``forward'' into account in order to
-      improve the layout.}
+      improve the layout. Also, different arrow heads might be used.}
+    \begin{stylekey}{/tikz/every new <-}
+    \end{stylekey}
   \end{key}
   \begin{key}{/tikz/graphs/new -!-=\marg{left node}\marg{right node}\marg{edge options}\marg{edge nodes}}
     Called for |-!-| with the same parameters as above. Does nothing
@@ -1532,8 +1539,8 @@ A graph macro is declared using the following key:
 \begin{codeexample}[]
 \newcount\mycount  
 \tikzgraphsset{
-  level/.store in=\tikzgraphlevel,
-  level=1,
+  levels/.store in=\tikzgraphlevel,
+  levels=1,
   declare={bintree}{%
     [/utils/exec={%
       \ifnum\tikzgraphlevel=1\relax%
@@ -1543,8 +1550,8 @@ A graph macro is declared using the following key:
         \advance\mycount by-1\relax%
         \edef\childtrees{
           _ -> {
-            bintree[level=\the\mycount],
-            bintree[level=\the\mycount]
+            bintree[levels=\the\mycount],
+            bintree[levels=\the\mycount]
           }}
       \fi%
     },
@@ -1553,7 +1560,7 @@ A graph macro is declared using the following key:
     % Everything is inside the \childtrees...
   }
 }
-\tikz \graph [grow down=5mm, branch right=5mm] { bintree [level=5] };
+\tikz \graph [grow down=5mm, branch right=5mm] { bintree [levels=5] };
 \end{codeexample}
 \end{key}
 
@@ -1918,36 +1925,122 @@ two keys |clockwise| or |counterclockwise|.
 
 
 
+
+\subsubsection{Levels and Level Styles}
+
+As a graph is being parsed, the |graph| command keeps track of a
+parameter called the \emph{level} of a node. Provided that the graph
+is actually constructed in a tree-like manner, the level is exactly
+equal to the level of the node inside this tree.
+
+\begin{key}{/tikz/graphs/placement/level}
+  This key stores a number that is increased for each element on a
+  chain, but gets reset at the end of a group:
+\begin{codeexample}[]
+\tikz \graph [ branch down=5mm, typeset=
+    \tikzgraphnodetext:\pgfkeysvalueof{/tikz/graphs/placement/level}]
+{  
+  a -> {
+    b,
+    c -> {
+      d,
+      e -> {f,g},
+      h
+    },
+    j
+  }
+};
+\end{codeexample}
+  Unlike the parameters |depth| and |width| described in the next
+  section, the key |level| is always available.
+\end{key}
+
+In addition to keeping track of the value of the |level| key, the
+|graph| command also executes the following keys whenever it creates a
+node:
+
+\begin{stylekey}{/tikz/graph/level=\meta{level}}
+  This key gets executed for each newly created node with \meta{level}
+  set to the current level of the node. You can use this key to, say,
+  reconfigure the node distance or the node color.
+\end{stylekey}
+
+\begin{stylekey}{/tikz/graph/level \meta{level}}
+  This key also gets executed for each newly created node with
+  \meta{level} set to the current level of the node.
+\begin{codeexample}[]
+\tikz \graph [
+  branch down=5mm,
+  level 1/.style={nodes=red},
+  level 2/.style={nodes=green!50!black},
+  level 3/.style={nodes=blue}]
+{  
+  a -> {
+    b,
+    c -> {
+      d,
+      e -> {f,g},
+      h
+    },
+    j
+  }
+};
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [
+  branch down=5mm,
+  level 1/.style={grow right=2cm},
+  level 2/.style={grow right=1cm},
+  level 3/.style={grow right=5mm}]
+{  
+  a -> {
+    b,
+    c -> {
+      d,
+      e -> {f,g},
+      h
+    },
+    j
+  }
+};
+\end{codeexample}
+\end{stylekey}
+
+
+
 \subsubsection{Defining New Online Placement Strategies}
+
 \label{section-library-graphs-new-online}
 
 In the following the details of how to define a new placement strategy
 are explained. Most readers may wish to skip this section.
 
-Consider the following graph specification: 
-\begin{quote}
-|graph { a, b, c -> d -> {e -> f -> g, h -> i} -> j, k -> l }|  
-\end{quote}
-As this specification is being parsed, the |graph| library will keep
+As a graph specification is being parsed, the |graph| library will keep
 track of different numbers that identify the positions of the
 nodes. Let us start with what happens on a chain. First, the following 
 counter is increased for each element of the chain:
 \begin{key}{/tikz/graphs/placement/element count}
   This key stores a number that tells us the position of the node on
-  the current chain.
+  the current chain. However, you only have access to this value
+  inside the code passed to the macro |compute position|, explained
+  later on.
 \begin{codeexample}[]
-\tikz \graph {
-  a ->
-  b[as=\pgfkeysvalueof{/tikz/graphs/placement/element count}] ->
-  c[as=\pgfkeysvalueof{/tikz/graphs/placement/element count}]
+\tikz \graph [
+  grow right sep, typeset=\tikzgraphnodetext:\mynum,
+  placement/compute position/.append code=
+    \pgfkeysgetvalue{/tikz/graphs/placement/element count}{\mynum}]
+{
+  a -> b -> c,
+  d -> {e, f->h} -> j
 };
 \end{codeexample}
+  As can be seen, each group resets the element counter.
 \end{key}
 
 The second value that is computed is more complicated to explain, but
 it also gives more interesting information:
 \begin{key}{/tikz/graphs/placement/width}
-  This key stored the ``logical width'' of the nodes parsed up to now
+  This key stores the ``logical width'' of the nodes parsed up to now
   in the current group or chain (more precisely, parsed since the last
   call of |place| in an enclosing group). This is not necessarily the
   ``total physical width'' of the nodes, but rather a number
@@ -1968,7 +2061,12 @@ it also gives more interesting information:
   \end{key}
   The width of a chain is the sum of the widths of its elements. The 
   width of a group is the maximum of the widths of its elements.
-  
+
+  To get a feeling what the above rules imply in practice, let us
+  first have a look at an example where each node has logical width
+  and height |1| (which is the default). The arcane options at the
+  beginning of the code just setup things so that the computed width
+  and depth of each node is displayed at the bottom of each node.
 \begin{codeexample}[]
 \tikz
   \graph [nodes={align=center, inner sep=1pt}, grow right=7mm,
@@ -1987,7 +2085,11 @@ it also gives more interesting information:
   k -> l
 };
 \end{codeexample}
-
+  In the next example the ``logical'' width and depth actually match
+  the ``physical'' width and height. This is caused by the
+  |grow right sep| option, which internally sets the
+  |logical node width| key so that it returns the width of its
+  parameter in points.
 \begin{codeexample}[]
 \tikz
   \graph [grow right sep, branch down sep, nodes={align=left, inner sep=1pt},
@@ -2005,33 +2107,113 @@ it also gives more interesting information:
   k -> l
 };
 \end{codeexample}  
-  To be continued...
 \end{key}
 
-% Symmetrically, as a group is being constructed, a counter stored in
-% placement/chain count is available that is advanced for each chain
-% in the group. The number placement/depth is the defined
-% recursively as follows: For a single node, the depth is
-% computed by the key placement/logical node depth. The depth
-% of a group is the sum of the depths of its elements. The depth of a
-% chain is the maximum of the depth of its elements. 
+Symmetrically to chains, as a group is being constructed, counters are
+available for the number of chains encountered so far in the current
+group and for the logical depth of the current group:
+\begin{key}{/tikz/graphs/placement/element count}
+  This key stores a number that tells us the sequence number of the
+  chain in the current group.
+\begin{codeexample}[]
+\tikz \graph [
+  grow right sep, branch down=5mm, typeset=\tikzgraphnodetext:\mynum,
+  placement/compute position/.append code=
+    \pgfkeysgetvalue{/tikz/graphs/placement/chain count}{\mynum}]
+{
+  a -> b -> {c,d,e},
+  f,
+  g -> h
+};
+\end{codeexample}
+\end{key}
 
+\begin{key}{/tikz/graphs/placement/depth}
+  Similarly to the |width| key, this key stores the ``logical depth''
+  of the nodes parsed up to now in the current group or chain and, also
+  similarly, this key may or may not be related to the actual
+  depth/height of the current node. 
+  As for the |width|, the exact definition is as follows: For a single
+  node, the depth is computed by the following key: 
+  \begin{key}{/tikz/graphs/placement/logical node depth=\meta{full
+        node name}}
+    The code behind this key should return the ``logical height'' of
+    the node   \meta{full node name} in the macro |\pgfmathresult|. 
+  \end{key}
+  Second, the depth of a group is the sum of the depths of its
+  elements. Third, the depth of a chain is the maximum of the depth of
+  its elements.  
+\end{key}
 
-% The above keys get updated automatically. You should setup the key
-% placement/compute position such that it uses the above keys to
-% compute a good position for a new node based on the above
-% keys. Typically, this key should execute node={shift=(...)} to setup
-% the necessary shift for a new node.
+The |width|, |depth|, |element count|, and |chain count| keys get
+updated automatically, but do not have an effect by themselves. This
+is to the following two keys:
 
-% The key placment/compute position should not be called
-% directly. Instead, the key placement/place should be used. This key
-% has two effects: First, it calls placement/compute position. Second,
-% it resets the length and normal counters. It will setup a completely
-% new counting of lengths and counters inside the current scope.
+\begin{key}{/tikz/graphs/placement/compute position=\meta{code}}
+  The \meta{code} is called by the |graph| command just prior to
+  creating a new node (the exact moment when this key is called is
+  detailed in the description of the |place| key). When the
+  \meta{code} is called, all of the keys described above will hold
+  numbers computed in the way described above.
 
-% The placmenet/place key is executed automatically whenever a new
-% node is automatically created. Furthermore, placement strategies
-% will call this key.
+  The job of the \meta{code} is to setup node options appropriately so
+  that the to-be-created node will be placed correctly. Thus, the
+  \meta{code} should typically set the key
+  |nodes={shift=|\meta{coordinate}|}| where \meta{coordinate} is the
+  computed position for the node. The \meta{code} could
+  also set other options like, say, the color of a node depending on
+  its depth.
+
+  The following example appends some code to the standard code of
+  |compute position| so that ``deeper'' nodes of a tree are
+  lighter. (Naturally, the same effect could be achieved much more
+  easily using the |level| key.)
+\begin{codeexample}[]
+\newcount\mycount  
+\def\lightendeepernodes{
+  \pgfmathsetcount{\mycount}{
+    100-20*\pgfkeysvalueof{/tikz/graphs/placement/width}
+  }
+  \edef\mydepth{\the\mycount}
+  \tikzset{nodes={fill=red!\mydepth,circle,text=white}}
+}
+\tikz
+  \graph [placement/compute position/.append code=\lightendeepernodes]
+   {
+     a -> {
+       b -> c -> d,
+       e -> {
+         f,
+         g
+       },
+       h
+     }
+   };
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/placement/place}
+  Executing this key has two effects: First, the key
+  |compute position| is called to compute a good 
+  position for future nodes (usually, these ``future nodes'' are just
+  a single node that is created immediately). Second, all of the above
+  counters like |depth| or |width| are reset (but not |level|).
+
+  There are two places where this key is sensibly called: First, just
+  prior to creating a node, which happens automatically. Second, when
+  you change the online strategy. In this case, the computed width and
+  depth values from one strategy typically make no sense in the other
+  strategy, which is why the new strategy should proceed ``from a
+  fresh start.'' In this case, the implicit call of |compute position|
+  ensures that the new strategy gets the last place the old strategy
+  would have used as its starting point, while the computation of its
+  positions is now relative to this new starting point.
+
+  For these reasons, when an online strategy like
+  |Cartesian placement| is called, this key gets called
+  implicitly. You will rarely need to call this key directly, except
+  when you define a new online strategy.
+\end{key}
 
 
 
