@@ -60,14 +60,15 @@
 %   /tikz/every data is executed for each data, which can be useful to
 %   generally set, say, a certain data format.
 %
-% "info" blocks.
+% "info" and "info'" blocks.
 %
-%   Syntax: info [options] {code}
+%   Syntax: info  [options] {code}
+%   Syntax: info' [options] {code}
 %
-%   A block starting with "info" may contain any code. It
-%   will be executed after the visualization. In order to execute code
-%   at some other time (like, say, before the visualization), use
-%   options like "before visualization".
+%   A block starting with "info" or "info'" may contain any code. It
+%   will be executed after the visualization (info) or before the
+%   visualization (info'). 
+%
 %
 % Options blocks.
 %
@@ -103,7 +104,7 @@
 %      var x: interval [0:3];
 %      func y = \value x*\value x;
 %    }
-%    [before visualization={
+%    [at begin visualization={
 %      \fill [black!10] (visualization cs:x=0,y=0) -- (visualization cs:x=3,y=9);
 %    }]
 %    info[red]
@@ -121,6 +122,7 @@
 
 \def\tikz@lib@datavisualization{
   \begingroup%
+    \let\tikz@path@do@at@end=\relax%
     % Ok, first, start a new data visualization
     \pgfoonew \tikz@main@dv=new data visualization()%
     % Next, create a scope for the dv
@@ -177,11 +179,12 @@
     }%
   }%
 }
-\def\tikz@lib@dv@parse@end{%
+\def\tikz@lib@dv@parse@end;{%
     % Go!
     \tikz@main@dv.survey()%
     \tikz@main@dv.visualize()%
   \endgroup%
+  \tikz@path@do@at@end%
 }
 \def\tikz@lib@dv@handle@par\par{\tikz@lib@dv@parse@loop}
 
@@ -213,10 +216,18 @@
 
 \def\tikz@lib@dv@handle@data data{\pgfdata}
 
-\def\tikz@lib@dv@handle@info info{
+\def\tikz@lib@dv@handle@info info{%
+  \pgfutil@ifnextchar'{\tikz@lib@dv@handle@info@prime}{\tikz@lib@dv@handle@info@noprime}}
+\def\tikz@lib@dv@handle@info@noprime{%
   \pgfutil@ifnextchar[{\tikz@lib@dv@handle@info@block@opt}{\tikz@lib@dv@handle@info@block@opt[]}}%}
 \def\tikz@lib@dv@handle@info@block@opt[#1]#2{%
   \tikz@main@dv.after visualization({{\scope[#1]#2\endscope}})%
+  \tikz@lib@dv@parse@loop
+}
+\def\tikz@lib@dv@handle@info@prime'{%
+  \pgfutil@ifnextchar[{\tikz@lib@dv@handle@info@block@opt@prime}{\tikz@lib@dv@handle@info@block@opt@prime[]}}%}
+\def\tikz@lib@dv@handle@info@block@opt@prime[#1]#2{%
+  \tikz@main@dv.before visualization({{\scope[#1]#2\endscope}})%
   \tikz@lib@dv@parse@loop
 }
 
@@ -1277,7 +1288,7 @@
       arg2 from key=/tikz/data visualization/#1/unit vector,
     },
     #1/scaling/default/.initial=0 at 0 and 1 at 1cm,
-    #1/unit vector/.initial=,
+    #1/unit vector/.initial=\pgfqpoint{1pt}{0pt},
   }
 }
 
@@ -1285,8 +1296,6 @@
   /tikz/data visualization/axis options/.cd,
   unit vector/.code=\tikz@scan@one@point\tikz@lib@dv@uv#1,
   length/.style={\tikz@dv@axis/scaling=min at 0 and max at #1},
-  positive length/.style={\tikz@dv@axis/scaling=0 at 0 and max at #1},
-  negative length/.style={\tikz@dv@axis/scaling=min at -#1 and 0 at 0},
   unit length/.code={\tikz@dv@parse@unit@length{#1}},
   power unit length/.style={\tikz@dv@axis/scaling=1 at 0 and 10 at #1}
 }

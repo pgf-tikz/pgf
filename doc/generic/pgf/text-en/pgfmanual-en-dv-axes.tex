@@ -11,87 +11,666 @@
 \section{Axes}
 \label{section-dv-axes}
 
+
 \subsection{Overview}
 
-To be written...
+When a data point is visualized, the most obvious way of creating a
+visual representation of the many attributes of the data point it to
+vary \emph{where} the data point is shown. The data visualization
+system uses \emph{axes} to turn data point attributes into positions
+on a page. The simplest -- and most common -- use of axes is to vary
+the horizontal position of data points according to one attribute and
+to vary the vertical position according to another attribute. In
+contrast, in a polar plot one attribute dictates the distance of the
+data point from the origin and another attribute describes the
+angle. From the data visualization engine's point of view, in both
+cases two axes are involved.
+
+In addition to specifying how the value of a certain attribute is
+converted into a displacement on the page, an axis is also typically
+(but not always) ``drawn'' somewhere on the page. In this case, it is
+also customary to add a visual representation on this axis of which
+attribute values correspond to which positions on the page --
+something commonly known as \emph{ticks}. Similar to ticks, \emph{grid
+  lines} also indicate positions where a certain attribute has a
+certain value, but instead of just indicating a single position on an
+axis, a grid line goes through all points that share an attribute
+value.
+
+In the following, in Section~\ref{section-dv-axes-main} we first have
+a look at how axes can be defined and configured. As you will see, a
+lot of powerful configurations are available, but you will rarely
+define and configure an axis from scratch. Rather, it is more common
+to use a preconfigured axis
+instead. Section~\ref{section-dv-axis-systems} introduces \emph{axis
+  systems}, which are predefined bundles of axes. You can define your
+own axis systems, but, again, in most cases it will suffice to just
+use one of the many preconfigured axis systems and use a few options
+to configure it so that it fits your
+need. Section~\ref{section-dv-ticks-and-grids} explains how ticks and
+grid lines can be configured. Again, several layers of
+options allow you to configure the way ticks look and where they are
+placed in great
+detail. Section~\label{section-dv-tick-placement-strategies} then
+explains the slightly involved details of how tick placement
+strategies work.
 
 
-\subsection{Concepts}
+\subsection{Basic Configuration of an Axis}
+\label{section-dv-axes-main}
 
-\subsubsection{Axes}
+Inside the data visualization system, an \emph{axis} is roughly a
+``systematic, named way of mapping an attribute to a 
+position on a page''. For instance, the classical ``$x$-axis'' is the
+``systematic way of mapping the value of the |x| attribute of data
+points to a horizontal position on the page''. An axis is \emph{not}
+its visual represetation (such as the horizontal line with the ticks
+drawn to represent the $x$-axis), but a visual representation can be
+created once an axis has been defined.
 
-\subsubsection{Mayor, Minor, and Subminor Ticks}
+The transformation of an attribute value (such as the value |1000000000|
+for the |x| attribute) to a specific displacment of the corresponding
+data point on the page involves two steps:
+\begin{enumerate}
+\item First, the range of possible values such as $[-5.6\cdot
+  10^{12},7.8\cdot 10^{12}]$ must be mapped to a ``reasonable''
+  interval such as $[0\mathrm{cm},5\mathrm{cm}]$ or
+  $[0^\circ,180^\circ]$. \TeX\ will only be able to cope with values
+  from such a ``reasonable'' interval.
+\item Second, the values from the reasonable interval must be mapped
+  to a transformation.
+\end{enumerate}
+The first step is always the same for all axes, while the second
+requires different strategies. For this reason, an axis created with
+the |new axis| command will always contain and define a ``scaling
+mapper'', whose job it is to map the range of values of a specific
+attribute to a reasonable interval. For the second step, additional
+objects such as a |linear transformer| need to be created separately.  
 
-\subsubsection{Tick Placement Strategies}
-\label{section-dv-concept-tick-placement-strategies}
 
-Consider the following problem: The data visualization engine
-determines that in a
-plot the $x$-values vary between $17.4$ and $34.5$. In this case, we
-certainly do not want, say, ten ticks at exactly ten evenly spaced
-positions starting with $17.4$ and ending with $34.5$, because this
-would yield ticks at positions like $32.6$. Ticks should be placed at
-``nice'' positions like $20$, $25$, and $30$.
+\subsubsection{Usage}
 
-Determining which positions are ``nice'' is somewhat difficult. In the
-above example, the positions $20$, $25$, and $30$ are certainly nice,
-but only three ticks may be a bit few of them. Better might be the
-tick positions $17.5$, $20$, $22.5$, through to $32.5$. However, users
-might prefer even numbers over fractions like $2.5$ as the stepping.
+To create an axis, the key |new axis| is used. However, since this key
+does not create a transformation object, users typically do not use
+this key directly. Rather, it is used internally by other keys
+that create more ``user-friendly'' axes. These keys are listed in
+Section~\ref{section-dv-reference-axis-types}. 
 
-A \emph{tick placement strategy} is a method of automatically deciding
-which positions are \emph{good} for placing ticks. The data
-visualization engine comes with a number of predefined strategies, see
-Section~\ref{section-dv-tick-placement-strategies}, but you can also
-define new ones yourself. When the data visualization is requested to
-automatically determine
-``good'' positions for the placement of ticks on an axis, it uses one
-of several possible \emph{basic strategies}. These strategies differ
-dramatically in which tick positions they will choose: For a range of
-values between $5$ and $1000$, a |linear steps| strategy might place
-ticks at positions $100$, $200$, through to $1000$, while an
-|exponential steps| strategy would prefer the tick positions $10$,
-$100$ and $1000$. The exact number and values of the tick positions
-chosen by either strategy can be fine-tuned using additional options
-like |step| or |about|.
+\begin{key}{/tikz/data visualization/new axis=\meta{axis name}}
+  This key defines a new axis for the current data visualization
+  called \meta{name}. This has two effects:
+  \begin{enumerate}
+  \item A so called \emph{scaling mapper} is created that will monitor
+    a certain attribute, rescale it, and map it to another
+    attribute. (This will be explained in detail in a moment.)
+  \item The \meta{axis name} is made available as a key that can be
+    used to configure the axis:
+    \begin{key}{/tikz/data visualization/\meta{axis name}=\meta{options}}
+      This key becomes availble once |new axis=|meta{axis name} has
+      been called. It will execute the \meta{options} with the path
+      prefix |/tikz/data visualization/axis options|.
+\begin{codeexample}[code only]
+[new axis=my axis,
+ my axis={attribute=some attribute}]
+\end{codeexample}
+    \end{key}
+  \item The \meta{axis name} becomes part of the current set of
+    axes. This set can be accessed through the following key:
+    \begin{key}{/tikz/data visualization/all axes=\meta{options}}
+      This key passes the \meta{options} to all axes inside the
+      current scope, just as if you had written \meta{some axis
+        name}|=|\meta{options} for each \meta{some axis name} in the
+      current scope, including the just-created name \meta{axis name}.
+    \end{key}
+  \end{enumerate}
+  There are many \meta{options} that can be passed to a newly created
+  axis. They are explained in the rest of this section.
+\end{key}
 
-Here is an example of the different stepping chosen when one varies
-the tick placement strategy:
+Note the |new axis| does \emph{not} cause attributes to be mapped to
+positions on a page. Rather, special keys like |new Cartesian axis|
+first use |new axis| to create an axis and then create an internal
+object that performs a linear mapping of the attribute to 
+positions along a vectors.
 
+
+\subsubsection{Scaling: The Attribute}
+
+The first main job of an axis is to map the different values of some
+attribute to a reasonable interval. To achieve this, the following
+options are important (recall that these options are passed to the key
+whose name is the name of the axis):
+
+\begin{key}{/tikz/data visualization/axis options/attribute=\meta{attribute}}
+  Specifies that the axis is used to transform the data points
+  according the different values of the key
+  |/data point/|\meta{attribute}. For instance, when we create a
+  classical two-dimensional Cartesian coordinate system, then there
+  are two axes called |x axis| and |y axis| that monitor the values of
+  the attributes |/data point/x| and |/data point/y|, respectively:
+\begin{codeexample}[code only]
+  [new axis=x axis,
+   new axis=y axis,
+   x axis={attribute=x},
+   y axis={attribute=y}]
+\end{codeexample}
+  In another example, we also create an |x axis| and a
+  |y axis|. However, this time, we want to plot the values of the
+  |/data point/time| attribute on the $x$-axis and, say, the value of
+  the |height| attribute on the $y$-axis:
+\begin{codeexample}[code only]
+  [new axis=x axis,
+   new axis=y axis,
+   x axis={attribute=time},
+   y axis={attribute=height}]
+\end{codeexample}
+  During the data visualization, the \meta{attribute} will be
+  ``monitored'' during the survey phase. This means that for each data
+  point, the current value of |/data point/|\meta{attribute} is
+  examined and the minimum value of all of these values as well as the
+  maximum value is recorded internally. Note that this works even when
+  very large numbers like |100000000000| are involved.
+
+  Here is a real-life example. The |scientific axes| create two axes,
+  called |x axis| and |y axis|, respectively.
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes,
+                          x axis={attribute=people, length=2.5cm, ticks=few},
+                          y axis={attribute=year},
+                          visualize as scatter]
+  data {
+    year, people
+    1900, 100
+    1910, 200
+    1950, 200
+    1960, 250
+    2000, 150
+  };
+\end{codeexample}
+\end{key}
+
+The above key allows us specify which attribute should be
+``monitored''. The next key is used to specify what should happen with
+the observed values.
+
+\begin{key}{/tikz/data visualization/axis options/scaling=\meta{scaling spec}}
+  The \meta{scaling spec} must have the following form:
+  \begin{quote}
+    \meta{$s_1$}| at |\meta{$t_1$}| and |\meta{$s_2$}| at |\meta{$t_2$}
+  \end{quote}
+  This means that monitored values in the interval $[s_1,s_2]$ should
+  be mapped to values the ``reasonable'' interval $[t_1,t_2]$,
+  instead. For instance, we might write
+\begin{codeexample}[code only]
+[y axis = {scaling = 1900 at 0cm and 2000 at 5cm}]
+\end{codeexample}
+  in order to map dates between 1900 and 2000 to the dimension
+  interval $[0\mathrm{cm},5\mathrm{cm}]$.
+\begin{codeexample}[]
+\tikz \datavisualization
+   [scientific axes,
+    x axis={attribute=people, length=2.5cm, ticks=few},
+    y axis={attribute=year, scaling=1900 at 0cm and 2000 at 5cm},
+    visualize as scatter]
+  data {
+    year, people
+    1900, 100
+    1910, 200
+    1950, 200
+    1960, 250
+    2000, 150
+  };
+\end{codeexample}
+  So much for the basic idea. Let us now have a detailed look at what
+  happens.
+
+  \medskip
+  \textbf{Number format and the min and max keywords.}
+  The source values $s_1$ and $s_2$ are typically just numbers like
+  |3.14| or |10000000000|. However, as described in
+  Section~\ref{section-dv-expressions}, you can also specify
+  expressions like |(pi/2)|, provided that (currently) you put them in
+  parentheses.
+
+  Instead of a number, you may alternatively also use the two key
+  words |min| and |max| for $s_1$ and/or $s_2$. In this case, |min|
+  evaluates to the smallest value observed for the attribute in the
+  data, symmetrically |max| evaluates to the largest values. For
+  instance, in the above example with the |year| attribute ranging
+  from |1900| to |2000|, the keyword |min| would stand for |1900| and
+  |max| for |2000|. Similarly, for the |people| attribute |min| stands
+  for |100| and |max| for |250|. Note that |min| and |max| can only be
+  used for $s_1$ and $s_2$, not for $t_1$ and $t_2$.
+
+  A typical use of the |min| and |max| keywords is to say
+\begin{codeexample}[code only]
+scaling = min at 0cm and max at 5cm    
+\end{codeexample}
+  to map the complete range of values into an interval of length of
+  5cm. 
+
+  The interval  $[s_1,s_2]$ need not contain all values that the
+  \meta{attribute} may attain. It is permissible that values are less
+  than $s_1$ or more than $s_2$.
+  
+  \medskip
+  \textbf{Linear transformation of the attribute.}
+  As indicated earlier, the main job of an axis is to map values from
+  a ``large'' interval $[s_1,s_2]$ to a more reasonable interval
+  $[t_1,t_2]$. Suppose
+  that for the current data point the value of the key
+  |/data point/|\meta{attribute} is the number $v$. In the simplest 
+  case, the following happens: A new value $v'$ is computed so that
+  $v' = t_1$ when $v=s_1$ and $v'=t_2$ when $v=s_2$ and $v'$ is some
+  value in between $t_1$ and $t_2$ then $v$ is some value in between
+  $s_1$ and $s_2$. (Formally, in this basic case $v' = t_1 +
+  (v-s_1)\frac{t_2-t_1}{s_2-s_1}$.)
+
+  Once $v'$ has been computed, it is stored in the key
+  |/data point/|\meta{attribute}|/scaled|. Thus, the ``reasonable''
+  value $v'$ does not replace the value of the attribute, but it is
+  placed in a different key. This means that both the original value
+  and the more ``scaled'' values are available when the data point is
+  visualized.
+
+  As an example, suppose you have written
+\begin{codeexample}[code only]
+[x axis = {attribute = x, scaling=1000 at 20 and 2000 at 30}]
+\end{codeexample}
+  Now suppose that |/data point/x| equals |1200| for a data
+  point. Then the key |/data point/x/scaled| will be set to |22| when
+  the data point is being visualized.
+  
+  \medskip
+  \textbf{Nonlinear transformations of the attribute.}
+  By default, the transformation of $[s_1,s_2]$ to $[t_1,t_2]$ is the
+  linear transformation described above. However, in some case you may
+  be interested in a different kind of transformation: For example, in
+  a logarithmic plot, values of an attribute may range between, say,
+  |1| and |1000| and we want an axis of length |3cm|. So, we would
+  write
+  \begin{codeexample}[code only]
+[x axis = {attribute = x, scaling=1 at 0cm and 1000 at 3cm}]
+  \end{codeexample}
+  Indeed, |1| will now be mapped to position |0cm| and |1000| will be
+  mapped to position |3cm|. Now, the value |10| will be mapped to
+  approximately |0.03cm| because it is (almost) at one percent between
+  |1| and |1000|. However, in a logarithmic plot we actually want |10|
+  to be mapped to the position |1cm| rather than |0.03cm| and we want
+  |100| to be mapped to the position |2cm|. Such a mapping a
+  \emph{nonlinear} mapping between the intervals.
+
+  In order to achieve such a nonlinear mapping, the |function| key can
+  be used, whose syntax is described in a moment. The effect of this key is
+  to specify a function $f \colon \mathbb R \to \mathbb R$ like, say,
+  the logarithm function. When such a function is specified, the
+  mapping of $v$ to $v'$ is computed as follows:
+  \begin{align*}
+    v' = t_1 + (f(s_2) - f(v))\frac{t_2 - t_1}{f(s_2)-f(s_1)}.
+  \end{align*}
+  
+  The syntax of the |function| key is described next, but you
+  typically will not call this key directly. Rather, you will use a
+  key like |logarithmic| that installs appropriate code for the
+  |function| key for you.
+  \begin{key}{/tikz/data visualization/axis options/function=\meta{code}}
+    The \meta{code} should specify a function $f$ that is applied
+    during the transformation of the interval $[s_1,s_2]$ to the
+    interval $[t_1,t_2]$ in the following way: When the \meta{code} is
+    called, the macro |\pgfvalue| will have been set to an internal
+    representation of the to-be-transformed value~$v$. You can then
+    call the commands of the math-micro-kernel of the data
+    visualization system, see Section~\ref{section-dv-math-kernel}, to
+    compute a new value. This new value must once more be stored in
+    |\pgfvalue|.
+
+    The most common use of this key is to say
+\begin{codeexample}[code only]
+some axis={function=\pgfdvmathln{\pgfvalue}{\pgfvalue}} 
+\end{codeexample}
+    This specifies that the function $f$ is the logarithm
+    function.
+\begin{codeexample}[]
+\tikz \datavisualization
+   [scientific axes,
+    x axis={ticks={major={at={1,10,100,1000}}},
+             scaling=1 at 0cm and 1000 at 3cm,
+             function=\pgfdvmathln{\pgfvalue}{\pgfvalue}},
+    visualize as scatter]
+  data [format=named] {
+    x={1,100,...,1000}, y={1,2,3}
+  };
+\end{codeexample}
+    Another possibility might be to use the square-root function, instead:
+\begin{codeexample}[]
+\tikz \datavisualization
+   [scientific axes,
+    x axis={ticks=few,
+            scaling=1 at 0cm and 1000 at 3cm,
+            function=\pgfdvmathunaryop{\pgfvalue}{sqrt}{\pgfvalue}},
+    visualize as scatter]
+  data [format=named] {
+    x={0,100,...,1000}, y={1,2,3}
+  };
+\end{codeexample}
+  \end{key}
+  
+  \medskip
+  \textbf{Default scaling.}
+  When no scaling is specified, it may seem natural to use $[0,1]$
+  both as the source and the target interval. However, this would not
+  work when the logarithm function is used as transformations: In this
+  case the logarithm of zero would be computed, leading to an
+  error. Indeed, for a logarithmic axis it is far more natural to use
+  $[1,10]$ as the source interval and $[0,1]$ as the target interval.
+
+  For these reasons, the default value for the |scaling| that is used
+  when no value is specified explicitly can be set using a special
+  key:   
+  \begin{key}{/tikz/data visualization/axis options/scaling/default=\meta{text}}
+    The \meta{text} is used as |scaling| whenever no other scaling is
+    specified. This key is mainly used when a transformation function
+    is set using |function|; normally, you will not use this key
+    directly. 
+  \end{key}
+\end{key}
+
+Most of the time, you will not use neither the |scaling| nor the
+|function| key directly, but rather you will use one of the following
+predefined styles documented in the following. 
+
+\subsubsection{Scaling: Logarithmic Axes}
+
+\begin{key}{/tikz/data visualization/axis options/logarithmic}
+  When this key is used with an axis, three things happen:
+  \begin{enumerate}
+  \item The transformation |function| of the axis is setup to the
+    logarithm.
+  \item The strategy for automatically generating ticks and grid lines
+    is set to the |exponential strategy|, see
+    Section~\ref{section-dv-exponential-strategy} for details.
+  \item The default scaling is setup sensibly.
+  \end{enumerate}
+  All told, to turn an axis into a logarithmic axis, you just need to
+  add this option to the axis.
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes, 
+                          x axis={logarithmic},
+                          y axis={logarithmic},
+                          visualize as line]
+ data [format=function] {
+   var x : interval [0.01:100];
+   func y = \value x * \value x;
+ };
+\end{codeexample}
+  Note that this will work with any axis,
+  including, say, the degrees on a polar axis:
+\begin{codeexample}[]
+\tikz \datavisualization
+    [new polar axes, 
+     angle axis={logarithmic, scaling=1 at 0 and 90 at 90},
+     radius axis={scaling=0 at 0cm and 100 at 3cm},
+     visualize as scatter]
+  data [format=named] {
+    angle={1,10,...,90}, radius={1,10,...,100}
+  };
+\end{codeexample}  
+\begin{codeexample}[]
+\tikz \datavisualization
+    [new polar axes, 
+     angle axis={degrees},
+     radius axis={logarithmic, scaling=1 at 0cm and 100 at 3cm},
+     visualize as scatter]
+  data [format=named] {
+    angle={1,10,...,90}, radius={1,10,...,100}
+  };
+\end{codeexample}  
+\end{key}
+
+
+
+\subsubsection{Scaling: Setting the Length or Unit Length}
+
+\begin{key}{/tikz/data visualization/axis options/length=\meta{dimension}}
+  Sets |scaling| to |min at 0cm and max at |\meta{dimension}. The
+  effect is that the range of all values of the axis's attribute will
+  be mapped to an interval of exact length \meta{dimension}.
+  
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes,
+                          x axis={length=3cm},
+                          y axis={length=2cm},
+                          all axes={ticks=few},
+                          visualize as line]
+    data {
+      x, y
+      10, 10
+      20, 20
+      15, 30
+      13, 20
+    };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes,
+                          x axis={length=3cm},
+                          y axis={length=4cm},
+                          all axes={ticks=few},
+                          visualize as line]
+    data {
+      x, y
+      10, 10
+      20, 20
+      15, 30
+      13, 20
+    };
+\end{codeexample}
+  
+\end{key}
+
+\begin{key}{/tikz/data visualization/axis
+    options/unit length=\meta{dimension}\opt{| per |\meta{number}| units|}}
+  Sets |scaling| to |0 at 0cm and 1 at |\meta{dimension}. In other
+  words, this key allows you to specify how long a single unit should
+  be. This key is particularly useful when you wish to ensure that the
+  same scaling is used across multiple axes or pictures.  
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes,
+                          all axes={ticks=few, unit length=1mm},
+                          visualize as line]
+    data {
+      x, y
+      10, 10
+      40, 20
+      15, 30
+      13, 20
+    };
+\end{codeexample}
+  The optional |per |\meta{number}| units| allows you to apply more
+  drastic scaling. Suppose that you want to plot a graph where one
+  billion corresponds to one centimeter. Then the unit length would be
+  need to be set to a hundredth of a nanometer -- much too small for
+  \TeX\ to handle as a dimension. In this case, you can write
+  |unit length=1cm per 1000000000 units|:
+\begin{codeexample}[]
+\tikz \datavisualization
+  [scientific axes,
+   x axis={unit length=1mm per 1000000000 units, ticks=few},
+   visualize as line]
+ data {
+   x, y
+   10000000000, 10
+   40000000000, 20
+   15000000000, 30
+   13000000000, 20
+ };
+\end{codeexample}
+\end{key}
+\begin{key}{/tikz/data visualization/axis
+    options/power unit length=\meta{dimension}}
+  This key is used in conjunction with the |logarithmic| setting. It
+  cases the |scaling| to be set to
+  |1 at 0cm and 10 at |\meta{dimension}. This causes a ``power unit,''
+  that is, one power of ten in a logarithmic plot, to get a length of
+  \meta{dimension}. Again, this key is useful for ensuring that the
+  same scaling is used across multiple axes or pictures.  
+\begin{codeexample}[]
+\tikz \datavisualization
+  [scientific axes, 
+   y axis={logarithmic, power unit length=1mm, grid},
+   visualize as line]
+ data {
+   x, y
+   0, 0.0000000001
+   1, 1
+   2, 100000
+   3, 100000000000
+   4, 10000000000000000000000000000000
+   5, 500000000
+   6, 5000000000000000000
+ };
+\end{codeexample}
+\end{key}
+
+
+\subsubsection{Axis Label}
+
+An axis can have a \emph{label}, which is a textual representation of
+the attribute according to which the axis varies the position of the
+page. You can set the attribute using the following key:
+
+
+\begin{key}{/tikz/data visualization/axis options/label=\opt{|[|\meta{options}|]|}\meta{text}}
+  This key sets the label of an axis to \meta{text}. This text will
+  typically be placed inside a |node| and the \meta{options} can be
+  used to further configure the way this node is rendered. When
+  \meta{options} are given, everything following the equal sign should
+  typically be surrounded by curly braces.
+\begin{codeexample}[]
+\tikz \datavisualization [scientific axes,
+                          x axis = {label=$x$, length=2.5cm},
+                          y axis = {label={[fill=blue!20]{$x^2$}}},
+                          visualize as smooth line]
+ data [format=function] {
+   var x : interval [-3:5];
+   func y = \value x * \value x;
+ };
+\end{codeexample}  
+\end{key}
+
+Note that using the |label| key does not actually cause a node to be
+created, because it is somewhat unclear where the label should be
+placed. Instead, the |visualize label| key is used (typically
+internally by an axis system) to show the label at some sensible
+position. This key is documented in
+Section~\ref{section-dv-visualize-label}. 
+
+
+
+\subsubsection{Reference: Axis Types}
+
+\label{section-dv-reference-axis-types}
+
+As explained earlier, when you use |new axis| to create a new axis,
+a powerful scaling and attribute mapping mechanism is installed, but
+no mapping of values to positions on the page is performed. For this,
+a \emph{transformation object} must be installed. The following keys
+take care of this for you. Note, however, that even these keys do not
+cause a visual representation of the axis to be added to the
+visualization -- this is the job of an axis system, see
+Section~\ref{section-dv-axis-systems}. 
+
+\begin{key}{/tikz/data visualization/new Cartesian axis=\meta{name}}
+  This key creates a new ``Cartesian'' axis, named \meta{name}. For
+  such an axis, the (scaled) values of the axis's attribute are
+  transformed into a displacement on the page along a straight
+  line. The following key is used to configure in which ``direction''
+  the axis points:
+  \begin{key}{/tikz/data visualization/axis options/unit
+      vector=\meta{coordinate} (initially {(1pt,0pt)})}
+    Recall that an axis takes the values of an attribute and rescales
+    them so that they fit into a ``reasonable'' interval
+    $[t_1,t_2]$. Suppose that $v'$ is the rescaled dimension in (\TeX)
+    points. Then when the data point is visualized, the coordinate
+    system will be shifted by $v'$ times the \meta{coordinate}.
+
+    As an example, suppose that you have said
+    |scaling=0 and 10pt and 50 and 20pt|. Then when the underlying
+    attribute has the value |25|, it will be mapped to a $v'$ of $15$
+    (because |25| lies in the middle of |0| and |50| and |15pt| lies
+    in the middle of |10pt| and |20pt|). This, in turn, causes the
+    data point to be displaced by $15$ times the \meta{coordinate}.
+
+    The bottom line is that the \meta{coordinate} should usually
+    denote a point that is at distance |1pt| from the origin and that
+    points into the direction of the axis.
 \begin{codeexample}[]
 \begin{tikzpicture}
-  \datavisualization [scientific axes, visualize as smooth line]
-    data [format=function] {
-      var x : interval [1:11];
-      func y = \value x*\value x;
-    };
-\end{tikzpicture}
-\qquad
-\begin{tikzpicture}
-  \datavisualization [scientific axes, visualize as smooth line,
-    y axis={exponential steps},
-    x axis={ticks={quarter about strategy}},
-  ]
-    data [format=function] {
-      var x : interval [1:11];
-      func y = \value x*\value x;
-    };
+  \draw [help lines] (0,0) grid (3,2);
+
+  \datavisualization
+    [new Cartesian axis=x axis, x axis={attribute=x},
+     new Cartesian axis=y axis, y axis={attribute=y},
+     x axis={unit vector=(0:1pt)},
+     y axis={unit vector=(60:1pt)},
+     visualize as scatter]
+  data {
+    x, y
+    0, 0
+    1, 0
+    2, 0
+    1, 1
+    2, 1
+    1, 1.5
+    2, 1.5
+  };
 \end{tikzpicture}
 \end{codeexample}
+\end{key}
+\end{key}
 
 
+For the next key, the following library needs to be loaded:
 
-\subsubsection{Grids}
+\begin{tikzlibrary}{datavisualization.polar}
+  Makes keys available for creating polar plots.
+\end{tikzlibrary}
 
-\subsection{Usage}
+\begin{key}{/tikz/data visualization/new polar axes=\meta{angle axis
+      name}\meta{radius axis name}}
+  This key actually creates two axes, whose names are give as
+  parameters, which must be surrounded by curly braces: An
+  \emph{angle axis} and a \emph{radius axis}. These two axes work in
+  concert in the following way: Suppose a data point has two
+  attributes called |angle| and |radius| (these attribute names can be
+  changed by changing the |attribute| of the \meta{angle axis name} or
+  the \meta{radius axis name}, respectively). These two attributes are
+  then scaled as usual, resulting in two ``reasonable'' values $a$
+  (for the angle) and $r$ (for the radius). Then, the data point gets
+  visualized at a position on the page that is at a distance of $r$
+  from the origin and at an angle of~$a$. 
+\begin{codeexample}[]
+\tikz \datavisualization
+    [new polar axes={angle axis}{radius axis},
+     radius axis={length=2cm},
+     visualize as scatter]
+  data [format=named] {
+    angle={0,20,...,160}, radius={0,...,5}
+  };
+\end{codeexample}
+  The \meta{angle axis}... 
+\end{key}
 
 
-\subsection{Reference: Standard Axis Systems}
+\endinput
 
-In this section the axis system commonly used in data visualizations
-are described.
+\subsection{Axis Systems}
+\label{section-dv-axis-systems}
 
-\subsubsection{Scientific Axis Systems}
+\subsubsection{Concepts}
+
+\subsubsection{Usage}
+
+\subsubsection{Reference: Scientific Axis Systems}
 
 \begin{key}{/tikz/data visualization/scientific axes}
   This key installs a two-dimensional coordinate system based on the
@@ -283,7 +862,7 @@ can be specified. They are discussed in the following.
 
 
 
-\subsubsection{School Book Axis Systems}
+\subsubsection{Reference: School Book Axis Systems}
 
 \begin{key}{/tikz/data visualization/school book axes}
   This axis system is intended to ``look like'' the coordinate systems
@@ -341,9 +920,7 @@ can be specified. They are discussed in the following.
 
 
 
-
-
-\subsubsection{Advanced: Underlying Cartesian Axis Systems}
+\subsubsection{Advanced Reference: Underlying Cartesian Axis Systems}
 
 The axis systems described in the following are typically not used
 directly by the user. The systems setup \emph{directions} for several
@@ -418,17 +995,89 @@ positions.
 
 
 
-\subsection{Reference: Tick Placement Strategies}
+\subsubsection{Advanced: Creating New Axis Systems}
+
+
+\label{section-dv-visualize-label}
+
+\begin{key}{/tikz/data visualization/axis options/visualize label=\meta{options}}
+  ...  
+\end{key}
+
+
+
+
+\subsection{Ticks and Grids}
+\label{section-dv-ticks-and-grids}
+
+\subsubsection{Mayor, Minor, and Subminor Ticks}
+
+
+\subsubsection{Grids}
+
+
+\subsection{Tick Placement Strategies}
 \label{section-dv-tick-placement-strategies}
 
-As described in \ref{section-dv-concept-tick-placement-strategies},
-it is not a trivial task for the data visualization engine to
-correctly automatically determine good positions for the placement of
-ticks on axes. When the values on an axis range between, say, $17.4$
-and $34.5$, it is somewhat unclear where ticks should be placed.
+\subsubsection{Concepts}
+\label{section-dv-concept-tick-placement-strategies}
+
+Consider the following problem: The data visualization engine
+determines that in a
+plot the $x$-values vary between $17.4$ and $34.5$. In this case, we
+certainly do not want, say, ten ticks at exactly ten evenly spaced
+positions starting with $17.4$ and ending with $34.5$, because this
+would yield ticks at positions like $32.6$. Ticks should be placed at
+``nice'' positions like $20$, $25$, and $30$.
+
+Determining which positions are ``nice'' is somewhat difficult. In the
+above example, the positions $20$, $25$, and $30$ are certainly nice,
+but only three ticks may be a bit few of them. Better might be the
+tick positions $17.5$, $20$, $22.5$, through to $32.5$. However, users
+might prefer even numbers over fractions like $2.5$ as the stepping.
+
+A \emph{tick placement strategy} is a method of automatically deciding
+which positions are \emph{good} for placing ticks. The data
+visualization engine comes with a number of predefined strategies, see
+Section~\ref{section-dv-tick-placement-strategies}, but you can also
+define new ones yourself. When the data visualization is requested to
+automatically determine
+``good'' positions for the placement of ticks on an axis, it uses one
+of several possible \emph{basic strategies}. These strategies differ
+dramatically in which tick positions they will choose: For a range of
+values between $5$ and $1000$, a |linear steps| strategy might place
+ticks at positions $100$, $200$, through to $1000$, while an
+|exponential steps| strategy would prefer the tick positions $10$,
+$100$ and $1000$. The exact number and values of the tick positions
+chosen by either strategy can be fine-tuned using additional options
+like |step| or |about|.
+
+Here is an example of the different stepping chosen when one varies
+the tick placement strategy:
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \datavisualization [scientific axes, visualize as smooth line]
+    data [format=function] {
+      var x : interval [1:11];
+      func y = \value x*\value x;
+    };
+\end{tikzpicture}
+\qquad
+\begin{tikzpicture}
+  \datavisualization [scientific axes, visualize as smooth line,
+    y axis={exponential steps},
+    x axis={ticks={quarter about strategy}},
+  ]
+    data [format=function] {
+      var x : interval [1:11];
+      func y = \value x*\value x;
+    };
+\end{tikzpicture}
+\end{codeexample}
 
 
-\subsubsection{Predefined Strategies}
+\subsubsection{Reference: Predefined Strategies}
 
 The following strategies are always available:
 
@@ -469,6 +1118,8 @@ The following strategies are always available:
 \end{tikzpicture}
 \end{codeexample}
 \end{key}
+
+\label{section-dv-exponential-strategy}
 
 \begin{key}{/tikz/data visualization/axis options/exponential steps}
   This strategy produces ticks at positions that are appropriate for
@@ -795,6 +1446,4 @@ to request about four ticks to be placed on the $x$-axis.
 \end{codeexample}
 \end{key}
 
-\subsection{Advanced: Creating New Axes}
 
-\subsection{Advanced: Creating New Axis Systems}
