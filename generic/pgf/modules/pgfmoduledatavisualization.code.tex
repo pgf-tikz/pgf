@@ -530,7 +530,7 @@
 
 
 
-% Run the rendering pipeline on a dataset.
+% Run the rendering pipeline on a dataset and/or save the dataset.
 % 
 % #1 = options with path /pgf/data/
 % #2 = optionally data given inline in curly braces.
@@ -542,14 +542,27 @@
 % accumulate. Data can be in different formats, as specified by the
 % "format" key, and you can define new formats.  
 %
-% The setting of the following keys is important:
+% The settings of the following keys are important:
 %
-% /pgf/data visualization/obj contains a handle to the dv-object
-% /pgf/data/format stores the format (see below)
-% /pgf/data/source determines where the data is.
+% /pgf/data visualization/obj
+%   contains a handle to the dv-object
 %
-% If source is empty, the data is stored in the argument that
-% follows. Otherwise, the file whose name is stored in source is read.  
+% /pgf/data/format
+%   stores the format (see below)
+%
+% /pgf/data/read from file
+%   determines where the data is.
+%  
+% /pgf/data/store in set
+%   when nonempty, the data is stored here instead of being fed to the
+%   rendering pipeline
+%
+% /pgf/data/use set
+%   when nonempty, data that has previsouly been stored here using
+%   |define set| is read from here and all other keys are ignored
+%
+% If "read from file" is empty, the data is stored in the argument that
+% follows. Otherwise, the data is read from the specified source file.  
 % This data is stored in an internal variable, which is local to the
 % current group.
 %
@@ -595,7 +608,7 @@
 %   2200, 2300, 2250, 2260 
 % }
 %
-% \pgfdata[source=data,format=comma separated columns]
+% \pgfdata[read from file=data.csv,format=comma separated columns]
 %
 % \dv.survey()
 % \dv.visualize()
@@ -603,24 +616,42 @@
 \def\pgfdata{\pgfutil@ifnextchar[{\pgf@dataset@data@opt}{\pgf@dataset@data@opt[]}}%}
 \def\pgf@dataset@data@opt[#1]{%
   % Ok, add one data thing...
-  \pgfkeysvalueof{/pgf/data visualization/obj}.add data(\pgf@do@data{#1})%
   \begingroup%
     \pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}%
     \pgfkeysgetvalue{/pgf/data/continue code}\pgf@dv@cont@code%
     \global\let\pgf@dv@cont@code\pgf@dv@cont@code%
-    \pgfkeysgetvalue{/pgf/data/format}\pgf@dv@format%
-    \expandafter\let\expandafter\pgf@dv@format@catcodes\csname pgfdv@format@\pgf@dv@format @catcodes\endcsname%
-    \ifx\pgf@dv@format@catcodes\relax
-      \PackageError{pgf}{Unknown data format '\pgf@dv@format'}{}%
+    \pgfkeysgetvalue{/pgf/data/use set}\pgf@dv@use@set%
+    \ifx\pgf@dv@use@set\pgfutil@empty%
+      \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data(\pgf@do@data{#1})}%
+      \expandafter\pgf@dataset@data@opt@cont%
     \else%
-      \pgfkeysgetvalue{/pgf/data/source}\pgf@dv@source%
-      \ifx\pgf@dv@source\pgfutil@empty%
-        \let\pgf@next\pgf@dataset@grab@inline%
+      \expandafter\ifx\csname pgf@dv@set@@\pgf@dv@use@set\endcsname\relax%
+        \PackageError{pgf}{Undefined data set '\pgf@dv@use@set'}{}%
       \else%
-        \let\pgf@next\pgf@dataset@grab@external%
+        {%
+          \pgfkeys{/pgf/data/define set/.code=}% no redefinitions during use
+          \csname pgf@dv@set@@\pgf@dv@use@set\endcsname%
+        }%
       \fi%
-      \pgf@next%
+  \endgroup%  
+  \expandafter\pgf@dv@cont@code%
+      \fi%
 }
+\def\pgf@dataset@data@opt@cont{%
+  \pgfkeysgetvalue{/pgf/data/format}\pgf@dv@format%
+  \expandafter\let\expandafter\pgf@dv@format@catcodes\csname pgfdv@format@\pgf@dv@format @catcodes\endcsname%
+  \ifx\pgf@dv@format@catcodes\relax
+    \PackageError{pgf}{Unknown data format '\pgf@dv@format'}{}%
+  \else%
+    \pgfkeysgetvalue{/pgf/data/read from file}\pgf@dv@source%
+    \ifx\pgf@dv@source\pgfutil@empty%
+      \let\pgf@next\pgf@dataset@grab@inline%
+    \else%
+      \let\pgf@next\pgf@dataset@grab@external%
+    \fi%
+    \pgf@next%
+}
+  
 \def\pgf@dataset@grab@inline{%
   \pgfutil@ifnextchar\bgroup{%
     \begingroup%
@@ -632,14 +663,23 @@
 \def\pgf@dataset@grab@external{%
     \fi%
   \endgroup%
-  \pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@external}}})%
+  \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@external}}})}%
   \pgf@dv@cont@code%
+}
+
+\def\pgf@dv@do@adddata#1{%
+  \pgfkeysgetvalue{/pgf/data/store in set}\pgf@dv@temp%
+  \ifx\pgf@dv@temp\pgfutil@empty%
+    #1%
+  \else%
+    \expandafter\pgfutil@g@addto@macro\csname pgf@dv@set@@\pgf@dv@temp\endcsname{#1}%
+  \fi%
 }
 
 {\catcode`\^^M=\active%
   \gdef\pgf@dataset@grab@@inline#1{%
     \endgroup%
-    \pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@inline#1^^M\pgf@@eol}}})%
+    \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data({{{\pgf@dataset@do@inline#1^^M\pgf@@eol}}})}%
     \fi%
   \endgroup%
   \pgf@dv@cont@code%
@@ -666,9 +706,9 @@
 
 \def\pgf@dataset@do@external{%
   \csname pgfdv@format@\pgfkeysvalueof{/pgf/data/format}@catcodes\endcsname%
-  \immediate\openin\r@pgf@reada=\pgfkeysvalueof{/pgf/data/source} %
+  \immediate\openin\r@pgf@reada=\pgfkeysvalueof{/pgf/data/read from file} %
   \ifeof\r@pgf@reada\relax
-     \PackageError{pgf}{Data source '\pgfkeysvalueof{/pgf/data/source}' not found}{}%
+     \PackageError{pgf}{Data file '\pgfkeysvalueof{/pgf/data/read from file}' not found}{}%
   \else
     \pgf@dataset@readline%
   \fi
@@ -713,8 +753,12 @@
 \pgfkeys{
   /pgf/data/data visualization obj/.initial=\undefined,
   /pgf/data/format/.initial=table,% the default format
-  /pgf/data/source/.initial=,
-  /pgf/data/continue code/.initial=
+  /pgf/data/read from file/.initial=,
+  /pgf/data/inline/.style={read from file=},
+  /pgf/data/continue code/.initial=,
+  /pgf/data/store in set/.initial=,
+  /pgf/data/new set/.code={\expandafter\global\expandafter\let\csname pgf@dv@set@@#1\endcsname\pgfutil@empty},
+  /pgf/data/use set/.initial=,
 }
 
 
@@ -738,7 +782,7 @@
 % a data set is visualized and the format is set to #1, this handler
 % is used to parse the data.
 %
-% In detail, the \dataset command will select a source. Before this
+% In detail, the \pgfdata command will select a source. Before this
 % source is read, #2 will be executed to setup the
 % catcodes. Additionally, each time the data is parsed, #3 will be
 % called. Then, for each nonempty line of the source, the

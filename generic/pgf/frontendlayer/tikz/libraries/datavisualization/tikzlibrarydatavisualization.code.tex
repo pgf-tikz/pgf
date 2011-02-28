@@ -60,6 +60,20 @@
 %   /tikz/every data is executed for each data, which can be useful to
 %   generally set, say, a certain data format.
 %
+%
+% "data set" blocks.
+%
+%   Syntax: data set [options] {name} = { ... }
+%   Syntax: data set [options] {name} += { ... }
+%   Syntax: data set [options] {name} 
+%
+%   The first syntax allows you to define a data set. The data block
+%   inside {...} will be stored inside the data set
+%   "name". Subsequently, the data set can be referenced by using the
+%   third syntax. The second syntax allows you to extend the
+%   definition of an already defined data set.
+%
+%
 % "info" and "info'" blocks.
 %
 %   Syntax: info  [options] {code}
@@ -199,22 +213,52 @@
 }
 \def\tikz@lib@dv@beg@opt[#1]{%
   \pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}%
-  \pgfkeysvalueof{/pgf/data visualization/obj}.add data({{\begingroup\pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}}})%
+  \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data({{\begingroup\pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}}})}%
   \pgfutil@ifnextchar\bgroup{
     \afterassignment\tikz@lib@dv@parse@loop%
     \let\tikz@dummy=%get rid of \bgroup
   }{%
     \PackageError{pgf}{Opening brace expected}{}%
+    \tikz@lib@dv@parse@loop%
   }%
 }
 \def\tikz@lib@dv@handle@endscope{%
-    \pgfkeysvalueof{/pgf/data visualization/obj}.add data(\endgroup)%
+    \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data(\endgroup)}%
   \endgroup%
   \afterassignment\tikz@lib@dv@parse@loop%
   \let\tikz@dummy=%get rid of \egroup
 }
 
-\def\tikz@lib@dv@handle@data data{\pgfdata}
+\def\tikz@lib@dv@handle@data data{\pgfutil@ifnextchar s{\tikz@lib@dv@handle@data@set}{\pgfdata}}
+
+\def\tikz@lib@dv@handle@data@set set{\pgfutil@ifnextchar[{\tikz@lib@dv@handle@data@set@opt}{\tikz@lib@dv@handle@data@set@opt[]}}%}
+
+\def\tikz@lib@dv@handle@data@set@opt[#1]#2{%
+  \pgfutil@ifnextchar={\tikz@lib@dv@handle@data@set@def{#1}{#2}}{%
+    \pgfutil@ifnextchar+{\tikz@lib@dv@handle@data@set@extend{#1}{#2}}{%
+      \tikz@lib@dv@handle@data@set@use{#1}{#2}}}}
+
+\def\tikz@lib@dv@handle@data@set@def#1#2={%
+  \pgfkeys{/pgf/data/new set=#2}%
+  \tikz@lib@dv@handle@data@set@extend{#1}{#2}+=%
+}
+
+\def\tikz@lib@dv@handle@data@set@extend#1#2+={%
+  \pgfutil@ifnextchar\bgroup{
+    \begingroup%
+      \pgfkeys{/pgf/data/store in set=#2}%
+      \pgf@dv@do@adddata{\pgfkeysvalueof{/pgf/data visualization/obj}.add data({{\begingroup\pgfkeys{/pgf/data/.cd,/pgf/every data/.try,#1}}})}%
+      \afterassignment\tikz@lib@dv@parse@loop%
+      \let\tikz@dummy=%get rid of \bgroup
+  }{%
+    \PackageError{pgf}{Opening brace expected}{}%
+    \tikz@lib@dv@parse@loop%
+  }%
+}
+
+\def\tikz@lib@dv@handle@data@set@use#1#2{%
+  \pgfdata[#1,use set=#2]%
+}
 
 \def\tikz@lib@dv@handle@info info{%
   \pgfutil@ifnextchar'{\tikz@lib@dv@handle@info@prime}{\tikz@lib@dv@handle@info@noprime}}
@@ -843,7 +887,7 @@
   \pgfdvmathenter{\tikz@lib@dv@typesetnum}{\tikz@dv@tick@pos}%
   \pgfdvmathexitbyscientificformat{\tikz@lib@dv@typesetnum}{\tikz@lib@dv@typesetnum}% hmm... not sure about this...
   \pgfkeysvalueof{/tikz/data visualization/tick prefix}%
-  \pgfkeysvalueof{/tikz/data visualization/tick typesetter}{\tikz@lib@dv@typesetnum}%
+  \pgfkeys{/tikz/data visualization/tick typesetter=\tikz@lib@dv@typesetnum}%
   \pgfkeysvalueof{/tikz/data visualization/tick suffix}%
 }
 
@@ -1054,10 +1098,10 @@
   minor steps between steps/.initial=,
   minor steps between steps/.default=9,
   phase/.initial=0,
-  tick typesetter/.initial=\pgfmathprintnumber,
+  tick typesetter/.code=\pgfmathprintnumber{#1},
   tick prefix/.initial=,
   tick suffix/.initial=,
-  tick unit/.style={tick suffix={#1}},% this is an alias
+  tick unit/.style={tick suffix={$\,\rm#1$}},% this is an alias
 }
 
 \def\tikz@lib@dv@compute@at@linear{%
@@ -2052,7 +2096,7 @@
     new Cartesian axis=y axis,
     y axis={attribute=y,unit vector={(0cm,1pt)}}
   },
-  xy axes/.style={x axis={#1},y axis={#1}},
+  Xy axes/.style={x axis={#1},y axis={#1}},
   uv Cartesian/.style={
     new Cartesian axis=u axis,
     u axis={attribute=u,unit vector={(1pt,0cm)}},
