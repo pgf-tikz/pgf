@@ -155,29 +155,192 @@ attributes. Let us first define a data set:
 
 \label{section-dv-visualize-axis}
 
-We must new visualize the axes themselves. For this we can use the
+We must now show the axes themselves. For this we can use the
 |visualize axis| key:
 
 \begin{key}{/tikz/data visualization/axis options/visualize axis=\meta{options}}
-  This key is used to create a visual representation of an axis. To be written... 
-\end{key}
+  This key is passed to an axis as an option. It causes a visual
+  representation of the axis to be created during the data visualization. The
+  \meta{options} are used to determine where the axis should be drawn
+  and how long it should be. We can specify, for instance, that an
+  axis should be drawn at the minimum value of another axis or where
+  another axis has the value |0|.
+  
+  \medskip
+  \textbf{The Goto, High, and Low Keys.}
+  In our example, the |left axis| should be shown at the left hand
+  side. This is the position where the |x axis| has its minimum
+  value. To specify this, we would use the following code:
+\begin{codeexample}[code only]
+left axis={ visualize axis={ x axis={ goto=min } }
+\end{codeexample}
+  As can be seen, we can pass another axis as an \meta{option} to
+  |visualize axis|, where we pass the following key to the axis in
+  turn: 
+  \begin{key}{/tikz/data visualization/axis options/goto=\meta{value}}
+    The key can be passed to an axis. It will set the attribute
+    monitored by the axis to the given \meta{value}, which is usually
+    some number. However, \meta{value} may also be one of the
+    following, which causes a special behaviour:
+    \begin{itemize}
+    \item
+      |min|: The attribute is set to the minimal value that the
+      attribute has attained along this axis.
+    \item
+      |max|: Like |min|.
+    \item
+      |padded min|: This will also set the \meta{attribute} monitored
+      by the axis to the same value  as |min|. Additionally, however,
+      the subkey |/data point/|\meta{attribute}|/offset| is set to the
+      current padding for the minimum, see the description of
+      |padding min| later on. The effect of this is that the actual
+      point ``meant'' by the attribute is offset by this padding along
+      the attribute's axis.
+    \item
+      |padded max|: Like |padded min|.
+    \end{itemize}
+  \end{key}
 
+  The |right axis| would be visualized the same way, only at
+  |goto=max|. The $x$-axis actually need to be visualized
+  \emph{twice}: Once at the bottom and once at the top. Thus, we need
+  to call |visualize axis| twice for this axis:
+  
+\tikzdatavisualizationset{
+  our system/.style={
+    new Cartesian axis=x axis,
+    new Cartesian axis=left axis,
+    new Cartesian axis=right axis,
+    x axis={attribute=x},
+    left axis={unit vector={(0cm,1pt)}},
+    right axis={unit vector={(0cm,1pt)}},
+    x axis    ={length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width}},
+    left axis ={length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height}},
+    right axis={length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height}}
+  }
+}
+\begin{codeexample}[]
+\tikzset{
+  data visualization/our system/.append style={
+    left axis= {visualize axis={x axis=   {goto=min}}},
+    right axis={visualize axis={x axis=   {goto=max}}},
+    x axis=    {visualize axis={left axis={goto=min}},
+                visualize axis={left axis={goto=max}}},
+ }
+}
+\tikz \datavisualization [
+    our system,
+    x axis={attribute=time, length=4cm},
+    left axis ={attribute=money},
+    right axis={attribute=people},
+    visualize as line/.list={people 1, people 2, money 1, money 2}]
+  data set {people and money};  
+\end{codeexample}
 
-When an axis is visualized, it is often a good idea to make it ``a
-little bit longer'' or to ``remove it a bit from the border,'' because
-the visualization of an axis should not interfere with the actual
-data. For this reason, a \emph{padding} can be specified for axes:
+  By default, when an axis is visualized, it spans the set of all
+  possible values for the monitored attribute, that is, from |min| to
+  |max|. However, there are actually two keys that allow you to adjust
+  this:
+  \begin{key}{/tikz/data visualization/low=\meta{value}}
+    This is the attribute value where the axis visualization
+    starts. The same special values as for |goto| are permissible
+    (like |min| or |padded min|).
+  \end{key}
+  \begin{key}{/tikz/data visualization/high=\meta{value}}
+    Like |low|, only for where the axis ends.
+  \end{key}
 
-\begin{key}{/tikz/data visualization/axis options/padding min=\meta{dimension}}
-  Specifies that whenever the axis is visualized, an extra offset of
-  \meta{dimension} should be added at the minimum of the
-  axis. Note that \meta{dimension} should typically be negative since
-  ``adding the \meta{dimension}'' will then make the axis longer
-  (because it starts at a smaller value). The padding is only a
-  ``suggestion'': The visualization of an axis may also ignore this value, see
-  Section~\ref{section-dv-visualize-axis} for details. The standard
-  axis systems set the padding to some default and take its value into
-  account: 
+  By default, |low=min| and |high=max| are set for an axis
+  visualization. Another sensible setting is |low=padded min| and
+  |high=padded max|. The following key provides a shorthand for this:
+  \begin{key}{/tikz/data visualization/padded}
+    Shorthand for |low=padded min, high=padded max|.
+  \end{key}
+  As an example, consider the |scientific clean axes|. Here, each axis
+  is actually drawn three times: Once at the minimum, once at the
+  maximum and then once more at the padded minimum. 
+
+    
+  \medskip
+  \textbf{The Axis Line.}
+  When an axis is drawn, \tikzname\ does not simply draw a straight
+  line from the |low| position to the |high| position. In reality, the
+  data visualization system uses the two commands |\pgfpathdvmoveto|
+  and |\pgfpathdvlineto| internally. These will replace the straight
+  line by a curve in certain situations. For instance, in a polar
+  coordinate system, if an axis should be drawn along an angle axis
+  for a fixed radius, an arc will be used instead of a straight line.
+    
+  \medskip
+  \textbf{The Styling the Axis.}
+  As can be seen, we now get the axis we want (but without the ticks,
+  visualizing them will be explained later). The axis is, however,
+  simply a black line. We can \emph{style} the axis in a manner
+  similar to styling ticks and grid lines, see
+  Section~\ref{section-dv-style}. In detail, the following styles get
+  executed:
+  \begin{enumerate}
+  \item |axis layer|
+  \item |every axis|
+  \item |styling|
+  \end{enumerate}
+  Additionally, even before |every axis| is executed, |low=min| and
+  |high=max| are executed.
+  
+  \begin{stylekey}{/tikz/data visualization/axis layer (initially on
+      background layer)}
+    The layer on which the axis is drawn. See the description of
+    |grid layer| on page~\ref{section-dv-grid-layer} for details.
+  \end{stylekey}
+  
+  \begin{stylekey}{/tikz/data visualization/every axis}
+    Put styling of the axis here. It is usually a good idea to set
+    this style to |style={black!50}|.
+  \end{stylekey}
+
+  Recall that the |styling| key is set using the |style| key, see
+  Section~\ref{section-dv-style}. 
+\tikzset{
+}
+\begin{codeexample}[]
+\tikzset{
+  data visualization/our system/.append style={
+    every axis/.style={style=black!50}, % make this the default
+    left axis= {visualize axis={x axis=   {goto=min}, style=red!75}},
+    right axis={visualize axis={x axis=   {goto=max}, style=blue!75}},
+    x axis=    {visualize axis={left axis={goto=min}},
+                visualize axis={left axis={goto=max}}},
+ }
+}
+\tikz \datavisualization [
+    our system,
+    x axis={attribute=time, length=4cm},
+    left axis ={attribute=money},
+    right axis={attribute=people},
+    visualize as line/.list={people 1, people 2, money 1, money 2}]
+  data set {people and money};  
+\end{codeexample}
+  
+  \medskip
+  \textbf{Padding the Axis.}
+  When an axis is visualized, it is often a good idea to make it ``a
+  little bit longer'' or to ``remove it a bit from the border,'' because
+  the visualization of an axis should not interfere with the actual
+  data. For this reason, a \emph{padding} can be specified for axes:
+  
+  \begin{key}{/tikz/data visualization/axis options/padding min=\meta{dimension}}
+    This is the dimension that is used whenever |goto=padded min| is
+    used. The \meta{dimension} is then put into the |offset| subkey of
+    the attribute monitored by the axis. When a data point is
+    transformed by a linear transformer and when this subkey is
+    nonzero, this offset is added. (For an angle axis of a polar
+    transformer, the \meta{dimension} is interpreted as an additional
+    angle rather than as an additional distance). Note that
+    \meta{dimension} should typically be negative since 
+    ``adding the \meta{dimension}'' will then make the axis longer
+    (because it starts at a smaller value). The standard
+    axis systems set the padding to some default and take its value
+    into account: 
 \begin{codeexample}[]
 \begin{tikzpicture}
   \datavisualization [scientific clean axes,
@@ -189,15 +352,37 @@ data. For this reason, a \emph{padding} can be specified for axes:
     };
 \end{tikzpicture}
 \end{codeexample}
-\end{key}
 
-\begin{key}{/tikz/data visualization/axis options/padding max=\meta{dimension}}
-  Works like |padding min|, but \meta{dimension} should typically be positive.
-\end{key}
+  Using padded and using the |padded| key, we can visualize our axis
+  ``a little removed from the actual data'':
+\begin{codeexample}[]
+\tikzset{
+  data visualization/our system/.append style={
+    all axes=  {padding=.5em},
+    left axis= {visualize axis={x axis=   {goto=padded min}, padded}},
+    right axis={visualize axis={x axis=   {goto=padded max}, padded}},
+    x axis=    {visualize axis={left axis={goto=padded min}, padded},
+                visualize axis={left axis={goto=padded max}, padded}},
+ }
+}
+\tikz \datavisualization [
+    our system,
+    x axis={attribute=time, length=3cm},
+    left axis ={attribute=money},
+    right axis={attribute=people},
+    visualize as line/.list={people 1, people 2, money 1, money 2}]
+  data set {people and money};  
+\end{codeexample}  
+  \end{key}
 
-\begin{key}{/tikz/data visualization/axis options/padding=\meta{dimension}}
-  Sets both |padding min| to the negated value of \meta{dimension} and
-  |padding max| to \meta{dimension}.
+  \begin{key}{/tikz/data visualization/axis options/padding max=\meta{dimension}}
+    Works like |padding min|, but \meta{dimension} should typically be positive.
+  \end{key}
+  
+  \begin{key}{/tikz/data visualization/axis options/padding=\meta{dimension}}
+    Sets both |padding min| to the negated value of \meta{dimension} and
+    |padding max| to \meta{dimension}.
+  \end{key}
 \end{key}
 
 
@@ -2068,6 +2253,7 @@ with the path prefix |/tikz| (see Section~\ref{section-dv-style}).
 Let us now have a look at these keys in detail:
 
 \begin{stylekey}{/tikz/data visualization/grid layer (initially on background layer)}
+  \label{section-dv-grid-layer}%
   This key is used to specified the \emph{layer} on which grid lines
   should be drawn (layers are explained in
   Section~\ref{section-tikz-backgrounds}). By default, all grid lines
@@ -2189,6 +2375,9 @@ lines. When a tick is to be drawn, the following styles are applied:
   locally specified options for the individual tick, see
   Section~\ref{section-dv-local-styles}. 
 \item
+  |tick layer| for the ticks themselves or |tick node layer| for the
+  tick nodes.
+\item
   |styling|, see Section~\ref{section-dv-style}.
 \item
   Only for the tick labels: Additionally |node styling|, see Section~\ref{section-dv-style}.
@@ -2229,6 +2418,18 @@ node style={
 \end{codeexample}
 \end{stylekey}
 
+
+\begin{stylekey}{/tikz/data visualization/tick layer (initially on background layer)}
+  Like |grid layer|, this key specifies on which layer the ticks
+  should be placed.
+\end{stylekey}
+
+\begin{stylekey}{/tikz/data visualization/tick node layer (initially
+    \normalfont empty)}
+  Like |tick layer|, but now for the nodes. By default, tick nodes are
+  placed on the main layer and thus on top of the data in case that
+  the tick nodes are inside the data.
+\end{stylekey}
 
 
 \subsubsection{Styling Ticks and Grid Lines: Styling and Typesetting a Value}
