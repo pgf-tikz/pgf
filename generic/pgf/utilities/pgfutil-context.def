@@ -48,7 +48,7 @@
     \expandafter\pgfsys@outerinvoke\expandafter{\pgfsysprotocol@currentprotocol}%
   }%
   \pgfsysprotocol@setcurrentprotocol\pgfutil@emu@temp%
-  \aftergroup\pgfutil@reset@color%                
+  \aftergroup\pgfutil@reset@color%
 }
 
 \def\pgfutil@extractcolorspec#1#2{%
@@ -66,7 +66,7 @@
   \else
     \let\pgf@next=\pgfutil@firstoftwo%
   \fi%
-  \pgf@next{#2}{#3}%  
+  \pgf@next{#2}{#3}%
 }
 
 
@@ -100,7 +100,7 @@
     \edef\pgf@marshal{\noexpand\let\expandafter\noexpand\csname\string\color@#1\endcsname=%
                       \expandafter\noexpand\csname\string\color@#2\endcsname}%
     \pgf@marshal%
-  \fi%  
+  \fi%
 }
 \def\pgfutil@emu@mix#1!#2!#3!#4\@nil{%
   \expandafter\ifx\csname\string\color@#1\endcsname\relax%
@@ -259,73 +259,78 @@
 \newbox  \pgfutil@voidb@x
 \newtoks \pgfutil@toks@
 
-
 % Module stuff
 
-\long\def\pgfutil@usemodule#1{%
-  % seems as if \usemodule resets \catcodes... handle that here:
-  \long\edef\pgf@temp##1{%
-    \noexpand\usemodule[##1]\noexpand\relax%
-    \noexpand\catcode`\noexpand\@=\the\catcode`\@\relax
-    \noexpand\catcode`\noexpand\|=\the\catcode`\|\relax
-  }%
-  \pgf@temp{#1}%
+\def\pgfutil@usemodule#1{\usemodule[#1]}
+
+% % % % begin patches by HH % % % %
+
+\let\pgfutil@insertatbegincurrentpagefrombox\flushatshipout
+\let\pgfutil@insertatbegincurrentpage       \flushatshipout
+\def\pgfutil@insertatbegineverypage         #1{\appendtoks#1\to\everyshipout} % space removed after #1
+
+\let\pgfutil@setuppdfresources \relax
+
+\doifmodeelse {mkiv} {
+
+    \def\pgf@sys@pdf@pdfbackendset@one#1#2%
+      {\normalexpanded{\noexpand\pgf@sys@pdf@pdfbackendset@two\noexpand#1#2\relax}}
+
+    \def\pgf@sys@pdf@pdfbackendset@two#1/#2 #3\relax
+      {#1{#2}{#3}}
+
+    \def\pgf@sys@pdf@addtopageresource@pattern   {\pgf@sys@pdf@pdfbackendset@one\pdfbackendsetpattern}
+    \def\pgf@sys@pdf@addtopageresource@colorspace{\pgf@sys@pdf@pdfbackendset@one\pdfbackendsetcolorspace}
+    \def\pgf@sys@pdf@addtopageresource@extgstate {\pgf@sys@pdf@pdfbackendset@one\pdfbackendsetextgstate}
+    \def\pgf@sys@pdf@possible@resources          {\pdfbackendcurrentresources}
+    \def\pgf@sys@pdf@check@resources             {}
+
+} {
+
+    \def\pgf@sys@pdf@addtopageresource@extgstate  {\appendtoPDFdocumentextgstates }
+    \def\pgf@sys@pdf@addtopageresource@colorspace {\appendtoPDFdocumentcolorspaces}
+    \def\pgf@sys@pdf@addtopageresource@pattern    {\appendtoPDFdocumentpatterns   }
+    \def\pgf@sys@pdf@possible@resources           {\currentPDFresources}
+    \def\pgf@sys@pdf@check@resources              {}
+
+    % this code is now in the mkii driver so this code can go away
+
+    \ifx\appendtoPDFdocumentpatterns\undefined
+
+      \let\docuPDFpatterns\empty
+
+      \def\checkPDFpatterns
+        {\ifx\docuPDFpatterns\empty \else
+           \ifnum\realpageno=\lastpage\relax
+             \doPDFdictionaryobject{FDF}{docupatterns}{\docuPDFpatterns}%
+           \fi
+           \doPDFgetobjectreference{FDF}{docupatterns}\PDFobjectreference
+           \doPDFpageresource{/Pattern \PDFobjectreference}%
+         \fi}
+
+      \appendtoksonce \checkPDFpatterns \to \everyshipout
+
+      \def\appendtoPDFdocumentpatterns#1{\xdef\docuPDFpatterns{\docuPDFpatterns\space#1}}
+
+    \fi
+
 }
 
+\let\pgf@sys@addpdfresource@extgs@plain      \pgf@sys@pdf@addtopageresource@extgstate
+\let\pgf@sys@addpdfresource@patterns@plain   \pgf@sys@pdf@addtopageresource@pattern
+\let\pgf@sys@addpdfresource@colorspaces@plain\pgf@sys@pdf@addtopageresource@colorspace
+\let\pgf@sys@pdf@check@resources@plain       \pgf@sys@pdf@check@resources
 
+\pgf@sys@addpdfresource@colorspaces@plain{/pgfprgb [/Pattern /DeviceRGB]}
 
-% Adding something at the begin of the current page:
-
-\let\pgfutil@insertatbegincurrentpagefrombox=\flushatshipout
-\let\pgfutil@insertatbegincurrentpage=\flushatshipout
-\def\pgfutil@insertatbegineverypage#1{\appendtoks #1 \to \everyshipout}
-
-% Adding something to the pdf-resources:
-
-\def\pgfutil@addpdfresource@extgs#1{\appendtoPDFdocumentextgstates{#1}}
-\def\pgfutil@addpdfresource@colorspaces#1{\appendtoPDFdocumentcolorspaces{#1}}
-\def\pgfutil@addpdfresource@patterns#1{\appendtoPDFdocumentpatterns{#1}}
-\def\pgfutil@setuppdfresources{}
-
-\ifx\appendtoPDFdocumentpatterns\undefined
-  \let\docuPDFpatterns\empty
-  \def\checkPDFpatterns
-    {\ifx\docuPDFpatterns\empty \else
-       \ifnum\realpageno=\lastpage\relax
-         \doPDFdictionaryobject{FDF}{docupatterns}{\docuPDFpatterns}%
-       \fi
-       \doPDFgetobjectreference{FDF}{docupatterns}\PDFobjectreference
-       \doPDFpageresource{/Pattern \PDFobjectreference}%
-     \fi}
-  \appendtoksonce \checkPDFpatterns \to \everyshipout
-  \def\appendtoPDFdocumentpatterns#1{\xdef\docuPDFpatterns{\docuPDFpatterns\space#1}}
-\fi
-
-% Collect resources (don't know how to do this otherwise)
-
-\def\pgf@sys@pdf@check@resources{%
-  \global\let\pgf@sys@pdf@possible@resources\pgfutil@empty%
-  \doifobjectreferencefoundelse{FDF}{docushades}
-  {\doPDFgetobjectreference{FDF}{docushades}\PDFobjectreference
-    \xdef\pgf@sys@pdf@possible@resources{\pgf@sys@pdf@possible@resources/Shading \PDFobjectreference}}\donothing
-  \doifobjectreferencefoundelse{FDF}{docuextgstates}
-  {\doPDFgetobjectreference{FDF}{docuextgstates}\PDFobjectreference
-    \xdef\pgf@sys@pdf@possible@resources{\pgf@sys@pdf@possible@resources/ExtGState  \PDFobjectreference}}\donothing
-  \doifobjectreferencefoundelse{FDF}{colorspaces}
-  {\doPDFgetobjectreference{FDF}{colorspaces}\PDFobjectreference
-    \xdef\pgf@sys@pdf@possible@resources{\pgf@sys@pdf@possible@resources/ColorSpace \PDFobjectreference}}\donothing
-}
-
+% % % % end patches by HH % % % %
 
 % Do something at the end of a job
 
 \appendtoks \the\pgfutil@everybye \to \everybye
 
-
-
-
 % The following is still messy and needs to be cleanup up (everything
-% prefixed by pgfutil@): 
+% prefixed by pgfutil@):
 
 \def\PackageInfo#1#2{}
 \def\PackageWarning#1#2{\immediate\write17{Package #1: Warning! #2.}}%
@@ -333,4 +338,3 @@
 \long\def\AtBeginDocument#1{#1}%
 
 \endinput
-% vi: ft=tex ts=2 sw=2 expandtab
