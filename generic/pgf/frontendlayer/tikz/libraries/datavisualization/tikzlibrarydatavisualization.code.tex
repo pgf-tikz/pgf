@@ -536,11 +536,22 @@
   @setup at setters,
   % Tick keys
   direction axis/.initial=,
-  value/.initial=,
-  pos/.initial=,
+  % Tick text modifiers
+  tick text low even padding/.initial=0pt,
+  tick text high even padding/.initial=0pt,
+  tick text low odd padding/.initial=0pt,
+  tick text high odd padding/.initial=0pt,
+  tick text odd padding/.style={tick text low odd padding={-#1},tick text high odd padding={#1}},
+  tick text even padding/.style={tick text low even padding={-#1},tick text high even padding={#1}},
+  tick text padding/.style={tick text odd padding={#1},tick text even padding={#1}},
+  stack/.style={tick text even padding={#1}},
+  stack'/.style={tick text odd padding={#1}},
+  stack/.default=1em,
+  stack'/.default=1em,
   tick text at low/.is if=tikz@dv@min@tick@node,
   tick text at high/.is if=tikz@dv@max@tick@node,
   no tick text/.style={tick text at low=false,tick text at high=false},
+  %
   every major ticks/.style={style={line cap=round},tick length=2pt},
   every minor ticks/.style={style={help lines,thin,line cap=round},tick length=1.4pt},
   every subminor ticks/.style={style={help lines,line cap=round},tick length=0.8pt},
@@ -616,7 +627,8 @@
   },
   every axis label/.style={
     node style={%
-      font=\pgfutil@font@small
+      font=\pgfutil@font@small,
+      anchor=center
     }
   }
 }
@@ -633,7 +645,15 @@
   padding min/.style={\tikz@dv@axis/padding min={#1}},
   padding max/.style={\tikz@dv@axis/padding max={#1}},
   padding/.style={padding min={-#1},padding max={#1}},
-  label/.style={\tikz@dv@axis/label={#1}},
+  label/.code={%
+    \def\pgf@temp{#1}%
+    \ifx\pgf@temp\tikz@lib@dv@auto@attribute%
+      \tikzdatavisualizationset{\tikz@dv@axis/label/.expanded=$\noexpand\mathit{\pgfkeysvalueof{\tikz@dv@axis/attribute}}$}%
+    \else
+      \tikzdatavisualizationset{\tikz@dv@axis/label={#1}}%
+    \fi
+  },
+  label/.default=\tikz@lib@dv@auto@attribute,
   %
   % Strategies
   %
@@ -643,6 +663,9 @@
   % Attribute setter
   %
   goto/.code={\tikz@dv@goto{\tikz@dv@axis}{#1}},
+  goto pos/.code={\tikz@dv@goto@pos{\tikz@dv@axis}{#1}},
+  anchor at min/.code={\tikz@lib@dv@special@at{\tikz@dv@axis}{\tikz@dv@min@anchor}},
+  anchor at max/.code={\tikz@lib@dv@special@at{\tikz@dv@axis}{\tikz@dv@max@anchor}},
   %
   % Visualization setters
   %
@@ -651,6 +674,7 @@
   % Ticks settings
   %
   ticks/.style={\tikz@dv@axis/ticks at/.append={,#1}},
+  ticks/.default=some,
   visualize ticks/.code=\expandafter\tikz@lib@dv@tv\expandafter{\tikz@dv@axis}{#1},
   %
   % Grid settings
@@ -665,6 +689,8 @@
   % 
   visualize label/.code=\expandafter\tikz@lib@dv@lv\expandafter{\tikz@dv@axis}{#1},
 }
+
+\def\tikz@lib@dv@auto@attribute{\tikz@lib@dv@auto@attribute}
 
 
 % Range options
@@ -745,15 +771,15 @@
 }
 
 \def\tikz@dv@goto#1#2{%
-  \edef\pgf@temp{#2}%
-  \ifx\pgf@temp\tikz@lib@dv@padded@min@text%
+  \edef\pgf@@temp{#2}%
+  \ifx\pgf@@temp\tikz@lib@dv@padded@min@text%
     \pgfkeysvalueof{#1/scaling mapper}.set in to(min)%
     \pgfkeysvalueof{#1/scaling mapper}.get out()%
     \pgfkeysgetvalue{#1/padding min}\pgf@temp%
     \pgfmathparse{\pgf@temp}%
     \pgfkeyslet{/data point/\pgfdvout/offset}\pgfmathresult%
   \else%
-    \ifx\pgf@temp\tikz@lib@dv@padded@max@text%
+    \ifx\pgf@@temp\tikz@lib@dv@padded@max@text%
       \pgfkeysvalueof{#1/scaling mapper}.set in to(max)%
       \pgfkeysvalueof{#1/scaling mapper}.get out()%
       \pgfkeysgetvalue{#1/padding max}\pgf@temp%
@@ -763,10 +789,21 @@
       \pgfkeysvalueof{#1/scaling mapper}.set in to(#2)%
     \fi%
   \fi%
-}       
+}
+
+\def\tikz@dv@goto@pos#1#2{%
+  \pgfkeyssetvalue{/data point/\pgfkeysvalueof{#1/attribute}/out pos}{#2}%
+}
 
 \def\tikz@lib@dv@padded@min@text{padded min}
 \def\tikz@lib@dv@padded@max@text{padded max}
+     
+\def\tikz@lib@dv@special@at#1#2{%
+  % Ok, calculate direction vector:
+  \tikzpointandanchordirection{\pgfkeysvalueof{#1/scaling mapper}.set in to(min)}{\pgfkeysvalueof{#1/scaling mapper}.set in to(max)}
+  \tikzset{anchor=#2}
+}
+
 
 % Ticks visualization 
 %
@@ -824,19 +861,22 @@
     {%
       \let\tikz@dv@at@list\pgfutil@empty%
       \let\tikz@dv@style@at@list\pgfutil@empty%
+      \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
+      \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@settings}%
       \scope[/tikz/data visualization/.cd,every ticks/.try,every #1 ticks/.try,#3]%
         % Setup options
-        \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
-        \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@settings}%
         \pgfkeysgetvalue{/tikz/data visualization/common}\tikz@temp
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@temp}
         \pgfkeysgetvalue{/tikz/data visualization/#1}\tikz@temp
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@temp}
         \pgfkeysgetvalue{/tikz/data visualization/\pgfkeysvalueof{/tikz/data visualization/direction axis}/scaling mapper}\pgf@dv@tick@dir@mapper
         % Ok, now it's time to draw the ticks!
-        \foreach \tikz@dv@tick@pos in \tikz@dv@at@list 
+        \foreach \tikz@dv@tick@pos[count=\tikz@dv@tick@count] in \tikz@dv@at@list 
         {
           \ifx\tikz@dv@tick@pos\pgfutil@empty
+            \c@pgf@counta=\tikz@dv@tick@count\relax%
+            \advance\c@pgf@counta by-1\relax%
+            \edef\tikz@dv@tick@count{\the\c@pgf@counta}%
           \else
             \expandafter\tikz@lib@dv@parse\tikz@dv@tick@pos\pgf@stop%
             \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@tick@opt}%
@@ -849,13 +889,40 @@
             \xdef\pgf@dv@tick@dir{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
             % Now, show something:
             \tikz@lib@handle@at@style%
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/high}}{\pgf@dv@tick@dir}}}
+            \pgfkeysgetvalue{/tikz/data visualization/high}\tikz@dv@max@val%
+            \pgfkeysgetvalue{/tikz/data visualization/low}\tikz@dv@min@val%
+            \iftikz@dv@max@tick@node\pgfmathsetmacro\tikz@dv@max@val{%
+              \tikz@dv@max@val+(\pgfkeysvalueof{%
+                /tikz/data  visualization/tick text high
+                \ifodd\tikz@dv@tick@count odd \else even \fi padding}%
+              )}%
+            \fi%
+            \iftikz@dv@min@tick@node\pgfmathsetmacro\tikz@dv@min@val{%
+              \tikz@dv@min@val+(\pgfkeysvalueof{%
+                /tikz/data  visualization/tick text low
+                \ifodd\tikz@dv@tick@count odd \else even \fi padding}%
+              )}%
+            \fi%
+            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\tikz@dv@max@val}{\pgf@dv@tick@dir}}}
             \xdef\tikz@dv@max@tick{\the\pgf@x,\the\pgf@y}
-            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\pgfkeysvalueof{/tikz/data visualization/low}}{\pgf@dv@tick@dir}}}
+            \pgf@process{\pgfpointadd{\pgf@dv@tick@origin}{\pgfpointscale{\tikz@dv@min@val}{\pgf@dv@tick@dir}}}
             \xdef\tikz@dv@min@tick{\the\pgf@x,\the\pgf@y}
-            \scope[data visualization/ticks layer] \draw [/tikz/data visualization/styling] (\tikz@dv@min@tick) -- (\tikz@dv@max@tick); \endscope
-            \iftikz@dv@min@tick@node \scope[data visualization/ticks node layer] \path [/tikz/data visualization/styling] (\tikz@dv@min@tick) \tikz@dv@handle@tick{\tikz@dv@min@anchor}; \endscope \fi
-            \iftikz@dv@max@tick@node \scope[data visualization/ticks node layer] \path [/tikz/data visualization/styling] (\tikz@dv@max@tick) \tikz@dv@handle@tick{\tikz@dv@max@anchor}; \endscope\fi
+            \scope[data visualization/ticks layer]
+              \tikzdatavisualizationset{every \ifodd\tikz@dv@tick@count odd \else even \fi tick/.try}
+              \draw [/tikz/data visualization/styling] (\tikz@dv@min@tick) -- (\tikz@dv@max@tick);
+            \endscope
+            \iftikz@dv@min@tick@node
+              \scope[data visualization/ticks node layer]
+                \tikzdatavisualizationset{every \ifodd\tikz@dv@tick@count odd \else even \fi tick/.try}
+                \path [/tikz/data visualization/styling] (\tikz@dv@min@tick) \tikz@dv@handle@tick{\tikz@dv@min@anchor};
+              \endscope
+            \fi
+            \iftikz@dv@max@tick@node
+              \scope[data visualization/ticks node layer]
+                \tikzdatavisualizationset{every \ifodd\tikz@dv@tick@count odd \else even \fi tick/.try}
+                \path [/tikz/data visualization/styling] (\tikz@dv@max@tick)   \tikz@dv@handle@tick{\tikz@dv@max@anchor};
+              \endscope
+            \fi
           \fi      
         }
       \endscope
@@ -986,10 +1053,10 @@
     {%
       \let\tikz@dv@at@list\pgfutil@empty
       \let\tikz@dv@style@at@list\pgfutil@empty
+      \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
+      \let\tikz@lib@dv@ticks@default@at\pgfutil@empty%
       \scope[data visualization/grid layer,/tikz/data visualization/.cd,every grid,every #1 grid/.try,#3]
         % Setup options
-        \pgfkeysgetvalue{#2/scaling mapper}\tikz@lib@dv@mapper
-        \let\tikz@lib@dv@ticks@default@at\pgfutil@empty%
         \pgfkeysgetvalue{#2/ticks at}\tikz@lib@dv@ticks@at%
         \expandafter\tikzdatavisualizationset\expandafter{\tikz@lib@dv@settings}%
         \pgfkeysgetvalue{/tikz/data visualization/common}\tikz@temp
@@ -1045,45 +1112,16 @@
     % Great, nothing to do
   \else
     \scope[/tikz/data visualization/.cd,every axis label/.try,#2]
-      \pgfkeysgetvalue{/tikz/data visualization/value}\tikz@lib@dv@at%
-      \pgfkeysgetvalue{/tikz/data visualization/pos}\tikz@lib@dv@pos%
-      \pgfkeysgetvalue{#1/scaling mapper}\tikz@dv@mapper
-      \ifx\tikz@lib@dv@pos\pgfutil@empty%
-        \ifx\tikz@lib@dv@at\pgfutil@empty%
-          % Well, hopefully the node options setup things correctly...
-        \else%
-          \tikz@dv@goto{#1}{\tikz@lib@dv@at}%
-          % Special treatment of "min" and "max"
-          \ifx\tikz@lib@dv@at\pgf@min@text%
-            \tikz@lib@dv@special@at{\tikz@dv@min@anchor}
-          \else \ifx\tikz@lib@dv@at\tikz@lib@dv@padded@min@text%
-            \tikz@lib@dv@special@at{\tikz@dv@min@anchor}
-          \else \ifx\tikz@lib@dv@at\pgf@max@text%
-            \tikz@lib@dv@special@at{\tikz@dv@max@anchor}
-          \else \ifx\tikz@lib@dv@at\tikz@lib@dv@padded@max@text%
-            \tikz@lib@dv@special@at{\tikz@dv@max@anchor}
-          \fi\fi\fi\fi%
-          \pgftransformshift{\pgfpointdvlocaldatapoint}%           
-        \fi%
-      \else%
-        \tikz@dv@mapper.set in to(min)%
-        \pgftransformshift{\pgfpointscale{1-\tikz@lib@dv@pos}{\pgfpointdvlocaldatapoint}}
-        \tikz@dv@mapper.set in to(max)%
-        \pgftransformshift{\pgfpointscale{\tikz@lib@dv@pos}{\pgfpointdvlocaldatapoint}}
-      \fi
       \expandafter\tikz@lib@dv@parse@node\tikz@dv@lib@label\pgf@stop
     \endscope
   \fi
 }
-\def\tikz@lib@dv@special@at#1{%
-  % Ok, calculate direction vector:
-  \tikzpointandanchordirection{\tikz@dv@mapper.set in to(min)}{\tikz@dv@mapper.set in to(max)}
-  \tikzset{anchor=#1}
-}
 
 \def\tikz@lib@dv@parse@node{\pgfutil@ifnextchar[\tikz@lib@dv@parse@node@opt{\tikz@lib@dv@parse@node@opt[]}}%}
 \def\tikz@lib@dv@parse@node@opt[#1]#2\pgf@stop{
-  \node [/tikz/data visualization/node styling,#1] {#2};
+  \tikzdatavisualizationset{#1}
+  \pgftransformshift{\pgfpointdvlocaldatapoint}%           
+  \node [/tikz/data visualization/node styling] {#2};
 }
 
 
@@ -2177,11 +2215,11 @@
   % Place labels at the ends of the axes
   school book axes standard labels/.style={
     visualize x axis label/.style={
-      value=padded max,
+      x axis={goto=padded max, anchor at max},
       y axis={goto=0}
     },
     visualize y axis label/.style={
-      value=padded max,
+      y axis={goto=padded max, anchor at max},
       x axis={goto=0}
     }
   }
@@ -2203,7 +2241,7 @@
     every ticks/.append style={style={draw=black!50}},
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
-      ticks={some},
+      ticks,
       visualize ticks={common={y axis={goto=padded min},direction axis=y axis,high=0pt},major={tick text at low}},
       visualize ticks={common={y axis={goto=padded max},direction axis=y axis,low=0pt}},
       visualize axis={y axis={goto=padded min},padded},
@@ -2213,7 +2251,7 @@
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
-      ticks={some},
+      ticks,
       visualize ticks={common={x axis={goto=padded min},direction axis=x axis,high=0pt},major={tick text at low}},
       visualize ticks={common={x axis={goto=padded max},direction axis=x axis,low=0pt}},
       visualize axis={x axis={goto=padded min},padded},
@@ -2230,7 +2268,7 @@
     every ticks/.append style={style={draw=black!50}},
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
-      ticks={some},
+      ticks,
       visualize ticks={common={y axis={goto=padded min},direction axis=y axis,low=0pt},major={tick text at low}},
       visualize ticks={common={y axis={goto=padded max},direction axis=y axis,high=0pt}},
       visualize axis={y axis={goto=padded min},padded},
@@ -2240,7 +2278,7 @@
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
-      ticks={some},
+      ticks,
       visualize ticks={common={x axis={goto=padded min},direction axis=x axis,low=0pt},major={tick text at low}},
       visualize ticks={common={x axis={goto=padded max},direction axis=x axis,high=0pt}},
       visualize axis={x axis={goto=padded min},padded},
@@ -2255,7 +2293,7 @@
     xy Cartesian,
     x axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/width},
-      ticks={some},
+      ticks,
       visualize ticks={common={y axis={goto=padded min},direction axis=y axis,high=0pt},major={tick text at low}},
       visualize axis={y axis={goto=padded min}},
       visualize grid={common={direction axis=y axis}},
@@ -2264,7 +2302,7 @@
     },
     y axis={
       length=\pgfkeysvalueof{/tikz/data visualization/scientific axes/height},
-      ticks={some},
+      ticks,
       visualize ticks={common={x axis={goto=padded min},direction axis=x axis,high=0pt},major={tick text at low}},
       visualize axis={x axis={goto=padded min}},
       visualize grid={common={direction axis=x axis}},
@@ -2287,9 +2325,7 @@
   %
   scientific axes standard labels/.style={
     visualize x axis label/.style={
-      % Horizontal position is middle of axis:
-      pos=0.5,
-      y axis={goto=padded min},
+      x axis={goto pos=.5},
       % Vertical position comes from bounding box:
       node style={
         at={(0,0 |- data visualization bounding box.south)},
@@ -2297,9 +2333,7 @@
       }
     },
     visualize y axis label/.style={%
-      % Vertical position is middle of axis:
-      pos=0.5,
-      x axis={goto=padded min},
+      y axis={goto pos=.5},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.west)},
@@ -2312,10 +2346,16 @@
   %
   scientific axes upright labels/.style={
     scientific axes standard labels,
+    visualize x axis label/.style={
+      x axis={goto pos=.5},
+      % Vertical position comes from bounding box:
+      node style={
+        at={(0,0 |- data visualization bounding box.south)},
+        below
+      }
+    },
     visualize y axis label/.style={%
-      % Vertical position is middle of axis:
-      pos=0.5,
-      x axis={goto=padded min},
+      y axis={goto pos=.5},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.west)},
@@ -2328,8 +2368,6 @@
   %
   scientific axes end labels/.style={
     visualize x axis label/.style={
-      value=max,
-      y axis={goto=padded min},
       % Vertical position comes from bounding box:
       node style={
         at={(0,0 -| data visualization bounding box.east)},
@@ -2337,8 +2375,6 @@
       }
     },
     visualize y axis label/.style={
-      value=max,
-      x axis={goto=padded min},
       % Horizontal position comes from bounding box:
       node style={
         at={(0,0 |- data visualization bounding box.north)},

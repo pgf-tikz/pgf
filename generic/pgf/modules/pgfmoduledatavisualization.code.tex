@@ -1214,6 +1214,27 @@
   \let#1=\pgfmathresult%
 }
 
+% Multiply by small number
+%
+% #1 = macro that should store the result of applying the
+%      corresponding operation to the following:
+% #2 = entered number
+% #3 = fixed point number like 2 or 0.5, but not 10000000000
+%
+% Description:
+%
+% Sets #1 to the result of applying an operation to #2 and #3
+%
+% Example:
+%
+% \pgfdvmathenter{\a}{2000}
+% \pgfdvmathadd{\b}{\a}{0.2}
+% % \b now stores 400
+
+\def\pgfdvmathmulfixed#1#2#3{% 
+  \pgfmathfloatmultiplyfixed{#2}{#3}%
+  \let#1=\pgfmathresult%
+}
 
 
 
@@ -1513,12 +1534,15 @@
   \attribute out min;
   % Start of the second range (the value of c).
 
+  \attribute out min;
+  % End of the second range (the value of d).
+
   \attribute trans in min;
   % Transformed value of the start of the first range (the value
   % f(a)).
 
   \attribute scale;
-  % The scaling factor, that is, the value of (f(d)-f(c))/(b-a).
+  % The scaling factor, that is, the value of (f(b)-f(a))/(d-c).
 
   
   % Constructor
@@ -1596,6 +1620,7 @@
       \pgfdvmathenter{\pgf@out@interval@max}{#4}
       % Let's start with the output, it's easier...
       \pgfoolet{out min}{\pgf@out@interval@min}
+      \pgfoolet{out max}{\pgf@out@interval@max}
       \pgfdvmathsub{\pgf@out@diff}{\pgf@out@interval@max}{\pgf@out@interval@min}
       \let\pgfvalue=\pgf@in@interval@min
       \pgfoovalueof{trans}
@@ -1624,8 +1649,10 @@
         \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgf@dv@external@value%
       \fi%
       \ifx\pgf@dv@external@value\pgfutil@empty%
+        \pgf@dv@mapper@pos@check%
       \else%
         \ifx\pgf@dv@external@value\relax%
+          \pgf@dv@mapper@pos@check%
         \else%
 %          % Clip?
           \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
@@ -1671,6 +1698,22 @@
     \fi
     \pgfdvmathexitbyserializing{\pgf@temp}{\pgfvalue}%
     \pgfkeyslet{/data point/\pgfoovalueof{out}#1}\pgf@temp%
+  }
+
+  \def\pgf@dv@mapper@pos@check{%
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/out pos}\pgf@dv@pos@value%
+    \ifx\pgf@dv@pos@value\relax\else\if\pgf@dv@pos@value\pgfutil@empty\else%
+      \pgfmathsetmacro{\pgf@dv@pos@num}{\pgf@dv@pos@value}%
+      \pgfmathsetmacro{\pgf@dv@pos@num@prime}{1-\pgf@dv@pos@num}%
+      % Ok, compute transformed min position:
+      \pgfooget{out min}{\pgf@out@interval@min}
+      \pgfooget{out max}{\pgf@out@interval@max}
+      \pgfdvmathmulfixed{\pgf@out@interval@min}{\pgf@out@interval@min}{\pgf@dv@pos@num@prime}
+      \pgfdvmathmulfixed{\pgf@out@interval@max}{\pgf@out@interval@max}{\pgf@dv@pos@num}
+      \pgfdvmathadd{\pgf@out@val}{\pgf@out@interval@min}{\pgf@out@interval@max}%
+      \pgfdvmathexitbyserializing{\pgf@temp}{\pgf@out@val}%
+      \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgf@temp%
+    \fi\fi%
   }
 }
 
