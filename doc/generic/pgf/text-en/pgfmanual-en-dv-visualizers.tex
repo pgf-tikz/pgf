@@ -13,10 +13,511 @@
 
 \subsection{Overview}
 
-To be written...
+In a data visualization a long stream of data points is
+\emph{visualized} using \emph{visualizers}. Recall that it is the job
+of the axis systems as described in Section~\ref{section-dv-axes} to
+determine \emph{where} data points are visualized. It is the job of
+the visualizers to determine \emph{how} they are visualized.
 
-\subsection{Concepts}
+The most basic and common visualizer is the \emph{line visualizer}. It
+simply connects subsequent data points by straight lines to indicate
+either that the points on these lines interpolate between the real
+data points or the straight lines are used to indicate the order in
+which the data points appear. A different, more ``conservative''
+visualizer is the \emph{scatter visualizer} or \emph{mark visualizer},
+which just places a small mark at each data point. Such a visualizer
+does not imply any interpolation or ordering between the data points.
+
+Visualizers may, however, also be more complicated. For instance, a
+visualizer used for a box plot could visualize a data point as a box
+with a median value, standard deviation, outliers, and other
+information; a rectangle visualizer might visualize data points as
+larger areas; a projection visualizer might visualize the projection
+of data points onto different axes; and so.
+
+Creating a new visualizer is not quite trivial since a new \pgfname\
+class needs to be implemented. Fortunately, using visualizers is much
+simpler: For each kind of visualizer there is a key that allows you to
+create such a visualizer. You can then use further keys to configure
+the visualizer and to connect it to the data.
+
+In a data visualization multiple visualizers may exist at the same
+time. This happens in different situations:
+\begin{itemize}
+\item A data visualization may contain several independent data sets
+  that are to be visualized. There might be a line plot, for which a
+  line visualizer is used, and also a scatter plot, for which a
+  scatter visualizer would be used.
+
+  In this case, for each data point only one visualizer will do
+  anything. To achieve this, each data point has an attribute called
+  |visualizer| which tells the visualizer objects whether they should
+  ``react'' to the data point or not.
+\item A single data point might be visualized several times. For
+  instance, a scatter visualizer might draw a mark at the data point's
+  position on the page and a projection visualizer might draw,
+  additionally, a mark at the projected position.
+\end{itemize}
+
 
 \subsection{Usage}
 
+\subsubsection{Using a Single Visualizer}
+
+The simplest scenario for using visualizers are data visualizations in
+which there is only a single data set that is visualized in one
+style. In this case, all that needs to be done in order to choose a
+visualizer is use one of the options starting with |visualize as ...|
+together with the |\datavisualization| command:
+
+\begin{codeexample}[]
+% Define a data set:  
+\tikz \datavisualization data set {example} = {
+data {
+  x, y
+  0, 0
+  0.5, 2
+  1, 2
+  1.5, 1.5
+  2, 0.5
+}};
+\tikz \datavisualization [school book axes, visualize as line]        data set {example};
+\qquad 
+\tikz \datavisualization [school book axes, visualize as smooth line] data set {example};
+\qquad 
+\tikz \datavisualization [school book axes, visualize as scatter]     data set {example};
+\end{codeexample}
+
+Methods for styling visualizers are discussed in Section~\ref{section-dv-visualizer-styling}.
+
+
+\subsubsection{Using Multiple Visualizers}
+
+A data visualization may contain multiple data sets and for each data
+set we might wish to use a different visualizer. In this case, we need
+some way of telling the data visualization engine to which visualizer
+should be used with the different data points.
+
+To solve this problem, you can \emph{name} a visualizer. The
+visualizer's name can then both be used to configure the visualizer
+and also to indicate that data points ``belong'' to the visualizer.
+
+Naming a visualizer is quite simple: The |visualize as ...| keys
+actually take a single parameter, which is the name of the
+visualizer. For instance, the following code creates three
+visualizers, named |sin|, |cos|, and |tan|:
+
+\begin{codeexample}[code only]
+visualize as line=sin,
+visualize as line=cos,
+visualize as scatter=tan
+\end{codeexample}
+
+(When you just say |visualize as line| without providing a name, the
+name |line| is chosen as a default, for |visualize as scatter| the
+name |scatter| is the default and so.)
+
+In order to indicate which data points should be visualized by which
+of these visualizers, the following key is important:
+
+\begin{key}{/data point/visualizer}
+  A visualizer will only act on a data point when its name matches the
+  value of this key. Initially, it is set to the last visualizer
+  created, so if there is only one, there is no need to set or worry
+  about this key.
+\end{key}
+
+Since the |visualizer| key has the path prefix |/data point|, it can
+be set like any other attribute of a data key:
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as line=sin,
+  visualize as line=cos,
+  visualize as scatter=tan]
+data {
+  x, y, visualizer
+  0, 0, sin
+  1, 1, sin
+  2, 0, sin
+  3, -1, sin
+  4, 0, sin
+  0, 1, cos
+  1, 0, cos
+  0, 0, tan
+  1, 1, tan
+  2, 2, tan
+  3, 4, tan
+  2, -1, cos
+  3, 0, cos
+  4, 1, cos
+};
+\end{codeexample}
+
+As can be seen, the data points with the same |visualizer| attribute
+do not need to be consecutive.
+
+The above method of specifying the visualizer works nicely, but in
+most cases it would be more natural to keep the |visualizer| attribute
+out of the table. This is easy to achieve by using multiple |data|
+blocks and by simply adding the options like
+|[/data point/visualizer=sin]| to the |data| blocks:
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as line=sin,
+  visualize as line=cos]
+data [/data point/visualizer=sin] {
+  x, y
+  0, 0
+  1, 1
+  2, 0
+  3, -1
+  4, 0
+}
+data [/data point/visualizer=cos] {
+  x, y
+  0, 1
+  1, 0
+  2, -1
+  3, 0
+  4, 1
+};
+\end{codeexample}
+
+It turns out that there is an even simpler way of achieving the above:
+You can simply pass the name of the visualizer as an option to the
+|data| block command and it will setup the |visualizer| key
+correctly. This works because when a visualizer is named using
+|visualize as ...| in addition to creating a visualizer object, the
+following key is also setup: 
+\begin{key}{/pgf/data/\meta{visualizer name}}
+  This key is a shorthand for
+  |/data point/visualizer=|\meta{visualizer name}.  
+\end{key}
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as line=sin,
+  visualize as line=cos]
+data [sin] {
+  x, y
+  0, 0
+  1, 1
+  2, 0
+  3, -1
+  4, 0
+}
+data [cos] {
+  x, y
+  0, 1
+  1, 0
+  2, -1
+  3, 0
+  4, 1
+};
+\end{codeexample}
+
+When you need to visualize several similar things in a single plot
+(like ten lines that all get visualized by |visualize as line|), it is
+somewhat cumbersome having to write this ten times. In this case you
+can shorten your code by making use of the |.list| key handler: When
+you add it to a key, the ``value'' passed to the key is parsed as a
+list of values. The key is then executed once for each of these
+values:
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as line/.list={sin, cos, tan}]
+data [sin, format=function] {
+  var x : interval[0:3*pi];
+  func y = sin(\value x r);
+}
+data [cos, format=function] {
+  var x : interval[0:3*pi];
+  func y = cos(\value x r);
+}
+data [tan, format=function] {
+  var x : interval[0:pi/2.2];
+  func y = tan(\value x r);
+};
+\end{codeexample}
+
+
+
+\subsubsection{Styling a Visualizer}
+\label{section-dv-visualizer-styling}
+
+In order to style a visualizer that has been created using for
+instance |visualize as line=|\meta{visualizer name}, you can use the
+following key: 
+
+\begin{key}{/tikz/data visualization/\meta{visualizer
+      name}=\meta{options}}
+  For each visualizer, a key of the same name is created with the path
+  prefix |/tikz/data visualization|. This key takes the \meta{options}
+  and executes them with the path prefix
+\begin{codeexample}[code only]
+/tikz/data visualization/visualizer options/  
+\end{codeexample}
+  These options are then used to configure the appearance of the
+  current visualizer. (This is quite similar to the way options are
+  passed to an axis in order to configure the axis.)
+  Possible options include |style|, but also |label in legend| and
+  |label in data|. The latter two options are discussed in
+  Section~\ref{section-dv-labels-in}, the first option below.
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as smooth line/.list={sin, cos},
+  sin={style=red},
+  cos={style=blue}]
+data [sin, format=function] {
+  var x : interval[0:3*pi];
+  func y = sin(\value x r);
+}
+data [cos, format=function] {
+  var x : interval[0:3*pi];
+  func y = cos(\value x r);
+};
+\end{codeexample}
+  
+  (Note that the key |/pgf/data/|\meta{visualizer name} is also
+  created for each visualizer, but the purpose of that key is to
+  change the |/data point/visualizer| attribute, whereas the purpose
+  of the present key is to configure the visualizer.)
+\end{key}
+
+\begin{key}{/tikz/data visualization/visualizer
+    options/style=\meta{options}}
+  The \meta{options} given to this key should be normal \tikzname\
+  options. They will be executed when the visualizer is used.
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  visualize as smooth line=sin,
+  sin={style={red, densely dotted}},
+  visualize as smooth line=cos,
+  cos={style={mark=x}},
+]
+data [sin, format=function] {
+  var x : interval[0:3*pi];
+  func y = sin(\value x r);
+}
+data [cos, format=function] {
+  var x : interval[0:3*pi];
+  func y = cos(\value x r);
+};
+\end{codeexample}
+\end{key}
+
+In addition to the options passed to a visualizer via |style|, the
+following also gets executed when a visualizer is used:
+
+\begin{stylekey}{/tikz/data visualization/every visualizer}
+  This style is used with every visualizer. Note that it should
+  contain normal \tikzname\ keys.
+
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes,
+  every visualizer/.style={dashed},
+  visualize as smooth line]
+data [format=function] {
+  var x : interval[0:3*pi];
+  func y = sin(\value x r);
+};
+\end{codeexample}
+\end{stylekey}
+
+
 \subsection{Reference: Basic Visualizers}
+
+\begin{key}{/tikz/data visualizers/visualize as line=\meta{visualizer
+      name} (default line)}
+  Creates a new visualizer named \meta{visualizer name}. Basically, 
+  this visualizer connects all data points for which the
+  |/data point/visualizer| attribute equals \meta{visualizer name} by
+  a line that is styled by the visualizer's style.
+
+  In more detail, the following happens:
+  \begin{enumerate}
+  \item A new object is created (of class |plot handler visualizer|)
+    that is configured to collect the canvas positions of all data
+    points whose |visualizer| attribute equals \meta{visualizer name}.
+  \item During the end of the data visualization, \pgfname's plotting
+    mechanism (see Section~\ref{section-plots}) is used to plot the
+    stream of recorded data points.
+
+    This means that, in principle, all of the plot handlers available
+    in \tikzname\ could be used for the visualization (such as the
+    |smooth| handler). However, some plot handlers such as, say, the
+    |xcomb| are unsuitable as plot handlers since they do not support
+    the advanced axis handling done by the data visualization
+    engine. Because of this (and also for other reasons), you cannot
+    set the plot handler directly, but must use one of the options
+    described in a moment. 
+  \item Additionally, plot marks can be drawn at the collected data
+    points. Here, all of the options available to \tikzname\ for
+    drawing plot marks are available.
+  \end{enumerate}
+  
+  The following keys can be used for changing the plot handler (the
+  way the ``line'' is rendered).
+  
+  \begin{key}{/tikz/data visualization/visualizer options/straight line}
+    Causes the data points to be connected by straight lines.
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={straight line}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+  \end{key}
+
+  \begin{key}{/tikz/data visualization/visualizer options/straight cycle}
+    Causes the data points to be connected by a polygon.
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={straight cycle}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/polygon}
+   This is an alias for |straight cycle|.
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/smooth line}
+   Causes the data points to be connected by a line that is smoothed
+   at the joins:
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={smooth line}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/smooth cycle}
+   Causes the data points to be connected by a circular line that is
+   smoothed at the joins:
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={smooth cycle}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/gap line}
+   This key causes the data points to be connected by lines that ``do
+   not quite touch'' the data points. This is implemented by using the
+   |\pgfplothandlergaplineto|, see Section~\ref{section-plot-gapped}. 
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={gap line}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/gap cycle}
+   Like |gapped line|, only with a cycle:
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={gap cycle}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+ 
+ \begin{key}{/tikz/data visualization/visualizer options/no lines}
+   Suppresses the line. This option only makes sense when the |mark|
+   option is used.
+\begin{codeexample}[]
+\tikz [scale=.55] \datavisualization
+ [scientific clean axes, all axes={ticks=few},
+  visualize as smooth line=my data,  my data={no lines, style={mark=x}}]
+data [format=function] {
+  var t : interval [0:4] samples 5;
+  func x = cos(\value t r);
+  func y = sin(\value t r);
+};
+\end{codeexample}
+ \end{key}
+
+ As indicated earlier, marks will be drawn at the data points when the
+ |mark| option is used. All options offered by \tikzname\ for
+ configuring marks are available such as |mark repeat|: 
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes, 
+  visualize as line=my data,
+  my data={style={mark=x, mark repeat=3}}]
+data [format=function] {
+  var x : interval [0:pi] samples 10;
+  func y = sin(\value x r);
+};
+\end{codeexample} 
+\end{key}
+
+
+\begin{key}{/tikz/data visualizers/visualize as smooth line=\meta{visualizer
+      name} (default line)}
+  A shorthand |visualize as line=|\meta{visualizer name}
+  followed \meta{visualizer name}|=smooth line|.
+\end{key}
+
+\begin{key}{/tikz/data visualizers/visualize as scatter=\meta{visualizer
+      name} (default scatter)}
+  A shorthand  |visualize as line=|\meta{visualizer name}
+  followed  \meta{visualizer name}|=no lines| and setting
+  the |style| of the visualizer so that is will use |mark=x| (plus
+  some size adjustments) to draw marks at the data points. 
+\begin{codeexample}[width=7cm]
+\tikz \datavisualization
+ [scientific clean axes, 
+  visualize as scatter]
+data [format=function] {
+  var x : interval [0:pi] samples 10;
+  func y = sin(\value x r);
+};
+\end{codeexample} 
+\end{key}
+
+
+\subsection{Advanced: Creating New Visualizers}
+
+To be written...
