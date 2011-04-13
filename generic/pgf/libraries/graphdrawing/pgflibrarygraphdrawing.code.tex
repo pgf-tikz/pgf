@@ -1,0 +1,296 @@
+% Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+%\catcode`\@11\relax
+
+% check if luatex is running
+\ifx\directlua\relax{%
+  \errmessage{You need LuaTeX to use the graph drawing library} 
+  }
+\else\ifx\directlua\undefined{%
+    \errmessage{You need LuaTeX to use the graph drawing library}
+\fi\fi
+
+%
+% This file defines the basic interactions between LUA and PGF
+%-----------------------------------------------------------------
+
+%
+% This box is used for passing pgf elements to lua and vice versa 
+%
+% After the invocation of \pgfpositionnodelater the caller should copy the contents of 
+% \box\pgfpositionnodelaterbox to another box register (for this refer to the manual).
+%
+\newbox\pgf@gd@box
+
+% 
+% Initialize the lua graph drawing environment
+%
+\directlua{
+  local file = 'pgflibrarygraphdrawing-loader.lua'
+  local format = 'tex'
+  % Use either resolvers or kpse to locate files.
+  if resolvers then
+    dofile(assert(resolvers.find_file(file, format), "couldn't find file " .. file))
+  else
+    dofile(assert(kpse.find_file(file, format), "couldn't find file " .. file))
+  end
+  % set the box number for saving nodes by pgf
+  pgf.graphdrawing.Sys:setBoxNumber(\the\pgf@gd@box)
+}
+
+
+%
+% Begins a new graph drawing scope
+%
+% Usage
+%   \pgfgdbeginscope
+%
+\def\pgfgdbeginscope{%
+  \pgf@gd@logmessage{GD:SYS: scope began}
+  \pgf@gd@beginscope%
+}
+
+%
+% Ends a graph drawing scope
+%
+% This macro invokes the selected graph drawing algorithm and
+% ships out all nodes within this scope
+%
+% See \pgfgdbeginscope
+%
+\def\pgfgdendscope{%
+  \pgf@gd@logmessage{GD:SYS: scope ended}%
+  \directlua{
+    pgf.graphdrawing.Interface:drawGraph()
+    pgf.graphdrawing.Interface:finishGraph()
+  }}
+
+%
+% Adds an edge to the graph
+%
+% #1 left anchor
+% #2 right anchor
+%
+% Usage
+%   \pgfgdaddedge{node1}{node2}{direction}
+%  or
+%   \pgfgdaddedge[options]{node1}{node2}{direction}
+%
+% where options can be a combination of every possible tikz options (deprecated,
+% options should be stored using the TikZ key mechanism)
+%
+% Example
+%
+%   \pgfgdaddedge{NodeFrom}{NodeTo}{->}
+%
+\def\pgfgdaddedge{%
+  \pgfutil@ifnextchar[%
+    {\pgf@gd@addedge}
+    {\pgf@gd@addedge[]}
+}
+
+%
+% Begins the ship out of nodes
+%
+\def\pgfgdbeginshipout{%
+  \pgf@gd@beginshipout
+}
+
+%
+% End the shop out of nodes
+%
+\def\pgfgdendshipout{%
+  \pgf@gd@endshipout
+}
+
+
+%
+% Enables the verbose logging of the graph drawing library
+%
+\def\pgfgdenableverboselogging{
+  \pgf@gd@set@verbose@mode1%
+}
+
+%
+% Disables the verbose logging of the graph drawing library
+\def\pgfgddisableverboselogging{
+  \pgf@gd@set@verbose@mode0%
+}
+
+%
+% Prints a given message to the TeX output
+%
+% Note: logging must be enabled by \pgfgdenableverboselogging
+%
+% Example:
+%
+%  \pgfgdenableverboselogging
+%  \pgfgdlogmessage{Hello world}
+%
+\def\pgfgdlogmessage#1{
+  \pgf@gd@logmessage#1%
+}
+
+%
+% INTERNAL MACROS
+%-------------------------------------------------------------------------------
+%
+
+%
+% This macro delays the node placement on the pgf layer
+%
+\def\pgf@gd@positionnodelater{%
+  \pgf@gd@logmessage{GD:SYS: positionnodelater invoked}
+  \pgfpositionnodelater{\pgf@gd@positionnode@callback}}
+
+%
+% Callback method for \pgf@gd@positionnodelater
+% 
+% Pipes the box which contains the nodes to lua.
+% The called lua method then saves the data.
+%
+\def\pgf@gd@positionnode@callback{%
+  \pgf@gd@logmessage{GD:SYS: positionnode callback invoked for box \the\pgf@gd@box}
+  {%
+    % save options to macro \pgf@gd@node@options
+    \pgfkeysgetvalue{/tikz/graphs/graph drawing/@node@options}\pgf@gd@node@options
+    % save pgfpositionnodelaterbox (see manual)
+    \setbox\pgf@gd@box=\box\pgfpositionnodelaterbox\relax
+    % call lua system library to create a lua node object
+    \directlua{
+      %% NOTE: options parameter has to be the key=value string
+      pgf.graphdrawing.Interface:addNode(
+        "\luaescapestring{\pgfpositionnodelatername}",
+        "\luaescapestring{\pgfpositionnodelaterminx}",
+        "\luaescapestring{\pgfpositionnodelaterminy}",
+        "\luaescapestring{\pgfpositionnodelatermaxx}",
+        "\luaescapestring{\pgfpositionnodelatermaxy}",
+        "\luaescapestring{\pgf@gd@node@options}") }
+    % clear node options
+    \pgfkeyslet{/tikz/graphs/graph drawing/@options}\pgfutil@empty
+  }%
+}
+
+%
+% Begins a new graph drawing scope
+%
+\def\pgf@gd@beginscope{%
+  \pgf@gd@logmessage{GD:SYS: begin scope}%
+  % get options
+  \pgfkeysgetvalue{/tikz/graphs/graph drawing/@options}\pgf@gd@graph@options%
+  \pgf@gd@logmessage{GD:SYS: key options: \pgf@gd@graph@options}
+  \directlua{
+    pgf.graphdrawing.Interface:newGraph("\luaescapestring{\pgf@gd@graph@options}")
+  }%
+  \pgf@gd@positionnodelater
+}
+
+%
+% Shipout a node
+%
+% #1 = name of the node
+% #2 = x min of the bounding box
+% #3 = x max of the bounding box
+% #4 = y min of the bounding box
+% #5 = y max of the bounding box
+% #6 = desired x pos of the node
+% #7 = desired y pos of the node
+% #8 = box register number of the TeX node
+%
+% This is an internal function and will be called by the Sys-class of the Lua part
+%
+% Example
+%
+%  \pgfgdinternalshipoutnode{not yet positionedPGFGDINTERNALnodename}{10}{10}{20}{20}{10pt}{10pt}0
+% 
+\def\pgfgdinternalshipoutnode#1#2#3#4#5#6#7#8{%
+  {%
+    \pgf@gd@logmessage{GD:TEX: positioning node #1 (#2,#3,#4,#5) to #6,#7 from register #8}\relax
+    \def\pgfpositionnodelatername{#1}
+    \def\pgfpositionnodelaterminx{#2}
+    \def\pgfpositionnodelatermaxx{#3}
+    \def\pgfpositionnodelaterminy{#4}
+    \def\pgfpositionnodelatermaxy{#5}
+    \setbox\pgf@gd@box=\box\pgfutil@voidb@x
+    \directlua{
+      texnode = pgf.graphdrawing.TeXBoxRegister:getBox(#8)
+      assert(texnode,"GD:SYS:TEX: tex node was nil")
+      tex.box[\the\pgf@gd@box] = texnode
+    }
+    \setbox\pgfpositionnodelaterbox=\box\pgf@gd@box
+    \pgfpositionnodenow{\pgfqpoint{#6pt}{#7pt}}
+  }%
+}
+
+%
+% Begins a new pgf/TikZ scope for shipping out nodes
+%
+% The scope permits other nodes referencing graph drawing nodes.
+%
+\def\pgf@gd@beginshipout{%
+  \scope
+}
+
+%
+% Ends a shipout
+%
+\def\pgf@gd@endshipout{%
+  \endscope
+}
+
+%
+% Adds an edge to the lua graph object
+%
+% #1 first node
+% #2 second node
+% #3 edge options
+%
+% Example
+%
+%  \pgf@gd@addedge{NodeFrom}{NodeTo}{->}
+\def\pgf@gd@addedge[#1]#2#3#4{%
+  \directlua{
+    pgf.graphdrawing.Interface:addEdge("\luaescapestring{#2}","\luaescapestring{#3}","\luaescapestring{#4}","\luaescapestring{#1}")
+  }}
+
+
+%
+% LOGGING
+% ------------------------------------------------------------------------------
+%
+
+%
+% New if for debugging mode
+%
+\newif\ifpgf@gd@verbose
+
+% 
+% Set verbose debugging mode
+%
+% #1 should be zero (0) or one (1) for false and true
+%
+\def\pgf@gd@set@verbose@mode#1{
+  \ifodd#1
+    \directlua{ pgf.graphdrawing.Sys:setVerboseMode(true) }
+    \pgf@gd@verbosetrue
+  \else
+    \directlua{ pgf.graphdrawing.Sys:setVerboseMode(false) }
+    \pgf@gd@verbosefalse
+  \fi
+}
+
+%
+% Logs a message to the console (tex output, log file)
+%
+% #1 string to print out to console
+%
+\def\pgf@gd@logmessage#1{\ifpgf@gd@verbose\directlua{ texio.write_nl("\luaescapestring{#1}") }\fi}

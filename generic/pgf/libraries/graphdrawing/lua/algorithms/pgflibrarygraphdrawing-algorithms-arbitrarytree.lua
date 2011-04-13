@@ -1,0 +1,268 @@
+-- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+--
+-- This file may be distributed an/or modified
+--
+-- 1. under the LaTeX Project Public License and/or
+-- 2. under the GNU Public License
+--
+-- See the file doc/generic/pgf/licenses/LICENSE for more information
+
+-- @release $Header$
+
+-- This file contains an algorithm for drawing arbitrary shaped trees.
+
+pgf.module("pgf.graphdrawing")
+
+--- Initialising options for positioning the given graph
+-- @param graph The tree-graph to be drawn
+function drawGraphAlgorithm_arbitrarytree(graph)
+   Sys:logMessage("GD:AT: drawGraphAlgorithm_arbitrarytree")
+   -- determine the root of the tree
+   graph.root = graph:findNodeIf(function (node) return node:getOption("root") end)
+   if graph.root == nil then
+      error("there is no root node, aborting")
+   end
+   Sys:logMessage("GD:AT: root node is " .. tostring(graph.root))  
+   -- check if the given graphstructure is really a tree
+   if not isTree(graph, graph.root) then
+      error("the given graph is not a tree")
+   end
+   for n in values(graph.nodes) do
+      Sys:logMessage("GD:AT " .. n.name)
+   end  
+   -- read TEX-options
+   -- scale: scale factor that determines the vertical an horizontal space between the positioned nodes
+   local scale = graph:getOption("tree scale")
+   if scale == nil then
+      scale = 1
+   end
+   -- positoning
+   treePositioning(graph, advancedPlace, simpleCompare, nil, scale)
+end
+
+--- Test if the given graph is a Tree
+-- @param graph The graph to be tested
+-- @return false if the graph isn't a tree, true otherwise
+function isTree(graph, node)
+   local result = true
+   local visitedNodes = {node.name}
+   if checkNodes(graph, node, visitedNodes, root) == false then
+      result = false
+   end   
+   return result
+end
+
+--- Checks if a node has already been visited
+-- @param graph The graph to be tested
+-- @param node Current Node to be checked
+-- @param visitedNodes Nodes that have already bee visited
+-- @param parent Last checked Node
+-- @return false if node has already been visited
+function checkNodes(graph, node, visitedNodes, parent)
+   local visited = false
+   if node:degree() > 1 then
+      for edge in values(node:getEdges()) do   
+        --check if all nodes of the edge have already been visited
+        for node in values(edge:getNodes()) do
+           if findTable(visitedNodes, node.name) then
+              visited = true
+           else
+              visited = false
+           end --endif         
+        end --end for node  
+         
+        if visited then
+           --if the child has already been visited return false
+          if findTable(visitedNodes, edge:getNeighbour(node).name) and edge:getNeighbour(node).name ~= parent.name then 
+             return false
+          end  
+       else 
+          --mark child as visited  
+          table.insert(visitedNodes, edge:getNeighbour(node).name)                
+          if checkNodes(graph, edge:getNeighbour(node), visitedNodes, node) == false then 
+             return false
+          end                
+        end 
+      end --end for egde
+      else 
+         --if leaf return true
+         return true
+   end
+end
+
+--- Positioning of an arbitary trees
+-- @param tree The tree to be drawn as Graph-Object
+-- @param placeBoxes Function to place root-node and childs, usage: placeBoxes(root, boxes)
+--        Without, all nodes share the same place.
+-- @param compareBoxes Function to sort childboxes of a root-node, usage: compareBoxes(box1, box2)
+--        Without, no sorting of boxes
+-- @param drawPath Function to draw a path from root to childnode, usage: drawPath(root, child) 
+--        Without, edge will be direct path from center of a root to center of child
+-- @return Box, containing all nodes of tree-object
+function treePositioning(tree, placeBoxes, compareBoxes, drawPath, scale)
+   drawPath = drawPath or function(r, c)
+                        return Path:createPath(r:getPosAt(Box.CENTER),
+                                 c:getPosAt(Box.CENTER), false)
+                     end
+    local resultBox
+   local boxes = {}
+   local edges = {}
+   --if leaf
+   if(tree.root:degree() == 0) then
+      resultBox = tree.root
+   else
+      resultBox = Box:new{}
+      --for all edges
+      for edge in values(tree.root:getEdges()) do
+         local node = edge:getNeighbour(tree.root)
+         edges[node.name] = edge
+         local box = treePositioning(tree:subGraphParent(node, tree.root),
+                     placeBoxes, compareBoxes, drawPath, scale)
+         --collect all subboxes            
+         resultBox:addBox(box)
+         table.insert(boxes, box)
+      end
+      --compare the current boxes
+      if compareBoxes then
+         table.sort(boxes, compareBoxes)
+      end
+      resultBox:addBox(tree.root)
+      --final placement of the current boxes
+      if placeBoxes then
+         placeBoxes(tree.root, boxes, scale)
+      end
+      for box in values(boxes) do
+         local path = drawPath(tree.root, box.root)
+         resultBox._paths[box.root.name] = path
+      end
+      resultBox:recalculateSize()
+   end
+   resultBox.root = tree.root
+   return resultBox
+end
+
+--- Compares the Width of box1 and box2
+-- @param box1 First box for Comparision
+-- @param box2 Second box for Comparision
+function compareWidth(box1, box2)
+   return box1.width < box2.width
+end
+
+--- Compares the Height of box1 and box2
+-- @param box1 First box for Comparision
+-- @param box2 Second box for Comparision
+function simpleCompare(box1, box2)
+   return box1.height > box2.height
+end
+
+--- Places the boxes in a vertical way (similar to a filestructure)
+-- @param root The rootnode of the tree
+-- @param boxes The boxes to be positioned
+function verticalPlace(root, boxes)
+   local x = root.width
+   local y = 0
+   for box in values(boxes) do
+      box.pos.x = x
+      box.pos.y = y
+      y = y + 1 + box.height
+   end
+   root.pos.x = 0
+   root.pos.y = y
+end
+
+--- Creates a path from root to box, useful if the boxes are positioned vertically
+-- @param root Current rootnode of a treelayer, start of the path
+-- @param box The box where the path should end
+-- @return a path which leads not directly form root to box, but in a right angle
+function verticalPathPlacement(root, box)
+   local path = Path:new()
+   path:addPoint(root:getPosAt(Box.CENTER, true))
+   path:move(0, box:getPosAt(Box.CENTER, true).y - root:getPosAt(Box.CENTER, true).y)
+   path:addPoint(box:getPosAt(Box.CENTER, true))
+   return path
+end
+
+--- Places the boxes in a simple way
+-- @param root The rootnode of the tree
+-- @param boxes The boxes to be positioned
+-- The function places the boxes of each layer of the tree horizontally beside each other. 
+-- The root of each treelayer is positioned above the left box of the layer.
+function simplePlace(root, boxes)
+   local lastbox
+   for box in values(boxes) do      
+      if not lastbox then
+         box.pos.y = 0
+         box.pos.x = 0
+         local pos = box:getPosAt(Box.UPPERRIGHT, false)
+         root.pos.x = pos.x
+         root.pos.y = pos.y + 1
+      else
+          local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
+         box.pos.y = 0
+         box.pos.x = pos.x + 1
+      end
+      lastbox = box
+   end
+end
+
+--- Places the boxes
+-- @param root The rootnode of the tree
+-- @param boxes The boxes to be positioned, the boxes are supposed to be ordered by size
+-- @param scale The factor to determine the space between the boxes
+-- The function places the boxes of each layer of the tree as follows:
+-- The biggest/smallest box (depending if the boxes are ordered descending or ascending) is positioned in the middle
+-- and the following boxes are positioned alternately left/right horizontally beside. 
+-- The root of each layer of the tree is positioned in the middle above the layer.
+function advancedPlace(root, boxes, scale)
+   local lastbox, lastbox2
+   local maxY = 0
+   local width = 0
+   local tempboxes = {}
+   local bs = #boxes
+   local i, j
+   --first loop sorts the boxes
+   for box in values(boxes) do
+      if not lastbox2 then
+         if bs%2 == 0 then
+            i = bs/2
+            j = 1
+         else
+            i = bs/2 + 0.5
+            j = 1
+         end
+      end   
+      tempboxes[i] = box
+      i = i + j   
+      if j%2 == 0 then
+         j = j * (-1)
+         j = math.abs(j) + 1
+      else
+         j = math.abs(j) + 1
+         j = j * (-1)    
+      end
+      lastbox2 = box
+      if box.height >= maxY then
+         maxY = box.height
+      end
+   end   
+   boxes = tempboxes
+   --second loop computes the positions of each box
+   for box in values(boxes) do      
+      if not lastbox then
+         box.pos.y = maxY - box.height
+         box.pos.x = 0
+         local pos = box:getPosAt(Box.UPPERRIGHT, false)
+         width = width + box.width
+
+      else
+          local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
+         box.pos.y = maxY - box.height
+         box.pos.x = pos.x + 10*scale
+         width = width + box.width + 10*scale   
+      end   
+      lastbox = box
+   end
+   root.pos.y = maxY + scale*10
+   root.pos.x = width/2 - root.width/2
+end
+
