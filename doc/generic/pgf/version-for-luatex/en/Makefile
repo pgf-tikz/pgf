@@ -1,7 +1,9 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
 latex = lualatex
+luadoc = luadoc --doclet luadoc.doclet.tex -t "luadoc/doclet/tex" --taglet luadoc.taglet.pgfmanual
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
+LUA_PATH := ./luadoc/?.lua:$LUA_PATH
 
 all: $(doc).pdf
 
@@ -26,6 +28,18 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	@echo "Use 'make dist' to generate auto-xrefs."
+
+genluadoc:
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-box.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-node.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-edge.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-graph.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-path.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-position.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-helper.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-sys.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-interface.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-texboxregister.lua
 
 FORCE:
 
