@@ -34,6 +34,13 @@
 % can be changed with options.
 \def\pgfmathfloat@round@precision{2}
 
+% I introduced this to acces the "original" precision in case a
+% formatted changes it locally... in this case, the formatter may
+% overwrite \pgfmathfloat@round@precision@orig to provide the original
+% one.
+% The default implementation here does nothing:
+\def\pgfmathfloat@round@precision@orig{\pgfmathfloat@round@precision}%
+
 \gdef\pgfmathfloat@glob@TMP{}
 
 
@@ -848,6 +855,10 @@
 	sci/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@SCI},
 	std/.code=				{\pgfmath@set@number@printer{pgfmathprintnumber@STD}\pgfmathprintnumber@STD@setparam{#1}},
 	std/.default=,%
+	% relative={<exponent base 10>}
+	relative/.code=			{\pgfmath@set@number@printer{pgfmathprintnumber@RELATIVE}\def\pgfmathprintnumber@RELATIVE@param{#1}},%
+	relative/.value required,
+	every relative/.style=std,
 	int detect/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@DETECT},
 	int trunc/.code=		\pgfmath@set@number@printer{pgfmathprintnumber@INT@TRUNC},
 	frac/.code=				\pgfmath@set@number@printer{pgfmathprintnumber@frac},%
@@ -946,7 +957,7 @@
 	\ifx\pgfmathfloat@loc@TMPb\pgfutil@empty
 		% DEFAULT for lower and upper bound.
 		\def\pgfmathprintnumber@STD@getlowerbound{%
-			\c@pgf@counta=\pgfmathfloat@round@precision\relax
+			\c@pgf@counta=\pgfmathfloat@round@precision@orig\relax
 			\divide\c@pgf@counta by-2\relax
 		}%
 		\def\pgfmathprintnumber@STD@upperbound{4}%
@@ -990,6 +1001,55 @@
 	\else% nan or inf:
 		\pgfmathfloatrounddisplaystyle#1#2e#3\relax%
 	\fi
+}
+
+\def\pgfmathprintnumber@RELATIVE#1{%
+	% parse the input:
+	\pgfmathfloatparsenumber{#1}%
+	\pgfmathfloat@to@FMeE@style\pgfmathresult
+	\expandafter\pgfmathprintnumber@RELATIVE@issci\pgfmathresult\relax
+}
+
+\def\pgfmathprintnumber@RELATIVE@issci#1#2e#3\relax{%
+	\begingroup
+		% format X / 10^{relative}:
+		\c@pgf@counta=#3\relax
+		\advance\c@pgf@counta by-\pgfmathprintnumber@RELATIVE@param\relax
+		\pgfmathfloatcreate{#1}{#2}{\the\c@pgf@counta}%
+		% OK, round it to the desired precision:
+		\ifnum\c@pgf@counta>0
+			% hm. for positive exponents, we should round the
+			% mantissa rather than only the fractional part.
+			\expandafter\pgfmathfloatround\expandafter{\pgfmathresult}%
+		\else
+			% negative exponent -> round fixed representation:
+			\pgfmathfloattofixed\pgfmathresult
+			\expandafter\pgfmathroundto\expandafter{\pgfmathresult}%
+			\pgfmathfloatparsenumber{\pgfmathresult}%
+			\pgfmathfloatroundhasperiodtrue% make sure the code below works:
+		\fi
+		% Now, compute result * 10^{relative} and format the result:
+		\pgfmathfloattoregisterstok\pgfmathresult\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+		\ifnum\pgfmathfloat@a@S=0
+			\pgfmathfloat@a@E=\pgfmathfloat@a@S % avoid 0 * 10^8
+		\else
+			\advance\pgfmathfloat@a@E by+\pgfmathprintnumber@RELATIVE@param\relax
+		\fi
+		\edef\pgfmathresultX{%
+			\the\pgfmathfloat@a@S
+			\the\pgfmathfloat@a@Mtok 
+			\ifpgfmathfloatroundhasperiod\else.0\fi
+			e\the\pgfmathfloat@a@E}%
+		% call another formatter for the result (but avoid rounding inside of it):
+		\pgfqkeys{/pgf/number format}{/pgf/number format/every relative}%
+		\ifx\pgfmathprintnumber@issci\pgfmathprintnumber@RELATIVE@issci
+			\pgfmath@error{The '/pgf/number format/every relative' style should set a valid display style}%
+		\fi
+		\let\pgfmathfloat@round@precision@orig=\pgfmathfloat@round@precision
+		\def\pgfmathfloat@round@precision{9999}%
+		\expandafter\pgfmathprintnumber@issci\pgfmathresultX\relax%
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
 }
 
 \def\pgfmathprintnumber@frac#1{%
