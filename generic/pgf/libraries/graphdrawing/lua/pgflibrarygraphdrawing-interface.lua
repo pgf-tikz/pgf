@@ -67,6 +67,11 @@ function Interface:addNode(name, xMin, yMin, xMax, yMax, options)
    self.graph:addNode(node)
    Sys:logMessage("GD:INT: addNode(" .. name ..", " .. "maxX = " .. node.tex.maxX .. ", minX = " .. node.tex.minX 
      .. ", maxY = " .. node.tex.maxY.. ", minY = " .. node.tex.minY .. ",...)")
+   -- TODO: maybe the first node can automatically be assigned as the
+   -- root node? i.e. if graph.root is nil, assign it, else leave it be
+   -- then provide a new method getRoot, which first searches for a
+   -- node with "root" attribute and, if none exists, uses the
+   -- graph.root node as root ... will remove one step for the user
 end
 
 --- Adds an edge from one node to another by name.  That is, both

@@ -318,6 +318,7 @@ end
 
 --- Returns a string representation of this graph including all nodes and edges.
 -- @return Graph as string.
+-- @ignore This should not appear in the documentation.
 function Graph:__tostring()
    local tmp = Graph.__tostring
    Graph.__tostring = nil

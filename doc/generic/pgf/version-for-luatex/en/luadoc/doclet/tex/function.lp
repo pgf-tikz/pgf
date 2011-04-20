@@ -10,9 +10,9 @@ end
 <%=func.description or ""%>
 <%if type(func.param) == "table" and #func.param > 0 then%><%hasParam=nil%><%for p=1, #func.param do if func.param[func.param[p]] then hasParam=1 end end%><%if hasParam then%>
 Parameters:
-\begin{itemize}
-	<%for p = 1, #func.param do%><%if func.param[func.param[p]] then%>\item[] \meta{<%=func.param[p]%>} \subitem <%=func.param[func.param[p]] or ""%><%end%><%end%>
-\end{itemize}
+\begin{parameterdescription}
+	<%for p = 1, #func.param do%><%if func.param[func.param[p]] then%>\item[\meta{<%=func.param[p]%>}] <%=func.param[func.param[p]] or ""%><%end%><%end%>
+\end{parameterdescription}
 <%end%><%end%>
 <%if type(func.ret) == "string" then%>
 Return value:

@@ -77,6 +77,7 @@ end
 
 --- Returns a readable string representation of the position.
 -- @return string representation of the position.
+-- @ignore This should not appear in the documentation.
 function Position:__tostring()
    return "(" .. self.x .. "," .. self.y .. ")"
 end

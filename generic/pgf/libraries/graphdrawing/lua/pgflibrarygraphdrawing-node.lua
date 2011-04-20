@@ -116,6 +116,7 @@ end
 
 --- Returns a formated string representation of the node.
 -- @return String represenation of the node.
+-- @ignore This should not appear in the documentation.
 function Node:__tostring()
    local tmp = Node.__tostring
    Node.__tostring = nil

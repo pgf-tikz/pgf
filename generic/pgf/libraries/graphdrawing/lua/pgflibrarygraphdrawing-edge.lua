@@ -110,7 +110,7 @@ function Edge:copy()
 
 --- Returns a readable string representation of the edge.
 -- @return String representation of the edge.
--- @ignore This should not appear in the doc
+-- @ignore This should not appear in the documentation.
 function Edge:__tostring()
    local tmp = Edge.__tostring
    Edge.__tostring = nil

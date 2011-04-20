@@ -217,18 +217,19 @@ end
 
 --- Returns a readable string representation of the path.
 -- @return String representation of the path
-function Path.toString(path)
-	local t = { }
-    for k,v in ipairs(path._points) do
-        t[#t+1] = tostring(v)
-    end
-    return table.concat(t," ")
+-- @ignore This should not appear in the documentation.
+function Path:__tostring()
+   local t = {}
+   for v in values(self._points) do
+      t[#t+1] = tostring(v)
+   end
+   return table.concat(t, " ")
 end
 
 
---- Returns the lenght
--- @return lenght of the whole path
-function Path:getLenght()
+--- Returns the length of the whole path.
+-- @return Length of the whole path.
+function Path:getLength()
    local length = 0
    for pidx = 1, #self._points-1 do
       local a = self._points[pidx]

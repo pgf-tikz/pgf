@@ -69,11 +69,21 @@ function Box:recalculateSize()
 end
 
 
---- Calculates the coordinates of the box according to the param place.
--- @param place Determines of which position of the box the coordinates should be returned (e.g. the center of the box requieres the param Box.CENTER). Possible values are:
--- Box.UPPERLEFT, Box.UPPERRIGHT, Box.CENTER, Box.LOWERRIGHT, Box.LOWERLEFT.
--- @param absolute If true the absolute coordinates of the box will be returned, otherwise its relative coordinates. 
--- @return X- and y-coordinates of the box. 
+--- Calculates the coordinates of the box according to the place
+-- parameter.
+-- @param place Determines of which position of the box the
+-- coordinates should be returned (e.g. the center of the box
+-- requires the param Box.CENTER).  Possible values are:
+-- \begin{itemize}
+-- \item Box.UPPERLEFT
+-- \item Box.UPPERRIGHT
+-- \item Box.CENTER
+-- \item Box.LOWERRIGHT
+-- \item Box.LOWERLEFT
+-- \end{itemize}
+-- @param absolute If true the absolute coordinates of the box will be
+-- returned, otherwise its relative coordinates.
+-- @return X- and y-coordinates of the box.
 function Box:getPosAt(place, absolute)
 	local position = self.pos:copy()
 	if(place == Box.UPPERLEFT) then

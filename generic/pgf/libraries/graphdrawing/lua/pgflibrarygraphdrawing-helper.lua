@@ -112,9 +112,5 @@ function parseBraces(string, default)
       i = i + 2
    end
 
-   for k, v in pairs(result) do
-      print(k, v)
-   end
-
    return result
 end

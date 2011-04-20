@@ -110,7 +110,7 @@ function drawGraphAlgorithm_localsearchgraph(graph)
          = node.pos.x, node.pos.y
    end
    for path in values(endState.paths) do
-      Sys:logMessage("LSG:GD: Path ", Path.toString(path))
+      Sys:logMessage("LSG:GD: Path ", tostring(path))
    end
 end
 
@@ -256,7 +256,7 @@ function maxPath(state)
    --aggregate length of all paths
    local pLength = 0
    for path in values(state.paths) do
-      pLength = math.max(pLength, path:getLenght())
+      pLength = math.max(pLength, path:getLength())
    end
    assert(pLength > 0, "LSG:GD: Path-length should be greater than zero!")
    return pLength
@@ -268,7 +268,7 @@ function pathLength(state, count)
    count = count or 1
    local temp = {}
    for path in values(state.paths) do
-      table.insert(temp, path:getLenght())
+      table.insert(temp, path:getLength())
    end
    table.sort(temp, function(a,b) return a > b end)
    local sum = 0

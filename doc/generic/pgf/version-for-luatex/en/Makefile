@@ -1,7 +1,7 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
 latex = lualatex
-luadoc = luadoc --doclet luadoc.doclet.tex -t "luadoc/doclet/tex" --taglet luadoc.taglet.pgfmanual
+luadoc = luadoc --doclet luadoc.doclet.tex -t "luadoc/doclet/tex" --taglet luadoc.taglet.pgfmanual -d ../../text-en/generated
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 LUA_PATH := ./luadoc/?.lua:$LUA_PATH
 

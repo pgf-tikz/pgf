@@ -10,6 +10,7 @@ local luadoc = require"luadoc"
 local package = package
 local string = require"string"
 local table = require"table"
+
 module "luadoc.doclet.tex"
 
 -------------------------------------------------------------------------------
@@ -109,7 +110,6 @@ function file_link (to, from)
 	local href = to
 	href = string.gsub(href, "lua$", "tex")
 	href = string.gsub(href, "luadoc$", "tex")
-	href = "files/" .. href
 	string.gsub(from, "/", function () href = "../" .. href end)
 	return href
 end
@@ -184,9 +184,8 @@ function out_file (filename)
 	local h = filename
 	h = string.gsub(h, "lua$", "tex")
 	h = string.gsub(h, "luadoc$", "tex")
-	h = options.output_dir .. string.gsub (h, "^.-([%w_]+%.tex)$", "%1")
-	h = "files/" .. h
-	h = options.output_dir .. h
+	h = options.output_dir .. string.gsub (h, "^.-([%w_-]+%.tex)$", "%1")
+	
 	return h
 end
 
@@ -203,14 +202,15 @@ end
 -----------------------------------------------------------------
 -- Generate the output.
 -- @param doc Table with the structured documentation.
-
 function start (doc)
+	local prefix = "pgfmanual-en-generated-"
+
 	-- Process files
 	if not options.nofiles then
 		for _, filepath in ipairs(doc.files) do
 			local file_doc = doc.files[filepath]
 			-- assembly the filename
-			local filename = out_file(file_doc.name)
+			local filename = out_file(prefix .. file_doc.name)
 
 			-- assembly short file name
 			local pos=0
@@ -221,7 +221,7 @@ function start (doc)
 			   until(current == nil)
 			file_doc.shortname = string.sub(filepath, pos)
 
-			logger:info(string.format("generating file `%s'", filename))
+			-- print(string.format("generating file `%s'", filename))
 			
 			local f = lfs.open(filename, "w")
 			assert(f, string.format("could not open `%s' for writing", filename))

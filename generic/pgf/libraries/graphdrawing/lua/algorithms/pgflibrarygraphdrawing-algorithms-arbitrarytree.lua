@@ -31,13 +31,18 @@ function drawGraphAlgorithm_arbitrarytree(graph)
       Sys:logMessage("GD:AT " .. n.name)
    end  
    -- read TEX-options
-   -- scale: scale factor that determines the vertical an horizontal space between the positioned nodes
-   local scale = graph:getOption("tree scale")
-   if scale == nil then
-      scale = 1
+   -- leveldistance: determines the vertical space between the nodes
+   local leveldistance = graph:getOption("level distance")
+   local siblingdistance = graph:getOption("sibling distance")
+   if leveldistance == nil then
+      leveldistance = 10
+   end
+   -- siblingdistance: determines the horizontal space between the nodes
+   if siblingdistance == nil then
+      siblingdistance = 10
    end
    -- positoning
-   treePositioning(graph, advancedPlace, simpleCompare, nil, scale)
+   treePositioning(graph, advancedPlace, simpleCompare, nil, leveldistance, siblingdistance)
 end
 
 --- Test if the given graph is a Tree
@@ -99,7 +104,7 @@ end
 -- @param drawPath Function to draw a path from root to childnode, usage: drawPath(root, child) 
 --        Without, edge will be direct path from center of a root to center of child
 -- @return Box, containing all nodes of tree-object
-function treePositioning(tree, placeBoxes, compareBoxes, drawPath, scale)
+function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance, siblingdistance)
    drawPath = drawPath or function(r, c)
                         return Path:createPath(r:getPosAt(Box.CENTER),
                                  c:getPosAt(Box.CENTER), false)
@@ -117,7 +122,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, scale)
          local node = edge:getNeighbour(tree.root)
          edges[node.name] = edge
          local box = treePositioning(tree:subGraphParent(node, tree.root),
-                     placeBoxes, compareBoxes, drawPath, scale)
+                     placeBoxes, compareBoxes, drawPath, leveldistance, siblingdistance)
          --collect all subboxes            
          resultBox:addBox(box)
          table.insert(boxes, box)
@@ -129,7 +134,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, scale)
       resultBox:addBox(tree.root)
       --final placement of the current boxes
       if placeBoxes then
-         placeBoxes(tree.root, boxes, scale)
+         placeBoxes(tree.root, boxes, leveldistance, siblingdistance)
       end
       for box in values(boxes) do
          local path = drawPath(tree.root, box.root)
@@ -208,12 +213,13 @@ end
 --- Places the boxes
 -- @param root The rootnode of the tree
 -- @param boxes The boxes to be positioned, the boxes are supposed to be ordered by size
--- @param scale The factor to determine the space between the boxes
+-- @param leveldistance The factor to determine the vertical space between the boxes
+-- @param siblingdistance The factor to determine the horizontal space between the boxes
 -- The function places the boxes of each layer of the tree as follows:
 -- The biggest/smallest box (depending if the boxes are ordered descending or ascending) is positioned in the middle
 -- and the following boxes are positioned alternately left/right horizontally beside. 
 -- The root of each layer of the tree is positioned in the middle above the layer.
-function advancedPlace(root, boxes, scale)
+function advancedPlace(root, boxes, leveldistance, siblingdistance)
    local lastbox, lastbox2
    local maxY = 0
    local width = 0
@@ -257,12 +263,12 @@ function advancedPlace(root, boxes, scale)
       else
           local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
          box.pos.y = maxY - box.height
-         box.pos.x = pos.x + 10*scale
-         width = width + box.width + 10*scale   
+         box.pos.x = pos.x + siblingdistance
+         width = width + box.width + siblingdistance   
       end   
       lastbox = box
    end
-   root.pos.y = maxY + scale*10
+   root.pos.y = maxY + leveldistance
    root.pos.x = width/2 - root.width/2
 end
 
