@@ -1366,6 +1366,56 @@
 
 
 
+%
+% The grid connector
+%
+\tikzgraphsset{
+  grid/.style={operator={
+      \tikzgraphpreparecolor{#1}\c@pgf@counta{tikz@lg}%
+      \c@pgf@countb=0\relax%
+      \tikzgraphpreparewrapafter%
+      \tikz@lg@grid@loop%
+    }%
+  },
+  grid/.default=all
+}
+
+\def\tikzgraphpreparewrapafter{%
+  \pgfkeysgetvalue{/tikz/graphs/wrap after}\tikz@temp%
+  \ifnum\tikz@temp=0\relax%
+    \pgfmathparse{sqrt(\tikzgraphVnum)}%
+    \pgfmathint{\pgfmathresult}%
+    \edef\tikzgraphwrapafter{\pgfmathresult}%
+  \else%
+    \edef\tikzgraphwrapafter{\tikz@temp}
+  \fi%
+}
+
+\def\tikz@lg@grid@loop{%
+  \ifnum\c@pgf@counta=0\relax%
+  \else%
+    \advance\c@pgf@countb by 1\relax%
+    \pgfmathmod{\c@pgf@countb-1}{\tikzgraphwrapafter}%
+    \pgfmathint{\pgfmathresult}%
+    \ifnum\pgfmathresult>0%
+      \pgfmathsubtract{\c@pgf@countb}{1}%
+      \pgfmathint{\pgfmathresult}%
+      \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countb\endcsname}{\csname tikz@lg\pgfmathresult\endcsname}%
+    \fi%
+    \pgfmathparse{\c@pgf@countb <= \tikzgraphwrapafter}%
+    \ifnum\pgfmathresult=0%
+      \pgfmathsubtract{\c@pgf@countb}{\tikzgraphwrapafter}%
+      \pgfmathint{\pgfmathresult}%
+      \tikz@lib@graph@default@new@edge{\csname tikz@lg\pgfmathresult\endcsname}{\csname tikz@lg\the\c@pgf@countb\endcsname}%
+    \fi%
+    \advance\c@pgf@counta by-1\relax%
+    \expandafter\tikz@lg@grid@loop%
+  \fi%
+}
+
+
+
+
 % Positioning
 %
 % It is not the job of the graph library to compute good positions for
@@ -1704,7 +1754,59 @@
 }
 
 
+% Grid arrangements
+%
 \tikzgraphsset{
+  grid placement/.style={
+    placement/place,
+    placement/compute position/.code=\tikz@lib@graph@grid@pos,%
+    placement/logical node depth/.code=\def\pgfmathresult{1},
+    placement/logical node width/.code=\def\pgfmathresult{1},
+    group shift={(1,-1)},
+  },
+}
+
+
+\def\tikz@lib@graph@grid@pos{%
+  %
+  % Make sure to set \tikzgraphwrapafter before we compute
+  % the positions of nodes in the grid
+  %
+  \tikzgraphpreparewrapafter%
+  %
+  % find out the coordinate in the grid (at the moment only
+  % left to right placement is supported)
+  %
+  \pgfkeysgetvalue{/tikz/graphs/placement/depth}\tikz@temp@depth%
+  \pgfkeysgetvalue{/tikz/graphs/placement/width}\tikz@temp@width%
+  \pgfmathsetmacro{\tikz@temp}{max(\tikz@temp@depth, \tikz@temp@width)}%
+  \pgfmathsetmacro{\tikz@temp@col}{mod(\tikz@temp,\tikzgraphwrapafter)}%
+  \pgfmathsetmacro{\tikz@temp@row}{div(\tikz@temp,\tikzgraphwrapafter)}%
+  %
+  % multiply by the group shift (which is set to (1,-1) in 
+  % the left to right placement strategy)
+  %
+  \pgfkeysgetvalue{/tikz/graphs/group shift}\tikz@temp%
+  \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp%
+  \pgfmathsetlength{\pgf@x}{\pgf@x * \tikz@temp@col}
+  \pgfmathsetlength{\pgf@y}{\pgf@y * \tikz@temp@row}
+  %
+  % update the new coordinate
+  %
+  \advance\pgf@xa by\pgf@x%
+  \advance\pgf@ya by\pgf@y%
+  %
+  % apply the shift
+  %
+  \edef\tikz@lib@graph@shift{(\the\pgf@xa,\the\pgf@ya)}
+  \pgfkeys{/tikz/graphs/nodes/.expanded={shift={\tikz@lib@graph@shift}}}
+}
+
+
+\tikzgraphsset{
+  % Grids:
+  wrap after/.initial=0,
+  % Node sets:
   V/.code={%
     \def\tikzgraphV{#1}
     \c@pgf@counta=0\foreach \tikz@dummy in {#1} {\global\advance\c@pgf@counta by1\relax}
