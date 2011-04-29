@@ -28,3 +28,21 @@ function split_braces(s)
    end
    return unpack(t)
 end
+
+function pointnormalised (pgfx, pgfy)
+   local pgfx_normalised, pgfx_normalised
+   if pgfx == 0. and pgfy == 0. then
+      -- Orginal pgf macro gives this result
+      return tex.print(-1,
+	 "\\csname pgf@x\\endcsname=0pt",
+	 "\\csname pgf@y\\endcsname=1pt")
+   else
+      pgfx_normalised = pgfx/math.sqrt(pgfx^2 + pgfy^2)
+      pgfx_normalised = pgfx_normalised - pgfx_normalised%0.00001
+      pgfy_normalised = pgfy/math.sqrt(pgfx^2 + pgfy^2)
+      pgfy_normalised = pgfy_normalised - pgfy_normalised%0.00001
+      return tex.print(-1,
+	 "\\csname pgf@x\\endcsname=",pgfx_normalised,"pt",
+	 "\\csname pgf@y\\endcsname=",pgfy_normalised,"pt")
+   end
+end
