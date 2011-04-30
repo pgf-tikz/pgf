@@ -479,7 +479,7 @@
 	\pgfkeysgetvalue{/pgf/number format/set decimal separator}\pgfmathprintnumber@fixed@styleDEFAULT@DEC@SEP
 	\pgfkeysgetvalue{/pgf/number format/@dec sep mark}\pgfmathprintnumber@fixed@styleDEFAULT@DEC@SEP@MARK
 	\pgfkeysgetvalue{/pgf/number format/set thousands separator}\pgfmathprintnumber@fixed@styleDEFAULT@THOUSAND@SEP
-	\c@pgf@counta=#4\relax
+	\c@pgf@counta=#4\relax % it is the exponent here.
 	\ifnum#2=0
 		\c@pgf@counta=0
 	\fi
@@ -518,20 +518,30 @@
 	\else
 		\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod#1\pgfmathfloat@EOI\pgfmathfloat@EOI\pgfmathfloat@EOI
 	\fi
+	\ifpgfmathprintnumber@thousand@sep@in@fractional
+		\let\pgfmathresultfractional\pgfutil@empty%
+		\pgfmathprintnumber@thousand@sep@in@fractional#2MMMM\@@
+	\else
+		\def\pgfmathresultfractional{#2}%
+	\fi
 	\begingroup
 	\toks0=\expandafter{\pgfmathresult}%
 	\toks1=\expandafter{\pgfmathprintnumber@fixed@styleDEFAULT@DEC@SEP@MARK}%
-	\toks2=\expandafter{\pgfmathprintnumber@fixed@styleDEFAULT@DEC@SEP #2}%
-	\xdef\pgfmathfloat@glob@TMP{\the\toks0 \the\toks1 \the\toks2 }%
+	\toks2=\expandafter{\pgfmathprintnumber@fixed@styleDEFAULT@DEC@SEP}%
+	\toks3=\expandafter{\pgfmathresultfractional}%
+	\xdef\pgfmathfloat@glob@TMP{\the\toks0 \the\toks1 \the\toks2 \the\toks3 }%
 	\endgroup
 	\let\pgfmathresult=\pgfmathfloat@glob@TMP
 }%
+
+% assigns \pgfmathresult such that it contains the formatted result.
+% It assumes that none of the following tokens contains a period.
 \def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod{%
 	\ifx\pgfmathprintnumber@fixed@styleDEFAULT@THOUSAND@SEP\pgfutil@empty
 		\def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT{%
 			\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@printall}%
 	\else
-		\ifnum\c@pgf@counta<0\relax
+		\ifnum\c@pgf@counta<0\relax % exponent of the number in this context
 			\def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT{%
 				\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@printall}%
 		\else
@@ -568,7 +578,7 @@
 			\fi
 		\fi
 	\fi
-	\ifnum\c@pgf@counta>0
+	\ifnum\c@pgf@counta>0 % \c@pgf@counta = N MOD 3 in this context
 		\def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT{%
 			\expandafter\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@printtrailingdigits\pgfmathfloat@loc@TMPb
 		}%
@@ -580,7 +590,8 @@
 	\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT
 }
 \def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@printtrailingdigits#1#2{%
-	\ifcase\c@pgf@counta
+	\ifcase\c@pgf@counta % = N MOD 3 in this context
+		% does not happen per construction
 	\or
 		\expandafter\def\expandafter\pgfmathresult\expandafter{\pgfmathresult #1}%
 		\def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT{%
@@ -592,7 +603,7 @@
 			\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@counteverythird%
 		}%
 	\fi
-	\ifnum\c@pgf@countb>0\relax
+	\ifnum\c@pgf@countb>0\relax % \c@pgf@countb = N DIV 3 in this context
 		\begingroup
 		\toks0=\expandafter{\pgfmathresult}%
 		\toks1=\expandafter{\pgfmathprintnumber@fixed@styleDEFAULT@THOUSAND@SEP}%
@@ -632,6 +643,32 @@
 	\fi
 	\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@NEXT
 }
+
+% \pgfmathprintnumber@thousand@sep@in@fractional 01234525MMMM\@@
+% ->
+% 012<sep>345<sep>25
+\def\pgfmathprintnumber@thousand@sep@in@fractional#1#2#3#4{%
+	\if#4M%
+		% Ok, no further separator
+		\def\pgfmathprint@next{\pgfmathprintnumber@thousand@sep@in@fractional@finish#1#2#3#4}%
+	\else
+		\begingroup
+		\toks0=\expandafter{\pgfmathresultfractional}%
+		\toks1={#1#2#3}%
+		\toks2=\expandafter{\pgfmathprintnumber@fixed@styleDEFAULT@THOUSAND@SEP}%
+		\xdef\pgfmathfloat@glob@TMP{\the\toks0 \the\toks1 \the\toks2 }%
+		\endgroup
+		\let\pgfmathresultfractional=\pgfmathfloat@glob@TMP
+		\def\pgfmathprint@next{\pgfmathprintnumber@thousand@sep@in@fractional#4}%
+	\fi
+	\pgfmathprint@next
+}%
+\def\pgfmathprintnumber@thousand@sep@in@fractional@finish#1M{%
+	\expandafter\def\expandafter\pgfmathresultfractional\expandafter{\pgfmathresultfractional #1}%
+	\pgfmathprintnumber@thousand@sep@in@fractional@finish@
+}%
+\def\pgfmathprintnumber@thousand@sep@in@fractional@finish@#1\@@{}%
+
 \def\pgfmathprintnumber@fixed@styleDEFAULT@impl@noperiod@printall#1{%
 	\def\pgfmathfloat@loc@TMPb{#1}%
 	\let\pgfmathfloat@loc@TMPc=\pgfutil@empty
@@ -669,7 +706,7 @@
 
 % The default style to display fixed point numbers.
 %
-% It does not apply numerics, but it is responsable to typeset the
+% It does not apply numerics, but it is responsable for typesetting the
 % rounded number.
 % It can access the \ifpgfmathfloatroundhasperiod boolean.
 %
@@ -848,6 +885,7 @@
 
 \long\def\pgfmathfloatfrac@verbatim#1#2{#1/#2}%
 
+\newif\ifpgfmathprintnumber@thousand@sep@in@fractional
 \pgfkeys{%
 	/pgf/number format/.is family,
 	/pgf/number format,
@@ -895,6 +933,8 @@
 	@dec sep mark/.initial=,
 	@sci exponent mark/.initial=,
 	set thousands separator/.initial=,
+	1000 sep in fractionals/.is if=pgfmathprintnumber@thousand@sep@in@fractional,
+	1000 sep in fractionals/.default=true,
 	1000 sep/.style={/pgf/number format/set thousands separator=#1},
 	min exponent for 1000 sep/.initial=0,
 	use period/.style=		{/pgf/number format/set decimal separator={.},/pgf/number format/set thousands separator={{{,}}}},
