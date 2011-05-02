@@ -143,6 +143,23 @@ end
 
 
 
+--- Maps key/value pairs to a flat table of new values.
+--
+-- @param input
+-- @param map_func
+--
+-- @return
+--
+function table.map(input, map_func)
+  local copy = {}
+  for key, val in pairs(input) do
+    table.insert(copy, map_func(key, val))
+  end
+  return copy
+end
+
+
+
 --- Maps keys of a table to new keys.
 --
 -- @param table    The table whose keys are to be replaced.
