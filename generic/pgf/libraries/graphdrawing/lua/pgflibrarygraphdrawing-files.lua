@@ -30,6 +30,7 @@ local files = {
    "test-position",
    "test-path",
    "test-box",
+   "traversal-helpers",
    "vector",
 }
 
