@@ -104,9 +104,19 @@ function Sys:putEdge(edge)
    -- determine the direction string, which is '' for undirected edges
    local direction = edge.direction == Edge.UNDIRECTED and '' or edge.direction
 
+   local bend_string = ' to '
+   if #edge.bend_points > 0 then
+     local bend_strings = table.map_values(edge.bend_points, function (vector)
+       return '(' .. tostring(vector:get(1)) .. 'pt,' .. tostring(vector:get(2)) .. 'pt)'
+     end)
+     bend_string = bend_string .. table.concat(bend_strings, ' to ') .. ' to ' .. edge.edge_nodes
+   end
+
    -- generate string for the entire edge
-   local edge_string = ' ' .. 'edge' .. '[' .. edge.tikz_options .. '] '
-   local draw_string = '\\draw[' .. direction .. '] ' .. table.concat(node_strings, edge_string) .. ';'
+   --local edge_string = ' ' .. 'edge' .. '[' .. edge.tikz_options .. ']' .. bend_string
+   --local draw_string = '\\draw[' .. direction .. '] ' .. table.concat(node_strings, edge_string) .. ';'
+   local edge_string = bend_string
+   local draw_string = '\\draw[' .. direction .. ',' .. edge.tikz_options ..'] ' .. table.concat(node_strings, edge_string) .. ';'
 
    -- hand TikZ code over to TeX
    texio.write_nl(draw_string)

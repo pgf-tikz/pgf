@@ -33,6 +33,8 @@ function Edge:new(values)
       options = {},
       tikz_options = {},
       direction = Edge.DIRECTED,
+      bend_points = {},
+      bend_nodes = {},
       reversed = false,
    }
    setmetatable(defaults, Edge)
