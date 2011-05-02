@@ -41,17 +41,17 @@ function drawGraphAlgorithm_spring(graph, options)
   local k = graph:getOption('spring constant') or 2
   local c = graph:getOption('IN SEARCH FOR A GOOD NAME') or 0.1 -- Johannes Textor used 0.01 here
   local max_node_movement = graph:getOption('maximum iterative node movement') or 0.5
-  local positioning = graph:getOption('initial positioning') or 'circle'
+  local initial_positioning = graph:getOption('initial positioning') or 'circle'
 
   -- get nodes of the graph in an array
   local nodes = table.asTable(graph.nodes)
   
   -- generate a function for initial positioning of the nodes
-  local positioning_function = getPositioningFunction(graph, nodes, positioning)
+  local positioning_technique = positioning.technique(initial_positioning, graph)
 
   -- reset the graph
   for node in values(nodes) do
-    node.position = Vector:new(2, positioning_function)
+    node.position = Vector:new(2, positioning_technique)
     node.force = Vector:new(2, function (n) return 0 end)
   end
   for edge in keys(graph.edges) do
@@ -96,43 +96,6 @@ function drawGraphAlgorithm_spring(graph, options)
   for node in values(nodes) do
     node.pos.x =  node.position:get(1) * node_distance
     node.pos.y = -node.position:get(2) * node_distance
-  end
-end
-
-
-
-function getPositioningFunction(graph, nodes, technique)
-  -- position all nodes randomly within a reasonable
-  -- area taking a space of about 2*sqrt(|V|)
-  if technique == 'random' then
-    math.randomseed(os.time())
-
-    return function(n) 
-      return math.random(0, math.modf(math.sqrt(#nodes))*2)
-    end
-
-  -- positioning on a circle with the minimum radius
-  -- required to distribute all nodes uniformly using
-  -- the desired node distance as the chord
-  elseif technique == 'circle' then
-    local count = #nodes
-    local alpha = (2 * math.pi) / count
-    local node_distance = 1
-    local radius = (node_distance) / (2 * math.sin(alpha / 2))
-    local i = 0
-
-    return function(n)
-      if n == 1 then
-        return radius * math.cos(i * alpha)
-      else
-        i = i + 1
-        return radius * math.sin((i - 1) * alpha)
-      end
-    end
-
-  -- position all vertices at (0,0)
-  elseif technique == 'origin' or true then
-    return function (n) return 0 end
   end
 end
 

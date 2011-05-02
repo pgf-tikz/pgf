@@ -225,3 +225,15 @@ function table.value_iter(table)
     return value
   end
 end
+
+
+
+--- Count the key/value pairs in the table.
+--
+-- @param input The table whose key/value pairs to count.
+--
+-- @return Number of key/value pairs in the table.
+--
+function table.count_pairs(input)
+  return table.combine(input, function (count, k, v) return count + 1 end, 0)
+end
