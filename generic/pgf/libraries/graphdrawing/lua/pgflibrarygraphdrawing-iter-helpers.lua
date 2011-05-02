@@ -55,3 +55,28 @@ function iter.map(iterator, map_func)
     return result
   end
 end
+
+
+
+--- Cause a loop to run multiple times.
+--
+-- Use this iterator like this to perform 100 loops:
+--
+--   for n in iter.times(100) do
+--     print(n) -- this will print numbers from 1 to 100 consecutively
+--   end
+--
+-- @param n Number of loops.
+--
+function iter.times(n)
+  local last_value = 0
+
+  return function ()
+    if last_value >= n then
+      return nil
+    else
+      last_value = last_value + 1
+      return last_value
+    end
+  end
+end
