@@ -360,6 +360,48 @@ end
 
 
 
+function table.randomized_value_iter(table)
+  local served = {}
+  local served_indices = 0
+
+  return function ()
+    if served_indices < #table then
+      local index = math.random(1, #table)
+      while served[index] do
+        index = math.random(1, #table)
+      end
+      served[index] = true
+      served_indices = served_indices + 1
+      return table[index]
+    else
+      return nil
+    end
+  end
+end
+
+
+
+function table.randomized_pair_iter(table)
+  local served = {}
+  local served_indices = 0
+
+  return function ()
+    if served_indices < #table then
+      local index = math.random(1, #table)
+      while served[index] do
+        index = math.random(1, #table)
+      end
+      served[index] = true
+      served_indices = served_indices + 1
+      return index, table[index]
+    else
+      return nil, nil
+    end
+  end
+end
+
+
+
 --- Count the key/value pairs in the table.
 --
 -- @param input The table whose key/value pairs to count.
