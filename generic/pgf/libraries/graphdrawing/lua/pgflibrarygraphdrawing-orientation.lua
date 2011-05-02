@@ -55,25 +55,30 @@ function orientation.rotate(graph)
       return shortname(node) == axis_node1
     end)
 
-    assert(node1, 'axis node ' .. axis_node1 .. ' does not exist')
-
     -- try to find the second node
     local node2 = graph:findNodeIf(function (node)
       return shortname(node) == axis_node2
     end)
 
-    assert(node2, 'axis node ' .. axis_node2 .. ' deoes not exist')
+    if node1 and node2 then
+      -- create first node vector
+      local pos1 = { node1.pos.x, node1.pos.y }
+      gbase_vector = Vector:new(2, function (n) return pos1[n] end)
 
-    -- create first node vector
-    local pos1 = { node1.pos.x, node1.pos.y }
-    gbase_vector = Vector:new(2, function (n) return pos1[n] end)
+      -- create second node vector
+      local pos2 = { node2.pos.x, node2.pos.y }
+      local vec2 = Vector:new(2, function (n) return pos2[n] end)
 
-    -- create second node vector
-    local pos2 = { node2.pos.x, node2.pos.y }
-    local vec2 = Vector:new(2, function (n) return pos2[n] end)
-
-    -- compute the difference vector which also is the graph axis vector
-    gaxis_vector = vec2:minus(gbase_vector)
+      -- compute the difference vector which also is the graph axis vector
+      gaxis_vector = vec2:minus(gbase_vector)
+    else
+      if not node1 then
+        Sys:logMessage('axis node ' .. axis_node1 .. ' does not exist')
+      end
+      if not node2 then
+        Sys:logMessage(node2, 'axis node ' .. axis_node2 .. ' deoes not exist')
+      end
+    end
   end
 
   -- both base and axis vector have to be set, or none of them

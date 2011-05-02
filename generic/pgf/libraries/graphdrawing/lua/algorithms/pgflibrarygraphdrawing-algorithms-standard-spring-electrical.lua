@@ -15,10 +15,36 @@ pgf.module("pgf.graphdrawing")
 
 --- Implementation of a spring-electrical graph drawing algorithm.
 -- 
--- This implementation is based on the paper "Efficient and High Quality 
--- Force-Directed Graph Drawing" by Hu. 
+-- This implementation is based on the paper 
 --
--- TODO Document this algorithm.
+--   "A Multilevel Algorithm for Force-Directed Graph Drawing"
+--   C. Walshaw, 2000
+--
+-- although it currently does not implement the multilevel part.
+--
+-- Modifications compared to the original algorithm:
+--   - a maximum iteration limit was added
+--   - the node weight is currently fixed to 1 for all nodes
+--   - nodes that are too close to each other during the force 
+--     calculation are moved a tiny bit away from each other in 
+--     order to avoid division by zero and other nasty effects
+-- 
+-- Possible enhancements:
+--   - implement the multilevel approach
+--   - if not set, compute the natural spring dimension automatically,
+--     as described in the paper on page 7
+--   - allow users to define a node weight in TikZ
+--
+-- TODO Implement the following keys (or whatever seems appropriate
+-- and doable for this algorithm):
+--   - /tikz/desired at
+--   - /tikz/monotonic energy minimization (how to decide about 
+--       alternative steps?)
+--   - /tikz/influence cutoff distance (with the multilevel approach)
+--   - /tikz/coarsening etc.
+--   - /tikz/electric charge
+--   - /tikz/nail at
+--   - /tikz/spring stiffness
 --
 -- @param graph
 --
@@ -121,8 +147,10 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
       -- remember the previous position of v
       old_position = v.position:copy()
 
-      -- reposition v according to the force vector and the current temperature
-      v.position = v.position:plus(d:normalized():timesScalar(math.min(t, d:norm())))
+      if d:norm() > 0 then
+        -- reposition v according to the force vector and the current temperature
+        v.position = v.position:plus(d:normalized():timesScalar(math.min(t, d:norm())))
+      end
 
       -- we need to improve the system energy as long as any of
       -- the node movements is large enough to assume we're far

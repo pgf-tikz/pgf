@@ -44,8 +44,7 @@ end
 
 
 function positioning.circle(graph, distance)
-  local count = table.count_pairs(graph.nodes)
-  local alpha = (2 * math.pi) / count
+  local alpha = (2 * math.pi) / #graph.nodes
   local radius = distance / (2 * math.sin(alpha / 2))
   local i = 0
 
