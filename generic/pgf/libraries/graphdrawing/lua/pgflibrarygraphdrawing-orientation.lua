@@ -43,7 +43,7 @@ function orientation.rotate(graph)
     return string.sub(node.name, string.len('not yet positioned@') + 1)
   end
 
-  local axis_node1, axis_node2, desired_angle, flip = orientation.parse_orientation(graph)
+  local axis_node1, axis_node2, desired_angle, swap = orientation.parse_orientation(graph)
 
   local angle = 0
   local gaxis_vector = nil
@@ -112,7 +112,7 @@ function orientation.rotate(graph)
       node.pos.y = x * math.sin(angle) + y * math.cos(angle)
     end
   
-    if flip then
+    if swap then
       -- flip nodes over the axis
       for node in table.value_iter(graph.nodes) do
         if node.pos.y > gbase_vector:get(2) then
@@ -137,42 +137,24 @@ end
 
 
 
---- Parses an orientation or orientation' option.
+--- Parses the orientation option.
 --
--- The syntax of this option is either (foo):90:(bar) or (foo):(bar),
--- where "foo" and "bar" are the names of two nodes and 90 is the
--- desired angle by which the graph should be rotated relatively to
--- the x axis.
+-- The syntax of this option is 
+--
+--   {first axis node}{second axis node}{angle}{normal/swapped}
 --
 -- @param graph A graph.
 --
 -- @return TODO
 --
 function orientation.parse_orientation(graph)
-  local function stripParentheses(name)
-    return name:gsub('[%(%)]', '')
+  local option = graph:getOption('orientation')
+  if option then
+    local item = '{([^}]*)}'
+    local pattern = item .. item .. item .. item
+    local node1, node2, angle, swap = option:gmatch(pattern)()
+    return node1, node2, tonumber(angle), (swap == 'swapped')
+  else
+    return nil, nil, 0, false
   end
-
-  local option = graph:getOption('orientation') or graph:getOption('orientation\'') or ''
-  local flip = graph:getOption('orientation\'') ~= nil
-  local params = {}
-
-  -- split string into components separated by a ':'
-  option:gsub('([^:]+)', function (param) table.insert(params, param) end)
-
-  local node1 = nil
-  local node2 = nil
-  local angle = 0
-
-  -- strip parentheses from node names
-  if #params == 2 then
-    node1 = stripParentheses(params[1])
-    node2 = stripParentheses(params[2])
-  elseif #params == 3 then
-    node1 = stripParentheses(params[1])
-    node2 = stripParentheses(params[3])
-    angle = tonumber(params[2])
-  end
-
-  return node1, node2, angle, flip
 end
