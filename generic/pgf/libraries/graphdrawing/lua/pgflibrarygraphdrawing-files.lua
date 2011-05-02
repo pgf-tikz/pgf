@@ -26,7 +26,8 @@ local files = {
    "texboxregister",
    "test-position",
    "test-path",
-   "test-box"
+   "test-box",
+   "vector",
 }
 
 return files
