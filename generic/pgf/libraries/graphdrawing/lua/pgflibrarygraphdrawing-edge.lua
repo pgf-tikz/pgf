@@ -125,20 +125,21 @@ end
 -- This method only works for edges with two adjacent nodes.
 --
 -- For undirected edges or edges that point into both directions, the result
--- will always be true. Directed edges may be reversed internally, so there
--- head and tail might be switched. Whether or not this internal reversal 
--- is handled by this method can be specified with the optional second
--- parameter which is false by default.
+-- will always be true. 
+-- Directed edges may be reversed internally, so their head and tail might be 
+-- switched. Whether or not this internal reversal is handled by this method 
+-- can be specified with the optional second ignore_reversed parameter which 
+-- is false by default.
 --
--- @param node     The node to check.
--- @param reversed Optional parameter. Set this to true if the edge should
---                 be assumed to point into the opposite direction. In that
---                 case, head and tail are switched.
+-- @param node            The node to check.
+-- @param ignore_reversed Optional parameter. Set this to true if reversed edges
+--                        should not be considered reversed for this method call.
 --
 -- @return True if the node is the head of the edge.
 --
-function Edge:isHead(node, reversed)
+function Edge:isHead(node, ignore_reversed)
   local result = false
+
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
     -- undirected edges or edges pointing into both directions do not
     -- distinguish between head and tail nodes, so we always return true
@@ -149,9 +150,9 @@ function Edge:isHead(node, reversed)
     -- of <- edges is the first node
     local head_index = (self.direction == Edge.RIGHT) and #self.nodes or 1
 
-    -- if the edge should be assumed reversed, we simply switch head
-    -- and tail positions
-    if reversed then
+    -- if the edge should be assumed reversed, we simply switch head and 
+    -- tail positions
+    if not ignore_reversed and self.reversed then
       head_index = (head_index == 1) and #self.nodes or 1
     end
 
@@ -168,19 +169,20 @@ end
 -- This method only works for edges with two adjacent nodes.
 --
 -- For undirected edges or edges that point into both directions, the result
--- will always be true. Directed edges may be reversed internally, so there
--- head and tail might be switched. Whether or not this internal reversal 
--- is handled by this method can be specified with the optional second
--- parameter which is false by default.
+-- will always be true. 
 --
--- @param node     The node to check.
--- @param reversed Optional parameter. Set this to true if the edge should
---                 be assumed to point into the opposite direction. In that
---                 case, head and tail are switched.
+-- Directed edges may be reversed internally, so their head and tail might be 
+-- switched. Whether or not this internal reversal is handled by this method 
+-- can be specified with the optional second ignore_reversed parameter which 
+-- is false by default.
+--
+-- @param node            The node to check.
+-- @param ignore_reversed Optional parameter. Set this to true if reversed edges
+--                        should not be considered reversed for this method call.
 --
 -- @return True if the node is the tail of the edge.
 --
-function Edge:isTail(node)
+function Edge:isTail(node, ignore_reversed)
   local result = false
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
     -- undirected edges or edges pointing into both directions do not
@@ -194,7 +196,7 @@ function Edge:isTail(node)
 
     -- if the edge should be assumed reversed, we simply switch head
     -- and tail positions
-    if self.reversed then
+    if not ignore_reversed and self.reversed then
       tail_index = (tail_index == 1) and #self.nodes or 1
     end
 

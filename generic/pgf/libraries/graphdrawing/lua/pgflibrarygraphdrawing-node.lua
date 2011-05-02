@@ -92,44 +92,56 @@ end
 
 --- Returns the incoming edges of the node. Undefined result for hyperedges.
 --
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to false.
+--
 -- @return Incoming edges of the node. This includes undirected edges
 --         and directed edges pointing to the node.
 --
-function Node:getIncomingEdges()
+function Node:getIncomingEdges(ignore_reversed)
   return table.filter_values(self.edges, function (edge) 
-    return edge:isHead(self)
+    return edge:isHead(self, ignore_reversed)
   end)
 end
 
 --- Returns the outgoing edges of the node. Undefined result for hyperedges.
 --
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to false.
+--
 -- @return Outgoing edges of the node. This includes undirected edges
 --         and directed edges leaving the node.
 --
-function Node:getOutgoingEdges()
+function Node:getOutgoingEdges(ignore_reversed)
   return table.filter_values(self.edges, function (edge)
-    return edge:isTail(self)
+    return edge:isTail(self, ignore_reversed)
   end)
 end
 
 --- Returns the number of incoming edges of the node.
 --
--- @see Node:getIncomingEdges()
+-- @see Node:getIncomingEdges(reversed)
+--
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to false.
 --
 -- @return The number of incoming edges of the node.
 --
-function Node:getInDegree()
-  return table.count_pairs(self:getIncomingEdges())
+function Node:getInDegree(ignore_reversed)
+  return table.count_pairs(self:getIncomingEdges(ignore_reversed))
 end
 
 --- Returns the number of edges starting at the node.
 --
 -- @see Node:getOutgoingEdges()
 --
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to false.
+--
 -- @return The number of outgoing edges of the node.
 --
-function Node:getOutDegree()
-  return table.count_pairs(self:getOutgoingEdges())
+function Node:getOutDegree(ignore_reversed)
+  return table.count_pairs(self:getOutgoingEdges(ignore_reversed))
 end
 
 --- Creates a shallow copy of a node.
