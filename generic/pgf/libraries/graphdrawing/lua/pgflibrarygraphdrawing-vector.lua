@@ -29,8 +29,14 @@ function Vector:new(n, fill_function)
   setmetatable(vector, Vector)
 
   -- fill vector elements with values
-  for i = 1,n do
-    vector.elements[i] = fill_function(i)
+  if not fill_function then
+    for i = 1,n do
+      vector.elements[i] = 0
+    end
+  else
+    for i = 1,n do
+      vector.elements[i] = fill_function(i)
+    end
   end
 
   return vector
@@ -38,11 +44,81 @@ end
 
 
 
-function Vector:subtract(other)
+function Vector:copy()
+  return Vector:new(#self.elements, function (n) return self.elements[n] end)
+end
+
+
+
+function Vector:x()
+  return self.elements[1]
+end
+
+
+
+function Vector:y()
+  return self.elements[2]
+end
+
+
+
+function Vector:plus(other)
+  assert(#self.elements == #other.elements)
+
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] + other.elements[n]
+  end)
+end
+
+
+
+function Vector:plusScalar(scalar)
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] + scalar
+  end)
+end
+
+
+
+function Vector:minus(other)
   assert(#self.elements == #other.elements)
 
   return Vector:new(#self.elements, function (n) 
     return self.elements[n] - other.elements[n]
+  end)
+end
+
+
+
+function Vector:minusScalar(scalar)
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] - scalar
+  end)
+end
+
+
+
+function Vector:dividedBy(other)
+  assert(#self.elements == #other.elements)
+
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] / other.elements[n]
+  end)
+end
+
+
+
+function Vector:dividedByScalar(scalar)
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] / scalar
+  end)
+end
+
+
+
+function Vector:timesScalar(scalar)
+  return Vector:new(#self.elements, function (n)
+    return self.elements[n] * scalar
   end)
 end
 
@@ -68,6 +144,12 @@ end
 
 
 
+function Vector:normalized()
+  return self:dividedByScalar(self:norm())
+end
+
+
+
 function Vector:get(index)
   return self.elements[index]
 end
@@ -76,6 +158,12 @@ end
 
 function Vector:set(index, value)
   self.elements[index] = value
+end
+
+
+
+function Vector:reset()
+  self:update(function (n, value) return 0 end)
 end
 
 
