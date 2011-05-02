@@ -35,13 +35,17 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_spring(graph, options)
   -- read options passed to the algorithm from TikZ
-  local node_distance = graph:getOption('node distance') or 8
-  local iterations = graph:getOption('layout iterations') or 500
+  local node_distance = graph:getOption('node distance') or 7
+  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
   local max_repulsion = graph:getOption('maximum repulsion') or 6
   local k = graph:getOption('spring constant') or 2
-  local c = graph:getOption('IN SEARCH FOR A GOOD NAME') or 0.01 -- Johannes Textor used 0.01 here
+  local c = graph:getOption('IN SEARCH FOR A GOOD NAME') or 0.1 -- Johannes Textor used 0.01 here
   local max_node_movement = graph:getOption('maximum iterative node movement') or 0.5
-  local initial_positioning = graph:getOption('initial positioning') or 'circle'
+  local initial_positioning = graph:getOption('positioning') or 'circle'
+  local random_seed = tonumber(graph:getOption('random seed') or os.time())
+
+  -- apply the random seed
+  math.randomseed(random_seed)
 
   -- get nodes of the graph in an array
   local nodes = graph.nodes

@@ -33,9 +33,6 @@ end
 
 
 function positioning.random(graph)
-  -- generate seed for the random number generator
-  math.randomseed(os.time())
-
   -- compute the number of nodes in the graph
   local count = table.count_pairs(graph.nodes)
 
