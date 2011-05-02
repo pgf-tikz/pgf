@@ -33,6 +33,7 @@ function Edge:new(values)
       options = {},
       tikz_options = {},
       direction = Edge.DIRECTED,
+      reversed = false,
    }
    setmetatable(defaults, Edge)
    local result = mergeTable(values, defaults)
@@ -88,9 +89,18 @@ function Edge:addNode(node)
    end
 end
 
---- Returns all neighbours of a node.
--- @param node The node which neighbours should be returned.
--- @return Array of neighbour nodes.
+--- Returns all neighbours of a node adjacent to the edge.
+--
+-- The edge direction is not taken into account, so this method always returns
+-- all neighbours even if called on a directed edge.
+--
+-- @param node A node. Typically but not necessarily adjacent to the edge.
+--                     If the node is not an intermediate or end point of the
+--                     edge, an empty array is returned.
+--
+-- @return An array of nodes that are adjacent to the input node via the edge
+--         the method is called on.
+--
 function Edge:getNeighbours(node)
    return table.filter_values(self.nodes, function (other)
       return other.name ~= node.name
@@ -108,6 +118,92 @@ end
 -- @return Number of nodes of the edge.
 function Edge:getDegree()
    return table.count_pairs(self.nodes)
+end
+
+--- Checks whether a node is the head of the edge. Does not work for hyperedges.
+--
+-- This method only works for edges with two adjacent nodes.
+--
+-- For undirected edges or edges that point into both directions, the result
+-- will always be true. Directed edges may be reversed internally, so there
+-- head and tail might be switched. Whether or not this internal reversal 
+-- is handled by this method can be specified with the optional second
+-- parameter which is false by default.
+--
+-- @param node     The node to check.
+-- @param reversed Optional parameter. Set this to true if the edge should
+--                 be assumed to point into the opposite direction. In that
+--                 case, head and tail are switched.
+--
+-- @return True if the node is the head of the edge.
+--
+function Edge:isHead(node, reversed)
+  local result = false
+  if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
+    -- undirected edges or edges pointing into both directions do not
+    -- distinguish between head and tail nodes, so we always return true
+    -- here
+    result = true
+  else
+    -- by default, the head of -> edges is the last node and the head
+    -- of <- edges is the first node
+    local head_index = (self.direction == Edge.RIGHT) and #self.nodes or 1
+
+    -- if the edge should be assumed reversed, we simply switch head
+    -- and tail positions
+    if reversed then
+      head_index = (head_index == 1) and #self.nodes or 1
+    end
+
+    -- check if the head node equals the input node
+    if self.nodes[head_index].name == node.name then
+      result = true
+    end
+  end
+  return result
+end
+
+--- Checks whether a node is the tail of the edge. Does not work for hyperedges.
+--
+-- This method only works for edges with two adjacent nodes.
+--
+-- For undirected edges or edges that point into both directions, the result
+-- will always be true. Directed edges may be reversed internally, so there
+-- head and tail might be switched. Whether or not this internal reversal 
+-- is handled by this method can be specified with the optional second
+-- parameter which is false by default.
+--
+-- @param node     The node to check.
+-- @param reversed Optional parameter. Set this to true if the edge should
+--                 be assumed to point into the opposite direction. In that
+--                 case, head and tail are switched.
+--
+-- @return True if the node is the tail of the edge.
+--
+function Edge:isTail(node)
+  local result = false
+  if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
+    -- undirected edges or edges pointing into both directions do not
+    -- distinguish between head and tail nodes, so we always return true
+    -- here
+    result = true
+  else
+    -- by default, the tail of -> edges is the first node and the tail
+    -- of <- edges is the last node
+    local tail_index = (self.direction == Edge.RIGHT) and 1 or #self.nodes
+
+    -- if the edge should be assumed reversed, we simply switch head
+    -- and tail positions
+    if self.reversed then
+      tail_index = (tail_index == 1) and #self.nodes or 1
+    end
+
+    -- check if the tail node equals the input node
+    if self.nodes[tail_index].name == node.name then
+      result = true
+    end
+  end
+  return result
 end
 
 --- Copies an edge (preventing accidental use).

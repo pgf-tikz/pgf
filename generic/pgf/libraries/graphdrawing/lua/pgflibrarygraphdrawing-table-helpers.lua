@@ -117,6 +117,22 @@ end
 
 
 
+-- Reverses the values of a table. The metatable is not preserved.
+--
+-- @param source Input table whose values are to be reversed.
+--
+-- @return A new table with the values of the source table reversed.
+--
+function table.reverse_values(source)
+  local copy = {}
+  for i = 1,#source do
+    copy[i] = source[#source-i+1]
+  end
+  return copy
+end
+
+
+
 --- Copies a table and filters out all keys using a function.
 --
 -- @param table       The table whose values are to be filtered.

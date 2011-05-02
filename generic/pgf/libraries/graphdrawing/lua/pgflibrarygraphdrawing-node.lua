@@ -90,6 +90,48 @@ function Node:degree()
 	return table.count_pairs(self.edges)
 end
 
+--- Returns the incoming edges of the node. Undefined result for hyperedges.
+--
+-- @return Incoming edges of the node. This includes undirected edges
+--         and directed edges pointing to the node.
+--
+function Node:getIncomingEdges()
+  return table.filter_values(self.edges, function (edge) 
+    return edge:isHead(self)
+  end)
+end
+
+--- Returns the outgoing edges of the node. Undefined result for hyperedges.
+--
+-- @return Outgoing edges of the node. This includes undirected edges
+--         and directed edges leaving the node.
+--
+function Node:getOutgoingEdges()
+  return table.filter_values(self.edges, function (edge)
+    return edge:isTail(self)
+  end)
+end
+
+--- Returns the number of incoming edges of the node.
+--
+-- @see Node:getIncomingEdges()
+--
+-- @return The number of incoming edges of the node.
+--
+function Node:getInDegree()
+  return table.count_pairs(self:getIncomingEdges())
+end
+
+--- Returns the number of edges starting at the node.
+--
+-- @see Node:getOutgoingEdges()
+--
+-- @return The number of outgoing edges of the node.
+--
+function Node:getOutDegree()
+  return table.count_pairs(self:getOutgoingEdges())
+end
+
 --- Creates a shallow copy of a node.
 -- @return Copy of the node.
 function Node:copy()
@@ -104,6 +146,7 @@ end
 -- @param object The node to be compared to self
 -- @return True if self is equal to object.
 function Node:__eq(object)
+   Sys:logMessage('LAY: node eq function called')
    return self.name == object.name;
 end
 

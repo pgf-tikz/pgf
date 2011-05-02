@@ -140,8 +140,9 @@ end
 -- @param edge The edge to be removed.
 -- @return The edge or nil.
 function Graph:removeEdge(edge)
-   if table.find(self.edges, function (other) return other == edge end) then
-      table.remove(self.edges, edge)
+   local index = table.find_index(self.edges, function (other) return other == edge end)
+   if index then
+      table.remove(self.edges, index)
       return edge
    else
       return nil

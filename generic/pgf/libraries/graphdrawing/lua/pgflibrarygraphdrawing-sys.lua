@@ -96,6 +96,11 @@ function Sys:putEdge(edge)
       return '(' .. string.sub(node.name, string.len('not yet positioned@') + 1) .. ')'
    end)
 
+   -- reverse strings if the edge is reversed
+   if edge.reversed then
+     node_strings = table.reverse_values(node_strings, node_strings)
+   end
+
    -- determine the direction string, which is '' for undirected edges
    local direction = edge.direction == Edge.UNDIRECTED and '' or edge.direction
 
