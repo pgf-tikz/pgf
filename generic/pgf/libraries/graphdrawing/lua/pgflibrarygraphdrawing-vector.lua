@@ -63,7 +63,7 @@ end
 
 
 function Vector:set(index, value)
-  self.elements[i] = value
+  self.elements[index] = value
 end
 
 
