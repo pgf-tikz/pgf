@@ -66,9 +66,9 @@ end
 function checkNodes(graph, node, visitedNodes, parent)
    local visited = false
    if node:getDegree() > 1 then
-      for edge in values(node:getEdges()) do   
+      for edge in values(node.edges) do   
         --check if all nodes of the edge have already been visited
-        for node in values(edge:getNodes()) do
+	     for node in values(edge.nodes) do
            if findTable(visitedNodes, node.name) then
               visited = true
            else
@@ -116,8 +116,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance
       resultBox = tree.root
    else
       resultBox = Box:new{}
-      --for all edges
-      for edge in values(tree.root:getEdges()) do
+		for edge in values(tree.root.edges) do
          local node = edge:getNeighbour(tree.root)
          edges[node.name] = edge
          local box = treePositioning(tree:subGraphParent(node, tree.root),

@@ -286,18 +286,18 @@ function Graph:subGraph(root, graph, visited)
    for edge in values(edges) do
       local copy = edge:copy()
       local canAdd = true
-      for v in values(edge:getNodes()) do
+      for v in values(edge.nodes) do
 	 local translated = translate[v]
 	 if not translated then
 	    canAdd = false
 	 end
       end
       if canAdd then
-	 for v in values(edge:getNodes()) do
+	 for v in values(edge.nodes) do
 	    local translated = translate[v]
 	    copy:addNode(translated)
 	 end
-	 for node in values(copy:getNodes()) do
+	 for node in values(copy.nodes) do
 	    node:addEdge(copy)
 	 end
 	 graph:addEdge(copy)

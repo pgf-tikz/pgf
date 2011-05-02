@@ -87,8 +87,8 @@ function drawGraphAlgorithm_localsearchgraph(graph)
    --create paths
    local paths = {}
    for edge in values(graph.edges) do
-      local newPath = Path:createPath(nodes[edge:getNodes()[1].name].pos,
-         nodes[edge:getNodes()[2].name].pos) 
+      local newPath = Path:createPath(nodes[edge.nodes[1].name].pos,
+         nodes[edge.nodes[2].name].pos) 
       table.insert(paths, newPath)
    end
    --instantiate startstate
@@ -167,8 +167,9 @@ function cloneState(state)
    end
    for val in values(state.edges) do
       local newPath = Path:createPath(
-         nodeMap[val:getNodes()[1].name].pos,
-         nodeMap[val:getNodes()[2].name].pos)
+         nodeMap[val.nodes[1].name].pos,
+         nodeMap[val.nodes[2].name].pos,
+         false)
       table.insert(ret.paths, newPath)
    end
    return ret
