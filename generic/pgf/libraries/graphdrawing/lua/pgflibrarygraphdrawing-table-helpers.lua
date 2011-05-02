@@ -8,7 +8,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- @release $Header$
+-- @release $Header$
 
 --- This file contains a number of helper functions for tables, including
 --- functions to create key and value iterators, copy tables, map table
@@ -23,20 +23,21 @@ pgf.module("pgf.graphdrawing")
 
 
 
--- Merge the key/value pairs of two tables.
+--- Merges the key/value pairs of two tables.
 --
 -- This function merges the key/value pairs of the two input tables.
 --
--- All nil values of the first table are overwritten by the corresponding
+-- All |nil| values of the first table are overwritten by the corresponding
 -- values of the second table.
 --
--- By default the metatable of the second input table is used for the result. 
--- If the third parameter (first_metatable) is set to true however, the 
--- metatable of the first input table will be used.
+-- By default the metatable of the second input table is applied to the 
+-- resulting table. If \meta{first\_metatable} is set to |true| however, 
+-- the metatable of the first input table will be used.
 --
 -- @param table1          First table with key/value pairs.
 -- @param table2          Second table with key/value pairs.
--- @param first_metatable Whether to inherit the metatable of table1 or not.
+-- @param first_metatable Whether to inherit the metatable of \meta{table1} 
+--                        or not.
 --
 -- @return A new table with the key/value pairs of the two input tables
 --         merged together.
@@ -60,12 +61,16 @@ end
 
 
 
---- Returns the first value for which the function returns true.
+--- Returns the first value in \meta{table} for which \meta{find\_func} returns |true|.
 --
 -- @param table     The table to search in.
--- @param find_func A function to test values with.
+-- @param find_func A function to test values with. It receives a single parameter
+--                  (a value of \meta{table}) and is supposed to return either |true|
+--                  or |false|.
 --
--- @return The first value of the table for which find_func returns true.
+-- @return The first value of \meta{table} for which \meta{find\_func} returns true.
+--         Returns |nil| if the function was |false| for al of the values in 
+--         \meta{table}.
 --
 function table.find(table, find_func)
   for _, value in ipairs(table) do
@@ -78,14 +83,17 @@ end
 
 
 
--- Returns the index of the first value for which the function returns true.
+--- Returns the index of the first value in \meta{table} for which \meta{find\_func}
+--- returns |true|.
 --
--- @param table 
--- @param find_func
+-- @param table     The table to search in.
+-- @param find_func A function to test values with. It receives a single parameter
+--                  (a value of \meta{table}) and is supposed to return either |true|
+--                  or |false|.
 --
--- @return Index of the first value of the table for which find_func 
---         returns true. Returns nil if the function was true for none of
---         the values in the table.
+-- @return Index of the first value of \meta{table} for which \meta{find\_func}
+--         returns |true|. Returns |nil| if the function was |false| for all of the
+--         values in \meta{table}.
 --
 function table.find_index(table, find_func)
   for index, value in ipairs(table) do
@@ -101,11 +109,11 @@ end
 --- Copies a table while preserving its metatable.
 --
 -- @param source The table to copy.
--- @param target The table to which values are to be copied or nil if a new 
+-- @param target The table to which values are to be copied or |nil| if a new 
 --               table is to be allocated.
 -- 
--- @return The target table or a newly allocated table containing all
---         keys and values of the original table.
+-- @return The \meta{target} table or a newly allocated table containing all
+--         keys and values of the \meta{source} table.
 --
 function table.copy(source, target)
   target = target or {}
@@ -121,7 +129,7 @@ end
 --
 -- @param source Input table whose values are to be reversed.
 --
--- @return A new table with the values of the source table reversed.
+-- @return A new table with the values of \meta{source} reversed.
 --
 function table.reverse_values(source)
   local copy = {}
@@ -136,11 +144,11 @@ end
 --- Copies a table and filters out all keys using a function.
 --
 -- @param table       The table whose values are to be filtered.
--- @param filter_func The test function to be called for each key of the
---                    input table. If it returns false or nil for a key,
---                    the key will not be part of the result table.
+-- @param filter_func The test function to be called for each key of \meta{table}. 
+--                    If it returns |false| or |nil| for a key, that key will not 
+--                    be part of the result table.
 --
--- @return Copy of the input table with keys filtered using filter_func.
+-- @return Copy of \meta{table} with its keys filtered using \meta{filter\_func}.
 --
 function table.filter_keys(table, filter_func)
   local copy = {}
@@ -157,11 +165,11 @@ end
 --- Copies a table and filters out all key/value pairs using a function.
 --
 -- @param table       The table whose values are to be filtered.
--- @param filter_func The test function to be called for each pair of the
---                    input table. If it returns false or nil for a pair,
---                    the pair will not be part of the result table.
+-- @param filter_func The test function to be called for each pair of \meta{table}.
+--                    If it returns |false| or |nil| for a pair, that pair will not 
+--                    be part of the result table.
 --
--- @return Copy of the input table with pairs filtered using filter_func.
+-- @return Copy of \meta{table} with its pairs filtered using \meta{filter\_func}.
 --
 function table.filter_pairs(table, filter_func)
   local copy = {}
@@ -179,10 +187,10 @@ end
 --
 -- @param input       The table whose values are to be filtered.
 -- @param filter_func The test function to be called for each value of the
---                    input table. If it returns false or nil for a value,
---                    the value will not be part of the result table.
+--                    input table. If it returns |false| or |nil| for a value,
+--                    that value will not be part of the result table.
 --
--- @return Copy of the input table with values filtered using filter_func.
+-- @return Copy of \meta{input} with its values filtered using \meta{filter\_func}.
 --
 function table.filter_values(input, filter_func)
   local copy = {}
@@ -196,12 +204,15 @@ end
 
 
 
---- Maps key/value pairs to a flat table of new values.
+--- Maps key/value pairs of an \meta{input} table to a flat table of new values.
 --
--- @param input
--- @param map_func
+-- @param input    Table whose key/value pairs are to be mapped to new values.
+-- @param map_func The mapping function to be called for each key/value pair 
+--                 of \meta{input}. The value it returns for a pair will be 
+--                 inserted into the result table.
 --
--- @return
+-- @return A new table containing all values returned by \meta{map\_func}
+--         for the key/value pairs of the \meta{input} table.
 --
 function table.map(input, map_func)
   local copy = {}
@@ -213,15 +224,16 @@ end
 
 
 
---- Maps keys of a table to new keys.
+--- Maps keys of a table to new keys in a copy of the table.
 --
--- @param table    The table whose keys are to be replaced.
--- @param map_func A function to be called for each key in order to generate
---                 a new key to replace the old one.
+-- @param table    The table whose keys are to be mapped to new keys.
+-- @param map_func A function to be called for each key of \meta{table} 
+--                 in order to generate a new key to replace the old one
+--                 in the result table.
 -- 
--- @return A new table with all keys of the input table having been 
---         replaced with the keys returned from map_func. The original values
---         are preserved.
+-- @return A new table with all keys of \meta{table} having been replaced with 
+--         the keys returned from \meta{map\_func}. The original values are 
+--         preserved.
 --
 function table.map_keys(table, map_func)
   local copy = {}
@@ -237,11 +249,12 @@ end
 --- Maps keys and values of a table to new pairs of keys and values.
 --
 -- @param table    The table whose key and value pairs are to be replaced.
--- @param map_func A function to be called for each key and value pair in order
---                 to generate a new pair to replace the old one.
+-- @param map_func A function to be called for each key and value pair of 
+--                 \meta{table} in order to generate a new pair to replace 
+--                 the old one.
 --
--- @return A new table with all key and value pairs of the input table having
---         been replaced with the pairs returned from map_func.
+-- @return A new table with all key and value pairs of \meta{table} having
+--         been replaced with the pairs returned from \meta{map\_func}.
 --
 function table.map_pairs(table, map_func)
   local copy = {}
@@ -254,14 +267,14 @@ end
 
 
 
---- Maps values of a table to new values.
+--- Maps values of a table to new values in a new table.
 --
--- @param input    The table whose values are to be replaced.
+-- @param input    The table whose values are to be mapped to new values.
 -- @param map_func A function to be called for each value in order to generate
---                 a new value to replace the old one.
+--                 a new value to replace the old one in the result table.
 --
--- @return A new table with all values of the input table having been replaced
---         with the values returned from map_func.
+-- @return A new table with all values of the \meta{input} table having been 
+--         replaced with the values returned from \meta{map\_func}.
 --
 function table.map_values(input, map_func)
   local copy = {}
@@ -273,12 +286,15 @@ end
 
 
 
---- Update values of the table using an update function.
+--- Update values of \meta{table} in-place using an update function.
 --
--- @param table
--- @param update_func
+-- @param table       The table whose values are to be updated.
+-- @param update_func A function that takes two parameters, the key/value
+--                    pairs of \meta{table} and returns a new value to
+--                    replace the old one.
 --
--- @return
+-- @return The input \meta{table}.
+--
 function table.update_values(table, update_func)
   for key, val in pairs(table) do
     table[key] = update_func(key, val)
@@ -288,14 +304,27 @@ end
 
 
 
---- Combine all key/value pairs of the table to a single value
+--- Combine all key/value pairs of \meta{table} to a single value
 --- using a combine function.
 --
--- @param table
--- @param combine_func
--- @param initial_value
+-- This is a very powerful function. It can be used for combining the
+-- key/value pairs of a table into a single string but can also be used 
+-- to compute mathematical operations on tables, such as finding the 
+-- maximum value in a table etc.
 --
--- @return
+-- The main difference to |table.combine_values| is that keys and values
+-- are used to determine the combination value and that the key/value pairs
+-- are are passed to \meta{combine\_func} in a random order.
+--
+-- @param table         Table to iterate over.
+-- @param combine_func  Function to be called for each key/value pair. It takes
+--                      three parameters, the current combination value and the
+--                      key/value pair. It is supposed to return a new 
+--                      combination value.
+-- @param initial_value Initial combination value.
+--
+-- @return The final combination value after all key/value pairs have been
+--         passed over to \meta{combine\_func}.
 --
 function table.combine_pairs(table, combine_func, initial_value)
   local combination = initial_value or nil
@@ -307,13 +336,25 @@ end
 
 
 
---- Combine all values of the table to a single value using a combine function.
+--- Combine all values of \meta{input} to a single value using a combine function.
 --
--- @param input
--- @param combine_func
--- @param initial_value
+-- This is a very powerful function. It can be used for combining the values 
+-- of a table into a single string but can also be used to compute 
+-- mathematical operations on tables, such as finding the maximum value in a 
+-- table etc.
 --
--- @return
+-- The main difference to |table.combine_pairs| is that the keys are ignored
+-- and that the values are passed to \meta{combine\_func} in the order they 
+-- appear in the table.
+--
+-- @param input         Table to iterate over.
+-- @param combine_func  Function to be called for each value. It takes two parameters, 
+--                      the current combination value and the current value. It is 
+--                      supposed to return a new combination value.
+-- @param initial_value Initial combination value.
+--
+-- @return The final combination value after all values of \meta{input} have been
+--         passed over to \meta{combine\_func}.
 --
 function table.combine_values(input, combine_func, initial_value)
   local combination = initial_value or nil
@@ -325,7 +366,7 @@ end
 
 
 
---- Iterate over all keys of a table.
+--- Iterate over all keys of a table in random order.
 --
 -- @param table The table whose keys to iterate over.
 --
@@ -360,6 +401,12 @@ end
 
 
 
+--- Iterate over the values of \meta{table} in a truely random order.
+--
+-- @param table The table whose values to iterate over.
+--
+-- @return A randomized iterator for the values of the table.
+--
 function table.randomized_value_iter(table)
   local served = {}
   local served_indices = 0
@@ -381,6 +428,12 @@ end
 
 
 
+--- Iterate over the key/value pairs of \meta{table} in a truely random order.
+--
+-- @param table The table whose key/value pairs to iterate over.
+--
+-- @return A randomized iterator for the values of \meta{table}.
+--
 function table.randomized_pair_iter(table)
   local served = {}
   local served_indices = 0
@@ -416,15 +469,17 @@ end
 
 
 
---- Removes all values from the array for which the remove function is true.
+--- Removes all values from \meta{input} for which \meta{remove\_func} returns |true|.
 --
--- Important note: this method does not work with associative arrays. 
+-- Important note: this method does not work with dictionaries. 
 -- Make sure only to process number-indexed arrays with it.
 --
--- @param input
--- @param remove_func
+-- @param input       The table to remove values from.
+-- @param remove_func Function to be called for each value of \meta{input}. If
+--                    it returns |false|, the value will be removed from the
+--                    table in-place.
 --
--- @return
+-- @return \meta{input} which was edited in-place.
 --
 function table.remove_values(input, remove_func)
   local removals = {}

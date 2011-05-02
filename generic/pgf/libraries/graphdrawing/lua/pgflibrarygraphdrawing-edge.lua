@@ -33,14 +33,14 @@ Edge.NONE = "-!-"
 --
 -- @param values Values to override default edge settings.
 --               The following parameters can be set:\par
---               |nodes|: TODO
---               |edge_nodes|: TODO
---               |options|: TODO
---               |tikz_options|: TODO 
---               |direction|: TODO
---               |bend_points|: TODO
---               |bend_nodes|: TODO
---               |reversed|: TODO
+--               |nodes|: TODO \par
+--               |edge_nodes|: TODO \par
+--               |options|: TODO \par
+--               |tikz_options|: TODO \par 
+--               |direction|: TODO \par
+--               |bend_points|: TODO \par
+--               |bend_nodes|: TODO \par
+--               |reversed|: TODO \par
 --
 -- @return A newly-allocated edge.
 --
@@ -188,16 +188,16 @@ end
 -- will always be true. 
 -- Directed edges may be reversed internally, so their head and tail might be 
 -- switched. Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second \meta{ignorereversed} parameter 
+-- can be specified with the optional second \meta{ignore\_reversed} parameter 
 -- which is |false| by default.
 --
--- @param node           The node to check.
--- @param ignorereversed Optional parameter. Set this to true if reversed edges
---                       should not be considered reversed for this method call.
+-- @param node            The node to check.
+-- @param ignore_reversed Optional parameter. Set this to true if reversed edges
+--                        should not be considered reversed for this method call.
 --
 -- @return True if the node is the head of the edge.
 --
-function Edge:isHead(node, ignorereversed)
+function Edge:isHead(node, ignore_reversed)
   local result = false
 
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
@@ -212,7 +212,7 @@ function Edge:isHead(node, ignorereversed)
 
     -- if the edge should be assumed reversed, we simply switch head and 
     -- tail positions
-    if not ignorereversed and self.reversed then
+    if not ignore_reversed and self.reversed then
       head_index = (head_index == 1) and #self.nodes or 1
     end
 
@@ -235,16 +235,16 @@ end
 --
 -- Directed edges may be reversed internally, so their head and tail might be 
 -- switched. Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second \meta{ignorereversed} parameter 
+-- can be specified with the optional second \meta{ignore\_reversed} parameter 
 -- which is |false| by default.
 --
--- @param node           The node to check.
--- @param ignorereversed Optional parameter. Set this to true if reversed edges
---                       should not be considered reversed for this method call.
+-- @param node            The node to check.
+-- @param ignore_reversed Optional parameter. Set this to true if reversed edges
+--                        should not be considered reversed for this method call.
 --
 -- @return True if the node is the tail of the edge.
 --
-function Edge:isTail(node, ignorereversed)
+function Edge:isTail(node, ignore_reversed)
   local result = false
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
     -- undirected edges or edges pointing into both directions do not
@@ -258,7 +258,7 @@ function Edge:isTail(node, ignorereversed)
 
     -- if the edge should be assumed reversed, we simply switch head
     -- and tail positions
-    if not ignorereversed and self.reversed then
+    if not ignore_reversed and self.reversed then
       tail_index = (tail_index == 1) and #self.nodes or 1
     end
 

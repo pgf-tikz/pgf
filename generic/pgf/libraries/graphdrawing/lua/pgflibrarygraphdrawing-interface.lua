@@ -108,25 +108,25 @@ end
 --
 -- @see addNode
 --
--- @param from        Name of the node the edge begins at.
--- @param to          Name of the node the edge ends at.
--- @param direction   Direction of the edge (e.g. |--| for an undirected edge 
---                    or |->| for a directed edge from the first to the second 
---                    node).
--- @param edgenodes   A string for \tikzname\ to generate the edge label nodes later.
---                    Needs to be passed back to TikZ unmodified.
--- @param options     A string of |{key}{value}| pairs of edge options that are
---                    relevant to graph drawing algorithms.
--- @param tikzoptions A string of |{key}{value}| pairs that need to be passed
---                    back to \tikzname\ unmodified.
+-- @param from         Name of the node the edge begins at.
+-- @param to           Name of the node the edge ends at.
+-- @param direction    Direction of the edge (e.g. |--| for an undirected edge 
+--                     or |->| for a directed edge from the first to the second 
+--                     node).
+-- @param edge_nodes   A string for \tikzname\ to generate the edge label nodes later.
+--                     Needs to be passed back to TikZ unmodified.
+-- @param options      A string of |{key}{value}| pairs of edge options that are
+--                     relevant to graph drawing algorithms.
+-- @param tikz_options A string of |{key}{value}| pairs that need to be passed
+--                     back to \tikzname\ unmodified.
 --
-function Interface:addEdge(from, to, direction, edgenodes, options, tikzoptions)
+function Interface:addEdge(from, to, direction, edge_nodes, options, tikz_options)
   assert(self.graph, "no graph created")
   Sys:log("GD:INT: Edge from: " .. tostring(from) .. " to: " .. tostring(to))
   from = self.graph:findNode(from)
   to = self.graph:findNode(to)
   assert(from and to, "at least one node doesn't exist yet")
-  self.graph:createEdge(from, to, direction, edgenodes, parseBraces(options), tikzoptions)
+  self.graph:createEdge(from, to, direction, edge_nodes, parseBraces(options), tikz_options)
 end
 
 

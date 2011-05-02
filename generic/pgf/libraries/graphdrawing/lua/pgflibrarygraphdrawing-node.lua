@@ -144,15 +144,15 @@ end
 
 --- Returns the incoming edges of the node. Undefined result for hyperedges.
 --
--- @param ignorereversed Optional parameter to consider reversed edges not 
---                       reversed for this method call. Defaults to |false|.
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to |false|.
 --
 -- @return Incoming edges of the node. This includes undirected edges
 --         and directed edges pointing to the node.
 --
-function Node:getIncomingEdges(ignorereversed)
+function Node:getIncomingEdges(ignore_reversed)
   return table.filter_values(self.edges, function (edge) 
-    return edge:isHead(self, ignorereversed)
+    return edge:isHead(self, ignore_reversed)
   end)
 end
 
@@ -160,15 +160,15 @@ end
 
 --- Returns the outgoing edges of the node. Undefined result for hyperedges.
 --
--- @param ignorereversed Optional parameter to consider reversed edges not 
---                       reversed for this method call. Defaults to |false|.
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to |false|.
 --
 -- @return Outgoing edges of the node. This includes undirected edges
 --         and directed edges leaving the node.
 --
-function Node:getOutgoingEdges(ignorereversed)
+function Node:getOutgoingEdges(ignore_reversed)
   return table.filter_values(self.edges, function (edge)
-    return edge:isTail(self, ignorereversed)
+    return edge:isTail(self, ignore_reversed)
   end)
 end
 
@@ -178,13 +178,13 @@ end
 --
 -- @see Node:getIncomingEdges(reversed)
 --
--- @param ignorereversed Optional parameter to consider reversed edges not 
---                       reversed for this method call. Defaults to |false|.
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to |false|.
 --
 -- @return The number of incoming edges of the node.
 --
-function Node:getInDegree(ignorereversed)
-  return table.count_pairs(self:getIncomingEdges(ignorereversed))
+function Node:getInDegree(ignore_reversed)
+  return table.count_pairs(self:getIncomingEdges(ignore_reversed))
 end
 
 
@@ -193,13 +193,13 @@ end
 --
 -- @see Node:getOutgoingEdges()
 --
--- @param ignorereversed Optional parameter to consider reversed edges not 
---                       reversed for this method call. Defaults to |false|.
+-- @param ignore_reversed Optional parameter to consider reversed edges not 
+--                        reversed for this method call. Defaults to |false|.
 --
 -- @return The number of outgoing edges of the node.
 --
-function Node:getOutDegree(ignorereversed)
-  return table.count_pairs(self:getOutgoingEdges(ignorereversed))
+function Node:getOutDegree(ignore_reversed)
+  return table.count_pairs(self:getOutgoingEdges(ignore_reversed))
 end
 
 

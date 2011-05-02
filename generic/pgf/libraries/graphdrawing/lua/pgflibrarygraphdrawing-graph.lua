@@ -244,28 +244,33 @@ end
 
 --- Creates and adds a new edge to the graph. 
 --
--- @param nodeA       The first node of the new edge.
--- @param nodeB       The second node of the new edge.
--- @param direction   The direction of the new edge. Possible values are
---                    |Edge.UNDIRECTED|, |Edge.LEFT|, |Edge.RIGHT|, |Edge.BOTH|
---                    and |Edge.NONE| (for invisible edges).
--- @param edgenodes   A string of \tikzname\ edge nodes that needs to be passed 
---                    back to the \TeX layer unmodified.
--- @param options     The options of the new edge.
--- @param tikzoptions A table of \tikzname\ options to be used by graph drawing
---                    algorithms to treat the edge in special ways.
+-- @param first_node   The first node of the new edge.
+-- @param second_node  The second node of the new edge.
+-- @param direction    The direction of the new edge. Possible values are
+--                     \begin{itemize}
+--                     \item |Edge.UNDIRECTED|,
+--                     \item |Edge.LEFT|,
+--                     \item |Edge.RIGHT|,
+--                     \item |Edge.BOTH| and
+--                     \item |Edge.NONE| (for invisible edges).
+--                     \end{itemize}
+-- @param edge_nodes   A string of \tikzname\ edge nodes that needs to be passed 
+--                     back to the \TeX layer unmodified.
+-- @param options      The options of the new edge.
+-- @param tikz_options A table of \tikzname\ options to be used by graph drawing
+--                     algorithms to treat the edge in special ways.
 --
 -- @return The newly created edge.
 --
-function Graph:createEdge(nodeA, nodeB, direction, edgenodes, options, tikzoptions)
+function Graph:createEdge(first_node, second_node, direction, edge_nodes, options, tikz_options)
   local edge = Edge:new{
     direction = direction, 
     edge_nodes = edge_nodes,
     options = options, 
-    tikz_options = tikzoptions
+    tikz_options = tikz_options
   }
-  edge:addNode(nodeA)
-  edge:addNode(nodeB)
+  edge:addNode(first_node)
+  edge:addNode(second_node)
   self:addEdge(edge)
   return edge
 end
@@ -276,15 +281,15 @@ end
 --
 -- @see walkDepth, walkBreadth
 --
--- @param root        The first node to be visited.  If nil, chooses some node.
--- @param visited     Set of already visited nodes and edges.
---                    |visited[v] == true| indicates that the node or edge |v| 
---                    has already been visited.
--- @param removeIndex A numeric value or |nil| that defines the order in which nodes
---                    and edges are visited while traversing the graph. |nil| results
---                    in queue behavior, |1| in stack behavior.
+-- @param root         The first node to be visited.  If nil, chooses some node.
+-- @param visited      Set of already visited nodes and edges.
+--                     |visited[v] == true| indicates that the node or edge |v| 
+--                     has already been visited.
+-- @param remove_index A numeric value or |nil| that defines the order in which nodes
+--                     and edges are visited while traversing the graph. |nil| results
+--                     in queue behavior, |1| in stack behavior.
 --
-function Graph:walkAux(root, visited, removeIndex)
+function Graph:walkAux(root, visited, remove_index)
   root = root or self.nodes[1]
   if not root then return end
   
@@ -302,7 +307,7 @@ function Graph:walkAux(root, visited, removeIndex)
   end
 
   local function remove(queue)
-    return table.remove(queue, removeIndex or #queue)
+    return table.remove(queue, remove_index or #queue)
   end
 
   return function ()

@@ -31,15 +31,19 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 
 genluadoc:
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-box.lua
-	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-node.lua
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-edge.lua
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-graph.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-helper.lua 
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-interface.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-iter-helpers.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-node.lua
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-path.lua 
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-position.lua 
-	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-helper.lua 
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-sys.lua
-	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-interface.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-table-helpers.lua
 	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-texboxregister.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-traversal-helpers.lua
+	$(luadoc) ../../../../../generic/pgf/libraries/graphdrawing/lua/pgflibrarygraphdrawing-vector.lua
 
 FORCE:
 

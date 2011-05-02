@@ -8,7 +8,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- @release $Header$
+-- @release $Header$
 
 --- This file contains a several functions that are helpful when dealing
 --- with iterators. Included are functions to filter values of an iterator,
@@ -16,16 +16,20 @@
 
 pgf.module("pgf.graphdrawing")
 
+
+
 iter = {}
 
 
 
---- Filter out all values of an iterator for which the filter function returns false.
+--- Skips all values of an iterator for which \meta{filter\_func} returns |false|.
 --
--- @param iterator
--- @param filter_func
+-- @param iterator    Original \meta{iterator} of values.
+-- @param filter_func Filter function that takes a value of the original \meta{iterator}
+--                    and is expected to return |false| if the value should be skipped.
 --
--- @return
+-- @return A modified iterator that skips values of \meta{iterator} for which
+--         \meta{filter\_func} returns |false|.
 --
 function iter.filter(iterator, filter_func)
   return function () 
@@ -39,12 +43,18 @@ end
 
 
 
---- Map all values of an iterator to new values.
+--- Maps all values of an iterator to new values.
 --
--- @param iterator
--- @param map_func
+-- This function will cause loops to iterate over the values of 
+-- the original \meta{iterator} replaced by the values returned
+-- from \meta{map\_func}.
 --
--- @return
+-- @param iterator Original iterator whose values are to be mapped to new ones.
+-- @param map_func Mapping function that takes a value of the original \meta{iterator}
+--                 and maps it to a new value that is then returned to the loop
+--                 instead.
+--
+-- @return A modified iterator.
 --
 function iter.map(iterator, map_func)
   return function ()
@@ -58,13 +68,13 @@ end
 
 
 
---- Cause a loop to run multiple times.
+--- Causes a loop to run multiple times.
 --
 -- Use this iterator like this to perform 100 loops:
+-- |for n in iter.times(100) do ... end|.
 --
---   for n in iter.times(100) do
---     print(n) -- this will print numbers from 1 to 100 consecutively
---   end
+-- To iterate over the values $0, 10, 20, 30, ..., 100$ do:
+-- |for n in iter.filter(iter.times(100), function (n) return n % 10 == 0 end)|
 --
 -- @param n Number of loops.
 --

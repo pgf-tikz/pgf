@@ -6,24 +6,26 @@ elseif file_doc then
 else
 	from = ""
 end
-%><%=func.private and "local " or ""%>\begin{luacommand}{{<%=func.name%>}(<%for i, paramname in ipairs(func.param) do%><%if i ~= 1 then%><%=","%><%end%><%="\\meta{"..paramname.."}"%><%end%>)}
+%><%=func.private and "local " or ""%>\begin{luacommand}{{<%=func.name%>}(<%for i, paramname in ipairs(func.param) do%><%if i ~= 1 then%><%=","%><%end%><%="\\meta{"..paramname:gsub('_', '\\_').."}"%><%end%>)}
 <%=func.description or ""%>
 <%if type(func.param) == "table" and #func.param > 0 then%><%hasParam=nil%><%for p=1, #func.param do if func.param[func.param[p]] then hasParam=1 end end%><%if hasParam then%>
 Parameters:
 \begin{parameterdescription}
-	<%for p = 1, #func.param do%><%if func.param[func.param[p]] then%>\item[\meta{<%=func.param[p]%>}] <%=func.param[func.param[p]] or ""%><%end%><%end%>
+	<%for p = 1, #func.param do%><%if func.param[func.param[p]] then%><%local param_name = func.param[p] or ''; param_name = param_name:gsub('_', '\\_')%><%local param_desc = func.param[func.param[p]] or ''; param_desc = param_desc:gsub('  ', ' ')%>\item[\meta{<%=param_name%>}] <%=param_desc%><%end%><%end%>
 \end{parameterdescription}
 <%end%><%end%>
 <%if type(func.ret) == "string" then%>
 Return value:
-\begin{itemize} \item[] <%=func.ret%> \end{itemize}
+\begin{parameterdescription} 
+  \item[] <%=func.ret%>
+\end{parameterdescription}
 <%elseif type(func.ret) == "table" then%>
 Return values:
-\begin{enumerate}
+\begin{parameterdescription}
 	<%for _, ret in ipairs(func.ret) do%>
 	\item <%= ret %>
 	<%end%>
-\end{enumerate}
+\end{parameterdescription}
 <%end%>
 <%if type(func.see) == "string" then %>
 See also:
