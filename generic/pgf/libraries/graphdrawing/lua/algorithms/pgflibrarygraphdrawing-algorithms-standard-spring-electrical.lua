@@ -29,7 +29,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('natural spring dimension') or 28.5)
   local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.01)
-  local iterations = tonumber(graph:getOption('maximum iterations') or 100)
+  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
 
   -- decide what technique to use for the initial layout
   local initial_positioning = graph:getOption('initial positioning') or 'random'
@@ -45,10 +45,13 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   end
 
   -- global (repulsive) force function
-  local function fg(x, w) return -C * w * (k*k) / x end
+  local function fg(x, w) return -C * w * (k*k) / x end 
 
   -- local (spring) force function
   local function fl(x, d, w) return ((x - k) / d) - fg(x, w) end
+
+  -- cooling function
+  local function cool(t) return 0.95 * t end
 
   -- tweakable parameters  
   local t = k
@@ -75,6 +78,13 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
           local delta = u.position:minus(v.position)
           local delta_norm = delta:norm()
 
+          -- enforce a small virtual distance if the nodes are
+          -- located at (almost) the same position
+          if delta_norm < 0.1 then
+            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+            delta_norm = delta:norm()
+          end
+
           -- compute the repulsive force vector
           local force = delta:normalized():timesScalar(fg(delta_norm, 1))
 
@@ -93,6 +103,13 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
         -- compute the distance between u and v
         local delta = u.position:minus(v.position)
         local delta_norm = delta:norm()
+
+        -- enforce a small virtual distance if the nodes are
+        -- located at (almost) the same position
+        if delta_norm < 0.1 then
+          delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+          delta_norm = delta:norm()
+        end
 
         -- compute the spring force between them
         local force = delta:normalized():timesScalar(fl(delta_norm, #neighbours, 1))
@@ -114,6 +131,8 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
         converged = false
       end
     end
+
+    t = cool(t)
   end
 
   -- apply node positions
