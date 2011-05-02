@@ -20,20 +20,15 @@ pgf.module("pgf.graphdrawing")
 --   "A Multilevel Algorithm for Force-Directed Graph Drawing"
 --   C. Walshaw, 2000
 --
--- although it currently does not implement the multilevel part.
---
 -- Modifications compared to the original algorithm:
 --   - a maximum iteration limit was added
---   - the node weight is currently fixed to 1 for all nodes
---   - nodes that are too close to each other during the force 
---     calculation are moved a tiny bit away from each other in 
---     order to avoid division by zero and other nasty effects
--- 
--- Possible enhancements:
---   - implement the multilevel approach
---   - if not set, compute the natural spring dimension automatically,
---     as described in the paper on page 7
---   - allow users to define a node weight in TikZ
+--   - compute the natural spring length for all coarse graphs based
+--     on the formula presented by Walshaw, so that the natural spring
+--     length of the original graph (coarse graph 0) is the same as
+--     the value requested by the user
+--   - allow users to define custom node and edge weights in TikZ
+--   - stop coarsening if |V(G_i+1)|/|V(G_i)| < p where p = 0.75
+--   - stop coarsening if the maximal matching is empty
 --
 -- TODO Implement the following keys (or whatever seems appropriate
 -- and doable for this algorithm):
@@ -61,25 +56,22 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   math.randomseed(seed)
 
   -- check if we should use the multilevel approach
-  local use_coarsening = graph:getOption('coarsening') or false
-
-  Sys:logMessage('use coarsening: ' .. tostring(use_coarsening))
+  -- TODO parsing of boolean options should happen in the frontend layer
+  local use_coarsening = graph:getOption('coarsening')
+  use_coarsening = use_coarsening == 'true' or coarsening == ''
 
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('natural spring dimension') or 28.5)
-  Sys:logMessage('natural spring dimension = ' .. k)
-  
-  -- correct the factor K so that the resulting natural spring dimension
-  -- really equals the desired value in the final drawing
-  -- graph.k = 1.03 * graph.k
+  local C = tonumber(graph:getOption('spring constant') or 0.01)
+  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
 
-  Sys:logMessage('graph:')
-  for node in table.value_iter(graph.nodes) do
-    Sys:logMessage('  node ' .. node:shortname())
-  end
-  for edge in table.value_iter(graph.edges) do
-    Sys:logMessage('  edge ' .. edge.nodes[1]:shortname() .. ' -- ' .. edge.nodes[2]:shortname())
-  end
+  --Sys:logMessage('WALSHAW: graph:')
+  --for node in table.value_iter(graph.nodes) do
+  --  Sys:logMessage('WALSHAW:   node ' .. node:shortname())
+  --end
+  --for edge in table.value_iter(graph.edges) do
+  --  Sys:logMessage('WALSHAW:   edge ' .. edge.nodes[1]:shortname() .. ' -- ' .. edge.nodes[2]:shortname())
+  --end
 
   if use_coarsening then
     -- compute coarsened graphs (this could be done on-demand instead
@@ -87,24 +79,35 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
     local graphs = compute_coarse_graphs(graph)
 
     for i = #graphs,1,-1 do
-      Sys:logMessage('lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
+      --Sys:logMessage('WALSHAW: lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
 
       if i == #graphs then
-        graphs[i].k = k * #graphs
+        -- compute initial natural spring length in a way that will
+        -- result in a natural spring length of k in the original graph
+        graphs[i].k = k / math.pow(math.sqrt(4/7), #graphs-1)
+
+        -- generate an initial random layout for the coarsest graph
         compute_initial_layout(graphs[i])
       else
+        -- interpolate from the parent coarse graph and apply the
+        -- force-based algorithm to improve the layout
         interpolate_from_parent(graphs[i], graphs[i+1])
-        compute_force_layout(graphs[i])
-        -- 1. interpolate from parent coarse graph
-        -- 2. perform force based layout
+        compute_force_layout(graphs[i], C, iterations)
       end
 
-      --Sys:logMessage(' ')
+      --Sys:logMessage('WALSHAW:  ')
     end
   else
-    -- directly compute the force-based layout for the input graph
+    -- use the natural spring dimension provided by the user as the 
+    -- natural spring length
     graph.k = k
-    compute_force_layout(graph)
+    
+    -- set node and edge weights to 1
+    for node in table.value_iter(graph.nodes) do node.weight = 1 end
+    for edge in table.value_iter(graph.edges) do edge.weight = 1 end
+
+    -- directly compute the force-based layout for the input graph
+    compute_force_layout(graph, C, iterations)
   end
 
   -- adjust orientation
@@ -115,6 +118,7 @@ end
 function compute_coarse_graphs(graph)
   -- determine parameters for the algorithm
   local minimum_graph_size = tonumber(graph:getOption('minimum coarsened graph size') or 2)
+  local coarsening_threshold = tonumber(graph:getOption('coarsening threshold') or 0.75)
 
   -- set weights to 1 unless specified otherwise
   for node in table.value_iter(graph.nodes) do
@@ -129,7 +133,7 @@ function compute_coarse_graphs(graph)
   --dump_current_graph(graphs)
 
   while #graphs[#graphs].nodes > minimum_graph_size do
-    Sys:logMessage('generating coarse graph ' .. #graphs-1)
+    --Sys:logMessage('WALSHAW: generating coarse graph ' .. #graphs-1)
 
     local parent_graph = graphs[#graphs]
 
@@ -138,7 +142,7 @@ function compute_coarse_graphs(graph)
     table.insert(graphs, coarse_graph)
 
     -- approximate a maximum matching using a greedy heuristic
-    local matching_edges = find_maximum_matching(coarse_graph)
+    local matching_edges = find_maximal_matching(coarse_graph)
 
     -- abort coarsening if there are no matching edges we can contract
     if #matching_edges == 0 then
@@ -147,7 +151,7 @@ function compute_coarse_graphs(graph)
     end
 
     for edge in table.value_iter(matching_edges) do
-      --Sys:logMessage('contracting edge ' .. tostring(edge))
+      --Sys:logMessage('WALSHAW: contracting edge ' .. tostring(edge))
 
       -- get the two nodes of the matching edge that we are about to contract
       local i, j = edge.nodes[1], edge.nodes[2]
@@ -172,7 +176,6 @@ function compute_coarse_graphs(graph)
       end)
 
       -- remove the two nodes themselves from the neighbour list
-      -- TODO what to do about loops?
       i_neighbours = table.filter_keys(i_neighbours, function (node)
         return node ~= j
       end)
@@ -199,18 +202,18 @@ function compute_coarse_graphs(graph)
       end)
 
       -- debug stuff
-      --Sys:logMessage('merge ' .. i:shortname() .. ' and ' .. j:shortname())
-      --Sys:logMessage('  neighbours of ' .. i:shortname())
+      --Sys:logMessage('WALSHAW: merge ' .. i:shortname() .. ' and ' .. j:shortname())
+      --Sys:logMessage('WALSHAW:   neighbours of ' .. i:shortname())
       --for node, edge in pairs(i_neighbours) do
-      --  Sys:logMessage('    ' .. node:shortname() .. ' via ' .. tostring(edge))
+      --  Sys:logMessage('WALSHAW:     ' .. node:shortname() .. ' via ' .. tostring(edge))
       --end
-      --Sys:logMessage('  neighbours of ' .. j:shortname())
+      --Sys:logMessage('WALSHAW:   neighbours of ' .. j:shortname())
       --for node, edge in pairs(j_neighbours) do
-      --  Sys:logMessage('    ' .. node:shortname() .. ' via ' .. tostring(edge))
+      --  Sys:logMessage('WALSHAW:     ' .. node:shortname() .. ' via ' .. tostring(edge))
       --end
-      --Sys:logMessage('  common neighbours')
+      --Sys:logMessage('WALSHAW:   common neighbours')
       --for node, edges in pairs(common_neighbours) do
-      --  Sys:logMessage('    ' .. node:shortname() .. ' via ' .. tostring(edges[1]) .. ' and ' .. tostring(edges[2]))
+      --  Sys:logMessage('WALSHAW:     ' .. node:shortname() .. ' via ' .. tostring(edges[1]) .. ' and ' .. tostring(edges[2]))
       --end
 
       -- merge neighbour lists
@@ -223,10 +226,10 @@ function compute_coarse_graphs(graph)
         e_copy:addNode(v)
         e_copy:addNode(k)
 
-        --Sys:logMessage('  create edge ' .. tostring(e_copy))
+        --Sys:logMessage('WALSHAW:   create edge ' .. tostring(e_copy))
         coarse_graph:addEdge(e_copy)
 
-        --Sys:logMessage('  delete edge ' .. tostring(edge))
+        --Sys:logMessage('WALSHAW:   delete edge ' .. tostring(edge))
         coarse_graph:deleteEdge(edge)
       end
 
@@ -242,16 +245,24 @@ function compute_coarse_graphs(graph)
         e_copy:addNode(v)
         e_copy:addNode(k)
 
-        --Sys:logMessage('  create edge ' .. tostring(e_copy))
+        --Sys:logMessage('WALSHAW:   create edge ' .. tostring(e_copy))
         coarse_graph:addEdge(e_copy)
 
-        --Sys:logMessage('  delete edge ' .. tostring(edge))
+        --Sys:logMessage('WALSHAW:   delete edge ' .. tostring(edge))
         coarse_graph:deleteEdge(edge)
       end
 
       -- delete the nodes i, j which were replaced by v
       coarse_graph:deleteNode(i)
       coarse_graph:deleteNode(j)
+    end
+
+    -- stop coarsening if the number of nodes of the new coarse
+    -- graph divided by the number of nodes of its predecessor
+    -- is less than the coarsening threshold 
+    if (#coarse_graph.nodes / #parent_graph.nodes) > coarsening_threshold then
+      Sys:logMessage('WALSHAW: stop coarsening after ' .. #graphs .. ' graphs\n')
+      break
     end
 
     --dump_current_graph(graphs)
@@ -265,14 +276,14 @@ end
 function dump_current_graph(graphs)
   local graph = graphs[#graphs]
 
-  Sys:logMessage('coarse graph ' .. #graphs-1 .. ':')
+  Sys:logMessage('WALSHAW: coarse graph ' .. #graphs-1 .. ':')
   for node in table.value_iter(graph.nodes) do
-    Sys:logMessage('  node ' .. node:shortname())
+    Sys:logMessage('WALSHAW:   node ' .. node:shortname())
   end
   for edge in table.value_iter(graph.edges) do
-    Sys:logMessage('  edge (' .. edge.nodes[1]:shortname() .. ', ' .. edge.nodes[2]:shortname() .. ')')
+    Sys:logMessage('WALSHAW:   edge (' .. edge.nodes[1]:shortname() .. ', ' .. edge.nodes[2]:shortname() .. ')')
   end
-  Sys:logMessage(' ')
+  Sys:logMessage('WALSHAW:  ')
 end
 
 
@@ -320,49 +331,43 @@ end
 
 
 
-function find_maximum_matching(graph)
-  -- TODO problem here: due to the use of pairs() the algorithm is 
-  -- randomized in a fashion that we cannot control with our seed (I
-  -- think). Probably better to use a depth-first search here or 
-  -- implement the randomized access ourselves...
-
+function find_maximal_matching(graph)
   local matching = {}
   local matched_nodes = {}
 
-  --Sys:logMessage('find maximum matching')
+  --Sys:logMessage('WALSHAW: find maximum matching')
 
-  for node in table.value_iter(graph.nodes) do
+  for node in table.randomized_value_iter(graph.nodes) do
     if not matched_nodes[node] then
-      --Sys:logMessage('  visit ' .. node:shortname())
+      --Sys:logMessage('WALSHAW:   visit ' .. node:shortname())
 
-      local neighbours = table.map_pairs(node.edges, function (n, edge)
-        return edge:getNeighbour(node), edge
+      -- filter out edges adjacent to already matched neighbours
+      local edges = table.filter_values(node.edges, function (edge) 
+        local neighbour = edge:getNeighbour(node)
+        return not matched_nodes[neighbour]
       end)
 
-      --Sys:logMessage('    neighbours:')
-      --for node, edge in pairs(neighbours) do
-      --  Sys:logMessage('      ' .. node:shortname() .. ' via ' .. tostring(edge))
-      --end
-
-      local unmatched = table.filter_keys(neighbours, function (node)
-        return not matched_nodes[node]
+      -- sort edges by the weights of the neighbours
+      table.sort(edges, function (a, b)
+        local neighbour_a = a:getNeighbour(node)
+        local neighbour_b = b:getNeighbour(node)
+        return neighbour_a.weight < neighbour_b.weight
       end)
 
-      --Sys:logMessage('    unmatched neighbours:')
-      --for node, edge in pairs(unmatched) do
-      --  Sys:logMessage('      ' .. node:shortname() .. ' via ' .. tostring(edge))
+      --Sys:logMessage('WALSHAW:     neighbours:')
+      --for edge in table.value_iter(edges) do
+      --  Sys:logMessage('WALSHAW:       ' .. edge:getNeighbour(node):shortname() .. ' via ' .. tostring(edge))
       --end
       
-      local next_func = pairs(unmatched)
-      local neighbour, edge = next_func(unmatched)
-
-      assert(neighbour or not edge)
-
+      -- mark the node as matched
       matched_nodes[node] = true
-      if neighbour and edge then
-        --Sys:logMessage('    match against ' .. neighbour:shortname() .. ' via ' .. tostring(edge))
+
+      if #edges > 0 then
+        -- match the node against the neighbour with minimum weight
+        local neighbour = edges[1]:getNeighbour(node)
+        --Sys:logMessage('WALSHAW:     match against ' .. neighbour:shortname() .. ' via ' .. tostring(edges[1]))
         matched_nodes[neighbour] = true
-        table.insert(matching, edge)
+        table.insert(matching, edges[1])
       end
     end
   end
@@ -386,12 +391,11 @@ function compute_initial_layout(graph)
   local positioning_func = positioning.technique(initial_positioning, graph, graph.k)
 
   -- compute initial layout based on the selected positioning technique
-  --Sys:logMessage('initial layout:')
+  --Sys:logMessage('WALSHAW: initial layout:')
   for node in table.value_iter(graph.nodes) do
     node.position = Vector:new(2, function (n)
       if node.fixed then
-        local pos = { node.pos.x, node.pos.y }
-        return pos[n]
+        return ({ node.pos.x, node.pos.y })[n]
       else
         return positioning_func(n)
       end
@@ -402,7 +406,7 @@ function compute_initial_layout(graph)
   for node in table.value_iter(graph.nodes) do
     node.pos.x = node.position:x()
     node.pos.y = node.position:y()
-    --Sys:logMessage('  ' .. node:shortname() .. ' at (' .. node.pos.x .. ', ' .. node.pos.y .. ')')
+    --Sys:logMessage('WALSHAW:   ' .. node:shortname() .. ' at (' .. node.pos.x .. ', ' .. node.pos.y .. ')')
   end
 end
 
@@ -411,34 +415,29 @@ end
 function interpolate_from_parent(graph, parent_graph)
   graph.k = math.sqrt(4/7) * parent_graph.k
 
-  Sys:logMessage('  interpolate from parent')
+  --Sys:logMessage('WALSHAW:   interpolate from parent')
   for supernode in table.value_iter(parent_graph.nodes) do
-    --Sys:logMessage('    supernode ' .. supernode:shortname() .. ' at (' .. supernode.pos.x .. ', ' .. supernode.pos.y .. ')')
+    --Sys:logMessage('WALSHAW:     supernode ' .. supernode:shortname() .. ' at (' .. supernode.pos.x .. ', ' .. supernode.pos.y .. ')')
     if supernode.subnodes then
-      local subnode_str = table.concat(table.map_values(supernode.subnodes, 
-        function (node) return node:shortname() end), ', ')
-
-      --Sys:logMessage('      subnodes of ' .. supernode:shortname() .. ' are: ' .. subnode_str)
+      --local subnode_str = table.concat(table.map_values(supernode.subnodes, 
+      --  function (node) return node:shortname() end), ', ')
+      --Sys:logMessage('WALSHAW:       subnodes of ' .. supernode:shortname() .. ' are: ' .. subnode_str)
 
       for node in table.value_iter(supernode.subnodes) do
         node.pos.x = supernode.pos.x
         node.pos.y = supernode.pos.y
-        --Sys:logMessage('      node ' .. node:shortname() .. ' at ( ' .. node.pos.x .. ', ' .. node.pos.y .. ')')
+        --Sys:logMessage('WALSHAW:       node ' .. node:shortname() .. ' at ( ' .. node.pos.x .. ', ' .. node.pos.y .. ')')
       end
     else
-      --Sys:logMessage('    ' .. supernode:shortname() .. ' has no subnodes')
+      --Sys:logMessage('WALSHAW:     ' .. supernode:shortname() .. ' has no subnodes')
     end
   end
 end
 
 
 
-function compute_force_layout(graph, parent_graph)
-  Sys:logMessage('  compute force based layout')
-
-  -- determine parameters for the algorithm
-  local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.01)
-  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
+function compute_force_layout(graph, C, iterations)
+  --Sys:logMessage('WALSHAW:   compute force based layout')
 
   for node in table.value_iter(graph.nodes) do
     -- convert node position to a vector
@@ -473,7 +472,7 @@ function compute_force_layout(graph, parent_graph)
   local i = 0
   
   while not converged and i < iterations do
-    Sys:logMessage('    iteration ' .. i .. ' (max: ' .. iterations .. ')')
+    --Sys:logMessage('WALSHAW:     iteration ' .. i .. ' (max: ' .. iterations .. ')')
 
     -- assume that we are converging
     converged = true
@@ -503,7 +502,7 @@ function compute_force_layout(graph, parent_graph)
           end
 
           -- compute the repulsive force vector
-          local force = delta:normalized():timesScalar(fg(delta_norm, 1))
+          local force = delta:normalized():timesScalar(fg(delta_norm, u.weight))
 
           --Sys:logMessage(v:shortname() .. ' vs. ' .. u:shortname() .. ' >=< ' .. tostring(force))
 
@@ -531,7 +530,7 @@ function compute_force_layout(graph, parent_graph)
         end
 
         -- compute the spring force between them
-        local force = delta:normalized():timesScalar(fl(delta_norm, #neighbours, 1))
+        local force = delta:normalized():timesScalar(fl(delta_norm, #neighbours, u.weight))
 
         --Sys:logMessage(v:shortname() .. ' and ' .. u:shortname() .. ' <=> ' .. tostring(force))
 
@@ -539,7 +538,7 @@ function compute_force_layout(graph, parent_graph)
         d = d:plus(force)
       end
 
-      --Sys:logMessage('total force of ' .. v:shortname() .. ': ' .. tostring(d))
+      --Sys:logMessage('WALSHAW: total force of ' .. v:shortname() .. ': ' .. tostring(d))
 
       -- remember the previous position of v
       old_position = v.position:copy()
