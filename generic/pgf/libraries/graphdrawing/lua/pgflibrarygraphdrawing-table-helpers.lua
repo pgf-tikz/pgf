@@ -162,6 +162,40 @@ end
 
 
 
+--- Update values of the table using an update function.
+--
+-- @param table
+-- @param update_func
+--
+-- @return
+function table.update_values(table, update_func)
+  for key, val in pairs(table) do
+    table[key] = update_func(key, val)
+  end
+  return table
+end
+
+
+
+--- Combine all key/value pairs of the table to a single value
+--- using a combine function.
+--
+-- @param table
+-- @param combine_func
+-- @param initial_value
+--
+-- @return
+--
+function table.combine(table, combine_func, initial_value)
+  local combination = initial_value or nil
+  for key, val in pairs(table) do
+    combination = combine_func(combination, key, val)
+  end
+  return combination
+end
+
+
+
 --- Iterate over all keys of a table.
 --
 -- @param table The table whose keys to iterate over.

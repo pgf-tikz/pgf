@@ -9,6 +9,9 @@
 
 --- @release $Header$
 
+--- This file contains a class for defining arbitrary vectors and
+--- perform operations on them.
+
 pgf.module('pgf.graphdrawing')
 
 
@@ -21,13 +24,13 @@ Vector.__index = Vector
 function Vector:new(n, fill_function)
   -- create vector
   local vector = {
-    values = {}
+    elements = {}
   }
   setmetatable(vector, Vector)
 
-  -- fill vector with values
+  -- fill vector elements with values
   for i = 1,n do
-    vector.values[i] = fill_function(i)
+    vector.elements[i] = fill_function(i)
   end
 
   return vector
@@ -36,62 +39,50 @@ end
 
 
 function Vector:subtract(other)
-  assert(#self.values == #other.values)
+  assert(#self.elements == #other.elements)
 
-  return Vector:new(#self.values, function (n) 
-    return self.values[n] - other.values[n]
+  return Vector:new(#self.elements, function (n) 
+    return self.elements[n] - other.elements[n]
   end)
 end
 
 
 
-function Vector:computeNorm()
-  local sum = 0
-  for _, value in ipairs(self.values) do
-    sum = sum + value * value
-  end
-  return math.sqrt(sum)
+function Vector:norm()
+  return math.sqrt(table.combine(self.elements, function (sum, _, val) 
+    return sum + val * val
+  end, 0))
 end
 
 
 
 function Vector:get(index)
-  return self.values[index]
+  return self.elements[index]
 end
 
 
 
 function Vector:set(index, value)
-  self.values[i] = value
+  self.elements[i] = value
 end
 
 
 
 function Vector:update(update_function)
-  for n, value in ipairs(self.values) do
-    self.values[n] = update_function(n, value)
-  end
+  table.update_values(self.elements, update_function)
 end
 
 
 
 function Vector:limit(limit_function)
-  for n, value in ipairs(self.values) do
-    local range = limit_function(n, value)
-    self.values[n] = math.max(range.min, math.min(range.max, value))
-  end
-end
-
-
-
-function Vector:limitAll(min, max)
-  for n, value in ipairs(self.values) do
-    self.values[n] = math.max(min, math.min(max, value))
-  end
+  table.update_values(self.elements, function (n, value)
+    local min, max = limit_function(n, value)
+    return math.max(min, math.min(max, value))
+  end)
 end
 
 
 
 function Vector:__tostring()
-  return '(' .. table.concat(self.values, ', ') .. ')'
+  return '(' .. table.concat(self.elements, ', ') .. ')'
 end

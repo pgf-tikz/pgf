@@ -47,13 +47,13 @@ function drawGraphAlgorithm_spring(graph, options)
   local function computeRepulsiveForce(node1, node2)
     -- compute the distance between the two nodes
     local diff = node2.position:subtract(node1.position)
-    local d = diff:computeNorm()
+    local d = diff:norm()
 
     -- enforce a small distance if the nodes are located 
     -- at the same position
     if d < 0.1 then
       diff:update(function (n, val) return 0.1 * math.random() + 0.1 end)
-      d = diff:computeNorm()
+      d = diff:norm()
     end
   
     -- update the repulsive force between the two nodes 
@@ -78,13 +78,13 @@ function drawGraphAlgorithm_spring(graph, options)
 
     -- compute the distance between the two nodes
     local diff = node2.position:subtract(node1.position)
-    local d = diff:computeNorm()
+    local d = diff:norm()
 
     -- enforce a small distance if the nodes are located
     -- at the same position
     if d < 0.1 then
       diff:update(function (n, val) return 0.1 * math.random() + 0.1 end)
-      d = diff:computeNorm()
+      d = diff:norm()
     end
 
     -- limit the distance to the maximum repulsive force
@@ -143,7 +143,7 @@ function drawGraphAlgorithm_spring(graph, options)
       local move = Vector:new(2, function (n) return c * node.force:get(n) end)
 
       -- limit the move vector to the maximum allowed vertex movement
-      move:limitAll(-max_vertex_movement, max_vertex_movement)
+      move:limit(function (k, v) return -max_vertex_movement, max_vertex_movement end)
 
       -- move the node
       node.position:update(function (n, val) return val + move:get(n) end)
@@ -156,8 +156,8 @@ function drawGraphAlgorithm_spring(graph, options)
   -- position nodes according to the desired node distance
   for node in values(nodes) do
     Sys:logMessage('spring: ' .. node.name .. ' at ' .. tostring(node.position))
-    node.pos.x =  node.position.values[1] * node_distance
-    node.pos.y = -node.position.values[2] * node_distance
+    node.pos.x =  node.position:get(1) * node_distance
+    node.pos.y = -node.position:get(2) * node_distance
   end
 end
 
