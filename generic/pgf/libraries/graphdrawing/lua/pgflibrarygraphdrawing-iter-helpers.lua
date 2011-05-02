@@ -16,6 +16,8 @@
 
 pgf.module("pgf.graphdrawing")
 
+iter = {}
+
 
 
 --- Filter out all values of an iterator for which the filter function returns false.

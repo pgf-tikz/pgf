@@ -30,7 +30,7 @@ pgf.module("pgf.graphdrawing")
 --
 function table.copy(source, target)
   target = target or {}
-  for key, val in pairs(table) do
+  for key, val in pairs(source) do
     target[key] = val
   end
   return setmetatable(target, getmetatable(source))
