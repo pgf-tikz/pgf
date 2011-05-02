@@ -94,6 +94,10 @@ function orientation.rotate(graph)
     local xaxis_len = xaxis_vector:norm()
 
     -- compute the angle between the x axis and the graph axis vector
+    -- TODO here a NaN can be generated which is bad for TikZ/PGF. in
+    -- that case the problem is most likely in the layout algorithm as
+    -- two nodes should never be at the same coordinate (where |gaxis| 
+    -- is 0)
     local angle = math.acos(xaxis_vector:dotProduct(gaxis_vector) / (xaxis_len * gaxis_len))
 
     -- determine whether the graph axis vector is positively rotated to the x axis

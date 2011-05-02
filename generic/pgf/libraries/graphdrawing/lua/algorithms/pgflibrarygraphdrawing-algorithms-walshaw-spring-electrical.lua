@@ -67,10 +67,19 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
 
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('natural spring dimension') or 28.5)
+  Sys:logMessage('natural spring dimension = ' .. k)
   
   -- correct the factor K so that the resulting natural spring dimension
   -- really equals the desired value in the final drawing
   -- graph.k = 1.03 * graph.k
+
+  Sys:logMessage('graph:')
+  for node in table.value_iter(graph.nodes) do
+    Sys:logMessage('  node ' .. node:shortname())
+  end
+  for edge in table.value_iter(graph.edges) do
+    Sys:logMessage('  edge ' .. edge.nodes[1]:shortname() .. ' -- ' .. edge.nodes[2]:shortname())
+  end
 
   if use_coarsening then
     -- compute coarsened graphs (this could be done on-demand instead
@@ -78,7 +87,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
     local graphs = compute_coarse_graphs(graph)
 
     for i = #graphs,1,-1 do
-      Sys:logMessage('lay out coarse graph ' .. i-1)
+      Sys:logMessage('lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
 
       if i == #graphs then
         graphs[i].k = k * #graphs
@@ -90,7 +99,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
         -- 2. perform force based layout
       end
 
-      Sys:logMessage(' ')
+      --Sys:logMessage(' ')
     end
   else
     -- directly compute the force-based layout for the input graph
@@ -99,8 +108,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   end
 
   -- adjust orientation
-  -- TODO make sure that orientation will not generate NANs
-  --orientation.adjust(graph)
+  orientation.adjust(graph)
 end
 
 
@@ -118,9 +126,11 @@ function compute_coarse_graphs(graph)
 
   -- compute iteratively coarsened graphs
   local graphs = { graph }
-  dump_current_graph(graphs)
+  --dump_current_graph(graphs)
 
   while #graphs[#graphs].nodes > minimum_graph_size do
+    Sys:logMessage('generating coarse graph ' .. #graphs-1)
+
     local parent_graph = graphs[#graphs]
 
     -- copy the parent graph
@@ -129,6 +139,12 @@ function compute_coarse_graphs(graph)
 
     -- approximate a maximum matching using a greedy heuristic
     local matching_edges = find_maximum_matching(coarse_graph)
+
+    -- abort coarsening if there are no matching edges we can contract
+    if #matching_edges == 0 then
+      table.remove(graphs, #graphs)
+      break
+    end
 
     for edge in table.value_iter(matching_edges) do
       --Sys:logMessage('contracting edge ' .. tostring(edge))
@@ -238,7 +254,7 @@ function compute_coarse_graphs(graph)
       coarse_graph:deleteNode(j)
     end
 
-    dump_current_graph(graphs)
+    --dump_current_graph(graphs)
   end
 
   return graphs
@@ -266,36 +282,38 @@ function copy_graph(graph)
   for e in table.value_iter(graph.edges) do
     local u, v = e.nodes[1], e.nodes[2]
 
-    local u_copy = copy:findNodeIf(function (node)
-      return node.name == u.name
-    end) or Node:new{
-      name = u.name, 
-      weight = u.weight,
-      pos = u.pos,
-      position = u.position,
-      fixed = u.fixed,
-      subnodes = u.subnodes,
-    }
+    if u and v then
+      local u_copy = copy:findNodeIf(function (node)
+        return node.name == u.name
+      end) or Node:new{
+        name = u.name, 
+        weight = u.weight,
+        pos = u.pos,
+        position = u.position,
+        fixed = u.fixed,
+        subnodes = u.subnodes,
+      }
 
-    copy:addNode(u_copy)
+      copy:addNode(u_copy)
 
-    local v_copy = copy:findNodeIf(function (node)
-      return node.name == v.name
-    end) or Node:new{
-      name = v.name, 
-      weight = v.weight,
-      pos = v.pos,
-      position = v.position,
-      fixed = v.fixed
-    }
+      local v_copy = copy:findNodeIf(function (node)
+        return node.name == v.name
+      end) or Node:new{
+        name = v.name, 
+        weight = v.weight,
+        pos = v.pos,
+        position = v.position,
+        fixed = v.fixed
+      }
 
-    copy:addNode(v_copy)
+      copy:addNode(v_copy)
 
-    local e_copy = Edge:new{direction = Edge.UNDIRECTED, weight = e.weight}
-    e_copy:addNode(u_copy)
-    e_copy:addNode(v_copy)
+      local e_copy = Edge:new{direction = Edge.UNDIRECTED, weight = e.weight}
+      e_copy:addNode(u_copy)
+      e_copy:addNode(v_copy)
 
-    copy:addEdge(e_copy)
+      copy:addEdge(e_copy)
+    end
   end
   return copy
 end
@@ -368,7 +386,7 @@ function compute_initial_layout(graph)
   local positioning_func = positioning.technique(initial_positioning, graph, graph.k)
 
   -- compute initial layout based on the selected positioning technique
-  Sys:logMessage('initial layout:')
+  --Sys:logMessage('initial layout:')
   for node in table.value_iter(graph.nodes) do
     node.position = Vector:new(2, function (n)
       if node.fixed then
@@ -384,7 +402,7 @@ function compute_initial_layout(graph)
   for node in table.value_iter(graph.nodes) do
     node.pos.x = node.position:x()
     node.pos.y = node.position:y()
-    Sys:logMessage('  ' .. node:shortname() .. ' at (' .. node.pos.x .. ', ' .. node.pos.y .. ')')
+    --Sys:logMessage('  ' .. node:shortname() .. ' at (' .. node.pos.x .. ', ' .. node.pos.y .. ')')
   end
 end
 
@@ -393,22 +411,22 @@ end
 function interpolate_from_parent(graph, parent_graph)
   graph.k = math.sqrt(4/7) * parent_graph.k
 
-  Sys:logMessage('interpolate from parent:')
+  Sys:logMessage('  interpolate from parent')
   for supernode in table.value_iter(parent_graph.nodes) do
-    Sys:logMessage('  supernode ' .. supernode:shortname() .. ' at (' .. supernode.pos.x .. ', ' .. supernode.pos.y .. ')')
+    --Sys:logMessage('    supernode ' .. supernode:shortname() .. ' at (' .. supernode.pos.x .. ', ' .. supernode.pos.y .. ')')
     if supernode.subnodes then
       local subnode_str = table.concat(table.map_values(supernode.subnodes, 
         function (node) return node:shortname() end), ', ')
 
-      Sys:logMessage('    subnodes of ' .. supernode:shortname() .. ' are: ' .. subnode_str)
+      --Sys:logMessage('      subnodes of ' .. supernode:shortname() .. ' are: ' .. subnode_str)
 
       for node in table.value_iter(supernode.subnodes) do
         node.pos.x = supernode.pos.x
         node.pos.y = supernode.pos.y
-        Sys:logMessage('    node ' .. node:shortname() .. ' at ( ' .. node.pos.x .. ', ' .. node.pos.y .. ')')
+        --Sys:logMessage('      node ' .. node:shortname() .. ' at ( ' .. node.pos.x .. ', ' .. node.pos.y .. ')')
       end
     else
-      Sys:logMessage('  ' .. supernode:shortname() .. ' has no subnodes')
+      --Sys:logMessage('    ' .. supernode:shortname() .. ' has no subnodes')
     end
   end
 end
@@ -416,6 +434,8 @@ end
 
 
 function compute_force_layout(graph, parent_graph)
+  Sys:logMessage('  compute force based layout')
+
   -- determine parameters for the algorithm
   local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.01)
   local iterations = tonumber(graph:getOption('maximum iterations') or 500)
@@ -453,6 +473,8 @@ function compute_force_layout(graph, parent_graph)
   local i = 0
   
   while not converged and i < iterations do
+    Sys:logMessage('    iteration ' .. i .. ' (max: ' .. iterations .. ')')
+
     -- assume that we are converging
     converged = true
     i = i + 1
