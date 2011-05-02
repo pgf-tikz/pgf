@@ -17,14 +17,44 @@ pgf.module("pgf.graphdrawing")
 -- 
 -- This implementation is based on the paper 
 --
---   "Efficient and High Quality Force-Directed Graph Drawing"
---   Yifan Hu
+--   "A Multilevel Algorithm for Force-Directed Graph Drawing"
+--   C. Walshaw, 2000
 --
 -- although it currently does not implement the multilevel part.
 --
+-- Modifications compared to the original algorithm:
+--   - a maximum iteration limit was added
+--   - the node weight is currently fixed to 1 for all nodes
+--   - nodes that are too close to each other during the force 
+--     calculation are moved a tiny bit away from each other in 
+--     order to avoid division by zero and other nasty effects
+-- 
+-- Possible enhancements:
+--   - implement the multilevel approach
+--   - if not set, compute the natural spring dimension automatically,
+--     as described in the paper on page 7
+--   - allow users to define a node weight in TikZ
+--
+-- TODO Implement the following keys (or whatever seems appropriate
+-- and doable for this algorithm):
+--   - /tikz/desired at
+--   - /tikz/monotonic energy minimization (how to decide about 
+--       alternative steps?)
+--   - /tikz/influence cutoff distance (with the multilevel approach)
+--   - /tikz/coarsening etc.
+--   - /tikz/electric charge (ideally per node, not globally; has proven
+--     to be mostly useless in practice...)
+--   - /tikz/spring stiffness
+--   - /tikz/natural spring dimension (ideally per edge, not globally)
+--
+-- TODO Implement the following features:
+--   - clustering of nodes using color classes
+--   - different cluster layouts (vertical line, horizontal line,
+--     normal cluster, internally fixed subgraph)
+--
 -- @param graph
 --
-function drawGraphAlgorithm_standard_spring_electrical(graph)
+function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   -- apply the random seed specified by the user
   local seed = tonumber(graph:getOption('random seed') or 42)
   if seed == 0 then seed = os.time() end
@@ -32,7 +62,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
 
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('natural spring dimension') or 28.5)
-  local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.2)
+  local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.01)
   local iterations = tonumber(graph:getOption('maximum iterations') or 500)
 
   -- decide what technique to use for the initial layout
@@ -61,55 +91,33 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
 
   -- correct the factor K so that the resulting natural spring dimension
   -- really equals the desired value in the final drawing
-  k = 1.76 * k
+  k = 1.03 * k
 
   -- global (repulsive) force function
-  local function fr(distance) 
-    return -C * (k*k) / distance
+  local function fg(distance, weight) 
+    return -C * weight * (k*k) / distance
   end 
 
   -- local (spring) force function
-  local function fa(distance) 
-    return (distance * distance) / k
+  local function fl(distance, d, weight) 
+    return ((distance - k) / d) - fg(distance, weight) 
   end
-
-  local progress = 0
 
   -- cooling function
-  local function update_steplength(step, energy, energy0) 
-    local t = 0.95
-    if energy < energy0 then
-      progress = progress + 1
-      if progress >= 5 then
-        progress = 0
-        step = step / t
-      end
-    else
-      progress = 0
-      step = t * step
-    end
-    return step
-  end
+  local function cool(t) return 0.95 * t end
 
   -- tweakable parameters  
-  local step = k
+  local t = k
   local tol = 0.001
 
   -- convergence criteria
   local converged = false
   local i = 0
-
-  -- other parameters of the system
-  local energy = 2e+20
   
   while not converged and i < iterations do
     -- assume that we are converging
     converged = true
     i = i + 1
-
-    -- remember the previous system energy
-    local energy0 = energy
-    energy = 0
 
     local function nodeNotFixed(node) return not node.fixed end
 
@@ -118,7 +126,31 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
       assert(not v.fixed)
 
       -- vector for the displacement of v
-      local f = Vector:new(2)
+      local d = Vector:new(2)
+
+      -- compute repulsive forces
+      for u in table.value_iter(graph.nodes) do
+        if u.name ~= v.name then
+          -- compute the distance between u and v
+          local delta = u.position:minus(v.position)
+          local delta_norm = delta:norm()
+
+          -- enforce a small virtual distance if the nodes are
+          -- located at (almost) the same position
+          if delta_norm < 0.1 then
+            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+            delta_norm = delta:norm()
+          end
+
+          -- compute the repulsive force vector
+          local force = delta:normalized():timesScalar(fg(delta_norm, 1))
+
+          --Sys:logMessage(v:shortname() .. ' vs. ' .. u:shortname() .. ' >=< ' .. tostring(force))
+
+          -- move the node v accordingly
+          d = d:plus(force)
+        end
+      end
 
       -- get a list of all neighbours of v
       local neighbours = table.map_values(v.edges, function (e) 
@@ -139,36 +171,12 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
         end
 
         -- compute the spring force between them
-        local force = delta:normalized():timesScalar(fa(delta_norm))
+        local force = delta:normalized():timesScalar(fl(delta_norm, #neighbours, 1))
 
         --Sys:logMessage(v:shortname() .. ' and ' .. u:shortname() .. ' <=> ' .. tostring(force))
 
         -- move the node v accordingly
-        f = f:plus(force)
-      end
-
-      -- compute repulsive forces
-      for u in table.value_iter(graph.nodes) do
-        if u.name ~= v.name then
-          -- compute the distance between u and v
-          local delta = u.position:minus(v.position)
-          local delta_norm = delta:norm()
-
-          -- enforce a small virtual distance if the nodes are
-          -- located at (almost) the same position
-          if delta_norm < 0.1 then
-            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-            delta_norm = delta:norm()
-          end
-
-          -- compute the repulsive force vector
-          local force = delta:normalized():timesScalar(fr(delta_norm))
-
-          --Sys:logMessage(v:shortname() .. ' vs. ' .. u:shortname() .. ' >=< ' .. tostring(force))
-
-          -- move the node v accordingly
-          f = f:plus(force)
-        end
+        d = d:plus(force)
       end
 
       --Sys:logMessage('total force of ' .. v:shortname() .. ': ' .. tostring(d))
@@ -176,10 +184,9 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
       -- remember the previous position of v
       old_position = v.position:copy()
 
-      if f:norm() > 0 then
+      if d:norm() > 0 then
         -- reposition v according to the force vector and the current temperature
-        v.position = v.position:plus(f:normalized():timesScalar(step))
-        energy = energy + math.pow(f:norm(), 2)
+        v.position = v.position:plus(d:normalized():timesScalar(math.min(t, d:norm())))
       end
 
       -- we need to improve the system energy as long as any of
@@ -190,7 +197,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
       end
     end
 
-    step = update_steplength(step, energy, energy0)
+    t = cool(t)
   end
 
   -- apply node positions
