@@ -100,7 +100,7 @@ end
 function getChildren(node)
   local children = {}
 
-  for edge in values(node:getEdges()) do
+  for edge in table.value_iter(node.edges) do
     local child = edge:getNeighbour(node)
 
     if child.parent ~= child and node.parent ~= child then
@@ -272,7 +272,8 @@ function isTree(graph)
     local node = pop()
 
     -- iterate over all adjacent edges that we haven't explored yet
-    for edge in filter(values(node:getEdges()), edgeNotExplored) do
+    --for edge in filter(values(node:getEdges()), edgeNotExplored) do
+    for edge in iter.filter(table.value_iter(node.edges), edgeNotExplored) do
       -- mark the edge as explored
       edge.explored = true
       

@@ -85,7 +85,7 @@ function preorderTraversal(graph)
   -- Return all not-yet-visited children of a node
   local function getChildren(node)
     local children = {}
-    for edge in values(node:getEdges()) do
+    for edge in table.value_iter(node.edges) do
       local child = edge:getNeighbour(node)
       if not visited[child] then
         --Sys:logMessage('naivetree: child ' .. string.gsub(child.name, '.*@(.*)', '%1'))

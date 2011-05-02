@@ -27,7 +27,7 @@ function Node:new(values)
       		  minX = 0,
       		  maxY = 0,
       		  minY = 0 },
-      _edges = {},
+      edges = {},
       pos = Position:new(),
       options = {},
    }
@@ -72,39 +72,31 @@ end
 --- Adds new Edge to the Node.
 -- @param edge The edge to be added.
 function Node:addEdge(edge)
-   if not findTable(self._edges, edge) then
-      table.insert(self._edges, edge)
+   if not table.find(self.edges, function (other) return other == edge end) then
+      table.insert(self.edges, edge)
    end
 end
 
 --- Removes an edge from the node.
 -- @param edge The edge to remove.
-function Node:removeEdge (edge)
-   local index = findTable(self._edges, edge)
-   if index then
-      table.remove(self._edges, edge)
-   end
+function Node:removeEdge(edge)
+   table.remove_values(self.edges, function (other) return other == edge end)
 end
 
 --- Computes the number of neighbour nodes.
 -- @return Number of neighbours.
 function Node:degree()
-   return #self._edges
-end
-
---- Gets all Edges of the node.
--- @return The edges of the node as a table.
-function Node:getEdges()
-   return self._edges
+	return table.count_pairs(self.edges)
 end
 
 --- Creates a shallow copy of a node.
 -- @return Copy of the node.
 function Node:copy()
-   local result = copyTable(self, Node:new())
-   result._edges = {}
+   obj = Node:new()
+   local result = copyTable(self, obj)
+   obj.edges = {}
    --obj.pos = self.pos:copy()
-   return result
+   return obj
 end
 
 --- Compares two nodes by name.
