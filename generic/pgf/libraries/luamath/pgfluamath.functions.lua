@@ -17,7 +17,7 @@ function round(x)
    end
 end
 
-function split_braces(s)
+function split_braces_to_explist(s)
    -- (Thanks to mpg and zappathustra from fctt)
    -- Make unpack available whatever lua version is used 
    -- (unpack in lua 5.1 table.unpack in lua 5.2)
@@ -27,6 +27,34 @@ function split_braces(s)
       table.insert(t, tonumber(i:sub(2, -2)))
    end
    return unpack(t)
+end
+
+function split_braces_to_table(s)
+   local t = {}
+   for i in s:gmatch('%b{}') do
+      table.insert(t, tonumber(i:sub(2, -2)))
+   end
+   return t
+end
+
+function mod(x,y)
+   if x/y < 0 then
+      return -(math.abs(x)%math.abs(y))
+   else
+      return math.abs(x)%math.abs(y)
+   end
+end
+
+function Mod(x,y)
+   return math.abs(x)%math.abs(y)
+end
+
+function factorial(n)
+   if n == 0 then
+      return 1
+   else
+      return n * factorial(n-1)
+   end
 end
 
 function pointnormalised (pgfx, pgfy)
