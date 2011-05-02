@@ -89,10 +89,15 @@ end
 -- @param node The node to remove.
 -- @return The node or nil if it wasn't contained in the graph.
 function Graph:removeNode(node)
-   table.remove_values(self.nodes, function (other) 
-      return other.name == node.name 
+   local index = table.find_index(self.nodes, function (other) 
+     return other.name == node.name 
    end)
-   return node
+   if index then
+      table.remove(self.nodes, index)
+      return node
+   else
+      return nil
+   end
 end
 
 --- Searches the nodes of the graph by the given name.
@@ -119,8 +124,10 @@ function Graph:deleteNode(node)
    if node then
       for edge in table.value_iter(node.edges) do
          self:removeEdge(edge)
-         for node in table.value_iter(edge.nodes) do
-            node.removeEdge(edge)
+         for other_node in table.value_iter(edge.nodes) do
+            if other_node.name ~= node.name then
+              other_node:removeEdge(edge)
+            end
          end
       end
       node.edges = {}
