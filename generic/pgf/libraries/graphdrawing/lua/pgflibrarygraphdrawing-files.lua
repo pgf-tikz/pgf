@@ -23,6 +23,8 @@ local files = {
    "graph",
    "algorithms-localsearchgraph",
    "interface",
+   "iter-helpers",
+   "table-helpers",
    "texboxregister",
    "test-position",
    "test-path",
