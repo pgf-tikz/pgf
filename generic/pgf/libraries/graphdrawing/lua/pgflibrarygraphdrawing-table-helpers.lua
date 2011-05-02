@@ -343,6 +343,9 @@ end
 
 --- Iterate over all values of a table.
 --
+-- FIXME: The iterators stops if a key's value is nil. But we actually want 
+-- to continue iterating until the end of the table.
+--
 -- @param table The table whose values to iterate over.
 --
 -- @return An iterator for the values of the table.
@@ -371,8 +374,10 @@ end
 
 
 
---- Removes all key/value pairs from the table for whom the 
---- remove function returns true.
+--- Removes all values from the array for which the remove function is true.
+--
+-- Important note: this method does not work with associative arrays. 
+-- Make sure only to process number-indexed arrays with it.
 --
 -- @param input
 -- @param remove_func
@@ -380,16 +385,16 @@ end
 -- @return
 --
 function table.remove_values(input, remove_func)
-  local remove_keys = {}
+  local removals = {}
   
-  for key, value in pairs(input) do
+  for index, value in ipairs(input) do
     if remove_func(value) then
-      table.insert(remove_keys, key)
+      table.insert(removals, index)
     end
   end
 
-  for key in table.value_iter(remove_keys) do
-    input[key] = nil
+  for removal_number, index in ipairs(removals) do
+    table.remove(input, index - removal_number + 1)
   end
 
   return input
