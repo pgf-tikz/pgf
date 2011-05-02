@@ -90,11 +90,12 @@ end
 --- Assembles and outputs the TeX command to draw an edge.
 -- @param Edge A lua edge object.
 function Sys:putEdge(edge)
-   local drawStr = '\\draw[' .. edge.direction .. '] '
-   for node in values(edge:getNodes()) do
-      drawStr = drawStr .. '(' .. self:unescapeTeXNodeName(node.name) .. ') -- '
+   local drawStr = '\\draw '
+   for node in table.value_iter(edge.nodes) do
+      local name = string.sub(node.name, string.len("not yet positioned@") + 1)
+      drawStr = drawStr .. '(' .. name .. ') ' .. edge.direction .. ' '
    end
-   drawStr = string.sub(drawStr, 0, string.len(drawStr) - 4) .. ';'
+   drawStr = string.sub(drawStr, 0, string.len(drawStr) - 2 - string.len(edge.direction)) .. ';'
    tex.print(drawStr)
 end
 

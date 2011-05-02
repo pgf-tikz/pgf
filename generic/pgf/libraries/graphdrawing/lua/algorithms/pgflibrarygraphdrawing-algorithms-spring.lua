@@ -135,9 +135,8 @@ end
 --
 function computeAttractiveForce(edge, k, max_repulsion)
   -- determine the two nodes of the edge
-  local nodes = edge:getNodes()
-  local node1 = nodes[1]
-  local node2 = nodes[2]
+  local node1 = edge.nodes[1]
+  local node2 = edge.nodes[2]
 
   -- compute the distance between the two nodes
   local diff = node2.position:subtract(node1.position)

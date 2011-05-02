@@ -124,18 +124,18 @@ end
 
 --- Copies a table and filters out all values using a function.
 --
--- @param table       The table whose values are to be filtered.
+-- @param input       The table whose values are to be filtered.
 -- @param filter_func The test function to be called for each value of the
 --                    input table. If it returns false or nil for a value,
 --                    the value will not be part of the result table.
 --
 -- @return Copy of the input table with values filtered using filter_func.
 --
-function table.filter_values(table, filter_func)
+function table.filter_values(input, filter_func)
   local copy = {}
-  for key, val in pairs(table) do
+  for val in table.value_iter(input) do
     if filter_func(val) then
-      copy[key] = val
+      table.insert(copy, val)
     end
   end
   return copy
@@ -186,18 +186,17 @@ end
 
 --- Maps values of a table to new values.
 --
--- @param table    The table whose values are to be replaced.
+-- @param input    The table whose values are to be replaced.
 -- @param map_func A function to be called for each value in order to generate
 --                 a new value to replace the old one.
 --
 -- @return A new table with all values of the input table having been replaced
---         with the values returned from map_func. The original keys are 
---         preserved.
+--         with the values returned from map_func.
 --
-function table.map_values(table, map_func)
+function table.map_values(input, map_func)
   local copy = {}
-  for key, val in pairs(table) do
-    copy[key] = map_func(val)
+  for val in table.value_iter(input) do
+    table.insert(copy, map_func(val))
   end
   return copy
 end
@@ -240,15 +239,15 @@ end
 
 --- Combine all values of the table to a single value using a combine function.
 --
--- @param table
+-- @param input
 -- @param combine_func
 -- @param initial_value
 --
 -- @return
 --
-function table.combine_values(table, combine_func, initial_value)
+function table.combine_values(input, combine_func, initial_value)
   local combination = initial_value or nil
-  for _, val in ipairs(table) do
+  for val in table.value_iter(input) do
     combination = combine_func(combination, val)
   end
   return combination
