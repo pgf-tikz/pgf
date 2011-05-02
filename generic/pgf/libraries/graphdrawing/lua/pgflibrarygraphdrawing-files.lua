@@ -22,17 +22,19 @@ local files = {
    "edge",
    "graph",
    "algorithms-localsearchgraph",
+   "component-packing",
    "interface",
    "iter-helpers",
    "orientation",
    "positioning-helpers",
+   "vector",
+   "traversal-helpers",
    "table-helpers",
    "texboxregister",
    "test-position",
    "test-path",
    "test-box",
-   "traversal-helpers",
-   "vector",
+   "test-vector",
 }
 
 return files

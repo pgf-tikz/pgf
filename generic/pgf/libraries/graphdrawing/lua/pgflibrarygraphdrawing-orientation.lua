@@ -73,7 +73,7 @@ function orientation.rotate(graph)
     local vec2 = Vector:new(2, function (n) return pos2[n] end)
 
     -- compute the difference vector which also is the graph axis vector
-    gaxis_vector = vec2:subtract(gbase_vector)
+    gaxis_vector = vec2:minus(gbase_vector)
   end
 
   -- both base and axis vector have to be set, or none of them

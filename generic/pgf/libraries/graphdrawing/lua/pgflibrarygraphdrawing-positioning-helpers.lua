@@ -20,33 +20,32 @@ positioning = {}
 
 
 
-function positioning.technique(name, graph)
+function positioning.technique(name, graph, distance)
   if name == 'random' then
-    return positioning.random(graph)
+    return positioning.random(graph, distance)
   elseif name == 'circle' then
-    return positioning.circle(graph)
+    return positioning.circle(graph, distance)
   elseif name == 'origin' or true then
-    return positioning.origin(graph)
+    return positioning.origin(graph, distance)
   end
 end
 
 
 
-function positioning.random(graph)
+function positioning.random(graph, distance)
   -- compute the number of nodes in the graph
   local count = table.count_pairs(graph.nodes)
 
   return function (n)
-    return math.random(0, math.modf(math.sqrt(count)) * 2)
+    return math.random(0, math.modf(math.sqrt(count)) * 2 * distance)
   end
 end
 
 
 
-function positioning.circle(graph)
+function positioning.circle(graph, distance)
   local count = table.count_pairs(graph.nodes)
   local alpha = (2 * math.pi) / count
-  local distance = 1
   local radius = distance / (2 * math.sin(alpha / 2))
   local i = 0
 
@@ -62,7 +61,7 @@ end
 
 
 
-function positioning.origin(graph)
+function positioning.origin(graph, distance)
   return function (n) 
     return 0 
   end

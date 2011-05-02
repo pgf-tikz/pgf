@@ -175,3 +175,7 @@ function Node:__tostring()
 
    return result
 end
+
+function Node:shortname()
+  return string.sub(self.name, string.len('not yet positioned@') + 1)
+end

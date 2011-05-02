@@ -7,7 +7,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- @release $Header$
+-- @release $Header$
 
 pgf.module("pgf.graphdrawing")
 
@@ -18,4 +18,5 @@ function drawGraphAlgorithm_experimental(graph)
   drawGraphAlgorithm_spring(graph)
 
   orientation.adjust(graph)
+  componentpacking.pack(graph)
 end
