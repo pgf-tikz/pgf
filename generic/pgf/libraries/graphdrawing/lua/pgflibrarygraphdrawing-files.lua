@@ -24,6 +24,7 @@ local files = {
    "algorithms-localsearchgraph",
    "interface",
    "iter-helpers",
+   "orientation",
    "positioning-helpers",
    "table-helpers",
    "texboxregister",

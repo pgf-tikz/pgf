@@ -48,6 +48,18 @@ end
 
 
 
+function Vector:dotProduct(other)
+  assert(#self.elements == #other.elements)
+
+  local product = 0
+  for n = 1,#self.elements do
+    product = product + self.elements[n] * other.elements[n]
+  end
+  return product
+end
+
+
+
 function Vector:norm()
   return math.sqrt(table.combine_values(self.elements, function (sum, val) 
     return sum + val * val
