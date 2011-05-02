@@ -22,18 +22,18 @@ function drawGraphAlgorithm_simplelayered(graph)
   graph:setOption('node distance', graph:getOption('node distance') or 58.5)
 
   for node in table.value_iter(graph.nodes) do
-    Sys:logMessage('LAY: ' .. node.name .. ' in: ' .. node:getInDegree() .. ' out: ' .. node:getOutDegree())
+    Sys:log('LAY: ' .. node.name .. ' in: ' .. node:getInDegree() .. ' out: ' .. node:getOutDegree())
     local in_edges = node:getIncomingEdges()
-    Sys:logMessage('LAY:   incoming edges:')
+    Sys:log('LAY:   incoming edges:')
     for edge in table.value_iter(in_edges) do
-      Sys:logMessage('LAY:   ' .. tostring(edge))
+      Sys:log('LAY:   ' .. tostring(edge))
     end
     local out_edges = node:getOutgoingEdges()
-    Sys:logMessage('LAY:   outgoing edges:')
+    Sys:log('LAY:   outgoing edges:')
     for edge in table.value_iter(out_edges) do
-      Sys:logMessage('LAY:   ' .. tostring(edge))
+      Sys:log('LAY:   ' .. tostring(edge))
     end
-    Sys:logMessage('LAY:')
+    Sys:log('LAY:')
   end
 
   -- convert node positions to vectors
@@ -324,9 +324,9 @@ function assignCoordinates(graph, layers, original_edges, dummy_nodes, dummy_edg
       end
     end
 
-    Sys:logMessage('positions at layer ' .. i)
+    Sys:log('positions at layer ' .. i)
     for node in table.value_iter(layers[i]) do
-      Sys:logMessage('  ' .. tostring(node) .. ' = ' .. node.position:get(1))
+      Sys:log('  ' .. tostring(node) .. ' = ' .. node.position:get(1))
     end
   end
 
@@ -353,23 +353,23 @@ end
 
 
 function dumpGraph(graph)
-  Sys:logMessage('LAY: GRAPH:')
+  Sys:log('LAY: GRAPH:')
   for node in table.value_iter(graph.nodes) do
-    Sys:logMessage('LAY:   ' .. tostring(node))
+    Sys:log('LAY:   ' .. tostring(node))
   end
   for edge in table.value_iter(graph.edges) do 
-    Sys:logMessage('LAY:   ' .. tostring(edge))
+    Sys:log('LAY:   ' .. tostring(edge))
   end
-  Sys:logMessage('LAY:')
+  Sys:log('LAY:')
 end
 
 
 
 function dumpLayers(layers)
   for index, layer in ipairs(layers) do
-    Sys:logMessage('layer ' .. index .. ':')
+    Sys:log('layer ' .. index .. ':')
     for node in table.value_iter(layer) do
-      Sys:logMessage('  ' .. tostring(node))
+      Sys:log('  ' .. tostring(node))
     end
   end
 end

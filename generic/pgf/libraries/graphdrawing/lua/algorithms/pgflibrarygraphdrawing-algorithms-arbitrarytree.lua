@@ -16,19 +16,19 @@ pgf.module("pgf.graphdrawing")
 --- Initialising options for positioning the given graph
 -- @param graph The tree-graph to be drawn
 function drawGraphAlgorithm_arbitrarytree(graph)
-   Sys:logMessage("GD:AT: drawGraphAlgorithm_arbitrarytree")
+   Sys:log("GD:AT: drawGraphAlgorithm_arbitrarytree")
    -- determine the root of the tree
    graph.root = graph:findNodeIf(function (node) return node:getOption("root") end)
    if graph.root == nil then
       error("there is no root node, aborting")
    end
-   Sys:logMessage("GD:AT: root node is " .. tostring(graph.root))  
+   Sys:log("GD:AT: root node is " .. tostring(graph.root))  
    -- check if the given graphstructure is really a tree
    if not isTree(graph, graph.root) then
       error("the given graph is not a tree")
    end
    for n in values(graph.nodes) do
-      Sys:logMessage("GD:AT " .. n.name)
+      Sys:log("GD:AT " .. n.name)
    end  
    -- read TEX-options
    -- leveldistance: determines the vertical space between the nodes

@@ -15,65 +15,91 @@
 
 pgf.module("pgf.graphdrawing")
 
+
+
 --- Sits between the TikZ/TeX side and Lua.
 Interface = {
-   graphStack = {},
-   -- graph = nil,
+  graphStack = {},
 }
 Interface.__index = Interface
 
---- Creates a new graph and pushes it on top of the graph stack.  The
--- options string is parsed and assigned.
--- @param options A list of options for this graph (deprecated, use \tikzname\ keys instead).
+
+
+--- Creates a new graph and adds it to the graph stack.
+--
+-- The options string consisting of |{key}{value}| pairs is parsed and 
+-- assigned to the graph. These options are used to configure the different
+-- graph drawing algorithms shipped with \tikzname.
+--
 -- @see finishGraph
+--
+-- @param options A string containing |{key}{value}| pairs of 
+--                \tikzname\ options.
+--
 function Interface:newGraph(options)
-   self.graph = Graph:new()
-   table.insert(self.graphStack, self.graph)
-   Sys:logMessage("GD:INT: options = " .. options)
-   self.graph:mergeOptions(parseBraces(options))
+  self.graph = Graph:new()
+  table.insert(self.graphStack, self.graph)
+  Sys:log("GD:INT: options = " .. options)
+  self.graph:mergeOptions(parseBraces(options))
 end
 
---- Sets a graph option name to value.
--- @param name The name of the option to set.
+
+
+--- Sets the graph option \meta{name} to \meta{value}. Only affects the current graph.
+--
+-- @param name  The name of the option to set.
 -- @param value New value for the option.
+--
 function Interface:setOption(name, value)
-   self.graph:setOption(name, value)
+  self.graph:setOption(name, value)
 end
 
---- Returns the value of the graph option name.
+
+
+--- Returns the value of the graph option \meta{name}.
+--
 -- @param name Name of the option.
--- @return The stored value or nil.
+--
+-- @return The value of the \meta{name} option or |nil|.
+--
 function Interface:getOption(name)
-   return self.graph:getOption(name)
+  return self.graph:getOption(name)
 end
 
---- Adds a new node to the graph.  The options string is parsed and
--- assigned.
--- @param name Name of the node.
--- @param xMin Minimum x point of the bouding box.
--- @param yMin Minimum y point of the bouding box.
--- @param xMax Maximum x point of the bouding box.
--- @param yMax Maximum y point of the bouding box.
--- @param options Options to pass to the node (deprecated, use \tikzname\ keys instead).
+
+
+--- Adds a new node to the graph.
+--
+-- The options string of |{key}{value}| pairs is parsed and assigned
+-- to the node. Graph drawing algorithms may use these options to treat
+-- the node in special ways.
+--
+-- @param name    Name of the node.
+-- @param xMin    Minimum x point of the bouding box.
+-- @param yMin    Minimum y point of the bouding box.
+-- @param xMax    Maximum x point of the bouding box.
+-- @param yMax    Maximum y point of the bouding box.
+-- @param options Options for the node.
+--
 function Interface:addNode(name, xMin, yMin, xMax, yMax, options)
-   assert(self.graph, "no graph created")
-   local tex = {
-      texNode = TeXBoxRegister:insertBox(Sys:getTeXBox()), 
-      maxX = xMax,
-      minX = xMin,
-      maxY = yMax,
-      minY = yMin
-   }
-   local node = Node:new{name = name, tex = tex, options = parseBraces(options)}
-   self.graph:addNode(node)
-   Sys:logMessage("GD:INT: addNode(" .. name ..", " .. "maxX = " .. node.tex.maxX .. ", minX = " .. node.tex.minX 
-     .. ", maxY = " .. node.tex.maxY.. ", minY = " .. node.tex.minY .. ",...)")
-   -- TODO: maybe the first node can automatically be assigned as the
-   -- root node? i.e. if graph.root is nil, assign it, else leave it be
-   -- then provide a new method getRoot, which first searches for a
-   -- node with "root" attribute and, if none exists, uses the
-   -- graph.root node as root ... will remove one step for the user
+  assert(self.graph, "no graph created")
+  local tex = {
+    texNode = TeXBoxRegister:insertBox(Sys:getTeXBox()), 
+    maxX = xMax,
+    minX = xMin,
+    maxY = yMax,
+    minY = yMin
+  }
+  local node = Node:new{
+    name = Sys:unescapeTeXNodeName(name), 
+    tex = tex, 
+    options = parseBraces(options)
+  }
+  self.graph:addNode(node)
+  Sys:log("GD:INT: addNode(" .. node.name ..", " .. "maxX = " .. node.tex.maxX .. ", minX = " .. node.tex.minX .. ", maxY = " .. node.tex.maxY.. ", minY = " .. node.tex.minY .. ",...)")
 end
+
+
 
 --- Adds an edge from one node to another by name.  
 --
@@ -82,110 +108,149 @@ end
 --
 -- @see addNode
 --
--- @param from         Name of the node the edge begins at.
--- @param to           Name of the node the edge ends at.
--- @param direction    Direction of the edge (e.g. '--' for an undirected edge 
---                     or '->' for a directed edge from the first to the second 
---                     node).
--- @param edge_nodes   A string for TikZ to generate the edge label nodes later.
---                     Needs to be passed back to TikZ unmodified.
--- @param options      A string of {key}{value} pairs of edge options that are
---                     relevant to graph drawing algorithms.
--- @param tikz_options A string of {key}{value} pairs that need to be passed
---                     back to TikZ unmodified.
+-- @param from        Name of the node the edge begins at.
+-- @param to          Name of the node the edge ends at.
+-- @param direction   Direction of the edge (e.g. |--| for an undirected edge 
+--                    or |->| for a directed edge from the first to the second 
+--                    node).
+-- @param edgenodes   A string for \tikzname\ to generate the edge label nodes later.
+--                    Needs to be passed back to TikZ unmodified.
+-- @param options     A string of |{key}{value}| pairs of edge options that are
+--                    relevant to graph drawing algorithms.
+-- @param tikzoptions A string of |{key}{value}| pairs that need to be passed
+--                    back to \tikzname\ unmodified.
 --
-function Interface:addEdge(from, to, direction, edge_nodes, options, tikz_options)
-   assert(self.graph, "no graph created")
-   Sys:logMessage("GD:INT: Edge from: " .. tostring(from) .. " to: " .. tostring(to))
-   from = self.graph:findNode(Sys:escapeTeXNodeName(from))
-   to = self.graph:findNode(Sys:escapeTeXNodeName(to))
-   assert(from and to, "at least one node doesn't exist yet")
-   self.graph:createEdge(from, to, direction, edge_nodes, parseBraces(options), tikz_options)
+function Interface:addEdge(from, to, direction, edgenodes, options, tikzoptions)
+  assert(self.graph, "no graph created")
+  Sys:log("GD:INT: Edge from: " .. tostring(from) .. " to: " .. tostring(to))
+  from = self.graph:findNode(from)
+  to = self.graph:findNode(to)
+  assert(from and to, "at least one node doesn't exist yet")
+  self.graph:createEdge(from, to, direction, edgenodes, parseBraces(options), tikzoptions)
 end
 
---- Loads the file with the
--- ``pgflibrarygraphdrawing-algorithms-xyz.lua'' naming scheme.
--- @param name Name of  the algorithm, like ``xyz''.
+
+
+--- Attempts to load the algorithm with the given \meta{name}.
+--
+-- This function tries to look up the corresponding algorithm file
+-- |pgflibrarygraphdrawing-algorithms-name.lua| and attempts to
+-- look up the main function for calling the algorithm.
+--
+-- @param name Name of the algorithm.
+--
 -- @return The algorithm function or nil.
+--
 function Interface:loadAlgorithm(name)
-   local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
-   local filename = "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua"
-   pgf.load(filename, "tex")
-   return pgf.graphdrawing[functionName]
+  local function_name = 'drawGraphAlgorithm_' .. name
+  
+  -- substitute special characters in the function name with
+  -- something that Lua can handle
+  local substitutions = { ['-'] = '_' }
+  for char, replacement in pairs(substitutions) do
+    function_name = function_name:gsub(char, replacement)
+  end
+  
+  Sys:log('function_name = ' .. function_name)
+  Sys:log('name = ' .. name)
+  
+  -- try to load the algorithm file
+  local filename = "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua"
+  pgf.load(filename, "tex")
+  
+  -- look up the main algorithm function
+  return pgf.graphdrawing[function_name]
 end
 
---- Draws/layouts the current graph using the specified algorithm.  The
--- algorithm is derived from the options attribute and is loaded on
--- demand from the corresponding file, e.g. for algorithm ``simple'' it is
--- ``pgflibrarygraphdrawing-algorithms-simple.lua'' which has to define a
--- function named ``drawGraphAlgorithm\_simple'' in the pgf.graphdrawing
--- module.  It is then called with the graph as single parameter.
+
+
+--- Arranges the current graph using the specified algorithm. 
+--
+-- The algorithm is derived from the graph options and is loaded on
+-- demand from the corresponding algorithm file. For a fictitious algorithm 
+-- |simple| this file is per convention called 
+-- |pgflibrarygraphdrawing-algorithms-simple.lua|. It is required to define
+-- at least one function as an entry point to the algorithm. The name of the
+-- function is again predetermined as |drawGraphAlgorithm_simple|.
+-- When a graph is to be layed out, this function is called with the graph
+-- as its only parameter.
+--
 function Interface:drawGraph()
-   if #self.graph.nodes == 0 then
-      Sys:logMessage("GD:INT: no nodes, aborting")
-      return
-   end
+  if #self.graph.nodes == 0 then
+    Sys:log("GD:INT: no nodes, aborting")
+    return
+  end
 
-   local name = self:getOption("algorithm"):gsub('%s', '-')
-   local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
-   local algorithm = pgf.graphdrawing[functionName]
-
-   -- if not defined, try to load the corresponding file
-   if not algorithm then
-      algorithm = self:loadAlgorithm(name)
-   end
-
-   assert(algorithm, "the algorithm is nil, e.g. a function named "
-	  .. functionName .. " doesn't exist in the pgf.graphdrawing "
-	  .. "module")
-   local start = os.clock()
-   algorithm(self.graph)
-   local stop = os.clock()
-   Sys:logMessage(string.format("GD:INT: algorithm took %.2f seconds", stop - start))
+  local name = self:getOption("algorithm"):gsub('%s', '-')
+  local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
+  local algorithm = pgf.graphdrawing[functionName]
+  
+  -- if not defined, try to load the corresponding file
+  if not algorithm then
+    algorithm = self:loadAlgorithm(name)
+  end
+  
+  assert(algorithm, "the algorithm is nil, e.g. a function named "
+                    .. functionName .. " doesn't exist in the pgf.graphdrawing "
+                    .. "module")
+  local start = os.clock()
+  algorithm(self.graph)
+  local stop = os.clock()
+  Sys:log(string.format("GD:INT: algorithm took %.2f seconds", stop - start))
 end
 
---- Pops the top graph from the graph stack (which is the current graph) and actually
--- draws the nodes and edges on the canvas.
+
+
+--- Passes the current graph back to the \TeX\ layer and removes it from the stack.
+--
 function Interface:finishGraph()
-   assert(self.graph, "no graph created")
-   Sys:beginShipout()
-   local graph = table.remove(self.graphStack)
-   self.graph = self.graphStack[#self.graphStack]
-
-   Sys:logMessage("GD:INT: graph = " .. tostring(graph))
-
-   for node in table.value_iter(graph.nodes) do
-      Sys:logMessage("GD:INT: node = " .. tostring(node))
-      self:drawNode(node)
-   end
-   
-   for edge in table.value_iter(graph.edges) do
-      Sys:logMessage("GD:INT: edge = " .. tostring(edge))
-      self:drawEdge(edge)
-   end
-
-   Sys:endShipout()
+  assert(self.graph, "no graph created")
+  Sys:beginShipout()
+  local graph = table.remove(self.graphStack)
+  self.graph = self.graphStack[#self.graphStack]
+  
+  Sys:log("GD:INT: graph = " .. tostring(graph))
+  
+  for node in table.value_iter(graph.nodes) do
+    Sys:log("GD:INT: node = " .. tostring(node))
+    self:drawNode(node)
+  end
+  
+  for edge in table.value_iter(graph.edges) do
+    Sys:log("GD:INT: edge = " .. tostring(edge))
+    self:drawEdge(edge)
+  end
+  
+  Sys:endShipout()
 end
 
---- Helper function to actually put the node back to the TeX layer.
--- @param object The lua node object to draw.
-function Interface:drawNode(object)
-   local texnode = object.tex
-   Sys:putTeXBox(
-      object.name,
-      texnode.texNode,
-      texnode.minX,
-      texnode.minY,
-      texnode.maxX,
-      texnode.maxY,
-      object.pos:getAbsCoordinates()
-   )
+
+
+--- Passes a node back to the \TeX\ layer.
+--
+-- @param node The node to pass back to the \TeX\ layer.
+--
+function Interface:drawNode(node)
+  Sys:putTeXBox(node,
+                node.tex.texNode,
+                node.tex.minX,
+                node.tex.minY,
+                node.tex.maxX,
+                node.tex.maxY,
+                node.pos:getAbsCoordinates())
 end
 
---- Helper function to put visible edges back to the TeX layer.
--- @param object Lua edge object to draw.
-function Interface:drawEdge(object)
-   if object.direction ~= Edge.NONE then
-      Sys:putEdge(object)
-   end
+
+
+--- Passes an edge back to the \TeX\ layer.
+--
+-- Edges with a direction of |Edge.NONE| are skipped and not passed
+-- back to \TeX.
+--
+-- @param edge The edge to pass back to the \TeX\ layer.
+--
+function Interface:drawEdge(edge)
+  if edge.direction ~= Edge.NONE then
+    Sys:putEdge(edge)
+  end
 end

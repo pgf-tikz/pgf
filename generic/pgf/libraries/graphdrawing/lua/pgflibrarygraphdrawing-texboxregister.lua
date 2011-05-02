@@ -28,7 +28,7 @@ TeXBoxRegister.__index = TeXBoxRegister
 -- @returns Box reference.
 function TeXBoxRegister:insertBox(texbox)
    table.insert(self.boxes, texbox)
-   Sys:logMessage("GD:TBR: inserting tex box in slot " .. # self.boxes)
+   Sys:log("GD:TBR: inserting tex box in slot " .. # self.boxes)
    return # self.boxes
 end
 
@@ -39,7 +39,7 @@ end
 function TeXBoxRegister:getBox(boxReference)
    local ret = self.boxes[boxReference]
    assert(ret, "GD:TBR: fetching box " .. boxReference .. " returned a nil value")
-   Sys:logMessage("GD:TBR: fetching box " .. boxReference)
+   Sys:log("GD:TBR: fetching box " .. boxReference)
    self.boxes[boxReference] = nil
    return ret
 end

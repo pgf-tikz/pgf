@@ -14,75 +14,110 @@
 
 pgf.module("pgf.graphdrawing")
 
+
+
 Node = Box:new{}
 Node.__index = Node
 
+
+
 --- Creates a new node.
--- @param values Values (e.g. position) to be merged with the default-metatable of a node
--- @return A newly allocated node object.
+--
+-- @param values  Values to override default node settings.
+--                The following parameters can be set:\par
+--                |name|: The name of the node. It is obligatory to define this.\par
+--                |tex|:  Information about the corresponding \TeX\ node.\par
+--                |edges|: Edges adjacent to the node.\par
+--                |pos|: Initial position of the node.\par
+--                |options|: A table of node options passed over from \tikzname.
+--
+-- @return A newly allocated node.
+--
 function Node:new(values)
-   local defaults = {
-      name = "node",
-      tex = { texNode = nil,
-      		  maxX = 0,
-      		  minX = 0,
-      		  maxY = 0,
-      		  minY = 0 },
-      edges = {},
-      pos = Position:new(),
-      options = {},
-   }
-   setmetatable(defaults, Node)
-   local result = mergeTable(values, defaults)
-   return result
+  local defaults = {
+    name = "node",
+    tex = { 
+      texNode = nil,
+      maxX = 0,
+      minX = 0,
+      maxY = 0,
+      minY = 0 
+    },
+    edges = {},
+    pos = Position:new(),
+    options = {},
+  }
+  setmetatable(defaults, Node)
+  local result = mergeTable(values, defaults)
+  return result
 end
 
---- Sets the option name to value.
--- @param name Name of the option to be set.
--- @param value Value for the option defined by name.
+
+
+--- Sets the node option \meta{name} to \meta{value}.
+--
+-- @param name Name of the node option to be changed.
+-- @param value New value for the node option \meta{name}.
+--
 function Node:setOption(name, value)
-   self.options[name] = value
+  self.options[name] = value
 end
 
---- Returns the value of option name or nil.
--- @param name Name of the option.
--- @return The stored value of the option or nil.
+
+
+--- Returns the value of the node option \meta{name}.
+--
+-- @param name Name of the node option.
+--
+-- @return The value of the node option \meta{name} or |nil|.
+--
 function Node:getOption(name)
-   return self.options[name]
+  return self.options[name]
 end
 
---- Merges options.
--- @param options The options to be merged.
--- @see mergeTable
-function Node:mergeOptions(options)
-   self.options = mergeTable(options, self.options)
-end
 
---- Computes the Width of the Node.
--- @return Width of the Node.
+
+--- Computes the width of the node.
+--
+-- @return Width of the node.
+--
 function Node:getTexWidth()
 	return self.tex.maxX - self.tex.minX
 end
 
---- Computes the Heigth of the Node.
--- @return Height of the Node.
+
+
+--- Computes the heigth of the node.
+--
+-- @return Height of the node.
+--
 function Node:getTexHeight()
-	return self.tex.maxY - self.tex.minY
+  return self.tex.maxY - self.tex.minY
 end
 
---- Adds new Edge to the Node.
+
+
+--- Adds new edge to the node.
+--
 -- @param edge The edge to be added.
+--
 function Node:addEdge(edge)
-   if not table.find(self.edges, function (other) return other == edge end) then
-      table.insert(self.edges, edge)
-   end
+  if not table.find(self.edges, function (other) return other == edge end) then
+    table.insert(self.edges, edge)
+  end
 end
+
+
 
 --- Removes an edge from the node.
+--
 -- @param edge The edge to remove.
+--
 function Node:removeEdge(edge)
-   table.remove_values(self.edges, function (other) return other == edge end)
+  table.remove_values(self.edges, function (other) return other == edge end)
 end
+
+
 
 --- Counts the adjacent edges of the node.
 --
@@ -92,89 +127,122 @@ function Node:getDegree()
 	return table.count_pairs(self.edges)
 end
 
+
+
+--- Returns all edges of the node.
+--
+-- Instead of calling |node:getEdges()| the edges can alternatively be 
+-- accessed directly with |node.edges|.
+--
+-- @return All edges of the node.
+--
+function Node:getEdges()
+  return self.edges
+end
+
+
+
 --- Returns the incoming edges of the node. Undefined result for hyperedges.
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
---                        reversed for this method call. Defaults to false.
+-- @param ignorereversed Optional parameter to consider reversed edges not 
+--                       reversed for this method call. Defaults to |false|.
 --
 -- @return Incoming edges of the node. This includes undirected edges
 --         and directed edges pointing to the node.
 --
-function Node:getIncomingEdges(ignore_reversed)
+function Node:getIncomingEdges(ignorereversed)
   return table.filter_values(self.edges, function (edge) 
-    return edge:isHead(self, ignore_reversed)
+    return edge:isHead(self, ignorereversed)
   end)
 end
 
+
+
 --- Returns the outgoing edges of the node. Undefined result for hyperedges.
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
---                        reversed for this method call. Defaults to false.
+-- @param ignorereversed Optional parameter to consider reversed edges not 
+--                       reversed for this method call. Defaults to |false|.
 --
 -- @return Outgoing edges of the node. This includes undirected edges
 --         and directed edges leaving the node.
 --
-function Node:getOutgoingEdges(ignore_reversed)
+function Node:getOutgoingEdges(ignorereversed)
   return table.filter_values(self.edges, function (edge)
-    return edge:isTail(self, ignore_reversed)
+    return edge:isTail(self, ignorereversed)
   end)
 end
+
+
 
 --- Returns the number of incoming edges of the node.
 --
 -- @see Node:getIncomingEdges(reversed)
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
---                        reversed for this method call. Defaults to false.
+-- @param ignorereversed Optional parameter to consider reversed edges not 
+--                       reversed for this method call. Defaults to |false|.
 --
 -- @return The number of incoming edges of the node.
 --
-function Node:getInDegree(ignore_reversed)
-  return table.count_pairs(self:getIncomingEdges(ignore_reversed))
+function Node:getInDegree(ignorereversed)
+  return table.count_pairs(self:getIncomingEdges(ignorereversed))
 end
+
+
 
 --- Returns the number of edges starting at the node.
 --
 -- @see Node:getOutgoingEdges()
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
---                        reversed for this method call. Defaults to false.
+-- @param ignorereversed Optional parameter to consider reversed edges not 
+--                       reversed for this method call. Defaults to |false|.
 --
 -- @return The number of outgoing edges of the node.
 --
-function Node:getOutDegree(ignore_reversed)
-  return table.count_pairs(self:getOutgoingEdges(ignore_reversed))
+function Node:getOutDegree(ignorereversed)
+  return table.count_pairs(self:getOutgoingEdges(ignorereversed))
 end
 
---- Creates a shallow copy of a node.
+
+
+--- Creates a shallow copy of the node. 
+--
+-- Most notably, the edges adjacent are not preserved in the copy.
+--
 -- @return Copy of the node.
+--
 function Node:copy()
-   obj = Node:new()
-   local result = copyTable(self, obj)
-   obj.edges = {}
-   --obj.pos = self.pos:copy()
-   return obj
+  obj = Node:new()
+  local result = copyTable(self, obj)
+  obj.edges = {}
+  return obj
 end
 
---- Compares two nodes by name.
--- @param object The node to be compared to self
--- @return True if self is equal to object.
+
+
+--- Compares two nodes by their name.
+--
+-- @ignore This should not appear in the documentation.
+--
+-- @param other Another node to compare with.
+--
+-- @return |true| if both nodes have the same name. |false| otherwise.
+--
 function Node:__eq(object)
-   return self.name == object.name
+  return self.name == object.name
 end
+
+
 
 --- Returns a formated string representation of the node.
--- @return String represenation of the node.
+--
 -- @ignore This should not appear in the documentation.
+--
+-- @return String represenation of the node.
+--
 function Node:__tostring()
-   local tmp = Node.__tostring
-   Node.__tostring = nil
-   local result = "Node<" .. tostring(self) .. ">(" .. self.name .. ")"
-   Node.__tostring = tmp
-
-   return result
-end
-
-function Node:shortname()
-  return string.sub(self.name, string.len('not yet positionedPGFGDINTERNAL') + 1)
+  local tmp = Node.__tostring
+  Node.__tostring = nil
+  local result = "Node<" .. tostring(self) .. ">(" .. self.name .. ")"
+  Node.__tostring = tmp
+  return result
 end

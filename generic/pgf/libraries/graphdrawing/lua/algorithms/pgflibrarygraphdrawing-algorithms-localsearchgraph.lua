@@ -16,7 +16,7 @@ pgf.module("pgf.graphdrawing")
 --- Node positioning with local search algorithm
 -- @param graph graph-Structure to generate layout for
 function drawGraphAlgorithm_localsearchgraph(graph)
-   Sys:logMessage("GD:LSG: drawGraphAlgorithm_localsearchgraph")
+   Sys:log("GD:LSG: drawGraphAlgorithm_localsearchgraph")
    --read options from graph
    local hSpace = graph:getOption("max width")
    local vSpace = graph:getOption("max height")
@@ -26,21 +26,21 @@ function drawGraphAlgorithm_localsearchgraph(graph)
       maxWidth = math.max(maxWidth, math.ceil(node.width))
       maxHeight = math.max(maxHeight, math.ceil(node.height))
    end
-   Sys:logMessage("GD:LSG: max height is ", vSpace)
-   Sys:logMessage("GD:LSG: max width is ", hSpace)
+   Sys:log("GD:LSG: max height is ", vSpace)
+   Sys:log("GD:LSG: max width is ", hSpace)
    assert(maxHeight > 0, "GD:LSG: max height of all nodes should be greater than zero")
    assert(maxWidth > 0, "GD:LSG: max width of all nodes should be greater than zero")
    --calculate number of rows and cols for the grid
    --if max width or max height is set, then use this limit, else using standard
    local maxRows = vSpace and math.floor(vSpace / maxHeight) or #graph.nodes * 2
-   Sys:logMessage("GD:LSG: maximum Number of Rows in Grid: " .. maxRows)
+   Sys:log("GD:LSG: maximum Number of Rows in Grid: " .. maxRows)
    local maxCols = hSpace and math.floor(hSpace / maxWidth) or #graph.nodes * 2
-   Sys:logMessage("GD:LSG: maximum Number of Cols in Grid: " .. maxCols)
+   Sys:log("GD:LSG: maximum Number of Cols in Grid: " .. maxCols)
    assert((maxCols * maxRows) >= #graph.nodes, "GD:LSG: Too much Nodes, please adjust size!")
    --create nodes for algorithm-process and position them on the grid
    local midPos = {y = math.floor(maxRows / 2) * maxHeight,
                    x = math.floor(maxCols / 2) * maxWidth}
-   Sys:logMessage("GD:LSG: StartPosition at (", midPos.x,
+   Sys:log("GD:LSG: StartPosition at (", midPos.x,
          ", ", midPos.y, ")")
    -- begin positioning in the middle of the grid
    local nodes, origNodesMap, nodeTable = {}, {}, {}
@@ -78,7 +78,7 @@ function drawGraphAlgorithm_localsearchgraph(graph)
             positioned = true
          end
       until positioned
-      Sys:logMessage("GD:LSG: ", newNode.name, " starts at (", newNode.pos.x,
+      Sys:log("GD:LSG: ", newNode.name, " starts at (", newNode.pos.x,
             ", ", newNode.pos.y, ")")
       nodes[node.name] = newNode
       origNodesMap[node.name] = node
@@ -105,12 +105,12 @@ function drawGraphAlgorithm_localsearchgraph(graph)
    local endState = localSearch(start, simpleNeighbour, simpleCost)
    --write nodes in original graph
    for node in values(endState.nodes) do
-      Sys:logMessage("LSG:GD: Node ",node.name, " X: ", node.pos.x, " Y: ", node.pos.y)
+      Sys:log("LSG:GD: Node ",node.name, " X: ", node.pos.x, " Y: ", node.pos.y)
       origNodesMap[node.name].pos.x, origNodesMap[node.name].pos.y
          = node.pos.x, node.pos.y
    end
    for path in values(endState.paths) do
-      Sys:logMessage("LSG:GD: Path ", tostring(path))
+      Sys:log("LSG:GD: Path ", tostring(path))
    end
 end
 
@@ -126,14 +126,14 @@ function localSearch(start, neighbour, cost, deep, steps)
    local current, currentCost = start, cost(start)
    local planeCurrent
    local startCost = currentCost
-   Sys:logMessage("GD:LSG: Local Search with Deepness ", deep, " and Startcost ", currentCost)
+   Sys:log("GD:LSG: Local Search with Deepness ", deep, " and Startcost ", currentCost)
    --looking at all possible neighbour-solutions
    for n in neighbour(start) do
      local c = cost(n)
      --we want the best solution
      if c < currentCost then
        current, currentCost = n, c
-       Sys:logMessage ("GD:LSG: Enhancement to", c)
+       Sys:log ("GD:LSG: Enhancement to", c)
      elseif c == startCost then
         planeCurrent = n
      end
@@ -144,7 +144,7 @@ function localSearch(start, neighbour, cost, deep, steps)
    elseif planeCurrent and steps > 0 and currentCost > 0 then
       return localSearch(planeCurrent, neighbour, cost, deep+1, steps-1)
    else
-      Sys:logMessage("GD:LSG: Endstate with Cost ", currentCost)
+      Sys:log("GD:LSG: Endstate with Cost ", currentCost)
       return start
    end
 end

@@ -44,7 +44,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   fixate_nodes(graph)
 
   -- compute initial layout based on the selected positioning technique
-  --Sys:logMessage('initial layout:')
+  --Sys:log('initial layout:')
   for node in table.value_iter(graph.nodes) do
     node.position = Vector:new(2, function (n)
       if node.fixed then
@@ -56,7 +56,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
     end)
     node.disp = Vector:new(2, function (n) return 0 end)
 
-    --Sys:logMessage('  ' .. node:shortname() .. ' at ' .. tostring(node.position))
+    --Sys:log('  ' .. node:shortname() .. ' at ' .. tostring(node.position))
   end
 
   -- correct the factor K so that the resulting natural spring dimension
@@ -141,7 +141,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
         -- compute the spring force between them
         local force = delta:normalized():timesScalar(fa(delta_norm))
 
-        --Sys:logMessage(v:shortname() .. ' and ' .. u:shortname() .. ' <=> ' .. tostring(force))
+        --Sys:log(v:shortname() .. ' and ' .. u:shortname() .. ' <=> ' .. tostring(force))
 
         -- move the node v accordingly
         f = f:plus(force)
@@ -164,14 +164,14 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
           -- compute the repulsive force vector
           local force = delta:normalized():timesScalar(fr(delta_norm))
 
-          --Sys:logMessage(v:shortname() .. ' vs. ' .. u:shortname() .. ' >=< ' .. tostring(force))
+          --Sys:log(v:shortname() .. ' vs. ' .. u:shortname() .. ' >=< ' .. tostring(force))
 
           -- move the node v accordingly
           f = f:plus(force)
         end
       end
 
-      --Sys:logMessage('total force of ' .. v:shortname() .. ': ' .. tostring(d))
+      --Sys:log('total force of ' .. v:shortname() .. ': ' .. tostring(d))
 
       -- remember the previous position of v
       old_position = v.position:copy()

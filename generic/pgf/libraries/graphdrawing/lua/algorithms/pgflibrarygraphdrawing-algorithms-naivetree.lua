@@ -88,7 +88,7 @@ function preorderTraversal(graph)
     for edge in table.value_iter(node.edges) do
       local child = edge:getNeighbour(node)
       if not visited[child] then
-        --Sys:logMessage('naivetree: child ' .. string.gsub(child.name, '.*@(.*)', '%1'))
+        --Sys:log('naivetree: child ' .. string.gsub(child.name, '.*@(.*)', '%1'))
         table.insert(children, child)
       end
     end

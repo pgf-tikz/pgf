@@ -14,8 +14,12 @@
 
 pgf.module("pgf.graphdrawing")
 
+
+
 Edge = {}
 Edge.__index = Edge
+
+
 
 Edge.UNDIRECTED = "--"
 Edge.LEFT = "<-"
@@ -23,73 +27,116 @@ Edge.RIGHT = "->"
 Edge.BOTH = "<->"
 Edge.NONE = "-!-"
 
+
+
 --- Creates an edge between nodes of a graph.
--- @param values Values (e.g. direction) to be merged with the default-metatable of an edge.
--- @return The new edge.
+--
+-- @param values Values to override default edge settings.
+--               The following parameters can be set:\par
+--               |nodes|: TODO
+--               |edge_nodes|: TODO
+--               |options|: TODO
+--               |tikz_options|: TODO 
+--               |direction|: TODO
+--               |bend_points|: TODO
+--               |bend_nodes|: TODO
+--               |reversed|: TODO
+--
+-- @return A newly-allocated edge.
+--
 function Edge:new(values)
-   local defaults = {
-      nodes = {},
-      edge_nodes = '',
-      options = {},
-      tikz_options = {},
-      direction = Edge.DIRECTED,
-      bend_points = {},
-      bend_nodes = {},
-      reversed = false,
-   }
-   setmetatable(defaults, Edge)
-   local result = mergeTable(values, defaults)
-   return result
+  local defaults = {
+    nodes = {},
+    edge_nodes = '',
+    options = {},
+    tikz_options = {},
+    direction = Edge.DIRECTED,
+    bend_points = {},
+    bend_nodes = {},
+    reversed = false,
+  }
+  setmetatable(defaults, Edge)
+  local result = mergeTable(values, defaults)
+  return result
 end
 
+
+
+--- Sets the edge option \meta{name} to \meta{value}.
+--
+-- @param name Name of the option to be changed.
+-- @param value New value for the edge option \meta{name}.
+--
 function Edge:setOption(name, value)
-   self.options[name] = value
+  self.options[name] = value
 end
 
+
+
+--- Returns the value of the edge option \meta{name}.
+--
+-- @param name Name of the option.
+--
+-- @return The value of the edge option \meta{name} or |nil|.
+--
 function Edge:getOption(name)
-   return self.options[name]
+  return self.options[name]
 end
 
---- Merges options.
-function Edge:mergeOptions(options)
-   self.options = table.merge(options, self.options)
-end
 
---- Sets the path of an edge.
--- @param path The path the edge belongs to.
-function Edge:setPath(path)
-   self._path = path
-end
 
---- Returns the path of an edge.
--- @return The path the edge belongs to.
-function Edge:getPath()
-   return self._path
-end
-
---- Returns a boolean whether the edge is a hyperedge.
--- @return True if the edge is a hyperedge.
+--- Returns whether or not the edge is a hyperedge.
+--
+-- A hyperedge is an edge with more than two adjacent nodes.
+--
+-- @return |true| if the edge is a hyperedge. |false| otherwise.
+--
 function Edge:isHyperedge()
-   return self:getDegree() > 2
+  return self:getDegree() > 2
 end
 
---- Tests if edge contains a node.
--- @return True if the edge contains a node.
+
+
+--- Returns all nodes of the edge.
+--
+-- Instead of calling |edge:getNodes()| the nodes can alternatively be 
+-- accessed directly with |edge.nodes|.
+--
+-- @return All edges of the node.
+--
+function Edge:getNodes()
+  return self.nodes
+end
+
+
+
+--- Returns whether or not a node is adjacent to the edge.
+--
+-- @param node The node to check.
+--
+-- @return |true| if the node is adjacent to the edge. |false| otherwise.
+--
 function Edge:containsNode(node)
-   local result = table.find(self.nodes, function (other) 
-      return other.name == node.name 
-   end)
-   return not (result == nil)
+  local result = table.find(self.nodes, function (other) 
+    return other.name == node.name 
+  end)
+  return not (result == nil)
 end
 
---- Adds node to the edge.
+
+
+--- If possible, adds a node to the edge.
+--
 -- @param node The node to be added to the edge.
+--
 function Edge:addNode(node)
-   if not self:containsNode(node) then
-      table.insert(self.nodes, node)
-      node:addEdge(self)
-   end
+  if not self:containsNode(node) then
+    table.insert(self.nodes, node)
+    node:addEdge(self)
+  end
 end
+
+
 
 --- Returns all neighbours of a node adjacent to the edge.
 --
@@ -104,25 +151,34 @@ end
 --         the method is called on.
 --
 function Edge:getNeighbours(node)
-   return table.filter_values(self.nodes, function (other)
-      return other.name ~= node.name
-   end)
+  return table.filter_values(self.nodes, function (other)
+    return other.name ~= node.name
+  end)
 end
 
+
+
 --- Gets first neighbour of the node (disregarding hyperedges).
+--
 -- @param node The node which first neighbour should be returned.
+--
 -- @return The first neighbour of the node.
+--
 function Edge:getNeighbour(node)
-   return self:getNeighbours(node)[1]
+  return self:getNeighbours(node)[1]
 end
+
+
 
 --- Counts the nodes on this edge.
 --
 -- @return The number of nodes on the edge.
 --
 function Edge:getDegree()
-   return table.count_pairs(self.nodes)
+  return table.count_pairs(self.nodes)
 end
+
+
 
 --- Checks whether a node is the head of the edge. Does not work for hyperedges.
 --
@@ -132,16 +188,16 @@ end
 -- will always be true. 
 -- Directed edges may be reversed internally, so their head and tail might be 
 -- switched. Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second ignore_reversed parameter which 
--- is false by default.
+-- can be specified with the optional second \meta{ignorereversed} parameter 
+-- which is |false| by default.
 --
--- @param node            The node to check.
--- @param ignore_reversed Optional parameter. Set this to true if reversed edges
---                        should not be considered reversed for this method call.
+-- @param node           The node to check.
+-- @param ignorereversed Optional parameter. Set this to true if reversed edges
+--                       should not be considered reversed for this method call.
 --
 -- @return True if the node is the head of the edge.
 --
-function Edge:isHead(node, ignore_reversed)
+function Edge:isHead(node, ignorereversed)
   local result = false
 
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
@@ -156,7 +212,7 @@ function Edge:isHead(node, ignore_reversed)
 
     -- if the edge should be assumed reversed, we simply switch head and 
     -- tail positions
-    if not ignore_reversed and self.reversed then
+    if not ignorereversed and self.reversed then
       head_index = (head_index == 1) and #self.nodes or 1
     end
 
@@ -168,6 +224,8 @@ function Edge:isHead(node, ignore_reversed)
   return result
 end
 
+
+
 --- Checks whether a node is the tail of the edge. Does not work for hyperedges.
 --
 -- This method only works for edges with two adjacent nodes.
@@ -177,16 +235,16 @@ end
 --
 -- Directed edges may be reversed internally, so their head and tail might be 
 -- switched. Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second ignore_reversed parameter which 
--- is false by default.
+-- can be specified with the optional second \meta{ignorereversed} parameter 
+-- which is |false| by default.
 --
--- @param node            The node to check.
--- @param ignore_reversed Optional parameter. Set this to true if reversed edges
---                        should not be considered reversed for this method call.
+-- @param node           The node to check.
+-- @param ignorereversed Optional parameter. Set this to true if reversed edges
+--                       should not be considered reversed for this method call.
 --
 -- @return True if the node is the tail of the edge.
 --
-function Edge:isTail(node, ignore_reversed)
+function Edge:isTail(node, ignorereversed)
   local result = false
   if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
     -- undirected edges or edges pointing into both directions do not
@@ -200,7 +258,7 @@ function Edge:isTail(node, ignore_reversed)
 
     -- if the edge should be assumed reversed, we simply switch head
     -- and tail positions
-    if not ignore_reversed and self.reversed then
+    if not ignorereversed and self.reversed then
       tail_index = (tail_index == 1) and #self.nodes or 1
     end
 
@@ -212,39 +270,59 @@ function Edge:isTail(node, ignore_reversed)
   return result
 end
 
+
+
 --- Copies an edge (preventing accidental use).
+--
+-- The nodes of the edge are not preserved and have to be added
+-- to the copy manually if necessary.
+--
 -- @return Shallow copy of the edge.
+--
 function Edge:copy()
-   local result = copyTable(self, Edge:new())
-   result._nodes = {}
-   obj.nodes = {}
-   return obj
+  local result = copyTable(self, Edge:new())
+  result._nodes = {}
+  obj.nodes = {}
+  return obj
  end
 
- --- Compares two edges by their adjacent nodes.
--- @return True if self is equal to object.
-function Edge:__eq(other)
-   if not other.nodes or #self.nodes ~= #other.nodes then
-     return false
-   end
 
-   local same_nodes = true
-   for i = 1,#self.nodes do
-     same_nodes = same_nodes and (self.nodes[i] == other.nodes[i])
-   end
-   return same_nodes
+
+--- Returns whether or not the two edges have the same adjacent nodes.
+--
+-- @ignore This should not appear in the documentation.
+--
+-- @param other Another edge to compare with.
+--
+-- @return |true| if the two edges have exactly the same adjacent nodes.
+--
+function Edge:__eq(other)
+  if not other or not other.nodes or #self.nodes ~= #other.nodes then
+    return false
+  end
+  
+  local same_nodes = true
+  for i = 1,#self.nodes do
+    same_nodes = same_nodes and (self.nodes[i] == other.nodes[i])
+  end
+  return same_nodes
 end
 
+
+
 --- Returns a readable string representation of the edge.
--- @return String representation of the edge.
+--
 -- @ignore This should not appear in the documentation.
+--
+-- @return String representation of the edge.
+--
 function Edge:__tostring()
-   local result = "Edge(" .. self.direction .. ", reversed = " .. tostring(self.reversed) .. ", "
-   if table.count_pairs(self.nodes) > 0 then
-      local node_strings = table.map_values(self.nodes, function (node)
-         return node:shortname()
-      end)
-      result = result .. table.concat(node_strings, ', ')
-   end
-   return result .. ")"
+  local result = "Edge(" .. self.direction .. ", reversed = " .. tostring(self.reversed) .. ", "
+  if table.count_pairs(self.nodes) > 0 then
+    local node_strings = table.map_values(self.nodes, function (node)
+      return node.name
+    end)
+    result = result .. table.concat(node_strings, ', ')
+  end
+  return result .. ")"
 end
