@@ -26,7 +26,6 @@ function countKeys(table)
    return numItems
 end
 
-function findTable(table, object)
 --- Merges two tables.
 -- Every nil value in values is replaced by its default value in
 -- defaults.  The metatable from defaults is likewise preserved.

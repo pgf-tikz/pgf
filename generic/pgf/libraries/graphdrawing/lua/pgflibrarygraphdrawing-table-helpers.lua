@@ -23,6 +23,43 @@ pgf.module("pgf.graphdrawing")
 
 
 
+-- Merge the key/value pairs of two tables.
+--
+-- This function merges the key/value pairs of the two input tables.
+--
+-- All nil values of the first table are overwritten by the corresponding
+-- values of the second table.
+--
+-- By default the metatable of the second input table is used for the result. 
+-- If the third parameter (first_metatable) is set to true however, the 
+-- metatable of the first input table will be used.
+--
+-- @param table1          First table with key/value pairs.
+-- @param table2          Second table with key/value pairs.
+-- @param first_metatable Whether to inherit the metatable of table1 or not.
+--
+-- @return A new table with the key/value pairs of the two input tables
+--         merged together.
+--
+function table.merge(table1, table2, first_metatable)
+  local result = table1 and table.copy(table1) or {}
+  local first_metatable = first_metatable == true or false
+
+  for key, value in pairs(table2) do
+    if not result[key] then
+      result[key] = value
+    end
+  end
+
+  if not first_metatable then
+    setmetatable(result, getmetatable(table2))
+  end
+
+  return result
+end
+
+
+
 --- Returns the first value for which the function returns true.
 --
 -- @param table     The table to search in.
