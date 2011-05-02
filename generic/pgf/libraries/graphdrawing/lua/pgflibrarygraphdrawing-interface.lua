@@ -75,19 +75,32 @@ function Interface:addNode(name, xMin, yMin, xMax, yMax, options)
    -- graph.root node as root ... will remove one step for the user
 end
 
---- Adds an edge from one node to another by name.  That is, both
--- parameters are node names and have to exist before an edge can be
+--- Adds an edge from one node to another by name.  
+--
+-- Both parameters are node names and have to exist before an edge can be
 -- created between them.
--- @param options A key=value string, which is currently only passed back to
--- the \TeX layer during shipout (deprecated, use \tikzname\ keys instead).
+--
 -- @see addNode
-function Interface:addEdge(from, to, direction, options)
+--
+-- @param from         Name of the node the edge begins at.
+-- @param to           Name of the node the edge ends at.
+-- @param direction    Direction of the edge (e.g. '--' for an undirected edge 
+--                     or '->' for a directed edge from the first to the second 
+--                     node).
+-- @param edge_nodes   A string for TikZ to generate the edge label nodes later.
+--                     Needs to be passed back to TikZ unmodified.
+-- @param options      A string of {key}{value} pairs of edge options that are
+--                     relevant to graph drawing algorithms.
+-- @param tikz_options A string of {key}{value} pairs that need to be passed
+--                     back to TikZ unmodified.
+--
+function Interface:addEdge(from, to, direction, edge_nodes, options, tikz_options)
    assert(self.graph, "no graph created")
    Sys:logMessage("GD:INT: Edge from: " .. tostring(from) .. " to: " .. tostring(to))
    from = self.graph:findNode(Sys:escapeTeXNodeName(from))
    to = self.graph:findNode(Sys:escapeTeXNodeName(to))
    assert(from and to, "at least one node doesn't exist yet")
-   self.graph:createEdge(from, to, direction, parseBraces(options))
+   self.graph:createEdge(from, to, direction, edge_nodes, parseBraces(options), tikz_options)
 end
 
 --- Loads the file with the

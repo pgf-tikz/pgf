@@ -29,7 +29,9 @@ Edge.NONE = "-!-"
 function Edge:new(values)
    local defaults = {
       nodes = {},
+      edge_nodes = '',
       options = {},
+      tikz_options = {},
       direction = Edge.DIRECTED,
    }
    setmetatable(defaults, Edge)

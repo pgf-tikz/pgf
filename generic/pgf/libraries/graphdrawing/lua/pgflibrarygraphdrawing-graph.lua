@@ -169,8 +169,13 @@ end
 -- @param direction The direction of the new edge.
 -- @param options The options of the new edge.
 -- @return The newly created edge.
-function Graph:createEdge(nodeA, nodeB, direction, options)
-   local edge = Edge:new{direction = direction, options = options}
+function Graph:createEdge(nodeA, nodeB, direction, edge_nodes, options, tikz_options)
+   local edge = Edge:new{
+      direction = direction, 
+      edge_nodes = edge_nodes,
+      options = options, 
+      tikz_options = tikz_options
+   }
    edge:addNode(nodeA)
    edge:addNode(nodeB)
    self:addEdge(edge)

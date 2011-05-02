@@ -96,20 +96,11 @@ function Sys:putEdge(edge)
       return '(' .. string.sub(node.name, string.len('not yet positioned@') + 1) .. ')'
    end)
 
-   -- map options to option strings
-   local option_strings = table.map(edge.options, function (key, val)
-      if not val or val == '' then
-         return tostring(key)
-      else
-         return tostring(key) .. '={' .. tostring(val) .. '}'
-      end
-   end)
-
    -- determine the direction string, which is '' for undirected edges
    local direction = edge.direction == Edge.UNDIRECTED and '' or edge.direction
 
    -- generate string for the entire edge
-   local edge_string = ' ' .. 'edge' .. '[' .. table.concat(option_strings, ',') .. '] '
+   local edge_string = ' ' .. 'edge' .. '[' .. edge.tikz_options .. '] '
    local draw_string = '\\draw[' .. direction .. '] ' .. table.concat(node_strings, edge_string) .. ';'
 
    -- hand TikZ code over to TeX
