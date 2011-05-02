@@ -43,7 +43,7 @@ function orientation.rotate(graph)
     return string.sub(node.name, string.len('not yet positioned@') + 1)
   end
 
-  local axis_node1, axis_node2, desired_angle, flip = orientation.parse(graph)
+  local axis_node1, axis_node2, desired_angle, flip = orientation.parse_orientation(graph)
 
   local angle = 0
   local gaxis_vector = nil
@@ -148,7 +148,7 @@ end
 --
 -- @return TODO
 --
-function orientation.parse(graph)
+function orientation.parse_orientation(graph)
   local function stripParentheses(name)
     return name:gsub('[%(%)]', '')
   end

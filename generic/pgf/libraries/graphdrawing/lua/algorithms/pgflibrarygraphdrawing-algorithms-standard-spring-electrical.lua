@@ -67,10 +67,21 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   local initial_positioning = graph:getOption('initial positioning') or 'random'
   local positioning_func = positioning.technique(initial_positioning, graph, k)
 
+  -- fixate all nodes that have an 'at' option. this will set the
+  -- node.fixed member to true and also set node.pos.x and node.pos.y
+  fixate_nodes(graph)
+
   -- compute initial layout based on the selected positioning technique
   --Sys:logMessage('initial layout:')
   for node in table.value_iter(graph.nodes) do
-    node.position = Vector:new(2, positioning_func)
+    node.position = Vector:new(2, function (n)
+      if node.fixed then
+        local pos = { node.pos.x, node.pos.y }
+        return pos[n]
+      else
+        return positioning_func(n)
+      end
+    end)
     node.disp = Vector:new(2, function (n) return 0 end)
 
     --Sys:logMessage('  ' .. node:shortname() .. ' at ' .. tostring(node.position))
@@ -98,8 +109,12 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
     converged = true
     i = i + 1
 
+    local function nodeNotFixed(node) return not node.fixed end
+
     -- iterate over all nodes
-    for v in table.value_iter(graph.nodes) do
+    for v in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
+      assert(not v.fixed)
+
       -- vector for the displacement of v
       local d = Vector:new(2)
 
@@ -178,3 +193,28 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   -- adjust orientation
   orientation.adjust(graph)
 end
+
+
+
+--- Fixes nodes at their specified positions.
+--
+function fixate_nodes(graph)
+  for node in table.value_iter(graph.nodes) do
+    if node:getOption('at') then
+      node.pos.x, node.pos.y = parse_at_option(node)
+      node.fixed = true
+    end
+  end
+end
+
+
+
+--- Parses the at option of a node.
+--
+function parse_at_option(node)
+  local x, y = node:getOption('at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
+  return tonumber(x), tonumber(y)
+end
+
+
+
