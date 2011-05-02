@@ -108,7 +108,7 @@ end
 -- @param name Name of  the algorithm, like ``xyz''.
 -- @return The algorithm function or nil.
 function Interface:loadAlgorithm(name)
-   local functionName = "drawGraphAlgorithm_" .. name
+   local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
    local filename = "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua"
    pgf.load(filename, "tex")
    return pgf.graphdrawing[functionName]
@@ -126,8 +126,8 @@ function Interface:drawGraph()
       return
    end
 
-   local name = self:getOption("algorithm")
-   local functionName = "drawGraphAlgorithm_" .. name
+   local name = self:getOption("algorithm"):gsub('%s', '-')
+   local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
    local algorithm = pgf.graphdrawing[functionName]
 
    -- if not defined, try to load the corresponding file
