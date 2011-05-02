@@ -1,4 +1,5 @@
 -- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+-- Copyright 2011 by Jannis Pohlmann
 --
 -- This file may be distributed and/or modified
 --
