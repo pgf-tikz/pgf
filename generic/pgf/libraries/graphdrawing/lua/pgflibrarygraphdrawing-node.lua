@@ -160,7 +160,6 @@ end
 -- @param object The node to be compared to self
 -- @return True if self is equal to object.
 function Node:__eq(object)
-   Sys:logMessage('LAY: node eq function called')
    return self.name == object.name
 end
 

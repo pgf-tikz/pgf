@@ -221,6 +221,20 @@ function Edge:copy()
    return obj
  end
 
+ --- Compares two edges by their adjacent nodes.
+-- @return True if self is equal to object.
+function Edge:__eq(other)
+   if not other.nodes or #self.nodes ~= #other.nodes then
+     return false
+   end
+
+   local same_nodes = true
+   for i = 1,#self.nodes do
+     same_nodes = same_nodes and (self.nodes[i] == other.nodes[i])
+   end
+   return same_nodes
+end
+
 --- Returns a readable string representation of the edge.
 -- @return String representation of the edge.
 -- @ignore This should not appear in the documentation.
@@ -228,7 +242,7 @@ function Edge:__tostring()
    local result = "Edge(" .. self.direction .. ", reversed = " .. tostring(self.reversed) .. ", "
    if table.count_pairs(self.nodes) > 0 then
       local node_strings = table.map_values(self.nodes, function (node)
-         return tostring(node)
+         return node:shortname()
       end)
       result = result .. table.concat(node_strings, ', ')
    end
