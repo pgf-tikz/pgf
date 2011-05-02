@@ -105,17 +105,10 @@ function Sys:putEdge(edge)
       end
    end)
 
-   local direction = edge.direction
-   if direction == '--' then direction = '' end
+   -- determine the direction string, which is '' for undirected edges
+   local direction = edge.direction == Edge.UNDIRECTED and '' or edge.direction
 
    -- generate string for the entire edge
-   -- FIXME Eigentlich sollte das hier funktionieren, aber wahrscheinlich
-   -- klappt es nicht, weil wir den Code nicht in einen \graph { ... } 
-   -- schreiben:
-   -- local edge_string = ' ' .. edge.direction .. ' [' .. table.concat(option_strings, ',') .. '] '
-   -- local draw_string = table.concat(node_strings, edge_string) .. ';'
-   --
-   -- Stattdessen geht im Moment nur das hier:
    local edge_string = ' ' .. 'edge' .. '[' .. table.concat(option_strings, ',') .. '] '
    local draw_string = '\\draw[' .. direction .. '] ' .. table.concat(node_strings, edge_string) .. ';'
 
