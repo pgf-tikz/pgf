@@ -54,7 +54,7 @@ function drawGraphAlgorithm_spring(graph, options)
     node.position = Vector:new(2, positioning_technique)
     node.force = Vector:new(2, function (n) return 0 end)
   end
-  for edge in keys(graph.edges) do
+  for edge in table.value_iter(graph.edges) do
     -- default the special attraction of the edge to 1, so
     -- that it is not included in the computation of the
     -- node forces. Users may override this py providing
@@ -74,7 +74,7 @@ function drawGraphAlgorithm_spring(graph, options)
     end
 
     -- update attractive forces between adjacent nodes
-    for edge in keys(graph.edges) do
+    for edge in table.value_iter(graph.edges) do
       computeAttractiveForce(edge, k, max_repulsion)
     end
 

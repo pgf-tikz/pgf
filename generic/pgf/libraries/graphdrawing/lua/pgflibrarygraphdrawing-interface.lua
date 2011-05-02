@@ -144,7 +144,7 @@ function Interface:finishGraph()
       Sys:logMessage("GD:INT: node = " .. tostring(node))
       self:drawNode(node)
    end
-   for edge in values(graph.edges) do
+   for edge in table.value_iter(graph.edges) do
       Sys:logMessage("GD:INT: edge = " .. tostring(edge))
       self:drawEdge(edge)
    end
