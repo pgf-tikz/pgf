@@ -9,7 +9,7 @@
 
 --- @release $Header$
 
---pgf.module('pgf.graphdrawing')
+pgf.module('pgf.graphdrawing')
 
 
 

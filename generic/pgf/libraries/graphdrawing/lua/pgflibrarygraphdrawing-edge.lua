@@ -1,4 +1,5 @@
 -- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+-- Copyright 2011 by Jannis Pohlmann
 --
 -- This file may be distributed an/or modified
 --
@@ -34,6 +35,19 @@ function Edge:new(values)
    setmetatable(defaults, Edge)
    local result = mergeTable(values, defaults)
    return result
+end
+
+function Edge:setOption(name, value)
+   self.options[name] = value
+end
+
+function Edge:getOption(name)
+   return self.options[name]
+end
+
+--- Merges options.
+function Edge:mergeOptions(options)
+   self.options = table.merge(options, self.options)
 end
 
 --- Sets the path of an edge.
