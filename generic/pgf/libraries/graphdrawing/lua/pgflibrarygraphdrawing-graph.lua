@@ -295,7 +295,7 @@ function Graph:subGraph(root, graph, visited)
       if canAdd then
 	 for v in values(edge.nodes) do
 	    local translated = translate[v]
-	    copy:addNode(translated)
+	    graph:addNode(translated)
 	 end
 	 for node in values(copy.nodes) do
 	    node:addEdge(copy)

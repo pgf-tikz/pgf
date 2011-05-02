@@ -112,7 +112,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance
     local resultBox
    local boxes = {}
    local edges = {}
-	if(tree.root:degree() == 0) then
+	if(tree.root:getDegree() == 0) then
       resultBox = tree.root
    else
       resultBox = Box:new{}

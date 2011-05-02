@@ -176,5 +176,5 @@ function Node:__tostring()
 end
 
 function Node:shortname()
-  return string.sub(self.name, string.len('not yet positioned@') + 1)
+  return string.sub(self.name, string.len('not yet positionedPGFGDINTERNAL') + 1)
 end

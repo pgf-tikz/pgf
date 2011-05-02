@@ -108,7 +108,7 @@ function parseBraces(str, default)
   if str then
     local level = 0
     local key = nil
-    local value = nil
+    local value = ''
     local in_key = false
     local in_value = false
     local skip_char = false
@@ -140,7 +140,7 @@ function parseBraces(str, default)
             options[key] = value
 
             key = nil
-            value = nil
+            value = ''
 
             in_value = false
           end

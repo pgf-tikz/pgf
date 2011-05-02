@@ -40,7 +40,7 @@ end
 --
 function orientation.rotate(graph)
   local function shortname(node)
-    return string.sub(node.name, string.len('not yet positioned@') + 1)
+    return string.sub(node.name, string.len('not yet positionedPGFGDINTERNAL') + 1)
   end
 
   local axis_node1, axis_node2, desired_angle, swap = orientation.parse_orientation(graph)
