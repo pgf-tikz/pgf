@@ -26,17 +26,7 @@ function countKeys(table)
    return numItems
 end
 
---- Finds an object in a table.
--- @return The first index for a value which is equal to the object or nil.
 function findTable(table, object)
-   for i, v in ipairs(table) do
-      if object == v then
-	 return i
-      end
-   end
-   return nil
-end
-
 --- Merges two tables.
 -- Every nil value in values is replaced by its default value in
 -- defaults.  The metatable from defaults is likewise preserved.

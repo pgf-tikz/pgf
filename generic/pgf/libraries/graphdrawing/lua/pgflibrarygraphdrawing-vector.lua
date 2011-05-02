@@ -49,7 +49,7 @@ end
 
 
 function Vector:norm()
-  return math.sqrt(table.combine(self.elements, function (sum, _, val) 
+  return math.sqrt(table.combine_values(self.elements, function (sum, val) 
     return sum + val * val
   end, 0))
 end

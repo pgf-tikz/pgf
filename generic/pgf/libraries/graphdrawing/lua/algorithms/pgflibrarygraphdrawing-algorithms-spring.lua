@@ -50,7 +50,7 @@ function drawGraphAlgorithm_spring(graph, options)
   local positioning_technique = positioning.technique(initial_positioning, graph)
 
   -- reset the graph
-  for node in values(nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.position = Vector:new(2, positioning_technique)
     node.force = Vector:new(2, function (n) return 0 end)
   end
@@ -62,12 +62,14 @@ function drawGraphAlgorithm_spring(graph, options)
     edge.attraction = tonumber(edge:getOption('attraction') or 1)
   end
 
+  local node_count = table.count_pairs(graph.nodes)
+
   -- iteratively improve the energy in the system
   for i = 1, iterations do
     -- update repulsive forces between nodes in the graph
-    for u = 1, #nodes do
-      for v = u + 1, #nodes do
-        computeRepulsiveForce(nodes[u], nodes[v], k, max_repulsion)
+    for u = 1, node_count do
+      for v = u + 1, node_count do
+        computeRepulsiveForce(graph.nodes[u], graph.nodes[v], k, max_repulsion)
       end
     end
 
@@ -77,7 +79,7 @@ function drawGraphAlgorithm_spring(graph, options)
     end
 
     -- update node positions based on the new force
-    for node in values(nodes) do
+    for node in table.value_iter(graph.nodes) do
       -- create a move vector based on the force
       local move = Vector:new(2, function (n) return c * node.force:get(n) end)
 
@@ -93,7 +95,7 @@ function drawGraphAlgorithm_spring(graph, options)
   end
 
   -- position nodes according to the desired node distance
-  for node in values(nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.pos.x =  node.position:get(1) * node_distance
     node.pos.y = -node.position:get(2) * node_distance
   end

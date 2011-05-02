@@ -68,14 +68,17 @@ end
 --- Adds a node to the graph.
 -- @param node The node to be added.
 function Graph:addNode(node)
-   if not findTable(self.nodes, node) then
+   -- only add the node if it's not included in the graph yet
+   if not self:findNode(node.name) then
       table.insert(self.nodes, node)
+
       if(node.tex.maxY and node.tex.maxX and node.tex.minY and node.tex.minX) then
          node.height = string.sub(node.tex.maxY,0,string.len(node.tex.maxY)-2) - 
             string.sub(node.tex.minY,0,string.len(node.tex.minY)-2)
          node.width = string.sub(node.tex.maxX,0,string.len(node.tex.maxX)-2) - 
             string.sub(node.tex.minX,0,string.len(node.tex.minX)-2)
       end
+
       assert(node.height >= 0)
       assert(node.width >= 0)
    end
@@ -85,13 +88,10 @@ end
 -- @param node The node to remove.
 -- @return The node or nil if it wasn't contained in the graph.
 function Graph:removeNode(node)
-   local index = findTable(self.nodes, node)
-   if index then
-      table.remove(self.nodes, index)
-      return node
-   else
-      return nil
-   end
+   table.remove_values(self.nodes, function (other) 
+      return other.name == node.name 
+   end)
+   return node
 end
 
 --- Searches the nodes of the graph by the given name.
@@ -105,12 +105,7 @@ end
 -- @param test A function (with a parameter of node) returning a boolean value.
 -- @return The matching node or nil.
 function Graph:findNodeIf(test)
-   for node in values(self.nodes) do
-      if test(node) then
-	 return node
-      end
-   end
-   return nil
+   return table.find(self.nodes, test)
 end
 
 --- Like removeNode, but also removes all edges incident to the removed node
@@ -122,10 +117,10 @@ function Graph:deleteNode(node)
    local node = self:removeNode(node)
    if node then
       for edge in values(node:getEdges()) do
-	 self:removeEdge(edge)
-	 for node in values(edge:getNodes()) do
-	    node.removeEdge(edge)
-	 end
+         self:removeEdge(edge)
+         for node in values(edge:getNodes()) do
+            node.removeEdge(edge)
+         end
       end
       node.edges = {}
    end
@@ -161,7 +156,7 @@ function Graph:deleteEdge(edge)
    local edge = self:removeEdge(edge)
    if edge then
       for node in edge:getNodes() do
-	 node.removeEdge(edge)
+         node.removeEdge(edge)
       end
    end
    return edge
@@ -200,8 +195,8 @@ function Graph:walkAux(root, visited, removeIndex)
    local edgeQueue = {}
    local function insertVisited(queue, object)
       if not visited[object] then
-	 table.insert(queue, 1, object)
-	 visited[object] = true
+         table.insert(queue, 1, object)
+         visited[object] = true
       end
    end
    local function remove(queue)
@@ -210,19 +205,19 @@ function Graph:walkAux(root, visited, removeIndex)
    return
    function ()
       while #edgeQueue > 0 do
-	 local currentEdge = remove(edgeQueue)
-	 for node in values(currentEdge:getNodes()) do
-	    insertVisited(nodeQueue, node)
-	 end
-	 return currentEdge
+         local currentEdge = remove(edgeQueue)
+         for node in values(currentEdge:getNodes()) do
+            insertVisited(nodeQueue, node)
+         end
+         return currentEdge
       end
       while #nodeQueue > 0 do
-	 local currentNode = remove(nodeQueue)
-	 for edge in values(currentNode:getEdges()) do
-	    insertVisited(edgeQueue, edge)
-	 end
-	 return currentNode
-       end
+         local currentNode = remove(nodeQueue)
+         for edge in values(currentNode:getEdges()) do
+            insertVisited(edgeQueue, edge)
+         end
+         return currentNode
+      end
       return nil
    end
 end
@@ -259,9 +254,9 @@ function Graph:subGraph(root, graph, visited)
    local nodes, edges = {}, {}
    for v in self:walkDepth(root, visited) do
       if v.__index == Node then
-	 table.insert(nodes, v)
+         table.insert(nodes, v)
       elseif v.__index == Edge then
-	 table.insert(edges, v)
+         table.insert(edges, v)
       end
    end
 
@@ -310,7 +305,7 @@ function Graph:subGraphParent(root, parent, graph)
    -- mark edges with root and parent as visited
    for edge in values(root:getEdges()) do
       if edge:containsNode(root) and edge:containsNode(parent) then
-	 visited[edge] = true
+         visited[edge] = true
       end
    end
    return self:subGraph(root, graph, visited)

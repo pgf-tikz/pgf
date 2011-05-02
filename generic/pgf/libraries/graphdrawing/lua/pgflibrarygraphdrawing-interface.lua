@@ -140,7 +140,7 @@ function Interface:finishGraph()
 
    Sys:logMessage("GD:INT: graph = " .. tostring(graph))
 
-   for node in values(graph.nodes) do
+   for node in table.value_iter(graph.nodes) do
       Sys:logMessage("GD:INT: node = " .. tostring(node))
       self:drawNode(node)
    end

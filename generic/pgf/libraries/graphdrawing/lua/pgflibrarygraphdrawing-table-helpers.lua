@@ -14,9 +14,51 @@
 --- functions to create key and value iterators, copy tables, map table
 --- keys, values or pairs to new keys, values or pairs, filter values in
 --- a table etc.
+---
+--- TODO:
+--- * the order in which keys, pairs and values are iterated over is a
+---   bit mixed up right now. need to make this consistent.
 
 pgf.module("pgf.graphdrawing")
 
+
+
+--- Returns the first value for which the function returns true.
+--
+-- @param table     The table to search in.
+-- @param find_func A function to test values with.
+--
+-- @return The first value of the table for which find_func returns true.
+--
+function table.find(table, find_func)
+  for _, value in ipairs(table) do
+    if find_func(value) then
+      return value
+    end
+  end
+  return nil
+end
+
+
+
+-- Returns the index of the first value for which the function returns true.
+--
+-- @param table 
+-- @param find_func
+--
+-- @return Index of the first value of the table for which find_func 
+--         returns true. Returns nil if the function was true for none of
+--         the values in the table.
+--
+function table.find_index(table, find_func)
+  for index, value in ipairs(table) do
+    if find_func(value) then
+      return index
+    end
+  end
+  return nil
+end
+    
 
 
 --- Copies a table while preserving its metatable.
@@ -186,10 +228,28 @@ end
 --
 -- @return
 --
-function table.combine(table, combine_func, initial_value)
+function table.combine_pairs(table, combine_func, initial_value)
   local combination = initial_value or nil
   for key, val in pairs(table) do
     combination = combine_func(combination, key, val)
+  end
+  return combination
+end
+
+
+
+--- Combine all values of the table to a single value using a combine function.
+--
+-- @param table
+-- @param combine_func
+-- @param initial_value
+--
+-- @return
+--
+function table.combine_values(table, combine_func, initial_value)
+  local combination = initial_value or nil
+  for _, val in ipairs(table) do
+    combination = combine_func(combination, val)
   end
   return combination
 end
@@ -219,7 +279,7 @@ end
 -- @return An iterator for the values of the table.
 --
 function table.value_iter(table)
-  local pair_iter, state, key, value = pairs(table)
+  local pair_iter, state, key, value = ipairs(table)
   return function ()
     key, value = pair_iter(state, key)
     return value
@@ -235,5 +295,33 @@ end
 -- @return Number of key/value pairs in the table.
 --
 function table.count_pairs(input)
-  return table.combine(input, function (count, k, v) return count + 1 end, 0)
+  return table.combine_pairs(input, function (count, k, v) 
+    return count + 1 
+  end, 0)
+end
+
+
+
+--- Removes all key/value pairs from the table for whom the 
+--- remove function returns true.
+--
+-- @param input
+-- @param remove_func
+--
+-- @return
+--
+function table.remove_values(input, remove_func)
+  local remove_keys = {}
+  
+  for key, value in pairs(input) do
+    if remove_func(value) then
+      table.insert(remove_keys, key)
+    end
+  end
+
+  for key in table.value_iter(remove_keys) do
+    input[key] = nil
+  end
+
+  return input
 end

@@ -89,7 +89,7 @@ function drawGraphAlgorithm_wetherelltree(graph, options)
   local node_distance = tonumber(graph:getOption('node distance') or 28.5)
 
   -- map simplified x,y coordinates to real coordinates in the drawing
-  for node in keys(graph.nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.pos.y = -1 * node.level * node_distance
     node.pos.x = node.pos.x * node_distance
   end
@@ -130,7 +130,7 @@ function traversePostOrder(graph, enterFunc, visitFunc)
   end
 
   -- reset nodes
-  for node in keys(graph.nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.visited = false
     node.parent = nil
     node.level = nil
@@ -188,7 +188,7 @@ function traversePreOrder(graph, enterFunc, visitFunc)
   end
 
   -- reset nodes
-  for node in keys(graph.nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.visited = false
     node.parent = nil
     node.level = nil
@@ -245,7 +245,7 @@ function isTree(graph)
   end
 
   -- reset nodes
-  for node in keys(graph.nodes) do
+  for node in table.value_iter(graph.nodes) do
     node.visited = false
     node.parent = nil
     node.level = nil
