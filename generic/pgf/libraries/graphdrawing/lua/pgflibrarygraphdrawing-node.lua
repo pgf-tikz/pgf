@@ -84,9 +84,11 @@ function Node:removeEdge(edge)
    table.remove_values(self.edges, function (other) return other == edge end)
 end
 
---- Computes the number of neighbour nodes.
--- @return Number of neighbours.
-function Node:degree()
+--- Counts the adjacent edges of the node.
+--
+-- @return The number of adjacent edges of the node.
+--
+function Node:getDegree()
 	return table.count_pairs(self.edges)
 end
 

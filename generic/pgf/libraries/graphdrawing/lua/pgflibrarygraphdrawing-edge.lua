@@ -114,8 +114,10 @@ function Edge:getNeighbour(node)
    return self:getNeighbours(node)[1]
 end
 
---- Returns number of nodes on the edge.
--- @return Number of nodes of the edge.
+--- Counts the nodes on this edge.
+--
+-- @return The number of nodes on the edge.
+--
 function Edge:getDegree()
    return table.count_pairs(self.nodes)
 end
