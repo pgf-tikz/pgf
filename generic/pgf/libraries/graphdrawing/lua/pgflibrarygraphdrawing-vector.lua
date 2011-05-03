@@ -363,6 +363,12 @@ end
 
 
 function Vector:__tostring()
-  -- FIXME this is outdated; need to resolve the origin if set
-  return '(' .. table.concat(self.elements, ', ') .. ')'
+  if self.origin then
+    local values = table.map(self.elements, function (n, element)
+      return tostring(self:get(n))
+    end)
+    return '(' .. table.concat(values, ', ') .. ')'
+  else
+    return '(' .. table.concat(self.elements, ', ') .. ')'
+  end
 end
