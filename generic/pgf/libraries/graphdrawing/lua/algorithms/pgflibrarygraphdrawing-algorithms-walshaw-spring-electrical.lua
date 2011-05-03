@@ -55,8 +55,6 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
-  Sys:setVerbose(true)
-
   -- check if we should use the multilevel approach
   -- TODO parsing of boolean options should happen in the frontend layer
   local use_coarsening = graph:getOption('coarsening')
@@ -81,7 +79,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
     local graphs = compute_coarse_graphs(graph)
 
     for i = #graphs,1,-1 do
-      Sys:log('WALSHAW: lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
+      --Sys:log('WALSHAW: lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
 
       if i == #graphs then
         -- compute initial natural spring length in a way that will
@@ -97,7 +95,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
         compute_force_layout(graphs[i], C, iterations)
       end
 
-      Sys:log('WALSHAW:  ')
+      --Sys:log('WALSHAW:  ')
     end
   else
     -- use the natural spring dimension provided by the user as the 
@@ -132,7 +130,7 @@ function compute_coarse_graphs(graph)
 
   -- compute iteratively coarsened graphs
   local graphs = { graph }
-  dump_current_graph(graphs)
+  --dump_current_graph(graphs)
 
   while #graphs[#graphs].nodes > minimum_graph_size do
     --Sys:log('WALSHAW: generating coarse graph ' .. #graphs-1)
@@ -259,15 +257,15 @@ function compute_coarse_graphs(graph)
       coarse_graph:deleteNode(j)
     end
 
+    --dump_current_graph(graphs)
+
     -- stop coarsening if the number of nodes of the new coarse
     -- graph divided by the number of nodes of its predecessor
     -- is less than the coarsening threshold 
     if (#coarse_graph.nodes / #parent_graph.nodes) > coarsening_threshold then
-      Sys:log('WALSHAW: stop coarsening after ' .. #graphs .. ' graphs\n')
+      --Sys:log('WALSHAW: stop coarsening after ' .. #graphs .. ' graphs\n')
       break
     end
-
-    dump_current_graph(graphs)
   end
 
   return graphs
@@ -301,9 +299,9 @@ function copy_graph(graph)
       end) or Node:new{
         name = u.name, 
         weight = u.weight,
-        pos = u.pos,
+        pos = u.pos:copy(),
         fixed = u.fixed,
-        subnodes = u.subnodes,
+        subnodes = { u },
       }
 
       copy:addNode(u_copy)
@@ -313,9 +311,9 @@ function copy_graph(graph)
       end) or Node:new{
         name = v.name, 
         weight = v.weight,
-        pos = v.pos,
+        pos = v.pos:copy(),
         fixed = v.fixed,
-        subnodes = u.subnodes,
+        subnodes = { v },
       }
 
       copy:addNode(v_copy)
@@ -394,17 +392,16 @@ function compute_initial_layout(graph)
   local function nodeNotFixed(node) return not node.fixed end
 
   -- compute initial layout based on the selected positioning technique
-  Sys:log('WALSHAW: initial layout:')
+  --Sys:log('WALSHAW: initial layout:')
   for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
     node.pos:set{x = positioning_func(1), y = positioning_func(2)}
   end
 
-  -- apply node positions
-  for node in table.value_iter(graph.nodes) do
-    Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
-  end
+  --for node in table.value_iter(graph.nodes) do
+  --  Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
+  --end
 
-  Sys:log('WALSHAW: ')
+  --Sys:log('WALSHAW: ')
 end
 
 
@@ -412,22 +409,31 @@ end
 function interpolate_from_parent(graph, parent_graph)
   graph.k = math.sqrt(4/7) * parent_graph.k
 
-  Sys:log('WALSHAW:   interpolate from parent')
+  --Sys:log('WALSHAW:   interpolate from parent')
   for supernode in table.value_iter(parent_graph.nodes) do
-    Sys:log('WALSHAW:     supernode ' .. supernode.name .. ' at ' .. tostring(supernode.pos))
+    --Sys:log('WALSHAW:     supernode ' .. supernode.name .. ' at ' .. tostring(supernode.pos))
     if supernode.subnodes then
       local subnode_str = table.concat(table.map_values(supernode.subnodes, function (node) return node.name end), ', ')
-      Sys:log('WALSHAW:       subnodes of ' .. supernode.name .. ' are: ' .. subnode_str)
+      --Sys:log('WALSHAW:       subnodes of ' .. supernode.name .. ' are: ' .. subnode_str)
 
       for node in table.value_iter(supernode.subnodes) do
-        node.pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
-        Sys:log('WALSHAW:       node ' .. node.name .. ' at ' .. tostring(node.pos))
+        local original = table.find(graph.nodes, function (other) return other == node end)
+        assert(original)
+        original.pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
       end
     else
-      Sys:log('WALSHAW:     ' .. supernode.name .. ' has no subnodes')
+      --Sys:log('WALSHAW:     ' .. supernode.name .. ' has no subnodes')
+      local original = table.find(graph.nodes, function (node) return node == supernode end)
+      assert(original)
+      original.pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
     end
   end
-  Sys:log('WALSHAW: ')
+
+  for node in table.value_iter(graph.nodes) do
+    --Sys:log('WALSHAW:       node ' .. node.name .. ' at ' .. tostring(node.pos))
+  end
+
+  --Sys:log('WALSHAW: ')
 end
 
 
@@ -436,12 +442,6 @@ function compute_force_layout(graph, C, iterations)
   --Sys:log('WALSHAW:   compute force based layout')
 
   for node in table.value_iter(graph.nodes) do
-    -- convert node position to a vector
-    local pos = { node.pos:x(), node.pos:y() }
-    node.position = Vector:new(2, function (n)
-      return pos[n]
-    end)
-
     -- set node displacement to 0
     node.disp = Vector:new(2, function (n) return 0 end)
   end
@@ -487,7 +487,7 @@ function compute_force_layout(graph, C, iterations)
       for u in table.value_iter(graph.nodes) do
         if u.name ~= v.name then
           -- compute the distance between u and v
-          local delta = u.position:minus(v.position)
+          local delta = u.pos:minus(v.pos)
           local delta_norm = delta:norm()
 
           -- enforce a small virtual distance if the nodes are
@@ -515,7 +515,7 @@ function compute_force_layout(graph, C, iterations)
       -- compute attractive forces between v and its neighbours
       for u in table.value_iter(neighbours) do
         -- compute the distance between u and v
-        local delta = u.position:minus(v.position)
+        local delta = u.pos:minus(v.pos)
         local delta_norm = delta:norm()
 
         -- enforce a small virtual distance if the nodes are
@@ -537,17 +537,17 @@ function compute_force_layout(graph, C, iterations)
       --Sys:log('WALSHAW: total force of ' .. v.name .. ': ' .. tostring(d))
 
       -- remember the previous position of v
-      old_position = v.position:copy()
+      old_position = v.pos:copy()
 
       if d:norm() > 0 then
         -- reposition v according to the force vector and the current temperature
-        v.position = v.position:plus(d:normalized():timesScalar(math.min(t, d:norm())))
+        v.pos = v.pos:plus(d:normalized():timesScalar(math.min(t, d:norm())))
       end
 
       -- we need to improve the system energy as long as any of
       -- the node movements is large enough to assume we're far
       -- away from the minimum system energy
-      if (v.position:minus(old_position):norm() > graph.k * tol) then
+      if (v.pos:minus(old_position):norm() > graph.k * tol) then
         converged = false
       end
     end
@@ -555,10 +555,9 @@ function compute_force_layout(graph, C, iterations)
     t = cool(t)
   end
 
-  -- apply node positions
-  for node in table.value_iter(graph.nodes) do
-    node.pos:set{x = node.position:x(), y = node.position:y()}
-  end
+  --for node in table.value_iter(graph.nodes) do
+  --  Sys:log('WALSHAW:     node ' .. node.name .. ' at ' .. tostring(node.pos))
+  --end
 end
 
 
