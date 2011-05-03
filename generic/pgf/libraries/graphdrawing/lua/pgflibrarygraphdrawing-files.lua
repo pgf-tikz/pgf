@@ -18,6 +18,7 @@ local files = {
    "string",
    "sys",
    "vector",
+   "quadtree",
    "path",
    "box",
    "node",
@@ -32,6 +33,7 @@ local files = {
    "test-path",
    "test-box",
    "test-vector",
+   "test-quadtree",
 }
 
 return files

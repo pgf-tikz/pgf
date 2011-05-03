@@ -265,7 +265,13 @@ end
 --
 function Vector:get(index)
   if self.origin then
-    return self.origin:get(index) + self.elements[index]
+    local current_origin = self.origin
+    local value = 0
+    while current_origin do
+      value = value + self.origin.elements[index]
+      current_origin = current_origin.origin
+    end
+    return value + self.elements[index]
   else
     return self.elements[index]
   end
@@ -342,6 +348,7 @@ end
 --
 function Vector:setOrigin(origin, preserve_values)
   assert(not origin or #self.elements == #origin.elements)
+  assert(origin ~= self)
 
   if preserve_values then
     self:update(function (n) return self:get(n) - origin:get(n) end)

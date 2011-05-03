@@ -51,6 +51,7 @@ end
 -- @param keepAbsPosition true if the coordinates of the point are absolute
 function Path:addPoint(point, keepAbsPosition)
 	if #self._points > 0 then
+    assert(point ~= self._points[#self._points])
 		point:setOrigin(self._points[#self._points], keepAbsPosition)
 	end
 	table.insert(self._points, point)

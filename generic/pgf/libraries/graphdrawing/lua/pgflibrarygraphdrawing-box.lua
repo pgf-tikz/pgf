@@ -43,6 +43,7 @@ end
 --- Adds new internal Box.
 -- @param box The box to be added.
 function Box:addBox(box)
+   assert(box.pos ~= self.pos)
    box.pos:setOrigin(self.pos)
    self._boxes[box] = true
    self:recalculateSize()
