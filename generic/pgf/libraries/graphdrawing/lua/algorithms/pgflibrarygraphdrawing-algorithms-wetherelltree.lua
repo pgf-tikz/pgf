@@ -44,7 +44,7 @@ function drawGraphAlgorithm_wetherelltree(graph, options)
       else
         -- place the node at the average x coordinate of all its children
         node.pos.x = 0
-        for child in values(children) do
+        for child in table.value_iter(children) do
           node.pos.x = node.pos.x + child.pos.x
         end
         node.pos.x = node.pos.x / #children
@@ -146,7 +146,7 @@ function traversePostOrder(graph, enterFunc, visitFunc)
       local node = peek()
       local children = getChildren(node)
 
-      for child in values(children) do
+      for child in table.value_iter(children) do
         child.parent = node
         child.level = node.level + 1
       end
@@ -204,7 +204,7 @@ function traversePreOrder(graph, enterFunc, visitFunc)
       local node = pop()
       local children = getChildren(node)
 
-      for child in values(children) do
+      for child in table.value_iter(children) do
         child.parent = node
         child.level = node.level + 1
       end
@@ -252,7 +252,7 @@ function isTree(graph)
   end
 
   -- reset edges
-  for edge in values(graph.edges) do
+  for edge in table.value_iter(graph.edges) do
     edge.explored = false
   end
 
@@ -272,7 +272,6 @@ function isTree(graph)
     local node = pop()
 
     -- iterate over all adjacent edges that we haven't explored yet
-    --for edge in filter(values(node:getEdges()), edgeNotExplored) do
     for edge in iter.filter(table.value_iter(node.edges), edgeNotExplored) do
       -- mark the edge as explored
       edge.explored = true

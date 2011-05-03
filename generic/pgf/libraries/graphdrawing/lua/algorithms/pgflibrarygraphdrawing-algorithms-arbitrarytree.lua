@@ -27,7 +27,7 @@ function drawGraphAlgorithm_arbitrarytree(graph)
    if not isTree(graph, graph.root) then
       error("the given graph is not a tree")
    end
-   for n in values(graph.nodes) do
+   for n in table.value_iter(graph.nodes) do
       Sys:log("GD:AT " .. n.name)
    end  
    -- read TEX-options
@@ -66,10 +66,10 @@ end
 function checkNodes(graph, node, visitedNodes, parent)
    local visited = false
    if node:getDegree() > 1 then
-      for edge in values(node.edges) do   
+      for edge in table.value_iter(node.edges) do   
         --check if all nodes of the edge have already been visited
-	     for node in values(edge.nodes) do
-           if findTable(visitedNodes, node.name) then
+	     for node in table.value_iter(edge.nodes) do
+           if table.find(visitedNodes, function (name) return name == node.name end) then
               visited = true
            else
               visited = false
@@ -78,7 +78,7 @@ function checkNodes(graph, node, visitedNodes, parent)
          
         if visited then
            --if the child has already been visited return false
-          if findTable(visitedNodes, edge:getNeighbour(node).name) and edge:getNeighbour(node).name ~= parent.name then 
+          if table.find(visitedNodes, function (name) return name == edge:getNeighbour(node).name end) and edge:getNeighbour(node).name ~= parent.name then 
              return false
           end  
        else 
@@ -116,7 +116,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance
       resultBox = tree.root
    else
       resultBox = Box:new{}
-		for edge in values(tree.root.edges) do
+		for edge in table.value_iter(tree.root.edges) do
          local node = edge:getNeighbour(tree.root)
          edges[node.name] = edge
          local box = treePositioning(tree:subGraphParent(node, tree.root),
@@ -134,7 +134,7 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance
       if placeBoxes then
          placeBoxes(tree.root, boxes, leveldistance, siblingdistance)
       end
-      for box in values(boxes) do
+      for box in table.value_iter(boxes) do
          local path = drawPath(tree.root, box.root)
          resultBox._paths[box.root.name] = path
       end
@@ -164,13 +164,13 @@ end
 function verticalPlace(root, boxes)
    local x = root.width
    local y = 0
-   for box in values(boxes) do
-      box.pos.x = x
-      box.pos.y = y
+   for box in table.value_iter(boxes) do
+      box.pos:set{x = x}
+      box.pos:set{y = y}
       y = y + 1 + box.height
    end
-   root.pos.x = 0
-   root.pos.y = y
+   root.pos:set{x = 0}
+   root.pos:set{y = y}
 end
 
 --- Creates a path from root to box, useful if the boxes are positioned vertically
@@ -180,7 +180,7 @@ end
 function verticalPathPlacement(root, box)
    local path = Path:new()
    path:addPoint(root:getPosAt(Box.CENTER, true))
-   path:move(0, box:getPosAt(Box.CENTER, true).y - root:getPosAt(Box.CENTER, true).y)
+   path:move(0, box:getPosAt(Box.CENTER, true):y() - root:getPosAt(Box.CENTER, true):y())
    path:addPoint(box:getPosAt(Box.CENTER, true))
    return path
 end
@@ -192,17 +192,17 @@ end
 -- The root of each treelayer is positioned above the left box of the layer.
 function simplePlace(root, boxes)
    local lastbox
-   for box in values(boxes) do      
+   for box in table.value_iter(boxes) do      
       if not lastbox then
-         box.pos.y = 0
-         box.pos.x = 0
+         box.pos:set{x = 0}
+         box.pos:set{y = 0}
          local pos = box:getPosAt(Box.UPPERRIGHT, false)
-         root.pos.x = pos.x
-         root.pos.y = pos.y + 1
+         root.pos:set{x = pos:x()}
+         root.pos:set{y = pos:y() + 1}
       else
           local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
-         box.pos.y = 0
-         box.pos.x = pos.x + 1
+         box.pos:set{y = 0}
+         box.pos:set{x = pos:x() + 1}
       end
       lastbox = box
    end
@@ -225,7 +225,7 @@ function advancedPlace(root, boxes, leveldistance, siblingdistance)
    local bs = #boxes
    local i, j
    --first loop sorts the boxes
-   for box in values(boxes) do
+   for box in table.value_iter(boxes) do
       if not lastbox2 then
          if bs%2 == 0 then
             i = bs/2
@@ -251,22 +251,22 @@ function advancedPlace(root, boxes, leveldistance, siblingdistance)
    end   
    boxes = tempboxes
    --second loop computes the positions of each box
-   for box in values(boxes) do      
+   for box in table.value_iter(boxes) do      
       if not lastbox then
-         box.pos.y = maxY - box.height
-         box.pos.x = 0
+         box.pos:set{y = maxY - box.height}
+         box.pos:set{x = 0}
          local pos = box:getPosAt(Box.UPPERRIGHT, false)
          width = width + box.width
 
       else
           local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
-         box.pos.y = maxY - box.height
-         box.pos.x = pos.x + siblingdistance
+         box.pos:set{y = maxY - box.height}
+         box.pos:set{x = pos:x() + siblingdistance}
          width = width + box.width + siblingdistance   
       end   
       lastbox = box
    end
-   root.pos.y = maxY + leveldistance
-   root.pos.x = width/2 - root.width/2
+   root.pos:set{y = maxY + leveldistance}
+   root.pos:set{x = width/2 - root.width/2}
 end
 

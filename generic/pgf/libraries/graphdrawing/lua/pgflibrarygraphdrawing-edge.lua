@@ -56,7 +56,7 @@ function Edge:new(values)
     reversed = false,
   }
   setmetatable(defaults, Edge)
-  local result = mergeTable(values, defaults)
+  local result = table.custom_merge(values, defaults)
   return result
 end
 
@@ -280,10 +280,9 @@ end
 -- @return Shallow copy of the edge.
 --
 function Edge:copy()
-  local result = copyTable(self, Edge:new())
-  result._nodes = {}
-  obj.nodes = {}
-  return obj
+  local result = table.custom_copy(self, Edge:new())
+  result.nodes = {}
+  return result
  end
 
 

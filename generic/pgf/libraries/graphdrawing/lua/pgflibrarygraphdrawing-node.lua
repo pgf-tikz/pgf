@@ -44,11 +44,11 @@ function Node:new(values)
       minY = 0 
     },
     edges = {},
-    pos = Position:new(),
+    pos = Vector:new(2),
     options = {},
   }
   setmetatable(defaults, Node)
-  local result = mergeTable(values, defaults)
+  local result = table.custom_merge(values, defaults)
   return result
 end
 
@@ -211,10 +211,9 @@ end
 -- @return Copy of the node.
 --
 function Node:copy()
-  obj = Node:new()
-  local result = copyTable(self, obj)
-  obj.edges = {}
-  return obj
+  local result = table.custom_copy(self, Node:new())
+  result.edges = {}
+  return result
 end
 
 

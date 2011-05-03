@@ -28,21 +28,21 @@ Box.CENTER = "center"
 -- @return The new box.
 function Box:new(values)
    local defaults = {
-      pos = Position:new(),
+      pos = Vector:new(2),
       _boxes = {},
       _paths = {},
       height = 0,
       width = 0
    }
    setmetatable(defaults, Box)
-   local result = mergeTable(values, defaults)
+   local result = table.custom_merge(values, defaults)
    return result
 end
 
 --- Adds new internal Box.
 -- @param box The box to be added.
 function Box:addBox(box)
-   box.pos:relateTo(self.pos)
+   box.pos:setOrigin(self.pos)
    self._boxes[box] = true
    self:recalculateSize()
 end
@@ -50,7 +50,7 @@ end
 --- Removes internal Box.
 -- @param box The box to remove.
 function Box:removeBox(box)
-	box.pos:relateTo(nil)
+	box.pos:setOrigin(nil)
 	self._boxes[box] = nil
 	self:recalculateSize()
 end
@@ -61,8 +61,8 @@ function Box:recalculateSize()
 	local height = 0
 	for box in pairs(self._boxes) do
 		local ur = box:getPosAt(Box.UPPERRIGHT)
-		width = math.max(width, ur.x)
-		height = math.max(height, ur.y)
+		width = math.max(width, ur:x())
+		height = math.max(height, ur:y())
 	end
 	self.width = width
 	self.height = height
@@ -87,19 +87,20 @@ end
 function Box:getPosAt(place, absolute)
 	local position = self.pos:copy()
 	if(place == Box.UPPERLEFT) then
-		position.y = position.y + self.height
+		position:set{y = position:y() + self.height}
 	elseif(place == Box.UPPERRIGHT) then
-		position.y = position.y + self.height
-		position.x = position.x + self.width
+		position:set{y = position:y() + self.height}
+		position:set{x = position:x() + self.width}
 	elseif(place == Box.LOWERRIGHT) then
-		position.x = position.x + self.width
+		position:set{x = position:x() + self.width}
 	elseif(place == Box.CENTER) then
-		position.x = position.x + (self.width / 2)
-		position.y = position.y + (self.height / 2)
+		position:set{x = position:x() + (self.width / 2)}
+		position:set{y = position:y() + (self.height / 2)}
 	end
 	if absolute then
-		position.x, position.y = position:getAbsCoordinates()
-		position:relateTo(nil)
+    position:set{x = position:get(1)}
+    position:set{y = position:get(2)}
+    position:setOrigin(nil)
 	end
 	return position
 end
@@ -109,8 +110,8 @@ end
 function Box:getPaths()
 	local result = {}
 	for box in pairs(self._boxes) do
-		result = mergeTable(result, box:getPaths())
+		result = table.custom_merge(result, box:getPaths())
 	end
-	result = mergeTable(result, self._paths)
+	result = table.custom_merge(result, self._paths)
 	return result
 end

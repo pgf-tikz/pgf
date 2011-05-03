@@ -58,12 +58,10 @@ function orientation.rotate(graph)
 
     if node1 and node2 then
       -- create first node vector
-      local pos1 = { node1.pos.x, node1.pos.y }
-      gbase_vector = Vector:new(2, function (n) return pos1[n] end)
+      gbase_vector = node1.pos:copy()
 
       -- create second node vector
-      local pos2 = { node2.pos.x, node2.pos.y }
-      local vec2 = Vector:new(2, function (n) return pos2[n] end)
+      local vec2 = node2.pos:copy()
 
       -- compute the difference vector which also is the graph axis vector
       gaxis_vector = vec2:minus(gbase_vector)
@@ -107,20 +105,20 @@ function orientation.rotate(graph)
 
     -- perform the rotation
     for node in table.value_iter(graph.nodes) do
-      local x, y = node.pos.x, node.pos.y
-      node.pos.x = x * math.cos(angle) - y * math.sin(angle)
-      node.pos.y = x * math.sin(angle) + y * math.cos(angle)
+      local x, y = node.pos:x(), node.pos:y()
+      node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
+      node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
     end
   
     if swap then
       -- flip nodes over the axis
       for node in table.value_iter(graph.nodes) do
-        if node.pos.y > gbase_vector:get(2) then
-          local diff = node.pos.y - gbase_vector:get(2)
-          node.pos.y = gbase_vector:get(2) - diff
-        elseif node.pos.y < gbase_vector:get(2) then
-          local diff = gbase_vector:get(2) - node.pos.y
-          node.pos.y = gbase_vector:get(2) + diff
+        if node.pos:y() > gbase_vector:y() then
+          local diff = node.pos:y() - gbase_vector:y()
+          node.pos:set{y = gbase_vector:y() - diff}
+        elseif node.pos:y() < gbase_vector:y() then
+          local diff = gbase_vector:y() - node.pos:y()
+          node.pos:set{y = gbase_vector:y() + diff}
         end
       end
     end
@@ -128,9 +126,9 @@ function orientation.rotate(graph)
     -- rotate by the angle desired by the user
     angle = (desired_angle / 360) * 2 * math.pi
     for node in table.value_iter(graph.nodes) do
-      local x, y = node.pos.x, node.pos.y 
-      node.pos.x = x * math.cos(angle) - y * math.sin(angle)
-      node.pos.y = x * math.sin(angle) + y * math.cos(angle)
+      local x, y = node.pos:x(), node.pos:y() 
+      node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
+      node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
     end
   end
 end

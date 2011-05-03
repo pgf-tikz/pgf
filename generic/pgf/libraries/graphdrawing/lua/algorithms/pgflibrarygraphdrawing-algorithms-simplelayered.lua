@@ -36,12 +36,6 @@ function drawGraphAlgorithm_simplelayered(graph)
     Sys:log('LAY:')
   end
 
-  -- convert node positions to vectors
-  for node in table.value_iter(graph.nodes) do
-    local pos = { node.pos.x, node.pos.y }
-    node.position = Vector:new(2, function (n) return pos[n] end)
-  end
-
   removeCycles(graph)
   local layers = computeLayering(graph)
   local original_edges, dummy_nodes = convertToProperLayout(graph, layers)
@@ -56,14 +50,14 @@ function drawGraphAlgorithm_simplelayered(graph)
 
   -- Scale the output drawing 
   for node in table.value_iter(graph.nodes) do
-    node.pos.x =  node.position:get(1) * graph:getOption('node distance')
-    node.pos.y = -node.position:get(2) * graph:getOption('node distance')
+    node.pos:set{x =  node.pos:get(1) * graph:getOption('node distance')}
+    node.pos:set{y = -node.pos:get(2) * graph:getOption('node distance')}
   end
 
   for edge in table.value_iter(graph.edges) do
     for point in table.value_iter(edge.bend_points) do
-      point:set(1,  point:get(1) * graph:getOption('node distance'))
-      point:set(2, -point:get(2) * graph:getOption('node distance'))
+      point:set{x =  point:get(1) * graph:getOption('node distance')}
+      point:set{y = -point:get(2) * graph:getOption('node distance')}
     end
   end
 
@@ -128,12 +122,12 @@ function computeLayering(graph)
       -- we have a sink => place it at the first layer
       layers[1] = layers[1] or {}
       table.insert(layers[1], node)
-      node.position:set(2, 1)
+      node.pos:set{y = 1}
     else
       -- we have a regular node, find out the layers of its neighbours
       local neighbour_layers = table.map_values(in_edges, function (edge)
         local neighbour = edge:getNeighbour(node)
-        return neighbour.position:get(2)
+        return neighbour.pos:get(2)
       end)
 
       -- compute the maximum layer of the neighbours
@@ -144,7 +138,7 @@ function computeLayering(graph)
       -- place the node one layer above/below all its neighbours
       layers[max_layer+1] = layers[max_layer+1] or {}
       table.insert(layers[max_layer+1], node)
-      node.position:set(2, max_layer+1)
+      node.pos:set{y = max_layer+1}
     end
   end
 
@@ -171,7 +165,7 @@ function convertToProperLayout(graph, layers)
     if #in_edges > 0 then
       for edge in table.value_iter(in_edges) do
         local neighbour = edge:getNeighbour(node)
-        local dist = node.position:get(2) - neighbour.position:get(2)
+        local dist = node.pos:get(2) - neighbour.pos:get(2)
 
         if dist > 1 then
           local dummies = {}
@@ -182,8 +176,8 @@ function convertToProperLayout(graph, layers)
 
             dummies[i] = Node:new{name = name}
 
-            local pos = { 0, neighbour.position:get(2) + i }
-            dummies[i].position = Vector:new(2, function (n) return pos[n] end)
+            local pos = { 0, neighbour.pos:get(2) + i }
+            dummies[i].pos = Vector:new(2, function (n) return pos[n] end)
 
             graph:addNode(dummies[i])
 
@@ -237,13 +231,13 @@ function reduceEdgeCrossings(graph, layers)
     elseif not b then
       return false
     else
-      return a.position:get(1) <= b.position:get(2)
+      return a.pos:get(1) <= b.pos:get(2)
     end
   end
 
   local next_x = 0
   for node in traversal.depth_first_dag(graph, layers[1]) do
-    node.position:set(1, next_x)
+    node.pos:set{x = next_x}
     next_x = next_x + 1
   end
 
@@ -257,7 +251,7 @@ function reduceEdgeCrossings(graph, layers)
 
       local positions = table.map_values(in_edges, function (edge)
         local neighbour = edge:getNeighbour(node)
-        return neighbour.position:get(1)
+        return neighbour.pos:get(1)
       end)
 
       local sum = table.combine_values(positions, function (sum, pos)
@@ -266,13 +260,13 @@ function reduceEdgeCrossings(graph, layers)
 
       local avg = sum / #in_edges
 
-      node.position:set(1, avg)
+      node.pos:set{x = avg}
     end
 
     for l = 1,#layers[i] do
       for m = l+1,#layers[i] do
-        if layers[i][l].position:get(1) == layers[i][m].position:get(1) then
-          layers[i][m].position:set(1, layers[i][m].position:get(1) + 0.001)
+        if layers[i][l].pos:get(1) == layers[i][m].pos:get(1) then
+          layers[i][m].pos:set{x = layers[i][m].pos:get(1) + 0.001}
         end
       end
     end
@@ -281,7 +275,7 @@ function reduceEdgeCrossings(graph, layers)
   end
 
   for node in table.value_iter(graph.nodes) do
-    node.position:set(1, 0)
+    node.pos:set{x = 0}
   end
 end
 
@@ -292,7 +286,7 @@ function assignCoordinates(graph, layers, original_edges, dummy_nodes, dummy_edg
   for layer in table.value_iter(layers) do
     local layer_x = 0
     for node in table.value_iter(layer) do
-      node.position:set(1, layer_x)
+      node.pos:set{x = layer_x}
       layer_x = layer_x + 1
     end
   end
@@ -303,7 +297,7 @@ function assignCoordinates(graph, layers, original_edges, dummy_nodes, dummy_edg
 
       local positions = table.map_values(in_edges, function (edge)
         local neighbour = edge:getNeighbour(node)
-        return neighbour.position:get(1)
+        return neighbour.pos:get(1)
       end)
 
       local sum = table.combine_values(positions, function (sum, pos)
@@ -312,21 +306,21 @@ function assignCoordinates(graph, layers, original_edges, dummy_nodes, dummy_edg
 
       local avg = sum / #in_edges
 
-      node.position:set(1, avg)
+      node.pos:set{x = avg}
     end
 
     for l = 1,#layers[i] do
       for m = l+1,#layers[i] do
-        local diff = layers[i][m].position:get(1) - layers[i][l].position:get(1)
+        local diff = layers[i][m].pos:get(1) - layers[i][l].pos:get(1)
         if math.abs(diff) < 1 then
-          layers[i][m].position:set(1, layers[i][m].position:get(1) + (1 - math.abs(diff)))
+          layers[i][m].pos:set{x = layers[i][m].pos:get(1) + (1 - math.abs(diff))}
         end
       end
     end
 
     Sys:log('positions at layer ' .. i)
     for node in table.value_iter(layers[i]) do
-      Sys:log('  ' .. tostring(node) .. ' = ' .. node.position:get(1))
+      Sys:log('  ' .. tostring(node) .. ' = ' .. node.pos:get(1))
     end
   end
 
@@ -344,7 +338,7 @@ function assignCoordinates(graph, layers, original_edges, dummy_nodes, dummy_edg
     end
 
     for bend_node in table.value_iter(edge.bend_nodes) do
-      local point = Vector:new(2, function (n) return bend_node.position:get(n) end)
+      local point = Vector:new(2, function (n) return bend_node.pos:get(n) end)
       table.insert(edge.bend_points, point)
     end
   end

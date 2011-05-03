@@ -28,13 +28,15 @@ Vector.__index = Vector
 --                      and is expected to return a value for the corresponding element
 --                      of the vector. If omitted, all elements of the vector will 
 --                      be initialized with 0.
+-- @param origin        Optional origin vector.
 --
 -- @return A newly-allocated vector with \meta{n} elements.
 --
-function Vector:new(n, fill_function)
+function Vector:new(n, fill_function, origin)
   -- create vector
   local vector = {
-    elements = {}
+    elements = {},
+    origin = origin or nil,
   }
   setmetatable(vector, Vector)
 
@@ -59,12 +61,14 @@ end
 -- @return A newly-allocated copy of the vector holding exactly the same elements.
 -- 
 function Vector:copy()
-  return Vector:new(#self.elements, function (n) return self.elements[n] end)
+  return Vector:new(#self.elements, function (n) return self.elements[n] end, self.origin)
 end
 
 
 
 --- Convenience method that returns the first element of the vector.
+--
+-- The origin vector is not resolved in this function call.
 --
 -- @return The first element of the vector.
 --
@@ -76,6 +80,8 @@ end
 
 --- Convenience method that returns the second element of the vector.
 --
+-- The origin vector is not resolved in this function call.
+--
 -- @return The second element of the vector.
 -- 
 function Vector:y()
@@ -86,7 +92,11 @@ end
 
 --- Performs a vector addition and returns the result in a new vector.
 --
--- @param other The vector to add.
+-- @param other The vector to add. If this vector is defined relative
+--              to an origin, then that origin is resolved when 
+--              computing the sum of the two vectors. The sum becomes
+--              |self + other.origin + other|. The origin of |self|
+--              is preserved.
 --
 -- @return A new vector with the result of the addition.
 --
@@ -94,8 +104,8 @@ function Vector:plus(other)
   assert(#self.elements == #other.elements)
 
   return Vector:new(#self.elements, function (n)
-    return self.elements[n] + other.elements[n]
-  end)
+    return self.elements[n] + other:get(n)
+  end, self.origin)
 end
 
 
@@ -111,14 +121,18 @@ end
 function Vector:plusScalar(scalar)
   return Vector:new(#self.elements, function (n)
     return self.elements[n] + scalar
-  end)
+  end, self.origin)
 end
 
 
 
 --- Subtracts two vectors and returns the result in a new vector.
 --
--- @param other Vector to subtract.
+-- @param other Vector to subtract. If this vector is defined relative
+--              to an origin, then that origin is resolved when 
+--              computing the subtraction of the two vectors. The
+--              result becomes |self + other.origin + other|. The origin
+--              of |self| is preserved.
 --
 -- @return A new vector with the result of the subtraction.
 --
@@ -126,8 +140,8 @@ function Vector:minus(other)
   assert(#self.elements == #other.elements)
 
   return Vector:new(#self.elements, function (n) 
-    return self.elements[n] - other.elements[n]
-  end)
+    return self.elements[n] - other:get(n)
+  end, self.origin)
 end
 
 
@@ -141,12 +155,15 @@ end
 function Vector:minusScalar(scalar)
   return Vector:new(#self.elements, function (n)
     return self.elements[n] - scalar
-  end)
+  end, self.origin)
 end
 
 
 
 --- Performs a vector division and returns the result in a new vector.
+--
+-- The possible origins of the vector operands are resolved
+-- and are dropped in the result vector.
 --
 -- @param other Vector to divide by.
 --
@@ -156,7 +173,7 @@ function Vector:dividedBy(other)
   assert(#self.elements == #other.elements)
 
   return Vector:new(#self.elements, function (n)
-    return self.elements[n] / other.elements[n]
+    return self:get(n) / other:get(n)
   end)
 end
 
@@ -164,13 +181,16 @@ end
 
 --- Divides a vector by a scalar value and returns the result in a new vector.
 --
+-- The possible origin of the vector is resolved and is 
+-- dropped in the result vector.
+--
 -- @param scalar Scalar value to divide the vector by.
 --
 -- @return A new vector with the result of the division.
 --
 function Vector:dividedByScalar(scalar)
   return Vector:new(#self.elements, function (n)
-    return self.elements[n] / scalar
+    return self:get(n) / scalar
   end)
 end
 
@@ -178,19 +198,25 @@ end
 
 --- Multiplies a vector by a scalar value and returns the result in a new vector.
 --
+-- The possible origin of the vector is resolved and is dropped
+-- in the result vector.
+--
 -- @param scalar Scalar value to multiply the vector with.
 --
 -- @return A new vector with the result of the multiplication.
 --
 function Vector:timesScalar(scalar)
   return Vector:new(#self.elements, function (n)
-    return self.elements[n] * scalar
+    return self:get(n) * scalar
   end)
 end
 
 
 
 --- Performs the dot product of two vectors and returns the result in a new vector.
+--
+-- The possible origins of the vector operands are resolved
+-- during the compuation.
 --
 -- @param other Vector to perform the dot product with.
 --
@@ -201,7 +227,7 @@ function Vector:dotProduct(other)
 
   local product = 0
   for n = 1,#self.elements do
-    product = product + self.elements[n] * other.elements[n]
+    product = product + self:get(n) * other:get(n)
   end
   return product
 end
@@ -222,6 +248,9 @@ end
 
 --- Normalizes the vector and returns the result in a new vector.
 --
+-- The possible origin of the vector is resolved during
+-- the computation and is dropped in the result vector.
+--
 -- @return Normalized version of the original vector.
 --
 function Vector:normalized()
@@ -235,7 +264,11 @@ end
 -- @return The element at the given \meta{index}.
 --
 function Vector:get(index)
-  return self.elements[index]
+  if self.origin then
+    return self.origin:get(index) + self.elements[index]
+  else
+    return self.elements[index]
+  end
 end
 
 
@@ -246,12 +279,23 @@ end
 -- @param value New value of the element.
 --
 function Vector:set(index, value)
-  self.elements[index] = value
+  if type(index) == 'table' then
+    if index.x then
+      self.elements[1] = index.x
+    end
+    if index.y then
+      self.elements[2] = index.y
+    end
+  else
+    self.elements[index] = value
+  end
 end
 
 
 
 --- Resets all vector elements to 0 in-place.
+--
+-- This does not reset the origin vector.
 --
 function Vector:reset()
   self:update(function (n, value) return 0 end)
@@ -287,6 +331,38 @@ end
 
 
 
+--- Sets the origin of the vector.
+--
+-- @param origin          Vector to use as the origin.
+-- @param preserve_values Optional flag. If set to |true|, the origin
+--                        will be set and the current elements of the
+--                        vector will be changed so that the sum of
+--                        the origin and the new element values is equal
+--                        to the old values.
+--
+function Vector:setOrigin(origin, preserve_values)
+  assert(not origin or #self.elements == #origin.elements)
+
+  if preserve_values then
+    self:update(function (n) return self:get(n) - origin:get(n) end)
+  end
+
+  self.origin = origin
+end
+
+
+
+--- Gets the origin of the vector.
+--
+-- @return Origin of the vector or |nil| if none is set.
+--
+function Vector:getOrigin()
+  return self.origin
+end
+
+
+
 function Vector:__tostring()
+  -- FIXME this is outdated; need to resolve the origin if set
   return '(' .. table.concat(self.elements, ', ') .. ')'
 end

@@ -22,7 +22,7 @@ function drawGraphAlgorithm_localsearchgraph(graph)
    local vSpace = graph:getOption("max height")
    --determine maxWidth and maxHeigth of all nodes, using math.ceil to avoid broken numbers
    local maxWidth, maxHeight = 0, 0
-   for node in values(graph.nodes) do
+   for node in table.value_iter(graph.nodes) do
       maxWidth = math.max(maxWidth, math.ceil(node.width))
       maxHeight = math.max(maxHeight, math.ceil(node.height))
    end
@@ -46,11 +46,12 @@ function drawGraphAlgorithm_localsearchgraph(graph)
    local nodes, origNodesMap, nodeTable = {}, {}, {}
    local iteration, offset, switchOffset, direction = 0, 1, 0, 1
    local first = true
-   for node in values(graph.nodes) do
+   for node in table.value_iter(graph.nodes) do
       local newNode = Node:new{name = node.name}
       local positioned = false
       repeat
-         newNode.pos.x, newNode.pos.y = midPos.x, midPos.y
+         newNode.pos:set{x = midPos.x}
+         newNode.pos:set{y = midPos.y}
          if iteration == offset then
             iteration = 0
             switchOffset = switchOffset + 1
@@ -65,28 +66,27 @@ function drawGraphAlgorithm_localsearchgraph(graph)
          if not first then
             local temp
             if switchOffset == 1 then
-               newNode.pos.x = newNode.pos.x + (direction * maxWidth)
+               newNode.pos:set{x = newNode.pos:x() + (direction * maxWidth)}
             else
-               newNode.pos.y = newNode.pos.y + (direction * maxHeight)
+               newNode.pos:set{y = newNode.pos:y() + (direction * maxHeight)}
             end
             iteration = iteration + 1
          end
          first = false
-         midPos.x, midPos.y = newNode.pos.x, newNode.pos.y
-         local x, y = (newNode.pos.x / maxWidth), (newNode.pos.y / maxHeight)
+         midPos.x, midPos.y = newNode.pos:x(), newNode.pos:y()
+         local x, y = (newNode.pos:x() / maxWidth), (newNode.pos:y() / maxHeight)
          if(x <= maxCols-1 and y <= maxRows-1) then
             positioned = true
          end
       until positioned
-      Sys:log("GD:LSG: ", newNode.name, " starts at (", newNode.pos.x,
-            ", ", newNode.pos.y, ")")
+      Sys:log("GD:LSG: ", newNode.name, " starts at " .. tostring(newNode.pos))
       nodes[node.name] = newNode
       origNodesMap[node.name] = node
       table.insert(nodeTable, newNode);
    end
    --create paths
    local paths = {}
-   for edge in values(graph.edges) do
+   for edge in table.value_iter(graph.edges) do
       local newPath = Path:createPath(nodes[edge.nodes[1].name].pos,
          nodes[edge.nodes[2].name].pos) 
       table.insert(paths, newPath)
@@ -100,16 +100,16 @@ function drawGraphAlgorithm_localsearchgraph(graph)
       paths = paths,
       edges = graph.edges}
    --calculate endstate
-   assert(#start.nodes == countKeys(graph.nodes),
+   assert(#start.nodes == table.count_pairs(graph.nodes),
       "GD:LSG: Number of Nodes is not equal!")
    local endState = localSearch(start, simpleNeighbour, simpleCost)
    --write nodes in original graph
-   for node in values(endState.nodes) do
-      Sys:log("LSG:GD: Node ",node.name, " X: ", node.pos.x, " Y: ", node.pos.y)
-      origNodesMap[node.name].pos.x, origNodesMap[node.name].pos.y
-         = node.pos.x, node.pos.y
+   for node in table.value_iter(endState.nodes) do
+      Sys:log("LSG:GD: Node ",node.name, " X: ", node.pos:x(), " Y: ", node.pos:y())
+      origNodesMap[node.name].pos:set{x = node.pos:x()}
+      origNodesMap[node.name].pos:set{y = node.pos:y()}
    end
-   for path in values(endState.paths) do
+   for path in table.value_iter(endState.paths) do
       Sys:log("LSG:GD: Path ", tostring(path))
    end
 end
@@ -165,7 +165,7 @@ function cloneState(state)
       ret.nodes[idx].pos = ret.nodes[idx].pos:copy()
       nodeMap[val.name] = ret.nodes[idx]
    end
-   for val in values(state.edges) do
+   for val in table.value_iter(state.edges) do
       local newPath = Path:createPath(
          nodeMap[val.nodes[1].name].pos,
          nodeMap[val.nodes[2].name].pos,
@@ -193,12 +193,12 @@ function simpleNeighbour(state)
             local reserved = false
             for idx, node in ipairs(state.nodes) do
                -- if there is already a node an this position, switch them
-               if tostring(node.pos.x) == tostring(cx) and tostring(node.pos.y) == tostring(cy) then
+               if tostring(node.pos:x()) == tostring(cx) and tostring(node.pos:y()) == tostring(cy) then
                   local nState = cloneState(state)
-                  nState.nodes[idx].pos.x, nState.nodes[idx].pos.y =
-                     nState.nodes[nodeIdx].pos.x, nState.nodes[nodeIdx].pos.y
-                  nState.nodes[nodeIdx].pos.x, nState.nodes[nodeIdx].pos.y =
-               	     tonumber(tostring(cx)), tonumber(tostring(cy))
+                  nState.nodes[idx].pos:set{x = nState.nodes[nodeIdx].pos:x()}
+                  nState.nodes[idx].pos:set{y = nState.nodes[nodeIdx].pos:y()}
+                  nState.nodes[nodeIdx].pos:set{x = tonumber(tostring(cx))}
+                  nState.nodes[nodeIdx].pos:set{y = tonumber(tostring(cy))}
                   cy = cy + state.offsetY
                   return nState
                end
@@ -206,8 +206,8 @@ function simpleNeighbour(state)
             if not reserved then
                --on a free position, place node there
                local nState = cloneState(state)
-               nState.nodes[nodeIdx].pos.x, nState.nodes[nodeIdx].pos.y =
-               	tonumber(tostring(cx)), tonumber(tostring(cy))
+               nState.nodes[nodeIdx].pos:set{x = tonumber(tostring(cx))}
+               nState.nodes[nodeIdx].pos:set{y = tonumber(tostring(cy))}
                cy = cy + state.offsetY
                return nState
             else
@@ -256,7 +256,7 @@ end
 function maxPath(state)
    --aggregate length of all paths
    local pLength = 0
-   for path in values(state.paths) do
+   for path in table.value_iter(state.paths) do
       pLength = math.max(pLength, path:getLength())
    end
    assert(pLength > 0, "LSG:GD: Path-length should be greater than zero!")
@@ -268,7 +268,7 @@ end
 function pathLength(state, count)
    count = count or 1
    local temp = {}
-   for path in values(state.paths) do
+   for path in table.value_iter(state.paths) do
       table.insert(temp, path:getLength())
    end
    table.sort(temp, function(a,b) return a > b end)
@@ -294,12 +294,12 @@ function nearestNeighbour(state)
             	break
             end
             --print(cx, cy, nodeIdx)
-            local row, col = (state.nodes[nodeIdx].pos.y / state.offsetY), (state.nodes[nodeIdx].pos.x / state.offsetX)
+            local row, col = (state.nodes[nodeIdx].pos:y() / state.offsetY), (state.nodes[nodeIdx].pos:x() / state.offsetX)
             if ((row+cy) >= 0 and (row+cy) < state.rows) and ((col+cx) >= 0 and (col+cx) < state.cols) then
                --print "drinne"
                local reserved = false
-               for node in values(state.nodes) do
-                  if node.pos.x == ((col+cx) * state.offsetX) and node.pos.y == ((row+cy) * state.offsetY) then
+               for node in table.value_iter(state.nodes) do
+                  if node.pos:x() == ((col+cx) * state.offsetX) and node.pos:y() == ((row+cy) * state.offsetY) then
                      reserved = true
                      --print "belegt"
                      break
@@ -308,8 +308,8 @@ function nearestNeighbour(state)
                if not reserved then
             	   local nState = cloneState(state)
             	   local node = nState.nodes[nodeIdx]
-            	   node.pos.x = (col + cx) * state.offsetX
-            	   node.pos.y = (row + cy) * state.offsetY
+            	   node.pos:set{x = (col + cx) * state.offsetX}
+            	   node.pos:set{y = (row + cy) * state.offsetY}
             	   cx = cx + 1
             	   return nState
                end

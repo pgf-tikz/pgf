@@ -25,7 +25,7 @@ function Path:new(values)
       _points = {}
    }
    setmetatable(defaults, Path)
-   local result = mergeTable(values, defaults)
+   local result = table.custom_merge(values, defaults)
    return result
 end
 
@@ -43,7 +43,7 @@ end
 --- Copies the internal points of a path.
 -- @return array of points
 function Path:getPoints()
-	return copyTable(self._points)
+	return table.custom_copy(self._points)
 end
 
 --- Appends new point at the end of path.
@@ -51,7 +51,7 @@ end
 -- @param keepAbsPosition true if the coordinates of the point are absolute
 function Path:addPoint(point, keepAbsPosition)
 	if #self._points > 0 then
-		point:relateTo(self._points[#self._points], keepAbsPosition)
+		point:setOrigin(self._points[#self._points], keepAbsPosition)
 	end
 	table.insert(self._points, point)
 end
@@ -68,7 +68,7 @@ end
 -- @param x x-coordinate of the new point
 -- @param y y-coordinate of the new point
 function Path:move(x,y)
-	local newPos = Position:new{x= x, y= y}
+	local newPos = Vector:new(2, function (n) return ({x, y})[n] end)
 	self:addPoint(newPos)
 end
 
@@ -95,11 +95,11 @@ function Path:_intersects(a1, a2, b1, b2, allowedIntersections)
    end
 
    -- denominator for for the parameters ua and ub are the same
-   local d = (b2.y - b1.y) * (a2.x - a1.x) - (b2.x - b1.x) * (a2.y - a1.y)
+   local d = (b2:y() - b1:y()) * (a2:x() - a1:x()) - (b2:x() - b1:x()) * (a2:y() - a1:y())
 
    -- nominators
-   local n_a = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x)
-   local n_b = (a2.x - a1.x) * (a1.y - b1.y) - (a2.y - a1.y) * (a1.x - b1.x)
+   local n_a = (b2:x() - b1:x()) * (a1:y() - b1:y()) - (b2:y() - b1:y()) * (a1:x() - b1:x())
+   local n_b = (a2:x() - a1:x()) * (a1:y() - b1:y()) - (a2:y() - a1:y()) * (a1:x() - b1:x())
 
    if n_a == 0 and n_b == 0 and d == 0 then
       -- lines are coincident
@@ -117,50 +117,50 @@ function Path:_intersects(a1, a2, b1, b2, allowedIntersections)
    -- two points allowed
    if allowedIntersections["a1"] and allowedIntersections["b1"] and
       not allowedIntersections["a2"] and not allowedIntersections["b2"] then
-      if a1.x == b1.x and a1.y == b1.y then
+      if a1:x() == b1:x() and a1:y() == b1:y() then
          return false
       end
    elseif allowedIntersections["a2"] and allowedIntersections["b2"] and
       not allowedIntersections["a1"] and not allowedIntersections["b1"] then
-      if a2.x == b2.x and a2.y == b2.y then
+      if a2:x() == b2:x() and a2:y() == b2:y() then
          return false
       end
    elseif allowedIntersections["a1"] and allowedIntersections["b2"] and
       not allowedIntersections["a2"] and not allowedIntersections["b1"] then
-      if a1.x == b2.x and a1.y == b2.y then
+      if a1:x() == b2:x() and a1:y() == b2:y() then
          return false
       end
    elseif allowedIntersections["a2"] and allowedIntersections["b1"] and
       not allowedIntersections["a1"] and not allowedIntersections["b2"] then
-      if a2.x == b1.x and a2.y == b1.y then
+      if a2:x() == b1:x() and a2:y() == b1:y() then
          return false
       end
    -- three points allowed
    elseif not allowedIntersections["a1"] and allowedIntersections["b1"] and
       allowedIntersections["a2"] and allowedIntersections["b2"] then
-      if (a2.x == b1.x and a2.y == b1.y) or (a2.x == b2.x and a2.y == b2.y) then
+      if (a2:x() == b1:x() and a2:y() == b1:y()) or (a2:x() == b2:x() and a2:y() == b2:y()) then
          return false
       end
    elseif allowedIntersections["a1"] and not allowedIntersections["b1"] and
       allowedIntersections["a2"] and allowedIntersections["b2"] then
-      if (b2.x == a1.x and b2.y == a1.y) or (b2.x == a1.x and b2.y == a1.y) then
+      if (b2:x() == a1:x() and b2:y() == a1:y()) or (b2:x() == a1:x() and b2:y() == a1:y()) then
          return false
       end
    elseif not allowedIntersections["a1"] and allowedIntersections["b1"] and
       not allowedIntersections["a2"] and allowedIntersections["b2"] then
-      if (a1.x == b1.x and a1.y == b1.y) or (a1.x == b2.x and a1.y == b2.y) then
+      if (a1:x() == b1:x() and a1:y() == b1:y()) or (a1:x() == b2:x() and a1:y() == b2:y()) then
         return false
       end
    elseif not allowedIntersections["a1"] and allowedIntersections["b1"] and
       allowedIntersections["a2"] and not allowedIntersections["b2"] then
-      if (b1.x == a1.x and b1.y == a1.y) or (b1.x == a1.x and b1.y == a1.y) then
+      if (b1:x() == a1:x() and b1:y() == a1:y()) or (b1:x() == a1:x() and b1:y() == a1:y()) then
          return false
       end
    -- four points allowed
    elseif allowedIntersections["a1"] and allowedIntersections["a2"] and
       allowedIntersections["b1"] and allowedIntersections["b2"] then
-      if (a1.x == b1.x and a1.y == b1.y) or (a1.x == b2.x and a1.y == b2.y) or
-         (a2.x == b1.x and a2.y == b1.y) or (a2.x == b2.x and a2.y == b2.y) then
+      if (a1:x() == b1:x() and a1:y() == b1:y()) or (a1:x() == b2:x() and a1:y() == b2:y()) or
+         (a2:x() == b1:x() and a2:y() == b1:y()) or (a2:x() == b2:x() and a2:y() == b2:y()) then
          return false
       end
    else
@@ -220,7 +220,7 @@ end
 -- @ignore This should not appear in the documentation.
 function Path:__tostring()
    local t = {}
-   for v in values(self._points) do
+   for v in table.value_iter(self._points) do
       t[#t+1] = tostring(v)
    end
    return table.concat(t, " ")
@@ -234,7 +234,7 @@ function Path:getLength()
    for pidx = 1, #self._points-1 do
       local a = self._points[pidx]
       local b = self._points[pidx+1]
-      length = length + math.sqrt(math.pow(a.x-b.x,2)+math.pow(a.y-b.y,2))
+      length = length + math.sqrt(math.pow(a:x()-b:x(),2)+math.pow(a:y()-b:y(),2))
    end
    return length
 end
