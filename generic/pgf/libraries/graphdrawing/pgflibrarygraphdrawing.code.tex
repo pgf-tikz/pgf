@@ -1,4 +1,5 @@
 % Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+% Copyright 2011 by Till Tantau
 %
 % This file may be distributed and/or modified
 %
@@ -9,19 +10,249 @@
 
 \ProvidesFileRCS[v\pgfversion] $Header$
 
-%\catcode`\@11\relax
 
 % check if luatex is running
-\ifx\directlua\relax{%
-  \errmessage{You need LuaTeX to use the graph drawing library} 
-  }
-\else\ifx\directlua\undefined{%
-    \errmessage{You need LuaTeX to use the graph drawing library}
-\fi\fi
+\ifx\directlua\relax%
+  \PackageError{pgf}{You need to run LuaTeX to use the graph drawing library}{}
+  \expandafter\endinput
+\fi
+\ifx\directlua\undefined%
+  \PackageError{pgf}{You need to run LuaTeX to use the graph drawing library}{}
+  \expandafter\endinput
+\fi
+
+
+
+
+%
+% Basic Interface to the Graph Drawing Engine
+%
+
+% 
+% In order to use the graph drawing engine, inside a pgfpicture you
+% need to create a graph drawing scope using the following commands: 
+%
+
+
+
+% Begins a new graph drawing scope
+%
+% Usage:
+%
+% \pgfgdbeginscope
+
+\def\pgfgdbeginscope{%
+  \begingroup
+    % get options
+    \pgfkeysgetvalue{/tikz/graphs/graph drawing/@options}\pgf@gd@graph@options%
+    \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
+    \pgf@gd@logmessage{GD:SYS: group started with key options: \pgf@gd@graph@options\pgf@gd@graph@parameters}
+    \directlua{
+      pgf.graphdrawing.Interface:newGraph("\luaescapestring{\pgf@gd@graph@options\pgf@gd@graph@parameters}")
+    }%
+    \begingroup
+      % Switch on late positioning
+      \pgf@gd@positionnodelater
+}
+
+
+% Ends a graph drawing scope
+% 
+% Description:
+%
+% This macro invokes the selected graph drawing algorithm and
+% ships out all nodes within this scope
+%
+% See \pgfgdbeginscope
+
+\def\pgfgdendscope{%
+      \endgroup
+    % Late positioning has ended
+    \directlua{
+      pgf.graphdrawing.Interface:drawGraph()
+      pgf.graphdrawing.Interface:finishGraph()
+    }
+  \endgroup
+}
+
+
+
+% 
+% All graph drawing keys normally live in the following namespace:
+% /graph drawing. 
+%
+
+\def\pgfgdset{\pgfqkeys{/graph drawing}}
+
+
+
+
+% Passing options to the graph drawing engine.
+% 
+% #1 = option's name
+% #2 = option's value
+% 
+% Description:
+%
+% When a graph drawing algorithm starts working, a set of options,
+% called "graph drawing parameters" in the following, can influence the
+% way the algorithm works. For instance, an graph drawing parameter
+% might be the average distance between vertices which the algorithm
+% should take into account. Another example might be the fact the
+% certain nodes are special nodes and that a certain edge should have
+% a large label.
+%
+% These graph drawing parameters are different from "usual" pgf
+% options: An alogrithmic parameter influenced the way the algorithm
+% works, while usual options normally only influence how the result
+% looks like. For instance, the fact that a node is red is not an
+% graph drawing parameter (usually, at least), while the shape of a node
+% might be an graph drawing parameter.
+%
+% There are three kinds of graph drawing parameters:
+%
+% 1) graph drawing graph parameters 
+%    These parameters influence "the whole graph". An example
+%    is the distance between vertices on the same level of a tree. 
+%
+% 2) graph drawing node parameters
+%    These parameters are "attached" to a single node. This includes
+%    options that are only meaningful in the context of a graph
+%    drawing algorithm (like, say, the "mass" of a node in a
+%    force-base algorith), but also hybrid attributed like the shape
+%    of a node. The shape is important for pgf when it typesets the
+%    node, but it may also be important for the graph drawing
+%    algorithm since it might position circles differently from, say,
+%    rectangles.
+%    
+% 3) graph drawing edge parameters
+%    Similarly to nodes, edges can also have graph drawing
+%    parameters. Also similarly to nodes, there can be purely
+%    graph drawing parameters and also options that are hybrid.
+%    
+% You have to "declare" an graph drawing parameter similarly to a normal
+% key, but instead of using the /.code, you use /.graph drawing graph
+% parameter, /.graph drawing node parameter, and /.graph drawing edge
+% parameter. More details on how these handlers work is given below.
+%
+% Specifying the set of graph drawing parameters for a given graph or
+% node or edge works as follows: When the graph drawing engine is
+% started for a graph (using \pgfgdbeginscope), a snapshot is taken of
+% all graph drawing graph parameters currently setup at this
+% point. Similarly, when a node is created inside such a scope, a
+% snapshot is taken of the set of all graph drawing node parameters in
+% force at this point is taken and stored together with the
+% node. Finally, when an edge is created, a snapshot of the setting of
+% the graph drawing edge parameters is taken.
+% 
+% All of these option sets can easily be accessed inside the graph 
+% drawing algorithms, see the documentation of the lua layer.
+
+\def\pgfgdgraphparameter#1#2{%
+  \pgfkeysaddvalue{/graph drawing/graph parameters}{}{{#1}{#2}}%
+}
+\def\pgfgdnodeparameter#1#2{%
+  \pgfkeysaddvalue{/graph drawing/node parameters}{}{{#1}{#2}}%
+}
+\def\pgfgdedgeparameter#1#2{%
+  \pgfkeysaddvalue{/graph drawing/edge parameters}{}{{#1}{#2}}%
+}
+
+\pgfgdset{
+  graph parameters/.initial=,
+  node parameters/.initial=,
+  edge parameters/.initial=,
+}  
+
+
+
+% Key handler /.graph drawing graph parameter
+% 
+% Description:
+%
+% When this key hanlder is applied to a key, this key becomes a graph
+% drawing graph parameter (as explained above). Subsequently, setting
+% this key will cause special internals to be setup so that graph
+% drawing algorithms can access the value of this key easily and
+% directly inside the lua layer.
+% 
+% A typical usage would be
+%
+%   /some path/my key/.graph drawing graph parameter
+%  
+% Now, when people write /some path/my key=foo in their code, inside
+% the algorithm the parameter "my key" would be set to "foo".
+% 
+
+\pgfkeys{
+  /handlers/.graph drawing graph parameter/.code=\pgf@gd@parameter{#1}{\pgfgdgraphparameter},
+  /handlers/.graph drawing node parameter/.code=\pgf@gd@parameter{#1}{\pgfgdnodeparameter},
+  /handlers/.graph drawing edge parameter/.code=\pgf@gd@parameter{#1}{\pgfgdedgeparameter}
+}
+\def\pgf@gd@parameter#1#2{%
+  \def\pgfgd@temp{#1}%
+  \ifx\pgfgd@temp\pgfkeysnovalue@text\def\pgfgd@temp{no conversion}\fi%
+  \edef\pgf@marshal{\noexpand\pgf@gd@@parameter{\pgfkeyscurrentpath}{\pgfgd@temp}{\noexpand#2}}
+  \pgf@marshal%
+}
+
+\def\pgf@gd@@parameter#1#2#3{%
+  \pgfkeysdef{#1}{
+    \pgfkeys{/graph drawing/conversions/#2=##1}%
+    #3{#1}{\pgfgdresult}%
+  }%
+}
+
+
+
+% In many cases, when you specify a graph parameter, you will not wish
+% the "actual" setting of the key to be passed to the algorithm. For
+% instance, suppose we write 
+% 
+%   /some path/width/.graph drawing graph parameter
+% 
+% Now we could write /some path/width=20pt+2pt, and inside the
+% algorithm the parameter "width" would equal the string
+% "20pt+2pt". However, inside the algorithm, it would be somewhat
+% preferable to have access to the value "22" rather than the string
+% "20pt+2pt". Similary, when the width is "1in", the algorithm will
+% prefer to get passed the number "72.27" instead of "1in".
+% 
+% For this reason, when you define a graph drawing parameter, you can
+% optionally specify a conversion that will be applied to the
+% key's value before it is passed to the algorithm. To do so, 
+% write
+% 
+% /some path/my key/.graph drawing graph parameter=conversion key
+% 
+% The conversion key will be executed with path prefix /graph
+% drawing/conversions/. It gets passed the value that was
+% assigned to the parameter key. It should store the "result" of the
+% conversion in the macro \pgfgdresult. The contents of this macro is
+% the text that will actually be passed down to the algorithm.
+% 
+% As an example, let us start with the default conversion: It simply
+% stores its parameter as the result:
+% 
+% /graph drawing/conversions/no conversion/.code=\def\pgfgdresult{#1}
+% 
+% A more complicated example is the math conversion:
+% 
+% /graph drawing/conversions/math/.code=
+%    \pgfmathparse{#1}\let\pgfgdresult\pgfmathresult
+
+\pgfgdset{
+  conversions/no conversion/.code=\def\pgfgdresult{#1},
+  conversions/evaluate math expression/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult
+}
+
+
+
+
 
 %
 % This file defines the basic interactions between LUA and PGF
-%-----------------------------------------------------------------
+%
 
 %
 % This box is used for passing pgf elements to lua and vice versa 
@@ -47,43 +278,6 @@
   pgf.graphdrawing.Sys:setBoxNumber(\the\pgf@gd@box)
 }
 
-
-%
-% Begins a new graph drawing scope
-%
-% Usage
-%   \pgfgdbeginscope
-%
-\def\pgfgdbeginscope{%
-  \begingroup
-  \pgf@gd@logmessage{GD:SYS: scope began}%
-  % get options
-  \pgfkeysgetvalue{/tikz/graphs/graph drawing/@options}\pgf@gd@graph@options%
-  \pgf@gd@logmessage{GD:SYS: key options: \pgf@gd@graph@options}
-  \directlua{
-    pgf.graphdrawing.Interface:newGraph("\luaescapestring{\pgf@gd@graph@options}")
-  }%
-  \begingroup
-  \pgf@gd@positionnodelater
-}
-
-%
-% Ends a graph drawing scope
-%
-% This macro invokes the selected graph drawing algorithm and
-% ships out all nodes within this scope
-%
-% See \pgfgdbeginscope
-%
-\def\pgfgdendscope{%
-  \endgroup
-  \pgf@gd@logmessage{GD:SYS: scope ended}%
-  \directlua{
-    pgf.graphdrawing.Interface:drawGraph()
-    pgf.graphdrawing.Interface:finishGraph()
-  }
-  \endgroup
-}
 
 %
 % Adds an edge to the graph
@@ -113,14 +307,14 @@
 % Begins the ship out of nodes
 %
 \def\pgfgdbeginshipout{%
-  \pgf@gd@beginshipout
+  \pgfscope
 }
 
 %
 % End the shop out of nodes
 %
 \def\pgfgdendshipout{%
-  \pgf@gd@endshipout
+  \endpgfscope
 }
 
 
@@ -228,21 +422,6 @@
   }%
 }
 
-%
-% Begins a new pgf/TikZ scope for shipping out nodes
-%
-% The scope permits other nodes referencing graph drawing nodes.
-%
-\def\pgf@gd@beginshipout{%
-  \scope
-}
-
-%
-% Ends a shipout
-%
-\def\pgf@gd@endshipout{%
-  \endscope
-}
 
 %
 % Adds an edge to the lua graph object
