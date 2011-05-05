@@ -379,3 +379,19 @@ function Vector:__tostring()
     return '(' .. table.concat(self.elements, ', ') .. ')'
   end
 end
+
+
+
+function Vector:equals(other)
+  if #self.elements ~= #other.elements then
+    return false
+  end
+
+  for n = 1, #self.elements do
+    if self.elements[n] ~= other.elements[n] then
+      return false
+    end
+  end
+
+  return true
+end

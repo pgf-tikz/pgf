@@ -158,7 +158,6 @@ function Sys:putEdge(edge)
   local draw_string = '\\draw[' .. direction .. ',' .. edge.tikz_options ..'] ' .. table.concat(node_strings, edge_string) .. ';'
   
   -- hand TikZ code over to TeX
-  texio.write_nl(draw_string)
   tex.print(draw_string)
 end
 

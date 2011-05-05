@@ -29,6 +29,9 @@ pgf.module("pgf.graphdrawing")
 --   - allow users to define custom node and edge weights in TikZ
 --   - stop coarsening if |V(G_i+1)|/|V(G_i)| < p where p = 0.75
 --   - stop coarsening if the maximal matching is empty
+--   - improve the runtime of the algorithm by use of a quadtree
+--     data structure like Hu does in his algorithm
+--   - limiting the number of levels of the quadtree is not implemented
 --
 -- TODO Implement the following keys (or whatever seems appropriate
 -- and doable for this algorithm):
@@ -58,12 +61,23 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   -- check if we should use the multilevel approach
   -- TODO parsing of boolean options should happen in the frontend layer
   local use_coarsening = graph:getOption('coarsening')
-  use_coarsening = use_coarsening == 'true' or coarsening == ''
+  use_coarsening = use_coarsening == 'true' or use_coarsening == ''
+
+  -- check if we should use the quadtree optimization
+  local use_quadtree = graph:getOption('quadtree')
+  use_quadtree = use_quadtree == 'true' or use_quadtree == ''
 
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('natural spring dimension')) or 28.5
   local C = tonumber(graph:getOption('spring constant')) or 0.01
   local iterations = tonumber(graph:getOption('maximum iterations')) or 500
+
+  Sys:setVerbose(true)
+  Sys:log('WALSHAW: use_coarsening = ' .. tostring(use_coarsening))
+  Sys:log('WALSHAW: use_quadtree = '   .. tostring(use_quadtree))
+  Sys:log('WALSHAW: iterations = ' .. tostring(iterations))
+  Sys:log(' ')
+  Sys:setVerbose(false)
 
   --Sys:log('WALSHAW: graph:')
   --for node in table.value_iter(graph.nodes) do
@@ -79,7 +93,9 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
     local graphs = compute_coarse_graphs(graph)
 
     for i = #graphs,1,-1 do
+      --Sys:setVerbose(true)
       --Sys:log('WALSHAW: lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
+      --Sys:setVerbose(false)
 
       if i == #graphs then
         -- compute initial natural spring length in a way that will
@@ -92,7 +108,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
         -- interpolate from the parent coarse graph and apply the
         -- force-based algorithm to improve the layout
         interpolate_from_parent(graphs[i], graphs[i+1])
-        compute_force_layout(graphs[i], C, iterations)
+        compute_force_layout(graphs[i], C, iterations, use_quadtree)
       end
 
       --Sys:log('WALSHAW:  ')
@@ -107,7 +123,7 @@ function drawGraphAlgorithm_walshaw_spring_electrical(graph)
     for edge in table.value_iter(graph.edges) do edge.weight = 1 end
 
     -- directly compute the force-based layout for the input graph
-    compute_force_layout(graph, C, iterations)
+    compute_force_layout(graph, C, iterations, use_quadtree)
   end
 
   -- adjust orientation
@@ -438,7 +454,7 @@ end
 
 
 
-function compute_force_layout(graph, C, iterations)
+function compute_force_layout(graph, C, iterations, use_quadtree)
   --Sys:log('WALSHAW:   compute force based layout')
 
   for node in table.value_iter(graph.nodes) do
@@ -451,9 +467,20 @@ function compute_force_layout(graph, C, iterations)
     return -C * weight * (graph.k*graph.k) / distance
   end 
 
+  -- repulsive quadtree force function
+  local function quadtree_fg(distance, mass)
+    return -mass * C * (graph.k*graph.k) / distance
+  end
+
   -- local (spring) force function
   local function fl(distance, d, weight) 
     return ((distance - graph.k) / d) - fg(distance, weight) 
+  end
+
+  -- define the Barnes-Hut opening criterion
+  function barnes_hut_criterion(cell, particle)
+    local distance = particle.pos:minus(cell.centre_of_mass):norm()
+    return cell.width / distance <= 1.2
   end
 
   -- cooling function
@@ -466,13 +493,63 @@ function compute_force_layout(graph, C, iterations)
   -- convergence criteria
   local converged = false
   local i = 0
-  
+    
   while not converged and i < iterations do
     --Sys:log('WALSHAW:     iteration ' .. i .. ' (max: ' .. iterations .. ')')
-
+  
     -- assume that we are converging
     converged = true
     i = i + 1
+
+    -- check whether the quadtree optimization is to be used
+    local quadtree = nil
+    if use_quadtree then
+      -- compute the minimum x and y coordinates of all nodes
+      local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
+        return Vector:new(2, function (n) 
+          return math.min(min_pos:get(n), node.pos:get(n))
+        end)
+      end, graph.nodes[1].pos)
+
+      -- compute maximum x and y coordinates of all nodes
+      local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
+        return Vector:new(2, function (n) 
+          return math.max(max_pos:get(n), node.pos:get(n))
+        end)
+      end, graph.nodes[1].pos)
+
+      -- make sure the maximum position is at least a tiny bit
+      -- larger than the minimum position
+      if min_pos:equals(max_pos) then
+        max_pos = max_pos:plus(Vector:new(2, function (n)
+          return 0.1 + math.random() * 0.1
+        end))
+      end
+
+      min_pos = min_pos:minusScalar(1)
+      max_pos = max_pos:plusScalar(1)
+
+      -- create the quadtree
+      quadtree = QuadTree:new(min_pos:x(), min_pos:y(),
+                              max_pos:x() - min_pos:x(),
+                              max_pos:y() - min_pos:y())
+
+      -- insert nodes into the quadtree
+      --Sys:setVerbose(true)
+      --Sys:log(' ')
+      for node in table.value_iter(graph.nodes) do
+        --Sys:log(' ')
+        --Sys:log('quadtree before inserting ' .. node.name .. ' ' .. tostring(node.pos))
+        --quadtree:dump('  ')
+        quadtree:insert(Particle:new(node.pos, node.weight))
+        --Sys:log(' ')
+        --Sys:log('quadtree after inserting ' .. node.name .. ' ' .. tostring(node.pos))
+        --quadtree:dump('  ')
+        --Sys:log(' ')
+      end
+      --Sys:log(' ')
+      --Sys:setVerbose(false)
+    end
 
     local function nodeNotFixed(node) return not node.fixed end
 
@@ -484,26 +561,73 @@ function compute_force_layout(graph, C, iterations)
       local d = Vector:new(2)
 
       -- compute repulsive forces
-      for u in table.value_iter(graph.nodes) do
-        if u.name ~= v.name then
-          -- compute the distance between u and v
-          local delta = u.pos:minus(v.pos)
-          local delta_norm = delta:norm()
+      if use_quadtree then
+        -- determine the cells that have an repulsive influence on v
+        local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
-          -- enforce a small virtual distance if the nodes are
-          -- located at (almost) the same position
-          if delta_norm < 0.1 then
-            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-            delta_norm = delta:norm()
+        -- compute the repulsive force between these cells and v
+        for cell in table.value_iter(cells) do
+          -- check if the cell is a leaf
+          if #cell.subcells == 0 then
+            -- compute the forces between the node and all particles in the cell
+            for particle in table.value_iter(cell.particles) do
+              local delta = particle.pos:minus(v.pos)
+              local delta_norm = delta:norm()
+            
+              -- enforce a small virtual distance if the node and the cell's 
+              -- centre of mass are located at (almost) the same position
+              if delta_norm < 0.1 then
+                delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+                delta_norm = delta:norm()
+              end
+
+              -- compute the repulsive force vector
+              local force = delta:normalized():timesScalar(quadtree_fg(delta_norm, particle.amount * particle.mass))
+
+              -- move the node v accordingly
+              d = d:plus(force)
+            end
+          else
+            -- compute the distance between the node and the cell's centre of mass
+            local delta = cell.centre_of_mass:minus(v.pos)
+            local delta_norm = delta:norm()
+
+            -- enforce a small virtual distance if the node and the cell's 
+            -- centre of mass are located at (almost) the same position
+            if delta_norm < 0.1 then
+              delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+              delta_norm = delta:norm()
+            end
+
+            -- compute the repulsive force vector
+            local force = delta:normalized():timesScalar(quadtree_fg(delta_norm, cell.mass))
+
+            -- move te node v accordingly
+            d = d:plus(force)
           end
+        end
+      else
+        for u in table.value_iter(graph.nodes) do
+          if u.name ~= v.name then
+            -- compute the distance between u and v
+            local delta = u.pos:minus(v.pos)
+            local delta_norm = delta:norm()
 
-          -- compute the repulsive force vector
-          local force = delta:normalized():timesScalar(fg(delta_norm, u.weight))
+            -- enforce a small virtual distance if the nodes are
+            -- located at (almost) the same position
+            if delta_norm < 0.1 then
+              delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+              delta_norm = delta:norm()
+            end
 
-          --Sys:log(v.name .. ' vs. ' .. u.name .. ' >=< ' .. tostring(force))
+            -- compute the repulsive force vector
+            local force = delta:normalized():timesScalar(fg(delta_norm, u.weight))
 
-          -- move the node v accordingly
-          d = d:plus(force)
+            --Sys:log(v.name .. ' vs. ' .. u.name .. ' >=< ' .. tostring(force))
+
+            -- move the node v accordingly
+            d = d:plus(force)
+          end
         end
       end
 
