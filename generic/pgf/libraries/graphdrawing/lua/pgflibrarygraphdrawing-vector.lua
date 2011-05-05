@@ -40,14 +40,18 @@ function Vector:new(n, fill_function, origin)
   }
   setmetatable(vector, Vector)
 
-  -- fill vector elements with values
-  if not fill_function then
-    for i = 1,n do
-      vector.elements[i] = 0
-    end
+  if type(n) == 'table' then
+    vector:set(n)
   else
-    for i = 1,n do
-      vector.elements[i] = fill_function(i)
+    -- fill vector elements with values
+    if not fill_function then
+      for i = 1,n do
+        vector.elements[i] = 0
+      end
+    else
+      for i = 1,n do
+        vector.elements[i] = fill_function(i)
+      end
     end
   end
 
@@ -286,11 +290,17 @@ end
 --
 function Vector:set(index, value)
   if type(index) == 'table' then
-    if index.x then
-      self.elements[1] = index.x
-    end
-    if index.y then
-      self.elements[2] = index.y
+    if index.x or index.y then
+      if index.x then
+        self.elements[1] = index.x
+      end
+      if index.y then
+        self.elements[2] = index.y
+      end
+    else
+      for i = 1,#index do
+        self.elements[i] = index[i]
+      end
     end
   else
     self.elements[index] = value
