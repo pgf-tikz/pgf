@@ -132,7 +132,7 @@ end
 function Sys:putEdge(edge)
   -- map nodes to node strings
   local node_strings = table.map_values(edge.nodes, function (node) 
-    return '(' .. node.name .. ')'
+    return '{' .. node.name .. '}'
   end)
   
   -- reverse strings if the edge is reversed
@@ -140,25 +140,25 @@ function Sys:putEdge(edge)
     node_strings = table.reverse_values(node_strings, node_strings)
   end
   
-  -- determine the direction string, which is '' for undirected edges
-  local direction = edge.direction == Edge.UNDIRECTED and '' or edge.direction
-  
-  local bend_string = ' to '
+  local bend_string = ''
   if #edge.bend_points > 0 then
     local bend_strings = table.map_values(edge.bend_points, function (vector)
       return '(' .. tostring(vector:get(1)) .. 'pt,' .. tostring(vector:get(2)) .. 'pt)'
     end)
-    bend_string = bend_string .. table.concat(bend_strings, ' to ') .. ' to ' .. edge.edge_nodes
+    bend_string = table.concat(bend_strings, '--')
   end
   
   -- generate string for the entire edge
-  --local edge_string = ' ' .. 'edge' .. '[' .. edge.tikz_options .. ']' .. bend_string
-  --local draw_string = '\\draw[' .. direction .. '] ' .. table.concat(node_strings, edge_string) .. ';'
-  local edge_string = bend_string
-  local draw_string = '\\draw[' .. direction .. ',' .. edge.tikz_options ..'] ' .. table.concat(node_strings, edge_string) .. ';'
+  local callback = '\\pgfgdedgecallback'
+     .. table.concat(node_strings,'') .. '{' .. edge.direction .. '}{'
+     .. edge.tikz_options ..'}{' .. edge.edge_nodes .. '}{'
+     .. table.combine_pairs(edge.algorithmically_generated_options,
+			      function (s, k, v) return s .. ','
+			      .. tostring(k) .. '={' .. tostring(v) .. '}' end, '')
+     .. '}{' .. bend_string .. '}'
   
   -- hand TikZ code over to TeX
-  tex.print(draw_string)
+  tex.print(callback)
 end
 
 
@@ -182,22 +182,22 @@ end
 
 
 
---- Adds a |not yet positionedPGFGDINTERNAL| prefix to the name of a node. 
+--- Adds a |not yet positionedPGFINTERNAL| prefix to the name of a node. 
 --
 -- The prefix is required by PGF to place the node. Actually, when deferring 
 -- the node placement, the prefix is added to avoid references to the node.
 --
 -- @param name Name of a node to be prefixed.
 --
--- @return Name of the node prefixed with |not yet positionedPGFGDINTERNAL|.
+-- @return Name of the node prefixed with |not yet positionedPGFINTERNAL|.
 --
 function Sys:escapeTeXNodeName(name)
-  return 'not yet positionedPGFGDINTERNAL' .. name
+  return 'not yet positionedPGFINTERNAL' .. name
 end
 
 
 
---- Removes the |not yet positionedPGFGDINTERNAL| prefix from the name of a node.
+--- Removes the |not yet positionedPGFINTERNAL| prefix from the name of a node.
 --
 -- @see Sys:escapeTeXNodeName(name)
 --
@@ -206,5 +206,5 @@ end
 -- @return Name of the node with the internal name prefix removed.
 --
 function Sys:unescapeTeXNodeName(name)
-  return string.sub(name, string.len("not yet positionedPGFGDINTERNAL") + 1)
+  return string.sub(name, string.len("not yet positionedPGFINTERNAL") + 1)
 end

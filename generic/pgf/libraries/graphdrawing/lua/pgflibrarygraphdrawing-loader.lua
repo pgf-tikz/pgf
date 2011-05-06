@@ -214,8 +214,8 @@ local function load(filename, format, prefix, suffix)
      texio.write_nl("GD:LOADER: loading " .. path)
      return dofile(path)
    else
-     error("GD:LOADER: didn't find file " .. filename)
-   end
+      error("GD:LOADER: didn't find file " .. filename)
+  end
 end
 
 local prefix = "pgflibrarygraphdrawing-"
@@ -233,7 +233,7 @@ local userLoaded = {}
 
 --- Small wrapper around find_file.  Remembers if files were
 -- loaded; use the third parameter to force reloading.
-local function userLoad(filename, format, reload)
+local function userLoad(filename, format, reload, fallback)
    if userLoaded[filename] == true and not reload then
       texio.write_nl("GD:LOADER: file " .. filename .. " already loaded, skipping")
       return
@@ -244,7 +244,14 @@ local function userLoad(filename, format, reload)
       texio.write_nl("GD:LOADER: loading file " .. filename)
       return dofile(path)
    else
-      error("GD:LOADER: didn't find file " .. filename)
+      path = find_file(fallback, format)
+      if path then
+	 userLoaded[filename] = true
+	 texio.write_nl("GD:LOADER: loading fallback " .. fallback)
+	 return dofile(path)
+      else
+	 error("GD:LOADER: found neither file " .. filename .. " nor fallback " .. fallback)
+      end
    end
 end
 

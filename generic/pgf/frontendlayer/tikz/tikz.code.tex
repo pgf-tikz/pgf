@@ -858,7 +858,7 @@
   \pgfutil@namedef{tikz@special@arrow@start<<}{tikzs@<<@#2}%
   \pgfutil@namedef{tikz@special@arrow@end>>}{tikze@>>@#2}%<<
   \pgfutil@namedef{tikz@special@arrow@start>>}{tikzs@>>@#2}%<<
-  \pgfutil@namedef{tikz@special@arrow@end<<}{tikze@<<@#2}%<<
+  \pgfutil@namedef{tikz@special@arrow@end<<}{tikze@<<@#2}%>>
 }
 
 \def\tikz@processarrows#1{%
@@ -979,11 +979,13 @@
 \newif\iftikz@plot@raw@gnuplot
 
 
-% To options
+% To and edge options
 \tikzoption{to path}{\def\tikz@to@path{#1}}
 
 \def\tikz@to@path{-- (\tikztotarget) \tikztonodes}
 
+\tikzset{edge macro/.store in=\tikz@edge@macro}
+\let\tikz@edge@macro\pgfutil@empty
 
 % After command options
 \tikzset{
@@ -1002,6 +1004,10 @@
 % Tree options
 \newif\iftikz@child@missing
 \pgfkeys{/tikz/missing/.is if=tikz@child@missing}
+
+\tikzset{edge from parent macro/.initial=\tikz@edge@from@parent@macro}
+\def\tikz@edge@from@parent@macro#1#2{
+  [style=edge from parent, #1, /utils/exec=\tikz@node@is@a@labeltrue] \tikz@edge@to@parent@path #2}
 
 \tikzoption{edge from parent path}{\def\tikz@edge@to@parent@path{#1}}
 
@@ -1405,6 +1411,31 @@
   \tikz@lib@scope@check%
 }
 
+
+\def\tikz@scoped{\pgfutil@ifnextchar[{\tikz@scoped@opt}{\tikz@scoped@opt[]}}
+\def\tikz@scoped@opt[#1]{\scope[#1]\pgfutil@ifnextchar\bgroup{\tikz@scoped@}{\tikz@scoped@@single}}
+\def\tikz@scoped@{\bgroup\tikz@auto@end@pathtrue\aftergroup\endscope\let\pgf@temp=}
+\def\tikz@scoped@@single#1{%
+  \expandafter\ifx\csname tikz@scoped@protected@command\string#1\endcsname\relax%
+    \expandafter\tikz@scoped@@%
+  \else%
+    \begingroup\def\tikz@scoped@path@do@at@end{\endgroup\endscope}%
+  \fi%
+  #1%  
+}  
+\def\tikz@scoped@@{%
+  \let\tikz@scoped@next=\tikz@scoped@collectnormalsemicolon%
+  \ifnum\the\catcode`\;=\active\relax%
+    \let\tikz@scoped@next=\tikz@scoped@collectactivesemicolon%
+  \fi%
+  \tikz@scoped@next}
+\def\tikz@scoped@collectnormalsemicolon#1;{#1;\endscope}
+{
+  \catcode`\;=\active
+  \gdef\tikz@scoped@collectactivesemicolon#1;{#1;\endscope}
+}
+ 
+
 % Install a shortcut command which is only valid inside of a
 % tikzpicture.
 %
@@ -1435,6 +1466,7 @@
   \ifnum\the\catcode`\:=\active\relax\expandafter\let\expandafter\tikz@origcolon\expandafter=\tikz@activecolon\fi%
   \ifnum\the\catcode`\|=\active\relax\expandafter\let\expandafter\tikz@origbar\expandafter=\tikz@activebar\fi%
   \let\tikz@origscope=\scope%
+  \let\tikz@origscoped=\scoped%
   \let\tikz@origendscope=\endscope%
   \let\tikz@origstartscope=\startscope%
   \let\tikz@origstopscope=\stopscope%
@@ -1458,6 +1490,7 @@
   \tikz@deactivatthings%
   %
   \let\scope=\tikz@scope@env%
+  \let\scoped=\tikz@scoped%
   \let\endscope=\endtikz@scope@env%
   \let\startscope=\scope%
   \let\stopscope=\endscope%
@@ -1496,6 +1529,7 @@
   \ifnum\the\catcode`\:=\active\relax\expandafter\let\tikz@activecolon=\tikz@origcolon\fi%
   \ifnum\the\catcode`\|=\active\relax\expandafter\let\tikz@activebar=\tikz@origbar\fi%
   \let\scope=\tikz@origscope%
+  \let\scoped=\tikz@origscoped%
   \let\endscope=\tikz@origendscope%
   \let\startscope=\tikz@origstartscope%
   \let\stopscope=\tikz@origstopscope%
@@ -2107,7 +2141,7 @@
   \tikz@make@last@position{#1}%
   \iftikz@shapeborder%
     % ok, the moveto will have to wait. flag that we have a moveto in
-    % wainting:
+    % waiting:
     \edef\tikz@moveto@waiting{\tikz@shapeborder@name}%
   \else%
     \pgfpathmoveto{\tikz@last@position}%
@@ -2361,7 +2395,7 @@
   
 \def\tikz@to@or@edge{\pgfutil@ifnextchar[\tikz@@to@or@edge{\tikz@@to@or@edge[]}}%}
 \def\tikz@@to@or@edge[#1]{%
-  \def\tikz@@to@local@options{[#1]}%
+  \def\tikz@@to@local@options{#1}%
   \let\tikz@collected@onpath=\pgfutil@empty%
   \tikz@@to@collect%
 }
@@ -2398,34 +2432,41 @@
 }
 
 \def\tikz@do@edge{%
-  \setbox\tikz@figbox=\hbox\bgroup%
-    \unhbox\tikz@figbox%
-    \hbox\bgroup
-      \bgroup%
-        \pgfinterruptpath%
-          \pgfscope%
-            \let\tikz@transform=\pgfutil@empty%
-            \let\tikz@options=\pgfutil@empty%
-            \let\tikz@tonodes=\tikz@collected@onpath%
-            \def\tikztonodes{{\pgfextra{\tikz@node@is@a@labeltrue}\tikz@tonodes}}%
-            \let\tikz@collected@onpath=\pgfutil@empty%
-            \tikz@options%
-            \tikz@transform%            
-            % Typeset node:
-            \let\tikz@after@path\pgfutil@empty%
-            \tikz@atbegin@to%
-            \path[style=every edge]\tikz@@to@local@options(\tikztostart)\tikz@to@path
-            \pgfextra{\global\let\tikz@after@path@smuggle=\tikz@after@path};%
-            \tikz@atend@to%
-          \endpgfscope%
-        \endpgfinterruptpath%
-      \egroup
+  \ifx\tikz@edge@macro\pgfutil@empty%
+    \setbox\tikz@figbox=\hbox\bgroup%
+      \unhbox\tikz@figbox%
+      \hbox\bgroup
+        \bgroup%
+          \pgfinterruptpath%
+            \pgfscope%
+              \let\tikz@transform=\pgfutil@empty%
+              \let\tikz@options=\pgfutil@empty%
+              \let\tikz@tonodes=\tikz@collected@onpath%
+              \def\tikztonodes{{\pgfextra{\tikz@node@is@a@labeltrue}\tikz@tonodes}}%
+              \let\tikz@collected@onpath=\pgfutil@empty%
+              \tikz@options%
+              \tikz@transform%            
+              % Typeset node:
+              \let\tikz@after@path\pgfutil@empty%
+              \tikz@atbegin@to%
+                \path[style=every edge]\expandafter[\tikz@@to@local@options](\tikztostart)\tikz@to@path
+                \pgfextra{\global\let\tikz@after@path@smuggle=\tikz@after@path};%
+              \tikz@atend@to%
+            \endpgfscope%
+          \endpgfinterruptpath%
+        \egroup
+      \egroup%
     \egroup%
-  \egroup%
-    \global\setbox\tikz@tempbox=\box\tikz@figbox%
-  \endgroup%
-  \setbox\tikz@figbox=\box\tikz@tempbox%  
-  \expandafter\tikz@scan@next@command\tikz@after@path%  
+      \global\setbox\tikz@tempbox=\box\tikz@figbox%
+    \endgroup%
+    \setbox\tikz@figbox=\box\tikz@tempbox%  
+  \else%
+      \expandafter\expandafter\expandafter\tikz@edge@macro%
+      \expandafter\expandafter\expandafter{\expandafter\tikz@@to@local@options\expandafter}\expandafter{\tikz@collected@onpath}%
+    \endgroup%
+    \let\tikz@after@path@smuggle=\pgfutil@empty%
+  \fi%
+  \expandafter\tikz@scan@next@command\tikz@after@path@smuggle%  
 }
 
 \def\tikz@do@to{%
@@ -2436,7 +2477,7 @@
   {%
     \pgfextra{\let\tikz@after@path\pgfutil@empty}%
     \pgfextra{\tikz@atbegin@to}%
-    [style=every to]\tikz@@to@local@options\tikz@to@path%
+    [style=every to]\expandafter[\tikz@@to@local@options]\tikz@to@path%
     \pgfextra{\tikz@atend@to}%
     \pgf@stop%
     \expandafter\tikz@scan@next@command\expandafter%
@@ -2482,8 +2523,23 @@
 \def\tikz@edgetoparent from parent{\pgfutil@ifnextchar[\tikz@@edgetoparent{\tikz@@edgetoparent[]}}%}
 \def\tikz@@edgetoparent[#1]{%
   \let\tikz@edge@to@parent@needed=\pgfutil@empty%
-  \tikz@node@is@a@labeltrue%
-  \tikz@scan@next@command [style=edge from parent,#1] \tikz@edge@to@parent@path%
+  \def\tikz@edgetoparent@options{#1}%
+  \begingroup%
+    \let\tikz@collected@onpath=\pgfutil@empty%
+    \tikz@edgetoparentcollect%
+}
+\def\tikz@edgetoparentcollect{
+  \pgfutil@ifnextchar n{\tikz@collect@label@onpath\tikz@edgetoparentcollect}%
+  {%
+      \expandafter%  
+    \endgroup%
+    \expandafter\tikz@edgetoparent@rollout\expandafter{\tikz@collected@onpath}%  
+  }
+}
+
+\def\tikz@edgetoparent@rollout#1{%
+  \pgfkeysgetvalue{/tikz/edge from parent macro}\tikz@etop@temp
+  \expandafter\tikz@scan@next@command\expandafter\tikz@etop@temp\expandafter{\tikz@edgetoparent@options}{#1}%
 }
 
 
@@ -3620,8 +3676,10 @@
     \tikzset{level/.try=\the\tikztreelevel,level \the\tikztreelevel/.try}%
     \tikz@transform%            
     \let\tikzparentnode=\tikz@last@fig@name%
-    % Transform to center of node
-    \pgftransformshift{\pgfpointanchor{\tikzparentnode}{\tikz@growth@anchor}}%
+    \ifx\tikz@grow\relax\else%
+      % Transform to center of node
+      \pgftransformshift{\pgfpointanchor{\tikzparentnode}{\tikz@growth@anchor}}%
+    \fi%
     \tikznumberofcurrentchild=0\relax%
     \tikz@children@list%
     \global\setbox\tikz@tempbox=\box\tikz@figbox%
@@ -4397,6 +4455,10 @@
 %
 % For the convenience of Context users, both round and square brackets
 % are possible for the argument.
+% 
+% If no file tikzlibraryX.code.tex exists, the file
+% pgflibraryX.code.tex is tried instead. If this file, also, does not
+% exist, an error message is printed.
 %
 % Example:
 %
@@ -4417,7 +4479,13 @@
 		  \expandafter\edef\csname tikz@library@#1@barcode\endcsname{\the\catcode`\|}
 		  \catcode`\@=11
 		  \catcode`\|=12
-		  \input tikzlibrary\pgf@temp.code.tex
+		  \pgfutil@InputIfFileExists{tikzlibrary\pgf@temp.code.tex}{}{\pgfutil@InputIfFileExists{pgflibrary\pgf@temp.code.tex}{}{%
+                      \PackageError{tikz}{I did not find the library
+                        '\pgf@temp'. I looked for files named
+                        tikzlibrary\pgf@temp.code.tex and
+                        pgflibrary\pgf@temp.code.tex, but neither
+                        could be found in the current texmf trees.}{}
+                    }}
 		  \catcode`\@=\csname tikz@library@#1@atcode\endcsname
 		  \catcode`\|=\csname tikz@library@#1@barcode\endcsname
 		\fi%

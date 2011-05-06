@@ -54,23 +54,23 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_walshaw_spring_electrical(graph)
   -- apply the random seed specified by the user
-  local seed = tonumber(graph:getOption('random seed')) or 42
+  local seed = tonumber(graph:getOption('/graph drawing/spring layouts/random seed')) or 42
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
   -- check if we should use the multilevel approach
   -- TODO parsing of boolean options should happen in the frontend layer
-  local use_coarsening = graph:getOption('coarsening')
+  local use_coarsening = graph:getOption('/graph drawing/spring layouts/coarsening')
   use_coarsening = use_coarsening == 'true' or use_coarsening == ''
 
   -- check if we should use the quadtree optimization
-  local use_quadtree = graph:getOption('quadtree')
+  local use_quadtree = graph:getOption('/graph drawing/spring layouts/quadtree')
   use_quadtree = use_quadtree == 'true' or use_quadtree == ''
 
   -- determine parameters for the algorithm
-  local k = tonumber(graph:getOption('natural spring dimension')) or 28.5
-  local C = tonumber(graph:getOption('spring constant')) or 0.01
-  local iterations = tonumber(graph:getOption('maximum iterations')) or 500
+  local k = tonumber(graph:getOption('/graph drawing/spring layouts/natural spring dimension')) or 28.5
+  local C = tonumber(graph:getOption('/graph drawing/spring layouts/spring constant')) or 0.01
+  local iterations = tonumber(graph:getOption('/graph drawing/spring layouts/maximum iterations')) or 500
 
   Sys:setVerbose(true)
   Sys:log('WALSHAW: use_coarsening = ' .. tostring(use_coarsening))
@@ -133,15 +133,15 @@ end
 
 function compute_coarse_graphs(graph)
   -- determine parameters for the algorithm
-  local minimum_graph_size = tonumber(graph:getOption('minimum coarsened graph size') or 2)
-  local coarsening_threshold = tonumber(graph:getOption('coarsening threshold') or 0.75)
+  local minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layouts/minimum coarsened graph size') or 2)
+  local coarsening_threshold = tonumber(graph:getOption('/graph drawing/spring layouts/coarsening threshold') or 0.75)
 
   -- set weights to 1 unless specified otherwise
   for node in table.value_iter(graph.nodes) do
-    node.weight = tonumber(node:getOption('node weight') or 1)
+    node.weight = tonumber(node:getOption('/graph drawing/spring layouts/node weight') or 1)
   end
   for edge in table.value_iter(graph.edges) do
-    edge.weight = tonumber(edge:getOption('edge weight') or 1)
+    edge.weight = tonumber(edge:getOption('/graph drawing/spring layouts/edge weight') or 1)
   end
 
   -- compute iteratively coarsened graphs
@@ -402,7 +402,7 @@ function compute_initial_layout(graph)
   fixate_nodes(graph)
 
   -- decide what technique to use for the initial layout
-  local initial_positioning = graph:getOption('initial positioning') or 'random'
+  local initial_positioning = graph:getOption('/graph drawing/spring layouts/initial positioning') or 'random'
   local positioning_func = positioning.technique(initial_positioning, graph, graph.k)
 
   local function nodeNotFixed(node) return not node.fixed end
@@ -690,7 +690,7 @@ end
 --
 function fixate_nodes(graph)
   for node in table.value_iter(graph.nodes) do
-    if node:getOption('at') then
+    if node:getOption('/graph drawing/desired at') then
       local at_x, at_y = parse_at_option(node)
       node.pos:set{x = at_x, y = at_y}
       node.fixed = true
@@ -703,7 +703,7 @@ end
 --- Parses the at option of a node.
 --
 function parse_at_option(node)
-  local x, y = node:getOption('at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
+  local x, y = node:getOption('/graph drawing/desired at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
   return tonumber(x), tonumber(y)
 end
 

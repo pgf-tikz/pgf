@@ -19,7 +19,7 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_simplelayered(graph)
   -- read options passed to the algorithm from TikZ
-  graph:setOption('node distance', graph:getOption('node distance') or 58.5)
+  graph:setOption('/graph drawing/node distance', graph:getOption('/graph drawing/node distance') or 58.5)
 
   for node in table.value_iter(graph.nodes) do
     Sys:log('LAY: ' .. node.name .. ' in: ' .. node:getInDegree() .. ' out: ' .. node:getOutDegree())
@@ -50,14 +50,14 @@ function drawGraphAlgorithm_simplelayered(graph)
 
   -- Scale the output drawing 
   for node in table.value_iter(graph.nodes) do
-    node.pos:set{x =  node.pos:get(1) * graph:getOption('node distance')}
-    node.pos:set{y = -node.pos:get(2) * graph:getOption('node distance')}
+    node.pos:set{x =  node.pos:get(1) * graph:getOption('/graph drawing/node distance')}
+    node.pos:set{y = -node.pos:get(2) * graph:getOption('/graph drawing/node distance')}
   end
 
   for edge in table.value_iter(graph.edges) do
     for point in table.value_iter(edge.bend_points) do
-      point:set{x =  point:get(1) * graph:getOption('node distance')}
-      point:set{y = -point:get(2) * graph:getOption('node distance')}
+      point:set{x =  point:get(1) * graph:getOption('/graph drawing/node distance')}
+      point:set{y = -point:get(2) * graph:getOption('/graph drawing/node distance')}
     end
   end
 

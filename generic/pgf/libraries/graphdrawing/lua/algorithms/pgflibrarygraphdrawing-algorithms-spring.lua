@@ -35,14 +35,14 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_spring(graph, options)
   -- read options passed to the algorithm from TikZ
-  local node_distance = graph:getOption('node distance') or 7
-  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
-  local max_repulsion = graph:getOption('maximum repulsion') or 6
-  local k = graph:getOption('spring constant') or 2
-  local c = graph:getOption('IN SEARCH FOR A GOOD NAME') or 0.1 -- Johannes Textor used 0.01 here
-  local max_node_movement = graph:getOption('maximum iterative node movement') or 0.5
-  local initial_positioning = graph:getOption('positioning') or 'circle'
-  local random_seed = tonumber(graph:getOption('random seed') or os.time())
+  local node_distance = graph:getOption('/graph drawing/node distance') or 7
+  local iterations = tonumber(graph:getOption('/graph drawing/spring layouts/maximum iterations') or 500)
+  local max_repulsion = graph:getOption('/graph drawing/spring layouts/maximum repulsion') or 6
+  local k = graph:getOption('/graph drawing/spring layouts/spring constant') or 2
+  local c = graph:getOption('/graph drawing/spring layouts/IN SEARCH FOR A GOOD NAME') or 0.1 -- Johannes Textor used 0.01 here
+  local max_node_movement = graph:getOption('/graph drawing/spring layouts/maximum iterative node movement') or 0.5
+  local initial_positioning = graph:getOption('/graph drawing/spring layouts/initial positioning') or 'circle'
+  local random_seed = tonumber(graph:getOption('/graph drawing/spring layouts/random seed') or os.time())
 
   -- apply the random seed
   math.randomseed(random_seed)
@@ -63,7 +63,7 @@ function drawGraphAlgorithm_spring(graph, options)
     -- that it is not included in the computation of the
     -- node forces. Users may override this py providing
     -- their own value in TikZ
-    edge.attraction = tonumber(edge:getOption('attraction') or 1)
+    edge.attraction = tonumber(edge:getOption('/graph drawing/spring layouts/attraction') or 1)
   end
 
   local node_count = table.count_pairs(graph.nodes)

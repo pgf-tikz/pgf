@@ -1664,20 +1664,20 @@
 %          \fi%
         \fi%
       \fi%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgf@dv@external@value%
-      \ifx\pgf@dv@external@value\relax\else%
-        \ifx\pgf@dv@external@value\pgfutil@empty\else%
-          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
-          \pgf@dv@mapper@trans{/min}
-        \fi
-      \fi
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgf@dv@external@value%
-      \ifx\pgf@dv@external@value\relax\else%
-        \ifx\pgf@dv@external@value\pgfutil@empty\else%
-          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
-          \pgf@dv@mapper@trans{/max}
-        \fi
-      \fi
+%       \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgf@dv@external@value%
+%       \ifx\pgf@dv@external@value\relax\else%
+%         \ifx\pgf@dv@external@value\pgfutil@empty\else%
+%           \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
+%           \pgf@dv@mapper@trans{/min}
+%         \fi
+%       \fi
+%       \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgf@dv@external@value%
+%       \ifx\pgf@dv@external@value\relax\else%
+%         \ifx\pgf@dv@external@value\pgfutil@empty\else%
+%           \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
+%           \pgf@dv@mapper@trans{/max}
+%         \fi
+%       \fi
     \fi%
   }
 
@@ -1967,8 +1967,15 @@
   % "seen" during the survey phase. Based on this value, the size of,
   % say, an axis can be detemined later on.
   %
-  % In case the attribute has the sub-attributes "min" and "max", they
-  % are also taken into account.   
+  % You can also set the key "sub attributes" of the attribute. In
+  % this case, this key should contain -- as the name suggests -- a
+  % list of subkeys that should also be taken into account for the
+  % computation of the minimum and maximum value. Inside the "sub
+  % attributes" key, each subkey should be surrounded by a call of
+  % \pgfdvsub. For instance, if there are two sub attributes "/data
+  % point/velocity/min" and "/data point/velocity/max" for a key
+  % "/data point/velocity", then "/data point/velocity/sub attributes"
+  % should be set to "\pgfdvsub{/min}\pgfdvsub{/max}".
 
   \attribute attribute;
   % The to-be-surveyed attribute
@@ -2012,34 +2019,36 @@
   % interval.
   %
   \method survey() {
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}}\pgf@dv@val%
-    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}/min}\pgf@dv@val%
-    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}/max}\pgf@dv@val%
-    \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)
+    \let\pgfdvsub\pgf@dv@range@surv@sub
+    \pgfdvsub{}%
+    \pgfkeysvalueof{/data point/\pgfoovalueof{attribute}/sub attributes}
   }
 
-  \def\pgf@dv@range@surv{%
+  \def\pgf@dv@range@surv@sub#1{
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute}#1}\pgf@dv@val%
     \ifx\pgf@dv@val\relax%
     \else%
       \edef\pgf@dv@val{\pgf@dv@val}%
       \ifx\pgf@dv@val\pgfutil@empty%
       \else%
-        \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
-        % Now, protocol value
-        \ifx\pgfdvmin\pgfutil@empty%
-          \let\pgfdvmin\pgf@dv@value%
-        \else%
-          \pgfdvmathifless{\pgf@dv@value}{\pgfdvmin}{\let\pgfdvmin\pgf@dv@value}{}%
-        \fi%
-        \ifx\pgfdvmax\pgfutil@empty%
-          \let\pgfdvmax\pgf@dv@value%
-        \else%
-          \pgfdvmathifless{\pgfdvmax}{\pgf@dv@value}{\let\pgfdvmax\pgf@dv@value}{}%
-        \fi%
+        \pgfoovalueof{interval obj}.adjust(\pgf@dv@range@surv)%
       \fi%
-    \fi
+    \fi%
+  }
+
+  \def\pgf@dv@range@surv{%
+    \pgfdvmathenter{\pgf@dv@value}{\pgf@dv@val}%
+    % Now, protocol value
+    \ifx\pgfdvmin\pgfutil@empty%
+      \let\pgfdvmin\pgf@dv@value%
+    \else%
+      \pgfdvmathifless{\pgf@dv@value}{\pgfdvmin}{\let\pgfdvmin\pgf@dv@value}{}%
+    \fi%
+    \ifx\pgfdvmax\pgfutil@empty%
+      \let\pgfdvmax\pgf@dv@value%
+    \else%
+      \pgfdvmathifless{\pgfdvmax}{\pgf@dv@value}{\let\pgfdvmax\pgf@dv@value}{}%
+    \fi%
   }
 }
 
@@ -2075,6 +2084,10 @@
   % filter should set \pgfdvfilterpassedfalse for to-be-filtered data
   % point. 
   %
+  % You can specify "projection code" that changes the canvas x and
+  % canvas y positions. This projection code allows you to draw, say,
+  % projected points instead of the actual data point.
+  %
   % The keys /data point/<name>/execute at begin and /data
   % point/<name>/execute at end, where <name> is the name of
   % the visualizer, should store code that is to be executed directly
@@ -2086,7 +2099,7 @@
   % The to-be-used handlers
   
   \attribute name;
-  % Filter code
+  % The attribute
   
   \attribute filter=\pgfdvnamedvisualizerfilter;
   % Filter code
@@ -2099,7 +2112,15 @@
   % cache. Every 100 steps this cache is moved to positions. The idea
   % behind this is that it will avoid the quadratic time increase that
   % is normally caused when a protocol is build in TeX.
-
+  
+  \attribute projection code;
+  % This code is empty by default. However, you can set it for
+  % instance to the following
+  % 
+  % \pgfkeyssetvalue{/data point/y=0}\pgfdvmapdatapointtocanvas
+  % 
+  % in order to visualize the data point with its y-coordinate
+  % replaced by 0.
   
   % Constructor
   %
@@ -2124,6 +2145,11 @@
     \pgfooset{filter}{#1}
   }
 
+  % Setter
+  \method set projection code(#1) {
+    \pgfooset{projection code}{#1}
+  }
+
   % Slot
   \method protocol() {
     \pgfdvfilterpassedtrue
@@ -2138,10 +2164,14 @@
     \pgfooget{cache}\pgf@dv@cache
     \pgfkeysgetvalue{/data point/outlier}\pgf@temp%
     \ifx\pgf@temp\pgfutil@empty
-      \edef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+      {%
+        \pgfoovalueof{projection code}
+        \xdef\pgf@dv@add{\noexpand\pgf@dv@ph{\pgfkeysvalueof{/data
+              point/canvas x}}{\pgfkeysvalueof{/data point/canvas y}}}%
+      }
     \else%
       % An outlier!
-      \def\pgf@dv@add{\pgf@dv@outliner}%
+      \gdef\pgf@dv@add{\pgf@dv@outliner}%
     \fi%
     \expandafter\expandafter\expandafter\def%
     \expandafter\expandafter\expandafter\pgf@dv@cache%
@@ -2252,16 +2282,19 @@
   % Class rectangle visualizer
   %
   % This visualizer visualizes a datapoint as a rectangle. It needs
-  % two attributes a1 and a2, each of which must have min and max
-  % subattributes. Then, it draws a rectangle between (a1/min,a2/min)
-  % and (a1/max,a2/max).
+  % a name, so that /data point/<name>/attribute 1 and /data
+  % point/<name>/attribute 2 store two attributes names a1 to a2. Then,
+  % provided the current value of /data point/set equals name, for
+  % each data point a rectangle between (a1/min,a2/min) and
+  % (a1/max,a2/max) is created. 
+  
 
-  \attribute attribute 1;
-  \attribute attribute 2;
-  % The attributes
-
-  \attribute use path attribute;
-  % The attribute that stores the to-be-taken action
+  \attribute name;
+  % The name
+  
+  \attribute a1;
+  \attribute a2;
+  % The attributes, filled from /data point/<name>/attribute 1 and 2
 
   
   % Constructor
@@ -2269,47 +2302,65 @@
   % #1 = first attribute 
   % #2 = second attribute 
   %
-  \method rectangle visualizer(#1,#2,#3) {
-    \pgfooset{attribute 1}{#1}
-    \pgfooset{attribute 2}{#2}
-    \pgfooset{use path attribute}{#3}
+  \method rectangle visualizer(#1) {
+    \pgfooset{name}{#1}
   }
 
   % Method
   \method default connects() {
     \pgfoothis.get handle(\pgf@dv@me)
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,visualize,visualize datapoint signal)
+    \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
-
+    
+  % Slot
+  \method phase(#1) {%
+    \ifx#1\pgfdvbeginsurvey%
+      \pgfooeset{a1}{/data point/\pgfkeysvalueof{/data point/\pgfoovalueof{name}/attribute 1}}
+      \pgfooeset{a2}{/data point/\pgfkeysvalueof{/data point/\pgfoovalueof{name}/attribute 2}}
+      \pgfkeyssetvalue{\pgfoovalueof{a1}/sub attributes}{\pgfdvsub{/min}\pgfdvsub{/max}}
+      \pgfkeyssetvalue{\pgfoovalueof{a2}/sub attributes}{\pgfdvsub{/min}\pgfdvsub{/max}}
+    \fi%
+  }
+  
   % Slot
   \method visualize() {
     {
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 1}/min}\pgf@dv@amin
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 1}/max}\pgf@dv@amax
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 2}/min}\pgf@dv@bmin
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{attribute 2}/max}\pgf@dv@bmax
-      \ifx\pgf@dv@amin\relax\else\ifx\pgf@dv@amin\pgfutil@empty\else
-      \ifx\pgf@dv@bmin\relax\else\ifx\pgf@dv@bmin\pgfutil@empty\else
-      \ifx\pgf@dv@amax\relax\else\ifx\pgf@dv@amax\pgfutil@empty\else
-      \ifx\pgf@dv@bmax\relax\else\ifx\pgf@dv@bmax\pgfutil@empty\else
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 1}}{\pgf@dv@amin}
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 2}}{\pgf@dv@bmin}
-      \pgfpathdvmoveto
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 2}}{\pgf@dv@bmax}
-      \pgfpathdvlineto
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 1}}{\pgf@dv@amax}
-      \pgfpathdvlineto
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 2}}{\pgf@dv@bmin}
-      \pgfpathdvlineto
-      \pgfkeyssetvalue{/data point/\pgfoovalueof{attribute 1}}{\pgf@dv@amin}
-      \pgfpathdvlineto
-      \pgfpathclose
-      \pgfkeysvalueof{/data point/\pgfoovalueof{use path attribute}}
-      \fi\fi
-      \fi\fi
-      \fi\fi
-      \fi\fi
+      \pgfkeysgetvalue{/data point/set}\pgf@dv@visualizer%
+      \pgfooget{name}\pgf@temp%
+      \ifx\pgf@temp\pgf@dv@visualizer%
+        \pgf@dv@rect@do
+      \fi
     }
+  }
+
+  \def\pgf@dv@rect@do{
+      \pgfkeysgetvalue{\pgfoovalueof{a1}/min}\pgf@dv@amin
+      \ifx\pgf@dv@amin\relax\else\ifx\pgf@dv@amin\pgfutil@empty\else
+      \pgfkeysgetvalue{\pgfoovalueof{a1}/max}\pgf@dv@amax
+      \ifx\pgf@dv@amax\relax\else\ifx\pgf@dv@amax\pgfutil@empty\else
+      \pgfkeysgetvalue{\pgfoovalueof{a2}/min}\pgf@dv@bmin
+      \ifx\pgf@dv@bmin\relax\else\ifx\pgf@dv@bmin\pgfutil@empty\else
+      \pgfkeysgetvalue{\pgfoovalueof{a2}/max}\pgf@dv@bmax
+      \ifx\pgf@dv@bmax\relax\else\ifx\pgf@dv@bmax\pgfutil@empty\else
+      \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at begin}
+        \pgfkeyssetvalue{\pgfoovalueof{a1}}{\pgf@dv@amin}
+        \pgfkeyssetvalue{\pgfoovalueof{a2}}{\pgf@dv@bmin}
+        \pgfpathdvmoveto
+        \pgfkeyssetvalue{\pgfoovalueof{a2}}{\pgf@dv@bmax}
+        \pgfpathdvlineto
+        \pgfkeyssetvalue{\pgfoovalueof{a1}}{\pgf@dv@amax}
+        \pgfpathdvlineto
+        \pgfkeyssetvalue{\pgfoovalueof{a2}}{\pgf@dv@bmin}
+        \pgfpathdvlineto
+        \pgfkeyssetvalue{\pgfoovalueof{a1}}{\pgf@dv@amin}
+        \pgfpathdvlineto
+        \pgfpathclose
+      \pgfkeysvalueof{/data point/\pgfoovalueof{name}/execute at end}
+      \fi\fi
+      \fi\fi
+      \fi\fi
+      \fi\fi
   }
 }
 

@@ -146,7 +146,7 @@ end
 -- @return TODO
 --
 function orientation.parse_orientation(graph)
-  local option = graph:getOption('orientation')
+  local option = graph:getOption('/graph drawing/orientation')
   if option then
     local item = '{([^}]*)}'
     local pattern = item .. item .. item .. item

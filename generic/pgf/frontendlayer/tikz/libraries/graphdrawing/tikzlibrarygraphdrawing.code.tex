@@ -10,174 +10,82 @@
 \ProvidesFileRCS[v\pgfversion] $Header$
 
 \usepgflibrary{graphdrawing}
-\usetikzlibrary{graphs}
+
+
 
 
 %
-% This file defines the key family for graph drawing.
-%
-% It makes heavy use of the graphs library.
-%
+% Setup graph drawing for tikz
+% 
 
-%
-% The definitions for the sample algorithms ``few intersections'' and
-% ``standard tree'' are at the end.
-%
-
-%
-% ------------------------------------------------------------------------------
-%
-
-%
-% Set up graph drawing
-%
-\tikzgraphsset{
-  graph drawing engine/.style={
-    /tikz/execute at begin scope={\pgfgdbeginscope},
+\tikzset{
+  graph drawing scope/.style={
+    % 
+    % General stuff
+    %
+    /tikz/execute at begin scope={
+      \pgfgdsetedgecallback{\pgfgdtikzedgecallback}
+      \pgfgdbeginscope},
     /tikz/execute at end scope={\pgfgdendscope},
-    new ->/.code n args={4}{\pgfgdaddedge[##3]{##1}{##2}{##4}{->}},
-    new <-/.code n args={4}{\pgfgdaddedge[##3]{##1}{##2}{##4}{<-}},
-    new --/.code n args={4}{\pgfgdaddedge[##3]{##1}{##2}{##4}{--}},
-    new <->/.code n args={4}{\pgfgdaddedge[##3]{##1}{##2}{##4}{<->}},
-    new -!-/.code n args={4}{\pgfgdaddedge[##3]{##1}{##2}{##4}{-!-}},
-    no placement
+    % 
+    % Setup for plain syntax
+    % 
+    /utils/exec=\pgfgdaddspecificationhook{\tikzset{edge macro=\tikz@gd@plain@edge@macro}},
+    % 
+    % Setup for the graphs syntax 
+    %
+    /tikz/--/.style={arrows=-},
+    /tikz/graphs/new ->/.code n args={4}{\pgfgdedge{##1}{##2}{->}{/tikz,##3}{##4}},
+    /tikz/graphs/new <-/.code n args={4}{\pgfgdedge{##1}{##2}{<-}{/tikz,##3}{##4}},
+    /tikz/graphs/new --/.code n args={4}{\pgfgdedge{##1}{##2}{--}{/tikz,##3}{##4}},
+    /tikz/graphs/new <->/.code n args={4}{\pgfgdedge{##1}{##2}{<->}{/tikz,##3}{##4}},
+    /tikz/graphs/placement/compute position/.code=,%
+    % 
+    % Setup for the tree syntax
+    %
+    /tikz/growth function=\relax,
+    /tikz/edge from parent macro=\tikz@gd@edge@from@parent@macro
+  },
+  % Link in...
+  /graph drawing/at begin scope/.forward to=/tikz/graph drawing scope
+}
+
+\pgfgdappendtoforwardinglist{/tikz/,/tikz/graphs/}
+
+\def\pgfgdtikzedgecallback#1#2#3#4#5#6#7{%
+  \draw [#3,#4,/graph drawing/.cd,#6]
+     (#1\tikzparentanchor)
+       to [to path={#7 -- (\tikztotarget) \tikztonodes}]
+       #5
+     (#2\tikzchildanchor);%
+}
+
+\def\tikz@gd@edge@from@parent@macro#1#2{
+  [/utils/exec=\pgfgdedge{\tikzparentnode}{\tikzchildnode}{--}{/tikz,#1}{#2}]
+}
+
+\def\tikz@gd@plain@edge@macro#1#2{
+  \pgfgdedge{\tikztostart}{\tikztotarget}{--}{/tikz,#1}{#2}
+}
+
+
+
+% 
+% Conversions: Convert coordinates into pairs of values surrounded by
+% braces. 
+%
+
+\pgfgdset{
+  conversions/coordinate/.code={%
+    \tikz@scan@one@point\pgf@process#1%
+    \pgfmathsetmacro{\tikz@gd@temp@x}{\pgf@x}
+    \pgfmathsetmacro{\tikz@gd@temp@y}{\pgf@y}
+    \edef\pgfgdresult{{\tikz@gd@temp@x}{\tikz@gd@temp@y}}
   }
 }
 
-\tikzset{
-  graph drawing/.code={\tikzgraphsset{#1}}
-}
-
-
-% set keys for node and general options for graph drawing algorithms
-% and graphs
-\tikzgraphsset{
-  graph drawing/.cd,
-  @options/.initial=,
-  @node@options/.initial=,
-  register key/.style={
-    /tikz/graphs/#1/.style={/tikz/graphs/graph drawing/@options/.append={#1}{##1}}
-  },
-  register math key/.style={
-    /tikz/graphs/#1/.code={
-      \pgfmathsetmacro{\tikz@gd@temp}{##1}%
-      \edef\tikz@gd@marshal{\noexpand\pgfkeys{/tikz/graphs/graph drawing/@options/.append={#1}{\tikz@gd@temp}}}%
-      \tikz@gd@marshal%
-    }
-  },
-  register node key/.style={
-    /tikz/graphs/#1/.style={/tikz/graphs/graph drawing/@node@options/.append={#1}{##1}}
-  },
-  register node math key/.style={
-    /tikz/graphs/#1/.code={
-      \pgfmathsetmacro{\tikz@gd@temp}{##1}%
-      \edef\tikz@gd@marshal{\noexpand\pgfkeys{/tikz/graphs/graph drawing/@node@options/.append={#1}{\tikz@gd@temp}}}%
-      \tikz@gd@marshal%
-    }
-  },
-  register node coordinate key/.style={
-    /tikz/graphs/#1/.code={
-      \tikz@scan@one@point\pgf@process##1
-      \pgfmathsetmacro{\tikz@gd@temp@x}{\pgf@x}
-      \pgfmathsetmacro{\tikz@gd@temp@y}{\pgf@y}
-      \def\tikz@gd@temp{{\tikz@gd@temp@x}{\tikz@gd@temp@y}}
-      \edef\tikz@gd@marshal{\noexpand\pgfkeys{/tikz/graphs/graph drawing/@node@options/.append={#1}{\tikz@gd@temp}}}%
-      \tikz@gd@marshal%
-    }
-  },
-  register edge style/.style={
-    /tikz/#1,/pgf/graph drawing/edge options/grab/#1
-  },
-  register edge key/.style={
-    /tikz/#1/.code={},
-    /pgf/graph drawing/edge options/grab/#1/.style={
-      /pgf/graph drawing/edge options/.append={#1}{##1}
-    }%
-  },
-  register edge math key/.style={
-    /tikz/#1/.code={},
-    /pgf/graph drawing/edge options/grab/#1/.code={
-      \pgfmathsetmacro{\tikz@gd@temp}{##1}%
-      \edef\tikz@gd@marshal{\noexpand\pgfkeys{/pgf/graph drawing/edge options/.append={#1}{\tikz@gd@temp}}}%
-      \tikz@gd@marshal%
-    }%
-  },
-}
-
-
-% Graph drawing graph parameter "algorithm"
-%  
-% Description:
-% 
-% Used to decide which algorithm is used in the graph drawing engine
-% for drawing the next graph.
-
-\pgfgdset{
-  algorithm/.graph drawing graph parameter,
-}
-
-
-% register main key 'algorithm'
-\tikzgraphsset{
-  graph drawing/register key=algorithm,
-}
 
 
 
-%
-% Graph drawing algorithms
-%
-
-%
-% Few intersections
-%
-% Description:
-%
-% This slow algorithm will try to draw a graph such that the number of
-% intersections is minimized. The parameters ``max height'' and ``max
-% width'' can be used to guide the desired width and/or height of the
-% tree.
-%
-% Example:
-%
-% \tikzpicture[graph drawing={few intersections}]
-%   \graph{ a -> {b, c-> {d,e->b}, f->a}};
-% \endtikzpicture
-
-\tikzgraphsset{
-  few intersections/.style={
-    graph drawing engine,
-    algorithm=localsearchgraph
-  },
-  graph drawing/register math key=max height,
-  graph drawing/register math key=max width
-}
-
-
-%
-% Standard tree
-%
-% Description:
-%
-% The standard tree algorithm layouts an input tree. The node
-% parameter ``root'' is required to set the root node, whereas the
-% optional parameter ``tree scale'' defines a local scaling of the
-% tree. 
-%
-% Example
-%
-% \tikzpicture[graph drawing={standard tree}]
-%   \graph{ a [root] -> {b, c -> {d,e}}};
-% \endtikzpicture
-
-\tikzgraphsset{
-  standard tree/.style={
-    graph drawing engine,
-    algorithm=arbitrarytree
-  },
-  graph drawing/register node key=root,
-  graph drawing/register math key=level distance,
-  graph drawing/register math key=sibling distance
-}
 
 \endinput

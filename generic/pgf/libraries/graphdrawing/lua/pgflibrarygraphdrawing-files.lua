@@ -30,10 +30,10 @@ local files = {
    "orientation",
    "positioning-helpers",
    "texboxregister",
-   "test-path",
-   "test-box",
-   "test-vector",
-   "test-quadtree",
+--   "test-path",
+--   "test-box",
+--   "test-vector",
+--   "test-quadtree",
 }
 
 return files

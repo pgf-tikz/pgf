@@ -26,17 +26,17 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_standard_spring_electrical(graph)
   -- apply the random seed specified by the user
-  local seed = tonumber(graph:getOption('random seed') or 42)
+  local seed = tonumber(graph:getOption('/graph drawing/spring layouts/random seed') or 42)
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
   -- determine parameters for the algorithm
-  local k = tonumber(graph:getOption('natural spring dimension') or 28.5)
-  local C = tonumber(graph:getOption('FOO BAR BAZ') or 0.2)
-  local iterations = tonumber(graph:getOption('maximum iterations') or 500)
+  local k = tonumber(graph:getOption('/graph drawing/spring layouts/natural spring dimension') or 28.5)
+  local C = tonumber(graph:getOption('/graph drawing/spring layouts/FOO BAR BAZ') or 0.2)
+  local iterations = tonumber(graph:getOption('/graph drawing/spring layouts/maximum iterations') or 500)
 
   -- decide what technique to use for the initial layout
-  local initial_positioning = graph:getOption('initial positioning') or 'random'
+  local initial_positioning = graph:getOption('/graph drawing/spring layouts/initial positioning') or 'random'
   local positioning_func = positioning.technique(initial_positioning, graph, k)
 
   -- fixate all nodes that have an 'at' option. this will set the
@@ -48,7 +48,7 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
   for node in table.value_iter(graph.nodes) do
     node.position = Vector:new(2, function (n)
       if node.fixed then
-        local pos = { node.pos.x, node.pos.y }
+	 local pos = { node.pos:x(), node.pos:y() }
         return pos[n]
       else
         return positioning_func(n)
@@ -195,8 +195,8 @@ function drawGraphAlgorithm_standard_spring_electrical(graph)
 
   -- apply node positions
   for node in table.value_iter(graph.nodes) do
-    node.pos.x = node.position:x()
-    node.pos.y = node.position:y()
+     node.pos:set{x = node.position:x()}
+     node.pos:set{y = node.position:y()}
   end
 
   -- adjust orientation
@@ -209,9 +209,10 @@ end
 --
 function fixate_nodes(graph)
   for node in table.value_iter(graph.nodes) do
-    if node:getOption('at') then
-      node.pos.x, node.pos.y = parse_at_option(node)
-      node.fixed = true
+    if node:getOption('/graph drawing/at') then
+       local x, y = parse_at_option(node)
+       node.pos:set{x = x, y = y}
+       node.fixed = true
     end
   end
 end
@@ -221,7 +222,7 @@ end
 --- Parses the at option of a node.
 --
 function parse_at_option(node)
-  local x, y = node:getOption('at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
+  local x, y = node:getOption('/graph drawing/at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
   return tonumber(x), tonumber(y)
 end
 

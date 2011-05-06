@@ -15,7 +15,7 @@ pgf.module("pgf.graphdrawing")
 
 function drawGraphAlgorithm_wetherelltree(graph, options)
   -- find the root node of the graph
-  graph.root = graph:findNodeIf(function (node) return node:getOption('root') end)
+  graph.root = graph:findNodeIf(function (node) return node:getOption('/graph drawing/root') end)
   if not graph.root then
     error('no root node specified. aborting')
   end
@@ -86,7 +86,7 @@ function drawGraphAlgorithm_wetherelltree(graph, options)
   end
 
   -- determine the node distance
-  local node_distance = tonumber(graph:getOption('node distance') or 28.5)
+  local node_distance = tonumber(graph:getOption('/graph drawing/node distance') or 28.5)
 
   -- map simplified x,y coordinates to real coordinates in the drawing
   for node in table.value_iter(graph.nodes) do

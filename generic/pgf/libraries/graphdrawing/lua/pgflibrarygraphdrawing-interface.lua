@@ -113,20 +113,18 @@ end
 -- @param direction    Direction of the edge (e.g. |--| for an undirected edge 
 --                     or |->| for a directed edge from the first to the second 
 --                     node).
--- @param edge_nodes   A string for \tikzname\ to generate the edge label nodes later.
---                     Needs to be passed back to TikZ unmodified.
--- @param options      A string of |{key}{value}| pairs of edge options that are
+-- @param parameters   A string of parameters pairs of edge options that are
 --                     relevant to graph drawing algorithms.
--- @param tikz_options A string of |{key}{value}| pairs that need to be passed
---                     back to \tikzname\ unmodified.
+-- @param tikz_options A string that should be passed back to \pgfgddraw unmodified.
+-- @param aux          Another string that should be passed back to \pgfgddraw unmodified.
 --
-function Interface:addEdge(from, to, direction, edge_nodes, options, tikz_options)
+function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
-  Sys:log("GD:INT: Edge from: " .. tostring(from) .. " to: " .. tostring(to))
+  Sys:log("GD:INT: Edge " .. tostring(from) .. " " .. tostring(direction) .. " " .. tostring(to))
   from = self.graph:findNode(from)
   to = self.graph:findNode(to)
   assert(from and to, "at least one node doesn't exist yet")
-  self.graph:createEdge(from, to, direction, edge_nodes, string.parse_braces(options), tikz_options)
+  self.graph:createEdge(from, to, direction, aux, string.parse_braces(options), tikz_options)
 end
 
 
@@ -155,9 +153,10 @@ function Interface:loadAlgorithm(name)
   Sys:log('name = ' .. name)
   
   -- try to load the algorithm file
-  local filename = "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua"
-  pgf.load(filename, "tex")
-  
+  -- delete the following after renaming of all files
+  local filename = "pgfgd-algorithm-" .. name .. ".lua"
+  pgf.load(filename, "tex", false, "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua")
+
   -- look up the main algorithm function
   return pgf.graphdrawing[function_name]
 end
@@ -181,7 +180,7 @@ function Interface:drawGraph()
     return
   end
 
-  local name = self:getOption("algorithm"):gsub('%s', '-')
+  local name = self:getOption("/graph drawing/algorithm"):gsub('%s', '-')
   local functionName = "drawGraphAlgorithm_" .. name:gsub('-', '_')
   local algorithm = pgf.graphdrawing[functionName]
   
