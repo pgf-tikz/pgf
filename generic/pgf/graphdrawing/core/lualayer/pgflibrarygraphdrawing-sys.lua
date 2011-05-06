@@ -43,6 +43,7 @@ Sys.box_iterator = 1
 --
 function Sys:setVerbose(verbose)
   self.verbose = verbose
+  io.flush()
 end
 
 
