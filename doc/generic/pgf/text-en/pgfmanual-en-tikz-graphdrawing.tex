@@ -1,0 +1,675 @@
+% Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\section{Algorithmic Graph Drawing}
+{\noindent {\emph{by Ren\'{e}e Ahrens, Olof-Joachim Frahm,
+      Jens Kluttig, Matthias Schulz, Stephan Schuster, and Till Tantau}}}
+
+\label{section-library-graphdrawing}
+
+
+\begin{tikzlibrary}{graphdrawing}
+  This package provides capabilities for automatic graph drawing.
+
+  \medskip
+  \textbf{Note:} Graph drawing requires that the document is typeset
+  using Lua\TeX. This package should work with \LuaTeX\ 0.4 or
+  higher, which is included in all current \TeX\ distributions.
+\end{tikzlibrary}
+
+\ifluatex\relax\else{LuaTeX is required for setting this manual
+  section.}\expandafter\endinput\fi 
+
+
+\subsection{Overview}
+
+\emph{Alogrithmic graph drawing} (or just \emph{graph drawing} in the
+following) means that algorithms are used to decide where the nodes of
+a graph are positioned on a page so that the graph ``looks nice.'' The
+idea is that you, as human (or you, as a machine, if you happen to be
+a machine and happen to be reading this document) just specify which
+nodes are present in a graph and which edges are
+present. Additionally, you may add some ``hints'' like ``this node
+should be near the center'' or ``this edge is pretty important.'' You
+do \emph{not} specify where, exactly, the nodes and edges should
+be. This is something you leave to a \emph{graph drawing
+  algorithm}. The algorithm gets your description of the graph as an
+input and then decides where the nodes should go on the page.
+
+Naturally, graph drawing is a bit of a (black?) art. There is no
+``perfect'' way of drawing a graph, rather, depending on the
+circumstances there are several different ways of drawing the same
+graph and often it will just depend on the aesthetic sense of the
+reader which layout he or she would prefer. For this reason, there is
+a huge number of graph drawing algorithms ``out there'' and there are
+scientific conference devoted to such algorithms, where each
+year dozens of new algorithms are proposed.
+
+Unlike the rest of \pgfname\ and \tikzname, which is implemented
+purely in \TeX, the graph drawing algorithms are simply too complex to
+implement them in \TeX. Instead, the programming language Lua is used
+by the graph drawing library -- a programming language that has been
+integrated into recent versions of \TeX. This means that (a) as a user
+of the graph drawing engine you will can run \TeX\ on your documents
+in the usual way, no external programs are called since Lua is already
+integrated into \TeX\ and (b) it is pretty easy to implement new graph
+drawing algorithms for \tikzname\ since Lua can be used and no \TeX\
+programming knowledge is needed. 
+
+The graph drawing engine of \tikzname\ provides two main features:
+\begin{enumerate}
+\item ``Users'' of the graph drawing engine can invoke the graph
+  drawing algorithms often by just adding a single option to their
+  picture. Here is a typical example, where the |spring layout| option
+  invokes a so-called ``spring algorithm'' (what these are will be
+  explained later):
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+  { a -> { subgraph K_n [n=4] } -> b };
+\end{codeexample}
+  Here is another example:
+\begin{codeexample}[]
+\tikz [tree]
+  \node {root}
+  child { node {a} }
+  child { node {a pretty long node name} };
+\end{codeexample}
+  An a final example:
+\begin{codeexample}[]
+\tikz [spring layout]
+{
+  \foreach \i in {1,...,6}
+    \node (node \i) [fill=blue!50, text=white, circle] {\i};
+    
+  \draw (node 1) edge (node 2)
+        (node 2) edge (node 3)
+        (node 3) edge (node 4)
+                 edge (node 5)
+                 edge (node 6);
+}
+\end{codeexample}
+  In all of the example, the positions of the nodes have only been
+  computed \emph{after} all nodes have been created and the edges have
+  been specified. For instance, in the last example without the
+  |spring layout| option, all of the nodes would have been placed on
+  top of each other.
+\item The graph drawing engine is also intended to make is easy to
+  implement new graph drawing algorithms. These algorithms can and
+  must be implemented in the Lua programming language (which is
+  \emph{much} easier to program than \TeX\ itself). The Lua code for a
+  graph drawing algorithm gets an object-oriented model of the input
+  graph as an input and must just compute the desired new positions of
+  the nodes. The complete handling of passing options and
+  configurations back-and-forth between the different \tikzname\ and
+  \pgfname\ layers is handled by the graph drawing engine.
+
+  The bottom line is that the graph drawing engine makes it easy
+  to try out new graph drawing algorithms for medium sized graphs (up
+  to a few hundred nodes).
+\end{enumerate}
+
+
+The documentation of the graph drawing engine is structured as
+follows: The current section explains the graph drawing engine from
+``the user's point of few'' and also describes the basic steps
+necessary to implement a new graph drawing algorithm. The libraries
+containing the different graph drawing algorithms are documented in
+Section~\ref{section-gd-libraries}. Section~\ref{section-gd-own-algorithm}
+covers the internals of how the graph drawing engine works.
+
+
+
+
+\subsection{Usage}
+
+To use the graph drawing engine, you first need to load some
+libraries. First, you should always load the |graphdrawing| library,
+which will setup the basic keys. Next, you need to load another
+library lie |graphdrawing.tress|. The actual graph drawing
+algorithms reside in these libraries. Finally, you may also wish to
+load the |graphs| library, but this is only necessary if you wish to
+use the |graph| path command, which provides an easy-to-use syntax for
+specifying graphs. You can also use the graph drawing engine
+independently of the |graphs| library, for instance in conjunction
+with the |child| or the |edge| syntax. Here is a typical setup:
+
+\begin{codeexample}[code only]
+\usetikzlibrary{graphs, graphdrawing, graphdrawing.trees}  
+\end{codeexample}
+
+Having setup things, you must then specify for which scopes the
+graph drawing engine should apply an layout algorithm to the nodes in
+the scope.
+
+Before we go into the details of how these keys work, a bit of
+background knowledge on how the graph drawing engine works will be
+most necessary: Using a special internal key called
+|graph drawing scope|, which you typically will not call directly,
+the graph drawing engine can be switched on for a |{scope}|. When this
+happens, a lot of things change inside \pgfname\ and \tikzname\ for
+this scope: First, all nodes created inside the scope are not
+immediately placed at the position where they were created. Instead,
+they are ``spirited away'' to some internal table of the graph drawing
+engine. Second, all edges created inside the scope using either the
+|graph| command, the |edge| command, or the |child| command are also
+``spirited away'' to another internal table. Then, at the end of the
+scope, the graph drawing algorithm is started, which has access to
+these internal tables of nodes and edge of the graph that has been
+specified inside the scope. The algorithm will then compute new,
+better, positions for the nodes. Finally, once the positions have been
+computed, the graph drawing engine will then retrieve the nodes from
+the internal table and place them at the computed positions and it
+also retrieves the edges from the internal table and also adds them to
+the picture.
+
+While this theory may sound complicated, the use of the graph library
+is, fortunately, pretty simple: Just add a key like |tree| or
+|spring layout| to a scope and leave out any explicit positioning via
+things like |at| -- the positioning will be done automatically by the
+graph drawing algorithm.
+
+The keys like |tree| or |spring layout| are explained in more detail
+in the chapters on the different libraries. They all internally call
+(at least) two keys: |graph drawing scope| and |algorithm|. These
+keys are documented in the following, but you typically will not use
+them explicitly. In addition to setting up the scope and setting the
+correct algorithms, keys like |tree| and |spring layout| also take
+some \meta{options} as arguments. These \meta{options} allow you setup
+special graph parameters for the algorithm.
+
+\begin{key}{/tikz/graph drawing scope}
+  This key can (only) be used as an option when a \tikzname\ scope is
+  started. Thus, you can pass it to |\tikz|, to |{tikzpicture}|, to
+  |\scoped|, to |{scope}|, to |graph|, and to |{graph}|. For instance,
+  the |tree| option (which uses |graph drawing scope| internally) can
+  be used in the following ways:
+\begin{codeexample}[]
+\begin{tikzpicture}[tree]
+  \graph {a -> {b,c}};
+\end{tikzpicture}
+\tikz [tree]
+  \graph {a -> {b,c}};
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  
+  \scoped [tree]
+    \graph {a -> {b,c}};
+    
+  \begin{scope}[tree, xshift=2cm, rotate=90]
+    \graph {a -> {b,c}};
+  \end{scope}
+\end{tikzpicture}
+\tikz \graph[tree] {a -> {b,c}};
+\tikz \path graph[tree] {a -> {b,c}};
+\end{codeexample}
+
+  You can \emph{not} use the |graph drawing scope| key with a single
+  node or on a path. In particular, to typeset a tree given in the
+  |child| syntax somewhere inside a |{tikzpicture}|, you must prefix
+  it with the |\scoped| command:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \scoped [tree]
+    \node {root}
+    child { node {left child} }
+    child { node {right child} };
+\end{tikzpicture}
+\end{codeexample}
+  Naturally, the above could have been written more succinctly as
+\begin{codeexample}[]
+\tikz [tree]
+  \node {root}
+  child { node {left child} }
+  child { node {right child} };
+\end{codeexample}
+  Or even more succinctly:
+\begin{codeexample}[]
+\tikz \graph [tree] { root -- {left child, right child} };
+\end{codeexample}
+
+  In detail, adding the |graph drawing scope| command to a scope has
+  the following effects:
+  \begin{itemize}
+  \item The basic layer is informed, using the
+    |execute at begin scope| key, that the current scope will contain
+    nodes that should be positioned by a graph drawing engine. Which
+    algorithm is used depends on the value of the |algorithm| key.
+  \item If the |graphs| library has been loaded, the default
+    positioning mechanisms of this library are switched off, leaving
+    the positioning to the graph drawing engine. Also, when an edge is
+    created by the |graphs| library, this is signalled to the graph
+    drawing library. (To be more precise: The keys |new ->| and so on
+    are redefined so that they call |\pgfgdedge| instead of creating
+    an edge.
+  \item The |edge| path command is modified so that it also calls
+    |\pgfgdedge| instead of immediately creating any edges.
+  \item The |edge from parent| path command is modified so that is
+    also calls |\pgfgdedge|.
+  \end{itemize}
+
+  The bottom line of the above is the following: Inside a scope for
+  which the |graph drawing scope| key has been set either explicitly
+  or implicitly, you can:
+  \begin{itemize}
+  \item Create nodes in the usual way. The nodes will be created
+    completely, but then tucked away in an internal table. This means
+    that all of \tikzname's options for nodes can be applied. You can
+    also name a node and reference it later.
+  \item Create edges using either the syntax of the |graph| command
+    (using |--|, |<-|, |->|, or |<->|), or using the |edge| command,
+    or using the |child| command. These edges will, however, not be
+    created immediately. Instead, the basic layer's command
+    |\pgfgdedge| will be called, which stores ``all the information
+    concerning the edge.'' The actual drawing of the edge will only
+    happen after all nodes have been positioned.
+  \item Most of the keys that can be passed to an edge will work as
+    expected. In particular, you can add labels to edges using the
+    usual |node| syntax for edges.
+  \end{itemize}
+  Here are some things that will \emph{not} work:
+  \begin{itemize}
+  \item When a node has a |label| or a |pin| attached to it, the label
+    or the pin are also nodes  that are created immediately and, thus,
+    subject to positioning by the graph drawing algorithm. However,
+    this is ``typically not what we want'' and these nodes will be
+    placed at the wrong positions. 
+
+    We hope to solve this problem in the future, for the time being
+    you need to use |late options| to add the labels after the nodes
+    have been positioned. (Yes, we know this is not convenient, but
+    neither is this trivial to fix.)
+
+    Note that for edges, nodes positioned ``on'' these edges are not a
+    problem since these nodes get only created when the edge is
+    created, which is after the algorithm has already run.
+  \item Only edges created using the graph syntax, the |edge| command,
+    or the |child| command will correctly pass their connection
+    information to the basic layer. When you write |\draw (a)--(b);|
+    inside a graph drawing scope, where |a| and |b| are nodes that
+    have been created inside the scope, you will get an error
+    message / things will look wrong. The reason is that the usual
+    |--| is not ``caught'' by the graph drawing engine and, thus,
+    tries to immediately connect two nodes that do not yet exist
+    (except inside some internal table).
+  \item The options of edges are executed twice: Once when the edge is
+    ``examined'' by the |\pgfgdedge| command and then once more when
+    the edge is actually created. Fortunately, in almost all cases,
+    this will not be a problem.
+  \end{itemize}
+\end{key}
+
+\begin{key}{/graph drawing/algorithm=\meta{algorithm's name}}
+  This key specifies which algorithm should be used for typesetting a
+  graph. The names of these algorithm's are often a bit cryptic (like
+  |AhrensFKSS2011 tree|), which is why you typically do not call this
+  key directly. Instead, styles with more easy-to-remember names
+  internally set this key.
+
+  Setting this key has the following effects: When a scope with the
+  |graph drawing scope| command is started, the current value of
+  \meta{algorithm's name} is examined. Then, the graph drawing engine
+  tries to find a Lua function called
+  |drawGraphAlgorithm_|\meta{algorithm's name} inside the
+  |pgf.graphdrawing| Lua mode. This function will be used to
+  perform the typesetting (what this function should do is documented
+  in detail in Section~\ref{section-gd-own-algorithm}). If this
+  function does not exist, the engine tries to load the file 
+  called |pgfgd-algorithm-|\meta{algorithm's name}|.lua| and they,
+  again, tries to call the function. Thus, any \meta{algorithm's name}
+  mentioned inside a document must either have already been defined in
+  some Lua file loaded by some library or it must reside in a file
+  with the corresponding name.
+  
+  In case the \meta{algorithm's name} contains characters that cannot
+  be used in file names or in function names, substitutions are
+  performed. In particular, all occurrences of a space are replaced by
+  hyphens for file names and by underscores for function names.
+
+  Here is an example where we switch on the graph drawing engine
+  explicitly and explicitly select an algorithm:
+\begin{codeexample}[]
+\tikz [graph drawing scope,
+       /graph drawing/algorithm=AhrensFKSS2011 tree]
+  \graph { a <-> {b, c} };  
+\end{codeexample}
+\end{key}
+
+
+\subsection{Common Graph Parameters}
+
+Graph drawing algorithms can typically be configured in some way. For
+instance, for a graph drawing algorithm that visualizes its nodes as a
+tree, it will typically be useful when the user can change the
+so-called \emph{level distance} and the \emph{sibling distance}. For
+other algorithms, like force-based algorithms, a large number of
+parameters influence the way the algorithms work.
+
+Options that influence graph drawing algorithms will be called
+\emph{graph drawing parameters} in the following. There are three kinds of
+graph drawing parameters:
+\begin{itemize}
+\item Graph parameters,
+\item node parameters, and
+\item edge parameters.
+\end{itemize}
+A graph drawing graph parameter influences the layout of the whole
+graph. A graph drawing node parameter is an option that is attached to
+a single node and should only have a direct influence on this node
+(like ``place this node exactly at this position, no matter what''). A
+graph drawing edge parameter in important for a single edge (like
+``this edge must be exactly |2cm| long'').
+
+A graph drawing algorithm may or may not take the different graph
+parameters into account. After all, these options may even outright
+contradict each other, so an algorithm can only try to ``do its
+best''.
+
+While many graph parameters are very specific to a single algorithm, a
+number of graph parameters will be important for many algorithms. Such
+graph parameters are called \emph{common} graph parameters, the most
+important of which are documented in the following. The common graph
+parameters can be used like any normal \tikzname\ option. In contrast,
+specific options for algorithms must be passed to the key that
+installs the algorithm. For example, the orientation of a graph
+is setup with the common key |orient|, which is given alongside a key
+like |spring layout|:
+
+\begin{codeexample}[]
+\tikz \graph [spring layout, orient=1|2] { 1--2--3--1 };  
+\end{codeexample}
+
+In contrast, the very specific option |maximum iterations| must be
+passed to the |spring layout| key:
+
+\begin{codeexample}[]
+\tikz \graph [spring layout={maximum iterations=3}] { 1--2--3--1 };  
+\end{codeexample}
+
+
+
+\subsubsection{Orienting a Graph}
+
+\label{subsection-library-graphdrawing-standard-orientation}
+
+The drawing computed for a graph may be pleasing in general but some
+algorithms like the |spring| algorithm show the tendency to generate
+drawings with an unexpected orientation. Also, if several graphs are 
+defined in a single picture, then these will possibly overlap.
+As a consequence, a postprocessing step is sometimes necessary in order
+to adjust the orientation of the graph drawing. This can be achieved in
+a relatively simple way using the following common options:
+
+
+\begin{key}{/graph drawing/orient=\meta{orientation}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  With graph drawing algorithms it makes sense for, the |graphdrawing|
+  library will, in a postprocessing step, attempt to detect the 
+  principal axis of the graph automatically and will adjust its 
+  orientation so that it is parallel to the $x$ axis.
+
+  This behavior may be altered by setting |orientation| using one of
+  the following three notation styles for the \meta{orientation}:
+  \begin{enumerate}
+  \item  \meta{first axis node}|-|\meta{second axis node} 
+
+    Specifies the axis of the graph via the names of two nodes. The
+    drawing is rotated so that this axis is horizontal,
+    with \meta{first axis node} being located left of \meta{second axis node}:
+\begin{codeexample}[]
+\tikz \graph [spring layout] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a-b] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=b-a] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=1-2] { subgraph K_n[n=5] };
+\tikz \graph [spring layout,orient=2-1] { subgraph K_n[n=5] };
+\end{codeexample}
+  
+  \item \meta{first axis node}\verb!|!\meta{second axis node}
+    
+    Similar to the previous case, only the axis is now vertical with 
+    \meta{first axis node} being located above \meta{second axis node}:
+\begin{codeexample}[]
+\tikz \graph [spring layout,orient=a|b] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=b|a] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=1|4] { subgraph K_n[n=5] };
+\tikz \graph [spring layout,orient=4|1] { subgraph K_n[n=5] };
+\end{codeexample}
+  
+  \item \meta{first axis node}|:|\meta{angle}|:|\meta{second axis
+      node} 
+
+    This is the most generic variant of the three notation styles. In
+    addition to specifying the axis of the graph drawing by means of two node names,
+    it also defines the angle to the $x$ axis by which the final drawing 
+    is to be rotated. The specification of the \meta{angle} is done in the
+    same way as everywhere else in \tikzname, where positive values imply
+    counter-clockwise rotation and negative values imply clockwise
+    rotation:
+\begin{codeexample}[]
+\tikz \graph [spring layout,orient=a:90:b]  { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a:45:b]  { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a:0:b]   { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a:-45:b] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a:-90:b] { a -- b -- c -- a };
+\end{codeexample}
+  \end{enumerate}
+\end{key}
+
+\begin{key}{/graph drawing/orient'=\meta{orientation}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  Does the same as |orient| except that the nodes are flipped over the
+  principal axis.
+\begin{codeexample}[]
+\tikz \graph [spring layout,orient=a-b]  { a -- b -- c -- a };
+\tikz \graph [spring layout,orient'=a-b] { a -- b -- c -- a };
+\end{codeexample}
+\end{key}
+
+
+\begin{key}{/graph drawing/desired at=\marg{coordinate}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  Defines the desired position for a node. In a postprocessing step, the
+  |graphdrawing| library will attempt to move the entire graph so that
+  the first node with a |desired at| option is moved to its desired 
+  location.
+  \begin{codeexample}[]
+% TODO
+  \end{codeexample}
+\end{key}
+
+
+\subsubsection{Packing of Connected Components}
+
+Graphs may be composed of subgraphs or \emph{components} that are not
+connected to each other. In order to draw these nicely, the 
+|graphdrawing| library splits them up into separate graphs, computes
+their layouts with the same graph drawing algorithm independently and,
+in a postprocessing step, arranges them in a non-uniform grid in the 
+final drawing. This is called \emph{component packing}.
+
+The following options can be used to configure the order and placement
+strategy during component packing.
+
+\begin{key}{/graph drawing/component packing=\marg{options}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  Executes the \meta{options} with the path prefix 
+  |/tikz/component packing|.
+  
+  Defines how to arrange the connected components of the graph after 
+  their individual drawings have been computed.
+\end{key}
+
+To be written...
+
+%\begin{key}{/tikz/component packing/layered=\opt{\meta{boolean}} (default true, initially true)}
+%  |layered| arranges the different components in a non-uniform grid
+%  starting in the top left corner. Components are placed in these 
+%  layers in descending order of their size.
+%  \begin{codeexample}[]
+%\tikz \graph [experimental layout,component packing={layered}] {
+%  a -- b -- c -- a,
+%  d -- e -- d,
+%  g
+%};
+%  \end{codeexample}
+%\end{key}
+%
+%\begin{key}{/tikz/component packing/centered=\opt{\meta{boolean}} (default true, initially false)}
+%  If set to |true|, arranges the different components clockwise in a 
+%  non-uniform grid starting at the center. Components are placed in 
+%  descending order of their size.
+%  \begin{codeexample}[]
+%\tikz \graph [experimental layout,component packing={centered}] {
+%  a -- b -- c -- a,
+%  d -- e -- d,
+%  g
+%};
+%  \end{codeexample}
+%\end{key}
+%
+%\begin{key}{/tikz/component packing/padding=\meta{dimension} (initially 0pt)}
+%  Defines how much padding is used to separate the connected 
+%  components.
+%  \begin{codeexample}[]
+%\tikz \graph [experimental layout,component packing={centered,padding=10pt}] {
+%  a -- b -- c -- a,
+%  d -- e -- d,
+%  g
+%};
+%  \end{codeexample}
+%\end{key}
+
+
+\subsection{Implementing Graph Drawing Algorithms}
+
+\label{section-gd-own-algorithm}
+\label{section-library-graphdrawing-ownAlgorithm}
+
+This section explains how new graph drawing algorithms can be
+integrated with the graph drawing engine.
+
+As explained for the |algorithm| key, each graph drawing algorithm
+must be placed in a Lua function called
+|drawGraphAlgorithm_|\meta{algorithm name} inside the
+|pgf.graphdrawing| Lua module. This function, in turn, should
+typically be placed in a file called |pgfgd-algorithm-|\meta{algorithm
+  name}. In theory, this would already be sufficient to use the
+algorithm, but you will typically also create a style to make using
+the algorithm a bit easier, see the end of this section.
+
+The function |drawGraphAlgorithm_|\meta{algorithm name} will be called
+with an object representing the graph as single argument. The job of
+the algorithm is to modifying the coordinates of the nodes of this
+graph. Any return values are discarded. 
+
+For example, the following code fragment (taken and slightly altered
+from the file |pgfgd-algorithm-simpleexample.lua|)
+implements a trivial graph drawing algorithm that just places all
+nodes on a fixed-size circle.  It is accessed with the name
+|simpleexample|, so both the file- and function name agree on that.
+
+\begin{codeexample}[code only]
+-- File pgfgd-algorithm-simpleexample.lua
+  
+pgf.module("pgf.graphdrawing")
+
+--- A very, very simple node placing algorithm for demonstration purposes.
+-- All nodes are positioned on a fixed-size circle.
+function drawGraphAlgorithm_simpleexample(graph)
+   local radius = 20
+
+   -- count nodes
+   local nodeCount = table.count_pairs(graph.nodes)
+
+   local alpha = (2 * math.pi) / nodeCount
+   local i = 0
+   for node in table.value_iter(graph.nodes) do
+      -- the interesting part...
+      node.pos:set{x = radius * math.cos(i * alpha)}
+      node.pos:set{y = radius * math.sin(i * alpha)}
+      i = i + 1
+   end
+end
+\end{codeexample}
+
+The algorithm computes a circular layout like in the following.
+
+\begin{codeexample}[]
+\tikz [graph drawing scope, /graph drawing/algorithm=simpleexample]
+  \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
+\end{codeexample}
+
+Users will typically wish to write something shorter than
+|graph drawing scope...| in order to run a graph drawing algorithm on
+a graph. For this reason, you should setup a style on the \TeX\ side
+that calls the above keys. For instance, you could create a small
+\tikzname\ library and place the following line in the library:
+\begin{codeexample}[code only]
+\tikzset{circular layout/.style={
+    graph drawing scope,
+    /graph drawing/algorithm=simpleexample}}
+\end{codeexample}
+However, there is a better command for this:
+\begin{codeexample}[code only]
+% Place this is a file like pgflibrarygraphdrawing.circular.code.tex
+\pgfgddeclarealgorithmkey
+{circular layout}
+{circular layout}
+{algorithm=simpleexample}
+{}
+\end{codeexample}
+\pgfgddeclarealgorithmkey
+{circular layout}
+{circular layout}
+{algorithm=simpleexample}
+{}
+
+The |\pgfgddeclarealgorithmkey| takes care of setting up your style
+key in appropriate ways (including some ways you will not have though
+of) and installs some additional handlers. See the documentation of
+this command in Section~\ref{section-gd-backend} for details. 
+
+Returning to the algorithm, it would be better if we could
+``configure'' the radius of the circle. The graph drawing engine
+provides for this case: You can declare certain \pgfname\ keys to be
+so-called ``graph parameters''. When a key is declared as a graph
+parameter, it will be available inside the algorithm: 
+
+\begin{codeexample}[code only]
+   local radius = graph:getOption("/graph drawing/radius") or 20
+\end{codeexample}
+
+Using the |getOption| method we obtain the value of the
+graph parameter or a |nil| value if the key has not been set. In order
+to register the key on the \TeX\ side, we add another command to the
+library: 
+
+\begin{codeexample}[code only]
+\pgfgddeclarecommonkeys{
+  radius/.graph drawing graph parameter=evaluate math expression
+}
+\end{codeexample}
+\pgfgddeclarecommonkeys{
+  radius/.graph drawing graph parameter=evaluate math expression
+}
+
+The |evaluate math expression| tells \TeX\ that whenever you assign
+something to the |radius| option, the mathematical expression should
+be evaluated and the result should be passed down to the graph drawing
+algorithm. For instance, when you write |radius=20pt+3.5pt|, the
+algorithm will get the value |23.5| as a result to calling
+|getOption|:
+
+\begin{codeexample}[]
+\tikz \graph [circular layout, radius=1.5cm]
+  { f -> c -> e -> a ->{b -> {c, d, f}, e -> b}};
+\end{codeexample}
+
+
+\endinput
+

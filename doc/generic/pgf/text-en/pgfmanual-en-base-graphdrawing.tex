@@ -15,7 +15,9 @@
 \section{Graph Drawing Internals}
 \label{section-base-graphdrawing}
 
-\ifluatex\relax\else{LuaTeX is required for setting this manual section.}\endinput\fi
+TT: This chapter is under heavy construction...
+
+\ifluatex\relax\else{LuaTeX is required for setting this manual section.}\expandafter\endinput\fi
 
 As mentioned before (\ref{section-library-graphdrawing}), the graph
 drawing library makes use of Lua. But where does the control flow
@@ -37,9 +39,8 @@ Let's have a look at a simple example to see what the front end looks
 like:
 
 \begin{codeexample}[]
-\tikzpicture[graph drawing={standard tree},scale=2]
-  \graph{root [as=Hello,root] -> World[fill=blue!20]};
-\endtikzpicture
+\tikz[AhrensFKSS2011 tree,scale=2]
+  \graph{root [as=Hello] -> World[fill=blue!20]};
 \end{codeexample}
 
 As you may see, the syntax is exactly the same as described in the
@@ -70,12 +71,11 @@ certain grid:
 The graph drawing library does not take care of any predefined layout options by now, so the above example will be set differently:
 
 \begin{codeexample}[]
-\tikzpicture[graph drawing={few intersections}, scale=2]
+\tikz[AhrensFKSS2011 minimize crossings, scale=2]
   \graph[chain shift=(45:1)] {
     a -> b -> c;
     d -> e;
   };
-\endtikzpicture
 \end{codeexample}
 
 A graph drawing algorithm will always place the nodes in its own manner. 
@@ -401,118 +401,6 @@ algorithm to use. These keys are registered on the \tikzname\ layer.
   Like node key, but with parsing of it's value (see |register math key|).
 \end{stylekey}
 
-\subsection{Creating your own Algorithm}
-\label{section-library-graphdrawing-ownAlgorithm}
-There are two ways to make a user-definded algorithm
-available to the graph drawing library.
-You can create your own graph drawing algorithm by naming it like
-|drawGraphAlgorithm_xyz| and placing it into the |pgf.graphdrawing|
-Lua module, where |xyz| is the string which is supplied to the
-\TeX\ interface.  This way the function is looked up before the
-framework tries to load a file named
-|pgflibrarygraphdrawing-algorithms-xyz.lua| anywhere in the accessible
-path, which is the second way to define your algorithm.
-
-You may load a file named according to the above-mentioned scheme that
-contains an algorithm on your own using the |Interface:loadAlgorithm()|
-function, which accepts the name string as single argument. This will
-usually modify the module entry of the function name, so you have to
-be aware of that behaviour if you rely on it to test whether an
-algorithm was loaded (e.g. if you want to define a wrapper around the
-loaded algorithm).
-
-The algorithm will be called with the graph object as single argument
-and should do its work by modifying this object. Any return
-values are discarded.
-
-For example, the following code fragment (taken and slightly altered
-from the file |pgflibrarygraphdrawing-algorithms-simpleexample.lua|)
-implements a rather simple algorithm, placing all nodes on a fixed-size
-circle.  It is accessed with the name |simpleexample|, so both the
-file- and function name agree on that.
-
-\begin{codeexample}[code only]
-pgf.module("pgf.graphdrawing")
-
---- A very, very simple node placing algorithm for demonstration purposes.
--- All nodes are positioned on a fixed-size circle.
-function drawGraphAlgorithm_simpleexample(graph)
-   local radius = 20
-
-   -- count nodes
-   local nodeCount = table.count_pairs(graph.nodes)
-
-   local alpha = (2 * math.pi) / nodeCount
-   local i = 0
-   for node in table.value_iter(graph.nodes) do
-      -- the interesting part...
-      node.pos:set{x = radius * math.cos(i * alpha)}
-      node.pos:set{y = radius * math.sin(i * alpha)}
-      i = i + 1
-   end
-end
-\end{codeexample}
-
-It is important not to use a |local| declaration before the function
-header, because it wouldn't be available in the |pgf.graphdrawing|
-module anymore.
-
-The algorithm computes a circular layout like in the following.
-
-\begin{codeexample}[]
-\tikzpicture [graphs/.cd, graph drawing engine, algorithm=simpleexample]
-  \graph { f -> c -> e -> a ->{b -> {c, d, f}, e -> b}};
-\endtikzpicture
-\end{codeexample}
-
-The invocation above also shows how to use an algorithm which is not
-registered as a \tikzname\ key.  In general, you will probably want to
-register your algorithm with |\tikzgraphsset| to make your code more
-succinct, but also to be able to change algorithm options by manipulating
-\tikzname\ keys, which is not possible without registration.  
-
-To do so, we have to modify the first line of the example algorithm.
-
-\begin{codeexample}[code only]
-   local radius = graph:getOption("radius") or 20
-\end{codeexample}
-
-Using the |getOption| method we obtain the value of the
-\tikzname\ option or a |nil| value, therefore there has to be a
-default value for any option or more elaborated error handling.  The 
-following code block can be used to register this algorithm and
-its single option.
-
-\begin{codeexample}[code only]
-\tikzgraphsset{
-  simpleexample/.style={
-    graph drawing engine,
-    algorithm=simpleexample
-  },
-  graph drawing/register math key=radius
-}
-\end{codeexample}
-
-\tikzgraphsset{
-  simpleexample/.style={
-    graph drawing engine,
-    algorithm=simpleexample
-  },
-  graph drawing/register math key=radius
-}
-
-Eventually this fragment will have to be entered into the
-|tikzlibrarygraphdrawing.code.tex| file if it is to be included in the
-\pgfname\ source code.
-
-Once registered, specifying the algorithm gets a bit easier. Note the
-increased radius compared to the previous example.
-
-\begin{codeexample}[]
-\tikzpicture [graph drawing={simpleexample, radius = 30}]
-  \graph { f -> c -> e -> a ->{b -> {c, d, f}, e -> b}};
-\endtikzpicture
-\end{codeexample}
 
 \subsection{Module System}
 The package defines its own Lua module system, which is characterised by a

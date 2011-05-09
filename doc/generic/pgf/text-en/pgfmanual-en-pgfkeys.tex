@@ -780,125 +780,6 @@ also define new ones as described in Section~\ref{section-key-handlers}.
   |/.is family| handler is quicker.
 \end{handler}
 
-\begin{handler}{{.search also}=\marg{path list}}
-  A style which installs a |/.unknown| handler into \meta{key}. This
-  |/.unknown| handler will then search for unknown keys in every path
-  provided in \marg{path list}.
-
-\begin{codeexample}[]
-% define a key:
-\pgfkeys{/secondary path/option/.code={Invoking /secondary path/option with `#1'}}
-
-% set up a search path:
-\pgfkeys{/main path/.search also={/secondary path}}
-
-% try searching for `option=value' in '/main path':
-% -> this finds `/secondary path/option'!
-\pgfkeys{/main path/.cd,option=value}
-\end{codeexample}
-
-  The |/.search also| handler follows the strategy
-  \begin{enumerate}
-  \item If a user provides a fully qualified key which could not be
-    found, for example the full string |/main path/option|, it assume
-    that the user new what he is doing -- and does \emph{not} continue
-    searching for |an option| in \marg{path list}.
-  \item If a user provides only the key's name, for example |option|
-    and |option| can't be found in the current default path (which is
-    |/main path| in our example above), the current default path is
-    set to the next element in \marg{path list} (which is
-    |/secondary path| here) and |\pgfkeys| will be restarted.
-
-    This will be iterated until either a match has been found or all
-    elements in \marg{path list} have been tested.
-
-  \item If all elements in \marg{path list} have been checked and the
-    key is still unknown, the fall-back handler |/handlers/.unknown|
-    will be invoked.
-  \end{enumerate}
-\begin{codeexample}[]
-% define a key:
-\pgfkeys{/secondary path/option/.code={Invoking /secondary path/option with `#1'}}
-
-% set up a search path:
-\pgfkeys{/main path/.search also={/secondary path}}
-
-% try searching for `option=value' in '/main path':
-% -> this finds `/secondary path/option'!
-\pgfkeys{/main path/.cd,option=value}
-
-% negative example:
-% try searching for fully qualified key /main path/option.
-% This won't be handled by .search also.
-\pgfkeys{/handlers/.unknown/.code={Found unknown option \pgfkeyscurrentkeyRAW={#1}!}}%
-\pgfkeys{/main path/.cd,/main path/option=value}
-\end{codeexample}
-
-  Please note that the strategy of |/.search also| is different from
-  the first example provided in section~\ref{sec:pgf:unknown:keys}
-  ``Unknown Keys'' because |/.search also| only applies only for keys
-  which are not fully qualified.
-	
-
-  For those who are familiar with |\pgfkeys|, the actual
-  implementation of |/.search also| might be interesting:
-  \begin{enumerate}
-  \item |\pgfkeys{/path/.search also={/tikz}}| is equivalent to
-\begin{codeexample}[code only]
-\pgfkeys{/path/.unknown/.code={%
-        \ifpgfkeysaddeddefaultpath
-            % only process keys for which no full path has been
-            % provided:
-            \pgfkeyssuccessfalse
-            \let\pgfkeys@searchalso@name =\pgfkeyscurrentkeyRAW
-            \ifpgfkeyssuccess
-            \else
-                % search with /tikz as default path:
-                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name={#1}}%
-            \fi
-        \else
-            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
-            \pgfutilnext
-        \fi
-    }
-}
-\end{codeexample}
-  \item |\pgfkeys{/path/.search also={/tikz,/pgf}}| is equivalent to
-\begin{codeexample}[code only]
-\pgfkeys{/path/.unknown/.code={%
-        \ifpgfkeysaddeddefaultpath
-            \pgfkeyssuccessfalse
-            \let\pgfkeys@searchalso@name=\pgfkeyscurrentkeyRAW
-            \ifpgfkeyssuccess
-            \else
-                % step 1: search in /tikz with .try:
-                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name/.try={#1}}%
-            \fi
-            \ifpgfkeyssuccess
-            \else
-                % step 2: search in /pgf (without .try!):
-                \pgfqkeys{/pgf}{\pgfkeys@searchalso@name={#1}}%
-            \fi
-        \else
-            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
-            \pgfutilnext
-        \fi
-    }
-}
-\end{codeexample}
-  \end{enumerate}
-
-  To also enable searching for styles (or other handled keys),
-  consider changing the configuration for handled keys to
-  |/hander config=full or existing| when you use |/.search also|,
-  that is, use
-\begin{codeexample}[code only]
-\pgfkeys{
-   /main path/.search also={/secondary path},
-   /handler config=full or existing}
-\end{codeexample}
-\end{handler}
-
 
 
 \subsubsection{Setting Defaults}
@@ -1383,6 +1264,148 @@ Key 4:& \pgfkeys{/key4}
 \pgfkeys{/foo/.list={a,b,0,1,...,5}}
 \end{codeexample}
 \end{handler}
+
+
+
+\subsubsection{Handlers for Forwarding}
+
+\begin{handler}{{.forward to}|=|\meta{another key}}
+  This handler causes the \meta{key} to ``forward'' its argument to
+  \meta{another key}. When the \meta{key} is used, its normal code
+  will be executed first. Then, the value is (additionally) passed to
+  \meta{another key}. If the \meta{key} has not yet been defined prior
+  to the use of |.forward to|, it will be defined then (and do nothing by
+  itself, expect for forwarding it to \meta{key name}). The
+  \meta{another key} must be a fully qualified key name. 
+\begin{codeexample}[]
+\pgfkeys{
+  /a/.code=(a:#1),
+  /b/.code=(b:#1),
+  /b/.forward to=/a,
+  /c/.forward to=/a
+}
+\pgfkeys{/b=1} \pgfkeys{/c=2}
+\end{codeexample}
+\end{handler}
+
+
+\begin{handler}{{.search also}=\marg{path list}}
+  A style which installs a |/.unknown| handler into \meta{key}. This
+  |/.unknown| handler will then search for unknown keys in every path
+  provided in \marg{path list}.
+
+\begin{codeexample}[]
+% define a key:
+\pgfkeys{/secondary path/option/.code={Invoking /secondary path/option with `#1'}}
+
+% set up a search path:
+\pgfkeys{/main path/.search also={/secondary path}}
+
+% try searching for `option=value' in '/main path':
+% -> this finds `/secondary path/option'!
+\pgfkeys{/main path/.cd,option=value}
+\end{codeexample}
+
+  The |/.search also| handler follows the strategy
+  \begin{enumerate}
+  \item If a user provides a fully qualified key which could not be
+    found, for example the full string |/main path/option|, it assume
+    that the user new what she is doing -- and does \emph{not} continue
+    searching for |an option| in \marg{path list}.
+  \item If a user provides only the key's name, for example |option|
+    and |option| cannot be found in the current default path (which is
+    |/main path| in our example above), the current default path is
+    set to the next element in \marg{path list} (which is
+    |/secondary path| here) and |\pgfkeys| will be restarted.
+
+    This will be iterated until either a match has been found or all
+    elements in \marg{path list} have been tested.
+  \item If all elements in \marg{path list} have been checked and the
+    key is still unknown, the fall-back handler |/handlers/.unknown|
+    will be invoked.
+  \end{enumerate}
+\begin{codeexample}[]
+% define a key:
+\pgfkeys{/secondary path/option/.code={Invoking /secondary path/option with `#1'}}
+
+% set up a search path:
+\pgfkeys{/main path/.search also={/secondary path}}
+
+% try searching for `option=value' in '/main path':
+% -> this finds `/secondary path/option'!
+\pgfkeys{/main path/.cd,option=value}
+
+% negative example:
+% try searching for fully qualified key /main path/option.
+% This won't be handled by .search also.
+\pgfkeys{/handlers/.unknown/.code={Found unknown option \pgfkeyscurrentkeyRAW={#1}!}}%
+\pgfkeys{/main path/.cd,/main path/option=value}
+\end{codeexample}
+
+  Please note that the strategy of |/.search also| is different from
+  the first example provided in section~\ref{sec:pgf:unknown:keys}
+  ``Unknown Keys'' because |/.search also| only applies to keys
+  that are not fully qualified.
+	
+  For those who are familiar with |\pgfkeys|, the actual
+  implementation of |/.search also| might be interesting:
+  \begin{enumerate}
+  \item |\pgfkeys{/path/.search also={/tikz}}| is equivalent to
+\begin{codeexample}[code only]
+\pgfkeys{/path/.unknown/.code={%
+        \ifpgfkeysaddeddefaultpath
+            % only process keys for which no full path has been
+            % provided:
+            \pgfkeyssuccessfalse
+            \let\pgfkeys@searchalso@name =\pgfkeyscurrentkeyRAW
+            \ifpgfkeyssuccess
+            \else
+                % search with /tikz as default path:
+                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name={#1}}%
+            \fi
+        \else
+            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
+            \pgfutilnext
+        \fi
+    }
+}
+\end{codeexample}
+  \item |\pgfkeys{/path/.search also={/tikz,/pgf}}| is equivalent to
+\begin{codeexample}[code only]
+\pgfkeys{/path/.unknown/.code={%
+        \ifpgfkeysaddeddefaultpath
+            \pgfkeyssuccessfalse
+            \let\pgfkeys@searchalso@name=\pgfkeyscurrentkeyRAW
+            \ifpgfkeyssuccess
+            \else
+                % step 1: search in /tikz with .try:
+                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name/.try={#1}}%
+            \fi
+            \ifpgfkeyssuccess
+            \else
+                % step 2: search in /pgf (without .try!):
+                \pgfqkeys{/pgf}{\pgfkeys@searchalso@name={#1}}%
+            \fi
+        \else
+            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
+            \pgfutilnext
+        \fi
+    }
+}
+\end{codeexample}
+  \end{enumerate}
+
+  To also enable searching for styles (or other handled keys),
+  consider changing the configuration for handled keys to
+  |/hander config=full or existing| when you use |/.search also|,
+  that is, use
+\begin{codeexample}[code only]
+\pgfkeys{
+   /main path/.search also={/secondary path},
+   /handler config=full or existing}
+\end{codeexample}
+\end{handler}
+
 
 \subsubsection{Handlers for Testing Keys}
 
