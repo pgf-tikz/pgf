@@ -13,6 +13,10 @@ pgf.module("pgf.graphdrawing")
 
 
 
+walshaw_spring = {}
+
+
+
 --- Implementation of a spring-electrical graph drawing algorithm.
 -- 
 -- This implementation is based on the paper 
@@ -86,7 +90,7 @@ function drawGraphAlgorithm_walshaw_spring(graph)
   if use_coarsening then
     -- compute coarsened graphs (this could be done on-demand instead
     -- of computing all graphs at once to reduce memory usage)
-    local graphs = compute_coarse_graphs(graph)
+    local graphs = walshaw_spring.compute_coarse_graphs(graph)
 
     for i = #graphs,1,-1 do
       --Sys:setVerbose(true)
@@ -99,12 +103,12 @@ function drawGraphAlgorithm_walshaw_spring(graph)
         graphs[i].k = k / math.pow(math.sqrt(4/7), #graphs-1)
 
         -- generate an initial random layout for the coarsest graph
-        compute_initial_layout(graphs[i])
+        walshaw_spring.compute_initial_layout(graphs[i])
       else
         -- interpolate from the parent coarse graph and apply the
         -- force-based algorithm to improve the layout
-        interpolate_from_parent(graphs[i], graphs[i+1])
-        compute_force_layout(graphs[i], C, iterations, use_quadtree)
+        walshaw_spring.interpolate_from_parent(graphs[i], graphs[i+1])
+        walshaw_spring.compute_force_layout(graphs[i], C, iterations, use_quadtree)
       end
 
       --Sys:log('WALSHAW:  ')
@@ -119,7 +123,7 @@ function drawGraphAlgorithm_walshaw_spring(graph)
     for edge in table.value_iter(graph.edges) do edge.weight = 1 end
 
     -- directly compute the force-based layout for the input graph
-    compute_force_layout(graph, C, iterations, use_quadtree)
+    walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
   end
 
   -- adjust orientation
@@ -127,7 +131,7 @@ function drawGraphAlgorithm_walshaw_spring(graph)
 end
 
 
-function compute_coarse_graphs(graph)
+function walshaw_spring.compute_coarse_graphs(graph)
   -- determine parameters for the algorithm
   local minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/minimum coarsened graph size') or 2)
   local coarsening_threshold = tonumber(graph:getOption('/graph drawing/spring layout/coarsening threshold') or 0.75)
@@ -150,11 +154,11 @@ function compute_coarse_graphs(graph)
     local parent_graph = graphs[#graphs]
 
     -- copy the parent graph
-    local coarse_graph = copy_graph(parent_graph)
+    local coarse_graph = walshaw_spring.copy_graph(parent_graph)
     table.insert(graphs, coarse_graph)
 
     -- approximate a maximum matching using a greedy heuristic
-    local matching_edges = find_maximal_matching(coarse_graph)
+    local matching_edges = walshaw_spring.find_maximal_matching(coarse_graph)
 
     -- abort coarsening if there are no matching edges we can contract
     if #matching_edges == 0 then
@@ -229,7 +233,7 @@ function compute_coarse_graphs(graph)
       --end
 
       -- merge neighbour lists
-      disjoint_neighbours = table.merge(i_neighbours, j_neighbours)
+      disjoint_neighbours = table.custom_merge(i_neighbours, j_neighbours)
 
       -- create edges between the supernode and the neighbours of the
       -- merged nodes
@@ -285,7 +289,7 @@ end
 
 
 
-function dump_current_graph(graphs)
+function walshaw_spring.dump_current_graph(graphs)
   local graph = graphs[#graphs]
 
   Sys:log('WALSHAW: coarse graph ' .. #graphs-1 .. ':')
@@ -300,7 +304,7 @@ end
 
 
 
-function copy_graph(graph)
+function walshaw_spring.copy_graph(graph)
   local copy = graph:copy()
   for e in table.value_iter(graph.edges) do
     local u, v = e.nodes[1], e.nodes[2]
@@ -342,7 +346,7 @@ end
 
 
 
-function find_maximal_matching(graph)
+function walshaw_spring.find_maximal_matching(graph)
   local matching = {}
   local matched_nodes = {}
 
@@ -388,14 +392,14 @@ end
 
 
 
-function compute_initial_layout(graph)
+function walshaw_spring.compute_initial_layout(graph)
   -- TODO how can supernodes and fixated nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
   --
   -- fixate all nodes that have an 'at' option. this will set the
   -- node.fixed member to true and also set node.pos:x() and node.pos:y()
-  fixate_nodes(graph)
+  walshaw_spring.fixate_nodes(graph)
 
   -- decide what technique to use for the initial layout
   local initial_positioning = graph:getOption('/graph drawing/spring layout/initial positioning') or 'random'
@@ -418,7 +422,7 @@ end
 
 
 
-function interpolate_from_parent(graph, parent_graph)
+function walshaw_spring.interpolate_from_parent(graph, parent_graph)
   graph.k = math.sqrt(4/7) * parent_graph.k
 
   --Sys:log('WALSHAW:   interpolate from parent')
@@ -450,7 +454,7 @@ end
 
 
 
-function compute_force_layout(graph, C, iterations, use_quadtree)
+function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
   --Sys:log('WALSHAW:   compute force based layout')
 
   for node in table.value_iter(graph.nodes) do
@@ -684,7 +688,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function fixate_nodes(graph)
+function walshaw_spring.fixate_nodes(graph)
   for node in table.value_iter(graph.nodes) do
     if node:getOption('/graph drawing/desired at') then
       local at_x, at_y = parse_at_option(node)
@@ -698,7 +702,7 @@ end
 
 --- Parses the at option of a node.
 --
-function parse_at_option(node)
+function walshaw_spring.parse_at_option(node)
   local x, y = node:getOption('/graph drawing/desired at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
   return tonumber(x), tonumber(y)
 end

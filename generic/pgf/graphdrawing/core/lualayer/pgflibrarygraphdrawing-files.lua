@@ -25,6 +25,7 @@ local files = {
    "edge",
    "graph",
    "traversal",
+   "coarse-graph",
    "component-packing",
    "interface",
    "orientation",

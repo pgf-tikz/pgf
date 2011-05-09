@@ -50,9 +50,62 @@ function drawGraphAlgorithm_hu_spring(graph)
   Sys:log('HU: use coarsening: ' .. tostring(use_coarsening))
   Sys:log('HU: use quadtree: ' .. tostring(use_quadtree))
   Sys:log('HU: iterations: ' .. tostring(iterations))
-  Sys:setVerbose(false)
+  --Sys:setVerbose(false)
+
+  -- initialize the weights of nodes and edges
+  for node in table.value_iter(graph.nodes) do
+    node.weight = 1
+  end
+  for edge in table.value_iter(graph.edges) do
+    edge.weight = 1
+  end
 
   if use_coarsening then
+    Sys:log('generating coarse graphs')
+
+    local coarse_graph = CoarseGraph:new(graph)
+
+    --while coarse_graph:getSize() > 2 and coarse_graph:getRatio() <= 0.75 do
+    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel() + 1)
+    --  Sys:log('    construction:')
+    --  coarse_graph:coarsen()
+    --  Sys:log('    new graph:')
+    --  for node in table.value_iter(coarse_graph:getGraph().nodes) do
+    --    Sys:log('      node ' .. node.name .. ' at ' .. tostring(node.pos))
+    --  end
+    --  for edge in table.value_iter(coarse_graph:getGraph().edges) do
+    --    Sys:log('      edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
+    --  end
+    --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
+    --end
+
+    --Sys:log(' ')
+
+    --while coarse_graph:getLevel() > 0 do
+    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel())
+    --  Sys:log('    reconstruction:')
+    --  coarse_graph:interpolate()
+    --  Sys:log('    new graph:')
+    --  for node in table.value_iter(coarse_graph:getGraph().nodes) do
+    --    Sys:log('      node ' .. node.name .. ' at ' .. tostring(node.pos))
+    --  end
+    --  for edge in table.value_iter(coarse_graph:getGraph().edges) do
+    --    Sys:log('      edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
+    --  end
+    --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
+    --end
+
+    while coarse_graph:getSize() > 2 and coarse_graph:getRatio() <= 0.75 do
+      coarse_graph:coarsen()
+    end
+
+    compute_initial_layout(coarse_graph.graph, k)
+    apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
+
+    while coarse_graph:getLevel() > 0 do
+      coarse_graph:interpolate()
+      apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
+    end
   else
     -- directly compute the force-based layout for the input graph
     apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
@@ -60,6 +113,53 @@ function drawGraphAlgorithm_hu_spring(graph)
 
   -- adjust the orientation
   orientation.adjust(graph)
+end
+
+
+
+function compute_initial_layout(graph, k)
+  -- TODO how can supernodes and fixated nodes go hand in hand? 
+  -- maybe fix the supernode if at least one of its subnodes is 
+  -- fixated?
+  --
+  -- fixate all nodes that have an 'at' option. this will set the
+  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  fixate_nodes(graph)
+
+  -- decide what technique to use for the initial layout
+  local initial_positioning = graph:getOption('/graph drawing/spring layout/initial positioning') or 'random'
+  local positioning_func = positioning.technique(initial_positioning, graph, k)
+
+  local function nodeNotFixed(node) return not node.fixed end
+
+  -- compute initial layout based on the selected positioning technique
+  --Sys:log('WALSHAW: initial layout:')
+  for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
+    node.pos:set{x = positioning_func(1), y = positioning_func(2)}
+  end
+end
+
+
+
+--- Fixes nodes at their specified positions.
+--
+function fixate_nodes(graph)
+  for node in table.value_iter(graph.nodes) do
+    if node:getOption('/graph drawing/desired at') then
+      local at_x, at_y = parse_at_option(node)
+      node.pos:set{x = at_x, y = at_y}
+      node.fixed = true
+    end
+  end
+end
+
+
+
+--- Parses the |/graph drawing/desired at| option of a node.
+--
+function parse_at_option(node)
+  local x, y = node:getOption('/graph drawing/desired at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
+  return tonumber(x), tonumber(y)
 end
 
 
