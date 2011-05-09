@@ -22,7 +22,7 @@ pgf.module("pgf.graphdrawing")
 --
 -- Modifications compared to the original algorithm:
 --
-function drawGraphAlgorithm_hu_spring(graph)
+function drawGraphAlgorithm_Hu2006_spring(graph)
   -- apply the random seed specified by the user
   local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed')) or 42
   if seed == 0 then seed = os.time() end

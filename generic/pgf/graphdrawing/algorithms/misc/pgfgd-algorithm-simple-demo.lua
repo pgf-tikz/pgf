@@ -16,7 +16,7 @@ pgf.module("pgf.graphdrawing")
 
 --- A very, yery simple node placing algorithm for demonstration purposes.
 -- All nodes are positioned on a fixed size circle.
-function drawGraphAlgorithm_simpleexample(graph)
+function drawGraphAlgorithm_simple_demo(graph)
    local radius = graph:getOption("/graph drawing/radius") or 20
    local nodeCount = table.count_pairs(graph.nodes)
 
