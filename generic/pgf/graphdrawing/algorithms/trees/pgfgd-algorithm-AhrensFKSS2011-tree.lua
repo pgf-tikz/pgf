@@ -34,8 +34,8 @@ function drawGraphAlgorithm_AhrensFKSS2011_tree(graph)
    end  
    -- read TEX-options
    -- leveldistance: determines the vertical space between the nodes
-   local leveldistance = graph:getOption("/graph drawing/level distance") or 10 
-   local siblingdistance = graph:getOption("/graph drawing/sibling distance") or 10
+   local leveldistance = graph:getOption("/graph drawing/level distance") 
+   local siblingdistance = graph:getOption("/graph drawing/sibling distance")
    treePositioning(graph, advancedPlace, simpleCompare, nil, leveldistance, siblingdistance)
 end
 

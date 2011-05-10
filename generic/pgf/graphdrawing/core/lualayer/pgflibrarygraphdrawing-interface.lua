@@ -20,6 +20,7 @@ pgf.module("pgf.graphdrawing")
 --- Sits between the TikZ/TeX side and Lua.
 Interface = {
   graphStack = {},
+  defaultGraphParameters = {}
 }
 Interface.__index = Interface
 
@@ -256,4 +257,33 @@ function Interface:drawEdge(edge)
   if edge.direction ~= Edge.NONE then
     Sys:putEdge(edge)
   end
+end
+
+
+
+--- Defines a default value for a graph parameter. 
+--
+-- Whenever a graph parameter has not been set by the user explicitly,
+-- the value that was last set using this function is used instead.
+--
+-- @param key The commplete path of the to-be-defined key
+-- @param value A string containing the value
+--
+function Interface:setGraphParameterDefault(key,value)
+   self.defaultGraphParameters[key] = value
+end
+
+
+
+
+--- Defines a default value for a graph parameter. 
+--
+-- Whenever a graph parameter has not been set by the user explicitly,
+-- the value that was last set using this function is used instead.
+--
+-- @param key The commplete path of the to-be-defined key
+-- @param value A string containing the value
+--
+function Interface:setGraphParameterDefault(key,value)
+   self.defaultGraphParameters[key] = value
 end

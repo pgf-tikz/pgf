@@ -81,7 +81,7 @@ end
 -- @return The value of the edge option \meta{name} or |nil|.
 --
 function Edge:getOption(name)
-  return self.options[name]
+   return self.options[name]
 end
 
 

@@ -65,7 +65,7 @@ end
 -- @return The value of the graph option \meta{name} or |nil|.
 --
 function Graph:getOption(name)
-  return self.options[name]
+   return self.options[name] or Interface.defaultGraphParameters[name]
 end
 
 
