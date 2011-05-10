@@ -196,10 +196,8 @@ function Interface:drawGraph()
   local start = os.clock()
   algorithm(self.graph)
   local stop = os.clock()
-  Sys:setVerbose(true)
   Sys:log(string.format("GD:INT: algorithm took %.2f seconds", stop - start))
   Sys:log(' ')
-  Sys:setVerbose(false)
 end
 
 

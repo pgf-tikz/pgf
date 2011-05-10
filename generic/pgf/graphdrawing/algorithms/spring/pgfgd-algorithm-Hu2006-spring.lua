@@ -28,10 +28,8 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
-  --Sys:setVerbose(true)
   --Sys:log('coarsening option: ' .. tostring(graph:getOption('/graph drawing/spring layout/coarsening')))
   --Sys:log('quadtree option:   ' .. tostring(graph:getOption('/graph drawing/spring layout/quadtree')))
-  --Sys:setVerbose(false)
 
   -- check if we should use the multilevel approach
   local use_coarsening = graph:getOption('/graph drawing/spring layout/coarsening') == 'true'
@@ -46,13 +44,11 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   local t = tonumber(graph:getOption('/graph drawing/spring layout/temperature'))
   local tol = tonumber(graph:getOption('/graph drawing/spring layout/tolerance'))
 
-  Sys:setVerbose(true)
   Sys:log('HU: use coarsening: ' .. tostring(use_coarsening))
   Sys:log('HU: use quadtree: ' .. tostring(use_quadtree))
   Sys:log('HU: iterations: ' .. tostring(iterations))
   Sys:log('HU: temperature: ' .. tostring(t))
   Sys:log('HU: tolerance: ' .. tostring(tol))
-  Sys:setVerbose(false)
 
   -- initialize the weights of nodes and edges
   for node in table.value_iter(graph.nodes) do
