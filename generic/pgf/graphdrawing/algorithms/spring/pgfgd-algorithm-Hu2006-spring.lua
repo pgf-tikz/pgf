@@ -24,7 +24,7 @@ pgf.module("pgf.graphdrawing")
 --
 function drawGraphAlgorithm_Hu2006_spring(graph)
   -- apply the random seed specified by the user
-  local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed')) or 42
+  local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed'))
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
@@ -40,17 +40,19 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   local use_quadtree = graph:getOption('/graph drawing/spring layout/quadtree') == 'true'
 
   -- determine other parameters of for the algorithm
-  local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension')) or 28.5
-  local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')) or 0.01 * 10
-  local iterations = tonumber(graph:getOption('/graph drawing/spring layout/maximum iterations')) or 500
-  local t = tonumber(graph:getOption('/graph drawing/spring layout/temperature')) or 0.9 
-  local tol = tonumber(graph:getOption('/graph drawing/spring layout/tolerance')) or 0.01
+  local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension'))
+  local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')) * 10
+  local iterations = tonumber(graph:getOption('/graph drawing/spring layout/maximum iterations'))
+  local t = tonumber(graph:getOption('/graph drawing/spring layout/temperature'))
+  local tol = tonumber(graph:getOption('/graph drawing/spring layout/tolerance'))
 
   Sys:setVerbose(true)
   Sys:log('HU: use coarsening: ' .. tostring(use_coarsening))
   Sys:log('HU: use quadtree: ' .. tostring(use_quadtree))
   Sys:log('HU: iterations: ' .. tostring(iterations))
-  --Sys:setVerbose(false)
+  Sys:log('HU: temperature: ' .. tostring(t))
+  Sys:log('HU: tolerance: ' .. tostring(tol))
+  Sys:setVerbose(false)
 
   -- initialize the weights of nodes and edges
   for node in table.value_iter(graph.nodes) do
@@ -127,7 +129,7 @@ function compute_initial_layout(graph, k)
   fixate_nodes(graph)
 
   -- decide what technique to use for the initial layout
-  local initial_positioning = graph:getOption('/graph drawing/spring layout/initial positioning') or 'random'
+  local initial_positioning = graph:getOption('/graph drawing/spring layout/initial positioning')
   local positioning_func = positioning.technique(initial_positioning, graph, k)
 
   local function nodeNotFixed(node) return not node.fixed end
