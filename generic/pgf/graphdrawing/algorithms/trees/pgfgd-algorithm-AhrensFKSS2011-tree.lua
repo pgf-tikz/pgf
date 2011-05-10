@@ -16,22 +16,18 @@ pgf.module("pgf.graphdrawing")
 --- Initialising options for positioning the given graph
 -- @param graph The tree-graph to be drawn
 function drawGraphAlgorithm_AhrensFKSS2011_tree(graph)
-   Sys:log("GD:AT: drawGraphAlgorithm_AhrensFKSS2011_tree")
 
    -- determine the root of the tree
    graph.root = graph:findNodeIf(function (node) return node:getOption("/graph drawing/root") end) or graph.nodes[1]
    if graph.root == nil then
       error("there is no root node, aborting")
    end
-   Sys:log("GD:AT: root node is " .. tostring(graph.root))  
 
    -- check if the given graphstructure is really a tree
    if not isTree(graph, graph.root) then
       error("the given graph is not a tree")
    end
-   for n in table.value_iter(graph.nodes) do
-      Sys:log("GD:AT " .. n.name)
-   end  
+
    -- read TEX-options
    -- leveldistance: determines the vertical space between the nodes
    local leveldistance = graph:getOption("/graph drawing/level distance") 
@@ -103,18 +99,18 @@ function treePositioning(tree, placeBoxes, compareBoxes, drawPath, leveldistance
                         return Path:createPath(r:getPosAt(Box.CENTER),
                                  c:getPosAt(Box.CENTER), false)
                      end
-    local resultBox
+   local resultBox
    local boxes = {}
    local edges = {}
-	if(tree.root:getDegree() == 0) then
+   if(tree.root:getDegree() == 0) then
       resultBox = tree.root
    else
       resultBox = Box:new{}
-		for edge in table.value_iter(tree.root.edges) do
+      for edge in table.value_iter(tree.root.edges) do
          local node = edge:getNeighbour(tree.root)
          edges[node.name] = edge
          local box = treePositioning(tree:subGraphParent(node, tree.root),
-                     placeBoxes, compareBoxes, drawPath, leveldistance, siblingdistance)
+				     placeBoxes, compareBoxes, drawPath, leveldistance, siblingdistance)
          --collect all subboxes            
          resultBox:addBox(box)
          table.insert(boxes, box)

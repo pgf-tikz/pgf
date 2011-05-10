@@ -21,6 +21,18 @@
 \label{section-base-graphdrawing}
 
 
+\begin{pgflibrary}{graphdrawing}
+  This package provides the \TeX\ interface to the graph drawing
+  engine. Since it uses \LuaTeX, you need at least \LuaTeX\ 0.4 or 
+  higher.
+
+  Typically, you will use the \tikzname\ library of the same name
+  rather than this library, which internally loads this
+  library. Nevertheless, the graph drawing engine can be used
+  independently of \tikzname.
+\end{pgflibrary}
+
+
 \ifluatex\relax\else{LuaTeX is required for setting this manual section.}\expandafter\endinput\fi
 
 \subsection{Overview}
@@ -32,101 +44,66 @@ and \pgfname for specifying graphs and code written in the Lua
 programming language for computing layouts. The present section will
 discuss this process in detail.
 
-TT: To be written...
+Let us start with the broad picture. The general idea behind the whole
+graph drawing engine is that whenever \pgfname\ creates a node, we
+intercept this node creation and \emph{do not} immediately place the
+node. Rather, we pass them down to Lua, which tucks away the node in
+some internal tables. For edges, we introduce a special command called
+|\pgfgdedge| that tells Lua that there is an edge between two
+tucked-away nodes. Then, after the graph has been completely
+specified, a graph drawing algorithm written in Lua starts to work on
+the graph by computing new positions for the nodes. Then, the graph
+drawing engine will send back the nodes and edges to \pgfname, which
+then finally places them at their final positions.
 
+Note that graph drawing algorithms need no knowledge of how any of
+these internals work. Indeed, inside a graph drawing algorithm you get
+access to a |graph| object that is an object-oriented model of the
+graph. No \TeX\ programming skills are required to design and test a
+graph drawing algorithm, only Lua is used here.
 
-\subsection{Graph Drawing Scopes}
-
-\subsection{Graph Parameters}
-
-\subsection{Lua Layer: Overview}
-
-\subsection{Lua Layer: Implementing Graph Drawing Algorithms}
-
-\subsection{Lua Layer: The Module System}
-
-\subsection{Lua Layer: Class Structure}
-
-\subsection{Lua Layer: Class Reference}
-
-
-
-
-TT: Rewrite the following...
-
-
-The general approach is to 
-intercept the immediate placement of the nodes and pass them down to
-Lua, which does all the placement stuff. After the selected graph
-drawing algorithm has finished, it writes the nodes back to
-\tikzname\ to have the graph drawn.
-
-This proceeding consists of a front end layer for \tikzname, an
-interface to Lua and of course a set of Lua classes to represent the
-graph. An algorithms can be developed independently. Only knowledge
-about the Lua interface is required; specific \TeX\ programming skills
-not necessary.
-
-\subsubsection{The Front End Layer}
-Let's have a look at a simple example to see what the front end looks
-like:
+Let us now have a look at a simple example to see what happens when a
+graph is specified:
 
 \begin{codeexample}[]
-\tikz[AhrensFKSS2011 tree,scale=2]
+\tikz[tree]
   \graph{root [as=Hello] -> World[fill=blue!20]};
 \end{codeexample}
 
-As you may see, the syntax is exactly the same as described in the
-chapter about specifying graphs (section~\ref{section-library-graphs}).
+The special key |tree| internally calls the macro |\pgfgdbeginscope|,
+which starts up the graph drawing engine. Once this macro has been
+called, until the next call of |\pgfgdendscope|, all nodes that are
+created actually get passed down to the graph drawing engine. This is
+implemented on the lowest layer, namely by directly intercepting
+nodes freshly created using |\pgfnode|. In our example, this happens
+in two places: For the |root| node and for the |World| node. The
+|graph| library and \tikzname\ internally call the |\pgfnode| macro
+for these two nodes (after a large number of internal syntax
+translations, but the graph drawing engine does not care about them).
 
-You enable this library with the key |graph drawing|, which sets the
-algorithm to use and its specific parameters. All other
-\tikzname\ keys are accepted as well, like |scale| in the example
-above. Each algorithm has its own keys to parametrize it. Please refer to
-the appropriate sections for more information.
+Note that the node boxes will have been fully created before they are
+passed down to the graph drawing engine -- only their final position
+is not yet fixed. It is not possible to modify the size of nodes
+inside the graph drawing engine. 
 
-The keys are given within the |graph drawing| key family for graph options and per node for node specific options. Furthermore you can use any valid \tikzname\ keys as usual. 
-
-There are some things which will not work with the graph drawing
-library, like preordering the nodes. Consider for example the
-|chain shift| key of the graphs library to place the nodes on a
-certain grid: 
-
-\begin{codeexample}[]
-\tikzpicture
-  \graph[chain shift=(45:1)] {
-    a -> b -> c;
-    d -> e;
-  };
-\endtikzpicture
-\end{codeexample}
-
-The graph drawing library does not take care of any predefined layout options by now, so the above example will be set differently:
-
-\begin{codeexample}[]
-\tikz[AhrensFKSS2011 minimize crossings, scale=2]
-  \graph[chain shift=(45:1)] {
-    a -> b -> c;
-    d -> e;
-  };
-\end{codeexample}
-
-A graph drawing algorithm will always place the nodes in its own manner. 
-
-% what is happening in the tikz..tex file. Matthias
-
-\subsubsection{The Interface to Lua}
-The main entry point for the library to Lua is defined in the
-appropriate |code| file of the library. It employs three Lua classes
-to create graphs, pass down nodes and to communicate the given
-options.
+In contrast, the single edge of the graph that is created by the |->|
+command is not fully created before it is passed down to the
+engine. This would not really make sense since before the final
+positions of the nodes are fixed, we cannot even begin to compute the
+length of this edge, let alone where it should start or end. For this
+reason, on the upper \tikzname\ layer, the normal edge creation that
+would be caused by |->| via |new ->| is suppressed. Instead, the
+command |\pgfgdedge| is called. Similarly, inside a graph drawing
+scope, \tikzname\ will suppress both the |edge| and the
+|edge from parent| command and cause |\pgfgdedge| to be called
+instead. 
 
 An overview of what happens is illustrated by the following call graph:
 
 \begin{tikzpicture}[
     class name/.style={draw,minimum size=20pt, fill=blue!20},
     object node/.style={draw,minimum size=15pt, fill=yellow!20},
-    p/.style={->,>=stealth},
+    p/.style={->,>=stealth'},
     livespan/.style={thick,double},
     scale=0.9]
   % class names above
@@ -135,10 +112,10 @@ An overview of what happens is illustrated by the following call graph:
   \node (interface) at (10,4) [class name] {Lua Interface};
   \node (sys) at (15,4) [class name] {Sys};
   % lines from the class names to the bottom of the picture
-  \draw[livespan] (tikz) -- (0,-6.5);
-  \draw[livespan] (tex) -- (5,-6.5);
-  \draw[livespan] (interface) -- (10,-6.5);
-  \draw[livespan] (sys) -- (15,-6.5);
+  \draw[livespan] (tikz) -- (0,-7.5);
+  \draw[livespan] (tex) -- (5,-7.5);
+  \draw[livespan] (interface) -- (10,-7.5);
+  \draw[livespan] (sys) -- (15,-7.5);
   % first command: \graph{  -- generates new graph in lua interface
   \node (tikz-begin-graph) at (0,3) [object node] {|\graph{|}; %}
   \node (tex-begin-graph) at (5,3) [object node] {|\pgfgdbeginscope|};  
@@ -181,138 +158,286 @@ An overview of what happens is illustrated by the following call graph:
   % put tex box
   \node (sys-puttexbox-behind) at (15.1,-4.1) [object node] {|putTeXBox(|...|)|};
   \node (sys-puttexbox) at (15,-4) [object node] {|putTeXBox(|...|)|};
-  \node (tex-puttexbox) at (5,-4) [object node] {|\pgfgdinternalshipoutnode|};
+  \node (tex-puttexbox) at (5,-4.5) [object node] {|\pgfgdinternalshipoutnode|};
+  \node (tex-putedge) at (5,-5.5) [object node] {|\pgfgdedgecallback|};
 
   \draw[p] (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
-  \draw[p] (sys-puttexbox.187) -- (12,-4.2) -- (12,-4) -- (tex-puttexbox.east);
+  \draw[p] (sys-puttexbox.187) -- ++(-2,0) |- (tex-puttexbox.east);
 
   % put edge
   \node (sys-put-edge-behind) at (15.1,-5.1) [object node] {|putEdge(|...|)|};
   \node (sys-put-edge) at (15,-5) [object node] {|putEdge(|...|)|};
+  \draw[p] (sys-put-edge.187) -- ++(-2,0) |- (tex-putedge.east);
   \draw[p] (12.5,-4) -- (12.5,-5) -- (sys-put-edge.west);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-5) -- (sys-put-edge.west);
   % end shipout
-  \node (sys-end-shipout) at (15,-6) [object node] {|endShipout()|};
-  \draw[p] (12.5,-5) -- (12.5,-6) -- (sys-end-shipout.west);
+  \node (sys-end-shipout) at (15,-6.5) [object node] {|endShipout()|};
+  \draw[p] (12.5,-5) |- (sys-end-shipout.west);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-6) -- (sys-end-shipout.west);
-  \node (tex-end-shipout) at (5,-6) [object node] {|\pgfgdendshipout|};
-  \draw[p] (sys-end-shipout.187) -- (12,-6.175) -- (12,-6) -- (tex-end-shipout.east);
+  \node (tex-end-shipout) at (5,-7) [object node] {|\pgfgdendshipout|};
+  \draw[p] (sys-end-shipout.187) -- ++ (-2,0) |- (tex-end-shipout.east);
 \end{tikzpicture}
 
 
-\paragraph{The \TeX\ side.}
-\label{section-library-graphdrawing-the-tex-side}
+In Section~\ref{section-gd-scopes} we detail the different commands
+needed to communicate with the graph drawing engine. In particular,
+the commands for beginning and ending scopes are explained here. The
+next section, Section~\ref{section-gd-parameters} explains how graph
+parameters are setup and configured, both on the \TeX\ side and on the
+Lua side. The remaining sections are dedicated entirely to the Lua
+side of the graph drawing engine. We first give an overview and then
+detail how new graph drawing algorithms can be implemented. This is
+followed by a detailed reference of the avaiable classes and
+functions. 
 
-In order to layout a graph, we need to keep \tikzname\ from placing the nodes immediately. This is done using the macro
-|\pgfpositionnodelater| as described in chapter~\ref{section-shapes},
-subchapter~\ref{section-shapes-deferred-node-positioning}. 
 
-In short terms this works as follows: This macro takes another \meta{macro} as
-first argument. If this is |\relax|, the behaviour is to immediately
-place the node into the current picture. Any other \meta{macro} that is passed
-will be executed. It works like a
-callback function -- the node will be put into a box register, the
-name of the node and the bounding box coordinates are stored in
-separate macros and afterwards \meta{macro} will be called.
 
-As we have to make sure, that the unplaced node will not be referenced
-by \tikzname\ keys like |right of|, it is temporarily renamed to
-|not yet positionedPGFGDINTERNAL|\meta{nodename}.
+\subsection{Graph Drawing Scopes}
+\label{section-gd-scopes}
 
-To finally
-insert the node into the picture, we need to set the mentioned macros
-and put the node into the box register. Then we can call
-|\pgfpositionnodenow| with the target coordinates of the node.
+In order to tell the graph drawing engine that a certain scope
+contains nodes that should be send to a graph drawing algorithm, the
+following commands are used:
 
-The code file of the graph drawing library sets the callback function
-at the beginning of a graph drawing scope, e.g.\ when a |\graph|
-starts. This can also be triggered using |\pgfgdbeginscope| and
-|\pgfgdendscope|, which can be used to create a sub scope in an
-existing graph drawing scope. Opening a scope yields in creating a new
-graph on the Lua graph stack. All subsequent operations (like adding
-nodes or edges) apply to the top of the stack. 
-
-%by now this leads to an infinite loop . when its fixed, the example
-%can be uncommented :)
-% \begin{codeexample}[]
-% \tikzpicture[graph drawing={few intersections}, scale=2]
-% \graph{
-%   a->b;
-% %  \graph{c->d;}; TODO: triggers an infinite loop.
-%   };
-% \endtikzpicture
-% \end{codeexample}
-
-The callback function gets all option keys in
-|/tikz/graphs/graph drawing/|, copies the box register and passes all information down to the Lua interface class.
-
-When the library is loaded, it initialises the Lua subsystem. This takes place by checking if \LuaTeX\ is present and then invoking the Lua loader class. 
-
-The library code file consists mainly the following macros:
 
 \begin{command}{\pgfgdbeginscope}
-  The begin scope macro opens a new graph drawing scope. This creates a new graph object on the top of the Lua graph stack. All subsequent operations will work on this graph until |\pgfgdendscope| will be called.
-
-It is not necessary to call it manually, because in a graph drawing environment it is executed by default at the beginning of a |\graph| statement.
+  This macro starts a \TeX\ scope. The following things will happen:
+  \begin{enumerate}
+  \item A new |graph| object is on the top of the Lua graph stack. All
+    subsequent operations will work on this graph until
+    |\pgfgdendscope| will be called.
+  \item Inside the scope, no nodes are placed immediately. Rather, the
+    the macro |\pgfpositionnodelater|, see
+    Section~\ref{section-shapes-deferred-node-positioning}, is used to
+    send all nodes created inside the scope to some internal collector
+    macro. This internal collector macro will pass down the created
+    node to Lua.
+  \item Some additional \meta{code} is executed, which has been set
+    using the following command:
+    \begin{command}{\pgfgdaddspecificationhook\marg{code}}
+      This command adds the \meta{code} to the code that is executed
+      whenever a graph drawing scope starts. For instance, the
+      \tikzname\ library |graphdrawing| uses this macro to add some
+      \meta{code} that will redirect the |edge| and |edge from parent|
+      path commands to |\pgfgdedge|.
+    \end{command}
+  \end{enumerate}
+  The above has a number of consequences for what can happen inside a
+  graph drawing scope:
+  \begin{itemize}
+  \item Since no nodes are actually created before the end of the
+    scope, you cannot reference these nodes. Thus, you cannot write
+\begin{codeexample}[code only]
+\tikz [spring layout] {
+  \node (a) {a};
+  \node (b) {b};
+  \draw (a) -- (b);
+}
+\end{codeexample}
+    The problem is that we cannot connect |(a)| and |(b)| via a
+    straight line since these nodes do not exist at that point (they
+    are available only deeply inside the Lua layer).
+  \item In order to create edges between nodes inside a graph drawing
+    scope, you need to call the |\pgfgdedge| command, described below.
+  \end{itemize}
 \end{command}
 
-
-\makeatletter
-\begin{command}{\pgf@gd@positionnode@callback}
-  This macro saves the keys from |/tikz/graphs/graph drawing/| into a temporary macro, sets the box register |\pgf@gd@box| to the |\pgfpositionnodelaterbox| and passes these informations down to Lua. Additionally the node name and the bounding box is passed down, too. This macro is only used internally.
-\end{command}
-\makeatother
-
-\begin{command}{\pgfgdaddedge\marg{from}\marg{to}\marg{direction}}
-  Adds an edge to the Lua graph object. It requires the name of the target node \meta{from}, the destination node \meta{to} with a distinct \meta{direction} like |->|.
-
-  It is called when a |->|, |--|, |<-| or |-!-| is encountered in a graph.
-\end{command}
 
 \begin{command}{\pgfgdendscope}
-  At the end of a graph drawing scope the selected algorithm runs and layouts the graph. After finishing this task the macro pops the graph from the stack.
+  This macro is used to end a graph drawing scope. It must be given on
+  the same \TeX\ grouping level as the corresponding
+  |\pgfgdbeginscope|. When the macro is called, it triggers a lot of
+  new calls:
+  \begin{enumerate}
+  \item The special treatment of newly created boxes is ended. Nodes
+    are once more created normally.
+  \item The effects of the \meta{code} that was inserted via the
+    specification hook command also ends (provided it had no global
+    effects).
+  \item Then, on the Lua layer, the graph drawing algorithm is
+    started. Which algorithm is started depends on the current value
+    of the |algorithm| key, see
+    Section~\ref{section-gd-implementing-algorithms} for details.
+  \item When the algorithm has finished, a so-called \emph{shipout
+      phase} is started.
+  \item During this phase, all nodes that were intercepted during the
+    graph drawing scope get inserted into the output stream at the
+    positions that were computed for them.
+  \item Next, for each edge that was requested via |\pgfgdedge|, the
+    macro |\pgfgdedgecallback| is called (see below).
+  \item Finally, the shipout phase is finished, the graph is popped
+    from the graphs stack and the \TeX\ scope is ended. 
+  \end{enumerate}
 \end{command}
 
-\begin{command}{\pgfgdbeginshipout}
-  When the layout is completed and the scope ended, this macro places a |\scope| into the output stream. The layouted graph will be placed inside an extra scope.
+
+As described above, inside a graph drawing scope, nodes are
+automatically passed down to the graph drawing engine, while for edges
+a command has to be called explicitly:
+
+\begin{command}{\pgfgdedge\marg{first node}\marg{second
+      node}\marg{edge direction}\marg{edge options}\marg{aux text}}
+  This command is used to tell the graph drawing engine that there is
+  an edge between \meta{first node} and \meta{second node} in your
+  graph. The ``kind'' of connection is indicated by \meta{direction},
+  which may be one of the following:
+  \begin{itemize}
+  \item 
+    |->| indicates a directed edge (also known as an arc) from
+    \meta{first node} to \meta{second node}.
+  \item |--| indicates an undirected edge between \meta{first node}
+    and \meta{second node},
+  \item |<-| indicated a directed edge from \meta{second node} to
+    \meta{first node}, but with the ``additional hint'' that this is a
+    ``backward'' edge. A graph drawing algorithm may  or may not take
+    this hint into account.
+  \item |<->| indicates a bi-directed edge between \meta{first node}
+    and \meta{second node}. 
+  \end{itemize}
+  The parameters \meta{edge options} and \meta{aux text} are a bit
+  more tricky. When an edge between two vertices of a graph is created
+  via |\pgfgdedge|, nothing is actually done immediately. After all,
+  without knowing the final positions of the nodes \meta{first node}
+  and \meta{second node}, there is no way of creating the actual
+  drawing commands for the edge. Thus, the actual drawing of the edge
+  is done only when the graph drawing algorithm is done (namely in the
+  macro |\pgfgdedgecallback|, see later). 
+
+  Because of this ``delayed'' drawing of edges, options that influence
+  the edge must be retained until the moment when the edge is actually
+  drawn. Parameters \meta{edge options} and \meta{aux text} store such
+  options. 
+
+  Let us start with \meta{edge options}. This parameter should be set
+  to a list of key-value pairs like
+\begin{codeexample}[code only]
+/tikz/.cd, color=red, very thick, this edge must be vertical
+\end{codeexample}
+  Some of these options may be of interest to the graph drawing
+  algorithm (like the last option) while others will 
+  only be important during the drawing of edge (like the first
+  option). The options that are important for the graph drawing
+  algorithm must be passed to the algorithm via setting keys that have
+  been declared using the handler .graph drawing edge parameter, see
+  Section~\ref{section-gd-parameters}. 
+
+  The tricky part is that options that are of interest to the graph
+  drawing algorithm must be executed \emph{before} the algorithm starts,
+  but the options as a whole are usually only executed during the
+  drawing of the edges, which is \emph{after} the algorithm has finished.
+  To overcome this problem, the following happens:
+
+  The options in \meta{edge options} are executed ``tentatively'' inside
+  |\pgfgdedge|. However, this execution is done in a ``heavily guarded
+  sandbox'' where all effects of the options (like changing the
+  color or the line width) do not propagate beyond the sandbox. Only
+  the changes of the graph drawing edge parameters leave the
+  sandbox. These parameters are then passed down to the graph drawing
+  engine.
+
+  Later, when the edge is drawn using |\pgfgdedgecallback|, the
+  options \meta{edge options} are available once more and then they
+  are executed normally.
+
+  Note that when the options in \meta{edge options} are executed, no
+  path is preset. Thus, you typically need to start it with, say,
+  |/tikz/.cd|. Also note that the sandbox is not perfect and changing
+  global values will have an effect outside the sandbox. Indeed,
+  ``putting things in a sandbox'' just means that the options are
+  executed inside a \TeX\ scope inside an interrupted path inside a
+  \TeX\ box that is thrown away immediately. 
+  
+  The text in \meta{aux text} is some ``auxilliary'' text that is
+  simply stored away and later directly to |\pgfgdedgecallback|. This
+  is used for instance by \tikzname\ to store its node labels. 
 \end{command}
 
-\begin{command}{\pgfgdinternalshipoutnode\marg{name}\marg{x min}\marg{x max}\marg{y min}\marg{y max}\marg{x pos}\marg{y pos}\marg{box}}
-  When the algorithm finished the layout and the scope ended, the nodes have to be passed back to \tikzname. This macro takes the name of the node, the bounding box, the newly computed position and a box register number. It restores the macros set by |\pgfpositionnodelater| as mentioned above, fills the box register |\pgfpositionnodelaterbox| and then calls |\pgfpositionnodenow| with the coordinates of the node. This macro inserts the node into the current picture.
+
+\begin{command}{\pgfgdsetedgecallback\marg{macro}}
+  This command allows you to change the \meta{macro} that gets called
+  form inside the graph drawing engine at the end of the creation of a
+  graph, when the nodes have been positioned. The \meta{macro} will be 
+  called once for each edge with the following parameters:
+  \begin{quote}
+    \meta{macro}\marg{first node}\marg{second
+      node}\marg{direction}\marg{edge options}\marg{aux
+      text}\marg{algorithm-generated options}\marg{bend information}
+  \end{quote}
+
+  The first five parameters are the original values that were passed
+  down to the |\pgfgdedge| command.
+  
+  The \meta{algorithm-generated options} have been ``computed by the
+  algorithm''. For instance, an algorithm might have determined, say,
+  flow capacities for edges and it might now wish to communicate this
+  information back to the upper layers. These options should be
+  executed with the path |/graph drawing|.
+  
+  The parameter \meta{bend information} contains
+  algorithmically-computed information concerning how the 
+  edge should bend. Currently, this will be a text like
+  |(10pt,20pt)--(30pt,40pt)| in \tikzname-syntax, but this may change
+  to make things more portable.
+
+  The default \meta{macro} simply draws a line between the nodes. When
+  the |graphdrawing| library of the \tikzname\ layer is loaded, a more
+  fancy \meta{macro} is used that takes all of the parameters into
+  account.
 \end{command}
 
-\begin{command}{\pgfgdendshipout}
-  Issues a |\endscope| macro to close the scope opened by |\pgfgdbeginshipout|.
-\end{command}
 
-\paragraph{Lua interface class.}
+\subsection{Graph Parameters}
+\label{section-gd-parameters}
 
-The class |Interface| is the main entry point in Lua. Every communication from \TeX\ to Lua is done here.
-It provides methods to create graphs, add nodes and edges to graphs and finally to invoke the selected algorithm. The |Interface| class manages the stack of graphs.
+TT: To be written
 
-When the |newGraph()| function is called, it generates a new graph object and pushes it on the graph stack. The methods |addNode()| and |addEdge()| are called for each node and each edge, creating the actual Lua objects and adding them to the current graph.
+\subsection{Lua Layer: Overview}
 
-After adding nodes and edges, when the scope ends, the interface invokes the actual algorithm to layout the graph. This is done in the |drawGraph()| function. The next step is to put the nodes back in the \TeX\ output stream. This is invoked by the |finishGraph()| method.
+When the library is loaded, it initialises the Lua subsystem. This
+takes place by checking if \LuaTeX\ is present and then invoking the
+Lua loader class.  
 
-For a reference about the functions and their usage, please refer to section~\ref{section-library-graphdrawing-lua-documentation-interface}.
-
-\paragraph{Lua system class.}
-
-Communication with \TeX\ on a basic layer is done in the |Sys| class. The |beginShipout()| function opens a new scope in \tikzname\ to put all graph drawing nodes into. This prevents other graph objects outside the graph drawing scope from referencing these nodes. The |endShipout()| method closes the scope.
-
-Nodes and edges are put in the output stream by the methods |putTeXBox()| and |putEdge()|. The first calls the |\pgfgdinternalshipoutnode| macro, which is explained in section~\ref{section-library-graphdrawing-the-tex-side}. The latter method writes the appropriate |\draw| directly to the output stream. 
-
-For a reference about the functions and their usage, please refer to section~\ref{section-library-graphdrawing-lua-documentation-sys}.
-
-\subsubsection{Lua Graph Representation}
 Most classes in the framework (including the module objects) implement
 the |__tostring| method, meaning that you can get a somewhat useful
 string representation of the object via the standard |tostring|
 function.
 
-The main class which contains references to all other objects is
-|Graph|.  New graphs are usually created automatically, so common ways
+
+
+
+\subsection{Lua Layer: Class Structure}
+
+\subsubsection{The Interface and System Classes}
+
+The class |Interface| is the main entry point in Lua. Every
+communication from \TeX\ to Lua is done here. It provides methods to
+create graphs, add nodes and edges to graphs and finally to invoke the
+selected algorithm. The |Interface| class manages the stack of
+graphs. When the |newGraph()| function is called, it generates a new graph
+object and pushes it on the graph stack. The methods |addNode()| and
+|addEdge()| are called for each node and each edge, creating the
+actual Lua objects and adding them to the current graph. 
+
+After adding nodes and edges, when the scope ends, the interface
+invokes the actual algorithm to layout the graph. This is done in the
+|drawGraph()| function. The next step is to put the nodes back in the
+\TeX\ output stream. This is invoked by the |finishGraph()| method. 
+
+Communication with \TeX\ on a basic layer is done in the |Sys|
+class. The |beginShipout()| function opens a new scope in \pgfname\
+to put all graph drawing nodes into. This prevents other graph objects
+outside the graph drawing scope from referencing these nodes. The
+|endShipout()| method closes the scope. Nodes and edges are put in the
+output stream by the methods |putTeXBox()| and |putEdge()|, which
+invoke callbacks to \TeX. 
+
+
+\subsubsection{The Graph Class}
+
+The class that is used to represent graphs and which contains
+references to all other objects is |Graph|.  New graphs are usually
+created automatically, so common ways 
 to get new graph objects are the |copy| method, which creates a
 shallow copy (without coying nodes or edges), and the
 |subGraphParent| method, which creates a deep copy of the graph, edge
@@ -329,7 +454,7 @@ Only nodes can be looked up by name with |findNode|, a
 method implemented using the more generic |findNodeIf|, which supports
 an arbitrary test predicate.
 
-Lastly the |walkDepth| and |walkBreadth| methods may be used to get
+The |walkDepth| and |walkBreadth| methods may be used to get
 iterators over all nodes and edges in a depth-first or breadth-first
 order (other traversal orders may require a rewrite or extension of the
 |walkAux| method).
@@ -341,10 +466,6 @@ The conversion to absolute coordinates is done with |getAbsCoordinates|.
 The equality test method implements comparing two positions by using their
 absolute positions.
 
-For a detailed description of the mentioned classes and methods refer
-to section~\ref{section-library-graphdrawing-lua-documentation-graphrep}.
-
-\paragraph{Common graph operations.}
 The following tasks are typical for manipulating the graph.
 Those snippets will get you started even if you do not have any Lua
 experience.
@@ -356,11 +477,13 @@ for node in table.value_iter(graph.nodes) do
    ...
 end
 \end{codeexample}
-\item Get or set width/height of a node, e.g.\ for measuring.
+\item Get width or height of a node:
 \begin{codeexample}[code only]
 local width, height = node.width, node.height
 \end{codeexample}
-\item Get or set x-y-coordinates of a node.
+\item Get or set the coordinates of a node. The final values of these
+  coordinates will be used during as the actual positions of the nodes
+  on the page.
 \begin{codeexample}[code only]
 node.pos:set{x = node.pos:x() + 1}
 node.pos:set{y = node.pos:y() + 1}
@@ -370,10 +493,6 @@ node.pos:set{y = node.pos:y() + 1}
 newNode.pos:set{x = 1, y = 1}
 --sets position of newNode 1 pt in y- and x-direction relative to node
 newNode.pos:setOrigin(node.pos)
-\end{codeexample}
-\item Get absolute x-y-coordinate of node, with or without relative coordinates.
-\begin{codeexample}[code only]
-absX, absY = newNode:get(1), newNode:get(2)
 \end{codeexample}
 \item Iterate over all edges and all nodes of the current edge.
 \begin{codeexample}[code only]
@@ -390,62 +509,25 @@ local nodeRight = edge:.nodes[2]
 \end{codeexample}
 \end{itemize}
 
-A full example for a user-defined algorithm is shown in
-section~\ref{section-library-graphdrawing-ownAlgorithm}.
 
-\subsection{Registering graph drawing keys}
-\label{section-base-graphdrawing-registerKeys}
+\subsection{Lua Layer: Implementing Graph Drawing Algorithms}
+\label{section-gd-implementing-algorithms}
 
-Graphs and nodes in Lua have specific options, like the name of the
-algorithm to use. These keys are registered on the \tikzname\ layer.
+TT: To be written
 
 
-\begin{stylekey}{/tikz/graphs/graph drawing/register key}
-  The argument of this style is registered as a new key for a
-  graph. The name of the key and it's value will be passed down to the
-  Lua graph object and should be used for algorithm-wide options. 
-
-  An example is the |algorithm| key, which is required for each graph
-  drawing context. 
-
-  The key/value pair will be stored in |/tikz/graphs/graph drawing/@options/|.
-\end{stylekey}
-
-\begin{stylekey}{/tikz/graphs/graph drawing/register math key}
-  Registering a new math key is like registering a new key, except
-  that it's a parseable value. When a value is assigned to the key,
-  pgf will parse the value. 
-
-  Math keys can be used if a option holds a dimension value, like the
-  |scale| option of \tikzname\. The value will be expanded and
-  computed to the dimension |pt|. 
-
-  A sample math key is introduced in the simpleexample algorithm
-  (see \ref{section-library-graphdrawing-ownAlgorithm}) below.
-\end{stylekey}
-
-\begin{stylekey}{/tikz/graphs/graph drawing/register node key}
-  A node key is not stored graph-wide; it is designated for a single
-  node. The name/value pair is accessible from the node object in Lua;
-  in \tikzname\ it will be stored in the key family |/tikz/graphs/graph drawing/@node@options/|.
-\end{stylekey}
-
-\begin{stylekey}{/tikz/graphs/graph drawing/register node math key}
-  Like node key, but with parsing of it's value (see |register math key|).
-\end{stylekey}
-
-
-\subsection{Module System}
-The package defines its own Lua module system, which is characterised by a
-more dynamic view on importing symbols.  Basically, each module has a
-set of imported modules and the lookup for names first happens in the local
-scope, then in the current module and subsequently in all imported
-modules.  Since no name is statically imported, newly assigned
-variables in other modules are still visible when those were
-previously imported.
+\subsection{Lua Layer: The Module System}
+  
+The graph drawing engine defines its own Lua module system, which is
+characterised by a more dynamic view on importing symbols.  Basically,
+each module has a set of imported modules and the lookup for names
+first happens in the local scope, then in the current module and
+subsequently in all imported modules.  Since no name is statically
+imported, newly assigned variables in other modules are still visible
+when those were previously imported.
 
 Modules are accessed with the |pgf.module| call, which enables the
-module for the current context, i.e. the current file. If a module
+module for the current context, that is, the current file. If a module
 does not exist, it will be created.  Importing modules is done via
 |pgf.import|.  Both functions accept a string argument for the
 module name.
@@ -453,10 +535,10 @@ module name.
 Modules are named hierarchically and defined modules are exported into
 each parent module.  If the module name contains no period, it is
 exported into the global environment.  Nevertheless, importing is only
-done on request; importing a module twice doesn't do anything.
+done on request; importing a module twice does not do anything.
 It is recommended to dedicate a single module definition file
-to create it and import other modules.  For example, the package
-contains a single file containing only the following two lines for
+to create it and import other modules.  For example, the graph drawing
+engine contains a single file containing only the following two lines for
 creating the |pgf.graphdrawing| module in the first place.
 
 \begin{codeexample}[code only]
@@ -477,44 +559,41 @@ probably shouldn't touch the |pgf| namespace and instead add new
 functionality to modules below this level or in new top-level
 modules.
 
-\subsubsection{Module Examples}
-Let's see what consequences this module system has in praxis.  The
+Let us see what consequences this module system has in practice.  The
 following code fragment starts from a clean state after rendering it
 with \LuaTeX\ and then enters the |pgf.graphdrawing| module,
 overwriting the global |pgf| binding and then again reverting this
 change.
 
 \begin{codeexample}[code only]
-  \input tikz
+\usetikzlibrary{graphdrawing}
 
-  \usetikzlibrary{graphdrawing}
-
-  \directlua{
-    pgf.graphdrawing.Sys:log("1: pgf is " .. tostring(pgf))
-    pgf.graphdrawing.Sys:log("1: graphdrawing is " .. tostring(graphdrawing))
-    
-    pgf.module("pgf.graphdrawing")
-
-    Sys:log("2: pgf is " .. tostring(pgf))
-    Sys:log("2: graphdrawing is " .. tostring(graphdrawing))
-
-    pgf = 1
-
-    Sys:log("3: pgf is " .. tostring(pgf))
-    Sys:log("3: graphdrawing is " .. tostring(graphdrawing))
-
-    pgf = nil
-
-    Sys:log("4: pgf is " .. tostring(pgf))
-
-    pgf.graphdrawing = nil
-
-    Sys:log("5: pgf is " .. tostring(pgf))
-
-    _G.pgf = nil
-
-    Sys:log("6: pgf is " .. tostring(pgf))
-  }
+\directlua{
+  pgf.graphdrawing.Sys:log("1: pgf is " .. tostring(pgf))
+  pgf.graphdrawing.Sys:log("1: graphdrawing is " .. tostring(graphdrawing))
+  
+  pgf.module("pgf.graphdrawing")
+  
+  Sys:log("2: pgf is " .. tostring(pgf))
+  Sys:log("2: graphdrawing is " .. tostring(graphdrawing))
+  
+  pgf = 1
+  
+  Sys:log("3: pgf is " .. tostring(pgf))
+  Sys:log("3: graphdrawing is " .. tostring(graphdrawing))
+  
+  pgf = nil
+  
+  Sys:log("4: pgf is " .. tostring(pgf))
+  
+  pgf.graphdrawing = nil
+  
+  Sys:log("5: pgf is " .. tostring(pgf))
+  
+  _G.pgf = nil
+  
+  Sys:log("6: pgf is " .. tostring(pgf))
+}
 \end{codeexample}
 
 The result will be as follows:
@@ -534,8 +613,8 @@ The result will be as follows:
 6: pgf is nil
 \end{codeexample}
 
-As you can see the |pgf| table is available in the global environment
-and also after using the |pgf.graphdrawing| module, although we don't
+As you can see, the |pgf| table is available in the global environment
+and also after using the |pgf.graphdrawing| module, although we do not 
 refer to it with its full name.  Assigning a new value to |pgf|
 doesn't overwrite the global object, but introduces a local binding
 shadowing the global one. Assigning |nil| then removes the local
@@ -548,15 +627,24 @@ remove your access to the |pgf| or any imported modules as the last
 two assignments show (the |Sys:log| method still works).
 
 
-\subsection{Lua Documentation}
-This sections provides a full documentation of all relevant Lua classes
-used.
+
+\subsection{Lua Layer: Class Reference}
 
 Every class and function in the package (except for module handling in
 |pgf|) is available in the |pgf.graphdrawing| module.
 
 \label{section-library-graphdrawing-lua-documentation}
-\subsubsection{Graph Representation}
+
+\subsubsection{Communication Between Base and Lua Layer}
+\input{generated/pgflibrarygraphdrawing-interface}
+% TT: I do not think the following should be included in the
+% documentation: 
+% \label{section-library-graphdrawing-lua-documentation-interface}
+%\input{generated/pgflibrarygraphdrawing-sys}
+%\label{section-library-graphdrawing-lua-documentation-sys}
+%\input{generated/pgflibrarygraphdrawing-texboxregister}
+
+\subsubsection{Graph Representations}
 \label{section-library-graphdrawing-lua-documentation-graphrep}
 \input{generated/pgflibrarygraphdrawing-graph}
 \input{generated/pgflibrarygraphdrawing-node}
@@ -566,15 +654,9 @@ Every class and function in the package (except for module handling in
 \input{generated/pgflibrarygraphdrawing-box}
 %\input{generated/pgflibrarygraphdrawing-path}
 
-\subsubsection{Base Layer}
-\input{generated/pgflibrarygraphdrawing-interface}
-\label{section-library-graphdrawing-lua-documentation-interface}
-\input{generated/pgflibrarygraphdrawing-sys}
-\label{section-library-graphdrawing-lua-documentation-sys}
-\input{generated/pgflibrarygraphdrawing-texboxregister}
-
 \subsubsection{Helper Classes and Functions}
 \input{generated/pgflibrarygraphdrawing-helper}
 \input{generated/pgflibrarygraphdrawing-table-helpers}
 \input{generated/pgflibrarygraphdrawing-iter-helpers}
 \input{generated/pgflibrarygraphdrawing-traversal-helpers}
+
