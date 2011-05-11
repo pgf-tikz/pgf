@@ -90,29 +90,40 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
   --  Sys:log('WALSHAW:   edge ' .. edge.nodes[1].name .. ' -- ' .. edge.nodes[2].name)
   --end
 
+  -- initialize the weights of nodes and edges
+  for node in table.value_iter(graph.nodes) do
+    node.weight = 1
+  end
+  for edge in table.value_iter(graph.edges) do
+    edge.weight = 1
+  end
+
   if use_coarsening then
-    -- compute coarsened graphs (this could be done on-demand instead
-    -- of computing all graphs at once to reduce memory usage)
-    local graphs = walshaw_spring.compute_coarse_graphs(graph)
+    -- create the initial coarse representation of the original graph
+    local coarse_graph = CoarseGraph:new(graph)
+    
+    -- coarsen the graph repeatedly until only two nodes are left
+    while coarse_graph:getSize() > 2 do
+      coarse_graph:coarsen()
+    end
+    
+    -- compute initial spring length in a way that will result
+    -- in a natural spring length of k in the original graph
+    coarse_graph.graph.k = k / math.pow(math.sqrt(4/7), coarse_graph.level)
 
-    for i = #graphs,1,-1 do
-      --Sys:log('WALSHAW: lay out coarse graph ' .. i-1 .. ' (' .. #graphs[i].nodes .. ' nodes)')
+    -- generate a random initial layout for the coarsest graph
+    walshaw_spring.compute_initial_layout(coarse_graph.graph)
 
-      if i == #graphs then
-        -- compute initial natural spring length in a way that will
-        -- result in a natural spring length of k in the original graph
-        graphs[i].k = k / math.pow(math.sqrt(4/7), #graphs-1)
+    while coarse_graph:getLevel() > 0 do
+      -- interpolate from the parent graph
+      coarse_graph:interpolate()
 
-        -- generate an initial random layout for the coarsest graph
-        walshaw_spring.compute_initial_layout(graphs[i])
-      else
-        -- interpolate from the parent coarse graph and apply the
-        -- force-based algorithm to improve the layout
-        walshaw_spring.interpolate_from_parent(graphs[i], graphs[i+1])
-        walshaw_spring.compute_force_layout(graphs[i], C, iterations, use_quadtree)
-      end
+      -- update the natural spring length so that, for the original graph, 
+      -- it equals the natural spring dimension requested by the user 
+      coarse_graph.graph.k = coarse_graph.graph.k * math.sqrt(4/7)
 
-      --Sys:log('WALSHAW:  ')
+      -- apply the force-based algorithm to improve the layout
+      walshaw_spring.compute_force_layout(coarse_graph.graph, C, iterations, use_quadtree)
     end
   else
     -- use the natural spring dimension provided by the user as the 
@@ -129,266 +140,6 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
 
   -- adjust orientation
   orientation.adjust(graph)
-end
-
-
-function walshaw_spring.compute_coarse_graphs(graph)
-  -- determine parameters for the algorithm
-  local minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/minimum coarsened graph size') or 2)
-  local coarsening_threshold = tonumber(graph:getOption('/graph drawing/spring layout/coarsening threshold') or 0.75)
-
-  -- set weights to 1 unless specified otherwise
-  for node in table.value_iter(graph.nodes) do
-    node.weight = tonumber(node:getOption('/graph drawing/spring layout/node weight') or 1)
-  end
-  for edge in table.value_iter(graph.edges) do
-    edge.weight = tonumber(edge:getOption('/graph drawing/spring layout/edge weight') or 1)
-  end
-
-  -- compute iteratively coarsened graphs
-  local graphs = { graph }
-  --dump_current_graph(graphs)
-
-  while #graphs[#graphs].nodes > minimum_graph_size do
-    --Sys:log('WALSHAW: generating coarse graph ' .. #graphs-1)
-
-    local parent_graph = graphs[#graphs]
-
-    -- copy the parent graph
-    local coarse_graph = walshaw_spring.copy_graph(parent_graph)
-    table.insert(graphs, coarse_graph)
-
-    -- approximate a maximum matching using a greedy heuristic
-    local matching_edges = walshaw_spring.find_maximal_matching(coarse_graph)
-
-    -- abort coarsening if there are no matching edges we can contract
-    if #matching_edges == 0 then
-      table.remove(graphs, #graphs)
-      break
-    end
-
-    for edge in table.value_iter(matching_edges) do
-      --Sys:log('WALSHAW: contracting edge ' .. tostring(edge))
-
-      -- get the two nodes of the matching edge that we are about to contract
-      local i, j = edge.nodes[1], edge.nodes[2]
-
-      -- create a supernode v
-      local v = Node:new{ name = i.name .. ':' .. j.name }
-      v.weight = i.weight + j.weight
-
-      -- remember the nodes from which the supernode was created
-      v.subnodes = { i, j }
-
-      -- add the supernode to the graph
-      coarse_graph:addNode(v)
-      
-      -- collect all neighbours of the nodes to merge, create a 
-      -- node -> edge mapping
-      local i_neighbours = table.map_pairs(i.edges, function (n, edge)
-        return edge:getNeighbour(i), edge
-      end)
-      local j_neighbours = table.map_pairs(j.edges, function (n, edge)
-        return edge:getNeighbour(j), edge
-      end)
-
-      -- remove the two nodes themselves from the neighbour list
-      i_neighbours = table.filter_keys(i_neighbours, function (node)
-        return node ~= j
-      end)
-      j_neighbours = table.filter_keys(j_neighbours, function (node)
-        return node ~= i
-      end)
-
-      -- compute a list of neighbours i and j have in common
-      local common_neighbours = table.filter_keys(i_neighbours, function (node)
-        return j_neighbours[node] ~= nil
-      end)
-
-      -- create a node -> edges mapping for common neighbours
-      common_neighbours = table.map_pairs(common_neighbours, function (node, edge)
-        return node, { edge, j_neighbours[node] }
-      end)
-      
-      -- drop common nodes from the neighbour mappings
-      i_neighbours = table.filter_keys(i_neighbours, function (node)
-        return not common_neighbours[node]
-      end)
-      j_neighbours = table.filter_keys(j_neighbours, function (node)
-        return not common_neighbours[node]
-      end)
-
-      -- debug stuff
-      --Sys:log('WALSHAW: merge ' .. i.name .. ' and ' .. j.name)
-      --Sys:log('WALSHAW:   neighbours of ' .. i.name)
-      --for node, edge in pairs(i_neighbours) do
-      --  Sys:log('WALSHAW:     ' .. node.name .. ' via ' .. tostring(edge))
-      --end
-      --Sys:log('WALSHAW:   neighbours of ' .. j.name)
-      --for node, edge in pairs(j_neighbours) do
-      --  Sys:log('WALSHAW:     ' .. node.name .. ' via ' .. tostring(edge))
-      --end
-      --Sys:log('WALSHAW:   common neighbours')
-      --for node, edges in pairs(common_neighbours) do
-      --  Sys:log('WALSHAW:     ' .. node.name .. ' via ' .. tostring(edges[1]) .. ' and ' .. tostring(edges[2]))
-      --end
-
-      -- merge neighbour lists
-      disjoint_neighbours = table.custom_merge(i_neighbours, j_neighbours)
-
-      -- create edges between the supernode and the neighbours of the
-      -- merged nodes
-      for k, edge in pairs(disjoint_neighbours) do
-        local e_copy = Edge:new{direction = Edge.UNDIRECTED, weight = edge.weight}
-        e_copy:addNode(v)
-        e_copy:addNode(k)
-
-        --Sys:log('WALSHAW:   create edge ' .. tostring(e_copy))
-        coarse_graph:addEdge(e_copy)
-
-        --Sys:log('WALSHAW:   delete edge ' .. tostring(edge))
-        coarse_graph:deleteEdge(edge)
-      end
-
-      -- do the same for all neighbours that the merged nodes have 
-      -- in common, except that the weights of the new edges becomes
-      -- the sum of the weights of the edges to the common neighbours
-      for k, edges in pairs(common_neighbours) do
-        local weights = table.combine_values(edges, function (weights, edge)
-          return weights + edge.weight
-        end, 0)
-
-        local e_copy = Edge:new{direction = Edge.UNDIRECTED, weight = weights}
-        e_copy:addNode(v)
-        e_copy:addNode(k)
-
-        --Sys:log('WALSHAW:   create edge ' .. tostring(e_copy))
-        coarse_graph:addEdge(e_copy)
-
-        --Sys:log('WALSHAW:   delete edge ' .. tostring(edge))
-        coarse_graph:deleteEdge(edge)
-      end
-
-      -- delete the nodes i, j which were replaced by v
-      coarse_graph:deleteNode(i)
-      coarse_graph:deleteNode(j)
-    end
-
-    --dump_current_graph(graphs)
-
-    -- stop coarsening if the number of nodes of the new coarse
-    -- graph divided by the number of nodes of its predecessor
-    -- is less than the coarsening threshold 
-    if (#coarse_graph.nodes / #parent_graph.nodes) > coarsening_threshold then
-      --Sys:log('WALSHAW: stop coarsening after ' .. #graphs .. ' graphs\n')
-      break
-    end
-  end
-
-  return graphs
-end
-
-
-
-function walshaw_spring.dump_current_graph(graphs)
-  local graph = graphs[#graphs]
-
-  Sys:log('WALSHAW: coarse graph ' .. #graphs-1 .. ':')
-  for node in table.value_iter(graph.nodes) do
-    Sys:log('WALSHAW:   node ' .. node.name)
-  end
-  for edge in table.value_iter(graph.edges) do
-    Sys:log('WALSHAW:   edge (' .. edge.nodes[1].name .. ', ' .. edge.nodes[2].name .. ')')
-  end
-  Sys:log('WALSHAW:  ')
-end
-
-
-
-function walshaw_spring.copy_graph(graph)
-  local copy = graph:copy()
-  for e in table.value_iter(graph.edges) do
-    local u, v = e.nodes[1], e.nodes[2]
-
-    if u and v then
-      local u_copy = copy:findNodeIf(function (node)
-        return node.name == u.name
-      end) or Node:new{
-        name = u.name, 
-        weight = u.weight,
-        pos = u.pos:copy(),
-        fixed = u.fixed,
-        subnodes = { u },
-      }
-
-      copy:addNode(u_copy)
-
-      local v_copy = copy:findNodeIf(function (node)
-        return node.name == v.name
-      end) or Node:new{
-        name = v.name, 
-        weight = v.weight,
-        pos = v.pos:copy(),
-        fixed = v.fixed,
-        subnodes = { v },
-      }
-
-      copy:addNode(v_copy)
-
-      local e_copy = Edge:new{direction = Edge.UNDIRECTED, weight = e.weight}
-      e_copy:addNode(u_copy)
-      e_copy:addNode(v_copy)
-
-      copy:addEdge(e_copy)
-    end
-  end
-  return copy
-end
-
-
-
-function walshaw_spring.find_maximal_matching(graph)
-  local matching = {}
-  local matched_nodes = {}
-
-  --Sys:log('WALSHAW: find maximum matching')
-
-  for node in table.randomized_value_iter(graph.nodes) do
-    if not matched_nodes[node] then
-      --Sys:log('WALSHAW:   visit ' .. node.name)
-
-      -- filter out edges adjacent to already matched neighbours
-      local edges = table.filter_values(node.edges, function (edge) 
-        local neighbour = edge:getNeighbour(node)
-        return not matched_nodes[neighbour]
-      end)
-
-      -- sort edges by the weights of the neighbours
-      table.sort(edges, function (a, b)
-        local neighbour_a = a:getNeighbour(node)
-        local neighbour_b = b:getNeighbour(node)
-        return neighbour_a.weight < neighbour_b.weight
-      end)
-
-      --Sys:log('WALSHAW:     neighbours:')
-      --for edge in table.value_iter(edges) do
-      --  Sys:log('WALSHAW:       ' .. edge:getNeighbour(node).name .. ' via ' .. tostring(edge))
-      --end
-      
-      -- mark the node as matched
-      matched_nodes[node] = true
-
-      if #edges > 0 then
-        -- match the node against the neighbour with minimum weight
-        local neighbour = edges[1]:getNeighbour(node)
-        --Sys:log('WALSHAW:     match against ' .. neighbour.name .. ' via ' .. tostring(edges[1]))
-        matched_nodes[neighbour] = true
-        table.insert(matching, edges[1])
-      end
-    end
-  end
-
-  return matching
 end
 
 
@@ -412,45 +163,8 @@ function walshaw_spring.compute_initial_layout(graph)
   --Sys:log('WALSHAW: initial layout:')
   for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
     node.pos:set{x = positioning_func(1), y = positioning_func(2)}
+    --Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
   end
-
-  --for node in table.value_iter(graph.nodes) do
-  --  Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
-  --end
-
-  --Sys:log('WALSHAW: ')
-end
-
-
-
-function walshaw_spring.interpolate_from_parent(graph, parent_graph)
-  graph.k = math.sqrt(4/7) * parent_graph.k
-
-  --Sys:log('WALSHAW:   interpolate from parent')
-  for supernode in table.value_iter(parent_graph.nodes) do
-    --Sys:log('WALSHAW:     supernode ' .. supernode.name .. ' at ' .. tostring(supernode.pos))
-    if supernode.subnodes then
-      local subnode_str = table.concat(table.map_values(supernode.subnodes, function (node) return node.name end), ', ')
-      --Sys:log('WALSHAW:       subnodes of ' .. supernode.name .. ' are: ' .. subnode_str)
-
-      for node in table.value_iter(supernode.subnodes) do
-        local original = table.find(graph.nodes, function (other) return other == node end)
-        assert(original)
-        original.pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
-      end
-    else
-      --Sys:log('WALSHAW:     ' .. supernode.name .. ' has no subnodes')
-      local original = table.find(graph.nodes, function (node) return node == supernode end)
-      assert(original)
-      original.pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
-    end
-  end
-
-  for node in table.value_iter(graph.nodes) do
-    --Sys:log('WALSHAW:       node ' .. node.name .. ' at ' .. tostring(node.pos))
-  end
-
-  --Sys:log('WALSHAW: ')
 end
 
 

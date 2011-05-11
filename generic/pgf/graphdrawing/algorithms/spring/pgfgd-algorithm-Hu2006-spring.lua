@@ -13,6 +13,10 @@ pgf.module("pgf.graphdrawing")
 
 
 
+hu_spring = {}
+
+
+
 --- Implementation of a spring-electrical graph drawing algorithm.
 -- 
 -- This implementation is based on the paper 
@@ -112,18 +116,17 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
     -- paper by Hu.
     k = k / math.pow(math.sqrt(4/7), coarse_graph.level)
 
-    compute_initial_layout(coarse_graph.graph, k)
-    apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
+    hu_spring.compute_initial_layout(coarse_graph.graph, k)
 
     while coarse_graph:getLevel() > 0 do
       coarse_graph:interpolate()
       -- see above TODO
       k = k * math.sqrt(4/7)
-      apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
+      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
     end
   else
     -- directly compute the force-based layout for the input graph
-    apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
+    hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
   end
 
   -- adjust the orientation
@@ -132,14 +135,14 @@ end
 
 
 
-function compute_initial_layout(graph, k)
+function hu_spring.compute_initial_layout(graph, k)
   -- TODO how can supernodes and fixated nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
   --
   -- fixate all nodes that have an 'at' option. this will set the
   -- node.fixed member to true and also set node.pos:x() and node.pos:y()
-  fixate_nodes(graph)
+  hu_spring.fixate_nodes(graph)
 
   -- decide what technique to use for the initial layout
   local initial_positioning = graph:getOption('/graph drawing/spring layout/initial positioning')
@@ -157,7 +160,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function fixate_nodes(graph)
+function hu_spring.fixate_nodes(graph)
   for node in table.value_iter(graph.nodes) do
     if node:getOption('/graph drawing/desired at') then
       local at_x, at_y = parse_at_option(node)
@@ -171,14 +174,14 @@ end
 
 --- Parses the |/graph drawing/desired at| option of a node.
 --
-function parse_at_option(node)
+function hu_spring.parse_at_option(node)
   local x, y = node:getOption('/graph drawing/desired at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
   return tonumber(x), tonumber(y)
 end
 
 
 
-function apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
+function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
   local converged = false
   local energy = math.huge
   local iteration = 0
@@ -206,7 +209,7 @@ function apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
             delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
           end
 
-          local fr = repulsive_force(delta:norm(), k, C)
+          local fr = hu_spring.repulsive_force(delta:norm(), k, C)
           
           force = force:plus(delta:normalized():timesScalar(fr))
         end
@@ -221,7 +224,7 @@ function apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
           delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
         end
 
-        local fa = attractive_force(delta:norm(), k, C)
+        local fa = hu_spring.attractive_force(delta:norm(), k, C)
 
         force = force:plus(delta:normalized():timesScalar(fa))
       end
@@ -233,7 +236,7 @@ function apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
       energy = energy + math.pow(force:norm(), 2)
     end
 
-    step, progress = update_steplength(step, energy, old_energy, t, progress)
+    step, progress = hu_spring.update_steplength(step, energy, old_energy, t, progress)
 
     local max_movement = table.combine_values(graph.nodes, function (max, x)
       local delta = x.pos:minus(old_positions[x])
@@ -256,19 +259,19 @@ end
 
 
 
-function repulsive_force(distance, k, C)
+function hu_spring.repulsive_force(distance, k, C)
   return -C * k*k / distance
 end
 
 
 
-function attractive_force(distance, k, C)
+function hu_spring.attractive_force(distance, k, C)
   return distance*distance / k
 end
 
 
 
-function update_steplength(step, energy, old_energy, t, progress)
+function hu_spring.update_steplength(step, energy, old_energy, t, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then
