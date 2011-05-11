@@ -125,7 +125,7 @@ An overview of what happens is illustrated by the following call graph:
   % second command: a -> b   -- generates two nodes in lua
   % and one edge
   \node (tikz-node) at (0,2) [object node] {|a -> b;|};
-  \node (tex-node) at (5,2) [object node] {|\pgf@gd@positionnode@callback|};
+  \node (tex-node) at (5,2) [object node] {|\pgfnode|};
   \node (interface-add-node-behind) at (10.1,1.9) [object node] {|addNode(|...|)|};
   \draw[p] (tikz-node.east) -- (tex-node.west);
   
@@ -158,7 +158,7 @@ An overview of what happens is illustrated by the following call graph:
   % put tex box
   \node (sys-puttexbox-behind) at (15.1,-4.1) [object node] {|putTeXBox(|...|)|};
   \node (sys-puttexbox) at (15,-4) [object node] {|putTeXBox(|...|)|};
-  \node (tex-puttexbox) at (5,-4.5) [object node] {|\pgfgdinternalshipoutnode|};
+  \node (tex-puttexbox) at (5,-4.5) [object node] {internal callback};
   \node (tex-putedge) at (5,-5.5) [object node] {|\pgfgdedgecallback|};
 
   \draw[p] (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
@@ -199,7 +199,6 @@ functions.
 In order to tell the graph drawing engine that a certain scope
 contains nodes that should be send to a graph drawing algorithm, the
 following commands are used:
-
 
 \begin{command}{\pgfgdbeginscope}
   This macro starts a \TeX\ scope. The following things will happen:
@@ -319,7 +318,7 @@ a command has to be called explicitly:
   only be important during the drawing of edge (like the first
   option). The options that are important for the graph drawing
   algorithm must be passed to the algorithm via setting keys that have
-  been declared using the handler .graph drawing edge parameter, see
+  been declared using the handler |.edge parameter|, see
   Section~\ref{section-gd-parameters}. 
 
   The tricky part is that options that are of interest to the graph
@@ -387,26 +386,617 @@ a command has to be called explicitly:
 \end{command}
 
 
-\subsection{Graph Parameters}
+\subsection{Parameters}
 \label{section-gd-parameters}
 
-TT: To be written
+When a graph drawing algorithm starts working, a set of options,
+called ``graph drawing parameters'' or just ``parameters'' (in
+constrast to ``options'') in the following, can influence
+the way the algorithm works. For instance, a graph drawing parameter
+might be the average distance between vertices which the algorithm
+should take into account. Another example might be the fact the
+certain nodes are special nodes and that a certain edge should have
+a large label.
+
+These graph drawing parameters are different from ``usual'' \pgfname\
+options: An alogrithmic parameter influences the way the algorithm
+works, while usual options influence the way the result
+looks like. For instance, the fact that a node is red is not a
+graph drawing parameter, while the shape of a node might be an graph
+drawing parameter. 
+
+Graph parameter should usually be keys with a path starting with
+|/graph drawing| (although, strictly speaking, this is not
+necessary). The following command makes it a bit easier to set them:
+\begin{command}{\pgfgdset\marg{options}}
+  Executes the \meta{options} with the path |/graph drawing|.  
+\end{command}
+
+There are three kinds of graph drawing parameters:
+
+\begin{itemize}
+\item \emph{Graph parameters:}
+  These parameters influence ``the whole graph''. An example
+  is the distance between vertices on the same level of a tree.
+\item \emph{Node parameters:}
+  These parameters are ``attached'' to a single node. This includes
+  options that are only meaningful in the context of a graph
+  drawing algorithm (like, say, the ``mass'' of a node in a
+  force-based algorithm), but also hybrid attributed like the shape
+  of a node. The shape is important for \pgfname\ when it typesets the 
+  node, but it may also be important for the graph drawing
+  algorithm since it might position circles differently from, say,
+  rectangles.
+\item \emph{Edge parameters:}
+  Similarly to nodes, edges can also have graph drawing
+  parameters. Also similarly to nodes, there can be purely
+  graph drawing parameters and also options that are hybrid.
+\end{itemize}
+   
+You have to ``declare'' a graph drawing parameter similarly to a
+normal key, but instead of using the |.code| handler, you use
+\begin{itemize}
+\item |.graph parameter|,
+\item |.node parameter|, and
+\item |.edge parameter|.
+\end{itemize}
+More details on how these handlers work is given below.
+
+Specifying the set of graph drawing parameters for a given graph or
+node or edge works as follows: When the graph drawing engine is
+started for a graph (using |\pgfgdbeginscope|), a snapshot is taken of
+all graph drawing graph parameters currently setup at this
+point. Similarly, when a node is created inside such a scope (using
+|\pgfnode|), a snapshot is taken of the set of all graph drawing node
+parameters in force at this point is taken and stored together with
+the node. Finally, when an edge is created (using |\pgfgdedge|), a
+snapshot of the setting of the graph drawing edge parameters is
+taken. 
+
+All of these option sets can easily be accessed inside the graph 
+drawing algorithms.
+
+
+
+\subsubsection{Basic Commands For Setting Parameters}
+
+Let us start with the basic commands for setting a graph parameter
+(you will not call these commands directly, in general).
+
+\begin{command}{\pgfgdgraphparameter\marg{graph
+      parameter}\marg{value}} 
+  Sets the \meta{graph parameter} inside the local \TeX\ scope to
+  \meta{value}. When the command |\pgfgdbeginscope| is encountered,
+  the current settings of all graph parameters that have been set
+  using this command will be passed down to the graph drawing
+  engine. (Note that this happens right at the beginning of the graph
+  drawing scope.)
+
+  Inside a graph drawing algorithm, you can access to \meta{value} as
+  follows:
+\begin{codeexample}[code only]
+  local myvalue = graph.getOption('<graph parameter>');
+\end{codeexample}
+  where |<graph parameter>| should be the exact text passed as
+  \meta{graph parameter}.
+
+  In case that a graph parameter has not been set, the |getOption|
+  function will return |nil| (but see also the description of the
+  |.parameter initial| handler below).
+\end{command}
+
+
+\begin{command}{\pgfgdnodeparameter\marg{node
+      parameter}\marg{value}} 
+  Sets the \meta{node parameter} inside the local \TeX\ scope to
+  \meta{value}. Unlike a graph parameter, this command can 
+  be called inside a graph drawing scope. When a |\pgfnode| command is
+  is encountered, the current settings of all node parameters that
+  have been set using this command will be passed down to the graph
+  drawing engine and will be stored alongside the node.
+
+  Inside a graph drawing algorithm, you can access to \meta{value} as
+  follows:
+\begin{codeexample}[code only]
+  local myvalue = node.getOption('<node parameter>');
+\end{codeexample}
+  where |<node parameter>| should be the exact text passed as
+  \meta{node parameter}. In case that a graph parameter has not been
+  set, the |getOption| function will return |nil|.
+\end{command}
+
+\begin{command}{\pgfgdedgeparameter\marg{edge
+      parameter}\marg{value}} 
+  Works like |\pgfgdnodeparameter|, only for edges. Now, the values
+  that have been set when |\pgfgdedge| is called are important. The
+  settings can be accessed via 
+\begin{codeexample}[code only]
+  local myvalue = edge.getOption('<edge parameter>');
+\end{codeexample}
+\end{command}
+
+
+\subsubsection{Key Handlers  For Setting Parameters}
+
+In practice, you do not call the above commands directly. Instead, you
+use key handlers that will take care of calling these commands
+internally.
+
+\begin{handler}{{.graph parameter}|=|\opt{\meta{conversion}}}
+  When this key hanlder is applied to a key, this key ``becomes a
+  graph drawing graph parameter''. Subsequently, assigning a value to
+  the key will cause an appropriate call of |\pgfgdgraphparameter| to
+  be issued. For instance, suppose we say
+\begin{codeexample}[code only]
+\pgfkeys{ /some path/my key/.graph parameter }
+\end{codeexample}
+  and then subsequently
+\begin{codeexample}[code only]
+\pgfkeys{ /some path/my key=foo }
+...
+\pgfgdbeginscope
+  ...
+\pgfgdendscope
+\end{codeexample}
+  Then, inside the graph drawing scope, a call to
+\begin{codeexample}[code only]
+   local myvalue = graph.getOption('/some path/my key')
+\end{codeexample}
+  will set |myvalue| to |'foo'|.
+  
+  \medskip
+  \noindent\textbf{Conversions.}
+  In many cases, when you specify a graph parameter, you will not wish
+  the original \meta{value} to be passed to the algorithm. For
+  instance, suppose we write 
+\begin{codeexample}[code only]
+\pgfkeys{ /some path/width/.graph parameter }
+\end{codeexample}
+  We could now say |/some path/width=20pt+2pt|. Then, inside the 
+  algorithm call to the function |getOptions('/some path/width')| would yield the
+  string |'20pt+2pt'|. However, inside the algorithm, it would be
+  somewhat preferable to have access to the value |22.0| rather than the
+  string |'20pt+2pt'|. Similary, when the width is |1in|, the algorithm
+  will   prefer to get passed the number |72.27| instead of |'1in'|.
+
+  What we need is a \emph{conversion} of the value passed to the key
+  before it is stored as a graph parameter. This is done by setting
+  a \meta{conversion} when defining the key as a graph parameter. 
+  
+  Whenever a \meta{value} is assigned to the \meta{key}, the
+  \meta{conversion} will be executed with path prefix
+  |/graph drawing/conversions/|. The \meta{conversion} gets passed the
+  \meta{value} and should store the ``result'' of the
+  conversion in the macro |\pgfgdresult|. The contents of this macro is
+  the text that will actually be passed down to the algorithm.
+
+  As an example, let us have a look at a math conversion. This can be
+  achieved as follows:
+\begin{codeexample}[code only]
+\pgfkeys{    
+  /graph drawing/conversions/math/.code={
+    \pgfmathparse{#1}                % Parse the <value>...
+    \let\pgfgdresult\pgfmathresult   % and store the result in \pgfgdresult
+  }
+}
+\end{codeexample}
+
+  The following conversion are available by default:
+  \begin{key}{/graph drawing/conversions/evaluate math
+      expression=\meta{math expression}}
+    Passes \meta{math expression} to |\pgfmathparse|.    
+  \end{key}
+  \begin{key}{/graph drawing/conversions/coordinate=\meta{coordinate}}
+    The \meta{coordinate} should have the form
+    |(|\meta{number}|pt,|\meta{number}|pt)|. It is converted to the
+    format |{|\meta{number}|}{|\meta{number}|}|.
+
+    When you load the \tikzname\ library |graphdrawing| this
+    conversion is overwritten by a more powerful conversion: You can
+    then pass any \meta{coordinate} that is understood by
+    \tikzname. It will still be converted into the
+    pair-of-braced-numbers format.
+  \end{key}
+  
+  \medskip
+  \noindent\textbf{Default values.}
+  When a graph parameter is not set at all, the call to |getOption|
+  inside Lua will return |nil|. For most keys, however, a default
+  value should be set, such as, say, |1cm| for a node distance. You
+  \emph{cannot} just say |node distance/.initial=1cm| for a graph
+  parameter |node distance| as one might expect since graph parameters
+  are not normal keys. In principle, you could just say
+  |node distance=1cm| in some outer scope to setup a default value for the
+  key. However, due to the way graph parameters are implemented, if
+  this were done for every graph parameter, huge lists of graph
+  parameters would be passed around between \pgfname\ and Lua for each
+  graph, even when the parameters are not used at all.
+
+  For this reason, there is a special handler that allows you to setup
+  initial values for graph parameters:
+  \begin{handler}{{.parameter initial}|=|\meta{value}}
+    Use this key handler instead of |.initial| to assign an initial value
+    to a graph parameter. What will happen is that on the Lua layer,
+    the passed \meta{value} is stored in a special table. Whenever the
+    \meta{key} is not explicitly set by the user, the \meta{value}
+    will be used.
+
+    The \meta{value} gets passed through the \meta{conversion} of the
+    graph parameter before it is stored.
+
+    \emph{Remark:} Since the \meta{value} is passed down and managed
+    by Lua, changing the initial value is always ``global.'' In
+    particular, the values will not revert at the end of \TeX\
+    scope. For this reason, you should use this handler only
+    immediately after the key has been defined. Subsequently, a value
+    should be assigned directly to the key rather than setting a new
+    value using the handler once more.
+\begin{codeexample}[code only]
+\pgfgdset{
+  node distance/.graph parameter=evaluate math expression,
+  node distance/.parameter initial=1cm
+}
+\end{codeexample}
+  \end{handler}
+\end{handler}
+
+\begin{handler}{{.node parameter}|=|\opt{\meta{conversion}}}
+  This key works like |.graph parameter|, only it
+  affects node parameters rather than graph parameters.
+
+  \emph{Remark:} In \tikzname, when you write |node [foo=bar] {...}|,
+  the option |foo| is executed before |\pgfnode| is called
+  internally. This means that if foo is a node parameter the ideal
+  place to set it is, indeed, as an option of the node -- which is
+  exactly what people expect.
+\end{handler}
+
+\begin{handler}{{.edge parameter}|=|\opt{\meta{conversion}}}
+  This key works like |.graph parameter|, only it
+  affects node parameters rather than graph parameters.
+
+  \emph{Remark:} When |\pgfgdedge| is executed, see also its
+  documentation, it will ``tentatively'' execute its options. The only
+  purpose of this ``tentative option execution'' is that options that
+  are edge parameters get setup before the snapshot of the edge
+  options is taken.  
+\end{handler}
+
+
+
+
+\subsubsection{Advanced Commands For Setting Parameters}
+
+Graph drawing parameters should have the path
+|/graph drawing| for systematic reasons. However, as a user we do not
+wish to write things like (which would work):
+\begin{codeexample}[code only]
+\tikz [/graph drawing/algorithm=my algorithm,
+       /graph drawing/my algorithm/foo=bar,  
+       /graph drawing/blub=foobar] ...
+\end{codeexample}
+Rather, we would like to write
+\begin{codeexample}[code only]
+\tikz [my algorithm={foo=bar}, blub=foobar] ...
+\end{codeexample}
+
+
+In order to achieve this and still keep the parameters in the correct
+key path, \emph{key forwarding} is used. For most graph parameters, a
+key of the same name with the path |/tikz| is setup that will just
+forward its value to the corresponding key in the |/graph drawing|
+path. Indeed, additionally, another forward is also setup from a key
+of the same name with the path |/tikz/graphs|. You could, in
+principle, even add new paths for which such forwards are setup.
+
+Note that forwarding often also works when the key with the path
+|/tikz| already does something else. In this case, the ``something
+else'' will be done first and then the key will forward additionally
+to the graph drawing key.
+
+Graph parameters come in too flavours: ``common'' and
+``family-specific.'' A ``common'' graph parameter can be used by
+several graph drawing algorithms. An example are orientation keys,
+which can actually be applied to any graph in a postprocessing
+step. In contrast, ``family-specific'' keys are only important for
+one algorithm or only for algorithms from a small family of
+algorithms. For instance, a ``stiffness'' for spring layout algorithms 
+would only apply to, well, spring layout algorithms.
+
+The common graph parameters reside in the path |/graph drawing|,
+while the family-specific graph parameters reside in the path
+|/graph drawing/|\meta{family name}. For common graph parameters,
+forwarding will be setup in paths like |/tikz| or |/tikz/graphs|, so
+you can use these keys directly. In contrast, no forwarding will be
+setup for family-specific keys. Rather, these keys can be passed to the
+algorithm's key, which will in turn executed the keys with the
+prefix |/graph drawing/|\meta{family name}.
+
+Since setting up the forwards manually is cumbersome, there are some
+special commands that should help you with this. We begin with
+commands for setting up common graph parameters, but first we need a
+command for specifying the list of paths from which we wish to
+forward.
+
+\begin{command}{\pgfgdappendtoforwardinglist\marg{path}}
+  Appends the \meta{path} (with trailing slash) to the forwarding
+  list. This means that all new keys declared using
+  |\pgfgddeclareforwardedkeys| or |\pgfgddeclarealgorithmkey| will
+  define a forwarding from a key with the prefix \meta{path} to the
+  corrsponding key. 
+
+  If a key has already been defined using one of the command,
+  forwarding from \meta{path} will also 
+  be setup for this key (using a bit of magic\ldots).  
+\end{command}
+
+
+\begin{command}{\pgfgddeclareforwardedkeys\marg{prefix}\marg{list of key declarations}}
+  Each element in the \meta{list of key declarations} should have the
+  form \meta{key name}|/|\meta{action}. For each element the following
+  keys are setup:
+
+  \begin{itemize}
+  \item \meta{prefix}|/|\meta{key name}|/|\meta{actions}
+  \item Provided that \meta{prefix}|/|\meta{keyname} was just defined
+    for the first time just now, for each \meta{path} in the current
+    forwarding list, a forwarding is added from the key
+    \meta{path}|/|\meta{key name} to is \meta{prefix}|/|\meta{keyname}.
+  \end{itemize}
+  Typically, namely when \tikzname\ is used, the forwarding list is
+  set to |/tikz,/tikz/graphs|. This means that you can use the
+  \meta{key name} both in the |/tikz| and also in the |/tikz/graphs|
+  namespace.
+\begin{codeexample}[code only]
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  node distance/.graph parameter=evaluate math expression,
+  node distance/.parameter initial=1cm
+}
+\end{codeexample}
+\end{command}
+
+
+\begin{command}{\pgfgddeclarealgorithmkey\marg{algorithm  key}\marg{algorithm family}\marg{options}}
+  This command will setup the following keys:
+  
+  \begin{key}{/graph drawing/\meta{algorithm key}=\meta{more options}}
+    When this key is executed, the \meta{options} that were passed to
+    the |\pgfgddeclarealgorithmkey| command are executed first with
+    the path prefix |/graph drawing|. Next, the \meta{more options}
+    are executed, but now with the path prefix
+    |/graph drawing/|\meta{algorithm family}.
+
+    Then, the following key is executed:
+    \begin{key}{/graph drawing/at begin scope}
+      This key does nothing by default, but it could be used to setup
+      things (as is done in \tikzname) to start the graph drawing
+      engine for the current scope. 
+    \end{key}
+  \end{key}
+
+  Next, forwaring is setup from \meta{algorithm key} for all paths in
+  the path list to |/graph drawing/|\meta{algorithm key}.
+  
+  The idea behind the \meta{algorithm family} is that several
+  algorithms might share some keys. For
+  instance, all spring-based algorithms are defined with the path
+  prefix |/graph drawing/spring layout|. For them, the
+  \meta{algorithm family} is set to |spring layout|.
+\begin{codeexample}[code only]
+\pgfgddeclarealgorithmkey
+  {Walshaw2000 spring electrical}
+  {spring layout}
+  {
+    algorithm=Walshaw2000 spring,
+    spring layout/temperature=0.95,
+    spring layout/spring constant=0.01,
+  }    
+\end{codeexample}
+\end{command}  
+
+
+
 
 \subsection{Lua Layer: Overview}
 
-When the library is loaded, it initialises the Lua subsystem. This
-takes place by checking if \LuaTeX\ is present and then invoking the
-Lua loader class.  
+All of the graph drawing engine resides in the directory
+|graphdrawing| of |pgf|. Inside, there are the following
+subdirectories:
 
-Most classes in the framework (including the module objects) implement
-the |__tostring| method, meaning that you can get a somewhat useful
-string representation of the object via the standard |tostring|
-function.
+\begin{itemize}
+\item |core|, with the subdirectories |lualayer|, |basiclayer|, and |tikzlayer|.
+\item |algorithms|, with subdirectories for different kinds of graph
+  drawing algorithms.
+\end{itemize}
+
+Since most of the graph drawing engine is written in Lua, Most of
+these directories contain only Lua code. Indeed, |core/basiclayer|
+just contains the \pgfname\ library |graphdrawing|, which implements
+the functionalities explained earlier in this section, and
+|core/tikzlayer| contains just the \tikzname\ library |graphdrawing|,
+which is about a single page of code. By far the largest part of the
+graph drawing library resides in the |core/lualayer| directory, where
+the supporting classes and files of the graph drawing engines are
+gathered.
+
+The |algorithms| directory contains subdirectories for the different
+kinds of graph drawing algorithms. For instance, the |tree|
+subdirectory contains tree drawing algorithms and so on. Since graph
+drawing algorithms are implemented in Lua, these directories also
+contain mainly Lua files, which start with |pgfgd-algorithm-|, but
+they also contain a library file like the \pgfname\ library
+|graphdrawing.tree|. The job of this library is to make the graph
+parameters of the algorithms visible to \pgfname, so this file
+typically just contains calls of |\pgfgddeclarealgorithmkey| and
+|\pgfgddeclareforwardedkeys|.
+
+In the following, we first describe which steps are necessary to
+implement a new graph drawing algorithm. We then have a look at the
+classes made available to graph drawing algorithms by the
+engine. Finally, the section concludes with a class and function
+reference.
+
+
+
+\subsection{Lua Layer: Installing  Graph Drawing Algorithms}
+\label{section-gd-implementing-algorithms}
+
+In the following we describe in detail how a new graph drawing
+algorithm can be implemented and installed. 
+
+
+\subsubsection{Starting the Graph Drawing Engine}
+
+First, before any graph drawing algorithms can be used, the graph
+drawing engine needs to be loaded. This is done by loading the
+\pgfname\ library |pgflibrarygraphdrawing.code.tex|. This will
+initialises the Lua graph drawing subsystem by invoking the Lua loader
+class.   
+
+In the most basic cases, no further \TeX\ code needs to be written to
+use a new graph drawing algorithm; but we will see later on, that a
+small entry in an appropriate \pgfname\ library of graph drawing
+algorithms will make the use of the algorithm somewhat simpler.\
+
+
+\subsubsection{Main File of the Graph Drawing Algorithm}
+
+
+As explained for the |algorithm| key on
+page~\ref{section-gd-algorithm-key}, each graph drawing algorithm  
+must be placed in a Lua function called
+|drawGraphAlgorithm_|\meta{algorithm name}, with spaces and the |-|
+character replaced by underscores, inside the |pgf.graphdrawing| Lua 
+module. This function, in turn, should typically be placed in a file 
+called |pgfgd-algorithm-|\meta{algorithm name}, again with spaces and
+|-| replaced by underscores. In theory, this would already be 
+sufficient to use the algorithm, but you will typically also create 
+a style to make using the algorithm a bit easier, see the end of this 
+section.
+
+The function |drawGraphAlgorithm_|\meta{algorithm name} will be called
+with an object representing the graph as single argument. The job of
+the algorithm is to modifying the coordinates of the nodes of this
+graph. Any return values are discarded. 
+
+For example, the following code fragment (taken and slightly altered
+from the file |pgfgd-algorithm-simple-demo.lua|)
+implements a trivial graph drawing algorithm that just places all
+nodes on a fixed-size circle.  It is accessed with the name
+|simple demo|, or |simple-demo| so both the file- and function name 
+agree on that.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  radius/.graph parameter=evaluate math expression
+}
+\pgfgdset{radius/.parameter initial=1cm}
+
+\begin{codeexample}[code only]
+-- File pgfgd-algorithm-simple-demo.lua
+  
+pgf.module("pgf.graphdrawing")
+
+--- A very, very simple node placing algorithm for demonstration purposes.
+-- All nodes are positioned on a fixed-size circle.
+function drawGraphAlgorithm_simple_demo(graph)
+   local radius = 28.908  -- =1cm
+
+   -- count nodes
+   local nodeCount = table.count_pairs(graph.nodes)
+
+   local alpha = (2 * math.pi) / nodeCount
+   local i = 0
+   for node in table.value_iter(graph.nodes) do
+      -- the interesting part...
+      node.pos:set{x = radius * math.cos(i * alpha)}
+      node.pos:set{y = radius * math.sin(i * alpha)}
+      i = i + 1
+   end
+end
+\end{codeexample}
+
+The algorithm computes a circular layout like in the following.
+
+\begin{codeexample}[]
+\tikz [graph drawing scope, /graph drawing/algorithm=simple demo]
+  \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
+\end{codeexample}
+
+Users will typically wish to write something shorter than
+|graph drawing scope...| in order to run a graph drawing algorithm on
+a graph. For this reason, you should setup a style on the \TeX\ side
+that calls the above keys. For instance, you could create a small
+\tikzname\ library and place the following line in the library:
+\begin{codeexample}[code only]
+\tikzset{circular layout/.style={
+    graph drawing scope,
+    /graph drawing/algorithm=simple demo}}
+\end{codeexample}
+However, there is a better command for this:
+\begin{codeexample}[code only]
+% Place this is a file like pgflibrarygraphdrawing.circular.code.tex
+\pgfgddeclarealgorithmkey
+{circular layout}
+{circular layout}
+{algorithm=simple demo}
+\end{codeexample}
+\pgfgddeclarealgorithmkey
+{circular layout}
+{circular layout}
+{algorithm=simple demo}
+
+The |\pgfgddeclarealgorithmkey| takes care of setting up your style
+key in appropriate ways (including some ways you will not have though
+of) and installs some additional handlers. See the documentation of
+this command in Section~\ref{section-gd-backend} for details. 
+
+Returning to the algorithm, it would be better if we could
+``configure'' the radius of the circle. The graph drawing engine
+provides for this case: You can declare certain \pgfname\ keys to be
+so-called ``graph parameters''. When a key is declared as a graph
+parameter, it will be available inside the algorithm: 
+
+\begin{codeexample}[code only]
+   local radius = tonumber(graph:getOption("/graph drawing/radius"))
+\end{codeexample}
+
+Using the |getOption| method we obtain the value of the
+graph parameter, but we must first register the key on the \TeX\ side
+as follows: 
+
+\begin{codeexample}[code only]
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  radius/.graph parameter=evaluate math expression,
+  radius/.parameter initial=1cm
+}
+\end{codeexample}
+
+The |evaluate math expression| tells \TeX\ that whenever you assign
+something to the |radius| option, the mathematical expression should
+be evaluated and the result should be passed down to the graph drawing
+algorithm. For instance, when you write |radius=20pt+3.5pt|, the
+algorithm will get the value |23.5| as a result to calling
+|getOption|. The |getOption| function will return a |nil| value for
+keys that have not been set. While this sometimes the desired
+behaviour, in our example we would want the radius to be set to a
+default value (1cm in this case) when nothing has been specified. This
+is achieved by the second line. The result of the above modifications
+can be seen in the following example:
+
+\begin{codeexample}[]
+\tikz \graph [circular layout, radius=1.5cm]
+  { f -> c -> e -> a ->{b -> {c, d, f}, e -> b}};
+\end{codeexample}
 
 
 
 
 \subsection{Lua Layer: Class Structure}
+
+Most classes in the framework (including the module objects) implement
+the |__tostring| method, meaning that you can get a somewhat useful
+string representation of the object via the standard |tostring|
+function.
 
 \subsubsection{The Interface and System Classes}
 
@@ -509,11 +1099,6 @@ local nodeRight = edge:.nodes[2]
 \end{codeexample}
 \end{itemize}
 
-
-\subsection{Lua Layer: Implementing Graph Drawing Algorithms}
-\label{section-gd-implementing-algorithms}
-
-TT: To be written
 
 
 \subsection{Lua Layer: The Module System}
