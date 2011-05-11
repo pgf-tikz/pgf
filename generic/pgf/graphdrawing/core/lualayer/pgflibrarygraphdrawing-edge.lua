@@ -325,4 +325,10 @@ function Edge:__tostring()
     result = result .. table.concat(node_strings, ', ')
   end
   return result .. ")"
+
+  -- Note: the following line generates a shorter string representation
+  -- of the edge that is more readable and can be used for debugging.
+  -- So please don't remove this:
+  --
+  --return self.nodes[1].name .. ' ' .. self.direction .. ' ' .. self.nodes[2].name .. ' [level ' .. (self.level or 0) .. ']'
 end

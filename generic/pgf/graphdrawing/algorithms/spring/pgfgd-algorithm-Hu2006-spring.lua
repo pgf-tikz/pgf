@@ -28,9 +28,6 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   if seed == 0 then seed = os.time() end
   math.randomseed(seed)
 
-  --Sys:log('coarsening option: ' .. tostring(graph:getOption('/graph drawing/spring layout/coarsening')))
-  --Sys:log('quadtree option:   ' .. tostring(graph:getOption('/graph drawing/spring layout/quadtree')))
-
   -- check if we should use the multilevel approach
   local use_coarsening = graph:getOption('/graph drawing/spring layout/coarsening') == 'true'
 
@@ -39,7 +36,7 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
 
   -- determine other parameters of for the algorithm
   local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension'))
-  local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')) * 10
+  local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant'))
   local iterations = tonumber(graph:getOption('/graph drawing/spring layout/maximum iterations'))
   local t = tonumber(graph:getOption('/graph drawing/spring layout/temperature'))
   local tol = tonumber(graph:getOption('/graph drawing/spring layout/tolerance'))
@@ -59,10 +56,18 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   end
 
   if use_coarsening then
-    Sys:log('generating coarse graphs')
+    --Sys:log('generating coarse graphs')
 
     local coarse_graph = CoarseGraph:new(graph)
-
+      
+    --Sys:log('  initial graph:')
+    --for node in table.value_iter(coarse_graph:getGraph().nodes) do
+    --  Sys:log('    node ' .. node.name .. ' at ' .. tostring(node.pos))
+    --end
+    --for edge in table.value_iter(coarse_graph:getGraph().edges) do
+    --  Sys:log('    edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
+    --end
+    --
     --while coarse_graph:getSize() > 2 and coarse_graph:getRatio() <= 0.75 do
     --  Sys:log('  coarse graph ' .. coarse_graph:getLevel() + 1)
     --  Sys:log('    construction:')
@@ -76,11 +81,11 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
     --  end
     --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
     --end
-
+    --
     --Sys:log(' ')
-
+    --
     --while coarse_graph:getLevel() > 0 do
-    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel())
+    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel()-1)
     --  Sys:log('    reconstruction:')
     --  coarse_graph:interpolate()
     --  Sys:log('    new graph:')
@@ -93,15 +98,27 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
     --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
     --end
 
+    --Sys:log(' ')
+
+    -- coarsen the graph repeatedly until either only two nodes are
+    -- left or the number of nodes cannot be reduced by more than
+    -- 25% compared to the previous coarse version of the graph
     while coarse_graph:getSize() > 2 and coarse_graph:getRatio() <= 0.75 do
       coarse_graph:coarsen()
     end
+
+    -- TODO k is currently scaled as in the Walshaw2000 algorithm. 
+    -- Replace this with the mechanism that is actually used in the 
+    -- paper by Hu.
+    k = k / math.pow(math.sqrt(4/7), coarse_graph.level)
 
     compute_initial_layout(coarse_graph.graph, k)
     apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
 
     while coarse_graph:getLevel() > 0 do
       coarse_graph:interpolate()
+      -- see above TODO
+      k = k * math.sqrt(4/7)
       apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol)
     end
   else
@@ -131,7 +148,6 @@ function compute_initial_layout(graph, k)
   local function nodeNotFixed(node) return not node.fixed end
 
   -- compute initial layout based on the selected positioning technique
-  --Sys:log('WALSHAW: initial layout:')
   for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
     node.pos:set{x = positioning_func(1), y = positioning_func(2)}
   end
@@ -211,6 +227,8 @@ function apply_forces(graph, iterations, use_quadtree, k, C, t, tol)
       end
 
       xi.pos = xi.pos:plus(force:normalized():timesScalar(step))
+
+      --Sys:log('HU:   move ' .. xi.name .. ' to ' .. tostring(xi.pos))
 
       energy = energy + math.pow(force:norm(), 2)
     end

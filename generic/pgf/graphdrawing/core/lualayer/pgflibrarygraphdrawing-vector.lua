@@ -258,7 +258,12 @@ end
 -- @return Normalized version of the original vector.
 --
 function Vector:normalized()
-  return self:dividedByScalar(self:norm())
+  local norm = self:norm()
+  if norm == 0 then
+    return Vector:new(#self.elements, function (n) return 0 end)
+  else
+    return self:dividedByScalar(self:norm())
+  end
 end
 
 
