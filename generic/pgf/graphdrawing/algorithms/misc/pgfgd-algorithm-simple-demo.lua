@@ -14,18 +14,20 @@
 
 pgf.module("pgf.graphdrawing")
 
---- A very, yery simple node placing algorithm for demonstration purposes.
+--- A trivial node placing algorithm for demonstration purposes.
 -- All nodes are positioned on a fixed size circle.
 function drawGraphAlgorithm_simple_demo(graph)
-   local radius = graph:getOption("/graph drawing/radius")
+   local radius = tonumber(graph:getOption("/graph drawing/radius"))
    local nodeCount = table.count_pairs(graph.nodes)
 
    local alpha = (2 * math.pi) / nodeCount
    local i = 0
    for node in table.value_iter(graph.nodes) do
       -- the interesting part...
-      node.pos:set{x = radius * math.cos(i * alpha)}
-      node.pos:set{y = radius * math.sin(i * alpha)}
+      local node_radius = tonumber(node:getOption('/graph drawing/node radius')
+                                   or radius)
+      node.pos:set{x = node_radius * math.cos(i * alpha)}
+      node.pos:set{y = node_radius * math.sin(i * alpha)}
       i = i + 1
    end
 end
