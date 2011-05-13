@@ -87,48 +87,46 @@ function orientation.rotate(graph)
     local gaxis_len = gaxis_vector:norm()
     local xaxis_len = xaxis_vector:norm()
 
-    -- compute the angle between the x axis and the graph axis vector
-    -- TODO here a NaN can be generated which is bad for TikZ/PGF. in
-    -- that case the problem is most likely in the layout algorithm as
-    -- two nodes should never be at the same coordinate (where |gaxis| 
-    -- is 0)
-    local angle = math.acos(xaxis_vector:dotProduct(gaxis_vector) / (xaxis_len * gaxis_len))
+    if gaxis_len * xaxis_len > 0 then
+      -- compute the angle between the x axis and the graph axis vector
+      local angle = math.acos(xaxis_vector:dotProduct(gaxis_vector) / (xaxis_len * gaxis_len))
 
-    -- determine whether the graph axis vector is positively rotated to the x axis
-    local direction = gaxis_vector:get(2) * xaxis_vector:get(1) 
-                    - xaxis_vector:get(2) * gaxis_vector:get(1)
+      -- determine whether the graph axis vector is positively rotated to the x axis
+      local direction = gaxis_vector:get(2) * xaxis_vector:get(1) 
+                      - xaxis_vector:get(2) * gaxis_vector:get(1)
 
-    -- if it is positively rotated, rotate counter-clockwise
-    if direction >= 0 then
-      angle = (-1) * angle
-    end
+      -- if it is positively rotated, rotate counter-clockwise
+      if direction >= 0 then
+        angle = (-1) * angle
+      end
 
-    -- perform the rotation
-    for node in table.value_iter(graph.nodes) do
-      local x, y = node.pos:x(), node.pos:y()
-      node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
-      node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
-    end
-  
-    if swap then
-      -- flip nodes over the axis
+      -- perform the rotation
       for node in table.value_iter(graph.nodes) do
-        if node.pos:y() > gbase_vector:y() then
-          local diff = node.pos:y() - gbase_vector:y()
-          node.pos:set{y = gbase_vector:y() - diff}
-        elseif node.pos:y() < gbase_vector:y() then
-          local diff = gbase_vector:y() - node.pos:y()
-          node.pos:set{y = gbase_vector:y() + diff}
+        local x, y = node.pos:x(), node.pos:y()
+        node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
+        node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
+      end
+  
+      if swap then
+        -- flip nodes over the axis
+        for node in table.value_iter(graph.nodes) do
+          if node.pos:y() > gbase_vector:y() then
+            local diff = node.pos:y() - gbase_vector:y()
+            node.pos:set{y = gbase_vector:y() - diff}
+          elseif node.pos:y() < gbase_vector:y() then
+            local diff = gbase_vector:y() - node.pos:y()
+            node.pos:set{y = gbase_vector:y() + diff}
+          end
         end
       end
-    end
 
-    -- rotate by the angle desired by the user
-    angle = (desired_angle / 360) * 2 * math.pi
-    for node in table.value_iter(graph.nodes) do
-      local x, y = node.pos:x(), node.pos:y() 
-      node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
-      node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
+      -- rotate by the angle desired by the user
+      angle = (desired_angle / 360) * 2 * math.pi
+      for node in table.value_iter(graph.nodes) do
+        local x, y = node.pos:x(), node.pos:y() 
+        node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
+        node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
+      end
     end
   end
 end

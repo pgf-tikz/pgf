@@ -37,7 +37,7 @@ function positioning.random(graph, distance)
   local count = table.count_pairs(graph.nodes)
 
   return function (n)
-    return math.random(0, math.modf(math.sqrt(count)) * 2 * distance)
+    return math.random(0, 2.5 * distance)
   end
 end
 
