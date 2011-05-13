@@ -80,7 +80,7 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
 
   Sys:setVerbose(true)
   Sys:log('WALSHAW: use_coarsening = ' .. tostring(use_coarsening))
-  Sys:log('WALSHAW: use_quadtree = '   .. tostring(use_quadtree))
+  Sys:log('WALSHAW: approximate repulsive forces = ' .. tostring(use_quadtree))
   Sys:log('WALSHAW: iterations = ' .. tostring(iterations))
   Sys:log('WALSHAW: min_graph_size: ' .. tostring(min_graph_size))
   Sys:setVerbose(false)
