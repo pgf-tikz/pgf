@@ -38,6 +38,11 @@
 % and no peripheral effects in spring layouts). Explain why they were
 % consolidated in the common family 'spring layout'.
 
+% TODO Jannis: Also, somewhere, present the two spring-electrical and 
+% the one spring algorithm and explain how they work and to what 
+% parameters they respond well (and how in general). Explain how to
+% make the best use of either algorithm.
+
 \begin{key}{/graph drawing/spring layout=\meta{options}}
   \keyalias{tikz}\keyalias{tikz/graphs}
   Similar to the |>| option, this ``generic'' name for a spring layout
@@ -90,8 +95,12 @@ node and \emph{edge options} that can be specified for each edge.
 %  \end{codeexample}
 %\end{key}
 
-\begin{key}{/graph drawing/spring layout/maximum 
-  iterations=\meta{number} (initially 500)}
+\begin{key}{/graph drawing/spring layout/iterations=\meta{number}
+  (initially 500)}
+
+  Limits the number of iterations of algorithms for spring and 
+  spring-electrical layouts to \meta{number}.
+
   Depending on the characteristics of the input graph and the parameters
   chosen for the spring or spring-electrical algorithm, minimizing the
   system energy may require many iterations.
@@ -101,39 +110,47 @@ node and \emph{edge options} that can be specified for each edge.
   after different iterations and thereby demonstrate how the spring or
   spring-electrical algorithm improves the drawing step by step.
   \begin{codeexample}[]
-\tikz \graph [spring layout={maximum iterations=1}]   { a -- b -- c -- a };
-\tikz \graph [spring layout={maximum iterations=10}]  { a -- b -- c -- a };
-\tikz \graph [spring layout={maximum iterations=500}] { a -- b -- c -- a };
+\tikz \graph [spring layout={iterations=1}]   { subgraph K_n[n=4] };
+\tikz \graph [spring layout={iterations=2}]   { subgraph K_n[n=4] };
+\tikz \graph [spring layout={iterations=500}] { subgraph K_n[n=4] };
   \end{codeexample}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/random seed=\meta{number} 
   (initially 42)}
+  
   Specifies the seed used for Lua's pseudo-random number generator. If
   set to something other than |0|, the random number sequence generated
   by the pseudo-random number generator will be the same at every run.
   The resulting graph drawings will be reproducible in consecutive runs,
   despite randomized elements used in the algorithm.
   If set to |0|, the results are not guaranteed to be reproducible.
-  \begin{codeexample}[width=5.5cm]
-\tikz \graph [spring layout={random seed=1}] { 
-  subgraph K_n[n=4]
-};
-\tikz \graph [spring layout={random seed=10}] { 
-  subgraph K_n[n=4]
-};
+  
+  A special application of |random seed| is to unravel a visually
+  imperfect layout. Often when drawings feature a few undesired edge
+  crossings, this may have been caused by a unfavorable random number
+  sequence. Here is an example where a different |random seed| unravels
+  a slightly twisted drawing of a grid:
+  \begin{codeexample}[]
+% bad layout due to unfavorable random number sequence
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical,
+              spring layout={random seed=1, coarsen=false}, orient=7-8] 
+  { subgraph Grid_n [n=8, wrap after=2] };
+
+% better layout thanks to a different random seed
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical,
+              spring layout={random seed=2, coarsen=false}, orient=7-8] 
+  { subgraph Grid_n [n=8, wrap after=2] };
   \end{codeexample}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/natural spring
   dimension=\meta{dimension} (initially 1cm)}
+
+  % TODO Jannis: Document this option.
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/spring constant=\meta{number}}
-\end{key}
-
-\begin{key}{/graph drawing/spring layout/approximate repulsive
-  forces=\opt{\meta{boolean}} (initially true)}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/cooling factor=\meta{number}
@@ -162,51 +179,46 @@ node and \emph{edge options} that can be specified for each edge.
   
   However, this optimization \emph{can} come at the cost of slightly 
   less appealing drawings which is noticable with small graphs in 
-  particular. This is why it is turned off by default. Enable it if you
-  want to lay out large graphs.
+  particular. Even though the differences can be very subtle, the
+  often reduced quality of the final drawings is the reason why why 
+  this feature is turned off by default. Typically, you only want to
+  set |approximate repulsive forces| to |true| to save some time when
+  laying out large graphs.
 
-  Here is an example where this disadvantage can be noticed:
-  \begin{codeexample}[]
-\tikz \graph [spring layout] { 
-  { [clique] 3, 5, 1 } -- { [clique] 2, 4, 6 }
-};
-\tikz \graph [spring layout={approximate repulsive forces}] { 
-  { [clique] 3, 5, 1 } -- { [clique] 2, 4, 6 }
-};
-  \end{codeexample}
+  The following code provides an example where the degraded quality 
+  of a drawing with repulsive force approximation can be noticed:
+  \begin{codeexample}[width=5.5cm]
+% TODO Jannis: find a better example.
 
-  Sometimes, the negative effect is very subtle. Notice how the angle
-  of the |2| |4| |6| clique is slightly less appealing in the drawing
-  with repulsive forces approximated.
-  \begin{codeexample}[]
-\tikz \graph [spring layout,orient=2|1] { 
-  { 1 -- 3 -- 5 -- 1, 1 -- 2, 2 -- 4 -- 6 -- 2}
-};
-\tikz \graph [spring layout={approximate repulsive forces},orient=2|1] { 
-  { 1 -- 3 -- 5 -- 1, 1 -- 2, 2 -- 4 -- 6 -- 2}
-};
-  \end{codeexample}
+% bad layout due to not computing repulsive forces accurately
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical,
+              spring layout={approximate repulsive forces},
+              orient=5-4]
+  { 1 -- subgraph C_n [V={2,3,4,5}] };
 
-  In the the following example the opposite is the case even. Here,
-  approximating the repulsive force generates a better layout than
-  computing them accurately:
-  \begin{codeexample}[width=6cm]
-\tikz \graph [spring layout,orient=1|2] { 
-  subgraph Grid_n[n=9]
-};
-\tikz \graph [spring layout={approximate repulsive forces},
-              orient=1|2] { 
-  subgraph Grid_n[n=9]
-};
+% better layout thanks to accurate force math
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical,
+              spring layout,
+              orient=5-4]
+  { 1 -- subgraph C_n [V={2,3,4,5}] };
   \end{codeexample}
-  
-  As you can see it is dependent on the graph and other parameters of
-  the spring and spring-electrical algorithms as to whether or not it
-  makes sense to enable |approximate repulsive forces|.
+\end{key}
+
+\begin{key}{/graph drawing/spring layout/repulsive force
+  order=\meta{number} (initially 1)}
+
+  % TODO Jannis: Implement and document this option.
+\end{key}
+
+\begin{key}{/graph drawing/spring layout/initial step 
+  size=\meta{dimension} (default TODO)}
+
+  % TODO Jannis: Implement and document this option.
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/coarsen=\opt{\meta{boolean}}
   (initially true)}
+
   Defines whether or not a multilevel approach is used that
   iteratively coarsens the input graph into graphs $G_1,\dots,G_l$ with 
   a smaller and smaller number of nodes. The coarsening stops as soon as
@@ -226,9 +238,29 @@ node and \emph{edge options} that can be specified for each edge.
   the original input graph $G_0$ has been restored, interpolated 
   and laid out.
 
-  There are a number of options to fine-tune the coarsening approach.
+  The idea behind this approach is that, by arranging recursively 
+  formed supernodes first and then interpolating and arranging their
+  subnodes step by step, the algorithm is less likely to settle in a
+  local energy minimum (of which there can be many, particularly for
+  large graphs). The quality of the drawings with coarsening enabled is
+  expected to be significantly higher than graphics where this feature
+  is not applied.
+
+  There are a number of options to fine-tune the coarsening phase.
   They are consolidated in the |/graph drawing/spring layout/coarsening|
   prefix described below.
+
+  The following example demonstrates how coarsening can improve the
+  quality of graph drawings:
+  \begin{codeexample}[]
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical, 
+              spring layout={iterations=10, coarsen=false}] 
+  { { [clique] 1, 2, 3 }, { [clique] 3, 4, 5 } };
+
+\tikz \graph [/graph drawing/spring layout/default algorithm=Walshaw2000 spring electrical, 
+              spring layout={iterations=10, coarsen}] 
+  { { [clique] 1, 2, 3 }, { [clique] 3, 4, 5 } };
+  \end{codeexample}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/coarsening=\marg{options}}
@@ -242,6 +274,7 @@ node and \emph{edge options} that can be specified for each edge.
 
 \begin{key}{/graph drawing/spring layout/coarsening/minimum graph
   size=\meta{number} (initially 2)}
+
   Defines the number of nodes down to which the graph is coarsened
   iteratively. The first graph that has a lesser or equal number of
   nodes becomes the coarsest graph $G_l$, where $l$ is the number of
@@ -252,141 +285,110 @@ node and \emph{edge options} that can be specified for each edge.
   In the following example the same graph is coarsened down to two
   and three nodes, respectively. The layout of the original graph is 
   interpolated from the random initial layout and is not changed
-  because the forces are not computed. Thus, in the first graph, the
-  nodes can have exactly two (or three) possible coordinates in the
-  final drawing:
-  \begin{codeexample}[]
-\tikz \graph [spring layout={maximum iterations=0,coarsen,
-                             coarsening={minimum graph size=2}}] { 
-  1 -- 2 -- 3 -- 4 
-};
-\tikz \graph [spring layout={maximum iterations=0,coarsen,
-                             coarsening={minimum graph size=3}}] { 
-  1 -- 2 -- 3 -- 4 
-};
+  because the forces are not computed (0 iterations). Thus, in the 
+  first graph, the nodes are placed at exactly two (or four) 
+  possible coordinates in the final drawing:
+  \begin{codeexample}[width=5.5cm]
+\tikz \graph [spring layout={
+                iterations=0,
+                coarsening={minimum graph size=2}
+              }] 
+  { subgraph C_n [n=8] };
+
+\tikz \graph [spring layout={
+                iterations=0,
+                coarsening={minimum graph size=4}
+              }] 
+  { subgraph C_n [n=8] };
   \end{codeexample}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/coarsening/downsize
   ratio=\meta{number} (initially 0.25)}
+
+  Minimum ratio between 0 and 1 by which the number of nodes between 
+  two coarse graphs $G_i$ and $G_{i+1}$ need to be reduced in order for 
+  the coarsening to stop and for the algorithm to use $G_{i+1}$ as the 
+  coarsest graph $G_l$. Aside from the input graph, the optimal value 
+  of |downsize ratio| mostly depends on the coarsening scheme being
+  used. Possible schemes are |collapse independent edges| and 
+  |connect independent nodes| which are explained later in this
+  document.
+
+  Increasing this option possibly reduces the number of coarse
+  graphs computed during the coarsening phase as coarsening will stop as
+  soon as a coarse graph does not reduce the number of nodes
+  substantially. This may speed up the algorithm but if the size of the 
+  coarsest graph $G_l$ is much larger than |minimum graph size|, the 
+  multilevel approach may not produce drawings as good as with a lower
+  |downsize ratio|.
+  \begin{codeexample}[]
+% TODO Jannis: Select a good example do demonstrate this option:
+%
+% 1. ratio too high, coarsening stops to early, benefits are lost
+% 2. ratio higher than default, coarsening benefits are visible
+  \end{codeexample}
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/coarsening/collapse independent
   edges=\opt{\meta{boolean}} (initially true)}
+
+  During the coarsening phase, the number of nodes in the graph is
+  repeatedly reduced using a coarsening scheme such as 
+  |collapse independent edges| or |connect independent nodes|.
+
+  If the scheme |collapse independent edges| is enabled, which happens
+  to be the default setting, coarse versions of the input graph are 
+  generated by finding a maximal independent edge set and by collapsing
+  the edges from this set. Nodes adjacent to each of these edges are
+  merged into supernodes by which they are replaced in the next coarse
+  version of the graph. Edges and nodes that are not related to the
+  maximum independent edge set are maintained in the new graph.
+
+  Collapsing the edges of a maximum independent edge set reduces the
+  number of nodes of the graph by up to but never more than 50\,\%. 
+  This means that the upper limit for reasonable values of 
+  |downsize ratio| to be used in combination with 
+  |collapse independent edges| is $0.5$. 
+  
+  Compared to |connected independent nodes| this is the less aggressive
+  coarsening scheme and typically yields better drawings.
 \end{key}
 
 \begin{key}{/graph drawing/spring layout/coarsening/connected
   independent nodes=\opt{\meta{boolean}} (initially false)}
-\end{key}
 
-%\begin{key}{/tikz/coarsening=\marg{options}}
-%  Executes the \meta{options} with the path prefix |/tikz/coarsening|.
-%  
-%  These options define whether a multilevel approach is used that
-%  successively coarsend into graphs with smaller and smaller number
-%  of nodes. These graphs are arranged first and are then interpolated
-%  into the finer graphs at the previous level. How this is done exactly
-%  can be configured using the |coarsening| options described below.
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/randomized=\opt{\meta{boolean}} (default
-%  true, initially false)}
-%  If set to |true|, nodes will be inspected in a random order. The
-%  effect on the final drawing can only be seen by experimenting with the
-%  option.
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/minimum size=\meta{number} (default 0)}
-%  Defines the minimum number of nodes in a coarsened graph. If a
-%  coarsened graph has less than \meta{number} nodes, then... % TODO
-%  \begin{codeexample}[] 
-%% the same graph with different minimum size values
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/nodes=\opt{\meta{boolean}} (default true,
-%  initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/nearby nodes=\opt{\meta{boolean}} (default
-%  true, initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/nodes with more 
-%  neighbors=\opt{\meta{boolean}} (default true, initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/nearby nodes with more 
-%  neighbors=\opt{\meta{boolean}} (default true, initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/edges=\opt{\meta{boolean}} (default true,
-%  initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/heavy edges=\opt{\meta{boolean}} (default
-%  true, initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/coarsening/edges with light nodes=\opt{\meta{boolean}}
-%  (default true, initially false)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/minimum energy delta=\meta{number} (default TODO)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/initial step size=\meta{dimension} (default TODO)}
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/step control=\meta{text} (default TODO)}
-%  Possible values: |monotonic|, |non-monotonic|, |strictly monotonic|.
-%  \begin{codeexample}[]
-%  \end{codeexample}
-%\end{key}
+  % TODO Jannis: Implement and document this option.
+\end{key}
 
 \subsubsection{Node Options}
 
-%\begin{key}{/tikz/electric charge=\meta{number} (default 1)}
-%  Defines the electric charge of the node. The stronger the electric
-%  charge, the higher the repulsive force between two nodes. Set this to
-%  something between |0| and |1| to reduce the charge compared to the
-%  normal setup. Values larger than |1| will generate stronger repulsion
-%  between the node and the others.
-%  \begin{codeexample}[] 
-%\tikz \graph [spring electrical layout,orient=1:90:2] {
-%  1 -- 2 -- 3 -- 4 -- 1,
-%  1 -- 3, 2 -- 4,
-%};
-%\tikz \graph [spring electrical layout,orient=1:90:2] {
-%  1 [electric charge=1] -- 2 -- 3 -- 4 -- 1,
-%  1 -- 3, 2 -- 4,
-%};
-%\tikz \graph [spring electrical layout,orient=1:90:2] {
-%  1 [electric charge=1000] -- 2 [electric charge=1000] -- 3 -- 4 -- 1,
-%  1 -- 3, 2 -- 4,
-%};
-%  \end{codeexample}
-%\end{key}
+\begin{key}{/graph drawing/spring layout/electric charge=\meta{number} (default 1)}
+  Defines the electric charge of the node. The stronger the 
+  |electric charge| of a node the stronger the repulsion between the
+  node and others in the graph. A negative |electric charge| means that
+  other nodes are further attracted to the node rather than repulsed.
+
+  Two typcal effects of increasing the |electric charge| are distortion
+  of symmetries and an upscaling of the drawings:
+  
+  % TODO Jannis: Do negative values really cause more attraction? Hu 
+  % doesn't respond like this, Walshaw does. Weird? Yes.
+
+  \begin{codeexample}[width=5cm] 
+\tikz \graph [spring layout={natural spring dimension=1cm}, orient=4-6] 
+  { 5 [spring layout={electric charge=1}], subgraph Grid_n [n=9] };
+
+\tikz \graph [spring layout={natural spring dimension=1cm}, orient=4-6] 
+  { 5 [spring layout={electric charge=5}], subgraph Grid_n [n=9] };
+
+\tikz \graph [spring layout={natural spring dimension=1cm}, orient=0-1] 
+  { 0 [spring layout={electric charge=1}] -- subgraph C_n [n=10] };
+
+\tikz \graph [spring layout={natural spring dimension=1cm}, orient=0-1] 
+  { 0 [spring layout={electric charge=5}] -- subgraph C_n [n=10] };
+  \end{codeexample}
+\end{key}
 
 %\end{document}
 
@@ -421,26 +423,28 @@ node and \emph{edge options} that can be specified for each edge.
 
 \subsubsection{Edge Options}
 
-\begin{key}{/tikz/natural length=\meta{dimension} (default 10pt)}
-  Defines the natural (zero energy) length of the edge. The smaller the
-  length, the stronger the attractive force of the adjacent nodes. The
-  \meta{dimension} has a strong influence of how far the nodes will be
-  placed from each other in the final drawing.
-  \begin{codeexample}[]
-% two examples with the same graph
-% notably change the natural length of one of the edges
-  \end{codeexample}
-\end{key}
+... 
 
-\begin{key}{/tikz/stiffness=\meta{number} (default 0.5)}
-  Defines how flexible the spring associated with the edge is. The
-  higher this value is, the closer the final edge length will be to its
-  |natural length|.
-  \begin{codeexample}[]
-% two examples with the same graph
-% notably change the stiffness of one of the edges
-  \end{codeexample}
-\end{key}
+%\begin{key}{/tikz/natural length=\meta{dimension} (default 10pt)}
+%  Defines the natural (zero energy) length of the edge. The smaller the
+%  length, the stronger the attractive force of the adjacent nodes. The
+%  \meta{dimension} has a strong influence of how far the nodes will be
+%  placed from each other in the final drawing.
+%  \begin{codeexample}[]
+%% two examples with the same graph
+%% notably change the natural length of one of the edges
+%  \end{codeexample}
+%\end{key}
+%
+%\begin{key}{/tikz/stiffness=\meta{number} (default 0.5)}
+%  Defines how flexible the spring associated with the edge is. The
+%  higher this value is, the closer the final edge length will be to its
+%  |natural length|.
+%  \begin{codeexample}[]
+%% two examples with the same graph
+%% notably change the stiffness of one of the edges
+%  \end{codeexample}
+%\end{key}
 
 \subsection{Options for the Spring Algorithm}
 
@@ -470,38 +474,7 @@ node and \emph{edge options} that can be specified for each edge.
 
 ...
 
-\begin{codeexample}[]
-\vbox{ \hsize=16cm \rightskip=0cm plus 1fill
-  \foreach \iterations in {1,...,20,100,500}
-  {
-    \tikz \graph [spring layout={maximum iterations=\iterations}, orient=1-2] 
-      { subgraph K_n[n=4] };
-    \penalty0
-  }
-}
-\end{codeexample}
-
-\begin{codeexample}[]
-\vbox{ \hsize=16cm \rightskip=0cm plus 1fill
-  \foreach \iterations in {1,...,20,100,500}
-  {
-    \tikz \graph [spring layout={maximum iterations=\iterations}, orient=1-2] 
-      { subgraph C_n[n=7] };
-    \penalty0
-  }
-}
-\end{codeexample}
-
 \endinput
-
-%% TODO
-%% Explain the following concepts:
-%% - separation of graph drawing options and regular TikZ options
-%% - generic graph drawing options:
-%%   - component packing
-%%   - orientation
-%% - pre-defined graph drawing styles
-%% - graph drawing options for fine-tuning the different algorithms
 
 %%% Local Variables: 
 %%% mode: latex

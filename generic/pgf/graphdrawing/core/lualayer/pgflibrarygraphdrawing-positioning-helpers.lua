@@ -33,10 +33,9 @@ end
 
 
 function positioning.random(graph, distance)
-  -- compute the number of nodes in the graph
-  local count = table.count_pairs(graph.nodes)
-
   return function (n)
+    -- TODO revise this and check which of the two lines is batter
+    -- return math.random(0, math.modf(math.sqrt(#graph.nodes)) * 2 * distance)
     return math.random(0, 2.5 * distance)
   end
 end

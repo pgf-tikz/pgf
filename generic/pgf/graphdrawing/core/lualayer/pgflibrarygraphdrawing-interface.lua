@@ -125,7 +125,7 @@ function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   from = self.graph:findNode(from)
   to = self.graph:findNode(to)
   assert(from and to, "at least one node doesn't exist yet")
-  self.graph:createEdge(from, to, direction, aux, string.parse_braces(options), tikz_options)
+  self.graph:createEdge(from, to, direction, aux, string.parse_braces(parameters), tikz_options)
 end
 
 
@@ -268,20 +268,5 @@ end
 -- @param value A string containing the value
 --
 function Interface:setGraphParameterDefault(key,value)
-   self.defaultGraphParameters[key] = value
-end
-
-
-
-
---- Defines a default value for a graph parameter. 
---
--- Whenever a graph parameter has not been set by the user explicitly,
--- the value that was last set using this function is used instead.
---
--- @param key The commplete path of the to-be-defined key
--- @param value A string containing the value
---
-function Interface:setGraphParameterDefault(key,value)
-   self.defaultGraphParameters[key] = value
+  self.defaultGraphParameters[key] = value
 end

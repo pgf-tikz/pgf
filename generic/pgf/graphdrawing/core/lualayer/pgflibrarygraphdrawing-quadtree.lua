@@ -29,7 +29,7 @@ function Particle:new(pos, mass)
   local particle = {
     pos = pos:copy(),
     mass = mass or 1,
-    amount = 1,
+    subparticles = {},
   }
   setmetatable(particle, Particle)
   return particle
@@ -64,10 +64,16 @@ end
 
 
 
+function CubicalCell:containsParticle(particle)
+  return particle.pos:x() >= self.x and particle.pos:x() <= self.x + self.width
+     and particle.pos:y() >= self.y and particle.pos:y() <= self.y + self.height
+end
+
+
+
 function CubicalCell:findSubcell(particle)
   return table.find(self.subcells, function (cell)
-    return particle.pos:x() >= cell.x and particle.pos:x() <= cell.x + cell.width
-       and particle.pos:y() >= cell.y and particle.pos:y() <= cell.y + cell.height
+    return cell:containsParticle(particle)
   end)
 end
 
@@ -97,10 +103,9 @@ function CubicalCell:insert(particle)
 
   if existing then
     -- we already have a particle at the same position; spliting the cell
-    -- up makes no sense; instead we increase the particle count to make
-    -- it weigh stronger (and to to be able to compute the force to other
-    -- particles as many times as necessary later)
-    existing.amount = existing.amount + 1
+    -- up makes no sense; instead we add the new particle as a
+    -- subparticle of the existing one
+    table.insert(existing.subparticles, particle)
   else
     if #self.subcells == 0 and #self.particles < self.max_particles then
       table.insert(self.particles, particle)
@@ -142,7 +147,10 @@ function CubicalCell:updateMass()
   if #self.subcells == 0 then
     -- the mass is the number of particles of the cell
     self.mass = table.combine_values(self.particles, function (mass, particle)
-      return mass + (particle.mass * particle.amount)
+      local subparticle_masses = table.combine_values(particle.subparticles, function (mass, subparticle)
+        return mass + subparticle.mass
+      end, 0)
+      return mass + particle.mass + subparticle_masses
     end, 0)
   else
     -- the mass is the sum of the masses of the subcells
@@ -160,12 +168,17 @@ function CubicalCell:updateCentreOfMass()
 
   if #self.subcells == 0 then
     -- the centre of mass is the average position of the particles
+    -- weighted by their masses
     self.centre_of_mass = table.combine_values(self.particles, function (pos, particle)
-      return pos:plus(particle.pos:timesScalar(particle.mass * particle.amount))
+      for subparticle in table.value_iter(particle.subparticles) do
+        pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
+      end
+      return pos:plus(particle.pos:timesScalar(particle.mass))
     end, Vector:new(2, function (n) return 0 end))
     self.centre_of_mass = self.centre_of_mass:dividedByScalar(self.mass)
   else
-    -- the centre of mass is the average of the weighted centres of mass of the subcells
+    -- the centre of mass is the average of the weighted centres of mass 
+    -- of the subcells
     self.centre_of_mass = table.combine_values(self.subcells, function (pos, cell)
       if cell.centre_of_mass then
         return pos:plus(cell.centre_of_mass:timesScalar(cell.mass))

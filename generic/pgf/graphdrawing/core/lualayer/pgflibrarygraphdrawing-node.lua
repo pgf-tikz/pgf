@@ -72,7 +72,7 @@ end
 -- @return The value of the node option \meta{name} or |nil|.
 --
 function Node:getOption(name)
-   return self.options[name]
+   return self.options[name] or Interface.defaultGraphParameters[name]
 end
 
 

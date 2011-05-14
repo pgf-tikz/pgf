@@ -57,15 +57,6 @@ walshaw_spring = {}
 -- @param graph
 --
 function drawGraphAlgorithm_Walshaw2000_spring(graph)
-  -- apply the random seed specified by the user
-  local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed'))
-  if seed == 0 then seed = os.time() end
-  math.randomseed(seed)
-
-  for key, val in pairs(graph.options) do
-    Sys:log(tostring(key) .. ' => ' .. tostring(val))
-  end
-
   -- check if we should use the multilevel approach
   local use_coarsening = graph:getOption('/graph drawing/spring layout/coarsen') == 'true'
 
@@ -75,15 +66,16 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
   -- determine parameters for the algorithm
   local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension'))
   local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant'))
-  local iterations = tonumber(graph:getOption('/graph drawing/spring layout/maximum iterations'))
+  local iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations'))
   local min_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size'))
+  local initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension'))
+  local downsize_ratio = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio'))
+  downsize_ratio = math.max(0, math.min(1, downsize_ratio))
 
-  Sys:setVerbose(true)
   Sys:log('WALSHAW: use_coarsening = ' .. tostring(use_coarsening))
   Sys:log('WALSHAW: approximate repulsive forces = ' .. tostring(use_quadtree))
   Sys:log('WALSHAW: iterations = ' .. tostring(iterations))
   Sys:log('WALSHAW: min_graph_size: ' .. tostring(min_graph_size))
-  Sys:setVerbose(false)
 
   --Sys:log('WALSHAW: graph:')
   --for node in table.value_iter(graph.nodes) do
@@ -93,9 +85,15 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
   --  Sys:log('WALSHAW:   edge ' .. edge.nodes[1].name .. ' -- ' .. edge.nodes[2].name)
   --end
 
+  -- apply the random seed specified by the user
+  local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed'))
+  if seed == 0 then seed = os.time() end
+  math.randomseed(seed)
+
   -- initialize the weights of nodes and edges
   for node in table.value_iter(graph.nodes) do
-    node.weight = 1
+    node.weight = tonumber(node:getOption('/graph drawing/spring layout/electric charge'))
+    node.charged = node.weight ~= 1
   end
   for edge in table.value_iter(graph.edges) do
     edge.weight = 1
@@ -106,16 +104,18 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
     local coarse_graph = CoarseGraph:new(graph)
     
     -- coarsen the graph repeatedly until only two nodes are left
-    while coarse_graph:getSize() > min_graph_size do
+    while coarse_graph:getSize() > min_graph_size 
+      and coarse_graph:getRatio() < (1 - downsize_ratio) 
+    do
       coarse_graph:coarsen()
     end
     
     -- compute initial spring length in a way that will result
     -- in a natural spring length of k in the original graph
-    coarse_graph.graph.k = k / math.pow(math.sqrt(4/7), coarse_graph.level)
+    k = k / math.pow(math.sqrt(4/7), coarse_graph.level)
 
     -- generate a random initial layout for the coarsest graph
-    walshaw_spring.compute_initial_layout(coarse_graph.graph)
+    walshaw_spring.compute_initial_layout(coarse_graph.graph, k)
 
     while coarse_graph:getLevel() > 0 do
       -- interpolate from the parent graph
@@ -123,22 +123,26 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
 
       -- update the natural spring length so that, for the original graph, 
       -- it equals the natural spring dimension requested by the user 
-      coarse_graph.graph.k = coarse_graph.graph.k * math.sqrt(4/7)
+      k = k * math.sqrt(4/7)
+
+      -- negative step length means automatic choice of the step length
+      -- based on the natural spring dimension
+      if initial_step_length < 0 then
+        initial_step_length = k
+      end
 
       -- apply the force-based algorithm to improve the layout
-      walshaw_spring.compute_force_layout(coarse_graph.graph, C, iterations, use_quadtree)
+      walshaw_spring.compute_force_layout(coarse_graph.graph, k, C, initial_step_length, iterations, use_quadtree)
     end
   else
-    -- use the natural spring dimension provided by the user as the 
-    -- natural spring length
-    graph.k = k
-    
-    -- set node and edge weights to 1
-    for node in table.value_iter(graph.nodes) do node.weight = 1 end
-    for edge in table.value_iter(graph.edges) do edge.weight = 1 end
+    -- negative step length means automatic choice of the step length
+    -- based on the natural spring dimension
+    if initial_step_length < 0 then
+      initial_step_length = k
+    end
 
     -- directly compute the force-based layout for the input graph
-    walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
+    walshaw_spring.compute_force_layout(graph, k, C, initial_step_length, iterations, use_quadtree)
   end
 
   -- adjust orientation
@@ -147,7 +151,7 @@ end
 
 
 
-function walshaw_spring.compute_initial_layout(graph)
+function walshaw_spring.compute_initial_layout(graph, k)
   -- TODO how can supernodes and fixated nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -156,22 +160,29 @@ function walshaw_spring.compute_initial_layout(graph)
   -- node.fixed member to true and also set node.pos:x() and node.pos:y()
   walshaw_spring.fixate_nodes(graph)
 
-  -- decide what technique to use for the initial layout
-  local positioning_func = positioning.technique('random', graph, graph.k)
+  if #graph.nodes == 2 then
+    -- TODO here we need to respect fixed nodes
+    graph.nodes[1].pos:set{x = 0, y = 0}
+    graph.nodes[2].pos:set{x = math.random(1, k), y = math.random(1, k)}
+    graph.nodes[2].pos = graph.nodes[2].pos:normalized():timesScalar(k)
+  else
+    -- decide what technique to use for the initial layout
+    local positioning_func = positioning.technique('random', graph, k)
 
-  local function nodeNotFixed(node) return not node.fixed end
+    local function nodeNotFixed(node) return not node.fixed end
 
-  -- compute initial layout based on the selected positioning technique
-  --Sys:log('WALSHAW: initial layout:')
-  for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-    node.pos:set{x = positioning_func(1), y = positioning_func(2)}
-    --Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
+    -- compute initial layout based on the selected positioning technique
+    --Sys:log('WALSHAW: initial layout:')
+    for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
+      node.pos:set{x = positioning_func(1), y = positioning_func(2)}
+      --Sys:log('WALSHAW:   ' .. node.name .. ' at ' .. tostring(node.pos))
+    end
   end
 end
 
 
 
-function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
+function walshaw_spring.compute_force_layout(graph, k, C, initial_step_length, iterations, use_quadtree)
   --Sys:log('WALSHAW:   compute force based layout')
 
   for node in table.value_iter(graph.nodes) do
@@ -181,17 +192,26 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
 
   -- global (repulsive) force function
   local function fg(distance, weight) 
-    return -C * weight * (graph.k*graph.k) / distance
+    return -C * weight * k * k / distance
   end 
 
   -- repulsive quadtree force function
   local function quadtree_fg(distance, mass)
-    return -mass * C * (graph.k*graph.k) / distance
+    -- TODO here (and in the quadtree) we should take the node weight
+    -- into the equation
+    return -mass * C * k * k / distance
   end
 
   -- local (spring) force function
-  local function fl(distance, d, weight) 
-    return ((distance - graph.k) / d) - fg(distance, weight) 
+  local function fl(distance, d, weight, charged, repulsive_force) 
+    -- for charged nodes, never subtract the repulsive force; we
+    -- want all other nodes to be attracted more / repulsed less,
+    -- depending on the charge
+    if charged then
+      return (distance - k) / d - fg(distance, weight)
+    else
+      return ((distance - k) / d) - (repulsive_force or 0)
+    end
   end
 
   -- define the Barnes-Hut opening criterion
@@ -204,7 +224,7 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
   local function cool(t) return 0.95 * t end
 
   -- tweakable parameters  
-  local t = graph.k
+  local t = initial_step_length
   local tol = 0.001
 
   -- convergence criteria
@@ -257,7 +277,9 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
         --Sys:log(' ')
         --Sys:log('quadtree before inserting ' .. node.name .. ' ' .. tostring(node.pos))
         --quadtree:dump('  ')
-        quadtree:insert(Particle:new(node.pos, node.weight))
+        local particle = Particle:new(node.pos, node.weight)
+        particle.node = node
+        quadtree:insert(particle)
         --Sys:log(' ')
         --Sys:log('quadtree after inserting ' .. node.name .. ' ' .. tostring(node.pos))
         --quadtree:dump('  ')
@@ -275,6 +297,9 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
       -- vector for the displacement of v
       local d = Vector:new(2)
 
+      -- repulsive force induced by other nodes
+      local repulsive_forces = {}
+
       -- compute repulsive forces
       if use_quadtree then
         -- determine the cells that have an repulsive influence on v
@@ -286,21 +311,34 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
           if #cell.subcells == 0 then
             -- compute the forces between the node and all particles in the cell
             for particle in table.value_iter(cell.particles) do
-              local delta = particle.pos:minus(v.pos)
-              local delta_norm = delta:norm()
+              -- build a table that contains the particle plus all its subparticles 
+              -- (particles at the same position)
+              local real_particles = table.custom_copy(particle.subparticles)
+              table.insert(real_particles, particle)
+
+              for real_particle in table.value_iter(real_particles) do
+                local delta = real_particle.pos:minus(v.pos)
+                local delta_norm = delta:norm()
             
-              -- enforce a small virtual distance if the node and the cell's 
-              -- centre of mass are located at (almost) the same position
-              if delta_norm < 0.1 then
-                delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-                delta_norm = delta:norm()
+                -- enforce a small virtual distance if the node and the cell's 
+                -- centre of mass are located at (almost) the same position
+                if delta_norm < 0.1 then
+                  delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+                  delta_norm = delta:norm()
+                end
+
+                -- compute the repulsive force vector
+                local repulsive_force = quadtree_fg(delta_norm, real_particle.mass)
+                local force = delta:normalized():timesScalar(repulsive_force)
+
+                -- remember the repulsive force for the particle so that we can 
+                -- subtract it later when computing the attractive forces with
+                -- adjacent nodes
+                repulsive_forces[real_particle.node] = repulsive_force
+
+                -- move the node v accordingly
+                d = d:plus(force)
               end
-
-              -- compute the repulsive force vector
-              local force = delta:normalized():timesScalar(quadtree_fg(delta_norm, particle.amount * particle.mass))
-
-              -- move the node v accordingly
-              d = d:plus(force)
             end
           else
             -- compute the distance between the node and the cell's centre of mass
@@ -316,6 +354,14 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
 
             -- compute the repulsive force vector
             local force = delta:normalized():timesScalar(quadtree_fg(delta_norm, cell.mass))
+
+            -- TODO for each neighbour of v, check if it is in this cell.
+            -- if this is the case, compute the quadtree force for the mass
+            -- 'node.weight / cell.mass' and remember this as the repulsive
+            -- force of the neighbour;  (it is not necessarily at
+            -- the centre of mass of the cell, so the result is only an
+            -- approximation of the real repulsive force generated by the
+            -- neighbour)
 
             -- move te node v accordingly
             d = d:plus(force)
@@ -336,7 +382,12 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
             end
 
             -- compute the repulsive force vector
-            local force = delta:normalized():timesScalar(fg(delta_norm, u.weight))
+            local repulsive_force = fg(delta_norm, u.weight)
+            local force = delta:normalized():timesScalar(repulsive_force)
+
+            -- remember the repulsive force so we can later subtract them
+            -- when computing the attractive forces
+            repulsive_forces[u] = repulsive_force
 
             --Sys:log(v.name .. ' vs. ' .. u.name .. ' >=< ' .. tostring(force))
 
@@ -365,7 +416,8 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
         end
 
         -- compute the spring force between them
-        local force = delta:normalized():timesScalar(fl(delta_norm, #neighbours, u.weight))
+        local attractive_force = fl(delta_norm, #neighbours, u.weight, u.charged, repulsive_forces[u])
+        local force = delta:normalized():timesScalar(attractive_force)
 
         --Sys:log(v.name .. ' and ' .. u.name .. ' <=> ' .. tostring(force))
 
@@ -386,7 +438,7 @@ function walshaw_spring.compute_force_layout(graph, C, iterations, use_quadtree)
       -- we need to improve the system energy as long as any of
       -- the node movements is large enough to assume we're far
       -- away from the minimum system energy
-      if (v.pos:minus(old_position):norm() > graph.k * tol) then
+      if (v.pos:minus(old_position):norm() > k * tol) then
         converged = false
       end
     end
