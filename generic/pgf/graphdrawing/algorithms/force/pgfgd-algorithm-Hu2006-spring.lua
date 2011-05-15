@@ -24,7 +24,8 @@ hu_spring = {}
 --   "Efficient and High Quality Force-Directed Graph Drawing"
 --   Yifan Hu, 2006
 --
--- Modifications compared to the original algorithm:
+-- Modifications compared to the original algorithm are explained in 
+-- the manual.
 --
 function drawGraphAlgorithm_Hu2006_spring(graph)
   -- check if we should use the multilevel approach
@@ -37,7 +38,7 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   local iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations'))
   local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension'))
   local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant'))
-  local t = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor'))
+  local cooling_factor = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor'))
   local tol = tonumber(graph:getOption('/graph drawing/spring layout/convergence tolerance'))
   local min_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size'))
   local initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension'))
@@ -48,7 +49,7 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
   Sys:log('HU: use coarsening: ' .. tostring(use_coarsening))
   Sys:log('HU: use quadtree: ' .. tostring(use_quadtree))
   Sys:log('HU: iterations: ' .. tostring(iterations))
-  Sys:log('HU: cooling factor: ' .. tostring(t))
+  Sys:log('HU: cooling factor: ' .. tostring(cooling_factor))
   Sys:log('HU: tolerance: ' .. tostring(tol))
   Sys:log('HU: k: ' .. tostring(k))
 
@@ -141,14 +142,14 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
 
     -- negative step length means automatic choice of the step length
     -- based on the natural spring dimension
-    if initial_step_length < 0 then
+    if initial_step_length == 0 then
       initial_step_length = k
     end
 
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol, initial_step_length, hu_spring.adaptive_step_update)
+      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.adaptive_step_update)
     end
 
     while coarse_graph:getLevel() > 0 do
@@ -169,7 +170,7 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
       end
 
       -- compute forces in the graph
-      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, t, tol, initial_step_length, hu_spring.conservative_step_update)
+      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -183,12 +184,12 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
 
     -- negative step length means automatic choice of the step length
     -- based on the natural spring dimension
-    if initial_step_length < 0 then
+    if initial_step_length == 0 then
       initial_step_length = k
     end
 
     -- improve the layout with the force-based algorithm
-    hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, t, tol, initial_step_length, hu_spring.conservative_step_update)
+    hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.conservative_step_update)
   end
 
   local time_after_algorithm = os.clock()
@@ -254,7 +255,7 @@ end
 
 
 
-function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, t, tol, initial_step_length, step_update_func)
+function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, step_update_func)
   local converged = false
   local energy = math.huge
   local iteration = 0
@@ -401,7 +402,7 @@ function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, t, tol, i
       energy = energy + math.pow(force:norm(), 2)
     end
 
-    step, progress = step_update_func(step, t, energy, old_energy, progress)
+    step, progress = step_update_func(step, cooling_factor, energy, old_energy, progress)
 
     local max_movement = table.combine_values(graph.nodes, function (max, x)
       local delta = x.pos:minus(old_positions[x])
@@ -445,22 +446,22 @@ end
 
 
 
-function hu_spring.conservative_step_update(step, t)
-  return t * step, nil
+function hu_spring.conservative_step_update(step, cooling_factor)
+  return cooling_factor * step, nil
 end
 
 
 
-function hu_spring.adaptive_step_update(step, t, energy, old_energy, progress)
+function hu_spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then
       progress = 0
-      step = step / t
+      step = step / cooling_factor
     end
   else
     progress = 0
-    step = t * step
+    step = cooling_factor * step
   end
   return step, progress
 end
