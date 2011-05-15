@@ -242,6 +242,29 @@ end
 
 
 
+--- Removes an edge between two nodes and also removes it from these nodes.
+--
+-- @param from Start node of the edge.
+-- @param to   End node of the edge.
+--
+-- @return The deleted edge.
+--
+function Graph:deleteEdgeBetweenNodes(from, to)
+  -- try to find the edge
+  local edge = table.find(self.edges, function (edge)
+    return edge.nodes[1] == from and edge.nodes[2] == to
+  end)
+
+  -- delete and return the edge
+  if edge then
+    return self:deleteEdge(edge)
+  else
+    return nil
+  end
+end
+
+
+
 --- Creates and adds a new edge to the graph. 
 --
 -- @param first_node   The first node of the new edge.

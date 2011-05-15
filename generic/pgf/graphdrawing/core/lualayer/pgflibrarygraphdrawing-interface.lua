@@ -125,7 +125,11 @@ function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   from = self.graph:findNode(from)
   to = self.graph:findNode(to)
   assert(from and to, "at least one node doesn't exist yet")
-  self.graph:createEdge(from, to, direction, aux, string.parse_braces(parameters), tikz_options)
+  if direction == Edge.NONE then
+    self.graph:deleteEdgeBetweenNodes(from, to)
+  else
+    self.graph:createEdge(from, to, direction, aux, string.parse_braces(parameters), tikz_options)
+  end
 end
 
 
