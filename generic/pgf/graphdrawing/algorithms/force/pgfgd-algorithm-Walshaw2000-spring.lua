@@ -321,7 +321,7 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
                 end
 
                 -- compute the repulsive force vector
-                local repulsive_force = quadtree_fg(delta_norm, real_particle.mass)
+                local repulsive_force = approximated_repulsive_force(delta_norm, real_particle.mass)
                 local force = delta:normalized():timesScalar(repulsive_force)
 
                 -- remember the repulsive force for the particle so that we can 
@@ -346,7 +346,7 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
             end
 
             -- compute the repulsive force vector
-            local repulsive_force = repulsive_force_approximated(delta_norm, cell.mass)
+            local repulsive_force = approximated_repulsive_force(delta_norm, cell.mass)
             local force = delta:normalized():timesScalar(repulsive_force)
 
             -- TODO for each neighbour of v, check if it is in this cell.
