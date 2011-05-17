@@ -66,11 +66,12 @@ function drawGraphAlgorithm_Walshaw2000_spring(graph)
   Sys:log('Walshaw2000: natural_spring_length = ' .. walshaw.natural_spring_length)
   Sys:log('Walshaw2000: spring_constant = ' .. walshaw.spring_constant)
   Sys:log('Walshaw2000: ')
+  Sys:log('Walshaw2000: approximate_repulsive_forces = ' .. tostring(walshaw.approximate_repulsive_forces))
+  Sys:log('Walshaw2000: repulsive_force_order = ' .. walshaw.repulsive_force_order)
+  Sys:log('Walshaw2000: ')
   Sys:log('Walshaw2000: coarsen = ' .. tostring(walshaw.coarsen))
   Sys:log('Walshaw2000: downsize_ratio = ' .. walshaw.downsize_ratio)
   Sys:log('Walshaw2000: minimum_graph_size = ' .. walshaw.minimum_graph_size)
-  Sys:log('Walshaw2000: ')
-  Sys:log('Walshaw2000: approximate_repulsive_forces = ' .. tostring(walshaw.approximate_repulsive_forces))
 
   walshaw:initialize()
   walshaw:run()
@@ -92,13 +93,15 @@ function Walshaw2000:new(graph)
     natural_spring_length = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension')),
     spring_constant = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')),
 
+    approximate_repulsive_forces = graph:getOption('/graph drawing/spring layout/approximate repulsive forces') == 'true',
+    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring layout/repulsive force order')),
+
     coarsen = graph:getOption('/graph drawing/spring layout/coarsen') == 'true',
     downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio')))),
     minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size')),
 
-    approximate_repulsive_forces = graph:getOption('/graph drawing/spring layout/approximate repulsive forces') == 'true',
-
     graph = graph,
+    graph_size = #graph.nodes,
   }
   setmetatable(walshaw, Walshaw2000)
 
@@ -148,9 +151,9 @@ function Walshaw2000:run()
 
   -- check if the multilevel approach should be used
   if self.coarsen then
-    -- coarsen the graph repeatedly until only two nodes are left
-    -- or until the size of the coarse graph was not reduced by at
-    -- least the downsize ratio configured by the user
+    -- coarsen the graph repeatedly until only minimum_graph_size nodes 
+    -- are left or until the size of the coarse graph was not reduced by 
+    -- at least the downsize ratio configured by the user
     while coarse_graph:getSize() > self.minimum_graph_size
       and coarse_graph:getRatio() < (1 - self.downsize_ratio)
     do
@@ -210,7 +213,8 @@ function Walshaw2000:computeInitialLayout(graph, spring_length)
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
       local direction = Vector:new{x = math.random(1, 2), y = math.random(1, 2)}
-      local displacement = direction:normalized():timesScalar(spring_length)
+      local distance = spring_length
+      local displacement = direction:normalized():timesScalar(distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -221,7 +225,7 @@ function Walshaw2000:computeInitialLayout(graph, spring_length)
     local function nodeNotFixed(node) return not node.fixed end
 
     -- use the random positioning technique
-    local positioning_func = positioning.technique('random', graph, spring_length)
+    local positioning_func = positioning.technique('random', self.graph_size, 1, spring_length)
 
     -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
@@ -237,12 +241,12 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
 
   -- global (=repulsive) force function
   local function accurate_repulsive_force(distance, weight) 
-    return - self.spring_constant * weight * spring_length * spring_length / distance
+    return - self.spring_constant * weight * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
   end 
 
   -- global (=repulsive, approximated) force function
   local function approximated_repulsive_force(distance, mass)
-    return - mass * self.spring_constant * spring_length * spring_length / distance
+    return - mass * self.spring_constant * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
   end
 
   -- local (spring) force function
@@ -311,17 +315,15 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
 
               for real_particle in table.value_iter(real_particles) do
                 local delta = real_particle.pos:minus(v.pos)
-                local delta_norm = delta:norm()
             
                 -- enforce a small virtual distance if the node and the cell's 
                 -- centre of mass are located at (almost) the same position
-                if delta_norm < 0.1 then
+                if delta:norm() < 0.1 then
                   delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-                  delta_norm = delta:norm()
                 end
 
                 -- compute the repulsive force vector
-                local repulsive_force = approximated_repulsive_force(delta_norm, real_particle.mass)
+                local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
                 local force = delta:normalized():timesScalar(repulsive_force)
 
                 -- remember the repulsive force for the particle so that we can 
@@ -336,17 +338,15 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
           else
             -- compute the distance between the node and the cell's centre of mass
             local delta = cell.centre_of_mass:minus(v.pos)
-            local delta_norm = delta:norm()
 
             -- enforce a small virtual distance if the node and the cell's 
             -- centre of mass are located at (almost) the same position
-            if delta_norm < 0.1 then
+            if delta:norm() < 0.1 then
               delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-              delta_norm = delta:norm()
             end
 
             -- compute the repulsive force vector
-            local repulsive_force = approximated_repulsive_force(delta_norm, cell.mass)
+            local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
             local force = delta:normalized():timesScalar(repulsive_force)
 
             -- TODO for each neighbour of v, check if it is in this cell.
@@ -366,17 +366,15 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
           if u.name ~= v.name then
             -- compute the distance between u and v
             local delta = u.pos:minus(v.pos)
-            local delta_norm = delta:norm()
 
             -- enforce a small virtual distance if the nodes are
             -- located at (almost) the same position
-            if delta_norm < 0.1 then
+            if delta:norm() < 0.1 then
               delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-              delta_norm = delta:norm()
             end
 
             -- compute the repulsive force vector
-            local repulsive_force = accurate_repulsive_force(delta_norm, u.weight)
+            local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
             local force = delta:normalized():timesScalar(repulsive_force)
 
             -- remember the repulsive force so we can later subtract them
@@ -395,17 +393,15 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
 
         -- compute the distance between u and v
         local delta = u.pos:minus(v.pos)
-        local delta_norm = delta:norm()
 
         -- enforce a small virtual distance if the nodes are
         -- located at (almost) the same position
-        if delta_norm < 0.1 then
+        if delta:norm() < 0.1 then
           delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-          delta_norm = delta:norm()
         end
 
         -- compute the spring force between them
-        local attr_force = attractive_force(delta_norm, #v.edges, u.weight, u.charged, repulsive_forces[u])
+        local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
         local force = delta:normalized():timesScalar(attr_force)
 
         -- move the node v accordingly

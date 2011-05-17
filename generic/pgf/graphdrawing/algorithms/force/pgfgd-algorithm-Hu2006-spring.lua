@@ -13,7 +13,8 @@ pgf.module("pgf.graphdrawing")
 
 
 
-hu_spring = {}
+Hu2006 = {}
+Hu2006.__index = Hu2006
 
 
 
@@ -28,130 +29,139 @@ hu_spring = {}
 -- the manual.
 --
 function drawGraphAlgorithm_Hu2006_spring(graph)
-  -- check if we should use the multilevel approach
-  local use_coarsening = graph:getOption('/graph drawing/spring layout/coarsen') == 'true'
+  local hu = Hu2006:new(graph)
 
-  -- check if we should use the quadtree optimization
-  local use_quadtree = graph:getOption('/graph drawing/spring layout/approximate repulsive forces') == 'true'
+  Sys:log('Hu2006: random_seed = ' .. hu.random_seed)
+  Sys:log('Hu2006: ')
+  Sys:log('Hu2006: iterations = ' .. hu.iterations)
+  Sys:log('Hu2006: cooling_factor = ' .. hu.cooling_factor)
+  Sys:log('Hu2006: initial_step_length = ' .. hu.initial_step_length)
+  Sys:log('Hu2006: convergence_tolerance = ' .. hu.convergence_tolerance)
+  Sys:log('Hu2006: ')
+  Sys:log('Hu2006: natural_spring_length = ' .. hu.natural_spring_length)
+  Sys:log('Hu2006: spring_constant = ' .. hu.spring_constant)
+  Sys:log('Hu2006: ')
+  Sys:log('Hu2006: approximate_repulsive_forces = ' .. tostring(hu.approximate_repulsive_forces))
+  Sys:log('Hu2006: repulsive_force_order = ' .. hu.repulsive_force_order)
+  Sys:log('Hu2006: ')
+  Sys:log('Hu2006: coarsen = ' .. tostring(hu.coarsen))
+  Sys:log('Hu2006: downsize_ratio = ' .. hu.downsize_ratio)
+  Sys:log('Hu2006: minimum_graph_size = ' .. hu.minimum_graph_size)
 
-  -- determine other parameters of for the algorithm
-  local iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations'))
-  local k = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension'))
-  local C = tonumber(graph:getOption('/graph drawing/spring layout/spring constant'))
-  local cooling_factor = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor'))
-  local tol = tonumber(graph:getOption('/graph drawing/spring layout/convergence tolerance'))
-  local min_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size'))
-  local initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension'))
-  local downsize_ratio = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio'))
-  downsize_ratio = math.max(0, math.min(1, downsize_ratio))
+  hu:initialize()
+  hu:run()
+
+  orientation.adjust(graph)
+end
 
 
-  Sys:log('HU: use coarsening: ' .. tostring(use_coarsening))
-  Sys:log('HU: use quadtree: ' .. tostring(use_quadtree))
-  Sys:log('HU: iterations: ' .. tostring(iterations))
-  Sys:log('HU: cooling factor: ' .. tostring(cooling_factor))
-  Sys:log('HU: tolerance: ' .. tostring(tol))
-  Sys:log('HU: k: ' .. tostring(k))
 
-  local time_before_algorithm = os.clock()
+function Hu2006:new(graph)
+  local hu = {
+    random_seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed')),
 
-  -- apply the random seed specified by the user
-  local seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed'))
-  if seed == 0 then seed = os.time() end
-  math.randomseed(seed)
+    iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations')),
+    cooling_factor = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor')),
+    initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension')),
+    convergence_tolerance = tonumber(graph:getOption('/graph drawing/spring layout/convergence tolerance')),
 
-  -- initialize the weights of nodes and edges
-  for node in table.value_iter(graph.nodes) do
+    natural_spring_length = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension')),
+    spring_constant = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')),
+
+    approximate_repulsive_forces = graph:getOption('/graph drawing/spring layout/approximate repulsive forces') == 'true',
+    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring layout/repulsive force order')),
+
+    coarsen = graph:getOption('/graph drawing/spring layout/coarsen') == 'true',
+    downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio')))),
+    minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size')),
+
+    graph = graph,
+    graph_size = #graph.nodes,
+    graph_density = (2 * #graph.edges) / (#graph.nodes * (#graph.nodes - 1))
+  }
+  setmetatable(hu, Hu2006)
+
+  -- validate input parameters
+  assert(hu.iterations >= 0, 'iterations (value: ' .. hu.iterations .. ') need to be greater than 0')
+  assert(hu.cooling_factor >= 0 and hu.cooling_factor <= 1, 'the cooling factor (value: ' .. hu.cooling_factor .. ') needs to be between 0 and 1')
+  assert(hu.initial_step_length >= 0, 'the initial step dimension (value: ' .. hu.initial_step_length .. ') needs to be greater than or equal to 0')
+  assert(hu.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. hu.convergence_tolerance .. ') needs to be greater than or equal to 0')
+  assert(hu.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. hu.natural_spring_length .. ') needs to be greater than or equal to 0')
+  assert(hu.spring_constant >= 0, 'the spring constant (value: ' .. hu.spring_constant .. ') needs to be greater or equal to 0')
+  assert(hu.downsize_ratio >= 0 and hu.downsize_ratio <= 1, 'the downsize ratio (value: ' .. hu.downsize_ratio .. ') needs to be between 0 and 1')
+  assert(hu.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. hu.minimum_graph_size .. ') needs to be greater than or equal to 2')
+
+  return hu
+end
+
+
+
+function Hu2006:initialize()
+  -- apply the random seed specified by the user (only if it is non-zero)
+  if self.random_seed ~= 0 then
+    math.randomseed(self.random_seed)
+  end
+
+  -- initialize node weights
+  for node in table.value_iter(self.graph.nodes) do
     node.weight = tonumber(node:getOption('/graph drawing/spring layout/electric charge'))
   end
-  for edge in table.value_iter(graph.edges) do
+
+  -- initialize edge weights
+  for edge in table.value_iter(self.graph.edges) do
     edge.weight = 1
   end
+end
 
-  if use_coarsening then
-    --Sys:log('generating coarse graphs')
 
-    local coarse_graph = CoarseGraph:new(graph)
 
-    --Sys:log('  initial graph:')
-    --for node in table.value_iter(coarse_graph:getGraph().nodes) do
-    --  Sys:log('    node ' .. node.name .. ' at ' .. tostring(node.pos))
-    --end
-    --for edge in table.value_iter(coarse_graph:getGraph().edges) do
-    --  Sys:log('    edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
-    --end
-    --
-    --while coarse_graph:getSize() > 2 and coarse_graph:getRatio() <= 0.75 do
-    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel() + 1)
-    --  Sys:log('    construction:')
-    --  coarse_graph:coarsen()
-    --  Sys:log('    new graph:')
-    --  for node in table.value_iter(coarse_graph:getGraph().nodes) do
-    --    Sys:log('      node ' .. node.name .. ' at ' .. tostring(node.pos))
-    --  end
-    --  for edge in table.value_iter(coarse_graph:getGraph().edges) do
-    --    Sys:log('      edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
-    --  end
-    --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
-    --end
-    --
-    --Sys:log(' ')
-    --
-    --while coarse_graph:getLevel() > 0 do
-    --  Sys:log('  coarse graph ' .. coarse_graph:getLevel()-1)
-    --  Sys:log('    reconstruction:')
-    --  coarse_graph:interpolate()
-    --  Sys:log('    new graph:')
-    --  for node in table.value_iter(coarse_graph:getGraph().nodes) do
-    --    Sys:log('      node ' .. node.name .. ' at ' .. tostring(node.pos))
-    --  end
-    --  for edge in table.value_iter(coarse_graph:getGraph().edges) do
-    --    Sys:log('      edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
-    --  end
-    --  Sys:log('    ratio = ' .. coarse_graph:getRatio())
-    --end
+function Hu2006:run()
+  -- initialize the coarse graph data structure. note that the algorithm
+  -- is the same regardless whether coarsening is used, except that the 
+  -- number of coarsening steps without coarsening is 0
+  local coarse_graph = CoarseGraph:new(self.graph)
 
-    --Sys:log(' ')
-
-    -- coarsen the graph repeatedly until either only two nodes are
-    -- left or the number of nodes cannot be reduced by more than
-    -- 25% compared to the previous coarse version of the graph
-    while coarse_graph:getSize() > min_graph_size 
-      and coarse_graph:getRatio() <= (1 - downsize_ratio) 
+  -- check if the multilevel approach should be used
+  if self.coarsen then
+    -- coarsen the graph repeatedly until only minimum_graph_size nodes 
+    -- are left or until the size of the coarse graph was not reduced by 
+    -- at least the downsize ratio configured by the user
+    while coarse_graph:getSize() > self.minimum_graph_size 
+      and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
     do
       coarse_graph:coarsen()
     end
+  end
 
+  if self.coarsen then
     -- this seems to be necessary to have edges in the final drawing that
     -- have an average length roughly equal to the natural spring dimension
     -- requested by the user
     --
     -- TODO try not applying this factor and instead using the
     -- general repulsive force model with an exponent > 1.
-    -- k = 1.76 * k
-    k = 1.3 * k
+    --
+    -- local spring_length = 1.76 * self.natural_spring_length
+    -- local spring_length = 1.3 * self.natural_spring_length
+    local spring_length = self.natural_spring_length
 
     -- compute a random initial layout for the coarsest graph
-    hu_spring.compute_initial_layout(coarse_graph.graph, k)
+    self:computeInitialLayout(coarse_graph.graph, spring_length)
 
-    -- set k to the average edge length of the initial layout
-    k = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
+    -- set the spring length to the average edge length of the initial layout
+    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
       return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
     end, 0)
-    k = k / #coarse_graph.graph.edges
-
-    -- negative step length means automatic choice of the step length
-    -- based on the natural spring dimension
-    if initial_step_length == 0 then
-      initial_step_length = k
-    end
+    spring_length = spring_length / #coarse_graph.graph.edges
 
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006.adaptive_step_update)
     end
 
+    -- undo coarsening step by step, applying the force-based sub-algorithm
+    -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
       -- compute the diameter of the parent coarse graph
       local parent_diameter = coarse_graph.graph:getPseudoDiameter()
@@ -170,60 +180,64 @@ function drawGraphAlgorithm_Hu2006_spring(graph)
       end
 
       -- compute forces in the graph
-      hu_spring.apply_forces(coarse_graph.graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
-    hu_spring.compute_initial_layout(graph, k)
+    self:computeInitialLayout(coarse_graph.graph, self.natural_spring_length)
 
-    -- set k to the average edge length of the initial layout
-    k = table.combine_values(graph.edges, function (sum, edge)
+    -- set the spring length to the average edge length of the initial layout
+    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
       return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
     end, 0)
-    k = k / #graph.edges
-
-    -- negative step length means automatic choice of the step length
-    -- based on the natural spring dimension
-    if initial_step_length == 0 then
-      initial_step_length = k
-    end
+    spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, hu_spring.conservative_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006.conservative_step_update)
   end
-
-  local time_after_algorithm = os.clock()
-  Sys:log(string.format('algorithm took %.2f seconds', (time_after_algorithm - time_before_algorithm)))
-
-  Sys:log(' ')
-
-  -- adjust the orientation
-  orientation.adjust(graph)
 end
 
 
 
-function hu_spring.compute_initial_layout(graph, k)
-  -- TODO how can supernodes and fixated nodes go hand in hand? 
+function Hu2006:computeInitialLayout(graph, spring_length)
+  -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
-  --
-  -- fixate all nodes that have an 'at' option. this will set the
+
+  -- fixate all nodes that have a 'desired at' option. this will set the
   -- node.fixed member to true and also set node.pos:x() and node.pos:y()
-  hu_spring.fixate_nodes(graph)
+  self:fixateNodes(graph)
 
   if #graph.nodes == 2 then
-    -- TODO here we need to respect fixed nodes
-    graph.nodes[1].pos:set{x = 0, y = 0}
-    graph.nodes[2].pos:set{x = math.random(1, k), y = math.random(1, k)}
-    graph.nodes[2].pos = graph.nodes[2].pos:normalized():timesScalar(k)
-  else
-    -- decide what technique to use for the initial layout
-    local positioning_func = positioning.technique('random', graph, k)
+    if not (graph.nodes[1].fixed and graph.nodes[2].fixed) then
+      local fixed_index = graph.nodes[2].fixed and 2 or 1
+      local loose_index = graph.nodes[2].fixed and 1 or 2
 
+      if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
+        -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
+        graph.nodes[1].pos:set{x = 0, y = 0}
+      end
+
+      -- position the loose node relative to the fixed node, with
+      -- the displacement (random direction) matching the spring length
+      local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local distance = self.graph_density * 3 * spring_length * (math.sqrt(self.graph_size) - 1) / (2 * math.cos(math.pi / 4))
+      local displacement = direction:normalized():timesScalar(distance)
+
+      Sys:log('Hu2006: distance = ' .. distance)
+
+      graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
+    else
+      -- both nodes are fixed, initial layout may be far from optimal
+    end
+  else
+    -- function to filter out fixed nodes
     local function nodeNotFixed(node) return not node.fixed end
 
-    -- compute initial layout based on the selected positioning technique
+    -- use the random positioning technique
+    local positioning_func = positioning.technique('random', self.graph_size, self.graph_density, spring_length)
+
+    -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
       node.pos:set{x = positioning_func(1), y = positioning_func(2)}
     end
@@ -232,37 +246,48 @@ end
 
 
 
---- Fixes nodes at their specified positions.
---
-function hu_spring.fixate_nodes(graph)
-  for node in table.value_iter(graph.nodes) do
-    if node:getOption('/graph drawing/desired at') then
-      local at_x, at_y = parse_at_option(node)
-      node.pos:set{x = at_x, y = at_y}
-      node.fixed = true
-    end
+function Hu2006:computeForceLayout(graph, spring_length, step_update_func)
+  -- global (=repulsive) force function
+  function accurate_repulsive_force(distance, weight)
+    -- note: the weight is taken into the equation here. unlike in the original
+    -- algorithm different electric charges are allowed for each node in this
+    -- implementation
+    --
+    -- TODO try passing the weight of u and v to this function! the coulomb force is
+    -- (some constant) * q1 * q2 / distance^2 anyway (according to Coulomb's law). The
+    -- potential of v is (some constant) * weight / distance though... confusing.
+    return - weight * self.spring_constant * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
   end
-end
 
+  -- global (=repulsive, approximated) force function
+  function approximated_repulsive_force(distance, mass)
+    return - mass * self.spring_constant * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
+  end
 
+  -- local (spring) force function
+  function attractive_force(distance)
+    -- TODO HU does not subtract k here but this probably makes sense 
+    -- because the force should be repulsive if the edge is compressed and
+    -- attractive if the edge is longer than its natural length
+    return (distance * distance - spring_length) / spring_length
+  end
 
---- Parses the |/graph drawing/desired at| option of a node.
---
-function hu_spring.parse_at_option(node)
-  local x, y = node:getOption('/graph drawing/desired at'):gmatch('{([%d.-]+)}{([%d.-]+)}')()
-  return tonumber(x), tonumber(y)
-end
+  -- define the Barnes-Hut opening criterion
+  function barnes_hut_criterion(cell, particle)
+    local distance = particle.pos:minus(cell.centre_of_mass):norm()
+    return cell.width / distance <= 1.2
+  end
 
-
-
-function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_factor, tol, initial_step_length, step_update_func)
+  -- adjust the initial step length automatically if desired by the user
+  local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
+ 
+  -- convergence criteria etc.
   local converged = false
   local energy = math.huge
   local iteration = 0
   local progress = 0
-  local step = initial_step_length
-  
-  while not converged and iteration < iterations do
+
+  while not converged and iteration < self.iterations do
     -- remember old node positions
     local old_positions = table.map_pairs(graph.nodes, function (n, node)
       return node, node.pos:copy()
@@ -272,60 +297,22 @@ function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_f
     local old_energy = energy
     energy = 0
 
+    -- build the quadtree for approximating repulsive forces, if desired
     local quadtree = nil
-    if use_quadtree then
-      -- compute the minimum x and y coordinates of all nodes
-      local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
-        return Vector:new(2, function (n) 
-          return math.min(min_pos:get(n), node.pos:get(n))
-        end)
-      end, graph.nodes[1].pos)
-
-      -- compute maximum x and y coordinates of all nodes
-      local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
-        return Vector:new(2, function (n) 
-          return math.max(max_pos:get(n), node.pos:get(n))
-        end)
-      end, graph.nodes[1].pos)
-
-      -- make sure the maximum position is at least a tiny bit
-      -- larger than the minimum position
-      if min_pos:equals(max_pos) then
-        max_pos = max_pos:plus(Vector:new(2, function (n)
-          return 0.1 + math.random() * 0.1
-        end))
-      end
-
-      min_pos = min_pos:minusScalar(1)
-      max_pos = max_pos:plusScalar(1)
-
-      -- create the quadtree
-      quadtree = QuadTree:new(min_pos:x(), min_pos:y(),
-                              max_pos:x() - min_pos:x(),
-                              max_pos:y() - min_pos:y())
-
-      -- insert nodes into the quadtree
-      --Sys:log(' ')
-      for node in table.value_iter(graph.nodes) do
-        --Sys:log(' ')
-        --Sys:log('quadtree before inserting ' .. node.name .. ' ' .. tostring(node.pos))
-        --quadtree:dump('  ')
-        quadtree:insert(Particle:new(node.pos, node.weight))
-        --Sys:log(' ')
-        --Sys:log('quadtree after inserting ' .. node.name .. ' ' .. tostring(node.pos))
-        --quadtree:dump('  ')
-        --Sys:log(' ')
-      end
-      --Sys:log(' ')
+    if self.approximate_repulsive_forces then
+      quadtree = self:buildQuadtree(graph)
     end
 
-    for v in table.value_iter(graph.nodes) do
-      local force = Vector:new{ 0, 0 }
+    local function nodeNotFixed(node) return not node.fixed end
+
+    for v in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
+      -- vector for the displacement of v
+      local d = Vector:new(2)
 
       -- compute repulsive forces
-      if use_quadtree then
+      if self.approximate_repulsive_forces then
         -- determine the cells that have a repulsive influence on v
-        local cells = quadtree:findInteractionCells(v, hu_spring.barnes_hut_criterion)
+        local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
         -- compute the repulsive force between these cells and v
         for cell in table.value_iter(cells) do
@@ -345,9 +332,12 @@ function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_f
                   delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
                 end
 
-                local fr = hu_spring.repulsive_force_quadtree(delta:norm(), real_particle.mass, k, C)
-                
-                force = force:plus(delta:normalized():timesScalar(fr))
+                -- compute the repulsive force vector
+                local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
+                local force = delta:normalized():timesScalar(repulsive_force_quadtree)
+
+                -- move the node v accordingly
+                d = d:plus(force)
               end
             end
           else
@@ -360,99 +350,170 @@ function hu_spring.apply_forces(graph, iterations, use_quadtree, k, C, cooling_f
               delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
             end
 
-            local fr = hu_spring.repulsive_force_quadtree(delta:norm(), cell.mass, k, C)
+            -- compute the repulsive force vector
+            local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
+            local force = delta:normalized():timesScalar(repulsive_force)
             
-            force = force:plus(delta:normalized():timesScalar(fr))
+            -- move the node v accordingly
+            d = d:plus(force)
           end
         end
       else
         for u in table.value_iter(graph.nodes) do
           if v ~= u then
+            -- compute the distance between u and v
             local delta = u.pos:minus(v.pos)
 
+            -- enforce a small virtual distance if the nodes are
+            -- located at (almost) the same position
             if delta:norm() < 0.1 then
               delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
             end
 
-            local fr = hu_spring.repulsive_force(delta:norm(), u.weight, k, C)
-            
-            force = force:plus(delta:normalized():timesScalar(fr))
+            -- compute the repulsive force vector
+            local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
+            local force = delta:normalized():timesScalar(repulsive_force)
+
+            -- move the node v accordingly
+            d = d:plus(force)
           end
         end
       end
 
+      -- compute attractive forces between v and its neighbours
       for edge in table.value_iter(v.edges) do
         local u = edge:getNeighbour(v)
 
+        -- compute the distance between u and v
         local delta = u.pos:minus(v.pos)
 
+        -- enforce a small virtual distance if the nodes are
+        -- located at (almost) the same position
         if delta:norm() < 0.1 then
           delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
         end
     
-        local fa = hu_spring.attractive_force(delta:norm(), k, C)
+        -- compute the spring force vector between u and v
+        local attr_force = attractive_force(delta:norm())
+        local force = delta:normalized():timesScalar(attr_force)
 
-        force = force:plus(delta:normalized():timesScalar(fa))
+        -- move the node v accordingly
+        d = d:plus(force)
       end
 
-      v.pos = v.pos:plus(force:normalized():timesScalar(step))
+      -- really move the node now
+      -- TODO note how all nodes are moved by the same amount  (step_length)
+      -- while Walshaw multiplies the normalized force with min(step_length, 
+      -- d:norm()). could that improve this algorithm even further?
+      v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
 
-      --Sys:log('HU:   move ' .. v.name .. ' to ' .. tostring(v.pos))
-
-      energy = energy + math.pow(force:norm(), 2)
+      -- update the energy function
+      energy = energy + math.pow(d:norm(), 2)
     end
 
-    step, progress = step_update_func(step, cooling_factor, energy, old_energy, progress)
+    -- update the step length and progress counter
+    step_length, progress = step_update_func(step_length, self.cooling_factor, energy, old_energy, progress)
 
+    -- compute the maximum node movement in this iteration
     local max_movement = table.combine_values(graph.nodes, function (max, x)
       local delta = x.pos:minus(old_positions[x])
-      local delta_norm = delta:norm()
-
-      if delta_norm > max then
-        return delta_norm
+      if delta:norm() > max then
+        return delta:norm()
       else
         return max
       end
     end, 0)
     
-    if max_movement < k * tol then
+    -- the algorithm will converge if the maximum movement is below a 
+    -- threshold depending on the spring length and the convergence 
+    -- tolerance
+    if max_movement < spring_length * self.convergence_tolerance then
       converged = true
     end
 
+    -- increment the iteration counter
     iteration = iteration + 1
   end
 end
 
 
 
-function hu_spring.repulsive_force(distance, weight, k, C)
-  return (-1) * weight * C * k * k * weight / distance
+--- Fixes nodes at their specified positions.
+--
+function Hu2006:fixateNodes(graph)
+  for node in table.value_iter(graph.nodes) do
+    -- read the 'desired at' option of the node
+    local coordinate = node:getOption('/graph drawing/desired at')
+
+    if coordinate then
+      -- parse the coordinate
+      local coordinate_pattern = '{([%d.-]+)}{([%d.-]+)}'
+      local x, y = coordinate:gmatch(coordinate_pattern)()
+      
+      -- apply the coordinate
+      node.pos:set{x = tonumber(x), y = tonumber(y)}
+
+      -- mark the node as fixed
+      node.fixed = true
+    end
+  end
 end
 
 
 
-function hu_spring.repulsive_force_quadtree(distance, mass, k, C)
-  return (-1) * mass * C * (k * k) / distance
+function Hu2006:buildQuadtree(graph)
+  -- compute the minimum x and y coordinates of all nodes
+  local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
+    return Vector:new(2, function (n) 
+      return math.min(min_pos:get(n), node.pos:get(n))
+    end)
+  end, graph.nodes[1].pos)
+
+  -- compute maximum x and y coordinates of all nodes
+  local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
+    return Vector:new(2, function (n) 
+      return math.max(max_pos:get(n), node.pos:get(n))
+    end)
+  end, graph.nodes[1].pos)
+
+  -- make sure the maximum position is at least a tiny bit
+  -- larger than the minimum position
+  if min_pos:equals(max_pos) then
+    max_pos = max_pos:plus(Vector:new(2, function (n)
+      return 0.1 + math.random() * 0.1
+    end))
+  end
+
+  -- make sure to make the quadtree area slightly larger than required
+  -- in theory; for some reason Lua will otherwise think that nodes with
+  -- min/max x/y coordinates are outside the box... weird? yes.
+  min_pos = min_pos:minusScalar(1)
+  max_pos = max_pos:plusScalar(1)
+
+  -- create the quadtree
+  quadtree = QuadTree:new(min_pos:x(), min_pos:y(),
+                          max_pos:x() - min_pos:x(),
+                          max_pos:y() - min_pos:y())
+
+  -- insert nodes into the quadtree
+  for node in table.value_iter(graph.nodes) do
+    local particle = Particle:new(node.pos, node.weight)
+    particle.node = node
+    quadtree:insert(particle)
+  end
+
+  return quadtree
 end
 
 
 
-function hu_spring.attractive_force(distance, k, C)
-  -- TODO HU does not subtract k here but this might make sense because
-  -- the force should be repulsive if the edge is compressed and
-  -- attractive if the edge is longer than its natural length
-  return (distance * distance - k) / k
-end
-
-
-
-function hu_spring.conservative_step_update(step, cooling_factor)
+function Hu2006.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function hu_spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function Hu2006.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then
@@ -464,11 +525,4 @@ function hu_spring.adaptive_step_update(step, cooling_factor, energy, old_energy
     step = cooling_factor * step
   end
   return step, progress
-end
-
-
-
-function hu_spring.barnes_hut_criterion(cell, particle)
-  local distance = particle.pos:minus(cell.centre_of_mass):norm()
-  return cell.width / distance <= 1.2
 end

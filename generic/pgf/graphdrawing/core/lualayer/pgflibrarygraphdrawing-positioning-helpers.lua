@@ -20,30 +20,35 @@ positioning = {}
 
 
 
-function positioning.technique(name, graph, distance)
+function positioning.technique(name, graph_size, graph_density, distance)
   if name == 'random' then
-    return positioning.random(graph, distance)
+    return positioning.random(graph_size, graph_density, distance)
   elseif name == 'circle' then
-    return positioning.circle(graph, distance)
+    return positioning.circle(graph_size, graph_density, distance)
   elseif name == 'origin' or true then
-    return positioning.origin(graph, distance)
+    return positioning.origin(graph_size, graph_density, distance)
   end
 end
 
 
 
-function positioning.random(graph, distance)
+function positioning.random(graph_size, graph_density, distance)
   return function (n)
     -- TODO revise this and check which of the two lines is batter
-    -- return math.random(0, math.modf(math.sqrt(#graph.nodes)) * 2 * distance)
-    return math.random(0, 2.5 * distance)
+    -- return math.random(0, math.modf(math.sqrt(graph_size)) * 2 * distance)
+    -- return math.random(0, 2.5 * distance)
+
+    -- compute the radius needed to place nodes in a circle that fits around
+    -- a matrix with sqrt(|V|^2) nodes and a column/row separation of distance
+    local radius = graph_density * 3 * distance * (math.sqrt(graph_size) - 1) / (2 * math.cos(math.pi / 4))
+    return math.random(-radius, radius)
   end
 end
 
 
 
-function positioning.circle(graph, distance)
-  local alpha = (2 * math.pi) / #graph.nodes
+function positioning.circle(graph_size, graph_density, distance)
+  local alpha = (2 * math.pi) / #graph_size
   local radius = distance / (2 * math.sin(alpha / 2))
   local i = 0
 
@@ -59,7 +64,7 @@ end
 
 
 
-function positioning.origin(graph, distance)
+function positioning.origin(graph_size, graph_density, distance)
   return function (n) 
     return 0 
   end
