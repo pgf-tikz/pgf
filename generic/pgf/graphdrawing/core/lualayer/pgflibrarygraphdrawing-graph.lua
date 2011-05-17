@@ -407,7 +407,7 @@ end
 function Graph:subGraph(root, graph, visited)
   graph = graph or self:copy()
   visited = visited or {}
-  
+
   -- translates old things to new things
   local translate = {}
   local nodes, edges = {}, {}
@@ -441,7 +441,7 @@ function Graph:subGraph(root, graph, visited)
     if canAdd then
       for v in table.value_iter(edge.nodes) do
         local translated = translate[v]
-        graph:addNode(translated)
+        copy:addNode(translated)
       end
       for node in table.value_iter(copy.nodes) do
         node:addEdge(copy)
