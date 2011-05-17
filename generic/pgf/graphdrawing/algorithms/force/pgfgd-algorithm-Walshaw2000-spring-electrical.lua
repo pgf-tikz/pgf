@@ -53,7 +53,7 @@ Walshaw2000.__index = Walshaw2000
 --
 -- @param graph
 --
-function drawGraphAlgorithm_Walshaw2000_spring(graph)
+function drawGraphAlgorithm_Walshaw2000_spring_electrical(graph)
   local walshaw = Walshaw2000:new(graph)
 
   Sys:log('Walshaw2000: random_seed = ' .. walshaw.random_seed)
@@ -83,22 +83,22 @@ end
 
 function Walshaw2000:new(graph)
   local walshaw = {
-    random_seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed')),
+    random_seed = tonumber(graph:getOption('/graph drawing/spring electrical layout/random seed')),
 
-    iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations')),
-    cooling_factor = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor')),
-    initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension')),
-    convergence_tolerance = tonumber(graph:getOption('/graph drawing/spring layout/convergence tolerance')),
+    iterations = tonumber(graph:getOption('/graph drawing/spring electrical layout/iterations')),
+    cooling_factor = tonumber(graph:getOption('/graph drawing/spring electrical layout/cooling factor')),
+    initial_step_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/initial step dimension')),
+    convergence_tolerance = tonumber(graph:getOption('/graph drawing/spring electrical layout/convergence tolerance')),
 
-    natural_spring_length = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension')),
-    spring_constant = tonumber(graph:getOption('/graph drawing/spring layout/spring constant')),
+    natural_spring_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/natural spring dimension')),
+    spring_constant = tonumber(graph:getOption('/graph drawing/spring electrical layout/spring constant')),
 
-    approximate_repulsive_forces = graph:getOption('/graph drawing/spring layout/approximate repulsive forces') == 'true',
-    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring layout/repulsive force order')),
+    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate repulsive forces') == 'true',
+    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/repulsive force order')),
 
-    coarsen = graph:getOption('/graph drawing/spring layout/coarsen') == 'true',
-    downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio')))),
-    minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size')),
+    coarsen = graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true',
+    downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio')))),
+    minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/minimum graph size')),
 
     graph = graph,
     graph_size = #graph.nodes,
@@ -128,7 +128,7 @@ function Walshaw2000:initialize()
 
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
-    node.weight = tonumber(node:getOption('/graph drawing/spring layout/electric charge'))
+    node.weight = tonumber(node:getOption('/graph drawing/spring electrical layout/electric charge'))
 
     -- a node is charged if its weight derives from the default setting 
     -- of 1 (where it has no influence on the forces)

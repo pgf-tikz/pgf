@@ -118,10 +118,7 @@ end
 -- @return |true| if the node is adjacent to the edge. |false| otherwise.
 --
 function Edge:containsNode(node)
-  local result = table.find(self.nodes, function (other) 
-    return other.name == node.name 
-  end)
-  return not (result == nil)
+  return table.find(self.nodes, function (other) return other == node end) ~= nil
 end
 
 
