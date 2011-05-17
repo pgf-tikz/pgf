@@ -17,6 +17,38 @@ function round(x)
    end
 end
 
+function gcd(a, b)
+   if b == 0 then
+      return a
+   else
+      return gcd(b, a%b)
+   end
+end
+
+function isprime(a)
+   local ifisprime = true
+   if a == 1 then
+      ifisprime = false
+   elseif a == 2 then
+      ifisprime = true
+--   if a > 2 then
+   else
+      local i, imax = 2, math.ceil(math.sqrt(a)) + 1
+      while ifisprime and (i < imax) do
+	 if gcd(a,i) ~= 1 then
+	    ifisprime = false
+	 end
+	 i = i + 1
+      end
+   end
+   if ifisprime then
+      return 1
+   else
+      return 0
+   end
+end
+      
+
 function split_braces_to_explist(s)
    -- (Thanks to mpg and zappathustra from fctt)
    -- Make unpack available whatever lua version is used 
@@ -58,12 +90,11 @@ function factorial(n)
 end
 
 function pointnormalised (pgfx, pgfy)
-   local pgfx_normalised, pgfx_normalised
+   local pgfx_normalised, pgfy_normalised
    if pgfx == 0. and pgfy == 0. then
       -- Orginal pgf macro gives this result
       tex.dimen['pgf@x'] = "0pt"
       tex.dimen['pgf@y'] = "1pt"
-      return nil
    else
       pgfx_normalised = pgfx/math.sqrt(pgfx^2 + pgfy^2)
       pgfx_normalised = pgfx_normalised - pgfx_normalised%0.00001
@@ -71,6 +102,6 @@ function pointnormalised (pgfx, pgfy)
       pgfy_normalised = pgfy_normalised - pgfy_normalised%0.00001
       tex.dimen['pgf@x'] = tostring(pgfx_normalised) .. "pt"
       tex.dimen['pgf@y'] = tostring(pgfy_normalised) .. "pt"
-      return nil
    end
+   return nil
 end
