@@ -16,7 +16,7 @@
 \def\pgfmathode@addindextofunc@i[#1]#2#3{%
     \ifx#1#2
       \expandafter\gdef\expandafter\pgfmathode@func\expandafter{%
-        \pgfmathode@func #2[\pgfmathode@index]}%
+        \pgfmathode@func #2[\pgfmathode@timeindex]}%
     \else
       \expandafter\gdef\expandafter\pgfmathode@func\expandafter{%
         \pgfmathode@func #2}%
@@ -59,36 +59,54 @@
 
 \def\pgfmathodeRKI#1#2#3#4#5{%
   \begingroup
+    % Sol array (#1) first element is given by the set of initial
+    % conditions (#3). We need to enclose it in brace so that is a now
+    % a "matrix" array.
     \gdef#1{{#3}}%
-    \expandafter\pgfmathode@addindextofunc\expandafter[%
-      \expandafter#1\expandafter]\pgfutil@firstofone{#2}%
-    \pgfmathparse{(#4-#1[0][0])/#5}%
-    \edef\pgfmathode@Deltat{\pgfmathresult}%
-    \pgfmathparse{dim(#3)-1}%
-    \edef\pgfmathode@dimfunc{\pgfmathresult}%
-    \pgfmathparse{#5-1}%
-    \edef\pgfmathode@numstep{\pgfmathresult}%
-    \foreach \pgfmathode@index in {0,...,\pgfmathode@numstep} {%
-      \message{Step \pgfmathode@index...}%
-      \foreach \pgfmathode@j in {1,...,\pgfmathode@dimfunc} {%
+    % The set of rhs {f1(t,q1,q2,...,qN),...,fN(t,q1,q2,...,qN)} is
+    % given in terms of #1[0],#1[1],...,#1[N]. We need to transform to
+    % #1[\pgfmathode@timeindex][0],...,#1[\pgfmathode@timeindex][N], that is
+    % add [\pgfmathode@timeindex] after every occurence of #1 in #2.
+    % No need to brace #2 since it is already surounded by braces. The
+    % result is stored in \pgfmathode@func
+    \pgfmathode@addindextofunc[#1]#2%
+    % Set time step. Actually the number of time steps is #5-1, so we
+    % divide by (#5-1)+1 = #5.
+    \pgfmathsetmacro\pgfmathode@Sol@t{#1[0][0]}%
+    \pgfmathsetmacro\pgfmathode@Deltat{(#4-\pgfmathode@Sol@t)/#5}%
+    % Compute the order of the system: it is equal to the number of IC
+    % minus one (time).
+    \pgfmathsetmacro\pgfmathode@dimfunc{dim(#3)-1}%
+    \pgfmathsetmacro\pgfmathode@numstep{#5-1}%
+    % Start the time loop
+    \foreach \pgfmathode@timeindex in {0,...,\pgfmathode@numstep} {%
+      \message{Step \pgfmathode@timeindex...}%
+      % Start the function loop
+      \foreach \pgfmathode@funcindex in {1,...,\pgfmathode@dimfunc} {%
+        % The RKI algorithm
+        % qk[t(i)] = Deltat*fk(t(i-1),q1(t(i-1)),...qN(t(i-1)))
+        % Note: this part can be really slow due to array managment in
+        % pgfmath. 
+        % TODO: find a better way (at least inside this loop)
         \pgfmathparse{%
-          \pgfmathode@Deltat*(\pgfmathode@func[\pgfmathode@j-1])+
-          #1[\pgfmathode@index][\pgfmathode@j]}%
-        \expandafter\xdef\csname
-          pgfmathode@Sol@\romannumeral\pgfmathode@j\endcsname{%
-            \pgfmathresult}%
+          \pgfmathode@Deltat*(\pgfmathode@func[\pgfmathode@funcindex-1])+
+          #1[\pgfmathode@timeindex][\pgfmathode@funcindex]}%
+        % Store the result in a helper macro
+        \expandafter\xdef\csname pgfmathode@Sol@\pgfmathode@funcindex
+          \endcsname{\pgfmathresult}%
       }
-      \pgfmathparse{\pgfmathode@Deltat+#1[\pgfmathode@index][0]}%
+      % Store step i
+      \pgfmathparse{\pgfmathode@Sol@t+\pgfmathode@Deltat}%
       \xdef\pgfmathode@Sol@t{\pgfmathresult}%
       \xdef\pgfmathode@temp{}%
-      \foreach \pgfmathode@j in {1,...,\pgfmathode@dimfunc} {%
+      \foreach \pgfmathode@funcindex in {1,...,\pgfmathode@dimfunc} {%
         \ifx\pgfmathode@temp\pgfutil@empty
           \xdef\pgfmathode@temp{%
-            \csname pgfmathode@Sol@\romannumeral\pgfmathode@j\endcsname}%
+            \csname pgfmathode@Sol@\pgfmathode@funcindex\endcsname}%
         \else
           \xdef\pgfmathode@temp{%
             \pgfmathode@temp,
-            \csname pgfmathode@Sol@\romannumeral\pgfmathode@j\endcsname}%
+            \csname pgfmathode@Sol@\pgfmathode@funcindex\endcsname}%
         \fi}
       \xdef#1{%
         {\expandafter\pgfutil@firstofone#1,%
