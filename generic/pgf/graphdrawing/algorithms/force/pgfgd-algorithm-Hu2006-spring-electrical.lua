@@ -25,8 +25,7 @@ Hu2006SpringElectrical.__index = Hu2006SpringElectrical
 --   "Efficient and High Quality Force-Directed Graph Drawing"
 --   Yifan Hu, 2006
 --
--- Modifications compared to the original algorithm are explained in 
--- the manual.
+-- Modifications compared to the original algorithm are explained in the manual.
 --
 function drawGraphAlgorithm_Hu2006_spring_electrical(graph)
   local hu = Hu2006SpringElectrical:new(graph)

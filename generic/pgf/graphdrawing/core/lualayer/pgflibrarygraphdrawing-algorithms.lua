@@ -113,3 +113,104 @@ function algorithms.floyd_warshall(graph)
 
   return distance
 end
+
+
+
+-- Algorithm to classify edges of a DFS search tree.
+--
+-- TODO Jannis: document this algorithm as soon as it is completed and bug-free.
+--
+function algorithms.classify_edges(graph, initial_nodes)
+  local discovered = {}
+  local visited = {}
+  local recursed = {}
+  local completed = {}
+
+  local tree_and_forward_edges = {}
+  local cross_edges = {}
+  local back_edges = {}
+
+  local stack = {}
+  
+  local function push(node)
+    table.insert(stack, node)
+  end
+
+  local function peek()
+    return stack[#stack]
+  end
+
+  local function pop()
+    return table.remove(stack)
+  end
+
+  if not initial_nodes then
+    initial_nodes = table.filter_values(graph.nodes, function (node)
+      return node:getInDegree() == 0
+    end)
+  end
+
+  for node in table.value_iter(table.reverse_values(initial_nodes)) do
+    push(node)
+    discovered[node] = true
+  end
+
+  while #stack > 0 do
+    local node = peek()
+    local edges_to_traverse = {}
+
+    Sys:log('visit ' .. node.name)
+    visited[node] = true
+
+    if not recursed[node] then
+      recursed[node] = true
+
+      local out_edges = node:getOutgoingEdges()
+      for edge in table.value_iter(out_edges) do
+        local neighbour = edge:getNeighbour(node)
+
+        if not discovered[neighbour] then
+          Sys:log('  discovered ' .. neighbour.name)
+          Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a forward or tree edge')
+          table.insert(tree_and_forward_edges, edge)
+          table.insert(edges_to_traverse, edge)
+        else
+          if not completed[neighbour] then
+            if not visited[neighbour] then
+              Sys:log('  ' .. neighbour.name .. ' was neither visited nor completed yet')
+              Sys:log('    edge ' .. node.name .. ' -> ' .. neighbour.name .. ' is a forward or tree edge')
+              table.insert(tree_and_forward_edges, edge)
+              table.insert(edges_to_traverse, edge)
+            else
+              Sys:log('  ' .. neighbour.name .. ' visited but not completed')
+              Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a back edge')
+              table.insert(back_edges, edge)
+            end
+          else
+            Sys:log('  ' .. neighbour.name .. ' visited and completed')
+            Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a cross edge')
+            table.insert(cross_edges, edge)
+          end
+        end
+      end
+
+      if #edges_to_traverse == 0 then
+        Sys:log('  no edges to traverse, node ' .. node.name .. ' is completed')
+        completed[node] = true
+        pop()
+      else
+        for edge in table.value_iter(table.reverse_values(edges_to_traverse)) do
+          local neighbour = edge:getNeighbour(node)
+          discovered[neighbour] = true
+          push(neighbour)
+        end
+      end
+    else
+      Sys:log('  leaving node ' .. node.name .. ', it is completed')
+      completed[node] = true
+      pop()
+    end
+  end
+
+  return tree_and_forward_edges, cross_edges, back_edges
+end

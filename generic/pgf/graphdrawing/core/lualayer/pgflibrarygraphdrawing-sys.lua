@@ -146,7 +146,7 @@ function Sys:putEdge(edge)
     local bend_strings = table.map_values(edge.bend_points, function (vector)
       return '(' .. tostring(vector:get(1)) .. 'pt,' .. tostring(vector:get(2)) .. 'pt)'
     end)
-    bend_string = table.concat(bend_strings, '--')
+    bend_string = '-- ' .. table.concat(bend_strings, '--')
   end
   
   -- generate string for the entire edge
@@ -157,6 +157,8 @@ function Sys:putEdge(edge)
 			      function (s, k, v) return s .. ','
 			      .. tostring(k) .. '={' .. tostring(v) .. '}' end, '')
      .. '}{' .. bend_string .. '}'
+
+  print(callback)
   
   -- hand TikZ code over to TeX
   tex.print(callback)

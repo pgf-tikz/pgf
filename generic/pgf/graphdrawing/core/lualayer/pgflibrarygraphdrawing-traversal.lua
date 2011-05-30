@@ -111,7 +111,7 @@ function traversal.depth_first_dag(graph, initial_nodes)
   end
 
   for node in table.value_iter(initial_nodes) do
-    table.insert(stack, node)
+    table.insert(stack, 1, node)
     visited[node] = true
   end
 
