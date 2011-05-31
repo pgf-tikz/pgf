@@ -30,6 +30,11 @@
     \fi
     \next}
 
+%**********************************************************************
+% Know limitation: fk cannot be a time function. Should be possible to
+% use \Sol[0] as time in the set of equations.
+%**********************************************************************
+
 % Numerically solve a differential system with 1st order Runge-Kutta
 % (Euler method) 
 % dq1/dt = f1(t,q1,q2,...,qN)
@@ -57,7 +62,7 @@
 % \pgfmathodeRKI{\Sol}{{\Sol[2],-\Sol[2]/2-sin(deg(\Sol[1]))}}%
 %   {{0,-1,5}}{15}{50}
 
-\def\pgfmathodeRKI#1#2#3#4#5{%
+\def\pgfmathode@generic@init@RK{%
   \begingroup
     % Sol array (#1) first element is given by the set of initial
     % conditions (#3). We need to enclose it in brace so that is a now
@@ -77,14 +82,18 @@
     % Compute the order of the system: it is equal to the number of IC
     % minus one (time).
     \pgfmathsetmacro\pgfmathode@dimfunc{dim(#3)-1}%
-    \pgfmathsetmacro\pgfmathode@numstep{#5-1}%
-    % Start the time loop
+    \pgfmathsetmacro\pgfmathode@numstep{#5-1}}
+
+\def\pgfmathodeRKI#1#2#3#4#5{%
+    \pgfmathode@generic@init@RK
+    % Start the time loop for Runge-Kutta 1st order
     \foreach \pgfmathode@timeindex in {0,...,\pgfmathode@numstep} {%
       \message{Step \pgfmathode@timeindex...}%
       % Start the function loop
       \foreach \pgfmathode@funcindex in {1,...,\pgfmathode@dimfunc} {%
         % The RKI algorithm
-        % qk[t(i)] = Deltat*fk(t(i-1),q1(t(i-1)),...qN(t(i-1)))
+        % qk[t(i)] = Deltat*fk(t(i-1),q1(t(i-1)),...qN(t(i-1))) +
+        %            qk[t(i-1)] 
         % Note: this part can be really slow due to array managment in
         % pgfmath. 
         % TODO: find a better way (at least inside this loop)
@@ -113,5 +122,57 @@
           {\pgfmathode@Sol@t,\pgfmathode@temp}}}%
     }
   \endgroup}
+
+% RKIV: far from working yet!
+\def\pgfmathodeRKIV#1#2#3#4#5{%
+    \pgfmathode@generic@init@RK
+    % Start the time loop for Runge-Kutta 4th order
+    \foreach \pgfmathode@timeindex in {0,...,\pgfmathode@numstep} {%
+      \message{Step \pgfmathode@timeindex...}%
+      % Start the function loop
+      \foreach \pgfmathode@funcindex in {1,...,\pgfmathode@dimfunc} {%
+        % The RKIV algorithm
+        % qk[t(i)] = qk[t(i-1)] + 
+        %            (1/6) * (j1k + 2j2k + 2j3k + j4k)
+        % where j1k = fk(t(i-1),q1(t(i-1)),...qN(t(i-1))) * Deltat
+        %       j2k = fk(t(i-1)+.5*Deltat,
+        %                q1(t(i-1))+.5*j11,...qN(t(i-1))+.5*j1N) * Deltat
+        %       j3k = fk(t(i-1)+.5*Deltat,
+        %                q1(t(i-1))+.5*j21,...qN(t(i-1))+.5*j2N) * Deltat
+        %       j4k = fk(t(i-1)+Deltat,
+        %                q1(t(i-1))+j31,...qN(t(i-1))+j3N) * Deltat
+        %
+        % Compute j1k
+        \pgfmathparse{%
+          \pgfmathode@Deltat*(\pgfmathode@func[\pgfmathode@funcindex-1])+
+          #1[\pgfmathode@timeindex][\pgfmathode@funcindex]}%
+        \expandafter\xdef\csname pgfmathode@RKIV@1@\pgfmathode@funcindex
+          \endcsname{\pgfmathresult}%
+        % Compute j2k
+        \pgfmathparse{%
+          \pgfmathode@Deltat*(\pgfmathode@func[\pgfmathode@funcindex-1])+
+          #1[\pgfmathode@timeindex][\pgfmathode@funcindex]}%
+        \expandafter\xdef\csname pgfmathode@RKIV@1@\pgfmathode@funcindex
+          \endcsname{\pgfmathresult}%
+      }
+      % Store step i
+      \pgfmathparse{\pgfmathode@Sol@t+\pgfmathode@Deltat}%
+      \xdef\pgfmathode@Sol@t{\pgfmathresult}%
+      \xdef\pgfmathode@temp{}%
+      \foreach \pgfmathode@funcindex in {1,...,\pgfmathode@dimfunc} {%
+        \ifx\pgfmathode@temp\pgfutil@empty
+          \xdef\pgfmathode@temp{%
+            \csname pgfmathode@Sol@\pgfmathode@funcindex\endcsname}%
+        \else
+          \xdef\pgfmathode@temp{%
+            \pgfmathode@temp,
+            \csname pgfmathode@Sol@\pgfmathode@funcindex\endcsname}%
+        \fi}
+      \xdef#1{%
+        {\expandafter\pgfutil@firstofone#1,%
+          {\pgfmathode@Sol@t,\pgfmathode@temp}}}%
+    }
+  \endgroup}
+
 
 \endinput
