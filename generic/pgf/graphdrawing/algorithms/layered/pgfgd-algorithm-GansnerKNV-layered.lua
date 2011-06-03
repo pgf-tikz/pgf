@@ -33,21 +33,21 @@ function drawGraphAlgorithm_GansnerKNV_layered(graph)
   algorithm:initialize()
   algorithm:run()
 
-  -- fall back to Hu2006 spring electrical for now, just to see the effects
-  -- of the preprocessing steps
-  require('../force/pgfgd-algorithm-Hu2006-spring-electrical.lua')
-  graph:setOption('/graph drawing/spring electrical layout/iterations', 500)
-  graph:setOption('/graph drawing/spring electrical layout/cooling factor', 0.95)
-  graph:setOption('/graph drawing/spring electrical layout/random seed', 42)
-  graph:setOption('/graph drawing/spring electrical layout/initial step dimension', 28.5)
-  graph:setOption('/graph drawing/spring electrical layout/convergence tolerance', 0.01)
-  graph:setOption('/graph drawing/spring electrical layout/spring constant', 0.2)
-  graph:setOption('/graph drawing/spring electrical layout/natural spring dimension', 28.5)
-  graph:setOption('/graph drawing/spring electrical layout/coarsen', true)
-  graph:setOption('/graph drawing/spring electrical layout/coarsening/downsize ratio', 0.25)
-  graph:setOption('/graph drawing/spring electrical layout/coarsening/minimum graph size', 2)
-  graph:setOption('/graph drawing/spring electrical layout/coarsening/collapse independent edges', true)
-  drawGraphAlgorithm_Hu2006_spring_electrical(graph)
+  ---- fall back to Hu2006 spring electrical for now, just to see the effects
+  ---- of the preprocessing steps
+  --require('../force/pgfgd-algorithm-Hu2006-spring-electrical.lua')
+  --graph:setOption('/graph drawing/spring electrical layout/iterations', 500)
+  --graph:setOption('/graph drawing/spring electrical layout/cooling factor', 0.95)
+  --graph:setOption('/graph drawing/spring electrical layout/random seed', 42)
+  --graph:setOption('/graph drawing/spring electrical layout/initial step dimension', 28.5)
+  --graph:setOption('/graph drawing/spring electrical layout/convergence tolerance', 0.01)
+  --graph:setOption('/graph drawing/spring electrical layout/spring constant', 0.2)
+  --graph:setOption('/graph drawing/spring electrical layout/natural spring dimension', 28.5)
+  --graph:setOption('/graph drawing/spring electrical layout/coarsen', true)
+  --graph:setOption('/graph drawing/spring electrical layout/coarsening/downsize ratio', 0.25)
+  --graph:setOption('/graph drawing/spring electrical layout/coarsening/minimum graph size', 2)
+  --graph:setOption('/graph drawing/spring electrical layout/coarsening/collapse independent edges', true)
+  --drawGraphAlgorithm_Hu2006_spring_electrical(graph)
 
   orientation.adjust(graph)
 end
@@ -83,10 +83,9 @@ end
 function GansnerKNVLayered:run()
   self:preprocess()
 
-  self:rankNodes()
-  self:reduceEdgeCrossings()
+  local ranks = self:rankNodes()
+  self:reduceEdgeCrossings(ranks)
   self:computeCoordinates()
-  
   self:makeSplines()
 
   self:postprocess()
@@ -130,20 +129,106 @@ end
 
 function GansnerKNVLayered:rankNodes()
   -- ignore self-loops
+  local tree, ranks = self:constructFeasibleTree(self.graph)
 
-  local tree = self:constructFeasibleTree(self.graph)
-  Sys:log(' ')
-  dump_tree (tree, 'feasible tree')
-  Sys:log(' ')
+  return ranks
 end
 
 
 
 function GansnerKNVLayered:constructFeasibleTree(graph)
   local tree = Graph:new()
-  local rank = {}
+  local ranks = self:computeInitialRanking(graph)
 
-  return tree
+
+
+  return tree, ranks
+end
+
+
+
+function GansnerKNVLayered:computeInitialRanking(graph)
+  -- queue for nodes to rank next
+  local queue = {}
+
+  -- two-dimensional mapping from ranks to lists of corresponding nodes
+  local ranks = {}
+
+  -- number mapping that counts the number of ranked incoming 
+  -- neighbours of each node
+  local ranked_neighbours = {}
+
+  -- convenience functions for managing the queue
+  function enqueue(node) table.insert(queue, node) end
+  function dequeue() return table.remove(queue, 1) end
+
+  -- function to move unranked nodes to the queue if they have no
+  -- unscanned incoming edges
+  function update_queue(node)
+    -- check all nodes yet to be ranked
+    for edge in table.value_iter(node:getOutgoingEdges()) do
+      local neighbour = edge:getNeighbour(node)
+
+      -- increment the number of ranked incoming neighbours of the neighbour node
+      ranked_neighbours[neighbour] = (ranked_neighbours[neighbour] or 0) + 1
+
+      -- check whether all incoming edges have been scanned
+      if ranked_neighbours[neighbour] >= neighbour:getInDegree() then
+        -- we have no unscanned incoming edges, queue the node now
+        enqueue(neighbour)
+      end
+    end
+  end
+
+  -- invalidate the ranks of all nodes
+  for node in table.value_iter(graph.nodes) do
+    node.rank = -1
+  end
+
+  -- add all sinks to the queue
+  for node in table.value_iter(graph.nodes) do
+    if node:getInDegree() == 0 then
+      enqueue(node)
+      ranked_neighbours[node] = 0
+    end
+  end
+
+  -- run long as there are nodes to be ranked
+  while #queue > 0 do
+    -- fetch the next unranked node from the queue
+    local node = dequeue()
+    -- get a list of its incoming edges
+    local in_edges = node:getIncomingEdges()
+
+    -- determine the minimum possible rank for the node
+    local rank = table.combine_values(in_edges, function (rank, edge)
+      local neighbour = edge:getNeighbour(node)
+      if neighbour.rank then
+        -- the minimum possible rank is the maximum of all neighbour ranks plus
+        -- the corresponding edge lengths
+        rank = math.max(rank, neighbour.rank + edge.minimum_levels)
+      end
+      return rank
+    end, 0)
+
+    -- rank the node
+    node.rank = rank
+
+    -- add the node to the two-dimensional rank mapping
+    ranks[node.rank] = ranks[node.rank] or {}
+    table.insert(ranks[node.rank], node)
+
+    -- queue neighbours of nodes for which all incoming edges have
+    -- been scanned
+    --
+    -- note that we don't need to mark the node's outgoing edges 
+    -- as scanned prior to this, because this is equivalent to checking
+    -- whether the node has already been ranked or not
+    update_queue(node)
+  end
+
+  -- return the two-dimensional rank mapping
+  return ranks
 end
 
 
@@ -154,6 +239,22 @@ end
 
 
 function GansnerKNVLayered:computeCoordinates()
+  -- TODO this is a temporary algorithm used for debugging
+  
+  local rank_x = {}
+
+  for node in table.value_iter(self.graph.nodes) do
+    if rank_x[node.rank] then
+      rank_x[node.rank] = rank_x[node.rank] + 1
+    else
+      rank_x[node.rank] = 0
+    end
+
+    node.pos:set{
+      x = rank_x[node.rank] * self.sibling_distance,
+      y = - node.rank * self.level_distance,
+    }
+  end
 end
 
 
