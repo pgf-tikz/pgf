@@ -476,7 +476,7 @@ end
 --
 -- @param input       The table to remove values from.
 -- @param remove_func Function to be called for each value of \meta{input}. If
---                    it returns |false|, the value will be removed from the
+--                    it returns |true|, the value will be removed from the
 --                    table in-place.
 --
 -- @return \meta{input} which was edited in-place.

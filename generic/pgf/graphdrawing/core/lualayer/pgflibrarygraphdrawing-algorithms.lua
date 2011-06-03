@@ -159,7 +159,7 @@ function algorithms.classify_edges(graph, initial_nodes)
     local node = peek()
     local edges_to_traverse = {}
 
-    Sys:log('visit ' .. node.name)
+    --Sys:log('visit ' .. node.name)
     visited[node] = true
 
     if not recursed[node] then
@@ -170,32 +170,32 @@ function algorithms.classify_edges(graph, initial_nodes)
         local neighbour = edge:getNeighbour(node)
 
         if not discovered[neighbour] then
-          Sys:log('  discovered ' .. neighbour.name)
-          Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a forward or tree edge')
+          --Sys:log('  discovered ' .. neighbour.name)
+          --Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a forward or tree edge')
           table.insert(tree_and_forward_edges, edge)
           table.insert(edges_to_traverse, edge)
         else
           if not completed[neighbour] then
             if not visited[neighbour] then
-              Sys:log('  ' .. neighbour.name .. ' was neither visited nor completed yet')
-              Sys:log('    edge ' .. node.name .. ' -> ' .. neighbour.name .. ' is a forward or tree edge')
+              --Sys:log('  ' .. neighbour.name .. ' was neither visited nor completed yet')
+              --Sys:log('    edge ' .. node.name .. ' -> ' .. neighbour.name .. ' is a forward or tree edge')
               table.insert(tree_and_forward_edges, edge)
               table.insert(edges_to_traverse, edge)
             else
-              Sys:log('  ' .. neighbour.name .. ' visited but not completed')
-              Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a back edge')
+              --Sys:log('  ' .. neighbour.name .. ' visited but not completed')
+              --Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a back edge')
               table.insert(back_edges, edge)
             end
           else
-            Sys:log('  ' .. neighbour.name .. ' visited and completed')
-            Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a cross edge')
+            --Sys:log('  ' .. neighbour.name .. ' visited and completed')
+            --Sys:log('    edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a cross edge')
             table.insert(cross_edges, edge)
           end
         end
       end
 
       if #edges_to_traverse == 0 then
-        Sys:log('  no edges to traverse, node ' .. node.name .. ' is completed')
+        --Sys:log('  no edges to traverse, node ' .. node.name .. ' is completed')
         completed[node] = true
         pop()
       else
@@ -206,7 +206,7 @@ function algorithms.classify_edges(graph, initial_nodes)
         end
       end
     else
-      Sys:log('  leaving node ' .. node.name .. ', it is completed')
+      --Sys:log('  leaving node ' .. node.name .. ', it is completed')
       completed[node] = true
       pop()
     end

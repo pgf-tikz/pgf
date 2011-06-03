@@ -85,7 +85,7 @@ function PohlmannLayered:run()
 
   local layers = self:assignLayers()
   local original_edges, dummy_nodes = self:insertDummyNodes(layers)
-  -- self:reduceEdgeCrossings()
+  self:reduceEdgeCrossings(layers)
   self:assignCoordinates(layers)
   self:removeDummyNodes(layers, original_edges, dummy_nodes)
   -- self:makeSplines()
@@ -125,6 +125,9 @@ end
 
 
 function PohlmannLayered:postprocess()
+  for edge in table.value_iter(self.graph.edges) do
+    edge.reversed = false
+  end
 end
 
 
@@ -264,6 +267,10 @@ function PohlmannLayered:removeDummyNodes(layers, original_edges, dummy_nodes)
       table.insert(edge.bend_points, point)
     end
 
+    if edge.reversed then
+      edge.bend_points = table.reverse_values(edge.bend_points, edge.bend_points)
+    end
+
     -- clear the list of bend nodes
     edge.bend_nodes = {}
   end
@@ -273,7 +280,40 @@ end
 
 
 
-function PohlmannLayered:reduceEdgeCrossings()
+function PohlmannLayered:reduceEdgeCrossings(layers)
+  local x = 0
+  for sink in table.value_iter(layers[1]) do
+    sink.pos:set{x = x}
+    x = x + 2
+  end
+
+  dump_coordinates(layers, 'COORDINATES AFTER PLACING SINKS')
+
+  for n = 2, #layers do 
+    local positions = {}
+
+    for node in table.value_iter(layers[n]) do 
+      local in_edges = node:getIncomingEdges()
+
+      local sum_x = table.combine_values(in_edges, function (sum, edge)
+        return sum + edge:getNeighbour(node).pos:x()
+      end, 0)
+
+      local avg_x = sum_x / #in_edges
+
+      Sys:log('node ' .. node.name .. ' avg_x ' .. sum_x)
+
+      while positions[avg_x] do
+        Sys:log('  move to ' .. avg_x .. ' instead')
+        avg_x = avg_x + 1 / #layers[n-1]
+      end
+
+      node.pos:set{x = avg_x}
+      positions[node.pos:x()] = true
+    end
+  end
+
+  dump_coordinates(layers, 'COORDINATES AFTER LAYER SWEEP')
 end
 
 
@@ -287,8 +327,9 @@ function PohlmannLayered:assignCoordinates(layers)
   -- assign x coordinates
   local x = 0
   for node in table.value_iter(self.graph.nodes) do
-    node.pos:set{x = x * self.sibling_distance}
-    x = x + 1
+    node.pos:set{x = node.pos:x() * self.sibling_distance}
+    --node.pos:set{x = x * self.sibling_distance}
+    --x = x + 1
   end
 end
 
@@ -306,5 +347,16 @@ function dump_graph(graph, name)
   end
   for edge in table.value_iter(graph.edges) do
     Sys:log('  edge ' .. edge.nodes[1].name .. ' ' .. edge.direction .. ' ' .. edge.nodes[2].name)
+  end
+end
+
+
+
+function dump_coordinates(layers, name)
+  Sys:log(name .. ':')
+  for n = 1, #layers do 
+    for node in table.value_iter(layers[n]) do
+      Sys:log('  node ' .. node.name .. ' layer ' .. node.pos:y() .. ' at ' .. tostring(node.pos))
+    end
   end
 end

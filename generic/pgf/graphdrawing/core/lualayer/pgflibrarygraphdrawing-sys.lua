@@ -146,6 +146,9 @@ function Sys:putEdge(edge)
     local bend_strings = table.map_values(edge.bend_points, function (vector)
       return '(' .. tostring(vector:get(1)) .. 'pt,' .. tostring(vector:get(2)) .. 'pt)'
     end)
+    if edge.reversed then
+      bend_strings = table.reverse_values(bend_strings, bend_strings)
+    end
     bend_string = '-- ' .. table.concat(bend_strings, '--')
   end
   
@@ -158,8 +161,6 @@ function Sys:putEdge(edge)
 			      .. tostring(k) .. '={' .. tostring(v) .. '}' end, '')
      .. '}{' .. bend_string .. '}'
 
-  print(callback)
-  
   -- hand TikZ code over to TeX
   tex.print(callback)
 end
