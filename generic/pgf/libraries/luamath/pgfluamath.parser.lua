@@ -175,6 +175,7 @@ local string = Cc("string") * C(P('"')) * C((1 - P('"'))^0) * C(P('"')) *
 
 local addop = Cc("addop") * C(P("+")) * space_pattern
 local subop = Cc("subop") * C(P("-")) * space_pattern
+local negop = Cc("negop") * C(P("-")) * space_pattern
 local mulop = Cc("mulop") * C(P("*")) * space_pattern
 local divop = Cc("divop") * C(P("/")) * space_pattern
 local powop = Cc("powop") * C(S("^")) * space_pattern
@@ -190,9 +191,10 @@ local greatop = Cc("greatop") * C(P(">")) * space_pattern
 local lesseqop = Cc("lesseqop") * C(P("<=")) * space_pattern
 local greateqop = Cc("greateqop") * C(P(">=")) * space_pattern
 
-local colon = Cc("colon") * C(P(":")) * space_pattern
-local question_mark = Cc("question mark") * C(P("?")) * space_pattern
-local exclamation_mark = Cc("exclamation mark") * C(P("!")) * space_pattern
+local then_mark = Cc("then") * C(P("?")) * space_pattern
+local else_mark = Cc("else") * C(P(":")) * space_pattern
+local factorial = Cc("factorial") * C(P("!")) * space_pattern
+local not_mark = Cc("not") * C(P("!")) * space_pattern
 local radians = Cc("radians") * C(P("r")) * space_pattern
 
 local comma = Cc("comma") * C(P(",")) * space_pattern
@@ -208,7 +210,9 @@ local grammar = P {
 
 
 local grammar2 = P {
-   "logical_or_E",
+   -- "E" stands for expression
+   "ternary_logical_E",
+   ternary_logical_E = Ct(V("logical_or_E") * ( then_mark * V("logical_or_E") * else_mark * V("logical_or_E"))^0),
    logical_or_E = Ct(V("logical_and_E") * (orop * V("logical_and_E"))^0),
    logical_and_E = Ct(V("equality_E") * (andop * V("equality_E"))^0),
    equality_E = Ct(V("relational_E") * 
@@ -221,8 +225,13 @@ local grammar2 = P {
 					 (subop * V("multiplicative_E")))^0),
    multiplicative_E = Ct(V("power_E") * ((mulop * V("power_E")) + 
 				      divop * V("power_E"))^0),
-   power_E = Ct(V("E") * (powop * V("E"))^0),
-   E = float + decimal + integer + (openparen * V("logical_or_E") * closeparen),
+   power_E = Ct(V("unary_E") * (powop * V("unary_E"))^0),
+   unary_E = Ct((not_mark + negop)^0 * V("E") * 
+	  (radians + factorial)^0),
+   E = string + float + decimal + integer + 
+      (openparen * V("ternary_logical_E") * closeparen) +
+      (func * openparen * V("ternary_logical_E") * 
+       (comma * V("ternary_logical_E"))^0 * closeparen),
 }
 --]]
 
