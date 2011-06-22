@@ -11,6 +11,8 @@
 
 module("pgfluamath.parser", package.seeall)
 
+require("pgfluamath.functions")
+
 -- From pgfmathparser.code.tex
 local operator_table = {
    [1] = {
@@ -137,6 +139,7 @@ local operator_table = {
 
 local S, P, R = lpeg.S, lpeg.P, lpeg.R
 local C, Cc, Ct = lpeg.C, lpeg.Cc, lpeg.Ct
+local Cf, Cg = lpeg.Cf, lpeg.Cg
 local V = lpeg.V
 
 local space_pattern = S(" \n\r\t")^0
@@ -148,7 +151,7 @@ local positive_decimal_pattern = (digit^1 * P(".") * digit^1) +
                                  (P(".") * digit^1) +
 			         (digit^1 * P("."))
 local decimal_pattern = P("-")^-1 * positive_decimal_pattern
-local integer = Cc("integer") * C(integer_pattern) * space_pattern
+local integer = C(integer_pattern) * space_pattern
 local decimal = Cc("decimal") * C(decimal_pattern) * space_pattern
 local float = Cc("float") * C(decimal_pattern) * S("eE") * 
               C(integer_pattern) * space_pattern
@@ -163,80 +166,106 @@ local alpha_ = letter + S("_")
 local func_pattern = alpha_ * alphanum_^0
 local func = Cc("function") * C(func_pattern) * space_pattern
 
-local openparen = Cc("openparen")  * C(P("(")) * space_pattern
-local closeparen = Cc("closeparen") * C(P(")")) * space_pattern
-local opencurlybrace = Cc("opencurlybrace")  * C(P("{")) * space_pattern
-local closecurlybrace = Cc("closecurlybrace") * C(P("}")) * space_pattern
-local openbrace = Cc("openbrace")  * C(P("[")) * space_pattern
-local closebrace = Cc("closebrace") * C(P("]")) * space_pattern
+local openparen = P("(") * space_pattern
+local closeparen = P(")") * space_pattern
+local param_beg = Cc("param_beg")  * P("(") * space_pattern
+local param_end = Cc("param_end") * P(")") * space_pattern
+local opencurlybrace = Cc("opencurlybrace")  * P("{") * space_pattern
+local closecurlybrace = Cc("closecurlybrace") * P("}") * space_pattern
+local openbrace = Cc("openbrace")  * P("[") * space_pattern
+local closebrace = Cc("closebrace") * P("]") * space_pattern
 
-local string = Cc("string") * C(P('"')) * C((1 - P('"'))^0) * C(P('"')) *
+local string = Cc("string") * P('"') * C((1 - P('"'))^0) * P('"') *
                space_pattern
 
-local addop = Cc("addop") * C(P("+")) * space_pattern
-local subop = Cc("subop") * C(P("-")) * space_pattern
-local negop = Cc("negop") * C(P("-")) * space_pattern
-local mulop = Cc("mulop") * C(P("*")) * space_pattern
-local divop = Cc("divop") * C(P("/")) * space_pattern
-local powop = Cc("powop") * C(S("^")) * space_pattern
+local addop = Cc("addop") * P("+") * space_pattern
+local subop = Cc("subop") * P("-") * space_pattern
+local negop = Cc("negop") * P("-") * space_pattern
+local mulop = Cc("mulop") * P("*") * space_pattern
+local divop = Cc("divop") * P("/") * space_pattern
+local powop = Cc("powop") * P("^") * space_pattern
 
-local orop = Cc("orop") * C(P("||")) * space_pattern
-local andop = Cc("andop") * C(P("&&")) * space_pattern
+local orop = Cc("orop") * P("||") * space_pattern
+local andop = Cc("andop") * P("&&") * space_pattern
 
-local eqop = Cc("eqop") * C(P("==")) * space_pattern
-local neqop = Cc("neqop") * C(P("!=")) * space_pattern
+local eqop = Cc("eqop") * P("==") * space_pattern
+local neqop = Cc("neqop") * P("!=") * space_pattern
 
-local lessop = Cc("lessop") * C(P("<")) * space_pattern
-local greatop = Cc("greatop") * C(P(">")) * space_pattern
-local lesseqop = Cc("lesseqop") * C(P("<=")) * space_pattern
-local greateqop = Cc("greateqop") * C(P(">=")) * space_pattern
+local lessop = Cc("lessop") * P("<") * space_pattern
+local greatop = Cc("greatop") * P(">") * space_pattern
+local lesseqop = Cc("lesseqop") * P("<=") * space_pattern
+local greateqop = Cc("greateqop") * P(">=") * space_pattern
 
-local then_mark = Cc("then") * C(P("?")) * space_pattern
-local else_mark = Cc("else") * C(P(":")) * space_pattern
-local factorial = Cc("factorial") * C(P("!")) * space_pattern
-local not_mark = Cc("not") * C(P("!")) * space_pattern
-local radians = Cc("radians") * C(P("r")) * space_pattern
+local then_mark = Cc("then") * P("?") * space_pattern
+local else_mark = Cc("else") * P(":") * space_pattern
+local factorial = Cc("factorial") * P("!") * space_pattern
+local not_mark = Cc("not") * P("!") * space_pattern
+local radians = Cc("radians") * P("r") * space_pattern
 
-local comma = Cc("comma") * C(P(",")) * space_pattern
+local comma = Cc("comma") * P(",") * space_pattern
+
+function evalternary(v1,op1,v2,op2,v3)
+   return pgfluamath.functions.ifthenelse(v1,v2,v3)
+end
+
+function evalbinary(v1,op,v2)
+   if (op == "addop") then return pgfluamath.functions.add(v1,v2)
+   elseif (op == "subop") then return pgfluamath.functions.substract(v1,v2)
+   elseif (op == "mulop") then return pgfluamath.functions.multiply(v1,v2)
+   elseif (op == "divop") then return pgfluamath.functions.divide(v1,v2)
+   elseif (op == "powop") then return pgfluamath.functions.pow(v1,v2)
+   elseif (op == "orop") then return pgfluamath.functions.orPGF(v1,v2)
+   elseif (op == "andop") then return pgfluamath.functions.andPGF(v1,v2)
+   elseif (op == "eqop") then return pgfluamath.functions.equal(v1,v2)
+   elseif (op == "neqop") then return pgfluamath.functions.notequal(v1,v2)
+   elseif (op == "lessop") then return pgfluamath.functions.less(v1,v2)
+   elseif (op == "greatop") then return pgfluamath.functions.greater(v1,v2)
+   elseif (op == "lesseqop") then return pgfluamath.functions.notgreater(v1,v2)
+   elseif (op == "greateqop") then return pgfluamath.functions.notless(v1,v2)
+   end
+end
+
+function evalprefixunary(op,v)
+   if (op == "negop") then return pgfluamath.functions.neg(v)
+   elseif (op == "notmark") then return pgfluamath.functions.notPGF(v)
+   end
+end
+
+function evalpostfixunary(v,op)
+   if (op == "radians") then return pgfluamath.functions.deg(v)
+   elseif (op == "factorial") then return pgfluamath.functions.factorial(v)
+   end
+end
+
 
 local grammar = P {
-   "E",
-   E = Ct(V("T") * ((addop * V("T")) + (subop * V("T")))^0),
-   T = Ct(V("F") * ((mulop * V("F")) + (divop * V("F")))^0),
-   F = Ct(string + float + decimal + integer
-   + (openparen * V("E") * closeparen))
-   + (func * openparen * V("E") * closeparen),
-}
-
-
-local grammar2 = P {
    -- "E" stands for expression
    "ternary_logical_E",
-   ternary_logical_E = Ct(V("logical_or_E") * ( then_mark * V("logical_or_E") * else_mark * V("logical_or_E"))^0),
-   logical_or_E = Ct(V("logical_and_E") * (orop * V("logical_and_E"))^0),
-   logical_and_E = Ct(V("equality_E") * (andop * V("equality_E"))^0),
-   equality_E = Ct(V("relational_E") * 
-		((eqop * V("relational_E")) + (neqop * V("relational_E")))^0),
-   relational_E = Ct(V("additive_E") * ((lessop * V("additive_E")) +
+   ternary_logical_E = Cf(V("logical_or_E") * 
+       Cg( then_mark * V("logical_or_E") * else_mark * V("logical_or_E"))^0,evalternary);
+   logical_or_E = Cf(V("logical_and_E") * Cg(orop * V("logical_and_E"))^0,evalbinary);
+   logical_and_E = Cf(V("equality_E") * Cg(andop * V("equality_E"))^0,evalbinary);
+   equality_E = Cf(V("relational_E") * 
+		Cg((eqop * V("relational_E")) + (neqop * V("relational_E")))^0,evalbinary);
+   relational_E = Cf(V("additive_E") * Cg((lessop * V("additive_E")) +
 				     (greatop * V("additive_E")) +
 				  (lesseqop * V("additive_E")) +
-			       (greateqop * V("additive_E")))^0),
-   additive_E = Ct(V("multiplicative_E") * ((addop * V("multiplicative_E")) + 
-					 (subop * V("multiplicative_E")))^0),
-   multiplicative_E = Ct(V("power_E") * ((mulop * V("power_E")) + 
-				      divop * V("power_E"))^0),
-   power_E = Ct(V("unary_E") * (powop * V("unary_E"))^0),
-   unary_E = Ct((not_mark + negop)^0 * V("E") * 
-	  (radians + factorial)^0),
-   E = string + float + decimal + integer + 
+			       (greateqop * V("additive_E")))^0,evalbinary);
+   additive_E = Cf(V("multiplicative_E") * Cg((addop * V("multiplicative_E")) + 
+					 (subop * V("multiplicative_E")))^0,evalbinary);
+   multiplicative_E = Cf(V("power_E") * Cg((mulop * V("power_E")) + 
+				      divop * V("power_E"))^0,evalbinary);
+   power_E = Cf(V("postfix_unary_E") * Cg(powop * V("postfix_unary_E"))^0,evalbinary);
+   postfix_unary_E = Cf(V("prefix_unary_E") * Cg(radians + factorial)^0,evalpostfixunary);
+   prefix_unary_E = Cf(Cg(not_mark + negop)^0 * V("E"),evalprefixunary),
+   E = string + float + decimal + integer / tonumber + 
       (openparen * V("ternary_logical_E") * closeparen) +
-      (func * openparen * V("ternary_logical_E") * 
-       (comma * V("ternary_logical_E"))^0 * closeparen),
+      (func * param_beg * V("ternary_logical_E") * 
+       (comma * V("ternary_logical_E"))^0 * param_end);
 }
 --]]
 
 local parser = space_pattern * grammar * -1
-local parser2 = space_pattern * grammar2 * -1
 
 function string_to_expr(str)
    lpeg.match(parser,str)
@@ -253,9 +282,6 @@ function showtab (str)
    return
 end
 
-function showtab2 (str)
-   tex.sprint("\\message\{^^J ********** " .. str .. " ******* ^^J\}")
-   tex.sprint("\\message\{" .. 
-	      DumpObject(lpeg.match(parser2,str),"\\space","^^J") .. "\}")
-   return
+function parseandeval(str)
+   return lpeg.match(parser,str)
 end
