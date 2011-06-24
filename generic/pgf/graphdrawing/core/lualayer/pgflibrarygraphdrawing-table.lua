@@ -61,6 +61,25 @@ end
 
 
 
+--- Concatenates the values of two flat tables.
+--
+function table.merge_values(table1, table2, first_metatable)
+  local result = table1 and table.custom_copy(table1) or {}
+  local first_metatable = first_metatable == true or false
+
+  for value in table.value_iter(table2) do
+    table.insert(result, value)
+  end
+  
+  if not first_metatable or not getmetatable(result) then
+    setmetatable(result, getmetatable(table2))
+  end
+
+  return result
+end
+
+
+
 --- Returns the first value in \meta{table} for which \meta{find\_func} returns |true|.
 --
 -- @param table     The table to search in.

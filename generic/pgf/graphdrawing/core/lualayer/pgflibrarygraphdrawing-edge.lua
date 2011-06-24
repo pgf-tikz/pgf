@@ -178,6 +178,52 @@ end
 
 
 
+function Edge:getHead()
+  if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
+    -- undirected edges or edges pointing into both directions do not
+    -- distinguish between head and tail nodes, so we always return the
+    -- first node
+    return self.nodes[1]
+  else
+    -- by default, the head of -> edges is the last node and the head
+    -- of <- edges is the first node
+    local head_index = (self.direction == Edge.RIGHT) and #self.nodes or 1
+
+    -- if the edge should be assumed reversed, we simply switch head and 
+    -- tail positions
+    if not ignore_reversed and self.reversed then
+      head_index = (head_index == 1) and #self.nodes or 1
+    end
+
+    return self.nodes[head_index]
+  end
+end
+
+
+
+function Edge:getTail()
+  if self.direction == Edge.UNDIRECTED or self.direction == Edge.BOTH then
+    -- undirected edges or edges pointing into both directions do not
+    -- distinguish between head and tail nodes, so we always return the
+    -- last node
+    return self.nodes[#self.nodes]
+  else
+    -- by default, the tail of -> edges is the first node and the tail
+    -- of <- edges is the last node
+    local tail_index = (self.direction == Edge.RIGHT) and 1 or #self.nodes
+
+    -- if the edge should be assumed reversed, we simply switch head
+    -- and tail positions
+    if not ignore_reversed and self.reversed then
+      tail_index = (tail_index == 1) and #self.nodes or 1
+    end
+
+    return self.nodes[tail_index]
+  end
+end
+
+
+
 --- Checks whether a node is the head of the edge. Does not work for hyperedges.
 --
 -- This method only works for edges with two adjacent nodes.
@@ -321,11 +367,15 @@ function Edge:__tostring()
     end)
     result = result .. table.concat(node_strings, ', ')
   end
-  return result .. ")"
+  --return result .. ")"
 
-  -- Note: the following line generates a shorter string representation
+  -- Note: the following lines generate a shorter string representation
   -- of the edge that is more readable and can be used for debugging.
   -- So please don't remove this:
   --
-  --return self.nodes[1].name .. ' ' .. self.direction .. ' ' .. self.nodes[2].name .. ' [level ' .. (self.level or 0) .. ']'
+  if self.reversed then
+    return self.nodes[2].name .. ' ' .. self.direction .. ' ' .. self.nodes[1].name
+  else
+    return self.nodes[1].name .. ' ' .. self.direction .. ' ' .. self.nodes[2].name
+  end
 end
