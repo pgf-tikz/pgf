@@ -488,6 +488,25 @@ end
 
 
 
+-- TODO: Jannis: Document this method.
+function table.remove_pairs(input, remove_func)
+  local removals = {}
+
+  for key, value in pairs(input) do
+    if remove_func(key, value) then
+      table.insert(removals, key)
+    end
+  end
+
+  for key in table.value_iter(removals) do
+    input[key] = nil
+  end
+  
+  return input
+end
+
+
+
 --- Removes all values from \meta{input} for which \meta{remove\_func} returns |true|.
 --
 -- Important note: this method does not work with dictionaries. 

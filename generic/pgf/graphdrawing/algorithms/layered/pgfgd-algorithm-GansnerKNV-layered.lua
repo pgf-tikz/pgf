@@ -98,7 +98,7 @@ function GansnerKNVLayered:run()
   self.lim = {}
   self.low = {}
   self.parent_edge = {}
-  self.ranks = {}
+  self.ranking = Ranking:new()
 
   -- rank nodes, that is, assign a layer to each node
   self:rankNodes()
@@ -181,7 +181,7 @@ function GansnerKNVLayered:rankNodes()
 
     Sys:log('replace negative cut edge ' .. tostring(leave_edge) .. ' with ' .. tostring(enter_edge))
     dump_tree(self.tree, 'tree before replacing edges')
-    self:dumpRanks('', 'ranks before replacing edges')
+    self:dumpRanking('', 'ranking before replacing edges')
 
     -- exchange leave_edge and enter_edge in the tree, updating
     -- the ranks and cut values of all nodes
@@ -198,45 +198,8 @@ function GansnerKNVLayered:rankNodes()
   self:balanceRanks()
 
   -- normalize by setting the least rank to zero
-  self:normalizeRanks()
-end
-
-
-
-function GansnerKNVLayered:normalizeRanks()
-  Sys:log('normalize ranks:')
-
-  -- initialize the minimum and maximum rank with unrealistic values
-  local min_rank = #self.graph.nodes
-  local max_rank = -#self.graph.nodes
-
-  -- iterate over all nodes in the graph to find the min/max rank
-  for node in table.value_iter(self.graph.nodes) do
-    min_rank = math.min(min_rank, node.rank)
-    max_rank = math.max(max_rank, node.rank)
-  end
-
-  Sys:log('  min_rank = ' .. min_rank .. ', max_rank = ' .. max_rank)
-
-  -- clear the rank sets
-  self.ranks = {}
-
-  -- update the ranks of all nodes so that they are in the range (1,n)
-  for node in table.value_iter(self.graph.nodes) do
-    Sys:log('  move node ' .. node.name .. ' from rank ' .. node.rank .. ' to ' .. node.rank - (min_rank - 1))
-
-    -- update the rank of the node
-    node.rank = node.rank - (min_rank - 1)
-    
-    -- put the node in the corresponding rank set
-    self.ranks[node.rank] = self.ranks[node.rank] or {}
-    table.insert(self.ranks[node.rank], node)
-  end
-
-  -- make sure the normalization was implemented correctly
-  assert(#self.ranks == max_rank - (min_rank - 1), 'you just found a bug in the rank normalization')
-
-  self:dumpRanks('  ', 'ranks after normalization')
+  self.ranking:normalizeRanks()
+  self:dumpRanking('  ', 'ranking after normalization')
 end
 
 
@@ -255,8 +218,7 @@ function GansnerKNVLayered:balanceRanks()
   -- compute the in and out weights of each node
   for node in table.value_iter(self.graph.nodes) do
     -- assume there are no restrictions on how to rank the node
-    min_rank[node] = 1
-    max_rank[node] = #self.ranks
+    min_rank[node], max_rank[node] = self.ranking:getRankRange()
 
     for edge in table.value_iter(node:getIncomingEdges()) do
       -- accumulate the weights of all incoming edges
@@ -266,7 +228,8 @@ function GansnerKNVLayered:balanceRanks()
       -- the ranks of all parent neighbours plus the minimum level 
       -- separation caused by the connecting edges)
       local neighbour = edge:getNeighbour(node)
-      min_rank[node] = math.max(min_rank[node], neighbour.rank + edge.minimum_levels)
+      local neighbour_rank = self.ranking:getRank(neighbour)
+      min_rank[node] = math.max(min_rank[node], neighbour_rank + edge.minimum_levels)
     end
     
     for edge in table.value_iter(node:getOutgoingEdges()) do
@@ -277,7 +240,8 @@ function GansnerKNVLayered:balanceRanks()
       -- the ranks of all child neighbours minus the minimum level
       -- sparation caused by the connecting edges)
       local neighbour = edge:getNeighbour(node)
-      max_rank[node] = math.min(max_rank[node], neighbour.rank - edge.minimum_levels)
+      local neighbour_rank = self.ranking:getRank(neighbour)
+      max_rank[node] = math.min(max_rank[node], neighbour_rank - edge.minimum_levels)
     end
 
     -- check whether the in- and outweight is the same
@@ -287,25 +251,18 @@ function GansnerKNVLayered:balanceRanks()
       -- check which of the allowed ranks has the least number of nodes
       local min_nodes_rank = min_rank[node]
       for n = min_rank[node] + 1, max_rank[node] do
-        if #self.ranks[n] < #self.ranks[min_nodes_rank] then
+        if #self.ranking:getNodes(n) < #self.ranking:getNodes(min_nodes_rank) then
           min_nodes_rank = n
         end
       end
 
       -- only move the node to the rank with the least number of nodes
       -- if it differs from the current rank of the node
-      if min_nodes_rank ~= node.rank then
-        -- remove the node from its old rank
-        table.remove_values(self.ranks[node.rank], function (other)
-          return other == node
-        end)
-
-        -- change the rank of the node
-        node.rank = min_nodes_rank
-        table.insert(self.ranks[node.rank], node)
+      if min_nodes_rank ~= self.ranking:getRank(node) then
+        self.ranking:setRank(node, min_nodes_rank)
       end
 
-      Sys:log('  move ' .. node.name .. ' to rank ' .. node.rank)
+      Sys:log('  move ' .. node.name .. ' to rank ' .. self.ranking:getRank(node))
     end
   end
 end
@@ -444,17 +401,12 @@ function GansnerKNVLayered:rerankBeforeReplacingEdge(leave_edge, enter_edge)
 
     Sys:log('  rerank ' .. node.name .. ', delta = ' .. delta)
 
-    self:dumpRanks('   ', 'ranks before reranking')
+    self:dumpRanking('   ', 'ranks before reranking')
 
-    table.remove_values(self.ranks[node.original_node.rank], function (other)
-      return other == node.original_node
-    end)
+    local rank = self.ranking:getRank(node.original_node)
+    self.ranking:setRank(node.original_node, rank - delta)
 
-    node.original_node.rank = node.original_node.rank - delta
-    assert(node.original_node.rank >= 1 and node.original_node.rank <= #self.ranks)
-    table.insert(self.ranks[node.original_node.rank], node.original_node)
-
-    self:dumpRanks('   ', 'ranks after reranking')
+    self:dumpRanking('   ', 'ranks after reranking')
 
     local out_edges = node:getOutgoingEdges()
     local in_edges = node:getIncomingEdges()
@@ -471,13 +423,15 @@ end
 
 
 
-function GansnerKNVLayered:dumpRanks(prefix, title)
+function GansnerKNVLayered:dumpRanking(prefix, title)
+  local ranks = self.ranking:getRanks()
   Sys:log(prefix .. title)
-  for n = 1, #self.ranks do
-    Sys:log(prefix .. '  rank ' .. n .. ':')
-    for node in table.value_iter(self.ranks[n]) do
-      Sys:log(prefix .. '    ' .. node.name)
-    end
+  for rank, nodes in pairs(ranks) do
+    local str = prefix .. '  rank ' .. rank .. ':'
+    local str = table.combine_values(nodes, function (str, node)
+      return str .. ' ' .. node.name .. '(' .. self.ranking:getRankPosition(node) .. ')'
+    end, str)
+    Sys:log(str)
   end
 end
 
@@ -489,7 +443,7 @@ function GansnerKNVLayered:findReplacementEdge(leave_edge)
   local v = nil
   local outsearch = false
 
-  Sys:log('find replacement edge for ' .. tostring(leave_edge))
+  --Sys:log('find replacement edge for ' .. tostring(leave_edge))
 
   if self.lim[tail] < self.lim[head] then
     v = tail
@@ -517,7 +471,7 @@ function GansnerKNVLayered:findReplacementEdge(leave_edge)
 
   while #stack > 0 do
     local node, direction = pop()
-    Sys:log('  visit ' .. node.name .. ', direction ' .. direction)
+    --Sys:log('  visit ' .. node.name .. ', direction ' .. direction)
 
     if direction == 'out' then
       local out_edges = node.original_node:getOutgoingEdges()
@@ -540,7 +494,7 @@ function GansnerKNVLayered:findReplacementEdge(leave_edge)
         end
       end
     else
-      Sys:log('  TODO handle \'in\' direction')
+      --Sys:log('  TODO handle \'in\' direction')
     end
   end
 
@@ -569,12 +523,13 @@ end
 function GansnerKNVLayered:constructFeasibleTree()
   self:computeInitialRanking()
 
+  self:dumpRanking('', 'initial ranking')
+
   -- find a maximal tree of tight edges in the graph
   self.tree = self:findTightTree()
   while #self.tree.nodes < #self.graph.nodes do
     dump_tree(self.graph, 'input graph')
     dump_tree(self.tree, 'incomplete feasible tree')
-    self:dumpRanks('', 'ranks before adding a non-tree edge with minimal slack to the tree')
 
     -- find a non-tree edge e incident to the tree, with a minimal amount of slack
     -- delta = slack(e)
@@ -586,9 +541,9 @@ function GansnerKNVLayered:constructFeasibleTree()
     for node in table.value_iter(self.graph.nodes) do
       local out_edges = node:getOutgoingEdges()
       for edge in table.value_iter(out_edges) do
-        Sys:log('  check if ' .. tostring(edge) .. ' is incident to the tree')
+        --Sys:log('  check if ' .. tostring(edge) .. ' is incident to the tree')
         if self:isIncidentToTree(edge) then
-          Sys:log('    it is')
+          --Sys:log('    it is')
           if not min_slack_edge or self:edgeSlack(edge) < self:edgeSlack(min_slack_edge) then
             min_slack_edge = edge
           end
@@ -601,7 +556,7 @@ function GansnerKNVLayered:constructFeasibleTree()
     if min_slack_edge then
       local delta = self:edgeSlack(min_slack_edge)
 
-      Sys:log('  delta = ' .. delta)
+      --Sys:log('  delta = ' .. delta)
 
       if delta > 0 then
         local head = min_slack_edge:getHead()
@@ -614,11 +569,13 @@ function GansnerKNVLayered:constructFeasibleTree()
         Sys:log('  delta = ' .. delta)
 
         for node in table.value_iter(self.tree.nodes) do
-          node.original_node.rank = node.original_node.rank + delta
-          Sys:log('  set rank of ' .. node.name .. ' from ' .. node.original_node.rank - delta .. ' to ' .. node.original_node.rank)
+          local rank = self.ranking:getRank(node.original_node)
+          Sys:log('  set rank of ' .. node.name .. ' from ' .. rank .. ' to ' .. rank + delta)
+          self.ranking:setRank(node.original_node, rank + delta)
+          self:dumpRanking('    ', 'ranking after that')
         end
 
-        self:normalizeRanks()
+        self.ranking:normalizeRanks()
       end
     end
 
@@ -626,6 +583,7 @@ function GansnerKNVLayered:constructFeasibleTree()
     
     dump_tree(self.tree, '(possibly incomplete) feasible tree after making ' .. tostring(min_slack_edge) .. ' tight')
     Sys:log('slack(' .. tostring(min_slack_edge) .. ') = ' .. self:edgeSlack(min_slack_edge))
+    self:dumpRanking('', 'ranking after adding a non-tree edge with minimal slack to the tree')
   end
 
   self:initializeCutValues()
@@ -634,7 +592,7 @@ end
 
 
 function GansnerKNVLayered:findTightTree(ranks)
-  Sys:log('find tight tree:')
+  --Sys:log('find tight tree:')
 
   -- stack of nodes to visit next
   local stack = {}
@@ -650,7 +608,7 @@ function GansnerKNVLayered:findTightTree(ranks)
   -- as soon as we have found one such spanning tree that is 
   -- non-empty
   for node in table.value_iter(self.graph.nodes) do
-    Sys:log('  test with start node ' .. node.name)
+    --Sys:log('  test with start node ' .. node.name)
 
     -- create an empty spanning tree
     tree = Graph:new()
@@ -687,17 +645,17 @@ function GansnerKNVLayered:findTightTree(ranks)
       local node = pop()
       local tree_node = tree_nodes[node]
 
-      Sys:log('    visit ' .. node.name)
+      --Sys:log('    visit ' .. node.name)
 
       -- iterate over all outgoing edges
       for edge in table.value_iter(node:getOutgoingEdges()) do
         local neighbour = edge:getNeighbour(node)
         local tree_neighbour = tree_nodes[neighbour]
 
-        Sys:log('      edge to neighbour ' .. neighbour.name .. ' has slack ' .. self:edgeSlack(edge))
+        --Sys:log('      edge to neighbour ' .. neighbour.name .. ' has slack ' .. self:edgeSlack(edge))
 
         if not tree_neighbour.marked and self:edgeSlack(edge) == 0 then
-          Sys:log('          queue ' .. neighbour.name)
+          --Sys:log('          queue ' .. neighbour.name)
 
           -- add the edge to the tree
           local edge_copy = edge:copy()
@@ -727,10 +685,10 @@ function GansnerKNVLayered:findTightTree(ranks)
         local neighbour = edge:getNeighbour(edge)
         local tree_neighbour = tree_nodes[neighbour]
 
-        Sys:log('      edge from neighbour ' .. neighbour.name .. ' has slack ' .. self:edgeSlack(edge))
+        --Sys:log('      edge from neighbour ' .. neighbour.name .. ' has slack ' .. self:edgeSlack(edge))
 
         if not tree_neighbour.marked and self:edgeSlack(edge) == 0 then
-          Sys:log('        queue ' .. neighbour.name)
+          --Sys:log('        queue ' .. neighbour.name)
 
           -- add the edge to the tree
           local edge_copy = edge:copy()
@@ -781,7 +739,9 @@ end
 
 
 function GansnerKNVLayered:edgeSlack(edge)
-  local length = math.abs(edge.nodes[1].rank - edge.nodes[2].rank)
+  local rank1 = self.ranking:getRank(edge.nodes[1])
+  local rank2 = self.ranking:getRank(edge.nodes[2])
+  local length = math.abs(rank2 - rank1)
   return length - edge.minimum_levels
 end
 
@@ -884,14 +844,14 @@ function GansnerKNVLayered:initializeCutValues()
   -- of a split-up edge
   self.lim, self.low, self.parent_edge = self:calculateDFSRange(self.tree.nodes[1])
 
-  for key, val in pairs(self.lim)do
-    Sys:log('node ' .. key.name .. ' low/lim = ' .. self.low[key] .. '/' .. self.lim[key])
-  end
+  --for key, val in pairs(self.lim)do
+  --  Sys:log('node ' .. key.name .. ' low/lim = ' .. self.low[key] .. '/' .. self.lim[key])
+  --end
 
   -- list of nodes to be visited next
   local stack = {}
 
-  -- state information for the nodes
+  -- state information for nodes in the DFS search
   local discovered = {}
   local visited = {}
   local completed = {}
@@ -910,7 +870,7 @@ function GansnerKNVLayered:initializeCutValues()
     local node = peek()
 
     if visited[node] then
-      Sys:log('complete ' .. node.name)
+      --Sys:log('complete ' .. node.name)
 
       completed[node] = true
       pop()
@@ -919,7 +879,7 @@ function GansnerKNVLayered:initializeCutValues()
         self:updateCutValue(self.parent_edge[node])
       end
     else
-      Sys:log('visit ' .. node.name)
+      --Sys:log('visit ' .. node.name)
 
       visited[node] = true
 
@@ -939,10 +899,10 @@ function GansnerKNVLayered:initializeCutValues()
     end
   end
 
-  Sys:log('cut values:')
-  for edge in table.value_iter(self.tree.edges) do
-    Sys:log('  ' .. tostring(edge) .. ' cut value ' .. edge.cut_value)
-  end
+  --Sys:log('cut values:')
+  --for edge in table.value_iter(self.tree.edges) do
+  --  Sys:log('  ' .. tostring(edge) .. ' cut value ' .. edge.cut_value)
+  --end
 end
 
 
@@ -1091,12 +1051,12 @@ function GansnerKNVLayered:computeInitialRanking()
   local ranked_neighbours = {}
 
   -- convenience functions for managing the queue
-  function enqueue(node) table.insert(queue, node) end
-  function dequeue() return table.remove(queue, 1) end
+  local function enqueue(node) table.insert(queue, node) end
+  local function dequeue() return table.remove(queue, 1) end
 
   -- function to move unranked nodes to the queue if they have no
   -- unscanned incoming edges
-  function update_queue(node)
+  local function update_queue(node)
     -- check all nodes yet to be ranked
     for edge in table.value_iter(node:getOutgoingEdges()) do
       local neighbour = edge:getNeighbour(node)
@@ -1115,6 +1075,7 @@ function GansnerKNVLayered:computeInitialRanking()
   -- reset the two-dimensional mapping from ranks to lists 
   -- of corresponding nodes
   self.ranks = {}
+  self.ranking:reset()
 
   -- invalidate the ranks of all nodes
   for node in table.value_iter(self.graph.nodes) do
@@ -1154,6 +1115,9 @@ function GansnerKNVLayered:computeInitialRanking()
     self.ranks[node.rank] = self.ranks[node.rank] or {}
     table.insert(self.ranks[node.rank], node)
 
+    -- rank the node
+    self.ranking:setRank(node, rank)
+
     -- queue neighbours of nodes for which all incoming edges have
     -- been scanned
     --
@@ -1167,7 +1131,304 @@ end
 
 
 function GansnerKNVLayered:reduceEdgeCrossings()
+  self:dumpRanking('', 'ranking after creating dummy nodes')
+
+  self:computeInitialRankOrdering()
+
+  local best_ranking = self.ranking:copy()
+
+  for iteration in iter.times(24) do
+    local direction = (iteration % 2 == 0) and 'down' or 'up'
+
+    self:orderByWeightedMedian(direction)
+    self:transpose(direction)
+
+    Sys:log('self.ranking = ' .. tostring(self.ranking) .. ', best_ranking = ' .. tostring(best_ranking))
+
+    if self:countRankCrossings(self.ranking) < self:countRankCrossings(best_ranking) then
+      best_ranking = self.ranking:copy()
+    end
+  end
+
+  self.ranking = best_ranking:copy()
+end
+
+
+
+function GansnerKNVLayered:computeInitialRankOrdering()
+  Sys:log('compute initial rank ordering:')
+
+  -- DFS stack of nodes to be visited next
+  local stack = {}
+
+  -- state information for nodes in the DFS search
+  local visited = {}
+
+  -- convenience functions for managing the DFS stack
+  local function push(node) table.insert(stack, node) end
+  local function pop() return table.remove(stack) end
+
+  -- clear the rank sets
+  self.ranks = {}
+
+  -- visit all sourcs of the graph first
+  for node in table.value_iter(self.graph.nodes) do
+    if node:getInDegree() == 0 then
+      push(node)
+      visited[node] = true
+    end
+  end
+
+  -- reverse the stack order so that the source with lowest 
+  -- index is visited first
+  stack = table.reverse_values(stack)
+
+  while #stack > 0 do
+    local node = pop()
+
+    --Sys:log('  visit ' .. node.name)
+
+    self.ranks[node.rank] = self.ranks[node.rank] or {}
+    table.insert(self.ranks[node.rank], node)
+    node.rank_position = #self.ranks[node.rank]
+
+    --Sys:log('    append to rank ' .. self.ranking:getRank(node))
+    --Sys:log('      at pos ' .. self.ranking:getRankSize(self.ranking:getRank(node)))
+    local rank = self.ranking:getRank(node)
+    local pos = self.ranking:getRankSize(rank)
+    self.ranking:setRankPosition(node, pos)
+
+    for edge in table.value_iter(node:getOutgoingEdges()) do
+      local neighbour = edge:getNeighbour(node)
+      if not visited[neighbour] then
+        push(neighbour)
+        visited[neighbour] = true
+      end
+    end
+  end
+
+  self:dumpRanking('  ', 'ranking after initial ordering')
+end
+
+
+
+function GansnerKNVLayered:orderByWeightedMedian(direction)
+  Sys:log('order by weighted median (' .. direction .. ')')
+
+  local median = {}
+
+  local function compare_median(node, other)
+    return (median[node] - median[other]) > 0
+  end
+
+  self:dumpRanking('  ', ' ranks before applying the median')
+
+  if direction == 'down' then
+    local min_rank, max_rank = self.ranking:getRankRange()
+
+    for rank = min_rank + 1, max_rank do
+      median = {}
+      for node in table.value_iter(self.ranking:getNodes(rank)) do
+        median[node] = self:computeMedianPosition(node, rank-1)
+      end
+      -- TODO we need our own sorting mechanism here that
+      -- (a) keeps fixed nodes in their positions
+      -- (b) updates the rank_position member as nodes switch positions
+      table.sort(self.ranking:getNodes(rank), compare_median)
+    end
+  else
+    local min_rank, max_rank = self.ranking:getRankRange()
+
+    for rank = max_rank-1, min_rank, -1 do
+      median = {}
+      for node in table.value_iter(self.ranking:getNodes(rank)) do
+        median[node] = self:computeMedianPosition(node, rank+1)
+      end
+      -- TODO we need our own sorting mechanism here that
+      -- (a) keeps fixed nodes in their positions
+      -- (b) updates the rank_position member as nodes switch positions
+      table.sort(self.ranking:getNodes(rank), compare_median)
+    end
+  end
+
+  self:dumpRanking('  ', ' ranks after applying the median')
+end
+
+
+
+function GansnerKNVLayered:computeMedianPosition(node, prev_rank)
+  --Sys:log('  compute median position of ' .. node.name .. ' (prev_rank = ' .. prev_rank .. '):')
+
+  local in_edges = table.filter_values(node.edges, function (edge)
+    return edge:getNeighbour(node).rank == prev_rank
+  end)
+
+  local positions = table.map_values(in_edges, function (edge)
+    return edge:getNeighbour(node).rank_position
+  end)
+
+  table.sort(positions)
+
+  --Sys:log('    positions = ' .. table.concat(positions, ', '))
+
+  local median = math.ceil(#positions / 2)
+
+  --Sys:log('    median = ' .. median)
+
+  local position = -1
+
+  if #positions > 0 then
+    if #positions % 2 == 1 then
+      position = positions[median]
+    elseif #positions == 2 then
+      return (positions[1] + positions[2]) / 2
+    else
+      local left = positions[median-1] - positions[1]
+      local right = positions[#positions] - positions[median]
+      --Sys:log('    left = ' .. left .. ', right = ' .. right)
+      position = (positions[median-1] * right + positions[median] * left) / (left + right)
+    end
+  end
+
+  --Sys:log('    position = ' .. position)
+
+  return position
+end
+
+
+
+function GansnerKNVLayered:transpose(sweep_direction)
+  Sys:log('transpose (sweep direction ' .. sweep_direction .. ')')
+
+  local function transpose_rank(rank)
+    local improved = false
+
+    for i = 1, #self.ranks[rank]-1 do
+      local v = self.ranks[rank][i]
+      local w = self.ranks[rank][i+1]
+
+      local cn_vw = self:countNodeCrossings(v, w, sweep_direction)
+      local cn_wv = self:countNodeCrossings(v, w, sweep_direction)
+
+      if cn_vw > cn_wv then
+        improved = true
+        self:switchNodePositions(v, w)
+
+        self:dumpRanking('    ', 'ranks after switching positions')
+      end
+    end
+
+    return improved
+  end
+
+  local improved = false
+  repeat
+    if sweep_direction == 'down' then
+      for rank = 1, #self.ranks-1 do
+        improved = transpose_rank(rank)
+      end
+    else
+      for rank = #self.ranks-1, 1, -1 do
+        improved = transpose_rank(rank)
+      end
+    end
+  until not improved
+end
+
+
+
+function GansnerKNVLayered:countNodeCrossings(left_node, right_node, sweep_direction)
+  Sys:log('  count crossings of (' .. left_node.name .. ', ' .. right_node.name .. ') (sweep direction ' .. sweep_direction .. ')')
+
+  local left_edges = {}
+  local right_edges = {}
+
+  if sweep_direction == 'down' then
+    left_edges = left_node:getIncomingEdges()
+    right_edges = right_node:getIncomingEdges()
+  else
+    left_edges = left_node:getOutgoingEdges()
+    right_edges = right_node:getOutgoingEdges()
+  end
   
+  local crossings = 0
+
+  for left_edge in table.value_iter(left_edges) do
+    local left_neighbour = left_edge:getNeighbour(left_node)
+
+    for right_edge in table.value_iter(right_edges) do
+      local right_neighbour = right_edge:getNeighbour(right_node)
+
+      Sys:log('    check crossing with (' .. left_neighbour.name .. ' at ' .. left_neighbour.rank_position .. ', ' .. right_neighbour.name .. ' at ' .. right_neighbour.rank_position .. ')')
+
+      local neighbour_diff = right_neighbour.rank_position - left_neighbour.rank_position
+
+      if neighbour_diff < 0 then
+        Sys:log('      edges cross, crossings += 1')
+        crossings = crossings + 1
+      end
+    end
+  end
+
+  Sys:log('    ' .. crossings .. ' crossings')
+
+  return crossings
+end
+
+
+
+function GansnerKNVLayered:switchNodePositions(left_node, right_node)
+  Sys:log('    switch positions of ' .. left_node.name .. ' and ' .. right_node.name)
+
+  assert(left_node.rank == right_node.rank)
+  assert(left_node.rank_position < right_node.rank_position)
+
+  table.remove(self.ranks[left_node.rank], left_node.rank_position)
+  table.insert(self.ranks[left_node.rank], left_node.rank_position, right_node)
+
+  table.remove(self.ranks[left_node.rank], right_node.rank_position)
+  table.insert(self.ranks[left_node.rank], right_node.rank_position, left_node)
+
+  local left_pos = left_node.rank_position
+  left_node.rank_position = right_node.rank_position
+  right_node.rank_position = left_pos
+
+  for n = 1, #self.ranks[left_node.rank] do
+    assert(self.ranks[left_node.rank][n].rank_position == n)
+  end
+end
+
+
+
+function GansnerKNVLayered:countRankCrossings(ranking)
+  local crossings = 0
+
+  local min_rank, max_rank = ranking:getRankRange()
+  
+  for rank = min_rank+1, max_rank do
+    local nodes = ranking:getNodes(rank)
+    for i = 1, #nodes-1 do
+      local v = nodes[i]
+      local w = nodes[i+1]
+
+      local cn_vw = self:countNodeCrossings(v, w, 'down')
+
+      crossings = crossings + cn_vw
+    end
+  end
+
+  --for rank = 2, #ranks do
+  --  for i = 1, #ranks[rank]-1 do
+  --    local v = ranks[rank][i]
+  --    local w = ranks[rank][i+1]
+
+  --    local cn_vw = self:countNodeCrossings(v, w, 'down')
+
+  --    crossings = crossings + cn_vw
+  --  end
+  --end
+
+  return crossings
 end
 
 
@@ -1206,6 +1467,8 @@ function GansnerKNVLayered:insertDummyNodes()
           self.graph:addNode(dummy)
 
           table.insert(self.ranks[dummy.rank], dummy)
+
+          self.ranking:setRank(dummy, rank)
 
           table.insert(self.dummy_nodes, dummy)
           table.insert(edge.bend_nodes, dummy)
@@ -1280,17 +1543,16 @@ end
 function GansnerKNVLayered:computeCoordinates()
   -- TODO this is a temporary algorithm used for debugging
   
-  local rank_x = {}
+  for rank = 1, #self.ranks do
+    local x = 0
+    for node in table.value_iter(self.ranks[rank]) do
+      node.pos:set{x = x * self.sibling_distance}
+      x = x + 1
+    end
+  end
 
   for node in table.value_iter(self.graph.nodes) do
-    if rank_x[node.rank] then
-      rank_x[node.rank] = rank_x[node.rank] + 1
-    else
-      rank_x[node.rank] = 0
-    end
-
     node.pos:set{
-      x = rank_x[node.rank] * self.sibling_distance,
       y = - node.rank * self.level_distance,
     }
   end
@@ -1305,12 +1567,12 @@ end
 
 function dump_tree(tree, name)
   Sys:log(name .. ':')
-  for node in table.value_iter(tree.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    edge ' .. tostring(edge))
-    end
-  end
+  --for node in table.value_iter(tree.nodes) do
+  --  --Sys:log('  node ' .. node.name)
+  --  --for edge in table.value_iter(node.edges) do
+  --  --  Sys:log('    edge ' .. tostring(edge))
+  --  --end
+  --end
   for edge in table.value_iter(tree.edges) do
     Sys:log('  edge ' .. tostring(edge))
   end

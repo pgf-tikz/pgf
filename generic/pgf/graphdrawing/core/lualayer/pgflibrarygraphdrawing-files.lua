@@ -34,6 +34,7 @@ local files = {
    "orientation",
    "positioning-helpers",
    "texboxregister",
+   "ranking",
 --   "test-path",
 --   "test-box",
 --   "test-vector",
