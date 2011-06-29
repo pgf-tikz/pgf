@@ -168,12 +168,8 @@ end
 
 
 function Ranking:normalizeRanks()
-  Sys:log('ranking: normalize ranks')
-
   -- get the minimum and maximum rank
   local min_rank, max_rank = self:getRankRange()
-
-  Sys:log('  min_rank = ' .. min_rank .. ', max_rank = ' .. max_rank)
 
   -- reset rank sets
   self.rank_to_nodes = {}
@@ -182,8 +178,6 @@ function Ranking:normalizeRanks()
   for node in table.key_iter(self.position_in_rank) do
     local rank, pos = self:getNodeInfo(node)
     local new_rank = rank - (min_rank - 1)
-
-    Sys:log('  rank_to_nodes[' .. new_rank .. '][' .. pos .. '] = ' .. node.name)
 
     self.rank_to_nodes[new_rank] = self.rank_to_nodes[new_rank] or {}
     self.rank_to_nodes[new_rank][pos] = node
@@ -220,4 +214,84 @@ end
 function Ranking:getNumberOfRanks()
   local min_rank, max_rank = self:getRankRange()
   return max_rank - min_rank + 1
+end
+
+
+
+function Ranking:switchPositions(left_node, right_node)
+  local left_rank = self.node_to_rank[left_node]
+  local right_rank = self.node_to_rank[right_node]
+
+  assert(left_rank == right_rank, 'only positions of nodes in the same rank can be switched')
+
+  local left_pos = self.position_in_rank[left_node]
+  local right_pos = self.position_in_rank[right_node]
+
+  self.rank_to_nodes[left_rank][left_pos] = right_node
+  self.rank_to_nodes[left_rank][right_pos] = left_node
+
+  self.position_in_rank[left_node] = right_pos
+  self.position_in_rank[right_node] = left_pos
+end
+
+
+
+function Ranking:reorderRank(rank, get_index_func, is_fixed_func)
+  self:reorderTable(self.rank_to_nodes[rank], get_index_func, is_fixed_func)
+
+  for n = 1, #self.rank_to_nodes[rank] do
+    self.position_in_rank[self.rank_to_nodes[rank][n]] = n
+  end
+end
+
+
+
+function Ranking:reorderTable(input, get_index_func, is_fixed_func)
+  -- collect all allowed indices
+  local allowed_indices = {}
+  for n = 1, #input do
+    if not is_fixed_func(n, input[n]) then
+      table.insert(allowed_indices, n)
+    end
+  end
+
+  -- collect all desired indices; for each of these desired indices,
+  -- remember by which element it was requested
+  local desired_to_real_indices = {}
+  local sort_indices = {}
+  for n = 1, #input do
+    if not is_fixed_func(n, input[n]) then
+      local index = get_index_func(n, input[n])
+      if not desired_to_real_indices[index] then
+        desired_to_real_indices[index] = {}
+        table.insert(sort_indices, index)
+      end
+      table.insert(desired_to_real_indices[index], n)
+    end
+  end
+
+  -- sort the desired indices
+  table.sort(sort_indices)
+
+  -- compute the final indices by counting the final indices generated
+  -- prior to the current one and by mapping this number to the allowed
+  -- index with the same number
+  local final_indices = {}
+  local n = 1
+  for index in table.value_iter(sort_indices) do
+    local real_indices = desired_to_real_indices[index]
+    for real_index in table.value_iter(real_indices) do
+      final_indices[real_index] = allowed_indices[n]
+      n = n + 1
+    end
+  end
+
+  -- flat-copy the input table so that we can still access the elements
+  -- using their real index while overwriting the input table in-place
+  local input_copy = table.custom_copy(input)
+
+  -- move flexible elements to their final indices
+  for old_index, new_index in pairs(final_indices) do
+    input[new_index] = input_copy[old_index]
+  end
 end
