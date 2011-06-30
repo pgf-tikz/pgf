@@ -235,7 +235,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
     if direction == 'out' then
       local out_edges = self.orig_node[node]:getOutgoingEdges()
 
-      for edge in table.value_iter(out_edges) do
+      for edge in table.reverse_value_iter(out_edges) do
         local edge_head = edge:getHead()
 
         if not self.tree_edge[edge] then
@@ -516,7 +516,8 @@ function NetworkSimplex:findTightTree(ranks)
       --Sys:log('    visit ' .. node.name)
 
       -- iterate over all outgoing edges
-      for edge in table.value_iter(node:getOutgoingEdges()) do
+      local out_edges = node:getOutgoingEdges()
+      for edge in table.reverse_value_iter(out_edges) do
         local neighbour = edge:getNeighbour(node)
         local tree_neighbour = tree_nodes[neighbour]
 
@@ -549,7 +550,8 @@ function NetworkSimplex:findTightTree(ranks)
       end
 
       -- iterate over all incoming edges
-      for edge in table.value_iter(node:getIncomingEdges()) do
+      local in_edges = node:getIncomingEdges()
+      for edge in table.reverse_value_iter(in_edges) do
         local neighbour = edge:getNeighbour(edge)
         local tree_neighbour = tree_nodes[neighbour]
 
@@ -677,10 +679,10 @@ function NetworkSimplex:initializeCutValues()
 
       visited[node] = true
 
-      local in_edges = node:getIncomingEdges()
-      local out_edges = node:getOutgoingEdges()
+      local in_edges = table.reverse_values(node:getIncomingEdges())
+      local out_edges = table.reverse_values(node:getOutgoingEdges())
       
-      local edges = table.reverse_values(table.merge_values(out_edges, in_edges))
+      local edges = table.merge_values(out_edges, in_edges)
 
       for edge in table.value_iter(edges) do
         local neighbour = edge:getNeighbour(node)
@@ -745,9 +747,9 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
       completed[node] = true
       pop()
 
-      local out_edges = node:getOutgoingEdges()
       local in_edges = node:getIncomingEdges()
-      local edges = table.reverse_values(table.merge_values(out_edges, in_edges))
+      local out_edges = node:getOutgoingEdges()
+      local edges = table.merge_values(out_edges, in_edges)
 
       -- remove edges to nodes already completed
       edges = table.filter_values(edges, function (edge)
@@ -766,16 +768,15 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
           return math.min(value, low[neighbour])
         end, #self.tree.nodes)
       end
-
     else
       visited[node] = true
 
       local in_edges = node:getIncomingEdges()
       local out_edges = node:getOutgoingEdges()
       
-      local edges = table.reverse_values(table.merge_values(out_edges, in_edges))
+      local edges = table.merge_values(in_edges, out_edges)
 
-      for edge in table.value_iter(edges) do
+      for edge in table.reverse_value_iter(edges) do
         local neighbour = edge:getNeighbour(node)
         if not discovered[neighbour] then
           push(neighbour)
@@ -955,9 +956,9 @@ function NetworkSimplex:rerankBeforeReplacingEdge(leave_edge, enter_edge)
 
     local out_edges = node:getOutgoingEdges()
     local in_edges = node:getIncomingEdges()
-    local edges = table.merge_values(out_edges, in_edges)
+    local edges = table.merge_values(in_edges, out_edges)
 
-    for edge in table.value_iter(edges) do
+    for edge in table.reverse_value_iter(edges) do
       local other = edge:getNeighbour(node)
       if edge ~= self.parent_edge[node] then
         push(other, delta)

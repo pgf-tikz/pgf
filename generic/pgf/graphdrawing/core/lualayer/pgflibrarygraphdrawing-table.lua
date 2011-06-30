@@ -420,6 +420,22 @@ end
 
 
 
+--- Iterates over all values of a flat table or array in reverse order.
+function table.reverse_value_iter(input)
+  local index = #input
+  return function ()
+    if index <= 0 then
+      return nil
+    else
+      local value = input[index]
+      index = index - 1
+      return value
+    end
+  end
+end
+
+
+
 --- Iterate over the values of \meta{table} in a truely random order.
 --
 -- @param table The table whose values to iterate over.
