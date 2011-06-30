@@ -35,6 +35,7 @@ local files = {
    "positioning-helpers",
    "texboxregister",
    "ranking",
+   "network-simplex",
 --   "test-path",
 --   "test-box",
 --   "test-vector",
