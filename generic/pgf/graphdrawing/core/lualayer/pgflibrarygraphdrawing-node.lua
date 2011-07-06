@@ -82,7 +82,7 @@ end
 -- @return Width of the node.
 --
 function Node:getTexWidth()
-	return self.tex.maxX - self.tex.minX
+	return math.abs(self.tex.maxX - self.tex.minX)
 end
 
 
@@ -92,7 +92,7 @@ end
 -- @return Height of the node.
 --
 function Node:getTexHeight()
-  return self.tex.maxY - self.tex.minY
+  return math.abs(self.tex.maxY - self.tex.minY)
 end
 
 

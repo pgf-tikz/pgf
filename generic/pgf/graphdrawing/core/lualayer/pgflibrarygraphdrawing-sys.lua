@@ -98,7 +98,7 @@ end
 --  @param posY    Y coordinate where to put the node in the output.
 --
 function Sys:putTeXBox(node, texnode, minX, minY, maxX, maxY, posX, posY)
-  tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%s}{%s}{%s}{%s}{%s}{%s}{%s}",
+  tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
    	        Sys:escapeTeXNodeName(node.name),
    	        minX, maxX,
    	        minY, maxY,
