@@ -61,7 +61,12 @@ end
 
 
 function Ranking:getRanks()
-  return self.rank_to_nodes
+  local ranks = {}
+  for rank, nodes in pairs(self.rank_to_nodes) do
+    table.insert(ranks, rank)
+  end
+  table.sort(ranks)
+  return ranks
 end
 
 
@@ -113,6 +118,10 @@ function Ranking:setRank(node, new_rank)
     table.remove(self.rank_to_nodes[rank], pos)
     self.node_to_rank[node] = nil
     self.position_in_rank[node] = nil
+
+    if #self.rank_to_nodes[rank] == 0 then
+      self.rank_to_nodes[rank] = nil
+    end
   end
 
   if new_rank then
@@ -168,10 +177,17 @@ end
 
 
 function Ranking:normalizeRanks()
-  -- get the minimum and maximum rank
-  local min_rank, max_rank = self:getRankRange()
+  Sys:log('normalize ranks:')
 
-  -- reset rank sets
+  -- get the current ranks
+  local ranks = self:getRanks()
+
+  local min_rank = ranks[1]
+  local max_rank = ranks[#ranks]
+
+  Sys:log('  min_rank = ' .. min_rank .. ', max_rank = ' .. max_rank)
+
+  -- clear ranks
   self.rank_to_nodes = {}
 
   -- iterate over all nodes and rerank them manually
@@ -179,41 +195,13 @@ function Ranking:normalizeRanks()
     local rank, pos = self:getNodeInfo(node)
     local new_rank = rank - (min_rank - 1)
 
+    Sys:log('    rerank ' .. node.name .. ' from ' .. rank .. ' to ' .. new_rank)
+    
     self.rank_to_nodes[new_rank] = self.rank_to_nodes[new_rank] or {}
     self.rank_to_nodes[new_rank][pos] = node
 
     self.node_to_rank[node] = new_rank
   end
-
-  -- drop all empty ranks (assuming that no empty intermediate ranks exist)
-  table.remove_pairs(self.rank_to_nodes, function (rank, nodes)
-    return #nodes == 0
-  end)
-end
-
-
-
-function Ranking:getRankRange()
-  -- initialize the minimum and maximum rank with unrealistic values
-  local min_rank = math.huge
-  local max_rank = -math.huge
-
-  -- iterate over all ranks in the graph to find the min/max non-empty rank
-  for rank, nodes in pairs(self.rank_to_nodes) do
-    if #nodes > 0 then
-      min_rank = math.min(min_rank, rank)
-      max_rank = math.max(max_rank, rank)
-    end
-  end
-
-  return min_rank, max_rank
-end
-
-
-
-function Ranking:getNumberOfRanks()
-  local min_rank, max_rank = self:getRankRange()
-  return max_rank - min_rank + 1
 end
 
 
