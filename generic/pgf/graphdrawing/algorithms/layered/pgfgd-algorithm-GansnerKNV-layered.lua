@@ -75,8 +75,6 @@ end
 
 
 function GansnerKNVLayered:run()
-  Sys:setVerbose(false)
-
   self:preprocess()
 
   -- rank nodes, that is, assign a layer to each node
@@ -165,8 +163,6 @@ end
 
 function GansnerKNVLayered:reduceEdgeCrossings()
   self:dumpRanking('', 'ranking after creating dummy nodes')
-
-  Sys:setVerbose(true)
 
   self:computeInitialRankOrdering()
 
@@ -547,6 +543,7 @@ function GansnerKNVLayered:insertDummyNodes()
           local dummy = Node:new{
             pos = Vector:new({ 0, 0 }),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
+            is_dummy = true,
           }
           
           dummy_id = dummy_id + 1
@@ -588,8 +585,6 @@ function GansnerKNVLayered:insertDummyNodes()
   for edge in table.value_iter(self.original_edges) do
     self.graph:deleteEdge(edge)
   end
-
-  dump_tree(self.graph, 'GRAPH WITH DUMMY NODES')
 end
 
 
@@ -623,8 +618,6 @@ function GansnerKNVLayered:removeDummyNodes()
     -- clear the list of bend nodes
     edge.bend_nodes = {}
   end
-
-  dump_tree(self.graph, 'FINAL GRAPH')
 end
 
 
@@ -649,58 +642,12 @@ function GansnerKNVLayered:computeCoordinates()
       Sys:log('position ' .. node.name .. ' at:')
       node.pos:set{
         x = x_ranking:getRank(node.aux_node),
-        --x = x * self.sibling_distance,
         y = -rank * self.level_distance
       }
       Sys:log('  ' .. tostring(node.pos))
       x = x + 1
     end
   end
-
-  --local last_x = {}
-  --for rank_index = #ranks, 2, -1 do
-  --  local rank = ranks[rank_index]
-  --  local nodes = self.ranking:getNodes(rank)
-  --
-  --  for node in table.value_iter(nodes) do
-  --    local min_x = 0
-  --    if last_x[rank] then
-  --      min_x = last_x[rank] + self.sibling_distance
-  --    end
-  --
-  --    local in_edges = node:getIncomingEdges()
-  --
-  --    local neighbours = table.map_values(in_edges, function (edge)
-  --      return edge:getNeighbour(node)
-  --    end)
-  --    local prev_rank_neighbours = table.filter_values(neighbours, function (neighbour)
-  --      return self.ranking:getRank(neighbour) == ranks[rank_index-1]
-  --    end)
-  --
-  --    if #prev_rank_neighbours > 0 then
-  --      --local str = table.combine_values(prev_rank_neighbours, function (str, node)
-  --      --  return str .. ' ' .. node.name
-  --      --end, '')
-  --      --Sys:log('prev rank neighbours of node ' .. node.name .. ':' .. str)
-  --
-  --      local pos = table.combine_values(prev_rank_neighbours, function (pos, node)
-  --        return pos + self.ranking:getRankPosition(node)
-  --      end, 0)
-  --
-  --      pos = pos / #prev_rank_neighbours
-  --
-  --      node.pos:set{
-  --        x = math.max(pos * self.sibling_distance, min_x)
-  --      }
-  --    else
-  --      node.pos:set{
-  --        x = math.max(self.ranking:getRankPosition(node) * self.sibling_distance, min_x)
-  --      }
-  --    end
-
-  --    last_x[rank] = node.pos:x()
-  --  end
-  --end
 end
 
 
