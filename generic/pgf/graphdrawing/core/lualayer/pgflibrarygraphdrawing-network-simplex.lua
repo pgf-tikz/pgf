@@ -790,23 +790,34 @@ end
 
 
 
--- Jannis: This function works correctly.
+-- Jannis: This function works correctly even with the iterative
+-- solution implemented below.
 function NetworkSimplex:rerank(node, delta)
-  local orig_node = self.orig_node[node]
-  
-  self.ranking:setRank(orig_node, self.ranking:getRank(orig_node) - delta)
-  
-  for edge in table.value_iter(node:getOutgoingEdges()) do
-    if edge ~= self.parent_edge[node] then
-      self:rerank(edge:getHead(), delta)
+  local function init(search)
+    search:push({ node = node, delta = delta })
+  end
+
+  local function visit(search, data)
+    search:setVisited(data, true)
+
+    local orig_node = self.orig_node[data.node]
+    self.ranking:setRank(orig_node, self.ranking:getRank(orig_node) - data.delta)
+
+    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+      if edge ~= self.parent_edge[data.node] then
+        search:push({ node = edge:getTail(), delta = data.delta })
+      end
+    end
+
+    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+      if edge ~= self.parent_edge[data.node] then
+        search:push({ node = edge:getHead(), delta = data.delta })
+      end
     end
   end
-  
-  for edge in table.value_iter(node:getIncomingEdges()) do
-    if edge ~= self.parent_edge[node] then
-      self:rerank(edge:getTail(), delta)
-    end
-  end
+
+  local search = DepthFirstSearch:new(self.tree, init, visit)
+  search:run()
 end
 
 

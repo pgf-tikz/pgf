@@ -14,6 +14,7 @@
 local files = {
    "module",
    "table",
+   "stack",
    "iter",
    "string",
    "sys",
@@ -24,6 +25,7 @@ local files = {
    "node",
    "edge",
    "graph",
+   "depth-first-search",
    "traversal",
    "fibonacci-heap",
    "priority-queue",
