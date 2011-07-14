@@ -13,8 +13,8 @@ pgf.module("pgf.graphdrawing")
 
 
 
-GansnerKNVLayered = {}
-GansnerKNVLayered.__index = GansnerKNVLayered
+GansnerKNV1993Layered = {}
+GansnerKNV1993Layered.__index = GansnerKNV1993Layered
 
 
 
@@ -29,8 +29,8 @@ GansnerKNVLayered.__index = GansnerKNVLayered
 --
 -- Modifications compared to the original algorithm are explained in the manual.
 --
-function drawGraphAlgorithm_GansnerKNV_layered(graph)
-  local algorithm = GansnerKNVLayered:new(graph)
+function drawGraphAlgorithm_GansnerKNV1993_layered(graph)
+  local algorithm = GansnerKNV1993Layered:new(graph)
 
   algorithm:initialize()
   algorithm:run()
@@ -40,7 +40,7 @@ end
 
 
 
-function GansnerKNVLayered:new(graph)
+function GansnerKNV1993Layered:new(graph)
   local algorithm = {
     -- read graph input parameters
     level_distance = tonumber(graph:getOption('/graph drawing/layered drawing/level distance')),
@@ -49,7 +49,7 @@ function GansnerKNVLayered:new(graph)
     -- remember the graph for use in the algorithm
     graph = graph,
   }
-  setmetatable(algorithm, GansnerKNVLayered)
+  setmetatable(algorithm, GansnerKNV1993Layered)
 
   -- validate input parameters
   assert(algorithm.level_distance >= 0, 'the level distance needs to be greater than or equal to 0')
@@ -60,7 +60,7 @@ end
 
 
 
-function GansnerKNVLayered:initialize()
+function GansnerKNV1993Layered:initialize()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
@@ -68,13 +68,13 @@ function GansnerKNVLayered:initialize()
     edge.minimum_levels = tonumber(edge:getOption('/graph drawing/layered drawing/minimum levels'))
 
     -- validate edge parameters
-    assert(edge.minimum_levels >= 1, 'the edge ' .. tostring(edge) .. ' needs to have a minimum levels value that is greater than 0')
+    assert(edge.minimum_levels >= 0, 'the edge ' .. tostring(edge) .. ' needs to have a minimum levels value greater than or equal to 0')
   end
 end
 
 
 
-function GansnerKNVLayered:run()
+function GansnerKNV1993Layered:run()
   self:preprocess()
 
   -- rank nodes, that is, assign a layer to each node
@@ -84,12 +84,17 @@ function GansnerKNVLayered:run()
   -- edges that have a length greater than 1
   self:insertDummyNodes()
 
+  -- reduce edge crossings by ordering vertices at each rank in a smart way
   self:reduceEdgeCrossings()
+
+  -- compute the final x and y coordinates (the former using the 
+  -- network simplex algorithm)
   self:computeCoordinates()
 
   -- remove the dummy (or "virtual") nodes to restore the original graph
   self:removeDummyNodes()
 
+  -- route edges so that they look good
   self:makeSplines()
 
   self:postprocess()
@@ -97,7 +102,7 @@ end
 
 
 
-function GansnerKNVLayered:preprocess()
+function GansnerKNV1993Layered:preprocess()
   -- merge nonempty sets into supernodes
   --
   -- ignore self-loops
@@ -128,7 +133,7 @@ end
 
 
 
-function GansnerKNVLayered:postprocess()
+function GansnerKNV1993Layered:postprocess()
   -- restore all reversed back edges so that, in the final graph, all
   -- edges appear with the direction specified by the user
   for edge in table.value_iter(self.graph.edges) do
@@ -138,7 +143,7 @@ end
 
 
 
-function GansnerKNVLayered:rankNodes()
+function GansnerKNV1993Layered:rankNodes()
   local simplex = NetworkSimplex:new(self.graph, NetworkSimplex.BALANCE_TOP_BOTTOM)
   simplex:run()
   self.ranking = simplex.ranking
@@ -146,22 +151,7 @@ end
 
 
 
-function GansnerKNVLayered:dumpRanking(prefix, title)
-  local ranks = self.ranking:getRanks()
-  Sys:log(prefix .. title)
-  for rank in table.value_iter(ranks) do
-    local nodes = self.ranking:getNodes(rank)
-    local str = prefix .. '  rank ' .. rank .. ':'
-    local str = table.combine_values(nodes, function (str, node)
-      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
-    end, str)
-    Sys:log(str)
-  end
-end
-
-
-
-function GansnerKNVLayered:reduceEdgeCrossings()
+function GansnerKNV1993Layered:reduceEdgeCrossings()
   self:dumpRanking('', 'ranking after creating dummy nodes')
 
   self:computeInitialRankOrdering()
@@ -196,7 +186,7 @@ end
 
 
 
-function GansnerKNVLayered:computeInitialRankOrdering()
+function GansnerKNV1993Layered:computeInitialRankOrdering()
   Sys:log('compute initial rank ordering:')
 
   local best_ranking = self.ranking:copy()
@@ -205,38 +195,30 @@ function GansnerKNVLayered:computeInitialRankOrdering()
   for direction in table.value_iter({'down', 'up'}) do
     Sys:log('  direction = ' .. direction)
 
-    -- DFS stack of nodes to be visited next
-    local stack = {}
-
-    -- state information for nodes in the DFS search
-    local visited = {}
-
-    -- convenience functions for managing the DFS stack
-    local function push(node) table.insert(stack, node) end
-    local function pop() return table.remove(stack) end
-
-    -- visit all sourcs of the graph first
-    for node in table.reverse_value_iter(self.graph.nodes) do
-      if direction == 'down' then
-        if node:getInDegree() == 0 then
-          push(node)
-          visited[node] = true
-        end
-      else
-        if node:getOutDegree() == 0 then
-          push(node)
-          visited[node] = true
+    local function init(search)
+      for node in table.reverse_value_iter(self.graph.nodes) do
+        if direction == 'down' then
+          if node:getInDegree() == 0 then
+            search:push(node)
+            search:setDiscovered(node)
+          end
+        else
+          if node:getOutDegree() == 0 then
+            search:push(node)
+            search:setDiscovered(node)
+          end
         end
       end
     end
 
-    while #stack > 0 do
-      local node = pop()
+    local function visit(search, node)
+      search:setVisited(node, true)
 
       Sys:log('  visit ' .. node.name)
 
       Sys:log('    append to rank ' .. self.ranking:getRank(node))
       Sys:log('      at pos ' .. self.ranking:getRankSize(self.ranking:getRank(node)))
+
       local rank = self.ranking:getRank(node)
       local pos = self.ranking:getRankSize(rank)
       self.ranking:setRankPosition(node, pos)
@@ -244,21 +226,23 @@ function GansnerKNVLayered:computeInitialRankOrdering()
       if direction == 'down' then
         for edge in table.reverse_value_iter(node:getOutgoingEdges()) do
           local neighbour = edge:getNeighbour(node)
-          if not visited[neighbour] then
-            push(neighbour)
-            visited[neighbour] = true
+          if not search:getDiscovered(neighbour) then
+            search:push(neighbour)
+            search:setDiscovered(neighbour)
           end
         end
       else
         for edge in table.reverse_value_iter(node:getIncomingEdges()) do
           local neighbour = edge:getNeighbour(node)
-          if not visited[neighbour] then
-            push(neighbour)
-            visited[neighbour] = true
+          if not search:getDiscovered(neighbour) then
+            search:push(neighbour)
+            search:setDiscovered(neighbour)
           end
         end
       end
     end
+
+    DepthFirstSearch:new(init, visit):run()
 
     local crossings = self:countRankCrossings(self.ranking)
 
@@ -278,7 +262,7 @@ end
 
 
 
-function GansnerKNVLayered:orderByWeightedMedian(direction)
+function GansnerKNV1993Layered:orderByWeightedMedian(direction)
   Sys:log('  order by weighted median (' .. direction .. ')')
 
   local median = {}
@@ -333,7 +317,7 @@ end
 
 
 
-function GansnerKNVLayered:computeMedianPosition(node, prev_rank)
+function GansnerKNV1993Layered:computeMedianPosition(node, prev_rank)
   --Sys:log('  compute median position of ' .. node.name .. ' (prev_rank = ' .. prev_rank .. '):')
 
   local in_edges = table.filter_values(node.edges, function (edge)
@@ -376,7 +360,7 @@ end
 
 
 
-function GansnerKNVLayered:transpose(sweep_direction)
+function GansnerKNV1993Layered:transpose(sweep_direction)
   Sys:log('  transpose (sweep direction ' .. sweep_direction .. ')')
 
   local function transpose_rank(rank)
@@ -428,7 +412,7 @@ end
 
 
 
-function GansnerKNVLayered:countNodeCrossings(ranking, left_node, right_node, sweep_direction)
+function GansnerKNV1993Layered:countNodeCrossings(ranking, left_node, right_node, sweep_direction)
   --Sys:log('        count crossings of (' .. left_node.name .. ', ' .. right_node.name .. ') (sweep direction ' .. sweep_direction .. ')')
 
   local left_edges = {}
@@ -471,7 +455,7 @@ end
 
 
 
-function GansnerKNVLayered:switchNodePositions(left_node, right_node)
+function GansnerKNV1993Layered:switchNodePositions(left_node, right_node)
   Sys:log('          switch positions of ' .. left_node.name .. ' and ' .. right_node.name)
 
   assert(self.ranking:getRank(left_node) == self.ranking:getRank(right_node))
@@ -484,14 +468,15 @@ function GansnerKNVLayered:switchNodePositions(left_node, right_node)
 
   local nodes = self.ranking:getNodes(self.ranking:getRank(left_node))
 
-  for n = 1, #nodes do
-    assert(self.ranking:getRankPosition(nodes[n]) == n)
-  end
+  ---- verify that all nodes have valid rank positions after switching the two nodes
+  --for n = 1, #nodes do
+  --  assert(self.ranking:getRankPosition(nodes[n]) == n)
+  --end
 end
 
 
 
-function GansnerKNVLayered:countRankCrossings(ranking)
+function GansnerKNV1993Layered:countRankCrossings(ranking)
   --Sys:log('  count ranking crossings:')
 
   local crossings = 0
@@ -517,7 +502,7 @@ end
 
 
 
-function GansnerKNVLayered:insertDummyNodes()
+function GansnerKNV1993Layered:insertDummyNodes()
   -- enumerate dummy nodes using a globally unique numeric ID
   local dummy_id = 1
 
@@ -568,7 +553,7 @@ function GansnerKNVLayered:insertDummyNodes()
           local dummy_edge = Edge:new{
             direction = Edge.RIGHT, 
             reversed = false,
-            weight = 1, -- TODO or should we divide the weight of the original edge by the number of virtual edges?
+            weight = edge.weight, -- TODO or should we divide the weight of the original edge by the number of virtual edges?
           }
 
           dummy_edge:addNode(source)
@@ -589,7 +574,7 @@ end
 
 
 
-function GansnerKNVLayered:removeDummyNodes()
+function GansnerKNV1993Layered:removeDummyNodes()
   -- delete dummy nodes
   for node in table.value_iter(self.dummy_nodes) do
     self.graph:deleteNode(node)
@@ -622,17 +607,12 @@ end
 
 
 
-function GansnerKNVLayered:computeCoordinates()
+function GansnerKNV1993Layered:computeCoordinates()
   local auxiliary_graph = self:constructAuxiliaryGraph()
 
   local simplex = NetworkSimplex:new(auxiliary_graph, NetworkSimplex.BALANCE_LEFT_RIGHT)
   simplex:run()
   local x_ranking = simplex.ranking
-
-  local tmp = self.ranking
-  self.ranking = x_ranking
-  self:dumpRanking('', 'x coordinate ranking')
-  self.ranking = tmp
 
   local ranks = self.ranking:getRanks()
   for rank in table.value_iter(ranks) do
@@ -652,7 +632,7 @@ end
 
 
 
-function GansnerKNVLayered:constructAuxiliaryGraph()
+function GansnerKNV1993Layered:constructAuxiliaryGraph()
   local aux_graph = Graph:new()
 
   local edge_node = {}
@@ -722,7 +702,7 @@ end
 
 
 
-function GansnerKNVLayered:getOmega(edge)
+function GansnerKNV1993Layered:getOmega(edge)
   local node1 = edge.nodes[1]
   local node2 = edge.nodes[2]
 
@@ -737,15 +717,34 @@ end
 
 
 
-function GansnerKNVLayered:getDesiredHorizontalDistance(v, w)
-  --function xsize(node) 
-  --  return node.is_dummy and 0 or node:getTexWidth() 
-  --end
+function GansnerKNV1993Layered:getDesiredHorizontalDistance(v, w)
+  function xsize(node) 
+    return node.is_dummy and 0 or node:getTexWidth() 
+  end
   --return ((xsize(v) + xsize(w)) / 2) + self.sibling_distance
-  return self.sibling_distance
+  return math.max(self.sibling_distance, ((xsize(v) + xsize(w)) / 2))
+  --return self.sibling_distance
 end
 
 
 
-function GansnerKNVLayered:makeSplines()
+function GansnerKNV1993Layered:makeSplines()
 end
+
+
+
+function GansnerKNV1993Layered:dumpRanking(prefix, title)
+  local ranks = self.ranking:getRanks()
+  Sys:log(prefix .. title)
+  for rank in table.value_iter(ranks) do
+    local nodes = self.ranking:getNodes(rank)
+    local str = prefix .. '  rank ' .. rank .. ':'
+    local str = table.combine_values(nodes, function (str, node)
+      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
+    end, str)
+    Sys:log(str)
+  end
+end
+
+
+

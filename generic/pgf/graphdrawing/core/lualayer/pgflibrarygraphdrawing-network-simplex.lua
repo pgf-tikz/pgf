@@ -48,12 +48,6 @@ function NetworkSimplex:run()
     self.cut_value[edge] = 0
   end
 
-  -- initialize internal node parameters
-  self.marked = {}
-  for node in table.value_iter(self.graph.nodes) do
-    self.marked[node] = false
-  end
-
   -- reset graph information needed for ranking
   self.lim = {}
   self.low = {}
@@ -120,7 +114,6 @@ end
 
 
 
--- Jannis: Verified this one, it's correct.
 function NetworkSimplex:constructFeasibleTree()
   self:dump_tree(self.graph, 'input graph')
 
@@ -191,7 +184,6 @@ end
 
 
 
--- Jannis: Verified this one, it's correct.
 function NetworkSimplex:findNegativeCutEdge()
   local minimum_edge = nil
 
@@ -241,7 +233,6 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
     Sys:log('  find edge ' .. v.name .. ', ' .. direction)
 
     if direction == 'out' then
-
       local out_edges = self.orig_node[v]:getOutgoingEdges()
       for edge in table.value_iter(out_edges) do
         local head = edge:getHead()
@@ -274,9 +265,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
           find_edge(tail, 'out')
         end
       end
-    
     else
-
       local in_edges = self.orig_node[v]:getIncomingEdges()
       for edge in table.value_iter(in_edges) do
         local tail = edge:getTail()
@@ -309,7 +298,6 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
           find_edge(head, 'in')
         end
       end
-    
     end
   end
 
@@ -419,7 +407,6 @@ end
 
 
 
--- Jannis: Verified that this function works correctly.
 function NetworkSimplex:balanceRanksLeftRight()
   for edge in table.value_iter(self.tree.edges) do
     if self.cut_value[edge] == 0 then
@@ -440,7 +427,6 @@ end
 
 
 
--- Jannis: Verified this one, it's correct.
 function NetworkSimplex:computeInitialRanking()
   Sys:log('compute initial ranking:')
   
@@ -510,11 +496,12 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:findTightTree()
   Sys:log('find tight tree:')
 
   -- TODO: Jannis: Remove the recursion below:
+
+  local marked = {}
 
   local function build_tight_tree(node)
     Sys:log('    visit ' .. node.name)
@@ -526,11 +513,11 @@ function NetworkSimplex:findTightTree()
 
     for edge in table.value_iter(edges) do
       local neighbour = edge:getNeighbour(node)
-      if (not self.marked[neighbour]) and self:edgeSlack(edge) == 0 then
+      if (not marked[neighbour]) and self:edgeSlack(edge) == 0 then
         self:addEdgeToTree(edge)
 
         for node in table.value_iter(edge.nodes) do
-          self.marked[node] = true
+          marked[node] = true
         end
         
         if #self.tree.edges == #self.graph.nodes-1 then
@@ -545,8 +532,6 @@ function NetworkSimplex:findTightTree()
 
     return false
   end
-
-  self.marked = {}
 
   for node in table.value_iter(self.graph.nodes) do
     Sys:log('  build tree starting at ' .. node.name)
@@ -599,8 +584,6 @@ end
 
 
 
--- Jannis: Verified that this works correctly even with the
--- iterative implementation below.
 function NetworkSimplex:initializeCutValues()
   self:calculateDFSRange(self.tree.nodes[1], nil, 1)
 
@@ -625,7 +608,6 @@ function NetworkSimplex:initializeCutValues()
   end
 
   local function complete(search, data)
-    Sys:log('postorder')
     if data.parent_edge then
       self:updateCutValue(data.parent_edge)
     end
@@ -642,8 +624,6 @@ end
 -- graph. For each node it calculates the node's post-order traversal index, the
 -- minimum post-order traversal index of its descendants as well as the edge by
 -- which the node was reached in the depth-first traversal.
---
--- Jannis: Verified that this one works correctly.
 --
 function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   Sys:log('dfsrange from ' .. root.name .. ', edge from parent ' .. tostring(edge_from_parent) .. ', lowest ' .. lowest)
@@ -711,7 +691,6 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:updateCutValue(tree_edge)
   --Sys:log('update cut value of ' .. tostring(tree_edge))
 
@@ -724,9 +703,6 @@ function NetworkSimplex:updateCutValue(tree_edge)
     dir = -1
   end
 
-  --Sys:log('  v = ' .. v.name)
-  --Sys:log('  dir = ' .. dir)
-
   local sum = 0
 
   local out_edges = self.orig_node[v]:getOutgoingEdges()
@@ -734,10 +710,7 @@ function NetworkSimplex:updateCutValue(tree_edge)
   local edges = table.merge_values(out_edges, in_edges)
 
   for edge in table.value_iter(edges) do
-    --Sys:log('  xval(' .. tostring(edge) .. ', v = ' .. v.name .. ', dir = ' .. dir)
-
     local other = edge:getNeighbour(self.orig_node[v])
-    --Sys:log('    other = ' .. other.name)
 
     local f = 0
     local rv = 0
@@ -757,9 +730,6 @@ function NetworkSimplex:updateCutValue(tree_edge)
       rv = rv - edge.weight
     end
 
-    --Sys:log('    f = ' .. f)
-    --Sys:log('    rv = ' .. rv)
-
     local d = 0
 
     if dir > 0 then
@@ -776,18 +746,13 @@ function NetworkSimplex:updateCutValue(tree_edge)
       end
     end
 
-    --Sys:log('    d = ' .. d)
-
     if f > 0 then
       d = -d
-      --Sys:log('    d = ' .. d)
     end
 
     if d < 0 then
       rv = -rv
     end
-
-    --Sys:log('    rv = ' .. rv)
 
     sum = sum + rv
   end
@@ -798,7 +763,6 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:inTailComponentOf(node, v)
   --Sys:log(node.name .. ' (tree node ' .. tostring(self.tree_node[node]) .. ') inTailCompOf ' .. v.name .. ' (tree node ' .. tostring(self.tree_node[v]) .. ')')
   --self:dumpRange(self.lim, self.low, self.parent_edge, '  ', 'current range information')
@@ -807,7 +771,6 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:nextSearchIndex()
   local index = 1
     
@@ -826,8 +789,6 @@ end
 
 
 
--- Jannis: This function works correctly even with the iterative
--- solution implemented below.
 function NetworkSimplex:rerank(node, delta)
   local function init(search)
     search:push({ node = node, delta = delta })
@@ -857,7 +818,6 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:rerankBeforeReplacingEdge(leave_edge, enter_edge)
   local delta = self:edgeSlack(enter_edge)
   
@@ -884,7 +844,6 @@ end
 
 
 
--- Jannis: This function works correctly.
 function NetworkSimplex:updateCutValuesUpToCommonAncestor(v, w, cutval, dir)
   Sys:log('update cut values from ' .. v.name .. ' up to common ancestor of ' .. v.name .. ' and ' .. w.name)
 
