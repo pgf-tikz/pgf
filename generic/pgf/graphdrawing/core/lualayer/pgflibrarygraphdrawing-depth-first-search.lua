@@ -20,9 +20,8 @@ DepthFirstSearch.__index = DepthFirstSearch
 
 
 
-function DepthFirstSearch:new(graph, init_func, visit_func, complete_func)
+function DepthFirstSearch:new(init_func, visit_func, complete_func)
   local dfs = {
-    graph = graph,
     init_func = init_func,
     visit_func = visit_func,
     complete_func = complete_func,

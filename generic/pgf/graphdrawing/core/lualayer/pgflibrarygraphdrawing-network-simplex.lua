@@ -235,6 +235,8 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
   local enter_edge = nil
   local slack = math.huge
 
+  -- TODO Janns: Get rid of this recursion:
+
   local function find_edge(v, direction)
     Sys:log('  find edge ' .. v.name .. ', ' .. direction)
 
@@ -343,6 +345,7 @@ function NetworkSimplex:exchangeTreeEdges(leave_edge, enter_edge)
   -- set its cut value
   self.cut_value[tree_edge] = -cutval
 
+  -- update DFS search tree traversal information
   self:calculateDFSRange(ancestor, self.parent_edge[ancestor], self.low[ancestor])
 end
 
@@ -511,6 +514,8 @@ end
 function NetworkSimplex:findTightTree()
   Sys:log('find tight tree:')
 
+  -- TODO: Jannis: Remove the recursion below:
+
   local function build_tight_tree(node)
     Sys:log('    visit ' .. node.name)
 
@@ -594,7 +599,8 @@ end
 
 
 
--- Jannis: Verified that this works correctly.
+-- Jannis: Verified that this works correctly even with the
+-- iterative implementation below.
 function NetworkSimplex:initializeCutValues()
   self:calculateDFSRange(self.tree.nodes[1], nil, 1)
 
@@ -625,7 +631,7 @@ function NetworkSimplex:initializeCutValues()
     end
   end
 
-  DepthFirstSearch:new(self.tree, init, visit, complete):run()
+  DepthFirstSearch:new(init, visit, complete):run()
 end
 
 
@@ -642,28 +648,50 @@ end
 function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   Sys:log('dfsrange from ' .. root.name .. ', edge from parent ' .. tostring(edge_from_parent) .. ', lowest ' .. lowest)
 
-  local function dfs_range(node, par, low)
-    local lim = low
-    self.parent_edge[node] = par
-    self.low[node] = low
+  -- global traversal index counter
+  local lim = lowest
 
-    for edge in table.value_iter(node:getOutgoingEdges()) do
-      if edge ~= par then
-        lim = dfs_range(edge:getNeighbour(node), edge, lim)
-      end
-    end
-    for edge in table.value_iter(node:getIncomingEdges()) do
-      if edge ~= par then
-        lim = dfs_range(edge:getNeighbour(node), edge, lim)
-      end
-    end
-    self.lim[node] = lim
-    return lim + 1
+  -- start the traversal at the root node
+  local function init(search)
+    search:push({ node = root, parent_edge = edge_from_parent, low = lowest })
   end
-  dfs_range(root, edge_from_parent, lowest)
 
-  local verbose_before = Sys:getVerbose()
-  Sys:setVerbose(true)
+  -- visit nodes in depth-first order
+  local function visit(search, data)
+    -- mark node as visited so we only visit it once
+    search:setVisited(data, true)
+
+    -- remember the parent edge
+    self.parent_edge[data.node] = data.parent_edge
+
+    -- remember the minimum traversal index for this branch of the search tree
+    self.low[data.node] = lim
+
+    -- next we push all outgoing and incoming edges in reverse order
+    -- to simulate recursive calls
+    
+    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+      if edge ~= data.parent_edge then
+        search:push({ node = edge:getTail(), parent_edge = edge })
+      end
+    end
+
+    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+      if edge ~= data.parent_edge then
+        search:push({ node = edge:getHead(), parent_edge = edge })
+      end
+    end
+  end
+
+  -- when completing a node, store its own traversal index
+  local function complete(search, data)
+    self.lim[data.node] = lim
+    lim = lim + 1
+  end
+
+  -- kick off the depth-first search
+  DepthFirstSearch:new(init, visit, complete):run()
+
   self:dumpRange(self.lim, self.low, self.parent_edge, '', 'range after dfsrange')
   local lim_lookup = {}
   local min_lim = math.huge
@@ -679,7 +707,6 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   for n = min_lim, max_lim do
     assert(lim_lookup[n] == true)
   end
-  Sys:setVerbose(verbose_before)
 end
 
 
@@ -825,7 +852,7 @@ function NetworkSimplex:rerank(node, delta)
     end
   end
 
-  DepthFirstSearch:new(self.tree, init, visit):run()
+  DepthFirstSearch:new(init, visit):run()
 end
 
 
