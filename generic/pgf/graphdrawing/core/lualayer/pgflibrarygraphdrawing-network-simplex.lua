@@ -598,25 +598,34 @@ end
 function NetworkSimplex:initializeCutValues()
   self:calculateDFSRange(self.tree.nodes[1], nil, 1)
 
-  local function dfs(node, parent_edge)
-    for edge in table.value_iter(node:getOutgoingEdges()) do
-      if edge ~= parent_edge then
-        dfs(edge:getHead(), edge)
+  local function init(search)
+    search:push({ node = self.tree.nodes[1], parent_edge = nil })
+  end
+
+  local function visit(search, data)
+    search:setVisited(data, true)
+
+    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+      if edge ~= data.parent_edge then
+        search:push({ node = edge:getTail(), parent_edge = edge })
       end
     end
 
-    for edge in table.value_iter(node:getIncomingEdges()) do
-      if edge ~= parent_edge then
-        dfs(edge:getTail(), edge)
+    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+      if edge ~= data.parent_edge then
+        search:push({ node = edge:getHead(), parent_edge = edge })
       end
-    end
-
-    if parent_edge then
-      self:updateCutValue(parent_edge)
     end
   end
 
-  dfs(self.tree.nodes[1], nil)
+  local function complete(search, data)
+    Sys:log('postorder')
+    if data.parent_edge then
+      self:updateCutValue(data.parent_edge)
+    end
+  end
+
+  DepthFirstSearch:new(self.tree, init, visit, complete):run()
 end
 
 
@@ -816,8 +825,7 @@ function NetworkSimplex:rerank(node, delta)
     end
   end
 
-  local search = DepthFirstSearch:new(self.tree, init, visit)
-  search:run()
+  DepthFirstSearch:new(self.tree, init, visit):run()
 end
 
 
@@ -937,7 +945,7 @@ end
 function NetworkSimplex:dump_cut_values(title)
   Sys:log(title .. ':')
   for edge in table.value_iter(self.tree.edges) do
-    Sys:log('  ' .. tostring(edge) .. ': cut value = ' .. self.cut_value[edge])
+    Sys:log('  ' .. tostring(edge) .. ': cut value = ' .. tostring(self.cut_value[edge]))
   end
 end
 
