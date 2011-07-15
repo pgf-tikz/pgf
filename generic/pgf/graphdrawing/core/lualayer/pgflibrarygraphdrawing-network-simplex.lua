@@ -11,7 +11,10 @@
 
 --- This file contains an implementation of the network simplex method
 --- for node ranking and x coordinate optimization in layered drawing 
---- algorithms.
+--- algorithms, as proposed in
+---
+--- "A Technique for Drawing Directed Graphs" 
+--  by Gansner, Koutsofios, North, Vo, 1993.
 
 pgf.module("pgf.graphdrawing")
 
