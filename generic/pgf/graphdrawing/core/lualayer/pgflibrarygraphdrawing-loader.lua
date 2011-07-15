@@ -263,19 +263,21 @@ local function userLoad(filename, format, reload, fallback)
     return
   end
   local path = find_file(filename, format)
-  if path then
+  if path and path:len() > 0 then
     userLoaded[filename] = true
     -- load the file
     return dofile(path)
-  else
+  elseif fallback then
     path = find_file(fallback, format)
-    if path then
+    if path and path:len() > 0 then
       userLoaded[filename] = true
       -- load the fallback file
       return dofile(path)
     else
       error("GD:LOADER: found neither file " .. filename .. " nor fallback " .. fallback)
     end
+  else
+    error('GD:LOADER: could not find the file ' .. filename)
   end
 end
 
