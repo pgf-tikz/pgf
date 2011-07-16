@@ -179,7 +179,7 @@ function Interface:convertFilenameToClassname(filename)
   end
 
   filename = filename:gsub("^(%a)", string.upper, 1)
-  filename = filename:gsub("%s+(%a)", string.upper, 1)
+  filename = filename:gsub("%s+(%a)", string.upper)
 
   local post_substitutions = {
     [' '] = '',

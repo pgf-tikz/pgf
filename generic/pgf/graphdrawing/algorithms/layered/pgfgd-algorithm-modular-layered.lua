@@ -71,6 +71,11 @@ function ModularLayered:run()
   self:restoreCycles()
 
   self:postprocess()
+
+  Sys:setVerbose(true)
+  Sys:log('finished')
+  Sys:log(' ')
+  Sys:setVerbose(false)
 end
 
 
@@ -199,6 +204,10 @@ function ModularLayered:removeCycles()
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
 
+  Sys:setVerbose(true)
+  Sys:log('remove cycles with ' .. name)
+  Sys:setVerbose(false)
+
   local algorithm = class:new(self.graph)
   algorithm:run()
 end
@@ -209,6 +218,10 @@ function ModularLayered:rankNodes()
   local name, class = self:loadSubAlgorithm('node-ranking', self.node_ranking_algorithm)
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
+
+  Sys:setVerbose(true)
+  Sys:log('rank nodes with ' .. name)
+  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph)
   self.ranking = algorithm:run()
@@ -223,6 +236,10 @@ function ModularLayered:reduceEdgeCrossings()
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
 
+  Sys:setVerbose(true)
+  Sys:log('reduce edge crossings with ' .. name)
+  Sys:setVerbose(false)
+
   local algorithm = class:new(self.graph, self.ranking)
   self.ranking = algorithm:run()
   
@@ -236,6 +253,10 @@ function ModularLayered:positionNodes()
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
 
+  Sys:setVerbose(true)
+  Sys:log('position nodes with ' .. name)
+  Sys:setVerbose(false)
+
   local algorithm = class:new(self.graph, self.ranking)
   algorithm:run()
 end
@@ -246,6 +267,10 @@ function ModularLayered:routeEdges()
   local name, class = self:loadSubAlgorithm('edge-routing', self.edge_routing_algorithm)
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
+
+  Sys:setVerbose(true)
+  Sys:log('route edges with ' .. name)
+  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph)
   algorithm:run()
@@ -273,6 +298,9 @@ function ModularLayered:loadSubAlgorithm(step, name)
   -- make sure there are no spaces in the file name
   escaped_name = name:gsub(' ', '-')
 
+  Sys:log('pre   classname: ' .. classname)
+  Sys:log('escaped name:    ' .. escaped_name)
+
   local classname = Interface:convertFilenameToClassname(step .. '-' .. classname)
   local filename = 'pgfgd-algorithm-modular-layered-' 
                    .. Interface:convertClassnameToFilename(step) 
@@ -281,6 +309,9 @@ function ModularLayered:loadSubAlgorithm(step, name)
   Sys:log('load class = ' .. classname .. ', file = ' .. filename)
 
   pgf.load(filename, 'tex', false)
+
+  Sys:log('final classname: ' .. classname)
+  Sys:log('final filename:  ' .. filename)
 
   return classname, pgf.graphdrawing[classname]
 end
