@@ -267,10 +267,16 @@ end
 
 
 function ModularLayered:loadSubAlgorithm(step, name)
-  local classname = Interface:convertFilenameToClassname(step .. '-' .. name)
+  -- make sure the first character of the class name is uppercase
+  classname = name:gsub('^(%a)', string.upper, 1)
+
+  -- make sure there are no spaces in the file name
+  escaped_name = name:gsub(' ', '-')
+
+  local classname = Interface:convertFilenameToClassname(step .. '-' .. classname)
   local filename = 'pgfgd-algorithm-modular-layered-' 
                    .. Interface:convertClassnameToFilename(step) 
-                   .. '-' .. name .. '.lua'
+                   .. '-' .. escaped_name .. '.lua'
 
   Sys:log('load class = ' .. classname .. ', file = ' .. filename)
 
