@@ -189,12 +189,10 @@ function algorithms.classify_edges(graph)
     return table.remove(stack)
   end
 
-  if not initial_nodes then
-    initial_nodes = graph.nodes
-    --initial_nodes = table.filter_values(graph.nodes, function (node)
-    --  return node:getInDegree() == 0
-    --end)
-  end
+  local initial_nodes = graph.nodes
+  --local initial_nodes = table.filter_values(graph.nodes, function (node)
+  --  return node:getInDegree() == 0
+  --end)
 
   for node in table.reverse_value_iter(initial_nodes) do
     push(node)
