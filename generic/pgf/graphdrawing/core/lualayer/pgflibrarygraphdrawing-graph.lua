@@ -199,9 +199,9 @@ end
 -- @param edge The edge to be added.
 --
 function Graph:addEdge(edge)
-  if not table.find(self.edges, function (other) return other == edge end) then
+  --if not table.find(self.edges, function (other) return other == edge end) then
     table.insert(self.edges, edge)
-  end
+  --end
 end
 
 
