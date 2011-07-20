@@ -194,6 +194,18 @@ end
 
 
 
+-- Checks whether the edge already exists in the graph and returns it if possible.
+--
+-- @param edge Edge to search for.
+--
+-- @return The edge if it was found in the graph, |nil| otherwise.
+--
+function Graph:findEdge(edge)
+  return table.find(self.edges, function (other) return other == edge end)
+end
+
+
+
 --- Adds an edge to the graph.
 --
 -- @param edge The edge to be added.

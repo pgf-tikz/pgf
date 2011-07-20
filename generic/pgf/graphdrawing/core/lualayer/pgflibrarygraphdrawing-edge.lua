@@ -143,10 +143,10 @@ end
 -- @return The first neighbour of the node.
 --
 function Edge:getNeighbour(node)
-  if self:isHead(node) then
-    return self:getTail()
+  if node == self.nodes[1] then
+    return self.nodes[#self.nodes]
   else
-    return self:getHead()
+    return self.nodes[1]
   end
 end
 
