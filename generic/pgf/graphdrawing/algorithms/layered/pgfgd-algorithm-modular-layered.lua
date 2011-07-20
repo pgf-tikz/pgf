@@ -249,11 +249,9 @@ end
 function ModularLayered:removeLoops()
   self.loops = {}
 
-  for node in table.value_iter(self.graph.nodes) do
-    for edge in table.value_iter(node.edges) do
-      if edge:getHead() == edge:getTail() then
-        table.insert(self.loops, edge)
-      end
+  for edge in table.value_iter(self.graph.edges) do
+    if edge:getHead() == edge:getTail() then
+      table.insert(self.loops, edge)
     end
   end
 
@@ -424,9 +422,7 @@ end
 function ModularLayered:restoreLoops()
   for edge in table.value_iter(self.loops) do
     self.graph:addEdge(edge)
-    for node in table.value_iter(edge.nodes) do
-      node:addEdge(edge)
-    end
+    edge:getTail():addEdge(edge)
   end
 end
 
