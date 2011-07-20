@@ -63,7 +63,26 @@ end
 
 
 
+function NodePositioningGansnerKNV1993:dumpRanking(prefix, title)
+  local ranks = self.ranking:getRanks()
+  Sys:log(prefix .. title)
+  for rank in table.value_iter(ranks) do
+    local nodes = self.ranking:getNodes(rank)
+    local str = prefix .. '  rank ' .. rank .. ':'
+    local str = table.combine_values(nodes, function (str, node)
+      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
+    end, str)
+    Sys:log(str)
+  end
+end
+
+
+
 function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
+  Sys:log('construct auxiliary graph:')
+
+  self:dumpRanking('  ', 'ranks')
+
   local aux_graph = Graph:new()
 
   local edge_node = {}
@@ -75,6 +94,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
     }
     node.aux_node = copy
     aux_graph:addNode(copy)
+    Sys:log('  node ' .. copy.name)
   end
 
   for edge in table.reverse_value_iter(self.graph.edges) do
@@ -117,6 +137,8 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
       local v = nodes[n]
       local w = nodes[n+1]
 
+      Sys:log('  create separator edge from ' .. v.name .. ' to ' .. w.name)
+
       local separator_edge = Edge:new{
         direction = Edge.RIGHT,
         minimum_levels = math.ceil(self:getDesiredHorizontalDistance(v, w)),
@@ -154,5 +176,4 @@ function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
   end
   --return ((xsize(v) + xsize(w)) / 2) + self.sibling_distance
   return math.max(self.sibling_distance, ((xsize(v) + xsize(w)) / 2))
-  --return self.sibling_distance
 end

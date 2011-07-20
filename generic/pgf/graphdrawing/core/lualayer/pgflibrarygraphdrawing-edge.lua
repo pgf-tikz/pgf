@@ -128,30 +128,10 @@ end
 -- @param node The node to be added to the edge.
 --
 function Edge:addNode(node)
-  if not self:containsNode(node) then
+  --if not self:containsNode(node) then
     table.insert(self.nodes, node)
     node:addEdge(self)
-  end
-end
-
-
-
---- Returns all neighbours of a node adjacent to the edge.
---
--- The edge direction is not taken into account, so this method always returns
--- all neighbours even if called on a directed edge.
---
--- @param node A node. Typically but not necessarily adjacent to the edge.
---                     If the node is not an intermediate or end point of the
---                     edge, an empty array is returned.
---
--- @return An array of nodes that are adjacent to the input node via the edge
---         the method is called on.
---
-function Edge:getNeighbours(node)
-  return table.filter_values(self.nodes, function (other)
-    return other.name ~= node.name
-  end)
+  --end
 end
 
 
@@ -163,7 +143,11 @@ end
 -- @return The first neighbour of the node.
 --
 function Edge:getNeighbour(node)
-  return self:getNeighbours(node)[1]
+  if self:isHead(node) then
+    return self:getTail()
+  else
+    return self:getHead()
+  end
 end
 
 
@@ -368,14 +352,17 @@ function Edge:__tostring()
     result = result .. table.concat(node_strings, ', ')
   end
   --return result .. ")"
-
+  
   -- Note: the following lines generate a shorter string representation
   -- of the edge that is more readable and can be used for debugging.
   -- So please don't remove this:
   --
+  local node_strings = table.map_values(self.nodes, function (node)
+    return node.name
+  end)
   if self.reversed then
-    return self.nodes[2].name .. ' ' .. self.direction .. ' ' .. self.nodes[1].name
+    return table.concat(table.reverse_values(node_strings), ' ' .. self.direction .. ' ')
   else
-    return self.nodes[1].name .. ' ' .. self.direction .. ' ' .. self.nodes[2].name
+    return table.concat(node_strings, ' ' .. self.direction .. ' ')
   end
 end

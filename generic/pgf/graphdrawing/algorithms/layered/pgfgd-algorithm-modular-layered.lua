@@ -52,30 +52,67 @@ end
 
 
 
+function ModularLayered:dumpGraph(title)
+  Sys:log(title .. ':')
+  for node in table.value_iter(self.graph.nodes) do
+    Sys:log('  node ' .. node.name)
+    for edge in table.value_iter(node.edges) do
+      Sys:log('    ' .. tostring(edge))
+    end
+  end
+  for edge in table.value_iter(self.graph.edges) do
+    Sys:log('  ' .. tostring(edge))
+  end
+end
+
+
+
 function ModularLayered:run()
+  self:dumpGraph('before preprocessing')
   self:preprocess()
 
+  self:dumpGraph('before removing loops')
+  self:removeLoops()
+
+  self:dumpGraph('before merging multiedges')
+  self:mergeMultiEdges()
+
+  self:dumpGraph('before removing cycles')
   self:removeCycles()
   
+  self:dumpGraph('before ranking nodes')
   self:rankNodes()
   
+  self:dumpGraph('before inserting dummy nodes')
   self:insertDummyNodes()
   
+  self:dumpGraph('before reducing edge crossings')
   self:reduceEdgeCrossings()
+
+  self:dumpGraph('before positioning nodes')
   self:positionNodes()
   
+  self:dumpGraph('before removing dummy nodes')
   self:removeDummyNodes()
 
+  self:dumpGraph('before restoring multiedges')
+  self:restoreMultiEdges()
+
+  self:dumpGraph('before restoring loops')
+  self:restoreLoops()
+
+  self:dumpGraph('before routing edges')
   self:routeEdges()
 
+  self:dumpGraph('before restoring cycles')
   self:restoreCycles()
 
+  self:dumpGraph('before postprocessing')
   self:postprocess()
 
-  Sys:setVerbose(true)
+  self:dumpGraph('final graph')
   Sys:log('finished')
   Sys:log(' ')
-  Sys:setVerbose(false)
 end
 
 
@@ -95,6 +132,10 @@ end
 
 
 function ModularLayered:insertDummyNodes()
+  Sys:log('insert dummy nodes:')
+
+  self:dumpRanking('  ', 'ranking before inserting dummy nodes')
+
   -- enumerate dummy nodes using a globally unique numeric ID
   local dummy_id = 1
 
@@ -105,11 +146,15 @@ function ModularLayered:insertDummyNodes()
   self.dummy_nodes = {}
 
   for node in traversal.topological_sorting(self.graph) do
+    Sys:log('  visit ' .. node.name)
+
     local in_edges = node:getIncomingEdges()
 
     for edge in table.value_iter (in_edges) do
       local neighbour = edge:getNeighbour(node)
       local dist = self.ranking:getRank(node) - self.ranking:getRank(neighbour)
+
+      Sys:log('    neighbour ' .. neighbour.name .. ', dist = ' .. dist)
 
       if dist > 1 then
         local dummies = {}
@@ -162,6 +207,8 @@ function ModularLayered:insertDummyNodes()
   for edge in table.value_iter(self.original_edges) do
     self.graph:deleteEdge(edge)
   end
+
+  self:dumpRanking('  ', 'ranking after inserting dummy nodes')
 end
 
 
@@ -199,14 +246,111 @@ end
 
 
 
+function ModularLayered:removeLoops()
+  self.loops = {}
+
+  for node in table.value_iter(self.graph.nodes) do
+    for edge in table.value_iter(node.edges) do
+      if edge:getHead() == edge:getTail() then
+        table.insert(self.loops, edge)
+      end
+    end
+  end
+
+  for edge in table.value_iter(self.loops) do
+    self.graph:deleteEdge(edge)
+  end
+end
+
+
+
+function ModularLayered:mergeMultiEdges()
+  self.individual_edges = {}
+
+  Sys:log('merge multiedges:')
+
+  local node_processed = {}
+
+  for node in table.value_iter(self.graph.nodes) do
+    Sys:log('  neighbour edges of ' .. node.name)
+
+    node_processed[node] = true
+
+    local multiedge = {}
+    
+    for edge in table.value_iter(node:getIncomingEdges()) do
+      local neighbour = edge:getNeighbour(node)
+      if not node_processed[neighbour] then
+        if not multiedge[neighbour] then
+          multiedge[neighbour] = Edge:new{
+            direction = Edge.RIGHT,
+            weight = 0,
+            minimum_levels = 1,
+          }
+
+          self.individual_edges[multiedge[neighbour]] = {}
+        end
+
+        multiedge[neighbour].weight = multiedge[neighbour].weight + edge.weight
+        multiedge[neighbour].minimum_levels = math.max(multiedge[neighbour].minimum_levels, edge.minimum_levels)
+
+        table.insert(self.individual_edges[multiedge[neighbour]], edge)
+      end
+    end
+
+    for edge in table.value_iter(node:getOutgoingEdges()) do
+      local neighbour = edge:getNeighbour(node)
+      if not node_processed[neighbour] then
+        if not multiedge[neighbour] then
+          multiedge[neighbour] = Edge:new{
+            direction = Edge.RIGHT,
+            weight = 0,
+            minimum_levels = 1,
+          }
+
+          self.individual_edges[multiedge[neighbour]] = {}
+        end
+
+        multiedge[neighbour].weight = multiedge[neighbour].weight + edge.weight
+        multiedge[neighbour].minimum_levels = math.max(multiedge[neighbour].minimum_levels, edge.minimum_levels)
+
+        table.insert(self.individual_edges[multiedge[neighbour]], edge)
+      end
+    end
+
+    for neighbour, multiedge in pairs(multiedge) do
+      Sys:log('    with neighbour ' .. neighbour.name)
+
+      for subedge in table.value_iter(self.individual_edges[multiedge]) do
+        Sys:log('      ' .. tostring(subedge))
+      end
+
+      if #self.individual_edges[multiedge] <= 1 then
+        self.individual_edges[multiedge] = nil
+      else
+        multiedge.weight = multiedge.weight / #self.individual_edges[multiedge]
+
+        for subedge in table.value_iter(self.individual_edges[multiedge]) do
+          self.graph:deleteEdge(subedge)
+        end
+
+        multiedge:addNode(node)
+        multiedge:addNode(neighbour)
+        
+        self.graph:addEdge(multiedge)
+      end
+    end
+  end
+end
+
+
+
 function ModularLayered:removeCycles()
   local name, class = self:loadSubAlgorithm('cycle-removal', self.cycle_removal_algorithm)
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
 
-  Sys:setVerbose(true)
   Sys:log('remove cycles with ' .. name)
-  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph)
   algorithm:run()
@@ -219,9 +363,7 @@ function ModularLayered:rankNodes()
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
 
-  Sys:setVerbose(true)
   Sys:log('rank nodes with ' .. name)
-  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph)
   self.ranking = algorithm:run()
@@ -236,9 +378,7 @@ function ModularLayered:reduceEdgeCrossings()
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
 
-  Sys:setVerbose(true)
   Sys:log('reduce edge crossings with ' .. name)
-  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph, self.ranking)
   self.ranking = algorithm:run()
@@ -248,17 +388,46 @@ end
 
 
 
+function ModularLayered:restoreMultiEdges()
+  for multiedge, subedges in pairs(self.individual_edges) do
+    assert(#subedges >= 2)
+
+    Sys:log('restore multiedges of ' .. multiedge:getTail().name .. ' and ' .. multiedge:getHead().name)
+
+    self.graph:deleteEdge(multiedge)
+
+    for edge in table.value_iter(subedges) do
+      for node in table.value_iter(edge.nodes) do
+        node:addEdge(edge)
+      end
+
+      self.graph:addEdge(edge)
+    end
+  end
+end
+
+
+
 function ModularLayered:positionNodes()
   local name, class = self:loadSubAlgorithm('node-positioning', self.node_positioning_algorithm)
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
 
-  Sys:setVerbose(true)
   Sys:log('position nodes with ' .. name)
-  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph, self.ranking)
   algorithm:run()
+end
+
+
+
+function ModularLayered:restoreLoops()
+  for edge in table.value_iter(self.loops) do
+    self.graph:addEdge(edge)
+    for node in table.value_iter(edge.nodes) do
+      node:addEdge(edge)
+    end
+  end
 end
 
 
@@ -268,9 +437,7 @@ function ModularLayered:routeEdges()
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
 
-  Sys:setVerbose(true)
   Sys:log('route edges with ' .. name)
-  Sys:setVerbose(false)
 
   local algorithm = class:new(self.graph)
   algorithm:run()
@@ -298,20 +465,35 @@ function ModularLayered:loadSubAlgorithm(step, name)
   -- make sure there are no spaces in the file name
   escaped_name = name:gsub(' ', '-')
 
-  Sys:log('pre   classname: ' .. classname)
-  Sys:log('escaped name:    ' .. escaped_name)
+  --Sys:log('pre   classname: ' .. classname)
+  --Sys:log('escaped name:    ' .. escaped_name)
 
   local classname = Interface:convertFilenameToClassname(step .. '-' .. classname)
   local filename = 'pgfgd-algorithm-modular-layered-' 
                    .. Interface:convertClassnameToFilename(step) 
                    .. '-' .. escaped_name .. '.lua'
 
-  Sys:log('load class = ' .. classname .. ', file = ' .. filename)
+  --Sys:log('load class = ' .. classname .. ', file = ' .. filename)
 
   pgf.load(filename, 'tex', false)
 
-  Sys:log('final classname: ' .. classname)
-  Sys:log('final filename:  ' .. filename)
+  --Sys:log('final classname: ' .. classname)
+  --Sys:log('final filename:  ' .. filename)
 
   return classname, pgf.graphdrawing[classname]
+end
+
+
+
+function ModularLayered:dumpRanking(prefix, title)
+  local ranks = self.ranking:getRanks()
+  Sys:log(prefix .. title)
+  for rank in table.value_iter(ranks) do
+    local nodes = self.ranking:getNodes(rank)
+    local str = prefix .. '  rank ' .. rank .. ':'
+    local str = table.combine_values(nodes, function (str, node)
+      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
+    end, str)
+    Sys:log(str)
+  end
 end
