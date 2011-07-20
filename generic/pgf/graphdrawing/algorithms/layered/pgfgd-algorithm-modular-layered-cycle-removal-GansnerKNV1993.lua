@@ -52,7 +52,7 @@ function CycleRemovalGansnerKNV1993:run()
 
   -- reverse the back edges in order to make the graph acyclic
   for edge in table.value_iter(back_edges) do
-    Sys:log('reverse back edge ' .. tostring(edge))
+    --Sys:log('reverse back edge ' .. tostring(edge))
     edge.reversed = true
   end
 end

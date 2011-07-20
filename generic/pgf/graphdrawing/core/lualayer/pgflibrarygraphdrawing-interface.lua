@@ -122,13 +122,13 @@ end
 function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
   Sys:log("GD:INT: Edge " .. tostring(from) .. " " .. tostring(direction) .. " " .. tostring(to))
-  from = self.graph:findNode(from)
-  to = self.graph:findNode(to)
-  assert(from and to, "at least one node doesn't exist yet")
+  from_node = self.graph:findNode(from)
+  to_node = self.graph:findNode(to)
+  assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
   if direction == Edge.NONE then
-    self.graph:deleteEdgeBetweenNodes(from, to)
+    self.graph:deleteEdgeBetweenNodes(from_node, to_node)
   else
-    self.graph:createEdge(from, to, direction, aux, string.parse_braces(parameters), tikz_options)
+    self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
   end
 end
 
