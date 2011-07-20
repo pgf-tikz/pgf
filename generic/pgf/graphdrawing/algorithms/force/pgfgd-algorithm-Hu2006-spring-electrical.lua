@@ -128,8 +128,11 @@ function Hu2006SpringElectrical:run()
     while coarse_graph:getSize() > self.minimum_graph_size 
       and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
     do
+      --self:dumpGraph(coarse_graph.graph, 'coarse graph before next coarsening step')
       coarse_graph:coarsen()
     end
+
+    --self:dumpGraph(coarse_graph.graph, 'coarse graph after the last coarsening step')
   end
 
   if self.coarsen then
@@ -154,11 +157,15 @@ function Hu2006SpringElectrical:run()
     -- undo coarsening step by step, applying the force-based sub-algorithm
     -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
+      --self:dumpGraph(coarse_graph.graph, 'coarse graph before reverting one step')
+
       -- compute the diameter of the parent coarse graph
       local parent_diameter = coarse_graph.graph:getPseudoDiameter()
 
       -- interpolate the previous coarse graph from its parent
       coarse_graph:interpolate()
+
+      --self:dumpGraph(coarse_graph.graph, 'coarse graph after reverting one step')
 
       -- compute the diameter of the current coarse graph
       local current_diameter = coarse_graph.graph:getPseudoDiameter()
@@ -512,4 +519,19 @@ function Hu2006SpringElectrical.adaptive_step_update(step, cooling_factor, energ
     step = cooling_factor * step
   end
   return step, progress
+end
+
+
+
+function Hu2006SpringElectrical:dumpGraph(graph, title)
+  Sys:log(title .. ':')
+  for node in table.value_iter(graph.nodes) do
+    Sys:log('  node ' .. node.name)
+    for edge in table.value_iter(node.edges) do
+      Sys:log('    ' .. tostring(edge))
+    end
+  end
+  for edge in table.value_iter(graph.edges) do
+    Sys:log('  ' .. tostring(edge))
+  end
 end

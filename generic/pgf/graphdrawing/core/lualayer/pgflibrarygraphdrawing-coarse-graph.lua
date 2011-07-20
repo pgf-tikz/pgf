@@ -82,14 +82,31 @@ function CoarseGraph:coarsen()
   -- update the level
   self.level = self.level + 1
 
+  --Sys:log('coarsen to level ' .. self.level)
+
   local old_graph_size = #self.graph.nodes
 
   if self.scheme == CoarseGraph.COARSEN_INDEPENDENT_EDGES then
+    --Sys:log('  coarsening scheme: independent edges')
+
     local matching, unmatched_nodes = self:findMaximalMatching()
+
+    --Sys:log('  maximal matching:')
+    --for edge in table.value_iter(matching) do
+    --  Sys:log('    ' .. tostring(edge))
+    --end
+    --if #unmatched_nodes > 0 then
+    --  Sys:log('  unmatched nodes:')
+    --  for node in table.value_iter(unmatched_nodes) do
+    --    Sys:log('    ' .. node.name)
+    --  end
+    --end
 
     for edge in table.value_iter(matching) do
       -- get the two nodes of the edge that we are about to collapse
       local u, v = edge.nodes[1], edge.nodes[2]
+
+      assert(u ~= v, 'the edge ' .. tostring(edge) .. ' is a loop. loops are not supported by this algorithm')
 
       -- create a supernode
       local supernode = Node:new{
@@ -103,7 +120,7 @@ function CoarseGraph:coarsen()
       -- add the supernode to the graph
       self.graph:addNode(supernode)
 
-      --Sys:log('      contract edge ' .. u.name .. ' ' .. edge.direction .. ' ' .. v.name .. ' and create node ' .. supernode.name)
+      --Sys:log('  contract edge ' .. tostring(edge) .. ' and create node ' .. supernode.name)
 
       -- collact all neighbours of the nodes to merge, create a node -> edge mapping
       local u_neighbours = table.map_pairs(u.edges, function (n, edge)
@@ -112,6 +129,15 @@ function CoarseGraph:coarsen()
       local v_neighbours = table.map_pairs(v.edges, function(n, edge)
         return edge:getNeighbour(v), edge
       end)
+
+      --Sys:log('    neighbours of ' .. u.name .. ':')
+      --for neighbour, edge in pairs(u_neighbours) do
+      --  Sys:log('      ' .. neighbour.name .. ' via ' .. tostring(edge))
+      --end
+      --Sys:log('    neighbours of ' .. v.name .. ':')
+      --for neighbour, edge in pairs(v_neighbours) do
+      --  Sys:log('      ' .. neighbour.name .. ' via ' .. tostring(edge))
+      --end
 
       -- remove the two nodes themselves from the neighbour lists
       u_neighbours = table.filter_keys(u_neighbours, function (node)
@@ -139,15 +165,15 @@ function CoarseGraph:coarsen()
         return not common_neighbours[node]
       end)
 
-      --Sys:log('      neighbours of ' .. u.name .. ':')
+      --Sys:log('    neighbours of ' .. u.name .. ':')
       --for node in table.key_iter(u_neighbours) do
-      --  Sys:log('        ' .. node.name .. ' u_neighbours[' .. node.name .. '] = ' .. tostring(u_neighbours[node]))
+      --  Sys:log('      ' .. node.name .. ' via ' .. tostring(u_neighbours[node]))
       --end
-      --Sys:log('      neighbours of ' .. v.name .. ':')
+      --Sys:log('    neighbours of ' .. v.name .. ':')
       --for node in table.key_iter(v_neighbours) do
-      --  Sys:log('        ' .. node.name .. ' u_neighbours[' .. node.name .. '] = ' .. tostring(u_neighbours[node]))
+      --  Sys:log('      ' .. node.name .. ' via ' .. tostring(v_neighbours[node]))
       --end
-      --Sys:log('      common neighbours of ' .. u.name .. ' and ' .. v.name .. ':')
+      --Sys:log('    common neighbours of ' .. u.name .. ' and ' .. v.name .. ':')
       --for node in table.key_iter(common_neighbours) do
       --  Sys:log('        ' .. node.name)
       --end
@@ -170,15 +196,15 @@ function CoarseGraph:coarsen()
           superedge:addNode(neighbour)
           superedge:addNode(supernode)
           
-          --Sys:log('        create edge ' .. tostring(superedge))
+          --Sys:log('    create edge ' .. tostring(superedge))
         else
           superedge:addNode(supernode)
           superedge:addNode(neighbour)
 
-          --Sys:log('        create edge ' .. tostring(superedge))
+          --Sys:log('    create edge ' .. tostring(superedge))
         end
 
-        --Sys:log('        delete edge ' .. tostring(edge))
+        --Sys:log('    delete edge ' .. tostring(edge))
 
         -- replace the old edge
         self.graph:addEdge(superedge)
@@ -204,19 +230,31 @@ function CoarseGraph:coarsen()
         superedge:addNode(supernode)
         superedge:addNode(neighbour)
 
-        --Sys:log('        create edge ' .. tostring(superedge))
+        --Sys:log('    create edge ' .. tostring(superedge))
 
         -- replace the old edges
         self.graph:addEdge(superedge)
         for edge in table.value_iter(edges) do
-          --Sys:log('        delete edge ' .. tostring(edge))
+          Sys:log('    delete edge ' .. tostring(edge))
           self.graph:deleteEdge(edge)
         end
       end
 
+      --if u.name == '(0:2)' then
+      --  for node in table.value_iter(self.graph.nodes) do
+      --    Sys:log('node ' .. node.name)
+      --    for edge in table.value_iter(node.edges) do
+      --      Sys:log('  edge ' .. tostring(edge))
+      --    end
+      --  end
+      --  for edge in table.value_iter(self.graph.edges) do
+      --    Sys:log('edge ' .. tostring(edge))
+      --  end
+      --end
+
       -- delete the nodes u and v which were replaced by the supernode
-      assert(#u.edges == 1) -- if this fails, then there is a multiedge involving u
-      assert(#v.edges == 1) -- same here
+      assert(#u.edges == 1, 'node ' .. u.name .. ' is part of a multiedge') -- if this fails, then there is a multiedge involving u
+      assert(#v.edges == 1, 'node ' .. v.name .. ' is part of a multiedge') -- same here
       self.graph:deleteNode(u)
       self.graph:deleteNode(v)
     end
@@ -242,32 +280,44 @@ function CoarseGraph:revertSuperedge(superedge)
   if #superedge.subedges == 1 then
     local subedge = superedge.subedges[1]
 
-    --Sys:log('          create subnode ' .. subedge.nodes[1].name)
-    self.graph:addNode(subedge.nodes[1])
+    if not self.graph:findNode(subedge.nodes[1].name) then
+      --Sys:log('          create subnode ' .. subedge.nodes[1].name)
+      self.graph:addNode(subedge.nodes[1])
+    end
 
-    --Sys:log('          create subnode ' .. subedge.nodes[2].name)
-    self.graph:addNode(subedge.nodes[2])
+    if not self.graph:findNode(subedge.nodes[2].name) then
+      --Sys:log('          create subnode ' .. subedge.nodes[2].name)
+      self.graph:addNode(subedge.nodes[2])
+    end
 
-    --Sys:log('          create subedge ' .. tostring(subedge))
-    subedge.nodes[1]:addEdge(subedge)
-    subedge.nodes[2]:addEdge(subedge)
-    self.graph:addEdge(subedge)
+    if not self.graph:findEdge(subedge) then
+      --Sys:log('          create subedge ' .. tostring(subedge))
+      subedge.nodes[1]:addEdge(subedge)
+      subedge.nodes[2]:addEdge(subedge)
+      self.graph:addEdge(subedge)
+    end
 
     if subedge.level and subedge.level >= self.level then
       self:revertSuperedge(subedge)
     end
   else
     for subedge in table.value_iter(superedge.subedges) do
-      --Sys:log('          create subnode ' .. subedge.nodes[1].name)
-      self.graph:addNode(subedge.nodes[1])
+      if not self.graph:findNode(subedge.nodes[1].name) then
+        --Sys:log('          create subnode ' .. subedge.nodes[1].name)
+        self.graph:addNode(subedge.nodes[1])
+      end
 
-      --Sys:log('          create subnode ' .. subedge.nodes[2].name)
-      self.graph:addNode(subedge.nodes[2])
+      if not self.graph:findNode(subedge.nodes[2].name) then
+        --Sys:log('          create subnode ' .. subedge.nodes[2].name)
+        self.graph:addNode(subedge.nodes[2])
+      end
 
-      --Sys:log('          create subedge ' .. tostring(subedge))
-      subedge.nodes[1]:addEdge(subedge)
-      subedge.nodes[2]:addEdge(subedge)
-      self.graph:addEdge(subedge)
+      if not self.graph:findEdge(subedge) then
+        --Sys:log('          create subedge ' .. tostring(subedge))
+        subedge.nodes[1]:addEdge(subedge)
+        subedge.nodes[2]:addEdge(subedge)
+        self.graph:addEdge(subedge)
+      end
 
       if subedge.level and subedge.level >= self.level then
         self:revertSuperedge(subedge)
@@ -279,6 +329,10 @@ end
 
 
 function CoarseGraph:interpolate()
+  -- FIXME TODO Jannis: This does not work now that we allow multi-edges
+  -- and loops! Reverting generates the same edges multiple times which leads
+  -- to distorted drawings compared to the awesome results we had before!
+
   local nodes = table.map_values(self.graph.nodes, function (n) return n end)
 
   for supernode in table.value_iter(nodes) do
@@ -287,20 +341,28 @@ function CoarseGraph:interpolate()
     if supernode.level and supernode.level == self.level then
       --Sys:log('      split up supernode ' .. supernode.name)
     
-      --Sys:log('        create subnode ' .. supernode.subnodes[1].name)
       -- move the subnode to the position of the supernode and add it to the graph
       supernode.subnodes[1].pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
-      self.graph:addNode(supernode.subnodes[1])
 
-      --Sys:log('        create subnode ' .. supernode.subnodes[2].name)
+      if not self.graph:findNode(supernode.subnodes[1].name) then
+        --Sys:log('        create subnode ' .. supernode.subnodes[1].name)
+        self.graph:addNode(supernode.subnodes[1])
+      end
+
       -- move the subnode to the position of the supernode and add it to the graph
       supernode.subnodes[2].pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
-      self.graph:addNode(supernode.subnodes[2])
 
-      --Sys:log('        create subnode edge ' .. tostring(supernode.subnode_edge))
-      supernode.subnodes[1]:addEdge(supernode.subnode_edge)
-      supernode.subnodes[2]:addEdge(supernode.subnode_edge)
-      self.graph:addEdge(supernode.subnode_edge)
+      if not self.graph:findNode(supernode.subnodes[2].name) then
+        --Sys:log('        create subnode ' .. supernode.subnodes[2].name)
+        self.graph:addNode(supernode.subnodes[2])
+      end
+
+      if not self.graph:findEdge(supernode.subnode_edge) then
+        --Sys:log('        create subnode edge ' .. tostring(supernode.subnode_edge))
+        supernode.subnodes[1]:addEdge(supernode.subnode_edge)
+        supernode.subnodes[2]:addEdge(supernode.subnode_edge)
+        self.graph:addEdge(supernode.subnode_edge)
+      end
 
       local superedges = table.map_values(supernode.edges, function (e) return e end)
 
