@@ -285,7 +285,7 @@ function ModularLayered:mergeMultiEdges()
           multiedge[neighbour] = Edge:new{
             direction = Edge.RIGHT,
             weight = 0,
-            minimum_levels = 1,
+            minimum_levels = 0,
           }
 
           self.individual_edges[multiedge[neighbour]] = {}
@@ -305,7 +305,7 @@ function ModularLayered:mergeMultiEdges()
           multiedge[neighbour] = Edge:new{
             direction = Edge.RIGHT,
             weight = 0,
-            minimum_levels = 1,
+            minimum_levels = 0,
           }
 
           self.individual_edges[multiedge[neighbour]] = {}
