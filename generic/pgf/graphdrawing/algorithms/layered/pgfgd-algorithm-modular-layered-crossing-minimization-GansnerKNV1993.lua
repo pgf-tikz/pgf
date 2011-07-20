@@ -30,7 +30,7 @@ end
 
 
 function CrossingMinimizationGansnerKNV1993:run()
-  self:dumpRanking('', 'ranking after creating dummy nodes')
+  --self:dumpRanking('  ', 'ranking before reducing edge crossings')
 
   self:computeInitialRankOrdering()
 
@@ -40,18 +40,18 @@ function CrossingMinimizationGansnerKNV1993:run()
   for iteration in iter.times(24) do
     local direction = (iteration % 2 == 0) and 'down' or 'up'
 
-    Sys:log('reduce edge crossings, iteration ' .. iteration .. ', sweep direction ' .. direction)
+    --Sys:log('reduce edge crossings, iteration ' .. iteration .. ', sweep direction ' .. direction)
 
     self:orderByWeightedMedian(direction)
     self:transpose(direction)
 
     local current_crossings = self:countRankCrossings(self.ranking)
 
-    Sys:log('  crossings of best ranking: ' .. best_crossings)
-    Sys:log('  crossings of current ranking: ' .. current_crossings)
+    --Sys:log('  crossings of best ranking: ' .. best_crossings)
+    --Sys:log('  crossings of current ranking: ' .. current_crossings)
 
     if current_crossings < best_crossings then
-      Sys:log('  adapt current ranking')
+      --Sys:log('  adapt current ranking')
       best_ranking = self.ranking:copy()
       best_crossings = current_crossings
     end
@@ -59,7 +59,7 @@ function CrossingMinimizationGansnerKNV1993:run()
 
   self.ranking = best_ranking:copy()
 
-  self:dumpRanking('  ', 'ranking after reducing edge crossings')
+  --self:dumpRanking('  ', 'ranking after reducing edge crossings')
 
   return self.ranking
 end
@@ -67,13 +67,13 @@ end
 
 
 function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
-  Sys:log('compute initial rank ordering:')
+  --Sys:log('compute initial rank ordering:')
 
   local best_ranking = self.ranking:copy()
   local best_crossings = self:countRankCrossings(best_ranking)
 
   for direction in table.value_iter({'down', 'up'}) do
-    Sys:log('  direction = ' .. direction)
+    --Sys:log('  direction = ' .. direction)
 
     local function init(search)
       for node in table.reverse_value_iter(self.graph.nodes) do
@@ -94,10 +94,10 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
     local function visit(search, node)
       search:setVisited(node, true)
 
-      Sys:log('  visit ' .. node.name)
+      --Sys:log('  visit ' .. node.name)
 
-      Sys:log('    append to rank ' .. self.ranking:getRank(node))
-      Sys:log('      at pos ' .. self.ranking:getRankSize(self.ranking:getRank(node)))
+      --Sys:log('    append to rank ' .. self.ranking:getRank(node))
+      --Sys:log('      at pos ' .. self.ranking:getRankSize(self.ranking:getRank(node)))
 
       local rank = self.ranking:getRank(node)
       local pos = self.ranking:getRankSize(rank)
@@ -126,8 +126,8 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
 
     local crossings = self:countRankCrossings(self.ranking)
 
-    Sys:log('     crossings of best ranking: ' .. best_crossings)
-    Sys:log('  crossings of current ranking: ' .. crossings)
+    --Sys:log('     crossings of best ranking: ' .. best_crossings)
+    --Sys:log('  crossings of current ranking: ' .. crossings)
 
     if crossings < best_crossings then
       best_ranking = self.ranking:copy()
@@ -137,7 +137,7 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
 
   self.ranking = best_ranking:copy()
 
-  self:dumpRanking('  ', 'ranking after initial ordering')
+  --self:dumpRanking('  ', 'ranking after initial ordering')
 end
 
 
@@ -156,6 +156,8 @@ function CrossingMinimizationGansnerKNV1993:countRankCrossings(ranking)
         local v = nodes[i]
         local w = nodes[j]
 
+        -- TODO Jannis: We are REQUIRED to only check edges that lead to nodes
+        -- on the next or previous rank, depending on the sweep direction!!!!
         local cn_vw = self:countNodeCrossings(ranking, v, w, 'down')
 
         crossings = crossings + cn_vw
@@ -171,6 +173,20 @@ end
 function CrossingMinimizationGansnerKNV1993:countNodeCrossings(ranking, left_node, right_node, sweep_direction)
   --Sys:log('        count crossings of (' .. left_node.name .. ', ' .. right_node.name .. ') (sweep direction ' .. sweep_direction .. ')')
 
+  local ranks = ranking:getRanks()
+  local rank_index = table.find_index(ranks, function (rank)
+    return rank == ranking:getRank(left_node)
+  end)
+  local other_rank_index = (sweep_direction == 'down') and rank_index-1 or rank_index+1
+
+  assert(ranking:getRank(left_node) == ranking:getRank(right_node))
+  assert(rank_index >= 1 and rank_index <= #ranks)
+
+  -- 0 crossings if we're at the top or bottom and are sweeping down or up
+  if other_rank_index < 1 or other_rank_index > #ranks then
+    return 0
+  end
+
   local left_edges = {}
   local right_edges = {}
 
@@ -184,10 +200,20 @@ function CrossingMinimizationGansnerKNV1993:countNodeCrossings(ranking, left_nod
   
   local crossings = 0
 
-  for left_edge in table.value_iter(left_edges) do
+  local function left_neighbour_on_other_rank(edge)
+    local neighbour = edge:getNeighbour(left_node)
+    return ranking:getRank(neighbour) == ranking:getRanks()[other_rank_index]
+  end
+
+  local function right_neighbour_on_other_rank(edge)
+    local neighbour = edge:getNeighbour(right_node)
+    return ranking:getRank(neighbour) == ranking:getRanks()[other_rank_index]
+  end
+
+  for left_edge in iter.filter(table.value_iter(left_edges), left_neighbour_on_other_rank) do
     local left_neighbour = left_edge:getNeighbour(left_node)
 
-    for right_edge in table.value_iter(right_edges) do
+    for right_edge in iter.filter(table.value_iter(right_edges), right_neighbour_on_other_rank) do
       local right_neighbour = right_edge:getNeighbour(right_node)
 
       local left_position = ranking:getRankPosition(left_neighbour)
@@ -212,7 +238,7 @@ end
 
 
 function CrossingMinimizationGansnerKNV1993:orderByWeightedMedian(direction)
-  Sys:log('  order by weighted median (' .. direction .. ')')
+  --Sys:log('  order by weighted median (' .. direction .. ')')
 
   local median = {}
 
@@ -229,18 +255,18 @@ function CrossingMinimizationGansnerKNV1993:orderByWeightedMedian(direction)
   --  end
   --end
 
-  self:dumpRanking('    ', 'ranks before applying the median')
+  --self:dumpRanking('    ', 'ranks before applying the median')
 
   if direction == 'down' then
     local ranks = self.ranking:getRanks()
 
     for rank_index = 2, #ranks do
-      Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
+      --Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
       for node in table.value_iter(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index-1])
-        Sys:log('      ' .. node.name .. ': ' .. median[node])
+        --Sys:log('      ' .. node.name .. ': ' .. median[node])
       end
 
       self.ranking:reorderRank(ranks[rank_index], get_index, is_fixed)
@@ -249,19 +275,19 @@ function CrossingMinimizationGansnerKNV1993:orderByWeightedMedian(direction)
     local ranks = self.ranking:getRanks()
 
     for rank_index = 1, #ranks-1 do
-      Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
+      --Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
       for node in table.value_iter(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index+1])
-        Sys:log('      ' .. node.name .. ': ' .. median[node])
+        --Sys:log('      ' .. node.name .. ': ' .. median[node])
       end
 
       self.ranking:reorderRank(ranks[rank_index], get_index, is_fixed)
     end
   end
 
-  self:dumpRanking('    ', 'ranks after applying the median')
+  --self:dumpRanking('    ', 'ranks after applying the median')
 end
 
 
@@ -310,10 +336,10 @@ end
 
 
 function CrossingMinimizationGansnerKNV1993:transpose(sweep_direction)
-  Sys:log('  transpose (sweep direction ' .. sweep_direction .. ')')
+  --Sys:log('  transpose (sweep direction ' .. sweep_direction .. ')')
 
   local function transpose_rank(rank)
-    Sys:log('    transpose rank ' .. rank)
+    --Sys:log('    transpose rank ' .. rank)
 
     local improved = false
 
@@ -326,17 +352,17 @@ function CrossingMinimizationGansnerKNV1993:transpose(sweep_direction)
       local cn_vw = self:countNodeCrossings(self.ranking, v, w, sweep_direction)
       local cn_wv = self:countNodeCrossings(self.ranking, w, v, sweep_direction)
 
-      Sys:log('      crossings if ' .. v.name .. ' is left of ' .. w.name .. ': ' .. cn_vw)
-      Sys:log('      crossings if ' .. w.name .. ' is left of ' .. v.name .. ': ' .. cn_wv)
+      --Sys:log('      crossings if ' .. v.name .. ' is left of ' .. w.name .. ': ' .. cn_vw)
+      --Sys:log('      crossings if ' .. w.name .. ' is left of ' .. v.name .. ': ' .. cn_wv)
 
       if cn_vw > cn_wv then
         improved = true
 
-        Sys:log('        switch so that ' .. w.name .. ' is left of ' .. v.name)
+        --Sys:log('        switch so that ' .. w.name .. ' is left of ' .. v.name)
 
         self:switchNodePositions(v, w)
 
-        self:dumpRanking('    ', 'ranks after switching positions')
+        --self:dumpRanking('    ', 'ranks after switching positions')
       end
     end
 
@@ -347,13 +373,17 @@ function CrossingMinimizationGansnerKNV1993:transpose(sweep_direction)
 
   local improved = false
   repeat
+    local improved = false
+
+    --Sys:log('sweep ' .. sweep_direction)
+
     if sweep_direction == 'down' then
       for rank_index = 1, #ranks-1 do
-        improved = transpose_rank(ranks[rank_index])
+        improved = transpose_rank(ranks[rank_index]) or improved
       end
     else
       for rank_index = #ranks-1, 1, -1 do
-        improved = transpose_rank(ranks[rank_index])
+        improved = transpose_rank(ranks[rank_index]) or improved
       end
     end
   until not improved
@@ -362,7 +392,7 @@ end
 
 
 function CrossingMinimizationGansnerKNV1993:switchNodePositions(left_node, right_node)
-  Sys:log('          switch positions of ' .. left_node.name .. ' and ' .. right_node.name)
+  --Sys:log('          switch positions of ' .. left_node.name .. ' and ' .. right_node.name)
 
   assert(self.ranking:getRank(left_node) == self.ranking:getRank(right_node))
   assert(self.ranking:getRankPosition(left_node) < self.ranking:getRankPosition(right_node))
