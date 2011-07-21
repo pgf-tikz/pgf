@@ -344,6 +344,149 @@ let us have a quick look at the command itself.
 \end{command}
 
 
+\subsubsection{First Char Syntax Detection}
+\label{sec:pgf:first:char:syntax}
+
+Usually, keys are of the form \meta{key}|=|\meta{value} and how such
+keys are handled is discussed in the rest of this section. However, it
+is also possible to setup a different syntax for certain parts of the
+input to |\pgfkeys|. Since this is a rather advanced option, most
+readers may wish to skip the following discussion upon first reading;
+it is discussed here because this special syntax detection is the very
+first thing that is done when a key is processed, before any of the
+following operations are performed.
+
+The |\pgfkeys| command and its variants decompose their input into a
+list of \meta{string}s that are separated by commas. By default, each
+such \meta{string} must either have the form \meta{key}|=|\meta{value}
+or of the form \meta{key} with the value-part missing. However, you
+might wish to interpret some of these strings differently. For
+instance, when a \meta{string} has the form |"|\meta{text}|"|, you
+might wish the \meta{string} to be interpreted as if one had written
+|label text={|\meta{text}|}|. Then, people could write
+\begin{codeexample}[code only]
+\myset{red, "main valve", thick}
+\end{codeexample}
+instead of the more cumbersome
+\begin{codeexample}[code only]
+\myset{red, label text=main valve, thick}
+\end{codeexample}
+An example where such a syntax reinterpretation is done is the
+|quotes| library, which allows you to write things like
+\begin{codeexample}[]
+\tikz \graph { a ->["1" red] b ->["0"] c };
+\end{codeexample}
+\noindent instead of the somewhat longer
+\begin{codeexample}[]
+\tikz \graph { a ->[edge node={node[red,auto]{1}}] b ->[edge label=0] c };
+\end{codeexample}
+
+In order to detect whether a \meta{string} has a special syntax, you
+can request that the \emph{first character} of \meta{string} is
+analysed by the key parser. If this first character matches a
+character that has been flagged as a special character, the
+\meta{string} is not interpreted as a usual key--value pair. Instead,
+\meta{string} is passed as a parameter to a special macro that should
+take care of the \meta{string}. After this macro has finished, the
+parsing continues with the \meta{next string} in the list.
+
+In order to setup a special syntax handling for \meta{strings} that
+begin with a certain character, two things need to be done:
+\begin{enumerate}
+\item First, the whole first char syntax detection must be ``switched
+  on,'' since, by default, it is turned off for efficiency reasons
+  (the overhead is rather small, however). This is done by setting the
+  following key:
+  \begin{key}{/handlers/first char syntax=\opt{\meta{true or false}}
+      (default true, initially false)}
+  \end{key}
+\item Second, in order to handle strings starting with a certain
+  \meta{character} in a special way, you need to store a macro in the
+  following key:
+  \begin{key}{/handlers/first char syntax/\meta{meaning of character}}
+    The \meta{meaning of character} should be the text that \TeX's
+    command |\meaning| returns for a macro that has been |\let| to the
+    \meta{character}. For instance, when strings starting with |"|
+    should be treated in a special way, the \meta{meaning of
+      character} would be the string |the character "| since this is
+    what \TeX\ writes when you say
+\begin{codeexample}[]
+\let\mycharacter="
+\meaning\mycharacter  
+\end{codeexample}
+    Now, the key |/handlers/first char syntax/|\meta{meaning of
+      character} should be setup (using |\pgfkeyssetvalue| or using
+    the |.initial| handler) to store a \meta{macro name}.
+
+    If this is the case and if \meta{string} starts with the
+    \meta{character} (blanks at the beginning of \meta{string} are
+    deleted prior to this test), then \meta{macro name} is called with
+    \meta{string} as its argument.
+  \end{key}
+\end{enumerate}
+
+Let us now have a look at an example. We install two handlers, one for
+strings starting with |"| and one for strings starting with |<|.
+
+\begin{codeexample}[]
+\pgfkeys{
+  /handlers/first char syntax=true,
+  /handlers/first char syntax/the character "/.initial=\myquotemacro,
+  /handlers/first char syntax/the character </.initial=\mypointedmacro,
+}
+
+\def\myquotemacro#1{Quoted: #1. }
+\def\mypointedmacro#1{Pointed: #1. }
+
+\ttfamily \pgfkeys{"foo", <bar>}
+\end{codeexample}
+
+Naturally, in the above examples, the two handling macros did not do
+something particularly exciting. In the next example, we setup a more
+elaborate macro that mimics a small part the behaviour of the |quotes|
+library, only for single quotes:
+
+\begin{codeexample}[]
+\pgfkeys{
+  /handlers/first char syntax=true,
+  /handlers/first char syntax/the character '/.initial=\mysinglequotemacro
+}
+
+\def\mysinglequotemacro#1{\pgfkeysalso{label={#1}}}
+
+\tikz \node [circle, 'foo', draw] {bar};
+\end{codeexample}
+
+Note that in the above example, the macro |\mysinglequotemacro| gets
+passed the complete string, including the single quotes. It is the job
+of the macro to get rid of them, if this is necessary.
+
+The first char syntax detection allows you to perform rather powerful
+transformations on the syntax of keys -- provided you can ``pin down''
+the syntax on the first character. In the following example, you can
+write expressions in parentheses in front of a key--value pair and the
+pair will only be executed when the expression evaluates to true:
+
+\begin{codeexample}[]
+\pgfkeys{
+  /handlers/first char syntax=true,
+  /handlers/first char syntax/the character (/.initial=\myparamacro
+}
+
+\def\myparamacro#1{\myparaparser#1\someendtext}
+\def\myparaparser(#1)#2\someendtext{
+  \pgfmathparse{#1}
+  \ifx\pgfmathresult\onetext
+    \pgfkeysalso{#2}
+  \fi
+}
+\def\onetext{1}
+
+\foreach \i in {1,...,4}
+  \tikz \node [draw, thick, rectangle, (pi>\i) circle, (pi>\i*2) draw=red] {x};
+\end{codeexample}
+
+
 \subsubsection{Default Arguments}
 
 The arguments of the |\pgfkeys| command can either be of the form
@@ -654,6 +797,8 @@ There are some parameters for handled keys which prove to be useful in some (pos
   defined. The value \marg{key handler name} should be the name of a
   key handler.
 \end{key}
+
+
 
 \subsubsection{Keys That Are Unknown}
 \label{sec:pgf:unknown:keys}

@@ -25,12 +25,15 @@
     %
     /tikz/execute at begin scope={
       \pgfgdsetedgecallback{\pgfgdtikzedgecallback}
-      \pgfgdbeginscope},
-    /tikz/execute at end scope={\pgfgdendscope},
+      \pgfgdbeginscope%
+    },
+    /tikz/execute at end scope={
+      \pgfgdendscope
+    },
     % 
     % Setup for plain syntax
     % 
-    /utils/exec=\pgfgdaddspecificationhook{\tikzset{edge macro=\tikz@gd@plain@edge@macro}},
+    /utils/exec=\pgfgdaddspecificationhook{\tikz@lib@gd@spec@hook},%
     % 
     % Setup for the graphs syntax 
     %
@@ -45,7 +48,7 @@
     % Setup for the tree syntax
     %
     /tikz/growth function=\relax,
-    /tikz/edge from parent macro=\tikz@gd@edge@from@parent@macro
+    /tikz/edge from parent macro=\tikz@gd@edge@from@parent@macro,
   },
   % Link in...
   /graph drawing/at begin scope/.forward to=/tikz/graph drawing scope
@@ -53,14 +56,30 @@
 
 \pgfgdappendtoforwardinglist{/tikz/,/tikz/graphs/}
 
+\def\tikz@lib@gd@spec@hook{%
+  \tikzset{
+    % 
+    % Catch edges 
+    % 
+    edge macro=\tikz@gd@plain@edge@macro,
+    % 
+    % Catch after and predix node commands 
+    % 
+    /tikz/append after command/.code=\tikz@lib@gd@aac{##1},
+    /tikz/prefix after command/.code=\tikz@lib@gd@pac{##1},
+    /utils/exec=\def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup\tikzlibgdpostsetupend}
+  }
+}
+
 \def\pgfgdtikzedgecallback#1#2#3#4#5#6#7{%
-  \draw 
-    [to path={#7 -- (\tikztotarget) \tikztonodes}]
-    [#3,#4,/graph drawing/.cd,#6]
+  \begin{scope}
+    [to path={#7 -- (\tikztotarget) \tikztonodes},#3,#4,/graph drawing/.cd,#6]
+    \draw
      (#1\tikzparentanchor)
        to
        #5
-     (#2\tikzchildanchor);%
+       (#2\tikzchildanchor);%
+  \end{scope}
 }
 
 \def\tikz@gd@edge@from@parent@macro#1#2{
@@ -69,6 +88,39 @@
 
 \def\tikz@gd@plain@edge@macro#1#2{
   \pgfgdedge{\tikztostart}{\tikztotarget}{--}{/tikz,#1}{#2}
+}
+
+
+% 
+% Do append after command and prefix after command by creating late options 
+%
+
+\def\tikz@lib@gd@aac#1{%
+  \expandafter\tikz@lib@gd@aac@unpack\pgfpositionnodelaterpostsetup{#1}
+}
+\def\tikz@lib@gd@aac@unpack\tikzlibgdpostsetup#1\tikzlibgdpostsetupend#2{%
+  \def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup#1\tikzlibgdlateoptions{#2}\tikzlibgdpostsetupend}
+}
+\def\tikz@lib@gd@pac#1{%
+  \expandafter\tikz@lib@gd@pac@unpack\pgfpositionnodelaterpostsetup{#1}
+}
+\def\tikz@lib@gd@ppac@unpack\tikzlibgdpostsetup#1\tikzlibgdpostsetupend#2{%
+  \def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup\tikzlibgdlateoptions{#2}#1\tikzlibgdpostsetupend}
+}
+
+\def\tikzlibgdpostsetup{%
+  \begingroup%
+  \expandafter\tikz@lib@gd@post@setup\pgfpositionnodelatername\relax%
+}
+\def\tikz@lib@gd@post@setup not yet positionedPGFINTERNAL#1\relax{%
+  \def\tikz@temp{name=#1}%
+}
+\def\tikzlibgdlateoptions#1{%
+  \expandafter\def\expandafter\tikz@temp\expandafter{\tikz@temp,after node path={#1}}
+}
+\def\tikzlibgdpostsetupend{%
+  \path[late options/.expand once=\tikz@temp];
+  \endgroup%
 }
 
 

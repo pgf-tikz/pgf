@@ -450,20 +450,42 @@
 
 
 
+% Callbacks: Called before the shipout of nodes and edges starts
+%
+% First, the general begin shipout is called. Then, the node shipout
+% starts, the nodes are created, and then the end of the node shipout
+% is signaled. Next, the edge shipout starts and ends. Finally, the
+% end shipout is called.
 
-%
-% Begins the ship out of nodes
-%
 \def\pgfgdbeginshipout{%
-  \pgfscope
+  \pgfscope%
+  \catcode`\@=11\relax%
 }
-
-%
-% End the shop out of nodes
-%
 \def\pgfgdendshipout{%
+    \box\pgf@gd@node@box%
   \endpgfscope
 }
+
+\newbox\pgf@gd@node@box
+\def\pgfgdbeginnodeshipout{%
+  \ifpgf@gd@edges@behind@nodes%
+    \setbox\pgf@gd@node@box=\hbox\bgroup%
+  \fi%
+}
+\def\pgfgdendnodeshipout{%
+  \ifpgf@gd@edges@behind@nodes%
+    \egroup%
+  \fi%
+}
+
+\def\pgfgdbeginedgeshipout{%
+}
+
+\def\pgfgdendedgeshipout{%
+}
+
+\newif\ifpgf@gd@edges@behind@nodes
+\pgf@gd@edges@behind@nodestrue
 
 
 
@@ -771,6 +793,14 @@
 
 
 
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  nodes behind edges/.code=\pgf@gd@edges@behind@nodesfalse,
+  edges behind nodes/.code=\pgf@gd@edges@behind@nodestrue
+}
+
+
+
+
 % 
 % Orientation and transformation keys 
 %
@@ -933,6 +963,8 @@
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options
     % save pgfpositionnodelaterbox (see manual)
     \setbox\pgf@gd@box=\box\pgfpositionnodelaterbox\relax
+    % save late setup options
+    \expandafter\toks\expandafter0\expandafter0=\expandafter{\pgfpositionnodelaterpostsetup}%
     % evaluate coordinates
     \pgfmathsetmacro{\pgf@gd@node@minx}{\pgfpositionnodelaterminx}%
     \pgfmathsetmacro{\pgf@gd@node@miny}{\pgfpositionnodelaterminy}%
@@ -947,7 +979,8 @@
         "\luaescapestring{\pgf@gd@node@miny}",
         "\luaescapestring{\pgf@gd@node@maxx}",
         "\luaescapestring{\pgf@gd@node@maxy}",
-        "\luaescapestring{\pgf@gd@node@options}") }
+        "\luaescapestring{\pgf@gd@node@options}",
+        "\luaescapestring{\the\toks0}") }
   }%
 }
 
@@ -962,6 +995,7 @@
 % #6 = desired x pos of the node
 % #7 = desired y pos of the node
 % #8 = box register number of the TeX node
+% #9 = the late setup options
 %
 % This is an internal function and will be called by the Sys-class of the Lua part
 %
@@ -969,7 +1003,7 @@
 %
 %  \pgfgdinternalshipoutnode{not yet positionedPGFINTERNALnodename}{10}{10}{20}{20}{10pt}{10pt}0
 % 
-\def\pgfgdinternalshipoutnode#1#2#3#4#5#6#7#8{%
+\def\pgfgdinternalshipoutnode#1#2#3#4#5#6#7#8#9{%
   {%
     \pgfgdlogmessage{GD:TEX: positioning node #1 (#2,#3,#4,#5) to #6,#7 from register #8}\relax
     \def\pgfpositionnodelatername{#1}
@@ -977,6 +1011,7 @@
     \def\pgfpositionnodelatermaxx{#3}
     \def\pgfpositionnodelaterminy{#4}
     \def\pgfpositionnodelatermaxy{#5}
+    \def\pgfpositionnodelaterpostsetup{#9}
     \setbox\pgf@gd@box=\box\pgfutil@voidb@x
     \directlua{
       texnode = pgf.graphdrawing.TeXBoxRegister:getBox(#8)

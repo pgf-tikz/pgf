@@ -97,31 +97,57 @@ end
 --  @param posX    X coordinate where to put the node in the output.
 --  @param posY    Y coordinate where to put the node in the output.
 --
-function Sys:putTeXBox(node, texnode, minX, minY, maxX, maxY, posX, posY)
-  tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
+function Sys:putTeXBox(node, texnode, minX, minY, maxX, maxY, posX, posY, lateSetup)
+   tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
    	        Sys:escapeTeXNodeName(node.name),
    	        minX, maxX,
    	        minY, maxY,
    	        posX, posY,
-   	        texnode))
+   	        texnode, lateSetup))
 end
 
 
 
---- Begins the shipout of nodes by opening a scope in PGF.
+--- Callback to pgf when shipout of nodes and edges starts
 --
 function Sys:beginShipout()
   tex.print("\\pgfgdbeginshipout")
 end
 
 
+--- Callback to pgf when shipout of nodes starts
+--
+function Sys:beginNodeShipout()
+  tex.print("\\pgfgdbeginnodeshipout")
+end
 
---- Ends the shipout by closing the scope opened in PGF.
+--- Callback to pgf when shipout of edges starts
+--
+function Sys:beginEdgeShipout()
+  tex.print("\\pgfgdbeginedgeshipout")
+end
+
+
+
+--- Ends the shipout of nodes and edges in general.
 --
 -- @see Sys:beginShipout()
 --
 function Sys:endShipout()
   tex.print("\\pgfgdendshipout")
+end
+
+
+--- Callback to pgf when shipout of nodes ends
+--
+function Sys:endNodeShipout()
+  tex.print("\\pgfgdendnodeshipout")
+end
+
+--- Callback to pgf when shipout of edges ends
+--
+function Sys:endEdgeShipout()
+  tex.print("\\pgfgdendedgeshipout")
 end
 
 

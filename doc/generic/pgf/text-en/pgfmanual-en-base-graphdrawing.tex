@@ -105,19 +105,19 @@ An overview of what happens is illustrated by the following call graph:
     object node/.style={draw,minimum size=15pt, fill=yellow!20},
     p/.style={->,>=stealth'},
     livespan/.style={thick,double},
-    scale=0.9]
+    xscale=0.8]
   % class names above
-  \node (tikz) at (0,4) [class name] {\tikzname\ graph};
-  \node (tex) at (5,4) [class name] {\TeX\ Interface};
-  \node (interface) at (10,4) [class name] {Lua Interface};
-  \node (sys) at (15,4) [class name] {Sys};
+  \node (tikz) at (0,4) [class name] {\tikzname\ layer};
+  \node (tex) at (5,4) [class name] {\pgfname\ layer};
+  \node (interface) at (10,4) [class name] {Lua: Class Interface};
+  \node (sys) at (15,4) [class name] {Lua: Class Sys};
   % lines from the class names to the bottom of the picture
   \draw[livespan] (tikz) -- (0,-7.5);
   \draw[livespan] (tex) -- (5,-7.5);
   \draw[livespan] (interface) -- (10,-7.5);
   \draw[livespan] (sys) -- (15,-7.5);
   % first command: \graph{  -- generates new graph in lua interface
-  \node (tikz-begin-graph) at (0,3) [object node] {|\graph{|}; %}
+  \node (tikz-begin-graph) at (0,3) [object node] {|\graph[algorithm=...]{|}; %}
   \node (tex-begin-graph) at (5,3) [object node] {|\pgfgdbeginscope|};  
   \node (interface-new-graph) at (10,3) [object node] {|newGraph(|...|)|};
   \draw [p] (tikz-begin-graph.east) -- (tex-begin-graph.west);
@@ -158,7 +158,7 @@ An overview of what happens is illustrated by the following call graph:
   % put tex box
   \node (sys-puttexbox-behind) at (15.1,-4.1) [object node] {|putTeXBox(|...|)|};
   \node (sys-puttexbox) at (15,-4) [object node] {|putTeXBox(|...|)|};
-  \node (tex-puttexbox) at (5,-4.5) [object node] {internal callback};
+  \node (tex-puttexbox) at (5,-4.5) [object node] {|\pgfpositionnodenow|};
   \node (tex-putedge) at (5,-5.5) [object node] {|\pgfgdedgecallback|};
 
   \draw[p] (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
@@ -265,9 +265,49 @@ following commands are used:
       phase} is started.
   \item During this phase, all nodes that were intercepted during the
     graph drawing scope get inserted into the output stream at the
-    positions that were computed for them.
-  \item Next, for each edge that was requested via |\pgfgdedge|, the
-    macro |\pgfgdedgecallback| is called (see below).
+    positions that were computed for them. Also, for each edge that
+    was requested via |\pgfgdedge|, the macro |\pgfgdedgecallback| is
+    called (see below).
+
+    The nodes are positioned \emph{before} the edges are drawn; after
+    all, it is hard to draw an edge between nodes when their positions
+    are not yet known. However, we typically want the nodes to be
+    rendered \emph{after} or rather \emph{on top} of the edges. For
+    this reason, the default behaviour is that the nodes at their
+    final positions are collected in a box that is inserted into the
+    output stream only after the edges have been drawn -- which has
+    the effect that the nodes will be placed ``on top'' of the
+    edges. This behaviour can be changed using the following keys:
+\begin{key}{/graph drawing/nodes behind edges}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  When this key is invoked, nodes are placed \emph{behind} the edges:
+\begin{codeexample}[]
+\tikz \graph [spring layout, nodes={draw,fill=white}, nodes behind edges]
+  { subgraph K_n [n=7] };    
+\end{codeexample}
+  When this key is used, you can still request individual edges to be
+  placed \emph{behind} the nodes by putting them on the background
+  layer:
+\begin{codeexample}[]
+\tikz \graph [spring layout, nodes={draw,fill=white}, nodes behind edges]
+{ [simple]
+  subgraph K_n [n=7];
+  2 -> [on background layer, bend right=5] 6;
+  4 -> [on background layer, bend right=5] 5;
+};    
+\end{codeexample}  
+  Note, however, that when an edge is placed on the background layer,
+  due to technical reasons, many graphic state options like changin
+  the color will have no effect.
+\end{key}
+\begin{key}{/graph drawing/edges behind nodes}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This is the default placemenet of edges: Behind the nodes.
+\begin{codeexample}[]
+\tikz \graph [spring layout, nodes={draw,fill=white}, edges behind nodes]
+  { subgraph K_n [n=7] };    
+\end{codeexample}
+\end{key}
   \item Finally, the shipout phase is finished, the graph is popped
     from the graphs stack and the \TeX\ scope is ended. 
   \end{enumerate}

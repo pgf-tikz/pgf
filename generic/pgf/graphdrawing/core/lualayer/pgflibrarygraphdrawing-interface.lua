@@ -71,25 +71,37 @@ end
 
 --- Adds a new node to the graph.
 --
--- The options string of |{key}{value}| pairs is parsed and assigned
--- to the node. Graph drawing algorithms may use these options to treat
--- the node in special ways.
+-- This function is called for each node of the graph by the \TeX\
+-- layer. The \meta{name} is the name of the node including the
+-- internal prefix added by the \TeX\ layer to indicate that the node
+-- ``does not yet exist.'' The parameters \meta{xMin} to \meta{yMax}
+-- specify a bounding box around the node; note that the origin lies
+-- at the anchor postion of the node. The \meta{options} are a string
+-- in the format of a sequence of |{key}{value}| pairs. They are
+-- parsed and stored in the newly created node object on the Lua
+-- layer. Graph drawing algorithms may use these options to treat 
+-- the node in special ways. The \meta{lateSetup} is \TeX\ code that
+-- just needs to be passed back when the node is finally
+-- positioned. It is used to add ``decorations'' to a node after
+-- positioning like a label.
 --
--- @param name    Name of the node.
--- @param xMin    Minimum x point of the bouding box.
--- @param yMin    Minimum y point of the bouding box.
--- @param xMax    Maximum x point of the bouding box.
--- @param yMax    Maximum y point of the bouding box.
--- @param options Options for the node.
+-- @param name      Name of the node.
+-- @param xMin      Minimum x point of the bouding box.
+-- @param yMin      Minimum y point of the bouding box.
+-- @param xMax      Maximum x point of the bouding box.
+-- @param yMax      Maximum y point of the bouding box.
+-- @param options   Lua-Options for the node.
+-- @param lateSetup Options for the node.
 --
-function Interface:addNode(name, xMin, yMin, xMax, yMax, options)
+function Interface:addNode(name, xMin, yMin, xMax, yMax, options, lateSetup)
   assert(self.graph, "no graph created")
   local tex = {
     texNode = TeXBoxRegister:insertBox(Sys:getTeXBox()), 
     maxX = xMax,
     minX = xMin,
     maxY = yMax,
-    minY = yMin
+    minY = yMin,
+    texLateSetup = lateSetup
   }
   local node = Node:new{
     name = Sys:unescapeTeXNodeName(name), 
@@ -284,15 +296,19 @@ function Interface:finishGraph()
   
   Sys:log("GD:INT: graph = " .. tostring(graph))
   
+  Sys:beginNodeShipout()
   for node in table.value_iter(graph.nodes) do
     Sys:log("GD:INT: node = " .. tostring(node))
     self:drawNode(node)
   end
-  
+  Sys:endNodeShipout()
+
+  Sys:beginEdgeShipout()
   for edge in table.value_iter(graph.edges) do
     Sys:log("GD:INT: edge = " .. tostring(edge))
     self:drawEdge(edge)
   end
+  Sys:endEdgeShipout()
   
   Sys:endShipout()
 end
@@ -311,7 +327,8 @@ function Interface:drawNode(node)
                 node.tex.maxX,
                 node.tex.maxY,
                 node.pos:x(),
-                node.pos:y())
+                node.pos:y(),
+                node.tex.texLateSetup)
 end
 
 
