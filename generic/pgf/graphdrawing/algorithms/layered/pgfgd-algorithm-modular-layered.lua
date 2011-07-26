@@ -63,6 +63,12 @@ function ModularLayered:dumpGraph(title)
   for edge in table.value_iter(self.graph.edges) do
     Sys:log('  ' .. tostring(edge))
   end
+  for cluster in table.value_iter(self.graph.clusters) do
+    local node_strings = table.map_values(cluster.nodes, function (node)
+      return node.name
+    end)
+    Sys:log('  cluster ' .. cluster:getName() .. ': ' .. table.concat(node_strings, ' '))
+  end
 end
 
 
@@ -70,6 +76,8 @@ end
 function ModularLayered:run()
   self:dumpGraph('before preprocessing')
   self:preprocess()
+
+  self:mergeClusters()
 
   self:dumpGraph('before removing loops')
   self:removeLoops()
@@ -82,6 +90,23 @@ function ModularLayered:run()
   
   self:dumpGraph('before ranking nodes')
   self:rankNodes()
+
+  self:dumpGraph('before restoring cycles')
+  self:restoreCycles()
+
+  self:dumpGraph('before restoring multiedges')
+  self:restoreMultiEdges()
+
+  self:dumpGraph('before restoring loops')
+  self:restoreLoops()
+
+  self:expandClusters()
+
+  self:removeLoops()
+
+  self:mergeMultiEdges()
+
+  self:removeCycles()
   
   self:dumpGraph('before inserting dummy nodes')
   self:insertDummyNodes()
@@ -242,6 +267,205 @@ function ModularLayered:removeDummyNodes()
     -- clear the list of bend nodes
     edge.bend_nodes = {}
   end
+end
+
+
+
+function ModularLayered:mergeClusters()
+  Sys:log('merge clusters:')
+
+  --self.cluster_nodes = {}
+  --self.cluster_node = {}
+  --self.cluster_edges = {}
+
+  --self.original_nodes = {}
+  --self.original_edges = {}
+
+  --for cluster in table.value_iter(self.graph.clusters) do
+  --  Sys:log('  merge cluster ' .. cluster:getName())
+
+  --  local cluster_node = Node:new{
+  --    name = 'cluster@' .. cluster:getName(),
+  --  }
+  --  table.insert(self.cluster_nodes, cluster_node)
+
+  --  for node in table.value_iter(cluster.nodes) do
+  --    self.cluster_node[node] = cluster_node
+  --    table.insert(self.original_nodes, node)
+  --  end
+
+  --  self.graph:addNode(cluster_node)
+  --end
+
+  --for edge in table.value_iter(self.graph.edges) do
+  --  local tail = edge:getTail()
+  --  local head = edge:getHead()
+
+  --  if self.cluster_node[tail] or self.cluster_node[head] then
+  --    table.insert(self.original_edges, edge)
+
+  --    local cluster_edge = Edge:new{
+  --      direction = Edge.RIGHT,
+  --      weight = edge.weight,
+  --      minimum_levels = edge.minimum_levels,
+  --    }
+  --    table.insert(self.cluster_edges, cluster_edge)
+
+  --    if self.cluster_node[tail] then
+  --      cluster_edge:addNode(self.cluster_node[tail])
+  --    else
+  --      cluster_edge:addNode(tail)
+  --    end
+
+  --    if self.cluster_node[head] then
+  --      cluster_edge:addNode(self.cluster_node[head])
+  --    else
+  --      cluster_edge:addNode(head)
+  --    end
+
+  --    Sys:log('  replace edge ' .. tostring(edge) .. ' with ' .. tostring(cluster_edge))
+  --  end
+  --end
+
+  --for edge in table.value_iter(self.cluster_edges) do
+  --  self.graph:addEdge(edge)
+  --end
+
+  --for edge in table.value_iter(self.original_edges) do
+  --  self.graph:deleteEdge(edge)
+  --end
+
+  --for node in table.value_iter(self.original_nodes) do
+  --  self.graph:deleteNode(node)
+  --end
+
+  self.cluster_nodes = {}
+  self.cluster_node = {}
+  self.cluster_edges = {}
+  self.cluster_original_edges = {}
+  self.original_nodes = {}
+
+  for cluster in table.value_iter(self.graph.clusters) do
+    Sys:log('  merge cluster ' .. cluster:getName())
+
+    local cluster_node = cluster.nodes[1]
+    Sys:log('    representative is ' .. cluster_node.name)
+    table.insert(self.cluster_nodes, cluster_node)
+
+    for n = 2, #cluster.nodes do
+      local other_node = cluster.nodes[n]
+      Sys:log('      merge node ' .. other_node.name .. ' into it')
+      self.cluster_node[other_node] = cluster_node
+      table.insert(self.original_nodes, other_node)
+    end
+  end
+
+  for edge in table.value_iter(self.graph.edges) do
+    local tail = edge:getTail()
+    local head = edge:getHead()
+
+    if self.cluster_node[tail] or self.cluster_node[head] then
+      local cluster_edge = Edge:new{
+        direction = Edge.RIGHT,
+        weight = edge.weight,
+        minimum_levels = edge.minimum_levels,
+      }
+
+      if self.cluster_node[tail] then
+        cluster_edge:addNode(self.cluster_node[tail])
+      else
+        cluster_edge:addNode(tail)
+      end
+
+      if self.cluster_node[head] then
+        cluster_edge:addNode(self.cluster_node[head])
+      else
+        cluster_edge:addNode(head)
+      end
+
+      table.insert(self.cluster_edges, cluster_edge)
+      table.insert(self.cluster_original_edges, edge)
+    end
+  end
+
+  for n = 1, #self.cluster_nodes-1 do
+    local first_node = self.cluster_nodes[n]
+    local second_node = self.cluster_nodes[n+1]
+
+    local edge = Edge:new{
+      direction = Edge.RIGHT,
+      weight = 1,
+      minimum_levels = 1,
+    }
+
+    edge:addNode(first_node)
+    edge:addNode(second_node)
+
+    Sys:log('  add cluster separator edge ' .. tostring(edge))
+
+    table.insert(self.cluster_edges, edge)
+  end
+
+  for node in table.value_iter(self.original_nodes) do
+    self.graph:deleteNode(node)
+  end
+  for edge in table.value_iter(self.cluster_edges) do
+    self.graph:addEdge(edge)
+  end
+  for edge in table.value_iter(self.cluster_original_edges) do
+    self.graph:deleteEdge(edge)
+  end
+
+  self:dumpGraph('graph after merging clusters')
+end
+
+
+
+function ModularLayered:expandClusters()
+  Sys:log('expand clusters:')
+
+  --for node in table.value_iter(self.original_nodes) do
+  --  assert(self.ranking:getRank(self.cluster_node[node]))
+  --  self.ranking:setRank(node, self.ranking:getRank(self.cluster_node[node]))
+  --  self.graph:addNode(node)
+  --end
+
+  --for edge in table.value_iter(self.original_edges) do
+  --  for node in table.value_iter(edge.nodes) do
+  --    node:addEdge(edge)
+  --  end
+  --  self.graph:addEdge(edge)
+  --end
+  --
+  --for node in table.value_iter(self.cluster_nodes) do
+  --  self.ranking:setRank(node, nil)
+  --  self.graph:deleteNode(node)
+  --end
+
+  --for edge in table.value_iter(self.cluster_edges) do
+  --  self.graph:deleteEdge(edge)
+  --end
+
+  for node in table.value_iter(self.original_nodes) do
+    Sys:log('  add original node ' .. node.name .. ' back')
+    self.ranking:setRank(node, self.ranking:getRank(self.cluster_node[node]))
+    self.graph:addNode(node)
+  end
+
+  for edge in table.value_iter(self.cluster_original_edges) do
+    Sys:log('  add edge ' .. tostring(edge) .. ' back')
+    for node in table.value_iter(edge.nodes) do
+      node:addEdge(edge)
+    end
+    self.graph:addEdge(edge)
+  end
+
+  for edge in table.value_iter(self.cluster_edges) do
+    Sys:log('  delete cluster edge ' .. tostring(edge))
+    self.graph:deleteEdge(edge)
+  end
+
+  self:dumpGraph('graph after expanding clusters')
 end
 
 

@@ -28,6 +28,7 @@ Graph.__index = Graph
 --                The following parameters can be set:\par
 --                |nodes|: The nodes of the graph.\par
 --                |edges|: The edges of the graph.\par
+--                |clusters|: The node clusters of the graph.\par
 --                |pos|: Initial position of the graph.\par
 --                |options|: A table of node options passed over from \tikzname.
 --
@@ -37,6 +38,7 @@ function Graph:new(values)
   local defaults = {
     nodes = {},
     edges = {},
+    clusters = {},
     pos = Vector:new(2),
     options = {},
   }
@@ -92,10 +94,10 @@ function Graph:copy ()
   local result = table.custom_copy(self, Graph:new())
   result.nodes = {}
   result.edges = {}
+  result.clusters = {}
   result.root = nil
   return result
 end
-
 
 
 --- Adds a node to the graph.
@@ -308,6 +310,38 @@ function Graph:createEdge(first_node, second_node, direction, edge_nodes, option
   edge:addNode(second_node)
   self:addEdge(edge)
   return edge
+end
+
+
+
+--- Returns the cluster with the given name or |nil| if no such cluster exists.
+--
+-- @param name Name of the node cluster to look up.
+--
+-- @return The cluster with the given name or |nil| if no such cluster is defined.
+--
+function Graph:findClusterByName(name)
+  return table.find(self.clusters, function (cluster)
+    return cluster:getName() == name
+  end)
+end
+
+
+
+--- Tries to add a cluster to the graph. Returns whether or not this was successful.
+--
+-- Clusters are supposed to have unique names. This function will add the given
+-- cluster only if there is no cluster with this name already. It returns |true|
+-- if the cluster was added and |false| otherwise.
+--
+-- @param cluster Cluster to add to the graph.
+--
+-- @return |true| if the cluster was added successfully, |false| otherwise.
+--
+function Graph:addCluster(cluster)
+  if not self:findClusterByName(cluster:getName()) then
+    table.insert(self.clusters, cluster)
+  end
 end
 
 

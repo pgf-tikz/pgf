@@ -101,7 +101,6 @@ end
 
 function Ranking:setRank(node, new_rank)
   assert(node.__index == Node)
-  assert(type(new_rank) == type(0))
 
   local rank, pos = self:getNodeInfo(node)
 

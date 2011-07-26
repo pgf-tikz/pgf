@@ -134,14 +134,37 @@ end
 function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
   Sys:log("GD:INT: Edge " .. tostring(from) .. " " .. tostring(direction) .. " " .. tostring(to))
-  from_node = self.graph:findNode(from)
-  to_node = self.graph:findNode(to)
+  local from_node = self.graph:findNode(from)
+  local to_node = self.graph:findNode(to)
   assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
   if direction == Edge.NONE then
     self.graph:deleteEdgeBetweenNodes(from_node, to_node)
   else
     self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
   end
+end
+
+
+
+function Interface:addNodeToCluster(node_name, cluster_name)
+  assert(self.graph, 'no graph created')
+  
+  -- find the node
+  local node = self.graph:findNode(node_name)
+
+  assert(node, 'cannot add node "' .. node_name .. '" to cluster "' .. cluster_name .. '" because the node does not exist')
+  
+  -- find the cluster
+  local cluster = self.graph:findClusterByName(cluster_name)
+
+  -- if it doesn't exist yet, create it on demand
+  if not cluster then
+    cluster = Cluster:new(cluster_name)
+    self.graph:addCluster(cluster)
+  end
+
+  -- add the node to the cluster
+  cluster:addNode(node)
 end
 
 
