@@ -191,7 +191,7 @@ function Hu2006SpringElectrical:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.conservative_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
   end
 end
 
@@ -260,10 +260,7 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
 
   -- local (spring) force function
   function attractive_force(distance)
-    -- TODO HU does not subtract k here but this probably makes sense 
-    -- because the force should be repulsive if the edge is compressed and
-    -- attractive if the edge is longer than its natural length
-    return (distance * distance - spring_length) / spring_length
+    return (distance * distance) / spring_length
   end
 
   -- define the Barnes-Hut opening criterion
@@ -335,11 +332,11 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
               end
             end
           else
-            -- compute the distance between the node and the cell's centre of mass
+            -- compute the distance between the node and the cell's center of mass
             local delta = cell.centre_of_mass:minus(v.pos)
 
             -- enforce a small virtual distance if the node and the cell's 
-            -- centre of mass are located at (almost) the same position
+            -- center of mass are located at (almost) the same position
             if delta:norm() < 0.1 then
               delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
             end
@@ -401,6 +398,11 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
       -- d:norm()). could that improve this algorithm even further?
       v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
 
+      -- TODO Hu doesn't mention this but the energy of a particle is 
+      -- typically considered as the product of its mass and the square of 
+      -- its forces. This means we should probably take the weight of
+      -- the node v into the equation, doesn't it?
+      --
       -- update the energy function
       energy = energy + math.pow(d:norm(), 2)
     end
