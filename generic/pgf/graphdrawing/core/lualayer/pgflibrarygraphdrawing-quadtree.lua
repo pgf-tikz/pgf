@@ -194,6 +194,9 @@ end
 
 
 function CubicalCell:findInteractionCells(particle, test_func, cells)
+  -- FIXME TODO We also need to return leaf cells here, otherwise the forces
+  -- are not computed correctly!!!
+
   if test_func(self, particle) then
     table.insert(cells, self)
   else

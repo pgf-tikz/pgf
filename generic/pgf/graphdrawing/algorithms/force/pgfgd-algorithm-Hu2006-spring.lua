@@ -176,8 +176,16 @@ function Hu2006Spring:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.conservative_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
   end
+
+  local avg_spring_length = table.combine_values(self.graph.edges, function (sum, edge)
+    return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+  end, 0)
+  avg_spring_length = avg_spring_length / #self.graph.edges
+
+  Sys:log('natural spring dimension = ' .. self.natural_spring_length)
+  Sys:log('average spring dimension = ' .. avg_spring_length)
 end
 
 
@@ -235,7 +243,8 @@ end
 function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function repulsive_force(distance, graph_distance, weight)
-    return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
+    --return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
+    return (distance - (spring_length * graph_distance))
   end
 
   -- adjust the initial step length automatically if desired by the user
@@ -280,7 +289,7 @@ function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
           local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
 
           -- compute the repulsive force vector
-          local force = repulsive_force(delta:norm(), graph_distance, u.weight)
+          local force = repulsive_force(delta:norm(), graph_distance, v.weight)
           local force = delta:normalized():timesScalar(force)
 
           -- move the node v accordingly
@@ -344,52 +353,6 @@ function Hu2006Spring:fixateNodes(graph)
       node.fixed = true
     end
   end
-end
-
-
-
-function Hu2006Spring:buildQuadtree(graph)
-  -- compute the minimum x and y coordinates of all nodes
-  local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
-    return Vector:new(2, function (n) 
-      return math.min(min_pos:get(n), node.pos:get(n))
-    end)
-  end, graph.nodes[1].pos)
-
-  -- compute maximum x and y coordinates of all nodes
-  local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
-    return Vector:new(2, function (n) 
-      return math.max(max_pos:get(n), node.pos:get(n))
-    end)
-  end, graph.nodes[1].pos)
-
-  -- make sure the maximum position is at least a tiny bit
-  -- larger than the minimum position
-  if min_pos:equals(max_pos) then
-    max_pos = max_pos:plus(Vector:new(2, function (n)
-      return 0.1 + math.random() * 0.1
-    end))
-  end
-
-  -- make sure to make the quadtree area slightly larger than required
-  -- in theory; for some reason Lua will otherwise think that nodes with
-  -- min/max x/y coordinates are outside the box... weird? yes.
-  min_pos = min_pos:minusScalar(1)
-  max_pos = max_pos:plusScalar(1)
-
-  -- create the quadtree
-  quadtree = QuadTree:new(min_pos:x(), min_pos:y(),
-                          max_pos:x() - min_pos:x(),
-                          max_pos:y() - min_pos:y())
-
-  -- insert nodes into the quadtree
-  for node in table.value_iter(graph.nodes) do
-    local particle = Particle:new(node.pos, node.weight)
-    particle.node = node
-    quadtree:insert(particle)
-  end
-
-  return quadtree
 end
 
 
