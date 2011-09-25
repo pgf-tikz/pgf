@@ -21,8 +21,10 @@
 % \pgfdeclarelayer{background}
 
 \def\pgfdeclarelayer#1{%
-  \expandafter\pgf@newbox\csname pgf@layerbox@#1\endcsname%
-  \expandafter\pgf@newbox\csname pgf@layerboxsaved@#1\endcsname%
+  \pgfutil@ifundefined{pgf@layerbox@#1}{%
+	  \expandafter\pgf@newbox\csname pgf@layerbox@#1\endcsname%
+	  \expandafter\pgf@newbox\csname pgf@layerboxsaved@#1\endcsname%
+  }{}%
 }
 \let\pgf@newbox=\newbox % avoid plain TeX outer problem
 
@@ -35,14 +37,15 @@
 % Sets the list of layers that make up the picture. The layers will be
 % put on top of each other in the order given. 
 %
+% This command can also be given inside of a picture in which case it
+% applies only to that very picture.
+%
 % Example:
 %
 % \pgfsetlayers{background,main}
 
 \def\pgfsetlayers#1{\edef\pgf@layerlist{#1}}
 \pgfsetlayers{main}
-
-
 
 % Adds code to a layer
 %
@@ -58,30 +61,79 @@
 %   \fill[red] (0,0) -- (1,1);
 % \end{pgfonlayer}
 
+\def\pgfonlayer@name{main}
+
 \def\pgfonlayer#1{%
   \pgfutil@ifundefined{pgf@layerbox@#1}{%
      \PackageError{pgf}{Sorry, the requested layer '#1' could not be found. Maybe you misspelled it?}{}%
 	 \bgroup
 	 	\begingroup
   }{%
-	  \expandafter\global\expandafter%
-	  \setbox\csname pgf@layerbox@#1\endcsname=\hbox to 0pt%
-		\bgroup%
-		  \expandafter\box\csname pgf@layerbox@#1\endcsname%
-		  \begingroup%
+      \begingroup
+      \edef\pgf@temp{#1}%
+	  \ifx\pgf@temp\pgfonlayer@name
+	    % we are already on this layer.
+		\def\pgf@temp{%
+			\bgroup
+			   \begingroup
+		}
+      \else
+		\let\pgfonlayer@name=\pgf@temp
+		\pgfonlayer@assert@is@active
+	  	\def\pgf@temp{%
+			 \expandafter\global\expandafter%
+			 \setbox\csname pgf@layerbox@#1\endcsname=\hbox to 0pt%
+				\bgroup%
+				  \expandafter\box\csname pgf@layerbox@#1\endcsname%
+				  \begingroup%
+		}
+	 \fi
+	 \pgf@temp
   }%
 }
 \def\endpgfonlayer{%
-      \endgroup%
-      \hss
-    \egroup%
+		  \endgroup%
+		  \hss
+		\egroup%
+	\endgroup
 }
 
 \let\startpgfonlayer=\pgfonlayer
 \let\stoppgfonlayer=\endpgfonlayer
 
+\def\pgfdiscardlayername{discard}
 
-
+\def\pgfonlayer@assert@is@active{%
+  \ifx\pgfonlayer@name\pgfdiscardlayername
+     % this special layer name can be used as /dev/null without
+	 % warning.
+  \else
+	  \begingroup
+	  \def\pgfonlayer@isactive{0}%
+	  \expandafter\pgf@assert@layer@is@active@loop\pgf@layerlist,,\relax%
+	  \if0\pgfonlayer@isactive
+	     \pgfonlayer@assert@fail
+	  \fi
+	  \endgroup
+  \fi
+}%
+\def\pgfonlayer@assert@fail{%
+	\PackageError{pgf}{Sorry, the requested layer '\pgfonlayer@name' is not 
+	 part of the layer list. Please verify that you provided 
+	 \string\pgfsetlayers\space and that '\pgfonlayer@name' is part of this list}{}%
+}%
+\def\pgf@assert@layer@is@active@loop#1,#2,\relax{%
+  \edef\pgf@test{#1}%
+  \ifx\pgf@test\pgfonlayer@name
+ 	  \def\pgfonlayer@isactive{1}%
+  \else
+	  \def\pgf@test{#2}%
+	  \ifx\pgf@test\pgfutil@empty%
+	  \else%
+		\pgf@assert@layer@is@active@loop#2,\relax%
+	  \fi%
+  \fi
+}
 
 % Hooks into the scoping:
 
