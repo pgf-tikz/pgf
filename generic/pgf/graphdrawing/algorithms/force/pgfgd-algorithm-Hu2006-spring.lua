@@ -183,14 +183,6 @@ function Hu2006Spring:run()
     return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
   end, 0)
   avg_spring_length = avg_spring_length / #self.graph.edges
-
-  Sys:log('natural spring dimension = ' .. self.natural_spring_length)
-  Sys:log('average spring dimension = ' .. avg_spring_length)
-
-  self:log('  <value name="natural spring dimension">' .. self.natural_spring_length .. '</value>')
-  self:log('  <value name="average spring dimension">' .. avg_spring_length .. '</value>')
-  self:log('  <value name="graph density">' .. self.graph_density .. '</value>')
-  self:log('</graph>')
 end
 
 
