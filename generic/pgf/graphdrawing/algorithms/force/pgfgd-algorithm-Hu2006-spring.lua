@@ -186,6 +186,11 @@ function Hu2006Spring:run()
 
   Sys:log('natural spring dimension = ' .. self.natural_spring_length)
   Sys:log('average spring dimension = ' .. avg_spring_length)
+
+  self:log('  <value name="natural spring dimension">' .. self.natural_spring_length .. '</value>')
+  self:log('  <value name="average spring dimension">' .. avg_spring_length .. '</value>')
+  self:log('  <value name="graph density">' .. self.graph_density .. '</value>')
+  self:log('</graph>')
 end
 
 
@@ -212,7 +217,7 @@ function Hu2006Spring:computeInitialLayout(graph, spring_length)
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
       local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
-      local distance = self.graph_density * 2 * spring_length * (math.sqrt(self.graph_size) - 1) / (2 * math.cos(math.pi / 4))
+      local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
       Sys:log('Hu2006Spring: distance = ' .. distance)
@@ -227,7 +232,7 @@ function Hu2006Spring:computeInitialLayout(graph, spring_length)
 
     -- use a random positioning technique
     local function positioning_func(n) 
-      local radius = self.graph_density * 2 * spring_length * (math.sqrt(self.graph_size) - 1) / (2 * math.cos(math.pi / 4))
+      local radius = 2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       return math.random(-radius, radius)
     end
 
@@ -246,6 +251,10 @@ function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
     --return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
     return (distance - (spring_length * graph_distance))
   end
+
+  -- fixate all nodes that have a 'desired at' option. this will set the
+  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  self:fixateNodes(graph)
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length

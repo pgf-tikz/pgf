@@ -40,7 +40,7 @@ function positioning.random(graph_size, graph_density, distance)
 
     -- compute the radius needed to place nodes in a circle that fits around
     -- a matrix with sqrt(|V|^2) nodes and a column/row separation of distance
-    local radius = graph_density * 3 * distance * (math.sqrt(graph_size) - 1) / (2 * math.cos(math.pi / 4))
+    local radius = graph_density * 3 * distance * math.sqrt(graph_size) / 2
     return math.random(-radius, radius)
   end
 end

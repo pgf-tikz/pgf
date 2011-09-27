@@ -67,8 +67,8 @@ function Hu2006SpringElectrical:new(graph)
     natural_spring_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/natural spring dimension')),
     spring_constant = tonumber(graph:getOption('/graph drawing/spring electrical layout/spring constant')),
 
-    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate repulsive forces') == 'true',
-    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/repulsive force order')),
+    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate electric forces') == 'true',
+    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/electric force order')),
 
     coarsen = graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true',
     downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio')))),
@@ -219,7 +219,7 @@ function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
       local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
-      local distance = self.graph_density * 3 * spring_length * (math.sqrt(self.graph_size) - 1) / (2 * math.cos(math.pi / 4))
+      local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
       Sys:log('Hu2006SpringElectrical: distance = ' .. distance)
@@ -232,8 +232,11 @@ function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
     -- function to filter out fixed nodes
     local function nodeNotFixed(node) return not node.fixed end
 
-    -- use the random positioning technique
-    local positioning_func = positioning.technique('random', self.graph_size, self.graph_density, spring_length)
+    -- use a random positioning technique
+    local function positioning_func(n) 
+      local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      return math.random(-radius, radius)
+    end
 
     -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
@@ -265,9 +268,13 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
 
   -- define the Barnes-Hut opening criterion
   function barnes_hut_criterion(cell, particle)
-    local distance = particle.pos:minus(cell.centre_of_mass):norm()
+    local distance = particle.pos:minus(cell.center_of_mass):norm()
     return cell.width / distance <= 1.2
   end
+
+  -- fixate all nodes that have a 'desired at' option. this will set the
+  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  self:fixateNodes(graph)
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
@@ -318,7 +325,7 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
                 local delta = real_particle.pos:minus(v.pos)
             
                 -- enforce a small virtual distance if the node and the cell's 
-                -- centre of mass are located at (almost) the same position
+                -- center of mass are located at (almost) the same position
                 if delta:norm() < 0.1 then
                   delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
                 end
@@ -333,7 +340,7 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
             end
           else
             -- compute the distance between the node and the cell's center of mass
-            local delta = cell.centre_of_mass:minus(v.pos)
+            local delta = cell.center_of_mass:minus(v.pos)
 
             -- enforce a small virtual distance if the node and the cell's 
             -- center of mass are located at (almost) the same position

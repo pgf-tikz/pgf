@@ -93,8 +93,8 @@ function Walshaw2000:new(graph)
     natural_spring_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/natural spring dimension')),
     spring_constant = tonumber(graph:getOption('/graph drawing/spring electrical layout/spring constant')),
 
-    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate repulsive forces') == 'true',
-    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/repulsive force order')),
+    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate electric forces') == 'true',
+    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/electric force order')),
 
     coarsen = graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true',
     downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio')))),
@@ -102,6 +102,7 @@ function Walshaw2000:new(graph)
 
     graph = graph,
     graph_size = #graph.nodes,
+    graph_density = (2 * #graph.edges) / (#graph.nodes * (#graph.nodes - 1))
   }
   setmetatable(walshaw, Walshaw2000)
 
@@ -149,6 +150,8 @@ function Walshaw2000:run()
   -- number of coarsening steps without coarsening is 0
   local coarse_graph = CoarseGraph:new(self.graph)
 
+  Sys:log('graph size before coarsening = ' .. #coarse_graph.graph.nodes)
+
   -- check if the multilevel approach should be used
   if self.coarsen then
     -- coarsen the graph repeatedly until only minimum_graph_size nodes 
@@ -160,6 +163,8 @@ function Walshaw2000:run()
       coarse_graph:coarsen()
     end
   end
+
+  Sys:log('graph size after coarsening = ' .. #coarse_graph.graph.nodes)
 
   -- compute the natural spring length for the coarsest graph in a way
   -- that will result in the desired natural spring length in the 
@@ -184,6 +189,9 @@ function Walshaw2000:run()
       self:computeForceLayout(coarse_graph.graph, spring_length)
     end
   else
+    -- generate a random initial layout for the coarsest graph
+    self:computeInitialLayout(coarse_graph.graph, spring_length)
+    
     -- apply the force-based algorithm to improve the layout
     self:computeForceLayout(coarse_graph.graph, spring_length)
   end    
@@ -199,6 +207,8 @@ function Walshaw2000:computeInitialLayout(graph, spring_length)
   -- fixate all nodes that have a 'desired at' option. this will set the
   -- node.fixed member to true and also set node.pos:x() and node.pos:y()
   self:fixateNodes(graph)
+
+  Sys:log('nodes = ' .. #graph.nodes)
 
   if #graph.nodes == 2 then
     if not (graph.nodes[1].fixed and graph.nodes[2].fixed) then
@@ -225,7 +235,9 @@ function Walshaw2000:computeInitialLayout(graph, spring_length)
     local function nodeNotFixed(node) return not node.fixed end
 
     -- use the random positioning technique
-    local positioning_func = positioning.technique('random', self.graph_size, 1, spring_length)
+    local function positioning_func(n)
+      return math.random(-spring_length, spring_length)
+    end
 
     -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
@@ -266,6 +278,10 @@ function Walshaw2000:computeForceLayout(graph, spring_length)
     local distance = particle.pos:minus(cell.centre_of_mass):norm()
     return cell.width / distance <= 1.2
   end
+
+  -- fixate all nodes that have a 'desired at' option. this will set the
+  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  self:fixateNodes(graph)
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
