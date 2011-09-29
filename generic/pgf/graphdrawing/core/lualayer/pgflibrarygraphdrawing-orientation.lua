@@ -103,8 +103,17 @@ function orientation.rotate(graph)
       -- perform the rotation
       for node in table.value_iter(graph.nodes) do
         local x, y = node.pos:x(), node.pos:y()
+        
         node.pos:set{x = x * math.cos(angle) - y * math.sin(angle)}
         node.pos:set{y = x * math.sin(angle) + y * math.cos(angle)}
+      end
+      for edge in table.value_iter(graph.edges) do
+        for point in table.value_iter(edge.bend_points) do
+          local x, y = point:x(), point:y()
+
+          point:set{x = x * math.cos(angle) - y * math.sin(angle)}
+          point:set{y = x * math.sin(angle) + y * math.cos(angle)}
+        end
       end
   
       if swap then
