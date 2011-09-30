@@ -53,7 +53,7 @@ Walshaw2000.__index = Walshaw2000
 --
 -- @param graph
 --
-function drawGraphAlgorithm_Walshaw2000_spring_electrical(graph)
+function graph_drawing_algorithm_Walshaw2000_spring_electrical(graph)
   local walshaw = Walshaw2000:new(graph)
 
   Sys:log('Walshaw2000: random_seed = ' .. walshaw.random_seed)

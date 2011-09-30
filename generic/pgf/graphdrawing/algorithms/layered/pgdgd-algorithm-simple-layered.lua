@@ -17,7 +17,7 @@ pgf.module("pgf.graphdrawing")
 --
 -- @param graph   The graph to draw.
 --
-function drawGraphAlgorithm_simplelayered(graph)
+function graph_drawing_algorithm_simplelayered(graph)
   -- read options passed to the algorithm from TikZ
   graph:setOption('/graph drawing/node distance', graph:getOption('/graph drawing/node distance') or 58.5)
 
@@ -63,7 +63,7 @@ function drawGraphAlgorithm_simplelayered(graph)
 
   -- Use spring algorithm to draw the graph
   --require('pgflibrarygraphdrawing-algorithms-spring.lua')
-  --drawGraphAlgorithm_spring(graph)
+  --graph_drawing_algorithm_spring(graph)
 end
 
 

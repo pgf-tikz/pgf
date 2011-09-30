@@ -15,7 +15,7 @@ pgf.module("pgf.graphdrawing")
 
 --- Initialising options for positioning the given graph
 -- @param graph The tree-graph to be drawn
-function drawGraphAlgorithm_AhrensFKSS2011_tree(graph)
+function graph_drawing_algorithm_AhrensFKSS2011_tree(graph)
 
    -- determine the root of the tree
    graph.root = graph:findNodeIf(function (node) return node:getOption("/graph drawing/root") end) or graph.nodes[1]

@@ -28,7 +28,7 @@ Hu2006Spring.__index = Hu2006Spring
 -- Modifications compared to the original algorithm are explained in 
 -- the manual.
 --
-function drawGraphAlgorithm_Hu2006_spring(graph)
+function graph_drawing_algorithm_Hu2006_spring(graph)
   local hu = Hu2006Spring:new(graph)
 
   Sys:log('Hu2006 spring: random_seed = ' .. hu.random_seed)

@@ -24,7 +24,7 @@ pgf.module("pgf.graphdrawing")
 -- @param graph   The tree to draw.
 -- @param options Options passed to the algorithm from TikZ.
 --
-function drawGraphAlgorithm_naivetree(graph, options)
+function graph_drawing_algorithm_naivetree(graph, options)
   -- find the root note
   graph.root = graph:findNodeIf(function (node) return node:getOption("/graph drawing/root") end) or graph.nodes[1]
   if graph.root == nil then

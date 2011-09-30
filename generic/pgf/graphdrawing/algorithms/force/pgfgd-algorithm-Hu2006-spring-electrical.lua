@@ -27,7 +27,7 @@ Hu2006SpringElectrical.__index = Hu2006SpringElectrical
 --
 -- Modifications compared to the original algorithm are explained in the manual.
 --
-function drawGraphAlgorithm_Hu2006_spring_electrical(graph)
+function graph_drawing_algorithm_Hu2006_spring_electrical(graph)
   local hu = Hu2006SpringElectrical:new(graph)
 
   Sys:log('Hu2006 spring electrical: random_seed = ' .. hu.random_seed)

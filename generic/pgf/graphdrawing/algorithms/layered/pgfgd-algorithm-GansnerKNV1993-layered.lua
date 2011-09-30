@@ -29,7 +29,7 @@ GansnerKNV1993Layered.__index = GansnerKNV1993Layered
 --
 -- Modifications compared to the original algorithm are explained in the manual.
 --
-function drawGraphAlgorithm_GansnerKNV1993_layered(graph)
+function graph_drawing_algorithm_GansnerKNV1993_layered(graph)
   local algorithm = GansnerKNV1993Layered:new(graph)
 
   algorithm:initialize()

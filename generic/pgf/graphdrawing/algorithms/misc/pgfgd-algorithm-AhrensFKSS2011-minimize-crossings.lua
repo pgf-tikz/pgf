@@ -15,8 +15,8 @@ pgf.module("pgf.graphdrawing")
 
 --- Node positioning with local search algorithm
 -- @param graph graph-Structure to generate layout for
-function drawGraphAlgorithm_AhrensFKSS2011_minimize_crossings(graph)
-   Sys:log("GD:LSG: drawGraphAlgorithm_localsearchgraph")
+function graph_drawing_algorithm_AhrensFKSS2011_minimize_crossings(graph)
+   Sys:log("GD:LSG: graph_drawing_algorithm_localsearchgraph")
    --read options from graph
    local hSpace = graph:getOption("/graph drawing/AhrensFKSS2011 minimize crossings/max width")
    local vSpace = graph:getOption("/graph drawing/AhrensFKSS2011 minimize crossings/max height")

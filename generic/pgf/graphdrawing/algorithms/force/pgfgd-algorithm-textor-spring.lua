@@ -33,7 +33,7 @@ pgf.module("pgf.graphdrawing")
 -- @param graph   The graph to draw.
 -- @param options Options passed to the algorithm from TikZ.
 --
-function drawGraphAlgorithm_spring(graph, options)
+function graph_drawing_algorithm_spring(graph, options)
   -- read options passed to the algorithm from TikZ
   local node_distance = graph:getOption('/graph drawing/node distance') or 7
   local iterations = tonumber(graph:getOption('/graph drawing/spring layouts/maximum iterations') or 500)

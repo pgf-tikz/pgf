@@ -18,7 +18,7 @@ ModularLayered.__index = ModularLayered
 
 
 
-function drawGraphAlgorithm_modular_layered(graph)
+function graph_drawing_algorithm_modular_layered(graph)
   ModularLayered:new(graph):run()
   orientation.adjust(graph)
 end
