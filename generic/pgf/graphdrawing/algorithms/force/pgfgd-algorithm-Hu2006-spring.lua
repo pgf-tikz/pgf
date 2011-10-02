@@ -46,8 +46,6 @@ function graph_drawing_algorithm_Hu2006_spring(graph)
 
   hu:initialize()
   hu:run()
-
-  orientation.adjust(graph)
 end
 
 

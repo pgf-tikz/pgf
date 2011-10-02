@@ -34,8 +34,6 @@ function graph_drawing_algorithm_GansnerKNV1993_layered(graph)
 
   algorithm:initialize()
   algorithm:run()
-
-  orientation.adjust(graph)
 end
 
 

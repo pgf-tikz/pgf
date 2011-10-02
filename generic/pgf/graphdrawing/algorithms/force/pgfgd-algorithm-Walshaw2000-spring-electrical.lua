@@ -75,8 +75,6 @@ function graph_drawing_algorithm_Walshaw2000_spring_electrical(graph)
 
   walshaw:initialize()
   walshaw:run()
-
-  orientation.adjust(graph)
 end
 
 
