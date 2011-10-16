@@ -41,8 +41,8 @@ end
 function GansnerKNV1993Layered:new(graph)
   local algorithm = {
     -- read graph input parameters
-    level_distance = tonumber(graph:getOption('/graph drawing/layered drawing/level distance')),
-    sibling_distance = tonumber(graph:getOption('/graph drawing/layered drawing/sibling distance')),
+    level_distance = tonumber(graph:getOption('/graph drawing/level distance')),
+    sibling_distance = tonumber(graph:getOption('/graph drawing/sibling distance')),
 
     -- remember the graph for use in the algorithm
     graph = graph,

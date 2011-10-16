@@ -26,9 +26,11 @@ end
 
 function ModularLayered:new(graph)
   local algorithm = {
+    random_seed = tonumber(graph:getOption('/graph drawing/layered drawing/random seed')),
+
     -- read graph input parameters
-    level_distance = tonumber(graph:getOption('/graph drawing/layered drawing/level distance')),
-    sibling_distance = tonumber(graph:getOption('/graph drawing/layered drawing/sibling distance')),
+    level_distance = tonumber(graph:getOption('/graph drawing/level distance')),
+    sibling_distance = tonumber(graph:getOption('/graph drawing/sibling distance')),
 
     -- read sub-algorithm parameters
     cycle_removal_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/cycle removal')),
@@ -73,6 +75,11 @@ end
 
 
 function ModularLayered:run()
+  -- apply the random seed specified by the user (only if it is non-zero)
+  if self.random_seed ~= 0 then
+    math.randomseed(self.random_seed)
+  end
+
   self:dumpGraph('before preprocessing')
   self:preprocess()
 

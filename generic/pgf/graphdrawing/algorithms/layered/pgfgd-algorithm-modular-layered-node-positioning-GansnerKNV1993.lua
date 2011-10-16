@@ -24,8 +24,8 @@ function NodePositioningGansnerKNV1993:new(graph, ranking)
     ranking = ranking,
 
     -- read graph input parameters
-    level_distance = tonumber(graph:getOption('/graph drawing/layered drawing/level distance')),
-    sibling_distance = tonumber(graph:getOption('/graph drawing/layered drawing/sibling distance')),
+    level_distance = tonumber(graph:getOption('/graph drawing/level distance')),
+    sibling_distance = tonumber(graph:getOption('/graph drawing/sibling distance')),
   }
   setmetatable(algorithm, NodePositioningGansnerKNV1993)
 
