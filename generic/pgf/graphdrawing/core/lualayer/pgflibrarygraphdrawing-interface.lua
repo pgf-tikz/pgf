@@ -303,7 +303,7 @@ function Interface:drawGraph()
   local start = os.clock()
   algorithm(self.graph)
   local stop = os.clock()
-  Sys:log(string.format("GD:INT: algorithm took %.2f seconds", stop - start))
+  Sys:log(string.format("GD:INT: algorithm '" .. name .. "' took %.4f seconds", stop - start))
   Sys:log(' ')
 
   -- apply the orientation desired by the user
