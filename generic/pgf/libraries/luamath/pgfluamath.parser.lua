@@ -1,4 +1,4 @@
--- Copyright 2011 by Christophe Jorssen
+-- Copyright 2011 by Christophe Jorssen and Mark Wibrow
 --
 -- This file may be distributed and/or modified
 --
@@ -285,3 +285,250 @@ end
 function parseandeval(str)
    return lpeg.match(parser,str)
 end
+
+-- **************
+-- * Mark's way * 
+-- **************
+-- To be merged (originally pgf.luamath.parser.lua)
+
+pgf = pgf or {}
+pgf.luamath = pgf.luamath or {}
+pgf.luamath.parser = {}
+
+
+-- Namespaces will be searched in order. 
+pgf.luamath.parser.function_namespaces = {'_G', 'pgf.luamath.functions', 'math'}
+
+pgf.luamath.parser.units_declared = false
+
+function pgf.luamath.get_tex_box(box, dimension)
+   -- assume get_tex_box is only called when a dimension is required.
+   pgf.luamath.parser.units_declared = true
+   if dimension == 'width' then
+      return tex.box[box].width / 65536 -- return in points.
+   elseif dimension == 'height' then
+      return tex.box[box].height / 65536
+   else
+      return tex.box[box].depth / 65536
+   end        
+end
+
+function pgf.luamath.get_tex_register(register)
+    -- register is a string which could be a count or a dimen.    
+    if pcall(tex.getcount, register) then
+        return tex.count[register]
+    elseif pcall(tex.getdimen, register) then
+        pgf.luamath.parser.units_declared = true
+        return tex.dimen[register] / 65536 -- return in points.
+    else
+        pgf.luamath.parser.error = 'I do not know the TeX register "' .. register '"'
+        return nil
+    end
+    
+end
+
+function pgf.luamath.get_tex_count(count)
+    -- count is expected to be a number
+    return tex.count[tonumber(count)]
+end
+
+function pgf.luamath.get_tex_dimen(dimen)
+    -- dimen is expected to be a number
+    pgf.luamath.parser.units_declared = true
+    return tex.dimen[tonumber(dimen)] / 65536
+end
+
+function pgf.luamath.get_tex_sp(dimension)
+    -- dimension should be a string
+    pgf.luamath.parser.units_declared = true
+    return tex.sp(dimension) / 65536
+end
+
+
+
+-- transform named box specification 
+-- e.g., \wd\mybox -> pgf.luamath.get_tex_box["mybox"].width
+--
+function pgf.luamath.parser.process_tex_box_named(box) 
+   return 'pgf.luamath.get_tex_box(\\number'  .. box[2] .. ', "' .. box[1] .. '")'
+end
+
+-- transform numbered box specification 
+-- e.g., \wd0 -> pgf.luamath.get_tex_box["0"].width
+--
+function pgf.luamath.parser.process_tex_box_numbered(box)
+    return 'pgf.luamath.get_tex_box("' .. box[2] .. '", "' .. box[1] .. '")'
+end
+
+-- transform a register
+-- e.g., \mycount -> pgf.luamath.get_tex_register["mycount"]
+--       \dimen12 -> pgf.luamath.get_tex_dimen[12]
+--
+function pgf.luamath.parser.process_tex_register(register)
+    if register[2] == nil then -- a named register
+        return 'pgf.luamath.get_tex_register("' .. register[1]:sub(2, register[1]:len()) .. '")'
+    else -- a numbered register
+        return 'pgf.luamath.get_tex_' .. register[1]:sub(2, register[1]:len()) .. '(' .. register[2] .. ')'
+    end
+end
+
+-- transform a 'multiplier'
+-- e.g., 0.5 -> 0.5* (when followed by a box/register)
+--
+function pgf.luamath.parser.process_muliplier(multiplier)
+    return multiplier .. '*'
+end
+
+-- transform an explicit dimension to points
+-- e.g., 1cm -> pgf.luamath.get_tex_sp("1cm")
+--
+function pgf.luamath.parser.process_tex_dimension(dimension)
+    return 'pgf.luamath.get_tex_sp("' .. dimension .. '")'
+end
+
+-- Check the type and 'namespace' of a function F.
+--
+-- If F cannot be found as a Lua function or a Lua number in the
+-- namespaces in containted in pgf.luamath.parser.function_namespaces
+-- then an error results. 
+--
+-- if F is a Lua function and isn't followd by () (a requirement of Lua) 
+-- then the parentheses are inserted.
+--
+-- e.g., random -> random() (if random is a function in the _G namespace)
+--       pi     -> math.pi  (if pi is a constant that is only in the math namespace)
+--
+function pgf.luamath.parser.process_function(function_table) 
+    local function_name = function_table[1]
+    local char = function_table[2]
+    if (char == nil) then
+        char = ''
+    end
+    for _, namespace in pairs(pgf.luamath.parser.function_namespaces) do
+        local function_type = assert(loadstring('return type(' .. namespace .. '.' .. function_name .. ')'))()
+        if function_type == 'function' then
+            if not (char == '(') then
+                char = '()'
+            end
+            return namespace .. '.' .. function_name .. char
+        elseif function_type == 'number' then
+            return namespace .. '.' .. function_name .. char            
+        end
+    end
+    pgf.luamath.parser.error = 'I don\'t know the function or constant \'' .. function_name .. '\''
+end
+
+
+lpeg = require'lpeg'
+
+pgf.luamath.parser.transform_operands = lpeg.P{
+    'transform_operands';
+    
+    one_char = lpeg.P(1),
+    lowercase = lpeg.R('az'),
+    uppercase = lpeg.R('AZ'),
+    numeric = lpeg.R('09'),
+    dot = lpeg.P('.'),
+    exponent = lpeg.S('eE'),    
+    sign_prefix = lpeg.S('-+'),
+    begingroup = lpeg.P('('),
+    endgroup = lpeg.P(')'),
+    backslash = lpeg.P'\\',
+    at = lpeg.P'@',
+    
+    alphabetic = lpeg.V'lowercase' + lpeg.V'uppercase', 
+    alphanumeric = lpeg.V'alphabetic' + lpeg.V'numeric',
+    
+    integer = lpeg.V'numeric'^1,
+    real = lpeg.V'numeric'^0 * lpeg.V'dot' * lpeg.V'numeric'^1,
+    scientific = (lpeg.V'real' + lpeg.V'integer') * lpeg.V'exponent' * lpeg.V'sign_prefix'^0 * lpeg.V'integer',
+    
+    number = lpeg.V'scientific' + lpeg.V'real' + lpeg.V'integer',
+    signed_number = lpeg.V'sign_prefix'^0 * lpeg.V'number',
+    function_name = lpeg.V('alphabetic') * lpeg.V('alphanumeric')^0,
+    
+    tex_cs = lpeg.V'backslash' * (lpeg.V'alphanumeric' + lpeg.V'at')^1,
+    tex_box_dimension_primative = lpeg.V'backslash' * (lpeg.P'wd' + lpeg.P'ht' + lpeg.P'dp'),
+    tex_register_primative = lpeg.V'backslash' * (lpeg.P'count' + lpeg.P'dimen'),
+    
+    tex_primative = lpeg.V'tex_box_dimension_primative' + lpeg.V'tex_register_primative',
+    tex_macro = -lpeg.V'tex_primative' * lpeg.V'tex_cs',        
+    
+    tex_unit = 
+        lpeg.P('pt') + lpeg.P('mm') + lpeg.P('cm') + lpeg.P('in') + 
+        lpeg.P('ex') + lpeg.P('em') + lpeg.P('bp') + lpeg.P('pc') + 
+        lpeg.P('dd') + lpeg.P('cc') + lpeg.P('sp'),
+        
+    tex_register_named = lpeg.C(lpeg.V'tex_macro'),
+    tex_register_numbered = lpeg.C(lpeg.V'tex_register_primative') * lpeg.C(lpeg.V'integer'), 
+    tex_register_basic = lpeg.Cs(lpeg.Ct(lpeg.V'tex_register_numbered' + lpeg.V'tex_register_named') / pgf.luamath.parser.process_tex_register),
+    
+    tex_multiplier = lpeg.Cs((lpeg.V'tex_register_basic' + lpeg.C(lpeg.V'number')) / pgf.luamath.parser.process_muliplier),    
+    
+    tex_box_width = lpeg.Cs(lpeg.P('\\wd') / 'width'),
+    tex_box_height = lpeg.Cs(lpeg.P('\\ht') / 'height'),
+    tex_box_depth = lpeg.Cs(lpeg.P('\\dp') / 'depth'),
+    tex_box_dimensions = lpeg.V'tex_box_width' + lpeg.V'tex_box_height' + lpeg.V'tex_box_depth',
+    tex_box_named = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'tex_macro')) / pgf.luamath.parser.process_tex_box_named),
+    tex_box_numbered = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'number')) / pgf.luamath.parser.process_tex_box_numbered),
+    tex_box_basic = lpeg.V'tex_box_named' + lpeg.V'tex_box_numbered',
+    
+    tex_register = lpeg.Cs(lpeg.V'tex_multiplier' * lpeg.V'tex_register_basic') + lpeg.V'tex_register_basic',
+    tex_box = lpeg.Cs(lpeg.Cs(lpeg.V'tex_multiplier') * lpeg.V'tex_box_basic') + lpeg.V'tex_box_basic',
+    tex_dimension = lpeg.Cs(lpeg.V'number' * lpeg.V'tex_unit' / pgf.luamath.parser.process_tex_dimension),
+    
+    tex_operand = lpeg.Cs(lpeg.V'tex_dimension' + lpeg.V'tex_box' + lpeg.V'tex_register'),
+    
+    function_name = lpeg.V'alphabetic' * (lpeg.V'alphanumeric'^1),
+    function_operand = lpeg.Cs(lpeg.Ct(lpeg.C(lpeg.V'function_name') * lpeg.C(lpeg.V'one_char') + lpeg.C(lpeg.V'function_name')) / pgf.luamath.parser.process_function),
+    
+    -- order is (always) important!
+    operands = lpeg.V'tex_operand' + lpeg.V'number' +  lpeg.V'function_operand',
+    
+    transform_operands = lpeg.Cs((lpeg.V'operands' + 1)^0)
+ }
+ 
+ pgf.luamath.parser.remove_spaces = lpeg.Cs((lpeg.S' \n\t' / '' + 1)^0)
+ 
+ 
+function pgf.luamath.parser.evaluate(expression)
+    assert(loadstring('pgf.luamath.parser._result=' .. expression))()
+    pgf.luamath.parser.result = pgf.luamath.parser._result
+end
+ 
+function pgf.luamath.parser.parse(expression)
+   pgf.luamath.parser.write_to_log("Parsing expression:" .. expression)
+   pgf.luamath.parser.units_declared = false
+   
+   pgf.luamath.parser.error = nil
+   pgf.luamath.parser.result = nil    
+   
+   -- Remove spaces
+   expression = pgf.luamath.parser.remove_spaces:match(expression)
+
+   parsed_expression = 
+      pgf.luamath.parser.transform_operands:match(expression)
+   pgf.luamath.parser.write_to_log("Transformed expression:" 
+				   .. parsed_expression) 
+end
+
+function pgf.luamath.parser.eval(expression)
+   pgf.luamath.parser.write_to_log("Evaluating expression:" .. expression)
+   pcall(pgf.luamath.parser.evaluate, expression)
+   pgf.luamath.parser.write_to_log("Result:" .. pgf.luamath.parser.result)
+   if pgf.luamath.parser.result == nil then
+      pgf.luamath.parser.error = "Sorry, I could not evaluate  '" .. expression .. "'"
+      return nil
+   else        
+      return pgf.luamath.parser.result
+   end
+end
+ 
+pgf.luamath.parser.trace = true
+
+function pgf.luamath.parser.write_to_log (s)
+   if pgf.luamath.parser.trace then
+      texio.write_nl(s)
+   end
+end
+
