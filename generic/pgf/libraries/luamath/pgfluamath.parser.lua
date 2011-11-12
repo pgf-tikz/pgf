@@ -9,137 +9,16 @@
 --
 -- $Id$	
 
-module("pgfluamath.parser", package.seeall)
+local pgfluamathparser = pgfluamathparser or {}
 
 require("pgfluamath.functions")
 
--- From pgfmathparser.code.tex
-local operator_table = {
-   [1] = {
-      symbol = "+",
-      name = "add",
-      arity = 2,
-      fixity = "infix",
-      precedence = 500},
-   [2] = {
-      symbol = "-",
-      name = "substract",
-      arity = 2,
-      fixity = "infix",
-      precedence = 500},
-   [3] = {
-      symbol = "*",
-      name = "multiply",
-      arity = 2,
-      fixity = "infix",
-      precedence = 700},
-   [4] = {
-      symbol = "/",
-      name = "divide",
-      arity = 2,
-      fixity = "infix",
-      precedence = 700},
-   [5] = {
-      symbol = "^",
-      name = "pow",
-      arity = 2,
-      fixity = "infix",
-      precedence = 900},
-   [6] = {
-      symbol = ">",
-      name = "greater",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [7] = {
-      symbol = "<",
-      name = "less",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [8] = {
-      symbol = "==",
-      name = "equal",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [9] = {
-      symbol = ">=",
-      name = "notless",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [10] = {
-      symbol = "<=",
-      name = "notgreater",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [11] = {
-      symbol = "&&",
-      name = "and",
-      arity = 2,
-      fixity = "infix",
-      precedence = 200},
-   [12] = {
-      symbol = "||",
-      name = "or",
-      arity = 2,
-      fixity = "infix",
-      precedence = 200},
-   [13] = {
-      symbol = "!=",
-      name = "notequalto",
-      arity = 2,
-      fixity = "infix",
-      precedence = 250},
-   [14] = {
-      symbol = "!",
-      name = "not",
-      arity = 1,
-      fixity = "prefix",
-      precedence = 975},
-   [15] = {
-      symbol = "?",
-      name = "ifthenelse",
-      arity = 3,
-      fixity = "infix",
-      precedence = 100},
-   [16] = {
-      symbol = ":",
-      name = "@@collect",
-      arity = 2,
-      fixity = "infix",
-      precedence = 101},
-   [17] = {
-      symbol = "!",
-      name = "factorial",
-      arity = 1,
-      fixity = "postfix",
-      precedence = 800},
-   [18] = {
-      symbol = "r",
-      name = "deg",
-      arity = 1,
-      fixity = "postfix",
-      precedence = 600},
-}
-
---[[ Dont't think those are needed?
-\pgfmathdeclareoperator{,}{@collect}   {2}{infix}  {10}
-\pgfmathdeclareoperator{[}{@startindex}{2}{prefix} {7}
-\pgfmathdeclareoperator{]}{@endindex}  {0}{postfix}{6}
-\pgfmathdeclareoperator{(}{@startgroup}{1}{prefix} {5}
-\pgfmathdeclareoperator{)}{@endgroup}  {0}{postfix}{4}
-\pgfmathdeclareoperator{\pgfmath@bgroup}{@startarray}{1}{prefix} {3}
-\pgfmathdeclareoperator{\pgfmath@egroup}{@endarray}  {1}{postfix}{2}% 
-\pgfmathdeclareoperator{"}{}{1}{prefix}{1} --"
-\pgfmathdeclareoperator{@}{}{0}{postfix}{0}
---]]
+-- lpeg is always present in luatex
+local lpeg = require("lpeg")
 
 local S, P, R = lpeg.S, lpeg.P, lpeg.R
 local C, Cc, Ct = lpeg.C, lpeg.Cc, lpeg.Ct
-local Cf, Cg = lpeg.Cf, lpeg.Cg
+local Cf, Cg, Cs = lpeg.Cf, lpeg.Cg, lpeg.Cs
 local V = lpeg.V
 
 local space_pattern = S(" \n\r\t")^0
@@ -289,21 +168,16 @@ end
 -- **************
 -- * Mark's way * 
 -- **************
--- To be merged (originally pgf.luamath.parser.lua)
 
-pgf = pgf or {}
-pgf.luamath = pgf.luamath or {}
-pgf.luamath.parser = {}
+-- Namespaces will be searched in the following order. 
+pgfluamathparser.function_namespaces = {
+   'pgfluamathfunctions', 'math', '_G'}
 
+pgfluamathparser.units_declared = false
 
--- Namespaces will be searched in order. 
-pgf.luamath.parser.function_namespaces = {'_G', 'pgf.luamath.functions', 'math'}
-
-pgf.luamath.parser.units_declared = false
-
-function pgf.luamath.get_tex_box(box, dimension)
+function pgfluamathparser.get_tex_box(box, dimension)
    -- assume get_tex_box is only called when a dimension is required.
-   pgf.luamath.parser.units_declared = true
+   pgfluamathparser.units_declared = true
    if dimension == 'width' then
       return tex.box[box].width / 65536 -- return in points.
    elseif dimension == 'height' then
@@ -313,83 +187,83 @@ function pgf.luamath.get_tex_box(box, dimension)
    end        
 end
 
-function pgf.luamath.get_tex_register(register)
+function pgfluamathparser.get_tex_register(register)
     -- register is a string which could be a count or a dimen.    
     if pcall(tex.getcount, register) then
         return tex.count[register]
     elseif pcall(tex.getdimen, register) then
-        pgf.luamath.parser.units_declared = true
+        pgfluamathparser.units_declared = true
         return tex.dimen[register] / 65536 -- return in points.
     else
-        pgf.luamath.parser.error = 'I do not know the TeX register "' .. register '"'
+        pgfluamathparser.error = 'I do not know the TeX register "' .. register '"'
         return nil
     end
     
 end
 
-function pgf.luamath.get_tex_count(count)
+function pgfluamathparser.get_tex_count(count)
     -- count is expected to be a number
     return tex.count[tonumber(count)]
 end
 
-function pgf.luamath.get_tex_dimen(dimen)
+function pgfluamathparser.get_tex_dimen(dimen)
     -- dimen is expected to be a number
-    pgf.luamath.parser.units_declared = true
+    pgfluamathparser.units_declared = true
     return tex.dimen[tonumber(dimen)] / 65536
 end
 
-function pgf.luamath.get_tex_sp(dimension)
+function pgfluamathparser.get_tex_sp(dimension)
     -- dimension should be a string
-    pgf.luamath.parser.units_declared = true
+    pgfluamathparser.units_declared = true
     return tex.sp(dimension) / 65536
 end
 
 
 
 -- transform named box specification 
--- e.g., \wd\mybox -> pgf.luamath.get_tex_box["mybox"].width
+-- e.g., \wd\mybox -> pgfluamathparser.get_tex_box["mybox"].width
 --
-function pgf.luamath.parser.process_tex_box_named(box) 
-   return 'pgf.luamath.get_tex_box(\\number'  .. box[2] .. ', "' .. box[1] .. '")'
+function pgfluamathparser.process_tex_box_named(box) 
+   return 'pgfluamathparser.get_tex_box(\\number'  .. box[2] .. ', "' .. box[1] .. '")'
 end
 
 -- transform numbered box specification 
--- e.g., \wd0 -> pgf.luamath.get_tex_box["0"].width
+-- e.g., \wd0 -> pgfluamathparser.get_tex_box["0"].width
 --
-function pgf.luamath.parser.process_tex_box_numbered(box)
-    return 'pgf.luamath.get_tex_box("' .. box[2] .. '", "' .. box[1] .. '")'
+function pgfluamathparser.process_tex_box_numbered(box)
+    return 'pgfluamathparser.get_tex_box("' .. box[2] .. '", "' .. box[1] .. '")'
 end
 
 -- transform a register
--- e.g., \mycount -> pgf.luamath.get_tex_register["mycount"]
---       \dimen12 -> pgf.luamath.get_tex_dimen[12]
+-- e.g., \mycount -> pgfluamathparser.get_tex_register["mycount"]
+--       \dimen12 -> pgfluamathparser.get_tex_dimen[12]
 --
-function pgf.luamath.parser.process_tex_register(register)
+function pgfluamathparser.process_tex_register(register)
     if register[2] == nil then -- a named register
-        return 'pgf.luamath.get_tex_register("' .. register[1]:sub(2, register[1]:len()) .. '")'
+        return 'pgfluamathparser.get_tex_register("' .. register[1]:sub(2, register[1]:len()) .. '")'
     else -- a numbered register
-        return 'pgf.luamath.get_tex_' .. register[1]:sub(2, register[1]:len()) .. '(' .. register[2] .. ')'
+        return 'pgfluamathparser.get_tex_' .. register[1]:sub(2, register[1]:len()) .. '(' .. register[2] .. ')'
     end
 end
 
 -- transform a 'multiplier'
 -- e.g., 0.5 -> 0.5* (when followed by a box/register)
 --
-function pgf.luamath.parser.process_muliplier(multiplier)
+function pgfluamathparser.process_muliplier(multiplier)
     return multiplier .. '*'
 end
 
 -- transform an explicit dimension to points
--- e.g., 1cm -> pgf.luamath.get_tex_sp("1cm")
+-- e.g., 1cm -> pgfluamathparser.get_tex_sp("1cm")
 --
-function pgf.luamath.parser.process_tex_dimension(dimension)
-    return 'pgf.luamath.get_tex_sp("' .. dimension .. '")'
+function pgfluamathparser.process_tex_dimension(dimension)
+    return 'pgfluamathparser.get_tex_sp("' .. dimension .. '")'
 end
 
 -- Check the type and 'namespace' of a function F.
 --
 -- If F cannot be found as a Lua function or a Lua number in the
--- namespaces in containted in pgf.luamath.parser.function_namespaces
+-- namespaces in containted in pgfluamathparser.function_namespaces
 -- then an error results. 
 --
 -- if F is a Lua function and isn't followd by () (a requirement of Lua) 
@@ -398,13 +272,13 @@ end
 -- e.g., random -> random() (if random is a function in the _G namespace)
 --       pi     -> math.pi  (if pi is a constant that is only in the math namespace)
 --
-function pgf.luamath.parser.process_function(function_table) 
+function pgfluamathparser.process_function(function_table) 
     local function_name = function_table[1]
     local char = function_table[2]
     if (char == nil) then
         char = ''
     end
-    for _, namespace in pairs(pgf.luamath.parser.function_namespaces) do
+    for _, namespace in pairs(pgfluamathparser.function_namespaces) do
         local function_type = assert(loadstring('return type(' .. namespace .. '.' .. function_name .. ')'))()
         if function_type == 'function' then
             if not (char == '(') then
@@ -415,13 +289,15 @@ function pgf.luamath.parser.process_function(function_table)
             return namespace .. '.' .. function_name .. char            
         end
     end
-    pgf.luamath.parser.error = 'I don\'t know the function or constant \'' .. function_name .. '\''
+    pgfluamathparser.error = 'I don\'t know the function or constant \'' .. function_name .. '\''
 end
 
+-- NOTE: \pgfmathparse{pi/3.14} will fail giving pgfluamathfunctions.pi()3.14
+-- (the / is missing, probablu gobbled by one of the captures of the grammar).
 
 lpeg = require'lpeg'
 
-pgf.luamath.parser.transform_operands = lpeg.P{
+pgfluamathparser.transform_operands = lpeg.P{
     'transform_operands';
     
     one_char = lpeg.P(1),
@@ -461,26 +337,26 @@ pgf.luamath.parser.transform_operands = lpeg.P{
         
     tex_register_named = lpeg.C(lpeg.V'tex_macro'),
     tex_register_numbered = lpeg.C(lpeg.V'tex_register_primative') * lpeg.C(lpeg.V'integer'), 
-    tex_register_basic = lpeg.Cs(lpeg.Ct(lpeg.V'tex_register_numbered' + lpeg.V'tex_register_named') / pgf.luamath.parser.process_tex_register),
+    tex_register_basic = lpeg.Cs(lpeg.Ct(lpeg.V'tex_register_numbered' + lpeg.V'tex_register_named') / pgfluamathparser.process_tex_register),
     
-    tex_multiplier = lpeg.Cs((lpeg.V'tex_register_basic' + lpeg.C(lpeg.V'number')) / pgf.luamath.parser.process_muliplier),    
+    tex_multiplier = lpeg.Cs((lpeg.V'tex_register_basic' + lpeg.C(lpeg.V'number')) / pgfluamathparser.process_muliplier),    
     
     tex_box_width = lpeg.Cs(lpeg.P('\\wd') / 'width'),
     tex_box_height = lpeg.Cs(lpeg.P('\\ht') / 'height'),
     tex_box_depth = lpeg.Cs(lpeg.P('\\dp') / 'depth'),
     tex_box_dimensions = lpeg.V'tex_box_width' + lpeg.V'tex_box_height' + lpeg.V'tex_box_depth',
-    tex_box_named = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'tex_macro')) / pgf.luamath.parser.process_tex_box_named),
-    tex_box_numbered = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'number')) / pgf.luamath.parser.process_tex_box_numbered),
+    tex_box_named = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'tex_macro')) / pgfluamathparser.process_tex_box_named),
+    tex_box_numbered = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'number')) / pgfluamathparser.process_tex_box_numbered),
     tex_box_basic = lpeg.V'tex_box_named' + lpeg.V'tex_box_numbered',
     
     tex_register = lpeg.Cs(lpeg.V'tex_multiplier' * lpeg.V'tex_register_basic') + lpeg.V'tex_register_basic',
     tex_box = lpeg.Cs(lpeg.Cs(lpeg.V'tex_multiplier') * lpeg.V'tex_box_basic') + lpeg.V'tex_box_basic',
-    tex_dimension = lpeg.Cs(lpeg.V'number' * lpeg.V'tex_unit' / pgf.luamath.parser.process_tex_dimension),
+    tex_dimension = lpeg.Cs(lpeg.V'number' * lpeg.V'tex_unit' / pgfluamathparser.process_tex_dimension),
     
     tex_operand = lpeg.Cs(lpeg.V'tex_dimension' + lpeg.V'tex_box' + lpeg.V'tex_register'),
     
     function_name = lpeg.V'alphabetic' * (lpeg.V'alphanumeric'^1),
-    function_operand = lpeg.Cs(lpeg.Ct(lpeg.C(lpeg.V'function_name') * lpeg.C(lpeg.V'one_char') + lpeg.C(lpeg.V'function_name')) / pgf.luamath.parser.process_function),
+    function_operand = lpeg.Cs(lpeg.Ct(lpeg.C(lpeg.V'function_name') * lpeg.C(lpeg.V'one_char') + lpeg.C(lpeg.V'function_name')) / pgfluamathparser.process_function),
     
     -- order is (always) important!
     operands = lpeg.V'tex_operand' + lpeg.V'number' +  lpeg.V'function_operand',
@@ -488,47 +364,48 @@ pgf.luamath.parser.transform_operands = lpeg.P{
     transform_operands = lpeg.Cs((lpeg.V'operands' + 1)^0)
  }
  
- pgf.luamath.parser.remove_spaces = lpeg.Cs((lpeg.S' \n\t' / '' + 1)^0)
+ pgfluamathparser.remove_spaces = lpeg.Cs((lpeg.S' \n\t' / '' + 1)^0)
  
  
-function pgf.luamath.parser.evaluate(expression)
-    assert(loadstring('pgf.luamath.parser._result=' .. expression))()
-    pgf.luamath.parser.result = pgf.luamath.parser._result
+function pgfluamathparser.evaluate(expression)
+    assert(loadstring('pgfluamathparser._result=' .. expression))()
+    pgfluamathparser.result = pgfluamathparser._result
 end
  
-function pgf.luamath.parser.parse(expression)
-   pgf.luamath.parser.write_to_log("Parsing expression:" .. expression)
-   pgf.luamath.parser.units_declared = false
+function pgfluamathparser.parse(expression)
+   pgfluamathparser.write_to_log("Parsing expression:" .. expression)
+   pgfluamathparser.units_declared = false
    
-   pgf.luamath.parser.error = nil
-   pgf.luamath.parser.result = nil    
+   pgfluamathparser.error = nil
+   pgfluamathparser.result = nil    
    
    -- Remove spaces
-   expression = pgf.luamath.parser.remove_spaces:match(expression)
+   expression = pgfluamathparser.remove_spaces:match(expression)
 
    parsed_expression = 
-      pgf.luamath.parser.transform_operands:match(expression)
-   pgf.luamath.parser.write_to_log("Transformed expression:" 
+      pgfluamathparser.transform_operands:match(expression)
+   pgfluamathparser.write_to_log("Transformed expression:" 
 				   .. parsed_expression) 
 end
 
-function pgf.luamath.parser.eval(expression)
-   pgf.luamath.parser.write_to_log("Evaluating expression:" .. expression)
-   pcall(pgf.luamath.parser.evaluate, expression)
-   pgf.luamath.parser.write_to_log("Result:" .. pgf.luamath.parser.result)
-   if pgf.luamath.parser.result == nil then
-      pgf.luamath.parser.error = "Sorry, I could not evaluate  '" .. expression .. "'"
+function pgfluamathparser.eval(expression)
+   pgfluamathparser.write_to_log("Evaluating expression:" .. expression)
+   pcall(pgfluamathparser.evaluate, expression)
+   pgfluamathparser.write_to_log("Result:" .. pgfluamathparser.result)
+   if pgfluamathparser.result == nil then
+      pgfluamathparser.error = "Sorry, I could not evaluate  '" .. expression .. "'"
       return nil
    else        
-      return pgf.luamath.parser.result
+      return pgfluamathparser.result
    end
 end
  
-pgf.luamath.parser.trace = true
+pgfluamathparser.trace = true
 
-function pgf.luamath.parser.write_to_log (s)
-   if pgf.luamath.parser.trace then
+function pgfluamathparser.write_to_log (s)
+   if pgfluamathparser.trace then
       texio.write_nl(s)
    end
 end
 
+return pgfluamathparser

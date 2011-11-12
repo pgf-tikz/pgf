@@ -10,7 +10,7 @@
 -- $Id$
 --
 
-module("pgfluamath.functions", package.seeall)
+local pgfluamathfunctions = pgfluamathfunctions or {}
 
 local mathabs, mathacos, mathasin = math.abs, math.acos, math.asin
 local mathatan, mathatan2, mathceil = math.atan, math.atan2, math.ceil
@@ -24,31 +24,31 @@ local mathrandomseed, mathsin = math.randomseed, math.sin
 local mathsinh, mathsqrt, mathtanh = math.sinh, math.sqrt, math.tanh
 local mathtan = math.tan
 
-function add(x,y)
+function pgfluamathfunctions.add(x,y)
    return x+y
 end
 
-function substract(x,y)
+function pgfluamathfunctions.substract(x,y)
    return x-y
 end
 
-function neg(x)
+function pgfluamathfunctions.neg(x)
    return -x
 end
 
-function multiply(x,y)
+function pgfluamathfunctions.multiply(x,y)
    return x*y
 end
 
-function divide(x,y)
+function pgfluamathfunctions.divide(x,y)
    return x/y
 end
 
-function pow(x,y)
+function pgfluamathfunctions.pow(x,y)
    return mathpow(x,y)
 end
 
-function factorial(x)
+function pgfluamathfunctions.factorial(x)
 -- TODO: x must be an integer
    if x == 0 then
       return 1
@@ -57,11 +57,11 @@ function factorial(x)
    end
 end
 
-function deg(x)
+function pgfluamathfunctions.deg(x)
    return mathdeg(x)
 end
 
-function ifthenelse(x,y,z)
+function pgfluamathfunctions.ifthenelse(x,y,z)
    if x~= 0 then
       return y
    else
@@ -69,7 +69,7 @@ function ifthenelse(x,y,z)
    end
 end
 
-function equal(x,y)
+function pgfluamathfunctions.equal(x,y)
    if x == y then
       return 1
    else
@@ -77,7 +77,7 @@ function equal(x,y)
    end
 end
 
-function greater(x,y)
+function pgfluamathfunctions.greater(x,y)
    if x > y then
       return 1
    else
@@ -85,7 +85,7 @@ function greater(x,y)
    end
 end
 
-function less(x,y)
+function pgfluamathfunctions.less(x,y)
    if x < y then
       return 1
    else
@@ -93,7 +93,7 @@ function less(x,y)
    end
 end
 
-function notequal(x,y)
+function pgfluamathfunctions.notequal(x,y)
    if x ~= y then
       return 1
    else
@@ -101,7 +101,7 @@ function notequal(x,y)
    end
 end
 
-function notless(x,y)
+function pgfluamathfunctions.notless(x,y)
    if x >= y then
       return 1
    else
@@ -109,7 +109,7 @@ function notless(x,y)
    end
 end
 
-function notgreater(x,y)
+function pgfluamathfunctions.notgreater(x,y)
    if x <= y then
       return 1
    else
@@ -117,7 +117,7 @@ function notgreater(x,y)
    end
 end
 
-function andPGF(x,y)
+function pgfluamathfunctions.andPGF(x,y)
    if (x ~= 0) and (y ~= 0) then
       return 1
    else
@@ -125,7 +125,7 @@ function andPGF(x,y)
    end
 end
 
-function orPGF(x,y)
+function pgfluamathfunctions.orPGF(x,y)
    if (x ~= 0) or (y ~= 0) then
       return 1
    else
@@ -133,7 +133,7 @@ function orPGF(x,y)
    end
 end
 
-function notPGF(x)
+function pgfluamathfunctions.notPGF(x)
    if x == 0 then
       return 1
    else
@@ -141,59 +141,59 @@ function notPGF(x)
    end
 end
 
-function pi()
+function pgfluamathfunctions.pi()
    return mathpi
 end
 
-function e()
+function pgfluamathfunctions.e()
    return mathexp(1)
 end
 
-function abs(x)
+function pgfluamathfunctions.abs(x)
    return mathabs(x)
 end
 
-function floor(x)
+function pgfluamathfunctions.floor(x)
    return mathfloor(x)
 end
 
-function ceil(x)
+function pgfluamathfunctions.ceil(x)
    return mathceil(x)
 end
 
-function exp(x)
+function pgfluamathfunctions.exp(x)
    return mathexp(x)
 end
 
-function log(x)
+function pgfluamathfunctions.log(x)
    return mathlog(x)
 end
 
-function log10(x)
+function pgfluamathfunctions.log10(x)
    return mathlog10(x)
 end
 
-function sqrt(x)
+function pgfluamathfunctions.sqrt(x)
    return mathsqrt(x)
 end
 
-function rnd()
+function pgfluamathfunctions.rnd()
    return mathrandom()
 end
 
-function rand()
+function pgfluamathfunctions.rand()
    return mathrandom(-1,1)
 end
 
-function deg(x)
+function pgfluamathfunctions.deg(x)
    return mathdeg(x)
 end
 
-function rad(x)
+function pgfluamathfunctions.rad(x)
    return mathrad(x)
 end
 
-function round(x)
+function pgfluamathfunctions.round(x)
    if x<0 then
       return -mathceil(mathabs(x)) 
    else 
@@ -201,7 +201,7 @@ function round(x)
    end
 end
 
-function gcd(a, b)
+function pgfluamathfunctions.gcd(a, b)
    if b == 0 then
       return a
    else
@@ -209,7 +209,7 @@ function gcd(a, b)
    end
 end
 
-function isprime(a)
+function pgfluamathfunctions.isprime(a)
    local ifisprime = true
    if a == 1 then
       ifisprime = false
@@ -233,7 +233,7 @@ function isprime(a)
 end
       
 
-function split_braces_to_explist(s)
+function pgfluamathfunctions.split_braces_to_explist(s)
    -- (Thanks to mpg and zappathustra from fctt)
    -- Make unpack available whatever lua version is used 
    -- (unpack in lua 5.1 table.unpack in lua 5.2)
@@ -245,7 +245,7 @@ function split_braces_to_explist(s)
    return unpack(t)
 end
 
-function split_braces_to_table(s)
+function pgfluamathfunctions.split_braces_to_table(s)
    local t = {}
    for i in s:gmatch('%b{}') do
       table.insert(t, tonumber(i:sub(2, -2)))
@@ -253,7 +253,7 @@ function split_braces_to_table(s)
    return t
 end
 
-function mod(x,y)
+function pgfluamathfunctions.mod(x,y)
    if x/y < 0 then
       return -(mathabs(x)%mathabs(y))
    else
@@ -261,39 +261,39 @@ function mod(x,y)
    end
 end
 
-function Mod(x,y)
+function pgfluamathfunctions.Mod(x,y)
    return mathabs(x)%mathabs(y)
 end
 
-function Sin(x)
+function pgfluamathfunctions.Sin(x)
    return mathsin(mathrad(x))
 end
 
-function Cos(x)
+function pgfluamathfunctions.Cos(x)
    return mathcos(mathrad(x))
 end
 
-function Tan(x)
+function pgfluamathfunctions.Tan(x)
    return mathtan(mathrad(x))
 end
 
-function aSin(x)
+function pgfluamathfunctions.aSin(x)
    return mathdeg(mathasin(x))
 end
 
-function aCos(x)
+function pgfluamathfunctions.aCos(x)
    return mathdeg(mathacos(x))
 end
 
-function aTan(x)
+function pgfluamathfunctions.aTan(x)
    return mathdeg(mathatan(x))
 end
 
-function aTan2(x,y)
+function pgfluamathfunctions.aTan2(x,y)
    return mathdeg(mathatan2(x,y))
 end
 
-function pointnormalised (pgfx, pgfy)
+function pgfluamathfunctions.pointnormalised (pgfx, pgfy)
    local pgfx_normalised, pgfy_normalised
    if pgfx == 0. and pgfy == 0. then
       -- Orginal pgf macro gives this result
@@ -309,3 +309,5 @@ function pointnormalised (pgfx, pgfy)
    end
    return nil
 end
+
+return pgfluamathfunctions
