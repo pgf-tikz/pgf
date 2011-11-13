@@ -23,100 +23,54 @@ local V = lpeg.V
 
 local space_pattern = S(" \n\r\t")^0
 
-local digit = R("09")
-local integer_pattern = P("-")^-1 * digit^1
+local exponent_pattern = S("eE")
+
+local one_digit_pattern = R("09")
+local positive_integer_pattern = one_digit_pattern^1
+local integer_pattern = P("-")^-1 * positive_integer_pattern
 -- Valid positive decimals are |xxx.xxx|, |.xxx| and |xxx.|
-local positive_decimal_pattern = (digit^1 * P(".") * digit^1) +
-                                 (P(".") * digit^1) +
-			         (digit^1 * P("."))
+local positive_decimal_pattern = (one_digit_pattern^1 * P(".") * 
+                                  one_digit_pattern^1) + 
+                                 (P(".") * one_digit_pattern^1) +
+			         (one_digit_pattern^1 * P("."))
 local decimal_pattern = P("-")^-1 * positive_decimal_pattern
-local integer = C(integer_pattern) * space_pattern
-local decimal = Cc("decimal") * C(decimal_pattern) * space_pattern
-local float = Cc("float") * C(decimal_pattern) * S("eE") * 
-              C(integer_pattern) * space_pattern
+local float_pattern = decimal_pattern * exponent_pattern * integer_pattern
+local number_pattern = float_pattern + decimal_pattern + integer_pattern
 
-local lower_letter = R("az")
-local upper_letter = R("AZ")
-local letter = lower_letter + upper_letter
-local alphanum = letter + digit
-local alphanum_ = alphanum + S("_")
-local alpha_ = letter + S("_")
--- TODO: Something like _1 should *not* be allowed as a function name
-local func_pattern = alpha_ * alphanum_^0
-local func = Cc("function") * C(func_pattern) * space_pattern
+local at_pattern = P("@")
 
-local openparen = P("(") * space_pattern
-local closeparen = P(")") * space_pattern
-local param_beg = Cc("param_beg")  * P("(") * space_pattern
-local param_end = Cc("param_end") * P(")") * space_pattern
-local opencurlybrace = Cc("opencurlybrace")  * P("{") * space_pattern
-local closecurlybrace = Cc("closecurlybrace") * P("}") * space_pattern
-local openbrace = Cc("openbrace")  * P("[") * space_pattern
-local closebrace = Cc("closebrace") * P("]") * space_pattern
+local underscore_pattern = P("_")
 
-local string = Cc("string") * P('"') * C((1 - P('"'))^0) * P('"') *
-               space_pattern
+local lower_letter_pattern = R("az")
+local upper_letter_pattern = R("AZ")
+local letter_pattern = lower_letter_pattern + upper_letter_pattern
+local alphanum_pattern = letter_pattern + one_digit_pattern
+local alphanum__pattern = alphanum_pattern + underscore_pattern
+local alpha__pattern = letter_pattern + underscore_pattern
 
-local addop = Cc("addop") * P("+") * space_pattern
-local subop = Cc("subop") * P("-") * space_pattern
-local negop = Cc("negop") * P("-") * space_pattern
-local mulop = Cc("mulop") * P("*") * space_pattern
-local divop = Cc("divop") * P("/") * space_pattern
-local powop = Cc("powop") * P("^") * space_pattern
+local openparen_pattern = P("(")
+local closeparen_pattern = P(")")
+local opencurlybrace_pattern = P("{")
+local closecurlybrace_pattern = P("}")
+local openbrace_pattern = P("[")
+local closebrace_pattern = P("]")
 
-local orop = Cc("orop") * P("||") * space_pattern
-local andop = Cc("andop") * P("&&") * space_pattern
+-- local string = P('"') * C((1 - P('"'))^0) * P('"')
 
-local eqop = Cc("eqop") * P("==") * space_pattern
-local neqop = Cc("neqop") * P("!=") * space_pattern
+local orop_pattern = P("||")
+local andop_pattern = P("&&")
 
-local lessop = Cc("lessop") * P("<") * space_pattern
-local greatop = Cc("greatop") * P(">") * space_pattern
-local lesseqop = Cc("lesseqop") * P("<=") * space_pattern
-local greateqop = Cc("greateqop") * P(">=") * space_pattern
+local neqop_pattern = P("!=")
 
-local then_mark = Cc("then") * P("?") * space_pattern
-local else_mark = Cc("else") * P(":") * space_pattern
-local factorial = Cc("factorial") * P("!") * space_pattern
-local not_mark = Cc("not") * P("!") * space_pattern
-local radians = Cc("radians") * P("r") * space_pattern
+local then_pattern = P("?")
+local else_pattern = P(":")
+local factorial_pattern = P("!")
+local not_mark_pattern = P("!")
+local radians_pattern = P("r")
 
-local comma = Cc("comma") * P(",") * space_pattern
+local comma_pattern = P(",")
 
-function evalternary(v1,op1,v2,op2,v3)
-   return pgfluamath.functions.ifthenelse(v1,v2,v3)
-end
-
-function evalbinary(v1,op,v2)
-   if (op == "addop") then return pgfluamath.functions.add(v1,v2)
-   elseif (op == "subop") then return pgfluamath.functions.substract(v1,v2)
-   elseif (op == "mulop") then return pgfluamath.functions.multiply(v1,v2)
-   elseif (op == "divop") then return pgfluamath.functions.divide(v1,v2)
-   elseif (op == "powop") then return pgfluamath.functions.pow(v1,v2)
-   elseif (op == "orop") then return pgfluamath.functions.orPGF(v1,v2)
-   elseif (op == "andop") then return pgfluamath.functions.andPGF(v1,v2)
-   elseif (op == "eqop") then return pgfluamath.functions.equal(v1,v2)
-   elseif (op == "neqop") then return pgfluamath.functions.notequal(v1,v2)
-   elseif (op == "lessop") then return pgfluamath.functions.less(v1,v2)
-   elseif (op == "greatop") then return pgfluamath.functions.greater(v1,v2)
-   elseif (op == "lesseqop") then return pgfluamath.functions.notgreater(v1,v2)
-   elseif (op == "greateqop") then return pgfluamath.functions.notless(v1,v2)
-   end
-end
-
-function evalprefixunary(op,v)
-   if (op == "negop") then return pgfluamath.functions.neg(v)
-   elseif (op == "notmark") then return pgfluamath.functions.notPGF(v)
-   end
-end
-
-function evalpostfixunary(v,op)
-   if (op == "radians") then return pgfluamath.functions.deg(v)
-   elseif (op == "factorial") then return pgfluamath.functions.factorial(v)
-   end
-end
-
-
+--[[
 local grammar = P {
    -- "E" stands for expression
    "ternary_logical_E",
@@ -142,32 +96,78 @@ local grammar = P {
       (func * param_beg * V("ternary_logical_E") * 
        (comma * V("ternary_logical_E"))^0 * param_end);
 }
---]]
 
 local parser = space_pattern * grammar * -1
+--]]
 
-function string_to_expr(str)
-   lpeg.match(parser,str)
-   return
-end
+-- NOTE: \pgfmathparse{pi/3.14} will fail giving pgfluamathfunctions.pi()3.14
+-- (the / is missing, probably gobbled by one of the captures of the grammar).
 
--- Needs DumpObject.lua 
--- (http://lua-users.org/files/wiki_insecure/users/PhiLho/DumpObject.lua)
--- Very useful for debugging.
-function showtab (str)
-   tex.sprint("\\message\{^^J ********** " .. str .. " ******* ^^J\}")
-   tex.sprint("\\message\{" .. 
-	      DumpObject(lpeg.match(parser,str),"\\space","^^J") .. "\}")
-   return
-end
-
-function parseandeval(str)
-   return lpeg.match(parser,str)
-end
-
--- **************
--- * Mark's way * 
--- **************
+pgfluamathparser.transform_operands = P({
+    'transform_operands';
+    
+    one_char = lpeg.P(1),
+    lowercase = lpeg.R('az'),
+    uppercase = lpeg.R('AZ'),
+    numeric = lpeg.R('09'),
+    dot = lpeg.P('.'),
+    exponent = lpeg.S('eE'),    
+    sign_prefix = lpeg.S('-+'),
+    begingroup = lpeg.P('('),
+    endgroup = lpeg.P(')'),
+    backslash = lpeg.P'\\',
+    at = lpeg.P'@',
+    
+    alphabetic = lpeg.V'lowercase' + lpeg.V'uppercase', 
+    alphanumeric = lpeg.V'alphabetic' + lpeg.V'numeric',
+    
+    integer = lpeg.V'numeric'^1,
+    real = lpeg.V'numeric'^0 * lpeg.V'dot' * lpeg.V'numeric'^1,
+    scientific = (lpeg.V'real' + lpeg.V'integer') * lpeg.V'exponent' * lpeg.V'sign_prefix'^0 * lpeg.V'integer',
+    
+    number = lpeg.V'scientific' + lpeg.V'real' + lpeg.V'integer',
+    function_name = lpeg.V('alphabetic') * lpeg.V('alphanumeric')^0,
+    
+    tex_cs = lpeg.V'backslash' * (lpeg.V'alphanumeric' + lpeg.V'at')^1,
+    tex_box_dimension_primative = lpeg.V'backslash' * (lpeg.P'wd' + lpeg.P'ht' + lpeg.P'dp'),
+    tex_register_primative = lpeg.V'backslash' * (lpeg.P'count' + lpeg.P'dimen'),
+    
+    tex_primative = lpeg.V'tex_box_dimension_primative' + lpeg.V'tex_register_primative',
+    tex_macro = -lpeg.V'tex_primative' * lpeg.V'tex_cs',        
+    
+    tex_unit = 
+        lpeg.P('pt') + lpeg.P('mm') + lpeg.P('cm') + lpeg.P('in') + 
+        lpeg.P('ex') + lpeg.P('em') + lpeg.P('bp') + lpeg.P('pc') + 
+        lpeg.P('dd') + lpeg.P('cc') + lpeg.P('sp'),
+        
+    tex_register_named = lpeg.C(lpeg.V'tex_macro'),
+    tex_register_numbered = lpeg.C(lpeg.V'tex_register_primative') * lpeg.C(lpeg.V'integer'), 
+    tex_register_basic = lpeg.Cs(lpeg.Ct(lpeg.V'tex_register_numbered' + lpeg.V'tex_register_named') / pgfluamathparser.process_tex_register),
+    
+    tex_multiplier = lpeg.Cs((lpeg.V'tex_register_basic' + lpeg.C(lpeg.V'number')) / pgfluamathparser.process_muliplier),    
+    
+    tex_box_width = lpeg.Cs(lpeg.P('\\wd') / 'width'),
+    tex_box_height = lpeg.Cs(lpeg.P('\\ht') / 'height'),
+    tex_box_depth = lpeg.Cs(lpeg.P('\\dp') / 'depth'),
+    tex_box_dimensions = lpeg.V'tex_box_width' + lpeg.V'tex_box_height' + lpeg.V'tex_box_depth',
+    tex_box_named = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'tex_macro')) / pgfluamathparser.process_tex_box_named),
+    tex_box_numbered = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'number')) / pgfluamathparser.process_tex_box_numbered),
+    tex_box_basic = lpeg.V'tex_box_named' + lpeg.V'tex_box_numbered',
+    
+    tex_register = lpeg.Cs(lpeg.V'tex_multiplier' * lpeg.V'tex_register_basic') + lpeg.V'tex_register_basic',
+    tex_box = lpeg.Cs(lpeg.Cs(lpeg.V'tex_multiplier') * lpeg.V'tex_box_basic') + lpeg.V'tex_box_basic',
+    tex_dimension = lpeg.Cs(lpeg.V'number' * lpeg.V'tex_unit' / pgfluamathparser.process_tex_dimension),
+    
+    tex_operand = lpeg.Cs(lpeg.V'tex_dimension' + lpeg.V'tex_box' + lpeg.V'tex_register'),
+    
+    function_name = lpeg.V'alphabetic' * (lpeg.V'alphanumeric'^1),
+    function_operand = lpeg.Cs(lpeg.Ct(lpeg.C(lpeg.V'function_name') * lpeg.C(lpeg.V'one_char') + lpeg.C(lpeg.V'function_name')) / pgfluamathparser.process_function),
+    
+    -- order is (always) important!
+    operands = lpeg.V'tex_operand' + lpeg.V'number' +  lpeg.V'function_operand',
+    
+    transform_operands = lpeg.Cs((lpeg.V'operands' + 1)^0)
+ })
 
 -- Namespaces will be searched in the following order. 
 pgfluamathparser.function_namespaces = {
@@ -292,79 +292,8 @@ function pgfluamathparser.process_function(function_table)
     pgfluamathparser.error = 'I don\'t know the function or constant \'' .. function_name .. '\''
 end
 
--- NOTE: \pgfmathparse{pi/3.14} will fail giving pgfluamathfunctions.pi()3.14
--- (the / is missing, probablu gobbled by one of the captures of the grammar).
 
-lpeg = require'lpeg'
-
-pgfluamathparser.transform_operands = lpeg.P{
-    'transform_operands';
-    
-    one_char = lpeg.P(1),
-    lowercase = lpeg.R('az'),
-    uppercase = lpeg.R('AZ'),
-    numeric = lpeg.R('09'),
-    dot = lpeg.P('.'),
-    exponent = lpeg.S('eE'),    
-    sign_prefix = lpeg.S('-+'),
-    begingroup = lpeg.P('('),
-    endgroup = lpeg.P(')'),
-    backslash = lpeg.P'\\',
-    at = lpeg.P'@',
-    
-    alphabetic = lpeg.V'lowercase' + lpeg.V'uppercase', 
-    alphanumeric = lpeg.V'alphabetic' + lpeg.V'numeric',
-    
-    integer = lpeg.V'numeric'^1,
-    real = lpeg.V'numeric'^0 * lpeg.V'dot' * lpeg.V'numeric'^1,
-    scientific = (lpeg.V'real' + lpeg.V'integer') * lpeg.V'exponent' * lpeg.V'sign_prefix'^0 * lpeg.V'integer',
-    
-    number = lpeg.V'scientific' + lpeg.V'real' + lpeg.V'integer',
-    signed_number = lpeg.V'sign_prefix'^0 * lpeg.V'number',
-    function_name = lpeg.V('alphabetic') * lpeg.V('alphanumeric')^0,
-    
-    tex_cs = lpeg.V'backslash' * (lpeg.V'alphanumeric' + lpeg.V'at')^1,
-    tex_box_dimension_primative = lpeg.V'backslash' * (lpeg.P'wd' + lpeg.P'ht' + lpeg.P'dp'),
-    tex_register_primative = lpeg.V'backslash' * (lpeg.P'count' + lpeg.P'dimen'),
-    
-    tex_primative = lpeg.V'tex_box_dimension_primative' + lpeg.V'tex_register_primative',
-    tex_macro = -lpeg.V'tex_primative' * lpeg.V'tex_cs',        
-    
-    tex_unit = 
-        lpeg.P('pt') + lpeg.P('mm') + lpeg.P('cm') + lpeg.P('in') + 
-        lpeg.P('ex') + lpeg.P('em') + lpeg.P('bp') + lpeg.P('pc') + 
-        lpeg.P('dd') + lpeg.P('cc') + lpeg.P('sp'),
-        
-    tex_register_named = lpeg.C(lpeg.V'tex_macro'),
-    tex_register_numbered = lpeg.C(lpeg.V'tex_register_primative') * lpeg.C(lpeg.V'integer'), 
-    tex_register_basic = lpeg.Cs(lpeg.Ct(lpeg.V'tex_register_numbered' + lpeg.V'tex_register_named') / pgfluamathparser.process_tex_register),
-    
-    tex_multiplier = lpeg.Cs((lpeg.V'tex_register_basic' + lpeg.C(lpeg.V'number')) / pgfluamathparser.process_muliplier),    
-    
-    tex_box_width = lpeg.Cs(lpeg.P('\\wd') / 'width'),
-    tex_box_height = lpeg.Cs(lpeg.P('\\ht') / 'height'),
-    tex_box_depth = lpeg.Cs(lpeg.P('\\dp') / 'depth'),
-    tex_box_dimensions = lpeg.V'tex_box_width' + lpeg.V'tex_box_height' + lpeg.V'tex_box_depth',
-    tex_box_named = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'tex_macro')) / pgfluamathparser.process_tex_box_named),
-    tex_box_numbered = lpeg.Cs(lpeg.Ct(lpeg.V'tex_box_dimensions' * lpeg.C(lpeg.V'number')) / pgfluamathparser.process_tex_box_numbered),
-    tex_box_basic = lpeg.V'tex_box_named' + lpeg.V'tex_box_numbered',
-    
-    tex_register = lpeg.Cs(lpeg.V'tex_multiplier' * lpeg.V'tex_register_basic') + lpeg.V'tex_register_basic',
-    tex_box = lpeg.Cs(lpeg.Cs(lpeg.V'tex_multiplier') * lpeg.V'tex_box_basic') + lpeg.V'tex_box_basic',
-    tex_dimension = lpeg.Cs(lpeg.V'number' * lpeg.V'tex_unit' / pgfluamathparser.process_tex_dimension),
-    
-    tex_operand = lpeg.Cs(lpeg.V'tex_dimension' + lpeg.V'tex_box' + lpeg.V'tex_register'),
-    
-    function_name = lpeg.V'alphabetic' * (lpeg.V'alphanumeric'^1),
-    function_operand = lpeg.Cs(lpeg.Ct(lpeg.C(lpeg.V'function_name') * lpeg.C(lpeg.V'one_char') + lpeg.C(lpeg.V'function_name')) / pgfluamathparser.process_function),
-    
-    -- order is (always) important!
-    operands = lpeg.V'tex_operand' + lpeg.V'number' +  lpeg.V'function_operand',
-    
-    transform_operands = lpeg.Cs((lpeg.V'operands' + 1)^0)
- }
- 
- pgfluamathparser.remove_spaces = lpeg.Cs((lpeg.S' \n\t' / '' + 1)^0)
+pgfluamathparser.remove_spaces = lpeg.Cs((lpeg.S' \n\t' / '' + 1)^0)
  
  
 function pgfluamathparser.evaluate(expression)
