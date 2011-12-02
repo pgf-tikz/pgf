@@ -26,18 +26,18 @@ end
 
 function ModularLayered:new(graph)
   local algorithm = {
-    random_seed = tonumber(graph:getOption('/graph drawing/layered drawing/random seed')),
+    random_seed = tonumber(graph:getOption('/graph drawing/layered layout/random seed')),
 
     -- read graph input parameters
     level_distance = tonumber(graph:getOption('/graph drawing/level distance')),
     sibling_distance = tonumber(graph:getOption('/graph drawing/sibling distance')),
 
     -- read sub-algorithm parameters
-    cycle_removal_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/cycle removal')),
-    node_ranking_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/node ranking')),
-    crossing_minimization_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/crossing minimization')),
-    node_positioning_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/node positioning')),
-    edge_routing_algorithm = tostring(graph:getOption('/graph drawing/layered drawing/edge routing')),
+    cycle_removal_algorithm = tostring(graph:getOption('/graph drawing/layered layout/cycle removal')),
+    node_ranking_algorithm = tostring(graph:getOption('/graph drawing/layered layout/node ranking')),
+    crossing_minimization_algorithm = tostring(graph:getOption('/graph drawing/layered layout/crossing minimization')),
+    node_positioning_algorithm = tostring(graph:getOption('/graph drawing/layered layout/node positioning')),
+    edge_routing_algorithm = tostring(graph:getOption('/graph drawing/layered layout/edge routing')),
 
     -- remember the graph for use in the algorithm
     graph = graph,
@@ -152,8 +152,8 @@ function ModularLayered:preprocess()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
-    edge.weight = tonumber(edge:getOption('/graph drawing/layered drawing/weight'))
-    edge.minimum_levels = tonumber(edge:getOption('/graph drawing/layered drawing/minimum levels'))
+    edge.weight = tonumber(edge:getOption('/graph drawing/layered layout/weight'))
+    edge.minimum_levels = tonumber(edge:getOption('/graph drawing/layered layout/minimum levels'))
 
     -- validate edge parameters
     assert(edge.minimum_levels >= 0, 'the edge ' .. tostring(edge) .. ' needs to have a minimum levels value greater than or equal to 0')
