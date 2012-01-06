@@ -629,7 +629,7 @@
 
 \def\tikz@lib@graph@grab@name@@#1[{%
   \tikz@lib@graph@read#1\pgf@stop%
-  \let\tikz@lib@graph@as\tikz@lib@graph@as@default%
+  \let\tikzgraphnodeas\tikzgraphnodeas@default%
   \pgfutil@ifnextchar\pgf@stop{%
     \ifx\tikz@lib@graph@name\pgfutil@empty%
     \else
@@ -639,10 +639,7 @@
 }
 \def\tikz@lib@graph@noskip{\tikz@lib@graph@node@opt[][}%]
 
-\def\tikz@lib@graph@as@default{%
-  \let\tikzgraphnodetext\tikz@lib@graph@node@text%
-  \let\tikzgraphnodepath\tikz@lib@graph@path%
-  \let\tikzgraphnodefullname\tikz@lib@graph@name%
+\def\tikzgraphnodeas@default{%
   \tikz@lib@graph@typesetter%
 }
 
@@ -691,6 +688,7 @@
         \edef\tikz@lib@graph@node@list{\noexpand\tikz@lg@do{\tikz@lib@graph@name}}%
         \global\tikz@lib@graph@node@createdfalse%
         \pgfkeyslet{/tikz/graphs/@operators}\pgfutil@empty%
+        \tikz@lib@activate@source@target@edge@syntax%
         \tikz@lg@if@local@node{\tikz@lib@graph@name}%
         {\tikzgraphsset{source,target,#1}\pgfkeysvalueof{/tikz/graphs/@operators}}%
         {%
@@ -700,6 +698,9 @@
           \else%
             % 
             \pgfkeys{/tikz/graphs/placement/place}%
+            \let\tikzgraphnodetext\tikz@lib@graph@node@text%
+            \let\tikzgraphnodepath\tikz@lib@graph@path%
+            \let\tikzgraphnodefullname\tikz@lib@graph@name%
             \node [%
               name=\tikz@lib@graph@name,%
               execute at end node={%
@@ -714,7 +715,7 @@
               /tikz/graphs/@nodes styling,%
               #1]%
               {%
-                \tikz@lib@graph@as%
+                \tikzgraphnodeas%
               };%
             \tikz@lib@graph@op@save\global\let\tikz@lib@graph@op@save\relax%%
             \global\tikz@lib@graph@node@createdtrue%
@@ -726,11 +727,52 @@
       \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
       \expandafter\expandafter\expandafter{%
         \expandafter\tikz@lib@graph@node@list\expandafter\tikz@lg@do\expandafter{\tikz@lib@graph@name}}%
+      \iftikz@lib@graph@trie\tikzgraphsset{name=\tikz@lib@graph@name@only}\fi%
     \else
       % The name of the node is a graph name
       \tikz@lib@graph@handle@graph{#1}%      
     \fi
   \fi%  
+}
+
+\def\tikz@lib@activate@source@target@edge@syntax{%
+  \pgfkeys{/handlers/first char syntax=true}
+  \pgfkeyssetvalue{/handlers/first char syntax/the character >}{\tikz@lg@parse@more}%
+  \pgfkeyssetvalue{/handlers/first char syntax/the character <}{\tikz@lg@parse@less}%
+}
+
+\def\tikz@lg@parse@less#1{\tikz@lg@parse@less@#1\pgf@stop}
+\def\tikz@lg@parse@less@<{\pgfutil@ifnextchar"{\tikz@lg@parse@quote{source}}{\tikz@lg@parse@noquote{source}}}
+\def\tikz@lg@parse@more#1{\tikz@lg@parse@more@#1\pgf@stop}
+\def\tikz@lg@parse@more@>{\pgfutil@ifnextchar"{\tikz@lg@parse@quote{target}}{\tikz@lg@parse@noquote{target}}}
+
+\def\tikz@lg@parse@noquote#1#2\pgf@stop{{\tikzgraphsset{#1 edge style={#2}}}}
+\def\tikz@lg@parse@quote#1#2\pgf@stop{%
+  {\tikzgraphsset{node quotes mean={#1 edge node={node [every edge quotes,##2]{##1}}},/utils/exec=\tikz@enable@node@quotes,#2}}%
+}
+
+\tikzgraphsset{
+  clear >/.style=target edge clear,
+  clear </.style=source edge clear
+}
+
+
+\newif\iftikz@lib@graph@trie
+\tikzgraphsset{
+  trie/.is if=tikz@lib@graph@trie,
+  put node text on incoming
+  edges/.style={nodes={/utils/exec=\tikz@lg@make@edge@node{target}{#1}}},
+  put node text on outgoing
+  edges/.style={nodes={/utils/exec=\tikz@lg@make@edge@node{source}{#1}}},
+  edge quotes/.style={/tikz/every edge quotes/.style={#1}},
+  edge quotes center/.style={edge quotes={anchor=center}},
+  edge quotes mid/.style={edge quotes={anchor=mid}}
+}
+
+\def\tikz@lg@make@edge@node#1#2{%
+  \def\pgf@marshal{node[#2]}%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@marshal\expandafter\expandafter\expandafter{\expandafter\pgf@marshal\expandafter{\tikzgraphnodetext}}%
+  \pgfkeysalso{#1 edge node/.expand once=\pgf@marshal,as=}%
 }
 
 \newif\iftikz@lib@graph@fresh@node
@@ -741,9 +783,14 @@
   \ifpgfutil@in@%
     \expandafter\tikz@lg@is@underscore\tikz@lib@graph@name@only\pgf@stop%
   \else%
-    \let\tikz@lib@graph@node@text\tikz@lib@graph@name@only%
-    \iftikz@lib@graph@fresh@node%
-      \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
+    \expandafter\pgfutil@in@\expandafter{\expandafter/\expandafter}\expandafter{\tikz@lib@graph@name@only}%
+    \ifpgfutil@in@%
+      \expandafter\tikz@lg@is@slash\tikz@lib@graph@name@only\pgf@stop%
+    \else%
+      \let\tikz@lib@graph@node@text\tikz@lib@graph@name@only%
+      \iftikz@lib@graph@fresh@node%
+        \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
+      \fi%
     \fi%
   \fi  
 }
@@ -765,6 +812,8 @@
   \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
   \def\tikz@lib@graph@node@text{#2}%
 }
+
+\def\tikz@lg@is@slash#1/#2\pgf@stop{\tikz@lg@is@underscore{#1}__{#2}\pgf@stop}
 
 \newif\iftikz@lib@graph@node@created
 
@@ -860,8 +909,11 @@
 
 \let\tikz@lib@graph@path\pgfutil@empty
 
-\tikzgraphsset{name/.code={%
-    \edef\tikz@lib@graph@path{#1\space\tikz@lib@graph@path}%
+\tikzgraphsset{
+  name separator/.store in=\tikz@lib@graph@name@separator,
+  name separator=\space,
+  name/.code={%
+    \edef\tikz@lib@graph@path{\tikz@lib@graph@path#1\tikz@lib@graph@name@separator}%
   }%
 }
 
@@ -871,7 +923,7 @@
 % 
 \def\tikz@lg@newif{\csname newif\endcsname}
 \tikzgraphsset{
-  as/.code=\def\tikz@lib@graph@as{#1},%
+  as/.code=\def\tikzgraphnodeas{#1},%
   color class/.style={%
     /utils/exec=\expandafter\tikz@lg@newif\csname iftikz@lgc@#1@\endcsname,
     #1/.style={operator={%
@@ -907,6 +959,8 @@
 
 \def\tikz@lib@graph@cleanup#1{%
   \expandafter\global\expandafter\let\csname tikz@lgc@#1\endcsname\relax%
+  \ifcsname tikz@lgca@@#1\endcsname\expandafter\global\expandafter\let\csname tikz@lgca@@#1\endcsname\relax\fi%
+  \ifcsname tikz@lgcb@@#1\endcsname\expandafter\global\expandafter\let\csname tikz@lgcb@@#1\endcsname\relax\fi%
 }
 
 \def\tikz@lg@colorize#1{%
@@ -967,6 +1021,33 @@
 \def\tikz@lg@if@local@node#1#2#3{\expandafter\ifx\csname tikz@lgc@#1\endcsname\relax#3\else#2\fi}
 
 \def\tikz@lib@reset@temp{\let\pgf@temp\iffalse}
+
+% 
+% Handle connection annotations 
+%
+\def\tikz@lib@annotate@#1#2#3#4{%
+  \expandafter\ifx\csname tikz@lgc#1@@#2\endcsname\relax%
+    \expandafter\gdef\csname tikz@lgc#1@@#2\endcsname{{#3}{#4}}%
+  \else%  
+    \expandafter\expandafter\expandafter\tikz@lib@annotate@read\csname tikz@lgc#1@@#2\endcsname{#3}{#4}%
+    \expandafter\global\expandafter\let\csname tikz@lgc#1@@#2\endcsname\pgf@temp%
+  \fi%
+}
+\def\tikz@lib@annotate@read#1#2#3#4{\def\pgf@temp{{#1,#3}{#2#4}}}
+
+\tikzgraphsset{
+  source edge style/.code=\tikz@lib@annotate@{a}{\tikz@lib@graph@name}{#1}{},
+  source edge node/.code=\tikz@lib@annotate@{a}{\tikz@lib@graph@name}{}{#1},
+  source edge clear/.code={
+    \expandafter\global\expandafter\let\csname tikz@lgca@@\tikz@lib@graph@name\endcsname\relax%
+  },
+  target edge style/.code=\tikz@lib@annotate@{b}{\tikz@lib@graph@name}{#1}{},
+  target edge node/.code=\tikz@lib@annotate@{b}{\tikz@lib@graph@name}{}{#1},
+  target edge clear/.code={%
+    \expandafter\global\expandafter\let\csname tikz@lgcb@@\tikz@lib@graph@name\endcsname\relax%
+  }
+}%
+
 
 
 % Packing a node list: Replace the node list by a new node list where
@@ -1096,11 +1177,17 @@
   \fi%
 }
 
-\def\tikz@lib@graph@default@new@edge{%
+\def\tikz@lib@graph@default@new@edge#1#2{%
   \pgfkeysgetvalue{/tikz/graphs/@edges styling}\pgf@temp
   \pgfkeysgetvalue{/tikz/graphs/@edges node}\pgf@temp@b
+  \let\tikz@lib@add@temp\pgfutil@empty%
+  \tikz@lib@graph@add@edge@annotations{a}{#1}
+  \tikz@lib@graph@add@edge@annotations{b}{#2}
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\pgf@temp%
+  \expandafter\expandafter\expandafter{\expandafter\pgf@temp\tikz@lib@add@temp}%
   \expandafter\expandafter\expandafter\tikz@lib@graph@default@new@edge@%
-  \expandafter\expandafter\expandafter{\expandafter\pgf@temp\expandafter}\expandafter{\pgf@temp@b}%
+  \expandafter\expandafter\expandafter{\expandafter\pgf@temp\expandafter}\expandafter{\pgf@temp@b}{#1}{#2}%
 }
 \def\tikz@lib@graph@default@new@edge@#1#2#3#4{%
   \iftikz@lib@graph@simple%
@@ -1110,8 +1197,21 @@
     \pgfkeys{/tikz/graphs/.cd,new \pgfkeysvalueof{/tikz/graphs/default edge kind}={#3}{#4}{#1}{#2}}%
   \fi%
 }
+\def\tikz@lib@graph@add@edge@annotations#1#2{%
+  \ifcsname tikz@lgc#1@@#2\endcsname%
+    \expandafter\let\expandafter\tikz@lg@temp@\csname tikz@lgc#1@@#2\endcsname%
+    \ifx\tikz@lg@temp@\relax\else
+      \expandafter\tikz@lib@graph@add@edge@annotations@\tikz@lg@temp@%
+      \let\tikz@lib@add@temp\tikz@lib@final@edge@style  
+    \fi%
+  \fi%
+}
+\def\tikz@lib@graph@add@edge@annotations@#1#2{
+  \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp,#1}%
+  \expandafter\def\expandafter\pgf@temp@b\expandafter{\pgf@temp@b#2}%
+}
+\def\tikz@lib@final@edge@style{,after source and target edge/.try}
 
-  
 % 
 % The clique connector 
 %

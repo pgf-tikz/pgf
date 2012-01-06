@@ -22,7 +22,6 @@ command, which becomes available when you load the |graphs| library.
   The package must be loaded to use the |graph| path command.
 \end{tikzlibrary}
 
-
 In this section, by \emph{graph} we refer to a set of nodes together
 with some edges (sometimes also called arcs, in case they are
 directed) such as the following:
@@ -37,7 +36,7 @@ directed) such as the following:
 
   a -> { 1, 2, 3 };
   b -> { 1, 4 };
-  c -> { 2, 3, 4 }
+  c -> { 2 [>green!75!black], 3, 4 [>red]}
 };
 \end{codeexample}
 
@@ -57,6 +56,32 @@ directed) such as the following:
   };
 \end{codeexample}
 
+\ifluatex
+\begin{codeexample}[]
+\tikz [shorten >=1pt, rotate=90, xscale=-1, mark/.style={fill=black!50}, mark/.default=]
+   \graph [trie, simple, sibling distance=8mm, nodes={circle,draw},
+           edges={nodes={inner sep=1pt,anchor=mid,fill=graphicbackground}},
+           put node text on incoming edges, layered layout]
+    {
+      root -> {
+        a -> n -> {
+          g [mark],
+          f -> a -> n -> g [mark]
+        },
+        f -> a -> n -> g [mark],
+        g[mark]
+        n -> {
+          g[mark],
+          f -> a -> n -> g[mark]
+        }
+      },
+      { [edges=red] % hilight one path
+        root -> f -> a -> n
+      }    
+    };
+\end{codeexample}
+\fi
+
 The nodes of a graph are normal \tikzname\ nodes, the edges are
 normal lines drawn between nodes. There is nothing in the |graph|
 library that you cannot do using the normal |\node| and the |edge|
@@ -65,7 +90,13 @@ command. Rather, its purpose is to offer a concise and powerful way of
 and how they are connected. The |graph| library only offers simple
 methods for specifying \emph{where} the nodes should be shown, its
 main strength is in specifying which nodes and edges are present in 
-principle. 
+principle. The problem of finding ``good positions on the canvas'' for
+the nodes of a graph is left to \emph{graph drawing algorithms}, which
+are covered in Section~\ref{section-library-graphdrawing} and which
+are not part of the |graphs| library; indeed, these algorithms can be
+used also with graphs specified using |node| and |edge|
+commands. Again, the purpose of the |graph| command is mainly to
+specify which nodes and edges are present, nothing more and nothing less.
 
 The |graph| library uses a syntax that is quite different from the
 normal \tikzname\ syntax for specifying nodes. The reason for this is
@@ -119,11 +150,11 @@ is created to the already existing node.
 When a node like |f| is created, both the node name and the node text
 are identical by default. This is not always desirable and can be
 changed by using the |as| key or by providing another text after
-double underscores:
+a slash or, alternatively, after double underscores:
 
 \begin{codeexample}[]
 \tikz \graph {
-  x1__$x_1$ -> x2 [as=$x_2$, red] -> x3__$x_3$;
+  x1/$x_1$ -> x2 [as=$x_2$, red] -> x3__$x_3$;
   x1 -> [bend left] x3;
 };  
 \end{codeexample}
@@ -167,6 +198,75 @@ Chain groups make it easy to create tree structures:
 
 As can be seen, the placement is not particularly nice by default, but
 may suffice in some situations.
+
+
+\subsubsection{Concept: Edge Labels and Styles}
+
+When connectors like |->| or |--| are used to connect nodes or whole
+chain groups, one or more edges will typically be created. These edges
+can be styles easily by providing options in square brackets directly
+after these connectors:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a ->[red] b --[thick] {c, d};
+};
+\end{codeexample}
+
+Using the quotes syntax, see Section~\ref{section-label-quotes},
+you can even add labels to the edges easily by putting the labels in
+quotes: 
+
+\begin{codeexample}[]
+\tikz \graph {
+  a ->[red, "foo"] b --[thick, "bar"] {c, d};
+};
+\end{codeexample}
+
+For the first edge, the effect is as desired, however 
+between |b| and the group |{c,d}| two edges are inserted and the
+options |thick| and the label option |"bar"| is applied to both of
+them. While this is the correct and consistent behaviour, we typically
+might wish to specify different labels for the edge going from |b| to
+|c| and the edge going from |b| to |d|. To achieve this effect, we can
+no longer specify the label as part of the options of |--|. Rather, we
+must pass the desired label to the nodes |c| and |d|, but we must
+somehow also indicate that these options actually ``belong'' to the
+edge ``leading to'' to nodes. This is achieved by preceeding the
+options with a greater-than sign:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a -> b -- {c [> "foo"], d [> "bar"']};
+};
+\end{codeexample}
+
+Symmetrically, preceeding the options by |<| causes the options and
+labels to apply to the ``outgoing'' edges of the node:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a [< red] -> b -- {c [> blue], d [> "bar"']};
+};
+\end{codeexample}
+
+This syntax allows you to easily create trees with special edge
+labels as in the following example of a treap:
+
+\begin{codeexample}[]
+\tikz 
+  \graph [edge quotes={fill=white,inner sep=1pt},
+          grow down, branch right, nodes={circle,draw}] {
+    / -> h [>"9"] -> {
+      c [>"4"] -> {
+        a [>"2"],
+        e [>"0"]
+      },
+      j [>"7"]
+    }
+  };
+\end{codeexample}
+
 
 
 \subsubsection{Concept: Node Sets}
@@ -634,8 +734,8 @@ we have written |->| between them. Then the following happens:
       wonder why this key is needed: It seems more logical at first
       sight to just call |new edge directed| with swapped first
       parameters. However, a positioning
-      algorithm might wish to take the fact that an edge is
-      ``backward'' rater than ``forward'' into account in order to
+      algorithm might wish to take the fact into account that an edge is
+      ``backward'' rather than ``forward''  in order to
       improve the layout. Also, different arrow heads might be used.}
     \begin{stylekey}{/tikz/every new <-}
     \end{stylekey}
@@ -660,6 +760,7 @@ edge specifications:
 \end{codeexample}
 
 
+
 \subsubsection{Syntax of Node Specifications}
 
 \label{section-library-graphs-node-spec}
@@ -671,7 +772,8 @@ specifications, each of which has a different syntax:
 \begin{description}
 \item[Direct Node Specification]
   \ \\
-  \meta{node name}\opt{|__|\meta{text}} \opt{\oarg{options}}
+  \meta{node name}\opt{|__|\meta{text}} \opt{\oarg{options}}\\
+  \meta{node name}\opt{|/|\meta{text}} \opt{\oarg{options}}
 \item[Reference Node Specification]
   \ \\
   |(|\meta{node name or node set name}|)|
@@ -690,13 +792,14 @@ all other cases a direct node specification is meant.
 \textbf{Direct Node Specifications.} If after reading the first symbol
 of a node specification is has been detected to be \emph{direct},
 \tikzname\ will collect all text up to the next edge
-specification and store it as the \meta{node name}; however square
-brackets are used to indicate options and a double underscore ends the
-\meta{node name} and start sepcial \meta{text} that is used as a
+specification and store it as the \meta{node name}; however, square
+brackets are used to indicate options and both a double underscore
+and also a slash end the \meta{node name} and start a special
+\meta{text} that is used as a 
 rendering text instead of the original \meta{node name}. Due to the way the
 parsing works and due to the restrictions on node names, the following
 characters are forbidding inside the \meta{node name}: Commas,
-semicolons, hyphens, braces, dots, parentheses, and
+semicolons, hyphens, braces, dots, parentheses, slashes, and
 presumably some more. So, it is best to avoid special characters
 inside the \meta{node name}; but the following characters \emph{are}
 definitely allowed: spaces, single underscores, the hat character.
@@ -761,18 +864,19 @@ is called. The different parameters are as follows:
   been determined as described before. However, there are two exceptions:
 
   First, if the \meta{node name} is empty (which happens when there
-  is no \meta{node name} before the two underscores), then a fresh
-  internal node name is created and used as \meta{full node
-    name}. This name is guaranteed to be different from all
+  is no \meta{node name} before the two underscores or before the
+  slash), then a fresh internal node name is created and used as
+  \meta{full node name}. This name is guaranteed to be different from all
   node names used in this or any other graph. Thus, direct node
-  starting with a double underscore represents an anonymous fresh
-  node. 
+  starting with a double underscore or with a slash represents an
+  anonymous fresh node. 
 
   Second, you can use the following key to prefix the \meta{node name}
   inside the \meta{full node name}:
 
   \begin{key}{/tikz/graphs/name=\meta{text}}
-    This key prepends the \meta{text}, followed by a space, to all
+    This key prepends the \meta{text}, followed by a separating symbol
+    (a space by default), to all
     \meta{node name}s inside a \meta{full node name}. Repeated calls
     of this key accumulate, leading to ever-longer ``name paths'':
 \begin{codeexample}[]
@@ -789,7 +893,33 @@ is called. The different parameters are as follows:
       name}. The reason is that the full names of the six nodes are
     all different. Also note that only the \meta{node name} is used as
     the node text, not the full name. This can be changed as described
-    below.
+    later on.
+
+    This key can be used repeately, leading to ever longer node names.
+  \end{key}
+
+  \begin{key}{/tikz/graphs/name separator=\meta{symbols} (initially \string\space)}
+    Changes the symbol that is used to separate the \meta{text} from
+    the \meta{node name}. The default is |\space|, resulting in a
+    space.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \graph [name separator=] { % no separator
+    { [name=first]  1, 2, 3} --
+    { [name=second] 1, 2, 3}
+  };
+  \draw [red] (second1) circle [radius=3mm];
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \graph [name separator=-] {
+    { [name=first]  1, 2, 3} --
+    { [name=second] 1, 2, 3}
+  };
+  \draw [red] (second-1) circle [radius=3mm];
+\end{tikzpicture}
+\end{codeexample}
   \end{key}
 \item 
   The \meta{node options} are
@@ -802,7 +932,7 @@ is called. The different parameters are as follows:
   any unknown key is executed with the prefix |/tikz|. This means, in
   essence, that some esoteric keys are more difficult to use inside
   the options and that any key with the prefix |/tikz/graphs| will
-  take precedence over a key with the prefix |/tikz|).
+  take precedence over a key with the prefix |/tikz|.
 \item The \meta{text} that is passed to the |\node| command is
   computed as follows: First, you can use the following key to
   directly set the \meta{text}: 
@@ -818,9 +948,9 @@ is called. The different parameters are as follows:
   \end{key}
   In case the |as| key is not used, a default text
   is chosen as follows: First, when a direct node specification
-  contains a double underscore, the text to the right of the
-  double underscore is stored in the macro |\tikzgraphnodetext|; if
-  there is no double underscore the \meta{node name} is stored in
+  contains a double underscore or a slash, the text to the right of the
+  double underscore or the slash is stored in the macro |\tikzgraphnodetext|; if
+  there is no double underscore and no slash, the \meta{node name} is stored in
   |\tikzgraphnodetext|, instead. Then, the current value of the
   following key is used as \meta{text}:
   \begin{key}{/tikz/graphs/typeset=\meta{code}}
@@ -829,8 +959,8 @@ is called. The different parameters are as follows:
     macros are available:
     \begin{command}{\tikzgraphnodetext}
       This macro expands to the \meta{text} to the right of the double
-      underscore in a direct node specification or, if there is no
-      double underscore, to the \meta{node name}.
+      underscore or slash in a direct node specification or, if there
+      is neither a double underscore nor a slash, to the \meta{node name}.
     \end{command}
     \begin{command}{\tikzgraphnodepath}
       This macro expands to the current path of the node. These
@@ -992,6 +1122,81 @@ connected via an edge specification, it is not immediately obvious
 which connecting edges are added. This is detailed in
 Section~\ref{section-library-graphs-color-classes}. 
 
+
+
+\subsubsection{Specifying Tries}
+
+In computer science, a \emph{trie} is a special kind of tree, where
+for each node and each symbol of an alphabet, there is at most one
+child of the node labeled with this symbol.
+
+The |trie| key is useful for drawing tries, but it can also be used in
+other situations. What it does, essentially, is to prepend the node
+names of all nodes \emph{before} the current node of the current chain
+to the node's name. This will often make it easier or more natural to
+specify graphs in which several nodes have the same label. 
+
+\begin{key}{/tikz/graphs/trie=\opt{\meta{true or false}} (default true, initially false)}
+  If this key is set to |true|, after a node has been created on a
+  chain, the |name| key is executed with the node's \meta{node
+    name}. Thus, all nodes later on this chain have the ``path'' of
+  nodes leading to this node as their name. This means, in particular,
+  that
+  \begin{enumerate}
+  \item two nodes of the same name but in different parts of a chain
+    will be different,
+  \item while if another chain starts with the same nodes, no new
+    nodes get created.
+  \end{enumerate}
+  In total, this is exactly the behaviour you would expect of a trie:
+\begin{codeexample}[]
+\tikz \graph [trie] {
+  a -> {
+    a,
+    c -> {a, b},
+    b
+  }
+};
+\end{codeexample}
+  You can even ``reiterate'' over a path in conjunction with the
+  |simple| option. However, in this case, the default placement
+  strategies will not work and you will need options like
+  |layered layout| from the graph drawing libraries.
+\ifluatex  
+\begin{codeexample}[]
+\tikz \graph [trie, simple, layered layout] {
+  a -> b -> a,
+  a -> b -> c,
+  a -> {d,a}
+};
+\end{codeexample}
+  In the following example, we setup the |typeset| key so that it
+  shows the complete names of the nodes:
+\begin{codeexample}[]
+\tikz \graph [trie, simple, layered layout,
+              typeset=\tikzgraphnodefullname] {
+  a -> b -> a,
+  a -> b -> c,
+  a -> {d,a}
+};
+\end{codeexample}
+\fi
+  You can also use the |trie| key locally and later reference nodes
+  using their full name:
+\begin{codeexample}[]
+\tikz \graph {
+  { [trie, simple]
+    a -> {
+      b,
+      c -> a
+    }
+  },
+  a b ->[red] a c a
+};
+\end{codeexample}
+\end{key}
+
+
 \subsection{Simple Versus Multi-Graphs}
 
 \label{section-library-graphs-simple}
@@ -1093,6 +1298,376 @@ produces a multi-graph since these are faster to construct.
   Internally, the |simple| command is implemented as an operator that
   adds the edges when it is called, but
   this should be unimportant in normal situations.
+\end{key}
+
+
+
+
+\subsection{Graph Edges: Labeling and Styling}
+
+When the |graph| library creates an edge between two nodes in a graph,
+the appearance (called ``styling'' in \tikzname) can be specified in
+different ways. Sometimes you will simply wish to say ``the edges
+between these two groups of node should be red,'' but sometimes you
+may wish to say ``this particular edge going into this node should be
+red.'' In the following, different ways of specifying such styling
+requirements are discussed. Note that adding labels to edges is, from
+\tikzname's piont of view, almost the same as styling edges, since
+they are also specified using options.
+
+
+\subsubsection{Options For All Edges Between Two Groups}
+
+When you write |... ->[options] ...| somewhere inside your graph
+specification, this typically cause one or more edges to be created
+between the nodes in the chain group before the |->| and the nodes in
+the chain group following it. The |options| are applied to all of
+them. In particular, if you use the |quotes| library and you write
+some text in quotes inside the |options|, this text will be added as a
+label to each edge:
+
+\begin{codeexample}[]
+\tikz 
+  \graph [edge quotes=near start] {
+    { a, b } -> [red, "x", complete bipartite] { c, d };
+  };
+\end{codeexample}
+
+As documented in the |quotes| library in more detail, you can easily
+modify the appearance of edge labels created using the quotes syntax
+by adding options after the closing quotes:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a ->["x"] b ->["y"'] c ->["z" red] d;
+};
+\end{codeexample}
+
+The following options make it easy to setup the styling of nodes
+created in this way:
+
+\begin{key}{/tikz/graphs/edge quotes=\opt{\meta{options}}}
+  A shorthand for setting the style |every edge quotes| to \meta{options}.  
+\begin{codeexample}[]
+\tikz \graph [edge quotes=blue] {
+  a ->["x"] b ->["y"'] c ->["b" red] d;
+};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/edge quotes center}
+  A shorthand for |edge quotes| to |anchor=center|.
+\begin{codeexample}[]
+\tikz \graph [edge quotes center] {
+  a ->["x"] b ->["y"] c ->["z" red] d;
+};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/edge quotes=\meta{options}}
+  A shorthand for |edge quotes| to |anchor=mid|.
+\begin{codeexample}[]
+\tikz \graph [edge quotes mid] {
+  a ->["x"] b ->["y"] c ->["z" red] d;
+};
+\end{codeexample}
+\end{key}
+
+
+
+\subsubsection{Changing Options For Certain Edges}
+
+
+Conside the following tree-like graph:
+
+\begin{codeexample}[]
+\tikz \graph { a -> {b,c} };
+\end{codeexample}
+
+Suppose we wish to specify that the edge from |a| to |b| should be
+red, while the edge from |a| to |c| should be blue. The difficulty
+lies in the fact that \emph{both} edges are created by the single |->|
+operator and we can only add one of these option |red| or |blue| to
+the operator.
+
+There are several ways to solve this problem. First, we can simply
+split up the specification and specify the two edges separately:
+
+\begin{codeexample}[]
+\tikz \graph {
+  a -> [red]  b;
+  a -> [blue] c;
+};  
+\end{codeexample}
+While this works quite well, we can no longer use the nice chain group
+syntax of the |graphs| library. For the rather simple graph |a->{b,c}|
+this is not a big problem, but if you specify a tree with, say, 30
+nodes it is really worthwhile being able to specify the tree ``in its
+natural form in the \TeX\ code'' rather than having to list all of the
+edges explicitly. Also, as can be seen in the above example, the
+node placement is changed, which is not always desirable. 
+
+One can sidestep this problem using the |simple| option: This option
+allows you to first specify a graph and then, later on, replace edges
+by other edges and, thereby, provide new options:
+
+\begin{codeexample}[]
+\tikz \graph [simple] {
+  a -> {b,c};
+  a -> [red]  b;
+  a -> [blue] c;
+};  
+\end{codeexample}
+
+The first line is the original specification of the tree, while the
+following two lines replace some edges of the tree (in this case, all
+of them) by edges with special options. While this method is slower
+and in the above example creates even longer code, it is very useful
+if you wish to, say, highlight a path in a larger tree: First specify
+the tree normally and, then, ``respecify'' the path or paths with some
+other edge options in force. In the following example, we use this to
+highlight a whole subtree of a larger tree:
+
+\begin{codeexample}[]
+\tikz \graph [simple] {
+  % The larger tree, no special options in force
+  a -> {
+    b -> {c,d},
+    e -> {f,g},
+    h
+  },  
+  { [edges=red] % Now highlight a part of the tree
+    a -> e -> {f,g}
+  }
+};  
+\end{codeexample}
+
+
+
+\subsubsection{Options For Incoming and Outgoing Edges}
+
+When you use the syntax |... ->[options] ...| to specify options, you
+specify options for the ``connections between two sets of nodes''. In
+many cases, however, it will be more natural to specify options ``for
+the edges lead to or coming from a certain node'' and you will want to
+specify these options ``at the node''. Returning to the example of the
+graph |a->{b,c}| where we want a red edge between |a| and |b| and a
+blue edge between |a| and |c|, this could also be phrased as follows:
+``Make the edge leading to |b| red and make the edge leading to |c|
+blue.''
+
+For this situation, the |graph| library offers a number of special
+keys, which are documented in the following. However, most of the time
+you will not use these keys directly, but, rather, use a special
+syntax explained in Section~\ref{section-syntax-outgoing-incoming}.
+
+\begin{key}{/tikz/graphs/target edge style=\meta{options}}
+  This key can (only) be used with a \emph{node} inside a graph 
+  specification. When used, the \meta{options} will be added to every
+  edge that is created by a connector like |->| in which the node is a
+  \emph{target}. Consider the following example:
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } ->
+  { c [target edge style=red], d } ->
+  { e, f }
+};
+\end{codeexample}
+  In the example, only when the edge from |a| to |c| is created, |c|
+  is the ``target'' of the edge. Thus, only this edge becomes red.
+  
+  When an edge already has options set directly, the \meta{options}
+  are executed after these direct options, thus, they ``overrule''
+  them:
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } -> [blue, thick]
+  { c [target edge style=red], d } ->
+  { e, f }
+};
+\end{codeexample}
+  
+  The \meta{options} set in this way will stay attached to the node,
+  so also for edges created later on that lead to the node will have
+  these options set:
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } ->
+  { c [target edge style=red], d } ->
+  { e, f },
+  b -> c
+};
+\end{codeexample}
+
+  Multiple uses of this key accumulate. However, you may sometimes
+  also wish to ``clear'' these options for a key since at some later
+  point you no longer wish the \meta{options} to be added when some
+  further edges are added. This can be achieved using the following
+  key:
+  \begin{key}{/tikz/graphs/target edge clear}
+    Clears all \meta{options} for edges with the node as a target and
+    also edge labels (see below) for this node.    
+  \end{key}
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } ->
+  { c [target edge style=red], d },
+  b -> c[target edge clear]
+};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/target edge node=\meta{node specification}}
+  This key works like |target edge style|, only the \meta{node
+    specification} will not be added as options to any newly created
+  edges with the current node as their target, but rather it will be
+  added as a node specification.  
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } ->
+  { c [target edge node=node{X}], d } ->
+  { e, f }
+};
+\end{codeexample}
+  As for |target edge style| multiple uses of this key accumulate and
+  the key |target edge clear| will (also) clear all target edge nodes
+  that have been set for a node earlier on.
+\end{key}
+
+\begin{key}{/tikz/graphs/source edge style=\meta{options}}
+  Works exactly like |target edge style|, only now the \meta{options}
+  are only added when the node is a source of a newly created edge:
+\begin{codeexample}[]
+\tikz \graph {
+  { a, b } ->
+  { c [source edge style=red], d } ->
+  { e, f }
+};
+\end{codeexample}
+  If both for the source and also for the target of an edge
+  \meta{options} have been specified, the options are applied in the
+  following order:
+  \begin{enumerate}
+  \item First come the options from the edge itself.
+  \item Then come the options contributed by the source node using
+    this key.
+  \item Then come the options contributed by the target node using
+    |target node style|.    
+  \end{enumerate}
+\begin{codeexample}[]
+\tikz \graph {
+  a [source edge style=red] ->[green]
+  b [target edge style=blue]  % blue wins
+};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/source edge node=\meta{node specification}}
+  Works like |source edge style| and |target edge node|.  
+\end{key}
+
+\begin{key}{/tikz/graphs/source edge clear=\meta{node specification}}
+  Works like |target edge clear|.  
+\end{key}
+
+
+
+\subsubsection{Special Syntax for Options For Incoming and Outgoing Edges}
+\label{section-syntax-outgoing-incoming}
+
+The keys |target node style| and its friends are powerful, but a bit
+cumbersome to write down. For this reason, the |graphs| library
+introduces a special syntax that is based on what I call the
+``first-char syntax'' of keys. Inside the options of a node inside a
+graph, the following special rules apply:
+\begin{enumerate}
+\item Whenever an option starts with |>|, the rest of the options are
+  passed to |target edge style|. For instance, when you write
+  |a[>red]|, then this has the same effect as if you had written
+\begin{codeexample}[code only]
+a[target edge style={red}]    
+\end{codeexample}
+\item Whenever an options starts with |<|, the rest of the options are
+  passed to |source edge style|.
+\item In both of the above case, in case the options following the |>|
+  or |<| sign start with a quote, the created edge label is passed to
+  |source edge node| or |target edge node|, respectively.
+
+  This is exactly what you want to happen.
+\end{enumerate}
+Additionally, the following styles provide shorthands for ``clearing''
+the target and source options:
+\begin{key}{/tikz/graphs/clear >}
+  A more easy-to-remember shorthand for |target edge clear|.  
+\end{key}
+\begin{key}{/tikz/graphs/clear <}
+  A more easy-to-remember shorthand for |source edge clear|.  
+\end{key}
+
+These mechanisms make it especially easy to create trees in which the
+edges are labeled in some special way:
+\begin{codeexample}[]
+\tikz 
+  \graph [edge quotes={fill=white,inner sep=1pt},
+          grow down, branch right] {
+    / -> h [>"9"] -> {
+      c [>"4" text=red,] -> {
+        a [>"2", >thick],
+        e [>"0"]
+      },
+      j [>"7"]
+    }
+  };
+\end{codeexample}
+
+
+\subsubsection{Placing Node Texts on Incoming Edges}
+
+Normally, the text of a node is shown (only) inside the node. In some
+case, for instance when drawing certain kind of trees, the nodes
+themselves should not get any text, but rather the edge leading to the
+node should be labeled as in the following example:
+\begin{codeexample}[]
+\tikz \graph [empty nodes]
+{
+  root -> {
+    a [>"a"],
+    b [>"b"] -> {
+      c [>"c"],
+      d [>"d"] 
+    }
+  }
+};
+\end{codeexample}
+As the example shows, it is a bit cumbersome that we have to label the
+nodes and then specify the same text once more using the incoming edge
+syntax.
+
+For these cases, it would be better if the text of the node where not
+used with the node but, rather, be passed directly to the incoming or
+the outgoing edge. The following styles do exactly this:
+
+\begin{key}{/tikz/graphs/put node text on incoming edges=\opt{\meta{options}}}
+  When this key is used with a node or a group, the following happens:
+  \begin{enumerate}
+  \item The command |target edge node={node[|\meta{options}|]{\tikzgraphnodetext}}|
+    is executed. This means that all incoming edges of the node get a
+    label with the text that would usually be displayed in the
+    node. You can use keys like |math nodes| normally.
+  \item The command |as={}| is executed. This means that the node
+    itself will display nothing.
+  \end{enumerate}
+  Here is an example that show how this command is used.
+\begin{codeexample}[]
+\tikz \graph [put node text on incoming edges,
+              math nodes, nodes={circle,draw}]
+  { a -> b -> {c, d} };
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/graphs/put node text on outgoing
+    edges=\opt{\meta{options}}}
+  Works like the previous key, only with |target| replaced by |source|.  
 \end{key}
 
 
@@ -1596,12 +2171,12 @@ A graph macro is declared using the following key:
   declare={bintree}{%
     [/utils/exec={%
       \ifnum\tikzgraphlevel=1\relax%
-        \def\childtrees{ __ }%
+        \def\childtrees{ / }%
       \else%
         \mycount=\tikzgraphlevel%
         \advance\mycount by-1\relax%
         \edef\childtrees{
-          __ -> {
+          / -> {
             bintree[levels=\the\mycount],
             bintree[levels=\the\mycount]
           }}
@@ -1822,8 +2397,8 @@ many situations, when you need advanced alignments you should use a
 \begin{key}{/tikz/graphs/grow up sep=\meta{distance} (default 1em)}
 \begin{codeexample}[]
 \tikz \graph [grow up sep] {
-  a__$a=x$ --
-  b__{$b=\displaystyle \int_0^1 x dx$} --
+  a / $a=x$ --
+  b / {$b=\displaystyle \int_0^1 x dx$} --
   c [draw, circle, inner sep=7mm]
 };      
 \end{codeexample}

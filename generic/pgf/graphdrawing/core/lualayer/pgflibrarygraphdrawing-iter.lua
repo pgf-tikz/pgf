@@ -70,10 +70,10 @@ end
 
 --- Causes a loop to run multiple times.
 --
--- Use this iterator like this to perform 100 loops:
+-- Use this iterator like this to perform 100 loops:\\
 -- |for n in iter.times(100) do ... end|.
 --
--- To iterate over the values $0, 10, 20, 30, ..., 100$ do:
+-- To iterate over the values $0, 10, 20, 30, ..., 100$ do:\\
 -- |for n in iter.filter(iter.times(100), function (n) return n % 10 == 0 end)|
 --
 -- @param n Number of loops.
