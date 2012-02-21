@@ -338,3 +338,165 @@ function pgfluamathparser.write_to_log (s)
 end
 
 return pgfluamathparser
+
+--[[ NEW: 2012/02/21, CJ, work in progress
+local lpeg = require("lpeg")
+local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
+local C, Cc, Cs = lpeg.C, lpeg.Cc, lpeg.Cs
+local Cf, Cg = lpeg.Cf, lpeg.Cg
+local match = lpeg.match
+
+local space = S(' \n\t')
+
+local lowercase = R('az')
+local uppercase = R('AZ')
+local alphabetic = lowercase + uppercase
+
+local digit = R('09')
+
+local alphanumeric = alphabetic + digit
+
+local dot = lpeg.P('.')
+local exponent = lpeg.S('eE')
+local sign_prefix = lpeg.S('+-')
+
+local integer = digit^1
+local float = (digit^1 * dot * digit^0) + (digit^0 * dot * digit^1)
+local scientific = (float + integer) * exponent * sign_prefix^-1 * integer
+local number = scientific + float + integer
+
+local at = P('@')
+
+local backslash = P('\\')
+
+local box_width = P('\\wd')
+local box_height = P('\\ht')
+local box_depth = P('\\dp')
+local box_dimension = box_width + box_height + box_depth
+
+local tex_cs = backslash * (alphabetic + at)^1
+
+local lparen = P('(')
+local rparen = P(')')
+
+local thenop = P('?')
+local elseop = P(':')
+
+local orop = P('||')
+local andop = P('&&')
+
+local eqop = P('==')
+local neqop = P('!=')
+
+local greaterop = P('>')
+local lessop = P('<')
+local greatereqop = P('>=')
+local lesseqop = P('<=')
+
+local addop = P('+')
+local subop = P('-')
+
+local mulop = P('*')
+local divop = P('/')
+
+local powop = P('^')
+
+local radop = P('r')
+
+local notop = P('!')
+
+local namedbox_to_numberedbox = 
+   function (s)
+      -- Transforms '{\wd|\ht|\dp}\mybox' to '{\wd|\ht|\dp}\number\mybox'
+      local function transform (capture) 
+	 print('Captured ' .. capture) 
+	 return '\\number' .. capture
+      end
+      local dimension_of_a_named_box = 
+	 box_dimension * space^0 * (tex_cs / transform)
+      -- P(1) matches exactly one character
+      -- V(1) is the entry of the grammar with index 1. It defines the initial rule.
+      -- The manual says: 
+      -- "If that entry is a string, it is assumed to be the name of the initial rule. 
+      -- Otherwise, LPeg assumes that the entry 1 itself is the initial rule."
+      local grammar = 
+	 P({
+	      [1] = (dimension_of_a_named_box + P(1)) * V(1) + P(true)
+	   })
+      return print(match(Cs(grammar),s))
+   end
+--[[
+namedbox_to_numberedbox('test')
+namedbox_to_numberedbox('\\test')
+namedbox_to_numberedbox('\\wd\\test')
+namedbox_to_numberedbox('\\wd\\test0')
+namedbox_to_numberedbox('\\wd\\test01')
+namedbox_to_numberedbox('\\wd\\test@t 012')
+namedbox_to_numberedbox(' \\wd  \\test012')
+namedbox_to_numberedbox('\\wd\\test012\\test \\ht\\zozo0')
+namedbox_to_numberedbox('\\wd0')
+--]]
+
+local function transform_math_expr (s)
+   local function transform_ITE(a, b, c)
+      if not b then
+	 return a
+      else
+	 return string.format('ifthenelse(%s,%s,%s)', a, b, c)
+      end
+   end
+   local function transform_binary(a, b, c)
+      if not b then
+	 return a
+      else
+	 return string.format(b .. '(%s,%s)', a, c)
+      end
+   end
+   local function transform_postunary(a, b)
+      if not b then
+	 return a
+      else
+	 return string.format(b .. '(%s)', a)
+      end
+   end
+   local function transform_preunary(a, b)
+      if not b then
+	 return a
+      else
+	 return string.format(a .. '(%s)', b)
+      end
+   end
+
+   local ITE_E = V('ITE_E')
+   local OR_E = V('OR_E')
+   local AND_E = V('AND_E')
+   local EQ_E = V('EQ_E')
+   local REQ_E = V('REQ_E')
+   local ADD_E = V('ADD_E')
+   local MUL_E = V('MUL_E')
+   local POW_E = V('POW_E')
+   local POST_E = V('POST_E')
+   local PRE_E = V('PRE_E')
+   local E = V('E')
+
+   local grammar = 
+      lpeg.P({
+		'ITE_E',
+		ITE_E = (OR_E * (thenop * OR_E * elseop * OR_E)^-1) / transform_ITE,
+		OR_E = (AND_E * (orop * Cc('or') * AND_E)^-1) / transform_binary,
+		AND_E = (EQ_E * (andop * Cc('and') * EQ_E)^-1) / transform_binary,
+		EQ_E = (REQ_E * ((eqop * Cc('eq') + neqop * Cc('neq')) * REQ_E)^-1) / transform_binary,
+		REQ_E = (ADD_E * ((lessop * Cc('less') + greaterop * Cc('greater') + lesseqop * Cc('lesseq') + greatereqop * Cc('greatereq')) * ADD_E)^-1) / transform_binary,
+		ADD_E = Cf(MUL_E * Cg((addop * Cc('add') + subop * Cc('sub')) * MUL_E)^0,transform_binary),
+		MUL_E = Cf(POW_E * Cg((mulop * Cc('mul') + divop * Cc('div')) * POW_E)^0,transform_binary),
+		POW_E = Cf(POST_E * Cg(powop * Cc('pow') * POST_E)^0,transform_binary),
+		POST_E = (PRE_E * (Cc('rad') * radop)^-1) / transform_postunary,
+		PRE_E = ((Cc('not') * notop)^-1 * E) / transform_preunary,
+		E = C(number) + C(alphanumeric) + lparen * ITE_E * rparen
+	     })  
+   return print(match(Cs(grammar),s))
+end
+
+transform_math_expr('a?(b?c:d):e')
+transform_math_expr('!a!=t>0?(b+c*3+d?c||t&&z:d):e^2r||f')
+--]]
