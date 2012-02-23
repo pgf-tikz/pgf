@@ -563,16 +563,14 @@ local function transform_math_expr (s, f_patt)
 		PRE_E = ((notop * Cc('not') + negop * Cc('neg'))^-1 * E) / transform_preunary,
 		ARRAY_E = (lbrace * Ct(ITE_E * (comma * ITE_E)^0) * rbrace * Ct((lbracket * ITE_E * rbracket)^0)) / transform_array,
 		E = ((integer + float)^-1 * tex_cs^1) + f_patt + C(number) + (lparen * ITE_E * rparen) + ARRAY_E + lbrace * ITE_E * rbrace
-	     })  
+	     })
    return lpeg.match(Cs(grammar),s)
 end
 
-local function ptransform_math_expr(s)
-   return print(transform_math_expr(s))
+local function ptransform_math_expr(s, f_patt)
+   return print(transform_math_expr(s, f_patt))
 end
 
--- The following used to work ????....????.... but do not anymore ????
--- What happened?
 defined_functions = {}
 defined_functions_pattern = P(false)
 
@@ -588,7 +586,7 @@ function declare_new_function (name, nargs)
    if nargs == 0 then
       pattern = P(name) / function (s) return name .. '()' end
    else if nargs == 1 then
-	 pattern = (P(name) * lparen * Cs(ITE_E) * rparen / function (s) return name .. '(' .. s .. ')'  end)
+	 pattern = ((P(name) * lparen * Cs(ITE_E) * rparen) / function (s) return name .. '(' .. s .. ')'  end)
       else if nargs == 2 then
 	    pattern = (P(name) * lparen * Cs(ITE_E) * comma * Cs(ITE_E) * rparen / function (s1,s2) return name .. '(' .. s1 .. ',' .. s2 .. ')' end)
 	 end
@@ -605,7 +603,9 @@ declare_new_function('exp',1)
 declare_new_function('toto',1)
 declare_new_function('gauss',2)
 
-ptransform_math_expr('1?(2?3:4^5):gauss(6+toto(7,8+9>10?11:12))',defined_functions_pattern)
+ptransform_math_expr('exp(exp(1+1))',defined_functions_pattern)
+
+ptransform_math_expr('1?(2?3:4^5):gauss(6+toto(7),8+9>10?11:12))',defined_functions_pattern)
 
 ptransform_math_expr('!(1!=-2)>3?(4+5*6+7?8||9&&10:11):12^13r||14')
 ptransform_math_expr('-1^2\\test\\toto^3')
