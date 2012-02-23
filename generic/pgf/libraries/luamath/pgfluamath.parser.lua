@@ -340,10 +340,20 @@ end
 return pgfluamathparser
 
 --[[ NEW: 2012/02/21, CJ, work in progress
+-- We need 3 parsers
+-- (1) To get the number associated with a (\chardef'ed) box (e.g. 
+--     \ht\mybox -> \ht26) 
+--     This is part of a TeX ->(\directlua == \edef) -> lua -> (lpeg parser 1)
+--     -> TeX -> (\directlua == \edef)
+-- (2) To transform math and functions operands
+-- (3) To transform units, dimen and count register
+
+-- TODO: strings delimited by "..."
+
 local lpeg = require("lpeg")
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Cc, Cs = lpeg.C, lpeg.Cc, lpeg.Cs
-local Cf, Cg = lpeg.Cf, lpeg.Cg
+local Cf, Cg, Ct = lpeg.Cf, lpeg.Cg, lpeg.Ct
 local match = lpeg.match
 
 local space = S(' \n\t')
@@ -356,13 +366,14 @@ local digit = R('09')
 
 local alphanumeric = alphabetic + digit
 
-local dot = lpeg.P('.')
-local exponent = lpeg.S('eE')
-local sign_prefix = lpeg.S('+-')
+local dot = P('.')
+local exponent = S('eE')
+local sign_prefix = S('+-')
 
 local integer = digit^1
 local float = (digit^1 * dot * digit^0) + (digit^0 * dot * digit^1)
 local scientific = (float + integer) * exponent * sign_prefix^-1 * integer
+
 local number = scientific + float + integer
 
 local at = P('@')
@@ -378,6 +389,12 @@ local tex_cs = backslash * (alphabetic + at)^1
 
 local lparen = P('(')
 local rparen = P(')')
+
+local lbrace = P('{')
+local rbrace = P('}')
+
+local lbracket = P('[')
+local rbracket = P(']')
 
 local thenop = P('?')
 local elseop = P(':')
@@ -404,6 +421,9 @@ local powop = P('^')
 local radop = P('r')
 
 local notop = P('!')
+local negop = P('-')
+
+local comma = P(',')
 
 local namedbox_to_numberedbox = 
    function (s)
@@ -437,7 +457,43 @@ namedbox_to_numberedbox('\\wd\\test012\\test \\ht\\zozo0')
 namedbox_to_numberedbox('\\wd0')
 --]]
 
-local function transform_math_expr (s)
+-- Grammar (from lowest to highest precedence)
+-- Need to adjust to the precedences in plain pgfmath parser
+-- IfThenElse Expression
+local ITE_E = V('ITE_E')
+-- logical OR Expression
+local OR_E = V('OR_E')
+-- logical AND Expression
+local AND_E = V('AND_E')
+-- EQuality Expression
+local EQ_E = V('EQ_E')
+-- Relational EQuality Expression
+local REQ_E = V('REQ_E')
+-- ADDitive Expression
+local ADD_E = V('ADD_E')
+-- MULtiplicative Expression
+local MUL_E = V('MUL_E')
+-- POWer Expression
+local POW_E = V('POW_E')
+-- POSTfix Expression
+local POST_E = V('POST_E')
+-- PREfix Expression
+local PRE_E = V('PRE_E')
+-- ARRAY Expression
+local ARRAY_E = V('ARRAY_E')
+-- Expression
+local E = V('E')
+
+local function transform_math_expr (s, f_patt)
+   -- f_patt extends the grammar dynamically at the time of the call to the
+   -- parser.
+   -- The idea is to have a set of predefined acceptable functions (via e.g.
+   -- \pgfmathdeclarefunction)
+   if not f_patt then
+      -- P(false) is a pattern that always fails
+      -- (neutral element for the + operator on patterns)
+      f_patt = P(false)
+   end
    local function transform_ITE(a, b, c)
       if not b then
 	 return a
@@ -449,36 +505,49 @@ local function transform_math_expr (s)
       if not b then
 	 return a
       else
-	 return string.format(b .. '(%s,%s)', a, c)
+	 return string.format('%s(%s,%s)', b, a, c)
       end
    end
    local function transform_postunary(a, b)
       if not b then
 	 return a
       else
-	 return string.format(b .. '(%s)', a)
+	 return string.format('%s(%s)', b, a)
       end
    end
    local function transform_preunary(a, b)
       if not b then
 	 return a
       else
-	 return string.format(a .. '(%s)', b)
+	 return string.format('%s(%s)', a, b)
       end
    end
-
-   local ITE_E = V('ITE_E')
-   local OR_E = V('OR_E')
-   local AND_E = V('AND_E')
-   local EQ_E = V('EQ_E')
-   local REQ_E = V('REQ_E')
-   local ADD_E = V('ADD_E')
-   local MUL_E = V('MUL_E')
-   local POW_E = V('POW_E')
-   local POST_E = V('POST_E')
-   local PRE_E = V('PRE_E')
-   local E = V('E')
-
+   local function transform_array(a, b)
+      -- One exception to the mimmic of plain pgfmath. I do not use the equivalent array function to transform the arrays because I don't know how to handle both cases {1,{2,3}[1],4}[1] and {1,{2,3},4}[1][1] with the parser and the array function.
+      -- So I convert a pgf array to a lua table. One can access one entry of the table like this ({1,2})[1] (note the parenthesis, ie {1,2}[1] won't work).
+      local s
+      if not b then
+	 s = '{'
+      else
+	 s = '({'
+      end
+      for i = 1,#a do
+	 -- We change the index to fit with pgfmath plain convention (index starts at 0 while in lua index starts at 1)
+	 s = s .. '[' .. tostring(i-1) .. ']=' .. a[i]
+	 if i < #a then
+	    s = s .. ','
+	 end
+      end
+      if b then
+	 s = s .. '})'
+	 for i = 1,#b do
+	    s = s .. '[' .. b[i] .. ']'
+	 end
+      else
+	 s = s .. '}'
+      end
+      return s
+   end
    local grammar = 
       lpeg.P({
 		'ITE_E',
@@ -490,13 +559,70 @@ local function transform_math_expr (s)
 		ADD_E = Cf(MUL_E * Cg((addop * Cc('add') + subop * Cc('sub')) * MUL_E)^0,transform_binary),
 		MUL_E = Cf(POW_E * Cg((mulop * Cc('mul') + divop * Cc('div')) * POW_E)^0,transform_binary),
 		POW_E = Cf(POST_E * Cg(powop * Cc('pow') * POST_E)^0,transform_binary),
-		POST_E = (PRE_E * (Cc('rad') * radop)^-1) / transform_postunary,
-		PRE_E = ((Cc('not') * notop)^-1 * E) / transform_preunary,
-		E = C(number) + C(alphanumeric) + lparen * ITE_E * rparen
+		POST_E = (PRE_E * (radop * Cc('rad'))^-1) / transform_postunary,
+		PRE_E = ((notop * Cc('not') + negop * Cc('neg'))^-1 * E) / transform_preunary,
+		ARRAY_E = (lbrace * Ct(ITE_E * (comma * ITE_E)^0) * rbrace * Ct((lbracket * ITE_E * rbracket)^0)) / transform_array,
+		E = ((integer + float)^-1 * tex_cs^1) + f_patt + C(number) + (lparen * ITE_E * rparen) + ARRAY_E + lbrace * ITE_E * rbrace
 	     })  
-   return print(match(Cs(grammar),s))
+   return lpeg.match(Cs(grammar),s)
 end
 
-transform_math_expr('a?(b?c:d):e')
-transform_math_expr('!a!=t>0?(b+c*3+d?c||t&&z:d):e^2r||f')
---]]
+local function ptransform_math_expr(s)
+   return print(transform_math_expr(s))
+end
+
+-- The following used to work ????....????.... but do not anymore ????
+-- What happened?
+defined_functions = {}
+defined_functions_pattern = P(false)
+
+function declare_new_function (name, nargs)
+   -- nil est true
+   if defined_functions[name] then
+      print('Function ' .. name .. ' is already defined. ' ..
+	    'I overwrite it!')
+   end
+   defined_functions[name] = {['name'] = name, ['nargs'] = nargs}
+   
+   local pattern
+   if nargs == 0 then
+      pattern = P(name) / function (s) return name .. '()' end
+   else if nargs == 1 then
+	 pattern = (P(name) * lparen * Cs(ITE_E) * rparen / function (s) return name .. '(' .. s .. ')'  end)
+      else if nargs == 2 then
+	    pattern = (P(name) * lparen * Cs(ITE_E) * comma * Cs(ITE_E) * rparen / function (s1,s2) return name .. '(' .. s1 .. ',' .. s2 .. ')' end)
+	 end
+      end
+   end
+   defined_functions_pattern = defined_functions_pattern + pattern  
+end
+
+-- IMPORTANT: for 'function' with *0* argument, the longest string, the first
+-- ie declaring pi before pit won't work.
+declare_new_function('pit',0)
+declare_new_function('pi',0)
+declare_new_function('exp',1)
+declare_new_function('toto',1)
+declare_new_function('gauss',2)
+
+ptransform_math_expr('1?(2?3:4^5):gauss(6+toto(7,8+9>10?11:12))',defined_functions_pattern)
+
+ptransform_math_expr('!(1!=-2)>3?(4+5*6+7?8||9&&10:11):12^13r||14')
+ptransform_math_expr('-1^2\\test\\toto^3')
+ptransform_math_expr('{1,{2+3,4}[1],5}[2]+6')
+ptransform_math_expr('{1,{2+3,4},5}[1][1]')
+ptransform_math_expr('{1,{2,3},4}[1][1]')
+ptransform_math_expr('{1,{2,3}[1],4}[1]')
+
+--Loadstring: If it succeeds in converting the string to a *function*, it returns that function; otherwise, it returns nil and an error message.
+toto = loadstring('print(' .. transform_math_expr('{1,{2,3},4}[1][1]') .. ')')
+toto()
+
+-- IMPORTANT NOTE!!
+-- local function add (a,b) will fail within loadstring. Needs to be global. loadstring opens a new chunk that does not know the local variables of other chunks.
+function add(a,b)
+   return a+b
+end
+
+toto = loadstring('print(' .. transform_math_expr('{1,{2,3E-1+7}[1],4}[1]') .. ')')
+toto()
