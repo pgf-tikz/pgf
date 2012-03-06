@@ -340,7 +340,7 @@ end
 return pgfluamathparser
 
 --[[ NEW: 2012/02/21, CJ, work in progress
--- We need 3 parsers
+-- We need 3 parsers (or 2, 2 and 3 could be merged)
 -- (1) To get the number associated with a (\chardef'ed) box (e.g. 
 --     \ht\mybox -> \ht26) 
 --     This is part of a TeX ->(\directlua == \edef) -> lua -> (lpeg parser 1)
@@ -349,8 +349,15 @@ return pgfluamathparser
 -- (3) To transform units, dimen and count register
 
 -- TODO: strings delimited by "..."
+-- TODO: units. \pgfmathparse{12+1cm}\pgfmathresult and \the\dimexpr 12pt+1cm\relax have the same result. Note: \pgfmathparse{(12+1)cm} won't work in plain pgfmath.
+-- TODO: Parser 3
 
-local lpeg = require("lpeg")
+
+pgfluamath = pgfluamath or {}
+
+pgfluamath.debug = true
+
+local lpeg = require('lpeg')
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Cc, Cs = lpeg.C, lpeg.Cc, lpeg.Cs
 local Cf, Cg, Ct = lpeg.Cf, lpeg.Cg, lpeg.Ct
@@ -425,26 +432,25 @@ local negop = P('-')
 
 local comma = P(',')
 
-local namedbox_to_numberedbox = 
-   function (s)
-      -- Transforms '{\wd|\ht|\dp}\mybox' to '{\wd|\ht|\dp}\number\mybox'
-      local function transform (capture) 
-	 print('Captured ' .. capture) 
-	 return '\\number' .. capture
-      end
-      local dimension_of_a_named_box = 
-	 box_dimension * space^0 * (tex_cs / transform)
-      -- P(1) matches exactly one character
-      -- V(1) is the entry of the grammar with index 1. It defines the initial rule.
-      -- The manual says: 
-      -- "If that entry is a string, it is assumed to be the name of the initial rule. 
-      -- Otherwise, LPeg assumes that the entry 1 itself is the initial rule."
-      local grammar = 
-	 P({
-	      [1] = (dimension_of_a_named_box + P(1)) * V(1) + P(true)
-	   })
-      return print(match(Cs(grammar),s))
+function pgfluamath.namedbox_to_numberedbox (s)
+   -- Transforms '{\wd|\ht|\dp}\mybox' to '{\wd|\ht|\dp}\number\mybox'
+   local function transform (capture) 
+      print('Captured ' .. capture) 
+      return '\\number' .. capture
    end
+   local dimension_of_a_named_box = 
+      box_dimension * space^0 * (tex_cs / transform)
+   -- P(1) matches exactly one character
+   -- V(1) is the entry of the grammar with index 1. It defines the initial rule.
+   -- The manual says: 
+   -- "If that entry is a string, it is assumed to be the name of the initial rule. 
+   -- Otherwise, LPeg assumes that the entry 1 itself is the initial rule."
+   local grammar = 
+      P({
+	   [1] = (dimension_of_a_named_box + P(1)) * V(1) + P(true)
+	})
+   return print(match(Cs(grammar),s))
+end
 --[[
 namedbox_to_numberedbox('test')
 namedbox_to_numberedbox('\\test')
@@ -484,7 +490,10 @@ local ARRAY_E = V('ARRAY_E')
 -- Expression
 local E = V('E')
 
-local function transform_math_expr (s, f_patt)
+function pgfluamath.transform_math_expr (s, f_patt)
+   if pgfluamath.debug then
+      texio.write_nl('pgfluamath: parsing expression "' .. s ..'"')
+   end
    -- f_patt extends the grammar dynamically at the time of the call to the
    -- parser.
    -- The idea is to have a set of predefined acceptable functions (via e.g.
@@ -498,28 +507,28 @@ local function transform_math_expr (s, f_patt)
       if not b then
 	 return a
       else
-	 return string.format('ifthenelse(%s,%s,%s)', a, b, c)
+	 return string.format('pgfluamath.defined_functions.ifthenelse.code(%s,%s,%s)', a, b, c)
       end
    end
    local function transform_binary(a, b, c)
       if not b then
 	 return a
       else
-	 return string.format('%s(%s,%s)', b, a, c)
+	 return string.format('pgfluamath.defined_functions.%s.code(%s,%s)', b, a, c)
       end
    end
    local function transform_postunary(a, b)
       if not b then
 	 return a
       else
-	 return string.format('%s(%s)', b, a)
+	 return string.format('pgfluamath.defined_functions.%s.code(%s)', b, a)
       end
    end
    local function transform_preunary(a, b)
       if not b then
 	 return a
       else
-	 return string.format('%s(%s)', a, b)
+	 return string.format('pgfluamath.defined_functions.%s.code(%s)', a, b)
       end
    end
    local function transform_array(a, b)
@@ -552,77 +561,87 @@ local function transform_math_expr (s, f_patt)
       lpeg.P({
 		'ITE_E',
 		ITE_E = (OR_E * (thenop * OR_E * elseop * OR_E)^-1) / transform_ITE,
-		OR_E = (AND_E * (orop * Cc('or') * AND_E)^-1) / transform_binary,
-		AND_E = (EQ_E * (andop * Cc('and') * EQ_E)^-1) / transform_binary,
-		EQ_E = (REQ_E * ((eqop * Cc('eq') + neqop * Cc('neq')) * REQ_E)^-1) / transform_binary,
-		REQ_E = (ADD_E * ((lessop * Cc('less') + greaterop * Cc('greater') + lesseqop * Cc('lesseq') + greatereqop * Cc('greatereq')) * ADD_E)^-1) / transform_binary,
-		ADD_E = Cf(MUL_E * Cg((addop * Cc('add') + subop * Cc('sub')) * MUL_E)^0,transform_binary),
-		MUL_E = Cf(POW_E * Cg((mulop * Cc('mul') + divop * Cc('div')) * POW_E)^0,transform_binary),
+		OR_E = (AND_E * (orop * Cc('orPGF') * AND_E)^-1) / transform_binary,
+		AND_E = (EQ_E * (andop * Cc('andPGF') * EQ_E)^-1) / transform_binary,
+		EQ_E = (REQ_E * ((eqop * Cc('equal') + neqop * Cc('notequal')) * REQ_E)^-1) / transform_binary,
+		REQ_E = (ADD_E * ((lessop * Cc('less') + greaterop * Cc('greater') + lesseqop * Cc('notgreater') + greatereqop * Cc('notless')) * ADD_E)^-1) / transform_binary,
+		ADD_E = Cf(MUL_E * Cg((addop * Cc('add') + subop * Cc('substract')) * MUL_E)^0,transform_binary),
+		MUL_E = Cf(POW_E * Cg((mulop * Cc('multiply') + divop * Cc('divide')) * POW_E)^0,transform_binary),
 		POW_E = Cf(POST_E * Cg(powop * Cc('pow') * POST_E)^0,transform_binary),
 		POST_E = (PRE_E * (radop * Cc('rad'))^-1) / transform_postunary,
-		PRE_E = ((notop * Cc('not') + negop * Cc('neg'))^-1 * E) / transform_preunary,
+		PRE_E = ((notop * Cc('notPGF') + negop * Cc('neg'))^-1 * E) / transform_preunary,
 		ARRAY_E = (lbrace * Ct(ITE_E * (comma * ITE_E)^0) * rbrace * Ct((lbracket * ITE_E * rbracket)^0)) / transform_array,
 		E = ((integer + float)^-1 * tex_cs^1) + f_patt + C(number) + (lparen * ITE_E * rparen) + ARRAY_E + lbrace * ITE_E * rbrace
 	     })
    return lpeg.match(Cs(grammar),s)
 end
 
-local function ptransform_math_expr(s, f_patt)
-   return print(transform_math_expr(s, f_patt))
+function pgfluamath.ptransform_math_expr(s, f_patt)
+   local st = pgfluamath.transform_math_expr(s, f_patt)
+   if st ~= nil then
+      return texio.write_nl(st)
+   end
 end
 
-defined_functions = {}
-defined_functions_pattern = P(false)
+pgfluamath.defined_functions = {}
+pgfluamath.defined_functions_pattern = P(false)
 
-function declare_new_function (name, nargs)
-   -- nil est true
-   if defined_functions[name] then
+function pgfluamath.declare_new_function (name, nargs, code)
+   -- nil is true
+   -- The function name CANNOT be a lua reserved word (so no 'and' nor 'or')
+   if pgfluamath.defined_functions[name] then
       print('Function ' .. name .. ' is already defined. ' ..
 	    'I overwrite it!')
    end
-   defined_functions[name] = {['name'] = name, ['nargs'] = nargs}
+   pgfluamath.defined_functions[name] = {['name'] = name, ['nargs'] = nargs, ['code'] = code}
    
+   -- TODO
+   -- We need a function to dynamically (depending on the number of arguments) define a patten (in order to avoid the long ifcase-type structure).
    local pattern
    if nargs == 0 then
       pattern = P(name) / function (s) return name .. '()' end
    else if nargs == 1 then
-	 pattern = ((P(name) * lparen * Cs(ITE_E) * rparen) / function (s) return name .. '(' .. s .. ')'  end)
+	 pattern = ((P(name) * lparen * Cs(ITE_E) * rparen) / function (s) return 'pgfluamath.defined_functions.' .. name .. '.code(' .. s .. ')' end)
       else if nargs == 2 then
-	    pattern = (P(name) * lparen * Cs(ITE_E) * comma * Cs(ITE_E) * rparen / function (s1,s2) return name .. '(' .. s1 .. ',' .. s2 .. ')' end)
+	    pattern = (P(name) * lparen * Cs(ITE_E) * comma * Cs(ITE_E) * rparen / function (s1,s2) return 'pgfluamath.defined_functions.' .. name .. 'code(' .. s1 .. ',' .. s2 .. ')' end)
+	 else if nargs == 3 then
+	       pattern = (P(name) * lparen * Cs(ITE_E) * comma * Cs(ITE_E) * comma * Cs(ITE_E) * rparen / function (s1,s2,s3) return 'pgfluamath.defined_functions.' .. name .. 'code(' .. s1 .. ',' .. s2 .. ',' .. s3 .. ')' end)
+	    end
 	 end
       end
    end
-   defined_functions_pattern = defined_functions_pattern + pattern  
+   -- TODO
+   -- This needs to be regenerated every time a new function is added, in conjunction with a sort of the table (see IMPORTANT below)
+   pgfluamath.defined_functions_pattern = pgfluamath.defined_functions_pattern + pattern  
 end
 
 -- IMPORTANT: for 'function' with *0* argument, the longest string, the first
 -- ie declaring pi before pit won't work.
-declare_new_function('pit',0)
-declare_new_function('pi',0)
-declare_new_function('exp',1)
-declare_new_function('toto',1)
-declare_new_function('gauss',2)
+pgfluamath.declare_new_function('pit',0)
+pgfluamath.declare_new_function('pi',0)
+pgfluamath.declare_new_function('exp',1)
+pgfluamath.declare_new_function('toto',1)
+pgfluamath.declare_new_function('gauss',2)
 
-ptransform_math_expr('exp(exp(1+1))',defined_functions_pattern)
+pgfluamath.ptransform_math_expr('exp(exp(1+1))',pgfluamath.defined_functions_pattern)
 
-ptransform_math_expr('1?(2?3:4^5):gauss(6+toto(7),8+9>10?11:12))',defined_functions_pattern)
+pgfluamath.ptransform_math_expr('1?(2?3:4^5):gauss(6+toto(7),8+9>10?11:12))',pgfluamath.defined_functions_pattern)
 
-ptransform_math_expr('!(1!=-2)>3?(4+5*6+7?8||9&&10:11):12^13r||14')
-ptransform_math_expr('-1^2\\test\\toto^3')
-ptransform_math_expr('{1,{2+3,4}[1],5}[2]+6')
-ptransform_math_expr('{1,{2+3,4},5}[1][1]')
-ptransform_math_expr('{1,{2,3},4}[1][1]')
-ptransform_math_expr('{1,{2,3}[1],4}[1]')
+pgfluamath.ptransform_math_expr('!(1!=-2)>3?(4+5*6+7?8||9&&10:11):12^13r||14')
+pgfluamath.ptransform_math_expr('-1^2\\test\\toto^3')
+pgfluamath.ptransform_math_expr('{1,{2+3,4}[1],5}[2]+6')
+pgfluamath.ptransform_math_expr('{1,{2+3,4},5}[1][1]')
+pgfluamath.ptransform_math_expr('{1,{2,3},4}[1][1]')
+pgfluamath.ptransform_math_expr('{1,{2,3}[1],4}[1]')
 
 --Loadstring: If it succeeds in converting the string to a *function*, it returns that function; otherwise, it returns nil and an error message.
-toto = loadstring('print(' .. transform_math_expr('{1,{2,3},4}[1][1]') .. ')')
+toto = loadstring('texio.write_nl(' .. pgfluamath.transform_math_expr('{1,{2,3},4}[1][1]') .. ')')
 toto()
 
 -- IMPORTANT NOTE!!
 -- local function add (a,b) will fail within loadstring. Needs to be global. loadstring opens a new chunk that does not know the local variables of other chunks.
-function add(a,b)
-   return a+b
-end
 
-toto = loadstring('print(' .. transform_math_expr('{1,{2,3E-1+7}[1],4}[1]') .. ')')
-toto()
+--toto = loadstring('texio.write_nl(' .. pgfluamath.transform_math_expr('{1,{2,3E-1+7}[1],4}[1]') .. ')')
+--toto()
+
+return pgfluamath
