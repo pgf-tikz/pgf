@@ -20,9 +20,24 @@
 %--------------------------------------------
 
 \pgfutil@ifundefined{pdfelapsedtime}{%
-	\PackageError{pgf}{library 'profiler' can only be used with pdftex Rev. >= 1.671 because it needs the \string\pdfelapsedtime\space command}{}%
-	\global\let\pdfelapsedtime=\c@pgf@counta
-}{}
+  % Ok, \pdfelapsedtime is not defined.
+  % Maybe we run luatex?
+  \pgfutil@ifluatex
+    % Yes. So we emulate the primitive by a macro.
+    % (see http://tex.stackexchange.com/q/32507/8425)
+    \def\pgfutil@pdfelapsedtime{%
+      \numexpr\pgfutil@directlua{%
+        tex.print(math.floor((os.clock())*65536+0.5))}\relax}
+  \else
+    % Raise an error
+    \PackageError{pgf}{%
+      Library 'profiler' can only be used with pdftex Rev. >= 1.671 
+      because it needs the \string\pdfelapsedtime\space command or
+      with luatex}{}%
+    \global\let\pgfutil@pdfelapsedtime=\c@pgf@counta
+  \fi}{%
+  % We run pdftex. That's ok.
+  \let\pgfutil@pdfelapsedtime\pdfelapsedtime}
 
 
 % Defines a new profiler entry named `#1'.
@@ -290,7 +305,7 @@
 	\pgfprofileifisrunning{#1}{%
 		\relax
 	}{%
-		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pdfelapsedtime}%
+		\expandafter\xdef\csname c@pgfprofile@elapsed@at@start@#1\endcsname{\the\pgfutil@pdfelapsedtime}%
 		\expandafter\gdef\csname c@pgfprofile@subtractforself@#1\endcsname{0}%
 		\pgfprofile@advance{c@pgfprofile@numinvocations@#1}{1}%
 		\pgfprofilestackpush{#1}%
@@ -305,7 +320,7 @@
 		\relax
 	}{%
 		\begingroup
-			\c@pgf@countb=\pdfelapsedtime\relax
+			\c@pgf@countb=\pgfutil@pdfelapsedtime\relax
 			\advance\c@pgf@countb by-\csname c@pgfprofile@elapsed@at@start@#1\endcsname\relax
 			%
 			\pgfprofilestackpop\pgfretval
