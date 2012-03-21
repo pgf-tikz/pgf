@@ -58,7 +58,7 @@ function checkNodes(graph, node, visitedNodes, parent)
    if node:getDegree() > 1 then
       for edge in table.value_iter(node.edges) do   
         --check if all nodes of the edge have already been visited
-	     for node in table.value_iter(edge.nodes) do
+	for node in table.value_iter(edge.nodes) do
            if table.find(visitedNodes, function (name) return name == node.name end) then
               visited = true
            else
@@ -247,9 +247,8 @@ function advancedPlace(root, boxes, leveldistance, siblingdistance)
          box.pos:set{x = 0}
          local pos = box:getPosAt(Box.UPPERRIGHT, false)
          width = width + box.width
-
       else
-          local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
+         local pos = lastbox:getPosAt(Box.UPPERRIGHT, false)
          box.pos:set{y = maxY - box.height}
          box.pos:set{x = pos:x() + siblingdistance}
          width = width + box.width + siblingdistance   

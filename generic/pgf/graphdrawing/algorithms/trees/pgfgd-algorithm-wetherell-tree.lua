@@ -15,7 +15,7 @@ pgf.module("pgf.graphdrawing")
 
 function graph_drawing_algorithm_wetherelltree(graph, options)
   -- find the root node of the graph
-  graph.root = graph:findNodeIf(function (node) return node:getOption('/graph drawing/root') end)
+  graph.root = graph:findNodeIf(function (node) return node:getOption('/graph drawing/root') end) or graph.nodes[1]
   if not graph.root then
     error('no root node specified. aborting')
   end
