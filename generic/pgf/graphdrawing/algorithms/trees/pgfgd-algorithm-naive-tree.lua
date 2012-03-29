@@ -51,6 +51,8 @@ function graph_drawing_algorithm_naivetree(graph, options)
     node.pos:set{y = -1 * node.level * node_distance}
     node.pos:set{x = column[node.level] * node_distance}
   end
+  
+  orientation.algorithm_has_grown_the_graph_in_a_direction(graph)
 end
 
 

@@ -64,6 +64,8 @@ function graph_drawing_algorithm_simplelayered(graph)
   -- Use spring algorithm to draw the graph
   --require('pgflibrarygraphdrawing-algorithms-spring.lua')
   --graph_drawing_algorithm_spring(graph)
+
+  orientation.algorithm_has_grown_the_graph_in_a_direction(graph)
 end
 
 

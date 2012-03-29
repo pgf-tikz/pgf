@@ -33,6 +33,8 @@ function graph_drawing_algorithm_AhrensFKSS2011_tree(graph)
    local leveldistance = graph:getOption("/graph drawing/level distance") 
    local siblingdistance = graph:getOption("/graph drawing/sibling distance")
    treePositioning(graph, advancedPlace, simpleCompare, nil, leveldistance, siblingdistance)
+  
+   orientation.algorithm_has_grown_the_graph_in_a_direction(graph)     
 end
 
 --- Test if the given graph is a Tree

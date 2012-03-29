@@ -54,7 +54,8 @@ function Edge:new(values)
     bend_points = {},
     bend_nodes = {},
     reversed = false,
-    algorithmically_generated_options = {}
+    algorithmically_generated_options = {},
+    index = nil,
   }
   setmetatable(defaults, Edge)
   local result = table.custom_merge(values, defaults)

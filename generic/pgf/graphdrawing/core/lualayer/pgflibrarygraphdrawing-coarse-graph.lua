@@ -124,7 +124,7 @@ function CoarseGraph:coarsen()
 
       -- collact all neighbours of the nodes to merge, create a node -> edge mapping
       local u_neighbours = table.map_pairs(u.edges, function (n, edge)
-        return edge:getNeighbour(u), edge
+	return edge:getNeighbour(u), edge
       end)
       local v_neighbours = table.map_pairs(v.edges, function(n, edge)
         return edge:getNeighbour(v), edge
@@ -165,24 +165,16 @@ function CoarseGraph:coarsen()
         return not common_neighbours[node]
       end)
 
-      --Sys:log('    neighbours of ' .. u.name .. ':')
-      --for node in table.key_iter(u_neighbours) do
-      --  Sys:log('      ' .. node.name .. ' via ' .. tostring(u_neighbours[node]))
-      --end
-      --Sys:log('    neighbours of ' .. v.name .. ':')
-      --for node in table.key_iter(v_neighbours) do
-      --  Sys:log('      ' .. node.name .. ' via ' .. tostring(v_neighbours[node]))
-      --end
-      --Sys:log('    common neighbours of ' .. u.name .. ' and ' .. v.name .. ':')
-      --for node in table.key_iter(common_neighbours) do
-      --  Sys:log('        ' .. node.name)
-      --end
-
       -- merge neighbour lists
       local disjoint_neighbours = table.custom_merge(u_neighbours, v_neighbours)
 
       -- create edges between the supernode and the neighbours of the merged nodes
-      for neighbour, edge in pairs(disjoint_neighbours) do
+      -- TT: I had to add the "pairs_by_sorted_keys" to ensure that the program
+      --     becomes determinisitc (in each run a different coarsening used to be computed, 
+      --     which was unacceptable). Unfortunately, I'm not sure whether I caught all placed, 
+      --     where this occurs.
+      for neighbour, edge in table.pairs_by_sorted_keys(disjoint_neighbours, function (n,m) return n.index < m.index end) do
+
         -- create a superedge to replace the existing one
         local superedge = Edge:new{
           direction = edge.direction,
@@ -214,7 +206,7 @@ function CoarseGraph:coarsen()
       -- do the same for all neighbours that the merged nodes have
       -- in common, except that the weights of the new edges are the
       -- sums of the of the weights of the edges to the common neighbours
-      for neighbour, edges in pairs(common_neighbours) do
+      for neighbour, edges in table.pairs_by_sorted_keys(common_neighbours, function (n,m) return n.index < m.index end) do
         local weights = table.combine_values(edges, function (weights, edge)
           return weights + edge.weight
         end, 0)
@@ -374,7 +366,14 @@ function CoarseGraph:interpolate()
       self.graph:deleteNode(supernode)
     end
   end
-
+  
+  -- Make sure that the nodes and edges are in the correct order:
+  table.sort (self.graph.nodes, function (a, b) return a.index < b.index end)
+  table.sort (self.graph.edges, function (a, b) return a.index < b.index end)
+  for _, n in pairs(self.graph.nodes) do
+     table.sort (n.edges,  function (a, b) return a.index < b.index end)
+  end
+  
   -- update the level
   self.level = self.level - 1
 end

@@ -146,6 +146,9 @@ function ModularLayered:run()
   self:dumpGraph('final graph')
   Sys:log('finished')
   Sys:log(' ')
+    
+  -- This algorithm uses an orientation:
+  orientation.algorithm_has_grown_the_graph_in_a_direction(self.graph)  
 end
 
 

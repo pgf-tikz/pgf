@@ -211,6 +211,18 @@ function Sys:log(...)
 end
 
 
+function Sys:debug(...)
+   texio.write_nl("")
+   -- this is to even print out nil arguments in between
+   local args = {...}
+   for i = 1, table.getn(args) do
+      if i ~= 1 then texio.write(" ") end
+      texio.write(tostring(args[i]))
+   end
+   texio.write_nl("")
+end
+
+
 
 --- Adds a |not yet positionedPGFINTERNAL| prefix to the name of a node. 
 --

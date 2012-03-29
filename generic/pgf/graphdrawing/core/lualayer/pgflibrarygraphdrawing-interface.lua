@@ -307,7 +307,8 @@ function Interface:drawGraph()
   Sys:log(' ')
 
   -- apply the orientation desired by the user
-  orientation.adjust(self.graph)
+  orientation.perform_post_layout_steps(self.graph)
+  anchoring.perform_post_layout_steps(self.graph)
 end
 
 

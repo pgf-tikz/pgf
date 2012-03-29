@@ -46,6 +46,8 @@ function Node:new(values)
     edges = {},
     pos = Vector:new(2),
     options = {},
+    growth_direction = nil,
+    index = nil,
   }
   setmetatable(defaults, Node)
   local result = table.custom_merge(values, defaults)

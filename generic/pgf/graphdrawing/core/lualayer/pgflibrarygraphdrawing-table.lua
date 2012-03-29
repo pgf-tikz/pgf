@@ -385,7 +385,28 @@ end
 
 
 
---- Iterate over all keys of a table in random order.
+--- Iterate over all keys of a table in deterministic order
+--
+-- Taken from "Programming in Lua", second edition, page 173.
+--
+-- @param t The table
+-- @param f Sorting function
+--
+-- @return An iterator
+
+function table.pairs_by_sorted_keys (t, f)
+   local a = {}
+   for n in pairs(t) do a[#a + 1] = n end
+   table.sort (a, f)
+   local i = 0
+   return function ()
+	     i = i + 1
+	     return a[i], t[a[i]]
+	  end
+end
+
+
+--- Iterate over all keys of a table in nondeterminisitc order.
 --
 -- @param table The table whose keys to iterate over.
 --

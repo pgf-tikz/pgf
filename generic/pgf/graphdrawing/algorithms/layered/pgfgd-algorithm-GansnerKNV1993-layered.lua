@@ -96,6 +96,9 @@ function GansnerKNV1993Layered:run()
   self:makeSplines()
 
   self:postprocess()
+  
+  -- This algorithm uses an orientation:
+  orientation.algorithm_has_grown_the_graph_in_a_direction(self.graph)  
 end
 
 

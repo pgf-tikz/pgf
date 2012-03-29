@@ -40,6 +40,7 @@ local files = {
    "texboxregister",
    "ranking",
    "network-simplex",
+   "anchoring",
 --   "test-path",
 --   "test-box",
 --   "test-vector",

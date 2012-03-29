@@ -921,6 +921,17 @@
 
 
 
+% 
+% 
+% 
+% Anchoring 
+% 
+% (see Section~\ref{subsection-library-graphdrawing-anchoring})
+% 
+% 
+
+
+
 % Desired positiong for a node
 % 
 % #1 = an x-position
@@ -936,6 +947,197 @@
   desired at/.node parameter=coordinate
 }
 
+
+
+% Default anchoring position
+% 
+% Description:
+% 
+% This node parameter stores two numbers in the format {#1}{#2}. A
+% graph should be anchored at this position when there is no explict
+% anchoring of any node.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  anchor at/.graph parameter=coordinate,
+  anchor at/.parameter initial={(0pt,0pt)}
+}
+
+
+% Specify an anchor node
+% 
+% Description:
+% 
+% Requests that the graph is "anchored" at this node. If there are
+% several, the first one is used. If there are none, the first node
+% with a "desired at" is chosen. If there are none with that option
+% either, the first node is used.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  anchor here/.node parameter,
+  anchor here/.default=true,
+  anchor node/.graph parameter,
+}
+
+
+
+% 
+% 
+% 
+% Orientation
+% 
+% (see Section~\ref{subsection-library-graphdrawing-standard-orientation})
+% 
+% 
+
+
+% The orient key
+% 
+% Description:
+% 
+% When used with an edge, the orient key specifies the desired slope of
+% the edge:
+% 
+%   a --[orient=90] b  % Vertical edge, going up from a to b 
+%  
+% When used with a node, the syntax is :angle:anther_node, causing the
+% graph to be oriented so that the line from the node to the other
+% node has a slope of "angle"
+% 
+%   a[orient=:90:b] -- c -- b  % b will be above a.
+%   
+% The leading colon is optional, so orient=90:b is also fine.
+%
+% When used with a graph as a whole, the syntax is node1:angle:node2,
+% with node1 being nonempty, causing the graph to be oriented so that
+% the line from node1 to node2 has a slope of "angle"
+% 
+%  graph [orient=a:90:b] { a -- c -- b } % b will be above a.
+%  
+%  
+% If a dash is found in the parameter, it will be replaced by :0:, so
+% saying orient=a-b has the same effect as orient=a:0:b. A vertical
+% bar is replaced by :-90:.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{orient/.code=,orient'/.code=}
+
+\pgfkeys{/graph drawing/orient/.append code=\pgf@gd@orient@handle{#1}{orient}}
+\pgfkeys{/graph drawing/orient'/.append code=\pgf@gd@orient@handle{#1}{orient'}}
+
+\def\pgf@gd@orient@handle#1#2{
+  \pgfutil@in@:{#1}%
+  \ifpgfutil@in@%
+    \pgf@lib@gd@parse@orient#1\pgf@stop{#2}%
+  \else%
+    \pgfutil@in@-{#1}%
+    \ifpgfutil@in@%
+      \pgf@lib@gd@parse@dash#1\pgf@stop{#2}%
+    \else
+      \pgfutil@in@|{#1}
+      \ifpgfutil@in@%
+        \pgf@lib@gd@parse@bar#1\pgf@stop{#2}%
+      \else
+        \expandafter\pgfutil@in@\pgf@lib@active@bar{#1}
+        \ifpgfutil@in@%
+          \pgf@lib@gd@parse@active@bar#1\pgf@stop{#2}%
+        \else
+          \pgf@lib@gd@grow@dir{#1}%
+          \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/edge parameters}{}{{/graph drawing/#2}{\pgfmathresult}}}%
+          \pgf@marshal%
+        \fi%
+      \fi%
+    \fi%
+  \fi%
+}
+
+\def\pgf@lib@gd@parse@dash#1-#2\pgf@stop#3{%
+  \pgf@lib@gd@parse@orient#1:0:#2\pgf@stop{#3}%
+}
+
+\def\pgf@lib@gd@parse@bar#1|#2\pgf@stop#3{%
+  \pgf@lib@gd@parse@orient#1:-90:#2\pgf@stop{#3}%
+}
+
+{
+  \catcode`\|=13
+  \gdef\pgf@lib@active@bar{|}
+  \gdef\pgf@lib@gd@parse@active@bar#1|#2\pgf@stop#3{%
+    \pgf@lib@gd@parse@orient#1:-90:#2\pgf@stop{#3}%
+  }
+}
+
+\def\pgf@lib@gd@parse@orient#1:#2\pgf@stop#3{%
+  \pgfutil@in@:{#2}%
+  \ifpgfutil@in@%
+    \pgf@lib@gd@parse@orient@final#1:#2\pgf@stop{#3}%
+  \else%
+    \pgf@lib@gd@parse@orient@final:#1:#2\pgf@stop{#3}%
+  \fi%
+}
+
+\def\pgf@lib@gd@parse@orient@final#1:#2:#3\pgf@stop#4{%
+  \pgf@lib@gd@grow@dir{#2}%
+  \def\pgf@temp{#1}%
+  \ifx\pgf@temp\pgfutil@empty
+    \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/node parameters}{}{{/graph drawing/#4}{{\pgfmathresult}{#3}}}}%
+  \else%
+    \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/graph parameters}{}{{/graph drawing/#4}{{\pgfmathresult}{#1}{#3}}}}%
+  \fi%
+  \pgf@marshal%
+}
+
+
+\def\pgf@lib@gd@grow@dir#1{%
+  \ifcsname pgf@orient@direction@#1\endcsname%
+    \expandafter\let\expandafter\pgfmathresult\csname pgf@orient@direction@#1\endcsname%
+  \else
+    \pgfmathparse{#1}%
+  \fi
+}
+
+\def\pgf@orient@direction@down{-90}
+\def\pgf@orient@direction@up{90}
+\def\pgf@orient@direction@left{180}
+\def\pgf@orient@direction@right{0}
+
+\def\pgf@orient@direction@south{-90}
+\def\pgf@orient@direction@north{90}
+\def\pgf@orient@direction@west{180}
+\def\pgf@orient@direction@east{0}
+
+\expandafter\def\csname pgf@orient@direction@north east\endcsname{45}
+\expandafter\def\csname pgf@orient@direction@north west\endcsname{135}
+\expandafter\def\csname pgf@orient@direction@south east\endcsname{-45}
+\expandafter\def\csname pgf@orient@direction@south west\endcsname{-135}
+
+
+
+% The grow key
+% 
+% Description:
+% 
+% When specified with a node, causes the graph to be rotated such that
+% the "growth" direction of the graph is the given angle (at least
+% locally at the node).
+
+\pgfgddeclareforwardedkeys{/graph drawing}{grow/.code=,grow'/.code=}
+
+\pgfkeys{/graph drawing/grow/.append code=\pgf@gd@grow@handle{#1}{grow}}
+\pgfkeys{/graph drawing/grow'/.append code=\pgf@gd@grow@handle{#1}{grow'}}
+
+\def\pgf@gd@grow@handle#1#2{%
+  \pgf@lib@gd@grow@dir{#1}%
+  \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/node parameters}{}{{/graph drawing/#2}{\pgfmathresult}}}%
+  \pgf@marshal%  
+}
+
+
+% 
+% 
+% 
+% Always-present all-purpose keys
+% 
+% 
+%
 
 
 % Distances between levels and siblings in layered drawings or

@@ -11,8 +11,9 @@
 
 \section{Using Algorithmic Graph Drawing}
 
-{\noindent {\emph{by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
-  Jannis Pohlmann, Matthias Schulz, Stephan Schuster, and Till Tantau}}}
+{\noindent {\emph{by Till Tantau and Ren\'ee Ahrens, Olof-Joachim
+      Frahm, Jens Kluttig, Jannis Pohlmann, Matthias Schulz, Stephan
+      Schuster}}} 
 
 \label{section-library-graphdrawing}
 
@@ -73,19 +74,23 @@ The graph drawing engine of \tikzname\ provides two main features:
   out'') using a so-called ``spring graph drawing algorithm'' (what
   these are will be explained later):
 \begin{codeexample}[]
-\tikz \graph [spring layout]
-  { a -> { subgraph K_n [n=4] } -> b };
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (5,3);
+  
+  \graph [spring layout, grow=up]
+    { a -> { subgraph K_n [n=4] } -> b };
 
-\tikz \graph [spring electrical layout]
-  { a -> { subgraph K_n [n=4] } -> b };
+  \graph [spring electrical layout, grow=up]
+    { a [x=5] -> { subgraph K_n [n=4] } -> b };
+\end{tikzpicture}
 \end{codeexample}
   Here is another example, where a different layout method is used
   that is more appropriate for trees:
 \begin{codeexample}[]
-\tikz [tree layout]
+\tikz [grow'=up, tree layout]
   \node {root}
-  child { node {a} }
-  child { node {a pretty long node name} };
+  child { node {left child} }
+  child { node {right child} };
 \end{codeexample}
   An a final example, this time using a ``spring electrical layout''
   (whatever that might be\dots):
@@ -138,7 +143,7 @@ internals of how the graph drawing engine works.
 To use the graph drawing engine, you first need to load some
 libraries. First, you should always load the |graphdrawing| library,
 which will setup the basic keys. Next, you need to load another
-library like |graphdrawing.trees|, see
+library like |graphdrawing.trees|, see the following
 Sections~\ref{section-first-graphdrawing-library-in-manual} to
 \ref{section-last-graphdrawing-library-in-manual} for the different
 libraries that are available. The actual graph drawing
@@ -155,11 +160,76 @@ with the |child| or the |edge| syntax. Here is a typical setup:
 
 Having setup things, you must then specify for which scopes the
 graph drawing engine should apply an layout algorithm to the nodes in
-the scope.
+the scope. Typically, you just add an option ending with |... layout|
+to the |graph| path operation and then let the graph drawing do its
+magic:
 
-Before we go into the details of how these keys work, a bit of
-background knowledge on how the graph drawing engine works might be
-useful: Using a special internal key called
+\begin{codeexample}[]
+\tikz [rounded corners]
+  \graph [layered layout]
+  {
+    a -> {
+      b,
+      c -> { d, e }
+    } ->
+    f -> 
+    a
+  };    
+\end{codeexample}
+
+Whenever you use such an option, (to be more precise, inside every
+scope with the |graph drawing scope| key set either
+explicitly or implicitly, which is exactly what happens when one such
+an option is used) you can:
+\begin{itemize}
+\item Create nodes in the usual way. The nodes will be created
+  completely, but then tucked away in an internal table. This means
+  that all of \tikzname's options for nodes can be applied. You can
+  also name a node and reference it later.
+\item Create edges using either the syntax of the |graph| command
+  (using |--|, |<-|, |->|, or |<->|), or using the |edge| command,
+  or using the |child| command. These edges will, however, not be
+  created immediately. Instead, the basic layer's command
+  |\pgfgdedge| will be called, which stores ``all the information
+  concerning the edge.'' The actual drawing of the edge will only
+  happen after all nodes have been positioned.
+\item Most of the keys that can be passed to an edge will work as
+  expected. In particular, you can add labels to edges using the
+  usual |node| syntax for edges.
+\item The |label| and |pin| options can be used in the usual manner
+  with nodes inside a graph drawing scope. Only, the labels and
+  nodes will play no role in the positioning of the nodes and they
+  are added when the nodes are finally positioned.
+\item Similarly, nodes that are placed ``on an edge'' using the
+  implicit positioning syntax can be used in the usual manner. 
+\end{itemize}
+Here are some things that will \emph{not} work:
+\begin{itemize}
+\item Only edges created using the graph syntax, the |edge| command,
+  or the |child| command will correctly pass their connection
+  information to the basic layer. When you write |\draw (a)--(b);|
+  inside a graph drawing scope, where |a| and |b| are nodes that
+  have been created inside the scope, you will get an error
+  message / things will look wrong. The reason is that the usual
+  |--| is not ``caught'' by the graph drawing engine and, thus,
+  tries to immediately connect two nodes that do not yet exist
+  (except inside some internal table).
+\item The options of edges are executed twice: Once when the edge is
+  ``examined'' by the |\pgfgdedge| command (using some magic to shield
+  against the side effects) and then once more when the edge is
+  actually created. Fortunately, in almost all cases, this will not be
+  a problem; but if you do very evil magic inside your edge options,
+  you must roll a D100 to see what strange things will happen. (Do no
+  evil, by the way.)
+\end{itemize}
+
+The rest of this subsection describes the ``fine print'' of what
+happens, in detail. You may wish to skip it.
+
+\medskip
+\noindent\textbf{The Details.}
+Let us start with some background knowledge on how the graph drawing
+engine works might be useful: Using a special internal key called
 |graph drawing scope|, which you typically will not call directly,
 the graph drawing engine can be switched on for a |{scope}|. When this
 happens, a lot of things change inside \pgfname\ and \tikzname\ for
@@ -200,23 +270,25 @@ special graph parameters for the algorithm.
   the |tree layout| option (which uses |graph drawing scope| internally) can
   be used in the following ways:
 \begin{codeexample}[]
+\tikz [tree layout] \graph {a -> {b,c}};  
+
+\tikz \graph [tree layout] {a -> {b,c}};
+
+\tikz \path graph [tree layout] {a -> {b,c}};
+
 \begin{tikzpicture}[tree layout]
   \graph {a -> {b,c}};
 \end{tikzpicture}
-\tikz [tree layout]
-  \graph {a -> {b,c}};
+
 \begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
+  \draw [help lines] (0,0) grid (3,1);
   
-  \scoped [tree layout]
-    \graph {a -> {b,c}};
+  \scoped [tree layout] \graph {a -> {b,c}};
     
-  \begin{scope}[tree layout, xshift=2cm, rotate=90]
+  \begin{scope}[tree layout, xshift=1cm, rotate=90]
     \graph {a -> {b,c}};
   \end{scope}
 \end{tikzpicture}
-\tikz \graph[tree layout] {a -> {b,c}};
-\tikz \path graph[tree layout] {a -> {b,c}};
 \end{codeexample}
 
   You can \emph{not} use the |graph drawing scope| key with a single
@@ -266,48 +338,6 @@ special graph parameters for the algorithm.
     |late options| when the node has ``reached its final parking
     position''. 
   \end{itemize}
-
-  The bottom line of the above is the following: Inside a scope for
-  which the |graph drawing scope| key has been set either explicitly
-  or implicitly, you can:
-  \begin{itemize}
-  \item Create nodes in the usual way. The nodes will be created
-    completely, but then tucked away in an internal table. This means
-    that all of \tikzname's options for nodes can be applied. You can
-    also name a node and reference it later.
-  \item Create edges using either the syntax of the |graph| command
-    (using |--|, |<-|, |->|, or |<->|), or using the |edge| command,
-    or using the |child| command. These edges will, however, not be
-    created immediately. Instead, the basic layer's command
-    |\pgfgdedge| will be called, which stores ``all the information
-    concerning the edge.'' The actual drawing of the edge will only
-    happen after all nodes have been positioned.
-  \item Most of the keys that can be passed to an edge will work as
-    expected. In particular, you can add labels to edges using the
-    usual |node| syntax for edges.
-  \item The |label| and |pin| options can be used in the usual manner
-    with nodes inside a graph drawing scope. Only, the labels and
-    nodes will play no role in the positioning of the nodes and they
-    are added when the nodes are finally positioned.
-  \item Similarly, nodes that are placed ``on an edge'' using the
-    implicit positioning syntax can be used in the usual manner. 
-  \end{itemize}
-  Here are some things that will \emph{not} work:
-  \begin{itemize}
-  \item Only edges created using the graph syntax, the |edge| command,
-    or the |child| command will correctly pass their connection
-    information to the basic layer. When you write |\draw (a)--(b);|
-    inside a graph drawing scope, where |a| and |b| are nodes that
-    have been created inside the scope, you will get an error
-    message / things will look wrong. The reason is that the usual
-    |--| is not ``caught'' by the graph drawing engine and, thus,
-    tries to immediately connect two nodes that do not yet exist
-    (except inside some internal table).
-  \item The options of edges are executed twice: Once when the edge is
-    ``examined'' by the |\pgfgdedge| command and then once more when
-    the edge is actually created. Fortunately, in almost all cases,
-    this will not be a problem.
-  \end{itemize}
 \end{key}
 
 \begin{key}{/graph drawing/algorithm=\meta{algorithm's name}}
@@ -352,7 +382,9 @@ special graph parameters for the algorithm.
 \end{key}
 
 
-\subsection{Common Graph Parameters}
+
+
+\subsection{Graph, Node, and Edge Parameters}
 
 Graph drawing algorithms can typically be configured in some way. For
 instance, for a graph drawing algorithm that visualizes its nodes as a
@@ -404,71 +436,330 @@ passed to the |spring layout| key:
 
 
 
-\subsubsection{Orienting a Graph}
+\subsection{Anchoring a Graph}
+
+\label{subsection-library-graphdrawing-anchoring}
+
+A graph drawing algorithm must compute positions of the nodes of a
+graph, but the computed positions are only \emph{relative} (``this
+node is left of this node, but above that other node''). It is not
+immediately obvious where the ``the whole graph'' should be placed
+\emph{absolutely} once all relative positions have been computed. In
+case that the graph consists of several unconnected components, the
+situation is even more complicated.
+
+In order to determine the absolute position of a graph, the graph
+drawing engine relies on the following key:
+
+\begin{key}{/graph drawing/desired at=\marg{coordinate}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  When you add this key to a node in a graph, you ``desire'' that the
+  node should be placed at the \meta{coordinate} by the graph drawing
+  algorithm. Now, when you set this key for a single node of a graph,
+  then, by shifting the graph around, this ``wish'' can obviously
+  always be fulfill:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a [desired at={(1,0)}] -- b -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a -- b[desired at={(2,1)}] -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [layered layout]
+  {
+    a -- b[desired at={(2,1)}] -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+  Since the key's name is a but long and since the many braces and
+  parentheses are a bit cumbersome, there is a special support for
+  this key inside a |graph|: The standard |/tikz/at| key is redefined
+  inside a |graph| so that it points to |/graph drawing/desired at|
+  instead. (Which is more logical anyway, since it makes no sense to
+  specify an |at| position for a node whose position it to be computed
+  by a graph drawing algorithm.) A nice side effect of this is that
+  you can use the |x| and |y| keys (see
+  Section~\ref{section-graphs-xy}) to specify desired positions:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a -- b[x=2,y=1] -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [layered layout]
+  {
+    a [x=1,y=2] -- { b, c } -- {e, f} -- a
+  };
+\end{tikzpicture}
+\end{codeexample}
+
+  A problem arises when two or more nodes have this key set
+  and when these nodes are in the same connected component, because
+  then your ``desires'' for placement and the positions computed by
+  the graph drawing algorithm may clash. Graph drawing algorithms are
+  ``told'' about the desired positions. Most algorithms will simply
+  ignore these desired positions since they will be taken care of in
+  the so-called post-anchoring phase, see below. However, for some
+  algorithms it makes a lot of sense to fix the positions of some
+  nodes and only compute the positions 
+  of the other nodes relative to these nodes. For instance, for a
+  |spring layout| it makes perfect sense that some nodes are
+  ``nailed to the canvas'' while other nodes can ``move freely''.
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a -- { b, c, d, e -- {f,g,h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a -- { b, c, d[x=0], e -- {f[x=2], g, h[x=1]} };
+  { h, g } -- a;
+};
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a -- { b, c, d[x=0], e -- {f[x=2,y=1], g, h[x=1]} };
+  { h, g } -- a;
+};
+\end{codeexample}
+\end{key}
+
+
+\begin{key}{/graph drawing/anchor node=\meta{node name}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This option can be used with a graph to specify a node that should
+  be used for anchoring the whole graph. When this option is
+  specified, after the layout has been computed, the whole graph will
+  be shifted in such a way that the \meta{node name} is either
+  \begin{itemize}
+  \item at the current value of |anchor at| or 
+  \item at the position that is specified in the form of a
+    |desired at| for the \meta{node name}.
+  \end{itemize}
+\begin{codeexample}[]
+\tikz \draw (0,0)
+  -- (1,0.5) graph [edges=red,  layered layout, anchor node=a] { a -> {b,c} }
+  -- (2,0)   graph [edges=blue, layered layout,
+                    anchor node=y, anchor at={(2,0)}]          { x -> {y,z} };
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  
+  \graph [layered layout, anchor node=c, edges=rounded corners]
+    { a -- {b [x=1,y=1], c [x=1,y=1] } -- d -- a};
+\end{tikzpicture}
+\end{codeexample}
+  Note how in the above example |c| is placed at |(1,1)| rather than
+  |b| as would happen by default.
+\end{key}
+
+\begin{key}{/graph drawing/anchor at=\meta{coordinate} (initially the origin)}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  The coordinate at which the graph should be anchored when no
+  explicit anchor is given for any node.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (2,2);
+  
+  \graph [layered layout, edges=rounded corners, anchor at={(1,2)}]
+    { a -- {b, c [anchor here] } -- d -- a};
+\end{tikzpicture}
+\end{codeexample}
+\end{key}
+
+\begin{key}{/graph drawing/anchor here=\opt{\meta{true or false}} (default true)}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This option can be passed to a single node (rather than the graph as
+  a whole) in order to specify that this node should be used for the
+  anchoring process.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (2,2);
+  
+  \graph [layered layout, edges=rounded corners]
+    { a -- {b, c [anchor here] } -- d -- a};
+\end{tikzpicture}
+\end{codeexample}
+  In the above example, |c| is placed at the origin since this is the
+  default |anchor at| position.
+\end{key}
+
+Let us briefly summarize the order in which \tikzname\ tries to
+determine the node at which the graph should be anchored:
+\begin{enumerate}
+\item If the |anchor node=|\meta{node name} option given to the graph
+  as a whole, the graph is anchored at \meta{node name}, provided
+  there is a node of this name in the graph. (If there is no node of
+  this name or if it is mispelled, the effect is the same as if this
+  option had not been given at all.)
+\item Otherwise, if there is a node where the |anchor here| option is
+  specified, the first node with this option set is used.
+\item Otherwise, if there is a node where the |desired at| option is
+  set (perhaps implicitly through keys like |x|), the first such node
+  is used.
+\item Finally, in all other cases, the first node is used.
+\end{enumerate}
+
+In the above description, the ``first'' node refers to the node first
+encountered in the specification of the graph.
+
+
+
+\subsection{Orienting a Graph}
 
 \label{subsection-library-graphdrawing-standard-orientation}
 
-The drawing computed for a graph may be pleasing in general but some
-algorithms like the |spring| algorithm show the tendency to generate
-drawings with an unexpected orientation. Also, if several graphs are 
-defined in a single picture, then these will possibly overlap.
-As a consequence, a postprocessing step is sometimes necessary in order
-to adjust the orientation of the graph drawing. This can be achieved in
-a relatively simple way using the following common options:
+Just as a graph drawing algorithm cannot know \emph{where} a graph
+should be placed on a page, it is also often unclear which
+\emph{orientation} it should have. Some graphs, like trees, have a
+natural direction in which they ``grow'', but for an ``arbitrary''
+graph the ``natural orientation'' is, well, arbitrary.
+
+As for anchoring, the graph drawing algorithm is ``told'' about
+the desired ``orientation of certain edges and certain nodes'': for
+each node and each edge, keys may specify a ``desired
+orientation''. For edges, you can, for instance, request that an
+edge should be vertical an go upwards by saying |slope=up|. For a
+node, ``specifying an orientation'' means that the rest of the graph
+should be rotated in such a way that certain other nodes or
+vectors should lie at a certain angle relative to the current node.
 
 
-\begin{key}{/graph drawing/orient=\meta{orientation}}
+\subsubsection{Orienting a Graph by Fixing the Slope of Edges}
+
+The following keys are used to specify orientations:
+\begin{key}{/graph drawing/orient=\meta{angle}}
   \keyalias{tikz}\keyalias{tikz/graphs}
-  With graph drawing algorithms it makes sense for, the |graphdrawing|
-  library will, in a postprocessing step, attempt to detect the 
-  principal axis of the graph automatically and will adjust its 
-  orientation so that it is parallel to the $x$ axis.
+  Adding this key to an edge tells the graph drawing engine that the
+  edge should have a slope of the given \meta{angle}. This ``slope''
+  is defined as the angle of the line connecting the start of the edge
+  to the end of the edge (independently of the actual to-path of the
+  edge, which might define a bend or more complicated shapes). For
+  instance, a \meta{angle} of |45| requests that the end node is ``up
+  and right'' relative to the start node.
+  
+  Instead of an \meta{angle}, you can also specify the standard
+  direction texts |north| or |south east| and so forth and also
+  |up|, |down|, |left|, and |right|.
+    
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a -- { b, c, d, e -- {f, g, h} };
+  h -- [orient=30] a;
+};
+\end{codeexample}
+\end{key}
 
-  This behavior may be altered by setting |orientation| using one of
-  the following three notation styles for the \meta{orientation}:
-  \begin{enumerate}
-  \item  \meta{first axis node}|-|\meta{second axis node} 
+\begin{key}{/graph drawing/orient'=\meta{angle}}
+  Same as above, only the rest of the graph should be flipped relative
+  to the edge.
+    
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a -- { b, c, d, e -- {f, g, h} };
+  h -- [orient'=30] a;
+};
+\end{codeexample}
+\end{key}
 
-    Specifies the axis of the graph via the names of two nodes. The
-    drawing is rotated so that this axis is horizontal,
-    with \meta{first axis node} being located left of \meta{second axis node}:
+
+\subsubsection{Orienting a Graph by Fixing the Slope Between Nodes}
+
+\begin{key}{/graph drawing/orient=\opt{|:|}\meta{angle}|:|\meta{another node}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  Adding this version of the |orient| key (it is detected by the
+  presence of the colon) to a node requests that the graph drawing
+  engine should ensure that the straight line from the origin (typically
+  the center) of the node to the origin of \meta{another node}
+  should have a slope of \meta{angle}. Note that the current node
+  and the \meta{another node} need not be connected by an edge.
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a [orient=:-90:f] -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+  
+  Instead of an \meta{angle}, you can also specify the standard
+  direction texts |north| or |south east| and so forth and also
+  |up|, |down|, |left|, and |right|. Furthermore, the leading colon is
+  optional: 
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a [orient=down:h] -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+
+  As special features, a dash somewhere inside the |orient| key is
+  replaced by |:0:| and a vertical bar by |:-90:|. Thus, |orient=-a|
+  is the same as |orient=:0:a|. Similarly:
+\begin{codeexample}[]
+\tikz \graph [spring layout]
+{
+  a [orient=|h] -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/graph drawing/orient'=\meta{angle}:\meta{another node}}
+  Same as above, only the rest of the graph should be flipped relative
+  to the edge.
+\end{key}
+
+Instead of specifying the slope between two nodes ``at the nodes'' it 
+is sometimes more natural to specify it at the beginning of the
+graph. For this, the following special key is available:
+
+\begin{key}{/graph drawing/orient=\meta{node1}|:|\meta{angle}|:|\meta{node2}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This has nearly the same effect as specifying
+  |orient=|\meta{angle}|:|\meta{node2} as an option for the node
+  \meta{node1}. The only difference is that |orient| options given at
+  a node always take precedence over this ``global'' option.
+
+  As above, \meta{node1}|-|\meta{node2} gets replaced by
+  \meta{node1}|:0:|\meta{node2} and \meta{node1}\verb!|!\meta{node2}
+  \meta{node1}|:-90:|\meta{node2}.
 \begin{codeexample}[]
 \tikz \graph [spring layout] { a -- b -- c -- a };
 \tikz \graph [spring layout,orient=a-b] { a -- b -- c -- a };
 \tikz \graph [spring layout,orient=b-a] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=b|a] { a -- b -- c -- a };
+\tikz \graph [spring layout,orient=a:10:b] { a -- b -- c -- a };
 \tikz \graph [spring layout,orient=1-2] { subgraph K_n[n=5] };
 \tikz \graph [spring layout,orient=2-1] { subgraph K_n[n=5] };
 \end{codeexample}
-  
-  \item \meta{first axis node}\verb!|!\meta{second axis node}
-    
-    Similar to the previous case, only the axis is now vertical with 
-    \meta{first axis node} being located above \meta{second axis node}:
-\begin{codeexample}[]
-\tikz \graph [spring layout,orient=a|b] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=b|a] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=1|4] { subgraph K_n[n=5] };
-\tikz \graph [spring layout,orient=4|1] { subgraph K_n[n=5] };
-\end{codeexample}
-  
-  \item \meta{first axis node}|:|\meta{angle}|:|\meta{second axis
-      node} 
-
-    This is the most generic variant of the three notation styles. In
-    addition to specifying the axis of the graph drawing by means of two node names,
-    it also defines the angle to the $x$ axis by which the final drawing 
-    is to be rotated. The specification of the \meta{angle} is done in the
-    same way as everywhere else in \tikzname, where positive values imply
-    counter-clockwise rotation and negative values imply clockwise
-    rotation:
-\begin{codeexample}[]
-\tikz \graph [spring layout,orient=a:90:b]  { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a:45:b]  { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a:0:b]   { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a:-45:b] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a:-90:b] { a -- b -- c -- a };
-\end{codeexample}
-  \end{enumerate}
 \end{key}
 
 \begin{key}{/graph drawing/orient'=\meta{orientation}}
@@ -482,19 +773,132 @@ a relatively simple way using the following common options:
 \end{key}
 
 
-% \begin{key}{/graph drawing/desired at=\marg{coordinate}}
-%   \keyalias{tikz}\keyalias{tikz/graphs}
-%   Defines the desired position for a node. In a postprocessing step, the
-%   |graphdrawing| library will attempt to move the entire graph so that
-%   the first node with a |desired at| option is moved to its desired 
-%   location.
-%   \begin{codeexample}[]
-% % TODO
-%   \end{codeexample}
-% \end{key}
+
+\subsubsection{Orienting a Graph by Fixing the Direction of Growth of the Children}
+
+\begin{key}{/graph drawing/grow=\meta{angle}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This key specifies in which direction the neighbors of a node
+  ``should grow.'' For some graph drawing algorithms, especially for
+  those that layout trees, but also for those that produce layered
+  layouts, there is a natural direction in which the ``children'' of
+  a node should be placed. For instance, saying |grow=down| will cause
+  the children of a node in a tree to be placed in a left-to-right
+  line below the node (as always, you can replace the \meta{angle}
+  by direction texts). The children are requested to be placed in a
+  counter-clockwise fashion, the |grow'| key will place them in a
+  clockwise fashion.
+  
+  Note that when you say |grow=down| it is not necessarily the case
+  that any particular node is actually directly below the current
+  node; the key just requests that the direction of growth is
+  downward.
+  
+  In principle, you can specify the direction of growth for each node 
+  individually, but do not count on graph drawing algorithms to
+  honour these wishes.
+  
+\begin{codeexample}[]
+\tikz \graph [layered layout, sibling distance=5mm]
+{
+  a [grow=right] -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+
+  When you give the |grow=right| key to the graph as a whole, it will
+  be applied to all nodes. This happens to be exactly what you want:
+  
+\begin{codeexample}[]
+\tikz \graph [layered layout, grow=right, sibling distance=5mm]
+{
+  a -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+  
+\begin{codeexample}[]
+\tikz
+  \graph [layered layout, grow'=right]
+  {
+    {a,b,c} --[complete bipartite] {e,d,f}
+            --[complete bipartite] {g,h,i};
+  };
+\end{codeexample}
+\end{key}
+  
+\begin{key}{/graph drawing/grow'=\meta{angle}}
+  Same as above, only with the children in clockwise order.
+\begin{codeexample}[]
+\tikz \graph [layered layout, sibling distance=5mm]
+{
+  a [grow'=right] -- { b, c, d, e -- {f, g, h} };
+  { h, g } -- a;
+};
+\end{codeexample}
+\end{key}
 
 
-% \subsubsection{Packing of Connected Components}
+
+\subsubsection{The Phases of the Orientation Procedure}
+\label{subsection-graph-orientation-phases}
+
+As for anchoring a graph, the different keys for orienting graphs may
+easily produce conflicting demands, which need to be
+resolved:
+
+\begin{enumerate}
+\item
+  The graph drawing algorithm is ``told'' about the desired
+  orientations in the form of node and edge parameters. 
+  An algorithm may or may not try to honor the desired
+  orientations. As for the anchoring of graphs, for some algorithms it
+  is natural and easy to restrict the way nodes are placed so as to
+  honor orientation requests, for others this makes sense, at best, on
+  a global scale. Algorithms will internally tell the graph drawing
+  engine when they grow the graph in some direction. They can even
+  indicate that they have already taken care of all growth demands for
+  individual nodes. Nevertheless, the following steps are always
+  performed:
+\item
+  It is now checked whether there is an edge in the graph whose
+  slope has been fixed using the |orient| key. If there is at least one
+  such edge, the first such edge is considered. The graph is rotated
+  such that this edge has the desired slope. The orientation process
+  stops at this point, all other orientation requests are ignored.
+\item
+  Otherwise, if there is no specified slope for any edge, it is
+  checked whether there is a node with a specified |orient| to another
+  node. If this is the case, the first such specification is taken for
+  which the other node exists and the graph is rotated so that this
+  orientation is satisfied. Again, the process stops in this case.
+\item
+  It is next checked whether there is a |orient| request for the graph
+  as a whole like |orient=a-b|. Provided |a| and |b| exist, this
+  request is honoured and the process stops.
+\item
+  If the algorithm has indicated that it has already taken care of all
+  |grow| requests (using an internal function), the process stops at
+  this point.
+\item
+  Otherwise, if none of the above cases is encountered, we look for
+  a node with a |grow| key attached to it. If there is such a node,
+  the graph is rotated so that the direction of growth of the graph is
+  the desired growth direction. For this, the orientation procedure
+  obviously needs to know what the direction of growth the algorithm
+  was using; the algorithm signals this internally by attaching a
+  |growth_direction| to nodes. If an algorithm fails to attach such a
+  direction, the direction of the first edge of the node is chosen
+  and, for an isolated node, the direction is a line to the first node
+  in the graph other than the current node.
+  
+  If no node has |grow| specified, the orientation is chosen in such a
+  way as if |grow=down| had been specified for the first node of the
+  graph.   
+\end{enumerate}
+
+
+%\subsection{Packing of Connected Components}
 
 % Graphs may be composed of subgraphs or \emph{components} that are not
 % connected to each other. In order to draw these nicely, the 

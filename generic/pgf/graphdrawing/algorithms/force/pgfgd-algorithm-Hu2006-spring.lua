@@ -12,7 +12,6 @@
 pgf.module("pgf.graphdrawing")
 
 
-
 Hu2006Spring = {}
 Hu2006Spring.__index = Hu2006Spring
 

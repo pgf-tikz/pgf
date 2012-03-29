@@ -93,6 +93,8 @@ function graph_drawing_algorithm_wetherelltree(graph, options)
     node.pos.y = -1 * node.level * node_distance
     node.pos.x = node.pos.x * node_distance
   end
+  
+  orientation.algorithm_has_grown_the_graph_in_a_direction(graph)  
 end
 
 

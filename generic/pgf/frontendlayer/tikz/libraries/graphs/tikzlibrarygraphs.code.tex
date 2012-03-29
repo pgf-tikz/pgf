@@ -714,6 +714,12 @@
     \pgfkeyssetvalue{/tikz/graphs/default edge kind}{#1}%
     \pgfkeys{/tikz/graphs/.cd,@operators=,%
       /tikz/graphs/.unknown/.code=\tikz@lib@graph@unknown@edge@option{##1},#2}%
+    % Help graph drawing lib by saving edge options:
+    \pgfkeysgetvalue{/graph drawing/edge parameters}\tikz@lib@graph@ep%
+    \ifx\tikz@lib@graph@ep\relax\else\ifx\tikz@lib@graph@ep\pgfutil@empty\else%
+      % Remember the edge options:
+      \expandafter\tikz@lib@graph@add@ep\expandafter{\tikz@lib@graph@ep}%
+    \fi\fi%
     \pgfkeysgetvalue{/tikz/graphs/@operators}\pgf@temp%
     \ifx\pgf@temp\pgfutil@empty%
       \edef\pgf@temp{\noexpand\pgfkeys{/tikz/graphs/.cd,\pgfkeysvalueof{/tikz/graphs/default edge operator}}}%
@@ -723,6 +729,10 @@
     \pgf@temp%
   }%
   \tikzgraphinvokeoperator{not source',not target'}
+}
+
+\def\tikz@lib@graph@add@ep#1{%
+  \pgfkeysaddvalue{/tikz/graphs/@edges styling}{}{,/graph drawing/edge parameters={#1}}
 }
 
 \def\tikz@lib@graph@unknown@edge@option#1{%
@@ -941,6 +951,26 @@
 \tikzgraphsset{
   clear >/.style=target edge clear,
   clear </.style=source edge clear
+}
+
+
+% Positioning
+
+\def\tikz@lib@graph@x{0}
+\def\tikz@lib@graph@y{0}
+
+\tikzgraphsset{
+  x/.code=\def\tikz@lib@graph@x{#1}\tikz@lib@graphs@check@at,
+  y/.code=\def\tikz@lib@graph@y{#1}\tikz@lib@graphs@check@at
+}
+\def\tikz@lib@graphs@check@at{%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@temp%
+  \expandafter\expandafter\expandafter{%
+    \expandafter\expandafter\expandafter(%
+    \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@x\expandafter}%
+    \expandafter,\expandafter{\tikz@lib@graph@y})}%
+  \pgfqkeys{/tikz}{at/.expand once=\tikz@temp}%
 }
 
 
@@ -1820,56 +1850,48 @@
   chain shift/.initial={(1,0)},
   group shift/.initial={(0,-1)},
   grow right/.style={
-    Cartesian placement,
     chain shift={(#1,0)},
     @auto anchor horizontal=center,
     placement/logical node width/.code=\def\pgfmathresult{1}
   },
   grow right/.default=1,
   grow left/.style={
-    Cartesian placement,
     chain shift={(-#1,0)},
     @auto anchor horizontal=center,
     placement/logical node width/.code=\def\pgfmathresult{1}
   },
   grow left/.default=1,
   grow up/.style={
-    Cartesian placement,
     chain shift={(0,#1)},
     @auto anchor horizontal=center,
     placement/logical node width/.code=\def\pgfmathresult{1}
   },
   grow up/.default=1,
   grow down/.style={
-    Cartesian placement,
     chain shift={(0,-#1)},
     @auto anchor vertical=center,
     placement/logical node width/.code=\def\pgfmathresult{1}
   },
   grow down/.default=1,
   branch right/.style={
-    Cartesian placement,
     group shift={(#1,0)},
     @auto anchor horizontal=center,
     placement/logical node depth/.code=\def\pgfmathresult{1}
   },
   branch right/.default=1,
   branch left/.style={
-    Cartesian placement,
     group shift={(-#1,0)},
     @auto anchor horizontal=center,
     placement/logical node depth/.code=\def\pgfmathresult{1}
   },
   branch left/.default=1,
   branch up/.style={
-    Cartesian placement,
     group shift={(0,#1)},
     @auto anchor vertical=center,
     placement/logical node depth/.code=\def\pgfmathresult{1}
   },
   branch up/.default=1,
   branch down/.style={
-    Cartesian placement,
     group shift={(0,-#1)},
     @auto anchor vertical=center,
     placement/logical node depth/.code=\def\pgfmathresult{1}
@@ -2064,9 +2086,6 @@
   grid placement/.style={
     placement/place,
     placement/compute position/.code=\tikz@lib@graph@grid@pos,%
-    placement/logical node depth/.code=\def\pgfmathresult{1},
-    placement/logical node width/.code=\def\pgfmathresult{1},
-    group shift={(1,-1)},
   },
 }
 
@@ -2078,8 +2097,7 @@
   %
   \tikzgraphpreparewrapafter%
   %
-  % find out the coordinate in the grid (at the moment only
-  % left to right placement is supported)
+  % find out the coordinate in the grid
   %
   \pgfkeysgetvalue{/tikz/graphs/placement/depth}\tikz@temp@depth%
   \pgfkeysgetvalue{/tikz/graphs/placement/width}\tikz@temp@width%
@@ -2087,18 +2105,12 @@
   \pgfmathsetmacro{\tikz@temp@col}{mod(\tikz@temp,\tikzgraphwrapafter)}%
   \pgfmathsetmacro{\tikz@temp@row}{div(\tikz@temp,\tikzgraphwrapafter)}%
   %
-  % multiply by the group shift (which is set to (1,-1) in 
-  % the left to right placement strategy)
+  % multiply row by the group shift and col by the chain shift
   %
   \pgfkeysgetvalue{/tikz/graphs/group shift}\tikz@temp%
-  \expandafter\tikz@scan@one@point\expandafter\pgf@process\tikz@temp%
-  \pgfmathsetlength{\pgf@x}{\pgf@x * \tikz@temp@col}
-  \pgfmathsetlength{\pgf@y}{\pgf@y * \tikz@temp@row}
-  %
-  % update the new coordinate
-  %
-  \advance\pgf@xa by\pgf@x%
-  \advance\pgf@ya by\pgf@y%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@lib@graph@grid@pos@a\tikz@temp%
+  \pgfkeysgetvalue{/tikz/graphs/chain shift}\tikz@temp%
+  \expandafter\tikz@scan@one@point\expandafter\tikz@lib@graph@grid@pos@b\tikz@temp%  
   %
   % apply the shift
   %
@@ -2106,6 +2118,10 @@
   \pgfkeys{/tikz/graphs/nodes/.expanded={shift={\tikz@lib@graph@shift}}}
 }
 
+\def\tikz@lib@graph@grid@pos@a#1{\pgf@process{\pgfpointscale{\tikz@temp@row}{#1}}\pgf@xa=\pgf@x\relax\pgf@ya=\pgf@y\relax}
+\def\tikz@lib@graph@grid@pos@b#1{\pgf@process{\pgfpointscale{\tikz@temp@col}{#1}}%
+  \advance\pgf@xa by\pgf@x\relax
+  \advance\pgf@ya by\pgf@y\relax}
 
 \tikzgraphsset{
   % Grids:
