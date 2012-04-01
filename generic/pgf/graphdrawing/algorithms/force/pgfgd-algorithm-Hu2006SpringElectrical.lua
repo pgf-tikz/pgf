@@ -407,6 +407,8 @@ end
 --- Fixes nodes at their specified positions.
 --
 function Hu2006SpringElectrical:fixateNodes(graph)
+  local number_of_fixed_nodes = 0
+
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -421,7 +423,12 @@ function Hu2006SpringElectrical:fixateNodes(graph)
 
       -- mark the node as fixed
       node.fixed = true
+
+      number_of_fixed_nodes = number_of_fixed_nodes + 1
     end
+  end
+  if number_of_fixed_nodes > 1 then
+     self.growth_direction = "fixed"  -- do not grow, orientation is now fixed
   end
 end
 

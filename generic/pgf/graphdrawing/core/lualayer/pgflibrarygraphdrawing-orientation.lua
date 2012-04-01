@@ -118,43 +118,26 @@ function orientation.algorithm_has_grown_the_graph_in_a_direction(graph, angle)
 end
 
 
---- Helper function for graphs with a growth direction
---
--- This function is the complement of the previous one; it is to be
--- called when the graph drawing algorithm has, indeed, taken care of
--- the requested grow keys. It will cause the post layout orientation
--- mechanism to "leave the graph alone" (unless, of course, some other
--- orientation keys have been explicitly set).
--- 
--- @param graph The graph.
-
-function orientation.algorithm_has_taken_care_of_user_grow_requests(graph)
-   for _, node in pairs(graph.nodes) do
-      node.growth_direction = "fixed"
-   end
-end
-
-
 --- Perform a post-layout orientation of the graph
 --
 -- Performs a post-layout orientation of the graph by performing the
 -- steps documented in Section~\ref{subsection-graph-orientation-phases}.
 -- of the manual.
 -- 
--- @param graph The graph.
+-- @param algorithm An algorithm object.
 
-function orientation.perform_post_layout_steps(graph)
+function orientation.perform_post_layout_steps(algorithm)
    
    -- Sanity check
-   if #graph.nodes < 2 then return end
+   if #algorithm.graph.nodes < 2 then return end
    
    -- Step 1: Search for an edge with the orient option:
-   for _, edge in ipairs(graph.edges) do
+   for _, edge in ipairs(algorithm.graph.edges) do
       local function f (key, flag)
 	 local orient = edge:getOption('/graph drawing/' .. key)
 	 if orient then
 	    orientation.orient_two_nodes(
-	       graph, edge.nodes[1], edge.nodes[2], tonumber(orient)/360*2*math.pi, flag)
+	       algorithm.graph, edge.nodes[1], edge.nodes[2], tonumber(orient)/360*2*math.pi, flag)
 	    return true
 	 end
       end
@@ -163,14 +146,14 @@ function orientation.perform_post_layout_steps(graph)
    end
    
    -- Step 2: Search for a node with the orient option:
-   for _, node in ipairs(graph.nodes) do
+   for _, node in ipairs(algorithm.graph.nodes) do
       local function f (key, flag)
 	 local orient = node:getOption('/graph drawing/' .. key)
 	 if orient then
 	    local angle, other_name = orient:gmatch('{(.+)}{(.+)}')()
-	    local other = graph:findNode(other_name)
+	    local other = algorithm.graph:findNode(other_name)
 	    if other then
-	       orientation.orient_two_nodes(graph, node, other, tonumber(angle)/360*2*math.pi, flag)
+	       orientation.orient_two_nodes(algorithm.graph, node, other, tonumber(angle)/360*2*math.pi, flag)
 	       return true
 	    end
 	 end
@@ -181,13 +164,13 @@ function orientation.perform_post_layout_steps(graph)
    
    -- Step 3: Search for global graph orient options:
    local function f (key, flag)
-      local orient = graph:getOption('/graph drawing/' .. key)
+      local orient = algorithm.graph:getOption('/graph drawing/' .. key)
       if orient then
 	 local angle, name1, name2 = orient:gmatch('{(.+)}{(.+)}{(.+)}')()
-	 local name1 = graph:findNode(name1)
-	 local name2 = graph:findNode(name2)
+	 local name1 = algorithm.graph:findNode(name1)
+	 local name2 = algorithm.graph:findNode(name2)
 	 if name1 and name2 then
-	    orientation.orient_two_nodes(graph, name1, name2, tonumber(angle)/360*2*math.pi, flag)
+	    orientation.orient_two_nodes(algorithm.graph, name1, name2, tonumber(angle)/360*2*math.pi, flag)
 	    return true
 	 end
       end
@@ -198,12 +181,13 @@ function orientation.perform_post_layout_steps(graph)
    -- Step 4: Search for growth keys:
    local function growth_fun (node, grow, flag)
       if grow then
-	 if node.growth_direction == "fixed" then
+	 growth_direction = node.growth_direction or algorithm.growth_direction
+	 if growth_direction == "fixed" then
 	    return false
-	 elseif node.growth_direction then
+	 elseif growth_direction then
 	    orientation.rotate_graph_around(
-	       graph, node.pos:x(), node.pos:y(),
-	       tonumber(node.growth_direction)/360*2*math.pi, tonumber(grow)/360*2*math.pi,
+	       algorithm.graph, node.pos:x(), node.pos:y(),
+	       tonumber(growth_direction)/360*2*math.pi, tonumber(grow)/360*2*math.pi,
 	       flag)
 	    return true
 	 else
@@ -213,13 +197,13 @@ function orientation.perform_post_layout_steps(graph)
 	    if node.edges[1] then
 	       t = node.edges[1].nodes
 	    else
-	       t = graph.nodes
+	       t = algorithm.graph.nodes
 	    end
 	    
 	    for _, other in ipairs(t) do
 	       if other ~= node then
 		  orientation.orient_two_nodes(
-		     graph, node, other, tonumber(grow)/360*2*math.pi, flag)
+		     algorithm.graph, node, other, tonumber(grow)/360*2*math.pi, flag)
 		  return true
 	       end
 	    end	       
@@ -227,14 +211,14 @@ function orientation.perform_post_layout_steps(graph)
       end
    end
 
-   for _, node in ipairs(graph.nodes) do
+   for _, node in ipairs(algorithm.graph.nodes) do
       local grow = node:getOption('/graph drawing/grow')
       if growth_fun(node, grow, false) then return end
       local grow = node:getOption("/graph drawing/grow'")
       if growth_fun(node, grow, true) then return end
    end
 
-   growth_fun(graph.nodes[1], "-90", false)
+   growth_fun(algorithm.graph.nodes[1], "-90", false)
 end
 
 

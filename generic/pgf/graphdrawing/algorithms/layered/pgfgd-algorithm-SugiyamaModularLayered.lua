@@ -15,7 +15,9 @@ pgf.module("pgf.graphdrawing")
 
 --- An implementation of a modular version of the Sugiyama method
 
-SugiyamaModularLayered = {}
+SugiyamaModularLayered = {
+  growth_direction = -90 -- This algorithm will "grow" things "down"
+}
 SugiyamaModularLayered.__index = SugiyamaModularLayered
 
 function SugiyamaModularLayered:constructor()
@@ -113,9 +115,6 @@ function SugiyamaModularLayered:run()
   self:dumpGraph('final graph')
   Sys:log('finished')
   Sys:log(' ')
-    
-  -- This algorithm uses an orientation:
-  orientation.algorithm_has_grown_the_graph_in_a_direction(self.graph)  
 end
 
 

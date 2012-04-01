@@ -237,10 +237,10 @@ function Interface:drawGraph()
   -- Step 4: Post layout transformation:
 
   -- Step 4.1: Compute orientation
-  orientation.perform_post_layout_steps(self.graph)
+  orientation.perform_post_layout_steps(algorithm)
 
   -- Step 4.2: Compute anchors
-  anchoring.perform_post_layout_steps(self.graph)
+  anchoring.perform_post_layout_steps(algorithm)
 
   local stop = os.clock()
   Sys:log(string.format("GD:INT: algorithm '" .. name .. "' took %.4f seconds", stop - start))
