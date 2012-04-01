@@ -898,7 +898,7 @@ algorithm can be implemented and installed.
 First, before any graph drawing algorithms can be used, the graph
 drawing engine needs to be loaded. This is done by loading the
 \pgfname\ library |pgflibrarygraphdrawing.code.tex|. This will
-initialises the Lua graph drawing subsystem by invoking the Lua loader
+initialise the Lua graph drawing subsystem by invoking the Lua loader
 class.   
 
 In the most basic cases, no further \TeX\ code needs to be written to
@@ -909,23 +909,36 @@ algorithms will make the use of the algorithm somewhat simpler.\
 
 \subsubsection{Main File of the Graph Drawing Algorithm}
 
-As explained for the |algorithm| key on
+As indicated at in the description of the |algorithm| key on
 page~\ref{section-gd-algorithm-key}, each graph drawing algorithm  
-must be placed in a Lua function called
-|drawGraphAlgorithm_|\meta{algorithm name}, with spaces and the |-|
-character replaced by underscores, inside the |pgf.graphdrawing| Lua 
-module. This function, in turn, should typically be placed in a file 
-called |pgfgd-algorithm-|\meta{algorithm name}, again with spaces and
-|-| replaced by underscores. ``Typically'' means that it is only
-important that the function is already defined when the engine
+must be implemented in a class named like the algorithm and residing
+in the namespace |pgf.graphdrawing|. (Spaces will be deleted from the
+text given to the |algorithm| key.) This class, in turn, should typically
+be placed in a file called |pgfgd-algorithm-|\meta{algorithm name},
+again with spaces ignored. ``Typically'' means that it is only
+important that the class is already defined when the engine
 tries to invoke it or, when this is not the case, the file with the
 described name contains this function. You could also put several
 algorithms in a single file, but then you must ensure that loading of
 the file yourself.
 
-The function |drawGraphAlgorithm_|\meta{algorithm name} will be called
-during |\pgfgdendscope|. The function gets an object
-representing the graph as its single argument. 
+During |\pgfgdendscope|, the algorithm's class will be loaded, if
+necessary. Then, the following things happen, in turn, in normal
+operation mode: 
+
+\begin{enumerate}
+\item A new instance of the class is created.
+\item The |graph| attribute of this object is set to the graph that
+  should be layed out by the algorithm.
+\item The |constructor| method of the class is called, if such a
+  method exists.
+\item The |run| method of the class is called. This method should now
+  compute ``good'' positions for the nodes in the graph represented by
+  the |graph| attribute.
+\item Post layout operations are performed, namely orienting the
+  graph and then anchoring the graph. Both operations are performed
+  automatically, but it is possible to configure them.
+\end{enumerate}
 
 
 \subsubsection{Coordinate Systems in Lua}
@@ -933,8 +946,8 @@ representing the graph as its single argument.
 \label{section-gd-lua-coordinates}
 
 The main job of a graph drawing algorithm is to modify the
-coordinates of the nodes of the graph object that it gets passed as
-its argument. Before we have a look at how this can be done, let us
+coordinates of the nodes of the graph object in the |graph|
+attribute. Before we have a look at how this can be done, let us 
 first clarify how the different coordinate systems of \pgfname\
 interact with the graph drawing engine.
 
@@ -954,9 +967,9 @@ coordinate system. For instance, when a user writes
 |node distance=1in|, then |getOption('/graph drawing/node distance')|
 will yield the string |'72.27'|.
 
-Let us now have a look at what happens when a transformation matrix is
+When a transformation matrix is
 set, such as a shift by 1cm to the right and a rotation by
-30$^\circ$. In this case, the following happens: At the beginning of a
+30$^\circ$, the following happens: At the beginning of a
 graph drawing scope, the transformation matrix is reset. Thus, for
 instance all nodes created inside the graph drawing scope for which no
 scaling or shifting is setup will be centered on the origin. When
@@ -974,12 +987,10 @@ about \pgfname's transformation matrix.
 
 
 
-
-
 \subsubsection{Example of a Graph Drawing Algorithm's Code}
 
-For example, the following code fragment (taken and slightly altered
-from the file |pgfgd-algorithm-simple-demo.lua|)
+The following code fragment (taken and slightly altered
+from the file |pgfgd-algorithm-SimpleDemo.lua|)
 implements a trivial graph drawing algorithm that just places all
 nodes on a fixed-size circle.  
 
@@ -994,17 +1005,16 @@ nodes on a fixed-size circle.
   
 pgf.module("pgf.graphdrawing")
 
---- A trivial node placing algorithm for demonstration purposes.
--- All nodes are positioned on a fixed-size circle.
-function drawGraphAlgorithm_simple_demo(graph)
-   local radius = 28.908  -- corresponds to 1cm in TeX points
+SimpleDemo = {}
+SimpleDemo.__index = SimpleDemo
 
-   -- count nodes
-   local nodeCount = table.count_pairs(graph.nodes)
+function SimpleDemo:run()
+   local radius = 28.908  -- this is 1cm in points
+   local nodeCount = table.count_pairs(self.graph.nodes)
 
    local alpha = (2 * math.pi) / nodeCount
    local i = 0
-   for node in table.value_iter(graph.nodes) do
+   for node in table.value_iter(self.graph.nodes) do
       -- the interesting part...
       node.pos:set{x = radius * math.cos(i * alpha)}
       node.pos:set{y = radius * math.sin(i * alpha)}
@@ -1016,7 +1026,7 @@ end
 The algorithm computes a circular layout like in the following:
 
 \begin{codeexample}[]
-\tikz [graph drawing scope, /graph drawing/algorithm=simple demo]
+\tikz [graph drawing scope, /graph drawing/algorithm=Simple Demo]
   \graph { f -> c -> e ->[bend right] a -> {b -> {c, d, f}, e -> b}};
 \end{codeexample}
 
@@ -1032,7 +1042,7 @@ that calls the above keys. For instance, you could create a small
 \begin{codeexample}[code only]
 \tikzset{circular layout/.style={
     graph drawing scope,
-    /graph drawing/algorithm=simple demo}}
+    /graph drawing/algorithm=Simple Demo}}
 \end{codeexample}
 
 However, there is a better command for this:
@@ -1042,16 +1052,17 @@ However, there is a better command for this:
 \pgfgddeclarealgorithmkey
 {circular layout}
 {circular layout}
-{algorithm=simple demo}
+{algorithm=Simple Demo}
 \end{codeexample}
 \pgfgddeclarealgorithmkey
 {circular layout}
 {circular layout}
-{algorithm=simple demo}
+{algorithm=Simple Demo}
 
 The |\pgfgddeclarealgorithmkey| takes care of setting up your style
 key in appropriate ways (including some ways you will not have thought
 of) and installs some additional handlers.
+
 
 \subsubsection{Setting Up Graph Parameters}
 
@@ -1062,7 +1073,7 @@ so-called ``graph parameters''. When a key is declared as a graph
 parameter, it will be available inside the algorithm: 
 
 \begin{codeexample}[code only]
-local radius = tonumber(graph:getOption("/graph drawing/radius"))
+local radius = tonumber(self.graph:getOption("/graph drawing/radius"))
 \end{codeexample}
 
 Using the |getOption| method we obtain the value of the
@@ -1104,8 +1115,8 @@ key, which allows us to change the radius of a single node. For this,
 we check for a node whether its radius key is set:
 
 \begin{codeexample}[code only]
--- In pgfgf-algorithm-simple-example.lua:
-   for node in table.value_iter(graph.nodes) do
+-- In pgfgf-algorithm-SimpleExample.lua:
+   for node in table.value_iter(self.graph.nodes) do
       -- the interesting part...
       local node_radius = tonumber(node:getOption('/graph drawing/node radius')
                                    or radius)
@@ -1114,7 +1125,7 @@ we check for a node whether its radius key is set:
       i = i + 1
    end
    
--- In pgflibrarygraphdrawing.circular.code.tex
+% In pgflibrarygraphdrawing.circular.code.tex
 \pgfgddeclareforwardedkeys{/graph drawing}{
   node radius/.node parameter=evaluate math expression
 }
@@ -1133,20 +1144,22 @@ Here is the complete code of the final algorithm:
 -- File pgfgd-algorithm-simple-demo.lua
 pgf.module("pgf.graphdrawing")
 
-function drawGraphAlgorithm_simple_demo(graph)
-   local radius = tonumber(graph:getOption("/graph drawing/radius"))
-   local nodeCount = table.count_pairs(graph.nodes)
+SimpleDemo = {}
+SimpleDemo.__index = SimpleDemo
+
+function SimpleDemo:run()
+   local radius = 28.908  -- this is 1cm in points
+   local nodeCount = table.count_pairs(self.graph.nodes)
 
    local alpha = (2 * math.pi) / nodeCount
    local i = 0
-   for node in table.value_iter(graph.nodes) do
+   for node in table.value_iter(self.graph.nodes) do
       -- the interesting part...
-      local node_radius = tonumber(node:getOption('/graph drawing/node radius') or radius)
-      node.pos:set{x = node_radius * math.cos(i * alpha)}
-      node.pos:set{y = node_radius * math.sin(i * alpha)}
+      node.pos:set{x = radius * math.cos(i * alpha)}
+      node.pos:set{y = radius * math.sin(i * alpha)}
       i = i + 1
    end
-end  
+end
 \end{codeexample}
 
 \begin{codeexample}[code only]
@@ -1155,7 +1168,7 @@ end
 \pgfgddeclarealgorithmkey
   {circular layout}
   {circular layout}
-  {algorithm=simple demo}
+  {algorithm=Simple Demo}
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
   radius/.graph parameter=evaluate math expression,
@@ -1203,19 +1216,14 @@ iterators over all nodes and edges in a depth-first or breadth-first
 order (other traversal orders may require a rewrite or extension of the
 |walkAux| method).
 
-Positions are represented using the dedicated class |Position|, the member
-variables |x| and |y| contain the coordinates.  Positions can also be
-relative to other positions, which can be tested using |isAbsPosition|.
-The conversion to absolute coordinates is done with |getAbsCoordinates|.
-The equality test method implements comparing two positions by using their
-absolute positions.
+Positions are represented using the class |Vector|.
 
 The following tasks are typical for manipulating the graph.
 
 \begin{itemize}
 \item Iterate over all nodes.
 \begin{codeexample}[code only]
-for node in table.value_iter(graph.nodes) do
+for node in table.value_iter(self.graph.nodes) do
    ...
 end
 \end{codeexample}
@@ -1238,7 +1246,7 @@ newNode.pos:setOrigin(node.pos)
 \end{codeexample}
 \item Iterate over all edges and all nodes of the current edge.
 \begin{codeexample}[code only]
-for edge in table.value_iter(graph.edges) do
+for edge in table.value_iter(self.graph.edges) do
    for node in table.value_iter(edge.nodes) do
       ...
    end
@@ -1256,6 +1264,7 @@ local nodeRight = edge.nodes[2]
 The following module simplifies the traversal of graphs:
 
 \input{generated/pgflibrarygraphdrawing-traversal-helpers}
+
 
 
 \subsubsection{Nodes and their Boxes}
@@ -1287,7 +1296,7 @@ Edges can be undirected or directed (denoted by the constants
 
 TT: More documentation is needed here!
 
-\input{generated/pgflibrarygraphdrawing-position}
+%\input{generated/pgflibrarygraphdrawing-position}
 \input{generated/pgflibrarygraphdrawing-vector}
 
 

@@ -680,13 +680,13 @@ end
 function SugiyamaModularLayered:loadSubAlgorithm(step, name)
 
   -- make sure there are no spaces in the file name
-  escaped_name = name:gsub(' ', '')
+  name = name:gsub(' ', '')
 
   --Sys:log('pre   classname: ' .. classname)
   --Sys:log('escaped name:    ' .. escaped_name)
 
-  local classname = step .. classname
-  local filename = 'pgfgd-subalgorithm-' .. step .. classname .. '.lua'
+  local classname = step .. name
+  local filename = 'pgfgd-subalgorithm-' .. classname .. '.lua'
 
   --Sys:log('load class = ' .. classname .. ', file = ' .. filename)
 

@@ -344,35 +344,34 @@ special graph parameters for the algorithm.
   \label{section-gd-algorithm-key}%
   This key specifies which algorithm should be used for typesetting a
   graph. The names of these algorithm's are often a bit cryptic (like
-  |AhrensFKSS2011 tree|), which is why you typically do not call this
-  key directly. Instead, styles with more easy-to-remember names
-  internally set this key.
+  |Walshaw2000| or something similar), which is why you typically do
+  not call this key directly. Instead, styles with more
+  easy-to-remember names internally set this key.
 
   Setting this key has the following effects: When a scope with the
   |graph drawing scope| command is started, the current value of
-  \meta{algorithm's name} is examined. Then, the graph drawing engine
-  tries to find a Lua function called
-  |drawGraphAlgorithm_|\meta{algorithm's name} inside the
-  |pgf.graphdrawing| Lua mode. This function will be used to
-  perform the typesetting (what this function should do is documented
-  in detail in Section~\ref{section-gd-own-algorithm}). If this
-  function does not exist, the engine tries to load the file 
-  called |pgfgd-algorithm-|\meta{algorithm's name}|.lua| and they,
-  again, tries to call the function. Thus, any \meta{algorithm's name}
-  mentioned inside a document must either have already been defined in
-  some Lua file loaded by some library or it must reside in a file
-  with the corresponding name.
-  
-  In case the \meta{algorithm's name} contains characters that cannot
-  be used in file names or in function names, substitutions are
-  performed. In particular, all occurrences of a space are replaced by
-  hyphens for file names and by underscores for function names.
+  \meta{algorithm's name} is examined. Lua will try to find a class
+  named \meta{algorithm's name} in the |pgf.graphdrawing|
+  namespace (but any spaces inside the \meta{algorithm's name} are
+  deleted). If it does not find such a class, the engine tries to 
+  load the file called |pgfgd-algorithm-|\meta{algorithm's name}|.lua|
+  (again, spaces are deleted) and then, again, tries to lookup the
+  class. Thus, any class \meta{algorithm's name} mentioned inside a
+  document must either have 
+  already been defined in some Lua file loaded by some library or it
+  must reside in a file with the corresponding name. Once the class
+  has been found, an object of this class is instantiated, the |graph|
+  attribute of the object is set to the to-be-layouted graph, the
+  |constructor| method of the class is called for the object (if it
+  exists) and, finally, the |run| method is called. Details of what
+  should be done in these methods are given in
+  Section~\ref{section-gd-own-algorithm}).  
 
   Here is an example where we switch on the graph drawing engine
   explicitly and explicitly select an algorithm:
 \begin{codeexample}[]
 \tikz [graph drawing scope,
-       /graph drawing/algorithm=AhrensFKSS2011 tree]
+       /graph drawing/algorithm=Walshaw 2000 Spring Electrical]
   \graph { a <-> {b, c} };  
 \end{codeexample}
 
@@ -966,20 +965,27 @@ resolved:
 \label{section-library-graphdrawing-ownAlgorithm}
 
 This section presents a simple example of how a graph drawing
-algorithm can be implemented. A much more detailed explanation of how
+algorithm can be implemented. A more detailed explanation of how
 new graph drawing algorithms can be integrated and configured in given
 in Section~\ref{section-gd-implementing-algorithms}.
 
-As explained for the |algorithm| key, the Lua function implementing
-the graph drawing algorithm must be called
-|drawGraphAlgorithm_|\meta{algorithm name} and be placed in the file
-|pgfgd-algorithm-|\meta{algorithm name}. The function
-will be called with an object representing the graph as single
-argument and should modify the coordinates of the nodes of this 
-graph. For example, the following code fragment implements a trivial
-graph drawing algorithm that just places all nodes on a fixed-size
-circle.  It is accessed with the name 
-|simple demo|, or |simple-demo| so both the file- and function name 
+As explained for the |algorithm| key, for each graph drawing algorithm
+there must be a class of the name given to the |algorithm| key. This
+class should usually reside in a file called
+|pgfgd-algorithm-|\meta{algorithm name}. Each time a layout needs to
+be computed for a graph, a new object of this graph is
+instantiated. For this object, an attribute |graph| will be set to an
+object representing the graph. Then, the |constructor| method of the
+object is called, provided it exists. Then, the |run| method is
+called, which should do the actual work. (The separation into a
+constructor and a run method is purely for convenience.)
+The |run| method should modify the coordinates of the nodes of its
+|graph| attribute.
+
+As a complete example, the following code fragment implements a
+trivial graph drawing algorithm that just places all nodes on a
+fixed-size circle.  It is accessed with the name 
+|simple demo|, or |simple-demo| so both the file- and class name  
 agree on that.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
@@ -989,21 +995,23 @@ agree on that.
 }
 
 \begin{codeexample}[code only]
--- File pgfgd-algorithm-simple-demo.lua
+-- File pgfgd-algorithm-SimpleDemo.lua
   
 pgf.module("pgf.graphdrawing")
 
---- A trivial simple node placing algorithm for demonstration purposes.
--- All nodes are positioned on a fixed-size circle.
-function drawGraphAlgorithm_simple_demo(graph)
-   local radius = 28.908  -- this is 1cm in points
+--- A trivial node placing algorithm for demonstration purposes.
+-- All nodes are positioned on a fixed size circle.
 
-   -- count nodes
-   local nodeCount = table.count_pairs(graph.nodes)
+SimpleDemo = {}
+SimpleDemo.__index = SimpleDemo
+
+function SimpleDemo:run()
+   local radius = 28.908  -- this is 1cm in points
+   local nodeCount = table.count_pairs(self.graph.nodes)
 
    local alpha = (2 * math.pi) / nodeCount
    local i = 0
-   for node in table.value_iter(graph.nodes) do
+   for node in table.value_iter(self.graph.nodes) do
       -- the interesting part...
       node.pos:set{x = radius * math.cos(i * alpha)}
       node.pos:set{y = radius * math.sin(i * alpha)}
@@ -1015,7 +1023,7 @@ end
 The algorithm computes a circular layout like in the following.
 
 \begin{codeexample}[]
-\tikz [graph drawing scope, /graph drawing/algorithm=simple demo]
+\tikz [graph drawing scope, /graph drawing/algorithm=Simple Demo]
   \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
 \end{codeexample}
 
