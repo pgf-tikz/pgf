@@ -257,7 +257,7 @@ local userLoaded = {}
 --
 -- Remembers if files were loaded; use the third parameter to force reloading.
 --
-local function userLoad(filename, format, reload, fallback)
+local function userLoad(filename, format, reload)
   if userLoaded[filename] == true and not reload then
     -- file is already loaded, skip it
     return
@@ -267,15 +267,6 @@ local function userLoad(filename, format, reload, fallback)
     userLoaded[filename] = true
     -- load the file
     return dofile(path)
-  elseif fallback then
-    path = find_file(fallback, format)
-    if path and path:len() > 0 then
-      userLoaded[filename] = true
-      -- load the fallback file
-      return dofile(path)
-    else
-      error("GD:LOADER: found neither file " .. filename .. " nor fallback " .. fallback)
-    end
   else
     error('GD:LOADER: could not find the file ' .. filename)
   end

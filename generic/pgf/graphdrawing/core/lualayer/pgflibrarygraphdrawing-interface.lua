@@ -172,33 +172,22 @@ end
 --- Attempts to load the algorithm with the given \meta{name}.
 --
 -- This function tries to look up the corresponding algorithm file
--- |pgflibrarygraphdrawing-algorithms-name.lua| and attempts to
--- look up the main function for calling the algorithm.
+-- |pgfgd-algorithms-<name>.lua| and attempts to
+-- look up the class for calling the algorithm.
 --
 -- @param name Name of the algorithm.
 --
 -- @return The algorithm function or nil.
 --
 function Interface:loadAlgorithm(name)
-  local function_name = 'graph_drawing_algorithm_' .. name
-  
-  -- substitute special characters in the function name with
-  -- something that Lua can handle
-  local substitutions = { ['-'] = '_' }
-  for char, replacement in pairs(substitutions) do
-    function_name = function_name:gsub(char, replacement)
-  end
-  
-  Sys:log('function_name = ' .. function_name)
-  Sys:log('name = ' .. name)
-  
-  -- try to load the algorithm file
-  -- delete the following after renaming of all files
-  local filename = "pgfgd-algorithm-" .. name .. ".lua"
-  pgf.load(filename, "tex", false, "pgflibrarygraphdrawing-algorithms-" .. name .. ".lua")
 
-  -- look up the main algorithm function
-  return pgf.graphdrawing[function_name]
+   name = name:gsub(' ', '')
+
+   -- Load the file (if necessary)
+   pgf.load("pgfgd-algorithm-" .. name .. ".lua", "tex", false)
+
+   -- look up the main algorithm function
+   return pgf.graphdrawing[name]
 end
 
 
@@ -289,26 +278,45 @@ function Interface:drawGraph()
   end
 
   local name = self:getOption("/graph drawing/algorithm"):gsub('%s', '-')
-  local functionName = "graph_drawing_algorithm_" .. name:gsub('-', '_')
-  local algorithm = pgf.graphdrawing[functionName]
+  local class = name:gsub(' ', '')
+  local algorithm_class = pgf.graphdrawing[class]
   
   -- if not defined, try to load the corresponding file
-  if not algorithm then
-    algorithm = self:loadAlgorithm(name)
+  if not algorithm_class then
+    algorithm_class = self:loadAlgorithm(name)
   end
   
-  assert(algorithm, "the algorithm is nil, e.g. a function named "
-                    .. functionName .. " doesn't exist in the pgf.graphdrawing "
-                    .. "module")
+  assert(algorithm_class, "No algorithm named '" .. name .. "' was found. " ..
+                          "Either the file does not exist or the class declaration is wrong.")
   local start = os.clock()
-  algorithm(self.graph)
+  -- Ok, everything setup.
+
+
+  -- Step 1, create new object almost empty object:
+  local algorithm = { graph = self.graph }
+  setmetatable(algorithm, algorithm_class)
+
+
+  -- Step 2: Let the object init itself:
+  if algorithm.constructor then
+     algorithm:constructor ()
+  end
+
+  -- Step 3: Run the algorithm:
+  algorithm:run ()
+
+
+  -- Step 4: Post layout transformation:
+
+  -- Step 4.1: Compute orientation
+  orientation.perform_post_layout_steps(self.graph)
+
+  -- Step 4.2: Compute anchors
+  anchoring.perform_post_layout_steps(self.graph)
+
   local stop = os.clock()
   Sys:log(string.format("GD:INT: algorithm '" .. name .. "' took %.4f seconds", stop - start))
   Sys:log(' ')
-
-  -- apply the orientation desired by the user
-  orientation.perform_post_layout_steps(self.graph)
-  anchoring.perform_post_layout_steps(self.graph)
 end
 
 

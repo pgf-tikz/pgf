@@ -12,10 +12,6 @@
 pgf.module("pgf.graphdrawing")
 
 
-Hu2006Spring = {}
-Hu2006Spring.__index = Hu2006Spring
-
-
 
 --- Implementation of a spring spring graph drawing algorithm.
 -- 
@@ -26,65 +22,37 @@ Hu2006Spring.__index = Hu2006Spring
 --
 -- Modifications compared to the original algorithm are explained in 
 -- the manual.
---
-function graph_drawing_algorithm_Hu2006_spring(graph)
-  local hu = Hu2006Spring:new(graph)
 
-  Sys:log('Hu2006 spring: random_seed = ' .. hu.random_seed)
-  Sys:log('Hu2006 spring: ')
-  Sys:log('Hu2006 spring: iterations = ' .. hu.iterations)
-  Sys:log('Hu2006 spring: cooling_factor = ' .. hu.cooling_factor)
-  Sys:log('Hu2006 spring: initial_step_length = ' .. hu.initial_step_length)
-  Sys:log('Hu2006 spring: convergence_tolerance = ' .. hu.convergence_tolerance)
-  Sys:log('Hu2006 spring: ')
-  Sys:log('Hu2006 spring: natural_spring_length = ' .. hu.natural_spring_length)
-  Sys:log('Hu2006 spring: ')
-  Sys:log('Hu2006 spring: coarsen = ' .. tostring(hu.coarsen))
-  Sys:log('Hu2006 spring: downsize_ratio = ' .. hu.downsize_ratio)
-  Sys:log('Hu2006 spring: minimum_graph_size = ' .. hu.minimum_graph_size)
-
-  hu:initialize()
-  hu:run()
-end
+Hu2006_spring = {}
+Hu2006_spring.__index = Hu2006_spring
 
 
+function Hu2006_spring:constructor()
+   self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring layout/random seed'))
 
-function Hu2006Spring:new(graph)
-  local hu = {
-    random_seed = tonumber(graph:getOption('/graph drawing/spring layout/random seed')),
+   self.iterations = tonumber(self.graph:getOption('/graph drawing/spring layout/iterations'))
+   self.cooling_factor = tonumber(self.graph:getOption('/graph drawing/spring layout/cooling factor'))
+   self.initial_step_length = tonumber(self.graph:getOption('/graph drawing/spring layout/initial step dimension'))
+   self.convergence_tolerance = tonumber(self.graph:getOption('/graph drawing/spring layout/convergence tolerance'))
 
-    iterations = tonumber(graph:getOption('/graph drawing/spring layout/iterations')),
-    cooling_factor = tonumber(graph:getOption('/graph drawing/spring layout/cooling factor')),
-    initial_step_length = tonumber(graph:getOption('/graph drawing/spring layout/initial step dimension')),
-    convergence_tolerance = tonumber(graph:getOption('/graph drawing/spring layout/convergence tolerance')),
+   self.natural_spring_length = tonumber(self.graph:getOption('/graph drawing/spring layout/natural spring dimension'))
 
-    natural_spring_length = tonumber(graph:getOption('/graph drawing/spring layout/natural spring dimension')),
+   self.coarsen = self.graph:getOption('/graph drawing/spring layout/coarsen') == 'true'
+   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio'))))
+   self.minimum_graph_size = tonumber(self.graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size'))
 
-    coarsen = graph:getOption('/graph drawing/spring layout/coarsen') == 'true',
-    downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio')))),
-    minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size')),
+   self.graph_size = #self.graph.nodes
+   self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
 
-    graph = graph,
-    graph_size = #graph.nodes,
-    graph_density = (2 * #graph.edges) / (#graph.nodes * (#graph.nodes - 1))
-  }
-  setmetatable(hu, Hu2006Spring)
+   -- validate input parameters
+   assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
+   assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
+   assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
+   assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
+   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
+   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
+   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
 
-  -- validate input parameters
-  assert(hu.iterations >= 0, 'iterations (value: ' .. hu.iterations .. ') need to be greater than 0')
-  assert(hu.cooling_factor >= 0 and hu.cooling_factor <= 1, 'the cooling factor (value: ' .. hu.cooling_factor .. ') needs to be between 0 and 1')
-  assert(hu.initial_step_length >= 0, 'the initial step dimension (value: ' .. hu.initial_step_length .. ') needs to be greater than or equal to 0')
-  assert(hu.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. hu.convergence_tolerance .. ') needs to be greater than or equal to 0')
-  assert(hu.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. hu.natural_spring_length .. ') needs to be greater than or equal to 0')
-  assert(hu.downsize_ratio >= 0 and hu.downsize_ratio <= 1, 'the downsize ratio (value: ' .. hu.downsize_ratio .. ') needs to be between 0 and 1')
-  assert(hu.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. hu.minimum_graph_size .. ') needs to be greater than or equal to 2')
-
-  return hu
-end
-
-
-
-function Hu2006Spring:initialize()
   -- apply the random seed specified by the user (only if it is non-zero)
   if self.random_seed ~= 0 then
     math.randomseed(self.random_seed)
@@ -103,7 +71,7 @@ end
 
 
 
-function Hu2006Spring:run()
+function Hu2006_spring:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -137,7 +105,7 @@ function Hu2006Spring:run()
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.adaptive_step_update)
     end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
@@ -160,7 +128,7 @@ function Hu2006Spring:run()
       end
 
       -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -173,7 +141,7 @@ function Hu2006Spring:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.adaptive_step_update)
   end
 
   local avg_spring_length = table.combine_values(self.graph.edges, function (sum, edge)
@@ -184,7 +152,7 @@ end
 
 
 
-function Hu2006Spring:computeInitialLayout(graph, spring_length)
+function Hu2006_spring:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -209,7 +177,7 @@ function Hu2006Spring:computeInitialLayout(graph, spring_length)
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('Hu2006Spring: distance = ' .. distance)
+      Sys:log('Hu2006_spring: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -234,7 +202,7 @@ end
 
 
 
-function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
+function Hu2006_spring:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function repulsive_force(distance, graph_distance, weight)
     --return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
@@ -334,7 +302,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006Spring:fixateNodes(graph)
+function Hu2006_spring:fixateNodes(graph)
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -355,13 +323,13 @@ end
 
 
 
-function Hu2006Spring.conservative_step_update(step, cooling_factor)
+function Hu2006_spring.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function Hu2006Spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function Hu2006_spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then

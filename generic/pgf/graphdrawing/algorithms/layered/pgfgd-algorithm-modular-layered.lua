@@ -13,70 +13,37 @@ pgf.module("pgf.graphdrawing")
 
 
 
-ModularLayered = {}
-ModularLayered.__index = ModularLayered
+--- An implementation of a modular version of the Sugiyama method
 
+modular_layered = {}
+modular_layered.__index = modular_layered
 
+function modular_layered:constructor()
+   self.random_seed = tonumber(self.graph:getOption('/graph drawing/layered layout/random seed'))
 
-function graph_drawing_algorithm_modular_layered(graph)
-  if #graph.nodes > 1 then
-    ModularLayered:new(graph):run()
-  end
-end
+   -- read graph input parameters
+   self.level_distance = tonumber(self.graph:getOption('/graph drawing/level distance'))
+   self.sibling_distance = tonumber(self.graph:getOption('/graph drawing/sibling distance'))
 
-
-
-function ModularLayered:new(graph)
-  local algorithm = {
-    random_seed = tonumber(graph:getOption('/graph drawing/layered layout/random seed')),
-
-    -- read graph input parameters
-    level_distance = tonumber(graph:getOption('/graph drawing/level distance')),
-    sibling_distance = tonumber(graph:getOption('/graph drawing/sibling distance')),
-
-    -- read sub-algorithm parameters
-    cycle_removal_algorithm = tostring(graph:getOption('/graph drawing/layered layout/cycle removal')),
-    node_ranking_algorithm = tostring(graph:getOption('/graph drawing/layered layout/node ranking')),
-    crossing_minimization_algorithm = tostring(graph:getOption('/graph drawing/layered layout/crossing minimization')),
-    node_positioning_algorithm = tostring(graph:getOption('/graph drawing/layered layout/node positioning')),
-    edge_routing_algorithm = tostring(graph:getOption('/graph drawing/layered layout/edge routing')),
-
-    -- remember the graph for use in the algorithm
-    graph = graph,
-  }
-  setmetatable(algorithm, ModularLayered)
+   -- read sub-algorithm parameters
+   self.cycle_removal_algorithm = tostring(self.graph:getOption('/graph drawing/layered layout/cycle removal'))
+   self.node_ranking_algorithm = tostring(self.graph:getOption('/graph drawing/layered layout/node ranking'))
+   self.crossing_minimization_algorithm = tostring(self.graph:getOption('/graph drawing/layered layout/crossing minimization'))
+   self.node_positioning_algorithm = tostring(self.graph:getOption('/graph drawing/layered layout/node positioning'))
+   self.edge_routing_algorithm = tostring(self.graph:getOption('/graph drawing/layered layout/edge routing'))
   
-  -- validate input parameters
-  assert(algorithm.level_distance >= 0, 'the level distance needs to be greater than or equal to 0')
-  assert(algorithm.sibling_distance >= 0, 'the sibling distance needs to be greater than or equal to 0')
-
-  return algorithm
+   -- validate input parameters
+   assert(self.level_distance >= 0, 'the level distance needs to be greater than or equal to 0')
+   assert(self.sibling_distance >= 0, 'the sibling distance needs to be greater than or equal to 0')
 end
 
 
 
-function ModularLayered:dumpGraph(title)
-  Sys:log(title .. ':')
-  for node in table.value_iter(self.graph.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    ' .. tostring(edge))
-    end
+function modular_layered:run()
+  if #self.graph.nodes <= 1 then
+     return
   end
-  for edge in table.value_iter(self.graph.edges) do
-    Sys:log('  ' .. tostring(edge))
-  end
-  for cluster in table.value_iter(self.graph.clusters) do
-    local node_strings = table.map_values(cluster.nodes, function (node)
-      return node.name
-    end)
-    Sys:log('  cluster ' .. cluster:getName() .. ': ' .. table.concat(node_strings, ' '))
-  end
-end
 
-
-
-function ModularLayered:run()
   -- apply the random seed specified by the user (only if it is non-zero)
   if self.random_seed ~= 0 then
     math.randomseed(self.random_seed)
@@ -152,8 +119,29 @@ function ModularLayered:run()
 end
 
 
+function modular_layered:dumpGraph(title)
+  Sys:log(title .. ':')
+  for node in table.value_iter(self.graph.nodes) do
+    Sys:log('  node ' .. node.name)
+    for edge in table.value_iter(node.edges) do
+      Sys:log('    ' .. tostring(edge))
+    end
+  end
+  for edge in table.value_iter(self.graph.edges) do
+    Sys:log('  ' .. tostring(edge))
+  end
+  for cluster in table.value_iter(self.graph.clusters) do
+    local node_strings = table.map_values(cluster.nodes, function (node)
+      return node.name
+    end)
+    Sys:log('  cluster ' .. cluster:getName() .. ': ' .. table.concat(node_strings, ' '))
+  end
+end
 
-function ModularLayered:preprocess()
+
+
+
+function modular_layered:preprocess()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
@@ -167,7 +155,7 @@ end
 
 
 
-function ModularLayered:insertDummyNodes()
+function modular_layered:insertDummyNodes()
   Sys:log('insert dummy nodes:')
 
   self:dumpRanking('  ', 'ranking before inserting dummy nodes')
@@ -249,7 +237,7 @@ end
 
 
 
-function ModularLayered:removeDummyNodes()
+function modular_layered:removeDummyNodes()
   -- delete dummy nodes
   for node in table.value_iter(self.dummy_nodes) do
     self.graph:deleteNode(node)
@@ -282,7 +270,7 @@ end
 
 
 
-function ModularLayered:mergeClusters()
+function modular_layered:mergeClusters()
   Sys:log('merge clusters:')
 
   --self.cluster_nodes = {}
@@ -432,7 +420,7 @@ end
 
 
 
-function ModularLayered:expandClusters()
+function modular_layered:expandClusters()
   Sys:log('expand clusters:')
 
   --for node in table.value_iter(self.original_nodes) do
@@ -481,7 +469,7 @@ end
 
 
 
-function ModularLayered:removeLoops()
+function modular_layered:removeLoops()
   self.loops = {}
 
   for edge in table.value_iter(self.graph.edges) do
@@ -497,7 +485,7 @@ end
 
 
 
-function ModularLayered:mergeMultiEdges()
+function modular_layered:mergeMultiEdges()
   self.individual_edges = {}
 
   Sys:log('merge multiedges:')
@@ -578,7 +566,7 @@ end
 
 
 
-function ModularLayered:removeCycles()
+function modular_layered:removeCycles()
   local name, class = self:loadSubAlgorithm('cycle-removal', self.cycle_removal_algorithm)
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
@@ -591,7 +579,7 @@ end
 
 
 
-function ModularLayered:rankNodes()
+function modular_layered:rankNodes()
   local name, class = self:loadSubAlgorithm('node-ranking', self.node_ranking_algorithm)
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
@@ -606,7 +594,7 @@ end
 
 
 
-function ModularLayered:reduceEdgeCrossings()
+function modular_layered:reduceEdgeCrossings()
   local name, class = self:loadSubAlgorithm('crossing-minimization', self.crossing_minimization_algorithm)
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
@@ -621,7 +609,7 @@ end
 
 
 
-function ModularLayered:restoreMultiEdges()
+function modular_layered:restoreMultiEdges()
   for multiedge, subedges in pairs(self.individual_edges) do
     assert(#subedges >= 2)
 
@@ -641,7 +629,7 @@ end
 
 
 
-function ModularLayered:positionNodes()
+function modular_layered:positionNodes()
   local name, class = self:loadSubAlgorithm('node-positioning', self.node_positioning_algorithm)
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
@@ -654,7 +642,7 @@ end
 
 
 
-function ModularLayered:restoreLoops()
+function modular_layered:restoreLoops()
   for edge in table.value_iter(self.loops) do
     self.graph:addEdge(edge)
     edge:getTail():addEdge(edge)
@@ -663,7 +651,7 @@ end
 
 
 
-function ModularLayered:routeEdges()
+function modular_layered:routeEdges()
   local name, class = self:loadSubAlgorithm('edge-routing', self.edge_routing_algorithm)
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
@@ -676,7 +664,7 @@ end
 
 
 
-function ModularLayered:restoreCycles()
+function modular_layered:restoreCycles()
   for edge in table.value_iter(self.graph.edges) do
     edge.reversed = false
   end
@@ -684,12 +672,12 @@ end
 
 
 
-function ModularLayered:postprocess()
+function modular_layered:postprocess()
 end
 
 
 
-function ModularLayered:loadSubAlgorithm(step, name)
+function modular_layered:loadSubAlgorithm(step, name)
   -- make sure the first character of the class name is uppercase
   classname = name:gsub('^(%a)', string.upper, 1)
 
@@ -716,7 +704,7 @@ end
 
 
 
-function ModularLayered:dumpRanking(prefix, title)
+function modular_layered:dumpRanking(prefix, title)
   local ranks = self.ranking:getRanks()
   Sys:log(prefix .. title)
   for rank in table.value_iter(ranks) do

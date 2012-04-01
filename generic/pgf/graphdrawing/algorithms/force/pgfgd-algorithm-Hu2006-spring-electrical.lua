@@ -13,10 +13,6 @@ pgf.module("pgf.graphdrawing")
 
 
 
-Hu2006SpringElectrical = {}
-Hu2006SpringElectrical.__index = Hu2006SpringElectrical
-
-
 
 --- Implementation of a spring-electrical graph drawing algorithm.
 -- 
@@ -26,93 +22,62 @@ Hu2006SpringElectrical.__index = Hu2006SpringElectrical
 --   Yifan Hu, 2006
 --
 -- Modifications compared to the original algorithm are explained in the manual.
---
-function graph_drawing_algorithm_Hu2006_spring_electrical(graph)
-  local hu = Hu2006SpringElectrical:new(graph)
 
-  Sys:log('Hu2006 spring electrical: random_seed = ' .. hu.random_seed)
-  Sys:log('Hu2006 spring electrical: ')
-  Sys:log('Hu2006 spring electrical: iterations = ' .. hu.iterations)
-  Sys:log('Hu2006 spring electrical: cooling_factor = ' .. hu.cooling_factor)
-  Sys:log('Hu2006 spring electrical: initial_step_length = ' .. hu.initial_step_length)
-  Sys:log('Hu2006 spring electrical: convergence_tolerance = ' .. hu.convergence_tolerance)
-  Sys:log('Hu2006 spring electrical: ')
-  Sys:log('Hu2006 spring electrical: natural_spring_length = ' .. hu.natural_spring_length)
-  Sys:log('Hu2006 spring electrical: spring_constant = ' .. hu.spring_constant)
-  Sys:log('Hu2006 spring electrical: ')
-  Sys:log('Hu2006 spring electrical: approximate_repulsive_forces = ' .. tostring(hu.approximate_repulsive_forces))
-  Sys:log('Hu2006 spring electrical: repulsive_force_order = ' .. hu.repulsive_force_order)
-  Sys:log('Hu2006 spring electrical: ')
-  Sys:log('Hu2006 spring electrical: coarsen = ' .. tostring(hu.coarsen))
-  Sys:log('Hu2006 spring electrical: downsize_ratio = ' .. hu.downsize_ratio)
-  Sys:log('Hu2006 spring electrical: minimum_graph_size = ' .. hu.minimum_graph_size)
 
-  hu:initialize()
-  hu:run()
+Hu2006_spring_electrical = {}
+Hu2006_spring_electrical.__index = Hu2006_spring_electrical
+
+
+function Hu2006_spring_electrical:constructor()
+   self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/random seed'))
+
+   self.iterations = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/iterations'))
+   self.cooling_factor = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/cooling factor'))
+   self.initial_step_length = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/initial step dimension'))
+   self.convergence_tolerance = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/convergence tolerance'))
+
+   self.natural_spring_length = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/natural spring dimension'))
+   self.spring_constant = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/spring constant'))
+
+   self.approximate_repulsive_forces = self.graph:getOption('/graph drawing/spring electrical layout/approximate electric forces') == 'true'
+   self.repulsive_force_order = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/electric force order'))
+
+   self.coarsen = self.graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true'
+   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio'))))
+   self.minimum_graph_size = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/coarsening/minimum graph size'))
+
+   self.graph_size = #self.graph.nodes
+   self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
+
+   -- validate input parameters
+   assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
+   assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
+   assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
+   assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
+   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
+   assert(self.spring_constant >= 0, 'the spring constant (value: ' .. self.spring_constant .. ') needs to be greater or equal to 0')
+   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
+   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
+
+   -- apply the random seed specified by the user (only if it is non-zero)
+   if self.random_seed ~= 0 then
+      math.randomseed(self.random_seed)
+   end
+   
+   -- initialize node weights
+   for node in table.value_iter(self.graph.nodes) do
+      node.weight = tonumber(node:getOption('/graph drawing/spring electrical layout/electric charge'))
+   end
+   
+   -- initialize edge weights
+   for edge in table.value_iter(self.graph.edges) do
+      edge.weight = 1
+   end
 end
 
 
 
-function Hu2006SpringElectrical:new(graph)
-  local hu = {
-    random_seed = tonumber(graph:getOption('/graph drawing/spring electrical layout/random seed')),
-
-    iterations = tonumber(graph:getOption('/graph drawing/spring electrical layout/iterations')),
-    cooling_factor = tonumber(graph:getOption('/graph drawing/spring electrical layout/cooling factor')),
-    initial_step_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/initial step dimension')),
-    convergence_tolerance = tonumber(graph:getOption('/graph drawing/spring electrical layout/convergence tolerance')),
-
-    natural_spring_length = tonumber(graph:getOption('/graph drawing/spring electrical layout/natural spring dimension')),
-    spring_constant = tonumber(graph:getOption('/graph drawing/spring electrical layout/spring constant')),
-
-    approximate_repulsive_forces = graph:getOption('/graph drawing/spring electrical layout/approximate electric forces') == 'true',
-    repulsive_force_order = tonumber(graph:getOption('/graph drawing/spring electrical layout/electric force order')),
-
-    coarsen = graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true',
-    downsize_ratio = math.max(0, math.min(1, tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio')))),
-    minimum_graph_size = tonumber(graph:getOption('/graph drawing/spring electrical layout/coarsening/minimum graph size')),
-
-    graph = graph,
-    graph_size = #graph.nodes,
-    graph_density = (2 * #graph.edges) / (#graph.nodes * (#graph.nodes - 1))
-  }
-  setmetatable(hu, Hu2006SpringElectrical)
-
-  -- validate input parameters
-  assert(hu.iterations >= 0, 'iterations (value: ' .. hu.iterations .. ') need to be greater than 0')
-  assert(hu.cooling_factor >= 0 and hu.cooling_factor <= 1, 'the cooling factor (value: ' .. hu.cooling_factor .. ') needs to be between 0 and 1')
-  assert(hu.initial_step_length >= 0, 'the initial step dimension (value: ' .. hu.initial_step_length .. ') needs to be greater than or equal to 0')
-  assert(hu.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. hu.convergence_tolerance .. ') needs to be greater than or equal to 0')
-  assert(hu.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. hu.natural_spring_length .. ') needs to be greater than or equal to 0')
-  assert(hu.spring_constant >= 0, 'the spring constant (value: ' .. hu.spring_constant .. ') needs to be greater or equal to 0')
-  assert(hu.downsize_ratio >= 0 and hu.downsize_ratio <= 1, 'the downsize ratio (value: ' .. hu.downsize_ratio .. ') needs to be between 0 and 1')
-  assert(hu.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. hu.minimum_graph_size .. ') needs to be greater than or equal to 2')
-
-  return hu
-end
-
-
-
-function Hu2006SpringElectrical:initialize()
-  -- apply the random seed specified by the user (only if it is non-zero)
-  if self.random_seed ~= 0 then
-    math.randomseed(self.random_seed)
-  end
-
-  -- initialize node weights
-  for node in table.value_iter(self.graph.nodes) do
-    node.weight = tonumber(node:getOption('/graph drawing/spring electrical layout/electric charge'))
-  end
-
-  -- initialize edge weights
-  for edge in table.value_iter(self.graph.edges) do
-    edge.weight = 1
-  end
-end
-
-
-
-function Hu2006SpringElectrical:run()
+function Hu2006_spring_electrical:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -149,7 +114,7 @@ function Hu2006SpringElectrical:run()
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.adaptive_step_update)
     end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
@@ -176,7 +141,7 @@ function Hu2006SpringElectrical:run()
       end
 
       -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -189,13 +154,13 @@ function Hu2006SpringElectrical:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.adaptive_step_update)
   end
 end
 
 
 
-function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
+function Hu2006_spring_electrical:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -220,7 +185,7 @@ function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('Hu2006SpringElectrical: distance = ' .. distance)
+      Sys:log('Hu2006_spring_electrical: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -245,7 +210,7 @@ end
 
 
 
-function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_update_func)
+function Hu2006_spring_electrical:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function accurate_repulsive_force(distance, weight)
     -- note: the weight is taken into the equation here. unlike in the original
@@ -441,7 +406,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006SpringElectrical:fixateNodes(graph)
+function Hu2006_spring_electrical:fixateNodes(graph)
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -462,7 +427,7 @@ end
 
 
 
-function Hu2006SpringElectrical:buildQuadtree(graph)
+function Hu2006_spring_electrical:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
     return Vector:new(2, function (n) 
@@ -508,13 +473,13 @@ end
 
 
 
-function Hu2006SpringElectrical.conservative_step_update(step, cooling_factor)
+function Hu2006_spring_electrical.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function Hu2006SpringElectrical.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function Hu2006_spring_electrical.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then
@@ -530,7 +495,7 @@ end
 
 
 
-function Hu2006SpringElectrical:dumpGraph(graph, title)
+function Hu2006_spring_electrical:dumpGraph(graph, title)
   Sys:log(title .. ':')
   for node in table.value_iter(graph.nodes) do
     Sys:log('  node ' .. node.name)
