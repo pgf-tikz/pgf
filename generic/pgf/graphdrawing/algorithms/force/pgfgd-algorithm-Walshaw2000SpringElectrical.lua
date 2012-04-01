@@ -47,10 +47,10 @@ pgf.module("pgf.graphdrawing")
 --   - different cluster layouts (vertical line, horizontal line,
 --     normal cluster, internally fixed subgraph)
 
-Walshaw2000_spring_electrical = {}
-Walshaw2000_spring_electrical.__index = Walshaw2000_spring_electrical
+Walshaw2000SpringElectrical = {}
+Walshaw2000SpringElectrical.__index = Walshaw2000SpringElectrical
 
-function Walshaw2000_spring_electrical:constructor()
+function Walshaw2000SpringElectrical:constructor()
    self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/random seed'))
 
    self.iterations = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/iterations'))
@@ -102,7 +102,7 @@ end
 
 
 
-function Walshaw2000_spring_electrical:run()
+function Walshaw2000SpringElectrical:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -159,7 +159,7 @@ end
 
 
 
-function Walshaw2000_spring_electrical:computeInitialLayout(graph, spring_length)
+function Walshaw2000SpringElectrical:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -207,8 +207,8 @@ end
 
 
 
-function Walshaw2000_spring_electrical:computeForceLayout(graph, spring_length)
-  --Sys:log('Walshaw2000_spring_electrical:   compute force based layout')
+function Walshaw2000SpringElectrical:computeForceLayout(graph, spring_length)
+  --Sys:log('Walshaw2000SpringElectrical:   compute force based layout')
 
   -- global (=repulsive) force function
   local function accurate_repulsive_force(distance, weight) 
@@ -250,7 +250,7 @@ function Walshaw2000_spring_electrical:computeForceLayout(graph, spring_length)
   local i = 0
     
   while not converged and i < self.iterations do
-    --Sys:log('Walshaw2000_spring_electrical:     iteration ' .. i .. ' (max: ' .. self.iterations .. ')')
+    --Sys:log('Walshaw2000SpringElectrical:     iteration ' .. i .. ' (max: ' .. self.iterations .. ')')
   
     -- assume that we are converging
     converged = true
@@ -408,7 +408,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Walshaw2000_spring_electrical:fixateNodes(graph)
+function Walshaw2000SpringElectrical:fixateNodes(graph)
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -429,7 +429,7 @@ end
 
 
 
-function Walshaw2000_spring_electrical:buildQuadtree(graph)
+function Walshaw2000SpringElectrical:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
     return Vector:new(2, function (n) 

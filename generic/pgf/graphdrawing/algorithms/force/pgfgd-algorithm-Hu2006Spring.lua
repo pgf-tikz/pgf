@@ -23,11 +23,11 @@ pgf.module("pgf.graphdrawing")
 -- Modifications compared to the original algorithm are explained in 
 -- the manual.
 
-Hu2006_spring = {}
-Hu2006_spring.__index = Hu2006_spring
+Hu2006Spring = {}
+Hu2006Spring.__index = Hu2006Spring
 
 
-function Hu2006_spring:constructor()
+function Hu2006Spring:constructor()
    self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring layout/random seed'))
 
    self.iterations = tonumber(self.graph:getOption('/graph drawing/spring layout/iterations'))
@@ -71,7 +71,7 @@ end
 
 
 
-function Hu2006_spring:run()
+function Hu2006Spring:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -105,7 +105,7 @@ function Hu2006_spring:run()
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
     end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
@@ -128,7 +128,7 @@ function Hu2006_spring:run()
       end
 
       -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -141,7 +141,7 @@ function Hu2006_spring:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring.adaptive_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
   end
 
   local avg_spring_length = table.combine_values(self.graph.edges, function (sum, edge)
@@ -152,7 +152,7 @@ end
 
 
 
-function Hu2006_spring:computeInitialLayout(graph, spring_length)
+function Hu2006Spring:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -177,7 +177,7 @@ function Hu2006_spring:computeInitialLayout(graph, spring_length)
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('Hu2006_spring: distance = ' .. distance)
+      Sys:log('Hu2006Spring: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -202,7 +202,7 @@ end
 
 
 
-function Hu2006_spring:computeForceLayout(graph, spring_length, step_update_func)
+function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function repulsive_force(distance, graph_distance, weight)
     --return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
@@ -302,7 +302,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006_spring:fixateNodes(graph)
+function Hu2006Spring:fixateNodes(graph)
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -323,13 +323,13 @@ end
 
 
 
-function Hu2006_spring.conservative_step_update(step, cooling_factor)
+function Hu2006Spring.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function Hu2006_spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function Hu2006Spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then

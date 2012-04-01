@@ -15,10 +15,10 @@ pgf.module("pgf.graphdrawing")
 
 --- An implementation of a modular version of the Sugiyama method
 
-modular_layered = {}
-modular_layered.__index = modular_layered
+SugiyamaModularLayered = {}
+SugiyamaModularLayered.__index = SugiyamaModularLayered
 
-function modular_layered:constructor()
+function SugiyamaModularLayered:constructor()
    self.random_seed = tonumber(self.graph:getOption('/graph drawing/layered layout/random seed'))
 
    -- read graph input parameters
@@ -39,7 +39,7 @@ end
 
 
 
-function modular_layered:run()
+function SugiyamaModularLayered:run()
   if #self.graph.nodes <= 1 then
      return
   end
@@ -119,7 +119,7 @@ function modular_layered:run()
 end
 
 
-function modular_layered:dumpGraph(title)
+function SugiyamaModularLayered:dumpGraph(title)
   Sys:log(title .. ':')
   for node in table.value_iter(self.graph.nodes) do
     Sys:log('  node ' .. node.name)
@@ -141,7 +141,7 @@ end
 
 
 
-function modular_layered:preprocess()
+function SugiyamaModularLayered:preprocess()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
@@ -155,7 +155,7 @@ end
 
 
 
-function modular_layered:insertDummyNodes()
+function SugiyamaModularLayered:insertDummyNodes()
   Sys:log('insert dummy nodes:')
 
   self:dumpRanking('  ', 'ranking before inserting dummy nodes')
@@ -237,7 +237,7 @@ end
 
 
 
-function modular_layered:removeDummyNodes()
+function SugiyamaModularLayered:removeDummyNodes()
   -- delete dummy nodes
   for node in table.value_iter(self.dummy_nodes) do
     self.graph:deleteNode(node)
@@ -270,7 +270,7 @@ end
 
 
 
-function modular_layered:mergeClusters()
+function SugiyamaModularLayered:mergeClusters()
   Sys:log('merge clusters:')
 
   --self.cluster_nodes = {}
@@ -420,7 +420,7 @@ end
 
 
 
-function modular_layered:expandClusters()
+function SugiyamaModularLayered:expandClusters()
   Sys:log('expand clusters:')
 
   --for node in table.value_iter(self.original_nodes) do
@@ -469,7 +469,7 @@ end
 
 
 
-function modular_layered:removeLoops()
+function SugiyamaModularLayered:removeLoops()
   self.loops = {}
 
   for edge in table.value_iter(self.graph.edges) do
@@ -485,7 +485,7 @@ end
 
 
 
-function modular_layered:mergeMultiEdges()
+function SugiyamaModularLayered:mergeMultiEdges()
   self.individual_edges = {}
 
   Sys:log('merge multiedges:')
@@ -566,8 +566,8 @@ end
 
 
 
-function modular_layered:removeCycles()
-  local name, class = self:loadSubAlgorithm('cycle-removal', self.cycle_removal_algorithm)
+function SugiyamaModularLayered:removeCycles()
+  local name, class = self:loadSubAlgorithm('CycleRemoval', self.cycle_removal_algorithm)
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
 
@@ -579,8 +579,8 @@ end
 
 
 
-function modular_layered:rankNodes()
-  local name, class = self:loadSubAlgorithm('node-ranking', self.node_ranking_algorithm)
+function SugiyamaModularLayered:rankNodes()
+  local name, class = self:loadSubAlgorithm('NodeRanking', self.node_ranking_algorithm)
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
 
@@ -594,8 +594,8 @@ end
 
 
 
-function modular_layered:reduceEdgeCrossings()
-  local name, class = self:loadSubAlgorithm('crossing-minimization', self.crossing_minimization_algorithm)
+function SugiyamaModularLayered:reduceEdgeCrossings()
+  local name, class = self:loadSubAlgorithm('CrossingMinimization', self.crossing_minimization_algorithm)
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
 
@@ -609,7 +609,7 @@ end
 
 
 
-function modular_layered:restoreMultiEdges()
+function SugiyamaModularLayered:restoreMultiEdges()
   for multiedge, subedges in pairs(self.individual_edges) do
     assert(#subedges >= 2)
 
@@ -629,8 +629,8 @@ end
 
 
 
-function modular_layered:positionNodes()
-  local name, class = self:loadSubAlgorithm('node-positioning', self.node_positioning_algorithm)
+function SugiyamaModularLayered:positionNodes()
+  local name, class = self:loadSubAlgorithm('NodePositioning', self.node_positioning_algorithm)
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
 
@@ -642,7 +642,7 @@ end
 
 
 
-function modular_layered:restoreLoops()
+function SugiyamaModularLayered:restoreLoops()
   for edge in table.value_iter(self.loops) do
     self.graph:addEdge(edge)
     edge:getTail():addEdge(edge)
@@ -651,8 +651,8 @@ end
 
 
 
-function modular_layered:routeEdges()
-  local name, class = self:loadSubAlgorithm('edge-routing', self.edge_routing_algorithm)
+function SugiyamaModularLayered:routeEdges()
+  local name, class = self:loadSubAlgorithm('EdgeRouting', self.edge_routing_algorithm)
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
 
@@ -664,7 +664,7 @@ end
 
 
 
-function modular_layered:restoreCycles()
+function SugiyamaModularLayered:restoreCycles()
   for edge in table.value_iter(self.graph.edges) do
     edge.reversed = false
   end
@@ -672,25 +672,21 @@ end
 
 
 
-function modular_layered:postprocess()
+function SugiyamaModularLayered:postprocess()
 end
 
 
 
-function modular_layered:loadSubAlgorithm(step, name)
-  -- make sure the first character of the class name is uppercase
-  classname = name:gsub('^(%a)', string.upper, 1)
+function SugiyamaModularLayered:loadSubAlgorithm(step, name)
 
   -- make sure there are no spaces in the file name
-  escaped_name = name:gsub(' ', '-')
+  escaped_name = name:gsub(' ', '')
 
   --Sys:log('pre   classname: ' .. classname)
   --Sys:log('escaped name:    ' .. escaped_name)
 
-  local classname = Interface:convertFilenameToClassname(step .. '-' .. classname)
-  local filename = 'pgfgd-algorithm-modular-layered-' 
-                   .. Interface:convertClassnameToFilename(step) 
-                   .. '-' .. escaped_name .. '.lua'
+  local classname = step .. classname
+  local filename = 'pgfgd-subalgorithm-' .. step .. classname .. '.lua'
 
   --Sys:log('load class = ' .. classname .. ', file = ' .. filename)
 
@@ -704,7 +700,7 @@ end
 
 
 
-function modular_layered:dumpRanking(prefix, title)
+function SugiyamaModularLayered:dumpRanking(prefix, title)
   local ranks = self.ranking:getRanks()
   Sys:log(prefix .. title)
   for rank in table.value_iter(ranks) do

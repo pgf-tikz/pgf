@@ -24,11 +24,11 @@ pgf.module("pgf.graphdrawing")
 -- Modifications compared to the original algorithm are explained in the manual.
 
 
-Hu2006_spring_electrical = {}
-Hu2006_spring_electrical.__index = Hu2006_spring_electrical
+Hu2006SpringElectrical = {}
+Hu2006SpringElectrical.__index = Hu2006SpringElectrical
 
 
-function Hu2006_spring_electrical:constructor()
+function Hu2006SpringElectrical:constructor()
    self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/random seed'))
 
    self.iterations = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/iterations'))
@@ -77,7 +77,7 @@ end
 
 
 
-function Hu2006_spring_electrical:run()
+function Hu2006SpringElectrical:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -114,7 +114,7 @@ function Hu2006_spring_electrical:run()
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
     end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
@@ -141,7 +141,7 @@ function Hu2006_spring_electrical:run()
       end
 
       -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -154,13 +154,13 @@ function Hu2006_spring_electrical:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006_spring_electrical.adaptive_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
   end
 end
 
 
 
-function Hu2006_spring_electrical:computeInitialLayout(graph, spring_length)
+function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -185,7 +185,7 @@ function Hu2006_spring_electrical:computeInitialLayout(graph, spring_length)
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('Hu2006_spring_electrical: distance = ' .. distance)
+      Sys:log('Hu2006SpringElectrical: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -210,7 +210,7 @@ end
 
 
 
-function Hu2006_spring_electrical:computeForceLayout(graph, spring_length, step_update_func)
+function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function accurate_repulsive_force(distance, weight)
     -- note: the weight is taken into the equation here. unlike in the original
@@ -406,7 +406,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006_spring_electrical:fixateNodes(graph)
+function Hu2006SpringElectrical:fixateNodes(graph)
   for node in table.value_iter(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
@@ -427,7 +427,7 @@ end
 
 
 
-function Hu2006_spring_electrical:buildQuadtree(graph)
+function Hu2006SpringElectrical:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
     return Vector:new(2, function (n) 
@@ -473,13 +473,13 @@ end
 
 
 
-function Hu2006_spring_electrical.conservative_step_update(step, cooling_factor)
+function Hu2006SpringElectrical.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function Hu2006_spring_electrical.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function Hu2006SpringElectrical.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then
@@ -495,7 +495,7 @@ end
 
 
 
-function Hu2006_spring_electrical:dumpGraph(graph, title)
+function Hu2006SpringElectrical:dumpGraph(graph, title)
   Sys:log(title .. ':')
   for node in table.value_iter(graph.nodes) do
     Sys:log('  node ' .. node.name)
