@@ -10,8 +10,6 @@
 
 -- @release $Header$
 
-pgf.module("pgf.graphdrawing")
-
 
 
 --- Implementation of a spring-electrical graph drawing algorithm.
@@ -47,43 +45,47 @@ pgf.module("pgf.graphdrawing")
 --   - different cluster layouts (vertical line, horizontal line,
 --     normal cluster, internally fixed subgraph)
 
-Walshaw2000SpringElectrical = {}
-Walshaw2000SpringElectrical.__index = Walshaw2000SpringElectrical
+
+graph_drawing_algorithm {
+  name = 'Walshaw2000SpringElectrical',
+  properties = {
+    split_into_connected_components = true
+  },
+  graph_parameters = {
+    iterations = {'spring electrical layout/iterations', tonumber},
+    cooling_factor = {'spring electrical layout/cooling factor', tonumber},
+    initial_step_length = {'spring electrical layout/initial step dimension', tonumber},
+    convergence_tolerance = {'spring electrical layout/convergence tolerance', tonumber},
+
+    natural_spring_length = {'spring electrical layout/natural spring dimension', tonumber},
+    spring_constant = {'spring electrical layout/spring constant', tonumber},
+
+    approximate_repulsive_forces = {'spring electrical layout/approximate electric forces', toboolean},
+    repulsive_force_order = {'spring electrical layout/electric force order', tonumber},
+   
+    coarsen = {'spring electrical layout/coarsen', toboolean},
+    downsize_ratio = {'spring electrical layout/coarsening/downsize ratio', tonumber},
+    minimum_graph_size = {'spring electrical layout/coarsening/minimum graph size', tonumber},
+  }
+}
+
 
 function Walshaw2000SpringElectrical:constructor()
-   self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/random seed'))
 
-   self.iterations = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/iterations'))
-   self.cooling_factor = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/cooling factor'))
-   self.initial_step_length = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/initial step dimension'))
-   self.convergence_tolerance = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/convergence tolerance'))
+  -- Adjust types
+  self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
+  self.graph_size = #self.graph.nodes
+  self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
 
-   self.natural_spring_length = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/natural spring dimension'))
-   self.spring_constant = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/spring constant'))
-
-   self.approximate_repulsive_forces = self.graph:getOption('/graph drawing/spring electrical layout/approximate electric forces') == 'true'
-   self.repulsive_force_order = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/electric force order'))
-   
-   self.coarsen = self.graph:getOption('/graph drawing/spring electrical layout/coarsen') == 'true'
-   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.graph:getOption('/graph drawing/spring electrical layout/coarsening/downsize ratio'))))
-   self.minimum_graph_size = tonumber(self.graph:getOption('/graph drawing/spring electrical layout/coarsening/minimum graph size'))
-   self.graph_size = #self.graph.nodes
-   self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
-
-   -- validate input parameters
-   assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
-   assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
-   assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
-   assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
-   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
-   assert(self.spring_constant >= 0, 'the spring constant (value: ' .. self.spring_constant .. ') needs to be greater or equal to 0')
-   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
-   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
-
-  -- apply the random seed specified by the user (only if it is non-zero)
-  if self.random_seed ~= 0 then
-    math.randomseed(self.random_seed)
-  end
+  -- validate input parameters
+  assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
+  assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
+  assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
+  assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
+  assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
+  assert(self.spring_constant >= 0, 'the spring constant (value: ' .. self.spring_constant .. ') needs to be greater or equal to 0')
+  assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
+  assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
 
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
@@ -108,8 +110,6 @@ function Walshaw2000SpringElectrical:run()
   -- number of coarsening steps without coarsening is 0
   local coarse_graph = CoarseGraph:new(self.graph)
 
-  --Sys:log('graph size before coarsening = ' .. #coarse_graph.graph.nodes)
-
   -- check if the multilevel approach should be used
   if self.coarsen then
     -- coarsen the graph repeatedly until only minimum_graph_size nodes 
@@ -121,8 +121,6 @@ function Walshaw2000SpringElectrical:run()
       coarse_graph:coarsen()
     end
   end
-
-  --Sys:log('graph size after coarsening = ' .. #coarse_graph.graph.nodes)
 
   -- compute the natural spring length for the coarsest graph in a way
   -- that will result in the desired natural spring length in the 

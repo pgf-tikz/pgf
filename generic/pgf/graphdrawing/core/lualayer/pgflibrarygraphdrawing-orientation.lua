@@ -96,28 +96,6 @@ end
 
 
 
-
---- Helper function for graphs with a growth direction
---
--- This function can be called by algorithms that orient a graph in
--- a way that permits speaking of a natural "direction of growth", but
--- that do not wish to take the /graph drawing/grow node parameter
--- into account. In this case, they should call this function, the
--- necessary rotations will be performed in the postprocessing. If the
--- natural direction of growth computed by the algorithm is not
--- downward (the default), the direction must be given as a
--- parameter. 
--- 
--- @param graph The graph.
-
-function orientation.algorithm_has_grown_the_graph_in_a_direction(graph, angle)
-   local angle = angle or -90
-   for _, node in pairs(graph.nodes) do
-      node.growth_direction = angle
-   end
-end
-
-
 --- Perform a post-layout orientation of the graph
 --
 -- Performs a post-layout orientation of the graph by performing the

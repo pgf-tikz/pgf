@@ -886,7 +886,7 @@ reference.
 
 
 
-\subsection{Lua Layer: Installing  Graph Drawing Algorithms}
+\subsection{Lua Layer: Installing Graph Drawing Algorithms}
 \label{section-gd-implementing-algorithms}
 
 In the following we describe in detail how a new graph drawing
@@ -911,11 +911,14 @@ algorithms will make the use of the algorithm somewhat simpler.\
 
 As indicated at in the description of the |algorithm| key on
 page~\ref{section-gd-algorithm-key}, each graph drawing algorithm  
-must be implemented in a class named like the algorithm and residing
-in the namespace |pgf.graphdrawing|. (Spaces will be deleted from the
-text given to the |algorithm| key.) This class, in turn, should typically
-be placed in a file called |pgfgd-algorithm-|\meta{algorithm name},
-again with spaces ignored. ``Typically'' means that it is only
+must be implemented in a class. The class name will be the value
+passed to the |algorithm| key, albeit without any spaces. This class
+is a normal class in the sense of Lua, but a special function called
+|graph_drawing_algorithm| is provided that makes the declaration of
+such classes easier (we will come to it in a moment). This class
+should typically be placed in a file called
+|pgfgd-algorithm-|\meta{algorithm name}, again with spaces
+ignored. ``Typically'' means that it is only 
 important that the class is already defined when the engine
 tries to invoke it or, when this is not the case, the file with the
 described name contains this function. You could also put several
@@ -924,21 +927,107 @@ the file yourself.
 
 During |\pgfgdendscope|, the algorithm's class will be loaded, if
 necessary. Then, the following things happen, in turn, in normal
-operation mode: 
+operation mode: (Let \meta{class} by the class name.)
 
 \begin{enumerate}
-\item A new instance of the class is created.
-\item The |graph| attribute of this object is set to the graph that
-  should be layed out by the algorithm.
-\item The |constructor| method of the class is called, if such a
+\item Some preprocessing is done, if the ``static'' attributes of the
+  class specify this.
+\item A new instance of the class is created by calling
+  \meta{class}|:new(graph)|, where |graph| is a variable holding the
+  graph object. 
+\item The |constructor| method of the instance is called, if such a
   method exists.
-\item The |run| method of the class is called. This method should now
+\item The |run| method of the instance is called. This method should now
   compute ``good'' positions for the nodes in the graph represented by
-  the |graph| attribute.
+  the |graph|.
 \item Post layout operations are performed, namely orienting the
   graph and then anchoring the graph. Both operations are performed
   automatically, but it is possible to configure them.
 \end{enumerate}
+
+Let us now look at the |graph_drawing_algorithm| function in more
+detail. It takes a single parameter \meta{info}, which must be a
+table, and does the following:
+
+\begin{enumerate}
+\item It switches to the namespace |pgf.graphdrawing|.
+\item It declares a new class whose name is given by the |name| key in
+  the \meta{info}.
+\item It declares a |new| method for this class, which takes a single
+  parameter |g| and returns a new \meta{instance} of the class. The
+  parameter will be installed in the attribute |graph| of
+  \meta{instance}. The |new| method tests whether a key called
+  |graph_options| is defined in the \meta{info} table. If so, the
+  value for this key must be a table of \meta{options}. This table is
+  processed as follows: For each pair \meta{key} |=| \meta{value}
+  inside the \meta{options} table, an attribute \meta{key} is created
+  in \meta{instance}. Provided that \meta{value} is a string, the
+  \meta{key} of the \meta{instance} will be set to
+  \begin{quote}
+    |graph:getOption('/graph drawing/' .. |\meta{value}|)|
+  \end{quote}
+  If, however, \meta{value} is an array, it should have two entries:
+  The first is, as above, a string that is the name of a graph
+  parameter. The second entry must be a function, which will be
+  applied to the result of the |getOption| function. Typically, this
+  function will be something like |tonumber| to convert the strings
+  that come from |getOption| into a number. The function |toboolean|
+  is defined as a convenience function; it tests whether its argument
+  is |'true'|.
+
+  Finally, |new| calls the |constructor| method of \meta{instance},
+  provided it exists.   
+\item If the key |properties| is defined inside the \meta{info} table,
+  its value should be table of ``static'' or ``default'' values for
+  the class. More precisely, this table is used as the metatable of
+  the class.
+\end{enumerate}
+
+Let us have a look at an example: We redo our |SimpleDemo|, but this
+time using the full power of the |graph_drawing_algorithm| function:
+
+\begin{codeexample}[code only]
+graph_drawing_algorithm {
+  
+  -- Declare the name of the key (required key):
+  name = "SimpleDemo",
+
+  -- Declare a property:
+  properties = {
+    -- Ensures, that the graph is always connected when the graph
+    -- drawing algorithm is called
+    split_into_connected_components = true
+  },
+
+  -- Declare a graph parameter:
+  graph_parameters = {
+    label  = 'label',
+    radius = {'radius', tonumber}
+  }
+}
+\end{codeexample}
+
+The code is equivalent to the following:
+\begin{codeexample}[code only]
+pgf.module("pgf.graphdrawing")
+
+SimpleDemo = { split_into_connected_components = true }
+SimpleDemo.__index = SimpleDemo
+
+function SimpleDemo:new(g)
+  local obj = { graph = g }
+  setmetatable(obj, SimpleDemo)
+  
+  obj.label  = g:getOption('/graph drawing/label')
+  obj.radius = tonumber(g:getOption('/graph drawing/radius'))
+
+  if obj.constructor then
+    obj:constructor ()
+  end
+  return obj  
+end  
+\end{codeexample}
+
 
 
 \subsubsection{Coordinate Systems in Lua}
@@ -1003,10 +1092,7 @@ nodes on a fixed-size circle.
 \begin{codeexample}[code only]
 -- File pgfgd-algorithm-simple-demo.lua
   
-pgf.module("pgf.graphdrawing")
-
-SimpleDemo = {}
-SimpleDemo.__index = SimpleDemo
+graph_drawing_algorithm { name = "SimpleDemo" }
 
 function SimpleDemo:run()
    local radius = 28.908  -- this is 1cm in points
@@ -1177,6 +1263,63 @@ end
 }
 \end{codeexample}
 
+
+
+
+\subsection{Lua Layer: Pre- and Postprocessing}
+
+A number of tasks in graph drawing can be performed independently of
+the actual algorithm used. For instance, many algorithms require that
+the graph is connected. In this case, unconnected input graphs first
+need to be decomposed into their connected components, which should
+then be processed independently. Such a step would be
+\emph{preprocessing} step. Similarly, once a graph has been laid out
+by an algorithm, it often still needs to be shifted around to its
+anchoring position. This step is the same for any algorithm and can be
+done in a \emph{postprocessing} step.
+
+It turns out that some pre- or postprocessing steps make sense for
+certain algorithms, but not for other algorithms. For this reason, an
+algorithm can specify which steps should (not) be performed by setting
+certain attributes in the algorithm's class. Usually, these attributes
+will be set using the |properties| key in the declaration of the
+algorithm's class.
+
+In the following, we describe which steps are performed and which keys
+influence them.
+
+
+\subsubsection{Preprocessing}
+
+The following preprocessing steps are performed for every graph:
+\begin{enumerate}
+\item If the |split_into_connected_components| property is set, the
+  connected components of the graph will first be computed.
+\item For each component or, if the property is not set, for the whole
+  graph, a new algorithm object is created.
+\item The |run| method is then called for each component,
+  \emph{unless} the size of the component is |1|. If, however, the
+  |run_also_for_single_node| property is set, the algorithm is even
+  invoked for a 1-node graph.
+\end{enumerate}
+
+\subsubsection{Postprocessing}
+
+Each time the |run| method finishes, the following postprocessing
+operations are performed:
+\begin{enumerate}
+\item The graph is oriented, see
+  Section~\ref{subsection-library-graphdrawing-standard-orientation}. A
+  graph drawing algorithm can set the |growth_direction| property in
+  case the graph has a natural growth direction. 
+\item The graph is anchored, see
+  Section~\ref{subsection-library-graphdrawing-anchoring}. 
+\end{enumerate}
+The above steps are applied to each connected component individually
+if the splitting key has been set.
+
+The components then need to be ``packed'', but this is not yet
+implemented.
 
 
 \subsection{Lua Layer: The Main Classes}

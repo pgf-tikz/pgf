@@ -1,4 +1,5 @@
 -- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
 --
@@ -12,15 +13,12 @@
 -- This file contains an example of how a very simple algorithm can be
 -- implemented by a user.
 
-pgf.module("pgf.graphdrawing")
-
 
 
 --- A trivial node placing algorithm for demonstration purposes.
 -- All nodes are positioned on a fixed size circle.
 
-SimpleDemo = {}
-SimpleDemo.__index = SimpleDemo
+graph_drawing_algorithm { name = 'SimpleDemo' }
 
 function SimpleDemo:run()
    local radius = tonumber(self.graph:getOption("/graph drawing/radius") or 28.908)

@@ -40,9 +40,7 @@ function Graph:new(values)
     nodes = {},
     edges = {},
     clusters = {},
-    pos = Vector:new(2),
-    options = {},
-    flags = {},
+    options = {}
   }
   setmetatable(defaults, Graph)
   local result = table.custom_merge(values, defaults)
@@ -81,7 +79,7 @@ end
 -- @param options The options to be merged.
 --
 function Graph:mergeOptions(options)
-  self.options = table.custom_merge(options, self.options)
+ self.options = table.custom_merge(options, self.options)
 end
 
 
@@ -93,12 +91,7 @@ end
 -- @return A shallow copy of the graph.
 --
 function Graph:copy ()
-  local result = table.custom_copy(self, Graph:new())
-  result.nodes = {}
-  result.edges = {}
-  result.clusters = {}
-  result.root = nil
-  return result
+   return Graph:new({options = self.options})
 end
 
 
@@ -354,186 +347,6 @@ function Graph:addCluster(cluster)
 end
 
 
-
---- Auxiliary function to walk a graph. Does nothing if no nodes exist.
---
--- @see walkDepth, walkBreadth
---
--- @param root         The first node to be visited.  If nil, chooses some node.
--- @param visited      Set of already visited nodes and edges.
---                     |visited[v] == true| indicates that the node or edge |v| 
---                     has already been visited.
--- @param remove_index A numeric value or |nil| that defines the order in which nodes
---                     and edges are visited while traversing the graph. |nil| results
---                     in queue behavior, |1| in stack behavior.
---
-function Graph:walkAux(root, visited, remove_index)
-  root = root or self.nodes[1]
-  if not root then return end
-  
-  visited = visited or {}
-  visited[root] = true
-
-  local nodeQueue = {root}
-  local edgeQueue = {}
-
-  local function insertVisited(queue, object)
-    if not visited[object] then
-      table.insert(queue, 1, object)
-      visited[object] = true
-    end
-  end
-
-  local function remove(queue)
-    return table.remove(queue, remove_index or #queue)
-  end
-
-  return function ()
-    while #edgeQueue > 0 do
-      local currentEdge = remove(edgeQueue)
-      for node in table.value_iter(currentEdge.nodes) do
-        insertVisited(nodeQueue, node)
-      end
-      return currentEdge
-    end
-    while #nodeQueue > 0 do
-      local currentNode = remove(nodeQueue)
-      for edge in table.value_iter(currentNode.edges) do
-        insertVisited(edgeQueue, edge)
-      end
-      return currentNode
-    end
-    return nil
-  end
-end
-
-
-
---- Returns an iterator to walk the graph in a depth-first traversal.
---
--- The iterator returns all edges and nodes one at a time. In case only the
--- nodes are of interest, a filter function like |iter.filter| can be used
--- to ignore edges.
---
--- @see iter.filter
---
--- @param root    The first node to be visited.  If nil, chooses some node.
--- @param visited Set of already visited nodes and edges.
---                |visited[v] == true| indicates that the node or edge |v| 
---                has already been visited.
---
-function Graph:walkDepth(root, visited)
-  return self:walkAux(root, visited, 1)
-end
-
-
-
---- Returns an iterator to walk the graph in a breadth-first traversal.
---
--- The iterator returns all edges and nodes one at a time. In case only the
--- nodes are of interest, a filter function like |iter.filter| can be used
--- to ignore edges.
---
--- @see iter.filter
---
--- @param root    The first node to be visited.  If nil, chooses some node.
--- @param visited Set of already visited nodes and edges.
---                |visited[v] == true| indicates that the node or edge |v| 
---                has already been visited.
---
-function Graph:walkBreadth(root, visited)
-   return self:walkAux(root, visited)
-end
-
-
-
---- Returns a subgraph.
---
--- The resulting subgraph begins at the node root, excludes all nodes and 
--- edges that are marked as visited.
---
--- @param root    Root node where the operation starts.
--- @param graph   Result graph object or |nil| if the original graph should
---                be used as the parent graph.
--- @param visited Set of already visited nodes/edges or |nil|. This set
---                will be modified so make sure not to use a table that
---                you want to remain untouched.
---
-function Graph:subGraph(root, graph, visited)
-  graph = graph or self:copy()
-  visited = visited or {}
-
-  -- translates old things to new things
-  local translate = {}
-  local nodes, edges = {}, {}
-  for v in self:walkDepth(root, visited) do
-    if v.__index == Node then
-      table.insert(nodes, v)
-    elseif v.__index == Edge then
-      table.insert(edges, v)
-    end
-  end
-  
-  -- create new nodes (without edges)
-  for node in table.value_iter(nodes) do
-    local copy = node:copy()
-    graph:addNode(copy)
-    assert(copy)
-    translate[node] = copy
-    graph.root = graph.root or copy
-  end
-  
-  -- create new edges and adds them to graph and nodes
-  for edge in table.value_iter(edges) do
-    local copy = edge:copy()
-    local canAdd = true
-    for v in table.value_iter(edge.nodes) do
-      local translated = translate[v]
-      if not translated then
-         canAdd = false
-      end
-    end
-    if canAdd then
-      for v in table.value_iter(edge.nodes) do
-        local translated = translate[v]
-        copy:addNode(translated)
-      end
-      for node in table.value_iter(copy.nodes) do
-        node:addEdge(copy)
-      end
-      graph:addEdge(copy)
-    end
-  end
-  
-  return graph
-end
-
-
-
---- Creates a new subgraph with \meta{parent} marked as visited. 
---
--- This function can be useful if the graph is a tree structure (and 
--- \meta{parent} is the parent node of \meta{root}).
---
--- @see subGraph
---
--- @param root   Root node where the operation starts.
--- @param parent Parent of the recursion step before.
--- @param graph  Result graph object or |nil| if the original graph should
---               be used as the parent graph.
---
-function Graph:subGraphParent(root, parent, graph)
-  local visited = {}
-  visited[parent] = true
-  
-  -- mark edges with root and parent as visited
-  for edge in table.value_iter(root.edges) do
-    if edge:containsNode(root) and edge:containsNode(parent) then
-      visited[edge] = true
-    end
-  end
-  return self:subGraph(root, graph, visited)
-end
 
 
 

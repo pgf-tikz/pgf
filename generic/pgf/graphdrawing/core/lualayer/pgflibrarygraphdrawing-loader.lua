@@ -294,3 +294,45 @@ pgf.load = userLoad
 for _, file in ipairs(files) do
   load(file, format, prefix, suffix)
 end
+
+
+
+-- Helping functions for declaring a graph drawing class
+function graph_drawing_algorithm(info)
+
+  pgf.module("pgf.graphdrawing", 3)
+
+  local _M = getfenv(2)
+
+  local class = info.properties or {}
+
+  _M[info.name] = class
+  _M[info.name].__index = class
+
+  _M[info.name].new = 
+    function (self, g) 
+
+      -- Create new object
+      local obj = { graph = g }
+      setmetatable(obj, class)
+
+      -- Setup graph_options
+      for k,v in pairs(info.graph_parameters or {}) do
+	if type(v) == "table" then
+	  obj[k] = v[2](g:getOption('/graph drawing/' .. v[1]))
+	else
+	  obj[k] = g:getOption('/graph drawing/' .. v)
+	end
+      end
+
+      if obj.constructor then
+	obj:constructor()
+      end
+
+      return obj
+    end
+end
+
+function toboolean(string)
+  return string == "true"
+end

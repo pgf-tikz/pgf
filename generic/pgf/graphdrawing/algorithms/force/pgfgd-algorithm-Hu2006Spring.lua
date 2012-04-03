@@ -9,9 +9,6 @@
 
 -- @release $Header$
 
-pgf.module("pgf.graphdrawing")
-
-
 
 --- Implementation of a spring spring graph drawing algorithm.
 -- 
@@ -23,41 +20,41 @@ pgf.module("pgf.graphdrawing")
 -- Modifications compared to the original algorithm are explained in 
 -- the manual.
 
-Hu2006Spring = {}
-Hu2006Spring.__index = Hu2006Spring
 
+graph_drawing_algorithm {
+  name = 'Hu2006Spring',
+  properties = {
+    split_into_connected_components = true
+  },
+  graph_parameters = {
+    iterations = {'spring layout/iterations', tonumber},
+    cooling_factor = {'spring layout/cooling factor', tonumber},
+    initial_step_length = {'spring layout/initial step dimension', tonumber},
+    convergence_tolerance = {'spring layout/convergence tolerance', tonumber},
+
+    natural_spring_length = {'spring layout/natural spring dimension', tonumber},
+   
+    coarsen = {'spring layout/coarsen', toboolean},
+    downsize_ratio = {'spring layout/coarsening/downsize ratio', tonumber},
+    minimum_graph_size = {'spring layout/coarsening/minimum graph size', tonumber},
+  }
+}
 
 function Hu2006Spring:constructor()
-   self.random_seed = tonumber(self.graph:getOption('/graph drawing/spring layout/random seed'))
-
-   self.iterations = tonumber(self.graph:getOption('/graph drawing/spring layout/iterations'))
-   self.cooling_factor = tonumber(self.graph:getOption('/graph drawing/spring layout/cooling factor'))
-   self.initial_step_length = tonumber(self.graph:getOption('/graph drawing/spring layout/initial step dimension'))
-   self.convergence_tolerance = tonumber(self.graph:getOption('/graph drawing/spring layout/convergence tolerance'))
-
-   self.natural_spring_length = tonumber(self.graph:getOption('/graph drawing/spring layout/natural spring dimension'))
-
-   self.coarsen = self.graph:getOption('/graph drawing/spring layout/coarsen') == 'true'
-   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.graph:getOption('/graph drawing/spring layout/coarsening/downsize ratio'))))
-   self.minimum_graph_size = tonumber(self.graph:getOption('/graph drawing/spring layout/coarsening/minimum graph size'))
-
-   self.graph_size = #self.graph.nodes
-   self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
-
-   -- validate input parameters
-   assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
-   assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
-   assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
-   assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
-   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
-   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
-   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
-
-  -- apply the random seed specified by the user (only if it is non-zero)
-  if self.random_seed ~= 0 then
-    math.randomseed(self.random_seed)
-  end
-
+  self.downsize_ratio = math.max(0, math.min(1, tonumber(self.downsize_ratio)))
+  
+  self.graph_size = #self.graph.nodes
+  self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
+  
+  -- validate input parameters
+  assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
+  assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
+  assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
+  assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
+  assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
+  assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
+  assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
+  
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
     node.weight = 1

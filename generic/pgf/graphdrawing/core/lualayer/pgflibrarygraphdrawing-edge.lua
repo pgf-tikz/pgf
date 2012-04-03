@@ -185,7 +185,7 @@ function Edge:getHead()
 
   -- if the edge should be assumed reversed, we simply switch head and 
   -- tail positions
-  if not ignore_reversed and self.reversed then
+  if self.reversed then
     head_index = (head_index == 1) and #self.nodes or 1
   end
 
@@ -201,7 +201,7 @@ function Edge:getTail()
 
   -- if the edge should be assumed reversed, we simply switch head
   -- and tail positions
-  if not ignore_reversed and self.reversed then
+  if self.reversed then
     tail_index = (tail_index == 1) and #self.nodes or 1
   end
 
@@ -220,12 +220,10 @@ end
 -- which is |false| by default.
 --
 -- @param node            The node to check.
--- @param ignore_reversed Optional parameter. Set this to true if reversed edges
---                        should not be considered reversed for this method call.
 --
 -- @return True if the node is the head of the edge.
 --
-function Edge:isHead(node, ignore_reversed)
+function Edge:isHead(node)
   local result = false
 
   -- by default, the head of -> edges is the last node and the head
@@ -234,7 +232,7 @@ function Edge:isHead(node, ignore_reversed)
 
   -- if the edge should be assumed reversed, we simply switch head and 
   -- tail positions
-  if not ignore_reversed and self.reversed then
+  if self.reversed then
     head_index = (head_index == 1) and #self.nodes or 1
   end
 
@@ -272,7 +270,7 @@ function Edge:isTail(node, ignore_reversed)
 
   -- if the edge should be assumed reversed, we simply switch head
   -- and tail positions
-  if not ignore_reversed and self.reversed then
+  if self.reversed then
     tail_index = (tail_index == 1) and #self.nodes or 1
   end
 

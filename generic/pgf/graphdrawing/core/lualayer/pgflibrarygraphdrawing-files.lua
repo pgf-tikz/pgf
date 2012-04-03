@@ -41,6 +41,7 @@ local files = {
    "ranking",
    "network-simplex",
    "anchoring",
+   "componentdecomposition",
 --   "test-path",
 --   "test-box",
 --   "test-vector",
