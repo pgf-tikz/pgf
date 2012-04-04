@@ -86,6 +86,7 @@ end
 -- positioning like a label.
 --
 -- @param name      Name of the node.
+-- @param shape     The pgf shape of the node (e.g. "circle" or "rectangle")
 -- @param xMin      Minimum x point of the bouding box.
 -- @param yMin      Minimum y point of the bouding box.
 -- @param xMax      Maximum x point of the bouding box.
@@ -93,10 +94,11 @@ end
 -- @param options   Lua-Options for the node.
 -- @param lateSetup Options for the node.
 --
-function Interface:addNode(name, xMin, yMin, xMax, yMax, options, lateSetup)
+function Interface:addNode(name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
   assert(self.graph, "no graph created")
   local tex = {
     texNode = TeXBoxRegister:insertBox(Sys:getTeXBox()), 
+    shape = shape,
     maxX = xMax,
     minX = xMin,
     maxY = yMax,

@@ -38,9 +38,8 @@ function CircularLayoutTantau2012:run()
   local n = #self.graph.nodes
 
   local sib_dist = self:computeSiblingDistance ()
-  Sys:debug(sib_dist)
   local radii = self:computeNodeRadii()
-  
+  local diam, adjusted_radii = self:adjustNodeRadii(sib_dist, radii)
   
   -- Compute total necessary length. For this, iterate over all 
   -- consecutive pairs and keep track of the necessary space for 
@@ -52,7 +51,10 @@ function CircularLayoutTantau2012:run()
   local function wrap(i) return (i-1)%n + 1 end
   for i = 1,n do
     positions[i] = (i-1)*sib_dist + carry
-    local needed = carry + radii[i] + self.sibling_sep + radii[wrap(i+1)]
+    local arc = self.sibling_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
+    local needed = carry + arc
+    local dist = math.sin( arc/diam ) * diam
+    needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+self.sibling_sep)-dist, 0)
     carry = math.max(needed-sib_dist,0)    
   end
   local length = n*sib_dist + carry
@@ -68,20 +70,39 @@ end
 
 
 function CircularLayoutTantau2012:computeSiblingDistance()
-  local rad = self.graph:getOption('/graph drawing/circular layout/radius')
+  local rad = self.graph:getOption('/graph drawing/circular layout/radius') or "0"
 
-  if rad then
-    return tonumber(rad) * 2 * math.pi / #self.graph.nodes
-  else
-    return self.sibling_distance
-  end
+  return math.max(tonumber(rad) * 2 * math.pi / #self.graph.nodes, self.sibling_distance)
 end
 
 
 function CircularLayoutTantau2012:computeNodeRadii()
   local radii = {}
   for i,n in pairs(self.graph.nodes) do
-    radii[i] = math.max(n:getTexWidth(), n:getTexHeight())/2
+    if n.tex.shape == "circle" or n.tex.shape == "ellipse" then
+      radii[i] = math.max(n:getTexWidth(),n:getTexHeight())/2
+    else
+      local w, h = n:getTexWidth(), n:getTexHeight()
+      radii[i] = math.sqrt(w*w + h*h)/2
+    end
   end
   return radii
+end
+
+
+function CircularLayoutTantau2012:adjustNodeRadii(sib_dist,radii)
+  local total = 0
+  for i=1,#radii do
+    total = total + 2*radii[i] + self.sibling_sep
+  end
+  total = math.max(total, sib_dist * #self.graph.nodes)
+  local diam = total/(math.pi)
+
+  -- Now, adjust the radii:
+  local adjusted_radii = {}
+  for i=1,#radii do
+    adjusted_radii[i] = (math.pi - 2*math.acos(radii[i]/diam))*diam/2
+  end
+  
+  return diam, adjusted_radii
 end

@@ -97,7 +97,6 @@
   \begingroup
     % get options
     \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
-    \pgfgdlogmessage{GD:SYS: graph drawing scope started with graph parameters: \pgf@gd@graph@parameters}
     \directlua{
       pgf.graphdrawing.Interface:newGraph("\luaescapestring{\pgf@gd@graph@parameters}")
     }%
@@ -610,19 +609,6 @@
   \pgf@gd@set@verbose@mode0%
 }
 
-%
-% Prints a given message to the TeX output
-%
-% Note: logging must be enabled by \pgfgdenableverboselogging
-%
-% Example:
-%
-%  \pgfgdenableverboselogging
-%  \pgfgdlogmessage{Hello world}
-%
-\def\pgfgdlogmessage#1{
- \ifpgf@gd@verbose\directlua{ texio.write_nl("\luaescapestring{#1}") }\fi
-}
 
 
 
@@ -829,94 +815,6 @@
 
 
 
-
-% 
-% Orientation and transformation keys 
-%
-
-
-% Orientation
-% 
-% #1 = a node name
-% #2 = another node name
-% #3 = an angle
-% #4 = "normal" or "swapped"
-% 
-% Description:
-%
-% When a layout is computed for a graph, the "origin" of the graph and
-% its rotation typically are not fixed a priori. Indeed, shifting the
-% graph arbitrarily will not change the layout and, for most layouts,
-% neither will a rotation of the graph.
-% 
-% For this reason, it may be useful to specify positions of some node
-% explicitly and have the rest of the graph be shifted and rotated so
-% that these nodes lie at the specified positions.
-% 
-% When the graph parameter "orientation" is set, it should be set to
-% {#1}{#2}{#3}{#4}. Then, the graph will be transformed such that #1
-% is at the origin, #2 is on a line at an angle of #3 from #1 and
-% depending on the value of #4, the rest of the points will or will
-% not be mirrored along the line from #1 to #2.
-% 
-% The transformation is done automatically, the graph drawing
-% algorithm need not worry about it...
-%
-%
-% The orient and orient' keys are provide a simpler interface to the
-% orientation key:
-%
-% orient = first node-second node
-%   sets /graph drawing/orientation to {first node}{second node}{0}{normal}
-% 
-% orient = first node|second node
-%   sets /graph drawing/orientation to {first node}{second node}{90}{normal}
-% 
-% orient = first node:angle:second node
-%   sets /graph drawing/orientation to {first node}{second node}{angle}{normal}
-%   
-% orient' works as the above, but with "normal" replaced by "swapped"
-
-
-\pgfgdset{
-  orientation/.graph parameter,
-  normal orientation/.code={\tikz@gd@parse@orient{#1}{normal}},
-  swapped orientation/.code={\tikz@gd@parse@orient{#1}{swapped}},
-}
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  orient/.forward to={/graph drawing/normal orientation},
-  orient'/.forward to={/graph drawing/swapped orientation}
-}
-
-\def\tikz@gd@parse@orient#1#2{
-  \pgfutil@in@:{#1}%
-  \ifpgfutil@in@%
-    \tikz@gd@parse@orient@angle#1\pgf@stop{#2}%
-  \else%
-    \pgfutil@in@-{#1}%
-    \ifpgfutil@in@%
-      \tikz@gd@parse@orient@horiz#1\pgf@stop{#2}%
-    \else%
-      \edef\pgf@temp{#1}%
-      \expandafter\tikz@gd@parse@orient@vert\pgf@temp\pgf@stop{#2}%
-    \fi%
-  \fi%
-}
-
-\def\tikz@gd@parse@orient@horiz#1-#2\pgf@stop#3{
-  \pgfkeys{/graph drawing/orientation={#1}{#2}{0}{#3}}%
-}
-
-\def\tikz@gd@parse@orient@vert#1|#2\pgf@stop#3{
-  \pgfkeys{/graph drawing/orientation={#1}{#2}{-90}{#3}}%
-}
-
-\def\tikz@gd@parse@orient@angle#1:#2:#3\pgf@stop#4{
-  \pgfmathsetmacro{\tikz@gd@temp}{#2}%
-  \edef\tikz@gd@temp{/graph drawing/orientation={#1}{#3}{\tikz@gd@temp}{#4}}%
-  \expandafter\pgfkeys\expandafter{\tikz@gd@temp}%
-}
 
 
 
@@ -1298,7 +1196,6 @@
 % The called lua method then saves the data.
 %
 \def\pgf@gd@positionnode@callback{%
-  \pgfgdlogmessage{GD:SYS: positionnode callback invoked for box \the\pgf@gd@box}
   {%
     % save options to macro \pgf@gd@node@options
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options
@@ -1313,13 +1210,13 @@
     \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
     % call lua system library to create a lua node object
     \directlua{
-      %% NOTE: options parameter has to be the {key1}{value1}{key2}{value2} string
       pgf.graphdrawing.Interface:addNode(
         "\luaescapestring{\pgfpositionnodelatername}",
-        "\luaescapestring{\pgf@gd@node@minx}",
-        "\luaescapestring{\pgf@gd@node@miny}",
-        "\luaescapestring{\pgf@gd@node@maxx}",
-        "\luaescapestring{\pgf@gd@node@maxy}",
+        "\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}",
+        "\pgf@gd@node@minx",
+        "\pgf@gd@node@miny",
+        "\pgf@gd@node@maxx",
+        "\pgf@gd@node@maxy",
         "\luaescapestring{\pgf@gd@node@options}",
         "\luaescapestring{\the\toks0}") }
   }%
@@ -1346,7 +1243,6 @@
 % 
 \def\pgfgdinternalshipoutnode#1#2#3#4#5#6#7#8#9{%
   {%
-    \pgfgdlogmessage{GD:TEX: positioning node #1 (#2,#3,#4,#5) to #6,#7 from register #8}\relax
     \def\pgfpositionnodelatername{#1}
     \def\pgfpositionnodelaterminx{#2}
     \def\pgfpositionnodelatermaxx{#3}
@@ -1356,7 +1252,6 @@
     \setbox\pgf@gd@box=\box\pgfutil@voidb@x
     \directlua{
       texnode = pgf.graphdrawing.TeXBoxRegister:getBox(#8)
-      assert(texnode,"GD:SYS:TEX: tex node was nil")
       tex.box[\the\pgf@gd@box] = texnode
     }
     \setbox\pgfpositionnodelaterbox=\box\pgf@gd@box
