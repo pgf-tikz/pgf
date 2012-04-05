@@ -17,8 +17,7 @@
 --
 -- The objective is that nodes are ideally spaced at a distance
 -- (measured on the circle) of "sibling distance", but with a minimum
--- spacing of "sibling sep". Instead of a sibling distance, the
--- "radius" key may also be specified. 
+-- spacing of "sibling sep" and a minimum radius.
 --
 -- The order of the nodes will be the order they are encountered, the
 -- edges actually play no role.
@@ -29,17 +28,16 @@ graph_drawing_algorithm {
     growth_direction = 180
   },
   graph_parameters = {
-    sibling_distance = {'sibling distance', tonumber},
-    sibling_sep      = {'sibling sep', tonumber}
+    minimum_radius = {'circular layout/radius', tonumber}
   }
 }
 
 function CircularLayoutTantau2012:run()
   local n = #self.graph.nodes
 
-  local sib_dist = self:computeSiblingDistance ()
+  local sib_dists = self:computeSiblingDistances ()
   local radii = self:computeNodeRadii()
-  local diam, adjusted_radii = self:adjustNodeRadii(sib_dist, radii)
+  local diam, adjusted_radii = self:adjustNodeRadii(sib_dists, radii)
   
   -- Compute total necessary length. For this, iterate over all 
   -- consecutive pairs and keep track of the necessary space for 
@@ -49,15 +47,19 @@ function CircularLayoutTantau2012:run()
   local positions = {}
   local n = #self.graph.nodes
   local function wrap(i) return (i-1)%n + 1 end
+  local ideal_pos = 0
   for i = 1,n do
-    positions[i] = (i-1)*sib_dist + carry
-    local arc = self.sibling_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
+    positions[i] = ideal_pos + carry
+    ideal_pos = ideal_pos + sib_dists[i]
+    local sibling_sep =   self.graph.nodes[i]:getOption('/graph drawing/sibling post sep', self.graph)
+                        + self.graph.nodes[wrap(i+1)]:getOption('/graph drawing/sibling pre sep', self.graph)
+    local arc = sibling_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
     local needed = carry + arc
     local dist = math.sin( arc/diam ) * diam
-    needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+self.sibling_sep)-dist, 0)
-    carry = math.max(needed-sib_dist,0)    
+    needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+sibling_sep)-dist, 0)
+    carry = math.max(needed-sib_dists[i],0)    
   end
-  local length = n*sib_dist + carry
+  local length = ideal_pos + carry
 
   local radius = length / (2 * math.pi)
   for i,node in ipairs(self.graph.nodes) do
@@ -69,10 +71,27 @@ function CircularLayoutTantau2012:run()
 end
 
 
-function CircularLayoutTantau2012:computeSiblingDistance()
-  local rad = self.graph:getOption('/graph drawing/circular layout/radius') or "0"
+function CircularLayoutTantau2012:computeSiblingDistances()
+  local sib_dists = {}
+  local sum_length = 0
+  local nodes = self.graph.nodes
+  for i=1,#nodes do
+     sib_dists[i] = nodes[i]:getOption('/graph drawing/sibling distance', self.graph)
+     sum_length = sum_length + sib_dists[i]
+  end
 
-  return math.max(tonumber(rad) * 2 * math.pi / #self.graph.nodes, self.sibling_distance)
+  local missing_length = self.minimum_radius * 2 * math.pi - sum_length
+  if missing_length > 0 then
+     -- Ok, the sib_dists to not add up to the desired minimum value. 
+     -- What should we do? Hmm... We increase all by the missing amount:
+     for i=1,#nodes do
+	sib_dists[i] = sib_dists[i] + missing_length/#nodes
+     end
+  end
+
+  sib_dists.total = math.max(self.minimum_radius * 2 * math.pi, sum_length)
+
+  return sib_dists
 end
 
 
@@ -90,12 +109,14 @@ function CircularLayoutTantau2012:computeNodeRadii()
 end
 
 
-function CircularLayoutTantau2012:adjustNodeRadii(sib_dist,radii)
+function CircularLayoutTantau2012:adjustNodeRadii(sib_dists,radii)
   local total = 0
   for i=1,#radii do
-    total = total + 2*radii[i] + self.sibling_sep
+    total = total + 2*radii[i] 
+            + self.graph.nodes[i]:getOption('/graph drawing/sibling post sep', self.graph)
+	    + self.graph.nodes[i]:getOption('/graph drawing/sibling pre sep', self.graph)
   end
-  total = math.max(total, sib_dist * #self.graph.nodes)
+  total = math.max(total, sib_dists.total)
   local diam = total/(math.pi)
 
   -- Now, adjust the radii:

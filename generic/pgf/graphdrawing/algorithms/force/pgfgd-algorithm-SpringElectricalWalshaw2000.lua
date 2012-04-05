@@ -1,4 +1,5 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed and/or modified
 --
@@ -11,19 +12,42 @@
 
 
 
-
 --- Implementation of a spring-electrical graph drawing algorithm.
 -- 
 -- This implementation is based on the paper 
 --
---   "Efficient and High Quality Force-Directed Graph Drawing"
---   Yifan Hu, 2006
+--   "A Multilevel Algorithm for Force-Directed Graph Drawing"
+--   C. Walshaw, 2000
 --
--- Modifications compared to the original algorithm are explained in the manual.
+-- Modifications compared to the original algorithm:
+--   - a maximum iteration limit was added
+--   - compute the natural spring length for all coarse graphs based
+--     on the formula presented by Walshaw, so that the natural spring
+--     length of the original graph (coarse graph 0) is the same as
+--     the value requested by the user
+--   - allow users to define custom node and edge weights in TikZ
+--   - stop coarsening if |V(G_i+1)|/|V(G_i)| < p where p = 0.75
+--   - stop coarsening if the maximal matching is empty
+--   - improve the runtime of the algorithm by use of a quadtree
+--     data structure like Hu does in his algorithm
+--   - limiting the number of levels of the quadtree is not implemented
+--
+-- TODO Implement the following keys (or whatever seems appropriate
+-- and doable for this algorithm):
+--   - /tikz/desired at
+--   - /tikz/influence cutoff distance
+--   - /tikz/spring stiffness (could this be the equivalent to the electric 
+--       charge of nodes?
+--   - /tikz/natural spring dimension per edge
+--
+-- TODO Implement the following features:
+--   - clustering of nodes using color classes
+--   - different cluster layouts (vertical line, horizontal line,
+--     normal cluster, internally fixed subgraph)
 
 
 graph_drawing_algorithm {
-  name = 'Hu2006SpringElectrical',
+  name = 'SpringElectricalWalshaw2000',
   properties = {
     split_into_connected_components = true
   },
@@ -46,7 +70,7 @@ graph_drawing_algorithm {
 }
 
 
-function Hu2006SpringElectrical:constructor()
+function SpringElectricalWalshaw2000:constructor()
 
   -- Adjust types
   self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
@@ -66,8 +90,12 @@ function Hu2006SpringElectrical:constructor()
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
     node.weight = tonumber(node:getOption('/graph drawing/spring electrical layout/electric charge'))
+
+    -- a node is charged if its weight derives from the default setting 
+    -- of 1 (where it has no influence on the forces)
+    node.charged = node.weight ~= 1
   end
-  
+
   -- initialize edge weights
   for edge in table.value_iter(self.graph.edges) do
     edge.weight = 1
@@ -76,7 +104,7 @@ end
 
 
 
-function Hu2006SpringElectrical:run()
+function SpringElectricalWalshaw2000:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -87,79 +115,49 @@ function Hu2006SpringElectrical:run()
     -- coarsen the graph repeatedly until only minimum_graph_size nodes 
     -- are left or until the size of the coarse graph was not reduced by 
     -- at least the downsize ratio configured by the user
-    while coarse_graph:getSize() > self.minimum_graph_size 
-      and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
+    while coarse_graph:getSize() > self.minimum_graph_size
+      and coarse_graph:getRatio() < (1 - self.downsize_ratio)
     do
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph before next coarsening step')
       coarse_graph:coarsen()
     end
-
-    --self:dumpGraph(coarse_graph.graph, 'coarse graph after the last coarsening step')
   end
 
+  -- compute the natural spring length for the coarsest graph in a way
+  -- that will result in the desired natural spring length in the 
+  -- original graph
+  local spring_length = self.natural_spring_length / math.pow(math.sqrt(4/7), coarse_graph:getLevel())
+
   if self.coarsen then
-    -- use the natural spring length as the initial natural spring length
-    local spring_length = self.natural_spring_length
-
-    -- compute a random initial layout for the coarsest graph
+    -- generate a random initial layout for the coarsest graph
     self:computeInitialLayout(coarse_graph.graph, spring_length)
-
-    -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
-    spring_length = spring_length / #coarse_graph.graph.edges
-
-    -- additionally improve the layout with the force-based algorithm
-    -- if there are more than two nodes in the coarsest graph
-    if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
-    end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
     -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph before reverting one step')
+      --Sys:log('generating layout for coarse graph ' .. coarse_graph:getLevel()-1)
 
-      -- compute the diameter of the parent coarse graph
-      local parent_diameter = coarse_graph.graph:getPseudoDiameter()
-
-      -- interpolate the previous coarse graph from its parent
+      -- interpolate the previous coarse graph
       coarse_graph:interpolate()
 
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph after reverting one step')
+      -- update the natural spring length so that, for the original graph,
+      -- it equals the natural spring dimension configured by the user
+      spring_length = spring_length * math.sqrt(4/7)
 
-      -- compute the diameter of the current coarse graph
-      local current_diameter = coarse_graph.graph:getPseudoDiameter()
-
-      -- scale node positions by the quotient of the pseudo diameters
-      for node in table.value_iter(coarse_graph.graph) do
-        node.pos:update(function (n, value)
-          return value * (current_diameter / parent_diameter)
-        end)
-      end
-
-      -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.conservative_step_update)
+      -- apply the force-based algorithm to improve the layout
+      self:computeForceLayout(coarse_graph.graph, spring_length)
     end
   else
-    -- compute a random initial layout for the coarsest graph
-    self:computeInitialLayout(coarse_graph.graph, self.natural_spring_length)
-
-    -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
-    spring_length = spring_length / #coarse_graph.graph.edges
-
-    -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006SpringElectrical.adaptive_step_update)
-  end
+    -- generate a random initial layout for the coarsest graph
+    self:computeInitialLayout(coarse_graph.graph, spring_length)
+    
+    -- apply the force-based algorithm to improve the layout
+    self:computeForceLayout(coarse_graph.graph, spring_length)
+  end    
 end
 
 
 
-function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
+function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -180,11 +178,9 @@ function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local direction = Vector:new{x = math.random(1, 2), y = math.random(1, 2)}
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
-
-      Sys:log('Hu2006SpringElectrical: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -194,8 +190,8 @@ function Hu2006SpringElectrical:computeInitialLayout(graph, spring_length)
     -- function to filter out fixed nodes
     local function nodeNotFixed(node) return not node.fixed end
 
-    -- use a random positioning technique
-    local function positioning_func(n) 
+    -- use the random positioning technique
+    local function positioning_func(n)
       local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       return math.random(-radius, radius)
     end
@@ -209,23 +205,29 @@ end
 
 
 
-function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_update_func)
+function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
+  --Sys:log('SpringElectricalWalshaw2000:   compute force based layout')
+
   -- global (=repulsive) force function
-  function accurate_repulsive_force(distance, weight)
-    -- note: the weight is taken into the equation here. unlike in the original
-    -- algorithm different electric charges are allowed for each node in this
-    -- implementation
-    return - weight * self.spring_constant * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
-  end
+  local function accurate_repulsive_force(distance, weight) 
+    return - self.spring_constant * weight * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
+  end 
 
   -- global (=repulsive, approximated) force function
-  function approximated_repulsive_force(distance, mass)
+  local function approximated_repulsive_force(distance, mass)
     return - mass * self.spring_constant * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
   end
 
   -- local (spring) force function
-  function attractive_force(distance)
-    return (distance * distance) / spring_length
+  local function attractive_force(distance, d, weight, charged, repulsive_force) 
+    -- for charged nodes, never subtract the repulsive force; we want ALL other 
+    -- nodes to be attracted more / repulsed less (not just non-adjacent ones),
+    -- depending on the charge of course
+    if charged then
+      return (distance - spring_length) / d - accurate_repulsive_force(distance, weight)
+    else
+      return (distance - spring_length) / d - (repulsive_force or 0)
+    end
   end
 
   -- define the Barnes-Hut opening criterion
@@ -240,22 +242,17 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
- 
-  -- convergence criteria etc.
+
+  -- convergence criteria
   local converged = false
-  local energy = math.huge
-  local iteration = 0
-  local progress = 0
-
-  while not converged and iteration < self.iterations do
-    -- remember old node positions
-    local old_positions = table.map_pairs(graph.nodes, function (n, node)
-      return node, node.pos:copy()
-    end)
-
-    -- remember the old system energy and reset it for the current iteration
-    local old_energy = energy
-    energy = 0
+  local i = 0
+    
+  while not converged and i < self.iterations do
+    --Sys:log('SpringElectricalWalshaw2000:     iteration ' .. i .. ' (max: ' .. self.iterations .. ')')
+  
+    -- assume that we are converging
+    converged = true
+    i = i + 1
 
     -- build the quadtree for approximating repulsive forces, if desired
     local quadtree = nil
@@ -265,13 +262,17 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
 
     local function nodeNotFixed(node) return not node.fixed end
 
+    -- iterate over all nodes
     for v in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
       -- vector for the displacement of v
       local d = Vector:new(2)
 
+      -- repulsive force induced by other nodes
+      local repulsive_forces = {}
+
       -- compute repulsive forces
       if self.approximate_repulsive_forces then
-        -- determine the cells that have a repulsive influence on v
+        -- determine the cells that have an repulsive influence on v
         local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
         -- compute the repulsive force between these cells and v
@@ -280,6 +281,8 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
           if #cell.subcells == 0 then
             -- compute the forces between the node and all particles in the cell
             for particle in table.value_iter(cell.particles) do
+              -- build a table that contains the particle plus all its subparticles 
+              -- (particles at the same position)
               local real_particles = table.custom_copy(particle.subparticles)
               table.insert(real_particles, particle)
 
@@ -295,6 +298,11 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
                 -- compute the repulsive force vector
                 local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
                 local force = delta:normalized():timesScalar(repulsive_force)
+
+                -- remember the repulsive force for the particle so that we can 
+                -- subtract it later when computing the attractive forces with
+                -- adjacent nodes
+                repulsive_forces[real_particle.node] = repulsive_force
 
                 -- move the node v accordingly
                 d = d:plus(force)
@@ -313,14 +321,22 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
             -- compute the repulsive force vector
             local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
             local force = delta:normalized():timesScalar(repulsive_force)
-            
-            -- move the node v accordingly
+
+            -- TODO for each neighbour of v, check if it is in this cell.
+            -- if this is the case, compute the quadtree force for the mass
+            -- 'node.weight / cell.mass' and remember this as the repulsive
+            -- force of the neighbour;  (it is not necessarily at
+            -- the center of mass of the cell, so the result is only an
+            -- approximation of the real repulsive force generated by the
+            -- neighbour)
+
+            -- move te node v accordingly
             d = d:plus(force)
           end
         end
       else
         for u in table.value_iter(graph.nodes) do
-          if v ~= u then
+          if u.name ~= v.name then
             -- compute the distance between u and v
             local delta = u.pos:minus(v.pos)
 
@@ -333,6 +349,10 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
             -- compute the repulsive force vector
             local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
             local force = delta:normalized():timesScalar(repulsive_force)
+
+            -- remember the repulsive force so we can later subtract them
+            -- when computing the attractive forces
+            repulsive_forces[u] = repulsive_force
 
             -- move the node v accordingly
             d = d:plus(force)
@@ -352,52 +372,33 @@ function Hu2006SpringElectrical:computeForceLayout(graph, spring_length, step_up
         if delta:norm() < 0.1 then
           delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
         end
-    
-        -- compute the spring force vector between u and v
-        local attr_force = attractive_force(delta:norm())
+
+        -- compute the spring force between them
+        local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
         local force = delta:normalized():timesScalar(attr_force)
 
         -- move the node v accordingly
         d = d:plus(force)
       end
 
-      -- really move the node now
-      -- TODO note how all nodes are moved by the same amount  (step_length)
-      -- while Walshaw multiplies the normalized force with min(step_length, 
-      -- d:norm()). could that improve this algorithm even further?
-      v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
+      -- remember the previous position of v
+      old_position = v.pos:copy()
 
-      -- TODO Hu doesn't mention this but the energy of a particle is 
-      -- typically considered as the product of its mass and the square of 
-      -- its forces. This means we should probably take the weight of
-      -- the node v into the equation, doesn't it?
-      --
-      -- update the energy function
-      energy = energy + math.pow(d:norm(), 2)
-    end
-
-    -- update the step length and progress counter
-    step_length, progress = step_update_func(step_length, self.cooling_factor, energy, old_energy, progress)
-
-    -- compute the maximum node movement in this iteration
-    local max_movement = table.combine_values(graph.nodes, function (max, x)
-      local delta = x.pos:minus(old_positions[x])
-      if delta:norm() > max then
-        return delta:norm()
-      else
-        return max
+      if d:norm() > 0 then
+        -- reposition v according to the force vector and the current temperature
+        v.pos = v.pos:plus(d:normalized():timesScalar(math.min(step_length, d:norm())))
       end
-    end, 0)
-    
-    -- the algorithm will converge if the maximum movement is below a 
-    -- threshold depending on the spring length and the convergence 
-    -- tolerance
-    if max_movement < spring_length * self.convergence_tolerance then
-      converged = true
+
+      -- we need to improve the system energy as long as any of
+      -- the node movements is large enough to assume we're far
+      -- away from the minimum system energy
+      if v.pos:minus(old_position):norm() > spring_length * self.convergence_tolerance then
+        converged = false
+      end
     end
 
-    -- increment the iteration counter
-    iteration = iteration + 1
+    -- update the step length using the conservative cooling scheme
+    step_length = self.cooling_factor * step_length
   end
 end
 
@@ -405,7 +406,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006SpringElectrical:fixateNodes(graph)
+function SpringElectricalWalshaw2000:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
   for node in table.value_iter(graph.nodes) do
@@ -433,7 +434,7 @@ end
 
 
 
-function Hu2006SpringElectrical:buildQuadtree(graph)
+function SpringElectricalWalshaw2000:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
     return Vector:new(2, function (n) 
@@ -475,41 +476,4 @@ function Hu2006SpringElectrical:buildQuadtree(graph)
   end
 
   return quadtree
-end
-
-
-
-function Hu2006SpringElectrical.conservative_step_update(step, cooling_factor)
-  return cooling_factor * step, nil
-end
-
-
-
-function Hu2006SpringElectrical.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
-  if energy < old_energy then
-    progress = progress + 1
-    if progress >= 5 then
-      progress = 0
-      step = step / cooling_factor
-    end
-  else
-    progress = 0
-    step = cooling_factor * step
-  end
-  return step, progress
-end
-
-
-
-function Hu2006SpringElectrical:dumpGraph(graph, title)
-  Sys:log(title .. ':')
-  for node in table.value_iter(graph.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    ' .. tostring(edge))
-    end
-  end
-  for edge in table.value_iter(graph.edges) do
-    Sys:log('  ' .. tostring(edge))
-  end
 end

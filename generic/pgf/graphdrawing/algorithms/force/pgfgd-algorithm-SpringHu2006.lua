@@ -22,7 +22,7 @@
 
 
 graph_drawing_algorithm {
-  name = 'Hu2006Spring',
+  name = 'SpringHu2006',
   properties = {
     split_into_connected_components = true
   },
@@ -40,7 +40,7 @@ graph_drawing_algorithm {
   }
 }
 
-function Hu2006Spring:constructor()
+function SpringHu2006:constructor()
   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.downsize_ratio)))
   
   self.graph_size = #self.graph.nodes
@@ -68,7 +68,7 @@ end
 
 
 
-function Hu2006Spring:run()
+function SpringHu2006:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -102,7 +102,7 @@ function Hu2006Spring:run()
     -- additionally improve the layout with the force-based algorithm
     -- if there are more than two nodes in the coarsest graph
     if coarse_graph:getSize() > 2 then
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, SpringHu2006.adaptive_step_update)
     end
 
     -- undo coarsening step by step, applying the force-based sub-algorithm
@@ -125,7 +125,7 @@ function Hu2006Spring:run()
       end
 
       -- compute forces in the graph
-      self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.conservative_step_update)
+      self:computeForceLayout(coarse_graph.graph, spring_length, SpringHu2006.conservative_step_update)
     end
   else
     -- compute a random initial layout for the coarsest graph
@@ -138,7 +138,7 @@ function Hu2006Spring:run()
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
-    self:computeForceLayout(coarse_graph.graph, spring_length, Hu2006Spring.adaptive_step_update)
+    self:computeForceLayout(coarse_graph.graph, spring_length, SpringHu2006.adaptive_step_update)
   end
 
   local avg_spring_length = table.combine_values(self.graph.edges, function (sum, edge)
@@ -149,7 +149,7 @@ end
 
 
 
-function Hu2006Spring:computeInitialLayout(graph, spring_length)
+function SpringHu2006:computeInitialLayout(graph, spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -174,7 +174,7 @@ function Hu2006Spring:computeInitialLayout(graph, spring_length)
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('Hu2006Spring: distance = ' .. distance)
+      Sys:log('SpringHu2006: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -199,7 +199,7 @@ end
 
 
 
-function Hu2006Spring:computeForceLayout(graph, spring_length, step_update_func)
+function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
   -- global (=repulsive) force function
   function repulsive_force(distance, graph_distance, weight)
     --return (1/4) * (1/math.pow(graph_distance, 2)) * (distance - (spring_length * graph_distance))
@@ -299,7 +299,7 @@ end
 
 --- Fixes nodes at their specified positions.
 --
-function Hu2006Spring:fixateNodes(graph)
+function SpringHu2006:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
   for node in table.value_iter(graph.nodes) do
@@ -327,13 +327,13 @@ end
 
 
 
-function Hu2006Spring.conservative_step_update(step, cooling_factor)
+function SpringHu2006.conservative_step_update(step, cooling_factor)
   return cooling_factor * step, nil
 end
 
 
 
-function Hu2006Spring.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
+function SpringHu2006.adaptive_step_update(step, cooling_factor, energy, old_energy, progress)
   if energy < old_energy then
     progress = progress + 1
     if progress >= 5 then

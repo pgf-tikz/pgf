@@ -65,6 +65,12 @@
 %
 
 
+%
+% An if that is true exactly if we are inside a graph drawing scope
+%
+
+\newif\ifpgfgdgraphdrawingscopeactive
+
 
 % Begins a new graph drawing scope
 % 
@@ -94,13 +100,16 @@
 % \tikz \graph [some algorithm] { A -> B -> C -> A };
 
 \def\pgfgdbeginscope{%
-  \begingroup
+  \begingroup % Protecting scope
     % get options
     \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
     \directlua{
       pgf.graphdrawing.Interface:newGraph("\luaescapestring{\pgf@gd@graph@parameters}")
     }%
-    \begingroup
+    \begingroup % Inner scope, the actual nodes will be inserted after
+                % this scope has been closed
+      % Indicate that we are now inside a graph drawing scope
+      \pgfgdgraphdrawingscopeactivetrue
       % Switch on late positioning
       \pgfpositionnodelater{\pgf@gd@positionnode@callback}
       % Switch on late edges
@@ -235,6 +244,50 @@
 
 
 
+% Passing hybrid options
+% 
+% #1 = option's name
+% #2 = option's value
+% 
+% Description:
+%
+% Some options, like "sibling distance", can both be considered as
+% node options, but also as graph options, in which case they are
+% supposed to apply to all nodes of the graph. Such options could, in
+% principle, be passed to all nodes, but it much more economic to have
+% them defined only once for the whole graph and, then, only store
+% deviating values at special nodes.
+%
+% To facilitate this, you can declare that an option as a hybrid
+% node/graph parameter or as a hybrif edge/graph parameter. For such
+% parameters, the following happens: Whenever you set the parameter
+% outside a graph drawing scope, it will be considered as a graph
+% parameter, when you set it inside a graph drawing scope, it will be
+% set as a node/edge parameter. This means that when you write, for
+% instance, \graph [layered layout, sibling distance=1cm] 
+% { a [sibling distance=2cm] -- b -- c }, the first "sibling distance"
+% is a graph parameter (the graph drawing scope triggered by "layered
+% layout" starts only after all options have been parsed), while the
+% second "sibling distance" applies only to node "a".
+
+
+\def\pgfgdhybridnodegraphparameter#1#2{%
+  \ifpgfgdgraphdrawingscopeactive%
+    \pgfgdnodeparameter{#1}{#2}%
+  \else%
+    \pgfgdgraphparameter{#1}{#2}%
+  \fi%
+}
+\def\pgfgdhybridedgegraphparameter#1#2{%
+  \ifpgfgdgraphdrawingscopeactive%
+    \pgfgdedgeparameter{#1}{#2}%
+  \else%
+    \pgfgdgraphparameter{#1}{#2}%
+  \fi%
+}
+
+
+
 % Key handler /.graph parameter
 % 
 % Description:
@@ -256,7 +309,9 @@
 \pgfkeys{
   /handlers/.graph parameter/.code=\pgf@gd@parameter{#1}{\pgfgdgraphparameter},
   /handlers/.node parameter/.code=\pgf@gd@parameter{#1}{\pgfgdnodeparameter},
-  /handlers/.edge parameter/.code=\pgf@gd@parameter{#1}{\pgfgdedgeparameter}
+  /handlers/.edge parameter/.code=\pgf@gd@parameter{#1}{\pgfgdedgeparameter},
+  /handlers/.node or graph parameter/.code=\pgf@gd@parameter{#1}{\pgfgdhybridnodegraphparameter},
+  /handlers/.edge or graph parameter/.code=\pgf@gd@parameter{#1}{\pgfgdhybridedgegraphparameter},
 }
 \def\pgf@gd@parameter#1#2{%
   \def\pgfgd@temp{#1}%
@@ -1024,8 +1079,8 @@
 
 \def\pgf@gd@grow@handle#1#2{%
   \pgf@lib@gd@grow@dir{#1}%
-  \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/node parameters}{}{{/graph drawing/#2}{\pgfmathresult}}}%
-  \pgf@marshal%  
+  \edef\pgf@marshal{\noexpand\pgfgdhybridnodegraphparameter{/graph drawing/#2}{\pgfmathresult}}%
+  \pgf@marshal%
 }
 
 
@@ -1065,13 +1120,24 @@
 \pgfgddeclareforwardedkeys{/graph drawing}{
   level distance/.graph parameter=evaluate math expression,
   level distance/.parameter initial=1cm,
-  level sep/.graph parameter=evaluate math expression,
-  level sep/.parameter initial=1pt,
-  sibling distance/.graph parameter=evaluate math expression,
+  level pre sep/.node or graph parameter=evaluate math expression,
+  level pre sep/.parameter initial=0.5pt,
+  level post sep/.node or graph parameter=evaluate math expression,
+  level post sep/.parameter initial=0.5pt,
+  level sep/.style=,
+  sibling distance/.node or graph parameter=evaluate math expression,
   sibling distance/.parameter initial=1cm,
-  sibling sep/.graph parameter=evaluate math expression,
-  sibling sep/.parameter initial=1pt
+  sibling pre sep/.node or graph parameter=evaluate math expression,
+  sibling pre sep/.parameter initial=0.5pt,
+  sibling post sep/.node or graph parameter=evaluate math expression,
+  sibling post sep/.parameter initial=0.5pt,
+  sibling sep/.style=,
 }
+
+\pgfkeys{/graph drawing/sibling sep/.style=%
+  {/graph drawing/sibling pre sep={(#1)/2},/graph drawing/sibling post sep={(#1)/2}}}
+\pgfkeys{/graph drawing/level sep/.style=%
+  {/graph drawing/level pre sep={(#1)/2},/graph drawing/level post sep={(#1)/2}}}
 
 
 % Logical paths

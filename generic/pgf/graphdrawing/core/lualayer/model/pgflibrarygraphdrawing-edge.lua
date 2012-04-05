@@ -78,11 +78,14 @@ end
 --- Returns the value of the edge option \meta{name}.
 --
 -- @param name Name of the option.
+-- @param graph If this optional argument is given, 
+--        in case the option is not set as a node parameter, 
+--        we try to look it up as a graph parameter.
 --
 -- @return The value of the edge option \meta{name} or |nil|.
 --
-function Edge:getOption(name)
-   return self.options[name] or Interface.defaultGraphParameters[name]
+function Edge:getOption(name, graph)
+   return self.options[name] or (graph and graph.options[name]) or Interface.defaultGraphParameters[name]
 end
 
 

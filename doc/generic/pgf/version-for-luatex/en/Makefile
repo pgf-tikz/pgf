@@ -5,6 +5,8 @@ luadoc = luadoc --doclet luadoc.doclet.tex -t "luadoc/doclet/tex" --taglet luado
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 LUA_PATH := ./luadoc/?.lua:$LUA_PATH
 
+lua_gd_library_files=`find ../../../../../generic/pgf/graphdrawing/core/lualayer | grep "\\.lua$$"`
+
 all: $(doc).pdf
 
 # make dist will also enable automatic cross references in codeexamples.

@@ -70,11 +70,14 @@ end
 --- Returns the value of the node option \meta{name}.
 --
 -- @param name Name of the node option.
+-- @param graph If this optional argument is given, 
+--        in case the option is not set as a node parameter, 
+--        we try to look it up as a graph parameter.
 --
 -- @return The value of the node option \meta{name} or |nil|.
 --
-function Node:getOption(name)
-   return self.options[name] or Interface.defaultGraphParameters[name]
+function Node:getOption(name, graph)
+   return self.options[name] or (graph and graph.options[name]) or Interface.defaultGraphParameters[name]
 end
 
 

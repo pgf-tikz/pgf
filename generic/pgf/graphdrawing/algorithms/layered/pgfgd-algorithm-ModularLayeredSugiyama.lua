@@ -15,7 +15,7 @@
 --- An implementation of a modular version of the Sugiyama method
 
 graph_drawing_algorithm {
-  name = 'SugiyamaModularLayered',
+  name = 'ModularLayeredSugiyama',
   properties = {
     split_into_connected_components = true,
     growth_direction = -90
@@ -34,7 +34,7 @@ graph_drawing_algorithm {
 
 
 
-function SugiyamaModularLayered:run()
+function ModularLayeredSugiyama:run()
   if #self.graph.nodes <= 1 then
      return
   end
@@ -91,7 +91,7 @@ end
 
 
 
-function SugiyamaModularLayered:preprocess()
+function ModularLayeredSugiyama:preprocess()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
@@ -105,7 +105,7 @@ end
 
 
 
-function SugiyamaModularLayered:insertDummyNodes()
+function ModularLayeredSugiyama:insertDummyNodes()
   -- enumerate dummy nodes using a globally unique numeric ID
   local dummy_id = 1
 
@@ -177,7 +177,7 @@ end
 
 
 
-function SugiyamaModularLayered:removeDummyNodes()
+function ModularLayeredSugiyama:removeDummyNodes()
   -- delete dummy nodes
   for node in table.value_iter(self.dummy_nodes) do
     self.graph:deleteNode(node)
@@ -210,7 +210,7 @@ end
 
 
 
-function SugiyamaModularLayered:mergeClusters()
+function ModularLayeredSugiyama:mergeClusters()
 
   self.cluster_nodes = {}
   self.cluster_node = {}
@@ -287,7 +287,7 @@ end
 
 
 
-function SugiyamaModularLayered:expandClusters()
+function ModularLayeredSugiyama:expandClusters()
 
   for node in table.value_iter(self.original_nodes) do
     self.ranking:setRank(node, self.ranking:getRank(self.cluster_node[node]))
@@ -308,7 +308,7 @@ end
 
 
 
-function SugiyamaModularLayered:removeLoops()
+function ModularLayeredSugiyama:removeLoops()
   self.loops = {}
 
   for edge in table.value_iter(self.graph.edges) do
@@ -324,7 +324,7 @@ end
 
 
 
-function SugiyamaModularLayered:mergeMultiEdges()
+function ModularLayeredSugiyama:mergeMultiEdges()
   self.individual_edges = {}
 
   local node_processed = {}
@@ -397,7 +397,7 @@ end
 
 
 
-function SugiyamaModularLayered:removeCycles()
+function ModularLayeredSugiyama:removeCycles()
   local name, class = self:loadSubAlgorithm('CycleRemoval', self.cycle_removal_algorithm)
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
@@ -408,7 +408,7 @@ end
 
 
 
-function SugiyamaModularLayered:rankNodes()
+function ModularLayeredSugiyama:rankNodes()
   local name, class = self:loadSubAlgorithm('NodeRanking', self.node_ranking_algorithm)
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
@@ -421,7 +421,7 @@ end
 
 
 
-function SugiyamaModularLayered:reduceEdgeCrossings()
+function ModularLayeredSugiyama:reduceEdgeCrossings()
   local name, class = self:loadSubAlgorithm('CrossingMinimization', self.crossing_minimization_algorithm)
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
@@ -434,7 +434,7 @@ end
 
 
 
-function SugiyamaModularLayered:restoreMultiEdges()
+function ModularLayeredSugiyama:restoreMultiEdges()
   for multiedge, subedges in pairs(self.individual_edges) do
     assert(#subedges >= 2)
 
@@ -452,7 +452,7 @@ end
 
 
 
-function SugiyamaModularLayered:positionNodes()
+function ModularLayeredSugiyama:positionNodes()
   local name, class = self:loadSubAlgorithm('NodePositioning', self.node_positioning_algorithm)
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
@@ -463,7 +463,7 @@ end
 
 
 
-function SugiyamaModularLayered:restoreLoops()
+function ModularLayeredSugiyama:restoreLoops()
   for edge in table.value_iter(self.loops) do
     self.graph:addEdge(edge)
     edge:getTail():addEdge(edge)
@@ -472,7 +472,7 @@ end
 
 
 
-function SugiyamaModularLayered:routeEdges()
+function ModularLayeredSugiyama:routeEdges()
   local name, class = self:loadSubAlgorithm('EdgeRouting', self.edge_routing_algorithm)
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
@@ -483,7 +483,7 @@ end
 
 
 
-function SugiyamaModularLayered:restoreCycles()
+function ModularLayeredSugiyama:restoreCycles()
   for edge in table.value_iter(self.graph.edges) do
     edge.reversed = false
   end
@@ -491,12 +491,12 @@ end
 
 
 
-function SugiyamaModularLayered:postprocess()
+function ModularLayeredSugiyama:postprocess()
 end
 
 
 
-function SugiyamaModularLayered:loadSubAlgorithm(step, name)
+function ModularLayeredSugiyama:loadSubAlgorithm(step, name)
   -- make sure there are no spaces in the file name
   name = name:gsub(' ', '')
 
@@ -510,7 +510,7 @@ end
 
 
 
-function SugiyamaModularLayered:dumpRanking(prefix, title)
+function ModularLayeredSugiyama:dumpRanking(prefix, title)
   local ranks = self.ranking:getRanks()
   for rank in table.value_iter(ranks) do
     local nodes = self.ranking:getNodes(rank)
@@ -521,7 +521,7 @@ function SugiyamaModularLayered:dumpRanking(prefix, title)
   end
 end
 
-function SugiyamaModularLayered:dumpGraph(title)
+function ModularLayeredSugiyama:dumpGraph(title)
   Sys:log(title .. ':')
   for node in table.value_iter(self.graph.nodes) do
     Sys:log('  node ' .. node.name)
