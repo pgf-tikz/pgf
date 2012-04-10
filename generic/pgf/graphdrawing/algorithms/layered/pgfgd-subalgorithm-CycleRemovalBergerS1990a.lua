@@ -18,8 +18,9 @@ CycleRemovalBergerS1990a.__index = CycleRemovalBergerS1990a
 
 
 
-function CycleRemovalBergerS1990a:new(graph)
+function CycleRemovalBergerS1990a:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, CycleRemovalBergerS1990a)

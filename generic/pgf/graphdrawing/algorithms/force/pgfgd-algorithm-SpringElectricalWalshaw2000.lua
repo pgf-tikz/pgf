@@ -49,7 +49,7 @@
 graph_drawing_algorithm {
   name = 'SpringElectricalWalshaw2000',
   properties = {
-    split_into_connected_components = true
+    works_only_on_connected_graphs = true
   },
   graph_parameters = {
     iterations = {'spring electrical layout/iterations', tonumber},

@@ -56,6 +56,7 @@ function Edge:new(values)
     reversed = false,
     algorithmically_generated_options = {},
     index = nil,
+    event_index = nil,
   }
   setmetatable(defaults, Edge)
   local result = table.custom_merge(values, defaults)

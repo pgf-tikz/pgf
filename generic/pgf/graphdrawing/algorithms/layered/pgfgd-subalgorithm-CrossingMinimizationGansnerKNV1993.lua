@@ -18,8 +18,9 @@ CrossingMinimizationGansnerKNV1993.__index = CrossingMinimizationGansnerKNV1993
 
 
 
-function CrossingMinimizationGansnerKNV1993:new(graph, ranking)
+function CrossingMinimizationGansnerKNV1993:new(main_algorithm, graph, ranking)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
     ranking = ranking,
   }

@@ -17,8 +17,8 @@
 graph_drawing_algorithm {
   name = 'ModularLayeredSugiyama',
   properties = {
-    split_into_connected_components = true,
-    growth_direction = -90
+    works_only_on_connected_graphs = true,
+    growth_direction = 90
   },
   graph_parameters = {
     level_distance = {'level distance', tonumber},
@@ -128,10 +128,9 @@ function ModularLayeredSugiyama:insertDummyNodes()
         for i in iter.times(dist-1) do
           local rank = self.ranking:getRank(neighbour) + i
 
-          local dummy = Node:new{
+          local dummy = VirtualNode:new{
             pos = Vector:new({ 0, 0 }),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
-            is_dummy = true,
           }
           
           dummy_id = dummy_id + 1
@@ -402,7 +401,7 @@ function ModularLayeredSugiyama:removeCycles()
   
   assert(class, 'the cycle removal algorithm "' .. self.cycle_removal_algorithm .. '" could not be found')
 
-  local algorithm = class:new(self.graph)
+  local algorithm = class:new(self, self.graph)
   algorithm:run()
 end
 
@@ -413,7 +412,7 @@ function ModularLayeredSugiyama:rankNodes()
   
   assert(class, 'the node ranking algorithm "' .. self.node_ranking_algorithm .. '" could not be found')
 
-  local algorithm = class:new(self.graph)
+  local algorithm = class:new(self, self.graph)
   self.ranking = algorithm:run()
   
   assert(self.ranking and self.ranking.__index == Ranking, 'the node ranking algorithm "' .. tostring(name) .. '" did not return a ranking')
@@ -426,7 +425,7 @@ function ModularLayeredSugiyama:reduceEdgeCrossings()
 
   assert(class, 'the crossing minimzation algorithm "' .. self.crossing_minimization_algorithm .. '" could not be found')
 
-  local algorithm = class:new(self.graph, self.ranking)
+  local algorithm = class:new(self, self.graph, self.ranking)
   self.ranking = algorithm:run()
   
   assert(self.ranking and self.ranking.__index == Ranking, 'the crossing minimization algorithm "' .. tostring(name) .. '" did not return a ranking')
@@ -457,7 +456,7 @@ function ModularLayeredSugiyama:positionNodes()
 
   assert(class, 'the node positioning algorithm "' .. self.node_positioning_algorithm .. '" could not be found')
 
-  local algorithm = class:new(self.graph, self.ranking)
+  local algorithm = class:new(self, self.graph, self.ranking)
   algorithm:run()
 end
 
@@ -477,7 +476,7 @@ function ModularLayeredSugiyama:routeEdges()
 
   assert(class, 'the edge routing algorithm "' .. self.edge_routing_algorithm .. '" could not be found')
 
-  local algorithm = class:new(self.graph)
+  local algorithm = class:new(self, self.graph)
   algorithm:run()
 end
 

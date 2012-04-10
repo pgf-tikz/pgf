@@ -18,8 +18,9 @@ NodePositioningGansnerKNV1993.__index = NodePositioningGansnerKNV1993
 
 
 
-function NodePositioningGansnerKNV1993:new(graph, ranking)
+function NodePositioningGansnerKNV1993:new(main_algorithm, graph, ranking)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
     ranking = ranking,
 
@@ -47,41 +48,23 @@ function NodePositioningGansnerKNV1993:run()
 
   local ranks = self.ranking:getRanks()
   for rank in table.value_iter(ranks) do
-    local x = 0
     local nodes = self.ranking:getNodes(rank)
     for node in table.value_iter(nodes) do
-      Sys:log('position ' .. node.name .. ' at:')
       node.pos:set{
         x = x_ranking:getRank(node.aux_node),
-        y = -rank * self.level_distance
       }
-      Sys:log('  ' .. tostring(node.pos))
-      x = x + 1
+      node[self.main_algorithm] = node[self.main_algorithm] or {}
+      node[self.main_algorithm].y = rank
     end
   end
+  
+  spacing.arrange_layers_by_baselines(self.main_algorithm, self.graph)
 end
 
-
-
-function NodePositioningGansnerKNV1993:dumpRanking(prefix, title)
-  local ranks = self.ranking:getRanks()
-  Sys:log(prefix .. title)
-  for rank in table.value_iter(ranks) do
-    local nodes = self.ranking:getNodes(rank)
-    local str = prefix .. '  rank ' .. rank .. ':'
-    local str = table.combine_values(nodes, function (str, node)
-      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
-    end, str)
-    Sys:log(str)
-  end
-end
 
 
 
 function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
-  Sys:log('construct auxiliary graph:')
-
-  self:dumpRanking('  ', 'ranks')
 
   local aux_graph = Graph:new()
 
@@ -94,7 +77,6 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
     }
     node.aux_node = copy
     aux_graph:addNode(copy)
-    Sys:log('  node ' .. copy.name)
   end
 
   for edge in table.reverse_value_iter(self.graph.edges) do
@@ -137,8 +119,6 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
       local v = nodes[n]
       local w = nodes[n+1]
 
-      Sys:log('  create separator edge from ' .. v.name .. ' to ' .. w.name)
-
       local separator_edge = Edge:new{
         direction = Edge.RIGHT,
         minimum_levels = math.ceil(self:getDesiredHorizontalDistance(v, w)),
@@ -159,9 +139,9 @@ function NodePositioningGansnerKNV1993:getOmega(edge)
   local node1 = edge.nodes[1]
   local node2 = edge.nodes[2]
 
-  if node1.is_dummy and node2.is_dummy then
+  if (node1.class == VirtualNode) and (node2.class == VirtualNode) then
     return 8
-  elseif node1.is_dummy or node2.is_dummy then
+  elseif (node1.class == VirtualNode) or (node2.class == VirtualNode) then
     return 2
   else
     return 1
@@ -171,9 +151,5 @@ end
 
 
 function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
-  function xsize(node) 
-    return node.is_dummy and 0 or node:getTexWidth() 
-  end
-  --return ((xsize(v) + xsize(w)) / 2) + self.sibling_distance
-  return math.max(self.sibling_distance, ((xsize(v) + xsize(w)) / 2))
+  return spacing.ideal_sibling_distance(self.main_algorithm, self.graph, v,w)
 end

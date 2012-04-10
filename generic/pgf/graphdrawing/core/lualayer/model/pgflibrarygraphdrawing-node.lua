@@ -16,8 +16,14 @@ pgf.module("pgf.graphdrawing")
 
 
 
+
+-- First class: A normal node 
+
 Node = Box:new{}
 Node.__index = Node
+
+-- This class is subclassed from Box, but this is more for 
+-- historical reasons and should be changed.
 
 
 
@@ -35,7 +41,8 @@ Node.__index = Node
 --
 function Node:new(values)
   local defaults = {
-    name = "node",
+    class = Node,
+    name = nil,
     tex = { 
       texNode = nil,
       maxX = 0,
@@ -48,6 +55,7 @@ function Node:new(values)
     options = {},
     growth_direction = nil,
     index = nil,
+    event_index = nil,
   }
   setmetatable(defaults, Node)
   local result = table.custom_merge(values, defaults)
@@ -248,5 +256,36 @@ function Node:__tostring()
   Node.__tostring = nil
   local result = "Node<" .. tostring(self) .. ">(" .. self.name .. ")"
   Node.__tostring = tmp
+  return result
+end
+
+
+
+
+
+
+
+
+--- Virtual node class
+--
+-- A virtual node is a node that is not part of the original graph,
+-- but that is used/needed for the graph drawing alogrithm.
+
+VirtualNode = Node:new{}
+VirtualNode.__index = VirtualNode
+
+
+--- Creates a new virtual node.
+--
+-- @param values  Values to override default node settings.
+--
+-- @return A newly allocated node.
+--
+function VirtualNode:new(values)
+  local defaults = Node:new {
+    class = VirtualNode,
+  }
+  setmetatable(defaults, VirtualNode)
+  local result = table.custom_merge(values, defaults)
   return result
 end

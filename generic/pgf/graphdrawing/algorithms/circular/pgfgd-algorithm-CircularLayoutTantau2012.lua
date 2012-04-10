@@ -65,7 +65,7 @@ function CircularLayoutTantau2012:run()
   for i,node in ipairs(self.graph.nodes) do
       node.pos:set{
 	x = radius * math.cos(2 * math.pi * positions[i] / length),
-	y = radius * math.sin(2 * math.pi * positions[i] / length)
+	y = -radius * math.sin(2 * math.pi * positions[i] / length)
       }
    end
 end

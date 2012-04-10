@@ -433,6 +433,36 @@
 }
 
 
+
+
+
+% Set options for an already existing node
+% 
+% #1 = node name
+% #2 = options to be executed
+% 
+% The options in #2 are executed inside a protected scope. They should
+% setup some node parameters. These set node parameters will be passed
+% to the node #1, which must previously have been passed to the gd
+% engine. If some of the options have already been set for the node,
+% these settings will be overruled.
+
+\def\pgfgdsetlatenodeoption#1#2{%
+  {%
+    \pgfkeyssetvalue{/graph drawing/node parameters}{}%
+    \pgfkeys{#2}%
+    \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options%
+    % call lua system library to create a lua node object
+    \directlua{pgf.graphdrawing.Interface:setLateNodeOptions(
+        "\luaescapestring{#1}",
+        "\luaescapestring{\pgf@gd@node@options}") }
+  }%
+}
+
+
+
+
+
 % Adds an edge to the graph
 %
 % #1 = first node
@@ -1084,6 +1114,33 @@
 }
 
 
+%
+% 
+% Spanning tree method
+%
+%
+
+% Some algorithms work only on trees. When the to-be-drawn graph is
+% not a tree, a spanning tree is computed and passed to the algorithm,
+% allowing the algorithm to work on a tree rather than on the original
+% graph. 
+%
+% For the construction of the spanning tree, if the graph is not a
+% tree, then there are (many) different ways in which the spanning
+% tree could be constructed. By specifying this key, you can specify a
+% method that is to be chosen for this. Currently, two values are
+% supported: 
+%
+% "breadth first search" - Build the tree by doing a bfs traversal
+% "depth first search"   - Build the tree by a dfs traversal
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  spanning tree method/.graph parameter,
+  spanning tree method/.parameter initial=breadth first search,
+  minimum number of children/.node or graph parameter=evaluate math expression,
+  minimum number of children/.parameter initial=0,
+  desired child index/.node parameter=evaluate math expression,
+}
 
 
 
@@ -1115,22 +1172,22 @@
 % Description:
 % 
 % These keys work as in the classical typesetting of TikZ for trees. 
-% Their default value is 1cm.
+% Their default value is 15mm (as in tikz).
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
   level distance/.graph parameter=evaluate math expression,
-  level distance/.parameter initial=1cm,
+  level distance/.parameter initial=15mm,
   level pre sep/.node or graph parameter=evaluate math expression,
-  level pre sep/.parameter initial=0.5pt,
+  level pre sep/.parameter initial=.333em,
   level post sep/.node or graph parameter=evaluate math expression,
-  level post sep/.parameter initial=0.5pt,
+  level post sep/.parameter initial=.333em,
   level sep/.style=,
   sibling distance/.node or graph parameter=evaluate math expression,
-  sibling distance/.parameter initial=1cm,
+  sibling distance/.parameter initial=15mm,
   sibling pre sep/.node or graph parameter=evaluate math expression,
-  sibling pre sep/.parameter initial=0.5pt,
+  sibling pre sep/.parameter initial=0.333em,
   sibling post sep/.node or graph parameter=evaluate math expression,
-  sibling post sep/.parameter initial=0.5pt,
+  sibling post sep/.parameter initial=0.333em,
   sibling sep/.style=,
 }
 
@@ -1140,90 +1197,130 @@
   {/graph drawing/level pre sep={(#1)/2},/graph drawing/level post sep={(#1)/2}}}
 
 
-% Logical paths
-%
-% Description:
-%
-% When drawing, for instance, a tree, graph drawing algorithms will
-% often find it useful to have access to a logical numbering of the
-% children. For instance, in a binary tree, the left child might be
-% labeled "1" and the right child "2" and, in this case, we may wish
-% to have a tree in which a node has only a right child (a child with
-% the logical number "2"), but no child with the logical number "1".
-% 
-% To facilitate the handling of these logical numbers, a node
-% parameter called "logical path" is available to graph drawing
-% algorithms. This logical path will be setup automatically by the
-% graph path command and also by the child path command, so you
-% usually do not wish to set it directly. However, as an implementor
-% of a graph drawing algorithm, the information in this logical path
-% may be of interest to you, so here is the syntax:
-% 
-% The content of the logical path will be a string of the form
-% 
-% <chain num>/<element on chain num>;<chain num>/<element on chain num>;...;
-% 
-% Here, the first <chain num> and <element of chain num> are the
-% current "chain number" of the innermost graph group in the sense of
-% the graph path command. The next pair refers to the
-% second-to-innermost scope and so on. Counting starts with 1.
-% 
-% Here is an example: Suppose you write
-% 
-% graph { a, b -> c -- d,  e }
-% 
-% Then the logical paths of a to e would be
-% 
-% 1/1; for a
-% 2/1; for b
-% 2/2; for c
-% 2/3; for d
-% 3/1; for e
-% 
-% Next, consider a nested example:
-% 
-%  graph { a, b -> c -- {x, y->z},  e }
-%  
-% Here, the logical paths of a, b, c, and e are the same as
-% before. For x, y, and z, the logical path consists of the innermost
-% part plus the position 2/3 for the place where the whole {x,y->z}
-% group is found:
-% 
-% 1/1;2/3;for x
-% 2/1;2/3; for y
-% 2/2;2/3; for z
-% 
-% For the child path command, the "element of chain num" will always
-% be 1.
-% 
-% 
-% To make a long story short, if your algorithm is just interested in
-% the logical index of a child, take the number at the beginning of
-% the logical path up to the first slash. That's what you are looking
-% for... 
 
-\pgfgdset{
-  logical path/.node parameter,
-  logical path/.parameter initial=1/1;,
-  % 
-  % Helper functions:
-  % 
-  % The first allows you to update only the first element of the
-  % logical path. The second pushes the current head to the "tail",
-  % which is useful when a new scope is opened.
-  % 
-  set logical path head/.code={
-    \def\pgf@lib@gb@lp@head{#1}%
-    \pgfgdset{logical path/.expanded=\pgf@lib@gb@lp@head\pgf@lib@gb@lp@tail}
-  },
-  push logical path head/.code={
-    \edef\pgf@lib@gb@lp@tail{\pgf@lib@gb@lp@head\pgf@lib@gb@lp@tail}%
-    \let\pgf@lib@gb@lp@head\pgfutil@empty%
-  }  
+
+% Graph events  
+% 
+% Although a graph consists of nodes and edges, during the
+% construction of the graph a lot of information concerning the
+% structure of the graph is often available. For instance, as we
+% specify a graph using the child-syntax, we do not only which edges
+% are present, but we can implicitly specify an ordering on the
+% nodes. Even more, there is even information availble concerning
+% nodes that are not present at all: A child[missing] is not present
+% as a node or an edge, but a tree drawing algorithm will want to know
+% about this child nevertheless.
+% 
+% In order to communicate such information to the graph drawing
+% engine, "events" are used. As a graph is created, in addition to
+% nodes and edges, "events" may happen. The events come in a
+% sequential order and they are stored together with the graph. For
+% each node and each edge, its index in the event sequence is
+% stored, that is, it is stored how many events happened before the
+% node or edge was created.
+% 
+% Internally, an event consists of a name and, possibly, some
+% parameters. When the parameter is created on the tikz level, it will
+% be a string that is passed down to Lua. Internally created events
+% will also have parameters that are objects.
+% 
+% Two events are a bit special since they get special internal
+% support: The begin and end events. The first signals that some kind
+% of group has started; which is closed by the corresponding end
+% event. The "kind" of group is indicated by the parameter of the
+% begin event.
+% 
+% 
+% 
+% Standard events are:
+% 
+% For each node entered into a graph, a "node" event is automatically
+% created internally with the parameter being the node. However, you
+% can also create this event yourself. In this case, the parameter
+% will be a string and will mean that the node is "virtual" or
+% "missing", but space should be reserved for it, if possible (this is
+% use, for instance, by certain tree layouts).
+% 
+% For each edge entered into a graph, an "edge" event is automatically
+% created, with the edge as the parameter. Again, an event with a
+% string parameter corresponds to a "non-existing" node.
+% 
+%
+% Standard event groups are:
+% 
+%
+% The "descendants" event group include a set of nodes that, at least
+% inside the specification, are descendants of the last node
+%
+% begin descendants
+% ...
+% end
+% 
+% 
+% The "array" event group collects together some nodes in an array of
+% nodes. This can be used, for instance, to specify matrices.
+% 
+% begin array
+% ...
+% end 
+
+
+
+% Create a new event
+% 
+% #1 = event name (should be a valid lua identifier name)
+% #2 = parameter (some text)
+% 
+% Description:
+% 
+% Adds a new event to the event sequence of the graph
+
+\def\pgfgdevent#1#2{%
+  \directlua{pgf.graphdrawing.Interface:addEvent("\luaescapestring{#1}", "\luaescapestring{#2}")}%
 }
 
-\let\pgf@lib@gb@lp@head\pgfutil@empty
-\let\pgf@lib@gb@lp@tail\pgfutil@empty
+
+% Start an event group
+% 
+% #1 = kind of event group
+% 
+% Description:
+% 
+% Creates a begin event with #1 as the parameter of the begin
+% event.
+
+\def\pgfgdbegineventgroup#1{%
+  \pgfgdevent{begin}{#1}%
+}
+
+% End an event group
+% 
+% Description:
+% 
+% Creates an end event.
+
+\def\pgfgdendeventgroup{%
+  \pgfgdevent{end}{}%
+}
+
+
+% Creates an event group for the current TeX group
+%
+% #1 = event group name 
+%
+% Description:
+% 
+% Issues a begin event for #1 and, using \aftergroup, adds an end
+% event at the end of the current tex group.
+
+\def\pgfgdeventgroup#1{%
+  \pgfgdbegineventgroup{#1}%
+  \aftergroup\pgfgdendeventgroup%
+}
+
+
+
+
 
 
 % Add a node to a node cluster.

@@ -249,8 +249,6 @@ end
 
 
 function QuadTree:insert(particle)
-  assert(particle.__index == Particle)
-
   self.root_cell:insert(particle)
 end
 

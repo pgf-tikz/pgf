@@ -40,7 +40,6 @@ Interface.__index = Interface
 function Interface:newGraph(options)
   self.graph = Graph:new()
   table.insert(self.graphStack, self.graph)
-  Sys:log("GD:INT: options = " .. options)
   self.graph:mergeOptions(string.parse_braces(options))
 end
 
@@ -108,12 +107,31 @@ function Interface:addNode(name, shape, xMin, yMin, xMax, yMax, options, lateSet
   local node = Node:new{
     name = Sys:unescapeTeXNodeName(name), 
     tex = tex, 
-    options = string.parse_braces(options)
+    options = string.parse_braces(options),
+    event_index = #self.graph.events + 1
   }
+  self.graph.events[#self.graph.events + 1] = { kind = 'node', parameters = node }
   self.graph:addNode(node)
-  Sys:log("GD:INT: addNode(" .. node.name ..", " .. "maxX = " .. node.tex.maxX .. ", minX = " .. node.tex.minX .. ", maxY = " .. node.tex.maxY.. ", minY = " .. node.tex.minY .. ",...)")
 end
 
+
+
+
+--- Sets options for an already existing node
+--
+-- This function allows you to change the options of a node that already exists. 
+--
+-- @param name      Name of the node.
+-- @param options   Lua-Options for the node.
+
+function Interface:setLateNodeOptions(name, options)
+  local node = self.graph:findNode(name)
+  if node then
+    for k,v in string.parse_braces(options) do
+      node.options [k] = v
+    end
+  end
+end
 
 
 --- Adds an edge from one node to another by name.  
@@ -135,15 +153,27 @@ end
 --
 function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
-  Sys:log("GD:INT: Edge " .. tostring(from) .. " " .. tostring(direction) .. " " .. tostring(to))
   local from_node = self.graph:findNode(from)
   local to_node = self.graph:findNode(to)
   assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
-  if direction == Edge.NONE then
-    self.graph:deleteEdgeBetweenNodes(from_node, to_node)
-  else
-    self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
+  if direction ~= Edge.NONE then
+    local edge = self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
+    edge.event_index = #self.graph.events + 1
+    self.graph.events[#self.graph.events + 1] = { kind = 'edge', parameters = edge }
   end
+end
+
+
+
+
+--- Adds an event to the event sequence.
+--
+-- @param kind         Name/kind of the event.
+-- @param parameters   Parameters of the event.
+--
+function Interface:addEvent(kind, param)
+  assert(self.graph, "no graph created")
+  self.graph.events[#self.graph.events + 1] = { kind = kind, parameters = param}
 end
 
 
@@ -221,34 +251,10 @@ function Interface:drawGraph()
   local start = os.clock()
   -- Ok, everything setup.
   
-
-  -- Reset random number generator
-  math.randomseed(self.graph:getOption('/graph drawing/random seed'))
-
-  -- Decompose the graph into connected components, if necessary:
-  local graphs
-  
-  if algorithm_class.split_into_connected_components then
-    graphs = compute_component_decomposition(self.graph)
-  else
-    graphs = { self.graph }
-  end
-  
-  for _,subgraph in ipairs(graphs) do
-    local algorithm = algorithm_class:new(subgraph)
-    
-    if #subgraph.nodes > 1 or algorithm_class.run_also_for_single_node then
-      -- Main run of the algorithm:
-      algorithm:run ()
-    end
-    
-    orientation.perform_post_layout_steps(algorithm)
-    anchoring.perform_post_layout_steps(algorithm)
-  end
+  run_graph_drawing_pipeline(self.graph, algorithm_class)
   
   local stop = os.clock()
-  Sys:log(string.format("GD:INT: algorithm '" .. name .. "' took %.4f seconds", stop - start))
-  Sys:log(' ')
+  Sys:log(string.format("Graph drawing engine: algorithm '" .. name .. "' took %.4f seconds", stop - start))
 end
 
 
@@ -261,18 +267,14 @@ function Interface:finishGraph()
   local graph = table.remove(self.graphStack)
   self.graph = self.graphStack[#self.graphStack]
   
-  Sys:log("GD:INT: graph = " .. tostring(graph))
-  
   Sys:beginNodeShipout()
   for node in table.value_iter(graph.nodes) do
-    Sys:log("GD:INT: node = " .. tostring(node))
     self:drawNode(node)
   end
   Sys:endNodeShipout()
 
   Sys:beginEdgeShipout()
   for edge in table.value_iter(graph.edges) do
-    Sys:log("GD:INT: edge = " .. tostring(edge))
     self:drawEdge(edge)
   end
   Sys:endEdgeShipout()

@@ -18,8 +18,9 @@ CycleRemovalGansnerKNV1993.__index = CycleRemovalGansnerKNV1993
 
 
 
-function CycleRemovalGansnerKNV1993:new(graph)
+function CycleRemovalGansnerKNV1993:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, CycleRemovalGansnerKNV1993)

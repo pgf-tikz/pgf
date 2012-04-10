@@ -18,8 +18,9 @@ NodeRankingGansnerKNV1993.__index = NodeRankingGansnerKNV1993
 
 
 
-function NodeRankingGansnerKNV1993:new(graph)
+function NodeRankingGansnerKNV1993:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, NodeRankingGansnerKNV1993)

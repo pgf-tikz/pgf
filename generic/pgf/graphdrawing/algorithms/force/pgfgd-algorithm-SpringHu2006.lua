@@ -24,7 +24,7 @@
 graph_drawing_algorithm {
   name = 'SpringHu2006',
   properties = {
-    split_into_connected_components = true
+    works_only_on_connected_graphs = true
   },
   graph_parameters = {
     iterations = {'spring layout/iterations', tonumber},

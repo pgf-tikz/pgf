@@ -18,8 +18,9 @@ CycleRemovalEadesLS1993.__index = CycleRemovalEadesLS1993
 
 
 
-function CycleRemovalEadesLS1993:new(graph)
+function CycleRemovalEadesLS1993:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, CycleRemovalEadesLS1993)

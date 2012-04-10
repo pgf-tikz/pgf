@@ -18,8 +18,9 @@ NodeRankingMinimumHeight.__index = NodeRankingMinimumHeight
 
 
 
-function NodeRankingMinimumHeight:new(graph)
+function NodeRankingMinimumHeight:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, NodeRankingMinimumHeight)

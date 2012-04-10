@@ -156,47 +156,11 @@ function orientation.perform_post_layout_steps(algorithm)
    if f("orient", false) then return end
    if f("orient'", true) then return end
 
-   -- Step 4: Search for growth keys:
-   local function growth_fun (node, grow, flag)
-      if grow then
-	 growth_direction = node.growth_direction or algorithm.growth_direction
-	 if growth_direction == "fixed" then
-	    return false
-	 elseif growth_direction then
-	    orientation.rotate_graph_around(
-	       algorithm.graph, node.pos:x(), node.pos:y(),
-	       tonumber(growth_direction)/360*2*math.pi, tonumber(grow)/360*2*math.pi,
-	       flag)
-	    return true
-	 else
-	    -- Find first neighbor or, if it does not exist, first
-	    -- node other than myself.
-	    local t
-	    if node.edges[1] then
-	       t = node.edges[1].nodes
-	    else
-	       t = algorithm.graph.nodes
-	    end
-	    
-	    for _, other in ipairs(t) do
-	       if other ~= node then
-		  orientation.orient_two_nodes(
-		     algorithm.graph, node, other, tonumber(grow)/360*2*math.pi, flag)
-		  return true
-	       end
-	    end	       
-	 end
-      end
+   -- Computed during preprocessing:
+   local r = algorithm.graph[algorithm].rotate_around 
+   if r then
+     orientation.rotate_graph_around(algorithm.graph, r.x, r.y, r.from_angle, r.to_angle, r.swap)
    end
-
-   for _, node in ipairs(algorithm.graph.nodes) do
-      local grow = node:getOption('/graph drawing/grow', algorithm.graph)
-      if growth_fun(node, grow, false) then return end
-      local grow = node:getOption("/graph drawing/grow'", algorithm.graph)
-      if growth_fun(node, grow, true) then return end
-   end
-
-   growth_fun(algorithm.graph.nodes[1], "-90", false)
 end
 
 

@@ -18,8 +18,9 @@ EdgeRoutingGansnerKNV1993.__index = EdgeRoutingGansnerKNV1993
 
 
 
-function EdgeRoutingGansnerKNV1993:new(graph)
+function EdgeRoutingGansnerKNV1993:new(main_algorithm, graph)
   local algorithm = {
+    main_algorithm = main_algorithm,
     graph = graph,
   }
   setmetatable(algorithm, EdgeRoutingGansnerKNV1993)
