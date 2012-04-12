@@ -24,19 +24,20 @@ function run_graph_drawing_pipeline(graph, algorithm_class)
   
   event_handling.prepare_event_list(graph.events)
   
-  -- Reset random number generator
-  math.randomseed(graph:getOption('/graph drawing/random seed'))
 
   -- Decompose the graph into connected components, if necessary:
   local graphs
   
   if algorithm_class.works_only_on_connected_graphs then
-    graphs = compute_component_decomposition(graph)
+    subgraphs = compute_component_decomposition(graph)
   else
-    graphs = { graph }
+    subgraphs = { graph }
   end
   
-  for _,subgraph in ipairs(graphs) do
+  for _,subgraph in ipairs(subgraphs) do
+    -- Reset random number generator
+    math.randomseed(graph:getOption('/graph drawing/random seed'))
+    
     local algorithm = algorithm_class:new(subgraph)
 
     -- Add an algorithm field to all nodes, all edges, and the graph:
@@ -47,6 +48,9 @@ function run_graph_drawing_pipeline(graph, algorithm_class)
       e[algorithm] = {}
     end
     subgraph[algorithm] = {}
+    
+    -- Compute anchor_node
+    anchoring.compute_anchor_node(subgraph)
 
     -- Compute growth-adjusted sizes
     growth_adjust.prepare_post_layout_orientation(subgraph, algorithm)
@@ -63,7 +67,30 @@ function run_graph_drawing_pipeline(graph, algorithm_class)
     end
     
     orientation.perform_post_layout_steps(algorithm)
-    anchoring.perform_post_layout_steps(algorithm)
+  end
+  
+  -- Find unanchored subgraphs
+  local unanchored = {}
+  local anchored = {}
+  local flag = true
+  for _,subgraph in ipairs(subgraphs) do
+    if subgraph.anchor_node then
+      if flag then
+	unanchored[#unanchored + 1] = subgraph
+	flag = false
+      else
+	anchored[#anchored + 1] = subgraph
+      end
+    else
+      unanchored[#unanchored + 1] = subgraph
+    end
+  end
+  
+  componentpacking.pack (graph, unanchored)
+  anchoring.perform_post_layout_steps(graph)
+
+  for _,subgraph in ipairs(anchored) do
+    anchoring.perform_post_layout_steps(subgraph)
   end
 end
 

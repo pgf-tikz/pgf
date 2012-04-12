@@ -159,7 +159,11 @@ function orientation.perform_post_layout_steps(algorithm)
    -- Computed during preprocessing:
    local r = algorithm.graph[algorithm].rotate_around 
    if r then
-     orientation.rotate_graph_around(algorithm.graph, r.x, r.y, r.from_angle, r.to_angle, r.swap)
+     local x = r.from_node.pos:x()
+     local y = r.from_node.pos:y()
+     local from_angle = r.from_angle or math.atan2(r.to_node.pos:y() - y, r.to_node.pos:x() - x)
+     
+     orientation.rotate_graph_around(algorithm.graph, x, y, from_angle, r.to_angle, r.swap)
    end
 end
 
