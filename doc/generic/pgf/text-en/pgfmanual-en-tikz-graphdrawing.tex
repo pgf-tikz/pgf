@@ -69,28 +69,37 @@ The graph drawing engine of \tikzname\ provides two main features:
 \begin{enumerate}
 \item ``Users'' of the graph drawing engine can invoke the graph
   drawing algorithms often by just adding a single option to their
-  picture. Here is a typical example, where the |spring layout| option
+  picture. Here is a typical example, where the |layered layout| option
   tells \tikzname\ that the graph should be drawn (``should be layed
-  out'') using a so-called ``spring graph drawing algorithm'' (what
+  out'') using a so-called ``layered graph drawing algorithm'' (what
   these are will be explained later):
 \begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (5,3);
-  
-  \graph [spring layout, grow=up]
-    { a -> { subgraph K_n [n=4] } -> b };
-
-  \graph [spring electrical layout, grow=up]
-    { a [x=5] -> { subgraph K_n [n=4] } -> b };
-\end{tikzpicture}
+\tikz
+  \graph [layered layout, components go right top aligned, nodes={draw, rounded corners=2pt}]
+  {
+    first root -> {1 -> {2, 3} -> {4, 5}, 6 }, 4 -- 5;
+    second root -> x -> {a -> {/,/}, b, c -> d -> {/,/} };
+    third root -> child -> grandchild -> youngster -> third root;    
+  };
 \end{codeexample}
   Here is another example, where a different layout method is used
   that is more appropriate for trees:
 \begin{codeexample}[]
-\tikz [grow'=up, tree layout]
-  \node {root}
-  child { node {left child} }
-  child { node {right child} };
+\tikz [grow'=up, binary tree layout, nodes={circle,draw}]
+  \node {1}
+  child { node {2}
+    child { node {3} }
+    child { node {4}
+      child { node {5} }
+      child { node {6} }
+    }
+  }
+  child { node {7}
+    child { node {8}
+      child[missing]
+      child { node {9} }
+    }
+  };
 \end{codeexample}
   An a final example, this time using a ``spring electrical layout''
   (whatever that might be\dots):
@@ -109,9 +118,9 @@ The graph drawing engine of \tikzname\ provides two main features:
 \end{codeexample}
   In all of the example, the positions of the nodes have only been
   computed \emph{after} all nodes have been created and the edges have
-  been specified. For instance, in the last example without the
-  |spring layout| option, all of the nodes would have been placed on
-  top of each other.
+  been specified. For instance, in the last example, without the
+  option |spring electrical layout|, all of the nodes would have been
+  placed on top of each other.
 \item The graph drawing engine is also intended to make is
   (relatively) easy to implement new graph drawing algorithms. These
   algorithms can and must be implemented in the Lua programming
@@ -439,19 +448,19 @@ passed to the |spring layout| key:
 
 \label{subsection-gd-dist-pad}
 
-A number of graph drawing algorithms arrange nodes in layers, we refer
-to the nodes on the same layer as siblings (although, in a tree,
-siblings are only nodes with the same parent; nevertheless we use
-``sibling'' loosely also for nodes that are more like ``cousins'').
+In many cases, you may wish to specify how ``near'' two nodes should
+be placed by a graph drawing algorithm. Naturally, this depends
+strongly on the specifics of the algorithm, but there are a number of
+general keys that will be used by many algorithms.
 
-When arranging nodes in layers, a number of parameters can be used to
-fine-tune the distances between the nodes:
 
 
 \subsubsection{Distances and Paddings Between Layers}
 
-The following keys are all node keys, so different values can be specified
-for different nodes:
+A number of graph drawing algorithms arrange nodes in layers; we refer
+to the nodes on the same layer as siblings (although, in a tree,
+siblings are only nodes with the same parent; nevertheless we use
+``sibling'' loosely also for nodes that are more like ``cousins'').
 
 \begin{key}{/graph drawing/level distance=\meta{dimension} (initially 1cm)}
   \keyalias{tikz}\keyalias{tikz/graphs}
@@ -560,6 +569,42 @@ sibling:
 \end{key}
 
 
+
+
+\subsubsection{Paddings Between Components}
+
+When a graph consists of several connected component, many graph
+drawing algorithms will layout these components individually. The
+different components will then be arranged next to each other, see
+Section~\ref{section-gd-packing} for the details, such that between
+the nodes of any two components the following padding is avaiable:
+
+\begin{key}{/graph drawing/component sep=\meta{dimension} (initially 2em)}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  This is distance between the bounding boxes that nodes of different
+  connected components will have when they are placed next to each
+  other:
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
+              components go right top aligned,
+              component sep=1pt, nodes=draw]  
+{
+  1 -> 2 -> {3->4[second]->5,6,7};
+  a -> b[second] -> c[second] -> d -> e;
+  x -> y[second] -> z -> u[second] -> v;
+};  
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
+              components go right top aligned,
+              component sep=1em, nodes=draw]  
+{
+  1 -> 2 -> {3->4[second]->5,6,7};
+  a -> b[second] -> c[second] -> d -> e;
+  x -> y[second] -> z -> u[second] -> v;
+};  
+\end{codeexample}
+\end{key}
 
 
 
@@ -1026,17 +1071,17 @@ resolved:
 \end{enumerate}
 
 
-%\subsection{Packing of Connected Components}
+\subsection{Packing of Connected Components}
 
-% Graphs may be composed of subgraphs or \emph{components} that are not
-% connected to each other. In order to draw these nicely, the 
-% |graphdrawing| library splits them up into separate graphs, computes
-% their layouts with the same graph drawing algorithm independently and,
-% in a postprocessing step, arranges them in a non-uniform grid in the 
-% final drawing. This is called \emph{component packing}.
+Graphs may be composed of subgraphs or \emph{components} that are not
+connected to each other. In order to draw these nicely, the 
+|graphdrawing| library splits them up into separate graphs, computes
+their layouts with the same graph drawing algorithm independently and,
+in a postprocessing step, arranges them in a non-uniform grid in the 
+final drawing. This is called \emph{component packing}.
 
-% The following options can be used to configure the order and placement
-% strategy during component packing.
+The following options can be used to configure the order and placement
+strategy during component packing.
 
 % \begin{key}{/graph drawing/component packing=\marg{options}}
 %   \keyalias{tikz}\keyalias{tikz/graphs}
@@ -1131,23 +1176,15 @@ fixed-size circle.  It is accessed with the name
 \begin{codeexample}[code only]
 -- File pgfgd-algorithm-SimpleDemo.lua
 
---- A trivial node placing algorithm for demonstration purposes.
--- All nodes are positioned on a fixed size circle.
-
 graph_drawing_algorithm { name = "SimpleDemo" }
 
 function SimpleDemo:run()
-   local radius = 28.908  -- this is 1cm in points
-   local nodeCount = table.count_pairs(self.graph.nodes)
-
-   local alpha = (2 * math.pi) / nodeCount
-   local i = 0
-   for node in table.value_iter(self.graph.nodes) do
-      -- the interesting part...
-      node.pos.x = radius * math.cos(i * alpha)
-      node.pos.y = radius * math.sin(i * alpha)
-      i = i + 1
-   end
+  local radius = 28.908  -- this is 1cm in points
+  local alpha = (2 * math.pi) / #self.graph.nodes
+  for i=1,#self.graph.nodes do
+    self.graph.nodes[i].pos.x = radius * math.cos((i-1) * alpha)
+    self.graph.nodes[i].pos.y = radius * math.sin((i-1) * alpha)
+  end
 end
 \end{codeexample}
 
