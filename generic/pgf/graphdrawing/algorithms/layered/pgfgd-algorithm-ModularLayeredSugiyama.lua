@@ -18,7 +18,8 @@ graph_drawing_algorithm {
   name = 'ModularLayeredSugiyama',
   properties = {
     works_only_on_connected_graphs = true,
-    growth_direction = 90
+    works_only_for_loop_free_graphs = true,
+    growth_direction = 90,
   },
   graph_parameters = {
     level_distance = {'level distance', tonumber},
@@ -43,47 +44,37 @@ function ModularLayeredSugiyama:run()
   if self.random_seed ~= 0 then
     math.randomseed(self.random_seed)
   end
-
+  
   self:preprocess()
 
+  -- Rank using cluster
   self:mergeClusters()
-
-  self:removeLoops()
-
-  self:mergeMultiEdges()
-
-  self:removeCycles()
   
+  self:removeLoops()
+  self:mergeMultiEdges()
+  self:removeCycles()
+
   self:rankNodes()
 
   self:restoreCycles()
-
   self:restoreMultiEdges()
-
   self:restoreLoops()
 
   self:expandClusters()
-
-  self:removeLoops()
-
-  self:mergeMultiEdges()
-
-  self:removeCycles()
   
+  -- Now do actual computation
+  self:mergeMultiEdges()
+  self:removeCycles()
   self:insertDummyNodes()
   
+  -- Main algorithm
   self:reduceEdgeCrossings()
-
   self:positionNodes()
   
+  -- Cleanup
   self:removeDummyNodes()
-
   self:restoreMultiEdges()
-
-  self:restoreLoops()
-
   self:routeEdges()
-
   self:restoreCycles()
 
   self:postprocess()
@@ -129,10 +120,10 @@ function ModularLayeredSugiyama:insertDummyNodes()
           local rank = self.ranking:getRank(neighbour) + i
 
           local dummy = VirtualNode:new{
-            pos = Vector:new({ 0, 0 }),
+            pos = Vector:new(),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
           }
-          
+
           dummy_id = dummy_id + 1
 
           self.graph:addNode(dummy)
@@ -194,7 +185,7 @@ function ModularLayeredSugiyama:removeDummyNodes()
 
     -- convert bend nodes to bend points for TikZ
     for bend_node in table.value_iter(edge.bend_nodes) do
-      local point = Vector:new(bend_node.pos.elements)
+      local point = bend_node.pos:copy()
       table.insert(edge.bend_points, point)
     end
 
@@ -440,6 +431,11 @@ function ModularLayeredSugiyama:restoreMultiEdges()
     self.graph:deleteEdge(multiedge)
 
     for edge in table.value_iter(subedges) do
+      -- Copy bend points 
+      for _,p in ipairs(multiedge.bend_points) do
+	edge.bend_points[#edge.bend_points+1] = p:copy()
+      end
+
       for node in table.value_iter(edge.nodes) do
         node:addEdge(edge)
       end

@@ -169,8 +169,9 @@ function Sys:putEdge(edge)
   
   local bend_string = ''
   if #edge.bend_points > 0 then
-    local bend_strings = table.map_values(edge.bend_points, function (vector)
-      return '(' .. tostring(vector:get(1)) .. 'pt,' .. tostring(vector:get(2)) .. 'pt)'
+    local bend_strings = table.map_values(edge.bend_points, 
+					  function (vector)
+					    return '(' .. tostring(vector.x) .. 'pt,' .. tostring(vector.y) .. 'pt)'
     end)
     if edge.reversed then
       bend_strings = table.reverse_values(bend_strings, bend_strings)

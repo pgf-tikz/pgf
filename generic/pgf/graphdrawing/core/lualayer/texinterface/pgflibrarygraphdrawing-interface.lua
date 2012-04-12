@@ -251,7 +251,7 @@ function Interface:drawGraph()
   local start = os.clock()
   -- Ok, everything setup.
   
-  run_graph_drawing_pipeline(self.graph, algorithm_class)
+  pipeline.run_graph_drawing_pipeline(self.graph, algorithm_class)
   
   local stop = os.clock()
   Sys:log(string.format("Graph drawing engine: algorithm '" .. name .. "' took %.4f seconds", stop - start))
@@ -295,8 +295,8 @@ function Interface:drawNode(node)
                 node.tex.minY,
                 node.tex.maxX,
                 node.tex.maxY,
-                node.pos:x(),
-                node.pos:y(),
+                node.pos.x,
+                node.pos.y,
                 node.tex.texLateSetup)
 end
 

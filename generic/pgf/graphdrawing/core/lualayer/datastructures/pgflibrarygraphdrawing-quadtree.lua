@@ -65,8 +65,8 @@ end
 
 
 function CubicalCell:containsParticle(particle)
-  return particle.pos:x() >= self.x and particle.pos:x() <= self.x + self.width
-     and particle.pos:y() >= self.y and particle.pos:y() <= self.y + self.height
+  return particle.pos.x >= self.x and particle.pos.x <= self.x + self.width
+     and particle.pos.y >= self.y and particle.pos.y <= self.y + self.height
 end
 
 
@@ -177,7 +177,7 @@ function CubicalCell:updateCenterOfMass()
         pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
       end
       return pos:plus(particle.pos:timesScalar(particle.mass))
-    end, Vector:new(2, function (n) return 0 end))
+    end, Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
     -- the center of mass is the average of the weighted centers of mass 
@@ -189,7 +189,7 @@ function CubicalCell:updateCenterOfMass()
         assert(cell.mass == 0)
         return pos:copy()
       end
-    end, Vector:new(2, function (n) return 0 end))
+    end, Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   end
 end

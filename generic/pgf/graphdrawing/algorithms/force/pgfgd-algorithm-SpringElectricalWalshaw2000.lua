@@ -49,7 +49,9 @@
 graph_drawing_algorithm {
   name = 'SpringElectricalWalshaw2000',
   properties = {
-    works_only_on_connected_graphs = true
+    works_only_on_connected_graphs = true,
+    works_only_for_loop_free_graphs = true,
+    works_only_for_simple_graphs = true,
   },
   graph_parameters = {
     iterations = {'spring electrical layout/iterations', tonumber},
@@ -70,7 +72,7 @@ graph_drawing_algorithm {
 }
 
 
-function SpringElectricalWalshaw2000:constructor()
+function SpringElectricalWalshaw2000:run()
 
   -- Adjust types
   self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
@@ -100,11 +102,8 @@ function SpringElectricalWalshaw2000:constructor()
   for edge in table.value_iter(self.graph.edges) do
     edge.weight = 1
   end
-end
-
-
-
-function SpringElectricalWalshaw2000:run()
+  
+  
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -163,7 +162,7 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
   -- fixated?
 
   -- fixate all nodes that have a 'desired at' option. this will set the
-  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  -- node.fixed member to true and also set node.pos.x and node.pos.y
   self:fixateNodes(graph)
 
   if #graph.nodes == 2 then
@@ -173,7 +172,8 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
 
       if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
         -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
-        graph.nodes[1].pos:set{x = 0, y = 0}
+        graph.nodes[1].pos.x = 0
+        graph.nodes[1].pos.y = 0
       end
 
       -- position the loose node relative to the fixed node, with
@@ -198,7 +198,8 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
 
     -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      node.pos:set{x = positioning_func(1), y = positioning_func(2)}
+      node.pos.x = positioning_func(1)
+      node.pos.y = positioning_func(2)
     end
   end
 end
@@ -237,7 +238,7 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
   end
 
   -- fixate all nodes that have a 'desired at' option. this will set the
-  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  -- node.fixed member to true and also set node.pos.x and node.pos.y
   self:fixateNodes(graph)
 
   -- adjust the initial step length automatically if desired by the user
@@ -419,7 +420,8 @@ function SpringElectricalWalshaw2000:fixateNodes(graph)
       local x, y = coordinate:gmatch(coordinate_pattern)()
       
       -- apply the coordinate
-      node.pos:set{x = tonumber(x), y = tonumber(y)}
+      node.pos.x = tonumber(x)
+      node.pos.y = tonumber(y)
 
       -- mark the node as fixed
       node.fixed = true
@@ -438,14 +440,14 @@ function SpringElectricalWalshaw2000:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
     return Vector:new(2, function (n) 
-      return math.min(min_pos:get(n), node.pos:get(n))
+      return math.min(min_pos[n], node.pos[n])
     end)
   end, graph.nodes[1].pos)
 
   -- compute maximum x and y coordinates of all nodes
   local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
     return Vector:new(2, function (n) 
-      return math.max(max_pos:get(n), node.pos:get(n))
+      return math.max(max_pos[n], node.pos[n])
     end)
   end, graph.nodes[1].pos)
 
@@ -464,9 +466,9 @@ function SpringElectricalWalshaw2000:buildQuadtree(graph)
   max_pos = max_pos:plusScalar(1)
 
   -- create the quadtree
-  quadtree = QuadTree:new(min_pos:x(), min_pos:y(),
-                          max_pos:x() - min_pos:x(),
-                          max_pos:y() - min_pos:y())
+  quadtree = QuadTree:new(min_pos.x, min_pos.y,
+                          max_pos.x - min_pos.x,
+                          max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
   for node in table.value_iter(graph.nodes) do

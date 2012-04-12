@@ -92,7 +92,7 @@ function growth_adjust.compute_bounding_boxes(graph, algorithm)
   if r then
     local angle = r.to_angle -
       (r.from_angle or
-       math.atan2(r.to_node.pos:y() - r.from_node.pos:y(), r.to_node.pos:x() - r.from_node.pos:x()))
+       math.atan2(r.to_node.pos.y - r.from_node.pos.y, r.to_node.pos.x - r.from_node.pos.x))
 
     for _,n in ipairs(graph.nodes) do
       if n.tex.shape == "circle" and

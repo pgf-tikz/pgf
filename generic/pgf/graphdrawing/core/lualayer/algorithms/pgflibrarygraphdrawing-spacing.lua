@@ -129,14 +129,14 @@ function spacing.arrange_layers_by_baselines (algorithm, graph)
     local height = 0
 
     for _,n in ipairs(layers[1]) do
-      n.pos:set { y = 0 }
+      n.pos.y = 0
     end
     
     for i=2,#layers do
       height = height + spacing.baseline_distance(algorithm, graph, layers[i-1], layers[i])
 
       for _,n in ipairs(layers[i]) do
-	n.pos:set { y = height }
+	n.pos.y = height 
       end
     end
   end

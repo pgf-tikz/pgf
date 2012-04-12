@@ -50,9 +50,7 @@ function NodePositioningGansnerKNV1993:run()
   for rank in table.value_iter(ranks) do
     local nodes = self.ranking:getNodes(rank)
     for node in table.value_iter(nodes) do
-      node.pos:set{
-        x = x_ranking:getRank(node.aux_node),
-      }
+      node.pos.x = x_ranking:getRank(node.aux_node)
       node[self.main_algorithm] = node[self.main_algorithm] or {}
       node[self.main_algorithm].y = rank
     end

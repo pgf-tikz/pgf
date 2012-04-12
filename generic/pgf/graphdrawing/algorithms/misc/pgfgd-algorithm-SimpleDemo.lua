@@ -30,8 +30,8 @@ function SimpleDemo:run()
       -- the interesting part...
       local node_radius = tonumber(node:getOption('/graph drawing/node radius')
                                    or radius)
-      node.pos:set{x = node_radius * math.cos(i * alpha)}
-      node.pos:set{y = node_radius * math.sin(i * alpha)}
+      node.pos.x = node_radius * math.cos(i * alpha)
+      node.pos.y = node_radius * math.sin(i * alpha)
       i = i + 1
    end
 end

@@ -19,7 +19,7 @@ pgf.module("pgf.graphdrawing")
 
 -- First class: A normal node 
 
-Node = Box:new{}
+Node = {}
 Node.__index = Node
 
 -- This class is subclassed from Box, but this is more for 

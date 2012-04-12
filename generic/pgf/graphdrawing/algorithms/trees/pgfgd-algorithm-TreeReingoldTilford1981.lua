@@ -42,7 +42,7 @@ function TreeReingoldTilford1981:run()
 
   -- Update x positions
   for _,n in ipairs(self.graph.nodes) do
-    n.pos:set { x = n[self].x }
+    n.pos.x = n[self].x 
   end
 
 end

@@ -24,7 +24,9 @@
 graph_drawing_algorithm {
   name = 'SpringHu2006',
   properties = {
-    works_only_on_connected_graphs = true
+    works_only_on_connected_graphs = true,
+    works_only_for_loop_free_graphs = true,
+    works_only_for_simple_graphs = true,
   },
   graph_parameters = {
     iterations = {'spring layout/iterations', tonumber},
@@ -40,7 +42,10 @@ graph_drawing_algorithm {
   }
 }
 
-function SpringHu2006:constructor()
+
+function SpringHu2006:run()
+  -- Setup
+  
   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.downsize_ratio)))
   
   self.graph_size = #self.graph.nodes
@@ -64,11 +69,8 @@ function SpringHu2006:constructor()
   for edge in table.value_iter(self.graph.edges) do
     edge.weight = 1
   end
-end
-
-
-
-function SpringHu2006:run()
+  
+  
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
@@ -155,7 +157,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
   -- fixated?
 
   -- fixate all nodes that have a 'desired at' option. this will set the
-  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  -- node.fixed member to true and also set node.pos.x and node.pos.y
   self:fixateNodes(graph)
 
   if #graph.nodes == 2 then
@@ -165,7 +167,8 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
 
       if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
         -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
-        graph.nodes[1].pos:set{x = 0, y = 0}
+        graph.nodes[1].pos.x = 0
+	graph.nodes[1].pos.y = 0
       end
 
       -- position the loose node relative to the fixed node, with
@@ -192,7 +195,8 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
 
     -- compute initial layout based on the random positioning technique
     for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      node.pos:set{x = positioning_func(1), y = positioning_func(2)}
+      node.pos.x = positioning_func(1)
+      node.pos.y = positioning_func(2)
     end
   end
 end
@@ -207,7 +211,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
   end
 
   -- fixate all nodes that have a 'desired at' option. this will set the
-  -- node.fixed member to true and also set node.pos:x() and node.pos:y()
+  -- node.fixed member to true and also set node.pos.x and node.pos.y
   self:fixateNodes(graph)
 
   -- adjust the initial step length automatically if desired by the user
@@ -312,7 +316,8 @@ function SpringHu2006:fixateNodes(graph)
       local x, y = coordinate:gmatch(coordinate_pattern)()
       
       -- apply the coordinate
-      node.pos:set{x = tonumber(x), y = tonumber(y)}
+      node.pos.x = tonumber(x)
+      node.pos.y = tonumber(y)
 
       -- mark the node as fixed
       node.fixed = true

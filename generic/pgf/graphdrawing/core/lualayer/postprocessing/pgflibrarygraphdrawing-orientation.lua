@@ -32,8 +32,8 @@ orientation = {}
 function orientation.rotate_graph_around(graph, around_x, around_y, from, to, swap)
    
    local function update_pos (point)
-      local x = point:x()
-      local y = point:y()
+      local x = point.x
+      local y = point.y
       
       -- Translate to origin
       x, y = x - around_x, y - around_y
@@ -52,7 +52,8 @@ function orientation.rotate_graph_around(graph, around_x, around_y, from, to, sw
       x, y = x + around_x, y + around_y
       
       -- Store
-      point:set { x = x; y = y }
+      point.x = x
+      point.y = y
    end
 
    -- perform the rotation
@@ -84,13 +85,13 @@ function orientation.orient_two_nodes(graph, first_node, second_node,
 				      target_angle, swap)
    if first_node and second_node then
       -- Compute angle between first_node and second_node:
-      local x = second_node.pos:x() - first_node.pos:x()
-      local y = second_node.pos:y() - first_node.pos:y()
+      local x = second_node.pos.x - first_node.pos.x
+      local y = second_node.pos.y - first_node.pos.y
       
       local angle = math.atan2(y,x)
 
-      orientation.rotate_graph_around(graph, first_node.pos:x(),
-				      first_node.pos:y(), angle, target_angle, swap)
+      orientation.rotate_graph_around(graph, first_node.pos.x,
+				      first_node.pos.y, angle, target_angle, swap)
    end
 end
 
@@ -159,9 +160,9 @@ function orientation.perform_post_layout_steps(algorithm)
    -- Computed during preprocessing:
    local r = algorithm.graph[algorithm].rotate_around 
    if r then
-     local x = r.from_node.pos:x()
-     local y = r.from_node.pos:y()
-     local from_angle = r.from_angle or math.atan2(r.to_node.pos:y() - y, r.to_node.pos:x() - x)
+     local x = r.from_node.pos.x
+     local y = r.from_node.pos.y
+     local from_angle = r.from_angle or math.atan2(r.to_node.pos.y - y, r.to_node.pos.x - x)
      
      orientation.rotate_graph_around(algorithm.graph, x, y, from_angle, r.to_angle, r.swap)
    end

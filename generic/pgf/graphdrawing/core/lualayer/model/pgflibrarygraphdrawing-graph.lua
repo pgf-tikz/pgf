@@ -17,7 +17,7 @@ pgf.module("pgf.graphdrawing")
 
 
 
-Graph = Box:new()
+Graph = {}
 Graph.__index = Graph
 
 

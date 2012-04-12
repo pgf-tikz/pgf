@@ -325,10 +325,6 @@ function graph_drawing_algorithm(info)
 	end
       end
 
-      if obj.constructor then
-	obj:constructor()
-      end
-
       return obj
     end
 end

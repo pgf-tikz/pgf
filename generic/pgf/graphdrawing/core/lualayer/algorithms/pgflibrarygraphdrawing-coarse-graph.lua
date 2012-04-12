@@ -334,7 +334,8 @@ function CoarseGraph:interpolate()
       --Sys:log('      split up supernode ' .. supernode.name)
     
       -- move the subnode to the position of the supernode and add it to the graph
-      supernode.subnodes[1].pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
+      supernode.subnodes[1].pos.x = supernode.pos.x
+      supernode.subnodes[1].pos.y = supernode.pos.y
 
       if not self.graph:findNode(supernode.subnodes[1].name) then
         --Sys:log('        create subnode ' .. supernode.subnodes[1].name)
@@ -342,7 +343,8 @@ function CoarseGraph:interpolate()
       end
 
       -- move the subnode to the position of the supernode and add it to the graph
-      supernode.subnodes[2].pos:set{x = supernode.pos:x(), y = supernode.pos:y()}
+      supernode.subnodes[2].pos.x = supernode.pos.x
+      supernode.subnodes[2].pos.y = supernode.pos.y
 
       if not self.graph:findNode(supernode.subnodes[2].name) then
         --Sys:log('        create subnode ' .. supernode.subnodes[2].name)

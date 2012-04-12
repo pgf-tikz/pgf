@@ -20,8 +20,6 @@ local files = {
   "sys",
   "vector",
   "quadtree",
-  "path",
-  "box",
   "node",
   "edge",
   "cluster",

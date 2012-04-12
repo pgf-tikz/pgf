@@ -22,10 +22,10 @@ function componentpacking.prepare_bounding_boxes(nodes, angle, sep)
     local bb = {}
     
     local corners = {
-      { x = n.tex.minX + n.pos:x(), y = n.tex.minY + n.pos:y() },
-      { x = n.tex.minX + n.pos:x(), y = n.tex.maxY + n.pos:y() },
-      { x = n.tex.maxX + n.pos:x(), y = n.tex.minY + n.pos:y() },
-      { x = n.tex.maxX + n.pos:x(), y = n.tex.maxY + n.pos:y() },
+      { x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
+      { x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
+      { x = n.tex.maxX + n.pos.x, y = n.tex.minY + n.pos.y },
+      { x = n.tex.maxX + n.pos.x, y = n.tex.maxY + n.pos.y },
     }
 	
     bb.min_x = math.huge
@@ -49,8 +49,8 @@ function componentpacking.prepare_bounding_boxes(nodes, angle, sep)
     bb.min_y = bb.min_y - sep
     bb.max_y = bb.max_y + sep
     
-    bb.center_x =  n.pos:x()*math.cos(angle) + n.pos:y()*math.sin(angle)
-    bb.center_y = -n.pos:x()*math.sin(angle) + n.pos:y()*math.cos(angle)
+    bb.center_x =  n.pos.x*math.cos(angle) + n.pos.y*math.sin(angle)
+    bb.center_y = -n.pos.x*math.sin(angle) + n.pos.y*math.cos(angle)
     
     n.component_info = bb
   end
@@ -229,11 +229,13 @@ function componentpacking.pack(graph, components)
     local y = -x_shifts[i]*math.sin(-angle) + y_shifts[i]*math.cos(-angle)
     
     for _,n in ipairs(c.nodes) do
-      n.pos:set{x = n.pos:x() + x, y = n.pos:y() + y}
+      n.pos.x = n.pos.x + x
+      n.pos.y = n.pos.y + y
     end
     for _,edge in ipairs(c.edges) do
       for _,point in ipairs(edge.bend_points) do
-	point:set{x = point:x() + x, y = point:y() + y}
+	point.x = point.x + x
+	point.y = point.y + y
       end
     end
   end
