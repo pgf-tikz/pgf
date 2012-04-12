@@ -22,6 +22,45 @@
 -- automatically, so have to be imported manually using pgf.import.
 
 
+local preload_these_files = {
+  "module",
+  "table",
+  "stack",
+  "iter",
+  "string",
+  "sys",
+  "vector",
+  "quadtree",
+  "node",
+  "edge",
+  "cluster",
+  "graph",
+  "manipulation",
+  "depth-first-search",
+  "traversal",
+  "fibonacci-heap",
+  "priority-queue",
+  "algorithms",
+  "coarsen-graph",
+  "component-packing",
+  "tex-interface",
+  "orientation",
+  "positioning-helpers",
+  "ranking",
+  "network-simplex",
+  "anchoring",
+  "component-decomposition",
+  "pipeline",
+  "spanning-tree",
+  "spacing",
+  "growth-adjust",
+  "event-handling",
+}
+
+
+
+
+
 
 --- Creates a function to be used as the __tostring() method of a module.
 --
@@ -230,14 +269,10 @@ end
 
 
 
-local prefix = "pgflibrarygraphdrawing-"
+local prefix = "pgfgd-core-"
 local suffix = ".lua"
 local format = "tex"
 
-
-
---- Loads the list of predefined files.
-local files = load("files", format, prefix, suffix)
 
 
 
@@ -291,7 +326,7 @@ pgf.load = userLoad
 
 
 -- load the Lua core files of the graph drawing library
-for _, file in ipairs(files) do
+for _, file in ipairs(preload_these_files) do
   load(file, format, prefix, suffix)
 end
 

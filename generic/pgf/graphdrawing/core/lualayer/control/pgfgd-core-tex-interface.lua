@@ -20,7 +20,8 @@ pgf.module("pgf.graphdrawing")
 --- Sits between the TikZ/TeX side and Lua.
 Interface = {
   graphStack = {},
-  defaultGraphParameters = {}
+  defaultGraphParameters = {},
+  texboxes = {}
 }
 Interface.__index = Interface
 
@@ -95,8 +96,9 @@ end
 --
 function Interface:addNode(name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
   assert(self.graph, "no graph created")
+  self.texboxes[#self.texboxes + 1] = Sys:getTeXBox()
   local tex = {
-    texNode = TeXBoxRegister:insertBox(Sys:getTeXBox()), 
+    texNode = #self.texboxes,
     shape = shape,
     maxX = xMax,
     minX = xMin,
@@ -298,6 +300,13 @@ function Interface:drawNode(node)
                 node.pos.x,
                 node.pos.y,
                 node.tex.texLateSetup)
+end
+
+
+function Interface:getBox(box_reference)
+  local ret = self.texboxes[box_reference]
+  self.texboxes[box_reference] = nil
+  return ret
 end
 
 
