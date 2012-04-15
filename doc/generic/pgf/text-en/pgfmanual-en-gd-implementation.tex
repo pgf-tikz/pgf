@@ -13,33 +13,34 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\section{The Graph Drawing Engine}
+
+\section{The Interface Between the Layers of the Graph Drawing Engine}
 
 {\noindent {\emph{by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
   Jannis Pohlmann, Matthias Schulz, Stephan Schuster, and Till Tantau}}}
 
 \label{section-base-graphdrawing}
-
+\label{section-gd-internals}
 
 \begin{pgflibrary}{graphdrawing}
   This package provides the \TeX\ interface to the graph drawing
   engine. Since it uses \LuaTeX, you need at least \LuaTeX\ 0.4 or 
   higher.
-
-  Typically, you will use the \tikzname\ library of the same name
-  rather than this library, which internally loads this
-  library. Nevertheless, the graph drawing engine can be used
-  independently of \tikzname.
 \end{pgflibrary}
 
+\begin{tikzlibrary}{graphdrawing}
+  This library is what users will usually load. It loads the above
+  library automatically. Nevertheless, the graph drawing engine can be
+  used independently of \tikzname.
+\end{tikzlibrary}
 
-\ifluatex\relax\else{LuaTeX is required for setting this manual section.}\expandafter\endinput\fi
+
 
 \subsection{Overview}
 
-This chapter explains in detail how the graph drawing engine works. As
-explained in Section~\ref{section-library-graphdrawing}, the graph
-drawing engine provides a connection between the syntax of \tikzname\
+This chapter explains in detail how the different layers of the graph
+drawing engine communicate. The main job of the graph drawing engine
+is to provide a connection between the syntax of \tikzname\
 and \pgfname\ for specifying graphs and code written in the Lua
 programming language for computing layouts. The present section will
 discuss this process in detail.
@@ -70,8 +71,9 @@ graph is specified:
   \graph{root [as=Hello] -> World[fill=blue!20]};
 \end{codeexample}
 
-The special key |tree layout| internally calls the macro |\pgfgdbeginscope|,
-which starts up the graph drawing engine. Once this macro has been
+The special key |tree layout| internally calls the key
+|graph drawing scope|, which in turn called that basic layer's macro
+|\pgfgdbeginscope|, which starts up the graph drawing engine. Once this macro has been
 called, until the next call of |\pgfgdendscope|, all nodes that are
 created actually get passed down to the graph drawing engine. This is
 implemented on the lowest layer, namely by directly intercepting
@@ -193,12 +195,93 @@ functions.
 
 
 
+
 \subsection{Graph Drawing Scopes}
 \label{section-gd-scopes}
 
-In order to tell the graph drawing engine that a certain scope
-contains nodes that should be send to a graph drawing algorithm, the
-following commands are used:
+Users of the graph drawing engine typically use a key like
+|tree layout| to specify a graph drawing algorithm. This key is
+actually just a style that uses the key |graph drawing scope|, which
+in turn calls the macro |\pgfgdbeginscope|:
+
+\begin{key}{/tikz/graph drawing scope}
+  This key can (only) be used as an option when a \tikzname\ scope is
+  started. Thus, you can pass it to |\tikz|, to |{tikzpicture}|, to
+  |\scoped|, to |{scope}|, to |graph|, and to |{graph}|. For instance,
+  the |tree layout| option (which uses |graph drawing scope| internally) can
+  be used in the following ways:
+\begin{codeexample}[]
+\tikz [tree layout] \graph {a -> {b,c}};  
+
+\tikz \graph [tree layout] {a -> {b,c}};
+
+\tikz \path graph [tree layout] {a -> {b,c}};
+
+\begin{tikzpicture}[tree layout]
+  \graph {a -> {b,c}};
+\end{tikzpicture}
+
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,1);
+  
+  \scoped [tree layout] \graph {a -> {b,c}};
+    
+  \begin{scope}[tree layout, xshift=1cm, rotate=90]
+    \graph {a -> {b,c}};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
+
+  You can \emph{not} use the |graph drawing scope| key with a single
+  node or on a path. In particular, to typeset a tree given in the
+  |child| syntax somewhere inside a |{tikzpicture}|, you must prefix
+  it with the |\scoped| command:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \scoped [tree layout]
+    \node {root}
+    child { node {left child} }
+    child { node {right child} };
+\end{tikzpicture}
+\end{codeexample}
+  Naturally, the above could have been written more succinctly as
+\begin{codeexample}[]
+\tikz [tree layout]
+  \node {root}
+  child { node {left child} }
+  child { node {right child} };
+\end{codeexample}
+  Or even more succinctly:
+\begin{codeexample}[]
+\tikz \graph [tree layout] { root -- {left child, right child} };
+\end{codeexample}
+
+  In detail, adding the |graph drawing scope| command to a scope has
+  the following effects:
+  \begin{itemize}
+  \item The basic layer is informed, using the
+    |execute at begin scope| key, that the current scope will contain
+    nodes that should be positioned by a graph drawing engine. Which
+    algorithm is used depends on the value of the |algorithm| key.
+  \item If the |graphs| library has been loaded, the default
+    positioning mechanisms of this library are switched off, leaving
+    the positioning to the graph drawing engine. Also, when an edge is
+    created by the |graphs| library, this is signalled to the graph
+    drawing library. (To be more precise: The keys |new ->| and so on
+    are redefined so that they call |\pgfgdedge| instead of creating
+    an edge.
+  \item The |edge| path command is modified so that it also calls
+    |\pgfgdedge| instead of immediately creating any edges.
+  \item The |edge from parent| path command is modified so that is
+    also calls |\pgfgdedge|.
+  \item The keys |append after command| and |prefix after command|
+    keys are modified so that they are executed only via
+    |late options| when the node has ``reached its final parking
+    position''. 
+  \end{itemize}
+\end{key}
+
+
 
 \begin{command}{\pgfgdbeginscope}
   This macro starts a \TeX\ scope. The following things will happen:
@@ -224,6 +307,13 @@ following commands are used:
   \item |\pgftransformreset| is called. See
     Section~\ref{section-gd-lua-coordinates} for details on the effect
     of this.
+  \item The following \TeX-if is set to true:
+    {
+      \let\ifpgfgdgraphdrawingscopeactive=\relax
+      \begin{textoken}{\ifpgfgdgraphdrawingscopeactive}
+        Will be true inside a graph drawing scope.
+      \end{textoken}
+    }
   \end{enumerate}
   The above has a number of consequences for what can happen inside a
   graph drawing scope:
@@ -258,9 +348,8 @@ following commands are used:
     specification hook command also ends (provided it had no global
     effects).
   \item Then, on the Lua layer, the graph drawing algorithm is
-    started. Which algorithm is started depends on the current value
-    of the |algorithm| key, see
-    Section~\ref{section-gd-implementing-algorithms} for details.
+    started. Which algorithm is started, depends on the current value
+    of the |algorithm| key, see below.
   \item When the algorithm has finished, a so-called \emph{shipout
       phase} is started.
   \item During this phase, all nodes that were intercepted during the
@@ -312,6 +401,46 @@ following commands are used:
     from the graphs stack and the \TeX\ scope is ended. 
   \end{enumerate}
 \end{command}
+
+
+
+\begin{key}{/graph drawing/algorithm=\meta{algorithm's name}}
+  \label{section-gd-algorithm-key}%
+  This key specifies which algorithm should be used for typesetting a
+  graph. The names of these algorithm's are often a bit cryptic (like
+  |Spring Electrical Walshaw 2000| or something similar), which is why
+  you typically do not call this key directly. Instead, styles with more
+  easy-to-remember names internally set this key.
+
+  Setting this key has the following effects: During the execution of
+  |\pgfgdendscope|, Lua will try to find a class
+  named \meta{algorithm's name} that has been declared using the
+  |graph_drawing_algorithm| command (but any spaces inside the
+  \meta{algorithm's name} are deleted). If it does not find such a
+  class, the engine tries to  
+  load the file called |pgfgd-algorithm-|\meta{algorithm's name}|.lua|
+  (again, spaces are deleted) and then, again, tries to lookup the
+  class. Thus, any class \meta{algorithm's name} mentioned inside a
+  document must either have 
+  already been defined in some Lua file loaded by some library or it
+  must reside in a file with the corresponding name. Once the class
+  has been found, the class's |new| method is called, the |graph|
+  attribute of the object is set to the to-be-layouted graph, and the
+  |run| method is called.
+  
+  Here is an example where we switch on the graph drawing engine
+  explicitly and explicitly select an algorithm:
+\begin{codeexample}[]
+\tikz [graph drawing scope,
+       /graph drawing/algorithm=Spring Electrical Walshaw 2000]
+  \graph { a <-> {b, c} };  
+\end{codeexample}
+  The reference of the available algorithms is in
+  Sections~\ref{section-first-graphdrawing-library-in-manual} to 
+  \ref{section-last-graphdrawing-library-in-manual}.
+\end{key}
+
+
 
 
 As described above, inside a graph drawing scope, nodes are
@@ -434,6 +563,7 @@ a command has to be called explicitly:
 \end{command}
 
 
+
 \subsection{Parameters}
 \label{section-gd-parameters}
 
@@ -505,6 +635,16 @@ All of these option sets can easily be accessed inside the graph
 drawing algorithms.
 
 
+In addition to the above kind of parameters, there are also two
+``hybrid'' kind of parameter: ``Node or graph'' parameters and ``edge
+or graph'' parameters. The idea behind these parameters is the
+following: If such a parameter is specified before a graph
+specification, it becomes a graph parameter; if it is specified inside
+a graph specification is becomes a node or edge parameter. As an
+example, the |sibling distance| is normally a graph parameter (because
+it applies to all nodes), but it becomes a node parameter when given
+to a single node.
+
 
 \subsubsection{Basic Commands For Setting Parameters}
 
@@ -563,6 +703,14 @@ Let us start with the basic commands for setting a graph parameter
 \end{codeexample}
 \end{command}
 
+\begin{command}{\pgfgdhybridnodegraphparameter\marg{parameter}\marg{value}}
+  Calls |\pgfgdnodeparameter| when inside a graph drawing scope,
+  otherwise |\pgfgdgraphparameter|.  
+\end{command}
+
+\begin{command}{\pgfgdhybridedgegraphparameter\marg{parameter}\marg{value}}
+  As above, but for edges.
+\end{command}
 
 \subsubsection{Key Handlers  For Setting Parameters}
 
@@ -718,6 +866,15 @@ internally.
 \end{handler}
 
 
+\begin{handler}{{.node or graph parameter}|=|\opt{\meta{conversion}}}
+  This key works like |.node parameter| inside a graph drawing scope,
+  otherwise it works like |.graph parameter|.
+\end{handler}
+
+\begin{handler}{{.edge or graph parameter}|=|\opt{\meta{conversion}}}
+  As above, only for edges.
+\end{handler}
+
 
 
 \subsubsection{Advanced Commands For Setting Parameters}
@@ -849,768 +1006,5 @@ forward.
 \end{codeexample}
 \end{command}  
 
-
-
-
-\subsection{Lua Layer: Overview}
-
-All of the graph drawing engine resides in the directory
-|graphdrawing| of |pgf|. Inside, there are the following
-subdirectories:
-
-\begin{itemize}
-\item |core|, with the subdirectories |lualayer|, |basiclayer|, and |tikzlayer|.
-\item |algorithms|, with subdirectories for different kinds of graph
-  drawing algorithms.
-\end{itemize}
-
-Since most of the graph drawing engine is written in Lua, Most of
-these directories contain only Lua code. Indeed, |core/basiclayer|
-just contains the \pgfname\ library |graphdrawing|, which implements
-the functionalities explained earlier in this section, and
-|core/tikzlayer| contains just the \tikzname\ library |graphdrawing|,
-which is about a single page of code. By far the largest part of the
-graph drawing library resides in the |core/lualayer| directory, where
-the supporting classes and files of the graph drawing engines are
-gathered.
-
-The |algorithms| directory contains subdirectories for the different
-kinds of graph drawing algorithms. For instance, the |trees|
-subdirectory contains tree drawing algorithms and so on. Since graph
-drawing algorithms are implemented in Lua, these directories also
-contain mainly Lua files, which start with |pgfgd-algorithm-|, but
-they also contain a library file like the \pgfname\ library
-|graphdrawing.trees|. The job of this library is to make the graph
-parameters of the algorithms visible to \pgfname, so this file
-typically just contains calls of |\pgfgddeclarealgorithmkey| and
-|\pgfgddeclareforwardedkeys|.
-
-In the following, we first describe which steps are necessary to
-implement a new graph drawing algorithm. We then have a look at the
-classes made available to graph drawing algorithms by the
-engine. Finally, the section concludes with a class and function
-reference.
-
-
-
-\subsection{Lua Layer: Installing Graph Drawing Algorithms}
-\label{section-gd-implementing-algorithms}
-
-In the following we describe in detail how a new graph drawing
-algorithm can be implemented and installed. 
-
-
-\subsubsection{Starting the Graph Drawing Engine}
-
-First, before any graph drawing algorithms can be used, the graph
-drawing engine needs to be loaded. This is done by loading the
-\pgfname\ library |pgflibrarygraphdrawing.code.tex|. This will
-initialise the Lua graph drawing subsystem by invoking the Lua loader
-class.   
-
-In the most basic cases, no further \TeX\ code needs to be written to
-use a new graph drawing algorithm; but we will see later on, that a
-small entry in an appropriate \pgfname\ library of graph drawing
-algorithms will make the use of the algorithm somewhat simpler.\
-
-
-\subsubsection{Main File of the Graph Drawing Algorithm}
-
-As indicated at in the description of the |algorithm| key on
-page~\ref{section-gd-algorithm-key}, each graph drawing algorithm  
-must be implemented in a class. The class name will be the value
-passed to the |algorithm| key, albeit without any spaces. This class
-is a normal class in the sense of Lua, but a special function called
-|graph_drawing_algorithm| is provided that makes the declaration of
-such classes easier (we will come to it in a moment). This class
-should typically be placed in a file called
-|pgfgd-algorithm-|\meta{algorithm name}, again with spaces
-ignored. ``Typically'' means that it is only 
-important that the class is already defined when the engine
-tries to invoke it or, when this is not the case, the file with the
-described name contains this function. You could also put several
-algorithms in a single file, but then you must ensure that loading of
-the file yourself.
-
-During |\pgfgdendscope|, the algorithm's class will be loaded, if
-necessary. Then, the following things happen, in turn, in normal
-operation mode: (Let \meta{class} by the class name.)
-
-\begin{enumerate}
-\item Some preprocessing is done, if the ``static'' attributes of the
-  class specify this.
-\item A new instance of the class is created by calling
-  \meta{class}|:new(graph)|, where |graph| is a variable holding the
-  graph object. 
-\item The |run| method of the instance is called. This method should now
-  compute ``good'' positions for the nodes in the graph represented by
-  the |graph|.
-\item Post layout operations are performed, namely orienting the
-  graph and then anchoring the graph. Both operations are performed
-  automatically, but it is possible to configure them.
-\end{enumerate}
-
-Let us now look at the |graph_drawing_algorithm| function in more
-detail. It takes a single parameter \meta{info}, which must be a
-table, and does the following:
-
-\begin{enumerate}
-\item It switches to the namespace |pgf.graphdrawing|.
-\item It declares a new class whose name is given by the |name| key in
-  the \meta{info}.
-\item It declares a |new| method for this class, which takes a single
-  parameter |g| and returns a new \meta{instance} of the class. The
-  parameter will be installed in the attribute |graph| of
-  \meta{instance}. The |new| method tests whether a key called
-  |graph_options| is defined in the \meta{info} table. If so, the
-  value for this key must be a table of \meta{options}. This table is
-  processed as follows: For each pair \meta{key} |=| \meta{value}
-  inside the \meta{options} table, an attribute \meta{key} is created
-  in \meta{instance}. Provided that \meta{value} is a string, the
-  \meta{key} of the \meta{instance} will be set to
-  \begin{quote}
-    |graph:getOption('/graph drawing/' .. |\meta{value}|)|
-  \end{quote}
-  If, however, \meta{value} is an array, it should have two entries:
-  The first is, as above, a string that is the name of a graph
-  parameter. The second entry must be a function, which will be
-  applied to the result of the |getOption| function. Typically, this
-  function will be something like |tonumber| to convert the strings
-  that come from |getOption| into a number. The function |toboolean|
-  is defined as a convenience function; it tests whether its argument
-  is |'true'|.
-\item If the key |properties| is defined inside the \meta{info} table,
-  its value should be table of ``static'' or ``default'' values for
-  the class. More precisely, this table is used as the metatable of
-  the class.
-\end{enumerate}
-
-Let us have a look at an example: We redo our |SimpleDemo|, but this
-time using the full power of the |graph_drawing_algorithm| function:
-
-\begin{codeexample}[code only]
-graph_drawing_algorithm {
-  
-  -- Declare the name of the key (required key):
-  name = "SimpleDemo",
-
-  -- Declare a property:
-  properties = {
-    -- Ensures, that the graph is always connected when the graph
-    -- drawing algorithm is called
-    works_only_on_connected_graphs = true
-  },
-
-  -- Declare a graph parameter:
-  graph_parameters = {
-    label  = 'label',
-    radius = {'radius', tonumber}
-  }
-}
-\end{codeexample}
-
-The code is equivalent to the following:
-\begin{codeexample}[code only]
-pgf.module("pgf.graphdrawing")
-
-SimpleDemo = { works_only_on_connected_graphs = true }
-SimpleDemo.__index = SimpleDemo
-
-function SimpleDemo:new(g)
-  local obj = { graph = g }
-  setmetatable(obj, SimpleDemo)
-  
-  obj.label  = g:getOption('/graph drawing/label')
-  obj.radius = tonumber(g:getOption('/graph drawing/radius'))
-  
-  return obj  
-end  
-\end{codeexample}
-
-
-
-\subsubsection{Coordinate Systems in Lua}
-
-\label{section-gd-lua-coordinates}
-
-The main job of a graph drawing algorithm is to modify the
-coordinates of the nodes of the graph object in the |graph|
-attribute. Before we have a look at how this can be done, let us 
-first clarify how the different coordinate systems of \pgfname\
-interact with the graph drawing engine.
-
-Let us start with the case that there is no special transformation
-matrix setup is setup. In this case, all coordinates inside the Lua
-layer are pairs of numbers that will be interpreted as dimensions in
-\TeX\ points (one \TeX\ point equals 1/72.27 inches). The first number
-will be interpreted as the $x$-coordinate (going right) and the second
-number will be interpreted as the $y$-coordinate (going up). This is
-true both for the bounding boxes of the nodes that are passed down to
-the Lua layer, but also also for the coordinates that are computed by
-the algorithms inside the Lua layer.
-
-When graph parameters are set using the |evaluate math expression|
-syntax, the dimensions will already have been converted into this
-coordinate system. For instance, when a user writes
-|node distance=1in|, then |getOption('/graph drawing/node distance')|
-will yield the string |'72.27'|.
-
-When a transformation matrix is
-set, such as a shift by 1cm to the right and a rotation by
-30$^\circ$, the following happens: At the beginning of a
-graph drawing scope, the transformation matrix is reset. Thus, for
-instance all nodes created inside the graph drawing scope for which no
-scaling or shifting is setup will be centered on the origin. When
-|\pgfgdendscope| is reached, the transformation matrix is immediately
-restored, \emph{prior} to inserting the nodes at the computed
-positions. This means, in particular, that the coordinates computed by
-the graph drawing algorithms will be transformed by the transformation
-matrix that was in force at the beginning of the graph drawing
-scope. Continuing the example, all coordinates computed by the graph
-drawing algorithms would be shifted by 1cm and then rotated by
-30$^\circ$.
-
-The bottom line is that graph drawing algorithms do not need to worry
-about \pgfname's transformation matrix.
-
-
-
-\subsubsection{Example of a Graph Drawing Algorithm's Code}
-
-The following code fragment (taken and slightly altered
-from the file |pgfgd-algorithm-SimpleDemo.lua|)
-implements a trivial graph drawing algorithm that just places all
-nodes on a fixed-size circle.  
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  radius/.graph parameter=evaluate math expression
-}
-\pgfgdset{radius/.parameter initial=1cm}
-
-
-\begin{codeexample}[code only]
--- File pgfgd-algorithm-simple-demo.lua
-  
-graph_drawing_algorithm { name = "SimpleDemo" }
-
-function SimpleDemo:run()
-   local radius = 28.908  -- this is 1cm in points
-   local nodeCount = table.count_pairs(self.graph.nodes)
-
-   local alpha = (2 * math.pi) / nodeCount
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      node.pos.x = radius * math.cos(i * alpha)
-      node.pos.y = radius * math.sin(i * alpha)
-   end
-end
-\end{codeexample}
-
-The algorithm computes a circular layout like in the following:
-
-\begin{codeexample}[]
-\tikz [graph drawing scope, /graph drawing/algorithm=Simple Demo]
-  \graph { f -> c -> e ->[bend right] a -> {b -> {c, d, f}, e -> b}};
-\end{codeexample}
-
-
-\subsubsection{Setting Up a Key for Selecting the Algorithm}
-
-Users will typically wish to write something shorter than
-|graph drawing scope...| in order to run a graph drawing algorithm on
-a graph. For this reason, you should setup a style on the \TeX\ side
-that calls the above keys. For instance, you could create a small
-\tikzname\ library and place the following in the library:
-
-\begin{codeexample}[code only]
-\tikzset{circular layout/.style={
-    graph drawing scope,
-    /graph drawing/algorithm=Simple Demo}}
-\end{codeexample}
-
-However, there is a better command for this:
-
-\begin{codeexample}[code only]
-% Place this in a file like pgflibrarygraphdrawing.circular.code.tex
-\pgfgddeclarealgorithmkey
-{circular layout}
-{circular layout}
-{algorithm=Simple Demo}
-\end{codeexample}
-\pgfgddeclarealgorithmkey
-{circular layout}
-{circular layout}
-{algorithm=Simple Demo}
-
-The |\pgfgddeclarealgorithmkey| takes care of setting up your style
-key in appropriate ways (including some ways you will not have thought
-of) and installs some additional handlers.
-
-
-\subsubsection{Setting Up Graph Parameters}
-
-Returning to the algorithm, it would be better if we could
-``configure'' the radius of the circle. The graph drawing engine
-provides for this case: You can declare certain \pgfname\ keys to be
-so-called ``graph parameters''. When a key is declared as a graph
-parameter, it will be available inside the algorithm: 
-
-\begin{codeexample}[code only]
-local radius = tonumber(self.graph:getOption("/graph drawing/radius"))
-\end{codeexample}
-
-Using the |getOption| method we obtain the value of the
-graph parameter, but we must first register the key on the \TeX\ side
-as follows: 
-
-\begin{codeexample}[code only]
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  radius/.graph parameter=evaluate math expression,
-  radius/.parameter initial=1cm
-}
-\end{codeexample}
-
-The |evaluate math expression| tells \TeX\ that whenever you assign
-something to the |radius| option, the mathematical expression should
-be evaluated and the result should be passed down to the graph drawing
-algorithm. For instance, when you write |radius=20pt+3.5pt|, the
-algorithm will get the value |23.5| as a result to calling
-|getOption|. The |getOption| function will return a |nil| value for
-keys that have not been set. While this sometimes is desired
-behaviour, in our example we would want the radius to be set to a
-default value (1cm in this case) when nothing has been specified. This
-is achieved by the second line. The result of the above modifications
-can be seen in the following example:
-
-\begin{codeexample}[]
-\tikz \graph [circular layout, radius=1.5cm]
-  {f -> c -> e ->[bend right] a -> {b -> {c, d, f}, e -> b}};
-\end{codeexample}
-
-Since graph parameters are used quite frequently, there is special
-support for them: In the declaration of class via
-|graph_drawing_algorithm|, you can provide a key
-|graph_parameters|. This key will take a table of key--value pairs,
-where the key is interpreted as an attribute of the algorithm object
-and the value is either a string or an array. If it is a string, it is
-interpreted as the name of a graph parameter (without the
-|/graph drawing/| part of the path) and the attribute will be setup to
-the value of this graph parameter. If it is an array, the first entry
-must be this name of the graph parameter and the second entry is a
-function that is applied to the graph parameter prior to storing it in
-the attribute. For our example, we would write:
-
-\begin{codeexample}[code only]
-graph_drawing_algorithm {
-  name = "SimpleDemo",
-  graph_parameters = {
-    radius = { "radius", tonumber }
-  }
-}
-\end{codeexample}
-In the main program, we can now write |self.radius|.
-
-In addition to graph parameters, we can also have \emph{node
-  parameters}. These are setup similarly to |.graph parameter|, but
-with |.node parameter| and they are then accessed via the
-|node:getOption| function.
-
-As a slightly artificial example, let us introduce a |node radius|
-key, which allows us to change the radius of a single node. For this,
-we check for a node whether its radius key is set:
-
-\begin{codeexample}[code only]
--- In pgfgf-algorithm-SimpleExample.lua:
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      local node_radius = tonumber(node:getOption('/graph drawing/node radius')
-                                   or self.radius)
-      node.pos.x = node_radius * math.cos(i * alpha)
-      node.pos.y = node_radius * math.sin(i * alpha)
-   end
-   
-% In pgflibrarygraphdrawing.circular.code.tex
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  node radius/.node parameter=evaluate math expression
-}
-\end{codeexample}
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  node radius/.node parameter=evaluate math expression
-}
-
-\begin{codeexample}[]
-\tikz \graph [circular layout]
-  { a -> b -> c -> d [node radius=2cm] -> e -> a };
-\end{codeexample}
-
-Here is the complete code of the final algorithm:
-\begin{codeexample}[code only]
--- File pgfgd-algorithm-simple-demo.lua
-
-graph_drawing_algorithm {
-  name = "SimpleDemo",
-  graph_parameters = {
-    radius = "radius"
-  }
-}
-
-function SimpleDemo:run()
-   local nodeCount = table.count_pairs(self.graph.nodes)
-
-   local alpha = (2 * math.pi) / nodeCount
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      local node_radius = tonumber(node:getOption('/graph drawing/node radius')
-                                   or self.radius)
-      node.pos.x = node_radius * math.cos(i * alpha)
-      node.pos.y = node_radius * math.sin(i * alpha)
-   end
-end
-\end{codeexample}
-
-\begin{codeexample}[code only]
-% File pgflibrarygraphdrawing.circular.code.tex
-  
-\pgfgddeclarealgorithmkey
-  {circular layout}
-  {circular layout}
-  {algorithm=Simple Demo}
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  radius/.graph parameter=evaluate math expression,
-  radius/.parameter initial=1cm,
-  node radius/.node parameter=evaluate math expression
-}
-\end{codeexample}
-
-
-
-
-\subsection{Lua Layer: Pre- and Postprocessing}
-
-A number of tasks in graph drawing can be performed independently of
-the actual algorithm used. For instance, many algorithms require that
-the graph is connected. In this case, unconnected input graphs first
-need to be decomposed into their connected components, which should
-then be processed independently. Such a step would be
-\emph{preprocessing} step. Similarly, once a graph has been laid out
-by an algorithm, it often still needs to be shifted around to its
-anchoring position. This step is the same for any algorithm and can be
-done in a \emph{postprocessing} step.
-
-It turns out that some pre- or postprocessing steps make sense for
-certain algorithms, but not for other algorithms. For this reason, an
-algorithm can specify which steps should (not) be performed by setting
-certain attributes in the algorithm's class. Usually, these attributes
-will be set using the |properties| key in the declaration of the
-algorithm's class.
-
-In the following, we describe which steps are performed and which keys
-influence them.
-
-
-\subsubsection{Preprocessing}
-
-The following preprocessing steps are performed for every graph:
-\begin{enumerate}
-\item If the |works_only_on_connected_graphs| property is set, the
-  connected components of the graph will first be computed.
-\item For each component or, if the property is not set, for the whole
-  graph, a new algorithm object is created.
-\item The |run| method is then called for each component,
-  \emph{unless} the size of the component is |1|. If, however, the
-  |run_also_for_single_node| property is set, the algorithm is even
-  invoked for a 1-node graph.
-\end{enumerate}
-
-\subsubsection{Postprocessing}
-
-Each time the |run| method finishes, the following postprocessing
-operations are performed:
-\begin{enumerate}
-\item The graph is oriented, see
-  Section~\ref{subsection-library-graphdrawing-standard-orientation}. A
-  graph drawing algorithm can set the |growth_direction| property in
-  case the graph has a natural growth direction.
-\item The graph is anchored, see
-  Section~\ref{subsection-library-graphdrawing-anchoring}. 
-\end{enumerate}
-The above steps are applied to each connected component individually
-if the splitting key has been set.
-
-The components then need to be ``packed'', but this is not yet
-implemented.
-
-
-
-
-\subsection{Lua Layer: The Main Classes}
-
-In the following, details of the different main classes that are
-useful for graph drawing algorithms are documented.
-
-
-\subsubsection{The Graph Class}
-
-The class |Graph| is used to represent graphs and contains
-references to the nodes and edges stored in a graph.
-
-A graph drawing algorithm gets passed a |Graph| object that represents
-the to-be-layouted graph. However, you can also create new graph
-objects, for instance to decompose the graph into connected
-components. 
-
-To create a new graph, you can use the |copy| method, which creates a 
-shallow copy (without coying nodes or edges), and the
-|subGraphParent| method, which creates a deep copy of the graph, edge
-and node objects starting at a designated parent node. If you need
-more control by supplying your own set of already visited nodes, use
-the underlying function |subGraph|.
-
-A graph allows you to add and remove nodes and edges via |addNode|,
-|addEdge|, |removeNode| and |removeEdge| respectively.  There are also
-variants which remove all incident edges on a node removal and
-conversely, |deleteNode| and |deleteEdge|.
-
-Nodes can be looked up by name with |findNode|. The more generic
-|findNodeIf| allows you to search for a node passing a test
-predicate. 
-
-The |walkDepth| and |walkBreadth| methods may be used to get
-iterators over all nodes and edges in a depth-first or breadth-first
-order (other traversal orders may require a rewrite or extension of the
-|walkAux| method).
-
-Positions are represented using the class |Vector|.
-
-The following tasks are typical for manipulating the graph.
-
-\begin{itemize}
-\item Iterate over all nodes.
-\begin{codeexample}[code only]
-for node in table.value_iter(self.graph.nodes) do
-   ...
-end
-\end{codeexample}
-\item Get width or height of a node:
-\begin{codeexample}[code only]
-local width, height = node.width, node.height
-\end{codeexample}
-\item Get or set the coordinates of a node. The final values of these
-  coordinates will be used during as the actual positions of the nodes
-  on the page.
-\begin{codeexample}[code only]
-node.pos.x = node.pos.x + 1
-node.pos.y = node.pos.y + 1
-\end{codeexample}
-\item Iterate over all edges and all nodes of the current edge.
-\begin{codeexample}[code only]
-for _,edge in ipairs(self.graph.edges) do
-   for _,node in ipairs(edge.nodes) do
-      ...
-   end
-end
-\end{codeexample}
-\item Get the nodes connected by an edge.
-\begin{codeexample}[code only]
-local nodeLeft = edge.nodes[1]
-local nodeRight = edge.nodes[2]
-\end{codeexample}
-\end{itemize}
-
-%\input{generated/pgflibrarygraphdrawing-graph}
-%
-%The following module simplifies the traversal of graphs:
-%
-%\input{generated/pgflibrarygraphdrawing-traversal-helpers}
-
-
-
-\subsubsection{Nodes}
-
-Nodes serve as direct representations of the \TeX\ level nodes and
-include information about incident edges, the calculated position and
-the \TeX\ box used.  Typically one'll use its methods to navigate
-through the graph or to add and remove edges in an intermediary graph.
-Using the information from the \TeX\ side, this class is also able to
-provide layout information, i.e. the dimensions of the corresponding
-\TeX\ box.
-
-%\input{generated/pgflibrarygraphdrawing-node}
-
-
-\subsubsection{The Edge Class}
-
-|Edge| objects contain references to incident nodes, including the
-possibility to create hyperedges with more than two nodes for an edge.
-Edges can be undirected or directed (denoted by the constants
-|Edge.UNDIRECTED| or |Edge.LEFT|, |Edge.RIGHT|, |Edge.BOTH| and
-|Edge.NONE| for invisible edges, see |Interface:drawEdge|). 
-
-%\input{generated/pgflibrarygraphdrawing-edge}
-
-
-\subsubsection{Positions and Vectors}
-
-TT: More documentation is needed here!
-
-%\input{generated/pgflibrarygraphdrawing-position}
-%\input{generated/pgflibrarygraphdrawing-vector}
-
-
-\subsubsection{The Interface and System Classes}
-
-The class |Interface| is the main entry point in Lua. Every
-communication from \TeX\ to Lua is done here. It provides methods to
-create graphs, add nodes and edges to graphs, and finally to invoke the
-selected algorithm. The |Interface| class manages the stack of
-graphs. When the |newGraph()| function is called, it generates a new graph
-object and pushes it on the graph stack. The methods |addNode()| and
-|addEdge()| are called for each node and each edge, creating the
-actual Lua objects and adding them to the current graph. 
-
-After adding nodes and edges, when the scope ends, the interface
-invokes the actual algorithm to layout the graph. This is done in the
-|drawGraph()| function. The next step is to put the nodes back in the
-\TeX\ output stream. This is invoked by the |finishGraph()| method. 
-
-%\input{generated/pgflibrarygraphdrawing-interface}
-
-Communication with \TeX\ on a basic layer is done in the |Sys|
-class. The |beginShipout()| function opens a new scope in \pgfname\
-to put all graph drawing nodes into. This prevents other graph objects
-outside the graph drawing scope from referencing these nodes. The
-|endShipout()| method closes the scope. Nodes and edges are put in the
-output stream by the methods |putTeXBox()| and |putEdge()|, which
-invoke callbacks to \TeX. 
-
-
-\subsubsection{Support Classes and Functions}
-
-Most classes in the framework (including the module objects) implement
-the |__tostring| method, meaning that you can get a somewhat useful
-string representation of the object via the standard |tostring|
-function.
-
-%\input{generated/pgflibrarygraphdrawing-helper}
-%\input{generated/pgflibrarygraphdrawing-table-helpers}
-%\input{generated/pgflibrarygraphdrawing-iter-helpers}
-
-
-
-
-\subsection{Lua Layer: The Module System}
-  
-The graph drawing engine defines its own Lua module system, which is
-characterised by a more dynamic view on importing symbols.  Basically,
-each module has a set of imported modules and the lookup for names
-first happens in the local scope, then in the current module and
-subsequently in all imported modules.  Since no name is statically
-imported, newly assigned variables in other modules are still visible
-when those were previously imported.
-
-Modules are accessed with the |pgf.module| call, which enables the
-module for the current context, that is, the current file. If a module
-does not exist, it will be created.  Importing modules is done via
-|pgf.import|.  Both functions accept a string argument for the
-module name.
-
-Modules are named hierarchically and defined modules are exported into
-each parent module.  If the module name contains no period, it is
-exported into the global environment.  Nevertheless, importing is only
-done on request; importing a module twice does not do anything.
-It is recommended to dedicate a single module definition file
-to create it and import other modules.  For example, the graph drawing
-engine contains a single file containing only the following two lines for
-creating the |pgf.graphdrawing| module in the first place.
-
-\begin{codeexample}[code only]
-pgf.module("pgf.graphdrawing")
-pgf.import("pgf")
-\end{codeexample}
-
-Symbol lookup first happens in the local namespace, then in the
-current module and subsequently in all imported modules and the global
-namespace.  Assignment of new variables happens in the current module
-(or for variables declared |local| in the local namespace).  If you
-need to assign values to the global environment use the special table
-|_G| as you'd normally do in Lua.
-
-The |pgf| module is created during the definition of the module system
-and mostly contains functions for loading and debugging.  Developers
-probably shouldn't touch the |pgf| namespace and instead add new
-functionality to modules below this level or in new top-level
-modules.
-
-Let us see what consequences this module system has in practice.  The
-following code fragment starts from a clean state after rendering it
-with \LuaTeX\ and then enters the |pgf.graphdrawing| module,
-overwriting the global |pgf| binding and then again reverting this
-change.
-
-\begin{codeexample}[code only]
-\usetikzlibrary{graphdrawing}
-
-\directlua{
-  pgf.graphdrawing.Sys:log("1: pgf is " .. tostring(pgf))
-  pgf.graphdrawing.Sys:log("1: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf.module("pgf.graphdrawing")
-  
-  Sys:log("2: pgf is " .. tostring(pgf))
-  Sys:log("2: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf = 1
-  
-  Sys:log("3: pgf is " .. tostring(pgf))
-  Sys:log("3: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf = nil
-  
-  Sys:log("4: pgf is " .. tostring(pgf))
-  
-  pgf.graphdrawing = nil
-  
-  Sys:log("5: pgf is " .. tostring(pgf))
-  
-  _G.pgf = nil
-  
-  Sys:log("6: pgf is " .. tostring(pgf))
-}
-\end{codeexample}
-
-The result will be as follows:
-
-\begin{codeexample}[code only]
-1: pgf is <module 'pgf', table: 0x7979600>
-1: graphdrawing is nil
-
-2: pgf is <module 'pgf', table: 0x7979600>
-2: graphdrawing is <module 'pgf.graphdrawing', table: 0x7973c60>
-
-3: pgf is 1
-3: graphdrawing is <module 'pgf.graphdrawing', table: 0x7973c60>
-
-4: pgf is <module 'pgf', table: 0x7979600>
-5: pgf is <module 'pgf', table: 0x7979600>
-6: pgf is nil
-\end{codeexample}
-
-As you can see, the |pgf| table is available in the global environment
-and also after using the |pgf.graphdrawing| module, although we do not 
-refer to it with its full name.  Assigning a new value to |pgf|
-doesn't overwrite the global object, but introduces a local binding
-shadowing the global one. Assigning |nil| then removes the local
-binding, therefore in the next line the global variable is available
-again.
-
-Note that in all but the first case the binding to |graphdrawing|
-stays the same.  Also, using these assignments, you can't accidentally
-remove your access to the |pgf| or any imported modules as the last
-two assignments show (the |Sys:log| method still works).
-
-Every class and function of the graph drawing engine (except for
-module handling in |pgf|) is available in the |pgf.graphdrawing|
-module. 
 
 
