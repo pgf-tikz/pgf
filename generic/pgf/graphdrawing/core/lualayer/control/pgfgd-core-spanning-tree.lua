@@ -23,7 +23,8 @@ pgf.module("pgf.graphdrawing")
 --
 -- @param graph The graph for which the spanning tree should be computed 
 
-function compute_spanning_tree (graph, algorithm)
+function compute_spanning_tree (algorithm)
+  local graph = algorithm.graph
 
   -- Should we do dfs or bfs? Check option
   local dfs = graph:getOption('/graph drawing/spanning tree method') == "depth first search"

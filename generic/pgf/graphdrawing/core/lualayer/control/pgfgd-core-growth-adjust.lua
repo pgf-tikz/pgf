@@ -18,7 +18,8 @@ growth_adjust = {}
 
 --- Precompute the angle of rotation for the growth.
 
-function growth_adjust.prepare_post_layout_orientation(graph, algorithm)
+function growth_adjust.prepare_post_layout_orientation(algorithm)
+  local graph = algorithm.graph
 
   -- First, compute the angle and the nodes that determine the growth:
   local function growth_fun (node, grow, flag)
@@ -86,7 +87,9 @@ end
 -- special way, all other shapes are currently treated like a
 -- rectangle.
 
-function growth_adjust.compute_bounding_boxes(graph, algorithm)
+function growth_adjust.compute_bounding_boxes(algorithm)
+  local graph = algorithm.graph
+
   local r = graph[algorithm].rotate_around
 
   if r then

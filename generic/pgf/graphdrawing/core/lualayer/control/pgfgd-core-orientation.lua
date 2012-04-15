@@ -159,7 +159,7 @@ function orientation.perform_post_layout_steps(algorithm)
 
    -- Computed during preprocessing:
    local r = algorithm.graph[algorithm].rotate_around 
-   if r then
+   if r and r.from_node.growth_direction ~= "fixed" and algorithm.growth_direction ~= "fixed" then
      local x = r.from_node.pos.x
      local y = r.from_node.pos.y
      local from_angle = r.from_angle or math.atan2(r.to_node.pos.y - y, r.to_node.pos.x - x)

@@ -147,6 +147,7 @@ algorithms. Section~\ref{section-gd-own-algorithm} covers the
 internals of how the graph drawing engine works. 
 
 
+
 \subsection{Usage}
 
 To use the graph drawing engine, you first need to load some
@@ -444,11 +445,14 @@ passed to the |spring layout| key:
 \end{codeexample}
 
 
-\subsection{Specifying Distances and Paddings}
+
+
+
+\subsection{Padding and Node Distances}
 
 \label{subsection-gd-dist-pad}
 
-In many cases, you may wish to specify how ``near'' two nodes should
+In many drawings, you may wish to specify how ``near'' two nodes should
 be placed by a graph drawing algorithm. Naturally, this depends
 strongly on the specifics of the algorithm, but there are a number of
 general keys that will be used by many algorithms.
@@ -1017,12 +1021,17 @@ graph. For this, the following special key is available:
 
 As for anchoring a graph, the different keys for orienting graphs may
 easily produce conflicting demands, which need to be
-resolved:
+resolved. The following steps are normally performed for each
+connected component of the graph independently (see 
+Section~\ref{section-gd-packing} for details on connected components),
+but algorithms may choose to consider the graph ``as a whole''. In
+this case, the following steps are performed only once for the whole
+graph. 
 
 \begin{enumerate}
 \item
   The graph drawing algorithm is ``told'' about the desired
-  orientations in the form of node and edge parameters. 
+  orientations in the form of graph, node, and edge parameters. 
   An algorithm may or may not try to honor the desired
   orientations. As for the anchoring of graphs, for some algorithms it
   is natural and easy to restrict the way nodes are placed so as to
@@ -1030,10 +1039,11 @@ resolved:
   a global scale. Algorithms will internally tell the graph drawing
   engine when they grow the graph in some direction. They can even
   indicate that they have already taken care of all growth demands for
-  individual nodes. Nevertheless, the following steps are always
-  performed:
+  individual nodes.
+
+  Nevertheless, the following steps are always performed:
 \item
-  It is now checked whether there is an edge in the graph whose
+  The engine checks whether there is an edge in the graph whose
   slope has been fixed using the |orient| key. If there is at least one
   such edge, the first such edge is considered. The graph is rotated
   such that this edge has the desired slope. The orientation process
@@ -1071,66 +1081,429 @@ resolved:
 \end{enumerate}
 
 
+
 \subsection{Packing of Connected Components}
 
+\label{subsection-gd-component-packing}
+
 Graphs may be composed of subgraphs or \emph{components} that are not
-connected to each other. In order to draw these nicely, the 
-|graphdrawing| library splits them up into separate graphs, computes
+connected to each other. In order to draw these nicely, most graph
+drawing algorithms split them into separate graphs, computes
 their layouts with the same graph drawing algorithm independently and,
-in a postprocessing step, arranges them in a non-uniform grid in the 
-final drawing. This is called \emph{component packing}.
+in a postprocessing step, arranges them next to each other. (Some
+graph drawing algorithms will treat a graph ``as a whole''; for such
+algorithms the following options do not apply.)
 
-The following options can be used to configure the order and placement
-strategy during component packing.
+The default method for placing the different components works as
+follows:
 
-% \begin{key}{/graph drawing/component packing=\marg{options}}
-%   \keyalias{tikz}\keyalias{tikz/graphs}
-%   Executes the \meta{options} with the path prefix 
-%   |/tikz/component packing|.
+\begin{enumerate}
+\item For each component, a layout is determined and the component is
+  oriented as described
+  Section~\ref{subsection-library-graphdrawing-standard-orientation}
+  on orientation of graphs. 
+\item Then, we differentiate between two kinds of components: Those
+  that contain an anchored node and those that do not. As described in
+  Section~\ref{subsection-library-graphdrawing-anchoring}, you can
+  directly specify for a node where it should be placed on the
+  page. If a component contains such a node, it is clear where the
+  component should go (we call it ``anchored'').
   
-%   Defines how to arrange the connected components of the graph after 
-%   their individual drawings have been computed.
-% \end{key}
+  The packing collects and considers all unanchored nodes, plus the
+  first anchored component, if such a component exists. The second and
+  further anchored component are not considered during the packing
+  process, they are simply anchored according to their anchor nodes. 
+\item If the previous step has yielded two or more components that now
+  need to be packed, they are sorted as prescribed by the
+  |component order| key.
+\item The first component is now placed (conceptually) at the
+  origin. (The final position of this and all other components will be
+  determined later, namely in the anchoring phase, but let us imagine
+  that the first component lies at the origin at this point.)
+\item The second component is now positioned relative to the first
+  component. The ``direction'' in which the next component is placed
+  relative to the first one is determined by the |component direction|
+  key, so components can be placed from left to right or up to down or
+  even in any angular direction. However, both internally and in the
+  following description, we assume that the components are placed from
+  left to right; other directions are achieved by doing some (clever)
+  rotating of the arrangement achieved in this way.
 
-% To be written...
+  So, we now wish to place the second component to the right of the
+  first component. The component is first shifted vertically according
+  to some alignment strategy. For instance, it can be shifted so that
+  the topmost node of the first component and the topmost node of the
+  second component have the same vertical position. Alternatively, we
+  might require that certain ``alignment nodes'' in both components
+  have the same vertical position. There are several other strategies,
+  which can be configured using the |component align| key.
 
-%\begin{key}{/tikz/component packing/layered=\opt{\meta{boolean}} (default true, initially true)}
-%  |layered| arranges the different components in a non-uniform grid
-%  starting in the top left corner. Components are placed in these 
-%  layers in descending order of their size.
-%  \begin{codeexample}[]
-%\tikz \graph [experimental layout,component packing={layered}] {
-%  a -- b -- c -- a,
-%  d -- e -- d,
-%  g
-%};
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/component packing/centered=\opt{\meta{boolean}} (default true, initially false)}
-%  If set to |true|, arranges the different components clockwise in a 
-%  non-uniform grid starting at the center. Components are placed in 
-%  descending order of their size.
-%  \begin{codeexample}[]
-%\tikz \graph [experimental layout,component packing={centered}] {
-%  a -- b -- c -- a,
-%  d -- e -- d,
-%  g
-%};
-%  \end{codeexample}
-%\end{key}
-%
-%\begin{key}{/tikz/component packing/padding=\meta{dimension} (initially 0pt)}
-%  Defines how much padding is used to separate the connected 
-%  components.
-%  \begin{codeexample}[]
-%\tikz \graph [experimental layout,component packing={centered,padding=10pt}] {
-%  a -- b -- c -- a,
-%  d -- e -- d,
-%  g
-%};
-%  \end{codeexample}
-%\end{key}
+  One the vertical position has been fixed, the horizontal position is
+  computed. Here, two different strategies are available: First, image
+  rectangular bounding boxed to be drawn around both components. Then
+  we shift the second component such that the right border of the
+  bounding box of the first component touches the left border of the
+  bounding box of the second component. Instead of having the bounding
+  boxes ``touch,'' we can also have a padding of |component sep|
+  between them. The second strategy is more involved and also known as
+  a ``skyline'' strategy. It works as follows: Imaging the second
+  component to be placed far to the right of the first component. Now
+  start moving the second component to the left until one of the nodes
+  of the second component touches a node of the first component, and
+  stop. Again, the padding |component sep| can be used to avoid the
+  nodes actually touching each other. (In case you are worried that
+  the second component might actually ``pass through'' the first
+  component because the nodes of the two component have totally
+  different vertical heights, rest assured, that such ``vertical
+  holes'' are taken care of to avoid this case.)
+\item
+  After the second component has been placed, the third component is
+  considered and positioned relative to the second one, and so on.
+\item
+  At the end, as hinted at earlier, the whole arrangement is rotate so
+  that instead of ``going right'' the component go in the direction of
+  |component direction|. Note, however, the this rotation applies only
+  to the ``shift'' of the components; the components themselves are
+  not rotated. Fortunately, this whole rotation process happens in the
+  background and the result is normally exactly what you would expect.
+\end{enumerate}
+
+In the following, we go over the different keys that can be used to
+configure the component packing.
+
+
+\subsubsection{Ordering the Component}
+
+The different connected components of the graph are collected in a
+list. The ordering of the nodes in this list can be configured using
+the following key:
+
+\begin{key}{/graph drawing/component order=\meta{strategy} (initially
+    by first specified node)}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  The following values are permissible for \meta{strategy}
+  \begin{itemize}
+  \item \declare{|by first specified node|}
+
+    The components are ordered ``in the way they appear in the input
+    specification of the graph''. More precisely, for each component
+    consider the node that is first encountered in the description
+    of the graph. Order the components in the same way as these nodes
+    appear in the graph description.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle}]
+{ a, b, c -- d -- e, f -- g };
+\end{codeexample}
+  \item \declare{|increasing node number|}
+    
+    The components are ordered by increasing number of nodes. For
+    components with the same number of nodes, the first node in each
+    component is considered and they are ordered according to the
+    sequence in which these nodes appear in the input.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+              component order=increasing node number]
+{ a, b, c -- d -- e, f -- g };
+\end{codeexample}
+    \begin{key}{/graph drawing/small components first}
+      \keyalias{tikz}
+      \keyalias{tikz/graphs}
+      A shorthand for |component order=increasing node number|.
+    \end{key}
+  \item \declare{|decreasing node number|}
+    As above, on in decreasing order.  
+    \begin{key}{/graph drawing/large components first}
+      \keyalias{tikz}
+      \keyalias{tikz/graphs}
+      A shorthand for |component order=decreasing node number|.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+              large components first]
+{ a, b, c -- d -- e, f -- g };
+\end{codeexample}
+    \end{key}
+  \end{itemize}
+\end{key}
+
+
+\subsubsection{Arranging Components in a Certain Direction}
+
+\begin{key}{/graph drawing/component direction=\meta{angle} (initially 0)}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  The \meta{angle} is used to determine the relative position of each
+  component relative to the previous one. The direction need not be a
+  multiple of |90|.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+              component direction=left]
+  { a, b, c -- d -- e, f -- g };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+              component direction=10]
+  { a, b, c -- d -- e, f -- g };
+\end{codeexample}
+  As usual, you can use texts like |up| or |right| instead of a
+  number.
+
+  As the example shows, the direction only has an influence on the
+  relative positions of the components, not on the direction of growth
+  inside the components. In particular, the components are not rotated
+  by this option in any way. You can use the |grow| option or |orient|
+  options to orient individual components:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+              component direction=up]
+  { a, b, c [grow=right] -- d -- e, f[grow=45] -- g };
+\end{codeexample}
+\end{key}
+
+
+
+\subsubsection{Aligning Components}
+
+When components are placed next to each from left to right, it
+is not immediately clear how the components should be aligned
+vertically. What happens is the in each component a horizontal line is
+determined and then all components are shifted vertically so that the
+lines are aligned. There are different strategies for choosing these
+``lines'', see the description of the options described later on.
+When the |component direction| option is used to change the direction
+in which components are placed, it certainly make no longer sense to
+talk about ``horizontal'' and ``vertical'' lines. Instead, what
+actually happens is that the alignment does not consider
+``horizontal'' lines, but lines that go in the direction specified by
+|component direction| and aligns them by moving components along a
+line that is perpendicular to the line. For these reasons, let us call
+the line in the component direction the \emph{alignment line} and a
+line that is perpendicular to it the \emph{shift line}.
+
+The first way of specifying through which point of a component the
+alignment line should get is to use the following option:
+
+\begin{key}{/graph drawing/align here}
+  \keyalias{tikz}
+  \keyalias{tikz/graphs}
+  When this option is given to a node, this alignment line will go
+  through the origin of this node. If this option is passed to more
+  than one node of a component, the node encountered first in the
+  component is used.
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw}]
+{ a, b -- c[align here], d -- e[second, align here] -- f };
+\end{codeexample}
+\end{key}
+
+In many cases, however, you will not wish to specify an alignment node
+manually in each component. Instead, you will use the following key to
+specify a \emph{strategy} that should be used to automatically
+determine such a node:
+
+\begin{key}{/graph drawing/component align=\meta{strategy} (initially first node)}
+  \keyalias{tikz}
+  \keyalias{tikz/graphs}
+  The following values are permissible:
+  \begin{itemize}
+  \item \declare{|first node|}
+    In each component, the alignment line goes through the center of
+    the first node of the component encountered during specification
+    of the component.
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component align=first node]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+  \item \declare{|center|}
+    
+    The nodes of the component are projected onto the shift line. The
+    alignment line is now chosen so that is exactly in the middle
+    between the maximum and minimum value that the projected nodes
+    have on the shift line.
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component align=center]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component direction=90,
+              component align=center]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+  \item \declare{|counterclockwise|}
+
+    As for |center|, we project the nodes of the component onto the
+    shift line. The alignment line is now chosen so that it goes
+    through the center of the node whose center has the highest
+    projected value.
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component align=counterclockwise]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component direction=90,
+              component align=counterclockwise]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+    The name |counterclockwise| is intended to indicate that the align
+    line goes through the node that comes last if we go from the
+    alignment direction in a counter-clockwise direction.
+  \item \declare{|clockwise|}
+    
+    Works like |counterclockwise|, only in the other direction:
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component align=clockwise]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [binary tree layout, nodes={draw},
+              component direction=90,
+              component align=clockwise]
+{ a, b -- c, d -- e[second] -- f };
+\end{codeexample}
+  \item \declare{|counterclockwise bounding box|}
+
+    This method is quite similar to |counterclockwise|, only the
+    alignment line does not go through the center of the node with a
+    maximum projected value on the shift line, but through the maximum
+    value of the projected bounding boxes. For a left-to-right
+    packing, this means that the components are aligned so that the
+    bounding boxes of the components are aligned at the top.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw, align=center},
+              component align=counterclockwise]
+{ a, "high\\node" -- b};
+\tikz \graph [tree layout, nodes={draw, align=center},
+              component align=counterclockwise bounding box]
+{ a, "high\\node" -- b};
+\end{codeexample}
+  \item \declare{|clockwise bounding box|}
+    
+    Works like |counterclockwise bounding box|.
+  \end{itemize}
+\end{key}
+
+Using a combination of |component direction| and |component align|,
+numerous different packing strategies can be configured. However,
+since names like |counterclockwise| are a bit hard to remember and to
+apply in practice, a number of easier-to-remember keys are predefined
+that combine an alignment and a direction:
+
+\begin{key}{/graph drawing/components go right top aligned}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+  Shorthand for |component direction=right| and
+  |component align=counterclockwise|. This means that, as the name
+  suggest, the components will be placed left-to-right and they are
+  aligned such that their top nodes are in a line.  
+\begin{codeexample}[]  
+\tikz \graph [tree layout, nodes={draw, align=center},
+              components go right top aligned]
+  { a, "high\\node" -- b};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/graph drawing/components go right absolute top aligned}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+  Like the previous key, but with
+  |component align=counterclockwise bounding box|. This means that the
+  components will be aligned with their bounding boxed being
+  top-aligned: 
+\begin{codeexample}[]  
+\tikz \graph [tree layout, nodes={draw, align=center},
+              components go right absolute top aligned]
+  { a, "high\\node" -- b};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/graph drawing/components go right bottom aligned}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+  As above, only with an alignment of the bottom nodes.
+\end{key}
+
+\begin{key}{/graph drawing/components go right absolute bottom aligned}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+\end{key}
+
+\begin{key}{/graph drawing/components go right center aligned}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+  As above, but with the alignment at the centers.
+\end{key}
+
+\begin{key}{/graph drawing/components go right}
+  \keyalias{tikz/graphs}
+  \keyalias{tikz}
+  Shorthand for |component direction=right| and
+  |component align=first node|.
+\end{key}
+
+The above options are all available also with |right| replaced by
+|left|. Here is an example:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw, align=center},
+              components go left top aligned]
+  { a, "high\\node" -- b};
+\end{codeexample}
+Next, the options are also available with |right| replaced by |up| and
+also by |down|. Then, instead of |top| or |bottom| for the alignment,
+|left| and |right| must be used:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw, align=center},
+              components go down left aligned]
+  { a, hello -- {world,s} };
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw, align=center},
+              components go up absolute left aligned]
+  { a, hello -- {world,s}};
+\end{codeexample}
+
+
+
+\subsubsection{The Distance Between Components}
+
+Once the components of a graph have been oriented, sorted, aligned,
+and a direction has been chosen, it remains to determine the distance
+between adjacent components. Two methods are available for computing
+this distance, as specified by the following option:
+
+\begin{key}{/graph drawing/component packing=\meta{method} (initially
+    skyline)}
+  \keyalias{tikz}
+  \keyalias{tikz/graphs}
+  Given two components, their distance is computed as follows in
+  depencende of \meta{method}:
+  \begin{itemize}
+  \item \declare{|rectangular|}
+
+    Imagine a bounding box to be drawn around both components. They
+    are then shifted such that the padding (separating distance)
+    between the two boxes is the current value of |component sep|.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw}, component sep=0pt,
+              component packing=rectangular]
+  { a -- long text, longer text -- b};
+\end{codeexample}
+  \item \declare{|skyline|}
+
+    The ``skyline method'' described in the introduction of 
+    Section~\ref{subsection-library-graphdrawing-anchoring} is used to
+    compute the distance.
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw}, component sep=0pt,
+              component packing=skyline]
+  { a -- long text, longer text -- b};
+\end{codeexample}
+  \end{itemize}
+\end{key}
+
 
 
 \subsection{Implementing Graph Drawing Algorithms}

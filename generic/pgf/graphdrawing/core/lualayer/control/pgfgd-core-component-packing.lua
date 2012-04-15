@@ -20,13 +20,18 @@ function componentpacking.prepare_bounding_boxes(nodes, angle, sep)
   for _,n in ipairs(nodes) do
     -- Fill the bounding box field,
     local bb = {}
-    
-    local corners = {
-      { x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
-      { x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
-      { x = n.tex.maxX + n.pos.x, y = n.tex.minY + n.pos.y },
-      { x = n.tex.maxX + n.pos.x, y = n.tex.maxY + n.pos.y },
-    }
+
+    local corners
+    if n.class == Node then
+      corners = {
+	{ x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
+	{ x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
+	{ x = n.tex.maxX + n.pos.x, y = n.tex.minY + n.pos.y },
+	{ x = n.tex.maxX + n.pos.x, y = n.tex.maxY + n.pos.y },
+      }
+    else
+      corners = { {x = n.pos.x, y = n.pos.y} }
+    end
 	
     bb.min_x = math.huge
     bb.max_x = -math.huge
@@ -51,7 +56,7 @@ function componentpacking.prepare_bounding_boxes(nodes, angle, sep)
     
     bb.center_x =  n.pos.x*math.cos(angle) + n.pos.y*math.sin(angle)
     bb.center_y = -n.pos.x*math.sin(angle) + n.pos.y*math.cos(angle)
-    
+
     n.component_info = bb
   end
 end
@@ -67,9 +72,23 @@ function componentpacking.pack(graph, components)
   -- Step 1: Preparation, rotation to target direction
   local sep = tonumber(graph:getOption('/graph drawing/component sep'))
   local angle = tonumber(graph:getOption('/graph drawing/component direction'))/180*math.pi
-  
+
+  local vnodes = {} -- This is just a "unique index".
+
   for _,c in ipairs(components) do
-    componentpacking.prepare_bounding_boxes(c.nodes, angle, sep/2)
+    -- Setup the lists of to-be-considered nodes
+    local nodes = {}
+    for _,n in ipairs(c.nodes) do
+      nodes [#nodes + 1] = n
+    end
+    for _,e in ipairs(c.edges) do
+      for _,p in ipairs(e.bend_points) do
+	nodes [#nodes + 1] = VirtualNode:new { pos = p }
+      end
+    end
+    c[vnodes] = nodes
+
+    componentpacking.prepare_bounding_boxes(c[vnodes], angle, sep/2)
   end
   
   local x_shifts = { 0 }
@@ -114,7 +133,7 @@ function componentpacking.pack(graph, components)
     y_shifts[i] = -line
 
     -- Adjust nodes:
-    for _,n in ipairs(c.nodes) do
+    for _,n in ipairs(c[vnodes]) do
       local bb = n.component_info
       bb.min_y = bb.min_y - line
       bb.max_y = bb.max_y - line
@@ -127,7 +146,7 @@ function componentpacking.pack(graph, components)
   local y_values = {}
 
   for _,c in ipairs(components) do
-    for _,n in ipairs(c.nodes) do
+    for _,n in ipairs(c[vnodes]) do
       y_values[#y_values+1] = n.component_info.min_y
       y_values[#y_values+1] = n.component_info.max_y
       y_values[#y_values+1] = n.component_info.center_y
@@ -146,10 +165,10 @@ function componentpacking.pack(graph, components)
   for i=1,#components-1 do
     -- First, update right_face:
     local touched = {}
-    for _,n in ipairs(components[i].nodes) do
+    for _,n in ipairs(components[i][vnodes]) do
       local bb = n.component_info
       local border = bb.max_x
-
+      
       for i=y_ranks[bb.min_y],y_ranks[bb.max_y] do
 	touched[i] = true
 	right_face[i] = math.max(right_face[i], border)
@@ -157,21 +176,27 @@ function componentpacking.pack(graph, components)
     end
     
     -- Fill up the untouched entries:
-    local last_touched
+    local right_max = -math.huge
     for i=1,#y_values do
-      if touched[i] then
-	last_touched = i
-	break
+      if not touched[i] then
+	-- Search for next and previous touched
+	local interpolate = -math.huge
+	for j=i+1,#y_values do
+	  if touched[j] then
+	    interpolate = math.max(interpolate,right_face[j] - (y_values[j] - y_values[i]))
+	    break
+	  end
+	end
+	for j=i-1,1,-1 do
+	  if touched[j] then
+	    interpolate = math.max(interpolate,right_face[j] - (y_values[i] - y_values[j]))
+	    break
+	  end
+	end
+	right_face[i] = interpolate
       end
+      right_max = math.max(right_max, right_face[i])
     end
-    for j=1,#y_values do
-      if not touched[j] then
-	right_face[j] = math.max(right_face[j],right_face[last_touched])
-      else
-	last_touched = j
-      end
-    end
-    
 
     -- Second, compute the left face
     local touched = {}
@@ -179,7 +204,7 @@ function componentpacking.pack(graph, components)
     for i=1,#y_values do
       left_face[i] = math.huge
     end
-    for _,n in ipairs(components[i+1].nodes) do
+    for _,n in ipairs(components[i+1][vnodes]) do
       local bb = n.component_info
       local border = bb.min_x
 
@@ -190,31 +215,42 @@ function componentpacking.pack(graph, components)
     end
     
     -- Fill up the untouched entries:
-    local last_touched
+    local left_min = math.huge
     for i=1,#y_values do
-      if touched[i] then
-	last_touched = i
-	break
+      if not touched[i] then
+	-- Search for next and previous touched
+	local interpolate = math.huge
+	for j=i+1,#y_values do
+	  if touched[j] then
+	    interpolate = math.min(interpolate,left_face[j] + (y_values[j] - y_values[i]))
+	    break
+	  end
+	end
+	for j=i-1,1,-1 do
+	  if touched[j] then
+	    interpolate = math.min(interpolate,left_face[j] + (y_values[i] - y_values[j]))
+	    break
+	  end
+	end
+	left_face[i] = interpolate
       end
-    end
-    for j=1,#y_values do
-      if not touched[j] then
-	left_face[j] = math.min(left_face[j],left_face[last_touched])
-      else
-	last_touched = j
-      end
+      left_min = math.min(left_min, left_face[i])
     end
 
     -- Now, compute the shift.
     local shift = -math.huge
 
-    for i=1,#y_values do
-      shift = math.max(shift, right_face[i] - left_face[i])
+    if graph:getOption('/graph drawing/component packing') == "rectangular" then
+      shift = right_max - left_min
+    else
+      for i=1,#y_values do
+	shift = math.max(shift, right_face[i] - left_face[i])
+      end
     end
     
     -- Adjust nodes:
     x_shifts[i+1] = shift
-    for _,n in ipairs(components[i+1].nodes) do
+    for _,n in ipairs(components[i+1][vnodes]) do
       local bb = n.component_info
       bb.min_x = bb.min_x + shift
       bb.max_x = bb.max_x + shift
@@ -228,15 +264,12 @@ function componentpacking.pack(graph, components)
     local x =  x_shifts[i]*math.cos(-angle) + y_shifts[i]*math.sin(-angle)
     local y = -x_shifts[i]*math.sin(-angle) + y_shifts[i]*math.cos(-angle)
     
-    for _,n in ipairs(c.nodes) do
+    for _,n in ipairs(c[vnodes]) do
       n.pos.x = n.pos.x + x
       n.pos.y = n.pos.y + y
     end
-    for _,edge in ipairs(c.edges) do
-      for _,point in ipairs(edge.bend_points) do
-	point.x = point.x + x
-	point.y = point.y + y
-      end
-    end
+
+    -- Done...
+    c[vnodes] = nil
   end
 end

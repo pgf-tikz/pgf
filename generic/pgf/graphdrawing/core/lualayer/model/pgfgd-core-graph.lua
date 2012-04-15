@@ -43,8 +43,12 @@ function Graph:new(values)
     events = {},
   }
   setmetatable(defaults, Graph)
-  local result = table.custom_merge(values, defaults)
-  return result
+  if values then
+    for k,v in pairs(values) do
+      defaults[k] = v
+    end
+  end
+  return defaults
 end
 
 
@@ -108,17 +112,6 @@ function Graph:addNode(node)
       end
       
       table.insert(self.nodes, node)
-      
-      if node.tex.maxY and node.tex.maxX and node.tex.minY and node.tex.minX then
-	 node.height = string.sub(node.tex.maxY, 0, string.len(node.tex.maxY)-2) 
-	               - string.sub(node.tex.minY, 0, string.len(node.tex.minY)-2)
-      
-         node.width = string.sub(node.tex.maxX,0,string.len(node.tex.maxX)-2)
-                       - string.sub(node.tex.minX,0,string.len(node.tex.minX)-2)
-      end
-
-      assert(node.height >= 0)
-      assert(node.width >= 0)
    end
 end
 

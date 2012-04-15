@@ -59,8 +59,12 @@ function Edge:new(values)
     event_index = nil,
   }
   setmetatable(defaults, Edge)
-  local result = table.custom_merge(values, defaults)
-  return result
+  if values then
+    for k,v in pairs(values) do
+      defaults[k] = v
+    end
+  end
+  return defaults
 end
 
 

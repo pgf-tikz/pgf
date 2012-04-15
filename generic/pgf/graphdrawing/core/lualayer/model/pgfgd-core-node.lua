@@ -40,26 +40,33 @@ Node.__index = Node
 -- @return A newly allocated node.
 --
 function Node:new(values)
-  local defaults = {
+  local new = {
     class = Node,
     name = nil,
     tex = { 
-      texNode = nil,
-      maxX = 0,
-      minX = 0,
-      maxY = 0,
-      minY = 0 
+      -- texNode = nil,
+      -- maxX = nil,
+      -- minX = nil,
+      -- maxY = nil,
+      -- minY = nil 
     },
     edges = {},
-    pos = Vector:new(2),
+    -- pos = nil,
     options = {},
-    growth_direction = nil,
-    index = nil,
-    event_index = nil,
+    -- growth_direction = nil,
+    -- index = nil,
+    -- event_index = nil,
   }
-  setmetatable(defaults, Node)
-  local result = table.custom_merge(values, defaults)
-  return result
+  setmetatable(new, Node)
+  if values then
+    for k,v in pairs(values) do
+      new [k] = v
+    end
+  end
+  if not new.pos then 
+    new.pos = Vector:new(2) 
+  end
+  return new
 end
 
 
@@ -282,10 +289,8 @@ VirtualNode.__index = VirtualNode
 -- @return A newly allocated node.
 --
 function VirtualNode:new(values)
-  local defaults = Node:new {
-    class = VirtualNode,
-  }
+  local defaults = Node:new(values)
+  defaults.class = VirtualNode
   setmetatable(defaults, VirtualNode)
-  local result = table.custom_merge(values, defaults)
-  return result
+  return defaults
 end

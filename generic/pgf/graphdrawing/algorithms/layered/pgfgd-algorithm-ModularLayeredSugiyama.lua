@@ -47,23 +47,36 @@ function ModularLayeredSugiyama:run()
   
   self:preprocess()
 
+
+  -- Helper function for collapsing multiedges
+  local function collapse (m,e)
+    m.weight         = (m.weight or 0) + e.weight
+    m.minimum_levels = math.max((m.minimum_levels or 0), e.minimum_levels)
+  end
+
   -- Rank using cluster
+
+  -- Create a subalgorithm object. Needed so that removed loops
+  -- are not stored on top of removed loops from main call.
+  local cluster_subalgorithm = { graph = self.graph } 
+  pipeline.prepare_graph_for_algorithm(cluster_subalgorithm)
+
   self:mergeClusters()
   
-  self:removeLoops()
-  self:mergeMultiEdges()
+  pipeline.remove_loops(cluster_subalgorithm)
+  pipeline.collapse_multiedges(cluster_subalgorithm, collapse)
+
   self:removeCycles()
-
   self:rankNodes()
-
   self:restoreCycles()
-  self:restoreMultiEdges()
-  self:restoreLoops()
+
+  pipeline.expand_multiedges(cluster_subalgorithm)
+  pipeline.restore_loops(cluster_subalgorithm)
 
   self:expandClusters()
   
   -- Now do actual computation
-  self:mergeMultiEdges()
+  pipeline.collapse_multiedges(cluster_subalgorithm, collapse)
   self:removeCycles()
   self:insertDummyNodes()
   
@@ -73,7 +86,7 @@ function ModularLayeredSugiyama:run()
   
   -- Cleanup
   self:removeDummyNodes()
-  self:restoreMultiEdges()
+  pipeline.expand_multiedges(cluster_subalgorithm)
   self:routeEdges()
   self:restoreCycles()
 
@@ -298,94 +311,6 @@ end
 
 
 
-function ModularLayeredSugiyama:removeLoops()
-  self.loops = {}
-
-  for edge in table.value_iter(self.graph.edges) do
-    if edge:getHead() == edge:getTail() then
-      table.insert(self.loops, edge)
-    end
-  end
-
-  for edge in table.value_iter(self.loops) do
-    self.graph:deleteEdge(edge)
-  end
-end
-
-
-
-function ModularLayeredSugiyama:mergeMultiEdges()
-  self.individual_edges = {}
-
-  local node_processed = {}
-
-  for node in table.value_iter(self.graph.nodes) do
- 
-    node_processed[node] = true
-
-    local multiedge = {}
-    
-    for edge in table.value_iter(node:getIncomingEdges()) do
-      local neighbour = edge:getNeighbour(node)
-      if not node_processed[neighbour] then
-        if not multiedge[neighbour] then
-          multiedge[neighbour] = Edge:new{
-            direction = Edge.RIGHT,
-            weight = 0,
-            minimum_levels = 0,
-          }
-
-          self.individual_edges[multiedge[neighbour]] = {}
-        end
-
-        multiedge[neighbour].weight = multiedge[neighbour].weight + edge.weight
-        multiedge[neighbour].minimum_levels = math.max(multiedge[neighbour].minimum_levels, edge.minimum_levels)
-
-        table.insert(self.individual_edges[multiedge[neighbour]], edge)
-      end
-    end
-
-    for edge in table.value_iter(node:getOutgoingEdges()) do
-      local neighbour = edge:getNeighbour(node)
-      if not node_processed[neighbour] then
-        if not multiedge[neighbour] then
-          multiedge[neighbour] = Edge:new{
-            direction = Edge.RIGHT,
-            weight = 0,
-            minimum_levels = 0,
-          }
-
-          self.individual_edges[multiedge[neighbour]] = {}
-        end
-
-        multiedge[neighbour].weight = multiedge[neighbour].weight + edge.weight
-        multiedge[neighbour].minimum_levels = math.max(multiedge[neighbour].minimum_levels, edge.minimum_levels)
-
-        table.insert(self.individual_edges[multiedge[neighbour]], edge)
-      end
-    end
-
-    for neighbour, multiedge in pairs(multiedge) do
-
-      if #self.individual_edges[multiedge] <= 1 then
-        self.individual_edges[multiedge] = nil
-      else
-        multiedge.weight = multiedge.weight / #self.individual_edges[multiedge]
-
-        for subedge in table.value_iter(self.individual_edges[multiedge]) do
-          self.graph:deleteEdge(subedge)
-        end
-
-        multiedge:addNode(node)
-        multiedge:addNode(neighbour)
-        
-        self.graph:addEdge(multiedge)
-      end
-    end
-  end
-end
-
-
 
 function ModularLayeredSugiyama:removeCycles()
   local name, class = self:loadSubAlgorithm('CycleRemoval', self.cycle_removal_algorithm)
@@ -424,28 +349,6 @@ end
 
 
 
-function ModularLayeredSugiyama:restoreMultiEdges()
-  for multiedge, subedges in pairs(self.individual_edges) do
-    assert(#subedges >= 2)
-
-    self.graph:deleteEdge(multiedge)
-
-    for edge in table.value_iter(subedges) do
-      -- Copy bend points 
-      for _,p in ipairs(multiedge.bend_points) do
-	edge.bend_points[#edge.bend_points+1] = p:copy()
-      end
-
-      for node in table.value_iter(edge.nodes) do
-        node:addEdge(edge)
-      end
-
-      self.graph:addEdge(edge)
-    end
-  end
-end
-
-
 
 function ModularLayeredSugiyama:positionNodes()
   local name, class = self:loadSubAlgorithm('NodePositioning', self.node_positioning_algorithm)
@@ -454,15 +357,6 @@ function ModularLayeredSugiyama:positionNodes()
 
   local algorithm = class:new(self, self.graph, self.ranking)
   algorithm:run()
-end
-
-
-
-function ModularLayeredSugiyama:restoreLoops()
-  for edge in table.value_iter(self.loops) do
-    self.graph:addEdge(edge)
-    edge:getTail():addEdge(edge)
-  end
 end
 
 

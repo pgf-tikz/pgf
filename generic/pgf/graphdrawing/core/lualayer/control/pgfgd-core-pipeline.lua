@@ -36,6 +36,7 @@ function pipeline.run_graph_drawing_pipeline(graph, algorithm_class)
   
   if algorithm_class.works_only_on_connected_graphs then
     subgraphs = compute_component_decomposition(graph)
+    pipeline.order_components (graph, subgraphs)    
   else
     subgraphs = { graph }
   end
@@ -44,38 +45,29 @@ function pipeline.run_graph_drawing_pipeline(graph, algorithm_class)
     -- Reset random number generator
     math.randomseed(graph:getOption('/graph drawing/random seed'))
     
-    local algorithm = algorithm_class:new(subgraph)
-    
-    -- Add an algorithm field to all nodes, all edges, and the graph:
-    for _,n in pairs(graph.nodes) do
-      n[algorithm] = {}
-    end
-    for _,e in pairs(graph.edges) do
-      e[algorithm] = {}
-    end
-    subgraph[algorithm] = {}
-
+    local algorithm = algorithm_class:new(subgraph)    
+    pipeline.prepare_graph_for_algorithm(algorithm)
     
     -- If requested, remove loops
     if algorithm_class.works_only_for_loop_free_graphs then
-      pipeline.remove_loops(algorithm, subgraph)
+      pipeline.remove_loops(algorithm)
     end
     
     -- If requested, collapse multiedges
     if algorithm_class.works_only_for_simple_graphs then
-      pipeline.collapse_multiedges(algorithm, subgraph)
+      pipeline.collapse_multiedges(algorithm)
     end
     
     -- Compute anchor_node
     anchoring.compute_anchor_node(subgraph)
 
     -- Compute growth-adjusted sizes
-    growth_adjust.prepare_post_layout_orientation(subgraph, algorithm)
-    growth_adjust.compute_bounding_boxes(subgraph, algorithm)
+    growth_adjust.prepare_post_layout_orientation(algorithm)
+    growth_adjust.compute_bounding_boxes(algorithm)
 
     -- Compute a spanning tree, if necessary
     if algorithm_class.needs_a_spanning_tree then
-      compute_spanning_tree(subgraph,algorithm)
+      compute_spanning_tree(algorithm)
     end
 
     if #subgraph.nodes > 1 or algorithm_class.run_also_for_single_node then
@@ -85,12 +77,12 @@ function pipeline.run_graph_drawing_pipeline(graph, algorithm_class)
     
     -- If requested, expand multiedges
     if algorithm_class.works_only_for_simple_graphs then
-      pipeline.expand_multiedges(algorithm, subgraph)
+      pipeline.expand_multiedges(algorithm)
     end
 
     -- If requested, restore loops
     if algorithm_class.works_only_for_loop_free_graphs then
-      pipeline.restore_loops(algorithm, subgraph)
+      pipeline.restore_loops(algorithm)
     end
     
     orientation.perform_post_layout_steps(algorithm)
@@ -124,7 +116,28 @@ end
 
 
 
+--- Prepare a graph for an algorithm
+--
+-- This function will add an empty table to each edge, node, of the 
+-- algorithm's graph as well as to the algorithm's graph itself. These
+-- empty tables can be indexed via the algorithm. The idea is that in
+-- this way, multiple algorithm objects can store information at
+-- nodes, edges, and graphs without interfering. 
+--
+-- @param algorithm An algorithm
 
+function pipeline.prepare_graph_for_algorithm(algorithm)
+  local g = algorithm.graph
+  g[algorithm] = {}
+
+  -- Add an algorithm field to all nodes, all edges, and the graph:
+  for _,n in pairs(g.nodes) do
+    n[algorithm] = {}
+  end
+  for _,e in pairs(g.edges) do
+    e[algorithm] = {}
+  end
+end
 
 
 
@@ -134,7 +147,8 @@ end
 --
 --
 
-function pipeline.remove_loops(algorithm, graph)
+function pipeline.remove_loops(algorithm)
+  local graph = algorithm.graph
   local loops = {}
 
   for _,edge in ipairs(graph.edges) do
@@ -152,7 +166,8 @@ end
 
 
 
-function pipeline.restore_loops(algorithm, graph)
+function pipeline.restore_loops(algorithm)
+  local graph = algorithm.graph
 
   for _,edge in ipairs(graph[algorithm].loops) do
     graph:addEdge(edge)
@@ -165,7 +180,8 @@ end
 
 
 
-function pipeline.collapse_multiedges(algorithm, graph)
+function pipeline.collapse_multiedges(algorithm, collapse_action)
+  local graph = algorithm.graph
   local collapsed_edges = {}
   local node_processed = {}
 
@@ -180,12 +196,13 @@ function pipeline.collapse_multiedges(algorithm, graph)
 
       if not node_processed[neighbour] then
         if not multiedge[neighbour] then
-          multiedge[neighbour] = Edge:new{
-            direction = Edge.RIGHT,
-          }
-
+          multiedge[neighbour] = Edge:new{ direction = Edge.RIGHT }
           collapsed_edges[multiedge[neighbour]] = {}
         end
+
+	if collapse_action then
+	  collapse_action(multiedge[neighbour], edge, graph)
+	end
 
         table.insert(collapsed_edges[multiedge[neighbour]], edge)
       end
@@ -223,7 +240,8 @@ end
 
 
 
-function pipeline.expand_multiedges(algorithm, graph)
+function pipeline.expand_multiedges(algorithm)
+  local graph = algorithm.graph
   for multiedge, subedges in pairs(graph[algorithm].collapsed_edges) do
     assert(#subedges >= 2)
 
@@ -251,4 +269,50 @@ function pipeline.expand_multiedges(algorithm, graph)
 
   graph[algorithm].collapsed_edges = nil
 end
+
+
+
+
+--- Handling of component order
+--
+-- Components are ordered according to a function that is stored in
+-- a key of the pipeline.component_ordering_functions table (subject
+-- to change...) whose name is the graph option /graph
+-- drawing/component order. 
+
+function pipeline.order_components(graph, subgraphs)
+  local component_order = graph:getOption('/graph drawing/component order')
+
+  if component_order then
+    local f = pipeline.component_ordering_functions[component_order]
+    if f then
+      table.sort (subgraphs, f)
+    end
+  end
+end
+
+
+-- Right now, we hardcode the functions here. Perhaps make this
+-- dynamic in the future. Could easily be done on the tikzlayer,
+-- acutally. 
+
+pipeline.component_ordering_functions = {
+  ["increasing node number"] = 
+    function (g,h) 
+      if #g.nodes == #h.nodes then
+	return g.nodes[1].index < h.nodes[1].index
+      else
+	return #g.nodes < #h.nodes 
+      end
+    end,
+  ["decreasing node number"] = 
+    function (g,h) 
+      if #g.nodes == #h.nodes then
+	return g.nodes[1].index < h.nodes[1].index
+      else
+	return #g.nodes > #h.nodes 
+      end
+    end,
+  ["by first specified node"] = nil,
+}
 
