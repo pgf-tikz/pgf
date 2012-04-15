@@ -67,7 +67,7 @@ function pipeline.run_graph_drawing_pipeline(graph, algorithm_class)
 
     -- Compute a spanning tree, if necessary
     if algorithm_class.needs_a_spanning_tree then
-      compute_spanning_tree(algorithm)
+      pipeline.run_spanning_algorithm(algorithm)
     end
 
     if #subgraph.nodes > 1 or algorithm_class.run_also_for_single_node then
@@ -114,6 +114,26 @@ function pipeline.run_graph_drawing_pipeline(graph, algorithm_class)
 end
 
 
+
+
+function pipeline.run_spanning_algorithm(algorithm)
+  local name = algorithm.graph:getOption("/graph drawing/spanning tree algorithm"):gsub(' ', '')
+  
+  -- if not defined, try to load the corresponding file
+  if not pgf.graphdrawing[name] then
+    pgf.load("pgfgd-subalgorithm-" .. name .. ".lua", "tex", false)
+  end
+  
+  local spanning_algorithm_class = pgf.graphdrawing[name]
+
+  assert(spanning_algorithm_class, "No subalgorithm named '" .. name .. "' was found. " ..
+	 "Either the file does not exist or the class declaration is wrong.")
+  
+  local spanning_algorithm = spanning_algorithm_class:new(algorithm.graph, algorithm)    
+  pipeline.prepare_graph_for_algorithm(spanning_algorithm)
+  
+  spanning_algorithm:run()
+end
 
 
 --- Prepare a graph for an algorithm

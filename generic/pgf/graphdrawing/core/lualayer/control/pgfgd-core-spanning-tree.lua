@@ -13,6 +13,12 @@
 
 pgf.module("pgf.graphdrawing")
 
+-- This is, where I want to go (find a free day, sometime...):
+
+-- local lib         = require "pgf.gd.lib"
+-- local models      = require "pgf.gd.models"
+-- local control     = require "pgf.gd.control"
+-- local algorithms  = require "pgf.gd.algorithms"
 
 
 --- Compute a spanning tree of a graph
@@ -22,13 +28,17 @@ pgf.module("pgf.graphdrawing")
 -- the graph.
 --
 -- @param graph The graph for which the spanning tree should be computed 
+-- @param dfs True if depth first should be used
 
-function compute_spanning_tree (algorithm)
+function compute_spanning_tree (algorithm, dfs)
   local graph = algorithm.graph
-
-  -- Should we do dfs or bfs? Check option
-  local dfs = graph:getOption('/graph drawing/spanning tree method') == "depth first search"
-
+  local edge_prioritization_fun = 
+    edge_prioritization_functions [
+    graph:getOption('/graph drawing/edge priority method')]
+  assert (edge_prioritization_fun, 
+   'I do not know the edge priority method "' 
+    .. graph:getOption('/graph drawing/edge priority method') ..
+    '". Perhaps you misspelled it?')
   local root 
 
   -- First, is there a root node?
@@ -39,6 +49,12 @@ function compute_spanning_tree (algorithm)
     end
   end
 
+  -- Second, should we take the first node?
+  if not root and graph:getOption('/graph drawing/root is first node') then
+    root = graph.nodrs[1]
+  end
+
+  -- Third, use node of minimum level 1 in-degree:
   if not root then
     -- Find first node with in-degree 0:
     for _,n in ipairs(graph.nodes) do
@@ -65,8 +81,14 @@ function compute_spanning_tree (algorithm)
   local stack1 = { { nil, root}, top = 1, bottom = 1 }
   local stack2 = { top = 0, bottom = 1}
   local stack3 = { top = 0, bottom = 1}
+  local stack4 = { top = 0, bottom = 1}
+  local stack5 = { top = 0, bottom = 1}
 
-  while stack1.top >= stack1.bottom or stack2.top >= stack2.bottom or stack3.top >= stack3.bottom do
+  while    stack1.top >= stack1.bottom 
+        or stack2.top >= stack2.bottom
+        or stack3.top >= stack3.bottom 
+        or stack4.top >= stack4.bottom
+        or stack5.top >= stack5.bottom do
     local from, node
 
     local function pop (stack)
@@ -80,8 +102,12 @@ function compute_spanning_tree (algorithm)
       from, node = pop (stack1)
     elseif stack2.top >= stack2.bottom then
       from, node = pop (stack2)
-    else
+    elseif stack3.top >= stack3.bottom then
       from, node = pop (stack3)
+    elseif stack4.top >= stack4.bottom then
+      from, node = pop (stack4)
+    else
+      from, node = pop (stack5)
     end
     
     if not marked[node] then
@@ -110,12 +136,18 @@ function compute_spanning_tree (algorithm)
 	if dfs then i = #node.edges - j + 1 end
 	
 	local e = node.edges[i]
-	if e.direction == Edge.RIGHT and #e.nodes == 2 and not (e.nodes[2] == node) then
-	  put_if_unmarked (e.nodes[2], stack1)
-	elseif e.direction == Edge.UNDIRECTED or e.direction == Edge.BOTH then
+	local priority = tonumber(e:getOption('/graph drawing/edge priority')) or
+                         edge_prioritization_fun(e, node) 
+	if priority == 1 then
+	  put_if_unmarked (e:getNeighbour(node), stack1)
+	elseif priority == 2 then
 	  put_if_unmarked (e:getNeighbour(node), stack2)
-	else
+	elseif priority == 3 then
 	  put_if_unmarked (e:getNeighbour(node), stack3)
+	elseif priority == 4 then
+	  put_if_unmarked (e:getNeighbour(node), stack4)
+	elseif priority == 5 then
+	  put_if_unmarked (e:getNeighbour(node), stack5)
 	end
       end
     end
@@ -224,3 +256,31 @@ function compute_spanning_tree (algorithm)
 
   graph[algorithm].spanning_tree_root = root
 end
+
+
+edge_prioritization_functions = {
+  ['forward first'] = 
+    function (e, node)
+      if e.direction == Edge.RIGHT and #e.nodes == 2 and not (e.nodes[2] == node) then
+	return 2
+      elseif e.direction == Edge.UNDIRECTED or e.direction == Edge.BOTH then
+	return 3
+      else
+	return 4
+      end
+    end,
+  ['undirected first'] = 
+    function (e, node)
+      if e.direction == Edge.UNDIRECTED or e.direction == Edge.BOTH then
+	return 2
+      elseif e.direction == Edge.RIGHT and #e.nodes == 2 and not (e.nodes[2] == node) then
+	return 3
+      else
+	return 4
+      end
+    end,
+  ['all the same'] = 
+    function (e, node)
+      return 3
+    end,
+}

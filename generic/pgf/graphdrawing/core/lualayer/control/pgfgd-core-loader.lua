@@ -345,10 +345,10 @@ function graph_drawing_algorithm(info)
   _M[info.name].__index = class
 
   _M[info.name].new = 
-    function (self, g) 
+    function (self, g, algo) 
 
       -- Create new object
-      local obj = { graph = g }
+      local obj = { graph = g, parent_algorithm = algo }
       setmetatable(obj, class)
 
       -- Setup graph_options
@@ -363,6 +363,7 @@ function graph_drawing_algorithm(info)
       return obj
     end
 end
+
 
 function toboolean(string)
   return string == "true"
