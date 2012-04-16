@@ -1,0 +1,173 @@
+% Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+\usepgflibrary{graphdrawing}
+
+
+% Patch the level and sibling distances so that gd and plain tikz are
+% in sync
+\tikzset{level distance=1cm, sibling distance=1cm}
+
+
+%
+% Setup graph drawing for tikz
+% 
+
+\tikzset{
+  graph drawing scope/.style={
+    % 
+    % General stuff
+    %
+    /tikz/execute at begin scope={
+      \tikzset{ 
+        % 
+        % Setup for the tree syntax (do this late so that grow options
+        % are still valid after a layout has been chosen)
+        % 
+        /tikz/growth function=\relax,
+        /tikz/edge from parent macro=\tikz@gd@edge@from@parent@macro,
+      }   
+      \pgfgdsetedgecallback{\pgfgdtikzedgecallback}%
+      \pgfgdbeginscope%
+        \let\tikzgdeventcallback\pgfgdevent%
+        \let\tikzgdeventgroupcallback\pgfgdeventgroup%
+    },
+    /tikz/execute at end scope={
+      \pgfgdendscope
+    },
+    % 
+    % Setup for plain syntax
+    % 
+    /utils/exec=\pgfgdaddspecificationhook{\tikz@lib@gd@spec@hook},%
+    % 
+    % Setup for the graphs syntax 
+    %
+    /tikz/--/.style={arrows=-},
+    /tikz/graphs/new ->/.code n args={4}{\pgfgdedge{##1}{##2}{->}{/tikz,##3}{##4}},
+    /tikz/graphs/new <-/.code n args={4}{\pgfgdedge{##1}{##2}{<-}{/tikz,##3}{##4}},
+    /tikz/graphs/new --/.code n args={4}{\pgfgdedge{##1}{##2}{--}{/tikz,##3}{##4}},
+    /tikz/graphs/new <->/.code n args={4}{\pgfgdedge{##1}{##2}{<->}{/tikz,##3}{##4}},
+    /tikz/graphs/new -!-/.code n args={4}{\pgfgdedge{##1}{##2}{-!-}{/tikz,##3}{##4}},
+    /tikz/graphs/placement/compute position/.code=,%
+    % 
+    % Redirect "at" key to "desired at"
+    % 
+    /tikz/at/.style={/graph drawing/desired at={##1}},
+  },
+  % Link in...
+  /graph drawing/at begin scope/.forward to=/tikz/graph drawing scope,
+  %
+  % Support for grouping nodes in clusters
+  %
+  graphs/new cluster/.style={
+    color class=#1,
+    operator={
+      \def\tikz@gd@current@color{#1}%
+      \tikzgraphforeachcolorednode{#1}{\tikz@gd@add@node@to@cluster}%
+    }
+  },
+}
+
+\pgfgdappendtoforwardinglist{/tikz/,/tikz/graphs/}
+
+\def\tikz@lib@gd@spec@hook{%
+  \tikzset{
+    % 
+    % Catch edges 
+    % 
+    edge macro=\tikz@gd@plain@edge@macro,
+    % 
+    % Catch after and prefix node commands 
+    % 
+    /tikz/append after command/.code=\tikz@lib@gd@aac{##1},
+    /tikz/prefix after command/.code=\tikz@lib@gd@pac{##1},
+    /utils/exec=\def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup\tikzlibgdpostsetupend}
+  }
+}
+
+\def\pgfgdtikzedgecallback#1#2#3#4#5#6#7{%
+  \scope
+    [to path={#7 -- (\tikztotarget) \tikztonodes},#3,#4,/graph drawing/.cd,#6]
+    \draw
+     (#1\tikzparentanchor)
+       to
+       #5
+       (#2\tikzchildanchor);%
+  \endscope
+}
+
+\def\tikz@gd@edge@from@parent@macro#1#2{
+  [/utils/exec=\pgfgdedge{\tikzparentnode}{\tikzchildnode}{--}{/tikz,#1}{#2}]
+}
+
+\def\tikz@gd@plain@edge@macro#1#2{
+  \pgfgdedge{\tikztostart}{\tikztotarget}{--}{/tikz,#1}{#2}
+}
+
+\def\tikz@gd@add@node@to@cluster#1{
+  \expandafter\pgfgdaddnodetocluster{\tikz@gd@current@color}{#1}
+}
+
+% 
+% Do append after command and prefix after command by creating late options 
+%
+
+\def\tikz@lib@gd@aac#1{%
+  \expandafter\tikz@lib@gd@aac@unpack\pgfpositionnodelaterpostsetup{#1}
+}
+\def\tikz@lib@gd@aac@unpack\tikzlibgdpostsetup#1\tikzlibgdpostsetupend#2{%
+  \def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup#1\tikzlibgdlateoptions{#2}\tikzlibgdpostsetupend}
+}
+\def\tikz@lib@gd@pac#1{%
+  \expandafter\tikz@lib@gd@pac@unpack\pgfpositionnodelaterpostsetup{#1}
+}
+\def\tikz@lib@gd@ppac@unpack\tikzlibgdpostsetup#1\tikzlibgdpostsetupend#2{%
+  \def\pgfpositionnodelaterpostsetup{\tikzlibgdpostsetup\tikzlibgdlateoptions{#2}#1\tikzlibgdpostsetupend}
+}
+
+\def\tikzlibgdpostsetup{%
+  \pgfutil@ifnextchar\tikzlibgdpostsetupend{\pgfutil@gobble}{%
+    \begingroup%
+    \expandafter\tikz@lib@gd@post@setup\pgfpositionnodelatername\relax%
+  }%
+}
+\def\tikz@lib@gd@post@setup not yet positionedPGFINTERNAL#1\relax{%
+  \def\tikz@lib@gd@post@late@options{name=#1}%
+}
+\def\tikzlibgdlateoptions#1{%
+  \expandafter\def\expandafter\tikz@lib@gd@post@late@options\expandafter{\tikz@lib@gd@post@late@options,after node path={#1}}
+}
+\def\tikzlibgdpostsetupend{%
+  \path[late options/.expand once=\tikz@lib@gd@post@late@options];
+  \endgroup%
+}
+
+
+
+% 
+% Conversions: Convert coordinates into pairs of values surrounded by
+% braces. 
+%
+
+\pgfgdset{
+  conversions/coordinate/.code={%
+    \tikz@scan@one@point\pgf@process#1%
+    \pgfmathsetmacro{\tikz@gd@temp@x}{\pgf@x}
+    \pgfmathsetmacro{\tikz@gd@temp@y}{\pgf@y}
+    \edef\pgfgdresult{{\tikz@gd@temp@x}{\tikz@gd@temp@y}}
+  }
+}
+
+
+
+
+
+\endinput
