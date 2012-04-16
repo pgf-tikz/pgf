@@ -35,22 +35,20 @@
 % After the invocation of \pgfpositionnodelater the caller should copy the contents of 
 % \box\pgfpositionnodelaterbox to another box register (for this refer to the manual).
 %
-\newbox\pgf@gd@box
+
 
 % 
 % Initialize the lua graph drawing environment
 %
 \directlua{
-  local file = 'pgfgd-core-loader.lua'
-  local format = 'tex'
   % Use either resolvers or kpse to locate files.
   if resolvers then
-    dofile(assert(resolvers.find_file(file, format), 'could not find file ' .. file))
+    dofile(assert(resolvers.find_file("pgf.lua", "tex"), 'could not find pgf.lua'))
+    dofile(assert(resolvers.find_file("pgfgd-core-loader.lua", "tex"), 'could not find pgfgd-core-loader.lua'))
   else
-    dofile(assert(kpse.find_file(file, format), 'could not find file ' .. file))
+    dofile(assert(kpse.find_file("pgf.lua", "tex"), 'could not find pgf.lua'))
+    dofile(assert(kpse.find_file("pgfgd-core-loader.lua", "tex"),  'could not find pgfgd-core-loader.lua'))
   end
-  % set the box number for saving nodes by pgf
-  pgf.graphdrawing.Sys:setBoxNumber(\the\pgf@gd@box)
 }
 
 
@@ -104,7 +102,7 @@
     % get options
     \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
     \directlua{
-      pgf.graphdrawing.Interface:newGraph('\luaescapestring{\pgf@gd@graph@parameters}')
+      pgf.gd.control.TeXInterface:newGraph('\luaescapestring{\pgf@gd@graph@parameters}')
     }%
     \begingroup % Inner scope, the actual nodes will be inserted after
                 % this scope has been closed
@@ -133,8 +131,8 @@
       \endgroup
     % Late positioning has ended
     \directlua{
-      pgf.graphdrawing.Interface:drawGraph()
-      pgf.graphdrawing.Interface:finishGraph()
+      pgf.gd.control.TeXInterface:runGraphDrawingAlgorithm()
+      pgf.gd.control.TeXInterface:finishGraph()
     }
   \endgroup
 }
@@ -372,7 +370,7 @@
 }
 
 \def\pgf@gd@steal#1#2{%
-  \directlua{pgf.graphdrawing.Interface:setGraphParameterDefault('\luaescapestring{#1}','\luaescapestring{#2}')}%
+  \directlua{pgf.gd.control.TeXInterface:setGraphParameterDefault('\luaescapestring{#1}','\luaescapestring{#2}')}%
 }
 
 
@@ -454,7 +452,7 @@
     \pgfkeys{#2}%
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options%
     % call lua system library to create a lua node object
-    \directlua{pgf.graphdrawing.Interface:setLateNodeOptions(
+    \directlua{pgf.gd.control.TeXInterface:setLateNodeOptions(
         '\luaescapestring{#1}',
         '\luaescapestring{\pgf@gd@node@options}') }
   }%
@@ -552,7 +550,7 @@
           \toks0={#4}%
           \toks1={#5}%
           \directlua{
-            pgf.graphdrawing.Interface:addEdge(
+            pgf.gd.control.TeXInterface:addEdge(
             '\luaescapestring{#1}','\luaescapestring{#2}','\luaescapestring{#3}',
             '\luaescapestring{\pgf@gd@edge@options}',
             '\luaescapestring{\the\toks0}','\luaescapestring{\the\toks1}')
@@ -652,48 +650,6 @@
 }
 
 \pgfgdsetedgecallback{\pgfgddefaultedgecallback}
-
-
-
-
-% 
-%
-% Logging
-% 
-%
-
-
-% New if for debugging mode
-%
-\newif\ifpgf@gd@verbose
-
-% 
-% Set verbose debugging mode
-%
-% #1 should be zero (0) or one (1) for false and true
-%
-\def\pgf@gd@set@verbose@mode#1{
-  \ifodd#1
-    \directlua{ pgf.graphdrawing.Sys:setVerbose(true) }
-    \pgf@gd@verbosetrue
-  \else
-    \directlua{ pgf.graphdrawing.Sys:setVerbose(false) }
-    \pgf@gd@verbosefalse
-  \fi
-}
-
-%
-% Enables the verbose logging of the graph drawing library
-%
-\def\pgfgdenableverboselogging{
-  \pgf@gd@set@verbose@mode1%
-}
-
-%
-% Disables the verbose logging of the graph drawing library
-\def\pgfgddisableverboselogging{
-  \pgf@gd@set@verbose@mode0%
-}
 
 
 
@@ -1330,7 +1286,7 @@
 % Adds a new event to the event sequence of the graph
 
 \def\pgfgdevent#1#2{%
-  \directlua{pgf.graphdrawing.Interface:addEvent('\luaescapestring{#1}', '\luaescapestring{#2}')}%
+  \directlua{pgf.gd.control.TeXInterface:addEvent('\luaescapestring{#1}', '\luaescapestring{#2}')}%
 }
 
 
@@ -1393,7 +1349,7 @@
 % layer in the final drawing.
 
 \def\pgfgdaddnodetocluster#1#2{
-  \directlua{pgf.graphdrawing.Interface:addNodeToCluster('\luaescapestring{#2}', '\luaescapestring{#1}')}
+  \directlua{pgf.gd.control.TeXInterface:addNodeToCluster('\luaescapestring{#2}', '\luaescapestring{#1}')}
 }
 
 
@@ -1416,8 +1372,6 @@
   {%
     % save options to macro \pgf@gd@node@options
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options
-    % save pgfpositionnodelaterbox (see manual)
-    \setbox\pgf@gd@box=\box\pgfpositionnodelaterbox\relax
     % save late setup options
     \expandafter\toks\expandafter0\expandafter0=\expandafter{\pgfpositionnodelaterpostsetup}%
     % evaluate coordinates
@@ -1427,7 +1381,8 @@
     \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
     % call lua system library to create a lua node object
     \directlua{
-      pgf.graphdrawing.Interface:addNode(
+      pgf.gd.control.TeXInterface:addNode(
+        \pgfpositionnodelaterbox,
         '\luaescapestring{\pgfpositionnodelatername}',
         '\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}',
         '\pgf@gd@node@minx',
@@ -1466,12 +1421,10 @@
     \def\pgfpositionnodelaterminy{#4}
     \def\pgfpositionnodelatermaxy{#5}
     \def\pgfpositionnodelaterpostsetup{#9}
-    \setbox\pgf@gd@box=\box\pgfutil@voidb@x
     \directlua{
-      texnode = pgf.graphdrawing.Interface:getBox(#8)
-      tex.box[\the\pgf@gd@box] = texnode
+      texnode = pgf.gd.control.TeXInterface:retrieveBox(#8)
+      tex.box[\pgfpositionnodelaterbox] = texnode
     }
-    \setbox\pgfpositionnodelaterbox=\box\pgf@gd@box
     \pgfpositionnodenow{\pgfqpoint{#6pt}{#7pt}}
   }%
 }

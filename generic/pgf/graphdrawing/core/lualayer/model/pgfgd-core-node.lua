@@ -92,7 +92,7 @@ end
 -- @return The value of the node option \meta{name} or |nil|.
 --
 function Node:getOption(name, graph)
-   return self.options[name] or (graph and graph.options[name]) or Interface.defaultGraphParameters[name]
+   return self.options[name] or (graph and graph.options[name]) or pgf.gd.control.TeXInterface.parameter_defaults[name]
 end
 
 

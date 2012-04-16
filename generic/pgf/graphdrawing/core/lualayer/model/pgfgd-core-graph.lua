@@ -71,7 +71,7 @@ end
 -- @return The value of the graph option \meta{name} or |nil|.
 --
 function Graph:getOption(name)
-   return self.options[name] or Interface.defaultGraphParameters[name]
+  return self.options[name] or pgf.gd.control.TeXInterface.parameter_defaults[name]
 end
 
 

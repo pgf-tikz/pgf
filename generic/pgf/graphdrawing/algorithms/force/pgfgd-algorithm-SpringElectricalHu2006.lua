@@ -88,11 +88,8 @@ function SpringElectricalHu2006:run()
     while coarse_graph:getSize() > self.minimum_graph_size 
       and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
     do
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph before next coarsening step')
       coarse_graph:coarsen()
     end
-
-    --self:dumpGraph(coarse_graph.graph, 'coarse graph after the last coarsening step')
   end
 
   if self.coarsen then
@@ -117,15 +114,12 @@ function SpringElectricalHu2006:run()
     -- undo coarsening step by step, applying the force-based sub-algorithm
     -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph before reverting one step')
 
       -- compute the diameter of the parent coarse graph
       local parent_diameter = coarse_graph.graph:getPseudoDiameter()
 
       -- interpolate the previous coarse graph from its parent
       coarse_graph:interpolate()
-
-      --self:dumpGraph(coarse_graph.graph, 'coarse graph after reverting one step')
 
       -- compute the diameter of the current coarse graph
       local current_diameter = coarse_graph.graph:getPseudoDiameter()
@@ -182,8 +176,6 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
       local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
-
-      Sys:log('SpringElectricalHu2006: distance = ' .. distance)
 
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
@@ -501,16 +493,3 @@ function SpringElectricalHu2006.adaptive_step_update(step, cooling_factor, energ
 end
 
 
-
-function SpringElectricalHu2006:dumpGraph(graph, title)
-  Sys:log(title .. ':')
-  for node in table.value_iter(graph.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    ' .. tostring(edge))
-    end
-  end
-  for edge in table.value_iter(graph.edges) do
-    Sys:log('  ' .. tostring(edge))
-  end
-end

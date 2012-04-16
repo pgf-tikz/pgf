@@ -28,7 +28,6 @@ local preload_these_files = {
   "stack",
   "iter",
   "string",
-  "sys",
   "vector",
   "quadtree",
   "node",
@@ -43,7 +42,6 @@ local preload_these_files = {
   "algorithms",
   "coarsen-graph",
   "component-packing",
-  "tex-interface",
   "orientation",
   "positioning-helpers",
   "ranking",
@@ -368,3 +366,8 @@ end
 function toboolean(string)
   return string == "true"
 end
+
+
+-- Load TeXInterface
+
+require "pgf.gd.control"

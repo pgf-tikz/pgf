@@ -177,8 +177,6 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
-      Sys:log('SpringHu2006: distance = ' .. distance)
-
       graph.nodes[loose_index].pos = graph.nodes[fixed_index].pos:plus(displacement)
     else
       -- both nodes are fixed, initial layout may be far from optimal

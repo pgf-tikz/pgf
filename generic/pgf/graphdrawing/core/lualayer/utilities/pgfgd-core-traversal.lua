@@ -118,7 +118,6 @@ function traversal.depth_first_dag(graph, initial_nodes)
   return function ()
     while #stack > 0 do
       local node = table.remove(stack)
-      Sys:log('VISIT: ' .. tostring(node))
 
       local out_edges = node:getOutgoingEdges()
       for edge in iter.filter(table.value_iter(out_edges), edgeNotExplored) do

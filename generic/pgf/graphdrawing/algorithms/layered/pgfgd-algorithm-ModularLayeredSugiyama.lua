@@ -398,35 +398,3 @@ function ModularLayeredSugiyama:loadSubAlgorithm(step, name)
 end
 
 
-
-function ModularLayeredSugiyama:dumpRanking(prefix, title)
-  local ranks = self.ranking:getRanks()
-  for rank in table.value_iter(ranks) do
-    local nodes = self.ranking:getNodes(rank)
-    local str = prefix .. '  rank ' .. rank .. ':'
-    local str = table.combine_values(nodes, function (str, node)
-      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
-    end, str)
-  end
-end
-
-function ModularLayeredSugiyama:dumpGraph(title)
-  Sys:log(title .. ':')
-  for node in table.value_iter(self.graph.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    ' .. tostring(edge))
-    end
-  end
-  for edge in table.value_iter(self.graph.edges) do
-    Sys:log('  ' .. tostring(edge))
-  end
-  for cluster in table.value_iter(self.graph.clusters) do
-    local node_strings = table.map_values(cluster.nodes, function (node)
-      return node.name
-    end)
-    Sys:log('  cluster ' .. cluster:getName() .. ': ' .. table.concat(node_strings, ' '))
-  end
-end
-
-

@@ -133,8 +133,6 @@ function SpringElectricalWalshaw2000:run()
     -- undo coarsening step by step, applying the force-based sub-algorithm
     -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
-      --Sys:log('generating layout for coarse graph ' .. coarse_graph:getLevel()-1)
-
       -- interpolate the previous coarse graph
       coarse_graph:interpolate()
 
@@ -207,8 +205,6 @@ end
 
 
 function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
-  --Sys:log('SpringElectricalWalshaw2000:   compute force based layout')
-
   -- global (=repulsive) force function
   local function accurate_repulsive_force(distance, weight) 
     return - self.spring_constant * weight * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
@@ -249,7 +245,6 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
   local i = 0
     
   while not converged and i < self.iterations do
-    --Sys:log('SpringElectricalWalshaw2000:     iteration ' .. i .. ' (max: ' .. self.iterations .. ')')
   
     -- assume that we are converging
     converged = true

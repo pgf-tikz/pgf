@@ -74,29 +74,14 @@ function NetworkSimplex:rankNodes()
     
     assert(enter_edge, 'no non-tree edge to replace ' .. tostring(leave_edge) .. ' could be found')
 
-    --self:dump_tree(self.tree, 'tree before replacing edges')
-    --self:dumpRanking('', 'ranking before replacing edges')
-    --self:dump_cut_values('cut values before replacing edges')
-    --self:dump_slack('edge slacks before replacing edges')
-
     -- exchange leave_edge and enter_edge in the tree, updating
     -- the ranks and cut values of all nodes
     self:exchangeTreeEdges(leave_edge, enter_edge)
-    
-    --self:dump_tree(self.tree, 'tree after replacing edges')
-    --self:dumpRanking('', 'ranking after replacing edges')
-    --self:dump_cut_values('cut values after replacing edges')
-    --self:dump_slack('edge slacks after replacing edges')
 
     -- find the next tree edge with a negative cut value, if 
     -- there are any left
     leave_edge = self:findNegativeCutEdge()
   end
-
-  --self:dumpRanking('', 'ranking before normalization and/or balancing')
-  --self:dump_tree(self.tree, 'final tree after running the network simplex')
-  --self:dump_cut_values('cut values after running the network simplex')
-  --self:dump_slack('edge slacks after running the network simplex')
 
   if self.balancing == NetworkSimplex.BALANCE_TOP_BOTTOM then
     -- normalize by setting the least rank to zero
@@ -109,43 +94,29 @@ function NetworkSimplex:rankNodes()
   elseif self.balancing == NetworkSimplex.BALANCE_LEFT_RIGHT then
     self:balanceRanksLeftRight()
   end
-
-  --self:dumpRanking('', 'ranking after normalization and/or balancing')
-  --self:dump_cut_values('cut values after normalization and/or balancing')
-  --self:dump_slack('edge slacks after normalization and/or balancing')
 end
 
 
 
 function NetworkSimplex:constructFeasibleTree()
-  --self:dump_tree(self.graph, 'input graph')
 
   self:computeInitialRanking()
 
-  --self:dumpRanking('', 'initial ranking')
-
   -- find a maximal tree of tight edges in the graph
   while self:findTightTree() < #self.graph.nodes do
-    --self:dump_tree(self.tree, 'incomplete feasible tree')
-
-    --Sys:log('find non-tree edge with minimal slack:')
 
     local min_slack_edge = nil
 
     for node in table.value_iter(self.graph.nodes) do
       local out_edges = node:getOutgoingEdges()
       for edge in table.value_iter(out_edges) do
-        --Sys:log('  check if ' .. tostring(edge) .. ' is incident to the tree')
         if not self.tree_edge[edge] and self:isIncidentToTree(edge) then
-          --Sys:log('    it is')
           if not min_slack_edge or self:edgeSlack(edge) < self:edgeSlack(min_slack_edge) then
             min_slack_edge = edge
           end
         end
       end
     end
-
-    --Sys:log('  edge with minimal slack: ' .. tostring(min_slack_edge))
 
     if min_slack_edge then
       local delta = self:edgeSlack(min_slack_edge)
@@ -158,31 +129,16 @@ function NetworkSimplex:constructFeasibleTree()
           delta = -delta
         end
 
-        --Sys:log('  delta = ' .. delta)
 
         for node in table.value_iter(self.tree.nodes) do
           local rank = self.ranking:getRank(self.orig_node[node])
-          --Sys:log('  set rank of ' .. node.name .. ' from ' .. rank .. ' to ' .. rank + delta)
           self.ranking:setRank(self.orig_node[node], rank + delta)
-          --self:dumpRanking('  ', 'ranking after that')
         end
-
-        --self:dumpRanking('  ', 'ranking before normalization')
-        --self.ranking:normalizeRanks()
-        --self:dumpRanking('  ', 'ranking after normalization')
       end
     end
-
-    --Sys:log('  minimal slack edge ' .. tostring(min_slack_edge) .. ' has slack ' .. self:edgeSlack(min_slack_edge) .. ' now')
-    --self:dumpRanking('', 'ranking after adding ' .. tostring(min_slack_edge) .. ' to the tree')
   end
 
-  --self:dump_tree(self.tree, 'final feasible tree')
-  --self:dumpRanking('', 'feasible tree ranking')
-
   self:initializeCutValues()
-
-  --self:dump_cut_values("feasible tree cut values")
 end
 
 
@@ -233,7 +189,6 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
   -- TODO Janns: Get rid of this recursion:
 
   local function find_edge(v, direction)
-    --Sys:log('  find edge ' .. v.name .. ', ' .. direction)
 
     if direction == 'out' then
       local out_edges = self.orig_node[v]:getOutgoingEdges()
@@ -304,8 +259,6 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
     end
   end
 
-  --self:dumpRange(self.lim, self.low, self.parent_edge, '', 'range before finding a replacement edge')
-
   find_edge(v, direction)
   
   return enter_edge
@@ -314,7 +267,6 @@ end
 
 
 function NetworkSimplex:exchangeTreeEdges(leave_edge, enter_edge)
-  --Sys:log('exchange tree edge ' .. tostring(leave_edge) .. ' with ' .. tostring(enter_edge))
 
   self:rerankBeforeReplacingEdge(leave_edge, enter_edge)
 
@@ -343,7 +295,6 @@ end
 
 
 function NetworkSimplex:balanceRanksTopBottom()
-  --Sys:log('balancing the ranks:')
 
   -- available ranks
   local ranks = self.ranking:getRanks()
@@ -387,7 +338,6 @@ function NetworkSimplex:balanceRanksTopBottom()
 
     -- check whether the in- and outweight is the same
     if in_weight[node] == out_weight[node] then
-      --Sys:log('  feasible ranks of ' .. node.name .. ' are ' .. min_rank[node] .. ',...,' .. max_rank[node])
 
       -- check which of the allowed ranks has the least number of nodes
       local min_nodes_rank = min_rank[node]
@@ -403,7 +353,6 @@ function NetworkSimplex:balanceRanksTopBottom()
         self.ranking:setRank(node, min_nodes_rank)
       end
 
-      --Sys:log('  move ' .. node.name .. ' to rank ' .. self.ranking:getRank(node))
     end
   end
 end
@@ -431,7 +380,6 @@ end
 
 
 function NetworkSimplex:computeInitialRanking()
-  --Sys:log('compute initial ranking:')
   
   -- queue for nodes to rank next
   local queue = {}
@@ -454,7 +402,6 @@ function NetworkSimplex:computeInitialRanking()
     remaining_edges[node] = #edges
 
     if #edges == 0 then
-      --Sys:log('  queue ' .. node.name)
       enqueue(node)
     end
   end
@@ -463,8 +410,6 @@ function NetworkSimplex:computeInitialRanking()
   while #queue > 0 do
     -- fetch the next unranked node from the queue
     local node = dequeue()
-
-    --Sys:log('  visit ' .. node.name)
 
     -- get a list of its incoming edges
     local in_edges = node:getIncomingEdges()
@@ -500,14 +445,12 @@ end
 
 
 function NetworkSimplex:findTightTree()
-  --Sys:log('find tight tree:')
 
   -- TODO: Jannis: Remove the recursion below:
 
   local marked = {}
 
   local function build_tight_tree(node)
-    --Sys:log('    visit ' .. node.name)
 
     local out_edges = node:getOutgoingEdges()
     local in_edges = node:getIncomingEdges()
@@ -537,8 +480,6 @@ function NetworkSimplex:findTightTree()
   end
 
   for node in table.value_iter(self.graph.nodes) do
-    --Sys:log('  build tree starting at ' .. node.name)
-
     self.tree = Graph:new()
     self.tree_node = {}
     self.orig_node = {}
@@ -629,7 +570,6 @@ end
 -- which the node was reached in the depth-first traversal.
 --
 function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
-  --Sys:log('dfsrange from ' .. root.name .. ', edge from parent ' .. tostring(edge_from_parent) .. ', lowest ' .. lowest)
 
   -- global traversal index counter
   local lim = lowest
@@ -675,7 +615,6 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   -- kick off the depth-first search
   DepthFirstSearch:new(init, visit, complete):run()
 
-  --self:dumpRange(self.lim, self.low, self.parent_edge, '', 'range after dfsrange')
   local lim_lookup = {}
   local min_lim = math.huge
   local max_lim = -math.huge
@@ -695,7 +634,6 @@ end
 
 
 function NetworkSimplex:updateCutValue(tree_edge)
-  --Sys:log('update cut value of ' .. tostring(tree_edge))
 
   local v = nil
   if self.parent_edge[tree_edge:getTail()] == tree_edge then
@@ -761,14 +699,11 @@ function NetworkSimplex:updateCutValue(tree_edge)
   end
 
   self.cut_value[tree_edge] = sum
-  --Sys:log('  cutvalue = ' .. sum)
 end
 
 
 
 function NetworkSimplex:inTailComponentOf(node, v)
-  --Sys:log(node.name .. ' (tree node ' .. tostring(self.tree_node[node]) .. ') inTailCompOf ' .. v.name .. ' (tree node ' .. tostring(self.tree_node[v]) .. ')')
-  --self:dumpRange(self.lim, self.low, self.parent_edge, '  ', 'current range information')
   return (self.low[v] <= self.lim[node]) and (self.lim[node] <= self.lim[v])
 end
 
@@ -848,7 +783,6 @@ end
 
 
 function NetworkSimplex:updateCutValuesUpToCommonAncestor(v, w, cutval, dir)
-  --Sys:log('update cut values from ' .. v.name .. ' up to common ancestor of ' .. v.name .. ' and ' .. w.name)
 
   while not self:inTailComponentOf(w, v) do
     local edge = self.parent_edge[v]
@@ -915,63 +849,3 @@ function NetworkSimplex:removeEdgeFromTree(edge)
 end
 
 
-
-function NetworkSimplex:dump_tree(tree, name)
-  Sys:log(name .. ':')
-  for node in table.value_iter(tree.nodes) do
-    Sys:log('  node ' .. node.name)
-    for edge in table.value_iter(node.edges) do
-      Sys:log('    edge ' .. tostring(edge))
-    end
-  end
-  for edge in table.value_iter(tree.edges) do
-    Sys:log('  edge ' .. tostring(edge))
-  end
-end
-
-
-
-function NetworkSimplex:dump_cut_values(title)
-  Sys:log(title .. ':')
-  for edge in table.value_iter(self.tree.edges) do
-    Sys:log('  ' .. tostring(edge) .. ': cut value = ' .. tostring(self.cut_value[edge]))
-  end
-end
-
-
-
-function NetworkSimplex:dump_slack(title)
-  Sys:log(title .. ':')
-  for edge in table.value_iter(self.tree.edges) do
-    Sys:log('  ' .. tostring(edge) .. ': slack = ' .. self:edgeSlack(self.orig_edge[edge]))
-  end
-end
-
-
-
-function NetworkSimplex:dumpRange(lim, low, parent_edge, prefix, title)
-  Sys:log(prefix .. title .. ':')
-  for node in table.value_iter(self.tree.nodes) do
-    Sys:log(string.format('%s  node %-30s lim %i low %i parent %s\n',
-                          prefix,
-                          node.name,
-                          tonumber(lim[node]) or -1,
-                          tonumber(low[node]) or -1, 
-                          tostring(parent_edge[node])))
-  end
-end
-
-
-
-function NetworkSimplex:dumpRanking(prefix, title)
-  local ranks = self.ranking:getRanks()
-  Sys:log(prefix .. title)
-  for rank in table.value_iter(ranks) do
-    local nodes = self.ranking:getNodes(rank)
-    local str = prefix .. '  rank ' .. rank .. ':'
-    local str = table.combine_values(nodes, function (str, node)
-      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
-    end, str)
-    Sys:log(str)
-  end
-end

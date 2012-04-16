@@ -49,13 +49,9 @@ end
 function manipulation.merge_multiedges(graph)
   local individual_edges = {}
 
-  Sys:log('merge multiedges:')
-
   local node_processed = {}
 
   for node in table.value_iter(graph.nodes) do
-    Sys:log('  neighbour edges of ' .. node.name)
-
     node_processed[node] = true
 
     local multiedge = {}
@@ -101,11 +97,6 @@ function manipulation.merge_multiedges(graph)
     end
 
     for neighbour, multiedge in pairs(multiedge) do
-      Sys:log('    with neighbour ' .. neighbour.name)
-
-      for subedge in table.value_iter(individual_edges[multiedge]) do
-        Sys:log('      ' .. tostring(subedge))
-      end
 
       if #individual_edges[multiedge] <= 1 then
         individual_edges[multiedge] = nil
@@ -132,8 +123,6 @@ end
 function manipulation.restore_multiedges(graph, individual_edges)
   for multiedge, subedges in pairs(individual_edges) do
     assert(#subedges >= 2)
-
-    Sys:log('restore multiedges of ' .. multiedge:getTail().name .. ' and ' .. multiedge:getHead().name)
 
     graph:deleteEdge(multiedge)
 

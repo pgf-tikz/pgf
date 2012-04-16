@@ -1,5 +1,6 @@
 -- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
 --
@@ -13,17 +14,53 @@
 -- This file defines the Interface global object, which is used as a
 -- simplified frontend in the TeX part of the library.
 
-pgf.module("pgf.graphdrawing")
+-- pgf.module("pgf.graphdrawing")
 
 
+local control = require "pgf.gd.control"
 
---- Sits between the TikZ/TeX side and Lua.
-Interface = {
-  graphStack = {},
-  defaultGraphParameters = {},
-  texboxes = {}
+
+-- Declare new namespace:
+
+control.TeXInterface = {
+  graph = nil,
+  parameter_defaults = {},
+  tex_boxes = {},
+  verbose = false
 }
-Interface.__index = Interface
+control.TeXInterface.__index = control.TeXInterface
+
+
+--- Logging
+
+--- Writes log messages to the \TeX\ output, separating the parameters
+-- by spaces, provided TeXInterface.verbose is set.
+--
+-- @param ... List of parameters to write to the \TeX\ output.
+
+function control.TeXInterface:log(...)
+  if self.verbose then
+    self:debug(...)
+  end
+end
+
+--- Writes log messages to the \TeX\ output, separating the parameters
+-- by spaces, regardless of any settings of the verbose parameter.
+--
+-- @param ... List of parameters to write to the \TeX\ output.
+
+function control.TeXInterface:debug(...)
+   texio.write_nl("")
+   -- this is to even print out nil arguments in between
+   local args = {...}
+   for i = 1, table.getn(args) do
+      if i ~= 1 then texio.write(" ") end
+      texio.write(tostring(args[i]))
+   end
+   texio.write_nl("")
+end
+
+
 
 
 
@@ -38,34 +75,12 @@ Interface.__index = Interface
 -- @param options A string containing |{key}{value}| pairs of 
 --                \tikzname\ options.
 --
-function Interface:newGraph(options)
-  self.graph = Graph:new()
-  table.insert(self.graphStack, self.graph)
+function control.TeXInterface:newGraph(options)
+  self.graph = pgf.graphdrawing.Graph:new()
   self.graph:mergeOptions(string.parse_braces(options))
 end
 
 
-
---- Sets the graph option \meta{name} to \meta{value}. Only affects the current graph.
---
--- @param name  The name of the option to set.
--- @param value New value for the option.
---
-function Interface:setOption(name, value)
-  self.graph:setOption(name, value)
-end
-
-
-
---- Returns the value of the graph option \meta{name}.
---
--- @param name Name of the option.
---
--- @return The value of the \meta{name} option or |nil|.
---
-function Interface:getOption(name)
-  return self.graph:getOption(name)
-end
 
 
 
@@ -85,6 +100,7 @@ end
 -- positioned. It is used to add ``decorations'' to a node after
 -- positioning like a label.
 --
+-- @param box       Box register holding the node.
 -- @param name      Name of the node.
 -- @param shape     The pgf shape of the node (e.g. "circle" or "rectangle")
 -- @param xMin      Minimum x point of the bouding box.
@@ -94,20 +110,21 @@ end
 -- @param options   Lua-Options for the node.
 -- @param lateSetup Options for the node.
 --
-function Interface:addNode(name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
+function control.TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
   assert(self.graph, "no graph created")
-  self.texboxes[#self.texboxes + 1] = Sys:getTeXBox()
+
+  self.tex_boxes[#self.tex_boxes + 1] = node.copy_list(tex.box[box])
   local tex = {
-    texNode = #self.texboxes,
+    tex_node = #self.tex_boxes,
     shape = shape,
     maxX = xMax,
     minX = xMin,
     maxY = yMax,
     minY = yMin,
-    texLateSetup = lateSetup
+    late_setup = lateSetup
   }
-  local node = Node:new{
-    name = Sys:unescapeTeXNodeName(name), 
+  local node = pgf.graphdrawing.Node:new{
+    name = string.sub(name, string.len("not yet positionedPGFINTERNAL") + 1),
     tex = tex, 
     options = string.parse_braces(options),
     event_index = #self.graph.events + 1
@@ -126,7 +143,7 @@ end
 -- @param name      Name of the node.
 -- @param options   Lua-Options for the node.
 
-function Interface:setLateNodeOptions(name, options)
+function control.TeXInterface:setLateNodeOptions(name, options)
   local node = self.graph:findNode(name)
   if node then
     for k,v in string.parse_braces(options) do
@@ -153,12 +170,12 @@ end
 -- @param tikz_options A string that should be passed back to \pgfgddraw unmodified.
 -- @param aux          Another string that should be passed back to \pgfgddraw unmodified.
 --
-function Interface:addEdge(from, to, direction, parameters, tikz_options, aux)
+function control.TeXInterface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
   local from_node = self.graph:findNode(from)
   local to_node = self.graph:findNode(to)
   assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
-  if direction ~= Edge.NONE then
+  if direction ~= pgf.graphdrawing.Edge.NONE then
     local edge = self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
     edge.event_index = #self.graph.events + 1
     self.graph.events[#self.graph.events + 1] = { kind = 'edge', parameters = edge }
@@ -173,14 +190,14 @@ end
 -- @param kind         Name/kind of the event.
 -- @param parameters   Parameters of the event.
 --
-function Interface:addEvent(kind, param)
+function control.TeXInterface:addEvent(kind, param)
   assert(self.graph, "no graph created")
   self.graph.events[#self.graph.events + 1] = { kind = kind, parameters = param}
 end
 
 
 
-function Interface:addNodeToCluster(node_name, cluster_name)
+function control.TeXInterface:addNodeToCluster(node_name, cluster_name)
   assert(self.graph, 'no graph created')
   
   -- find the node
@@ -193,7 +210,7 @@ function Interface:addNodeToCluster(node_name, cluster_name)
 
   -- if it doesn't exist yet, create it on demand
   if not cluster then
-    cluster = Cluster:new(cluster_name)
+    cluster = pgf.graphdrawing.Cluster:new(cluster_name)
     self.graph:addCluster(cluster)
   end
 
@@ -213,7 +230,7 @@ end
 --
 -- @return The algorithm function or nil.
 --
-function Interface:loadAlgorithm(name)
+function control.TeXInterface:loadAlgorithm(name)
 
    -- Load the file (if necessary)
    pgf.load("pgfgd-algorithm-" .. name .. ".lua", "tex", false)
@@ -234,54 +251,57 @@ end
 -- When a graph is to be layed out, this function is called with the graph
 -- as its only parameter.
 --
-function Interface:drawGraph()
+function control.TeXInterface:runGraphDrawingAlgorithm()
   if #self.graph.nodes == 0 then
     -- Nothing needs to be done
     return
   end
   
-  local name = self:getOption("/graph drawing/algorithm"):gsub(' ', '')
+  local name = self.graph:getOption("/graph drawing/algorithm"):gsub(' ', '')
   local algorithm_class = pgf.graphdrawing[name]
   
   -- if not defined, try to load the corresponding file
   if not algorithm_class then
-    algorithm_class = self:loadAlgorithm(name)
+    algorithm_class = control.TeXInterface:loadAlgorithm(name)
   end
   
   assert(algorithm_class, "No algorithm named '" .. name .. "' was found. " ..
 	 "Either the file does not exist or the class declaration is wrong.")
+
   local start = os.clock()
   -- Ok, everything setup.
   
-  pipeline.run_graph_drawing_pipeline(self.graph, algorithm_class)
+  pgf.graphdrawing.pipeline.run_graph_drawing_pipeline(self.graph, algorithm_class)
   
   local stop = os.clock()
-  Sys:log(string.format("Graph drawing engine: algorithm '" .. name .. "' took %.4f seconds", stop - start))
+
+  control.TeXInterface:log(string.format("Graph drawing engine: algorithm '" .. name .. "' took %.4f seconds", stop - start))
 end
 
 
 
 --- Passes the current graph back to the \TeX\ layer and removes it from the stack.
 --
-function Interface:finishGraph()
+function control.TeXInterface:finishGraph()
   assert(self.graph, "no graph created")
-  Sys:beginShipout()
-  local graph = table.remove(self.graphStack)
-  self.graph = self.graphStack[#self.graphStack]
-  
-  Sys:beginNodeShipout()
-  for node in table.value_iter(graph.nodes) do
-    self:drawNode(node)
-  end
-  Sys:endNodeShipout()
 
-  Sys:beginEdgeShipout()
-  for edge in table.value_iter(graph.edges) do
-    self:drawEdge(edge)
-  end
-  Sys:endEdgeShipout()
+  tex.print("\\pgfgdbeginshipout")
   
-  Sys:endShipout()
+  tex.print("\\pgfgdbeginnodeshipout")
+  for node in table.value_iter(self.graph.nodes) do
+    control.TeXInterface:shipoutNode(node)
+  end
+  tex.print("\\pgfgdendnodeshipout")
+
+  tex.print("\\pgfgdbeginedgeshipout")
+  for edge in table.value_iter(self.graph.edges) do
+    control.TeXInterface:shipoutEdge(edge)
+  end
+  tex.print("\\pgfgdendedgeshipout")
+  
+  tex.print("\\pgfgdendshipout")
+
+  self.graph = nil
 end
 
 
@@ -290,22 +310,20 @@ end
 --
 -- @param node The node to pass back to the \TeX\ layer.
 --
-function Interface:drawNode(node)
-  Sys:putTeXBox(node,
-                node.tex.texNode,
-                node.tex.minX,
-                node.tex.minY,
-                node.tex.maxX,
-                node.tex.maxY,
-                node.pos.x,
-                node.pos.y,
-                node.tex.texLateSetup)
+function control.TeXInterface:shipoutNode(node)
+  tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
+			  'not yet positionedPGFINTERNAL' .. node.name,
+			  node.tex.minX, node.tex.maxX,
+			  node.tex.minY, node.tex.maxY,
+			  node.pos.x, node.pos.y,
+			  node.tex.tex_node, node.tex.late_setup))
 end
 
 
-function Interface:getBox(box_reference)
-  local ret = self.texboxes[box_reference]
-  self.texboxes[box_reference] = nil
+
+function control.TeXInterface:retrieveBox(box_reference)
+  local ret = self.tex_boxes[box_reference]
+  self.tex_boxes[box_reference] = nil
   return ret
 end
 
@@ -318,10 +336,41 @@ end
 --
 -- @param edge The edge to pass back to the \TeX\ layer.
 --
-function Interface:drawEdge(edge)
-  if edge.direction ~= Edge.NONE then
-    Sys:putEdge(edge)
+function control.TeXInterface:shipoutEdge(edge)
+
+  -- map nodes to node strings
+  local node_strings = table.map_values(edge.nodes, function (node) 
+    return '{' .. node.name .. '}'
+  end)
+  
+  -- reverse strings if the edge is reversed
+  if edge.reversed then
+    node_strings = table.reverse_values(node_strings, node_strings)
   end
+  
+  local bend_string = ''
+  if #edge.bend_points > 0 then
+    local bend_strings = table.map_values(edge.bend_points, 
+					  function (vector)
+					    return '(' .. tostring(vector.x) .. 'pt,' .. tostring(vector.y) .. 'pt)'
+    end)
+    if edge.reversed then
+      bend_strings = table.reverse_values(bend_strings, bend_strings)
+    end
+    bend_string = '-- ' .. table.concat(bend_strings, '--')
+  end
+  
+  -- generate string for the entire edge
+  local callback = '\\pgfgdedgecallback'
+     .. table.concat(node_strings,'') .. '{' .. edge.direction .. '}{'
+     .. edge.tikz_options ..'}{' .. edge.edge_nodes .. '}{'
+     .. table.combine_pairs(edge.algorithmically_generated_options,
+			      function (s, k, v) return s .. ','
+			      .. tostring(k) .. '={' .. tostring(v) .. '}' end, '')
+     .. '}{' .. bend_string .. '}'
+
+  -- hand TikZ code over to TeX
+  tex.print(callback)
 end
 
 
@@ -334,6 +383,12 @@ end
 -- @param key The commplete path of the to-be-defined key
 -- @param value A string containing the value
 --
-function Interface:setGraphParameterDefault(key,value)
-  self.defaultGraphParameters[key] = value
+function control.TeXInterface:setGraphParameterDefault(key,value)
+  self.parameter_defaults[key] = value
 end
+
+
+
+-- Done 
+
+return control.TeXInterface

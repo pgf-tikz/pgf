@@ -121,51 +121,6 @@ end
 -- TODO Jannis: document this algorithm as soon as it is completed and bug-free.
 --
 function algorithms.classify_edges(graph)
-  --Sys:log('classify edges:')
-
-  --local stacked = {}
-  --local marked = {}
-  --local back_edges = {}
-
-  --for node in table.value_iter(graph.nodes) do
-  --  marked[node] = false
-  --  stacked[node] = false
-  --end
-
-  --local function classify_starting_at(node)
-  --  Sys:log('  visit ' .. node.name)
-
-  --  if marked[node] then
-  --    return
-  --  else
-  --    marked[node] = true
-  --    stacked[node] = true
-
-  --    for edge in table.value_iter(node:getOutgoingEdges()) do
-  --      local neighbour = edge:getNeighbour(node)
-
-  --      if stacked[neighbour] then
-  --        Sys:log('    reverse ' .. tostring(edge))
-  --        edge.reversed = true
-  --      else
-  --        if not marked[neighbour] then
-  --          classify_starting_at(neighbour)
-  --        end
-  --      end
-  --    end
-
-  --    stacked[node] = false
-  --  end
-  --end
-
-  --for node in table.value_iter(graph.nodes) do
-  --  classify_starting_at(node)
-  --end
-
-  --return {}, {}, back_edges
-
-  --Sys:log('classify edges:')
-
   local discovered = {}
   local visited = {}
   local recursed = {}
@@ -190,9 +145,6 @@ function algorithms.classify_edges(graph)
   end
 
   local initial_nodes = graph.nodes
-  --local initial_nodes = table.filter_values(graph.nodes, function (node)
-  --  return node:getInDegree() == 0
-  --end)
 
   for node in table.reverse_value_iter(initial_nodes) do
     push(node)
@@ -203,7 +155,6 @@ function algorithms.classify_edges(graph)
     local node = peek()
     local edges_to_traverse = {}
 
-    --Sys:log('  visit ' .. node.name)
     visited[node] = true
 
     if not recursed[node] then
@@ -214,32 +165,23 @@ function algorithms.classify_edges(graph)
         local neighbour = edge:getNeighbour(node)
 
         if not discovered[neighbour] then
-          --Sys:log('    discovered ' .. neighbour.name)
-          --Sys:log('      edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a forward or tree edge')
           table.insert(tree_and_forward_edges, edge)
           table.insert(edges_to_traverse, edge)
         else
           if not completed[neighbour] then
             if not visited[neighbour] then
-              --Sys:log('    ' .. neighbour.name .. ' was neither visited nor completed yet')
-              --Sys:log('      edge ' .. node.name .. ' -> ' .. neighbour.name .. ' is a forward or tree edge')
               table.insert(tree_and_forward_edges, edge)
               table.insert(edges_to_traverse, edge)
             else
-              --Sys:log('    ' .. neighbour.name .. ' visited but not completed')
-              --Sys:log('      edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a back edge')
               table.insert(back_edges, edge)
             end
           else
-            --Sys:log('    ' .. neighbour.name .. ' visited and completed')
-            --Sys:log('      edge ' .. node.name .. ' => ' .. neighbour.name .. ' is a cross edge')
             table.insert(cross_edges, edge)
           end
         end
       end
 
       if #edges_to_traverse == 0 then
-        --Sys:log('    no edges to traverse, node ' .. node.name .. ' is completed')
         completed[node] = true
         pop()
       else
@@ -250,7 +192,6 @@ function algorithms.classify_edges(graph)
         end
       end
     else
-      --Sys:log('    leaving node ' .. node.name .. ', it is completed')
       completed[node] = true
       pop()
     end

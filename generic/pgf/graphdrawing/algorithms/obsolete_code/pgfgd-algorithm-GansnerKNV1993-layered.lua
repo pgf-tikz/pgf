@@ -127,7 +127,6 @@ function GansnerKNV1993Layered:preprocess()
 
   -- reverse the back edges in order to make the graph acyclic
   for edge in table.value_iter(back_edges) do
-    Sys:log('reverse back edge ' .. tostring(edge))
     edge.reversed = true
   end
 end
@@ -153,8 +152,6 @@ end
 
 
 function GansnerKNV1993Layered:reduceEdgeCrossings()
-  self:dumpRanking('', 'ranking after creating dummy nodes')
-
   self:computeInitialRankOrdering()
 
   local best_ranking = self.ranking:copy()
@@ -163,38 +160,27 @@ function GansnerKNV1993Layered:reduceEdgeCrossings()
   for iteration in iter.times(24) do
     local direction = (iteration % 2 == 0) and 'down' or 'up'
 
-    Sys:log('reduce edge crossings, iteration ' .. iteration .. ', sweep direction ' .. direction)
-
     self:orderByWeightedMedian(direction)
     self:transpose(direction)
 
     local current_crossings = self:countRankCrossings(self.ranking)
 
-    Sys:log('  crossings of best ranking: ' .. best_crossings)
-    Sys:log('  crossings of current ranking: ' .. current_crossings)
-
     if current_crossings < best_crossings then
-      Sys:log('  adapt current ranking')
       best_ranking = self.ranking:copy()
       best_crossings = current_crossings
     end
   end
 
   self.ranking = best_ranking:copy()
-
-  self:dumpRanking('  ', 'ranking after reducing edge crossings')
 end
 
 
 
 function GansnerKNV1993Layered:computeInitialRankOrdering()
-  Sys:log('compute initial rank ordering:')
-
   local best_ranking = self.ranking:copy()
   local best_crossings = self:countRankCrossings(best_ranking)
 
   for direction in table.value_iter({'down', 'up'}) do
-    Sys:log('  direction = ' .. direction)
 
     local function init(search)
       for node in table.reverse_value_iter(self.graph.nodes) do
@@ -214,11 +200,6 @@ function GansnerKNV1993Layered:computeInitialRankOrdering()
 
     local function visit(search, node)
       search:setVisited(node, true)
-
-      Sys:log('  visit ' .. node.name)
-
-      Sys:log('    append to rank ' .. self.ranking:getRank(node))
-      Sys:log('      at pos ' .. self.ranking:getRankSize(self.ranking:getRank(node)))
 
       local rank = self.ranking:getRank(node)
       local pos = self.ranking:getRankSize(rank)
@@ -247,9 +228,6 @@ function GansnerKNV1993Layered:computeInitialRankOrdering()
 
     local crossings = self:countRankCrossings(self.ranking)
 
-    Sys:log('     crossings of best ranking: ' .. best_crossings)
-    Sys:log('  crossings of current ranking: ' .. crossings)
-
     if crossings < best_crossings then
       best_ranking = self.ranking:copy()
       best_crossings = crossings
@@ -257,15 +235,11 @@ function GansnerKNV1993Layered:computeInitialRankOrdering()
   end
 
   self.ranking = best_ranking:copy()
-
-  self:dumpRanking('  ', 'ranking after initial ordering')
 end
 
 
 
 function GansnerKNV1993Layered:orderByWeightedMedian(direction)
-  Sys:log('  order by weighted median (' .. direction .. ')')
-
   local median = {}
 
   local function dump_rank_ordering(rank)
@@ -275,24 +249,14 @@ function GansnerKNV1993Layered:orderByWeightedMedian(direction)
   local function get_index(n, node) return median[node] end
   local function is_fixed(n, node) return median[node] < 0 end
 
-  --local function sync_positions(nodes)
-  --  for n = 1, #nodes do
-  --    self.ranking.position_in_rank[nodes[n]] = n
-  --  end
-  --end
-
-  self:dumpRanking('    ', 'ranks before applying the median')
-
   if direction == 'down' then
     local ranks = self.ranking:getRanks()
 
     for rank_index = 2, #ranks do
-      Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
       for node in table.value_iter(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index-1])
-        Sys:log('      ' .. node.name .. ': ' .. median[node])
       end
 
       self.ranking:reorderRank(ranks[rank_index], get_index, is_fixed)
@@ -301,25 +265,20 @@ function GansnerKNV1993Layered:orderByWeightedMedian(direction)
     local ranks = self.ranking:getRanks()
 
     for rank_index = 1, #ranks-1 do
-      Sys:log('    medians for rank ' .. ranks[rank_index] .. ':')
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
       for node in table.value_iter(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index+1])
-        Sys:log('      ' .. node.name .. ': ' .. median[node])
       end
 
       self.ranking:reorderRank(ranks[rank_index], get_index, is_fixed)
     end
   end
-
-  self:dumpRanking('    ', 'ranks after applying the median')
 end
 
 
 
 function GansnerKNV1993Layered:computeMedianPosition(node, prev_rank)
-  --Sys:log('  compute median position of ' .. node.name .. ' (prev_rank = ' .. prev_rank .. '):')
 
   local in_edges = table.filter_values(node.edges, function (edge)
     local neighbour = edge:getNeighbour(node)
@@ -333,11 +292,7 @@ function GansnerKNV1993Layered:computeMedianPosition(node, prev_rank)
 
   table.sort(positions)
 
-  --Sys:log('    positions = ' .. table.concat(positions, ', '))
-
   local median = math.ceil(#positions / 2)
-
-  --Sys:log('    median = ' .. median)
 
   local position = -1
 
@@ -349,12 +304,9 @@ function GansnerKNV1993Layered:computeMedianPosition(node, prev_rank)
     else
       local left = positions[median-1] - positions[1]
       local right = positions[#positions] - positions[median]
-      --Sys:log('    left = ' .. left .. ', right = ' .. right)
       position = (positions[median-1] * right + positions[median] * left) / (left + right)
     end
   end
-
-  --Sys:log('    position = ' .. position)
 
   return position
 end
@@ -362,11 +314,7 @@ end
 
 
 function GansnerKNV1993Layered:transpose(sweep_direction)
-  Sys:log('  transpose (sweep direction ' .. sweep_direction .. ')')
-
   local function transpose_rank(rank)
-    Sys:log('    transpose rank ' .. rank)
-
     local improved = false
 
     local nodes = self.ranking:getNodes(rank)
@@ -378,17 +326,10 @@ function GansnerKNV1993Layered:transpose(sweep_direction)
       local cn_vw = self:countNodeCrossings(self.ranking, v, w, sweep_direction)
       local cn_wv = self:countNodeCrossings(self.ranking, w, v, sweep_direction)
 
-      Sys:log('      crossings if ' .. v.name .. ' is left of ' .. w.name .. ': ' .. cn_vw)
-      Sys:log('      crossings if ' .. w.name .. ' is left of ' .. v.name .. ': ' .. cn_wv)
-
       if cn_vw > cn_wv then
         improved = true
 
-        Sys:log('        switch so that ' .. w.name .. ' is left of ' .. v.name)
-
         self:switchNodePositions(v, w)
-
-        self:dumpRanking('    ', 'ranks after switching positions')
       end
     end
 
@@ -414,7 +355,6 @@ end
 
 
 function GansnerKNV1993Layered:countNodeCrossings(ranking, left_node, right_node, sweep_direction)
-  --Sys:log('        count crossings of (' .. left_node.name .. ', ' .. right_node.name .. ') (sweep direction ' .. sweep_direction .. ')')
 
   local left_edges = {}
   local right_edges = {}
@@ -438,18 +378,13 @@ function GansnerKNV1993Layered:countNodeCrossings(ranking, left_node, right_node
       local left_position = ranking:getRankPosition(left_neighbour)
       local right_position = ranking:getRankPosition(right_neighbour)
 
-      --Sys:log('          check crossing with (' .. left_neighbour.name .. ' at ' .. left_position .. ', ' .. right_neighbour.name .. ' at ' .. right_position .. ')')
-
       local neighbour_diff = right_position - left_position
 
       if neighbour_diff < 0 then
-        --Sys:log('            edges cross, crossings += 1')
         crossings = crossings + 1
       end
     end
   end
-
-  --Sys:log('    ' .. crossings .. ' crossings')
 
   return crossings
 end
@@ -457,8 +392,6 @@ end
 
 
 function GansnerKNV1993Layered:switchNodePositions(left_node, right_node)
-  Sys:log('          switch positions of ' .. left_node.name .. ' and ' .. right_node.name)
-
   assert(self.ranking:getRank(left_node) == self.ranking:getRank(right_node))
   assert(self.ranking:getRankPosition(left_node) < self.ranking:getRankPosition(right_node))
 
@@ -468,18 +401,11 @@ function GansnerKNV1993Layered:switchNodePositions(left_node, right_node)
   self.ranking:switchPositions(left_node, right_node)
 
   local nodes = self.ranking:getNodes(self.ranking:getRank(left_node))
-
-  ---- verify that all nodes have valid rank positions after switching the two nodes
-  --for n = 1, #nodes do
-  --  assert(self.ranking:getRankPosition(nodes[n]) == n)
-  --end
 end
 
 
 
 function GansnerKNV1993Layered:countRankCrossings(ranking)
-  --Sys:log('  count ranking crossings:')
-
   local crossings = 0
 
   local ranks = ranking:getRanks()
@@ -620,12 +546,10 @@ function GansnerKNV1993Layered:computeCoordinates()
     local x = 0
     local nodes = self.ranking:getNodes(rank)
     for node in table.value_iter(nodes) do
-      Sys:log('position ' .. node.name .. ' at:')
       node.pos:set{
         x = x_ranking:getRank(node.aux_node),
         y = -rank * self.level_distance
       }
-      Sys:log('  ' .. tostring(node.pos))
       x = x + 1
     end
   end
@@ -731,21 +655,5 @@ end
 
 function GansnerKNV1993Layered:makeSplines()
 end
-
-
-
-function GansnerKNV1993Layered:dumpRanking(prefix, title)
-  local ranks = self.ranking:getRanks()
-  Sys:log(prefix .. title)
-  for rank in table.value_iter(ranks) do
-    local nodes = self.ranking:getNodes(rank)
-    local str = prefix .. '  rank ' .. rank .. ':'
-    local str = table.combine_values(nodes, function (str, node)
-      return str .. ' ' .. node.name .. ' (' .. self.ranking:getRankPosition(node) .. ')'
-    end, str)
-    Sys:log(str)
-  end
-end
-
 
 

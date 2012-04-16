@@ -174,15 +174,12 @@ end
 
 
 function Ranking:normalizeRanks()
-  --Sys:log('normalize ranks:')
 
   -- get the current ranks
   local ranks = self:getRanks()
 
   local min_rank = ranks[1]
   local max_rank = ranks[#ranks]
-
-  --Sys:log('  min_rank = ' .. min_rank .. ', max_rank = ' .. max_rank)
 
   -- clear ranks
   self.rank_to_nodes = {}
@@ -191,8 +188,6 @@ function Ranking:normalizeRanks()
   for node in table.key_iter(self.position_in_rank) do
     local rank, pos = self:getNodeInfo(node)
     local new_rank = rank - (min_rank - 1)
-
-    --Sys:log('    rerank ' .. node.name .. ' from ' .. rank .. ' to ' .. new_rank)
     
     self.rank_to_nodes[new_rank] = self.rank_to_nodes[new_rank] or {}
     self.rank_to_nodes[new_rank][pos] = node

@@ -16,7 +16,7 @@ pgf.module("pgf.graphdrawing")
 --- Node positioning with local search algorithm
 -- @param graph graph-Structure to generate layout for
 function graph_drawing_algorithm_AhrensFKSS2011_minimize_crossings(graph)
-   Sys:log("GD:LSG: graph_drawing_algorithm_localsearchgraph")
+
    --read options from graph
    local hSpace = graph:getOption("/graph drawing/AhrensFKSS2011 minimize crossings/max width")
    local vSpace = graph:getOption("/graph drawing/AhrensFKSS2011 minimize crossings/max height")
@@ -26,22 +26,21 @@ function graph_drawing_algorithm_AhrensFKSS2011_minimize_crossings(graph)
       maxWidth = math.max(maxWidth, math.ceil(node.width))
       maxHeight = math.max(maxHeight, math.ceil(node.height))
    end
-   Sys:log("GD:LSG: max height is ", vSpace)
-   Sys:log("GD:LSG: max width is ", hSpace)
+
+
    assert(maxHeight > 0, "GD:LSG: max height of all nodes should be greater than zero")
    assert(maxWidth > 0, "GD:LSG: max width of all nodes should be greater than zero")
    --calculate number of rows and cols for the grid
    --if max width or max height is set, then use this limit, else using standard
    local maxRows = vSpace and math.floor(vSpace / maxHeight) or #graph.nodes * 2
-   Sys:log("GD:LSG: maximum Number of Rows in Grid: " .. maxRows)
+
    local maxCols = hSpace and math.floor(hSpace / maxWidth) or #graph.nodes * 2
-   Sys:log("GD:LSG: maximum Number of Cols in Grid: " .. maxCols)
+
    assert((maxCols * maxRows) >= #graph.nodes, "GD:LSG: Too many Nodes, please adjust size!")
    --create nodes for algorithm-process and position them on the grid
    local midPos = {y = math.floor(maxRows / 2) * maxHeight,
                    x = math.floor(maxCols / 2) * maxWidth}
-   Sys:log("GD:LSG: StartPosition at (", midPos.x,
-         ", ", midPos.y, ")")
+
    -- begin positioning in the middle of the grid
    local nodes, origNodesMap, nodeTable = {}, {}, {}
    local iteration, offset, switchOffset, direction = 0, 1, 0, 1
@@ -79,7 +78,7 @@ function graph_drawing_algorithm_AhrensFKSS2011_minimize_crossings(graph)
             positioned = true
          end
       until positioned
-      Sys:log("GD:LSG: ", newNode.name, " starts at " .. tostring(newNode.pos))
+
       nodes[node.name] = newNode
       origNodesMap[node.name] = node
       table.insert(nodeTable, newNode);
@@ -105,20 +104,10 @@ function graph_drawing_algorithm_AhrensFKSS2011_minimize_crossings(graph)
    local endState = localSearch(start, simpleNeighbour, simpleCost)
    --write nodes in original graph
    for node in table.value_iter(endState.nodes) do
-      Sys:log("LSG:GD: Node ",node.name, " X: ", node.pos:x(), " Y: ", node.pos:y())
+
       origNodesMap[node.name].pos:set{x = node.pos:x()}
       origNodesMap[node.name].pos:set{y = node.pos:y()}
    end
-
-   -- NOTE: Printing these paths will result in an infinite loop
-   -- because there is a circle of node positions that depend on
-   -- each other; printing the path will try to compute the 
-   -- absolute values of each of these node positions and will
-   -- loop infinitely.
-   --
-   --for path in table.value_iter(endState.paths) do
-   --   Sys:log("LSG:GD: Path ", tostring(path))
-   --end
 end
 
 --- generic local search algorithm
@@ -133,14 +122,13 @@ function localSearch(start, neighbour, cost, deep, steps)
    local current, currentCost = start, cost(start)
    local planeCurrent
    local startCost = currentCost
-   Sys:log("GD:LSG: Local Search with Deepness ", deep, " and Startcost ", currentCost)
+
    --looking at all possible neighbour-solutions
    for n in neighbour(start) do
      local c = cost(n)
      --we want the best solution
      if c < currentCost then
        current, currentCost = n, c
-       Sys:log ("GD:LSG: Enhancement to", c)
      elseif c == startCost then
         planeCurrent = n
      end
@@ -151,7 +139,6 @@ function localSearch(start, neighbour, cost, deep, steps)
    elseif planeCurrent and steps > 0 and currentCost > 0 then
       return localSearch(planeCurrent, neighbour, cost, deep+1, steps-1)
    else
-      Sys:log("GD:LSG: Endstate with Cost ", currentCost)
       return start
    end
 end
