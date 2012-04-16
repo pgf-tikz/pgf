@@ -9,32 +9,16 @@
 
 -- @release $Header$
 
-pgf.module("pgf.graphdrawing")
 
-event_handling = {}
+local lib = require "pgf.gd.lib"
 
 
---- Store for each begin/end event the index of
--- its corresponding end/begin event
+--- The Events class is a singleton object.
 --
--- @param events An event list
+-- Its methods implements methods for handling and working with evetns.
 
-function event_handling.prepare_event_list(events)
+lib.Events = {}
 
-  local stack = {}
-
-  for i=1,#events do
-    if events[i].kind == "begin" then
-      stack[#stack + 1] = i
-    elseif events[i].kind == "end" then
-      local tos = stack[#stack]
-      stack[#stack] = nil -- pop
-
-      events[tos].end_index = i
-      events[i].begin_index = tos
-    end
-  end
-end
 
 
 --- Compute the number of events in a group of a certain kind
@@ -43,7 +27,7 @@ end
 -- @param kind The kind we are looking for
 -- @param begin_index The index of a begin event or nil, if the whole event list is meant
 
-function event_handling.number_of_events_of_kind(events,kind,begin_index)
+function lib.Events:getNumberOfEventsOfKind(events, kind, begin_index)
   local end_index = begin_index and events[begin_index].end_index or #events+1
   local begin_index = begin_index or 0
   
@@ -66,7 +50,7 @@ end
 -- @param kind The kind we are looking for
 -- @param begin_index The index of a begin event or nil, if the whole event list is meant
 
-function event_handling.number_of_events_of_kind_outside_groups(events,kind,begin_index)
+function lib.Events:getNumberOfEventsOfKindOutsideGroup(events, kind, begin_index)
   local end_index = begin_index and events[begin_index].end_index or #events
   local begin_index = begin_index or 1
   
@@ -83,3 +67,8 @@ function event_handling.number_of_events_of_kind_outside_groups(events,kind,begi
 
   return count
 end
+
+
+-- done
+
+return lib.Events

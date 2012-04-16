@@ -27,8 +27,6 @@ local preload_these_files = {
   "table",
   "stack",
   "iter",
-  "string",
-  "vector",
   "quadtree",
   "node",
   "edge",
@@ -41,18 +39,10 @@ local preload_these_files = {
   "priority-queue",
   "algorithms",
   "coarsen-graph",
-  "component-packing",
-  "orientation",
   "positioning-helpers",
   "ranking",
   "network-simplex",
-  "anchoring",
-  "component-decomposition",
-  "pipeline",
-  "spanning-tree",
   "spacing",
-  "growth-adjust",
-  "event-handling",
 }
 
 
@@ -367,7 +357,3 @@ function toboolean(string)
   return string == "true"
 end
 
-
--- Load TeXInterface
-
-require "pgf.gd.control"

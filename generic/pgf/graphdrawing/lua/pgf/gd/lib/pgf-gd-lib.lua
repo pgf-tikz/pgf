@@ -18,18 +18,21 @@ require "pgf.gd"
 
 
 -- Declare namespace
-pgf.gd.control = {}
+pgf.gd.lib = {}
 
 
 -- Preload namespace
-package.loaded ["pgf.gd.control"] = pgf.gd.control
+package.loaded ["pgf.gd.lib"] = pgf.gd.lib
 
-require "pgf.gd.control.AlgorithmLoader"
-require "pgf.gd.control.LayoutPipeline"
-require "pgf.gd.control.TeXInterface"
+require "pgf.gd.lib.Anchoring"
+require "pgf.gd.lib.Components"
+require "pgf.gd.lib.Events"
+require "pgf.gd.lib.Orientation"
+require "pgf.gd.lib.Simplifiers"
+require "pgf.gd.lib.Vector"
 
 
 
 -- Done
 
-return pgf.gd.control
+return pgf.gd.lib

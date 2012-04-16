@@ -1,6 +1,6 @@
--- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
--- This file may be distributed and/or modified
+-- This file may be distributed an/or modified
 --
 -- 1. under the LaTeX Project Public License and/or
 -- 2. under the GNU Public License
@@ -9,20 +9,159 @@
 
 -- @release $Header$
 
-pgf.module("pgf.graphdrawing")
 
-componentpacking = {}
+local lib     = require "pgf.gd.lib"
+local control = require "pgf.gd.control"
+
+
+--- The Components class is a singleton object.
+--
+-- Its methods provide methods for handling components, include their packing code. 
+
+lib.Components = {}
 
 
 
-function componentpacking.prepare_bounding_boxes(nodes, angle, sep)
+
+--- Decompose a graph into its components
+--
+-- @param graph A to-be-decomposed graph
+--
+-- @result An array of graph objects that represent the connected components of the graph. 
+
+function lib.Components:decompose (graph)
+
+  -- The list of connected components (node sets)
+  local components = {}
+  
+  -- Remember, which graphs have already been visited
+  local visited = {}
+  
+  for i,n in ipairs(graph.nodes) do
+    if not visited[n] then
+      -- Start a depth-first-search of the graph, starting at node n:
+      local stack = { n }
+      local nodes = {}
+      
+      while #stack >= 1 do
+	local tos = stack[#stack]
+	stack[#stack] = nil -- pop
+	
+	if not visited[tos] then
+	  -- Visit pos:
+	  nodes[#nodes+1] = tos
+	  visited[tos] = true
+	  
+	  for _,e in ipairs(tos.edges) do
+	    for _,neighbor in ipairs(e.nodes) do
+	      if not visited[neighbor] then
+		stack[#stack+1] = neighbor
+	      end
+	    end
+	  end
+	end
+      end
+      
+      -- Ok, nodes will now contain all vertices reachable from n.
+      components[#components+1] = nodes
+    end
+  end
+  
+  -- Case 1: Only one components -> do not do anything
+  if #components < 2 then
+    return { graph }
+  end
+  
+  -- Case 2: Multiple components
+  local graphs = {}
+  
+  for i = 1,#components do
+    -- Build a graph containing only the nodes in the components
+    local subgraph = graph:copy()
+    
+    subgraph.nodes = components[i]
+    
+    -- add edges
+    local edges = {}
+    for _,n in ipairs(subgraph.nodes) do
+      for _,e in ipairs(n.edges) do
+	edges[e] = true
+      end
+    end
+    
+    for e in pairs(edges) do
+      subgraph.edges[#subgraph.edges + 1] = e
+    end
+    
+    table.sort (subgraph.nodes, function (a, b) return a.index < b.index end)
+    table.sort (subgraph.edges, function (a, b) return a.index < b.index end)
+    
+    graphs[#graphs + 1] = subgraph
+  end
+  
+  return graphs
+end
+
+
+
+
+--- Handling of component order
+--
+-- Components are ordered according to a function that is stored in
+-- a key of the lib.Components:component_ordering_functions table (subject
+-- to change...) whose name is the graph option /graph
+-- drawing/component order. 
+--
+-- @param graph A graph
+-- @param subgraphs A list of to-be-sorted subgraphs
+
+function lib.Components:sort(graph, subgraphs)
+  local component_order = graph:getOption('/graph drawing/component order')
+
+  if component_order then
+    local f = lib.Components.component_ordering_functions[component_order]
+    if f then
+      table.sort (subgraphs, f)
+    end
+  end
+end
+
+
+-- Right now, we hardcode the functions here. Perhaps make this
+-- dynamic in the future. Could easily be done on the tikzlayer,
+-- acutally. 
+
+lib.Components.component_ordering_functions = {
+  ["increasing node number"] = 
+    function (g,h) 
+      if #g.nodes == #h.nodes then
+	return g.nodes[1].index < h.nodes[1].index
+      else
+	return #g.nodes < #h.nodes 
+      end
+    end,
+  ["decreasing node number"] = 
+    function (g,h) 
+      if #g.nodes == #h.nodes then
+	return g.nodes[1].index < h.nodes[1].index
+      else
+	return #g.nodes > #h.nodes 
+      end
+    end,
+  ["by first specified node"] = nil,
+}
+
+
+
+
+local function prepare_bounding_boxes(nodes, angle, sep)
 
   for _,n in ipairs(nodes) do
     -- Fill the bounding box field,
     local bb = {}
 
     local corners
-    if n.class == Node then
+    if n.class == pgf.graphdrawing.Node then
       corners = {
 	{ x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
 	{ x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
@@ -65,9 +204,13 @@ end
 
 --- Pack components
 --
--- Rearranges 
+-- Rearranges the positions of nodes. 
+-- See Section~\ref{subsection-gd-component-packing} for details.
+--
+-- @param graph The graph
+-- @param components A list of components
 
-function componentpacking.pack(graph, components)
+function lib.Components:pack(graph, components)
   
   -- Step 1: Preparation, rotation to target direction
   local sep = tonumber(graph:getOption('/graph drawing/component sep'))
@@ -83,12 +226,12 @@ function componentpacking.pack(graph, components)
     end
     for _,e in ipairs(c.edges) do
       for _,p in ipairs(e.bend_points) do
-	nodes [#nodes + 1] = VirtualNode:new { pos = p }
+	nodes [#nodes + 1] = pgf.graphdrawing.VirtualNode:new { pos = p }
       end
     end
     c[vnodes] = nodes
 
-    componentpacking.prepare_bounding_boxes(c[vnodes], angle, sep/2)
+    prepare_bounding_boxes(c[vnodes], angle, sep/2)
   end
   
   local x_shifts = { 0 }
@@ -273,3 +416,8 @@ function componentpacking.pack(graph, components)
     c[vnodes] = nil
   end
 end
+
+
+-- Done
+
+return lib.Components

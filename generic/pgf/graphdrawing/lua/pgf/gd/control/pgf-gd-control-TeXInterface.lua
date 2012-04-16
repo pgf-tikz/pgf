@@ -11,16 +11,13 @@
 
 -- @release $Header$
 
--- This file defines the Interface global object, which is used as a
--- simplified frontend in the TeX part of the library.
-
--- pgf.module("pgf.graphdrawing")
-
 
 local control = require "pgf.gd.control"
 
 
--- Declare new namespace:
+--- The TeXInterface class is a singleton object.
+-- Its methods define the interface between the TeX layer and the Lua layer;
+-- all calls from the TeX layer will be directed to this object.
 
 control.TeXInterface = {
   graph = nil,
@@ -28,38 +25,78 @@ control.TeXInterface = {
   tex_boxes = {},
   verbose = false
 }
-control.TeXInterface.__index = control.TeXInterface
 
 
---- Logging
 
---- Writes log messages to the \TeX\ output, separating the parameters
--- by spaces, provided TeXInterface.verbose is set.
+--- Parses a string with |{key}{value}| pairs and returns a table
+--- mapping the keys to the corresponding values.
 --
--- @param ... List of parameters to write to the \TeX\ output.
+-- @param str     The string to parse.
+-- @param default Currently unused.
+--
+-- @return A table mapping the keys found in the string to their
+--         values.
 
-function control.TeXInterface:log(...)
-  if self.verbose then
-    self:debug(...)
+local function parse_braces(str, default)
+  local options = {}
+
+  if str then
+    local level = 0
+    local key = nil
+    local value = ''
+    local in_key = false
+    local in_value = false
+    local skip_char = false
+
+    for i = 1,str:len() do
+      skip_char = false
+
+      local char = string.sub(str, i, i)
+
+      if char == '{' then
+        if level == 0 then
+          if not key then
+            in_key = true
+          else
+            in_value = true
+          end
+          skip_char = true
+        end
+        level = level + 1
+      elseif char == '}' then
+        level = level - 1
+
+        assert(level >= 0) -- otherwise there's a bug in the parsing algorithm
+
+        if level == 0 then
+          if in_key then
+            in_key = false
+          else 
+            options[key] = value
+
+            key = nil
+            value = ''
+
+            in_value = false
+          end
+          skip_char = true
+        end
+      end
+
+      if not skip_char then
+        if in_key then
+          key = (key or '') .. char
+        else
+          value = (value or '') .. char
+        end
+      end
+
+      assert(not (in_key and in_value))
+    end
   end
+
+  return options
 end
-
---- Writes log messages to the \TeX\ output, separating the parameters
--- by spaces, regardless of any settings of the verbose parameter.
---
--- @param ... List of parameters to write to the \TeX\ output.
-
-function control.TeXInterface:debug(...)
-   texio.write_nl("")
-   -- this is to even print out nil arguments in between
-   local args = {...}
-   for i = 1, table.getn(args) do
-      if i ~= 1 then texio.write(" ") end
-      texio.write(tostring(args[i]))
-   end
-   texio.write_nl("")
-end
-
 
 
 
@@ -76,8 +113,12 @@ end
 --                \tikzname\ options.
 --
 function control.TeXInterface:newGraph(options)
+  assert (not self.graph, "Already drawing a graph")
+
   self.graph = pgf.graphdrawing.Graph:new()
-  self.graph:mergeOptions(string.parse_braces(options))
+  for k,v in pairs(parse_braces(options)) do
+    self.graph.options [k] = v
+  end
 end
 
 
@@ -126,7 +167,7 @@ function control.TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, 
   local node = pgf.graphdrawing.Node:new{
     name = string.sub(name, string.len("not yet positionedPGFINTERNAL") + 1),
     tex = tex, 
-    options = string.parse_braces(options),
+    options = parse_braces(options),
     event_index = #self.graph.events + 1
   }
   self.graph.events[#self.graph.events + 1] = { kind = 'node', parameters = node }
@@ -146,7 +187,7 @@ end
 function control.TeXInterface:setLateNodeOptions(name, options)
   local node = self.graph:findNode(name)
   if node then
-    for k,v in string.parse_braces(options) do
+    for k,v in pairs(parse_braces(options)) do
       node.options [k] = v
     end
   end
@@ -176,7 +217,7 @@ function control.TeXInterface:addEdge(from, to, direction, parameters, tikz_opti
   local to_node = self.graph:findNode(to)
   assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
   if direction ~= pgf.graphdrawing.Edge.NONE then
-    local edge = self.graph:createEdge(from_node, to_node, direction, aux, string.parse_braces(parameters), tikz_options)
+    local edge = self.graph:createEdge(from_node, to_node, direction, aux, parse_braces(parameters), tikz_options)
     edge.event_index = #self.graph.events + 1
     self.graph.events[#self.graph.events + 1] = { kind = 'edge', parameters = edge }
   end
@@ -220,26 +261,6 @@ end
 
 
 
---- Attempts to load the algorithm with the given \meta{name}.
---
--- This function tries to look up the corresponding algorithm file
--- |pgfgd-algorithms-<name>.lua| and attempts to
--- look up the class for calling the algorithm.
---
--- @param name Name of the algorithm.
---
--- @return The algorithm function or nil.
---
-function control.TeXInterface:loadAlgorithm(name)
-
-   -- Load the file (if necessary)
-   pgf.load("pgfgd-algorithm-" .. name .. ".lua", "tex", false)
-
-   -- look up the main algorithm function
-   return pgf.graphdrawing[name]
-end
-
-
 --- Arranges the current graph using the specified algorithm. 
 --
 -- The algorithm is derived from the graph options and is loaded on
@@ -257,25 +278,19 @@ function control.TeXInterface:runGraphDrawingAlgorithm()
     return
   end
   
-  local name = self.graph:getOption("/graph drawing/algorithm"):gsub(' ', '')
-  local algorithm_class = pgf.graphdrawing[name]
-  
-  -- if not defined, try to load the corresponding file
-  if not algorithm_class then
-    algorithm_class = control.TeXInterface:loadAlgorithm(name)
-  end
-  
-  assert(algorithm_class, "No algorithm named '" .. name .. "' was found. " ..
-	 "Either the file does not exist or the class declaration is wrong.")
+  local algorithm_class = control.AlgorithmLoader:algorithmClass(self.graph:getOption("/graph drawing/algorithm"))
 
   local start = os.clock()
   -- Ok, everything setup.
   
-  pgf.graphdrawing.pipeline.run_graph_drawing_pipeline(self.graph, algorithm_class)
+  control.LayoutPipeline:run(self.graph, algorithm_class)
   
   local stop = os.clock()
 
-  control.TeXInterface:log(string.format("Graph drawing engine: algorithm '" .. name .. "' took %.4f seconds", stop - start))
+  control.TeXInterface:log(string.format(
+			     "Graph drawing engine: algorithm '" .. 
+			       self.graph:getOption("/graph drawing/algorithm") ..
+			     "' took %.4f seconds", stop - start))
 end
 
 
@@ -386,6 +401,37 @@ end
 function control.TeXInterface:setGraphParameterDefault(key,value)
   self.parameter_defaults[key] = value
 end
+
+
+--- Logging
+
+--- Writes log messages to the \TeX\ output, separating the parameters
+-- by spaces, provided TeXInterface.verbose is set.
+--
+-- @param ... List of parameters to write to the \TeX\ output.
+
+function control.TeXInterface:log(...)
+  if self.verbose then
+    self:debug(...)
+  end
+end
+
+--- Writes log messages to the \TeX\ output, separating the parameters
+-- by spaces, regardless of any settings of the verbose parameter.
+--
+-- @param ... List of parameters to write to the \TeX\ output.
+
+function control.TeXInterface:debug(...)
+   texio.write_nl("")
+   -- this is to even print out nil arguments in between
+   local args = {...}
+   for i = 1, table.getn(args) do
+      if i ~= 1 then texio.write(" ") end
+      texio.write(tostring(args[i]))
+   end
+   texio.write_nl("")
+end
+
 
 
 

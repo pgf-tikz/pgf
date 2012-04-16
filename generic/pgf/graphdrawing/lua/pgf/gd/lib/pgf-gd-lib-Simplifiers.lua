@@ -9,16 +9,48 @@
 
 -- @release $Header$
 
--- This file defines an edge class, used in the graph representation.
 
-pgf.module("pgf.graphdrawing")
+local lib     = require "pgf.gd.lib"
+local control = require "pgf.gd.control"
 
--- This is, where I want to go (find a free day, sometime...):
 
--- local lib         = require "pgf.gd.lib"
--- local models      = require "pgf.gd.models"
--- local control     = require "pgf.gd.control"
--- local algorithms  = require "pgf.gd.algorithms"
+--- The Simplifiers class is a singleton object.
+-- Its methods allow implement methods for simplifing graphs, for instance 
+-- for removing loops or multiedges or computing spanning trees.
+
+lib.Simplifiers = {}
+
+
+
+--
+--
+-- Spanning Tree Handling
+--
+--
+
+
+
+--- Run a spanning tree algorithm
+--
+-- This method will use the spanning tree computation method stored in
+-- the spanning tree algorithm key to compute a spanning tree of the 
+-- algorithm's graph. The spanning tree will be stored in the algorithm 
+-- field of the nodes.
+--
+-- @param parent_algorithm An algorithm object
+
+function lib.Simplifiers:runSpanningTreeAlgorithm(parent_algorithm)
+
+  local spanning_algorithm_class = control.AlgorithmLoader:subalgorithmClass(
+    parent_algorithm.graph:getOption("/graph drawing/spanning tree algorithm"):gsub(' ', ''))
+
+  local spanning_algorithm = spanning_algorithm_class:new(parent_algorithm.graph, parent_algorithm)    
+  parent_algorithm.graph:registerAlgorithm(spanning_algorithm)
+  
+  spanning_algorithm:run()
+end
+
+
 
 
 --- Compute a spanning tree of a graph
@@ -30,15 +62,19 @@ pgf.module("pgf.graphdrawing")
 -- @param graph The graph for which the spanning tree should be computed 
 -- @param dfs True if depth first should be used
 
-function compute_spanning_tree (algorithm, dfs)
+function lib.Simplifiers:computeSpanningTree (algorithm, dfs)
+
   local graph = algorithm.graph
+
   local edge_prioritization_fun = 
-    edge_prioritization_functions [
+    lib.Simplifiers.edge_prioritization_functions [
     graph:getOption('/graph drawing/edge priority method')]
+
   assert (edge_prioritization_fun, 
    'I do not know the edge priority method "' 
     .. graph:getOption('/graph drawing/edge priority method') ..
     '". Perhaps you misspelled it?')
+
   local root 
 
   -- First, is there a root node?
@@ -60,7 +96,7 @@ function compute_spanning_tree (algorithm, dfs)
     for _,n in ipairs(graph.nodes) do
       local indegree_zero = true
       for _,e in ipairs(n.edges) do
-	if not (e.direction == Edge.RIGHT and e.nodes[1] == n) then
+	if not (e.direction == "->" and e.nodes[1] == n) then
 	  indegree_zero = false
 	  break
 	end
@@ -243,7 +279,7 @@ function compute_spanning_tree (algorithm, dfs)
 	end
 	for i=1,needed do
 	  if not new_children[i] then
-	    new_children[i] = VirtualNode:new{ [algorithm] = { children = {} } }
+	    new_children[i] = pgf.graphdrawing.VirtualNode:new{ [algorithm] = { children = {} } }
 	  end
 	end	
 
@@ -258,12 +294,12 @@ function compute_spanning_tree (algorithm, dfs)
 end
 
 
-edge_prioritization_functions = {
+lib.Simplifiers.edge_prioritization_functions = {
   ['forward first'] = 
     function (e, node)
-      if e.direction == Edge.RIGHT and #e.nodes == 2 and not (e.nodes[2] == node) then
+      if e.direction == "->" and #e.nodes == 2 and not (e.nodes[2] == node) then
 	return 2
-      elseif e.direction == Edge.UNDIRECTED or e.direction == Edge.BOTH then
+      elseif e.direction == "--" or e.direction == "<->" then
 	return 3
       else
 	return 4
@@ -271,9 +307,9 @@ edge_prioritization_functions = {
     end,
   ['undirected first'] = 
     function (e, node)
-      if e.direction == Edge.UNDIRECTED or e.direction == Edge.BOTH then
+      if e.direction == "--" or e.direction == "<->" then
 	return 2
-      elseif e.direction == Edge.RIGHT and #e.nodes == 2 and not (e.nodes[2] == node) then
+      elseif e.direction == "->" and #e.nodes == 2 and not (e.nodes[2] == node) then
 	return 3
       else
 	return 4
@@ -284,3 +320,164 @@ edge_prioritization_functions = {
       return 3
     end,
 }
+
+
+
+
+
+
+
+--
+--
+-- Loops and Multiedges
+--
+--
+
+
+--- Remove all loops from a graph
+--
+-- This method will remove all loops from a graph.
+--
+-- @param algorithm An algorithm object
+
+function lib.Simplifiers:removeLoops(algorithm)
+  local graph = algorithm.graph
+  local loops = {}
+
+  for _,edge in ipairs(graph.edges) do
+    if edge:getHead() == edge:getTail() then
+      loops[#loops+1] = edge
+    end
+  end
+
+  for i=1,#loops do
+    graph:deleteEdge(loops[i])
+  end
+  
+  graph[algorithm].loops = loops
+end
+
+
+
+--- Restore loops that were previously removed.
+--
+-- @param algorithm An algorithm object
+
+function lib.Simplifiers:restoreLoops(algorithm)
+  local graph = algorithm.graph
+
+  for _,edge in ipairs(graph[algorithm].loops) do
+    graph:addEdge(edge)
+    edge:getTail():addEdge(edge)
+  end
+  
+  graph[algorithm].loops = nil
+end
+
+
+
+
+--- Remove all multiedges.
+--
+-- Every multiedge of the graph will be replaced by a single edge.
+--
+-- @param algorithm An algorithm object
+
+function lib.Simplifiers:collapseMultiedges(algorithm, collapse_action)
+  local graph = algorithm.graph
+  local collapsed_edges = {}
+  local node_processed = {}
+
+  for _,node in ipairs(graph.nodes) do
+    node_processed[node] = true
+
+    local multiedge = {}
+
+    local function handle_edge (edge)
+      
+      local neighbour = edge:getNeighbour(node)
+
+      if not node_processed[neighbour] then
+        if not multiedge[neighbour] then
+          multiedge[neighbour] = pgf.graphdrawing.Edge:new{ direction = pgf.graphdrawing.Edge.RIGHT }
+          collapsed_edges[multiedge[neighbour]] = {}
+        end
+
+	if collapse_action then
+	  collapse_action(multiedge[neighbour], edge, graph)
+	end
+
+        table.insert(collapsed_edges[multiedge[neighbour]], edge)
+      end
+    end      
+    
+    for _,edge in ipairs(node:getIncomingEdges()) do
+      handle_edge(edge)
+    end
+    
+    for _,edge in ipairs(node:getOutgoingEdges()) do
+      handle_edge(edge)
+    end
+
+    for neighbour, multiedge in pairs(multiedge) do
+
+      if #collapsed_edges[multiedge] <= 1 then
+        collapsed_edges[multiedge] = nil
+      else
+        for _,subedge in ipairs(collapsed_edges[multiedge]) do
+          graph:deleteEdge(subedge)
+        end
+
+        multiedge:addNode(node)
+        multiedge:addNode(neighbour)
+        
+        graph:addEdge(multiedge)
+      end
+    end
+  end
+
+  graph[algorithm].collapsed_edges = collapsed_edges
+end
+
+
+--- Expand multiedges that were previously collapsed
+--
+-- @param algorithm An algorithm object
+
+function lib.Simplifiers:expandMultiedges(algorithm)
+  local graph = algorithm.graph
+  for multiedge, subedges in pairs(graph[algorithm].collapsed_edges) do
+    assert(#subedges >= 2)
+
+    graph:deleteEdge(multiedge)
+
+    for _,edge in ipairs(subedges) do
+      
+      -- Copy bend points 
+      for _,p in ipairs(multiedge.bend_points) do
+	edge.bend_points[#edge.bend_points+1] = p:copy()
+      end
+
+      -- Copy options
+      for k,v in pairs(multiedge.algorithmically_generated_options) do
+	edge.algorithmically_generated_options[k] = v
+      end
+
+      for node in table.value_iter(edge.nodes) do
+        node:addEdge(edge)
+      end
+
+      graph:addEdge(edge)
+    end
+  end
+
+  graph[algorithm].collapsed_edges = nil
+end
+
+
+
+
+
+-- Done
+
+return lib.Simplifiers

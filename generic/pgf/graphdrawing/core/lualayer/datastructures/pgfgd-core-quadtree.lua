@@ -15,6 +15,8 @@
 pgf.module('pgf.graphdrawing')
 
 
+local lib = require "pgf.gd.lib"
+
 
 Particle = {}
 Particle.__index = Particle
@@ -172,7 +174,7 @@ function CubicalCell:updateCenterOfMass()
         pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
       end
       return pos:plus(particle.pos:timesScalar(particle.mass))
-    end, Vector:new(2))
+    end, lib.Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
     -- the center of mass is the average of the weighted centers of mass 
@@ -184,7 +186,7 @@ function CubicalCell:updateCenterOfMass()
         assert(cell.mass == 0)
         return pos:copy()
       end
-    end, Vector:new(2))
+    end, lib.Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   end
 end

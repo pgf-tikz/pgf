@@ -10,6 +10,8 @@
 -- @release $Header$
 
 
+local control = require "pgf.gd.control"
+local lib     = require "pgf.gd.lib"
 
 
 --- An implementation of a modular version of the Sugiyama method
@@ -59,24 +61,24 @@ function ModularLayeredSugiyama:run()
   -- Create a subalgorithm object. Needed so that removed loops
   -- are not stored on top of removed loops from main call.
   local cluster_subalgorithm = { graph = self.graph } 
-  pipeline.prepare_graph_for_algorithm(cluster_subalgorithm)
+  self.graph:registerAlgorithm(cluster_subalgorithm)
 
   self:mergeClusters()
   
-  pipeline.remove_loops(cluster_subalgorithm)
-  pipeline.collapse_multiedges(cluster_subalgorithm, collapse)
+  lib.Simplifiers:removeLoops(cluster_subalgorithm)
+  lib.Simplifiers:collapseMultiedges(cluster_subalgorithm, collapse)
 
   self:removeCycles()
   self:rankNodes()
   self:restoreCycles()
 
-  pipeline.expand_multiedges(cluster_subalgorithm)
-  pipeline.restore_loops(cluster_subalgorithm)
+  lib.Simplifiers:expandMultiedges(cluster_subalgorithm)
+  lib.Simplifiers:restoreLoops(cluster_subalgorithm)
 
   self:expandClusters()
   
   -- Now do actual computation
-  pipeline.collapse_multiedges(cluster_subalgorithm, collapse)
+  lib.Simplifiers:collapseMultiedges(cluster_subalgorithm, collapse)
   self:removeCycles()
   self:insertDummyNodes()
   
@@ -86,7 +88,7 @@ function ModularLayeredSugiyama:run()
   
   -- Cleanup
   self:removeDummyNodes()
-  pipeline.expand_multiedges(cluster_subalgorithm)
+  lib.Simplifiers:expandMultiedges(cluster_subalgorithm)
   self:routeEdges()
   self:restoreCycles()
 
@@ -133,7 +135,7 @@ function ModularLayeredSugiyama:insertDummyNodes()
           local rank = self.ranking:getRank(neighbour) + i
 
           local dummy = VirtualNode:new{
-            pos = Vector:new(),
+            pos = lib.Vector:new(),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
           }
 

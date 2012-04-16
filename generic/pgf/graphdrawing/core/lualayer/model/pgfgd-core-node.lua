@@ -14,7 +14,7 @@
 
 pgf.module("pgf.graphdrawing")
 
-
+local lib = require "pgf.gd.lib"
 
 
 -- First class: A normal node 
@@ -64,7 +64,7 @@ function Node:new(values)
     end
   end
   if not new.pos then 
-    new.pos = Vector:new(2) 
+    new.pos = lib.Vector:new(2) 
   end
   return new
 end
@@ -102,7 +102,7 @@ end
 -- @return Width of the node.
 --
 function Node:getTexWidth()
-	return math.abs(self.tex.maxX - self.tex.minX)
+  return math.abs(self.tex.maxX - self.tex.minX)
 end
 
 
@@ -144,7 +144,7 @@ end
 -- @return The number of adjacent edges of the node.
 --
 function Node:getDegree()
-	return table.count_pairs(self.edges)
+  return table.count_pairs(self.edges)
 end
 
 

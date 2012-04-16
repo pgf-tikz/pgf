@@ -18,18 +18,18 @@ require "pgf.gd"
 
 
 -- Declare namespace
-pgf.gd.control = {}
+pgf.gd.model = {}
 
 
 -- Preload namespace
-package.loaded ["pgf.gd.control"] = pgf.gd.control
+package.loaded ["pgf.gd.model"] = pgf.gd.model
 
-require "pgf.gd.control.AlgorithmLoader"
-require "pgf.gd.control.LayoutPipeline"
-require "pgf.gd.control.TeXInterface"
-
+require "pgf.gd.model.Cluster"
+require "pgf.gd.model.Edge"
+require "pgf.gd.model.Graph"
+require "pgf.gd.model.Node"
 
 
 -- Done
 
-return pgf.gd.control
+return pgf.gd.model

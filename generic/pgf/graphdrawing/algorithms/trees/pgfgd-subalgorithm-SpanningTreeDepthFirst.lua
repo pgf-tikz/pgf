@@ -14,7 +14,7 @@
 pgf.module("pgf.graphdrawing")
 
 
-
+local lib = require "pgf.gd.lib"
 
 
 --- A subalgorithm for computing spanning trees
@@ -41,5 +41,5 @@ function SpanningTreeDepthFirst:run ()
   local algorithm = self.parent_algorithm
   local graph = self.graph
 
-  compute_spanning_tree(algorithm, true)
+  lib.Simplifiers:computeSpanningTree(algorithm, false)
 end

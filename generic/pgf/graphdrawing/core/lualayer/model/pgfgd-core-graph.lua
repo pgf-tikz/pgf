@@ -53,6 +53,28 @@ end
 
 
 
+--- Prepares a graph for an algorithm.
+--
+-- This method causes self, all its nodes, and all its edges to get
+-- a new empty table for the key algorithm. This allows an algorithm to
+-- store stuff with nodes and edges without them interfering with information
+-- stored by other algorithms.
+--
+-- @param An algorithm object.
+
+function Graph:registerAlgorithm(algorithm)
+  self[algorithm] = self[algorithm] or {}
+
+  -- Add an algorithm field to all nodes, all edges, and the graph:
+  for _,n in pairs(self.nodes) do
+    n[algorithm] = n[algorithm] or {}
+  end
+  for _,e in pairs(self.edges) do
+    e[algorithm] = e[algorithm] or {}
+  end
+end
+
+
 --- Sets the graph option \meta{name} to \meta{value}.
 --
 -- @param name Name of the option to be changed.
@@ -74,17 +96,6 @@ function Graph:getOption(name)
   return self.options[name] or pgf.gd.control.TeXInterface.parameter_defaults[name]
 end
 
-
-
---- Merges the given options into the options of the graph.
---
--- @see table.custom_merge
---
--- @param options The options to be merged.
---
-function Graph:mergeOptions(options)
- self.options = table.custom_merge(options, self.options)
-end
 
 
 

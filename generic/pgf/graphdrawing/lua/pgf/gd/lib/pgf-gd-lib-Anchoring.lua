@@ -9,24 +9,30 @@
 
 -- @release $Header$
 
---- This file contains a number of standard graph algorithms such as Dijkstra.
 
-pgf.module("pgf.graphdrawing")
+local lib     = require "pgf.gd.lib"
+local control = require "pgf.gd.control"
+
+
+--- The Anchoring class is a singleton object.
+--
+-- It provide methods for anchoring a graph.
+
+lib.Anchoring = {}
 
 
 
-anchoring = {}
 
 
 --- Pre layout step:
 --
 -- Determine the anchor node of the graph
 --
--- @param A graph, in which the anchor_node key will be set
---        if a user-specified anchor node is found.
+-- @param graph A graph whose anchor_node key will be set
+--        if a user-specified anchor node is found in the algorithm's graph.
 
-function anchoring.compute_anchor_node(graph)
-  
+function lib.Anchoring:computeAnchorNode(graph)
+
   local anchor_node
   
   local anchor_node_name = graph:getOption('/graph drawing/anchor node')
@@ -52,14 +58,15 @@ function anchoring.compute_anchor_node(graph)
 end
 
 
+
 --- Performs a post-layout anchoring of a graph
 --
 -- Performs the graph anchoring procedure described in
 -- Section~\ref{subsection-library-graphdrawing-anchoring} of the pgf manual.
 -- 
--- @param graph A graph object.
+-- @param graph A graph
 
-function anchoring.perform_post_layout_steps(graph)
+function lib.Anchoring:anchor(graph)
    
   local anchor_node = graph.anchor_node or graph.nodes[1]
    
@@ -77,12 +84,12 @@ function anchoring.perform_post_layout_steps(graph)
    local delta_y = target_y - anchor_y
    
    -- Step 3: Shift nodes
-   for node in table.value_iter(graph.nodes) do
+   for _,node in ipairs(graph.nodes) do
      node.pos.x = node.pos.x + delta_x
      node.pos.y = node.pos.y + delta_y
    end
-   for edge in table.value_iter(graph.edges) do
-     for point in table.value_iter(edge.bend_points) do
+   for _,edge in ipairs(graph.edges) do
+     for _,point in ipairs(edge.bend_points) do
        point.x = point.x + delta_x
        point.y = point.y + delta_y
      end
@@ -90,3 +97,8 @@ function anchoring.perform_post_layout_steps(graph)
 end
 
 
+
+
+-- Done
+
+return lib.Anchoring
