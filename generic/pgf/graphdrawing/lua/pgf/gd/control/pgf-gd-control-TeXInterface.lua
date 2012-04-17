@@ -12,14 +12,12 @@
 -- @release $Header$
 
 
-local control = require "pgf.gd.control"
-
 
 --- The TeXInterface class is a singleton object.
 -- Its methods define the interface between the TeX layer and the Lua layer;
 -- all calls from the TeX layer will be directed to this object.
 
-control.TeXInterface = {
+local TeXInterface = {
   graph = nil,
   parameter_defaults = {},
   tex_boxes = {},
@@ -27,9 +25,16 @@ control.TeXInterface = {
 }
 
 
+-- Namespace
+local control = require "pgf.gd.control"
+control.TeXInterface = TeXInterface
 
---- Parses a string with |{key}{value}| pairs and returns a table
---- mapping the keys to the corresponding values.
+-- Imports
+local model = require "pgf.gd.model"
+
+
+-- Parses a string with |{key}{value}| pairs and returns a table
+-- mapping the keys to the corresponding values.
 --
 -- @param str     The string to parse.
 -- @param default Currently unused.
@@ -112,7 +117,7 @@ end
 -- @param options A string containing |{key}{value}| pairs of 
 --                \tikzname\ options.
 --
-function control.TeXInterface:newGraph(options)
+function TeXInterface:newGraph(options)
   assert (not self.graph, "Already drawing a graph")
 
   self.graph = pgf.graphdrawing.Graph:new()
@@ -151,7 +156,7 @@ end
 -- @param options   Lua-Options for the node.
 -- @param lateSetup Options for the node.
 --
-function control.TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
+function TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
   assert(self.graph, "no graph created")
 
   self.tex_boxes[#self.tex_boxes + 1] = node.copy_list(tex.box[box])
@@ -184,7 +189,7 @@ end
 -- @param name      Name of the node.
 -- @param options   Lua-Options for the node.
 
-function control.TeXInterface:setLateNodeOptions(name, options)
+function TeXInterface:setLateNodeOptions(name, options)
   local node = self.graph:findNode(name)
   if node then
     for k,v in pairs(parse_braces(options)) do
@@ -211,7 +216,7 @@ end
 -- @param tikz_options A string that should be passed back to \pgfgddraw unmodified.
 -- @param aux          Another string that should be passed back to \pgfgddraw unmodified.
 --
-function control.TeXInterface:addEdge(from, to, direction, parameters, tikz_options, aux)
+function TeXInterface:addEdge(from, to, direction, parameters, tikz_options, aux)
   assert(self.graph, "no graph created")
   local from_node = self.graph:findNode(from)
   local to_node = self.graph:findNode(to)
@@ -231,14 +236,14 @@ end
 -- @param kind         Name/kind of the event.
 -- @param parameters   Parameters of the event.
 --
-function control.TeXInterface:addEvent(kind, param)
+function TeXInterface:addEvent(kind, param)
   assert(self.graph, "no graph created")
   self.graph.events[#self.graph.events + 1] = { kind = kind, parameters = param}
 end
 
 
 
-function control.TeXInterface:addNodeToCluster(node_name, cluster_name)
+function TeXInterface:addNodeToCluster(node_name, cluster_name)
   assert(self.graph, 'no graph created')
   
   -- find the node
@@ -251,7 +256,7 @@ function control.TeXInterface:addNodeToCluster(node_name, cluster_name)
 
   -- if it doesn't exist yet, create it on demand
   if not cluster then
-    cluster = pgf.graphdrawing.Cluster:new(cluster_name)
+    cluster = model.Cluster:new(cluster_name)
     self.graph:addCluster(cluster)
   end
 
@@ -272,7 +277,7 @@ end
 -- When a graph is to be layed out, this function is called with the graph
 -- as its only parameter.
 --
-function control.TeXInterface:runGraphDrawingAlgorithm()
+function TeXInterface:runGraphDrawingAlgorithm()
   if #self.graph.nodes == 0 then
     -- Nothing needs to be done
     return
@@ -287,7 +292,7 @@ function control.TeXInterface:runGraphDrawingAlgorithm()
   
   local stop = os.clock()
 
-  control.TeXInterface:log(string.format(
+  TeXInterface:log(string.format(
 			     "Graph drawing engine: algorithm '" .. 
 			       self.graph:getOption("/graph drawing/algorithm") ..
 			     "' took %.4f seconds", stop - start))
@@ -297,20 +302,20 @@ end
 
 --- Passes the current graph back to the \TeX\ layer and removes it from the stack.
 --
-function control.TeXInterface:finishGraph()
+function TeXInterface:finishGraph()
   assert(self.graph, "no graph created")
 
   tex.print("\\pgfgdbeginshipout")
   
   tex.print("\\pgfgdbeginnodeshipout")
   for node in table.value_iter(self.graph.nodes) do
-    control.TeXInterface:shipoutNode(node)
+    TeXInterface:shipoutNode(node)
   end
   tex.print("\\pgfgdendnodeshipout")
 
   tex.print("\\pgfgdbeginedgeshipout")
   for edge in table.value_iter(self.graph.edges) do
-    control.TeXInterface:shipoutEdge(edge)
+    TeXInterface:shipoutEdge(edge)
   end
   tex.print("\\pgfgdendedgeshipout")
   
@@ -325,7 +330,7 @@ end
 --
 -- @param node The node to pass back to the \TeX\ layer.
 --
-function control.TeXInterface:shipoutNode(node)
+function TeXInterface:shipoutNode(node)
   tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
 			  'not yet positionedPGFINTERNAL' .. node.name,
 			  node.tex.minX, node.tex.maxX,
@@ -336,7 +341,7 @@ end
 
 
 
-function control.TeXInterface:retrieveBox(box_reference)
+function TeXInterface:retrieveBox(box_reference)
   local ret = self.tex_boxes[box_reference]
   self.tex_boxes[box_reference] = nil
   return ret
@@ -351,7 +356,7 @@ end
 --
 -- @param edge The edge to pass back to the \TeX\ layer.
 --
-function control.TeXInterface:shipoutEdge(edge)
+function TeXInterface:shipoutEdge(edge)
 
   -- map nodes to node strings
   local node_strings = table.map_values(edge.nodes, function (node) 
@@ -398,7 +403,7 @@ end
 -- @param key The commplete path of the to-be-defined key
 -- @param value A string containing the value
 --
-function control.TeXInterface:setGraphParameterDefault(key,value)
+function TeXInterface:setGraphParameterDefault(key,value)
   self.parameter_defaults[key] = value
 end
 
@@ -410,7 +415,7 @@ end
 --
 -- @param ... List of parameters to write to the \TeX\ output.
 
-function control.TeXInterface:log(...)
+function TeXInterface:log(...)
   if self.verbose then
     self:debug(...)
   end
@@ -421,7 +426,7 @@ end
 --
 -- @param ... List of parameters to write to the \TeX\ output.
 
-function control.TeXInterface:debug(...)
+function TeXInterface:debug(...)
    texio.write_nl("")
    -- this is to even print out nil arguments in between
    local args = {...}
@@ -437,4 +442,4 @@ end
 
 -- Done 
 
-return control.TeXInterface
+return TeXInterface

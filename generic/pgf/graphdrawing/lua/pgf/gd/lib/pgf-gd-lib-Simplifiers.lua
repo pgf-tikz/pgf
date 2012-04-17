@@ -10,16 +10,19 @@
 -- @release $Header$
 
 
-local lib     = require "pgf.gd.lib"
-local control = require "pgf.gd.control"
-
 
 --- The Simplifiers class is a singleton object.
 -- Its methods allow implement methods for simplifing graphs, for instance 
 -- for removing loops or multiedges or computing spanning trees.
 
-lib.Simplifiers = {}
+local Simplifiers = {}
 
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.Simplifiers = Simplifiers
+
+-- Imports
+local AlgorithmLoader = require "pgf.gd.control.AlgorithmLoader"
 
 
 --
@@ -39,9 +42,9 @@ lib.Simplifiers = {}
 --
 -- @param parent_algorithm An algorithm object
 
-function lib.Simplifiers:runSpanningTreeAlgorithm(parent_algorithm)
+function Simplifiers:runSpanningTreeAlgorithm(parent_algorithm)
 
-  local spanning_algorithm_class = control.AlgorithmLoader:subalgorithmClass(
+  local spanning_algorithm_class = AlgorithmLoader:subalgorithmClass(
     parent_algorithm.graph:getOption("/graph drawing/spanning tree algorithm"):gsub(' ', ''))
 
   local spanning_algorithm = spanning_algorithm_class:new(parent_algorithm.graph, parent_algorithm)    
@@ -62,12 +65,12 @@ end
 -- @param graph The graph for which the spanning tree should be computed 
 -- @param dfs True if depth first should be used
 
-function lib.Simplifiers:computeSpanningTree (algorithm, dfs)
+function Simplifiers:computeSpanningTree (algorithm, dfs)
 
   local graph = algorithm.graph
 
   local edge_prioritization_fun = 
-    lib.Simplifiers.edge_prioritization_functions [
+    Simplifiers.edge_prioritization_functions [
     graph:getOption('/graph drawing/edge priority method')]
 
   assert (edge_prioritization_fun, 
@@ -294,7 +297,7 @@ function lib.Simplifiers:computeSpanningTree (algorithm, dfs)
 end
 
 
-lib.Simplifiers.edge_prioritization_functions = {
+Simplifiers.edge_prioritization_functions = {
   ['forward first'] = 
     function (e, node)
       if e.direction == "->" and #e.nodes == 2 and not (e.nodes[2] == node) then
@@ -340,7 +343,7 @@ lib.Simplifiers.edge_prioritization_functions = {
 --
 -- @param algorithm An algorithm object
 
-function lib.Simplifiers:removeLoops(algorithm)
+function Simplifiers:removeLoops(algorithm)
   local graph = algorithm.graph
   local loops = {}
 
@@ -363,7 +366,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function lib.Simplifiers:restoreLoops(algorithm)
+function Simplifiers:restoreLoops(algorithm)
   local graph = algorithm.graph
 
   for _,edge in ipairs(graph[algorithm].loops) do
@@ -383,7 +386,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function lib.Simplifiers:collapseMultiedges(algorithm, collapse_action)
+function Simplifiers:collapseMultiedges(algorithm, collapse_action)
   local graph = algorithm.graph
   local collapsed_edges = {}
   local node_processed = {}
@@ -444,7 +447,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function lib.Simplifiers:expandMultiedges(algorithm)
+function Simplifiers:expandMultiedges(algorithm)
   local graph = algorithm.graph
   for multiedge, subedges in pairs(graph[algorithm].collapsed_edges) do
     assert(#subedges >= 2)
@@ -480,4 +483,4 @@ end
 
 -- Done
 
-return lib.Simplifiers
+return Simplifiers

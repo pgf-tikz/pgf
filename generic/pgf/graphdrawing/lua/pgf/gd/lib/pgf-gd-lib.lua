@@ -21,18 +21,6 @@ require "pgf.gd"
 pgf.gd.lib = {}
 
 
--- Preload namespace
-package.loaded ["pgf.gd.lib"] = pgf.gd.lib
-
-require "pgf.gd.lib.Anchoring"
-require "pgf.gd.lib.Components"
-require "pgf.gd.lib.Events"
-require "pgf.gd.lib.Orientation"
-require "pgf.gd.lib.Simplifiers"
-require "pgf.gd.lib.Vector"
-
-
-
 -- Done
 
 return pgf.gd.lib

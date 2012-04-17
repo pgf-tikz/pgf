@@ -34,7 +34,7 @@ local function searcher_function(modulename)
   end
 
   if filename and filename ~= "" then
-    return function () dofile(filename) end
+    return function () return dofile(filename) end
   else
     return nil
   end

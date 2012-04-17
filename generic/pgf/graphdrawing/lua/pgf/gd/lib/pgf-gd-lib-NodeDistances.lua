@@ -9,11 +9,17 @@
 
 -- @release $Header$
 
--- This file defines an edge class, used in the graph representation.
 
-pgf.module("pgf.graphdrawing")
 
-spacing = {}
+--- The NodeDistances class is a singleton object.
+-- Its methods allow implement methods for simplifing graphs, for instance 
+-- for removing loops or multiedges or computing spanning trees.
+
+local NodeDistances = {}
+
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.NodeDistances = NodeDistances
 
 
 
@@ -24,7 +30,7 @@ spacing = {}
 -- @param n1 The first node
 -- @param n2 The second node
 
-function spacing.ideal_sibling_distance (algorithm, graph, n1, n2)
+function NodeDistances:idealSiblingDistance (algorithm, graph, n1, n2)
   local ideal_distance
   local sep
 
@@ -70,7 +76,7 @@ end
 -- @param l1 An array of the nodes of the first layer
 -- @param l2 An array of the nodes of the second layer
 
-function spacing.baseline_distance (algorithm, graph, l1, l2)
+function NodeDistances:baselineDistance (algorithm, graph, l1, l2)
 
   if #l1 == 0 or #l2 == 0 then
     return 0
@@ -111,7 +117,7 @@ end
 -- @param algorithm The algorithm object
 -- @param graph The graph in which the nodes reside
 
-function spacing.arrange_layers_by_baselines (algorithm, graph)
+function NodeDistances:arrangeLayersByBaselines (algorithm, graph)
 
   local layers = {}
   
@@ -133,12 +139,17 @@ function spacing.arrange_layers_by_baselines (algorithm, graph)
     end
     
     for i=2,#layers do
-      height = height + spacing.baseline_distance(algorithm, graph, layers[i-1], layers[i])
+      height = height + self:baselineDistance(algorithm, graph, layers[i-1], layers[i])
 
       for _,n in ipairs(layers[i]) do
 	n.pos.y = height 
       end
     end
   end
-
 end
+
+
+
+-- Done
+
+return NodeDistances

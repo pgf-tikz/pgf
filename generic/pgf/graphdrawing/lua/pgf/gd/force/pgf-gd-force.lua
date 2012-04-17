@@ -18,9 +18,9 @@ require "pgf.gd"
 
 
 -- Declare namespace
-pgf.gd.model = {}
+pgf.gd.force = {}
 
 
 -- Done
 
-return pgf.gd.model
+return pgf.gd.force

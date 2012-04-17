@@ -10,15 +10,23 @@
 -- @release $Header$
 
 
-local control = require "pgf.gd.control"
 
 
 --- The AlgorithmLoader class is a singleton object.
+--
 -- Use this object to load algorithms.
 
-control.AlgorithmLoader = {}
+local AlgorithmLoader = {}
 
 
+
+-- Namespace
+local control = require "pgf.gd.control"
+control.AlgorithmLoader = AlgorithmLoader
+
+
+
+-- Local stuff
 
 local function class_loader(name, kind)
 
@@ -42,9 +50,9 @@ end
 --
 -- @param name A string
 --
--- @result Returns the class object corresponding to the name.
+-- @return Returns the class object corresponding to the name.
 
-function control.AlgorithmLoader:algorithmClass(name)
+function AlgorithmLoader:algorithmClass(name)
   return class_loader(name, "algorithm")
 end
   
@@ -53,9 +61,9 @@ end
 --
 -- @param name A string
 --
--- @result Returns the class object corresponding to the name.
+-- @return Returns the class object corresponding to the name.
 
-function control.AlgorithmLoader:subalgorithmClass(name)
+function AlgorithmLoader:subalgorithmClass(name)
   return class_loader(name, "subalgorithm")
 end
   
@@ -63,4 +71,4 @@ end
 
 -- Done
 
-return control.AlgorithmLoader
+return AlgorithmLoader

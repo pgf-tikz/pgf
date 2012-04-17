@@ -10,17 +10,18 @@
 -- @release $Header$
 
 
-local lib     = require "pgf.gd.lib"
-local control = require "pgf.gd.control"
-
 
 --- The Anchoring class is a singleton object.
 --
 -- It provide methods for anchoring a graph.
 
-lib.Anchoring = {}
+local Anchoring = {}
 
 
+
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.Anchoring = Anchoring
 
 
 
@@ -31,7 +32,7 @@ lib.Anchoring = {}
 -- @param graph A graph whose anchor_node key will be set
 --        if a user-specified anchor node is found in the algorithm's graph.
 
-function lib.Anchoring:computeAnchorNode(graph)
+function Anchoring:computeAnchorNode(graph)
 
   local anchor_node
   
@@ -66,7 +67,7 @@ end
 -- 
 -- @param graph A graph
 
-function lib.Anchoring:anchor(graph)
+function Anchoring:anchor(graph)
    
   local anchor_node = graph.anchor_node or graph.nodes[1]
    
@@ -101,4 +102,4 @@ end
 
 -- Done
 
-return lib.Anchoring
+return Anchoring

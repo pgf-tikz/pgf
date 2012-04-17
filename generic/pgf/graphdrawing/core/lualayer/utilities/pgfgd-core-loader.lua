@@ -25,25 +25,19 @@
 local preload_these_files = {
   "module",
   "table",
-  "stack",
   "iter",
-  "quadtree",
   "node",
   "edge",
-  "cluster",
   "graph",
   "manipulation",
   "depth-first-search",
   "traversal",
-  "fibonacci-heap",
-  "priority-queue",
   "algorithms",
   "coarsen-graph",
   "positioning-helpers",
   "ranking",
   "network-simplex",
-  "spacing",
-}
+ }
 
 
 

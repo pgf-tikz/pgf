@@ -1,6 +1,7 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
--- This file may be distributed and/or modified
+-- This file may be distributed an/or modified
 --
 -- 1. under the LaTeX Project Public License and/or
 -- 2. under the GNU Public License
@@ -9,17 +10,79 @@
 
 -- @release $Header$
 
---- This file contains a class for defining arbitrary vectors and
---- perform operations on them.
 
-pgf.module('pgf.graphdrawing')
+--- An implementation of a quad trees.
+--
+-- The class QuadTree provides methods form handling quadtrees.
+-- 
+
+local QuadTree = {
+  -- Subclases
+  Particle = {},
+  Cell = {} 
+}
 
 
-local lib = require "pgf.gd.lib"
+
+-- Namespace:
+local force = require "pgf.gd.force"
+force.QuadTree = QuadTree
+
+-- Imports:
+local Vector = require "pgf.gd.lib.Vector"
 
 
-Particle = {}
-Particle.__index = Particle
+-- Class setup
+QuadTree.__index = QuadTree
+
+
+--- Creates a new quad tree.
+--
+-- @return A newly-allocated quad tree.
+--
+function QuadTree:new(x, y, width, height, max_particles)
+  local tree = {
+    root_cell = QuadTree.Cell:new(x, y, width, height, max_particles)
+  }
+  setmetatable(tree, QuadTree)
+  return tree
+end
+
+
+
+--- Inserts a particle 
+--
+-- @param param A particle of type QuadTree.Particle
+--
+function QuadTree:insert(particle)
+  self.root_cell:insert(particle)
+end
+
+
+
+--- Computes the interactions of a particle with other cells
+--
+-- @param particle A particle
+-- @param test_func A test function, which on input of a cubical cell and a particle should
+--                  decide whether the cubical cell should be inserted into the result
+-- @param cells An optional array of cells, to which the found cells will be added
+--
+-- @return The cells array or a new array, if it was empty.
+--
+function QuadTree:findInteractionCells(particle, test_func, cells)
+  local test_func = test_func or function (cell, particle) return true end
+  cells = cells or {}
+
+  self.root_cell:findInteractionCells(particle, test_func, cells)
+
+  return cells
+end
+
+
+
+
+--- Partical subclass
+QuadTree.Particle.__index = QuadTree.Particle
 
 
 
@@ -27,20 +90,23 @@ Particle.__index = Particle
 --
 -- @return A newly-allocated particle.
 --
-function Particle:new(pos, mass)
+function QuadTree.Particle:new(pos, mass)
   local particle = {
     pos = pos:copy(),
     mass = mass or 1,
     subparticles = {},
   }
-  setmetatable(particle, Particle)
+  setmetatable(particle, QuadTree.Particle)
   return particle
 end
 
 
 
-CubicalCell = {}
-CubicalCell.__index = CubicalCell
+--- A cell of a quadtree
+--
+-- TT: Why is it called "cubical", by the way?!
+
+QuadTree.Cell.__index = QuadTree.Cell
 
 
 
@@ -48,7 +114,7 @@ CubicalCell.__index = CubicalCell
 --
 -- @return a newly-allocated cubicle cell.
 --
-function CubicalCell:new(x, y, width, height, max_particles)
+function QuadTree.Cell:new(x, y, width, height, max_particles)
   local cell = {
     x = x,
     y = y,
@@ -60,20 +126,20 @@ function CubicalCell:new(x, y, width, height, max_particles)
     center_of_mass = nil,
     mass = 0,
   }
-  setmetatable(cell, CubicalCell)
+  setmetatable(cell, QuadTree.Cell)
   return cell
 end
 
 
 
-function CubicalCell:containsParticle(particle)
+function QuadTree.Cell:containsParticle(particle)
   return particle.pos.x >= self.x and particle.pos.x <= self.x + self.width
      and particle.pos.y >= self.y and particle.pos.y <= self.y + self.height
 end
 
 
 
-function CubicalCell:findSubcell(particle)
+function QuadTree.Cell:findSubcell(particle)
   return table.find(self.subcells, function (cell)
     return cell:containsParticle(particle)
   end)
@@ -81,14 +147,14 @@ end
 
 
 
-function CubicalCell:createSubcells()
+function QuadTree.Cell:createSubcells()
   assert(type(self.subcells) == 'table' and #self.subcells == 0)
   assert(type(self.particles) == 'table' and #self.particles <= self.max_particles)
 
   if #self.subcells == 0 then
     for x in table.value_iter({self.x, self.x + self.width/2}) do
       for y in table.value_iter({self.y, self.y + self.height/2}) do
-        local cell = CubicalCell:new(x, y, self.width/2, self.height/2, self.max_particles)
+        local cell = QuadTree.Cell:new(x, y, self.width/2, self.height/2, self.max_particles)
         table.insert(self.subcells, cell)
       end
     end
@@ -97,7 +163,7 @@ end
 
 
 
-function CubicalCell:insert(particle)
+function QuadTree.Cell:insert(particle)
   -- check if we have a particle with the exact same position already
   local existing = table.find(self.particles, function (other)
     return other.pos:equals(particle.pos)
@@ -140,7 +206,7 @@ end
 
 
 
-function CubicalCell:updateMass()
+function QuadTree.Cell:updateMass()
   -- reset mass to zero
   self.mass = 0
 
@@ -162,7 +228,7 @@ end
 
 
 
-function CubicalCell:updateCenterOfMass()
+function QuadTree.Cell:updateCenterOfMass()
   -- reset center of mass, assuming the cell is empty
   self.center_of_mass = nil
 
@@ -174,7 +240,7 @@ function CubicalCell:updateCenterOfMass()
         pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
       end
       return pos:plus(particle.pos:timesScalar(particle.mass))
-    end, lib.Vector:new(2))
+    end, Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
     -- the center of mass is the average of the weighted centers of mass 
@@ -186,30 +252,25 @@ function CubicalCell:updateCenterOfMass()
         assert(cell.mass == 0)
         return pos:copy()
       end
-    end, lib.Vector:new(2))
+    end, Vector:new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   end
 end
 
 
 
-function CubicalCell:findInteractionCells(particle, test_func, cells)
+function QuadTree.Cell:findInteractionCells(particle, test_func, cells)
   if #self.subcells == 0 or test_func(self, particle) then
     table.insert(cells, self)
   else
     for subcell in table.value_iter(self.subcells) do
-      --if subcell.mass > 0 and subcell.center_of_mass then
-        subcell:findInteractionCells(particle, test_func, cells)
-      --end
+      subcell:findInteractionCells(particle, test_func, cells)
     end
   end
 end
 
 
-
-
-
-function CubicalCell:__tostring()
+function QuadTree.Cell:__tostring()
   return '((' .. self.x .. ', ' .. self.y .. ') '
       .. 'to (' .. self.x + self.width .. ', ' .. self.y + self.height .. '))' 
       .. (self.particle and ' => ' .. self.particle.name or '')
@@ -218,37 +279,6 @@ end
 
 
 
-QuadTree = {}
-QuadTree.__index = QuadTree
+-- done
 
-
-
---- Creates a new quad tree.
---
--- @return A newly-allocated quad tree.
---
-function QuadTree:new(x, y, width, height, max_particles)
-  local tree = {
-    root_cell = CubicalCell:new(x, y, width, height, max_particles)
-  }
-  setmetatable(tree, QuadTree)
-  return tree
-end
-
-
-
-function QuadTree:insert(particle)
-  self.root_cell:insert(particle)
-end
-
-
-
-
-function QuadTree:findInteractionCells(particle, test_func, cells)
-  local test_func = test_func or function (cell, particle) return true end
-  cells = cells or {}
-
-  self.root_cell:findInteractionCells(particle, test_func, cells)
-
-  return cells
-end
+return QuadTree

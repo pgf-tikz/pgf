@@ -10,17 +10,7 @@
 --- @release $Header$
 
 
+require "pgf.gd.control.AlgorithmLoader"
+require "pgf.gd.control.LayoutPipeline"
+require "pgf.gd.control.TeXInterface"
 
--- Imports
-
-require "pgf"
-require "pgf.gd"
-
-
--- Declare namespace
-pgf.gd.model = {}
-
-
--- Done
-
-return pgf.gd.model

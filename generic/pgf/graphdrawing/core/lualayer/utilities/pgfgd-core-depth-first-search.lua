@@ -14,6 +14,8 @@
 pgf.module("pgf.graphdrawing")
 
 
+local lib = require "pgf.gd.lib"
+
 
 DepthFirstSearch = {}
 DepthFirstSearch.__index = DepthFirstSearch
@@ -26,7 +28,7 @@ function DepthFirstSearch:new(init_func, visit_func, complete_func)
     visit_func = visit_func,
     complete_func = complete_func,
 
-    stack = Stack:new(),
+    stack = lib.Stack:new(),
     discovered = {},
     visited = {},
     completed = {},
@@ -64,7 +66,7 @@ function DepthFirstSearch:reset()
   self.discovered = {}
   self.visited = {}
   self.completed = {}
-  self.stack = Stack:new()
+  self.stack = lib.Stack:new()
 end
 
 

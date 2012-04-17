@@ -10,17 +10,17 @@
 -- @release $Header$
 
 
-local lib     = require "pgf.gd.lib"
-local control = require "pgf.gd.control"
-
 
 --- The Orientation class is a singleton object.
 --
 -- It provide methods for orienting graphs.
 
-lib.Orientation = {}
+local Orientation = {}
 
 
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.Orientation = Orientation
 
 
 --- Determine rotation caused by growth
@@ -37,7 +37,7 @@ lib.Orientation = {}
 -- @param algorithm An algorithm object for whose graph the necessary rotation 
 -- should be computed
 
-function lib.Orientation:prepareRotateAround(algorithm)
+function Orientation:prepareRotateAround(algorithm)
 
   local graph = algorithm.graph
 
@@ -107,7 +107,7 @@ end
 -- special way, all other shapes are currently treated like a
 -- rectangle.
 
-function lib.Orientation:prepareBoundingBoxes(algorithm)
+function Orientation:prepareBoundingBoxes(algorithm)
   local graph = algorithm.graph
 
   local r = graph[algorithm].rotate_around
@@ -182,7 +182,7 @@ end
 -- @param swap A boolean that, when true, requests that the graph is
 --             swapped (flipped) along the new angle
 
-function lib.Orientation:rotateGraphAround(graph, around_x, around_y, from, to, swap)
+function Orientation:rotateGraphAround(graph, around_x, around_y, from, to, swap)
    
   local function update_pos (point)
     local x = point.x
@@ -234,7 +234,7 @@ end
 -- @param target_angle
 -- @param swap 
 
-function lib.Orientation:orientTwoNodes(graph, first_node, second_node,
+function Orientation:orientTwoNodes(graph, first_node, second_node,
 					target_angle, swap)
   if first_node and second_node then
     -- Compute angle between first_node and second_node:
@@ -258,7 +258,7 @@ end
 -- 
 -- @param algorithm An algorithm object.
 
-function lib.Orientation:orient(algorithm)
+function Orientation:orient(algorithm)
    
   -- Sanity check
   if #algorithm.graph.nodes < 2 then return end
@@ -326,4 +326,4 @@ end
 
 -- Done
 
-return lib.Orientation
+return Orientation

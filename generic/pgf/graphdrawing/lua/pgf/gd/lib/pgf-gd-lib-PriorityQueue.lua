@@ -1,6 +1,7 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
--- This file may be distributed and/or modified
+-- This file may be distributed an/or modified
 --
 -- 1. under the LaTeX Project Public License and/or
 -- 2. under the GNU Public License
@@ -9,80 +10,105 @@
 
 -- @release $Header$
 
---- This file contains a straightforward implementation of a Fibonacci heap.
+
+
+--- A PriorityQueue supports operations for quickly finding the minimum from a set of elements
 --
--- TODO this class needs to be documented.
+-- Its implementation is based on Fibonacci heaps.
 
-pgf.module("pgf.graphdrawing")
-
-
-
-FibonacciHeapNode = {}
-FibonacciHeapNode.__index = FibonacciHeapNode
+local PriorityQueue = {}
+PriorityQueue.__index = PriorityQueue
 
 
+-- Namespace
+local lib = require "pgf.gd.lib"
+lib.PriorityQueue = PriorityQueue
 
-function FibonacciHeapNode:new(value, root, parent)
-  local node = {
-    value = value,
-    children = {},
-    marked = false,
-    root = nil,
-    parent = nil,
+
+
+-- Local declarations
+local FibonacciHeap = {}
+local FibonacciHeapNode = {}
+
+
+
+
+--- Creates a new priority queue
+--
+-- @return The newly created queue
+
+function PriorityQueue:new()
+  local queue = {
+    heap = FibonacciHeap:new(),
+    nodes = {},
+    values = {},
   }
-  setmetatable(node, FibonacciHeapNode)
+  setmetatable(queue, PriorityQueue)
+  return queue
+end
 
-  if root then
-    node.root = root
-    node.parent = parent
+
+
+--- Add an element with a certain priority to the queue
+--
+-- @param value An object
+-- @param priority Its priority
+
+function PriorityQueue:enqueue(value, priority)
+  local node = self.heap:insert(priority)
+  self.nodes[value] = node
+  self.values[node] = value
+end
+
+
+
+--- Removes the element with the minimum priority from the queue
+--
+-- @return The element with the minimum priority
+
+function PriorityQueue:dequeue()
+  local node = self.heap:extractMinimum()
+
+  if node then
+    local value = self.values[node]
+    self.nodes[value] = nil
+    self.values[node] = nil
+    return value
   else
-    node.root = node
-    node.parent = node
-  end
-
-  return node
-end
-
-
-
-function FibonacciHeapNode:addChild(value)
-  local child = FibonacciHeapNode:new(value, self.root, self)
-  table.insert(self.children, child)
-end
-
-
-
-function FibonacciHeapNode:getDegree()
-  return #self.children
-end
-
-
-
-function FibonacciHeapNode:setRoot(root)
-  self.root = root
-
-  if root == self then
-    self.parent = root
-  end
-
-  if #self.children > 0 then
-    for _, child in ipairs(self.children) do
-      child.root = root
-    end
+    return nil
   end
 end
 
 
 
-function FibonacciHeapNode:isRoot()
-  return self.root == self
+--- Lower the priority of an element of a queue
+--
+-- @param value An object
+-- @param priority A new priority, which must be lower than the old priority
+
+function PriorityQueue:updatePriority(value, priority)
+  local node = self.nodes[value]
+  assert(node, 'updating the priority of ' .. tostring(value) .. ' failed because it is not in the priority queue')
+  self.heap:updateValue(node, priority)
 end
 
 
 
-FibonacciHeap = {}
+--- Tests, whether the queue is empty
+--
+-- @return True, if the queue is empty
+
+function PriorityQueue:isEmpty()
+  return #self.heap.trees == 0
+end
+
+
+
+
+
+
+-- Internals: An implementation of fibonacci heaps.
 FibonacciHeap.__index = FibonacciHeap
-
 
 
 function FibonacciHeap:new()
@@ -246,3 +272,71 @@ function FibonacciHeap:removeTableElement(input_table, element)
     end
   end
 end
+
+
+
+
+-- Now come the nodes
+
+FibonacciHeapNode.__index = FibonacciHeapNode
+
+function FibonacciHeapNode:new(value, root, parent)
+  local node = {
+    value = value,
+    children = {},
+    marked = false,
+    root = nil,
+    parent = nil,
+  }
+  setmetatable(node, FibonacciHeapNode)
+
+  if root then
+    node.root = root
+    node.parent = parent
+  else
+    node.root = node
+    node.parent = node
+  end
+
+  return node
+end
+
+function FibonacciHeapNode:addChild(value)
+  local child = FibonacciHeapNode:new(value, self.root, self)
+  table.insert(self.children, child)
+end
+
+function FibonacciHeapNode:getDegree()
+  return #self.children
+end
+
+
+
+function FibonacciHeapNode:setRoot(root)
+  self.root = root
+
+  if root == self then
+    self.parent = root
+  end
+
+  if #self.children > 0 then
+    for _, child in ipairs(self.children) do
+      child.root = root
+    end
+  end
+end
+
+
+
+function FibonacciHeapNode:isRoot()
+  return self.root == self
+end
+
+
+
+
+
+
+-- done
+
+return PriorityQueue

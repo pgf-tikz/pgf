@@ -9,6 +9,9 @@
 
 -- @release $Header$
 
+
+local lib = require "pgf.gd.lib"
+
 pgf.module("pgf.graphdrawing")
 
 
@@ -56,7 +59,7 @@ function NodePositioningGansnerKNV1993:run()
     end
   end
   
-  spacing.arrange_layers_by_baselines(self.main_algorithm, self.graph)
+  lib.NodeDistances:arrangeLayersByBaselines(self.main_algorithm, self.graph)
 end
 
 
@@ -149,5 +152,5 @@ end
 
 
 function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
-  return spacing.ideal_sibling_distance(self.main_algorithm, self.graph, v,w)
+  return lib.NodeDistances:idealSiblingDistance(self.main_algorithm, self.graph, v,w)
 end

@@ -13,7 +13,7 @@
 
 pgf.module("pgf.graphdrawing")
 
-
+local lib = require "pgf.gd.lib"
 
 algorithms = {}
 
@@ -42,7 +42,7 @@ function algorithms.dijkstra(graph, source)
   local levels = {}
   local parent = {}
 
-  local queue = PriorityQueue:new()
+  local queue = lib.PriorityQueue:new()
 
   -- reset the distance of all nodes and insert them into the priority queue
   for node in table.value_iter(graph.nodes) do

@@ -10,29 +10,33 @@
 -- @release $Header$
 
 
-local lib   = require "pgf.gd.lib"
-
-
 --- Vector class
 --
 -- This class augments a normal array so that:
 --
 -- 1) Several functions like "plus" or "normalize" become available.
 -- 2) You can access the ".x" and ".y" fields to get the fields [1] and [2].
---
 
-lib.Vector = {}
-lib.Vector.__index =
+local Vector = {}
+
+
+-- Namespace:
+local lib = require "pgf.gd.lib"
+lib.Vector = Vector
+
+
+-- Class setup
+Vector.__index =
   function (t, k)
     if k == "x" then 
       return rawget(t,1)
     elseif k == "y" then
       return rawget(t,2)
     else
-      return rawget(lib.Vector,k)
+      return rawget(Vector,k)
     end
   end
-lib.Vector.__newindex =
+Vector.__newindex =
   function (t, k, v) 
     if k == "x" then 
       rawset(t,1,v)
@@ -55,10 +59,10 @@ lib.Vector.__newindex =
 --
 -- @return A newly-allocated vector with \meta{n} elements.
 --
-function lib.Vector:new(n, fill_function)
+function Vector:new(n, fill_function)
   -- create vector
   local vector = { }
-  setmetatable(vector, lib.Vector)
+  setmetatable(vector, Vector)
 
   local n = n or 2
   
@@ -88,8 +92,8 @@ end
 --
 -- @return A newly-allocated copy of the vector holding exactly the same elements.
 -- 
-function lib.Vector:copy()
-  return lib.Vector:new(#self, function (n) return self[n] end)
+function Vector:copy()
+  return Vector:new(#self, function (n) return self[n] end)
 end
 
 
@@ -100,10 +104,10 @@ end
 --
 -- @return A new vector with the result of the addition.
 --
-function lib.Vector:plus(other)
+function Vector:plus(other)
   assert(#self == #other)
 
-  return lib.Vector:new(#self, function (n) return self[n] + other[n] end)
+  return Vector:new(#self, function (n) return self[n] + other[n] end)
 end
 
 
@@ -114,10 +118,10 @@ end
 --
 -- @return A new vector with the result of the subtraction.
 --
-function lib.Vector:minus(other)
+function Vector:minus(other)
   assert(#self == #other)
 
-  return lib.Vector:new(#self, function (n) return self[n] - other[n] end)
+  return Vector:new(#self, function (n) return self[n] - other[n] end)
 end
 
 
@@ -128,8 +132,8 @@ end
 --
 -- @return A new vector with the result of the division.
 --
-function lib.Vector:dividedByScalar(scalar)
-  return lib.Vector:new(#self, function (n) return self[n] / scalar end)
+function Vector:dividedByScalar(scalar)
+  return Vector:new(#self, function (n) return self[n] / scalar end)
 end
 
 
@@ -140,8 +144,8 @@ end
 --
 -- @return A new vector with the result of the multiplication.
 --
-function lib.Vector:timesScalar(scalar)
-  return lib.Vector:new(#self, function (n) return self[n] * scalar end)
+function Vector:timesScalar(scalar)
+  return Vector:new(#self, function (n) return self[n] * scalar end)
 end
 
 
@@ -152,7 +156,7 @@ end
 --
 -- @return A new vector with the result of the dot product.
 --
-function lib.Vector:dotProduct(other)
+function Vector:dotProduct(other)
   assert(#self == #other)
 
   local product = 0
@@ -168,7 +172,7 @@ end
 --
 -- @return The Euclidean norm of the vector.
 --
-function lib.Vector:norm()
+function Vector:norm()
   return math.sqrt(self:dotProduct(self))
 end
 
@@ -178,10 +182,10 @@ end
 --
 -- @return Normalized version of the original vector.
 --
-function lib.Vector:normalized()
+function Vector:normalized()
   local norm = self:norm()
   if norm == 0 then
-    return lib.Vector:new(#self)
+    return Vector:new(#self)
   else
     return self:dividedByScalar(self:norm())
   end
@@ -195,7 +199,7 @@ end
 --                        vector. The elements are replaced by the values 
 --                        returned from this function.
 --
-function lib.Vector:update(update_function)
+function Vector:update(update_function)
   for i=1,#self do
     self[i] = update_function(self[i])
   end
@@ -210,7 +214,7 @@ end
 --                       values for the element. The element is then clamped
 --                       to these values.
 --
-function lib.Vector:limit(limit_function)
+function Vector:limit(limit_function)
   for i=1,#self do
     local min, max = limit_function(i, self[i])
     self[i] = math.max(min, math.min(max, value))
@@ -222,9 +226,9 @@ end
 --
 -- @param other The other vector
 --
--- @result true or false
+-- @return true or false
 --
-function lib.Vector:equals(other)
+function Vector:equals(other)
   if #self ~= #other then
     return false
   end
@@ -239,7 +243,7 @@ function lib.Vector:equals(other)
 end
 
 
-function lib.Vector:__tostring()
+function Vector:__tostring()
   return '(' .. table.concat(self, ', ') .. ')'
 end
 
@@ -249,4 +253,4 @@ end
 
 -- Done
 
-return lib.Vector
+return Vector

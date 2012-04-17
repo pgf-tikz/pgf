@@ -21,15 +21,6 @@ require "pgf.gd"
 pgf.gd.control = {}
 
 
--- Preload namespace
-package.loaded ["pgf.gd.control"] = pgf.gd.control
-
-require "pgf.gd.control.AlgorithmLoader"
-require "pgf.gd.control.LayoutPipeline"
-require "pgf.gd.control.TeXInterface"
-
-
-
 -- Done
 
 return pgf.gd.control

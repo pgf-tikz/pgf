@@ -10,17 +10,7 @@
 --- @release $Header$
 
 
-
--- Imports
-
-require "pgf"
-require "pgf.gd"
-
-
--- Declare namespace
-pgf.gd.model = {}
-
-
--- Done
-
-return pgf.gd.model
+require "pgf.gd.model.Cluster"
+require "pgf.gd.model.Edge"
+require "pgf.gd.model.Graph"
+require "pgf.gd.model.Node"

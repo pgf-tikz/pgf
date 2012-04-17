@@ -10,16 +10,20 @@
 -- @release $Header$
 
 
-local lib     = require "pgf.gd.lib"
-local control = require "pgf.gd.control"
-
 
 --- The Components class is a singleton object.
 --
 -- Its methods provide methods for handling components, include their packing code. 
 
-lib.Components = {}
+local Components = {}
 
+
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.Components = Components
+
+-- Imports
+local Cluster = require "pgf.gd.model.Cluster"
 
 
 
@@ -27,9 +31,9 @@ lib.Components = {}
 --
 -- @param graph A to-be-decomposed graph
 --
--- @result An array of graph objects that represent the connected components of the graph. 
+-- @return An array of graph objects that represent the connected components of the graph. 
 
-function lib.Components:decompose (graph)
+function Components:decompose (graph)
 
   -- The list of connected components (node sets)
   local components = {}
@@ -81,6 +85,16 @@ function lib.Components:decompose (graph)
     
     subgraph.nodes = components[i]
     
+    for _,c in ipairs(graph.clusters) do
+      local new_c = Cluster:new(c:getName())
+      subgraph:addCluster(new_c)
+      for _,n in ipairs(c.nodes) do
+	if subgraph:findNode(n.name) then
+	  new_c:addNode(n)
+	end
+      end
+    end
+    
     -- add edges
     local edges = {}
     for _,n in ipairs(subgraph.nodes) do
@@ -108,18 +122,18 @@ end
 --- Handling of component order
 --
 -- Components are ordered according to a function that is stored in
--- a key of the lib.Components:component_ordering_functions table (subject
+-- a key of the Components:component_ordering_functions table (subject
 -- to change...) whose name is the graph option /graph
 -- drawing/component order. 
 --
 -- @param graph A graph
 -- @param subgraphs A list of to-be-sorted subgraphs
 
-function lib.Components:sort(graph, subgraphs)
+function Components:sort(graph, subgraphs)
   local component_order = graph:getOption('/graph drawing/component order')
 
   if component_order then
-    local f = lib.Components.component_ordering_functions[component_order]
+    local f = Components.component_ordering_functions[component_order]
     if f then
       table.sort (subgraphs, f)
     end
@@ -131,7 +145,7 @@ end
 -- dynamic in the future. Could easily be done on the tikzlayer,
 -- acutally. 
 
-lib.Components.component_ordering_functions = {
+Components.component_ordering_functions = {
   ["increasing node number"] = 
     function (g,h) 
       if #g.nodes == #h.nodes then
@@ -210,7 +224,7 @@ end
 -- @param graph The graph
 -- @param components A list of components
 
-function lib.Components:pack(graph, components)
+function Components:pack(graph, components)
   
   -- Step 1: Preparation, rotation to target direction
   local sep = tonumber(graph:getOption('/graph drawing/component sep'))
@@ -420,4 +434,4 @@ end
 
 -- Done
 
-return lib.Components
+return Components
