@@ -12,9 +12,12 @@
 
 require "pgf.gd.lib.Anchoring"
 require "pgf.gd.lib.Components"
+require "pgf.gd.lib.DepthFirstSearch"
 require "pgf.gd.lib.Events"
+require "pgf.gd.lib.Iterators"
 require "pgf.gd.lib.Orientation"
 require "pgf.gd.lib.NodeDistances"
+require "pgf.gd.lib.PathLengths"
 require "pgf.gd.lib.PriorityQueue"
 require "pgf.gd.lib.Stack"
 require "pgf.gd.lib.Simplifiers"

@@ -1,4 +1,5 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
 --
@@ -9,6 +10,9 @@
 
 -- @release $Header$
 
+
+
+
 --- This file contains an implementation of the network simplex method
 --- for node ranking and x coordinate optimization in layered drawing 
 --- algorithms, as proposed in
@@ -16,18 +20,26 @@
 --- "A Technique for Drawing Directed Graphs" 
 --  by Gansner, Koutsofios, North, Vo, 1993.
 
-pgf.module("pgf.graphdrawing")
 
-
-
-NetworkSimplex = {}
+local NetworkSimplex = {}
 NetworkSimplex.__index = NetworkSimplex
 
+-- Namespace
+local layered = require "pgf.gd.layered"
+layered.NetworkSimplex = NetworkSimplex
 
+
+-- Imports
+local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
+local Ranking          = require "pgf.gd.layered.Ranking"
+local Graph            = require "pgf.gd.model.Graph"
+
+
+
+-- Definitions
 
 NetworkSimplex.BALANCE_TOP_BOTTOM = 1
 NetworkSimplex.BALANCE_LEFT_RIGHT = 2
-
 
 
 function NetworkSimplex:new(graph, balancing)
@@ -146,7 +158,7 @@ end
 function NetworkSimplex:findNegativeCutEdge()
   local minimum_edge = nil
 
-  for n in iter.times(#self.tree.edges) do
+  for n=1,#self.tree.edges do
     local index = self:nextSearchIndex()
 
     local edge = self.tree.edges[index]
@@ -849,3 +861,8 @@ function NetworkSimplex:removeEdgeFromTree(edge)
 end
 
 
+
+
+-- Done
+
+return NetworkSimplex

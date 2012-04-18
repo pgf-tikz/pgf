@@ -25,18 +25,11 @@
 local preload_these_files = {
   "module",
   "table",
-  "iter",
   "node",
   "edge",
   "graph",
-  "manipulation",
-  "depth-first-search",
-  "traversal",
-  "algorithms",
   "coarsen-graph",
   "positioning-helpers",
-  "ranking",
-  "network-simplex",
  }
 
 

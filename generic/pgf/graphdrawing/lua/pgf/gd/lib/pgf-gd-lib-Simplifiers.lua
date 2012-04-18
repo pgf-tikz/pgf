@@ -25,6 +25,9 @@ lib.Simplifiers = Simplifiers
 local AlgorithmLoader = require "pgf.gd.control.AlgorithmLoader"
 
 
+
+
+
 --
 --
 -- Spanning Tree Handling
@@ -59,8 +62,11 @@ end
 --- Compute a spanning tree of a graph
 --
 -- The computed spanning tree will be available through the fields
--- algorithm.children of each node and algorithm.spanning_tree_root of
+-- [algorithm].children of each node and [algorithm].spanning_tree_root of
 -- the graph.
+--
+-- The algorithm will favor nodes according to their priority. This is determined through an 
+-- edge priority function.
 --
 -- @param graph The graph for which the spanning tree should be computed 
 -- @param dfs True if depth first should be used
@@ -325,6 +331,92 @@ Simplifiers.edge_prioritization_functions = {
 }
 
 
+
+
+--- Algorithm to classify edges of a DFS search tree.
+--
+-- TODO Jannis: document this algorithm as soon as it is completed and bug-free.
+-- TT: Replace this algorithm by something else, perhaps?
+--
+function Simplifiers:classifyEdges(graph)
+  local discovered = {}
+  local visited = {}
+  local recursed = {}
+  local completed = {}
+
+  local tree_and_forward_edges = {}
+  local cross_edges = {}
+  local back_edges = {}
+
+  local stack = {}
+  
+  local function push(node)
+    table.insert(stack, node)
+  end
+
+  local function peek()
+    return stack[#stack]
+  end
+
+  local function pop()
+    return table.remove(stack)
+  end
+
+  local initial_nodes = graph.nodes
+
+  for node in table.reverse_value_iter(initial_nodes) do
+    push(node)
+    discovered[node] = true
+  end
+
+  while #stack > 0 do
+    local node = peek()
+    local edges_to_traverse = {}
+
+    visited[node] = true
+
+    if not recursed[node] then
+      recursed[node] = true
+
+      local out_edges = node:getOutgoingEdges()
+      for edge in table.value_iter(out_edges) do
+        local neighbour = edge:getNeighbour(node)
+
+        if not discovered[neighbour] then
+          table.insert(tree_and_forward_edges, edge)
+          table.insert(edges_to_traverse, edge)
+        else
+          if not completed[neighbour] then
+            if not visited[neighbour] then
+              table.insert(tree_and_forward_edges, edge)
+              table.insert(edges_to_traverse, edge)
+            else
+              table.insert(back_edges, edge)
+            end
+          else
+            table.insert(cross_edges, edge)
+          end
+        end
+      end
+
+      if #edges_to_traverse == 0 then
+        completed[node] = true
+        pop()
+      else
+        for edge in table.value_iter(table.reverse_values(edges_to_traverse)) do
+          local neighbour = edge:getNeighbour(node)
+          discovered[neighbour] = true
+          push(neighbour)
+        end
+      end
+    else
+      completed[node] = true
+      pop()
+    end
+  end
+
+  return tree_and_forward_edges, cross_edges, back_edges
+end
 
 
 

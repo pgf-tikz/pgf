@@ -10,18 +10,24 @@
 -- @release $Header$
 
 
+
+
+
+--- The Node class ...
+--
+--
+
+local Node = pgf.graphdrawing.Node
+Node.__index = Node
+
+
+-- Namespace
+
 local model   = require "pgf.gd.model"
-
-
---- The Edge class defines a model of a graph edge.
---
---
-
-model.Node = {}
-
+model.Node = Node
 
 
 
 -- Done
 
-return model.Node
+return Node

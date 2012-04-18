@@ -12,6 +12,8 @@
 pgf.module("pgf.graphdrawing")
 
 
+local Ranking = require "pgf.gd.layered.Ranking"
+
 
 NodeRankingMinimumHeight = {}
 NodeRankingMinimumHeight.__index = NodeRankingMinimumHeight
@@ -32,7 +34,7 @@ end
 function NodeRankingMinimumHeight:run()
   local ranking = Ranking:new()
 
-  for node in traversal.topological_sorting(self.graph) do
+  for node in lib.Iterators:topologicallySorted(self.graph) do
     local edges = node:getIncomingEdges()
 
     if #edges == 0 then

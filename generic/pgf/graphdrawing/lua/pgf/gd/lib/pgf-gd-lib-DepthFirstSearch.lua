@@ -1,4 +1,5 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
 --
@@ -9,18 +10,22 @@
 
 -- @release $Header$
 
---- TODO Jannis: Add documentation.
-
-pgf.module("pgf.graphdrawing")
 
 
-local lib = require "pgf.gd.lib"
+--- The DepthFirstSearch class implements a generic depth first function. It does not
+-- require that it is run on graphs, but can be used for anything where a visit function and
+-- a complete function is available.
 
-
-DepthFirstSearch = {}
+local DepthFirstSearch = {}
 DepthFirstSearch.__index = DepthFirstSearch
 
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.DepthFirstSearch = DepthFirstSearch
 
+
+
+-- TT: TODO Jannis: Please document...
 
 function DepthFirstSearch:new(init_func, visit_func, complete_func)
   local dfs = {
@@ -110,3 +115,9 @@ end
 function DepthFirstSearch:push(data)
   self.stack:push(data)
 end
+
+
+
+-- Done
+
+return DepthFirstSearch

@@ -11,6 +11,7 @@
 
 
 local lib = require "pgf.gd.lib"
+local NetworkSimplex = require "pgf.gd.layered.NetworkSimplex"
 
 pgf.module("pgf.graphdrawing")
 

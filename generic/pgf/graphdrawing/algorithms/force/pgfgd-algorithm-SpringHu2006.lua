@@ -114,13 +114,13 @@ function SpringHu2006:run()
     -- to every intermediate coarse graph as well as the original graph
     while coarse_graph:getLevel() > 0 do
       -- compute the diameter of the parent coarse graph
-      local parent_diameter = coarse_graph.graph:getPseudoDiameter()
+      local parent_diameter = lib.PathLengths:pseudoDiameter(coarse_graph.graph)
 
       -- interpolate the previous coarse graph from its parent
       coarse_graph:interpolate()
 
       -- compute the diameter of the current coarse graph
-      local current_diameter = coarse_graph.graph:getPseudoDiameter()
+      local current_diameter = lib.PathLengths:pseudoDiameter(coarse_graph.graph)
 
       -- scale node positions by the quotient of the pseudo diameters
       for node in table.value_iter(coarse_graph.graph) do
@@ -185,9 +185,6 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
       -- both nodes are fixed, initial layout may be far from optimal
     end
   else
-    -- function to filter out fixed nodes
-    local function nodeNotFixed(node) return not node.fixed end
-
     -- use a random positioning technique
     local function positioning_func(n) 
       local radius = 2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
@@ -195,9 +192,11 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
     end
 
     -- compute initial layout based on the random positioning technique
-    for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      node.pos.x = positioning_func(1)
-      node.pos.y = positioning_func(2)
+    for _,node in ipairs(graph.nodes) do
+      if not node.fixed then 
+	node.pos.x = positioning_func(1)
+	node.pos.y = positioning_func(2)
+      end
     end
   end
 end
@@ -225,7 +224,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
   local progress = 0
 
   -- compute graph distance between all pairs of nodes
-  local distances = algorithms.floyd_warshall(graph)
+  local distances = lib.PathLengths:floydWarshall(graph)
 
   while not converged and iteration < self.iterations do
     -- remember old node positions
@@ -237,42 +236,42 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
     local old_energy = energy
     energy = 0
 
-    local function nodeNotFixed(node) return not node.fixed end
-
-    for v in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      -- vector for the displacement of v
-      local d = lib.Vector:new(2)
-
-      for u in table.value_iter(graph.nodes) do
-        if v ~= u then
-          -- compute the distance between u and v
-          local delta = u.pos:minus(v.pos)
-
-          -- enforce a small virtual distance if the nodes are
-          -- located at (almost) the same position
-          if delta:norm() < 0.1 then
-            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-          end
-
-          local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
-
-          -- compute the repulsive force vector
-          local force = repulsive_force(delta:norm(), graph_distance, v.weight)
-          local force = delta:normalized():timesScalar(force)
-
-          -- move the node v accordingly
-          d = d:plus(force)
-        end
+    for _,v in ipairs(graph.nodes) do
+      if not v.fixed then
+	-- vector for the displacement of v
+	local d = lib.Vector:new(2)
+	
+	for u in table.value_iter(graph.nodes) do
+	  if v ~= u then
+	    -- compute the distance between u and v
+	    local delta = u.pos:minus(v.pos)
+	    
+	    -- enforce a small virtual distance if the nodes are
+	    -- located at (almost) the same position
+	    if delta:norm() < 0.1 then
+	      delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	    end
+	    
+	    local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
+	    
+	    -- compute the repulsive force vector
+	    local force = repulsive_force(delta:norm(), graph_distance, v.weight)
+	    local force = delta:normalized():timesScalar(force)
+	    
+	    -- move the node v accordingly
+	    d = d:plus(force)
+	  end
+	end
+	
+	-- really move the node now
+	-- TODO note how all nodes are moved by the same amount  (step_length)
+	-- while Walshaw multiplies the normalized force with min(step_length, 
+	-- d:norm()). could that improve this algorithm even further?
+	v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
+	
+	-- update the energy function
+	energy = energy + math.pow(d:norm(), 2)
       end
-
-      -- really move the node now
-      -- TODO note how all nodes are moved by the same amount  (step_length)
-      -- while Walshaw multiplies the normalized force with min(step_length, 
-      -- d:norm()). could that improve this algorithm even further?
-      v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
-
-      -- update the energy function
-      energy = energy + math.pow(d:norm(), 2)
     end
 
     -- update the step length and progress counter

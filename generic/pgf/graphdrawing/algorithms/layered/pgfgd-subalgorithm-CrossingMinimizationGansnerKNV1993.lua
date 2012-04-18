@@ -12,6 +12,8 @@
 pgf.module("pgf.graphdrawing")
 
 
+local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
+
 
 CrossingMinimizationGansnerKNV1993 = {}
 CrossingMinimizationGansnerKNV1993.__index = CrossingMinimizationGansnerKNV1993
@@ -37,7 +39,7 @@ function CrossingMinimizationGansnerKNV1993:run()
   local best_ranking = self.ranking:copy()
   local best_crossings = self:countRankCrossings(best_ranking)
 
-  for iteration in iter.times(24) do
+  for iteration=1,24 do
     local direction = (iteration % 2 == 0) and 'down' or 'up'
 
     self:orderByWeightedMedian(direction)
@@ -189,19 +191,23 @@ function CrossingMinimizationGansnerKNV1993:countNodeCrossings(ranking, left_nod
     return ranking:getRank(neighbour) == ranking:getRanks()[other_rank_index]
   end
 
-  for left_edge in iter.filter(table.value_iter(left_edges), left_neighbour_on_other_rank) do
-    local left_neighbour = left_edge:getNeighbour(left_node)
-
-    for right_edge in iter.filter(table.value_iter(right_edges), right_neighbour_on_other_rank) do
-      local right_neighbour = right_edge:getNeighbour(right_node)
-
-      local left_position = ranking:getRankPosition(left_neighbour)
-      local right_position = ranking:getRankPosition(right_neighbour)
-
-      local neighbour_diff = right_position - left_position
-
-      if neighbour_diff < 0 then
-        crossings = crossings + 1
+  for _,left_edge in ipairs(left_edges) do
+    if left_neighbour_on_other_rank(left_edge) then
+      local left_neighbour = left_edge:getNeighbour(left_node)
+      
+      for _,right_edge in ipairs(right_edges) do
+	if right_neighbour_on_other_rank(right_edge) then
+	  local right_neighbour = right_edge:getNeighbour(right_node)
+	  
+	  local left_position = ranking:getRankPosition(left_neighbour)
+	  local right_position = ranking:getRankPosition(right_neighbour)
+	  
+	  local neighbour_diff = right_position - left_position
+	  
+	  if neighbour_diff < 0 then
+	    crossings = crossings + 1
+	  end
+	end
       end
     end
   end

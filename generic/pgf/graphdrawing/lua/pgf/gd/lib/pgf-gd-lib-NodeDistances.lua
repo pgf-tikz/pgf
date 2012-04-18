@@ -12,8 +12,10 @@
 
 
 --- The NodeDistances class is a singleton object.
--- Its methods allow implement methods for simplifing graphs, for instance 
--- for removing loops or multiedges or computing spanning trees.
+--
+-- Its methods are used to compute and/or set the ideal distances between
+-- nodes of a graph. The methods take parameters like sibling distance or
+-- layer sep into account.
 
 local NodeDistances = {}
 

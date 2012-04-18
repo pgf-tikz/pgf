@@ -7,27 +7,20 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
--- @release $Header$
+--- @release $Header$
 
 
 
+-- Imports
+
+require "pgf"
+require "pgf.gd"
 
 
---- The Edge class ...
---
---
-
-local Edge = pgf.graphdrawing.Edge
-Edge.__index = Edge
-
-
--- Namespace
-
-local model   = require "pgf.gd.model"
-model.Edge = Edge
-
+-- Declare namespace
+pgf.gd.layered = {}
 
 
 -- Done
 
-return Edge
+return pgf.gd.layered

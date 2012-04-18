@@ -11,6 +11,7 @@
 
 pgf.module("pgf.graphdrawing")
 
+local NetworkSimplex = require "pgf.gd.layered.NetworkSimplex"
 
 
 NodeRankingGansnerKNV1993 = {}

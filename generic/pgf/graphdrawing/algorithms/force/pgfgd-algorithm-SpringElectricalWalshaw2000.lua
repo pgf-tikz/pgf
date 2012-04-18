@@ -197,9 +197,11 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
     end
 
     -- compute initial layout based on the random positioning technique
-    for node in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      node.pos.x = positioning_func(1)
-      node.pos.y = positioning_func(2)
+    for _,node in ipairs(graph.nodes) do
+      if not node.fixed then
+	node.pos.x = positioning_func(1)
+	node.pos.y = positioning_func(2)
+      end
     end
   end
 end
@@ -261,137 +263,139 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
     local function nodeNotFixed(node) return not node.fixed end
 
     -- iterate over all nodes
-    for v in iter.filter(table.value_iter(graph.nodes), nodeNotFixed) do
-      -- vector for the displacement of v
-      local d = lib.Vector:new(2)
+    for _,v in ipairs(graph.nodes) do
+      if not v.fixed then
+	-- vector for the displacement of v
+	local d = lib.Vector:new(2)
 
-      -- repulsive force induced by other nodes
-      local repulsive_forces = {}
+	-- repulsive force induced by other nodes
+	local repulsive_forces = {}
 
-      -- compute repulsive forces
-      if self.approximate_repulsive_forces then
-        -- determine the cells that have an repulsive influence on v
-        local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
+	-- compute repulsive forces
+	if self.approximate_repulsive_forces then
+	  -- determine the cells that have an repulsive influence on v
+	  local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
-        -- compute the repulsive force between these cells and v
-        for cell in table.value_iter(cells) do
-          -- check if the cell is a leaf
-          if #cell.subcells == 0 then
-            -- compute the forces between the node and all particles in the cell
-            for particle in table.value_iter(cell.particles) do
-              -- build a table that contains the particle plus all its subparticles 
-              -- (particles at the same position)
-              local real_particles = table.custom_copy(particle.subparticles)
-              table.insert(real_particles, particle)
+	  -- compute the repulsive force between these cells and v
+	  for cell in table.value_iter(cells) do
+	    -- check if the cell is a leaf
+	    if #cell.subcells == 0 then
+	      -- compute the forces between the node and all particles in the cell
+	      for particle in table.value_iter(cell.particles) do
+		-- build a table that contains the particle plus all its subparticles 
+		-- (particles at the same position)
+		local real_particles = table.custom_copy(particle.subparticles)
+		table.insert(real_particles, particle)
 
-              for real_particle in table.value_iter(real_particles) do
-                local delta = real_particle.pos:minus(v.pos)
-            
-                -- enforce a small virtual distance if the node and the cell's 
-                -- center of mass are located at (almost) the same position
-                if delta:norm() < 0.1 then
-                  delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-                end
+		for real_particle in table.value_iter(real_particles) do
+		  local delta = real_particle.pos:minus(v.pos)
+		  
+		  -- enforce a small virtual distance if the node and the cell's 
+		  -- center of mass are located at (almost) the same position
+		  if delta:norm() < 0.1 then
+		    delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+		  end
 
-                -- compute the repulsive force vector
-                local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
-                local force = delta:normalized():timesScalar(repulsive_force)
+		  -- compute the repulsive force vector
+		  local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
+		  local force = delta:normalized():timesScalar(repulsive_force)
 
-                -- remember the repulsive force for the particle so that we can 
-                -- subtract it later when computing the attractive forces with
-                -- adjacent nodes
-                repulsive_forces[real_particle.node] = repulsive_force
+		  -- remember the repulsive force for the particle so that we can 
+		  -- subtract it later when computing the attractive forces with
+		  -- adjacent nodes
+		  repulsive_forces[real_particle.node] = repulsive_force
 
-                -- move the node v accordingly
-                d = d:plus(force)
-              end
-            end
-          else
-            -- compute the distance between the node and the cell's center of mass
-            local delta = cell.center_of_mass:minus(v.pos)
+		  -- move the node v accordingly
+		  d = d:plus(force)
+		end
+	      end
+	    else
+	      -- compute the distance between the node and the cell's center of mass
+	      local delta = cell.center_of_mass:minus(v.pos)
 
-            -- enforce a small virtual distance if the node and the cell's 
-            -- center of mass are located at (almost) the same position
-            if delta:norm() < 0.1 then
-              delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-            end
+	      -- enforce a small virtual distance if the node and the cell's 
+	      -- center of mass are located at (almost) the same position
+	      if delta:norm() < 0.1 then
+		delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	      end
 
-            -- compute the repulsive force vector
-            local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
-            local force = delta:normalized():timesScalar(repulsive_force)
+	      -- compute the repulsive force vector
+	      local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
+	      local force = delta:normalized():timesScalar(repulsive_force)
 
-            -- TODO for each neighbour of v, check if it is in this cell.
-            -- if this is the case, compute the quadtree force for the mass
-            -- 'node.weight / cell.mass' and remember this as the repulsive
-            -- force of the neighbour;  (it is not necessarily at
-            -- the center of mass of the cell, so the result is only an
-            -- approximation of the real repulsive force generated by the
-            -- neighbour)
+	      -- TODO for each neighbour of v, check if it is in this cell.
+	      -- if this is the case, compute the quadtree force for the mass
+	      -- 'node.weight / cell.mass' and remember this as the repulsive
+	      -- force of the neighbour;  (it is not necessarily at
+	      -- the center of mass of the cell, so the result is only an
+	      -- approximation of the real repulsive force generated by the
+	      -- neighbour)
 
-            -- move te node v accordingly
-            d = d:plus(force)
-          end
-        end
-      else
-        for u in table.value_iter(graph.nodes) do
-          if u.name ~= v.name then
-            -- compute the distance between u and v
-            local delta = u.pos:minus(v.pos)
+	      -- move te node v accordingly
+	      d = d:plus(force)
+	    end
+	  end
+	else
+	  for u in table.value_iter(graph.nodes) do
+	    if u.name ~= v.name then
+	      -- compute the distance between u and v
+	      local delta = u.pos:minus(v.pos)
 
-            -- enforce a small virtual distance if the nodes are
-            -- located at (almost) the same position
-            if delta:norm() < 0.1 then
-              delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-            end
+	      -- enforce a small virtual distance if the nodes are
+	      -- located at (almost) the same position
+	      if delta:norm() < 0.1 then
+		delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	      end
 
-            -- compute the repulsive force vector
-            local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
-            local force = delta:normalized():timesScalar(repulsive_force)
+	      -- compute the repulsive force vector
+	      local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
+	      local force = delta:normalized():timesScalar(repulsive_force)
 
-            -- remember the repulsive force so we can later subtract them
-            -- when computing the attractive forces
-            repulsive_forces[u] = repulsive_force
+	      -- remember the repulsive force so we can later subtract them
+	      -- when computing the attractive forces
+	      repulsive_forces[u] = repulsive_force
 
-            -- move the node v accordingly
-            d = d:plus(force)
-          end
-        end
-      end
+	      -- move the node v accordingly
+	      d = d:plus(force)
+	    end
+	  end
+	end
 
-      -- compute attractive forces between v and its neighbours
-      for edge in table.value_iter(v.edges) do
-        local u = edge:getNeighbour(v)
+	-- compute attractive forces between v and its neighbours
+	for edge in table.value_iter(v.edges) do
+	  local u = edge:getNeighbour(v)
 
-        -- compute the distance between u and v
-        local delta = u.pos:minus(v.pos)
+	  -- compute the distance between u and v
+	  local delta = u.pos:minus(v.pos)
 
-        -- enforce a small virtual distance if the nodes are
-        -- located at (almost) the same position
-        if delta:norm() < 0.1 then
-          delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-        end
+	  -- enforce a small virtual distance if the nodes are
+	  -- located at (almost) the same position
+	  if delta:norm() < 0.1 then
+	    delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	  end
 
-        -- compute the spring force between them
-        local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
-        local force = delta:normalized():timesScalar(attr_force)
+	  -- compute the spring force between them
+	  local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
+	  local force = delta:normalized():timesScalar(attr_force)
 
-        -- move the node v accordingly
-        d = d:plus(force)
-      end
+	  -- move the node v accordingly
+	  d = d:plus(force)
+	end
 
-      -- remember the previous position of v
-      old_position = v.pos:copy()
+	-- remember the previous position of v
+	old_position = v.pos:copy()
 
-      if d:norm() > 0 then
-        -- reposition v according to the force vector and the current temperature
-        v.pos = v.pos:plus(d:normalized():timesScalar(math.min(step_length, d:norm())))
-      end
+	if d:norm() > 0 then
+	  -- reposition v according to the force vector and the current temperature
+	  v.pos = v.pos:plus(d:normalized():timesScalar(math.min(step_length, d:norm())))
+	end
 
-      -- we need to improve the system energy as long as any of
-      -- the node movements is large enough to assume we're far
-      -- away from the minimum system energy
-      if v.pos:minus(old_position):norm() > spring_length * self.convergence_tolerance then
-        converged = false
+	-- we need to improve the system energy as long as any of
+	-- the node movements is large enough to assume we're far
+	-- away from the minimum system energy
+	if v.pos:minus(old_position):norm() > spring_length * self.convergence_tolerance then
+	  converged = false
+	end
       end
     end
 

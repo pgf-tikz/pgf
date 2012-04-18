@@ -1,4 +1,5 @@
 -- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
 --
@@ -9,13 +10,19 @@
 
 -- @release $Header$
 
---- This file contains a number of standard graph algorithms such as Dijkstra.
 
-pgf.module("pgf.graphdrawing")
 
-local lib = require "pgf.gd.lib"
+--- The PathLengths class is a singleton object.
+--
+-- It implements algorithms for computing distances between nodes of a graph 
+-- (in the sense of path lengths).
 
-algorithms = {}
+local PathLengths = {}
+
+-- Namespace
+local lib     = require "pgf.gd.lib"
+lib.PathLengths = PathLengths
+
 
 
 
@@ -36,8 +43,8 @@ algorithms = {}
 --         all nodes that have a distance of |i| to \meta{source}.
 -- @return A mapping of nodes to their parents to allow the reconstruction
 --         of the shortest paths chosen by the Dijkstra algorithm.
---
-function algorithms.dijkstra(graph, source)
+
+function PathLengths:dijkstra(graph, source)
   local distance = {}
   local levels = {}
   local parent = {}
@@ -85,7 +92,14 @@ end
 
 
 
-function algorithms.floyd_warshall(graph)
+
+--- Performs the Floyd-Warshall algorithm to solve the all-source shortes path problem. 
+--
+-- @param graph  The graph to compute the shortest paths for.
+--
+-- @return A distance matrix
+
+function PathLengths:floydWarshall(graph)
   local distance = {}
   local infinity = math.huge
 
@@ -116,86 +130,79 @@ end
 
 
 
--- Algorithm to classify edges of a DFS search tree.
+
+--- Computes the pseudo diameter of a graph.
 --
--- TODO Jannis: document this algorithm as soon as it is completed and bug-free.
+-- The diameter of a graph is the maximum of the shortest paths between
+-- any pair of nodes in the graph. A pseudo diameter is an approximation
+-- of the diameter that is computed by picking a starting node |u| and
+-- finding a node |v| that is farthest away from |u| and has the smallest
+-- degree of all nodes that have the same distance to |u|. The algorithm
+-- continues with |v| as the new starting node and iteratively tries
+-- to find an end node that is generates a larger pseudo diameter.
+-- It terminates as soon as no such end node can be found.
 --
-function algorithms.classify_edges(graph)
-  local discovered = {}
-  local visited = {}
-  local recursed = {}
-  local completed = {}
+-- @param graph The graph.
+--
+-- @return The pseudo diameter of the graph.
+-- @return The start node of the corresponding approximation of a maximum
+--         shortest path.
+-- @return The end node of that path.
+--
+function PathLengths:pseudoDiameter(graph)
 
-  local tree_and_forward_edges = {}
-  local cross_edges = {}
-  local back_edges = {}
-
-  local stack = {}
-  
-  local function push(node)
-    table.insert(stack, node)
-  end
-
-  local function peek()
-    return stack[#stack]
-  end
-
-  local function pop()
-    return table.remove(stack)
-  end
-
-  local initial_nodes = graph.nodes
-
-  for node in table.reverse_value_iter(initial_nodes) do
-    push(node)
-    discovered[node] = true
-  end
-
-  while #stack > 0 do
-    local node = peek()
-    local edges_to_traverse = {}
-
-    visited[node] = true
-
-    if not recursed[node] then
-      recursed[node] = true
-
-      local out_edges = node:getOutgoingEdges()
-      for edge in table.value_iter(out_edges) do
-        local neighbour = edge:getNeighbour(node)
-
-        if not discovered[neighbour] then
-          table.insert(tree_and_forward_edges, edge)
-          table.insert(edges_to_traverse, edge)
-        else
-          if not completed[neighbour] then
-            if not visited[neighbour] then
-              table.insert(tree_and_forward_edges, edge)
-              table.insert(edges_to_traverse, edge)
-            else
-              table.insert(back_edges, edge)
-            end
-          else
-            table.insert(cross_edges, edge)
-          end
-        end
-      end
-
-      if #edges_to_traverse == 0 then
-        completed[node] = true
-        pop()
-      else
-        for edge in table.value_iter(table.reverse_values(edges_to_traverse)) do
-          local neighbour = edge:getNeighbour(node)
-          discovered[neighbour] = true
-          push(neighbour)
-        end
-      end
+  -- find a node with minimum degree
+  local start_node = table.combine_values(graph.nodes, function (min, node)
+    if node:getDegree() < min:getDegree() then
+      return node
     else
-      completed[node] = true
-      pop()
+      return min
     end
+  end, graph.nodes[1])
+
+  assert(start_node)
+
+  local old_diameter = 0
+  local diameter = 0
+  local end_node = nil
+
+  while true do
+    local distance, levels = lib.PathLengths:dijkstra(graph, start_node)
+
+    -- the number of levels is the same as the distance of the nodes
+    -- in the last level to the start node
+    old_diameter = diameter
+    diameter = #levels
+
+    -- abort if the diameter could not be improved
+    if diameter == old_diameter then
+      end_node = levels[#levels][1]
+      break
+    end
+
+    -- select the node with the smallest degree from the last level as
+    -- the start node for the next iteration
+    start_node = table.combine_values(levels[#levels], function (min, node)
+      if node:getDegree() < min:getDegree() then
+        return node
+      else
+        return min
+      end
+    end, levels[#levels][1])
+
+    assert(start_node)
   end
 
-  return tree_and_forward_edges, cross_edges, back_edges
+  assert(start_node)
+  assert(end_node)
+
+  return diameter, start_node, end_node
 end
+
+
+
+
+
+-- Done
+
+return PathLengths
