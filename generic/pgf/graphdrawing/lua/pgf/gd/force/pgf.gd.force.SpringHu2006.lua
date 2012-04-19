@@ -33,7 +33,7 @@ local SpringHu2006 = pgf.gd.new_algorithm_class {
     initial_step_length = 'spring layout/initial step dimension [number]',
     convergence_tolerance = 'spring layout/convergence tolerance [number]',
 
-    natural_spring_length = 'spring layout/natural spring dimension [number]',
+    natural_spring_length = 'node distance [number]',
    
     coarsen = 'spring layout/coarsen [boolean]',
     downsize_ratio = 'spring layout/coarsening/downsize ratio [number]',

@@ -16,8 +16,8 @@
 -- direction.  
 --
 -- The objective is that nodes are ideally spaced at a distance
--- (measured on the circle) of "sibling distance", but with a minimum
--- spacing of "sibling sep" and a minimum radius.
+-- (measured on the circle) of "node distance", but with a minimum
+-- spacing of "node sep" and a minimum radius.
 --
 -- The order of the nodes will be the order they are encountered, the
 -- edges actually play no role.
@@ -38,7 +38,7 @@ require("pgf.gd.circular").Tantau2012 = Tantau2012
 function Tantau2012:run()
   local n = #self.graph.nodes
 
-  local sib_dists = self:computeSiblingDistances ()
+  local sib_dists = self:computeNodeDistances ()
   local radii = self:computeNodeRadii()
   local diam, adjusted_radii = self:adjustNodeRadii(sib_dists, radii)
   
@@ -54,12 +54,12 @@ function Tantau2012:run()
   for i = 1,n do
     positions[i] = ideal_pos + carry
     ideal_pos = ideal_pos + sib_dists[i]
-    local sibling_sep =   self.graph.nodes[i]:getOption('/graph drawing/sibling post sep', self.graph)
-                        + self.graph.nodes[wrap(i+1)]:getOption('/graph drawing/sibling pre sep', self.graph)
-    local arc = sibling_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
+    local node_sep =   self.graph.nodes[i]:getOption('/graph drawing/node post sep', self.graph)
+                        + self.graph.nodes[wrap(i+1)]:getOption('/graph drawing/node pre sep', self.graph)
+    local arc = node_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
     local needed = carry + arc
     local dist = math.sin( arc/diam ) * diam
-    needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+sibling_sep)-dist, 0)
+    needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+node_sep)-dist, 0)
     carry = math.max(needed-sib_dists[i],0)    
   end
   local length = ideal_pos + carry
@@ -72,12 +72,12 @@ function Tantau2012:run()
 end
 
 
-function Tantau2012:computeSiblingDistances()
+function Tantau2012:computeNodeDistances()
   local sib_dists = {}
   local sum_length = 0
   local nodes = self.graph.nodes
   for i=1,#nodes do
-     sib_dists[i] = nodes[i]:getOption('/graph drawing/sibling distance', self.graph)
+     sib_dists[i] = nodes[i]:getOption('/graph drawing/node distance', self.graph)
      sum_length = sum_length + sib_dists[i]
   end
 
@@ -114,8 +114,8 @@ function Tantau2012:adjustNodeRadii(sib_dists,radii)
   local total = 0
   for i=1,#radii do
     total = total + 2*radii[i] 
-            + self.graph.nodes[i]:getOption('/graph drawing/sibling post sep', self.graph)
-	    + self.graph.nodes[i]:getOption('/graph drawing/sibling pre sep', self.graph)
+            + self.graph.nodes[i]:getOption('/graph drawing/node post sep', self.graph)
+	    + self.graph.nodes[i]:getOption('/graph drawing/node pre sep', self.graph)
   end
   total = math.max(total, sib_dists.total)
   local diam = total/(math.pi)

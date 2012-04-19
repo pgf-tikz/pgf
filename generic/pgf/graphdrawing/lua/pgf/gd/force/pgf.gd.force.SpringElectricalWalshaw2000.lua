@@ -57,7 +57,7 @@ local SpringElectricalWalshaw2000 = pgf.gd.new_algorithm_class {
     initial_step_length = 'spring electrical layout/initial step dimension [number]',
     convergence_tolerance = 'spring electrical layout/convergence tolerance [number]',
 
-    natural_spring_length = 'spring electrical layout/natural spring dimension [number]',
+    natural_spring_length = 'node distance [number]',
     spring_constant = 'spring electrical layout/spring constant [number]',
 
     approximate_repulsive_forces = 'spring electrical layout/approximate electric forces [boolean]',
