@@ -36,8 +36,8 @@ function NodeDistances:idealSiblingDistance (algorithm, graph, n1, n2)
   local ideal_distance
   local sep
 
-  local n1_is_node = n1.class == Node
-  local n2_is_node = n2.class == Node
+  local n1_is_node = n1.kind == "node"
+  local n2_is_node = n2.kind == "node"
 
   if not n1_is_node and not n2_is_node then
     ideal_distance = tonumber(graph:getOption('/graph drawing/sibling distance'))
@@ -96,7 +96,7 @@ function NodeDistances:baselineDistance (algorithm, graph, l1, l2)
 			      tonumber(n:getOption('/graph drawing/level distance', graph)))
     layer_post_sep = math.max(layer_post_sep,
 			      tonumber(n:getOption('/graph drawing/level post sep', graph)))
-    if n.class == Node then
+    if n.kind == "node" then
       max_post = math.max(max_post, n[algorithm].adjusted_bounding_box.layer_post)
     end
   end
@@ -104,7 +104,7 @@ function NodeDistances:baselineDistance (algorithm, graph, l1, l2)
   for _,n in ipairs(l2) do
     layer_pre_sep = math.max(layer_pre_sep,
 			     tonumber(n:getOption('/graph drawing/level pre sep', graph)))
-    if n.class == Node then
+    if n.kind == "node" then
       min_pre = math.min(min_pre, n[algorithm].adjusted_bounding_box.layer_pre)
     end
   end
