@@ -14,7 +14,7 @@
 
 {\noindent {\emph{by Till Tantau}}}
 
-File status: Large parts not yet written
+File status: Finish description of Reingold--Tilford
 
 \begin{tikzlibrary}{graphdrawing.trees}
   Load this package when you wish to use layout trees. You should load
@@ -23,59 +23,68 @@ File status: Large parts not yet written
 
 
 \tikzname\ offers several different syntax to specify trees (see
-Sections \ref{section-library-graphs} and~\ref{section-trees}). By
-default, \tikzname\ will attempt to produce a reasonable layout of the
-specified trees, but since \TeX's algorithmic capabilities are quite
-limited, no advanced layout of the tree is done by the standard
-algorithms. This is where the graph drawing algorithms from this
-library come in: Having the full power of Lua\TeX\ at their disposal,
-they will produce a far better layout of the trees.
-
-
-
-\subsection{Spanning Tree Computation}
-
-Although the algorithms of this library are tailored to layout trees,
-they will work for any graph as input. First, if the graph is not
-connected, it is decomposed into connected components and these are
-layed out individiually. Second, for each component, a spanning tree of
-the graph is computed first and the layout is computed for this
-spanning tree, all other edges will still be drawn, but they have no
-impact on the placement of the nodes. If the graph is already a tree,
-the spanning tree will be the original graph.
-
-The computation of the spanning tree is a non-trivial process since
-a non-tree graph has many different possible spanning trees. For the
-time being, the computation methods for deciding on a spanning tree
-are hardcoded into the graph drawing engine, but this may change in
-the future, allowing you to choose and implement new spanning tree
-computation algorithms dynamically.  You can
-influence the spanning tree computation with the following keys:
-
-\begin{key}{/graph drawing/spanning tree method=\meta{method}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  The computation of the spanning tree proceeds as follows for each component:
-  \begin{enumerate}
-  \item We look for a node for which the following graph parameter is
-    set:
-    \begin{key}{/graph drawing/root}
-      \keyalias{tikz}\keyalias{tikz/graphs}
-    \end{key}
-    If there are several such nodes, the first one is used. If there
-    are no such nodes, the first node of indegree 0 (with respect to
-    |->| edges) is used. If there is no such node, the first node is
-    used. 
-  \end{enumerate}
-\end{key}
-
-
+Sections \ref{section-library-graphs}
+and~\ref{section-trees}). The job of the graph drawing algorithms from
+this library is to turn the specification of trees into beautiful
+layouts. 
 
 
 \subsection{The Reingold--Tilford Tree Layout}
 
-\begin{gdalgorithm}{tree layout}{Tree Reingold Tilford 1981}
-  This layout arranges nodes in a tree according to the
-  Reingold--Tilford method.
+The Reingold--Tilford method is a standard method for drawing
+trees. It is described in:
+\begin{itemize}
+\item
+  E.~M.\ Reingold and J.~S.\ Tilford,
+  \newblock Tidier drawings of trees,
+  \newblock \emph{IEEE Transactions on Software Engineering,}
+  7(2), 223--228, 1981.
+\end{itemize}
+  
+The implementation of the |tree layout| key follows, however, the
+ideas sketched in the following paper, which includes some useful
+extensions of the basic Reingold--Tilford algorithm:
+\begin{itemize}
+\item
+  A.\ Br\"uggemann-Klein, D.\ Wood,
+  \newblock Drawing trees nicely with \TeX,
+  \emph{Electronic Publishing,} 2(2), 101--115, 1989.
+\end{itemize}
+For the above paper, the authors have implemented the
+Reingold--Tilford algorithm directly in \TeX\ (resulting in the
+Tree\TeX\ style). Naturally, our 2012 implementation in the
+|graphdrawing.tree| library is much more powerful and cleaner, but I
+think it was an impressive achievement to implement this algorithm
+back in 1989 directly in \TeX.
+
+\begin{gdalgorithm}{tree layout}{pgf.gd.trees.ReingoldTilford1981}
+  The basic idea of the Reingold--Tilford algorithm is to use the
+  following rules to position the nodes of a tree (assuming it grown
+  downwards, other growth directions are provided by the automatic
+  orientation mechanisms of the graph drawing library):
+  \begin{enumerate}
+  \item For a node, recursively compute a layout for each of its children.
+  \item Put the layout of the first child somewhere on the page.
+  \item Put the second layout to the right of the first one as near as
+    possible so that no two nodes touch (and such that a certain
+    padding is achieved).
+  \item Repeat for all subsequent children.
+  \item Then place the root above the child trees at the middle
+    position, that is, at the half-way point between the left-most and
+    the right-most child of the node.    
+  \end{enumerate}
+\begin{codeexample}[]
+\tikz [tree layout={significant sep=0}, sibling distance=8mm]
+\graph [nodes={circle, draw, inner sep=1.5pt}]{
+  1 -- { 2 -- 3 -- { 4 -- 5, 6 -- { 7, 8, 8' }}, 9 -- 10 -- { 11, 12 } }
+};
+\end{codeexample}
+  The basic algorithm of Reingold--Tilford was extended by
+  Br\"uggemann-Klein and Wood in two ways:
+  \begin{enumerate}
+  \item ...
+  \end{enumerate}
+
 \begin{codeexample}[]
 \tikz [binary tree layout, sibling distance=7mm, level distance=10mm]
 \graph [nodes={circle, inner sep=0pt, minimum size=2mm, fill}]{
@@ -106,125 +115,240 @@ influence the spanning tree computation with the following keys:
 \end{codeexample}
 \end{gdalgorithm}
 
-% \begin{gdalgorithm}{centered root tree layout}{A proof-of-concept by Ahrens et al., 2011}{AhrensFKSS2011 tree}
-%   This algorithm was implemented as a proof-of-concept by Ahrens,
-%   Frahm, Kluttig, Schulz, and Schuster, who have implemented the graph
-%   drawing engine. The idea is that the 
-%   root of each subtree is centered horizontally above the child
-%   trees. The |sibling distance| and |level distance| keys are taken
-%   into consideration.
+
+
+
+\subsection{Spanning Tree Computation}
+
+Although the algorithms of this library are tailored to layout trees,
+they will work for any graph as input. First, if the graph is not
+connected, it is decomposed into connected components and these are
+layed out individiually. Second, for each component, a spanning tree of
+the graph is computed first and the layout is computed for this
+spanning tree; all other edges will still be drawn, but they have no
+impact on the placement of the nodes. If the graph is already a tree,
+the spanning tree will be the original graph.
+
+The computation of the spanning tree is a non-trivial process since
+a non-tree graph has many different possible spanning trees. You can
+choose between different methods for deciding on a spanning tree, it
+is even possible to implement new algorithms. (In the future, the
+computation of spanning trees and the cylce removal in layered graph
+drawing algorithms will be unified, but, currently, they are
+implemented differently.) 
+
+\begin{key}{/graph drawing/spanning tree algorithm=\meta{algorithm}}
+  \keyalias{tikz}\keyalias{tikz/graphs}
+  Selects the (sub)algorithm that is to be used for computing spanning
+  trees whenever this is requested by a tree layout algorithm. The
+  default algorithm is |pgf.gd.trees.BreadthFirst|.
+\begin{codeexample}[]
+\tikz \graph [tree layout,
+  spanning tree algorithm=pgf.gd.trees.BreadthFirst]
+{
+  1 -- {2,3,4,5} -- 6;    
+};   
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [tree layout,
+  spanning tree algorithm=pgf.gd.trees.DepthFirst]
+{
+  1 --[bend right] {2,3,4,5 [>bend left]} -- 6;    
+};   
+\end{codeexample} 
+\end{key}
+
+Usually, you do not use the |spanning tree subalgorithm| option directly,
+but use one of the below keys to select a method.
+
+\begin{gdalgorithm}{breadth first spanning tree}{pgf.gd.trees.BreadthFirst}
+  This key selects ``breadth first'' as the (sub)algorithm for
+  computing spanning trees. Note that this key does not cause a graph
+  drawing scope to start; the key only has an effect in conjunction
+  with keys like |tree layout|.
+
+  The algorithm will be called whenever a graph drawing algorithm
+  needs a spanning tree on which to operate. It works as follows:
   
-% \begin{codeexample}[]
-% \tikz[centered root tree layout, nodes=draw] \graph { a -> {b -> {c,d,f->{i,j,k}}, e}};
-% \end{codeexample}
+  \begin{enumerate}
+  \item It looks for a node for which the following graph parameter is
+    set:
+    \begin{key}{/graph drawing/root}
+      \keyalias{tikz}\keyalias{tikz/graphs}
+    \end{key}
+    If there are several such nodes, the first one is used. If there
+    are no such nodes, the first node of indegree 0 (with respect to
+    |->| edges) is used. If there is no such node, the first node is
+    used.
 
-% As you can see, the text nodes aren't quite aligned, so the common fix
-%   is to use the |text depth| and |text height| keys to force the text
-%   nodes to a specific size.
+    Let call the node determined in this way the \emph{root node}.
+  \item For every edge, a \emph{priority} is determined, which is a
+    number between 1 and 5. How this happens, exactly, will be
+    explained in a moment.
+  \item Starting from the root node, we now perform a breadth first
+    search through the tree, thereby implicitly building a spanning
+    tree: Suppose for a moment that all edges have priority~1. Then,
+    the algorithm works just the way that a normal breadth first
+    search is performed: We keep a queue of to-be-visited nodes and
+    while this queue is not empty, we remove its first node. If this
+    node has not yet been visited, we add all its neighbors at the
+    end of the queue. When a node is taken out of the queue, we make
+    it the child of the node whose neighbor it was when it was
+    added. Since the queue follows the ``first in, first out''
+    principle (it is a fifo queue), the children of the root will be
+    all nodes at distance $1$ form the root, their children will be
+    all nodes at distance $2$, and so on. 
+  \item Now suppose that some edges have a priority different
+    from~1, in which case things get more complicated. We now keep
+    track of one fifo queue for each of the five possible
+    priorities. When we consider the neighbors of a node, we actually
+    consider all its incident edges. Each of these edges has a certain
+    priority and the neighbor is put into the queue of the edge's
+    priority. Now, we still remove nodes normally from the queue for
+    priority~1; only if this queue is empty and there is still a node
+    in the queue for priority~2 we remove the first element from this
+    queue (and proceed as before). If the second queue is also empty,
+    we try the third, and so on up to the fifth queue. If all queues
+    are empty, the algorithm stops.
+  \end{enumerate}
 
-% \begin{codeexample}[]
-% \tikz[AhrensFKSS2011 tree, text depth=.2em, text height=.8em]
-%   \graph { a -> {b -> {c,d}, e}};
-% \end{codeexample}
-
-%   \medskip
-%   \noindent\textbf{Parameters.} 
-%   The keys affecting the algorithm are the following common graph
-%   drawing parameters:
-
-%   \begin{key}{/graph drawing/root}
-%     \keyalias{tikz}\keyalias{tikz/graphs}
-%     This is a node parameter. At most one node should have this key
-%     set. If no node has it set, the first node in the graph will be
-%     used. 
-%   \end{key}
-
-%   \begin{key}{/graph drawing/level distance=\meta{leveldistance} (default 1cm)}
-%     \keyalias{tikz}\keyalias{tikz/graphs}
-%     Determines the vertical space between the nodes on different levels:
-% \begin{codeexample}[]
-% \tikz [AhrensFKSS2011 tree, level distance=1cm]
-%   \graph { 1 -> {2 , 3}};
-% \tikz [AhrensFKSS2011 tree, level distance=2cm]
-%   \graph { 1 -> {2 , 3}};
-% \end{codeexample}
-%   \end{key}
-
-%   \begin{key}{/graph drawing/sibling distance=\meta{siblingdistance} (default 1cm)}
-%     \keyalias{tikz}\keyalias{tikz/graphs}
-%     This determines the horizontal space between the nodes. 
-% \begin{codeexample}[]
-% \tikz [AhrensFKSS2011 tree, sibling distance=1cm]
-%   \graph { 1 ->{2 , 3}};
-% \tikz [AhrensFKSS2011 tree, sibling distance=2cm]
-%   \graph { 1 ->{2 , 3}};
-% \end{codeexample}
-% \end{key}
-
-%   \medskip
-%   \textbf{How does this algorithm work?}
-%   The tree algorithm works recursively. During the recursion one step is
-%   performed for each subgraph of the tree.  
-
-%   The process builds a kind of a box structure of the given graph. This
-%   means a leaf of a tree returns itself as a box. Its parent returns
-%   itself and its children in a bigger box etc. as shown in the following
-%   figure. 
-
-% \begin{quote}
-% \begin{tikzpicture}[
-%     level 0/.style={draw=black!50,very thick},
-%     level 1/.style={draw=orange!50,very thick},
-%     level 2/.style={draw=blue!50,very thick},
-%     level 3/.style={draw=green!50,very thick}]
-
-%     \node[level 1] (1) {1}
-%       child {node[level 2] (3) {3}
-%         child {node[level 3] (4) {4}
-%           child{node[level 3] (6) {6}}
-%           child{node[level 3] (7) {7}}
-%         }
-%         child {node[level 2] (5) {5}}
-%       }
-%       child {node[level 1] (2) {2}};
-
-%     \begin{pgfonlayer}{background}
-%         \node [level 0, fit=(1) (6) (2)] {};
-%         \node [level 1, fit=(3) (5) (6) (7)] {};
-%         \node [level 2,fit=(4) (6) (7)] {};
-%     \end{pgfonlayer}
-% \end{tikzpicture}
-% \end{quote}
-
-%   In each step the current boxes can be compared by their size, sorted
-%   and positioned. In the figure above the boxes of one step are
-%   represented in the same color. 
+  The effect of the five queues is the following: If the edges of
+  priority $1$ span the whole graph, a spanning tree consisting solely
+  of these edges will be computed. However, if they do not, once we
+  have visited reachable using only priority 1 edges, we will extend
+  the spanning tree using a priority 2 edge; but then we once switch
+  back to using only priority 1 edges. If neither priority~1 nor
+  priority~2 edges suffice to cover the whole graph, priority~3 edges
+  are used, and so on.
   
-%   In the tree algorithm the boxes of each tree level are first sorted
-%   ascendingly by their size and then arranged as follows: The the
-%   biggest box is positioned in the middle. Then the following boxes are
-%   positioned alternately left and right. 
+  You can directly specify the priority of an edge using the following
+  edge parameter:
+  \begin{key}{/graph drawing/edge priority=\meta{number}}
+    \keyalias{tikz}\keyalias{tikz/graphs}
+    Sets the priority of the edge to \meta{number}, which must be
+    |1|, |2|, |3|, |4|, or  |5|.      
+  \end{key}
+  Remember that priority |1| edges are always preferred over other
+  edges. For this reason, there is the following key:
+  \begin{key}{/graph drawing/spanning tree edge}
+    \keyalias{tikz}\keyalias{tikz/graphs}
+    An easy-to-remember shorthand for |edge priority=1|. When this key
+    is used with an edge, it will always be preferred over other edges
+    when it comes to choosing which edges are part of the spanning tree.    
+  \end{key}
+  \begin{key}{/graph drawing/no spanning tree edge}
+    \keyalias{tikz}\keyalias{tikz/graphs}
+    An easy-to-remember shorthand for |edge priority=5|. This causes
+    the edge to be used only as a last resort as part of a spanning
+    tree. 
+  \end{key}
   
-%   After this arrangement the relative coordinates for the position of
-%   each box have to be computed. The \emph{y}-coordinate of a box (except
-%   for the root node of the step) are determined by the maximum height of
-%   all boxes to guarantee a uniform layout of the tree. Nodes on the same
-%   level in the tree are positioned at the same height. The
-%   \emph{x}-coordinate of a box depends on the coordinates of its left
-%   neighbour box and an additional spacing (by default 10pt), which can
-%   be influenced by the |sibling distance| key. The \emph{y}-coordinate
-%   of the root node of each step is set to the maximum \emph{y}-value of
-%   the other boxes adding the same spacing meantioned above (by default
-%   10pt, influenced by |level distance|). Its \emph{x}-coordinate is
-%   determined by the width of the other boxes divided by 2. This means
-%   the root node is positioned in the middle above the other boxes. 
-  
-%   Because each box knows its root node, it is possible to determine the
-%   absolute position of each box or node afterwards.  
-  
-%   At the end of the step the current boxes are added to a result box and
-%   returned. 
-%\end{gdalgorithm}
+  Instead of specifying priorities ``by hand'', you can also let them
+  be computed automatically. For all edges without an explicitly
+  specified priority the following key is used to determine it:
+  \begin{key}{/graph drawing/edge priority method=\meta{method}}
+    \keyalias{tikz}\keyalias{tikz/graphs}
+    There are currently the following choices for \meta{methods}:
+    \begin{itemize}
+    \item \declare{|forward first|} (this is the default method)
+      
+      For two nodes $u$ and $v$ connected by an edge $e$, this method
+      assigns the priority 2 to $e$ if it is a |->| edge from $u$
+      to~$v$; it assigns $3$ to all undirected and bidirected edges
+      (|--| and |<->| edges); and $4$ to all other edges (|<-| edges
+      and |->| edge from $v$ to $u$).
+
+      In practice, this means that the algorithm will favor
+      forward-going edges and whenever a spanning tree can be computed
+      using only the |->| edges, this spanning tree will be used. Only
+      when these edges no longer suffice to build a spanning tree, we
+      will also consider undirected or bidirected edges. The
+      ``backward'' edges are only used as a last resort.
+\begin{codeexample}[]
+\tikz \graph [tree layout, edge priority method=forward first]        
+{
+  1 -> 2 -> 3 -- 4, 2 -> 4;
+  a -- b -- c -> d, b --[bend right] d;
+};
+\end{codeexample}
+    \item \declare{|undirected first|}
+      
+      This method assigns priority 2 to |--| and |<->| edges,
+      priority~3 to |->| edges, and priority~4 to |<-| edges.
+\begin{codeexample}[]
+\tikz \graph [tree layout, edge priority method=undirected first]        
+{
+  1 -> 2 -> 3 -- 4, 2 -> [bend right] 4;
+  a -- b -- c -> d, b -- d;
+};
+\end{codeexample}
+      An interesting application of this method is in creating trees
+      where siblings are automatically connected by directed edges:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
+              edge priority method=undirected first,
+              every group/.style={
+                default edge kind=->,
+                path=source % connect every group as a path
+              }] 
+{
+  5 -- {
+    "1,3" -- {0,2,4},
+    11    -- {
+      "7,9" -- { 6, 8, 10 }
+    }
+  }
+};
+\end{codeexample}     
+      Note that in the above example, we could also have used the key
+      |no spanning tree edge| inside the |every group|. This would
+      also cause the added edges to be ignored:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
+              every group/.style={
+                default edge kind=->, no spanning tree edge,
+                path=source}] 
+{
+  5 -> {
+    "1,3" -> {0,2,4},
+    11    -> {
+      "7,9" -> { 6, 8, 10 }
+    }
+  }
+};
+\end{codeexample}     
+    \item \declare{|directed first|}
+      
+      Assigns priority 2 to directed edges that ``go along their
+      direction''. That is, for an edge between $u$ and $v$, we get
+      priority $2$ for |->|, for |<->|, and also for |<-|, but only
+      when going from $v$ to $u$. Undirected edges get priority~3, all
+      other edges get priority 4.
+
+      This strategy is nice with trees specified with both forward and
+      backward edges:
+\begin{codeexample}[]
+\tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
+              edge priority method=directed first]
+{
+  3 <- 5[root] -> 8,
+  1 <- 3 -> 4,
+  7 <- 8 -> 9,
+  1 -- 4 -- 7 -- 9
+};
+\end{codeexample}
+    \item \declare{|all the same|}
+      
+      Assigns priority 3 to all edges, meaning that they are ``all the same.''
+    \end{itemize}
+  \end{key}
+\end{gdalgorithm}
+
+\begin{gdalgorithm}{depth first spanning tree}{pgf.gd.trees.DepthFirst}
+  Works exactly like |depth first spanning tree| (same handling of
+  priorities by five queues), only the queues are now lifo instead of
+  fifo. 
+\end{gdalgorithm}
 
 
 %%% Local Variables: 

@@ -22,7 +22,7 @@ local DepthFirst = pgf.gd.new_algorithm_class {}
 require("pgf.gd.trees").DepthFirst = DepthFirst
 
 -- Imports
-local Simplifiers = require "pgf.gd.lib.Simplifiers"
+local SpanningTreeComputation = require "pgf.gd.trees.SpanningTreeComputation"
 
 
 --- Compute a spanning tree of a graph
@@ -34,7 +34,7 @@ local Simplifiers = require "pgf.gd.lib.Simplifiers"
 -- @param graph The graph for which the spanning tree should be computed 
 
 function DepthFirst:run ()
-  Simplifiers:computeSpanningTree(self.parent_algorithm, true)
+  SpanningTreeComputation:computeSpanningTree(self.parent_algorithm, true)
 end
 
 

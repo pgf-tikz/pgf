@@ -73,7 +73,12 @@ function LayoutPipeline:run(graph, algorithm_class)
 
     -- Compute a spanning tree, if necessary
     if algorithm_class.needs_a_spanning_tree then
-      lib.Simplifiers:runSpanningTreeAlgorithm(algorithm)
+      local spanning_algorithm_class = require(graph:getOption("/graph drawing/spanning tree algorithm"))
+      
+      local spanning_algorithm = spanning_algorithm_class:new(subgraph, algorithm)    
+      subgraph:registerAlgorithm(spanning_algorithm)
+      
+      spanning_algorithm:run()
     end
 
     if #subgraph.nodes > 1 or algorithm_class.run_also_for_single_node then
