@@ -10,8 +10,17 @@
 --- @release $Header$
 
 
-require("pgf.gd").layered = {}
+
+-- Imports
+
+require "pgf"
+require "pgf.gd"
+
+
+-- Declare namespace
+pgf.gd.examples = {}
+
 
 -- Done
 
-return pgf.gd.layered
+return pgf.gd.examples

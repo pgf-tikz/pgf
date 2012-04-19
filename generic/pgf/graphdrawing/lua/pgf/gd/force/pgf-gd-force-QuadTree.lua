@@ -21,19 +21,14 @@ local QuadTree = {
   Particle = {},
   Cell = {} 
 }
-
-
+QuadTree.__index = QuadTree
 
 -- Namespace:
-local force = require "pgf.gd.force"
-force.QuadTree = QuadTree
+require("pgf.gd.force").QuadTree = QuadTree
 
 -- Imports:
 local Vector = require "pgf.gd.lib.Vector"
 
-
--- Class setup
-QuadTree.__index = QuadTree
 
 
 --- Creates a new quad tree.

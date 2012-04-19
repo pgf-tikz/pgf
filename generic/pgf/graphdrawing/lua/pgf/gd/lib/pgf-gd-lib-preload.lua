@@ -23,3 +23,5 @@ require "pgf.gd.lib.Stack"
 require "pgf.gd.lib.Simplifiers"
 require "pgf.gd.lib.Vector"
 
+require "pgf.gd.lib.cleanupthisstuff"
+

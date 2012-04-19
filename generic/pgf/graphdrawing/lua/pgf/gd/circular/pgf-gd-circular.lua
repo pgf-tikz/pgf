@@ -10,8 +10,11 @@
 --- @release $Header$
 
 
-require("pgf.gd").layered = {}
+
+-- Declare namespace
+require("pgf.gd").circular = {}
+
 
 -- Done
 
-return pgf.gd.layered
+return pgf.gd.circular

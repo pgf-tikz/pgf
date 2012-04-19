@@ -36,14 +36,14 @@ is purely for convenience.) The |run| method should modify the
 coordinates of the nodes of its |graph| attribute.
 
 To simplify the creating of classes and constructors, the graph
-drawing engine provides the function |graph_drawing_algorithm|, which
+drawing engine provides the function |pgf.gd.new_algorithm_class|, which
 takes a table of infos about the algorithm as input and will create a
 class and a |new| method for you.
 
 As a complete example, the following code fragment implements a
 trivial graph drawing algorithm that just places all nodes on a
 fixed-size circle.  It is accessed with the name 
-|Simple Demo|.
+|SimpleDemo|.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
   radius/.graph parameter=evaluate math expression,
@@ -52,9 +52,9 @@ fixed-size circle.  It is accessed with the name
 }
 
 \begin{codeexample}[code only]
--- File pgfgd-algorithm-SimpleDemo.lua
+-- File SimpleDemo.lua
 
-graph_drawing_algorithm { name = "SimpleDemo" }
+local SimpleDemo = pgf.gd.new_algorithm_class {}
 
 function SimpleDemo:run()
   local radius = 28.908  -- this is 1cm in points
@@ -64,12 +64,17 @@ function SimpleDemo:run()
     self.graph.nodes[i].pos.y = radius * math.sin((i-1) * alpha)
   end
 end
+
+return SimpleDemo  
 \end{codeexample}
 
 The algorithm computes a circular layout like in the following.
 
-\begin{codeexample}[]
-\tikz [graph drawing scope, /graph drawing/algorithm=Simple Demo]
+\tikz [graph drawing scope, /graph drawing/algorithm=pgf.gd.examples.SimpleDemo]
+  \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
+
+\begin{codeexample}[code only]
+\tikz [graph drawing scope, /graph drawing/algorithm=SimpleDemo]
   \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
 \end{codeexample}
 
@@ -81,28 +86,17 @@ All of the graph drawing engine resides in the directory
 subdirectories:
 
 \begin{itemize}
-\item |core|, with the subdirectories |lualayer|, |basiclayer|, and |tikzlayer|.
-\item |algorithms|, with subdirectories for different kinds of graph
-  drawing algorithms.
+\item |tex|, with the \pgfname\ and \tikzname\ library files and
+\item |lua|, with all the Lua code, including both support files and
+  actual algorithms.
 \end{itemize}
 
-Since most of the graph drawing engine is written in Lua, Most of
-these directories contain only Lua code. Indeed, |core/basiclayer|
-just contains the \pgfname\ library |graphdrawing|, which implements
-the functionalities explained earlier in this section, and
-|core/tikzlayer| contains just the \tikzname\ library |graphdrawing|,
-which is about a single page of code. By far the largest part of the
-graph drawing library resides in the |core/lualayer| directory, where
-the supporting classes and files of the graph drawing engines are
-gathered.
+TODO: Details...
 
-The |algorithms| directory contains subdirectories for the different
-kinds of graph drawing algorithms. For instance, the |trees|
-subdirectory contains tree drawing algorithms and so on. Since graph
 drawing algorithms are implemented in Lua, these directories also
-contain mainly Lua files, which start with |pgfgd-algorithm-|, but
-they also contain a library file like the \pgfname\ library
-|graphdrawing.trees|. The job of this library is to make the graph
+contain mainly Lua files, ...
+
+The job of this library is to make the graph
 parameters of the algorithms visible to \pgfname, so this file
 typically just contains calls of |\pgfgddeclarealgorithmkey| and
 |\pgfgddeclareforwardedkeys|.
@@ -126,14 +120,14 @@ algorithm can be implemented and installed.
 
 First, before any graph drawing algorithms can be used, the graph
 drawing engine needs to be loaded. This is done by loading the
-\pgfname\ library |pgflibrarygraphdrawing.code.tex|. This will
+\pgfname\ library |pgflibrarygraphdrawing|. This will
 initialise the Lua graph drawing subsystem by invoking the Lua loader
 class.   
 
 In the most basic cases, no further \TeX\ code needs to be written to
 use a new graph drawing algorithm; but we will see later on, that a
 small entry in an appropriate \pgfname\ library of graph drawing
-algorithms will make the use of the algorithm somewhat simpler.\
+algorithms will make the use of the algorithm somewhat simpler.
 
 
 \subsubsection{Main File of the Graph Drawing Algorithm}
@@ -142,17 +136,8 @@ As indicated at in the description of the |algorithm| key on
 page~\ref{section-gd-algorithm-key}, each graph drawing algorithm  
 must be implemented in a class. The class name will be the value
 passed to the |algorithm| key, albeit without any spaces. This class
-is a normal class in the sense of Lua, but a special function called
-|graph_drawing_algorithm| is provided that makes the declaration of
-such classes easier (we will come to it in a moment). This class
-should typically be placed in a file called
-|pgfgd-algorithm-|\meta{algorithm name}, again with spaces
-ignored. ``Typically'' means that it is only 
-important that the class is already defined when the engine
-tries to invoke it or, when this is not the case, the file with the
-described name contains this function. You could also put several
-algorithms in a single file, but then you must ensure that loading of
-the file yourself.
+is a normal class in the sense of Lua and it will be loaded by calling
+|require| on the value. The class file must return the class.
 
 During |\pgfgdendscope|, the algorithm's class will be loaded, if
 necessary. Then, the following things happen, in turn, in normal
@@ -172,35 +157,34 @@ operation mode: (Let \meta{class} by the class name.)
   automatically, but it is possible to configure them.
 \end{enumerate}
 
+TODO: Work on this:
+
 Let us now look at the |graph_drawing_algorithm| function in more
 detail. It takes a single parameter \meta{info}, which must be a
 table, and does the following:
 
 \begin{enumerate}
-\item It switches to the namespace |pgf.graphdrawing|.
-\item It declares a new class whose name is given by the |name| key in
-  the \meta{info}.
-\item It declares a |new| method for this class, which takes a single
-  parameter |g| and returns a new \meta{instance} of the class. The
-  parameter will be installed in the attribute |graph| of
-  \meta{instance}. The |new| method tests whether a key called
+\item It declares a new class.
+\item It declares a |new| method for this class, which takes two
+  parameters |g| and |algo| and returns a new \meta{instance} of the
+  class. The first parameter will be installed in the attribute
+  |graph| of \meta{instance}, the second in the |parent_algorithm|
+  attribute. The |new| method tests whether a key called 
   |graph_options| is defined in the \meta{info} table. If so, the
   value for this key must be a table of \meta{options}. This table is
   processed as follows: For each pair \meta{key} |=| \meta{value}
   inside the \meta{options} table, an attribute \meta{key} is created
-  in \meta{instance}. Provided that \meta{value} is a string, the
-  \meta{key} of the \meta{instance} will be set to
+  in \meta{instance}. The \meta{value} may contain a \meta{type} at
+  the end in square brackets. If \meta{type} is |string|, then the
+  following happens:
   \begin{quote}
     |graph:getOption('/graph drawing/' .. |\meta{value}|)|
   \end{quote}
-  If, however, \meta{value} is an array, it should have two entries:
-  The first is, as above, a string that is the name of a graph
-  parameter. The second entry must be a function, which will be
-  applied to the result of the |getOption| function. Typically, this
-  function will be something like |tonumber| to convert the strings
-  that come from |getOption| into a number. The function |toboolean|
-  is defined as a convenience function; it tests whether its argument
-  is |'true'|.
+  For \meta{type} being |boolean|, the option is first converted to a
+  boolean, similarly for \meta{type} being |number|. For \meta{type}
+  being |algorithm| or |require| or |load|, the option must store the
+  name of a file. This file will be loaded using |require| and the
+  result is stored in the key.
 \item If the key |properties| is defined inside the \meta{info} table,
   its value should be table of ``static'' or ``default'' values for
   the class. More precisely, this table is used as the metatable of
@@ -211,11 +195,8 @@ Let us have a look at an example: We redo our |SimpleDemo|, but this
 time using the full power of the |graph_drawing_algorithm| function:
 
 \begin{codeexample}[code only]
-graph_drawing_algorithm {
+local SimpleDemo = pgf.gd.new_algorithm_class = {
   
-  -- Declare the name of the key (required key):
-  name = "SimpleDemo",
-
   -- Declare a property:
   properties = {
     -- Ensures, that the graph is always connected when the graph
@@ -225,17 +206,15 @@ graph_drawing_algorithm {
 
   -- Declare a graph parameter:
   graph_parameters = {
-    label  = 'label',
-    radius = {'radius', tonumber}
+    label  = 'label [string]',
+    radius = 'radius [number]',
   }
 }
 \end{codeexample}
 
 The code is equivalent to the following:
 \begin{codeexample}[code only]
-pgf.module("pgf.graphdrawing")
-
-SimpleDemo = { works_only_on_connected_graphs = true }
+local SimpleDemo = { works_only_on_connected_graphs = true }
 SimpleDemo.__index = SimpleDemo
 
 function SimpleDemo:new(g)
@@ -311,30 +290,22 @@ nodes on a fixed-size circle.
 
 
 \begin{codeexample}[code only]
--- File pgfgd-algorithm-simple-demo.lua
-  
-graph_drawing_algorithm { name = "SimpleDemo" }
+local SimpleDemo = pgf.gd.new_algorithm_class {}
 
 function SimpleDemo:run()
-   local radius = 28.908  -- this is 1cm in points
-   local nodeCount = table.count_pairs(self.graph.nodes)
+  local radius = 28.908  -- this is 1cm in points
+  local nodeCount = table.count_pairs(self.graph.nodes)
 
-   local alpha = (2 * math.pi) / nodeCount
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      node.pos.x = radius * math.cos(i * alpha)
-      node.pos.y = radius * math.sin(i * alpha)
-   end
+  local alpha = (2 * math.pi) / nodeCount
+  for i,node in ipairs(self.graph.nodes) do
+    -- the interesting part...
+    node.pos.x = radius * math.cos(i * alpha)
+    node.pos.y = radius * math.sin(i * alpha)
+  end
 end
+
+return SimpleDemo
 \end{codeexample}
-
-The algorithm computes a circular layout like in the following:
-
-\begin{codeexample}[]
-\tikz [graph drawing scope, /graph drawing/algorithm=Simple Demo]
-  \graph { f -> c -> e ->[bend right] a -> {b -> {c, d, f}, e -> b}};
-\end{codeexample}
-
 
 
 \subsubsection{Setting Up a Key for Selecting the Algorithm}
@@ -348,7 +319,7 @@ that calls the above keys. For instance, you could create a small
 \begin{codeexample}[code only]
 \tikzset{circle layout/.style={
     graph drawing scope,
-    /graph drawing/algorithm=Simple Demo}}
+    /graph drawing/algorithm=SimpleDemo}}
 \end{codeexample}
 
 However, there is a better command for this:
@@ -358,12 +329,12 @@ However, there is a better command for this:
 \pgfgddeclarealgorithmkey
 {circle layout}
 {circle layout}
-{algorithm=Simple Demo}
+{algorithm=SimpleDemo}
 \end{codeexample}
 \pgfgddeclarealgorithmkey
 {circle layout}
 {circle layout}
-{algorithm=Simple Demo}
+{algorithm=pgf.gd.examples.SimpleDemo}
 
 The |\pgfgddeclarealgorithmkey| takes care of setting up your style
 key in appropriate ways (including some ways you will not have thought
@@ -412,23 +383,18 @@ can be seen in the following example:
 
 Since graph parameters are used quite frequently, there is special
 support for them: In the declaration of class via
-|graph_drawing_algorithm|, you can provide a key
+|pgf.gd.new_algorithm_class|, you can provide a key
 |graph_parameters|. This key will take a table of key--value pairs,
 where the key is interpreted as an attribute of the algorithm object
-and the value is either a string or an array. If it is a string, it is
-interpreted as the name of a graph parameter (without the
-|/graph drawing/| part of the path) and the attribute will be setup to
-the value of this graph parameter. If it is an array, the first entry
-must be this name of the graph parameter and the second entry is a
-function that is applied to the graph parameter prior to storing it in
-the attribute. For our example, we would write:
+and the value is a string possibly suffixed by a type of the parameter
+in square brackets. The string is interpreted as the name of a graph
+parameter (without the |/graph drawing/| part of the path) and the
+attribute will be setup to the value of this graph parameter, possibly
+after a typecast. For our example, we would write:
 
 \begin{codeexample}[code only]
-graph_drawing_algorithm {
-  name = "SimpleDemo",
-  graph_parameters = {
-    radius = { "radius", tonumber }
-  }
+local SimpleDemo = pgf.gd.new_algorithm_class {
+  graph_parameters = { radius = "radius [number]" }
 }
 \end{codeexample}
 In the main program, we can now write |self.radius|.
@@ -443,14 +409,15 @@ key, which allows us to change the radius of a single node. For this,
 we check for a node whether its radius key is set:
 
 \begin{codeexample}[code only]
--- In pgfgf-algorithm-SimpleExample.lua:
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      local node_radius = tonumber(node:getOption('/graph drawing/node radius')
-                                   or self.radius)
-      node.pos.x = node_radius * math.cos(i * alpha)
-      node.pos.y = node_radius * math.sin(i * alpha)
-   end
+-- In SimpleDemo.lua:
+
+  for i,node in ipairs(self.graph.nodes) do
+    -- the interesting part...
+    local node_radius = tonumber(node:getOption('/graph drawing/node radius')
+                                 or self.radius)
+    node.pos.x = node_radius * math.cos(i * alpha)
+    node.pos.y = node_radius * math.sin(i * alpha)
+  end
    
 % In pgflibrarygraphdrawing.circle.code.tex
 \pgfgddeclareforwardedkeys{/graph drawing}{
@@ -468,27 +435,24 @@ we check for a node whether its radius key is set:
 
 Here is the complete code of the final algorithm:
 \begin{codeexample}[code only]
--- File pgfgd-algorithm-simple-demo.lua
+-- File SimpleDemo.lua
 
-graph_drawing_algorithm {
-  name = "SimpleDemo",
-  graph_parameters = {
-    radius = "radius"
-  }
+local SimpleDemo = pgf.gd.new_algorithm_class {
+  graph_parameters = { radius = "radius [number]" }
 }
 
 function SimpleDemo:run()
-   local nodeCount = table.count_pairs(self.graph.nodes)
-
-   local alpha = (2 * math.pi) / nodeCount
-   for i,node in ipairs(self.graph.nodes) do
-      -- the interesting part...
-      local node_radius = tonumber(node:getOption('/graph drawing/node radius')
-                                   or self.radius)
-      node.pos.x = node_radius * math.cos(i * alpha)
-      node.pos.y = node_radius * math.sin(i * alpha)
-   end
+  local alpha = (2 * math.pi) / #self.graph.nodes
+  for i,node in ipairs(self.graph.nodes) do
+    -- the interesting part...
+    local node_radius = tonumber(node:getOption('/graph drawing/node radius')
+                                 or self.radius)
+    node.pos.x = node_radius * math.cos(i * alpha)
+    node.pos.y = node_radius * math.sin(i * alpha)
+  end
 end
+   
+return SimpleDemo  
 \end{codeexample}
 
 \begin{codeexample}[code only]
@@ -497,7 +461,7 @@ end
 \pgfgddeclarealgorithmkey
   {circle layout}
   {circle layout}
-  {algorithm=Simple Demo}
+  {algorithm=SimpleDemo}
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
   radius/.graph parameter=evaluate math expression,
@@ -718,122 +682,5 @@ function.
 %\input{generated/pgflibrarygraphdrawing-helper}
 %\input{generated/pgflibrarygraphdrawing-table-helpers}
 %\input{generated/pgflibrarygraphdrawing-iter-helpers}
-
-
-
-
-\subsection{Lua Layer: The Module System}
-  
-The graph drawing engine defines its own Lua module system, which is
-characterised by a more dynamic view on importing symbols.  Basically,
-each module has a set of imported modules and the lookup for names
-first happens in the local scope, then in the current module and
-subsequently in all imported modules.  Since no name is statically
-imported, newly assigned variables in other modules are still visible
-when those were previously imported.
-
-Modules are accessed with the |pgf.module| call, which enables the
-module for the current context, that is, the current file. If a module
-does not exist, it will be created.  Importing modules is done via
-|pgf.import|.  Both functions accept a string argument for the
-module name.
-
-Modules are named hierarchically and defined modules are exported into
-each parent module.  If the module name contains no period, it is
-exported into the global environment.  Nevertheless, importing is only
-done on request; importing a module twice does not do anything.
-It is recommended to dedicate a single module definition file
-to create it and import other modules.  For example, the graph drawing
-engine contains a single file containing only the following two lines for
-creating the |pgf.graphdrawing| module in the first place.
-
-\begin{codeexample}[code only]
-pgf.module("pgf.graphdrawing")
-pgf.import("pgf")
-\end{codeexample}
-
-Symbol lookup first happens in the local namespace, then in the
-current module and subsequently in all imported modules and the global
-namespace.  Assignment of new variables happens in the current module
-(or for variables declared |local| in the local namespace).  If you
-need to assign values to the global environment use the special table
-|_G| as you'd normally do in Lua.
-
-The |pgf| module is created during the definition of the module system
-and mostly contains functions for loading and debugging.  Developers
-probably shouldn't touch the |pgf| namespace and instead add new
-functionality to modules below this level or in new top-level
-modules.
-
-Let us see what consequences this module system has in practice.  The
-following code fragment starts from a clean state after rendering it
-with \LuaTeX\ and then enters the |pgf.graphdrawing| module,
-overwriting the global |pgf| binding and then again reverting this
-change.
-
-\begin{codeexample}[code only]
-\usetikzlibrary{graphdrawing}
-
-\directlua{
-  pgf.graphdrawing.Sys:log("1: pgf is " .. tostring(pgf))
-  pgf.graphdrawing.Sys:log("1: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf.module("pgf.graphdrawing")
-  
-  Sys:log("2: pgf is " .. tostring(pgf))
-  Sys:log("2: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf = 1
-  
-  Sys:log("3: pgf is " .. tostring(pgf))
-  Sys:log("3: graphdrawing is " .. tostring(graphdrawing))
-  
-  pgf = nil
-  
-  Sys:log("4: pgf is " .. tostring(pgf))
-  
-  pgf.graphdrawing = nil
-  
-  Sys:log("5: pgf is " .. tostring(pgf))
-  
-  _G.pgf = nil
-  
-  Sys:log("6: pgf is " .. tostring(pgf))
-}
-\end{codeexample}
-
-The result will be as follows:
-
-\begin{codeexample}[code only]
-1: pgf is <module 'pgf', table: 0x7979600>
-1: graphdrawing is nil
-
-2: pgf is <module 'pgf', table: 0x7979600>
-2: graphdrawing is <module 'pgf.graphdrawing', table: 0x7973c60>
-
-3: pgf is 1
-3: graphdrawing is <module 'pgf.graphdrawing', table: 0x7973c60>
-
-4: pgf is <module 'pgf', table: 0x7979600>
-5: pgf is <module 'pgf', table: 0x7979600>
-6: pgf is nil
-\end{codeexample}
-
-As you can see, the |pgf| table is available in the global environment
-and also after using the |pgf.graphdrawing| module, although we do not 
-refer to it with its full name.  Assigning a new value to |pgf|
-doesn't overwrite the global object, but introduces a local binding
-shadowing the global one. Assigning |nil| then removes the local
-binding, therefore in the next line the global variable is available
-again.
-
-Note that in all but the first case the binding to |graphdrawing|
-stays the same.  Also, using these assignments, you can't accidentally
-remove your access to the |pgf| or any imported modules as the last
-two assignments show (the |Sys:log| method still works).
-
-Every class and function of the graph drawing engine (except for
-module handling in |pgf|) is available in the |pgf.graphdrawing|
-module. 
 
 

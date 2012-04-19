@@ -23,7 +23,9 @@ local lib     = require "pgf.gd.lib"
 lib.Components = Components
 
 -- Imports
+
 local Cluster = require "pgf.gd.model.Cluster"
+local Node    = require "pgf.gd.model.Node"
 
 
 
@@ -175,7 +177,7 @@ local function prepare_bounding_boxes(nodes, angle, sep)
     local bb = {}
 
     local corners
-    if n.class == pgf.graphdrawing.Node then
+    if n.kind == "node" then
       corners = {
 	{ x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
 	{ x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
@@ -240,7 +242,7 @@ function Components:pack(graph, components)
     end
     for _,e in ipairs(c.edges) do
       for _,p in ipairs(e.bend_points) do
-	nodes [#nodes + 1] = pgf.graphdrawing.VirtualNode:new { pos = p }
+	nodes [#nodes + 1] = Node:new { pos = p, kind = "dummy" }
       end
     end
     c[vnodes] = nodes

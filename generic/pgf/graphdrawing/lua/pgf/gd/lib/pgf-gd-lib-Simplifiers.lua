@@ -21,10 +21,11 @@ local Simplifiers = {}
 local lib     = require "pgf.gd.lib"
 lib.Simplifiers = Simplifiers
 
+
 -- Imports
-local AlgorithmLoader = require "pgf.gd.control.AlgorithmLoader"
 
-
+local Edge            = require "pgf.gd.model.Edge"
+local Node            = require "pgf.gd.model.Node"
 
 
 
@@ -47,8 +48,7 @@ local AlgorithmLoader = require "pgf.gd.control.AlgorithmLoader"
 
 function Simplifiers:runSpanningTreeAlgorithm(parent_algorithm)
 
-  local spanning_algorithm_class = AlgorithmLoader:subalgorithmClass(
-    parent_algorithm.graph:getOption("/graph drawing/spanning tree algorithm"):gsub(' ', ''))
+  local spanning_algorithm_class = require(parent_algorithm.graph:getOption("/graph drawing/spanning tree algorithm"))
 
   local spanning_algorithm = spanning_algorithm_class:new(parent_algorithm.graph, parent_algorithm)    
   parent_algorithm.graph:registerAlgorithm(spanning_algorithm)
@@ -288,7 +288,7 @@ function Simplifiers:computeSpanningTree (algorithm, dfs)
 	end
 	for i=1,needed do
 	  if not new_children[i] then
-	    new_children[i] = pgf.graphdrawing.VirtualNode:new{ [algorithm] = { children = {} } }
+	    new_children[i] = Node:new{ [algorithm] = { children = {} }, kind = "dummy" }
 	  end
 	end	
 
@@ -494,7 +494,7 @@ function Simplifiers:collapseMultiedges(algorithm, collapse_action)
 
       if not node_processed[neighbour] then
         if not multiedge[neighbour] then
-          multiedge[neighbour] = pgf.graphdrawing.Edge:new{ direction = pgf.graphdrawing.Edge.RIGHT }
+          multiedge[neighbour] = Edge:new{ direction = Edge.RIGHT }
           collapsed_edges[multiedge[neighbour]] = {}
         end
 

@@ -19,6 +19,7 @@
 
 local TeXInterface = {
   graph = nil,
+  scopes = {},
   parameter_defaults = {},
   tex_boxes = {},
   verbose = false
@@ -30,7 +31,11 @@ local control = require "pgf.gd.control"
 control.TeXInterface = TeXInterface
 
 -- Imports
-local model = require "pgf.gd.model"
+local Cluster = require "pgf.gd.model.Cluster"
+local LayoutPipeline = require "pgf.gd.control.LayoutPipeline"
+local Node = require "pgf.gd.model.Node"
+local Graph = require "pgf.gd.model.Graph"
+local Edge = require "pgf.gd.model.Edge"
 
 
 -- Parses a string with |{key}{value}| pairs and returns a table
@@ -120,7 +125,7 @@ end
 function TeXInterface:newGraph(options)
   assert (not self.graph, "Already drawing a graph")
 
-  self.graph = pgf.graphdrawing.Graph:new()
+  self.graph = Graph:new()
   for k,v in pairs(parse_braces(options)) do
     self.graph.options [k] = v
   end
@@ -169,7 +174,7 @@ function TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, options,
     minY = yMin,
     late_setup = lateSetup
   }
-  local node = pgf.graphdrawing.Node:new{
+  local node = Node:new{
     name = string.sub(name, string.len("not yet positionedPGFINTERNAL") + 1),
     tex = tex, 
     options = parse_braces(options),
@@ -221,7 +226,7 @@ function TeXInterface:addEdge(from, to, direction, parameters, tikz_options, aux
   local from_node = self.graph:findNode(from)
   local to_node = self.graph:findNode(to)
   assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
-  if direction ~= pgf.graphdrawing.Edge.NONE then
+  if direction ~= Edge.NONE then
     local edge = self.graph:createEdge(from_node, to_node, direction, aux, parse_braces(parameters), tikz_options)
     edge.event_index = #self.graph.events + 1
     self.graph.events[#self.graph.events + 1] = { kind = 'edge', parameters = edge }
@@ -256,7 +261,7 @@ function TeXInterface:addNodeToCluster(node_name, cluster_name)
 
   -- if it doesn't exist yet, create it on demand
   if not cluster then
-    cluster = model.Cluster:new(cluster_name)
+    cluster = Cluster:new(cluster_name)
     self.graph:addCluster(cluster)
   end
 
@@ -283,12 +288,12 @@ function TeXInterface:runGraphDrawingAlgorithm()
     return
   end
   
-  local algorithm_class = control.AlgorithmLoader:algorithmClass(self.graph:getOption("/graph drawing/algorithm"))
+  local algorithm_class = require(self.graph:getOption("/graph drawing/algorithm"))
 
   local start = os.clock()
   -- Ok, everything setup.
   
-  control.LayoutPipeline:run(self.graph, algorithm_class)
+  LayoutPipeline:run(self.graph, algorithm_class)
   
   local stop = os.clock()
 
@@ -417,27 +422,17 @@ end
 
 function TeXInterface:log(...)
   if self.verbose then
+    texio.write_nl("")
+    -- this is to even print out nil arguments in between
+    local args = {...}
+    for i = 1, table.getn(args) do
+      if i ~= 1 then texio.write(" ") end
+      texio.write(tostring(args[i]))
+    end
+    texio.write_nl("")
     self:debug(...)
   end
 end
-
---- Writes log messages to the \TeX\ output, separating the parameters
--- by spaces, regardless of any settings of the verbose parameter.
---
--- @param ... List of parameters to write to the \TeX\ output.
-
-function TeXInterface:debug(...)
-   texio.write_nl("")
-   -- this is to even print out nil arguments in between
-   local args = {...}
-   for i = 1, table.getn(args) do
-      if i ~= 1 then texio.write(" ") end
-      texio.write(tostring(args[i]))
-   end
-   texio.write_nl("")
-end
-
-
 
 
 -- Done 
