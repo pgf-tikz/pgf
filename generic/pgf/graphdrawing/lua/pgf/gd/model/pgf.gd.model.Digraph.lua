@@ -77,10 +77,7 @@ local Arc = require "pgf.gd.model.Arc"
 -- @return A newly-allocated digraph.
 --
 function Graph:new(initial_vertices)
-  local vertices = {}
-  local digraph = {
-    vertices = vertices
-  }
+  local digraph = { vertices = {} }
   setmetatable(digraph, Digraph)
   if initial_vertices then 
     digraph:addMany(initial_vertices)
@@ -200,8 +197,7 @@ end
 -- end
 --
 -- Note, however, that you should not call this command repeatedly,
--- because it is expensive. Store the result in a local variable. You
--- should only call it after the set of arcs has been modified.
+-- because it is expensive. Store the result in a local variable.
 --
 -- This operation takes time $O(|V| + |E|)$.
 --
@@ -244,15 +240,13 @@ function Digraph:connect(s, t)
     setmetatable(arc, Arc)
 
     -- Insert into outgoing:
-    local num = #s_outgoing + 1
-    s_outgoing [num] = arc
-    s_outgoing [t]   = arc
+    s_outgoing [#s_outgoing + 1] = arc
+    s_outgoing [t] = arc
 
     local t_incoming = assert(t[self], "target node not in graph").incoming
     -- Insert into incoming:
-    num = #t_incoming + 1
-    t_incoming [num] = arc
-    t_incoming [s]   = arc
+    t_incoming [#t_incoming + 1] = arc
+    t_incoming [s] = arc
   end
 
   return arc
@@ -411,14 +405,14 @@ end
 
 
 
---- Creates private tables for the graph and its vertices.
+--- Create private tables for the graph and its vertices.
 --
--- "Private tables" are tables that are available in each node and arc
+-- "Private tables" are tables that are available in each vertex and arc
 -- of a graph (and also at the graph itself), indexed through a
 -- "private" key, normally the key of a special table. The idea is
 -- that, say, an algorithm will work on a graph and wishes to store
 -- some information at the vertices. For instance, a depth-first
--- search will often which to store information like "this vertex is
+-- search might wish to store information like "this vertex is
 -- marked" at a vertex. One could store this information simply in a
 -- field like v.marked. However, a different algorithm might also use
 -- this field, leading to confusion. To avoid this, an algorithm can
@@ -503,4 +497,4 @@ end
 
 -- Done
 
-return Diraph
+return Digraph
