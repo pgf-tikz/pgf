@@ -49,7 +49,7 @@
 --   index: The index of the node inside the vertices array of g.
 --   incoming: A table storing the arcs pointing to the vertex (each
 --    arc is stored twice, once at an array position and once at the
---    source vertex).
+--    tail vertex).
 --   outgoing: Same as incoming, only for the outgoing arcs.
 
 local Digraph = {}
@@ -76,7 +76,7 @@ local Arc = require "pgf.gd.model.Arc"
 --
 -- @return A newly-allocated digraph.
 --
-function Graph:new(initial_vertices)
+function Digraph:new(initial_vertices)
   local digraph = { vertices = {} }
   setmetatable(digraph, Digraph)
   if initial_vertices then 
@@ -149,13 +149,13 @@ end
 --
 --  This operation takes time $O(1)$.
 --
--- @param s The source vertex
--- @param t The target vertex
+-- @param s The tail vertex
+-- @param t The head vertex
 --
 -- @return The arc object connecting them
 --
 function Digraph:arc(s, t)
-  return assert(s[self], "source vertex not in graph").outgoing[t]
+  return assert(s[self], "tail vertex not in graph").outgoing[t]
 end
 
 
@@ -168,7 +168,7 @@ end
 -- @param s The vertex
 --
 -- @return An array of all outgoing arcs of this vertex (all arcs
--- whose source is the vertex)
+-- whose tail is the vertex)
 --
 function Digraph:outgoing(v)
   return assert(v[self], "vertex not in graph").outgoing
@@ -223,33 +223,49 @@ end
 --
 -- This operation takes time $O(1)$.
 --
--- @param s The source vertex
--- @param t The target vertex (may be identical to s in case of a
+-- @param s The tail vertex
+-- @param t The head vertex (may be identical to s in case of a
 --          loop)
 --
 -- @return The arc object connecting them (either newly created or
 --         already existing)
 --
 function Digraph:connect(s, t)
-  local s_outgoing = assert(s[self], "source node not in graph").outgoing
+  local s_outgoing = assert(s[self], "tail node not in graph").outgoing
   local arc = s_outgoing[t]
 
   if not arc then
     -- Ok, create and insert new arc object
-    arc = { s = s, t = t }
+    arc = { tail = s, head = t }
     setmetatable(arc, Arc)
 
     -- Insert into outgoing:
     s_outgoing [#s_outgoing + 1] = arc
     s_outgoing [t] = arc
 
-    local t_incoming = assert(t[self], "target node not in graph").incoming
+    local t_incoming = assert(t[self], "head node not in graph").incoming
     -- Insert into incoming:
     t_incoming [#t_incoming + 1] = arc
     t_incoming [s] = arc
   end
 
   return arc
+end
+
+
+--- Connect all nodes in the first list with all nodes in the second list.
+--
+-- This operation takes time $O(|L_1| |L_2|)$, where the $L_i$ are the lists..
+--
+-- @param s A list of tail vertices
+-- @param t A list of head vertices.
+
+function Digraph:connectMany(s, t)
+  for i=1,#s do
+    for j=1,#t do
+      self:connect(s[i],t[j])
+    end
+  end
 end
 
 
@@ -263,27 +279,27 @@ end
 -- t. For a single vertex x, it takes time $O(\sum_{y: there is some
 -- arc between x and y or y and x} |I_y|)$.
 --
--- @param s The single vertex or the source vertex
--- @param t The target vertex
+-- @param s The single vertex or the tail vertex
+-- @param t The head vertex
 --
 function Digraph:disconnect(v, t)
   if t then
     -- Case 2: Remove a single arc.
-    local s_outgoing = assert(v[self], "source node not in graph").outgoing
-    local t_incoming = assert(t[self], "target node not in graph").incoming
+    local s_outgoing = assert(v[self], "tail node not in graph").outgoing
+    local t_incoming = assert(t[self], "head node not in graph").incoming
 
     if s_outgoing[t] then
       -- Remove:
       s_outgoing[t] = nil
       for i=1,#s_outgoing do
-	if s_outgoing[i] == t then
+	if s_outgoing[i].head == t then
 	  table.remove (s_outgoing, i)
 	  break
 	end
       end
-      t_incoming[s] = nil
+      t_incoming[v] = nil
       for i=1,#t_incoming do
-	if t_incoming[i] == s then
+	if t_incoming[i].tail == v then
 	  table.remove (t_incoming, i)
 	  break
 	end
@@ -298,14 +314,14 @@ function Digraph:disconnect(v, t)
     local vertices = self.vertices
 
     for i=1,#incoming do
-      local s = incoming[i].s
+      local s = incoming[i].tail
       local s_info = s[self]
       if s ~= v and vertices[s_info.index] then -- skip self-loop and to-be-deleted nodes
 	-- Remove this arc from s:
 	local s_outgoing = s_info.outgoing
 	s_outgoing[v] = nil
 	for i=1,#s_outgoing do
-	  if s_outgoing[i] == v then
+	  if s_outgoing[i].head == v then
 	    table.remove (s_outgoing, i)
 	    break
 	  end
@@ -316,19 +332,23 @@ function Digraph:disconnect(v, t)
     -- Step 2: Delete all outgoing arcs:
     local outgoing = info.outgoing
     for i=1,#outgoing do
-      local t = outgoing[i].t
+      local t = outgoing[i].head
       local t_info = t[self]
       if t ~= v and vertices[t_info.index] then
 	local t_incoming = t[self].incoming
 	t_incoming[v] = nil
 	for i=1,#t_incoming do
-	  if t_incoming[i] == v then
+	  if t_incoming[i].tail == v then
 	    table.remove (t_incoming, i)
 	    break
 	  end
 	end
       end
     end
+
+    -- Step 3: Reset incoming and outgoing fields
+    info.incoming = {}
+    info.outgoing = {}
   end
 end
 
@@ -432,7 +452,7 @@ end
 -- @param A private key (must be a table).
 
 function Digraph:privateVertexTables(private)
-  assert(private.type == "table", "private keys must be tables")
+  assert(type(private) == "table", "private keys must be tables")
 
   self[private] = self[private] or {}
 
@@ -457,7 +477,7 @@ end
 -- @param A private key (must be a table).
 
 function Digraph:privateArcTables(private)
-  assert(private.type == "table", "private keys must be tables")
+  assert(type(private) == "table", "private keys must be tables")
 
   self[private] = self[private] or {}
 
@@ -476,20 +496,25 @@ end
 
 --- Returns a string representation of this graph including all nodes and edges.
 --
--- @return Graph as string.
+-- @return Digraph as string.
 --
 function Digraph:__tostring()
   local vstrings = {}
+  local astrings = {}
   for i,v in ipairs(self.vertices) do
     vstrings[i] = tostring(v)
+    local out_arcs = v[self].outgoing
+    if #out_arcs > 0 then
+      local t = {}
+      for j,a in ipairs(out_arcs) do
+	t[j] = tostring(a.head)
+      end
+      astrings[#astrings + 1] = "  " .. vstrings[i] .. " -> { " .. table.concat(t,", ") .. " }"
+    end
   end
-  local astrings = {}
-  for i,a in ipairs(self:arcs()) do
-    astrings[i] = tostring(a)
-  end
-  return "graph [id=" .. tostring(self.vertices) .. "] {" ..
-    table.concat(vstrings, ", ") .. "; " .. 
-    table.concat(astrings, ", ") .. "}";
+  return "graph [id=" .. tostring(self.vertices) .. "] {\n  { " ..
+    table.concat(vstrings, ", ") .. " }; \n" .. 
+    table.concat(astrings, ";\n") .. "\n}";
 end
 
 
