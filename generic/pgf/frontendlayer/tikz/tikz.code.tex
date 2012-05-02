@@ -475,7 +475,6 @@
 
 % Pin options
 \tikzset{
-  pin/.code={\pgfutil@ifnextchar[{\tikz@parse@pin}{\tikz@parse@pin[]}#1:\pgf@nil},%}
   pin distance/.store in=\tikz@pin@distance,
   pin distance=3ex,
   pin position/.store in=\tikz@pin@default@pos,
@@ -489,29 +488,86 @@
   }%
 }
 
-\long\def\tikz@parse@pin[#1]#2:#3\pgf@nil{%
+\tikzset{%
+  pin/.code={%
+    \begingroup
+      \ifnum\the\catcode`\:=\active\relax
+        \def\tikz@next{%
+          \endgroup
+          \tikz@parse@pin@active@i{#1}}%
+      \else
+        \def\tikz@next{%
+          \endgroup
+          \pgfutil@ifnextchar[%]
+            {\tikz@parse@pin@nonactive}
+            {\tikz@parse@pin@nonactive[]}#1:\pgf@nil}%
+      \fi
+    \tikz@next}}
+
+\begingroup
+  \catcode`\:=\active\relax
+
+  \gdef\tikz@parse@pin@active@i#1{%
+    \pgfutil@ifnextchar[%]
+      {\tikz@parse@pin@active}
+      {\tikz@parse@pin@active[]}#1:\pgf@nil}
+  
+  \long\gdef\tikz@parse@pin@active[#1]#2:#3\pgf@nil{%
+    \def\tikz@temp{#3}%
+    \ifx\tikz@temp\pgfutil@empty
+      % no position, use default
+      \tikz@@parse@pin@active[#1]\tikz@pin@default@pos:#2:\pgf@nil%
+    \else
+      \tikz@@parse@pin@active[#1]#2:#3\pgf@nil%
+    \fi}
+
+  \long\gdef\tikz@@parse@pin@active[#1]#2:#3:\pgf@nil{%
+    \tikzset{%
+      append after command = {%
+        \bgroup
+          [current point is local = true]
+          \pgfextra{\let\tikz@save@last@node=\tikzlastnode}%
+          node [every pin,
+                tikz@label@angle = #2,
+                #1,
+                append after command = {%
+                  (\tikz@save@last@node) 
+                  edge [every pin edge,
+                        tikz@pre@pin@edge,
+                        tikz@pin@options] 
+                  (\tikzlastnode)},
+                tikz@label@post = \tikz@pin@distance,
+                tikz@pin@post] {#3}
+        \egroup}}}
+\endgroup
+
+\long\def\tikz@parse@pin@nonactive[#1]#2:#3\pgf@nil{%
   \def\tikz@temp{#3}%
-  \ifx\tikz@temp\pgfutil@empty%
+  \ifx\tikz@temp\pgfutil@empty
     % no position, use default
-    \tikz@@parse@pin[#1]\tikz@pin@default@pos:#2:\pgf@nil%
-  \else%
-    \tikz@@parse@pin[#1]#2:#3\pgf@nil%
-  \fi%
-}
+    \tikz@@parse@pin@nonactive[#1]\tikz@pin@default@pos:#2:\pgf@nil%
+  \else
+    \tikz@@parse@pin@nonactive[#1]#2:#3\pgf@nil%
+  \fi}
 
-\long\def\tikz@@parse@pin[#1]#2:#3:\pgf@nil{%
-  \tikzset{append after command={%
-    \bgroup
-      [current point is local=true]
-      \pgfextra{\let\tikz@save@last@node=\tikzlastnode}%
-      node [every pin,tikz@label@angle=#2,#1,%
-            append after command={(\tikz@save@last@node) edge[every pin edge,tikz@pre@pin@edge,tikz@pin@options] (\tikzlastnode)},
-            tikz@label@post=\tikz@pin@distance,tikz@pin@post]
-        {#3}
-    \egroup%
-  }}
-}
-
+\long\def\tikz@@parse@pin@nonactive[#1]#2:#3:\pgf@nil{%
+  \tikzset{%
+    append after command = {%
+      \bgroup
+        [current point is local = true]
+        \pgfextra{\let\tikz@save@last@node=\tikzlastnode}%
+        node [every pin,
+              tikz@label@angle = #2,
+              #1,
+              append after command = {%
+                (\tikz@save@last@node) 
+                edge [every pin edge,
+                      tikz@pre@pin@edge,
+                      tikz@pin@options] 
+                (\tikzlastnode)},
+              tikz@label@post = \tikz@pin@distance,
+              tikz@pin@post] {#3}
+      \egroup}}}
 
 % Label and pin options
 
