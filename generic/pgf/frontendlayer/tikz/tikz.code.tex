@@ -516,7 +516,6 @@
 % Label and pin options
 
 \tikzset{
-  label/.code={\pgfutil@ifnextchar[{\tikz@parse@label}{\tikz@parse@label[]}#1:\pgf@nil},%}
   label distance/.store in=\tikz@label@distance,
   label distance=0pt,
   label position/.store in=\tikz@label@default@pos,
@@ -583,36 +582,86 @@
   
 \newif\iftikz@label@simple%
 
-\def\tikz@parse@label[#1]#2:#3\pgf@nil{%
-  \def\tikz@temp{#3}%
-  \ifx\tikz@temp\pgfutil@empty%
+\tikzset{%
+  label/.code={%
+    \begingroup
+      \ifnum\the\catcode`\:=\active\relax
+        \def\tikz@next{%
+          \endgroup
+          \tikz@parse@label@active@i{#1}}%
+      \else
+        \def\tikz@next{%
+          \endgroup
+          \pgfutil@ifnextchar[%]
+            {\tikz@parse@label@nonactive}
+            {\tikz@parse@label@nonactive[]}#1:\pgf@nil}%
+      \fi
+    \tikz@next}}
+
+\begingroup
+  \catcode`\:=\active\relax
+
+  \gdef\tikz@parse@label@active@i#1{%
+    \pgfutil@ifnextchar[%]
+      {\tikz@parse@label@active}
+      {\tikz@parse@label@active[]}#1:\pgf@nil}
+    
+  \gdef\tikz@parse@label@active[#1]#2:#3\pgf@nil{%
+    \def\tikz@temp{#3}%
+    \ifx\tikz@temp\pgfutil@empty
     % no position, use default
-    \tikz@@parse@label[#1]\tikz@label@default@pos:#2:\pgf@nil%
-  \else%
+      \tikz@@parse@label@active[#1]\tikz@label@default@pos:#2:\pgf@nil%
+    \else
+      \def\tikz@temp{#2}%
+      \ifx\tikz@temp\pgfutil@empty
+        \tikz@@parse@label@active[#1]\tikz@label@default@pos:#3\pgf@nil%
+      \else
+        \tikz@@parse@label@active[#1]#2:#3\pgf@nil%
+      \fi
+    \fi
+  }
+
+  \gdef\tikz@@parse@label@active[#1]#2:#3:\pgf@nil{%
+    \tikzset{%
+      append after command = {%  
+        \bgroup
+          [current point is local=true]
+          \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name}
+          node [every label, 
+                tikz@label@angle = #2,
+                #1,
+                tikz@label@post = \tikz@label@distance] {#3}
+          \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
+        \egroup}}}
+\endgroup
+
+\def\tikz@parse@label@nonactive[#1]#2:#3\pgf@nil{%
+  \def\tikz@temp{#3}%
+  \ifx\tikz@temp\pgfutil@empty
+    % no position, use default
+    \tikz@@parse@label@nonactive[#1]\tikz@label@default@pos:#2:\pgf@nil%
+  \else
     \def\tikz@temp{#2}%
-    \ifx\tikz@temp\pgfutil@empty%
-      \tikz@@parse@label[#1]\tikz@label@default@pos:#3\pgf@nil%
-    \else%
-      \tikz@@parse@label[#1]#2:#3\pgf@nil%
-    \fi%
-  \fi%
+    \ifx\tikz@temp\pgfutil@empty
+      \tikz@@parse@label@nonactive[#1]\tikz@label@default@pos:#3\pgf@nil%
+    \else
+      \tikz@@parse@label@nonactive[#1]#2:#3\pgf@nil%
+    \fi
+  \fi
 }
 
-\def\tikz@@parse@label[#1]#2:#3:\pgf@nil{%
-  \tikzset{append after command={  
-    \bgroup
-    [current point is local=true]
-    \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name}%
-    node
-    [every label,%
-    tikz@label@angle=#2,%
-    #1,%
-    tikz@label@post=\tikz@label@distance]%
-    {#3}%
-    \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}%
-    \egroup%
-  }}
-}
+\def\tikz@@parse@label@nonactive[#1]#2:#3:\pgf@nil{%
+  \tikzset{%
+    append after command = {%  
+      \bgroup
+        [current point is local=true]
+        \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name}
+        node [every label, 
+              tikz@label@angle = #2,
+              #1,
+              tikz@label@post = \tikz@label@distance] {#3}
+        \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
+      \egroup}}}
 
 \expandafter\def\csname tikz@label@angle@is@right\endcsname{\def\tikz@label@angle{0}}
 \expandafter\def\csname tikz@label@angle@is@above right\endcsname{\def\tikz@label@angle{45}}
