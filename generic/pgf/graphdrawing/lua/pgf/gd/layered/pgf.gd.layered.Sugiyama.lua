@@ -17,13 +17,14 @@ local Sugiyama = pgf.gd.new_algorithm_class {
     works_only_on_connected_graphs = true,
     works_only_for_loop_free_graphs = true,
     growth_direction = 90,
+    old_graph_model = true,
   },
   graph_parameters = {
-    cycle_removal_algorithm         = 'layered layout/cycle removal [algorithm]',
-    node_ranking_algorithm          = 'layered layout/node ranking [algorithm]',
-    crossing_minimization_algorithm = 'layered layout/crossing minimization [algorithm]',
-    node_positioning_algorithm      = 'layered layout/node positioning [algorithm]',
-    edge_routing_algorithm          = 'layered layout/edge routing [algorithm]',
+    cycle_removal_algorithm         = '/graph drawing/layered layout/cycle removal',
+    node_ranking_algorithm          = '/graph drawing/layered layout/node ranking',
+    crossing_minimization_algorithm = '/graph drawing/layered layout/crossing minimization',
+    node_positioning_algorithm      = '/graph drawing/layered layout/node positioning',
+    edge_routing_algorithm          = '/graph drawing/layered layout/edge routing',
   }
 }
 
@@ -65,31 +66,31 @@ function Sugiyama:run()
 
   self:mergeClusters()
   
-  lib.Simplifiers:removeLoops(cluster_subalgorithm)
-  lib.Simplifiers:collapseMultiedges(cluster_subalgorithm, collapse)
+  lib.Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
+  lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
 
-  self.cycle_removal_algorithm:new(self, self.graph):run()
-  self.ranking = self.node_ranking_algorithm:new(self, self.graph):run()
+  require(self.cycle_removal_algorithm).new(self, self.graph):run()
+  self.ranking = require(self.node_ranking_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 
-  lib.Simplifiers:expandMultiedges(cluster_subalgorithm)
-  lib.Simplifiers:restoreLoops(cluster_subalgorithm)
+  lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
+  lib.Simplifiers:restoreLoopsOldModel(cluster_subalgorithm)
 
   self:expandClusters()
   
   -- Now do actual computation
-  lib.Simplifiers:collapseMultiedges(cluster_subalgorithm, collapse)
-  self.cycle_removal_algorithm:new(self, self.graph):run()
+  lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
+  require(self.cycle_removal_algorithm).new(self, self.graph):run()
   self:insertDummyNodes()
   
   -- Main algorithm
-  self.crossing_minimization_algorithm:new(self, self.graph, self.ranking):run()
-  self.node_positioning_algorithm:new(self, self.graph, self.ranking):run()
+  require(self.crossing_minimization_algorithm).new(self, self.graph, self.ranking):run()
+  require(self.node_positioning_algorithm).new(self, self.graph, self.ranking):run()
   
   -- Cleanup
   self:removeDummyNodes()
-  lib.Simplifiers:expandMultiedges(cluster_subalgorithm)
-  self.edge_routing_algorithm:new(self, self.graph):run()
+  lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
+  require(self.edge_routing_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 end
 
@@ -99,8 +100,8 @@ function Sugiyama:preprocess()
   -- initialize edge parameters
   for edge in table.value_iter(self.graph.edges) do
     -- read edge parameters
-    edge.weight = tonumber(edge:getOption('/graph drawing/layered layout/weight'))
-    edge.minimum_levels = tonumber(edge:getOption('/graph drawing/layered layout/minimum levels'))
+    edge.weight = edge:getOption('/graph drawing/layered layout/weight')
+    edge.minimum_levels = edge:getOption('/graph drawing/layered layout/minimum levels')
 
     -- validate edge parameters
     assert(edge.minimum_levels >= 0, 'the edge ' .. tostring(edge) .. ' needs to have a minimum levels value greater than or equal to 0')
@@ -132,10 +133,11 @@ function Sugiyama:insertDummyNodes()
         for i=1,dist-1 do
           local rank = self.ranking:getRank(neighbour) + i
 
-          local dummy = Node:new{
-            pos = lib.Vector:new(),
+          local dummy = Node.new{
+            pos = lib.Vector.new(),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
 	    kind = "dummy",
+	    orig_vertex = pgf.gd.model.Vertex.new{}
           }
 
           dummy_id = dummy_id + 1
@@ -157,7 +159,7 @@ function Sugiyama:insertDummyNodes()
           local source = dummies[i-1]
           local target = dummies[i]
 
-          local dummy_edge = Edge:new{
+          local dummy_edge = Edge.new{
             direction = Edge.RIGHT, 
             reversed = false,
             weight = edge.weight, -- TODO or should we divide the weight of the original edge by the number of virtual edges?
@@ -239,7 +241,7 @@ function Sugiyama:mergeClusters()
     local head = edge:getHead()
 
     if self.cluster_node[tail] or self.cluster_node[head] then
-      local cluster_edge = Edge:new{
+      local cluster_edge = Edge.new{
         direction = Edge.RIGHT,
         weight = edge.weight,
         minimum_levels = edge.minimum_levels,
@@ -266,7 +268,7 @@ function Sugiyama:mergeClusters()
     local first_node = self.cluster_nodes[n]
     local second_node = self.cluster_nodes[n+1]
 
-    local edge = Edge:new{
+    local edge = Edge.new{
       direction = Edge.RIGHT,
       weight = 1,
       minimum_levels = 1,

@@ -26,18 +26,19 @@ local SpringHu2006 = pgf.gd.new_algorithm_class {
     works_only_on_connected_graphs = true,
     works_only_for_loop_free_graphs = true,
     works_only_for_simple_graphs = true,
+    old_graph_model = true,
   },
   graph_parameters = {
-    iterations = 'spring layout/iterations [number]',
-    cooling_factor = 'spring layout/cooling factor [number]',
-    initial_step_length = 'spring layout/initial step dimension [number]',
-    convergence_tolerance = 'spring layout/convergence tolerance [number]',
+    iterations = '/graph drawing/spring layout/iterations',
+    cooling_factor = '/graph drawing/spring layout/cooling factor',
+    initial_step_length = '/graph drawing/spring layout/initial step dimension',
+    convergence_tolerance = '/graph drawing/spring layout/convergence tolerance',
 
-    natural_spring_length = 'node distance [number]',
+    natural_spring_length = '/graph drawing/node distance',
    
-    coarsen = 'spring layout/coarsen [boolean]',
-    downsize_ratio = 'spring layout/coarsening/downsize ratio [number]',
-    minimum_graph_size = 'spring layout/coarsening/minimum graph size [number]',
+    coarsen = '/graph drawing/spring layout/coarsen',
+    downsize_ratio = '/graph drawing/spring layout/coarsening/downsize ratio',
+    minimum_graph_size = '/graph drawing/spring layout/coarsening/minimum graph size',
   }
 }
 
@@ -88,7 +89,7 @@ function SpringHu2006:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
-  local coarse_graph = CoarseGraph:new(self.graph)
+  local coarse_graph = CoarseGraph.new(self.graph)
 
   -- check if the multilevel approach should be used
   if self.coarsen then
@@ -187,7 +188,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local direction = Vector.new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
@@ -250,7 +251,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
 	-- vector for the displacement of v
-	local d = Vector:new(2)
+	local d = Vector.new(2)
 	
 	for u in table.value_iter(graph.nodes) do
 	  if v ~= u then
@@ -322,13 +323,9 @@ function SpringHu2006:fixateNodes(graph)
     local coordinate = node:getOption('/graph drawing/desired at')
 
     if coordinate then
-      -- parse the coordinate
-      local coordinate_pattern = '{([%d.-]+)}{([%d.-]+)}'
-      local x, y = coordinate:gmatch(coordinate_pattern)()
-      
       -- apply the coordinate
-      node.pos.x = tonumber(x)
-      node.pos.y = tonumber(y)
+      node.pos.x = coordinate[1]
+      node.pos.y = coordinate[2]
 
       -- mark the node as fixed
       node.fixed = true

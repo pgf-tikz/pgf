@@ -24,9 +24,17 @@ lib.Components = Components
 
 -- Imports
 
-local Cluster = require "pgf.gd.model.Cluster"
-local Node    = require "pgf.gd.model.Node"
+local Digraph    = require "pgf.gd.model.Digraph"
+local Coordinate = require "pgf.gd.model.Coordinate"
+local Vertex     = require "pgf.gd.model.Vertex"
+local Arc        = require "pgf.gd.model.Arc"
 
+local Transform  = require "pgf.gd.lib.Transform"
+
+
+-- Collectors
+local point_cloud = {}
+Arc.pointCloudCollector(point_cloud)
 
 
 --- Decompose a graph into its components
@@ -35,7 +43,7 @@ local Node    = require "pgf.gd.model.Node"
 --
 -- @return An array of graph objects that represent the connected components of the graph. 
 
-function Components:decompose (graph)
+function Components:decompose (digraph)
 
   -- The list of connected components (node sets)
   local components = {}
@@ -43,79 +51,63 @@ function Components:decompose (graph)
   -- Remember, which graphs have already been visited
   local visited = {}
   
-  for i,n in ipairs(graph.nodes) do
-    if not visited[n] then
+  for _,v in ipairs(digraph.vertices) do
+    if not visited[v] then
       -- Start a depth-first-search of the graph, starting at node n:
-      local stack = { n }
-      local nodes = {}
+      local stack = { v }
+      local component = Digraph.new {
+	syntactic_digraph = digraph.syntactic_digraph,
+	options = digraph.options
+      }
       
       while #stack >= 1 do
 	local tos = stack[#stack]
 	stack[#stack] = nil -- pop
 	
 	if not visited[tos] then
-	  -- Visit pos:
-	  nodes[#nodes+1] = tos
-	  visited[tos] = true
 	  
-	  for _,e in ipairs(tos.edges) do
-	    for _,neighbor in ipairs(e.nodes) do
-	      if not visited[neighbor] then
-		stack[#stack+1] = neighbor
-	      end
+	  -- Visit pos:
+	  component:add { tos }
+	  visited[tos] = true
+
+	  -- Push all unvisited neighbors:
+	  for _,a in ipairs(digraph:incoming(tos)) do
+	    local neighbor = a.tail
+	    if not visited[neighbor] then
+	      stack[#stack+1] = neighbor -- push
+	    end
+	  end
+	  for _,a in ipairs(digraph:outgoing(tos)) do
+	    local neighbor = a.head
+	    if not visited[neighbor] then
+	      stack[#stack+1] = neighbor -- push
 	    end
 	  end
 	end
       end
       
-      -- Ok, nodes will now contain all vertices reachable from n.
-      components[#components+1] = nodes
+      -- Ok, vertices will now contain all vertices reachable from n.
+      components[#components+1] = component
     end
   end
   
-  -- Case 1: Only one components -> do not do anything
   if #components < 2 then
-    return { graph }
+    return { digraph }
   end
   
-  -- Case 2: Multiple components
-  local graphs = {}
-  
-  for i = 1,#components do
-    -- Build a graph containing only the nodes in the components
-    local subgraph = graph:copy()
-    
-    subgraph.nodes = components[i]
-    
-    for _,c in ipairs(graph.clusters) do
-      local new_c = Cluster:new(c:getName())
-      subgraph:addCluster(new_c)
-      for _,n in ipairs(c.nodes) do
-	if subgraph:findNode(n.name) then
-	  new_c:addNode(n)
-	end
+  for _,c in ipairs(components) do
+    table.sort (c.vertices, function (u,v) return u.event_index < v.event_index end)
+    for _,v in ipairs(c.vertices) do
+      for _,a in ipairs(digraph:outgoing(v)) do
+	c:connect(a.tail, a.head)
+      end
+      for _,a in ipairs(digraph:incoming(v)) do
+	c:connect(a.tail, a.head)
       end
     end
-    
-    -- add edges
-    local edges = {}
-    for _,n in ipairs(subgraph.nodes) do
-      for _,e in ipairs(n.edges) do
-	edges[e] = true
-      end
-    end
-    
-    for e in pairs(edges) do
-      subgraph.edges[#subgraph.edges + 1] = e
-    end
-    
-    table.sort (subgraph.nodes, function (a, b) return a.index < b.index end)
-    table.sort (subgraph.edges, function (a, b) return a.index < b.index end)
-    
-    graphs[#graphs + 1] = subgraph
   end
   
-  return graphs
+  return components
 end
 
 
@@ -128,12 +120,10 @@ end
 -- to change...) whose name is the graph option /graph
 -- drawing/component order. 
 --
--- @param graph A graph
+-- @param component_order An ordering method
 -- @param subgraphs A list of to-be-sorted subgraphs
 
-function Components:sort(graph, subgraphs)
-  local component_order = graph:getOption('/graph drawing/component order')
-
+function Components:sort(component_order, subgraphs)
   if component_order then
     local f = Components.component_ordering_functions[component_order]
     if f then
@@ -150,18 +140,18 @@ end
 Components.component_ordering_functions = {
   ["increasing node number"] = 
     function (g,h) 
-      if #g.nodes == #h.nodes then
-	return g.nodes[1].index < h.nodes[1].index
+      if #g.vertices == #h.vertices then
+	return g.vertices[1].event_index < h.vertices[1].event_index
       else
-	return #g.nodes < #h.nodes 
+	return #g.vertices < #h.vertices 
       end
     end,
   ["decreasing node number"] = 
     function (g,h) 
-      if #g.nodes == #h.nodes then
-	return g.nodes[1].index < h.nodes[1].index
+      if #g.vertices == #h.vertices then
+	return g.vertices[1].event_index < h.vertices[1].event_index
       else
-	return #g.nodes > #h.nodes 
+	return #g.vertices > #h.vertices 
       end
     end,
   ["by first specified node"] = nil,
@@ -170,49 +160,44 @@ Components.component_ordering_functions = {
 
 
 
-local function prepare_bounding_boxes(nodes, angle, sep)
-
-  for _,n in ipairs(nodes) do
-    -- Fill the bounding box field,
-    local bb = {}
-
-    local corners
-    if n.kind == "node" then
-      corners = {
-	{ x = n.tex.minX + n.pos.x, y = n.tex.minY + n.pos.y },
-	{ x = n.tex.minX + n.pos.x, y = n.tex.maxY + n.pos.y },
-	{ x = n.tex.maxX + n.pos.x, y = n.tex.minY + n.pos.y },
-	{ x = n.tex.maxX + n.pos.x, y = n.tex.maxY + n.pos.y },
-      }
-    else
-      corners = { {x = n.pos.x, y = n.pos.y} }
-    end
+local function compute_rotated_bb(vertices, angle, sep, store)
+  
+  local r = Transform.new_rotation(-angle)
+  
+  for _,v in ipairs(vertices) do
+    -- Find the rotated bounding box field,
+    local t = Transform.concat(r,Transform.new_shift(v.pos.x, v.pos.y))
+    
+    local min_x = math.huge
+    local max_x = -math.huge
+    local min_y = math.huge
+    local max_y = -math.huge
 	
-    bb.min_x = math.huge
-    bb.max_x = -math.huge
-    bb.min_y = math.huge
-    bb.max_y = -math.huge
-	
-    for i=1,#corners do
-      local x =  corners[i].x*math.cos(angle) + corners[i].y*math.sin(angle)
-      local y = -corners[i].x*math.sin(angle) + corners[i].y*math.cos(angle)
+    for i=1,#v.hull do
+      local c = v.hull[i]:clone()
+      c:apply(t)
       
-      bb.min_x = math.min (bb.min_x, x)
-      bb.max_x = math.max (bb.max_x, x)
-      bb.min_y = math.min (bb.min_y, y)
-      bb.max_y = math.max (bb.max_y, y)
+      min_x = math.min (min_x, c.x)
+      max_x = math.max (max_x, c.x)
+      min_y = math.min (min_y, c.y)
+      max_y = math.max (max_y, c.y)
     end
 
     -- Enlarge by sep:
-    bb.min_x = bb.min_x - sep
-    bb.max_x = bb.max_x + sep
-    bb.min_y = bb.min_y - sep
-    bb.max_y = bb.max_y + sep
+    min_x = min_x - sep
+    max_x = max_x + sep
+    min_y = min_y - sep
+    max_y = max_y + sep
     
-    bb.center_x =  n.pos.x*math.cos(angle) + n.pos.y*math.sin(angle)
-    bb.center_y = -n.pos.x*math.sin(angle) + n.pos.y*math.cos(angle)
-
-    n.component_info = bb
+    local center = v.hull_center:clone()
+    
+    center:apply(t)
+    
+    v.storage[store].min_x = min_x
+    v.storage[store].max_x = max_x
+    v.storage[store].min_y = min_y
+    v.storage[store].max_y = max_y
+    v.storage[store].c_y = center.y
   end
 end
 
@@ -226,28 +211,31 @@ end
 -- @param graph The graph
 -- @param components A list of components
 
-function Components:pack(graph, components)
+function Components:pack(syntactic_digraph, components)
+
+  local store = {} -- Unique id
   
   -- Step 1: Preparation, rotation to target direction
-  local sep = tonumber(graph:getOption('/graph drawing/component sep'))
-  local angle = tonumber(graph:getOption('/graph drawing/component direction'))/180*math.pi
-
-  local vnodes = {} -- This is just a "unique index".
-
+  local sep = syntactic_digraph.options['/graph drawing/component sep']
+  local angle = syntactic_digraph.options['/graph drawing/component direction']/180*math.pi
+  
+  local mark = {}
   for _,c in ipairs(components) do
+    
     -- Setup the lists of to-be-considered nodes
-    local nodes = {}
-    for _,n in ipairs(c.nodes) do
-      nodes [#nodes + 1] = n
+    local vertices = {}
+    for _,v in ipairs(c.vertices) do
+      vertices [#vertices + 1] = v
     end
-    for _,e in ipairs(c.edges) do
-      for _,p in ipairs(e.bend_points) do
-	nodes [#nodes + 1] = Node:new { pos = p, kind = "dummy" }
+
+    for _,a in ipairs(c.arcs) do
+      for _,p in ipairs(a[point_cloud]) do
+	vertices [#vertices + 1] = Vertex.new { pos = p, kind = "dummy" }
       end
     end
-    c[vnodes] = nodes
+    c.storage[store] = vertices
 
-    prepare_bounding_boxes(c[vnodes], angle, sep/2)
+    compute_rotated_bb(vertices, angle, sep/2, store)
   end
   
   local x_shifts = { 0 }
@@ -259,14 +247,17 @@ function Components:pack(graph, components)
     local max_center_y = -math.huge
     local min_min_y = math.huge
     local min_center_y = math.huge
-    for _,n in ipairs(c.nodes) do
-      max_max_y = math.max(n.component_info.max_y, max_max_y)
-      max_center_y = math.max(n.component_info.center_y, max_center_y)
-      min_min_y = math.min(n.component_info.min_y, min_min_y)
-      min_center_y = math.min(n.component_info.center_y, min_center_y)
+    
+    for _,v in ipairs(c.vertices) do
+      local info = v.storage[store]
+      max_max_y = math.max(info.max_y, max_max_y)
+      max_center_y = math.max(info.c_y, max_center_y)
+      min_min_y = math.min(info.min_y, min_min_y)
+      min_center_y = math.min(info.c_y, min_center_y)
     end
     
-    local valign = graph:getOption('/graph drawing/component align')
+    -- Compute alignment line
+    local valign = syntactic_digraph.options['/graph drawing/component align']
     local line
     if valign == "counterclockwise bounding box" then
       line = max_max_y
@@ -277,27 +268,28 @@ function Components:pack(graph, components)
     elseif valign == "clockwise" then
       line = min_center_y
     elseif valign == "first node" then
-      line = c.nodes[1].component_info.center_y
+      line = c.vertices[1].storage[store].c_y
     else 
       line = min_min_y
     end
-
-    for _,n in ipairs(c.nodes) do
-      if n:getOption('/graph drawing/align here') then
-	line = n.component_info.center_y
+    
+    -- Overruled?
+    for _,v in ipairs(c.vertices) do
+      if v.options['/graph drawing/align here'] then
+	line = v.storage[store].c_y
 	break
       end
     end
-    
+
+    -- Ok, go!
     y_shifts[i] = -line
 
     -- Adjust nodes:
-    for _,n in ipairs(c[vnodes]) do
-      local bb = n.component_info
-      bb.min_y = bb.min_y - line
-      bb.max_y = bb.max_y - line
-      bb.center_y = bb.center_y - line
-      n.component_info = bb
+    for _,v in ipairs(c.storage[store]) do
+      local info = v.storage[store]
+      info.min_y = info.min_y - line
+      info.max_y = info.max_y - line
+      info.c_y = info.c_y - line
     end
   end
 
@@ -305,10 +297,11 @@ function Components:pack(graph, components)
   local y_values = {}
 
   for _,c in ipairs(components) do
-    for _,n in ipairs(c[vnodes]) do
-      y_values[#y_values+1] = n.component_info.min_y
-      y_values[#y_values+1] = n.component_info.max_y
-      y_values[#y_values+1] = n.component_info.center_y
+    for _,v in ipairs(c.storage[store]) do
+      local info = v.storage[store]
+      y_values[#y_values+1] = info.min_y
+      y_values[#y_values+1] = info.max_y
+      y_values[#y_values+1] = info.c_y
     end
   end
   
@@ -320,15 +313,18 @@ function Components:pack(graph, components)
     y_ranks[y_values[i]] = i
     right_face[i] = -math.huge
   end
+
+  
   
   for i=1,#components-1 do
     -- First, update right_face:
     local touched = {}
-    for _,n in ipairs(components[i][vnodes]) do
-      local bb = n.component_info
-      local border = bb.max_x
+    
+    for _,v in ipairs(components[i].storage[store]) do
+      local info = v.storage[store]      
+      local border = info.max_x
       
-      for i=y_ranks[bb.min_y],y_ranks[bb.max_y] do
+      for i=y_ranks[info.min_y],y_ranks[info.max_y] do
 	touched[i] = true
 	right_face[i] = math.max(right_face[i], border)
       end
@@ -352,7 +348,7 @@ function Components:pack(graph, components)
 	    break
 	  end
 	end
-	right_face[i] = interpolate
+	right_face[i] = math.max(interpolate,right_face[i])
       end
       right_max = math.max(right_max, right_face[i])
     end
@@ -363,11 +359,11 @@ function Components:pack(graph, components)
     for i=1,#y_values do
       left_face[i] = math.huge
     end
-    for _,n in ipairs(components[i+1][vnodes]) do
-      local bb = n.component_info
-      local border = bb.min_x
+    for _,v in ipairs(components[i+1].storage[store]) do
+      local info = v.storage[store]
+      local border = info.min_x
 
-      for i=y_ranks[bb.min_y],y_ranks[bb.max_y] do
+      for i=y_ranks[info.min_y],y_ranks[info.max_y] do
 	touched[i] = true
 	left_face[i] = math.min(left_face[i], border)
       end
@@ -399,7 +395,7 @@ function Components:pack(graph, components)
     -- Now, compute the shift.
     local shift = -math.huge
 
-    if graph:getOption('/graph drawing/component packing') == "rectangular" then
+    if syntactic_digraph.options['/graph drawing/component packing'] == "rectangular" then
       shift = right_max - left_min
     else
       for i=1,#y_values do
@@ -409,29 +405,28 @@ function Components:pack(graph, components)
     
     -- Adjust nodes:
     x_shifts[i+1] = shift
-    for _,n in ipairs(components[i+1][vnodes]) do
-      local bb = n.component_info
-      bb.min_x = bb.min_x + shift
-      bb.max_x = bb.max_x + shift
-      bb.center_x = bb.center_x + shift
-      n.component_info = bb
+    for _,v in ipairs(components[i+1].storage[store]) do
+      local info = v.storage[store]
+      info.min_x = info.min_x + shift
+      info.max_x = info.max_x + shift
     end
   end
   
   -- Now, rotate shifts
   for i,c in ipairs(components) do
-    local x =  x_shifts[i]*math.cos(-angle) + y_shifts[i]*math.sin(-angle)
-    local y = -x_shifts[i]*math.sin(-angle) + y_shifts[i]*math.cos(-angle)
+    local x =  x_shifts[i]*math.cos(angle) - y_shifts[i]*math.sin(angle)
+    local y =  x_shifts[i]*math.sin(angle) + y_shifts[i]*math.cos(angle)
     
-    for _,n in ipairs(c[vnodes]) do
-      n.pos.x = n.pos.x + x
-      n.pos.y = n.pos.y + y
+    for _,v in ipairs(c.storage[store]) do
+      v.pos.x = v.pos.x + x
+      v.pos.y = v.pos.y + y
     end
-
-    -- Done...
-    c[vnodes] = nil
   end
 end
+
+
+
+
 
 
 -- Done

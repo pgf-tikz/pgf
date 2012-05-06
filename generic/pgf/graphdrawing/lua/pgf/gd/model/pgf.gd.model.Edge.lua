@@ -54,7 +54,7 @@ Edge.NONE = "-!-"
 --
 -- @return A newly-allocated edge.
 --
-function Edge:new(values)
+function Edge.new(values)
   local defaults = {
     nodes = {},
     edge_nodes = '',
@@ -308,7 +308,7 @@ end
 -- @return Shallow copy of the edge.
 --
 function Edge:copy()
-  local result = table.custom_copy(self, Edge:new())
+  local result = table.custom_copy(self, Edge.new())
   result.nodes = {}
   return result
  end

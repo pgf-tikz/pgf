@@ -23,6 +23,8 @@ local NodeDistances = {}
 local lib     = require "pgf.gd.lib"
 lib.NodeDistances = NodeDistances
 
+-- Imports
+local Options = require "pgf.gd.control.Options"
 
 
 --- Compute the ideal distance between two siblings
@@ -40,22 +42,22 @@ function NodeDistances:idealSiblingDistance (algorithm, graph, n1, n2)
   local n2_is_node = n2.kind == "node"
 
   if not n1_is_node and not n2_is_node then
-    ideal_distance = tonumber(graph:getOption('/graph drawing/sibling distance'))
-    sep =   tonumber(graph:getOption('/graph drawing/sibling post sep'))
-          + tonumber(graph:getOption('/graph drawing/sibling pre sep'))
+    ideal_distance = graph.options['/graph drawing/sibling distance']
+    sep =   graph.options['/graph drawing/sibling post sep']
+          + graph.options['/graph drawing/sibling pre sep']
   else
     if n1_is_node then
-      ideal_distance = tonumber(n1:getOption('/graph drawing/sibling distance', graph))
+      ideal_distance = Options.lookup('/graph drawing/sibling distance', n1, graph)
     else
-      ideal_distance = tonumber(n2:getOption('/graph drawing/sibling distance', graph))
+      ideal_distance = Options.lookup('/graph drawing/sibling distance', n2, graph)
     end
-    sep =   tonumber(n1_is_node and n1:getOption('/graph drawing/sibling post sep', graph) or 0)
-          + tonumber(n2_is_node and n2:getOption('/graph drawing/sibling pre sep', graph) or 0)
+    sep =   (n1_is_node and Options.lookup('/graph drawing/sibling post sep', n1, graph) or 0)
+          + (n2_is_node and Options.lookup('/graph drawing/sibling pre sep', n2, graph) or 0)
   end
   
   return math.max(ideal_distance, sep + 
-		  ((n1_is_node and n1[algorithm].adjusted_bounding_box.sibling_post) or 0) -
-  		  ((n2_is_node and n2[algorithm].adjusted_bounding_box.sibling_pre) or 0))
+		  ((n1_is_node and n1.storage[algorithm].sibling_post) or 0) -
+  		  ((n2_is_node and n2.storage[algorithm].sibling_pre) or 0))
 end
 
 
@@ -92,20 +94,17 @@ function NodeDistances:baselineDistance (algorithm, graph, l1, l2)
   local min_pre = math.huge
 
   for _,n in ipairs(l1) do
-    layer_distance = math.max(layer_distance,
-			      tonumber(n:getOption('/graph drawing/level distance', graph)))
-    layer_post_sep = math.max(layer_post_sep,
-			      tonumber(n:getOption('/graph drawing/level post sep', graph)))
+    layer_distance = math.max(layer_distance, Options.lookup('/graph drawing/level distance', n, graph))
+    layer_post_sep = math.max(layer_post_sep, Options.lookup('/graph drawing/level post sep', n, graph))
     if n.kind == "node" then
-      max_post = math.max(max_post, n[algorithm].adjusted_bounding_box.layer_post)
+      max_post = math.max(max_post, n.storage[algorithm].layer_post)
     end
   end
 
   for _,n in ipairs(l2) do
-    layer_pre_sep = math.max(layer_pre_sep,
-			     tonumber(n:getOption('/graph drawing/level pre sep', graph)))
+    layer_pre_sep = math.max(layer_pre_sep, Options.lookup('/graph drawing/level pre sep', n, graph))
     if n.kind == "node" then
-      min_pre = math.min(min_pre, n[algorithm].adjusted_bounding_box.layer_pre)
+      min_pre = math.min(min_pre, n.storage[algorithm].layer_pre)
     end
   end
   
@@ -122,29 +121,34 @@ end
 function NodeDistances:arrangeLayersByBaselines (algorithm, graph)
 
   local layers = {}
+  local olayers = {}
   
   -- Decompose into layers:
   for _,n in ipairs(graph.nodes) do
     local y = n[algorithm].y
     if not layers[y] then
       layers[y] = {}
+      olayers[y] = {}
     end
-    table.insert(layers[y], n)
+    table.insert(layers[y], n.orig_vertex)
+    table.insert(olayers[y], n)
   end
   
   if #layers > 0 then -- sanity check
     -- Now compute ideal distances and store
     local height = 0
 
-    for _,n in ipairs(layers[1]) do
+    for j,n in ipairs(layers[1]) do
       n.pos.y = 0
+      olayers[1][j].pos.y = 0
     end
     
     for i=2,#layers do
-      height = height + self:baselineDistance(algorithm, graph, layers[i-1], layers[i])
+      height = height + self:baselineDistance(algorithm, graph.orig_digraph, layers[i-1], layers[i])
 
-      for _,n in ipairs(layers[i]) do
+      for j,n in ipairs(layers[i]) do
 	n.pos.y = height 
+	olayers[i][j].pos.y = height
       end
     end
   end

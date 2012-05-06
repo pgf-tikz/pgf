@@ -29,7 +29,7 @@ model.Cluster = Cluster
 
 --- TODO Jannis: Add documentation for this class.
 --
-function Cluster:new(name)
+function Cluster.new(name)
   local cluster = {
     name = name,
     nodes = {},

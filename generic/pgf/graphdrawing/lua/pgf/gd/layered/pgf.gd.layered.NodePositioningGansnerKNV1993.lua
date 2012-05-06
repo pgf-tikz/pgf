@@ -36,7 +36,7 @@ local NetworkSimplex = require "pgf.gd.layered.NetworkSimplex"
 
 
 
-function NodePositioningGansnerKNV1993:new(main_algorithm, graph, ranking)
+function NodePositioningGansnerKNV1993.new(main_algorithm, graph, ranking)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,
@@ -50,7 +50,7 @@ end
 function NodePositioningGansnerKNV1993:run()
   local auxiliary_graph = self:constructAuxiliaryGraph()
 
-  local simplex = NetworkSimplex:new(auxiliary_graph, NetworkSimplex.BALANCE_LEFT_RIGHT)
+  local simplex = NetworkSimplex.new(auxiliary_graph, NetworkSimplex.BALANCE_LEFT_RIGHT)
   simplex:run()
   local x_ranking = simplex.ranking
 
@@ -72,12 +72,12 @@ end
 
 function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
 
-  local aux_graph = Graph:new()
+  local aux_graph = Graph.new()
 
   local edge_node = {}
 
   for node in table.value_iter(self.graph.nodes) do
-    local copy = Node:new{
+    local copy = Node.new{
       name = node.name,
       orig_node = node,
     }
@@ -86,7 +86,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
   end
 
   for edge in table.reverse_value_iter(self.graph.edges) do
-    local node = Node:new{
+    local node = Node.new{
       name = '{' .. tostring(edge) .. '}',
     }
 
@@ -98,7 +98,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
     local head = edge:getHead()
     local tail = edge:getTail()
 
-    local tail_edge = Edge:new{
+    local tail_edge = Edge.new{
       direction = Edge.RIGHT,
       minimum_levels = 0,
       weight = edge.weight * self:getOmega(edge),
@@ -107,7 +107,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
     tail_edge:addNode(tail.aux_node)
     aux_graph:addEdge(tail_edge)
 
-    local head_edge = Edge:new{
+    local head_edge = Edge.new{
       direction = Edge.RIGHT,
       minimum_levels = 0,
       weight = edge.weight * self:getOmega(edge),
@@ -124,7 +124,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
       local v = nodes[n]
       local w = nodes[n+1]
 
-      local separator_edge = Edge:new{
+      local separator_edge = Edge.new{
         direction = Edge.RIGHT,
         minimum_levels = math.ceil(self:getDesiredHorizontalDistance(v, w)),
         weight = 0,
@@ -156,7 +156,7 @@ end
 
 
 function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
-  return NodeDistances:idealSiblingDistance(self.main_algorithm, self.graph, v,w)
+  return NodeDistances:idealSiblingDistance(self.main_algorithm, self.graph.orig_digraph, v.orig_vertex,w.orig_vertex)
 end
 
 

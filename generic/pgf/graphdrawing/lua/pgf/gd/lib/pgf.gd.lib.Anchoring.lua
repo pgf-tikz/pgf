@@ -20,7 +20,7 @@ local Anchoring = {}
 
 
 -- Namespace
-local lib     = require "pgf.gd.lib"
+local lib = require("pgf.gd.lib")
 lib.Anchoring = Anchoring
 
 
@@ -36,26 +36,20 @@ function Anchoring:computeAnchorNode(graph)
 
   local anchor_node
   
-  local anchor_node_name = graph:getOption('/graph drawing/anchor node')
+  local anchor_node_name = graph.options['/graph drawing/anchor node']
   if anchor_node_name then
-    anchor_node = graph:findNodeIf(
-      function (node) 
-	return node.name == anchor_node_name
-      end)
+    anchor_node = graph.scope.node_names[anchor_node_name]
   end
   
-  if not anchor_node then
-    anchor_node = graph:findNodeIf(
-      function (node) 
-	return node:getOption('/graph drawing/anchor here') == 'true'
-      end) or
-      graph:findNodeIf(
-      function (node) 
-	return node:getOption('/graph drawing/desired at')
-      end)
+  if not graph:contains(anchor_node) then
+    anchor_node =
+      lib.find (graph.vertices, function (v) return v.options['/graph drawing/anchor here'] end) or
+      lib.find (graph.vertices, function (v) return v.options['/graph drawing/desired at'] end)
   end
-  
-  graph.anchor_node = anchor_node   
+
+  if graph:contains(anchor_node) then
+    graph.storage[Anchoring].anchor_node = anchor_node
+  end
 end
 
 
@@ -68,33 +62,31 @@ end
 -- @param graph A graph
 
 function Anchoring:anchor(graph)
-   
-  local anchor_node = graph.anchor_node or graph.nodes[1]
-   
+
+  local anchor_node = graph.storage[Anchoring].anchor_node or graph.vertices[1]
+  
   local anchor_x = anchor_node.pos.x
   local anchor_y = anchor_node.pos.y
+
+  local desired = anchor_node.options['/graph drawing/desired at'] or graph.options['/graph drawing/anchor at']
   
-  local desired = anchor_node:getOption('/graph drawing/desired at') or graph:getOption('/graph drawing/anchor at') 
+  local target_x = desired[1]
+  local target_y = desired[2]
+     
+  local delta_x = target_x - anchor_x
+  local delta_y = target_y - anchor_y
   
-  local target_x
-  local target_y
-  
-   target_x, target_y = desired:gmatch('{([%d.-]+)}{([%d.-]+)}')()
-   
-   local delta_x = target_x - anchor_x
-   local delta_y = target_y - anchor_y
-   
-   -- Step 3: Shift nodes
-   for _,node in ipairs(graph.nodes) do
-     node.pos.x = node.pos.x + delta_x
-     node.pos.y = node.pos.y + delta_y
-   end
-   for _,edge in ipairs(graph.edges) do
-     for _,point in ipairs(edge.bend_points) do
-       point.x = point.x + delta_x
-       point.y = point.y + delta_y
-     end
-   end
+  -- Step 3: Shift nodes
+  for _,v in ipairs(graph.vertices) do
+    v.pos:shift(delta_x,delta_y)
+  end
+  for _,a in ipairs(graph.arcs) do
+    for _,m in ipairs(a.storage.syntactic_edges) do
+      for _,p in ipairs(m.path) do
+	p:shift(delta_x, delta_y)
+      end
+    end
+  end
 end
 
 

@@ -23,10 +23,11 @@ local ReingoldTilford1981 = pgf.gd.new_algorithm_class {
     works_only_on_connected_graphs = true,
     needs_a_spanning_tree = true,
     growth_direction = 90,
+    old_graph_model = true,
   },
   graph_parameters = {
-    extended_version = 'tree layout/missing nodes get space [boolean]',
-    sigsep           = 'tree layout/significant sep [number]',
+    extended_version = '/graph drawing/tree layout/missing nodes get space',
+    sigsep           = '/graph drawing/tree layout/significant sep',
   }
 }
 
@@ -121,7 +122,7 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
 	local n1 = right_borders[y]
 	if n1 then
 	  shift = math.max(shift, 
-			   NodeDistances:idealSiblingDistance(self, self.graph, n1, n2) + n1[self].x - n2[self].x)
+			   NodeDistances:idealSiblingDistance(self, self.graph.orig_digraph, n1.orig_vertex, n2.orig_vertex) + n1[self].x - n2[self].x)
 	end
 	if local_right_borders[y] then
 	  if y > child_depth and (left_borders[y][self].x - local_right_borders[y][self].x <= first_dist) then 

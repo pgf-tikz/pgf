@@ -42,7 +42,7 @@ NetworkSimplex.BALANCE_TOP_BOTTOM = 1
 NetworkSimplex.BALANCE_LEFT_RIGHT = 2
 
 
-function NetworkSimplex:new(graph, balancing)
+function NetworkSimplex.new(graph, balancing)
   local simplex = {
     graph = graph,
     balancing = balancing,
@@ -67,7 +67,7 @@ function NetworkSimplex:run()
   self.lim = {}
   self.low = {}
   self.parent_edge = {}
-  self.ranking = Ranking:new()
+  self.ranking = Ranking.new()
 
   self:rankNodes()
 end
@@ -492,7 +492,7 @@ function NetworkSimplex:findTightTree()
   end
 
   for node in table.value_iter(self.graph.nodes) do
-    self.tree = Graph:new()
+    self.tree = Graph.new()
     self.tree_node = {}
     self.orig_node = {}
     self.tree_edge = {}
@@ -569,7 +569,7 @@ function NetworkSimplex:initializeCutValues()
     end
   end
 
-  DepthFirstSearch:new(init, visit, complete):run()
+  DepthFirstSearch.new(init, visit, complete):run()
 end
 
 
@@ -625,7 +625,7 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   end
 
   -- kick off the depth-first search
-  DepthFirstSearch:new(init, visit, complete):run()
+  DepthFirstSearch.new(init, visit, complete):run()
 
   local lim_lookup = {}
   local min_lim = math.huge
@@ -763,7 +763,7 @@ function NetworkSimplex:rerank(node, delta)
     end
   end
 
-  DepthFirstSearch:new(init, visit):run()
+  DepthFirstSearch.new(init, visit):run()
 end
 
 

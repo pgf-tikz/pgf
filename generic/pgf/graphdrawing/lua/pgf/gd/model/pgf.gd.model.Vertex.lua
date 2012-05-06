@@ -47,7 +47,8 @@ require("pgf.gd.model").Vertex = Vertex
 
 -- Imports
 
-local Coordinate = require "pgf.gd.model.Coordinate"
+local Coordinate   = require "pgf.gd.model.Coordinate"
+local Storage      = require "pgf.gd.lib.Storage"
 
 
 --- Creates a new vertex.
@@ -59,17 +60,21 @@ local Coordinate = require "pgf.gd.model.Coordinate"
 --                |shape|: A string describing the shape.
 --                |kind|: A kind like "node" or "dummy".
 --                |pos|: Initial position of the node.
+--                |options|: Options of the vertex.
 --
 -- @return A newly allocated node.
 --
-function Vertex:new(values)
-  local new = {
-    name = values.name,
-    hull = values.hull or { Coordinate:new(0,0) },
-    shape = values.shape or "hull",
-    kind = values.kind or "node",
-    pos = values.pos or Coordinate:new(0,0)
-  }
+function Vertex.new(values)
+  local new = { storage = Storage.new() }
+  for k,v in pairs(values) do
+    new[k] = v
+  end
+  new.hull = new.hull or { Coordinate.new(0,0) }
+  new.hull_center = new.hull_center or Coordinate.new(0,0)
+  new.shape = new.shape or "none"
+  new.kind = new.kind or "dummy"
+  new.pos = new.pos or Coordinate.new(0,0)
+  new.options = new.options or {},
   setmetatable(new, Vertex)
   return new
 end

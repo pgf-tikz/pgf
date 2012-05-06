@@ -45,7 +45,7 @@ local Edge = require "pgf.gd.model.Edge"
 --
 -- @return A newly-allocated graph.
 --
-function Graph:new(values)
+function Graph.new(values)
   local defaults = {
     nodes = {},
     edges = {},
@@ -117,7 +117,7 @@ end
 -- @return A shallow copy of the graph.
 --
 function Graph:copy ()
-   return Graph:new({options = self.options, events = self.events})
+   return Graph.new({options = self.options, events = self.events})
 end
 
 
@@ -317,7 +317,7 @@ end
 -- @return The newly created edge.
 --
 function Graph:createEdge(first_node, second_node, direction, edge_nodes, options, tikz_options)
-  local edge = Edge:new{
+  local edge = Edge.new{
     direction = direction, 
     edge_nodes = edge_nodes,
     options = options, 
@@ -339,7 +339,7 @@ end
 --
 function Graph:findClusterByName(name)
   return table.find(self.clusters, function (cluster)
-    return cluster:getName() == name
+    return cluster.name == name
   end)
 end
 
@@ -356,7 +356,7 @@ end
 -- @return |true| if the cluster was added successfully, |false| otherwise.
 --
 function Graph:addCluster(cluster)
-  if not self:findClusterByName(cluster:getName()) then
+  if not self:findClusterByName(cluster.name) then
     table.insert(self.clusters, cluster)
   end
 end

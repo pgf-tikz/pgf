@@ -16,7 +16,7 @@
 -- structure.
 
 local Graph = require "pgf.gd.model.Graph"   -- we subclass from here
-local CoarseGraph = Graph:new()
+local CoarseGraph = Graph.new()
 CoarseGraph.__index = CoarseGraph
 
 
@@ -58,7 +58,7 @@ CoarseGraph.COARSEN_HYBRID = 2
 -- Note, however, that the input \meta{graph} is always modified in-place, so
 -- if the original version of \meta{graph} is needed in parallel to its 
 -- coarse representations, a deep copy of \meta{grpah} needs to be passed over
--- to |CoarseGraph:new|.
+-- to |CoarseGraph.new|.
 --
 -- @param graph  An existing graph that needs to be coarsened.
 -- @param scheme Coarsening scheme to use. Possible values are:\par
@@ -81,7 +81,7 @@ CoarseGraph.COARSEN_HYBRID = 2
 --                 |CoarseGraph.COARSEN_INDEPENDENT_NODES| as soon as the first scheme
 --                 does not reduce the amount of nodes by a factor of 25%.
 --
-function CoarseGraph:new(graph, scheme)
+function CoarseGraph.new(graph, scheme)
   local coarse_graph = {
     graph = graph,
     level = 0,
@@ -110,7 +110,7 @@ function CoarseGraph:coarsen()
       assert(u ~= v, 'the edge ' .. tostring(edge) .. ' is a loop. loops are not supported by this algorithm')
 
       -- create a supernode
-      local supernode = Node:new{
+      local supernode = Node.new{
         name = '(' .. u.name .. ':' .. v.name .. ')',
         weight = u.weight + v.weight,
         subnodes = { u, v },
@@ -166,7 +166,7 @@ function CoarseGraph:coarsen()
       for neighbour, edge in table.pairs_by_sorted_keys(disjoint_neighbours, function (n,m) return n.index < m.index end) do
 
         -- create a superedge to replace the existing one
-        local superedge = Edge:new{
+        local superedge = Edge.new{
           direction = edge.direction,
           weight = edge.weight,
           subedges = { edge },
@@ -197,7 +197,7 @@ function CoarseGraph:coarsen()
           return weights + edge.weight
         end, 0)
 
-        local superedge = Edge:new{
+        local superedge = Edge.new{
           direction = Edge.UNDIRECTED,
           weight = weights,
           subedges = edges,

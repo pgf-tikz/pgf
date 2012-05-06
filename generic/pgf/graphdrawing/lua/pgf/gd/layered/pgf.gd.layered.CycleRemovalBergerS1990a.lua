@@ -22,7 +22,7 @@ require("pgf.gd.layered").CycleRemovalBergerS1990a = CycleRemovalBergerS1990a
 
 
 
-function CycleRemovalBergerS1990a:new(main_algorithm, graph)
+function CycleRemovalBergerS1990a.new(main_algorithm, graph)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,

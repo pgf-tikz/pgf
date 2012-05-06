@@ -49,7 +49,7 @@ function PathLengths:dijkstra(graph, source)
   local levels = {}
   local parent = {}
 
-  local queue = lib.PriorityQueue:new()
+  local queue = lib.PriorityQueue.new()
 
   -- reset the distance of all nodes and insert them into the priority queue
   for node in table.value_iter(graph.nodes) do

@@ -18,121 +18,73 @@
 -- all calls from the TeX layer will be directed to this object.
 
 local TeXInterface = {
-  graph = nil,
   scopes = {},
   parameter_defaults = {},
   tex_boxes = {},
-  verbose = false
 }
 
-
 -- Namespace
-local control = require "pgf.gd.control"
-control.TeXInterface = TeXInterface
+require("pgf.gd.control").TeXInterface = TeXInterface
 
 -- Imports
-local Cluster = require "pgf.gd.model.Cluster"
 local LayoutPipeline = require "pgf.gd.control.LayoutPipeline"
-local Node = require "pgf.gd.model.Node"
-local Graph = require "pgf.gd.model.Graph"
-local Edge = require "pgf.gd.model.Edge"
+local Options        = require "pgf.gd.control.Options"
 
+local Vertex     = require "pgf.gd.model.Vertex"
+local Digraph    = require "pgf.gd.model.Digraph"
+local Coordinate = require "pgf.gd.model.Coordinate"
 
--- Parses a string with |{key}{value}| pairs and returns a table
--- mapping the keys to the corresponding values.
---
--- @param str     The string to parse.
--- @param default Currently unused.
---
--- @return A table mapping the keys found in the string to their
---         values.
-
-local function parse_braces(str, default)
-  local options = {}
-
-  if str then
-    local level = 0
-    local key = nil
-    local value = ''
-    local in_key = false
-    local in_value = false
-    local skip_char = false
-
-    for i = 1,str:len() do
-      skip_char = false
-
-      local char = string.sub(str, i, i)
-
-      if char == '{' then
-        if level == 0 then
-          if not key then
-            in_key = true
-          else
-            in_value = true
-          end
-          skip_char = true
-        end
-        level = level + 1
-      elseif char == '}' then
-        level = level - 1
-
-        assert(level >= 0) -- otherwise there's a bug in the parsing algorithm
-
-        if level == 0 then
-          if in_key then
-            in_key = false
-          else 
-            options[key] = value
-
-            key = nil
-            value = ''
-
-            in_value = false
-          end
-          skip_char = true
-        end
-      end
-
-      if not skip_char then
-        if in_key then
-          key = (key or '') .. char
-        else
-          value = (value or '') .. char
-        end
-      end
-
-      assert(not (in_key and in_value))
-    end
-  end
-
-  return options
-end
+local Storage    = require "pgf.gd.lib.Storage"
 
 
 
 
---- Creates a new graph and adds it to the graph stack.
+
+
+
+
+--- Start a graph drawing scope.
 --
 -- The options string consisting of |{key}{value}| pairs is parsed and 
 -- assigned to the graph. These options are used to configure the different
 -- graph drawing algorithms shipped with \tikzname.
 --
--- @see finishGraph
+-- @see endScope
 --
 -- @param options A string containing |{key}{value}| pairs of 
 --                \tikzname\ options.
 --
-function TeXInterface:newGraph(options)
-  assert (not self.graph, "Already drawing a graph")
+function TeXInterface:beginGraphDrawingScope(options)
 
-  self.graph = Graph:new()
-  for k,v in pairs(parse_braces(options)) do
-    self.graph.options [k] = v
-  end
+  -- Create a new scope table
+  local scope = {
+    syntactic_digraph = Digraph.new { options = Options.new(options), syntactic_digraph = "self" },
+    events            = {},
+    node_names        = {},
+    clusters          = {},
+    storage           = Storage.new(),
+  }
+  
+  scope.syntactic_digraph.scope   = scope
+  
+  -- Push scope:
+  self.scopes[#self.scopes + 1] = scope
+  
+end
+
+
+--- Returns the top scope
+--
+-- @return The current top scope, which is the scope in which
+--         everything should happen right now.
+
+function TeXInterface:topScope()
+  return assert(self.scopes[#self.scopes], "no graph drawing scope open")
 end
 
 
 
+local magic_prefix_length = string.len("not yet positionedPGFINTERNAL") + 1
 
 
 --- Adds a new node to the graph.
@@ -140,12 +92,11 @@ end
 -- This function is called for each node of the graph by the \TeX\
 -- layer. The \meta{name} is the name of the node including the
 -- internal prefix added by the \TeX\ layer to indicate that the node
--- ``does not yet exist.'' The parameters \meta{xMin} to \meta{yMax}
+-- ``does not yet exist.'' The parameters \meta{x_min} to \meta{y_max}
 -- specify a bounding box around the node; note that the origin lies
--- at the anchor postion of the node. The \meta{options} are a string
--- in the format of a sequence of |{key}{value}| pairs. They are
--- parsed and stored in the newly created node object on the Lua
--- layer. Graph drawing algorithms may use these options to treat 
+-- at the anchor postion of the node. The \meta{options} are a table
+-- of options that will be stored internally (it will not be
+-- copied). Graph drawing algorithms may use these options to treat  
 -- the node in special ways. The \meta{lateSetup} is \TeX\ code that
 -- just needs to be passed back when the node is finally
 -- positioned. It is used to add ``decorations'' to a node after
@@ -154,37 +105,62 @@ end
 -- @param box       Box register holding the node.
 -- @param name      Name of the node.
 -- @param shape     The pgf shape of the node (e.g. "circle" or "rectangle")
--- @param xMin      Minimum x point of the bouding box.
--- @param yMin      Minimum y point of the bouding box.
--- @param xMax      Maximum x point of the bouding box.
--- @param yMax      Maximum y point of the bouding box.
+-- @param x_min     Minimum x point of the bouding box.
+-- @param y_min     Minimum y point of the bouding box.
+-- @param x_max     Maximum x point of the bouding box.
+-- @param y_max     Maximum y point of the bouding box.
 -- @param options   Lua-Options for the node.
 -- @param lateSetup Options for the node.
 --
-function TeXInterface:addNode(box, name, shape, xMin, yMin, xMax, yMax, options, lateSetup)
-  assert(self.graph, "no graph created")
+function TeXInterface:addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max, options, late_setup)
+  local scope = self:topScope()
+  local name  = texname:sub(magic_prefix_length)
 
+  -- Store tex box in internal table
   self.tex_boxes[#self.tex_boxes + 1] = node.copy_list(tex.box[box])
-  local tex = {
-    tex_node = #self.tex_boxes,
+
+  -- Create new node
+  local v = Vertex.new { 
+
+    -- Standard stuff
+    name  = name,
     shape = shape,
-    maxX = xMax,
-    minX = xMin,
-    maxY = yMax,
-    minY = yMin,
-    late_setup = lateSetup
+    kind  = "node",
+    hull  = { Coordinate.new(x_min, y_min), Coordinate.new(x_min, y_max), 
+	      Coordinate.new(x_max, y_max), Coordinate.new(x_max,y_min) },
+    hull_center = Coordinate.new((x_min + x_max)/2, (y_min+y_max)/2),
+    
+    -- Event numbering
+    event_index = #scope.events + 1,
+
+    -- Local options
+    options = Options.new(options),
+      
+    -- Special tex stuff, should not be considered by gd algorithm
+    tex = {
+      x_min = x_min,
+      y_min = y_min,
+      x_max = x_max,
+      y_max = y_max,
+      stored_tex_box_number = #self.tex_boxes, 
+      late_setup = late_setup,
+    },
   }
-  local node = Node:new{
-    name = string.sub(name, string.len("not yet positionedPGFINTERNAL") + 1),
-    tex = tex, 
-    options = parse_braces(options),
-    event_index = #self.graph.events + 1
+
+  -- Create name lookup
+  assert (scope.node_names[name] == nil, "node already present in graph")
+  scope.node_names[name] = v
+
+  -- Register event
+  scope.events[#scope.events + 1] = { 
+    kind = 'node', 
+    parameters = v
   }
-  self.graph.events[#self.graph.events + 1] = { kind = 'node', parameters = node }
-  self.graph:addNode(node)
+
+  -- Add node to graph
+  scope.syntactic_digraph:add {v}
+
 end
-
-
 
 
 --- Sets options for an already existing node
@@ -195,42 +171,63 @@ end
 -- @param options   Lua-Options for the node.
 
 function TeXInterface:setLateNodeOptions(name, options)
-  local node = self.graph:findNode(name)
-  if node then
-    for k,v in pairs(parse_braces(options)) do
-      node.options [k] = v
-    end
+  local scope = self:topScope()
+  local node = assert(scope[name], "node is missing, cannot set late options")
+  
+  for k,v in pairs(options) do
+    node.options [k] = v
   end
+  
 end
 
 
---- Adds an edge from one node to another by name.  
+
+---
+-- Adds a syntactic edge from one node to another by name.  
 --
 -- Both parameters are node names and have to exist before an edge can be
 -- created between them.
 --
 -- @see addNode
 --
--- @param from         Name of the node the edge begins at.
--- @param to           Name of the node the edge ends at.
--- @param direction    Direction of the edge (e.g. |--| for an undirected edge 
---                     or |->| for a directed edge from the first to the second 
---                     node).
--- @param parameters   A string of parameters pairs of edge options that are
---                     relevant to graph drawing algorithms.
--- @param tikz_options A string that should be passed back to \pgfgddraw unmodified.
--- @param aux          Another string that should be passed back to \pgfgddraw unmodified.
+-- @param from           Name of the node the edge begins at.
+-- @param to             Name of the node the edge ends at.
+-- @param direction      Direction of the edge (e.g. |--| for an undirected edge 
+--                       or |->| for a directed edge from the first to the second 
+--                       node).
+-- @param options        A table of options for the edge that are relevant to graph drawing algorithms.
+-- @param pgf_options    A string that should be passed back to \pgfgdedgecallback unmodified.
+-- @param pgf_edge_nodes Another string that should be passed back to \pgfgdedgecallback unmodified.
 --
-function TeXInterface:addEdge(from, to, direction, parameters, tikz_options, aux)
-  assert(self.graph, "no graph created")
-  local from_node = self.graph:findNode(from)
-  local to_node = self.graph:findNode(to)
-  assert(from_node and to_node, 'cannot add the edge because its nodes "' .. from .. '" and "' .. to .. '" are missing')
-  if direction ~= Edge.NONE then
-    local edge = self.graph:createEdge(from_node, to_node, direction, aux, parse_braces(parameters), tikz_options)
-    edge.event_index = #self.graph.events + 1
-    self.graph.events[#self.graph.events + 1] = { kind = 'edge', parameters = edge }
-  end
+function TeXInterface:addPgfEdge(from, to, direction, options, pgf_options, pgf_edge_nodes)
+
+  local scope = self:topScope()
+  local tail = scope.node_names[from]
+  local head = scope.node_names[to]
+
+  assert (tail and head, "attempting to create edge between nodes " .. from ..
+                         " and ".. to ..", at least one of which is not in the graph")
+
+  local arc = scope.syntactic_digraph:connect(tail, head)
+  
+  local edge = {
+    head = head,
+    tail = tail,
+    event_index = #scope.events+1,
+    options = Options.new(options),
+    direction = direction,
+    path = {},
+    tex = {
+      pgf_options = pgf_options,
+      pgf_options_from_algorithm = {},
+      pgf_edge_nodes = pgf_edge_nodes,
+    },
+    storage = Storage.new()
+  }
+
+  arc.storage.syntactic_edges[#arc.storage.syntactic_edges+1] = edge
+
+  scope.events[#scope.events + 1] = { kind = 'edge', parameters = { arc, #arc.storage.syntactic_edges } }
 end
 
 
@@ -242,32 +239,45 @@ end
 -- @param parameters   Parameters of the event.
 --
 function TeXInterface:addEvent(kind, param)
-  assert(self.graph, "no graph created")
-  self.graph.events[#self.graph.events + 1] = { kind = kind, parameters = param}
+  local scope = self:topScope()
+  
+  scope.events[#scope.events + 1] = { kind = kind, parameters = param}
 end
 
 
+
+
+--- Adds a node to a cluster
+--
+-- Conceptually, a cluster is a digraph whose node set is a subset of
+-- the nodes of the scope's main graph. However, in most cases a
+-- cluster will just be a discrete graph (contain no arcs) and, thus,
+-- just identifies a set of arcs.
+--
+-- @param node_name    Name of a node.
+-- @param cluster_name Name of a cluster.
+--
 
 function TeXInterface:addNodeToCluster(node_name, cluster_name)
-  assert(self.graph, 'no graph created')
+  assert (type(cluster_name) == "string" and cluster_name ~= "", "illegal cluster name")
+  local scope = self:topScope()
+  local clusters = scope.clusters
   
-  -- find the node
-  local node = self.graph:findNode(node_name)
+  local cluster = clusters[cluster_name]
+  local v = assert(scope.node_names[node_name], "node not found")
 
-  assert(node, 'cannot add node "' .. node_name .. '" to cluster "' .. cluster_name .. '" because the node does not exist')
-  
-  -- find the cluster
-  local cluster = self.graph:findClusterByName(cluster_name)
-
-  -- if it doesn't exist yet, create it on demand
   if not cluster then
-    cluster = Cluster:new(cluster_name)
-    self.graph:addCluster(cluster)
+    cluster = Digraph.new{
+      options = Options.new{},
+      syntactic_digraph = scope.syntactic_digraph
+    }
+    clusters[cluster_name] = cluster
   end
 
-  -- add the node to the cluster
-  cluster:addNode(node)
+  cluster:add {v}
 end
+
+
 
 
 
@@ -282,120 +292,104 @@ end
 -- When a graph is to be layed out, this function is called with the graph
 -- as its only parameter.
 --
+-- @return Time it took to run the algorithm
+
 function TeXInterface:runGraphDrawingAlgorithm()
-  if #self.graph.nodes == 0 then
+
+  local scope = self:topScope()
+
+  if #scope.syntactic_digraph.vertices == 0 then
     -- Nothing needs to be done
     return
   end
   
-  local algorithm_class = require(self.graph:getOption("/graph drawing/algorithm"))
-
   local start = os.clock()
-  -- Ok, everything setup.
-  
-  LayoutPipeline:run(self.graph, algorithm_class)
-  
+  LayoutPipeline:run(scope, require(scope.syntactic_digraph.options["/graph drawing/algorithm"]))
   local stop = os.clock()
-
-  TeXInterface:log(string.format(
-			     "Graph drawing engine: algorithm '" .. 
-			       self.graph:getOption("/graph drawing/algorithm") ..
-			     "' took %.4f seconds", stop - start))
+  
+  return stop - start
 end
 
 
 
 --- Passes the current graph back to the \TeX\ layer and removes it from the stack.
 --
-function TeXInterface:finishGraph()
-  assert(self.graph, "no graph created")
-
+function TeXInterface:endGraphDrawingScope()
+  local digraph = self:topScope().syntactic_digraph
+  
   tex.print("\\pgfgdbeginshipout")
   
-  tex.print("\\pgfgdbeginnodeshipout")
-  for node in table.value_iter(self.graph.nodes) do
-    TeXInterface:shipoutNode(node)
-  end
-  tex.print("\\pgfgdendnodeshipout")
+    tex.print("\\pgfgdbeginnodeshipout")
+      for _,v in ipairs(digraph.vertices) do
+	tex.print(
+	  string.format(
+	    "\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
+	    'not yet positionedPGFINTERNAL' .. v.name,
+	    v.tex.x_min,
+	    v.tex.x_max,
+	    v.tex.y_min,
+	    v.tex.y_max,
+	    v.pos.x,
+	    v.pos.y,
+	    v.tex.stored_tex_box_number,
+	    v.tex.late_setup))
+      end
+    tex.print("\\pgfgdendnodeshipout")
 
-  tex.print("\\pgfgdbeginedgeshipout")
-  for edge in table.value_iter(self.graph.edges) do
-    TeXInterface:shipoutEdge(edge)
-  end
-  tex.print("\\pgfgdendedgeshipout")
+    tex.print("\\pgfgdbeginedgeshipout")
+    for _,a in ipairs(digraph.arcs) do
+        for _,m in ipairs(a.storage.syntactic_edges) do
+	  local callback = {
+  	    '\\pgfgdedgecallback',
+	    '{', a.tail.name, '}',
+	    '{', a.head.name, '}',
+	    '{', m.direction,  '}',
+	    '{', m.tex.pgf_options,  '}',
+	    '{', m.tex.pgf_edge_nodes, '}',
+	    '{',
+	  }
+
+	  for k,v in pairs(m.tex.pgf_options_from_algorithm) do
+	    assert (type(k) == "string", "algorithmically generated option key must be a string")
+	    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
+	    callback [#callback + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+	  end
+	  
+	  callback [#callback + 1] = '}{'
+
+	  for _,c in ipairs(m.path) do
+	    callback [#callback + 1] = '--(' .. tostring(c.x) .. 'pt,' .. tostring(c.y) .. 'pt)'	    
+	  end
+	  
+	  callback [#callback + 1] = '}'
+      
+          -- hand TikZ code over to TeX
+          tex.print(table.concat(callback))
+	end
+      end
+    tex.print("\\pgfgdendedgeshipout")
   
   tex.print("\\pgfgdendshipout")
-
-  self.graph = nil
+  
+  table.remove(self.scopes) -- pop
 end
 
 
 
---- Passes a node back to the \TeX\ layer.
+--- Callback for box retrieval
 --
--- @param node The node to pass back to the \TeX\ layer.
---
-function TeXInterface:shipoutNode(node)
-  tex.print(string.format("\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
-			  'not yet positionedPGFINTERNAL' .. node.name,
-			  node.tex.minX, node.tex.maxX,
-			  node.tex.minY, node.tex.maxY,
-			  node.pos.x, node.pos.y,
-			  node.tex.tex_node, node.tex.late_setup))
-end
-
-
+-- This method gets called by the the pgf layer. Its job is to return
+-- a specific box contents. This can be done only using a callback
+-- since when the graph drawing engine issues its
+-- pgfgdinternalshipoutnode commands, these "pile up" and get executed
+-- only much later. It is only when each command is executed
+-- individually that we are "ready" to retrieve the stored box
+-- contents, making this callback nessary
 
 function TeXInterface:retrieveBox(box_reference)
   local ret = self.tex_boxes[box_reference]
   self.tex_boxes[box_reference] = nil
   return ret
-end
-
-
-
---- Passes an edge back to the \TeX\ layer.
---
--- Edges with a direction of |Edge.NONE| are skipped and not passed
--- back to \TeX.
---
--- @param edge The edge to pass back to the \TeX\ layer.
---
-function TeXInterface:shipoutEdge(edge)
-
-  -- map nodes to node strings
-  local node_strings = table.map_values(edge.nodes, function (node) 
-    return '{' .. node.name .. '}'
-  end)
-  
-  -- reverse strings if the edge is reversed
-  if edge.reversed then
-    node_strings = table.reverse_values(node_strings, node_strings)
-  end
-  
-  local bend_string = ''
-  if #edge.bend_points > 0 then
-    local bend_strings = table.map_values(edge.bend_points, 
-					  function (vector)
-					    return '(' .. tostring(vector.x) .. 'pt,' .. tostring(vector.y) .. 'pt)'
-    end)
-    if edge.reversed then
-      bend_strings = table.reverse_values(bend_strings, bend_strings)
-    end
-    bend_string = '-- ' .. table.concat(bend_strings, '--')
-  end
-  
-  -- generate string for the entire edge
-  local callback = '\\pgfgdedgecallback'
-     .. table.concat(node_strings,'') .. '{' .. edge.direction .. '}{'
-     .. edge.tikz_options ..'}{' .. edge.edge_nodes .. '}{'
-     .. table.combine_pairs(edge.algorithmically_generated_options,
-			      function (s, k, v) return s .. ','
-			      .. tostring(k) .. '={' .. tostring(v) .. '}' end, '')
-     .. '}{' .. bend_string .. '}'
-
-  -- hand TikZ code over to TeX
-  tex.print(callback)
 end
 
 
@@ -409,30 +403,12 @@ end
 -- @param value A string containing the value
 --
 function TeXInterface:setGraphParameterDefault(key,value)
-  self.parameter_defaults[key] = value
+  assert (not Options.defaults[key], "you may not set a parameter default twice")
+  Options.defaults[key] = value
 end
 
 
---- Logging
 
---- Writes log messages to the \TeX\ output, separating the parameters
--- by spaces, provided TeXInterface.verbose is set.
---
--- @param ... List of parameters to write to the \TeX\ output.
-
-function TeXInterface:log(...)
-  if self.verbose then
-    texio.write_nl("")
-    -- this is to even print out nil arguments in between
-    local args = {...}
-    for i = 1, table.getn(args) do
-      if i ~= 1 then texio.write(" ") end
-      texio.write(tostring(args[i]))
-    end
-    texio.write_nl("")
-    self:debug(...)
-  end
-end
 
 
 -- Done 

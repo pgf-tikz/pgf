@@ -97,7 +97,7 @@
     % get options
     \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
     \directlua{
-      pgf.gd.control.TeXInterface:newGraph('\luaescapestring{\pgf@gd@graph@parameters}')
+      pgf.gd.control.TeXInterface:beginGraphDrawingScope({\pgf@gd@graph@parameters})
     }%
     \begingroup % Inner scope, the actual nodes will be inserted after
                 % this scope has been closed
@@ -127,7 +127,7 @@
     % Late positioning has ended
     \directlua{
       pgf.gd.control.TeXInterface:runGraphDrawingAlgorithm()
-      pgf.gd.control.TeXInterface:finishGraph()
+      pgf.gd.control.TeXInterface:endGraphDrawingScope()
     }
   \endgroup
 }
@@ -220,13 +220,13 @@
 % drawing algorithms, see the documentation of the lua layer.
 
 \def\pgfgdgraphparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/graph parameters}{}{{#1}{#2}}%
+  \pgfkeysaddvalue{/graph drawing/graph parameters}{}{['\luaescapestring{#1}']=#2,}%
 }
 \def\pgfgdnodeparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/node parameters}{}{{#1}{#2}}%
+  \pgfkeysaddvalue{/graph drawing/node parameters}{}{['\luaescapestring{#1}']=#2,}%
 }
 \def\pgfgdedgeparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/edge parameters}{}{{#1}{#2}}%
+  \pgfkeysaddvalue{/graph drawing/edge parameters}{}{['\luaescapestring{#1}']=#2,}%
 }
 
 \pgfgdset{
@@ -308,7 +308,7 @@
 }
 \def\pgf@gd@parameter#1#2{%
   \def\pgfgd@temp{#1}%
-  \ifx\pgfgd@temp\pgfkeysnovalue@text\def\pgfgd@temp{no conversion}\fi%
+  \ifx\pgfgd@temp\pgfkeysnovalue@text\PackageError{pgf}{You must specify a parameter type for \pgfkeyscurrentpath}{}\fi%
   \edef\pgf@marshal{\noexpand\pgf@gd@@parameter{\pgfkeyscurrentpath}{\pgfgd@temp}{\noexpand#2}}
   \pgf@marshal%
 }
@@ -365,7 +365,7 @@
 }
 
 \def\pgf@gd@steal#1#2{%
-  \directlua{pgf.gd.control.TeXInterface:setGraphParameterDefault('\luaescapestring{#1}','\luaescapestring{#2}')}%
+  \directlua{pgf.gd.control.TeXInterface:setGraphParameterDefault('\luaescapestring{#1}',#2)}%
 }
 
 
@@ -399,7 +399,7 @@
 % As an example, let us start with the default conversion: It simply
 % stores its parameter as the result:
 % 
-% /graph drawing/conversions/no conversion/.code=\def\pgfgdresult{#1}
+% /graph drawing/conversions/string/.code=\def\pgfgdresult{'\luaescapestring{#1}'}
 % 
 % A more complicated example is the math conversion:
 % 
@@ -407,12 +407,14 @@
 %    \pgfmathparse{#1}\let\pgfgdresult\pgfmathresult
 
 \pgfgdset{
-  conversions/no conversion/.code=\def\pgfgdresult{#1},
-  conversions/evaluate math expression/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
+  conversions/string/.code=\def\pgfgdresult{'\luaescapestring{#1}'},
+  conversions/raw/.code=\def\pgfgdresult{#1},
+  conversions/boolean/.code=\def\pgf@test{#1}\ifx\pgf@test\pgf@truetext\def\pgfgdresult{true}\else\def\pgfgdresult{false}\fi,
+  conversions/number/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
   conversions/direction/.code=\pgf@lib@gd@grow@dir{#1}\let\pgfgdresult\pgfmathresult,
-  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1}{#2}}}
+  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1,#2}}}
 }
-
+\def\pgf@truetext{true}
 
 
 % Graph drawing graph parameter "algorithm"
@@ -423,7 +425,7 @@
 % for drawing the next graph.
 
 \pgfgdset{
-  algorithm/.graph parameter
+  algorithm/.graph parameter=string
 }
 
 
@@ -545,9 +547,9 @@
           \toks0={#4}%
           \toks1={#5}%
           \directlua{
-            pgf.gd.control.TeXInterface:addEdge(
+            pgf.gd.control.TeXInterface:addPgfEdge(
             '\luaescapestring{#1}','\luaescapestring{#2}','\luaescapestring{#3}',
-            '\luaescapestring{\pgf@gd@edge@options}',
+            {\pgf@gd@edge@options},
             '\luaescapestring{\the\toks0}','\luaescapestring{\the\toks1}')
           }%
         \endpgfinterruptpath%
@@ -807,9 +809,9 @@
 %
 % \pgfgddeclarekeys{/graph drawing}
 % {
-%   height/.graph parameter=evaluate math expression,
+%   height/.graph parameter=number,
 %   height/.parameter initial=5cm, % no forwarding since already defined.
-%   width/.graph parameter=evaluate math expression,
+%   width/.graph parameter=number,
 %   width/.parameter initial=5cm,
 % }
 
@@ -908,9 +910,9 @@
 % either, the first node is used.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  anchor here/.node parameter,
+  anchor here/.node parameter=string,
   anchor here/.default=true,
-  anchor node/.graph parameter,
+  anchor node/.graph parameter=string,
 }
 
 
@@ -977,7 +979,7 @@
           \pgf@lib@gd@parse@active@bar#1\pgf@stop{#2}%
         \else
           \pgf@lib@gd@grow@dir{#1}%
-          \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/edge parameters}{}{{/graph drawing/#2}{\pgfmathresult}}}%
+          \edef\pgf@marshal{\noexpand\pgfgdedgeparameter{/graph drawing/#2}{\pgfmathresult}}%
           \pgf@marshal%
         \fi%
       \fi%
@@ -1014,9 +1016,9 @@
   \pgf@lib@gd@grow@dir{#2}%
   \def\pgf@temp{#1}%
   \ifx\pgf@temp\pgfutil@empty
-    \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/node parameters}{}{{/graph drawing/#4}{{\pgfmathresult}{#3}}}}%
+    \edef\pgf@marshal{\noexpand\pgfgdnodeparameter{/graph drawing/#4}{{\pgfmathresult,#3}}}%
   \else%
-    \edef\pgf@marshal{\noexpand\pgfkeysaddvalue{/graph drawing/graph parameters}{}{{/graph drawing/#4}{{\pgfmathresult}{#1}{#3}}}}%
+    \edef\pgf@marshal{\noexpand\pgfgdgraphparameter{/graph drawing/#4}{{\pgfmathresult,#1,#3}}}%
   \fi%
   \pgf@marshal%
 }
@@ -1080,15 +1082,22 @@
 % 
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  component sep/.graph parameter=evaluate math expression,
+  componentwise/.graph parameter=boolean,
+  componentwise/.parameter initial=false,
+  componentwise/.default=true
+}
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  component sep/.graph parameter=number,
   component sep/.parameter initial=1.5em,
   component direction/.graph parameter=direction,
   component direction/.parameter initial=0,
-  component align/.graph parameter,
+  component align/.graph parameter=string,
   component align/.parameter initial=first node,
-  align here/.node parameter,
-  component order/.graph parameter,
-  component packing/.graph parameter,
+  align here/.node parameter=boolean,
+  align here/.default=true,
+  component order/.graph parameter=string,
+  component packing/.graph parameter=string,
   small components first/.style={/graph drawing/component order=increasing node number},
   large components first/.style={/graph drawing/component order=decreasing node number},
   % Shortcuts
@@ -1140,7 +1149,7 @@
 % different runs, change this value.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  random seed/.graph parameter=evaluate math expression,
+  random seed/.graph parameter=number,
   random seed/.parameter initial=42
 }
 
@@ -1156,11 +1165,11 @@
 % distance are used instead.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  node distance/.graph parameter=evaluate math expression,
+  node distance/.graph parameter=number,
   node distance/.parameter initial=10mm,
-  node pre sep/.node or graph parameter=evaluate math expression,
+  node pre sep/.node or graph parameter=number,
   node pre sep/.parameter initial=.333em,
-  node post sep/.node or graph parameter=evaluate math expression,
+  node post sep/.node or graph parameter=number,
   node post sep/.parameter initial=.333em,
   node sep/.style=,
 }
@@ -1175,18 +1184,18 @@
 % Their default value is 10mm (as in tikz).
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  level distance/.graph parameter=evaluate math expression,
+  level distance/.graph parameter=number,
   level distance/.parameter initial=10mm,
-  level pre sep/.node or graph parameter=evaluate math expression,
+  level pre sep/.node or graph parameter=number,
   level pre sep/.parameter initial=.333em,
-  level post sep/.node or graph parameter=evaluate math expression,
+  level post sep/.node or graph parameter=number,
   level post sep/.parameter initial=.333em,
   level sep/.style=,
-  sibling distance/.node or graph parameter=evaluate math expression,
+  sibling distance/.node or graph parameter=number,
   sibling distance/.parameter initial=10mm,
-  sibling pre sep/.node or graph parameter=evaluate math expression,
+  sibling pre sep/.node or graph parameter=number,
   sibling pre sep/.parameter initial=0.333em,
-  sibling post sep/.node or graph parameter=evaluate math expression,
+  sibling post sep/.node or graph parameter=number,
   sibling post sep/.parameter initial=0.333em,
   sibling sep/.style=,
 }
@@ -1373,15 +1382,15 @@
     \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
     % call lua system library to create a lua node object
     \directlua{
-      pgf.gd.control.TeXInterface:addNode(
+      pgf.gd.control.TeXInterface:addPgfNode(
         \pgfpositionnodelaterbox,
         '\luaescapestring{\pgfpositionnodelatername}',
         '\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}',
-        '\pgf@gd@node@minx',
-        '\pgf@gd@node@miny',
-        '\pgf@gd@node@maxx',
-        '\pgf@gd@node@maxy',
-        '\luaescapestring{\pgf@gd@node@options}',
+        \pgf@gd@node@minx,
+        \pgf@gd@node@miny,
+        \pgf@gd@node@maxx,
+        \pgf@gd@node@maxy,
+        {\pgf@gd@node@options},
         '\luaescapestring{\the\toks0}') }
   }%
 }

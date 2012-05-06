@@ -21,6 +21,9 @@
 --
 -- The implementation of a digraph is as follows: 
 --
+--
+-- 1. Vertices
+--
 -- A vertex is a rather "big" object that keeps track of all sorts of
 -- information (like which graphs it belongs to, possibly its position
 -- on the page, information locally important for an algorithm and so
@@ -32,7 +35,7 @@
 -- inserted). You can and should iterate over all vertices of a graph g
 -- using the following code:
 --
--- for _,v in ipairs(g.vertices) do
+-- for i,v in ipairs(g.vertices) do
 --   ...
 -- end
 --
@@ -46,88 +49,188 @@
 -- table that stores information concerning the vertex's "involvement"
 -- in the graph. This table has the following fields:
 --
---   index: The index of the node inside the vertices array of g.
 --   incoming: A table storing the arcs pointing to the vertex (each
 --    arc is stored twice, once at an array position and once at the
 --    tail vertex).
 --   outgoing: Same as incoming, only for the outgoing arcs.
+--
+--
+-- 2. Arcs
+--
+-- Normally, you access the list of incoming or outgoing arcs of a
+-- vertex using g:incoming(n) or g:outgoing(n). You can thus iterate
+-- over all arcs of graph like this:
+--
+-- for _,v in ipairs(g.vertices) do
+--   for _,a in ipairs(g:outgoing(v)) do
+--    ...
+--   end
+-- end
+--
+-- However, it will often be more convenient and, in case the there
+-- are far less arcs than node, also faster to write
+-- 
+-- for _,a in ipairs(g.arcs) do
+--   ...
+-- end
+--
+-- The arcs field is, however, a virtual field. What actually happens
+-- is that, normally, when you access g.arcs, you actually get the
+-- internal array _arcs, which accumulates all arcs in an array. However,
+-- when you delete an arc, _arcs field will be set to nil. The next
+-- time the arcs field is accessed, we notice that _arcs is nil an
+-- recalculate it.
+--
+-- All of this means the following: As long as you do not delete arcs
+-- from a graph, accessing the arcs field will be easier and faster
+-- than the nested loops earlier. When you delete one or more arcs,
+-- the next time the arcs field is accessed, it will need time linear
+-- in the number of arcs in the graph plus then number of vertices to
+-- recalculate the field. Thus, it is recommendable that you bundle
+-- together disconnect calls.
 
 local Digraph = {}
-Digraph.__index = Digraph
+
+local function recalc_arcs (digraph)
+  local arcs = {}
+  local vertices = digraph.vertices
+  local outgoings = digraph.outgoings
+  for i=1,#vertices do
+    local out = vertices[i].storage[outgoings]
+    for j=1,#out do
+      arcs[#arcs + 1] = out[j]
+    end
+  end
+  digraph.arcs = arcs
+  return arcs    
+end
+
+Digraph.__index = 
+  function (t, k)
+    if k == "arcs" then 
+      return recalc_arcs(t)
+    else
+      return rawget(Digraph,k)
+    end
+  end
+
 
 
 -- Namespace
-require("pgf.gd.model").Diagraph = Diagraph
+require("pgf.gd.model").Digraph = Digraph
 
 -- Imports
-local Arc = require "pgf.gd.model.Arc"
+local Arc     = require "pgf.gd.model.Arc"
+local Storage = require "pgf.gd.lib.Storage"
+
+
 
 
 
 
 --- Creates a new digraph.
---
+--                
 -- A digraph object stores a set of vertices and a set of arcs. The
 -- vertices table is both an array (for iteration) as well as a
 -- hash-table of node to position mappings. This operation takes time
 -- $O(1)$. 
 --
--- @param initial_vertices An array containing some initial vertices. 
+-- @param initial A table of initial values. It is permissible that
+--                this array contains a "vertices" field. In this
+--                case, this field must be an array and its entries
+--                must be nodes, which will be inserted. If initial
+--                has an arcs field or a storage field, these fields
+--                will be ignored.
+--                The table must contain a field "syntactic_digraph",
+--                which should normally be the syntactic digraph of
+--                the graph, but may also be the string "self", in
+--                which case it will be set to the newly created
+--                (syntactic) digraph.
 --
+-- The bottom line is that Digraph.new(existing_digraph) will create a
+-- new digraph with the same vertex set and the same options as the
+-- existing digraph, but without arcs.
 -- @return A newly-allocated digraph.
 --
-function Digraph:new(initial_vertices)
-  local digraph = { vertices = {} }
+function Digraph.new(initial)
+  local digraph = {}
   setmetatable(digraph, Digraph)
-  if initial_vertices then 
-    digraph:addMany(initial_vertices)
+
+  if initial then
+    for k,v in pairs(initial) do
+      digraph [k] = v
+    end
+  end
+
+  local vertices = digraph.vertices
+  digraph.vertices = {}
+  digraph.arcs = {}
+  digraph.storage = Storage.new() 
+  digraph.incomings = {} -- a unique handle for vertices's storage
+  digraph.outgoings = {}  -- a unique handle for vertices's storage
+  digraph.syntactic_digraph = assert(initial.syntactic_digraph, "no syntactic digraph specified")
+  if digraph.syntactic_digraph == "self" then
+    digraph.syntactic_digraph = digraph
+  end
+  
+  if vertices then 
+    digraph:add(vertices)
   end
   return digraph
 end
 
 
---- Adds a vertex to a digraph.
+--- Add vertices to a digraph.
 --
--- Adding a vertex to a graph that already exists has no effect. 
+-- This operation takes time $O(#array)$.
 --
--- This operation takes time $O(1)$.
+-- @param array An array of to-be-added vertices.
 --
--- @param v The vertex to be added.
---
-function Digraph:add(v)
-  if not v[self] then
-    local vertices = self.vertices
-
-    -- Insert into vertices array/hash
-    local i = #vertices + 1
-    vertices[i] = v
-    v[self] = { index = i, incoming = {}, outgoing = {} }
-  end
-end
-
-
---- Adds many vertices to a digraph.
---
--- There is no real advantage over just adding the vertices one by
---one; but this method is here for symmetry with removeMany
---
--- This operation takes time $O(|L|)$, where $L$ is the input list.
---
--- @param v The vertex to be added.
---
-function Digraph:addMany(list)
+function Digraph:add(array)
   local vertices = self.vertices
-  local i = #vertices + 1
-  for j=1,#list do
-    local v = list[j]
-    if not v[self] then
-      vertices[i] = v
-      v[self] = { index = i, incoming = {}, outgoing = {} }
-      i = i + 1
+  local incomings = self.incomings
+  local outgoings = self.outgoings
+  for i=1,#array do
+    local v = array[i]
+    if not vertices[v] then
+      vertices[v] = true
+      vertices[#vertices + 1] = v
+      local s = v.storage
+      s[incomings] = {}
+      s[outgoings] = {}
     end
   end
 end
 
+
+--- Remove vertices from a digraph.
+--
+-- This operation removes an array of vertices from a graph. The
+-- operation takes time linear in the number of vertices, regardless of
+-- how many vertices are to be removed. Thus, it will be (much) faster
+-- to delete many vertices by first compiling them in an array and to
+-- then delete them using one call to this method.
+--
+-- This operation takes time $O(max{#array, #self.vertices)$.
+--
+-- @param array The to-be-removed vertices.
+--
+function Digraph:remove(array)
+  
+  -- Mark all to-be-deleted nodes
+  for i=1,#array do
+    local v = array[i]
+    assert(vertices[v], "to-be-deleted node is not in graph")
+    vertices[v] = false
+  end
+  
+  -- Disconnect them
+  for i=1,#array do
+    self:disconnect(array[i])
+  end
+  
+  LookupTable.remove(self.vertices, array)
+end
 
 
 
@@ -138,7 +241,7 @@ end
 -- @param v The vertex to be tested.
 --
 function Digraph:contains(v)
-  return v[self] ~= nil
+  return v and self.vertices[v] == true
 end
 
 
@@ -147,7 +250,7 @@ end
 --- Returns the arc between two nodes, provided it exists. Otherwise,
 -- nil is retured.
 --
---  This operation takes time $O(1)$.
+-- This operation takes time $O(1)$.
 --
 -- @param s The tail vertex
 -- @param t The head vertex
@@ -155,7 +258,7 @@ end
 -- @return The arc object connecting them
 --
 function Digraph:arc(s, t)
-  return assert(s[self], "tail vertex not in graph").outgoing[t]
+  return assert(s.storage[self.outgoings], "tail vertex not in graph")[t]
 end
 
 
@@ -171,7 +274,7 @@ end
 -- whose tail is the vertex)
 --
 function Digraph:outgoing(v)
-  return assert(v[self], "vertex not in graph").outgoing
+  return assert(v.storage[self.outgoings], "vertex not in graph")
 end
 
 
@@ -179,41 +282,10 @@ end
 --- As outgoing.
 --
 function Digraph:incoming(v)
-  return assert(v[self], "vertex not in graph").incoming
+  return assert(v.storage[self.incomings], "vertex not in graph")
 end
 
 
-
-
---- Returns an array of all arcs in the graph. This operation is
--- relatively expensive (it takes time $O(|V| + |E|)$ where $E$ is the
--- set of arcs).
---
--- You can use this command to easily iterate over all arcs of a
--- graph:
---
--- for _,a in ipairs(g:arcs()) do
---   ...
--- end
---
--- Note, however, that you should not call this command repeatedly,
--- because it is expensive. Store the result in a local variable.
---
--- This operation takes time $O(|V| + |E|)$.
---
--- @return An array contain each arc exactly once
-
-function Digraph:arcs()
-  local result = {}
-  local vertices = self.vertices
-  for i=1,#vertices do
-    local out = vertices[i][self].outgoing
-    for j=1,#out do
-      result[#result + 1] = out[j]
-    end
-  end
-  return result
-end
 
 
 
@@ -230,43 +302,41 @@ end
 -- @return The arc object connecting them (either newly created or
 --         already existing)
 --
-function Digraph:connect(s, t)
-  local s_outgoing = assert(s[self], "tail node not in graph").outgoing
-  local arc = s_outgoing[t]
+function Digraph:connect(s, t, object)
+  assert (s and t, "connect with nil parameters")
+
+  local s_outgoings = assert(s.storage[self.outgoings], "tail node not in graph")
+  local arc = s_outgoings[t]
 
   if not arc then
     -- Ok, create and insert new arc object
-    arc = { tail = s, head = t }
+    arc = {
+      tail = s,
+      head = t,
+      storage = Storage.new(),
+      syntactic_digraph = self.syntactic_digraph
+    }
     setmetatable(arc, Arc)
 
-    -- Insert into outgoing:
-    s_outgoing [#s_outgoing + 1] = arc
-    s_outgoing [t] = arc
+    -- Insert into outgoings:
+    s_outgoings [#s_outgoings + 1] = arc
+    s_outgoings [t] = arc
 
-    local t_incoming = assert(t[self], "head node not in graph").incoming
-    -- Insert into incoming:
-    t_incoming [#t_incoming + 1] = arc
-    t_incoming [s] = arc
+    local t_incomings = assert(t.storage[self.incomings], "head node not in graph")
+    -- Insert into incomings:
+    t_incomings [#t_incomings + 1] = arc
+    t_incomings [s] = arc
+
+    -- Insert into arcs field, if it exists:
+    local arcs = rawget(self, "arcs")
+    if arcs then
+      arcs[#arcs + 1] = arc
+    end
   end
 
   return arc
 end
 
-
---- Connect all nodes in the first list with all nodes in the second list.
---
--- This operation takes time $O(|L_1| |L_2|)$, where the $L_i$ are the lists..
---
--- @param s A list of tail vertices
--- @param t A list of head vertices.
-
-function Digraph:connectMany(s, t)
-  for i=1,#s do
-    for j=1,#t do
-      self:connect(s[i],t[j])
-    end
-  end
-end
 
 
 
@@ -285,212 +355,133 @@ end
 function Digraph:disconnect(v, t)
   if t then
     -- Case 2: Remove a single arc.
-    local s_outgoing = assert(v[self], "tail node not in graph").outgoing
-    local t_incoming = assert(t[self], "head node not in graph").incoming
+    local s_outgoings = assert(v.storage[self.outgoings], "tail node not in graph")
+    local t_incomings = assert(t.storage[self.incomings], "head node not in graph")
 
-    if s_outgoing[t] then
+    if s_outgoings[t] then
       -- Remove:
-      s_outgoing[t] = nil
-      for i=1,#s_outgoing do
-	if s_outgoing[i].head == t then
-	  table.remove (s_outgoing, i)
+      s_outgoings[t] = nil
+      for i=1,#s_outgoings do
+	if s_outgoings[i].head == t then
+	  table.remove (s_outgoings, i)
 	  break
 	end
       end
-      t_incoming[v] = nil
-      for i=1,#t_incoming do
-	if t_incoming[i].tail == v then
-	  table.remove (t_incoming, i)
+      t_incomings[v] = nil
+      for i=1,#t_incomings do
+	if t_incomings[i].tail == v then
+	  table.remove (t_incomings, i)
 	  break
 	end
       end
+      self.arcs = nil -- invalidate arcs field
     end
   else
     -- Case 1: Remove all arcs incident to v:
-    local info = assert(v[self], "node not in graph")
+    local v_storage = v_storage
+    local self_incomings = self.incomings
+    local self_outgoings = self.outgoings
     
-    -- Step 1: Delete all incoming arcs:
-    local incoming = info.incoming
+    -- Step 1: Delete all incomings arcs:
+    local incomings = assert(v_storage[self_incomings], "node not in graph")
     local vertices = self.vertices
 
-    for i=1,#incoming do
-      local s = incoming[i].tail
-      local s_info = s[self]
-      if s ~= v and vertices[s_info.index] then -- skip self-loop and to-be-deleted nodes
+    for i=1,#incomings do
+      local s = incomings[i].tail
+      if s ~= v and vertices[s] then -- skip self-loop and to-be-deleted nodes
 	-- Remove this arc from s:
-	local s_outgoing = s_info.outgoing
-	s_outgoing[v] = nil
-	for i=1,#s_outgoing do
-	  if s_outgoing[i].head == v then
-	    table.remove (s_outgoing, i)
+	local s_outgoings = s.storage[self_outgoings]
+	s_outgoings[v] = nil
+	for i=1,#s_outgoings do
+	  if s_outgoings[i].head == v then
+	    table.remove (s_outgoings, i)
 	    break
 	  end
 	end
       end
     end
 
-    -- Step 2: Delete all outgoing arcs:
-    local outgoing = info.outgoing
-    for i=1,#outgoing do
-      local t = outgoing[i].head
-      local t_info = t[self]
-      if t ~= v and vertices[t_info.index] then
-	local t_incoming = t[self].incoming
-	t_incoming[v] = nil
-	for i=1,#t_incoming do
-	  if t_incoming[i].tail == v then
-	    table.remove (t_incoming, i)
+    -- Step 2: Delete all outgoings arcs:
+    local outgoings = v_storage[self_outgoings]
+    for i=1,#outgoings do
+      local t = outgoings[i].head
+      if t ~= v and vertices[t] then
+	local t_incomings = t.storage[self_incomings]
+	t_incomings[v] = nil
+	for i=1,#t_incomings do
+	  if t_incomings[i].tail == v then
+	    table.remove (t_incomings, i)
 	    break
 	  end
 	end
       end
     end
 
-    -- Step 3: Reset incoming and outgoing fields
-    info.incoming = {}
-    info.outgoing = {}
+    if #incomings > 0 or #outgoings > 0 then
+      self.arcs = nil -- invalidate arcs field
+    end
+
+    -- Step 3: Reset incomings and outgoings fields
+    v_storage[self_incomings] = {}
+    v_storage[self_outgoings] = {}
   end
 end
 
 
 
 
-
---- Remove a vertex from a digraph.
+--- Reconnect: An arc is changed so that instead of connecting a.tail
+-- and a.head, it now connects a new head and tail. The difference to
+-- first disconnecting and then reconnecting is that all fields of the
+-- arc (other than head and tail, of course), will be "moved
+-- along". Also, all fields of the storage will be
+-- copied. Reconnecting and arc in the same way as before has no
+-- effect.
 --
--- Removing a vertex from a graph in which it is no element is legal
--- and has no effect. 
+-- If there is already an arc at the new position, field of the
+-- to-be-reconnected arc overwrite fields of the original arc. This is
+-- especially dangerous with a syntactic digraph, so do not reconnect
+-- arcs of the syntactic digraph (which you should not do anyway).
 --
--- This operation takes time $O(|V|)$ if the vertex is in the graph,
--- so it is pretty expensive. To remove many vertices, use removeMany
--- instead, which will be much faster than repeatedly calling remove.
+-- The arc object may no longer be valid after a reconnect, but the
+-- operation returns the new arc object.
 --
--- @param v The vertex to be removed.
+-- This operation needs the time of a disconnect (if necessary)
 --
-function Digraph:remove(v)
-  if v[self] then
-    self:disconnect(v)
-    table.remove (self.vertices, v[self].index)
-    v[self] = nil
-  end
-end
-
-
-
---- Remove many vertices from a digraph
+-- @param arc The original arc object
+-- @param tail The new tail vertex
+-- @param head The new head vertex
 --
--- This method allows you to remove a whole list of vertices from the
--- graph. The main difference to calling remove repeatedly is that the
--- runtime will be linear in the number of vertices regardless of how
--- many vertices are deleted (plus the time needed to delete the arcs
--- to nodes that are not deleted).
+-- @return The new arc object connecting them (either newly created or
+--         already existing)
 --
--- This operation will take time $O(|V|)$ plus the time needed to
--- disconnect all deleted nodes.
---
--- @param delete_us An array of nodes that should be deleted.
---
-function Digraph:removeMany(delete_us)
-  local vertices = self.vertices
+function Digraph:reconnect(arc, tail, head)
+  assert (arc and tail and head, "connect with nil parameters")
   
-  -- Mark all to-be-deleted nodes
-  for i=1,#delete_us do
-    vertices[delete_us[i][self].index] = false
-  end
-  
-  -- Disconnect them
-  for i=1,#delete_us do
-    self:disconnect(delete_us[i])
-  end
-  
-  -- Now relabel everything
-  local target = 1
-  for i=1,#vertices do
-    local v = vertices[i]
-    if v then
-      if i > target then
-	-- Move from i to target:
-	vertices[target] = v
-	v[self].index = target
+  if arc.head == head and arc.tail == tail then
+    -- Nothing to be done
+    return arc
+  else
+    local new_arc = self:connect(tail, head)
+    
+    for k,v in pairs(arc) do
+      if k ~= "head" and k ~= "tail" and k ~= "storage" then
+	new_arc[k] = v
       end
-      target = target + 1
     end
-  end
-  
-  for j=#vertices,target,-1 do
-    vertices[j] = nil
-  end
-end
 
-
-
-
---- Create private tables for the graph and its vertices.
---
--- "Private tables" are tables that are available in each vertex and arc
--- of a graph (and also at the graph itself), indexed through a
--- "private" key, normally the key of a special table. The idea is
--- that, say, an algorithm will work on a graph and wishes to store
--- some information at the vertices. For instance, a depth-first
--- search might wish to store information like "this vertex is
--- marked" at a vertex. One could store this information simply in a
--- field like v.marked. However, a different algorithm might also use
--- this field, leading to confusion. To avoid this, an algorithm can
--- request that it should be provided with private tables at each node
--- (and also at the graph object itself, for convenience).
--- 
--- You can also request private tables for all arcs, but this is done
--- using a separate function for efficiency since many algorithms will
--- only need pivate tables at the vertices.
---
--- If a vertex already has a private table, it will not be
--- modified. Thus, you can call this method repeatedly, namely whenever
--- new nodes have been added.
---
--- The method takes time $O(|V|)$.
---
--- @param A private key (must be a table).
-
-function Digraph:privateVertexTables(private)
-  assert(type(private) == "table", "private keys must be tables")
-
-  self[private] = self[private] or {}
-
-  -- Add an algorithm field to all vertices
-  local vertices=self.vertices
-  for i=1,#vertices do
-    local v = vertices[i]
-    v[private] = v[private] or {}
-  end
-end
-
-
---- Creates private tables for the arcs of a graph
---
--- Like privateVertexTables, only for arcs rather then vertices. As
--- for privateVertexTables, the graph object itself also gets a private
--- table.
---
--- This method takes time $O(|V| + |E|)$, where $E$ is the set of
--- arcs.
---
--- @param A private key (must be a table).
-
-function Digraph:privateArcTables(private)
-  assert(type(private) == "table", "private keys must be tables")
-
-  self[private] = self[private] or {}
-
-  -- Add an algorithm field to all arcs
-  local vertices = self.vertices
-  for i=1,#vertices do
-    local out = vertices[i][self].outgoing
-    for j=1,#out do
-      local a = out[j]
-      a[private] = a[private] or {}
+    for k,v in pairs(arc.storage) do
+      new_arc.storage[k] = v
     end
+
+    -- Remove old arc:
+    self:diconnect(arc.tail, arc.head)
+
+    return new_arc
   end
 end
+
+
 
 
 
@@ -503,7 +494,7 @@ function Digraph:__tostring()
   local astrings = {}
   for i,v in ipairs(self.vertices) do
     vstrings[i] = tostring(v)
-    local out_arcs = v[self].outgoing
+    local out_arcs = v.storage[self.outgoings]
     if #out_arcs > 0 then
       local t = {}
       for j,a in ipairs(out_arcs) do

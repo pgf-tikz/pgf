@@ -21,7 +21,7 @@ EdgeRoutingGansnerKNV1993.__index = EdgeRoutingGansnerKNV1993
 require("pgf.gd.layered").EdgeRoutingGansnerKNV1993 = EdgeRoutingGansnerKNV1993
 
 
-function EdgeRoutingGansnerKNV1993:new(main_algorithm, graph)
+function EdgeRoutingGansnerKNV1993.new(main_algorithm, graph)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,

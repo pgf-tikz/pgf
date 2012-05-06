@@ -151,7 +151,7 @@ function SpanningTreeComputation:computeSpanningTree (algorithm, dfs)
 	if dfs then i = #node.edges - j + 1 end
 	
 	local e = node.edges[i]
-	local priority = tonumber(e:getOption('/graph drawing/edge priority')) or
+	local priority = e:getOption('/graph drawing/edge priority') or
                          edge_prioritization_fun(e, node) 
 	if priority == 1 then
 	  put_if_unmarked (e:getNeighbour(node), stack1)
@@ -221,11 +221,11 @@ function SpanningTreeComputation:computeSpanningTree (algorithm, dfs)
       if same_elements() then
 	
 	-- increase number of children, if necessary
-	local needed = math.max(#children, tonumber(n:getOption('/graph drawing/minimum number of children', graph)))
+	local needed = math.max(#children, pgf.gd.control.Options.lookup('/graph drawing/minimum number of children', n, graph))
 	for i=1,#children do
 	  if children[i] ~= "" then
 	    local d = children[i]:getOption('/graph drawing/desired child index')
-	    needed = d and math.max(needed, tonumber(d)) or needed
+	    needed = d and math.max(needed, d) or needed
 	  end
 	end
 
@@ -234,7 +234,7 @@ function SpanningTreeComputation:computeSpanningTree (algorithm, dfs)
 	  if children[i] ~= "" then
 	    local d = children[i]:getOption('/graph drawing/desired child index')
 	    if d then
-	      local target = tonumber(d)
+	      local target = d
 	      
 	      while new_children[target] do
 		target = 1 + (target % #children)
@@ -258,7 +258,7 @@ function SpanningTreeComputation:computeSpanningTree (algorithm, dfs)
 	end
 	for i=1,needed do
 	  if not new_children[i] then
-	    new_children[i] = Node:new{ [algorithm] = { children = {} }, kind = "dummy" }
+	    new_children[i] = Node.new{ [algorithm] = { children = {} }, kind = "dummy", orig_vertex = pgf.gd.model.Vertex.new{} }
 	  end
 	end	
 

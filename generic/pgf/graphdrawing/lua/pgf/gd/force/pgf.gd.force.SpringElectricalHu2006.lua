@@ -25,22 +25,23 @@ local SpringElectricalHu2006 = pgf.gd.new_algorithm_class {
     works_only_on_connected_graphs = true,
     works_only_for_loop_free_graphs = true,
     works_only_for_simple_graphs = true,
+    old_graph_model = true,
   },
   graph_parameters = {
-    iterations = 'spring electrical layout/iterations [number]',
-    cooling_factor = 'spring electrical layout/cooling factor [number]',
-    initial_step_length = 'spring electrical layout/initial step dimension [number]',
-    convergence_tolerance = 'spring electrical layout/convergence tolerance [number]',
+    iterations = '/graph drawing/spring electrical layout/iterations',
+    cooling_factor = '/graph drawing/spring electrical layout/cooling factor',
+    initial_step_length = '/graph drawing/spring electrical layout/initial step dimension',
+    convergence_tolerance = '/graph drawing/spring electrical layout/convergence tolerance',
 
-    natural_spring_length = 'node distance [number]',
-    spring_constant = 'spring electrical layout/spring constant [number]',
+    natural_spring_length = '/graph drawing/node distance',
+    spring_constant = '/graph drawing/spring electrical layout/spring constant',
 
-    approximate_repulsive_forces = 'spring electrical layout/approximate electric forces [boolean]',
-    repulsive_force_order = 'spring electrical layout/electric force order [number]',
+    approximate_repulsive_forces = '/graph drawing/spring electrical layout/approximate electric forces',
+    repulsive_force_order = '/graph drawing/spring electrical layout/electric force order',
    
-    coarsen = 'spring electrical layout/coarsen [boolean]',
-    downsize_ratio = 'spring electrical layout/coarsening/downsize ratio [number]',
-    minimum_graph_size = 'spring electrical layout/coarsening/minimum graph size [number]',
+    coarsen = '/graph drawing/spring electrical layout/coarsen',
+    downsize_ratio = '/graph drawing/spring electrical layout/coarsening/downsize ratio',
+    minimum_graph_size = '/graph drawing/spring electrical layout/coarsening/minimum graph size',
   }
 }
 
@@ -75,7 +76,7 @@ function SpringElectricalHu2006:run()
 
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
-    node.weight = tonumber(node:getOption('/graph drawing/spring electrical layout/electric charge'))
+    node.weight = node:getOption('/graph drawing/spring electrical layout/electric charge')
   end
   
   -- initialize edge weights
@@ -86,7 +87,7 @@ function SpringElectricalHu2006:run()
   -- initialize the coarse graph data structure. note that the algorithm
   -- is the same regardless whether coarsening is used, except that the 
   -- number of coarsening steps without coarsening is 0
-  local coarse_graph = CoarseGraph:new(self.graph)
+  local coarse_graph = CoarseGraph.new(self.graph)
 
   -- check if the multilevel approach should be used
   if self.coarsen then
@@ -181,7 +182,7 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector:new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local direction = Vector.new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
@@ -266,7 +267,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
 	-- vector for the displacement of v
-	local d = Vector:new(2)
+	local d = Vector.new(2)
 	
 	-- compute repulsive forces
 	if self.approximate_repulsive_forces then
@@ -413,13 +414,9 @@ function SpringElectricalHu2006:fixateNodes(graph)
     local coordinate = node:getOption('/graph drawing/desired at')
 
     if coordinate then
-      -- parse the coordinate
-      local coordinate_pattern = '{([%d.-]+)}{([%d.-]+)}'
-      local x, y = coordinate:gmatch(coordinate_pattern)()
-      
       -- apply the coordinate
-      node.pos.x = tonumber(x)
-      node.pos.y = tonumber(y)
+      node.pos.x = coordinate[1]
+      node.pos.y = coordinate[2]
 
       -- mark the node as fixed
       node.fixed = true
@@ -437,14 +434,14 @@ end
 function SpringElectricalHu2006:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
   local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
-    return Vector:new(2, function (n) 
+    return Vector.new(2, function (n) 
 			    return math.min(min_pos[n], node.pos[n])
     end)
   end, graph.nodes[1].pos)
 
   -- compute maximum x and y coordinates of all nodes
   local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
-    return Vector:new(2, function (n) 
+    return Vector.new(2, function (n) 
       return math.max(max_pos[n], node.pos[n])
     end)
   end, graph.nodes[1].pos)
@@ -452,7 +449,7 @@ function SpringElectricalHu2006:buildQuadtree(graph)
   -- make sure the maximum position is at least a tiny bit
   -- larger than the minimum position
   if min_pos:equals(max_pos) then
-    max_pos = max_pos:plus(Vector:new(2, function (n)
+    max_pos = max_pos:plus(Vector.new(2, function (n)
       return 0.1 + math.random() * 0.1
     end))
   end
@@ -464,13 +461,13 @@ function SpringElectricalHu2006:buildQuadtree(graph)
   max_pos = max_pos:plus({1,1})
 
   -- create the quadtree
-  quadtree = QuadTree:new(min_pos.x, min_pos.y,
+  quadtree = QuadTree.new(min_pos.x, min_pos.y,
 			      max_pos.x - min_pos.x,
 			      max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
   for node in table.value_iter(graph.nodes) do
-    local particle = QuadTree.Particle:new(node.pos, node.weight)
+    local particle = QuadTree.Particle.new(node.pos, node.weight)
     particle.node = node
     quadtree:insert(particle)
   end

@@ -47,7 +47,7 @@ local Vector = require "pgf.gd.lib.Vector"
 --
 -- @return A newly allocated node.
 --
-function Node:new(values)
+function Node.new(values)
   local new = {
     class = Node,
     name = nil,
@@ -73,7 +73,7 @@ function Node:new(values)
     end
   end
   if not new.pos then 
-    new.pos = Vector:new(2) 
+    new.pos = Vector.new(2) 
   end
   return new
 end
@@ -240,7 +240,7 @@ end
 -- @return Copy of the node.
 --
 function Node:copy()
-  local result = table.custom_copy(self, Node:new())
+  local result = table.custom_copy(self, Node.new())
   result.edges = {}
   return result
 end

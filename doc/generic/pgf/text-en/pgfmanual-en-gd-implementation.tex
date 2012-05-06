@@ -114,8 +114,8 @@ An overview of what happens is illustrated by the following call graph:
   % class names above
   \node (tikz) at (0,4) [class name] {\tikzname\ layer};
   \node (tex) at (5,4) [class name] {\pgfname\ layer};
-  \node (interface) at (10,4) [class name] {Lua: Class Interface};
-  \node (sys) at (15,4) [class name] {Lua: Class Sys};
+  \node (interface) at (10,4) [class name] {Lua: TeXInterface};
+  \node (sys) at (15,4) [class name] {};
   % lines from the class names to the bottom of the picture
   \draw[livespan] (tikz) -- (0,-7.5);
   \draw[livespan] (tex) -- (5,-7.5);
@@ -124,29 +124,29 @@ An overview of what happens is illustrated by the following call graph:
   % first command: \graph{  -- generates new graph in lua interface
   \node (tikz-begin-graph) at (0,3) [object node] {|\graph[algorithm=...]{|}; %}
   \node (tex-begin-graph) at (5,3) [object node] {|\pgfgdbeginscope|};  
-  \node (interface-new-graph) at (10,3) [object node] {|newGraph(|...|)|};
+  \node (interface-new-graph) at (10,3) [object node] {|beginGraphDrawingScope(|...|)|};
   \draw [p] (tikz-begin-graph.east) -- (tex-begin-graph.west);
   \draw [p] (tex-begin-graph.east) -- (interface-new-graph.west);    
   % second command: a -> b   -- generates two nodes in lua
   % and one edge
   \node (tikz-node) at (0,2) [object node] {|a -> b;|};
   \node (tex-node) at (5,2) [object node] {|\pgfnode|};
-  \node (interface-add-node-behind) at (10.1,1.9) [object node] {|addNode(|...|)|};
+  \node (interface-add-node-behind) at (10.1,1.9) [object node] {|addPgfNode(|...|)|};
   \draw[p] (tikz-node.east) -- (tex-node.west);
   
-  \node (interface-add-node) at (10,2) [object node] {|addNode(|...|)|};
+  \node (interface-add-node) at (10,2) [object node] {|addPgfNode(|...|)|};
   \draw[p] (tex-node.east) -- (interface-add-node.west);
 
   \node (tex-add-edge) at (5,1) [object node] {|\pgfgdedge|};
-  \node (interface-add-edge) at (10,1) [object node] {|addEdge(|...|)|};
+  \node (interface-add-edge) at (10,1) [object node] {|addPgfEdge(|...|)|};
   \draw[p] (tikz-node.east) -- (1.5,2) -- (1.5,1) -- (tex-add-edge.west);
   \draw[p] (tex-add-edge.east) -- (interface-add-edge.west);
 
   % scope ends -- cloes graph, layouts it and draws it
   \node (tikz-end) at (0,0) [object node] {|};|};
   \node (tex-end) at (5,0) [object node] {|\pgfgdendscope|};
-  \node (interface-draw-graph) at (10,0) [object node] {|drawGraph()|};
-  \node (interface-finish-graph) at (10,-2) [object node] {|finishGraph()|};
+  \node (interface-draw-graph) at (10,0) [object node] {|runGraphDrawingAlgorithm()|};
+  \node (interface-finish-graph) at (10,-2) [object node] {|endGraphDrawingScope()|};
 
   \node (invoke-algorithm) at (12.5,-1) [object node] {invoke algorithm};
   \draw[p] (tikz-end.east) -- (tex-end.west);
@@ -635,6 +635,11 @@ Let us start with the basic commands for setting a graph parameter
   In case that a graph parameter has not been set, the |getOption|
   function will return |nil| (but see also the description of the
   |.parameter initial| handler below).
+
+  Note that the \meta{value} will be passed down directly to Lua
+  without being quoted. Thus, if \meta{value} is |42|, you will get a
+  Lua |number| inside |myvalue|, while if \meta{value} is |'42'|, you
+  get a Lua |string|.
 \end{command}
 
 
@@ -682,13 +687,13 @@ In practice, you do not call the above commands directly. Instead, you
 use key handlers that will take care of calling these commands
 internally.
 
-\begin{handler}{{.graph parameter}|=|\opt{\meta{conversion}}}
+\begin{handler}{{.graph parameter}|=|\meta{conversion}}
   When this key hanlder is applied to a key, this key ``becomes a
   graph drawing graph parameter''. Subsequently, assigning a value to
   the key will cause an appropriate call of |\pgfgdgraphparameter| to
   be issued. For instance, suppose we say
 \begin{codeexample}[code only]
-\pgfkeys{ /some path/my key/.graph parameter }
+\pgfkeys{ /some path/my key/.graph parameter=string}
 \end{codeexample}
   and then subsequently
 \begin{codeexample}[code only]
@@ -710,7 +715,7 @@ internally.
   the original \meta{value} to be passed to the algorithm. For
   instance, suppose we write 
 \begin{codeexample}[code only]
-\pgfkeys{ /some path/width/.graph parameter }
+\pgfkeys{ /some path/width/.graph parameter=string }
 \end{codeexample}
   We could now say |/some path/width=20pt+2pt|. Then, inside the 
   algorithm call to the function |getOptions('/some path/width')| would yield the
@@ -741,9 +746,20 @@ internally.
 }
 \end{codeexample}
 
-  The following conversion are available by default:
-  \begin{key}{/graph drawing/conversions/evaluate math
-      expression=\meta{math expression}}
+  The following conversion are available:
+  \begin{key}{/graph drawing/conversions/string=\meta{string}}
+    Put the argument in single quotes and apply |\luaescapestring| to \meta{string}.
+  \end{key}
+  \begin{key}{/graph drawing/conversions/raw=\meta{string}}
+    No conversion at all is applied. This means that \meta{string} is
+    used as raw Lua code. This makes it easy to define, for instance,
+    functions.
+  \end{key}
+  \begin{key}{/graph drawing/conversions/boolean=\meta{value}}
+    Return |true| in case \meta{value} is |true|, and |false| in all
+    other cases.
+  \end{key}
+  \begin{key}{/graph drawing/conversions/number=\meta{math expression}}
     Passes \meta{math expression} to |\pgfmathparse|.    
   \end{key}
   \begin{key}{/graph drawing/conversions/direction=\meta{direction}}
@@ -756,13 +772,14 @@ internally.
   \begin{key}{/graph drawing/conversions/coordinate=\meta{coordinate}}
     The \meta{coordinate} should have the form
     |(|\meta{number}|pt,|\meta{number}|pt)|. It is converted to the
-    format |{|\meta{number}|}{|\meta{number}|}|.
+    format |{|\meta{number}|, |\meta{number}|}|, that is, to a Lua
+    array of length~2.
 
     When you load the \tikzname\ library |graphdrawing| this
     conversion is overwritten by a more powerful conversion: You can
     then pass any \meta{coordinate} that is understood by
-    \tikzname. It will still be converted into the
-    pair-of-braced-numbers format.
+    \tikzname. It will still be converted into an
+    array of length~2.
   \end{key}
   
   \medskip

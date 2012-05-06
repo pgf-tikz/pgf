@@ -27,7 +27,7 @@ local Tantau2012 = pgf.gd.new_algorithm_class {
     growth_direction = 180
   },
   graph_parameters = {
-    minimum_radius = 'circular layout/radius [number]',
+    minimum_radius = '/graph drawing/circular layout/radius',
   }
 }
 
@@ -35,9 +35,18 @@ local Tantau2012 = pgf.gd.new_algorithm_class {
 require("pgf.gd.circular").Tantau2012 = Tantau2012
 
 
-function Tantau2012:run()
-  local n = #self.graph.nodes
+-- Imports
 
+local Options = require "pgf.gd.control.Options"
+local Coordinate = require "pgf.gd.model.Coordinate"
+
+
+
+function Tantau2012:run()
+  local g = self.digraph
+  local vertices = g.vertices
+  local n = #vertices
+  
   local sib_dists = self:computeNodeDistances ()
   local radii = self:computeNodeRadii()
   local diam, adjusted_radii = self:adjustNodeRadii(sib_dists, radii)
@@ -48,14 +57,14 @@ function Tantau2012:run()
   -- right in a line. 
   local carry = 0
   local positions = {}
-  local n = #self.graph.nodes
   local function wrap(i) return (i-1)%n + 1 end
   local ideal_pos = 0
   for i = 1,n do
     positions[i] = ideal_pos + carry
     ideal_pos = ideal_pos + sib_dists[i]
-    local node_sep =   self.graph.nodes[i]:getOption('/graph drawing/node post sep', self.graph)
-                        + self.graph.nodes[wrap(i+1)]:getOption('/graph drawing/node pre sep', self.graph)
+    local node_sep =
+      Options.lookup('/graph drawing/node post sep', vertices[i], g) +
+      Options.lookup('/graph drawing/node pre sep', vertices[wrap(i+1)], g)
     local arc = node_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
     local needed = carry + arc
     local dist = math.sin( arc/diam ) * diam
@@ -65,9 +74,9 @@ function Tantau2012:run()
   local length = ideal_pos + carry
 
   local radius = length / (2 * math.pi)
-  for i,node in ipairs(self.graph.nodes) do
-    node.pos.x = radius * math.cos(2 * math.pi * positions[i] / length)
-    node.pos.y = -radius * math.sin(2 * math.pi * positions[i] / length)
+  for i,vertex in ipairs(vertices) do
+    vertex.pos.x = radius * math.cos(2 * math.pi * positions[i] / length)
+    vertex.pos.y = -radius * math.sin(2 * math.pi * positions[i] / length)
   end
 end
 
@@ -75,9 +84,9 @@ end
 function Tantau2012:computeNodeDistances()
   local sib_dists = {}
   local sum_length = 0
-  local nodes = self.graph.nodes
-  for i=1,#nodes do
-     sib_dists[i] = nodes[i]:getOption('/graph drawing/node distance', self.graph)
+  local vertices = self.digraph.vertices
+  for i=1,#vertices do
+     sib_dists[i] = Options.lookup('/graph drawing/node distance', vertices[i], self.digraph)
      sum_length = sum_length + sib_dists[i]
   end
 
@@ -85,8 +94,8 @@ function Tantau2012:computeNodeDistances()
   if missing_length > 0 then
      -- Ok, the sib_dists to not add up to the desired minimum value. 
      -- What should we do? Hmm... We increase all by the missing amount:
-     for i=1,#nodes do
-	sib_dists[i] = sib_dists[i] + missing_length/#nodes
+     for i=1,#vertices do
+	sib_dists[i] = sib_dists[i] + missing_length/#vertices
      end
   end
 
@@ -98,11 +107,12 @@ end
 
 function Tantau2012:computeNodeRadii()
   local radii = {}
-  for i,n in pairs(self.graph.nodes) do
-    if n.tex.shape == "circle" or n.tex.shape == "ellipse" then
-      radii[i] = math.max(n:getTexWidth(),n:getTexHeight())/2
+  for i,v in ipairs(self.digraph.vertices) do
+    local min_x, min_y, max_x, max_y = Coordinate:boundingBox(v.hull)
+    local w, h = max_x-min_x, max_y-min_y
+    if v.shape == "circle" or v.shape == "ellipse" then
+      radii[i] = math.max(w,h)/2
     else
-      local w, h = n:getTexWidth(), n:getTexHeight()
       radii[i] = math.sqrt(w*w + h*h)/2
     end
   end
@@ -114,8 +124,8 @@ function Tantau2012:adjustNodeRadii(sib_dists,radii)
   local total = 0
   for i=1,#radii do
     total = total + 2*radii[i] 
-            + self.graph.nodes[i]:getOption('/graph drawing/node post sep', self.graph)
-	    + self.graph.nodes[i]:getOption('/graph drawing/node pre sep', self.graph)
+            + Options.lookup('/graph drawing/node post sep', self.digraph.vertices[i], self.digraph)
+            + Options.lookup('/graph drawing/node pre sep', self.digraph.vertices[i], self.digraph)
   end
   total = math.max(total, sib_dists.total)
   local diam = total/(math.pi)

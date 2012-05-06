@@ -27,13 +27,13 @@ lib.DepthFirstSearch = DepthFirstSearch
 
 -- TT: TODO Jannis: Please document...
 
-function DepthFirstSearch:new(init_func, visit_func, complete_func)
+function DepthFirstSearch.new(init_func, visit_func, complete_func)
   local dfs = {
     init_func = init_func,
     visit_func = visit_func,
     complete_func = complete_func,
 
-    stack = lib.Stack:new(),
+    stack = lib.Stack.new(),
     discovered = {},
     visited = {},
     completed = {},
@@ -71,7 +71,7 @@ function DepthFirstSearch:reset()
   self.discovered = {}
   self.visited = {}
   self.completed = {}
-  self.stack = lib.Stack:new()
+  self.stack = lib.Stack.new()
 end
 
 

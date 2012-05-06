@@ -29,7 +29,7 @@ local NetworkSimplex = require "pgf.gd.layered.NetworkSimplex"
 
 
 
-function NodeRankingGansnerKNV1993:new(main_algorithm, graph)
+function NodeRankingGansnerKNV1993.new(main_algorithm, graph)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,
@@ -42,7 +42,7 @@ end
 
 function NodeRankingGansnerKNV1993:run()
 
-  local simplex = NetworkSimplex:new(self.graph, NetworkSimplex.BALANCE_TOP_BOTTOM)
+  local simplex = NetworkSimplex.new(self.graph, NetworkSimplex.BALANCE_TOP_BOTTOM)
   simplex:run()
   self.ranking = simplex.ranking
 
@@ -62,8 +62,8 @@ function NodeRankingGansnerKNV1993:mergeClusters()
 
   for cluster in table.value_iter(self.graph.clusters) do
 
-    local cluster_node = Node:new{
-      name = 'cluster@' .. cluster:getName(),
+    local cluster_node = Node.new{
+      name = 'cluster@' .. cluster.name,
     }
     table.insert(self.cluster_nodes, cluster_node)
 
@@ -82,7 +82,7 @@ function NodeRankingGansnerKNV1993:mergeClusters()
     if self.cluster_node[tail] or self.cluster_node[head] then
       table.insert(self.original_edges, edge)
 
-      local cluster_edge = Edge:new{
+      local cluster_edge = Edge.new{
         direction = Edge.RIGHT,
         weight = edge.weight,
         minimum_levels = edge.minimum_levels,
@@ -124,7 +124,7 @@ function NodeRankingGansnerKNV1993:createClusterEdges()
     local first_cluster = self.cluster_nodes[n]
     local second_cluster = self.cluster_nodes[n+1]
 
-    local edge = Edge:new{
+    local edge = Edge.new{
       direction = Edge.RIGHT,
       weight = 1,
       minimum_levels = 1,

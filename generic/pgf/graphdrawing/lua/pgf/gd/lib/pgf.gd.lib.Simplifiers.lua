@@ -22,10 +22,14 @@ local lib     = require "pgf.gd.lib"
 lib.Simplifiers = Simplifiers
 
 
+
+
 -- Imports
 
 local Edge            = require "pgf.gd.model.Edge"
 local Node            = require "pgf.gd.model.Node"
+
+
 
 
 
@@ -131,7 +135,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function Simplifiers:removeLoops(algorithm)
+function Simplifiers:removeLoopsOldModel(algorithm)
   local graph = algorithm.graph
   local loops = {}
 
@@ -154,7 +158,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function Simplifiers:restoreLoops(algorithm)
+function Simplifiers:restoreLoopsOldModel(algorithm)
   local graph = algorithm.graph
 
   for _,edge in ipairs(graph[algorithm].loops) do
@@ -174,7 +178,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function Simplifiers:collapseMultiedges(algorithm, collapse_action)
+function Simplifiers:collapseMultiedgesOldModel(algorithm, collapse_action)
   local graph = algorithm.graph
   local collapsed_edges = {}
   local node_processed = {}
@@ -190,7 +194,7 @@ function Simplifiers:collapseMultiedges(algorithm, collapse_action)
 
       if not node_processed[neighbour] then
         if not multiedge[neighbour] then
-          multiedge[neighbour] = Edge:new{ direction = Edge.RIGHT }
+          multiedge[neighbour] = Edge.new{ direction = Edge.RIGHT }
           collapsed_edges[multiedge[neighbour]] = {}
         end
 
@@ -235,7 +239,7 @@ end
 --
 -- @param algorithm An algorithm object
 
-function Simplifiers:expandMultiedges(algorithm)
+function Simplifiers:expandMultiedgesOldModel(algorithm)
   local graph = algorithm.graph
   for multiedge, subedges in pairs(graph[algorithm].collapsed_edges) do
     assert(#subedges >= 2)

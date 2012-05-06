@@ -26,7 +26,7 @@ local Simplifiers = require "pgf.gd.lib.Simplifiers"
 
 
 
-function CycleRemovalGansnerKNV1993:new(main_algorithm, graph)
+function CycleRemovalGansnerKNV1993.new(main_algorithm, graph)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,

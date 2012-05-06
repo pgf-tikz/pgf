@@ -33,19 +33,10 @@ require("pgf").gd = {}
 -- this, each entry of the table should be of the form 
 --
 --   key = 'string'
--- or
---   key = 'string [type]'
 --
 -- What happens is that upon the creation of a new algorithm object,
--- for each key we lookup the graph option '/graph drawing/string' and
--- store its value in the key of the new algorithm object. If the
--- optional type is given, a conversion is performed prior to storing
--- the value. In detail, if type is 'number', then tonumber is applied
--- to the option string prior to storing it; if the type is 'boolean',
--- the option is converted into a boolean (by testing whether it is
--- equal to 'true'); and if the type is 'algorithm' or 'require' or
--- 'load', a require is applied to the option string (which will
--- typically cause an algorithm object to be loaded).
+-- for each key we lookup the graph option 'string' and
+-- store its value in the key of the new algorithm object.
 --
 -- @return A table that is a class with a new function setup.
 
@@ -53,28 +44,18 @@ function pgf.gd.new_algorithm_class (info)
   local class = info.properties or {}
   class.__index = class
   class.new = 
-    function (self, g, algo) 
+    function (initial) 
 
       -- Create new object
-      local obj = { graph = g, parent_algorithm = algo }
+      local obj = {}
+      for k,v in pairs(initial) do
+	obj[k] = v
+      end
       setmetatable(obj, class)
 
       -- Setup graph_options
       for k,v in pairs(info.graph_parameters or {}) do
-	local option, type = string.match(v, '(.-)%s*%[(.*)%]')
-	if not option then
-	  option = v
-	  type = 'string'
-	end
-	if type == "number" then
-	  obj[k] = tonumber(g:getOption('/graph drawing/' .. option))
-	elseif type == "boolean" then
-	  obj[k] = g:getOption('/graph drawing/' .. option) == 'true'
-	elseif type == "algorithm" or type == "require" or type == "load" then
-	  obj[k] = require(g:getOption('/graph drawing/' .. option))
-	else
-	  obj[k] = g:getOption('/graph drawing/' .. option)
-	end
+	obj[k] = initial.digraph.options[v]
       end
 
       return obj

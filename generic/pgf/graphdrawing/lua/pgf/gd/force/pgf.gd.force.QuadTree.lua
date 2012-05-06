@@ -35,9 +35,9 @@ local Vector = require "pgf.gd.lib.Vector"
 --
 -- @return A newly-allocated quad tree.
 --
-function QuadTree:new(x, y, width, height, max_particles)
+function QuadTree.new(x, y, width, height, max_particles)
   local tree = {
-    root_cell = QuadTree.Cell:new(x, y, width, height, max_particles)
+    root_cell = QuadTree.Cell.new(x, y, width, height, max_particles)
   }
   setmetatable(tree, QuadTree)
   return tree
@@ -85,7 +85,7 @@ QuadTree.Particle.__index = QuadTree.Particle
 --
 -- @return A newly-allocated particle.
 --
-function QuadTree.Particle:new(pos, mass)
+function QuadTree.Particle.new(pos, mass)
   local particle = {
     pos = pos:copy(),
     mass = mass or 1,
@@ -109,7 +109,7 @@ QuadTree.Cell.__index = QuadTree.Cell
 --
 -- @return a newly-allocated cubicle cell.
 --
-function QuadTree.Cell:new(x, y, width, height, max_particles)
+function QuadTree.Cell.new(x, y, width, height, max_particles)
   local cell = {
     x = x,
     y = y,
@@ -149,7 +149,7 @@ function QuadTree.Cell:createSubcells()
   if #self.subcells == 0 then
     for x in table.value_iter({self.x, self.x + self.width/2}) do
       for y in table.value_iter({self.y, self.y + self.height/2}) do
-        local cell = QuadTree.Cell:new(x, y, self.width/2, self.height/2, self.max_particles)
+        local cell = QuadTree.Cell.new(x, y, self.width/2, self.height/2, self.max_particles)
         table.insert(self.subcells, cell)
       end
     end
@@ -235,7 +235,7 @@ function QuadTree.Cell:updateCenterOfMass()
         pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
       end
       return pos:plus(particle.pos:timesScalar(particle.mass))
-    end, Vector:new(2))
+    end, Vector.new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
     -- the center of mass is the average of the weighted centers of mass 
@@ -247,7 +247,7 @@ function QuadTree.Cell:updateCenterOfMass()
         assert(cell.mass == 0)
         return pos:copy()
       end
-    end, Vector:new(2))
+    end, Vector.new(2))
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   end
 end

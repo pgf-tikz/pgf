@@ -59,7 +59,7 @@ Vector.__newindex =
 --
 -- @return A newly-allocated vector with \meta{n} elements.
 --
-function Vector:new(n, fill_function)
+function Vector.new(n, fill_function)
   -- create vector
   local vector = { }
   setmetatable(vector, Vector)
@@ -93,7 +93,7 @@ end
 -- @return A newly-allocated copy of the vector holding exactly the same elements.
 -- 
 function Vector:copy()
-  return Vector:new(#self, function (n) return self[n] end)
+  return Vector.new(#self, function (n) return self[n] end)
 end
 
 
@@ -107,7 +107,7 @@ end
 function Vector:plus(other)
   assert(#self == #other)
 
-  return Vector:new(#self, function (n) return self[n] + other[n] end)
+  return Vector.new(#self, function (n) return self[n] + other[n] end)
 end
 
 
@@ -121,7 +121,7 @@ end
 function Vector:minus(other)
   assert(#self == #other)
 
-  return Vector:new(#self, function (n) return self[n] - other[n] end)
+  return Vector.new(#self, function (n) return self[n] - other[n] end)
 end
 
 
@@ -133,7 +133,7 @@ end
 -- @return A new vector with the result of the division.
 --
 function Vector:dividedByScalar(scalar)
-  return Vector:new(#self, function (n) return self[n] / scalar end)
+  return Vector.new(#self, function (n) return self[n] / scalar end)
 end
 
 
@@ -145,7 +145,7 @@ end
 -- @return A new vector with the result of the multiplication.
 --
 function Vector:timesScalar(scalar)
-  return Vector:new(#self, function (n) return self[n] * scalar end)
+  return Vector.new(#self, function (n) return self[n] * scalar end)
 end
 
 
@@ -185,7 +185,7 @@ end
 function Vector:normalized()
   local norm = self:norm()
   if norm == 0 then
-    return Vector:new(#self)
+    return Vector.new(#self)
   else
     return self:dividedByScalar(self:norm())
   end

@@ -27,7 +27,7 @@ local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
 
 
 
-function CrossingMinimizationGansnerKNV1993:new(main_algorithm, graph, ranking)
+function CrossingMinimizationGansnerKNV1993.new(main_algorithm, graph, ranking)
   local algorithm = {
     main_algorithm = main_algorithm,
     graph = graph,
@@ -116,7 +116,7 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
       end
     end
 
-    DepthFirstSearch:new(init, visit):run()
+    DepthFirstSearch.new(init, visit):run()
 
     local crossings = self:countRankCrossings(self.ranking)
 
