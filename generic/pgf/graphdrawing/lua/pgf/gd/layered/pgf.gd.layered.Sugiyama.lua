@@ -20,11 +20,6 @@ local Sugiyama = pgf.gd.new_algorithm_class {
     old_graph_model = true,
   },
   graph_parameters = {
-    cycle_removal_algorithm         = '/graph drawing/layered layout/cycle removal',
-    node_ranking_algorithm          = '/graph drawing/layered layout/node ranking',
-    crossing_minimization_algorithm = '/graph drawing/layered layout/crossing minimization',
-    node_positioning_algorithm      = '/graph drawing/layered layout/node positioning',
-    edge_routing_algorithm          = '/graph drawing/layered layout/edge routing',
   }
 }
 
@@ -48,6 +43,14 @@ function Sugiyama:run()
   if #self.graph.nodes <= 1 then
      return
   end
+
+  local options = self.digraph.options
+  
+  local cycle_removal_algorithm         = options['/graph drawing/layered layout/cycle removal']
+  local node_ranking_algorithm          = options['/graph drawing/layered layout/node ranking']
+  local crossing_minimization_algorithm = options['/graph drawing/layered layout/crossing minimization']
+  local node_positioning_algorithm      = options['/graph drawing/layered layout/node positioning']
+  local edge_routing_algorithm          = options['/graph drawing/layered layout/edge routing']
   
   self:preprocess()
 
@@ -69,8 +72,8 @@ function Sugiyama:run()
   lib.Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
   lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
 
-  require(self.cycle_removal_algorithm).new(self, self.graph):run()
-  self.ranking = require(self.node_ranking_algorithm).new(self, self.graph):run()
+  require(cycle_removal_algorithm).new(self, self.graph):run()
+  self.ranking = require(node_ranking_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 
   lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
@@ -80,17 +83,17 @@ function Sugiyama:run()
   
   -- Now do actual computation
   lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
-  require(self.cycle_removal_algorithm).new(self, self.graph):run()
+  require(cycle_removal_algorithm).new(self, self.graph):run()
   self:insertDummyNodes()
   
   -- Main algorithm
-  require(self.crossing_minimization_algorithm).new(self, self.graph, self.ranking):run()
-  require(self.node_positioning_algorithm).new(self, self.graph, self.ranking):run()
+  require(crossing_minimization_algorithm).new(self, self.graph, self.ranking):run()
+  require(node_positioning_algorithm).new(self, self.graph, self.ranking):run()
   
   -- Cleanup
   self:removeDummyNodes()
   lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
-  require(self.edge_routing_algorithm).new(self, self.graph):run()
+  require(edge_routing_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 end
 
@@ -143,6 +146,7 @@ function Sugiyama:insertDummyNodes()
           dummy_id = dummy_id + 1
 
           self.graph:addNode(dummy)
+	  self.ugraph:add {dummy.orig_vertex}
 
           self.ranking:setRank(dummy, rank)
 

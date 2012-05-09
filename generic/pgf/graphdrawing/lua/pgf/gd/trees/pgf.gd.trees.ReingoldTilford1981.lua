@@ -23,60 +23,57 @@ local ReingoldTilford1981 = pgf.gd.new_algorithm_class {
     works_only_on_connected_graphs = true,
     needs_a_spanning_tree = true,
     growth_direction = 90,
-    old_graph_model = true,
-  },
-  graph_parameters = {
-    extended_version = '/graph drawing/tree layout/missing nodes get space',
-    sigsep           = '/graph drawing/tree layout/significant sep',
   }
 }
 
 
 -- Imports
-local NodeDistances = require "pgf.gd.lib.NodeDistances"
+local layered = require "pgf.gd.layered"
 
 
 function ReingoldTilford1981:run()
   
-  local root = self.graph[self].spanning_tree_root
+  local root = self.spanning_tree.storage.root
+  
+  self.extended_version = self.digraph.options['/graph drawing/tree layout/missing nodes get space']
 
+  
   self:precomputeDescendants(root, 1)
   self:computeHorizontalPosition(root)
-  NodeDistances:arrangeLayersByBaselines(self, self.graph)
-
-  -- Update x positions
-  for _,n in ipairs(self.graph.nodes) do
-    n.pos.x = n[self].x 
-  end
+  layered.arrange_layers_by_baselines(self, self.ugraph)
 
 end
 
 
 function ReingoldTilford1981:precomputeDescendants(node, depth)
-  node[self].descendants = { node }
-  node[self].y = depth
-  for _,c in ipairs(node[self].children) do
-    self:precomputeDescendants(c, depth+1)
-    for _,d in ipairs(c[self].descendants) do
-      table.insert(node[self].descendants, d)
+  local descendants = { node }
+
+  for _,arc in ipairs(self.spanning_tree:outgoing(node)) do
+    local head = arc.head
+    self:precomputeDescendants(head, depth+1)
+    for _,d in ipairs(head.storage[self].descendants) do
+      descendants[#descendants + 1] = d
     end
   end
+
+  node.storage[self].layer = depth
+  node.storage[self].descendants = descendants
 end
 
 
 
 function ReingoldTilford1981:computeHorizontalPosition(node)
   
-  local children = node[self].children
+  local children = self.spanning_tree:outgoing(node)
 
-  node[self].x = 0
+  node.pos.x = 0
 
-  local child_depth = node[self].y + 1
+  local child_depth = node.storage[self].layer + 1
 
   if #children > 0 then
     -- First, compute positions for all children:
     for i=1,#children do
-      self:computeHorizontalPosition(children[i])
+      self:computeHorizontalPosition(children[i].head)
     end
     
     -- Now, compute minimum distances and shift them
@@ -88,25 +85,27 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
       
       -- Advance "right border" of the subtree rooted at
       -- the i-th child
-      for _,d in ipairs(children[i][self].descendants) do
-	local y = d[self].y
-	if self.extended_version or not (y > child_depth and d.kind == "dummy") then
-	  if not right_borders[y] or right_borders[y][self].x < d[self].x then
-	    right_borders[y] = d
+      for _,d in ipairs(children[i].head.storage[self].descendants) do
+	local layer = d.storage[self].layer
+	local x     = d.pos.x	  
+	if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
+	  if not right_borders[layer] or right_borders[layer].pos.x < x then
+	    right_borders[layer] = d
 	  end
-	  if not local_right_borders[y] or local_right_borders[y][self].x < d[self].x then
-	    local_right_borders[y] = d
+	  if not local_right_borders[layer] or local_right_borders[layer].pos.x < x then
+	    local_right_borders[layer] = d
 	  end
 	end
       end
 
       local left_borders = {}
       -- Now left for i+1 st child
-      for _,d in ipairs(children[i+1][self].descendants) do
-	local y = d[self].y
-	if self.extended_version or not (y > child_depth and d.kind == "dummy") then
-	  if not left_borders[y] or left_borders[y][self].x > d[self].x then
-	    left_borders[y] = d
+      for _,d in ipairs(children[i+1].head.storage[self].descendants) do
+	local layer = d.storage[self].layer
+	local x     = d.pos.x	  
+	if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
+	  if not left_borders[layer] or left_borders[layer].pos.x > x then
+	    left_borders[layer] = d
 	  end
 	end
       end
@@ -115,34 +114,37 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
       -- distance needs to be.
 
       local shift = -math.huge
-      local first_dist = left_borders[child_depth][self].x - local_right_borders[child_depth][self].x
+      local first_dist = left_borders[child_depth].pos.x - local_right_borders[child_depth].pos.x
       local is_significant = false
 
-      for y,n2 in pairs(left_borders) do
-	local n1 = right_borders[y]
+      for layer,n2 in pairs(left_borders) do
+	local n1 = right_borders[layer]
 	if n1 then
-	  shift = math.max(shift, 
-			   NodeDistances:idealSiblingDistance(self, self.graph.orig_digraph, n1.orig_vertex, n2.orig_vertex) + n1[self].x - n2[self].x)
+	  shift = math.max(
+	    shift, 
+	    layered.ideal_sibling_distance(self, self.ugraph, n1, n2) + n1.pos.x - n2.pos.x
+	  )
 	end
-	if local_right_borders[y] then
-	  if y > child_depth and (left_borders[y][self].x - local_right_borders[y][self].x <= first_dist) then 
+	if local_right_borders[layer] then
+	  if layer > child_depth and
+	    (left_borders[layer].pos.x - local_right_borders[layer].pos.x <= first_dist) then 
 	    is_significant = true
 	  end
 	end
       end
 
       if is_significant then
-	shift = shift + self.sigsep
+	shift = shift + self.ugraph.options['/graph drawing/tree layout/significant sep']
       end
 
       -- Shift all nodes in the subtree by shift:
-      for _,d in ipairs(children[i+1][self].descendants) do
-	d[self].x = d[self].x + shift
+      for _,d in ipairs(children[i+1].head.storage[self].descendants) do
+	d.pos.x = d.pos.x + shift
       end
     end
     
     -- Finally, position root in the middle:
-    node[self].x = (children[1][self].x + children[#children][self].x) / 2
+    node.pos.x = (children[1].head.pos.x + children[#children].head.pos.x) / 2
   end
 end
 

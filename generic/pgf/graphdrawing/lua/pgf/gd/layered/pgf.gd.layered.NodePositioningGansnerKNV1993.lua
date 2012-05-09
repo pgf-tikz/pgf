@@ -23,7 +23,7 @@ require("pgf.gd.layered").NodePositioningGansnerKNV1993 = NodePositioningGansner
 
 -- Imports
 
-local NodeDistances = require "pgf.gd.lib.NodeDistances"
+local layered = require "pgf.gd.layered"
 
 local Graph = require "pgf.gd.model.Graph"
 local Edge  = require "pgf.gd.model.Edge"
@@ -59,12 +59,19 @@ function NodePositioningGansnerKNV1993:run()
     local nodes = self.ranking:getNodes(rank)
     for node in table.value_iter(nodes) do
       node.pos.x = x_ranking:getRank(node.aux_node)
-      node[self.main_algorithm] = node[self.main_algorithm] or {}
-      node[self.main_algorithm].y = rank
+      node.orig_vertex.storage[self.main_algorithm].layer = rank
     end
   end
+
+  layered.arrange_layers_by_baselines(self.main_algorithm, self.main_algorithm.ugraph)
   
-  NodeDistances:arrangeLayersByBaselines(self.main_algorithm, self.graph)
+  -- Copy back
+  for rank in table.value_iter(ranks) do
+    local nodes = self.ranking:getNodes(rank)
+    for node in table.value_iter(nodes) do
+      node.pos.y = node.orig_vertex.pos.y
+    end
+  end
 end
 
 
@@ -156,7 +163,7 @@ end
 
 
 function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
-  return NodeDistances:idealSiblingDistance(self.main_algorithm, self.graph.orig_digraph, v.orig_vertex,w.orig_vertex)
+  return layered.ideal_sibling_distance(self.main_algorithm, self.graph.orig_digraph, v.orig_vertex, w.orig_vertex)
 end
 
 

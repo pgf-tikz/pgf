@@ -27,14 +27,10 @@ local SpanningTreeComputation = require "pgf.gd.trees.SpanningTreeComputation"
 
 --- Compute a spanning tree of a graph
 --
--- The computed spanning tree will be available through the fields
--- algorithm.children of each node and algorithm.spanning_tree_root of
--- the graph.
---
--- @param graph The graph for which the spanning tree should be computed 
+-- Returns a spanning tree of self.events using bfs.
 
 function BreadthFirst:run ()
-  SpanningTreeComputation:computeSpanningTree(self.parent_algorithm, false)
+  return SpanningTreeComputation.computeSpanningTree(self.ugraph, false, self.events)
 end
 
 

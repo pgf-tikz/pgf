@@ -263,8 +263,8 @@ end
 
 
 
---- Returns an array containg the outgoing arcs of a node. You may
--- only iterate overt his array using ipairs, not using pairs.
+--- Returns an array containg the outgoing arcs of a vertex. You may
+-- only iterate over his array using ipairs, not using pairs.
 --
 --  This operation takes time $O(1)$.
 --
@@ -279,12 +279,93 @@ end
 
 
 
+---
+-- Sorts the array of outgoing arcs of a vertex. This allows you to
+-- later iterate over the outgoing arcs in a specific order.
+--
+-- This operation takes time $O(#outgoing log #outgoings)$.
+--
+-- @param s The vertex
+-- @param f A comparison function that is passed to table.sort
+--
+function Digraph:sortOutgoing(v, f)
+  table.sort(assert(v.storage[self.outgoings], "vertex not in graph"), f)
+end
+
+
+---
+-- Reorders the array of outgoing arcs of a vertex. The parameter array
+-- \emph{must} contain the same set of vertices as the outgoing array,
+-- but possibly in a different order.
+--
+-- This operation takes time $O(#outgoing)$.
+--
+-- @param s The vertex
+-- @param a An array containing the outgoing verticesin some order.
+--
+function Digraph:orderOutgoing(v, vertices)
+  local outgoing = assert (v.storage[self.outgoings], "vertex not in graph")
+  assert (#outgoing == #vertices)
+
+  -- Create back hash
+  local lookup = {}
+  for i=1,#vertices do
+    lookup[vertices[i]] = i
+  end
+
+  -- Compute ordering of the arcs
+  local reordered = {}
+  for _,arc in ipairs(outgoing) do
+    reordered [lookup[arc.head]] = arc 
+  end
+
+  -- Copy back
+  for i=1,#outgoing do
+    outgoing[i] = assert(reordered[i], "illegal vertex order")
+  end
+end
+
+
+
 --- As outgoing.
 --
 function Digraph:incoming(v)
   return assert(v.storage[self.incomings], "vertex not in graph")
 end
 
+
+---
+-- As sortOutgoing
+--
+function Digraph:sortIncoming(v, f)
+  table.sort(assert(v.storage[self.incomings], "vertex not in graph"), f)
+end
+
+
+---
+-- As reorderOutgoing
+--
+function Digraph:orderIncoming(v, a)
+  local incoming = assert (v.storage[self.incomings], "vertex not in graph")
+  assert (#incoming == #vertices)
+
+  -- Create back hash
+  local lookup = {}
+  for i=1,#vertices do
+    lookup[vertices[i]] = i
+  end
+
+  -- Compute ordering of the arcs
+  local reordered = {}
+  for _,arc in ipairs(incoming) do
+    reordered [lookup[arc.head]] = arc 
+  end
+
+  -- Copy back
+  for i=1,#incoming do
+    incoming[i] = assert(reordered[i], "illegal vertex order")
+  end
+end
 
 
 
@@ -303,9 +384,9 @@ end
 --         already existing)
 --
 function Digraph:connect(s, t, object)
-  assert (s and t, "connect with nil parameters")
+  assert (s and t and self.vertices[s] and self.vertices[t], "trying connect nodes not in graph")
 
-  local s_outgoings = assert(s.storage[self.outgoings], "tail node not in graph")
+  local s_outgoings = s.storage[self.outgoings]
   local arc = s_outgoings[t]
 
   if not arc then
@@ -322,7 +403,7 @@ function Digraph:connect(s, t, object)
     s_outgoings [#s_outgoings + 1] = arc
     s_outgoings [t] = arc
 
-    local t_incomings = assert(t.storage[self.incomings], "head node not in graph")
+    local t_incomings = t.storage[self.incomings]
     -- Insert into incomings:
     t_incomings [#t_incomings + 1] = arc
     t_incomings [s] = arc
@@ -493,18 +574,18 @@ function Digraph:__tostring()
   local vstrings = {}
   local astrings = {}
   for i,v in ipairs(self.vertices) do
-    vstrings[i] = tostring(v)
+    vstrings[i] = "    " .. tostring(v) .. "[x=" .. math.floor(v.pos.x) .. "pt,y=" .. math.floor(v.pos.y) .. "pt]"
     local out_arcs = v.storage[self.outgoings]
     if #out_arcs > 0 then
       local t = {}
       for j,a in ipairs(out_arcs) do
-	t[j] = tostring(a.head)
+	t[j] = tostring(a.head) 
       end
-      astrings[#astrings + 1] = "  " .. vstrings[i] .. " -> { " .. table.concat(t,", ") .. " }"
+      astrings[#astrings + 1] = "  " .. tostring(v) .. " -> { " .. table.concat(t,", ") .. " }"
     end
   end
-  return "graph [id=" .. tostring(self.vertices) .. "] {\n  { " ..
-    table.concat(vstrings, ", ") .. " }; \n" .. 
+  return "graph [id=" .. tostring(self.vertices) .. "] {\n  {\n" ..
+    table.concat(vstrings, ",\n") .. "\n  }; \n" .. 
     table.concat(astrings, ";\n") .. "\n}";
 end
 

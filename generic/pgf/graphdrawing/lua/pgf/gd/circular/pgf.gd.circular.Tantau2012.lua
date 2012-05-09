@@ -25,9 +25,6 @@
 local Tantau2012 = pgf.gd.new_algorithm_class {
   properties = {
     growth_direction = 180
-  },
-  graph_parameters = {
-    minimum_radius = '/graph drawing/circular layout/radius',
   }
 }
 
@@ -39,6 +36,7 @@ require("pgf.gd.circular").Tantau2012 = Tantau2012
 
 local Options = require "pgf.gd.control.Options"
 local Coordinate = require "pgf.gd.model.Coordinate"
+
 
 
 
@@ -90,7 +88,7 @@ function Tantau2012:computeNodeDistances()
      sum_length = sum_length + sib_dists[i]
   end
 
-  local missing_length = self.minimum_radius * 2 * math.pi - sum_length
+  local missing_length = self.digraph.options['/graph drawing/circular layout/radius'] * 2 * math.pi - sum_length
   if missing_length > 0 then
      -- Ok, the sib_dists to not add up to the desired minimum value. 
      -- What should we do? Hmm... We increase all by the missing amount:
@@ -99,7 +97,7 @@ function Tantau2012:computeNodeDistances()
      end
   end
 
-  sib_dists.total = math.max(self.minimum_radius * 2 * math.pi, sum_length)
+  sib_dists.total = math.max(self.digraph.options['/graph drawing/circular layout/radius'] * 2 * math.pi, sum_length)
 
   return sib_dists
 end

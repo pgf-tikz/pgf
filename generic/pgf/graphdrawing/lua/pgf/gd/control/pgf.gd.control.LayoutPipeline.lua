@@ -87,12 +87,23 @@ function LayoutPipeline:run(scope, algorithm_class)
       
     -- Step 4.6: Compute anchor_node. 
     Anchoring:computeAnchorNode(c)
+    
+    -- Step 4.7: Compute a spanning tree, if necessary
+    if algorithm_class.needs_a_spanning_tree then
+      assert(algorithm_class.works_only_on_connected_graphs)
+      local spanning_algorithm_class = require(c.options["/graph drawing/spanning tree algorithm"])
+      algorithm.spanning_tree =
+	spanning_algorithm_class.new{
+	  ugraph = ugraph,
+  	  events = scope.events
+        }:run()
+    end
 
-    -- Step 4.7: Compute growth-adjusted sizes
+    -- Step 4.8: Compute growth-adjusted sizes
     Orientation:prepareRotateAround(algorithm, algorithm.ugraph)
     Orientation:prepareBoundingBoxes(algorithm, algorithm.ugraph)
     
-    -- Step 4.8: Finally, run algorithm on this component!
+    -- Step 4.9: Finally, run algorithm on this component!
     if #c.vertices > 1 or algorithm_class.run_also_for_single_node then
       -- Main run of the algorithm:
       if algorithm_class.old_graph_model then
@@ -101,8 +112,8 @@ function LayoutPipeline:run(scope, algorithm_class)
 	algorithm:run ()
       end
     end
-    
-    -- Step 4.9: Orient the graph
+
+    -- Step 4.10: Orient the graph
     Orientation:orient(algorithm, algorithm.ugraph)
   end
 
@@ -138,7 +149,7 @@ function LayoutPipeline:run(scope, algorithm_class)
   for _,c in ipairs(anchored) do
     Anchoring:anchor(c)
   end
-  
+
 end
     
 

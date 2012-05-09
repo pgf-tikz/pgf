@@ -32,12 +32,6 @@ local Arc       = require("pgf.gd.model.Arc")
 Arc.optionSyntacticCollector("/graph drawing/orient")
 Arc.optionSyntacticCollector("/graph drawing/orient'")
 
-local point_cloud = {} -- Id
-Arc.pointCloudCollector(point_cloud)
-
-local event_index = {} -- Id
-Arc.eventIndexCollector(event_index)
-
 
 --- Determine rotation caused by growth
 --
@@ -93,8 +87,8 @@ function Orientation:prepareRotateAround(algorithm, ugraph)
     local other = lib.find_min(
       ugraph:outgoing(v),
       function (a)
-	if a.head ~= v and a[event_index] then
-	  return a, a[event_index]
+	if a.head ~= v and a.event_index then
+	  return a, a.event_index
 	end
       end)
     info.to_node = (other and other.head) or
@@ -208,7 +202,7 @@ function Orientation:rotateGraphAround(ugraph, around_x, around_y, from, to, swa
   end
   
   for _,a in ipairs(ugraph.arcs) do
-    for _,p in ipairs(a[point_cloud]) do
+    for _,p in ipairs(a.point_cloud) do
       p:apply(t)
     end
   end

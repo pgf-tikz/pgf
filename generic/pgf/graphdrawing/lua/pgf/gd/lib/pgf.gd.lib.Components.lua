@@ -32,11 +32,6 @@ local Arc        = require "pgf.gd.model.Arc"
 local Transform  = require "pgf.gd.lib.Transform"
 
 
--- Collectors
-local point_cloud = {}
-Arc.pointCloudCollector(point_cloud)
-
-
 --- Decompose a graph into its components
 --
 -- @param graph A to-be-decomposed graph
@@ -229,7 +224,7 @@ function Components:pack(syntactic_digraph, components)
     end
 
     for _,a in ipairs(c.arcs) do
-      for _,p in ipairs(a[point_cloud]) do
+      for _,p in ipairs(a.point_cloud) do
 	vertices [#vertices + 1] = Vertex.new { pos = p, kind = "dummy" }
       end
     end
