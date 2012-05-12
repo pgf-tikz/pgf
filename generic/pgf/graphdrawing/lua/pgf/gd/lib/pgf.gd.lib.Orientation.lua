@@ -47,7 +47,7 @@ Arc.optionSyntacticCollector("/graph drawing/orient'")
 -- @param ugraph An undirected graph
 -- @param store An index into the graph's storage in which to store the computed information
 
-function Orientation:prepareRotateAround(algorithm, ugraph)
+function Orientation.prepareRotateAround(algorithm, ugraph)
 
   -- Find the vertex from which we orient
   local swap = true
@@ -76,12 +76,13 @@ function Orientation:prepareRotateAround(algorithm, ugraph)
   local growth_direction = v.growth_direction or algorithm.growth_direction
   
   if growth_direction == "fixed" then
-    return
+    info.angle = 0 -- no rotation
   elseif growth_direction then
     info.from_node = v
     info.from_angle = growth_direction/360*2*math.pi
     info.to_angle = grow/360*2*math.pi
     info.swap = swap
+    info.angle = info.to_angle - info.from_angle
   else
     info.from_node = v
     local other = lib.find_min(
@@ -92,9 +93,10 @@ function Orientation:prepareRotateAround(algorithm, ugraph)
 	end
       end)
     info.to_node = (other and other.head) or
-                   (ugraph.vertices[1] == v and ugraph.vertices[2] or ugraph.vertices[1])
+      (ugraph.vertices[1] == v and ugraph.vertices[2] or ugraph.vertices[1])
     info.to_angle = grow/360*2*math.pi
     info.swap = swap
+    info.angle = info.to_angle - math.atan2(info.to_node.pos.y - v.pos.y, info.to_node.pos.x - v.pos.x)
   end
 end
 
@@ -107,54 +109,51 @@ end
 -- orientation for what the algorithm assumes.
 --
 -- The "bounding box" actually consists of the fields sibling_pre,
--- sibling_post, level_pre, level_post, which correspond to "min x",
+-- sibling_post, layer_pre, layer_post, which correspond to "min x",
 -- "min y", "min y", and "max y" for a tree growing up.
 --
 -- The computation of the "bounding box" treats a centered circle in a
 -- special way, all other shapes are currently treated like a
 -- rectangle.
+--
+-- @param algorithm An algorithm
+-- @param ugraph    An graph
+-- @param vertices  An array of to-be-prepared vertices inside ugraph
 
-function Orientation:prepareBoundingBoxes(algorithm, ugraph)
+function Orientation.prepareBoundingBoxes(algorithm, vertices)
   
-  local info = ugraph.storage[algorithm]
-
-  if info.from_node then
-    local angle = info.to_angle -
-      (info.from_angle or
-       math.atan2(info.to_node.pos.y - info.from_node.pos.y, info.to_node.pos.x - info.from_node.pos.x))
-
-    for _,v in ipairs(ugraph.vertices) do
-      local bb = v.storage[algorithm]
+  local angle = assert(algorithm.ugraph.storage[algorithm].angle, "angle field missing")
+  local swap  = algorithm.ugraph.storage[algorithm].swap
+  
+  for _,v in ipairs(vertices) do
+    local bb = v.storage[algorithm]
+    local a  = angle
+    
+    if v.shape == "circle" and v.hull_center.x == 0 and v.hull_center.y == 0 then
+      a = 0 -- no rotation for circles.
+    end
+    
+    -- Fill the bounding box field,
+    bb.sibling_pre = math.huge
+    bb.sibling_post = -math.huge
+    bb.layer_pre = math.huge
+    bb.layer_post = -math.huge
+    
+    local c = math.cos(angle)
+    local s = math.sin(angle)
+    for _,p in ipairs(v.hull) do
+      local x =  p.x*c + p.y*s
+      local y = -p.x*s + p.y*c
       
-      if v.shape == "circle" and v.hull_center.x == 0 and v.hull_center.y == 0 then
-	bb.sibling_pre = v.hull[1].x
-	bb.sibling_post = v.hull[3].x
-	bb.layer_pre = v.hull[1].y
-	bb.layer_post = v.hull[3].y
-      else
-	-- Fill the bounding box field,
-	bb.sibling_pre = math.huge
-	bb.sibling_post = -math.huge
-	bb.layer_pre = math.huge
-	bb.layer_post = -math.huge
-
-	local c = math.cos(angle)
-	local s = math.sin(angle)
-	for _,p in ipairs(v.hull) do
-	  local x =  p.x*c + p.y*s
-	  local y = -p.x*s + p.y*c
-	  
-	  bb.sibling_pre = math.min (bb.sibling_pre, x)
-	  bb.sibling_post = math.max (bb.sibling_post, x)
-	  bb.layer_pre = math.min (bb.layer_pre, y)
-	  bb.layer_post = math.max (bb.layer_post, y)
-	end
-	
-	-- Flip sibling per and post if flag:
-	if info.swap then
-	  bb.sibling_pre, bb.sibling_post = -bb.sibling_post, -bb.sibling_pre
-	end
-      end
+      bb.sibling_pre = math.min (bb.sibling_pre, x)
+      bb.sibling_post = math.max (bb.sibling_post, x)
+      bb.layer_pre = math.min (bb.layer_pre, y)
+      bb.layer_post = math.max (bb.layer_post, y)
+    end
+    
+    -- Flip sibling per and post if flag:
+    if swap then
+      bb.sibling_pre, bb.sibling_post = -bb.sibling_post, -bb.sibling_pre
     end
   end
 end
@@ -177,7 +176,7 @@ end
 -- @param swap A boolean that, when true, requests that the graph is
 --             swapped (flipped) along the new angle
 
-function Orientation:rotateGraphAround(ugraph, around_x, around_y, from, to, swap)
+function Orientation.rotateGraphAround(ugraph, around_x, around_y, from, to, swap)
 
   -- Translate to origin
   local t = Transform.new_shift(-around_x, -around_y)
@@ -222,14 +221,14 @@ end
 -- @param target_angle
 -- @param swap 
 
-function Orientation:orientTwoNodes(ugraph, first_node, second_node, target_angle, swap)
+function Orientation.orientTwoNodes(ugraph, first_node, second_node, target_angle, swap)
   if first_node and second_node then
     -- Compute angle between first_node and second_node:
     local x = second_node.pos.x - first_node.pos.x
     local y = second_node.pos.y - first_node.pos.y
     
     local angle = math.atan2(y,x)
-    self:rotateGraphAround(ugraph, first_node.pos.x,
+    Orientation.rotateGraphAround(ugraph, first_node.pos.x,
 			   first_node.pos.y, angle, target_angle, swap)
   end
 end
@@ -244,7 +243,7 @@ end
 -- 
 -- @param algorithm An algorithm object.
 
-function Orientation:orient(algorithm, ugraph)
+function Orientation.orient(algorithm, ugraph)
   
   -- Sanity check
   if #ugraph.vertices < 2 then return end
@@ -252,10 +251,10 @@ function Orientation:orient(algorithm, ugraph)
   -- Step 1: Search for an edge with the orient option:
   for _, a in ipairs(ugraph.arcs) do
     if a["/graph drawing/orient"] then
-      return self:orientTwoNodes(ugraph, a.tail, a.head, a["/graph drawing/orient"]/360*2*math.pi, false)
+      return Orientation.orientTwoNodes(ugraph, a.tail, a.head, a["/graph drawing/orient"]/360*2*math.pi, false)
     end
     if a["/graph drawing/orient'"] then
-      return self:orientTwoNodes(ugraph, a.tail, a.head, a["/graph drawing/orient'"]/360*2*math.pi, true)
+      return Orientation.orientTwoNodes(ugraph, a.tail, a.head, a["/graph drawing/orient'"]/360*2*math.pi, true)
     end
   end
   
@@ -267,7 +266,7 @@ function Orientation:orient(algorithm, ugraph)
 	local angle, other_name = unpack (orient)
 	local other = ugraph.scope.node_names[other_name]
 	if ugraph:contains(other) then
-	  self:orientTwoNodes(ugraph, node, other, tonumber(angle)/360*2*math.pi, flag)
+	  Orientation.orientTwoNodes(ugraph, node, other, tonumber(angle)/360*2*math.pi, flag)
 	  return true
 	end
       end
@@ -284,7 +283,7 @@ function Orientation:orient(algorithm, ugraph)
       local n1 = ugraph.scope.node_names[name1]
       local n2 = ugraph.scope.node_names[name2]
       if ugraph:contains(n1) and ugraph:contains(n2) then
-	self:orientTwoNodes(ugraph, name1, name2, tonumber(angle)/360*2*math.pi, flag)
+	Orientation.orientTwoNodes(ugraph, name1, name2, tonumber(angle)/360*2*math.pi, flag)
 	return true
       end
     end
@@ -299,7 +298,7 @@ function Orientation:orient(algorithm, ugraph)
     local y = info.from_node.pos.y
     local from_angle = info.from_angle or math.atan2(info.to_node.pos.y - y, info.to_node.pos.x - x)
     
-    self:rotateGraphAround(ugraph, x, y, from_angle, info.to_angle, info.swap)
+    Orientation.rotateGraphAround(ugraph, x, y, from_angle, info.to_angle, info.swap)
   end
 end
 

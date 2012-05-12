@@ -27,14 +27,6 @@ function SimpleDemo:run()
     vertex.pos.x = radius * math.cos(i * alpha)
     vertex.pos.y = radius * math.sin(i * alpha)
   end
-
-  self.digraph.syntactic_digraph:add {
-    pgf.gd.model.Vertex.new {
-      pos = pgf.gd.model.Coordinate.new (100,0),
-      generated_text = "hallo welt",
-      generated_options = { draw = "black" },
-    } 
-  }
 end
 
 return SimpleDemo

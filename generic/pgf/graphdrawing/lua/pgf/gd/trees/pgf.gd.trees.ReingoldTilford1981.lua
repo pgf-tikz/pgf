@@ -36,7 +36,6 @@ function ReingoldTilford1981:run()
   local root = self.spanning_tree.storage.root
   
   self.extended_version = self.digraph.options['/graph drawing/tree layout/missing nodes get space']
-
   
   self:precomputeDescendants(root, 1)
   self:computeHorizontalPosition(root)

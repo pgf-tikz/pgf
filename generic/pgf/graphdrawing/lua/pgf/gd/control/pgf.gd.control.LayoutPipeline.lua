@@ -24,23 +24,24 @@ require("pgf.gd.control").LayoutPipeline = LayoutPipeline
 
 
 -- Imports
-local lib     = require "pgf.gd.lib"
-
 local Anchoring   = require "pgf.gd.lib.Anchoring"
 local Components  = require "pgf.gd.lib.Components"
 local Direct      = require "pgf.gd.lib.Direct"
 local Orientation = require "pgf.gd.lib.Orientation"
+local Storage     = require "pgf.gd.lib.Storage"
 
 local Vertex     = require "pgf.gd.model.Vertex"
 local Digraph    = require "pgf.gd.model.Digraph"
 local Coordinate = require "pgf.gd.model.Coordinate"
+
+local Options    = require "pgf.gd.control.Options"
 
 
 
 --- The main "graph drawing pipeline" that handles the pre- and 
 -- postprocessing for a graph
 
-function LayoutPipeline:run(scope, algorithm_class)
+function LayoutPipeline.run(scope, algorithm_class)
   
   -- The involved main graphs:
   local syntactic_digraph = scope.syntactic_digraph
@@ -49,7 +50,7 @@ function LayoutPipeline:run(scope, algorithm_class)
   -- The pipeline...
 
   -- Step 1: Prepare events
-  self:prepareEvents(scope.events)
+  LayoutPipeline.prepareEvents(scope.events)
 
   -- Step 2: Compute anchor nodes (relevant for rotated hull computations)
   Anchoring:computeAnchorNode(scope.syntactic_digraph)
@@ -83,7 +84,7 @@ function LayoutPipeline:run(scope, algorithm_class)
     local ugraph  = Direct.ugraphFromDigraph(c)
     
     -- Step 4.5: Create an algorithm object
-    local algorithm = algorithm_class.new{ digraph = c, ugraph = ugraph }
+    local algorithm = algorithm_class.new{ digraph = c, ugraph = ugraph, scope = scope }
       
     -- Step 4.6: Compute anchor_node. 
     Anchoring:computeAnchorNode(c)
@@ -100,21 +101,21 @@ function LayoutPipeline:run(scope, algorithm_class)
     end
 
     -- Step 4.8: Compute growth-adjusted sizes
-    Orientation:prepareRotateAround(algorithm, algorithm.ugraph)
-    Orientation:prepareBoundingBoxes(algorithm, algorithm.ugraph)
+    Orientation.prepareRotateAround(algorithm, algorithm.ugraph)
+    Orientation.prepareBoundingBoxes(algorithm, algorithm.ugraph.vertices)
     
     -- Step 4.9: Finally, run algorithm on this component!
     if #c.vertices > 1 or algorithm_class.run_also_for_single_node then
       -- Main run of the algorithm:
       if algorithm_class.old_graph_model then
-	self:runOldGraphModel(scope, c, algorithm_class, algorithm)
+	LayoutPipeline.runOldGraphModel(scope, c, algorithm_class, algorithm)
       else
 	algorithm:run ()
       end
     end
 
     -- Step 4.10: Orient the graph
-    Orientation:orient(algorithm, algorithm.ugraph)
+    Orientation.orient(algorithm, algorithm.ugraph)
   end
 
   -- Step 5: Packing:
@@ -159,7 +160,7 @@ end
 --
 -- @param events An event list
 
-function LayoutPipeline:prepareEvents(events)
+function LayoutPipeline.prepareEvents(events)
 
   local stack = {}
 
@@ -179,6 +180,137 @@ end
 
 
 
+local unique_count = 1
+
+---
+-- Generate a new vertex in the syntactic digraph.
+--
+-- This function can be used to add a vertex to a syntactic
+-- digraph. Unlike the nodes added using addPgfNode, the 
+-- vertex created using this function was not present in the original
+-- graph. For such vertex, there is no corresponding (pgf) node in the
+-- original graph; during the shipout process such a node is newly
+-- created on the pgf layer. 
+--
+-- @param algorithm An algorithm for whose syntactic digraph the node should be added 
+-- @param init  A table of initial values for the node.
+--
+-- The following keys are useful for init:
+--
+-- @param init.pos If present, an initial position of the key
+-- @param init.name If present, this name will be given to the
+-- node. If not present, an iternal name is generated.
+-- @param init.shape If present, a shape of the node.
+-- @param init.hull If present, a convex hull of the node. If not
+-- present, this will be initialized with a single coordinate at the
+-- origin. 
+-- @param init.hull_center If present, the center of the convex hull
+-- given in the previous key.
+-- @param init.option If present, some options for the node.
+-- @param init.generated_options A table that is passed back to the
+-- higher (pgf) layer as a list of key-value pairs.
+-- @param init.text The text of the node, to be passed back to the
+-- higher layer. This is what should be displayed as the node's text.
+--
+-- @return The newly created node
+
+function LayoutPipeline.generateNode(algorithm, init)
+
+  -- Create new node
+  init.kind = init.kind or "node"
+
+  local v = Vertex.new (init)
+  
+  if not v.name then
+    v.name = "pgf@gd@node@" .. unique_count;
+    unique_count = unique_count + 1
+  end
+  
+  if v.shape == "none" then
+    v.shape = "rectangle"
+  end
+
+  v.options = Options.new(v.options)
+  v.event_index = #algorithm.scope.events + 1
+
+  algorithm.scope.events[#algorithm.scope.events + 1] = { 
+    kind = 'node', 
+    parameters = v
+  }
+
+  -- Add node to graph
+  algorithm.scope.syntactic_digraph:add {v}  
+  algorithm.digraph:add {v}  
+  algorithm.ugraph:add {v}  
+  Orientation.prepareBoundingBoxes(algorithm, {v})
+
+  return v
+end
+
+
+
+
+---
+-- Generate a new edge in the syntactic digraph.
+--
+-- Similar to generateVertex, this function adds a new edge to the
+-- syntactic digraph. 
+--
+-- @param algorithm An algorithm for whose syntactic digraph the node should be added 
+-- @param tail A syntactic tail vertex
+-- @param head A syntactic head vertex
+-- @param init A table of initial values for the edge.
+--
+-- The following keys are useful for init:
+--
+-- @param init.direction If present, a direction for the edge. Defaults to "--".
+-- @param init.option If present, some options for the node.
+-- @param init.generated_options A table that is passed back to the
+-- higher (pgf) layer as a list of key-value pairs.
+
+function LayoutPipeline.generateEdge(algorithm, tail, head, init)
+
+  assert (tail and head, "attempting to create edge between nodes " .. tostring(tail) ..
+  	                 " and ".. tostring(head) ..", at least one of which is not in the graph")
+  
+  local scope = algorithm.scope
+  
+  local arc = scope.syntactic_digraph:connect(tail, head)
+  
+  local edge = {}
+  for k,v in pairs(init) do
+    edge[k] = v
+  end
+
+  edge.head = head
+  edge.tail = tail
+  edge.event_index = #scope.events+1
+  edge.options = Options.new(edge.options or {})
+  edge.direction = edge.direction or "--"
+  edge.path = edge.path or {}
+  edge.generated_options = edge.generated_options or {}
+  edge.storage = Storage.new()
+
+  arc.storage.syntactic_edges[#arc.storage.syntactic_edges+1] = edge
+
+  scope.events[#scope.events + 1] = { kind = 'edge', parameters = { arc, #arc.storage.syntactic_edges } }
+  
+  local direction = edge.direction
+  if direction == "->" then
+    algorithm.digraph:connect(tail, head)
+  elseif direction == "<-" then
+    algorithm.digraph:connect(head, tail)
+  elseif direction == "--" or direction == "<->" then
+    algorithm.digraph:connect(tail, head)
+    algorithm.digraph:connect(head, tail)
+  end
+  algorithm.ugraph:connect(tail, head)
+  algorithm.ugraph:connect(head, tail)
+end
+
+
+
+
 
 
 
@@ -191,6 +323,8 @@ local Node = require "pgf.gd.model.Node"
 local Graph = require "pgf.gd.model.Graph"
 local Edge = require "pgf.gd.model.Edge"
 local Cluster = require "pgf.gd.model.Cluster"
+local lib     = require "pgf.gd.lib"
+
 
 
 
@@ -299,7 +433,7 @@ end
 
 
 
-function LayoutPipeline:runOldGraphModel(scope, digraph, algorithm_class, algorithm)
+function LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algorithm)
 
   local graph = compatibility_digraph_to_graph(scope, digraph)
 
@@ -318,17 +452,6 @@ function LayoutPipeline:runOldGraphModel(scope, digraph, algorithm_class, algori
 
   -- Compute anchor_node
   graph.anchor_node = digraph.storage[Anchoring].anchor_node
-  
-  -- Compute a spanning tree, if necessary
-  if algorithm_class.needs_a_spanning_tree then
-    local spanning_algorithm_class = require(graph:getOption("/graph drawing/spanning tree algorithm"))
-    
-    local spanning_algorithm = spanning_algorithm_class.new{ digraph = graph, graph = graph, parent_algorithm = algorithm }
-    spanning_algorithm.graph = spanning_algorithm.syntactic_digraph
-    graph:registerAlgorithm(spanning_algorithm)
-    
-    spanning_algorithm:run()
-  end
 
   if #graph.nodes > 1 or algorithm_class.run_also_for_single_node then
     -- Main run of the algorithm:

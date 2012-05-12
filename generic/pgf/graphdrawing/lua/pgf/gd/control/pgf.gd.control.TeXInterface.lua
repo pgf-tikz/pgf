@@ -54,7 +54,7 @@ local Storage    = require "pgf.gd.lib.Storage"
 -- @param options A string containing |{key}{value}| pairs of 
 --                \tikzname\ options.
 --
-function TeXInterface:beginGraphDrawingScope(options)
+function TeXInterface.beginGraphDrawingScope(options)
 
   -- Create a new scope table
   local scope = {
@@ -68,7 +68,7 @@ function TeXInterface:beginGraphDrawingScope(options)
   scope.syntactic_digraph.scope   = scope
   
   -- Push scope:
-  self.scopes[#self.scopes + 1] = scope
+  TeXInterface.scopes[#TeXInterface.scopes + 1] = scope
   
 end
 
@@ -78,8 +78,8 @@ end
 -- @return The current top scope, which is the scope in which
 --         everything should happen right now.
 
-function TeXInterface:topScope()
-  return assert(self.scopes[#self.scopes], "no graph drawing scope open")
+function TeXInterface.topScope()
+  return assert(TeXInterface.scopes[#TeXInterface.scopes], "no graph drawing scope open")
 end
 
 
@@ -87,7 +87,8 @@ end
 local magic_prefix_length = string.len("not yet positionedPGFINTERNAL") + 1
 
 
---- Adds a new node to the graph.
+---
+-- Add a new node from the pgf-layer to the syntactic graph.
 --
 -- This function is called for each node of the graph by the \TeX\
 -- layer. The \meta{name} is the name of the node including the
@@ -112,12 +113,12 @@ local magic_prefix_length = string.len("not yet positionedPGFINTERNAL") + 1
 -- @param options   Lua-Options for the node.
 -- @param lateSetup Options for the node.
 --
-function TeXInterface:addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max, options, late_setup)
-  local scope = self:topScope()
+function TeXInterface.addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max, options, late_setup)
+  local scope = TeXInterface.topScope()
   local name  = texname:sub(magic_prefix_length)
 
   -- Store tex box in internal table
-  self.tex_boxes[#self.tex_boxes + 1] = node.copy_list(tex.box[box])
+  TeXInterface.tex_boxes[#TeXInterface.tex_boxes + 1] = node.copy_list(tex.box[box])
 
   -- Create new node
   local v = Vertex.new { 
@@ -142,7 +143,7 @@ function TeXInterface:addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max
       y_min = y_min,
       x_max = x_max,
       y_max = y_max,
-      stored_tex_box_number = #self.tex_boxes, 
+      stored_tex_box_number = #TeXInterface.tex_boxes, 
       late_setup = late_setup,
     },
   }
@@ -170,8 +171,8 @@ end
 -- @param name      Name of the node.
 -- @param options   Lua-Options for the node.
 
-function TeXInterface:setLateNodeOptions(name, options)
-  local scope = self:topScope()
+function TeXInterface.setLateNodeOptions(name, options)
+  local scope = TeXInterface.topScope()
   local node = assert(scope[name], "node is missing, cannot set late options")
   
   for k,v in pairs(options) do
@@ -179,6 +180,10 @@ function TeXInterface:setLateNodeOptions(name, options)
   end
   
 end
+
+
+
+
 
 
 
@@ -199,9 +204,9 @@ end
 -- @param pgf_options    A string that should be passed back to \pgfgdedgecallback unmodified.
 -- @param pgf_edge_nodes Another string that should be passed back to \pgfgdedgecallback unmodified.
 --
-function TeXInterface:addPgfEdge(from, to, direction, options, pgf_options, pgf_edge_nodes)
+function TeXInterface.addPgfEdge(from, to, direction, options, pgf_options, pgf_edge_nodes)
 
-  local scope = self:topScope()
+  local scope = TeXInterface.topScope()
   local tail = scope.node_names[from]
   local head = scope.node_names[to]
 
@@ -238,8 +243,8 @@ end
 -- @param kind         Name/kind of the event.
 -- @param parameters   Parameters of the event.
 --
-function TeXInterface:addEvent(kind, param)
-  local scope = self:topScope()
+function TeXInterface.addEvent(kind, param)
+  local scope = TeXInterface.topScope()
   
   scope.events[#scope.events + 1] = { kind = kind, parameters = param}
 end
@@ -258,9 +263,9 @@ end
 -- @param cluster_name Name of a cluster.
 --
 
-function TeXInterface:addNodeToCluster(node_name, cluster_name)
+function TeXInterface.addNodeToCluster(node_name, cluster_name)
   assert (type(cluster_name) == "string" and cluster_name ~= "", "illegal cluster name")
-  local scope = self:topScope()
+  local scope = TeXInterface.topScope()
   local clusters = scope.clusters
   
   local cluster = clusters[cluster_name]
@@ -294,9 +299,9 @@ end
 --
 -- @return Time it took to run the algorithm
 
-function TeXInterface:runGraphDrawingAlgorithm()
+function TeXInterface.runGraphDrawingAlgorithm()
 
-  local scope = self:topScope()
+  local scope = TeXInterface.topScope()
 
   if #scope.syntactic_digraph.vertices == 0 then
     -- Nothing needs to be done
@@ -304,7 +309,7 @@ function TeXInterface:runGraphDrawingAlgorithm()
   end
   
   local start = os.clock()
-  LayoutPipeline:run(scope, require(scope.syntactic_digraph.options["/graph drawing/algorithm"]))
+  LayoutPipeline.run(scope, require(scope.syntactic_digraph.options["/graph drawing/algorithm"]))
   local stop = os.clock()
   
   return stop - start
@@ -314,8 +319,8 @@ end
 
 --- Passes the current graph back to the \TeX\ layer and removes it from the stack.
 --
-function TeXInterface:endGraphDrawingScope()
-  local digraph = self:topScope().syntactic_digraph
+function TeXInterface.endGraphDrawingScope()
+  local digraph = TeXInterface.topScope().syntactic_digraph
   
   tex.print("\\pgfgdbeginshipout")
   
@@ -324,7 +329,7 @@ function TeXInterface:endGraphDrawingScope()
 	if vertex.tex then
 	  tex.print(
 	    string.format(
-	      "\\pgfgdinternalshipoutnode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
+	      "\\pgfgdshipoutnodecallback{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
 	      'not yet positionedPGFINTERNAL' .. vertex.name,
 	      vertex.tex.x_min,
 	      vertex.tex.x_max,
@@ -337,17 +342,23 @@ function TeXInterface:endGraphDrawingScope()
 	else
 	  local opt = {}
 	  for k,v in pairs(vertex.generated_options or {}) do
-	    assert (type(k) == "string", "algorithmically generated option key must be a string")
 	    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
-	    opt [#opt + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+	    if type(k) == "number" then
+	      opt [#opt + 1] = tostring(v) .. ','
+	    elseif type(k) == "string" then
+	      opt [#opt + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+	    else
+	      assert (false, "algorithmically generated option key must be a string")
+	    end
 	  end
 	  
-	  vertex.name = vertex.name or "pgf@gd@" .. tostring(vertex.hull):sub(8)
-	    
-	  tex.print("\\node[" .. table.concat(opt) ..
-		    ",name={" .. vertex.name .. "}" ..
-		    ",xshift=" .. vertex.pos.x .. "pt,yshift=" .. vertex.pos.y .."pt]{fix" ..
-		    (vertex.generated_text or "") .. "};")
+	  tex.print("\\pgfgdgeneratenodecallback{" ..
+		    vertex.name .. "}{" ..
+		    vertex.shape .. "}{" ..
+		    table.concat(opt) .. "}{" ..
+		    vertex.pos.x .. "}{" ..
+		    vertex.pos.y .."}{" ..
+		    (vertex.text or "") .. "}")
 	end
       end
     tex.print("\\pgfgdendnodeshipout")
@@ -366,9 +377,14 @@ function TeXInterface:endGraphDrawingScope()
 	  }
 
 	  for k,v in pairs(m.generated_options) do
-	    assert (type(k) == "string", "algorithmically generated option key must be a string")
 	    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
-	    callback [#callback + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+	    if type(k) == "number" then
+	      callback [#callback + 1] = tostring(v) .. ','
+	    elseif type(k) == "string" then
+	      callback [#callback + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+	    else
+	      assert (false, "algorithmically generated option key must be a string")
+	    end
 	  end
 	  
 	  callback [#callback + 1] = '}{'
@@ -387,7 +403,7 @@ function TeXInterface:endGraphDrawingScope()
   
   tex.print("\\pgfgdendshipout")
   
-  table.remove(self.scopes) -- pop
+  table.remove(TeXInterface.scopes) -- pop
 end
 
 
@@ -402,9 +418,9 @@ end
 -- individually that we are "ready" to retrieve the stored box
 -- contents, making this callback nessary
 
-function TeXInterface:retrieveBox(box_reference)
-  local ret = self.tex_boxes[box_reference]
-  self.tex_boxes[box_reference] = nil
+function TeXInterface.retrieveBox(box_reference)
+  local ret = TeXInterface.tex_boxes[box_reference]
+  TeXInterface.tex_boxes[box_reference] = nil
   return ret
 end
 
@@ -418,7 +434,7 @@ end
 -- @param key The commplete path of the to-be-defined key
 -- @param value A string containing the value
 --
-function TeXInterface:setGraphParameterDefault(key,value)
+function TeXInterface.setGraphParameterDefault(key,value)
   assert (not Options.defaults[key], "you may not set a parameter default twice")
   Options.defaults[key] = value
 end
