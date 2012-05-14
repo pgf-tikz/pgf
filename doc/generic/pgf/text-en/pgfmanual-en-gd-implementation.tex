@@ -14,20 +14,18 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-\section{Layers of the Graph Drawing Implementation}
+\section{Implementing Graph Drawing Algorithms: The \TeX\ Side}
 
-{\noindent {\emph{by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
-  Jannis Pohlmann, Matthias Schulz, Stephan Schuster, and Till Tantau}}}
+{\noindent {\itshape{Original by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
+  Matthias Schulz, Stephan Schuster\par\noindent Rewritten by Till Tantau}}}
 
 \label{section-base-graphdrawing}
 \label{section-gd-internals}
 
-File status: Needs to be partly rewritten (Interfaces changed)
-
 
 \begin{pgflibrary}{graphdrawing}
   This package provides the \TeX\ interface to the graph drawing
-  engine. Since it uses \LuaTeX, you need at least \LuaTeX\ 0.4 or 
+  engine. Since it uses \LuaTeX, you need at least \LuaTeX\ 0.45 or 
   higher.
 \end{pgflibrary}
 
@@ -38,15 +36,19 @@ File status: Needs to be partly rewritten (Interfaces changed)
 \end{tikzlibrary}
 
 
+This chapter explains the technical details of how the \TeX\ layer
+communicates with the Lua side of the graph drawing engine. A note of
+caution:
 
-\subsection{Overview}
+\begin{quote}
+  \itshape You do not need to understand the details of this
+  chapter to write new graph drawing algorithms. It is of interest
+  only to those wishing to extend the syntactic features of the \TeX\ side
+  of the graph drawing engine.
+\end{quote}
 
-This chapter explains in detail how the different layers of the graph
-drawing engine communicate. The main job of the graph drawing engine
-is to provide a connection between the syntax of \tikzname\
-and \pgfname\ for specifying graphs and code written in the Lua
-programming language for computing layouts. The present section will
-discuss this process in detail.
+
+\subsection{The Call Graph of the Graph Drawing Engine}
 
 Let us start with the broad picture. The general idea behind the whole
 graph drawing engine is that whenever \pgfname\ creates a node, we
@@ -59,24 +61,20 @@ specified, a graph drawing algorithm written in Lua starts to work on
 the graph by computing new positions for the nodes. Then, the graph
 drawing engine will send back the nodes and edges to \pgfname, which
 then finally places them at their final positions.
-
 Note that graph drawing algorithms need no knowledge of how any of
-these internals work. Indeed, inside a graph drawing algorithm you get
-access to a |graph| object that is an object-oriented model of the
-graph. No \TeX\ programming skills are required to design and test a
-graph drawing algorithm, only Lua is used here.
+these internals work.
 
-Let us now have a look at a simple example to see what happens when a
+Let us have a look at a simple example to see what happens when a
 graph is specified:
 
 \begin{codeexample}[]
 \tikz[tree layout]
-  \graph{root [as=Hello] -> World[fill=blue!20]};
+  \graph {root [as=Hello] -> World[fill=blue!20]};
 \end{codeexample}
 
-The special key |tree layout| internally calls the key
-|graph drawing scope|, which in turn called that basic layer's macro
-|\pgfgdbeginscope|, which starts up the graph drawing engine. Once this macro has been
+The key |tree layout| internally calls the key |graph drawing scope|,
+which in turn calls the macro |\pgfgdbeginscope|, which starts up the
+graph drawing engine. Once this macro has been 
 called, until the next call of |\pgfgdendscope|, all nodes that are
 created actually get passed down to the graph drawing engine. This is
 implemented on the lowest layer, namely by directly intercepting
@@ -108,95 +106,74 @@ An overview of what happens is illustrated by the following call graph:
 \begin{tikzpicture}[
     class name/.style={draw,minimum size=20pt, fill=blue!20},
     object node/.style={draw,minimum size=15pt, fill=yellow!20},
-    p/.style={->,>=stealth'},
-    livespan/.style={thick,double},
+    p/.style={->,>=spaced stealth'},
+    livespan/.style={very thick},
     xscale=0.8]
   % class names above
   \node (tikz) at (0,4) [class name] {\tikzname\ layer};
-  \node (tex) at (5,4) [class name] {\pgfname\ layer};
-  \node (interface) at (10,4) [class name] {Lua: TeXInterface};
-  \node (sys) at (15,4) [class name] {};
+  \node (tex) at (6,4) [class name] {\pgfname\ layer};
+  \node (interface) at (13,4) [class name] {Lua: TeXInterface};
   % lines from the class names to the bottom of the picture
-  \draw[livespan] (tikz) -- (0,-7.5);
-  \draw[livespan] (tex) -- (5,-7.5);
-  \draw[livespan] (interface) -- (10,-7.5);
-  \draw[livespan] (sys) -- (15,-7.5);
+  \draw[livespan] (tikz) -- (0,-6.5);
+  \draw[livespan] (tex) -- (6,-6.5);
+  \draw[livespan] (interface) -- (13,-6.5);
   % first command: \graph{  -- generates new graph in lua interface
   \node (tikz-begin-graph) at (0,3) [object node] {|\graph[algorithm=...]{|}; %}
-  \node (tex-begin-graph) at (5,3) [object node] {|\pgfgdbeginscope|};  
-  \node (interface-new-graph) at (10,3) [object node] {|beginGraphDrawingScope(|...|)|};
+  \node (tex-begin-graph) at (6,3) [object node] {|\pgfgdbeginscope|};  
+  \node (interface-new-graph) at (13,3) [object node] {|beginGraphDrawingScope(|...|)|};
   \draw [p] (tikz-begin-graph.east) -- (tex-begin-graph.west);
   \draw [p] (tex-begin-graph.east) -- (interface-new-graph.west);    
   % second command: a -> b   -- generates two nodes in lua
   % and one edge
   \node (tikz-node) at (0,2) [object node] {|a -> b;|};
-  \node (tex-node) at (5,2) [object node] {|\pgfnode|};
-  \node (interface-add-node-behind) at (10.1,1.9) [object node] {|addPgfNode(|...|)|};
+  \node (tex-node) at (6,2) [object node, double copy shadow] {|\pgfnode|};
   \draw[p] (tikz-node.east) -- (tex-node.west);
   
-  \node (interface-add-node) at (10,2) [object node] {|addPgfNode(|...|)|};
+  \node (interface-add-node) at (13,2) [object node, double copy shadow] {|addPgfNode(|...|)|};
   \draw[p] (tex-node.east) -- (interface-add-node.west);
 
-  \node (tex-add-edge) at (5,1) [object node] {|\pgfgdedge|};
-  \node (interface-add-edge) at (10,1) [object node] {|addPgfEdge(|...|)|};
+  \node (tex-add-edge) at (6,1) [object node, double copy shadow] {|\pgfgdedge|};
+  \node (interface-add-edge) at (13,1) [object node, double copy shadow] {|addPgfEdge(|...|)|};
   \draw[p] (tikz-node.east) -- (1.5,2) -- (1.5,1) -- (tex-add-edge.west);
   \draw[p] (tex-add-edge.east) -- (interface-add-edge.west);
 
   % scope ends -- cloes graph, layouts it and draws it
   \node (tikz-end) at (0,0) [object node] {|};|};
-  \node (tex-end) at (5,0) [object node] {|\pgfgdendscope|};
-  \node (interface-draw-graph) at (10,0) [object node] {|runGraphDrawingAlgorithm()|};
-  \node (interface-finish-graph) at (10,-2) [object node] {|endGraphDrawingScope()|};
+  \node (tex-end) at (6,0) [object node] {|\pgfgdendscope|};
+  \node (interface-draw-graph) at (13,0) [object node] {|runGraphDrawingAlgorithm()|};
+  \node (interface-finish-graph) at (13,-2) [object node] {|endGraphDrawingScope()|};
 
-  \node (invoke-algorithm) at (12.5,-1) [object node] {invoke algorithm};
+  \node (invoke-algorithm) at (15.5,-1) [object node] {invoke algorithm};
   \draw[p] (tikz-end.east) -- (tex-end.west);
   \draw[p] (tex-end.east) -- (interface-draw-graph.west);
-  \draw[p] (interface-draw-graph.east) -- (12.5,0) -- (invoke-algorithm.north);
-  \draw[p] (tex-end.east) -- (7.5,0) -- (7.5,-2) -- (interface-finish-graph.west);
+  \draw[p] (interface-draw-graph.east) -| (invoke-algorithm.20);
+  \draw[p] (tex-end.east) -- (9.5,0) -- (9.5,-2) -- (interface-finish-graph.west);
 
   % begin shipout
-  \node (sys-begin-shipout) at (15,-2) [object node] {|beginShipout()|};
-  \draw[p] (interface-finish-graph.east) -- (sys-begin-shipout.west);
-  \node (tex-begin-shipout) at (5,-3) [object node] {|\pgfgdbeginshipout|};
-  \draw[p] (sys-begin-shipout.187) -- (12,-2.2) -- (12,-3) -- (tex-begin-shipout.east);
+  \node (tex-begin-shipout) at (6,-3) [object node] {|\pgfgdbeginshipout|};
 
-  % put tex box
-  \node (sys-puttexbox-behind) at (15.1,-4.1) [object node] {|putTeXBox(|...|)|};
-  \node (sys-puttexbox) at (15,-4) [object node] {|putTeXBox(|...|)|};
-  \node (tex-puttexbox) at (5,-4.5) [object node] {|\pgfpositionnodenow|};
-  \node (tex-putedge) at (5,-5.5) [object node] {|\pgfgdedgecallback|};
-
-  \draw[p] (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
+  \node (tex-puttexbox) at (6,-4) [object node, double copy shadow] {|\pgfpositionnodenow|};
+  \node (tex-putedge) at (6,-5) [object node, double copy shadow] {|\pgfgdedgecallback|};
+  
+  \node (tex-end-shipout) at (6,-6) [object node] {|\pgfgdendshipout|};
+  
+  \draw [p] (interface-finish-graph.-170) |- (tex-begin-shipout.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-puttexbox.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-putedge.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-end-shipout.east);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
-  \draw[p] (sys-puttexbox.187) -- ++(-2,0) |- (tex-puttexbox.east);
 
   % put edge
-  \node (sys-put-edge-behind) at (15.1,-5.1) [object node] {|putEdge(|...|)|};
-  \node (sys-put-edge) at (15,-5) [object node] {|putEdge(|...|)|};
-  \draw[p] (sys-put-edge.187) -- ++(-2,0) |- (tex-putedge.east);
-  \draw[p] (12.5,-4) -- (12.5,-5) -- (sys-put-edge.west);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-5) -- (sys-put-edge.west);
   % end shipout
-  \node (sys-end-shipout) at (15,-6.5) [object node] {|endShipout()|};
-  \draw[p] (12.5,-5) |- (sys-end-shipout.west);
   %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-6) -- (sys-end-shipout.west);
-  \node (tex-end-shipout) at (5,-7) [object node] {|\pgfgdendshipout|};
-  \draw[p] (sys-end-shipout.187) -- ++ (-2,0) |- (tex-end-shipout.east);
 \end{tikzpicture}
-
 
 In Section~\ref{section-gd-scopes} we detail the different commands
 needed to communicate with the graph drawing engine. In particular,
 the commands for beginning and ending scopes are explained here. The
 next section, Section~\ref{section-gd-parameters} explains how graph
-parameters are setup and configured, both on the \TeX\ side and on the
-Lua side. The remaining sections are dedicated entirely to the Lua
-side of the graph drawing engine. We first give an overview and then
-detail how new graph drawing algorithms can be implemented. This is
-followed by a detailed reference of the avaiable classes and
-functions. 
-
-
+parameters are setup and configured.
 
 
 \subsection{Graph Drawing Scopes}
@@ -214,23 +191,19 @@ in turn calls the macro |\pgfgdbeginscope|:
   the |tree layout| option (which uses |graph drawing scope| internally) can
   be used in the following ways:
 \begin{codeexample}[]
-\tikz [tree layout] \graph {a -> {b,c}};  
-
-\tikz \graph [tree layout] {a -> {b,c}};
-
-\tikz \path graph [tree layout] {a -> {b,c}};
+\tikz [tree layout] \graph        {1 -> {b,c}};  
+\tikz \graph [tree layout]        {2 -> {b,c}};
+\tikz \path graph [tree layout]   {3 -> {b,c}};
 
 \begin{tikzpicture}[tree layout]
-  \graph {a -> {b,c}};
+  \graph                          {4 -> {b,c}};
 \end{tikzpicture}
 
 \begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,1);
-  
-  \scoped [tree layout] \graph {a -> {b,c}};
+  \scoped [tree layout] \graph    {5 -> {b,c}};
     
-  \begin{scope}[tree layout, xshift=1cm, rotate=90]
-    \graph {a -> {b,c}};
+  \begin{scope}[tree layout, xshift=1.5cm]
+    \graph                        {6 -> {b,c}};
   \end{scope}
 \end{tikzpicture}
 \end{codeexample}
@@ -289,9 +262,10 @@ in turn calls the macro |\pgfgdbeginscope|:
 \begin{command}{\pgfgdbeginscope}
   This macro starts a \TeX\ scope. The following things will happen:
   \begin{enumerate}
-  \item A new |graph| object is created and put on the top of the Lua
-    graph stack. All subsequent operations will work on this graph until
-    |\pgfgdendscope| is called.
+  \item A new |scope| object is created and put on an internal stack
+    of scopes. All subsequent operations will work on this graph until
+    |\pgfgdendscope| is called. In particular, it is permissible to
+    have nested graph drawing scopes.
   \item Inside the scope, no nodes are placed immediately. Rather, 
     the macro |\pgfpositionnodelater|, see
     Section~\ref{section-shapes-deferred-node-positioning}, is used to
@@ -360,9 +334,8 @@ in turn calls the macro |\pgfgdbeginscope|:
     positions that were computed for them. Also, for each edge that
     was requested via |\pgfgdedge|, the macro |\pgfgdedgecallback| is
     called (see below).
-
-  \item Finally, the shipout phase is finished, the graph is popped
-    from the graphs stack and the \TeX\ scope is ended. 
+  \item Finally, the shipout phase is finished, the scope is popped
+    from the scope stack and the \TeX\ scope is ended. 
   \end{enumerate}
 \end{command}
 
@@ -372,25 +345,20 @@ in turn calls the macro |\pgfgdbeginscope|:
   \label{section-gd-algorithm-key}%
   This key specifies which algorithm should be used for typesetting a
   graph. The names of these algorithm's are often a bit cryptic (like
-  |SpringElectricalWalshaw2000| or something similar), which is why
-  you typically do not call this key directly. Instead, styles with more
-  easy-to-remember names internally set this key.
+  |pgf.gd.force.SpringElectricalWalshaw2000| or something similar),
+  which is why you typically do not call this key directly. Instead,
+  styles with more easy-to-remember names internally set this key.
 
   Setting this key has the following effects: During the execution of
-  |\pgfgdendscope|, Lua will try to find a class
-  named \meta{algorithm's name} that has been declared using the
-  |graph_drawing_algorithm| command (but any spaces inside the
-  \meta{algorithm's name} are deleted). If it does not find such a
-  class, the engine tries to  
-  load the file called |pgfgd-algorithm-|\meta{algorithm's name}|.lua|
-  (again, spaces are deleted) and then, again, tries to lookup the
-  class. Thus, any class \meta{algorithm's name} mentioned inside a
-  document must either have 
-  already been defined in some Lua file loaded by some library or it
-  must reside in a file with the corresponding name. Once the class
-  has been found, the class's |new| method is called, the |graph|
-  attribute of the object is set to the to-be-layouted graph, and the
-  |run| method is called.
+  |\pgfgdendscope|, Lua will say |require(|\meta{algorithm's name}|)|.
+  This call of Lua's |require| method must now return a class object,
+  which should typically have been created using the
+  |pgf.gd.new_algorithm_class| command; see the documentation of
+  |require| for details on what happens here. Provided the class is
+  found (otherwise an error is raised), an object of the class is
+  instantiated and its |run| method is called. The object's |digraph|
+  and |ugraph| fields will have been set to the directed graph and the
+  undirected graph underlying the syntactic digraph.
   
   Here is an example where we switch on the graph drawing engine
   explicitly and explicitly select an algorithm:
@@ -404,15 +372,12 @@ in turn calls the macro |\pgfgdbeginscope|:
   \ref{section-last-graphdrawing-library-in-manual}.
 \end{key}
 
-
-
-
 As described above, inside a graph drawing scope, nodes are
 automatically passed down to the graph drawing engine, while for edges
 a command has to be called explicitly:
 
 \begin{command}{\pgfgdedge\marg{first node}\marg{second
-      node}\marg{edge direction}\marg{edge options}\marg{aux text}}
+      node}\marg{edge direction}\marg{edge options}\marg{edge nodes}}
   This command is used to tell the graph drawing engine that there is
   an edge between \meta{first node} and \meta{second node} in your
   graph. The ``kind'' of connection is indicated by \meta{direction},
@@ -432,7 +397,12 @@ a command has to be called explicitly:
   \item |-!-| indicates that the edge from \meta{first node} to
     \meta{second node} is ``missing''. 
   \end{itemize}
-  The parameters \meta{edge options} and \meta{aux text} are a bit
+  Note that in all cases, the syntatic digraph will contain an arc
+  from \meta{first node} to \meta{second node}, regardless of the
+  value of \meta{direction}. The \meta{direction} is ``just'' a
+  ``semantic annotation''.
+  
+  The parameters \meta{edge options} and \meta{edge nodes} are a bit
   more tricky. When an edge between two vertices of a graph is created
   via |\pgfgdedge|, nothing is actually done immediately. After all,
   without knowing the final positions of the nodes \meta{first node}
@@ -443,7 +413,7 @@ a command has to be called explicitly:
 
   Because of this ``delayed'' drawing of edges, options that influence
   the edge must be retained until the moment when the edge is actually
-  drawn. Parameters \meta{edge options} and \meta{aux text} store such
+  drawn. Parameters \meta{edge options} and \meta{edge nodes} store such
   options. 
 
   Let us start with \meta{edge options}. This parameter should be set
@@ -485,7 +455,7 @@ a command has to be called explicitly:
   executed inside a \TeX\ scope inside an interrupted path inside a
   \TeX\ box that is thrown away immediately. 
   
-  The text in \meta{aux text} is some ``auxilliary'' text that is
+  The text in \meta{edge nodes} is some ``auxilliary'' text that is
   simply stored away and later directly to |\pgfgdedgecallback|. This
   is used for instance by \tikzname\ to store its node labels. 
 \end{command}
@@ -498,8 +468,8 @@ a command has to be called explicitly:
   called once for each edge with the following parameters:
   \begin{quote}
     \meta{macro}\marg{first node}\marg{second
-      node}\marg{direction}\marg{edge options}\marg{aux
-      text}\marg{algorithm-generated options}\marg{bend information}
+      node}\marg{direction}\marg{edge options}\marg{edge
+      nodes}\marg{algorithm-generated options}\marg{bend information} 
   \end{quote}
 
   The first five parameters are the original values that were passed
@@ -579,7 +549,6 @@ normal key, but instead of using the |.code| handler, you use
 \item |.node parameter|, and
 \item |.edge parameter|.
 \end{itemize}
-More details on how these handlers work is given below.
 
 Specifying the set of graph drawing parameters for a given graph or
 node or edge works as follows: When the graph drawing engine is
@@ -587,14 +556,15 @@ started for a graph (using |\pgfgdbeginscope|), a snapshot is taken of
 all graph drawing graph parameters currently setup at this
 point. Similarly, when a node is created inside such a scope (using
 |\pgfnode|), a snapshot is taken of the set of all graph drawing node
-parameters in force at this point is taken and stored together with
+parameters in force at this point and stored together with
 the node. Finally, when an edge is created (using |\pgfgdedge|), a
 snapshot of the setting of the graph drawing edge parameters is
 taken. 
 
-All of these option sets can easily be accessed inside the graph 
-drawing algorithms.
-
+The options set in this way can later be access from the Lua code via
+the |options| fields of digraphs, vertices, and arcs. (For arcs, the
+situation is a bit more involved, but most of the time, you can access
+the option as expected.)
 
 In addition to the above kind of parameters, there are also two
 ``hybrid'' kind of parameter: ``Node or graph'' parameters and ``edge
@@ -610,7 +580,7 @@ to a single node.
 \subsubsection{Basic Commands For Setting Parameters}
 
 Let us start with the basic commands for setting a graph parameter
-(you will not call these commands directly, in general).
+(although you typically will not call these commands directly).
 
 \begin{command}{\pgfgdgraphparameter\marg{graph
       parameter}\marg{value}} 
@@ -624,49 +594,51 @@ Let us start with the basic commands for setting a graph parameter
   Inside a graph drawing algorithm, you can access to \meta{value} as
   follows:
 \begin{codeexample}[code only]
-  local myvalue = graph:getOption('<graph parameter>');
+  local myvalue = graph.options['<graph parameter>']
 \end{codeexample}
   where |<graph parameter>| should be the exact text passed as
   \meta{graph parameter}.
 
-  In case that a graph parameter has not been set, the |getOption|
-  function will return |nil| (but see also the description of the
+  In case that a graph parameter has not been set, the |options| field
+  will be |nil| (but see also the description of the
   |.parameter initial| handler below).
 
   Note that the \meta{value} will be passed down directly to Lua
   without being quoted. Thus, if \meta{value} is |42|, you will get a
   Lua |number| inside |myvalue|, while if \meta{value} is |'42'|, you
-  get a Lua |string|.
+  get a Lua |string|, and if \meta{value} is |1cm|, you get an error.
 \end{command}
 
 
 \begin{command}{\pgfgdnodeparameter\marg{node
       parameter}\marg{value}} 
   Sets the \meta{node parameter} inside the local \TeX\ scope to
-  \meta{value}. Unlike a graph parameter, this command can 
-  be called inside a graph drawing scope. When a |\pgfnode| command is
-  is encountered, the current settings of all node parameters that
-  have been set using this command will be passed down to the graph
-  drawing engine and will be stored alongside the node.
+  \meta{value}. Unlike for graph parameter, it also makes sense to
+  call this command deep inside a graph drawing scope. When a
+  |\pgfnode| command is is encountered, the current settings of all
+  node parameters that have been set using this command will be passed
+  down to the graph drawing engine and will be stored alongside the
+  node. 
 
-  Inside a graph drawing algorithm, you can access to \meta{value} as
+  Inside a graph drawing algorithm, you can access \meta{value} as
   follows:
 \begin{codeexample}[code only]
-  local myvalue = node:getOption('<node parameter>');
+  local myvalue = vertex.optoins['<node parameter>']
 \end{codeexample}
-  where |<node parameter>| should be the exact text passed as
-  \meta{node parameter}. In case that a graph parameter has not been
-  set, the |getOption| function will return |nil|.
 \end{command}
 
 \begin{command}{\pgfgdedgeparameter\marg{edge
       parameter}\marg{value}} 
-  Works like |\pgfgdnodeparameter|, only for edges. Now, the values
-  that have been set when |\pgfgdedge| is called are important. The
-  settings can be accessed via 
+  Works like |\pgfgdnodeparameter|, only for edges. Unlike for node
+  and graph parameters, you cannot always just write 
 \begin{codeexample}[code only]
-  local myvalue = edge:getOption('<edge parameter>');
+  local myvalue = arc.options['<edge parameter>']
 \end{codeexample}
+  The reason is the an arc often represents multiple edges and, thus,
+  some kind of ``collecting'' needs to be done how the (multiple)
+  values that an option may have for a single arc should be
+  aggregated. See Section~\ref{section-gd-arc-model} for more
+  details. 
 \end{command}
 
 \begin{command}{\pgfgdhybridnodegraphparameter\marg{parameter}\marg{value}}
@@ -677,6 +649,8 @@ Let us start with the basic commands for setting a graph parameter
 \begin{command}{\pgfgdhybridedgegraphparameter\marg{parameter}\marg{value}}
   As above, but for edges.
 \end{command}
+
+
 
 \subsubsection{Key Handlers  For Setting Parameters}
 
@@ -690,11 +664,11 @@ internally.
   the key will cause an appropriate call of |\pgfgdgraphparameter| to
   be issued. For instance, suppose we say
 \begin{codeexample}[code only]
-\pgfkeys{ /some path/my key/.graph parameter=string}
+\pgfkeys{/some path/my key/.graph parameter=string}
 \end{codeexample}
   and then subsequently
 \begin{codeexample}[code only]
-\pgfkeys{ /some path/my key=foo }
+\pgfkeys{/some path/my key=foo}
 ...
 \pgfgdbeginscope
   ...
@@ -702,7 +676,7 @@ internally.
 \end{codeexample}
   Then, inside the graph drawing scope, a call to
 \begin{codeexample}[code only]
-   local myvalue = graph:getOption('/some path/my key')
+   local myvalue = digraph.options['/some path/my key']
 \end{codeexample}
   will set |myvalue| to |'foo'|.
   
@@ -715,7 +689,7 @@ internally.
 \pgfkeys{ /some path/width/.graph parameter=string }
 \end{codeexample}
   We could now say |/some path/width=20pt+2pt|. Then, inside the 
-  algorithm call to the function |getOptions('/some path/width')| would yield the
+  algorithm call to the function |options['/some path/width']| would yield the
   string |'20pt+2pt'|. However, inside the algorithm, it would be
   somewhat preferable to have access to the value |22.0| rather than the
   string |'20pt+2pt'|. Similary, when the width is |1in|, the algorithm
@@ -736,7 +710,7 @@ internally.
   achieved as follows:
 \begin{codeexample}[code only]
 \pgfkeys{    
-  /graph drawing/conversions/math/.code={
+  /graph drawing/conversions/number/.code={
     \pgfmathparse{#1}                % Parse the <value>...
     \let\pgfgdresult\pgfmathresult   % and store the result in \pgfgdresult
   }
@@ -778,13 +752,65 @@ internally.
     \tikzname. It will still be converted into an
     array of length~2.
   \end{key}
+  \begin{key}{/graph drawing/conversions/table with node keys=\meta{table}}
+    The \meta{table} will first be parsed in Lua syntax, resulting in
+    a Lua table. We distinguish two cases, depending on which kind of
+    keys are present in the table:
+
+    \begin{enumerate}
+    \item Suppose that a key--value pair is of the form
+      \meta{string}|=|\meta{something}. This happens, for instance,
+      when you use |{foo=5, ["a b"]="six"}| as your \meta{table}. In this
+      case, there will be two such pairs in the \meta{table}, namely
+      the key |"foo"| with the value |5| (a number) and the key
+      |"a b"| with the value |"six"| (a string).
+
+      Now, the key--value pair will be converted to a new key--value
+      pair. The value will be the same as before, but the key \meta{string}
+      will be replaced by the vertex object whose |name| is the
+      \meta{string}.
+    \item Now suppose that a key--value pair is of the form
+      \meta{number}|=|\meta{something}. This happens, for instance,
+      when you use |{5, "six"}| as your \meta{table}, resulting in 
+      two pair, one with the key |1| and the value |5| and one with
+      the key |2| and the value |"six"|.
+
+      In this case, once more only the key of the key--value pair will
+      converted. This time, if the key is the number $i$, it will be
+      replaced by the $i$th vertex of the syntactic digraph. If there
+      are not (yet) this many vertices, an error is raised.
+    \end{enumerate}
+    Using the above rules, all keys of the \meta{table} get replaced
+    by vertices (or errors occur). In the end, a new table results
+    that maps vertex keys to values. It is this value which gets
+    stored in the |options| array of the vertex or node.
+
+    As an example, suppose we declare the following key:
+\begin{codeexample}[code only]
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  evolutionary distances/.node parameter=table with node keys
+}
+...
+\tikz \graph [phylogenetic tree layout] {
+  a, b, c, d; % Forward declaration of all nodes
+
+  a[evolutionary distances={  0, 100, 200, 20}];
+  b[evolutionary distances={100,   0, 250, 70}];
+  c[evolutionary distances={200, 250,   0, 90}];
+  d[evolutionary distances={ 20,  70,  90,  0}];
+};
+\end{codeexample}
+    The result is that |a.options['/graph drawing/evolutionary distances']|
+    is a table |t| where, for instance, |t[c] == 200| holds, assuming
+    that |c| is the object representing the vertex named~|c|.
+  \end{key}
   
   \medskip
   \noindent\textbf{Default values.}
-  When a graph parameter is not set at all, the call to |getOption|
-  inside Lua will return |nil|. For most keys, however, a default
+  When a graph parameter is not set at all, the |options| table will
+  be empty. For most keys, however, a default
   value should be set, such as, say, |1cm| for a node distance. You
-  \emph{cannot} just say |node distance/.initial=1cm| for a graph
+  \emph{cannot} say |node distance/.initial=1cm| for a graph
   parameter |node distance| as one might expect since graph parameters
   are not normal keys. In principle, you could just say
   |node distance=1cm| in some outer scope to setup a default value for the
@@ -798,9 +824,10 @@ internally.
   \begin{handler}{{.parameter initial}|=|\meta{value}}
     Use this key handler instead of |.initial| to assign an initial value
     to a graph parameter. What will happen is that on the Lua layer,
-    the passed \meta{value} is stored in a special table. Whenever the
-    \meta{key} is not explicitly set by the user, the \meta{value}
-    will be used.
+    the passed \meta{value} is stored in a special table that will be
+    used as a meta-table for all |options| object. This means that
+    whenever the \meta{key} is not explicitly set by the user, the
+    \meta{value} will be returned when you access an |options| table.
 
     The \meta{value} gets passed through the \meta{conversion} of the
     graph parameter before it is stored.
@@ -808,13 +835,15 @@ internally.
     \emph{Remark:} Since the \meta{value} is passed down and managed
     by Lua, changing the initial value is always ``global.'' In
     particular, the values will not revert at the end of \TeX\
-    scope. For this reason, you should use this handler only
-    immediately after the key has been defined. Subsequently, a value
-    should be assigned directly to the key rather than setting a new
-    value using the handler once more.
+    scope. Indeed, trying to call |.parameter initial| twice for the
+    same key will result in an error. In order to locally change the
+    value of a key, just say |key=value|; use
+    |key/.parameter initial=value| only once right after the key has
+    been created and use it only if the key ``really has'' a good
+    default value. 
 \begin{codeexample}[code only]
 \pgfgdset{
-  node distance/.graph parameter=evaluate math expression,
+  node distance/.graph parameter=number,
   node distance/.parameter initial=1cm
 }
 \end{codeexample}
@@ -869,7 +898,6 @@ Rather, we would like to write
 \begin{codeexample}[code only]
 \tikz [my algorithm={foo=bar}, blub=foobar] ...
 \end{codeexample}
-
 
 In order to achieve this and still keep the parameters in the correct
 key path, \emph{key forwarding} is used. For most graph parameters, a
@@ -939,7 +967,7 @@ forward.
   namespace.
 \begin{codeexample}[code only]
 \pgfgddeclareforwardedkeys{/graph drawing}{
-  node distance/.graph parameter=evaluate math expression,
+  node distance/.graph parameter=number,
   node distance/.parameter initial=1cm
 }
 \end{codeexample}
@@ -951,9 +979,9 @@ forward.
   
   \begin{key}{/graph drawing/\meta{algorithm key}=\meta{more options}}
     When this key is executed, the \meta{options} that were passed to
-    the |\pgfgddeclarealgorithmkey| command are executed first with
-    the path prefix |/graph drawing|. Next, the \meta{more options}
-    are executed, but now with the path prefix
+    the |\pgfgddeclarealgorithmkey| command are executed first,
+    tentatively, with the path prefix |/graph drawing|. Next, the
+    \meta{more options}  are executed, but now with the path prefix
     |/graph drawing/|\meta{algorithm family}.
 
     Then, the following key is executed:

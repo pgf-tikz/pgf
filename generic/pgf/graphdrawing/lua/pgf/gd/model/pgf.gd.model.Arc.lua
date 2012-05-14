@@ -384,39 +384,39 @@ Arc.collector(
 
 
 ---
--- The edge priority collector
+-- The span priority collector
 --
 -- This collector returns the top (that is, smallest) priority of any
 -- edge involved in the arc.
 --
 -- The priority of an edge is computed as follows:
 --
--- 1) If the option "/graph drawing/edge priority" is set, this number
+-- 1) If the option "/graph drawing/span priority" is set, this number
 -- will be used.
 --
 -- 2) If the edge has the same head as the arc, we lookup the key
--- "/graph drawing/edge priority " .. edge.direction. If set, we use
+-- "/graph drawing/span priority " .. edge.direction. If set, we use
 -- this value.
 --
 -- 3) If the edge has a different head from the arc (the arc is
 -- "reversed" with respect to the syntactic edge), we lookup the key
--- "/graph drawing/edge priority reversed " .. edge.direction. If set,
+-- "/graph drawing/span priority reversed " .. edge.direction. If set,
 -- we use this value.
 --
 -- 4) Otherwise, we use priority 5.
 
 Arc.collector(
-  "edge_priority",
+  "span_priority",
   function (array, arc)
     local min 
     local g = arc.syntactic_digraph
     for _,e in ipairs(array) do
-      local p = e.options["/graph drawing/edge priority"]
+      local p = e.options["/graph drawing/span priority"]
       if not p then
 	if e.head == arc.head then
-	  p = Options.lookup("/graph drawing/edge priority " .. e.direction, e, g)
+	  p = Options.lookup("/graph drawing/span priority " .. e.direction, e, g)
 	else
-	  p = Options.lookup("/graph drawing/edge priority reversed " .. e.direction, e, g)
+	  p = Options.lookup("/graph drawing/span priority reversed " .. e.direction, e, g)
 	end
       end
       min = math.min(p or 5, min or math.huge)

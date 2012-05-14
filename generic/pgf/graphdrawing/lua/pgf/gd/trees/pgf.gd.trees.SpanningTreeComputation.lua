@@ -107,7 +107,7 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
 	local head = arc.head
 
 	if not marked[head] then
-	  local priority = arc.edge_priority
+	  local priority = arc.span_priority
 	  local stack = assert(stacks[priority], "illegal edge priority")
 	  if dfs then
 	    stack.top = stack.top + 1
