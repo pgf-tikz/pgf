@@ -22,24 +22,10 @@
 -- the manual.
 
 local SpringHu2006 = pgf.gd.new_algorithm_class {
-  properties = {
-    works_only_on_connected_graphs = true,
-    works_only_for_loop_free_graphs = true,
-    works_only_for_simple_graphs = true,
-    old_graph_model = true,
-  },
-  graph_parameters = {
-    iterations = '/graph drawing/spring layout/iterations',
-    cooling_factor = '/graph drawing/spring layout/cooling factor',
-    initial_step_length = '/graph drawing/spring layout/initial step dimension',
-    convergence_tolerance = '/graph drawing/spring layout/convergence tolerance',
-
-    natural_spring_length = '/graph drawing/node distance',
-   
-    coarsen = '/graph drawing/spring layout/coarsen',
-    downsize_ratio = '/graph drawing/spring layout/coarsening/downsize ratio',
-    minimum_graph_size = '/graph drawing/spring layout/coarsening/minimum graph size',
-  }
+  works_only_on_connected_graphs = true,
+  works_only_for_loop_free_graphs = true,
+  works_only_for_simple_graphs = true,
+  old_graph_model = true,
 }
 
 
@@ -59,6 +45,22 @@ local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
 
 function SpringHu2006:run()
+  
+  -- Setup some parameters
+  local options = self.digraph.options
+  
+  self.iterations = options['/graph drawing/spring layout/iterations']
+  self.cooling_factor = options['/graph drawing/spring layout/cooling factor']
+  self.initial_step_length = options['/graph drawing/spring layout/initial step dimension']
+  self.convergence_tolerance = options['/graph drawing/spring layout/convergence tolerance']
+
+  self.natural_spring_length = options['/graph drawing/node distance']
+   
+  self.coarsen = options['/graph drawing/spring layout/coarsen']
+  self.downsize_ratio = options['/graph drawing/spring layout/coarsening/downsize ratio']
+  self.minimum_graph_size = options['/graph drawing/spring layout/coarsening/minimum graph size']
+
+
   -- Setup
   
   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.downsize_ratio)))

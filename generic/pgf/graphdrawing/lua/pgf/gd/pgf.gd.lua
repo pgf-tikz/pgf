@@ -14,7 +14,9 @@
 
 -- Declare the gd namespace
 
-require("pgf").gd = {}
+local gd = {}
+require("pgf").gd = gd
+
 
 
 
@@ -40,8 +42,7 @@ require("pgf").gd = {}
 --
 -- @return A table that is a class with a new function setup.
 
-function pgf.gd.new_algorithm_class (info)
-  local class = info.properties or {}
+function gd.new_algorithm_class (class)
   class.__index = class
   class.new = 
     function (initial) 
@@ -53,11 +54,6 @@ function pgf.gd.new_algorithm_class (info)
       end
       setmetatable(obj, class)
 
-      -- Setup graph_options
-      for k,v in pairs(info.graph_parameters or {}) do
-	obj[k] = initial.digraph.options[v]
-      end
-
       return obj
     end
 
@@ -65,4 +61,4 @@ function pgf.gd.new_algorithm_class (info)
 end
 
 
-return pgf.gd
+return gd

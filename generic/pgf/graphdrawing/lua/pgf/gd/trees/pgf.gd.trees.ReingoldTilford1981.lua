@@ -19,11 +19,9 @@
 -- Electronic Publishing, 2(2), 101-115, 1989
 
 local ReingoldTilford1981 = pgf.gd.new_algorithm_class {
-  properties = {
-    works_only_on_connected_graphs = true,
-    needs_a_spanning_tree = true,
-    growth_direction = 90,
-  }
+  works_only_on_connected_graphs = true,
+  needs_a_spanning_tree = true,
+  growth_direction = 90,
 }
 
 

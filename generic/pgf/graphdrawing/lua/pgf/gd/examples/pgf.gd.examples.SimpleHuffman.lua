@@ -1,4 +1,3 @@
--- Copyright 2010 by Renée Ahrens, Olof Frahm, Jens Kluttig, Matthias Schulz, Stephan Schuster
 -- Copyright 2012 by Till Tantau
 --
 -- This file may be distributed an/or modified
@@ -21,9 +20,7 @@ local LayoutPipeline = require "pgf.gd.control.LayoutPipeline"
 --- good positioning of the tree nodes in this simple example.
 
 local SimpleHuffman = pgf.gd.new_algorithm_class {
-  properties = {
-    growth_direction = 90
-  }
+  growth_direction = 90
 }
 
 function SimpleHuffman:run()

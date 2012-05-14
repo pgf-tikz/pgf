@@ -11,14 +11,17 @@
 -- @release $Header$
 
 
---- A trivial node placing algorithm for demonstration purposes.
--- All nodes are positioned on a circle, independently of which edges are present...
+local LayoutPipeline = require "pgf.gd.control.LayoutPipeline"
 
-local SimpleDemo = pgf.gd.new_algorithm_class {
-  works_only_on_connected_graphs = true,
-}
 
-function SimpleDemo:run()
+--- An example algorithm that demonstrates how the "table with node
+-- keys" options works and how new edges can be created.
+
+local SimpleEdgeDemo = pgf.gd.new_algorithm_class {}
+
+function SimpleEdgeDemo:run()
+  
+  -- As in a SimpleDemo:
   local g = self.digraph
   local alpha = (2 * math.pi) / #g.vertices
 
@@ -27,6 +30,16 @@ function SimpleDemo:run()
     vertex.pos.x = radius * math.cos(i * alpha)
     vertex.pos.y = radius * math.sin(i * alpha)
   end
+
+  -- Now add some edges:
+  for _,tail in ipairs(g.vertices) do
+    local table = tail.options['/graph drawing/new edges to']
+    for head, number in pairs(table or {}) do
+      if number > 0 then
+	LayoutPipeline.generateEdge (self, tail, head, {})
+      end
+    end
+  end
 end
 
-return SimpleDemo
+return SimpleEdgeDemo

@@ -173,12 +173,42 @@ end
 
 function TeXInterface.setLateNodeOptions(name, options)
   local scope = TeXInterface.topScope()
-  local node = assert(scope[name], "node is missing, cannot set late options")
+  local node = assert(scope.node_names[name], "node is missing, cannot set late options")
   
   for k,v in pairs(options) do
     node.options [k] = v
   end
   
+end
+
+
+
+
+---
+-- Convert a table into a node property table.
+--
+-- The input is a table whose keys are either node names or
+-- numbers. It will be converted to a table whose keys are vertices (with
+-- the same values). For a key that is a number, the vertex with this
+-- number will be used as the key.
+--
+-- @param t Table whose keys are names and numbers
+-- @return Table whose keys are vertices
+
+function TeXInterface.convertNameKeysToVertexKeys(t)
+  local scope = TeXInterface.topScope()
+  local vertices = scope.syntactic_digraph.vertices
+  local names    = scope.node_names
+  
+  local new = {}
+  for k,v in pairs(t) do
+    if type(k) == "number" then
+      new [assert(vertices[k], "node index out of bounds")] = v
+    else
+      new [assert(names[k], "unknown node name")]    = v
+    end
+  end
+  return new  
 end
 
 

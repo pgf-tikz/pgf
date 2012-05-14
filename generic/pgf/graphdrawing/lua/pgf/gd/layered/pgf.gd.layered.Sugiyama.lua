@@ -13,14 +13,10 @@
 --- An implementation of a modular version of the Sugiyama method
 
 local Sugiyama = pgf.gd.new_algorithm_class {
-  properties = {
-    works_only_on_connected_graphs = true,
-    works_only_for_loop_free_graphs = true,
-    growth_direction = 90,
-    old_graph_model = true,
-  },
-  graph_parameters = {
-  }
+  works_only_on_connected_graphs = true,
+  works_only_for_loop_free_graphs = true,
+  growth_direction = 90,
+  old_graph_model = true,
 }
 
 -- Namespace

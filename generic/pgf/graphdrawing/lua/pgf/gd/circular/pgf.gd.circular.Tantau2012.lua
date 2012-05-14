@@ -23,9 +23,7 @@
 -- edges actually play no role.
 
 local Tantau2012 = pgf.gd.new_algorithm_class {
-  properties = {
-    growth_direction = 180
-  }
+  growth_direction = 180
 }
 
 -- Make public

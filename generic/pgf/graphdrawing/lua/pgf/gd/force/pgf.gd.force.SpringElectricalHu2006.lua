@@ -21,28 +21,10 @@
 -- Modifications compared to the original algorithm are explained in the manual.
 
 local SpringElectricalHu2006 = pgf.gd.new_algorithm_class {
-  properties = {
-    works_only_on_connected_graphs = true,
-    works_only_for_loop_free_graphs = true,
-    works_only_for_simple_graphs = true,
-    old_graph_model = true,
-  },
-  graph_parameters = {
-    iterations = '/graph drawing/spring electrical layout/iterations',
-    cooling_factor = '/graph drawing/spring electrical layout/cooling factor',
-    initial_step_length = '/graph drawing/spring electrical layout/initial step dimension',
-    convergence_tolerance = '/graph drawing/spring electrical layout/convergence tolerance',
-
-    natural_spring_length = '/graph drawing/node distance',
-    spring_constant = '/graph drawing/spring electrical layout/spring constant',
-
-    approximate_repulsive_forces = '/graph drawing/spring electrical layout/approximate electric forces',
-    repulsive_force_order = '/graph drawing/spring electrical layout/electric force order',
-   
-    coarsen = '/graph drawing/spring electrical layout/coarsen',
-    downsize_ratio = '/graph drawing/spring electrical layout/coarsening/downsize ratio',
-    minimum_graph_size = '/graph drawing/spring electrical layout/coarsening/minimum graph size',
-  }
+  works_only_on_connected_graphs = true,
+  works_only_for_loop_free_graphs = true,
+  works_only_for_simple_graphs = true,
+  old_graph_model = true,
 }
 
 
@@ -59,6 +41,24 @@ local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
 function SpringElectricalHu2006:run()
 
+  -- Setup properties
+  local options = self.digraph.options
+  
+  self.iterations = options['/graph drawing/spring electrical layout/iterations']
+  self.cooling_factor = options['/graph drawing/spring electrical layout/cooling factor']
+  self.initial_step_length = options['/graph drawing/spring electrical layout/initial step dimension']
+  self.convergence_tolerance = options['/graph drawing/spring electrical layout/convergence tolerance']
+
+  self.natural_spring_length = options['/graph drawing/node distance']
+  self.spring_constant = options['/graph drawing/spring electrical layout/spring constant']
+
+  self.approximate_repulsive_forces = options['/graph drawing/spring electrical layout/approximate electric forces']
+  self.repulsive_force_order = options['/graph drawing/spring electrical layout/electric force order']
+   
+  self.coarsen = options['/graph drawing/spring electrical layout/coarsen']
+  self.downsize_ratio = options['/graph drawing/spring electrical layout/coarsening/downsize ratio']
+  self.minimum_graph_size = options['/graph drawing/spring electrical layout/coarsening/minimum graph size']
+  
   -- Adjust types
   self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
   self.graph_size = #self.graph.nodes
