@@ -49,16 +49,16 @@ function SpringHu2006:run()
   -- Setup some parameters
   local options = self.digraph.options
   
-  self.iterations = options['/graph drawing/spring layout/iterations']
-  self.cooling_factor = options['/graph drawing/spring layout/cooling factor']
-  self.initial_step_length = options['/graph drawing/spring layout/initial step dimension']
-  self.convergence_tolerance = options['/graph drawing/spring layout/convergence tolerance']
+  self.iterations = options['/graph drawing/force based/iterations']
+  self.cooling_factor = options['/graph drawing/force based/cooling factor']
+  self.initial_step_length = options['/graph drawing/force based/initial step dimension']
+  self.convergence_tolerance = options['/graph drawing/force based/convergence tolerance']
 
   self.natural_spring_length = options['/graph drawing/node distance']
    
-  self.coarsen = options['/graph drawing/spring layout/coarsen']
-  self.downsize_ratio = options['/graph drawing/spring layout/coarsening/downsize ratio']
-  self.minimum_graph_size = options['/graph drawing/spring layout/coarsening/minimum graph size']
+  self.coarsen = options['/graph drawing/force based/coarsen']
+  self.downsize_ratio = options['/graph drawing/force based/coarsening/downsize ratio']
+  self.minimum_graph_size = options['/graph drawing/force based/coarsening/minimum graph size']
 
 
   -- Setup

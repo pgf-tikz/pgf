@@ -69,20 +69,20 @@ function SpringElectricalWalshaw2000:run()
   -- Setup parameters
   local options = self.digraph.options
   
-  self.iterations = options['/graph drawing/spring electrical layout/iterations']
-  self.cooling_factor = options['/graph drawing/spring electrical layout/cooling factor']
-  self.initial_step_length = options['/graph drawing/spring electrical layout/initial step dimension']
-  self.convergence_tolerance = options['/graph drawing/spring electrical layout/convergence tolerance']
+  self.iterations = options['/graph drawing/force based/iterations']
+  self.cooling_factor = options['/graph drawing/force based/cooling factor']
+  self.initial_step_length = options['/graph drawing/force based/initial step dimension']
+  self.convergence_tolerance = options['/graph drawing/force based/convergence tolerance']
 
   self.natural_spring_length = options['/graph drawing/node distance']
-  self.spring_constant = options['/graph drawing/spring electrical layout/spring constant']
+  self.spring_constant = options['/graph drawing/force based/spring constant']
 
-  self.approximate_repulsive_forces = options['/graph drawing/spring electrical layout/approximate electric forces']
-  self.repulsive_force_order = options['/graph drawing/spring electrical layout/electric force order']
+  self.approximate_repulsive_forces = options['/graph drawing/force based/approximate electric forces']
+  self.repulsive_force_order = options['/graph drawing/force based/electric force order']
    
-  self.coarsen = options['/graph drawing/spring electrical layout/coarsen']
-  self.downsize_ratio = options['/graph drawing/spring electrical layout/coarsening/downsize ratio']
-  self.minimum_graph_size = options['/graph drawing/spring electrical layout/coarsening/minimum graph size']
+  self.coarsen = options['/graph drawing/force based/coarsen']
+  self.downsize_ratio = options['/graph drawing/force based/coarsening/downsize ratio']
+  self.minimum_graph_size = options['/graph drawing/force based/coarsening/minimum graph size']
 
   -- Adjust types
   self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
@@ -101,7 +101,7 @@ function SpringElectricalWalshaw2000:run()
 
   -- initialize node weights
   for node in table.value_iter(self.graph.nodes) do
-    node.weight = node:getOption('/graph drawing/spring electrical layout/electric charge')
+    node.weight = node:getOption('/graph drawing/electric charge')
 
     -- a node is charged if its weight derives from the default setting 
     -- of 1 (where it has no influence on the forces)
