@@ -27,6 +27,7 @@
 \toksdef\t@tikzexternal@tmpb=1
 
 \newif\iftikzexternal@nestedflag
+\newif\iftikzexternal@verboseuptodate
 \newif\iftikzexternal@verboseio
 \newif\iftikzexternal@genfigurelist
 \newif\iftikzexternal@onlynamed
@@ -150,9 +151,11 @@
 	verbose IO/.default=true,
 	verbose IO=true,
 	verbose optimize/.is if=tikzexternal@verbose@optimize,
+	verbose up to date/.is if=tikzexternal@verboseuptodate,
 	verbose/.style={
 		verbose IO=#1,
 		verbose optimize=#1,
+		verbose up to date=#1,
 	},
 	shell escape/.initial=-shell-escape,
 	read main aux/.is if=pgfexternalreadmainaux,
@@ -251,6 +254,12 @@
 		\expandafter\gdef\csname c@tikzext@no@#1\endcsname{0}%
 	},%
 	prefix/.code={\tikzsetexternalprefix{#1}},
+	up to date check/.is choice,
+	up to date check/simple/.code={\def\tikzexternal@uptodate@mode{0}},
+	% md5 relies on \pdfmdfivesum of pdftex. It uses 'diff' as fallback if we do not have that command.
+	up to date check/md5/.code={\def\tikzexternal@uptodate@mode{1}},
+	up to date check/diff/.code={\def\tikzexternal@uptodate@mode{2}},
+	up to date check=md5,
 }
 
 \def\tikzsetfigurename#1{\pgfkeyssetvalue{/tikz/external/figure name}{#1}}%
@@ -1083,7 +1092,7 @@
 }%
 \long\def\tikzexternal@optimize@away@latex@env@close#1{%
 	\iftikzexternal@verbose@optimize
-		\immediate\write16{The complete contents of \string\begin{tikzexternal@optimize@away@latex@env@} up to the next \end{tikzexternal@optimize@away@latex@env@} has been optimized away because it does not contribute to exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
+		\immediate\write16{The complete contents of \string\begin{tikzexternal@optimize@away@latex@env@} up to the next \end{tikzexternal@optimize@away@latex@env@} has been optimized away because it does not contribute to the exported PDF. Use '/tikz/external/optimize=false' to disable this.}%
 	\fi
 	\endgroup
 	% we still need to invoke \end{<name>} in latex because \begin{<name>}
@@ -1161,7 +1170,8 @@
 \def\tikzexternal@forcegraphics{%
 	\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@forcegraphics@@
 }
-\long\def\tikzexternal@forcegraphics@@#1{%
+\long\def\tikzexternal@forcegraphics@@#1{\tikzexternal@forcegraphics@@@}%
+\def\tikzexternal@forcegraphics@@@{%
 	\expandafter\pgfincludeexternalgraphics\expandafter{\tikzexternal@curfilename}%
 	\tikzexternal@closeenvironments
 }
@@ -1171,7 +1181,8 @@
 \def\tikzexternal@listmodepicture{%
 	\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@listmodepicture@@
 }
-\long\def\tikzexternal@listmodepicture@@#1{%
+\long\def\tikzexternal@listmodepicture@@#1{\tikzexternal@listmodepicture@@@}
+\def\tikzexternal@listmodepicture@@@{%
 	\pgfkeysvalueof{/tikz/external/image discarded text}%
 	\tikzexternal@closeenvironments
 }
@@ -1179,15 +1190,28 @@
 % check if there is already a file.
 % In that case, use it. If not, skip it.
 \def\tikzexternal@list@and@makefile@mode@picture{%
+	\tikzexternal@TEXDIALECT@collectpicture\tikzexternal@list@and@makefile@mode@picture@
+}%
+\long\def\tikzexternal@list@and@makefile@mode@picture@#1{%
+	%
+	\tikzexternal@check@uptodate@mode{#1}%
+	\if0\tikzexternal@uptodate@mode
+		% up to date check=simple
+	\else
+		% respect it in the makefile: changes to the hash key should
+		% result in a remake.
+		\tikzexternalwritetomakefile{\tikzexternal@curfilename\tikzexternalimgextension: \tikzexternal@curfilename\tikzexternal@check@uptodate@ext^^J}%
+	\fi
+	%
 	\gdef\pgf@filename{}%
 	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
 	\pgf@tempa
 	\ifx\pgf@filename\pgfutil@empty%
 		% Note: since we have no 'GRAB' mode, we do not have to deal with optimization.
 		% there is no graphics.
-		\expandafter\tikzexternal@listmodepicture
+		\expandafter\tikzexternal@listmodepicture@@@
 	\else
-		\expandafter\tikzexternal@forcegraphics
+		\expandafter\tikzexternal@forcegraphics@@@
 	\fi
 }%
 
@@ -1289,7 +1313,7 @@
 	\endgroup
 }%
 \long\def\tikzexternal@externalizefig@systemcall@@#1{%
-	\tikzexternal@externalizefig@systemcall@uptodatecheck%
+	\tikzexternal@externalizefig@systemcall@uptodatecheck{#1}%
 	\iftikzexternal@file@isuptodate
 		\iftikzexternal@verboseio
 			\immediate\write16{===== Image '\tikzexternal@curfilename' is up-to-date. ======}%
@@ -1356,6 +1380,76 @@
 	\fi
 }
 
+\long\def\tikzexternal@computemdfivesum#1{%
+	\def\tikzexternal@temp{#1}%
+	% \meaning results in a string of catcode 12 - which is expandable.
+	\edef\pgfretval{\pdfmdfivesum{\meaning\tikzexternal@temp}}%
+}
+\long\def\tikzexternal@computemdfivesum@diff@fallback#1{%
+	\def\tikzexternal@temp{#1}%
+	% \meaning results in a string of catcode 12 - which is expandable.
+	\edef\pgfretval{\meaning\tikzexternal@temp}%
+}
+\pgfutil@ifundefined{pdfmdfivesum}{%
+	\let\tikzexternal@computemdfivesum=\tikzexternal@computemdfivesum@diff@fallback
+}{%
+}%
+
+
+\def\tikzexternal@check@uptodate@ext{.md5}
+
+% assigns the boolean \iftikzexternal@file@isuptodate
+\def\tikzexternal@check@uptodate@mode#1{%
+	\ifcase\tikzexternal@uptodate@mode
+		% up to date check=simple
+		% nothing to do -- file existance is checked anyway.
+		\let\tikzexternal@hashfct=\pgfutil@empty
+	\or
+		% up to date check=md5
+		\let\tikzexternal@hashfct=\tikzexternal@computemdfivesum
+	\or
+		\let\tikzexternal@hashfct=\tikzexternal@computemdfivesum@diff@fallback
+	\fi
+	\ifx\tikzexternal@hashfct\pgfutil@empty
+	\else
+		\tikzpicturedependsonfile{\tikzexternal@curfilename\tikzexternal@check@uptodate@ext}%
+		\tikzexternal@hashfct{#1}%
+		\let\tikzexternal@lastkey@new=\pgfretval
+		\begingroup
+		% no '@' token in this macro: avoid messing up the catcodes in input files:
+		\let\tikzexternallastkey=\pgfutil@empty
+		\openin\r@pgf@reada=\tikzexternal@curfilename\tikzexternal@check@uptodate@ext\relax %
+		\ifeof\r@pgf@reada
+		\else
+			% read first line...
+			\read\r@pgf@reada to\pgf@tempa
+			% ... and execute it.
+			\pgf@tempa
+			% it should contain a definition of \tikzexternallastkey.
+		\fi
+		\closein\r@pgf@reada
+		%
+		\let\tikzexternal@lastkey=\tikzexternallastkey
+		\pgfmath@smuggleone\tikzexternal@lastkey
+		\endgroup
+		% normalize catcodes. Unfortunately, they cannot be expected to be the same.
+		% \meaning will use catcode 12 for each token:
+		\edef\tikzexternal@lastkey@normalized{\meaning\tikzexternal@lastkey}%
+		\edef\tikzexternal@lastkey@new@normalized{\meaning\tikzexternal@lastkey@new}%
+		\iftikzexternal@verboseuptodate
+			\immediate\write16{Up-to-date check of \tikzexternal@curfilename: new \tikzexternal@lastkey@new@normalized; old \tikzexternal@lastkey@normalized.^^J}%
+		\fi
+		\ifx\tikzexternal@lastkey@normalized\tikzexternal@lastkey@new@normalized
+			\tikzexternal@file@isuptodatetrue
+		\else
+			\tikzexternal@file@isuptodatefalse
+			\immediate\openout\w@pgf@writea=\tikzexternal@curfilename\tikzexternal@check@uptodate@ext\relax%
+			\immediate\write\w@pgf@writea{\noexpand\def\noexpand\tikzexternallastkey{\tikzexternal@lastkey@new}}%
+			\immediate\closeout\w@pgf@writea
+		\fi
+	\fi
+}
+
 % Checks whether the current picture needs to be externalized.
 % 
 % This is the case if 
@@ -1363,8 +1457,12 @@
 % b) the picture has been invalidated manually.
 %
 % It returns \iftikzexternal@file@isuptodate accordingly.
-\def\tikzexternal@externalizefig@systemcall@uptodatecheck{%
+% #1: the picture-content
+\def\tikzexternal@externalizefig@systemcall@uptodatecheck#1{%
 	\tikzexternal@checkforceremake
+	\iftikzexternal@file@isuptodate
+		\tikzexternal@check@uptodate@mode{#1}%
+	\fi
 	\iftikzexternal@file@isuptodate
 		% check if there is already a file.
 		% In that case, use it. If that is not the case, generate it and include it afterwards.
