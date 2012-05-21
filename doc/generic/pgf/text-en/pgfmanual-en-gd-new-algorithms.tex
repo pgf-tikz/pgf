@@ -11,43 +11,584 @@
 
 
 \section{Implementing Graph Drawing Algorithms: The Lua Side}
+\label{section-gd-implementation-first}
 
 \noindent{\emph{by Till Tantau}}
 \label{section-gd-own-algorithm}
 \label{section-library-graphdrawing-ownAlgorithm}
 
-File status: Still needs to be written.
+File status: I'm working on it...
 
 
 \subsection{Overview}
 
- The main
-job of the graph drawing engine is to provide a connection between the
-syntax of \tikzname\ and \pgfname\ for specifying graphs and code
-written in the Lua programming language for computing layouts.
+The present section is the first of three sections addressed at
+readers interested in implementing new graph drawing
+algorithms. Obviously, in order to do so, you need to have an
+algorithm in mind and also some programming skills; but no deep
+knowledge of \TeX\ will be needed. All graph drawing algorithms can
+and must be implemented entirely in the Lua programming language,
+which is a small, easy-to-learn (and quite beautiful) language
+integrated into current versions of \TeX. The present section focuses
+on the Lua side of the graph drawing engine; the next section
+addresses the interface between this Lua side and \TeX\ side; the last
+of the three sections presents complete example code of simple graph
+drawing algorithms. 
+
+In the following, after a small ``hello world'' example of graph
+drawing and a discussion of technical details like
+how to name files so that \TeX\ will find them, we have a look at the
+main parts of the graph drawing engine:
+
+\begin{itemize}
+\item Section~\ref{section-gd-models} explains the object-oriented
+  model of graphs used throughout the graph drawing engine. Graph
+  drawing algorithms do not get the ``raw'' specification used by the
+  user to specify a graph (like |{a -> {b,c}}| in the |graph|
+  syntax). Instead, what a graph drawing algorithm sees is ``just'' a
+  graph object that provides methods for accessing the vertices and
+  arcs. 
+\item Section~\ref{section-gd-syntactic-digraph} introduces the
+  notion of ``syntactic digraphs''. While most graph drawing
+  algorithms are not really interested in the ``details'' of how a
+  graph was specified, for some algorithms it makes a big difference
+  whether you write |a -> b| or |b <- a| in your specification of the
+  graph. These algorithms can access the ``fine details'' of how the
+  input graph was specified through the syntactic digraph; all other
+  algorithms can access their |digraph| or |ugraph| fields and do not
+  have to worry about the difference between |a -> b| and |b <- a|.
+\item Section~\ref{section-gd-layout-pipeline} is devoted to what I
+  call the \emph{layout pipeline.} When the layout of a graph needs to
+  be computed, only very few algorithms will actually be able to
+  compute positions for the nodes of \emph{every} graph. For instance,
+  most algorithms implicitly assume that the input graph is
+  connected; algorithms for computing layouts for trees assume that
+  the input is, well, a tree; and so on. The job of the layout
+  pipeline is to apply numerous pre- and postprocessing operations
+  (like decomposing a graph into connected components or computing a
+  spanning tree) so that algorithms do not need to worry about these
+  steps. As we will see, the layout pipeline can vastly simplify the
+  code of algorithms.
+\item Section~\ref{section-gd-events} surveys ``events'', a concept
+  that enriches the syntactic digraph by ``even more information''
+  concerning the specification of the graph.
+\item Finally, Section~\ref{section-gd-libs} documents the different
+  libraries functions that come with the graph drawing engine. For
+  instance, there are library functions for computing the (path)
+  distance of nodes in a graph; a parameter that is needed by some
+  algorithms. 
+\end{itemize}
+
+
+
 \subsection{Getting Started}
+
+In this section, a ``hello world'' example of a graph
+drawing algorithm  is given, followed by an overview of the
+organization of the whole engine.
+
+
 
 \subsubsection{The Hello World of Graph Drawing}
 
-\subsubsection{File Names and Namespaces}
+Let us start our tour of the Lua side of \tikzname's graph drawing
+engine with a ``hello world'' version of graph drawing: Let us
+implement an algorithms that simply places all nodes of a graph in a
+circle of a fixed radius. Naturally, this is not a particularly
+impressive or intelligent graph drawing algorithm; but neither is the
+classical ``hello world''\dots\ Here is the complete code:
+
+\begin{codeexample}[code only]
+local SimpleDemo = pgf.gd.new_algorithm_class {}
+
+function SimpleDemo:run()
+  local alpha = (2 * math.pi) / #self.ugraph.vertices
+  for i,vertex in ipairs(self.ugraph.vertices) do
+    vertex.pos.x = math.cos(i * alpha) * 25
+    vertex.pos.y = math.sin(i * alpha) * 25
+  end
+end
+
+return SimpleDemo  
+\end{codeexample}
+
+We can employ this algorithm as follows:
+
+\begin{codeexample}[pre={
+    \pgfkeys{
+      /graph drawing/radius=25,
+      /graph drawing/algorithm/.code={\pgfgdgraphparameter{/graph drawing/algorithm}{"pgf.gd.examples.##1"}}}}]
+\tikz [graph drawing scope, /graph drawing/algorithm=SimpleDemo]
+  \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
+\end{codeexample}
+
+It turns out, that our little algorithm is already more powerful than
+one might expect. Consider the following example:
+\begin{codeexample}[pre={
+    \pgfkeys{
+      /graph drawing/radius=25,
+      /graph drawing/algorithm/.code={\pgfgdgraphparameter{/graph drawing/algorithm}{"pgf.gd.examples.##1"}}}}]
+\tikz [graph drawing scope, /graph drawing/algorithm=SimpleDemo, componentwise]
+  \graph {
+    1 -> 2 ->[orient=right] 3 -> 1;
+    a -- b --[orient=45]  c -- d -- a;
+  };
+\end{codeexample}
+
+Note that, in our algorithm, we ``just'' put all nodes on a circle
+around the origin. Nevertheless, the graph gets decomposed into two
+connected components, the components are rotated so that the edge from
+node |2| to node |3| goes from left to right and the edge from |b| to
+|c| goes up at an angle of $45^\circ$, and the components are placed
+next to each other so that some spacing is achieved.
+
+The ``magic'' that achieves all this behind the scenes is called the
+``layout pipeline.'' It will heavily pre- and postprocess the input
+and output of graph drawing algorithms to achieve the above results.
+
+Naturally, some algorithms may not wish their inputs and/or
+outputs to be ``tampered'' with by the pipeline. As we will see in the
+chapter on the layout pipeline, an algorithm can easily configure
+which steps of the pipeline should be applied, namely by passing
+appropriate options to the |new_algorithm_class| function.
+
+
+
+\subsubsection{Namespaces}
+
+In order to typeset this manual, I had to cheat a little in the
+``hello world'' example: There is no file named |SimpleDemo.lua| in
+the \pgfname\ distribution, so writing |algortihm=SimpleDemo| would
+result in an error. In reality, the code of |SimpleDemo| class resides
+in a file with the somewhat lengthy name
+|pgf.gd.examples.SimpleDemo.lua| and one actually has to write
+\begin{codeexample}[code only]
+..., algorithm=pgf.gd.examples.SimpleDemo, ...
+\end{codeexample}
+\noindent
+to use it. The reason for the lengthy file name is that all parts of
+the graph drawing library reside in the Lua ``namespace'' |pgf.gd|,
+which is itself a ``sub-namespace'' of |pgf|. For your own algorithms,
+you are free to place them in whatever namespace you like, so the
+|SimpleDemo| example would work as advertised; only for the official
+distribution of \pgfname\ everything has been put into the correct
+namespace.
+
+Let us now have a more detailed look at these namespaces. A namespace
+is just a Lua table, and sub-namespaces are just subtables of
+namespace tables. Following the Java convention, namespaces are in
+lowercase letters. The following namespaces are part of the core of
+the graph drawing engine:
+\begin{itemize}
+\item |pgf| This namespace is the main namespace of \pgfname. Other
+  parts of \pgfname\ and \tikzname\ that also employ Lua should put an
+  entry into this table. Since, currently, only the graph drawing
+  engine adheres to this rule, this namespace is declared inside the
+  graph drawing directory, but this will change.
+
+  The |pgf| table is the \emph{only} entry into the global table of
+  Lua generated by the graph drawing engine (or, \pgfname, for that
+  matter). If you intend to extend the graph drawing engine, do not
+  even \emph{think} of polluting the global namespace. You will be
+  fined.
+\item |pgf.gd| This namespace is main namespace of the graph drawing
+  engine, including the object-oriented models of graphs and the
+  layout pipeline. Algorithms that are part of the
+  distribution are also inside this namespace, but if you write your
+  own algorithms you do not need place them inside this
+  namespace. (Indeed, you probably should not.)
+\item |pgf.gd.model| This namespace contains all Lua classes that are
+  part of the object-oriented model of graphs employed
+  throughout the graph drawing engine. For readers familiar with the
+  model--view--controller pattern: This is the namespace containing
+  the model-part of this pattern. 
+\item |pgf.gd.control| As the name suggests, this namespace contains
+  the ``control'' classes and functions. These classes manage the
+  communication with the \TeX\ layer and stage the layout
+  pipeline. For instance, the whole communication between the \TeX\
+  part and the Lua part of the graph drawing engine is done entirely
+  inside the class |pgf.gd.control.TeXInterface|.
+
+  Readers still familiar with the model--view--controller pattern will
+  have recognized the ``control'' part of the pattern at this point.
+\item |pgf.gd.lib| Numerous useful classes that ``make an algorithm's
+  your life easier'' are collected in this namespace. Examples are a
+  class for decomposing a graph into connected components or a class
+  for computing the ideal distance between two sibling nodes in a
+  tree, taking all sorts of rotations and separation parameters into
+  account. 
+\item |pgf.gd.trees| This namespace contains classes that are useful
+  for dealing with graphs that are trees. In particular, it contains a
+  class for computing a spanning tree of an arbitrary connected graph;
+  an operation that is an important preprocessing step for many
+  algorithms.
+
+  In addition to providing ``utility functions for trees,'' the
+  namespace \emph{also} includes actual algorithms for computing graph
+  layouts like |pgf.gd.trees.ReingoldTilford1981|. It may seem to be a
+  bit of an ``impurity'' that a namespace mixes utility classes and
+  ``real'' algorithms, but experience has shown that it is better to
+  keep things together in this way.
+
+  Concluding the analogy to the model--view--controller pattern, a
+  graph drawing algorithm is, in a loose sense, the ``view'' part of
+  the pattern.
+\item |pgf.gd.layered| This namespace provides classes and functions
+  for ``layered'' layouts; the Sugiyama layout method being the most
+  well-known one. Again, the namespace contains both algorithms to be
+  used by a user and utility functions.
+\item |pgf.gd.force| Collects force-based algorithms and, again, also
+  utility functions and classes.
+\item |pgf.gd.examples| Contains some example algorithms. They are
+  \emph{not} intended to be used directly, rather they should serve as
+  inspirations for readers wishing to implement their own algorithms.
+\end{itemize}
+
+There are further namespaces that also reside in the |pgf.gd|
+namespace, these namespaces are used to organize different graph
+drawing algorithms into categories.
+
+
+\subsubsection{Defining and Using Namespaces and Classes}
+
+There are a number of rules concerning the structure and naming of
+namespaces as well as the naming of files. Let us start with the
+rules for naming namespaces, classes, and functions. They follow the
+``Java convention'':
+
+\begin{enumerate}
+\item A namespace is a short lowercase |word|.
+\item A function in a namespace is in |lowercase_with_underscores_between_words|.
+\item A class name is in |CamelCaseWithAnUppercaseFirstLetter|.
+\item A class method name is in |camelCaseWithALowercaseFirstLetter|.
+\end{enumerate}
+
+From Lua's point of view, every namespace and every class is just a
+table. However, since these tables will be loaded using Lua's
+|require| function, each namespace and each class must be placed
+inside a separate file (unless you modify the |package.loaded| table,
+but, then, you know what you are doing anyway). Inside such a file, you
+should first declare a local variable whose name is the name of the
+namespace or class that you intend to define and then assign a
+(possibly empty) table to this variable:
+\begin{codeexample}[code only]
+-- File pgf.gd.example.SomeClass.lua:
+local SomeClass = {}
+\end{codeexample}
+Next, you should add your class to the encompassing namespace. This is
+achieved as follows:
+\begin{codeexample}[code only]
+require("pgf.gd.example").SomeClass = SomeClass
+\end{codeexample}
+The reason this works is that the |require| will return the table that
+is the namespace |pgf.gd.example|. So, inside this namespace, the
+|SomeClass| field will be filled with the table stored in the local
+variable of the same name -- which happens to be the table
+representing the class.
+
+At the end of the file, you must write
+\begin{codeexample}[code only]
+return SomeClass  
+\end{codeexample}
+This ensures that the table that is defined in this file gets stored
+by Lua in the right places. Note that you need and should not use
+Lua's |module| command. The reason is that this command has
+disappeared in the new version of Lua and that it is not really
+needed. 
+
+Users of your class can import and use your class by writing:
+\begin{codeexample}[code only]
+...
+local SomeClass = require "pgf.gd.examples.SomeClass"
+...  
+\end{codeexample}
+
+
+\subsubsection{File Names of Lua Classes and Namespaces}
+
+In Lua, similarly to Java, when a class |SomeClass| is part of, say,
+the namespace |pgf.gd.example|, it is customary to put the class's
+code in a file |SomeClass.lua| and then put this class in a directory
+|example|, that is a subdirectory of a directory |gd|, which is in
+turn a subdirectory of a directory |pgf|. When you write
+\texttt{require "pgf.gd.example.SomeClass"} it is the job of a
+so-called \emph{loader} to turn this into a request for the file
+\texttt{pgf/gd/example/SomeClass.lua} (for Unix systems).
+
+Unfortunately, this approach does not work well with (Lua)\TeX\ due to
+the way \TeX\ looks for files. Although these days a typical \TeX\
+installation consists of thousands of files scattered over hundreds of
+sub-sub-sub-directories, from \TeX's point of few the directory
+structure is in some sense irrelevant: If there are two files
+|foo.lua| in two different directories, there is really no way of
+knowing which one will be used when you request it; trying to prefix a
+file request with a path prefix in a portable way is difficult to
+impossible, especially when different |texmf| trees are involved.
+
+For these reasons the files of the graph drawing engine are named and
+organized in a somehwat redundant way: A class like
+|pgf.gd.examples.SomeClass| will be placed in a file called
+|pgf.gd.examples.SomeClass.lua| (so the complete namespace path is
+part of the file name. \emph{Additionally}, the file is placed in a
+directory path is named according to the ``usual'' way, namely
+|pgf/gd/examples/|. Note, however, that the file could just as well
+reside in any other directory that is part of some |texmf| tree.
+
+The bottom line of all this is: Filenames of Lua files of the graph
+drawing engine contain the complete namespace path and, additionally,
+they are placed in a directory path also representing the complete
+namespace path. 
 
 
 \subsection{The Model Classes}
 
-\subsubsection{Coordinates and Transformations}
+\label{section-gd-models}
+
+All that a graph drawing algorithm will ``see'' of the graph specified
+by the user is a ``graph object.'' Such an object is an
+object-oriented model of the user's graph that no longer encodes the
+specific way in which the user specified the graph; it only encodes
+which nodes and edges are present. For instance, the graph
+specification 
+\begin{codeexample}[code only]
+graph { a -- {b, c} }
+\end{codeexample}
+\noindent and the graph specification
+\begin{codeexample}[code only]
+node (a) { a }
+child { node (b) {b} }
+child { node (c) {c} }
+\end{codeexample}
+will generate exactly the same graph object.
+
+\begin{luanamespace}{pgf.gd.}{model}
+  This namespace contains the classes modeling graphs,
+  nodes, and edges. Also, the |Coordinate| class is found here, since
+  coordinates are also part of the modeling.  
+\end{luanamespace}
+
+In the following, for each class I only explain the philosophy behind
+the class and demonstrate how it is used. A detailed description of
+each methods of the classes together with information on all their
+arguments is available in the hypertext online documentation of the
+classes.
+
+
+\subsubsection{Directed Graphs (Digraphs)}
+
+Inside the graph drawing engine, the only model of a graph that is 
+available treats graphs as
+\begin{enumerate}
+\item directed (all edges have a designated head and a designated
+  tail) and
+\item simple (there can be at most one edge between any pair of
+  nodes). 
+\end{enumerate}
+These two properties may appear to be somewhat at odds with what users
+can specify as graphs and with what some graph drawing algorithms
+might expect as input. For instance, suppose a user writes
+\begin{codeexample}[code only]
+graph { a -- b --[red] c, b --[green, bend right] c }
+\end{codeexample}
+In this case, it seems that the input graph for a graph drawing
+algorithm should actually be a \emph{undirected} graph in which there
+are \emph{multiple} edges (namely $2$) between |b| and~|c|.
+Nevertheless, the graph drawing engine will turn the user's input a
+directed simple graph in ways described later. You do not need to
+worry that information gets lost during this process: The
+\emph{syntactic digraph,} which is available to graph drawing
+algorithms on request, stores all the information about which edges
+are present in the original input graph.
+
+The main reason for only considering directed, simple graphs is speed
+and simplicity: The implementation of these graphs has been optimized so
+that all operations on these graphs have a guaranteed running time
+that is small in practice. 
+
+\begin{luaclass}{pgf.gd.model.}{Digraph}
+  Each object of this type models a \emph{directed, simple}
+  graph. ``Directed'' means that all edges ``point'' from a head node
+  to a tail node. ``Simple'' means that between any nodes there can be
+  (at most) one edge. Since these properties are a bit at odds with
+  the normal behaviour of ``nodes'' and ``edges'' in \tikzname,
+  different names are used for them inside the |model| namespace:
+  The class modeling  ``edges'' is actually called |Arc| to stress
+  that an arc has a specific ``start'' (the tail) and a specific
+  ``end'' (the head). The class modeling ``nodes'' is actually called
+  |Vertex|, just to stress that this is not a direct model of a
+  \tikzname\ |node|, but can represent a arbitrary vertex of a graph,
+  independently of whether it is an actual |node| in \tikzname.
+  
+  \medskip
+  \noindent\textbf{Vertices.}
+  Each digraphs stores an array of |vertices|. Internally, this array
+  is an object of type |LookupTable|, but you can mostly treat it as
+  if it were an array. In particular, you can iterate over its
+  elements using |ipairs|, but you may not modify the array; use the
+  |add| and |remove| methods, instead.
+
+\begin{codeexample}[code only]
+local g = Digraph.new {}
+
+g:add { v1, v2 } -- Add vertices v1 and v2
+g:remove { v2 }  -- Get rid of v2.
+
+assert (g:contains(v1))
+assert (not g:contains(v2))
+\end{codeexample}
+
+  It is important to note that although each digraph stores a
+  |vertices| array, the elements in this array are not exclusive to
+  the digraph: A vertex can be an element of any number of
+  digraphs. Whether or not a vertex is an element of digraph is not
+  stored in the vertex, only in the |vertices| array of the
+  digraph. To test whether a digraph contains a specific node, use the
+  |contains| method, which takes time $O(1)$ to perform the test (this
+  is because, as mentioned earlier, the |vertices| array is actually a
+  |LookupTable| and for each vertex |v| the field |vertices[v]| will
+  be true if, and only if, |v| is an element of the |vertices| array).
+
+  A slightly annoying effect of vertices being able to belong to
+  several graphs at the same time is that the set of arcs incident to
+  a vertex is not a property of the vertex, but rather of the
+  graph. In other words, to get a list of all arcs whose tail is a
+  given vertex |v|, you cannot say something like |v.outgoings| or
+  perhaps |v:getOutgoings()|. Rather, you have to say |g:outgoing(v)|
+  to get this list:
+\begin{codeexample}[code only]
+for _,a in ipairs(g:outgoing(v)) do  -- g is a Digraph object.    
+  pgf.debug ("There is an arc leaving " .. tostring(v) ..
+             " heading to " .. tostring(a.head))
+end
+\end{codeexample}
+  Naturally, there is also a method |g:incoming()|.
+
+  \medskip
+  \noindent\textbf{Arcs.}
+  For any two vertices |t| and |h| of a graph, there may or may not be
+  an arc from |t| to |h|. If this is the case, there is an |Arc|
+  object that represents this arc. Note that, since |Digraph|s are
+  always simple graphs, there can be at most one such object for every
+  pair of vertices. However, you can store any information you like in
+  the |Arc|'s |storage|, see the |Storage| class for details. In
+  particular, an |Arc| can store an array of all the multiple edges
+  that are present in the user's input.
+
+  Unlike vertices, the arc objects of a graph are always local to a
+  graph; an |Arc| object can never be part of two digraphs at the same
+  time. For this reason, while for vertices it makes sense to create
+  |Vertex| objects independently of any |Digraph| objects, it is not
+  possible to instantiate an |Arc| directly: only the |Digraph| method
+  |connect| is allowed to create new |Arc| objects and it will return
+  any existing arcs instead of creating new ones, if there is already
+  an arc present between two nodes.
+
+  The |arcs| field of a digraph contains a |LookupTable| of all arc
+  objects present in the |Digraph|. Although you can access this field
+  normally and use it in |ipairs| to iterate over all arcs of a graph,
+  note that this array is actually ``reconstructed lazily'' whenever
+  an arc is deleted from the graph. What happens is the following: As
+  long as you just add arcs to a graph, the |arcs| array gets updated
+  normally. However, when you remove an arc from a graph, the arc does
+  not get removed from the |arcs| array (which would be an expensive
+  operation). Instead, the |arcs| array is invalidated (internally set
+  to |nil|), allowing us to perform a |disconnect| in time
+  $O(1)$. The |arcs| array is then ignored until the next time it is
+  accessed, for instance when a user says |ipairs(g.arcs)|. At this
+  point, the |arcs| array is reconstructed by adding all arcs of all
+  nodes to it.
+
+  The bottom line of the behaviour of the |arcs| field is that (a) the
+  ordering of the elements may change abruptly whenever you remove an
+  arc from a graph and (b) performing $k$ |disconnect| operations in
+  sequence takes time $O(k)$, provided you do not access the |arcs|
+  field between calls.
+  
+  \medskip
+  \noindent\textbf{Creating and Copying Graphs.}
+  Graphs are created using the |new| method, which takes a table of
+  initial values as input (like most |new| methods in the graph
+  drawing engine). It is permissible that this table of initial values
+  has a |vertices| field, in which case this array will be copied. In
+  contrast, an |arcs| field in the table will be ignores -- newly
+  created graphs always have an empty arcs set. This means that
+  writing |Digraph.new(g)| where |g| is a graph creates a new graph
+  whose vertex set is the same as |g|'s, but where there are no edges:
+  
+\begin{codeexample}[code only]
+local g = Digraph.new {}
+g:add { v1, v2, v3 }
+g:connect (v1, v2)
+
+local h = Digraph.new (g)
+assert (h:contains(v1))
+assert (not h:arc(v1, v2))
+\end{codeexample}
+
+  To completely copy a graph, including all arcs, you have to write:
+\begin{codeexample}[code only]
+local h = Digraph.new (g)
+for _,a in ipairs(g.arcs) do h:connect(a.tail, a.head) end
+\end{codeexample}
+
+  \medskip
+  \noindent\textbf{Time Bounds.}
+  Since digraphs are constantly created and modified inside the graph
+  drawing engine, some care was taken to ensure that all operations
+  work as quickly as possible. In particular:
+  \begin{itemize}
+  \item Adding an array of $k$ vertices using the |add| method needs
+    time $O(k)$.
+  \item Adding an arc between two vertices needs time $O(1)$.
+  \item Accessing both the |vertices| and the |arcs| fields takes time
+    $O(1)$, provided only the above operations are used.
+  \end{itemize}
+  Deleting vertices and arcs takes more time:
+  \begin{itemize}
+  \item Deleting the vertices given in an array of $k$ vertices from a
+    graph with $n$ vertices takes time $O(\max\{n,c\})$ where $c$ is the
+    number of arcs between the to-be-deleted nodes and the remaining
+    nodes. Note that this time bound in independent of~$k$. In
+    particular, it will be much faster to delete many vertices by once
+    calling the |remove| function instead of calling it repeatedly.
+  \item Deleting an arc takes time $O(t_o+h_i)$ where $t_o$ is the
+    number of outgoing arcs at the arc's tail and $h_i$ is the number
+    of incoming arcs at the arc's head. After a call to |disconnect|,
+    the next use of the |arcs| field will take time $\catcode`\|=12
+    O(|V| + |E|)$, while subsequent accesses take time $O(1)$ -- till the
+    next use of |disconnect|. This means that once you start deleting
+    arcs using |disconnect|, you should perform as many additional
+    |disconnect|s before accessing |arcs| one more.
+  \end{itemize}
+  
+  \medskip
+  \noindent\textbf{Stability.} The |vertices| field and the array
+  returned by |Digraph:incoming| and |Digraph:outgoing| are
+  \emph{stable} in the following sense: The ordering of the elements
+  when you use |ipairs| on the will be the ordering in which the
+  vertices or arcs were added to the graph. Even when you remove a
+  vertex or an arc, the ordering of the remaining elements stays the
+  same. 
+\end{luaclass}
+
+
+
 
 \subsubsection{Vertices}
 
 \subsubsection{Arcs}
 \label{section-gd-arc-model}
 
-\subsubsection{Directed Graphs (Digraphs)}
+\subsubsection{Coordinates and Transformations}
 
 \subsubsection{Storing Data in Vertices, Arcs, and Digraphs}
 
 
 
 \subsection{The Syntactic Digraph}
+
+\label{section-gd-syntactic-digraph}
+
 
 \subsubsection{Accessing the Syntactic Digraph: Finding Nodes and Edges}
 
@@ -67,6 +608,8 @@ written in the Lua programming language for computing layouts.
 
 \subsection{The Layout Pipeline}
 
+\label{section-gd-layout-pipeline}
+
 \subsubsection{Anchoring}
 
 \subsubsection{Packing}
@@ -80,8 +623,11 @@ written in the Lua programming language for computing layouts.
 
 \subsection{Events}
 
+\label{section-gd-events}
 
 \subsection{Support Libraries}
+
+\label{section-gd-libs}
 
 \subsubsection{Lookup Tables}
 

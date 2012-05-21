@@ -10,8 +10,8 @@
 -- @release $Header$
 
 
---- The Arc class
--- .
+---
+-- The Arc class
 --
 -- An arc is an extremely light-weight object. It just has two fields,
 -- by default: head and tail.

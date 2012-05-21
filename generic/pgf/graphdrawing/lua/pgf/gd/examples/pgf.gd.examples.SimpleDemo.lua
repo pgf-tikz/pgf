@@ -14,9 +14,7 @@
 --- A trivial node placing algorithm for demonstration purposes.
 -- All nodes are positioned on a circle, independently of which edges are present...
 
-local SimpleDemo = pgf.gd.new_algorithm_class {
-  works_only_on_connected_graphs = true,
-}
+local SimpleDemo = pgf.gd.new_algorithm_class {}
 
 function SimpleDemo:run()
   local g = self.digraph
