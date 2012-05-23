@@ -10,32 +10,30 @@
 -- @release $Header$
 
 
---- The Vertex class
---
+--- 
 -- A vertex object models a node of graphs. Each vertex can be an
 -- element of any number of graphs (whereas an arc can only be an
--- element of a single graph). A node has the following fields by
--- default:
---
---   pos: A coordinate object that stores the position where the node should
---        be placed on the canvas. The main objective of graph drawing
---        algroithms is to update this coordinate.
---  hull: An array of coordinate that should be interpreted relative
---        to the pos field. They should describe a convex hull of the
---        node.
--- shape: A string describing the shape of the node (like "rectangle"
---        or "circle").
---  kind: A string describing the kind of the node. For instance, a
---        node of type "dummy" does not correspond to any real node in
---        the graph but is used by the graph drawing algorithm.
---  name: An optional string that is used as a textual representation
---        of the node.
---  
--- When a node is added to a digraph g, a new table is added as the
--- field [g] to the node. This table stores the incoming arcs and the
+-- element of a single graph). 
+-- 
+-- When a node is added to a digraph |g|, a new table is added as the 
+-- field |[g]| to the node. This table stores the incoming arcs and the
 -- outgoing arcs, see the description of digraph, as well as an index
 -- of the node in the digraph's vertices array.
-
+--
+-- @field pos A coordinate object that stores the position where the node should
+--        be placed on the canvas. The main objective of graph drawing
+--        algroithms is to update this coordinate.
+-- @field hull An array of coordinate that should be interpreted relative
+--        to the pos field. They should describe a convex hull of the
+--        node.
+-- @field shape A string describing the shape of the node (like |rectangle|
+--        or |circle|).
+-- @field kind A string describing the kind of the node. For instance, a
+--        node of type "dummy" does not correspond to any real node in
+--        the graph but is used by the graph drawing algorithm.
+-- @field name An optional string that is used as a textual representation
+--        of the node.
+--
 local Vertex = {}
 Vertex.__index = Vertex
 
@@ -51,8 +49,9 @@ local Coordinate   = require "pgf.gd.model.Coordinate"
 local Storage      = require "pgf.gd.lib.Storage"
 
 
---- Creates a new vertex.
---
+--- 
+-- Create a new vertex.
+-- 
 -- @param values  Values to override default node settings.
 --                The following parameters can be set:
 --                |name|: The name of the node. It is optional to define this.
@@ -81,7 +80,7 @@ end
 
 
 
---- Returns a string representation of an arc. This is mainly for debugging
+-- Returns a string representation of an arc. This is mainly for debugging
 --
 -- @return The Arc as string.
 --

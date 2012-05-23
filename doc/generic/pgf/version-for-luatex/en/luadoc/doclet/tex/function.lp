@@ -1,17 +1,18 @@
-<%
-if module_doc then
-	from = "modules/"..module_doc.name
-elseif file_doc then
-	from = "files/.."..file_doc.name
-else
-	from = ""
-end
-%><%=func.private and "local " or ""%>\begin{luacommand}{{<%=func.name%>}(<%for i, paramname in ipairs(func.param) do%><%if i ~= 1 then%><%=","%><%end%><%="\\meta{"..paramname:gsub('_', '\\_').."}"%><%end%>)}
-<%=func.description or ""%>
-<%if type(func.param) == "table" and #func.param > 0 then%><%hasParam=nil%><%for p=1, #func.param do if func.param[func.param[p]] then hasParam=1 end end%><%if hasParam then%>
-\emph{Parameters:}
-\begin{parameterdescription}
-	<%for p = 1, #func.param do%><%if func.param[func.param[p]] then%><%local param_name = func.param[p] or ''; param_name = param_name:gsub('_', '\\_')%><%local param_desc = func.param[func.param[p]] or ''; param_desc = param_desc:gsub('  ', ' ')%>\item[\meta{<%=param_name%>}] <%=param_desc%><%end%><%end%>
+<%=func.private and "local " or ""%>
+
+\begin{luacommand}{<%=func.name:match("(.*[%.%:]).*") or ""%>}{<%=func.name:match(".*[%.%:](.*)") or func.name%>}{<%for i, paramname in ipairs(func.param) do%><%if i ~= 1 then%><%=","%><%end%><%="\\meta{"..paramname:gsub('_', '\\_').."}"%><%end%>}
+  <%=func.description or ""%>
+  <%if type(func.param) == "table" and #func.param > 0 then%>
+    <%hasParam=nil%>
+    <%for p=1, #func.param do 
+        if func.param[func.param[p]] then 
+	  hasParam=1 
+        end 
+      end%>
+    <%if hasParam then%>
+  \emph{Parameters:}
+  \begin{parameterdescription}
+    <%for p = 1, #func.param do%><%if func.param[func.param[p]] then%><%local param_name = func.param[p] or ''; param_name = param_name:gsub('_', '\\_')%><%local param_desc = func.param[func.param[p]] or ''; param_desc = param_desc:gsub('  ', ' ')%>\item[\meta{<%=param_name%>}] <%=param_desc%><%end%><%end%>
 \end{parameterdescription}
 <%end%><%end%>
 <%if type(func.ret) == "string" then%>

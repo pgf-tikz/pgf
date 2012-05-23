@@ -10,6 +10,8 @@ local util = require "luadoc.util"
 local tags = require "luadoc.taglet.pgfmanual.tags"
 local string = require "string"
 local table = require "table"
+local kpse = kpse 
+local pgf = pgf
 
 module 'luadoc.taglet.pgfmanual'
 
@@ -71,6 +73,27 @@ local function check_function (line)
 
 	return info
 end
+
+-------------------------------------------------------------------------------
+-- Checks if the line contains a table definition
+-- @param line string with line text
+-- @return table information or nil if no function definition found
+
+local function check_table (line)
+
+  line = util.trim(line)
+  
+  local l, name = line:match("^(local%s+)("..identifier_pattern..")%s*=%s*{") 
+  if name then
+    return name
+  end
+
+  local name = line:match("("..identifier_pattern..")%s*=%s*{") 
+  if name then
+    return name
+  end
+end
+
 
 -------------------------------------------------------------------------------
 -- Checks if the line contains a module definition.
@@ -175,6 +198,7 @@ local function parse_comment (block, first_line)
 	if code ~= nil then
 		local func_info = check_function(code)
 		local module_name = check_module(code)
+		local table_name = check_table(code)
 		if func_info then
 			block.class = "function"
 			block.name = func_info.name
@@ -184,7 +208,11 @@ local function parse_comment (block, first_line)
 			block.class = "module"
 			block.name = module_name
 			block.param = {}
-		else
+		elseif table_name then
+		        block.class = "table"
+		        block.name = table_name
+		        block.param = {}
+	        else
 			block.param = {}
 		end
 	else
@@ -201,22 +229,24 @@ local function parse_comment (block, first_line)
 		
 		local r, _, tag, text = string.find(line, "@([_%w%.]+)%s+(.*)")
 		if r ~= nil then
-			-- found new tag, add previous one, and start a new one
-			-- TODO: what to do with invalid tags? issue an error? or log a warning?
-			tags.handle(currenttag, block, currenttext)
+		  -- found new tag, add previous one, and start a new one
+		  -- TODO: what to do with invalid tags? issue an error? or log a warning?
+		  tags.handle(currenttag, block, currenttext)
 			
-			currenttag = tag
-			currenttext = text
+		  currenttag = tag
+		  currenttext = text .. " "
 		else
-			currenttext = util.concat(currenttext, line)
-			assert(string.sub(currenttext, 1, 1) ~= " ", string.format("`%s', `%s'", currenttext, line))
+		  if not currenttext then
+		    currenttext = line
+		  else
+		    currenttext = currenttext .. line .. " \n"
+		  end
 		end
 	end)
 	tags.handle(currenttag, block, currenttext)
 
 	-- extracts summary information from the description
 	block.summary = parse_summary(block.description)
-	assert(string.sub(block.description, 1, 1) ~= " ", string.format("`%s'", block.description))
 	
 	return block
 end
@@ -238,19 +268,27 @@ local function parse_block (f, line, modulename, first)
 	}
 
 	while line ~= nil do
-		if string.find(line, "^[\t ]*%-%-") == nil then
-			-- reached end of comment, read the code below it
-			-- TODO: allow empty lines
-			line, block.code, modulename = parse_code(f, line, modulename)
-			
-			-- parse information in block comment
-			block = parse_comment(block, first)
-
-			return line, block, modulename
-		else
-			table.insert(block.comment, line)
-			line = f:read()
-		end
+	  if line:find("^[\t ]*%-%-%[%[") ~= nil then
+	    -- Aha, some loong comment. Add everything up to the next closing comment
+	    line = f:read()
+	    while line and not line:find("^[\t ]*%-%-%]%]") do
+	      table.insert(block.comment, "--" .. line)
+	      line = f:read ()
+	    end
+	    line = f:read()
+	  elseif string.find(line, "^[\t ]*%-%-") == nil then
+	    -- reached end of comment, read the code below it
+	    -- TODO: allow empty lines
+	    line, block.code, modulename = parse_code(f, line, modulename)
+	    
+	    -- parse information in block comment
+	    block = parse_comment(block, first)
+	    
+	    return line, block, modulename
+	  else
+	    table.insert(block.comment, line)
+	    line = f:read()
+	  end
 	end
 	-- reached end of file
 	
@@ -459,30 +497,34 @@ end
 -------------------------------------------------------------------------------
 
 function start (files, doc)
-	assert(files, "file list not specified")
-	
-	-- Create an empty document, or use the given one
-	doc = doc or {
-		files = {},
-		modules = {},
-	}
-	assert(doc.files, "undefined `files' field")
-	assert(doc.modules, "undefined `modules' field")
-	
-	table.foreachi(files, function (_, path)
-		local attr = lfs.attributes(path)
-		assert(attr, string.format("error stating path `%s'", path))
-		
-		if attr.mode == "file" then
-			doc = file(path, doc)
-		elseif attr.mode == "directory" then
-			doc = directory(path, doc)
-		end
-	end)
-	
-	-- order arrays alphabetically
-	recsort(doc.files)
-	recsort(doc.modules)
-
-	return doc
+  assert(files, "file list not specified")
+  
+  -- Create an empty document, or use the given one
+  doc = doc or {
+    files = {},
+    modules = {},
+  }
+  assert(doc.files, "undefined `files' field")
+  assert(doc.modules, "undefined `modules' field")
+  
+  table.foreachi(
+    files, 
+    function (_, path)
+      local filename = kpse.find_file(path, 'tex')
+    
+      local attr = lfs.attributes(filename)
+      assert(attr, string.format("error stating path `%s'", filename))
+      
+      if attr.mode == "file" then
+	doc = file(filename, doc)
+      elseif attr.mode == "directory" then
+	doc = directory(filename, doc)
+      end
+    end)
+  
+  -- order arrays alphabetically
+  recsort(doc.files)
+  recsort(doc.modules)
+  
+  return doc
 end

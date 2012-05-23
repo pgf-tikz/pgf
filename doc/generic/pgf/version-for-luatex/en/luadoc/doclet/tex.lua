@@ -10,6 +10,9 @@ local luadoc = require"luadoc"
 local package = package
 local string = require"string"
 local table = require"table"
+local kpse=kpse
+local tex=tex
+local texio=texio
 
 module "luadoc.doclet.tex"
 
@@ -36,26 +39,26 @@ end
 -- Include the result of a lp template into the current stream.
 
 function include (template, env)
-	-- template_dir is relative to package.path
-	local templatepath = options.template_dir .. template
+  -- template_dir is relative to package.path
+  local templatepath = kpse.find_file(options.template_dir .. template)
+  assert(templatepath, string.format("template `%s' not found", template))
 	
-	-- search using package.path (modified to search .lp instead of .lua
-	local search_path = string.gsub(package.path, "%.lua", "")
-	local templatepath = search(search_path, templatepath)
-	assert(templatepath, string.format("template `%s' not found", template))
-	
-	env = env or {}
-	env.table = table
-	env.io = io
-	env.lp = lp
-	env.ipairs = ipairs
-	env.tonumber = tonumber
-	env.tostring = tostring
-	env.type = type
-	env.luadoc = luadoc
-	env.options = options
-	
-	return lp.include(templatepath, env)
+  env = env or {}
+  env.table = table
+  env.io = io
+  env.lp = lp
+  env.tex = tex
+  env.string = string
+  env.pairs = pairs
+  env.texio = texio
+  env.ipairs = ipairs
+  env.tonumber = tonumber
+  env.tostring = tostring
+  env.type = type
+  env.luadoc = luadoc
+  env.options = options
+  
+  return lp.include(templatepath, env)
 end
 
 -------------------------------------------------------------------------------
@@ -223,11 +226,7 @@ function start (doc)
 
 			-- print(string.format("generating file `%s'", filename))
 			
-			local f = lfs.open(filename, "w")
-			assert(f, string.format("could not open `%s' for writing", filename))
-			io.output(f)
 			include("file.lp", { doc = doc, file_doc = file_doc} )
-			f:close()
 		end
 	end
 end

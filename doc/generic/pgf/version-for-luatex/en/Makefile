@@ -1,11 +1,7 @@
 rerun = "(There were undefined references|Rerun to get (cross-references|the bars) right)"
 doc   = pgfmanual
 latex = lualatex
-luadoc = luadoc --doclet luadoc.doclet.tex -t "luadoc/doclet/tex" --taglet luadoc.taglet.pgfmanual -d ../../text-en/generated
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
-LUA_PATH := ./luadoc/?.lua:$LUA_PATH
-
-lua_gd_library_files=`find ../../../../../generic/pgf/graphdrawing/core/lualayer | grep "\\.lua$$"`
 
 all: $(doc).pdf
 
@@ -30,21 +26,6 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	@echo "Use 'make dist' to generate auto-xrefs."
-
-genluadoc:
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-box.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-edge.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-graph.lua 
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-interface.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-iter.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-node.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-path.lua 
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-string.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-sys.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-table.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-texboxregister.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-traversal.lua
-	$(luadoc) ../../../../../generic/pgf/graphdrawing/core/lualayer/pgflibrarygraphdrawing-vector.lua
 
 FORCE:
 
