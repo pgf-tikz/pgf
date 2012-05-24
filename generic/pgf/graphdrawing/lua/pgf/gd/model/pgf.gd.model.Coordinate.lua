@@ -14,9 +14,12 @@
 --
 -- A Coordinate models a position on the drawing canvas.
 --
--- It has an x field and a y field, which are numbers that will be
--- interpreted as TeX points (1/72.27th of an inch). The x-axis goes
--- right and the y-axis goes up.
+-- It has an |x| field and a |y| field, which are numbers that will be
+-- interpreted as \TeX\ points (1/72.27th of an inch). The $x$-axis goes
+-- right and the $y$-axis goes up.
+--
+-- @field x 
+-- @field y 
 
 local Coordinate = {}
 Coordinate.__index = Coordinate
@@ -31,8 +34,8 @@ require("pgf.gd.model").Coordinate = Coordinate
 
 --- Creates a new coordinate.
 --
--- @param x The x value
--- @param y The y value
+-- @param x The $x$ value
+-- @param y The $y$ value
 --
 -- @return A coordinate
 --
@@ -72,8 +75,8 @@ end
 
 --- Shift a coordinate by another coordinate or by an x and a y value.
 --
--- @param a An x offset
--- @param b A y offset 
+-- @param a An $x$ offset
+-- @param b A $y$ offset 
 
 function Coordinate:shift(a,b)
   self.x = self.x + a
@@ -86,12 +89,12 @@ end
 --
 -- @param array An array of coordinates
 --
--- @return min_x The minimum x position of the bounding box of the array
--- @return min_y
--- @return max_x
--- @return max_y
--- @return center_x The center of the bounding box
--- @return center_y 
+-- @return |min_x| The minimum $x$ value of the bounding box of the array
+-- @return |min_y| The minimum $y$ value
+-- @return |max_x|
+-- @return |max_y|
+-- @return |center_x| The center of the bounding box
+-- @return |center_y| 
 
 function Coordinate:boundingBox(array)
   if #array > 0 then
@@ -115,7 +118,7 @@ end
 
 
 
---- Returns a string representation of an arc. This is mainly for debugging
+-- Returns a string representation of an arc. This is mainly for debugging
 --
 -- @return The Arc as string.
 --

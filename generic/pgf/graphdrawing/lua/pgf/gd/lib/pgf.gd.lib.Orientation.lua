@@ -266,7 +266,7 @@ function Orientation.orient(algorithm, ugraph)
 	local angle, other_name = unpack (orient)
 	local other = ugraph.scope.node_names[other_name]
 	if ugraph:contains(other) then
-	  Orientation.orientTwoNodes(ugraph, node, other, tonumber(angle)/360*2*math.pi, flag)
+	  Orientation.orientTwoNodes(ugraph, v, other, tonumber(angle)/360*2*math.pi, flag)
 	  return true
 	end
       end
@@ -283,7 +283,7 @@ function Orientation.orient(algorithm, ugraph)
       local n1 = ugraph.scope.node_names[name1]
       local n2 = ugraph.scope.node_names[name2]
       if ugraph:contains(n1) and ugraph:contains(n2) then
-	Orientation.orientTwoNodes(ugraph, name1, name2, tonumber(angle)/360*2*math.pi, flag)
+	Orientation.orientTwoNodes(ugraph, n1, n2, tonumber(angle)/360*2*math.pi, flag)
 	return true
       end
     end

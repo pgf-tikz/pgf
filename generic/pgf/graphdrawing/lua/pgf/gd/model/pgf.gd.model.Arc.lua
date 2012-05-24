@@ -11,19 +11,17 @@
 
 
 ---
--- The Arc class
+-- An arc is a light-weight object. It just has three fields,
+-- by default: |head| and |tail| and a |storage|.
 --
--- An arc is an extremely light-weight object. It just has two fields,
--- by default: head and tail.
---
--- You may not create an arc by yourself, which is why there is no new
+-- You may not create an |Arc| by yourself, which is why there is no |new|
 -- method, arc creation is done by the Digraph class.
 --
 -- Every arc belongs to exactly one graph. If you want the same arc in
--- another graph, you need to newly connect s and t in the other graph.
+-- another graph, you need to newly connect two vertices in the other graph. 
 --
--- You may read the head and tail fields, but you may not write
--- them. In order to store data in an arc, use the storage field,
+-- You may read the |head| and |tail| fields, but you may not write
+-- them. In order to store data in an arc, use the |storage| field,
 -- which is a storage.
 --
 -- Between any two vertices of a graph there can be only one arc, so
@@ -33,7 +31,7 @@
 -- rather involved process is used:
 --
 -- Firstly, arcs in the syntactic digraph have a field called
--- "syntactic_edges", which is an array of edges.
+-- |syntactic_edges|, which is an array of edges.
 --
 -- Secondly, you may setup special functions for reading and writing
 -- what I call "collected values". The idea is that an arc of a graph
@@ -65,8 +63,7 @@
 -- the edges of the graph corresponding to the field are traversed and
 -- functions are called to (in this case) copy the path's coordinates
 -- to the individual edges.
-
-
+--
 local Arc = {}
 
 
@@ -470,7 +467,7 @@ end
 
 
 
---- Returns a string representation of an arc. This is mainly for debugging
+-- Returns a string representation of an arc. This is mainly for debugging
 --
 -- @return The Arc as string.
 --

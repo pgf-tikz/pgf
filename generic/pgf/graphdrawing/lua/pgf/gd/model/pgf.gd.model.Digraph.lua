@@ -26,13 +26,51 @@
 -- \tikzname\ |node|, but can represent a arbitrary vertex of a graph,
 -- independently of whether it is an actual |node| in \tikzname.
 --
---   \medskip
---   \noindent\textbf{Vertices.}
---   Each digraphs stores an array of |vertices|. Internally, this array
---   is an object of type |LookupTable|, but you can mostly treat it as
---   if it were an array. In particular, you can iterate over its
---   elements using |ipairs|, but you may not modify the array; use the
---   |add| and |remove| methods, instead.
+-- \medskip
+-- \noindent\emph{Time Bounds.}
+-- Since digraphs are constantly created and modified inside the graph
+-- drawing engine, some care was taken to ensure that all operations
+-- work as quickly as possible. In particular:
+-- \begin{itemize}
+-- \item Adding an array of $k$ vertices using the |add| method needs
+--   time $O(k)$.
+-- \item Adding an arc between two vertices needs time $O(1)$.
+-- \item Accessing both the |vertices| and the |arcs| fields takes time
+--   $O(1)$, provided only the above operations are used.
+-- \end{itemize}
+-- Deleting vertices and arcs takes more time:
+-- \begin{itemize}
+-- \item Deleting the vertices given in an array of $k$ vertices from a
+--   graph with $n$ vertices takes time $O(\max\{n,c\})$ where $c$ is the
+--   number of arcs between the to-be-deleted nodes and the remaining
+--   nodes. Note that this time bound in independent of~$k$. In
+--   particular, it will be much faster to delete many vertices by once
+--   calling the |remove| function instead of calling it repeatedly.
+-- \item Deleting an arc takes time $O(t_o+h_i)$ where $t_o$ is the
+--   number of outgoing arcs at the arc's tail and $h_i$ is the number
+--   of incoming arcs at the arc's head. After a call to |disconnect|,
+--   the next use of the |arcs| field will take time $\catcode`\|=12
+--   O(|V| + |E|)$, while subsequent accesses take time $O(1)$ -- till the
+--   next use of |disconnect|. This means that once you start deleting
+--   arcs using |disconnect|, you should perform as many additional
+--   |disconnect|s before accessing |arcs| one more.
+-- \end{itemize}
+--  
+-- \medskip
+-- \noindent\emph{Stability.} The |vertices| field and the array
+-- returned by |Digraph:incoming| and |Digraph:outgoing| are
+-- \emph{stable} in the following sense: The ordering of the elements
+-- when you use |ipairs| on the will be the ordering in which the
+-- vertices or arcs were added to the graph. Even when you remove a
+-- vertex or an arc, the ordering of the remaining elements stays the
+-- same. 
+--
+-- @field vertices This array contains the vertices that are part of
+-- the digraph. Internally, this array
+-- is an object of type |LookupTable|, but you can mostly treat it as
+-- if it were an array. In particular, you can iterate over its
+-- elements using |ipairs|, but you may not modify the array; use the
+-- |add| and |remove| methods, instead.
 --
 -- \begin{codeexample}[code only]
 -- local g = Digraph.new {}
@@ -44,27 +82,27 @@
 -- assert (not g:contains(v2))
 -- \end{codeexample}
 --
---   It is important to note that although each digraph stores a
---   |vertices| array, the elements in this array are not exclusive to
---   the digraph: A vertex can be an element of any number of
---   digraphs. Whether or not a vertex is an element of digraph is not
---   stored in the vertex, only in the |vertices| array of the
---   digraph. To test whether a digraph contains a specific node, use the
---   |contains| method, which takes time $O(1)$ to perform the test (this
---   is because, as mentioned earlier, the |vertices| array is actually a
---   |LookupTable| and for each vertex |v| the field |vertices[v]| will
---   be true if, and only if, |v| is an element of the |vertices| array).
+-- It is important to note that although each digraph stores a
+-- |vertices| array, the elements in this array are not exclusive to
+-- the digraph: A vertex can be an element of any number of
+-- digraphs. Whether or not a vertex is an element of digraph is not
+-- stored in the vertex, only in the |vertices| array of the
+-- digraph. To test whether a digraph contains a specific node, use the
+-- |contains| method, which takes time $O(1)$ to perform the test (this
+-- is because, as mentioned earlier, the |vertices| array is actually a
+-- |LookupTable| and for each vertex |v| the field |vertices[v]| will
+-- be true if, and only if, |v| is an element of the |vertices| array).
 --
---   Do not use |pairs(g.vertices)| because this may cause your graph
---   drawing algorithm to produce different outputs on different runs.
+-- Do not use |pairs(g.vertices)| because this may cause your graph
+-- drawing algorithm to produce different outputs on different runs.
 --
---   A slightly annoying effect of vertices being able to belong to
---   several graphs at the same time is that the set of arcs incident to
---   a vertex is not a property of the vertex, but rather of the
---   graph. In other words, to get a list of all arcs whose tail is a
---   given vertex |v|, you cannot say something like |v.outgoings| or
---   perhaps |v:getOutgoings()|. Rather, you have to say |g:outgoing(v)|
---   to get this list:
+-- A slightly annoying effect of vertices being able to belong to
+-- several graphs at the same time is that the set of arcs incident to
+-- a vertex is not a property of the vertex, but rather of the
+-- graph. In other words, to get a list of all arcs whose tail is a
+-- given vertex |v|, you cannot say something like |v.outgoings| or
+-- perhaps |v:getOutgoings()|. Rather, you have to say |g:outgoing(v)|
+-- to get this list:
 --\begin{codeexample}[code only]
 --for _,a in ipairs(g:outgoing(v)) do  -- g is a Digraph object.    
 --  pgf.debug ("There is an arc leaving " .. tostring(v) ..
@@ -82,8 +120,8 @@
 --end
 --\end{codeexample}
 --
---   However, it will often be more convenient and, in case the there
---  are far less arcs than node, also faster to write
+-- However, it will often be more convenient and, in case the there
+-- are far less arcs than node, also faster to write
 -- 
 --\begin{codeexample}[code only]
 --for _,a in ipairs(g.arcs) do
@@ -91,9 +129,8 @@
 --end
 --\end{codeexample}
 --
---   \medskip
---   \noindent\textbf{Arcs.}
---   For any two vertices |t| and |h| of a graph, there may or may not be
+-- @field arcs For any two vertices |t| and |h| of a graph, there may
+--   or may not be 
 --   an arc from |t| to |h|. If this is the case, there is an |Arc|
 --   object that represents this arc. Note that, since |Digraph|s are
 --   always simple graphs, there can be at most one such object for every
@@ -131,75 +168,7 @@
 --   arc from a graph and (b) performing $k$ |disconnect| operations in
 --   sequence takes time $O(k)$, provided you do not access the |arcs|
 --   field between calls.
---  
---   \medskip
---   \noindent\textbf{Creating and Copying Graphs.}
---   Graphs are created using the |new| method, which takes a table of
---   initial values as input (like most |new| methods in the graph
---   drawing engine). It is permissible that this table of initial values
---   has a |vertices| field, in which case this array will be copied. In
---   contrast, an |arcs| field in the table will be ignores -- newly
---   created graphs always have an empty arcs set. This means that
---   writing |Digraph.new(g)| where |g| is a graph creates a new graph
---   whose vertex set is the same as |g|'s, but where there are no edges:%'
---  
---\begin{codeexample}[code only]
---local g = Digraph.new {}
---g:add { v1, v2, v3 }
---g:connect (v1, v2)
 --
---local h = Digraph.new (g)
---assert (h:contains(v1))
---assert (not h:arc(v1, v2))
---\end{codeexample}
---
---   To completely copy a graph, including all arcs, you have to write:
---\begin{codeexample}[code only]
---local h = Digraph.new (g)
---for _,a in ipairs(g.arcs) do h:connect(a.tail, a.head) end
---\end{codeexample}
---
---   \medskip
---   \noindent\textbf{Time Bounds.}
---   Since digraphs are constantly created and modified inside the graph
---   drawing engine, some care was taken to ensure that all operations
---   work as quickly as possible. In particular:
---   \begin{itemize}
---   \item Adding an array of $k$ vertices using the |add| method needs
---     time $O(k)$.
---   \item Adding an arc between two vertices needs time $O(1)$.
---   \item Accessing both the |vertices| and the |arcs| fields takes time
---     $O(1)$, provided only the above operations are used.
---   \end{itemize}
---   Deleting vertices and arcs takes more time:
---   \begin{itemize}
---   \item Deleting the vertices given in an array of $k$ vertices from a
---     graph with $n$ vertices takes time $O(\max\{n,c\})$ where $c$ is the
---     number of arcs between the to-be-deleted nodes and the remaining
---     nodes. Note that this time bound in independent of~$k$. In
---     particular, it will be much faster to delete many vertices by once
---     calling the |remove| function instead of calling it repeatedly.
---   \item Deleting an arc takes time $O(t_o+h_i)$ where $t_o$ is the
---     number of outgoing arcs at the arc's tail and $h_i$ is the number
---     of incoming arcs at the arc's head. After a call to |disconnect|,
---     the next use of the |arcs| field will take time $\catcode`\|=12
---     O(|V| + |E|)$, while subsequent accesses take time $O(1)$ -- till the
---     next use of |disconnect|. This means that once you start deleting
---     arcs using |disconnect|, you should perform as many additional
---     |disconnect|s before accessing |arcs| one more.
---   \end{itemize}
---  
---   \medskip
---   \noindent\textbf{Stability.} The |vertices| field and the array
---   returned by |Digraph:incoming| and |Digraph:outgoing| are
---   \emph{stable} in the following sense: The ordering of the elements
---   when you use |ipairs| on the will be the ordering in which the
---   vertices or arcs were added to the graph. Even when you remove a
---   vertex or an arc, the ordering of the remaining elements stays the
---   same. 
---
--- @field vertices is the array of vertices in the graph. 
--- @field arcs is an array of arcs in the graph. 
 -- @field syntactic_digraph is a reference to the syntactic digraph
 --    from which this graph stems ultimately. This may be a cyclic
 --    reference to the graph itself.
@@ -244,28 +213,45 @@ local Storage = require "pgf.gd.lib.Storage"
 
 
 
---- Creates a new digraph.
+---
+-- Graphs are created using the |new| method, which takes a table of
+-- |initial| values as input (like most |new| methods in the graph
+-- drawing engine). It is permissible that this table of initial values
+-- has a |vertices| field, in which case this array will be copied. In
+-- contrast, an |arcs| field in the table will be ignores -- newly
+-- created graphs always have an empty arcs set. This means that
+-- writing |Digraph.new(g)| where |g| is a graph creates a new graph
+-- whose vertex set is the same as |g|'s, but where there are no edges:
+--  
+--\begin{codeexample}[code only]
+--local g = Digraph.new {}
+--g:add { v1, v2, v3 }
+--g:connect (v1, v2)
+--
+--local h = Digraph.new (g)
+--assert (h:contains(v1))
+--assert (not h:arc(v1, v2))
+--\end{codeexample}
+--
+-- To completely copy a graph, including all arcs, you have to write:
+--\begin{codeexample}[code only]
+--local h = Digraph.new (g)
+--for _,a in ipairs(g.arcs) do h:connect(a.tail, a.head) end
+--\end{codeexample}
 --                
--- A digraph object stores a set of vertices and a set of arcs. The
--- vertices table is both an array (for iteration) as well as a
--- hash-table of node to position mappings. This operation takes time
--- $O(1)$. 
+-- This operation takes time $O(1)$. 
 --
 -- @param initial A table of initial values. It is permissible that
 --                this array contains a |vertices| field. In this
 --                case, this field must be an array and its entries
 --                must be nodes, which will be inserted. If initial
---                has an arcs field or a storage field, these fields
+--                has an |arcs| field or a |storage| field, these fields
 --                will be ignored.
 --                The table must contain a field |syntactic_digraph|,
 --                which should normally be the syntactic digraph of
 --                the graph, but may also be the string |"self"|, in
 --                which case it will be set to the newly created
 --                (syntactic) digraph.
---
--- The bottom line is that |Digraph.new(existing_digraph)| will create a
--- new digraph with the same vertex set and the same options as the
--- existing digraph, but without arcs.
 -- @return A newly-allocated digraph.
 --
 function Digraph.new(initial)
@@ -273,7 +259,7 @@ function Digraph.new(initial)
   setmetatable(digraph, Digraph)
 
   if initial then
-    for k,v in pairs(initial) do
+    for k,v in pairs(initial or {}) do
       digraph [k] = v
     end
   end
@@ -298,7 +284,7 @@ end
 
 --- Add vertices to a digraph.
 --
--- This operation takes time $O(\#\mathit{array})$.
+-- This operation takes time $O(|\verb!array!|)$.
 --
 -- @param array An array of to-be-added vertices.
 --
@@ -327,7 +313,7 @@ end
 -- to delete many vertices by first compiling them in an array and to
 -- then delete them using one call to this method.
 --
--- This operation takes time $O(\max\{\#\mathit{array}, \#\mathit{self.vertices}\})$.
+-- This operation takes time $O(\max\{|\verb!array!|, |\verb!self.vertices!|\})$.
 --
 -- @param array The to-be-removed vertices.
 --
@@ -363,28 +349,30 @@ end
 
 
 
---- Returns the arc between two nodes, provided it exists. Otherwise,
+---
+-- Returns the arc between two nodes, provided it exists. Otherwise,
 -- nil is retured.
 --
 -- This operation takes time $O(1)$.
 --
--- @param s The tail vertex
--- @param t The head vertex
+-- @param tail The tail vertex
+-- @param head The head vertex
 --
 -- @return The arc object connecting them
 --
-function Digraph:arc(s, t)
-  return assert(s.storage[self.outgoings], "tail vertex not in graph")[t]
+function Digraph:arc(tail, head)
+  return assert(tail.storage[self.outgoings], "tail vertex not in graph")[head]
 end
 
 
 
---- Returns an array containg the outgoing arcs of a vertex. You may
+--- 
+-- Returns an array containing the outgoing arcs of a vertex. You may
 -- only iterate over his array using ipairs, not using pairs.
 --
---  This operation takes time $O(1)$.
+-- This operation takes time $O(1)$.
 --
--- @param s The vertex
+-- @param v The vertex
 --
 -- @return An array of all outgoing arcs of this vertex (all arcs
 -- whose tail is the vertex)
@@ -399,10 +387,10 @@ end
 -- Sorts the array of outgoing arcs of a vertex. This allows you to
 -- later iterate over the outgoing arcs in a specific order.
 --
--- This operation takes time $O(\#\mathit{outgoing} \log \#\mathit{outgoings})$.
+-- This operation takes time $O(|\verb!outgoing!| \log |\verb!outgoings!|)$.
 --
--- @param s The vertex
--- @param f A comparison function that is passed to table.sort
+-- @param v The vertex
+-- @param f A comparison function that is passed to |table.sort|
 --
 function Digraph:sortOutgoing(v, f)
   table.sort(assert(v.storage[self.outgoings], "vertex not in graph"), f)
@@ -414,10 +402,11 @@ end
 -- \emph{must} contain the same set of vertices as the outgoing array,
 -- but possibly in a different order.
 --
--- This operation takes time $O(\#\mathit{outgoing})$.
+-- This operation takes time $O(|\verb!outgoing!|)$, where |outgoing|
+-- is the array of |v|'s outgoing arcs in |self|.
 --
--- @param s The vertex
--- @param a An array containing the outgoing verticesin some order.
+-- @param v The vertex
+-- @param vertices An array containing the outgoing vertices in some order.
 --
 function Digraph:orderOutgoing(v, vertices)
   local outgoing = assert (v.storage[self.outgoings], "vertex not in graph")
@@ -443,7 +432,7 @@ end
 
 
 
---- As outgoing.
+--- See |outgoing|.
 --
 function Digraph:incoming(v)
   return assert(v.storage[self.incomings], "vertex not in graph")
@@ -451,7 +440,7 @@ end
 
 
 ---
--- As sortOutgoing
+-- See |sortOutgoing|.
 --
 function Digraph:sortIncoming(v, f)
   table.sort(assert(v.storage[self.incomings], "vertex not in graph"), f)
@@ -459,7 +448,7 @@ end
 
 
 ---
--- As reorderOutgoing
+-- See |reorderOutgoing|.
 --
 function Digraph:orderIncoming(v, a)
   local incoming = assert (v.storage[self.incomings], "vertex not in graph")
@@ -487,13 +476,14 @@ end
 
 
 
---- Connects two nodes by an arc and returns the arc. If they are
--- already connected, the existing arc is returned. 
+--- 
+-- Connects two nodes by an arc and returns the newly created arc
+-- object. If they are already connected, the existing arc is returned. 
 --
 -- This operation takes time $O(1)$.
 --
--- @param s The tail vertex
--- @param t The head vertex (may be identical to s in case of a
+-- @param tail The tail vertex
+-- @param head The head vertex (may be identical to |tail| in case of a
 --          loop)
 --
 -- @return The arc object connecting them (either newly created or
@@ -537,16 +527,17 @@ end
 
 
 
---- Disconnect either a single vertex from all its neighbors (remove all
+--- 
+-- Disconnect either a single vertex |V| from all its neighbors (remove all
 -- incoming and outgoing arcs of this vertex) or, in case two nodes
 -- are given as parameter, remove the arc between them, if it exsits. 
 --
--- This operation takes time $O(\#I_s + \#I_t)$, where $I_x$ is the set
--- of vertices incident to x, to remove the single arc between s and
--- t. For a single vertex x, it takes time $O(\sum_{y: \text{there is some
--- arc between x and y or y and x}} \#I_y)$.
+-- This operation takes time $O(|I_v| + |I_t|)$, where $I_x$ is the set
+-- of vertices incident to $x$, to remove the single arc between $v$ and
+-- $v$. For a single vertex $v$, it takes time $O(\sum_{y: \text{there is some
+-- arc between $v$ and $y$ or $y$ and $v$}} |I_y|)$.
 --
--- @param s The single vertex or the tail vertex
+-- @param v The single vertex or the tail vertex
 -- @param t The head vertex
 --
 function Digraph:disconnect(v, t)
@@ -627,23 +618,24 @@ end
 
 
 
---- Reconnect: An arc is changed so that instead of connecting a.tail
--- and a.head, it now connects a new head and tail. The difference to
--- first disconnecting and then reconnecting is that all fields of the
--- arc (other than head and tail, of course), will be "moved
--- along". Also, all fields of the storage will be
--- copied. Reconnecting and arc in the same way as before has no
+--- 
+-- An arc is changed so that instead of connecting |self.tail|
+-- and |self.head|, it now connects a new |head| and |tail|. The
+-- difference to first disconnecting and then reconnecting is that all
+-- fields of the arc (other than |head| and |tail|, of course), will
+-- be ``moved along.'' Also, all fields of the |storage| will be
+-- copied. Reconnecting an arc in the same way as before has no
 -- effect.
 --
--- If there is already an arc at the new position, field of the
+-- If there is already an arc at the new position, fields of the
 -- to-be-reconnected arc overwrite fields of the original arc. This is
 -- especially dangerous with a syntactic digraph, so do not reconnect
 -- arcs of the syntactic digraph (which you should not do anyway).
 --
--- The arc object may no longer be valid after a reconnect, but the
+-- The |arc| object may no longer be valid after a reconnect, but the
 -- operation returns the new arc object.
 --
--- This operation needs the time of a disconnect (if necessary)
+-- This operation needs the time of a disconnect (if necessary).
 --
 -- @param arc The original arc object
 -- @param tail The new tail vertex
@@ -682,9 +674,12 @@ end
 
 
 
---- Returns a string representation of this graph including all nodes and edges.
+--- 
+-- Computes a string representation of this graph including all nodes
+-- and edges. The syntax of this representation is such that it can be
+-- used directly in \tikzname's |graph| syntax.
 --
--- @return Digraph as string.
+-- @return |self| as string.
 --
 function Digraph:__tostring()
   local vstrings = {}

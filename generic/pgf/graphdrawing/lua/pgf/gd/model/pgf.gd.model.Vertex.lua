@@ -11,28 +11,38 @@
 
 
 --- 
--- A vertex object models a node of graphs. Each vertex can be an
--- element of any number of graphs (whereas an arc can only be an
+-- A |Vertex| instance models a node of graphs. Each |Vertex| object can be an 
+-- element of any number of graphs (whereas an |Arc| object can only be an
 -- element of a single graph). 
 -- 
--- When a node is added to a digraph |g|, a new table is added as the 
--- field |[g]| to the node. This table stores the incoming arcs and the
--- outgoing arcs, see the description of digraph, as well as an index
--- of the node in the digraph's vertices array.
+-- When a vertex is added to a digraph |g|, two tables are created in
+-- the vertex' storage: An array of incoming arcs (with respect to
+-- |g|) and an array of outgoing arcs (again, with respect to
+-- |g|). The fields are managed by the |Digraph| class and should not
+-- be modified directly.
 --
--- @field pos A coordinate object that stores the position where the node should
---        be placed on the canvas. The main objective of graph drawing
---        algroithms is to update this coordinate.
+-- Note that a |Vertex| is an abstraction of \tikzname\ nodes; indeed
+-- that objective is to ensure that, in principle, we can use them
+-- independently of \TeX. For this reason, you will not find any
+-- references to |tex| inside a |Vertex|; this information is only
+-- available in the syntactic digraph.
+--
+-- @field pos A coordinate object that stores the position where the
+-- vertex should be placed on the canvas. The main objective of graph drawing
+-- algorithms is to update this coordinate.
+-- @field name An optional string that is used as a textual representation
+--        of the node.
 -- @field hull An array of coordinate that should be interpreted relative
 --        to the pos field. They should describe a convex hull of the
---        node.
+--        node corresponding to this vertex.
+-- @field hull_center A coordinate storing the center of the
+-- |hull|. Typically, this will be the origin.
+-- @field options A table of options that contains user-defined options.
 -- @field shape A string describing the shape of the node (like |rectangle|
 --        or |circle|).
 -- @field kind A string describing the kind of the node. For instance, a
---        node of type "dummy" does not correspond to any real node in
+--        node of type |"dummy"| does not correspond to any real node in
 --        the graph but is used by the graph drawing algorithm.
--- @field name An optional string that is used as a textual representation
---        of the node.
 --
 local Vertex = {}
 Vertex.__index = Vertex
@@ -50,16 +60,29 @@ local Storage      = require "pgf.gd.lib.Storage"
 
 
 --- 
--- Create a new vertex.
--- 
--- @param values  Values to override default node settings.
---                The following parameters can be set:
---                |name|: The name of the node. It is optional to define this.
---                |hull|: An array of coordinate objects. It will not be copied, but referenced.
---                |shape|: A string describing the shape.
---                |kind|: A kind like "node" or "dummy".
---                |pos|: Initial position of the node.
---                |options|: Options of the vertex.
+-- Create a new vertex. The |initial| parameter allows you to setup
+-- some initial values.
+--
+-- @usage 
+--\begin{codeexample}[code only]
+--local v = Vertex.new { name = "hello", pos = Coordinate.new(1,1) }
+--\end{codeexample} 
+--
+-- @param initial Values to override default node settings. The
+-- following are permissible:
+-- \begin{description}
+-- \item[|pos|] Initial position of the node.
+-- \item[|name|] The name of the node. It is optional to define this.
+-- \item[|hull|] An array of coordinate objects. It will not
+-- be copied, but referenced. If not given, an array with the only
+-- entry being the origin is used.
+-- \item[\texttt{hull\_center}] A coordinate storing the ``center'' of the
+-- hull. Typically, this will be the origin, which is also the default
+-- which this field is not given.
+-- \item[|options|] An options table for the vertex.
+-- \item[|shape|] A string describing the shape. If not given, |"none"| is used.
+-- \item[|kind|] A kind like |"node"| or |"dummy"|. If not given, |"dummy"| is used.
+-- \end{description}
 --
 -- @return A newly allocated node.
 --
@@ -80,6 +103,7 @@ end
 
 
 
+--
 -- Returns a string representation of an arc. This is mainly for debugging
 --
 -- @return The Arc as string.
