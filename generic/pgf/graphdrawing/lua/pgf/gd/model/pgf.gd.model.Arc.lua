@@ -11,60 +11,41 @@
 
 
 ---
--- An arc is a light-weight object. It just has three fields,
--- by default: |head| and |tail| and a |storage|.
---
--- You may not create an |Arc| by yourself, which is why there is no |new|
--- method, arc creation is done by the Digraph class.
+-- An arc is a light-weight object representing an arc from a vertex
+-- in a graph to another vertex. You may not create an |Arc| by
+-- yourself, which is why there is no |new| method, arc creation is
+-- done by the Digraph class. 
 --
 -- Every arc belongs to exactly one graph. If you want the same arc in
 -- another graph, you need to newly connect two vertices in the other graph. 
 --
 -- You may read the |head| and |tail| fields, but you may not write
--- them. In order to store data in an arc, use the |storage| field,
--- which is a storage.
+-- them. In order to store data in an arc, use the |storage| field.
 --
 -- Between any two vertices of a graph there can be only one arc, so
 -- all digraphs are always simple graphs. However, in the
 -- specification of a graph (the syntactic digraph), there might
--- be multiple edges between two vertices. To solve this problem, a
--- rather involved process is used:
+-- be multiple edges between two vertices. This means, in particular,
+-- that an arc has no |options| field. Rather, it has several
+-- |optionsXxxx| functions, that will search for options in all of the
+-- synactic edges that ``belong'' to an edge.
 --
--- Firstly, arcs in the syntactic digraph have a field called
--- |syntactic_edges|, which is an array of edges.
+-- Similarly, even though an arc has a |path| field, setting this
+-- field does not immediately set the paths of the syntactic
+-- edges. Indeed, you will normally want to setup and modify the
+-- |path| field of an arc during your algorithm and only at the very
+-- end, ``write it back'' to the multiple syntactic edges underlying
+-- the graph. For this purpose, use the method |sync|.
 --
--- Secondly, you may setup special functions for reading and writing
--- what I call "collected values". The idea is that an arc of a graph
--- may correspond to zero, one, or many edges in the syntactic
--- digraph. Now suppose you wish to read, say, an option like the
--- "weight" of the arc. In this case, one or more edges may have this
--- option set. Instead of having to somehow finding and iterating over
--- these edges, you can install a "collector" for the field
--- "weight" of the arc. In this case, when you write a.weight, where "a"
--- is an arc, the first time you write this the edges corresponding to
--- a in the syntactic digraph are traversed and their accumulated
--- weight is returned. The second time you access the field, the value
--- will have been stored directly in the arc's weight field. Thus,
--- you can access this field transparently and with the highest
--- possible speed.
---
--- The other way round, suppose you wish to write something like a
--- path entry of an arc. Such a path contains a sequence of
--- coordinates. This path needs to be copied to all edges
--- corresponding to the arc; but we must sometimes reverse the path in
--- case the arc points in a direction different from the edge's
--- direction.
---
--- For this problem, you can install a "distributor" for the
--- path key. It has the following effect: You can write (and read) the
--- path like any normal field of the arc. However, when you signal
--- that you are done with the field using the "done" method, the
--- following happens: In all arcs where this field is currently set,
--- the edges of the graph corresponding to the field are traversed and
--- functions are called to (in this case) copy the path's coordinates
--- to the individual edges.
+-- @field tail The tail vertex of the arc.
+-- @field head The head vertex of the arc. May be the same as the tail
+-- in case of a loop.
+-- @field storage A storage.
+-- @field path If nonempty, the path of the arc. See the description
+-- above.
 --
 local Arc = {}
+Arc.__index = Arc
 
 
 -- Namespace
@@ -77,393 +58,384 @@ require("pgf.gd.model").Arc = Arc
 local Options = require "pgf.gd.control.Options"
 
 
-local Arc_collectors = {}
-local Arc_distributors = {}
-
-
-
-local function collect_syntactic_edges (arc)
-
-  local tail = arc.tail
-  local head = arc.head
+---
+-- Get an options of the syntactic edges corresponding to an arc.
+--
+-- An arc in a digraph is typically (but not always) present because
+-- there are one or more edges in the syntactic digraph between the
+-- tail and the head of the arc or between the head and the tail.
+--
+-- Since for every arc there can be several edges present in the
+-- syntactic digraph, an option like |/graph drawing/length| may have
+-- been given multiple times for the edges corresponding to the arc.
+--
+-- If your algorithm gets confused by multiple edges, try saying
+-- |a:options(your_option)|. This will always give the ``most
+-- sensible'' choice of the option if there are multiple edges
+-- corresponding to the same arc. 
+--
+-- @param option A string option like |"/graph drawing/length"|.
+--
+-- @return A table with the following contents: 
+-- \begin{enumerate}
+-- \item It is an array of all values the option has for edges
+-- corresponding to |self| in the syntactic digraph. Suppose, for
+-- instance, you write the following:
+--\begin{codeexample}[code only]
+--graph {
+--  tail -- [length=1] head,  % multi edge 1
+--  tail -- [length=3] head,  % mulit edge 2
+--  head -- [length=8] tail,  % multi edge 3
+--  tail --            head,  % multi edge 4
+--  head -- [length=7] tail,  % multi edge 5
+--  tail -- [length=2] head,  % multi edge 6
+--}
+--\end{codeexample}
+-- Suppose, furthermore, that |length| has been setup as an edge
+-- option. Now suppose that |a| is the arc from the vertex |tail| to
+-- the vertex |head|. Calling |a:optionsArray('/graph drawing/length')| will
+-- yield the array part |{1,3,2,8,7}|. The reason for the ordering is
+-- as follows: First come all values |length| had for syntactic edges
+-- going from |self.tail| to |self.head| in the order they appear in the graph
+-- description. Then come all values the options has for syntactic
+-- edges going from |self.head| to |self.tail|. The reason for this
+-- slightly strange behaviour is that many algorithms do not really
+-- care whether someone writes |a --[length=1] b| or
+-- |b --[length=1] a|; in both cases they would ``just'' like to know
+-- that the length is~|1|.
+--
+-- \item There is field called |aligned|, which is an array storing
+-- the actual syntactic edge objects whose values can be found in the
+-- array part of the returned table. However, |aligned| contains only
+-- the syntactic edges pointing ``in the same direction'' as the arc,
+-- that is, the tail and head of the syntactic edge are the same as
+-- those of the arc. In the above example, this array would contain
+-- the edges with the comment numbers |1|, |2|, and |6|.
+--
+-- Using the length of this array and the fact that the ``aligned''
+-- values come first in the table, you can easily iterate over the
+-- |option|'s values of only those edges that are aligned with the arc:
+--
+--\begin{codeexample}[code only]
+--local a = g:arc(tail.head)   -- some arc
+--local opt = a:optionsArray('/graph drawing/length')
+--local sum = 0
+--for i=1,#opt.aligned do
+--  sum = sum + opt[i]
+--end
+--\end{codeexample}
+--
+--\item There is a field called |anti_aligned|, which is an array
+-- containing exactly the edges in the array part of the table not
+-- aligned with the arc. The numbering start at |1| as usual, so the
+-- $i$th entry of this table corresponds to the entry at position $i +
+-- \verb!#opt.aligned!$ of the table.
+--
+--\end{enumerate}
+--
+function Arc:optionsArray(option)
   
-  local a1 = arc.syntactic_digraph:arc(tail, head)
-  local a2 = head ~= tail and arc.syntactic_digraph:arc(head, tail)
+  local storage = self.storage
+  local t = storage[option]
+  if t then
+    return t
+  end
+
+  -- Accumulate the edges for which the option is set:
+  local tail = self.tail
+  local head = self.head
+  local s_graph = self.syntactic_digraph
   
-  local array = {}
-  
-  if a1 then
-    for _,m in ipairs(a1.storage.syntactic_edges) do
-      array[#array + 1] = m
+  local arc = s_graph:arc(tail, head)
+  local aligned = {}
+  if arc then
+    for _,m in ipairs(arc.storage.syntactic_edges) do
+      if m.options[option] ~= nil then
+	aligned[#aligned + 1] = m
+      end
     end
-  end
-  if a2 then
-    for _,m in ipairs(a2.storage.syntactic_edges) do
-      array[#array + 1] = m
-    end
-  end
-  table.sort(array, function (a,b) return a.event_index < b.event_index end)
-
-  return array
-end
-
-
-
---- The Arc index function
---
--- This function called whenever you access a field of an arc table
--- that has not (yet) be read. The function tests whether your
--- requested field has a collector installed. If so, the collector is 
--- invoked to get and setup the value.
-
-function Arc.__index(arc, key)
-  local c = Arc_collectors[key]
-  if c then
-    local value = c(collect_syntactic_edges(arc), arc, key)
-    rawset(arc,key,value)
-    return value
-  end
-end
-
-
---- The Arc new_index function
---
--- This function called whenever you write something to a field of an
--- arc table that is not (yet) initialised. The function tests whether your
--- requested field has a reader installed. If so, the reader is
--- invoked to get and setup the value.
-
-function Arc.__newindex(arc, key, value)
-  local d = assert(Arc_distributors[key], "attempting to write to key of an arc without a distributor")
-  rawset(arc, key, value)
-  d.affected_arcs[arc] = true
-end
-
-
----
--- Install a collector
---
--- @param key A key
--- @param collector A collector function
---
--- The collector function will be called with an arc and the key as
--- parameters. It should return a value that is to be installed in the
--- arc at the key's field.
-
-function Arc.collector(key, collector)
-  assert (not Arc_collectors[key], "arc collector already installed")
-  Arc_collectors[key] = collector
-end
-
-
----
--- Install a distributor
---
--- @param key A key
--- @param d A distributor function
---
--- The distributor function will be called when the "done" method is
--- called for the key. It will then be called once for each affected
--- arcs. The parameters will the value of the key for this arc, an
--- array of affected syntactic edges, and the affected arc.
-
-function Arc.distributor(key, distributor)
-  assert (not Arc_distributors[key], "arc distributor already installed")
-  Arc_collectors[key] = { distributor = distributor, affected_arcs = {} }
-end
-
-
-
-
----
--- Invoke a distributor
---
--- @param key A key
---
--- The distributor is now called for the given key. After this call,
--- the key will be nil for all affected arcs.
-
-function Arc.done(key)
-  local d = assert (Arc_distributors[key], "no distributor installed")
-  local affected = d.affected_arcs
-  
-  -- Invoke distributor
-  for arc in pairs(affected) do
-    d.distributor(arc[key], collect_syntactic_edges(arc), arc)
-    rawset(arc, key, nil)
+    table.sort(aligned, function (a,b) return a.event_index < b.event_index end)
   end
   
-  Arc_collectors[key] = nil
-end
-
-
-
-
-
----
--- Collectors for options
---
--- These functions are used like this:
---
--- Arc.optionSumCollector("/graph drawing/weight")
--- ...
--- local some_arc = my_graph:arc(s,t)
--- if some_arc["/graph drawing/weight"] > 5 then
--- ...
--- end
---
--- Naturally, you can also abbreviate this:
---
--- local weight = "/graph drawing/weight"
--- Arc.optionSumCollector(weight)
--- ...
--- local some_arc = my_graph:arc(s,t)
--- if some_arc[weight] > 5 then
--- ...
--- end
---
--- They have the following effects:
---
--- Arc.optionCollector: Computes the value of the first occurrence of the option
--- in the options table of any of the edges corresponding to the arc.
---
--- Arc.optionSyntacticCollector: Computes the value of the first occurrence of the option
--- in the options table of any of the edges corresponding to the arc.
---
--- Arc.optionLastCollector: Returns the first occurrence of the option
--- in the options table of an edge corresponding to the arc, where the
--- edge points in the "syntactic correct" direction.
---
--- Arc.optionSumCollector: Sum up all non-nil values of this option at
--- the edges.
---
--- Arc.optionMinCollector: Return the minimum value of the non-nil
--- values of this option at the edges.
---
--- Arc.optionMaxCollector: As before, but for the maximum.
---
--- Arc.optionAvgCollector: As before, but for the average.
-
-function Arc.optionCollector(option)
-  Arc.collector (
-    option,
-    function (a)
-      for i=1,#a do
-	local o = a[i].options[option]
-	if o ~= nil then
-	  return o
-	end
+  local arc = head ~= tail and s_graph:arc(head, tail)
+  local anti_aligned = {}
+  if arc then
+    for _,m in ipairs(arc.storage.syntactic_edges) do
+      if m.options[option] ~= nil then
+	anti_aligned[#anti_aligned + 1] = m
       end
     end
-  )
-end
-
-function Arc.optionSyntacticCollector(option)
-  Arc.collector (
-    option,
-    function (array, arc)
-      for i=1,#array do
-	local da = array[i]
-	if da.head == arc.head then
-	  local o = da.options[option]
-	  if o ~= nil then
-	    return o
-	  end
-	end
-      end
-    end
-  )
-end
-
-function Arc.optionLastCollector(option)
-  Arc.collector (
-    option,
-    function (a)
-      for i=#a,1,-1 do
-	local o = a[i].options[option]
-	if o ~= nil then
-	  return o
-	end
-      end
-    end
-  )
-end
-      
-function Arc.optionArithmeticCollector(option, v, fun)
-  Arc.collector (
-    option,
-    function (a)
-      local r = v
-      for i=1,#a do
-	local o = a[i].options[option]
-	if o ~= nil then
-	  r = fun(r,o)
-	end
-      end
-      return r
-    end
-  )
-end
-
-function Arc.optionSumCollector(option)
-  Arc.optionArithmeticCollector(option, 0, function (a,b) return a+b end)
-end
-
-function Arc.optionMaxCollector(option)
-  Arc.optionArithmeticCollector(option, -math.huge, math.max)
-end
-
-function Arc.optionMinCollector(option)
-  Arc.optionArithmeticCollector(option, math.huge, math.min)
-end
-
-function Arc.optionAvgCollector(option)
-  Arc.collector (
-    option,
-    function (a)
-      local num = 0
-      local v = 0
-      for i=1,#a do
-	local o = a[i].options[option]
-	if o ~= nil then
-	  v = v + o
-	  num = num + 1
-	end
-      end
-      if num > 0 then
-	return v/num
-      end
-    end
-  )
-end
-
-
-
----
--- The point cloud collector
---
--- This collector will return the "point cloud" of an arc, which is
--- the set of all points that must be rotated and shifted along with
--- the endpoints of an edge.
-
-Arc.collector(
-  "point_cloud",
-  function (array, arc)
-    local cloud = {}
-    for _,e in ipairs(array) do
-      if e.head == arc.head then
-	-- Only syntactically correct edges
-	for _,p in ipairs(e.path) do
-	  cloud[#cloud + 1] = p
-	end
-      end
-    end
-    return cloud
+    table.sort(anti_aligned, function (a,b) return a.event_index < b.event_index end)
   end
-)
+  
+  -- Now merge them together
+  local t = { aligned = aligned, anti_aligned = anti_aligned }
+  for i=1,#aligned do
+    t[i] = aligned[i].options[option]
+  end
+  for i=1,#anti_aligned do
+    t[#t+1] = anti_aligned[i].options[option]
+  end
+  storage[option] = t
+  
+  return t
+end
+
 
 
 ---
--- The event index collector
+-- Returns the first option, that is, the first entry of
+-- |Arc:optionsArray(option)|. However, if the |only_aligned|
+-- parameter is set to true and there is no option with any aligned
+-- synactic edge, |nil| is returned.
 --
--- This collector return the lowest event index of any edge involved
+-- @param option An option
+-- @param only_aligned If true, only aligned syntactic edges will be
+-- considered. 
+-- @return The first entry of the |optionsArray|
+function Arc:options(option, only_aligned)
+  if only_aligned then
+    local opt = self:optionsArray(option)
+    if #opt.aligned > 0 then
+      return opt[1]
+    end
+  else
+    return self:optionsArray(option)[1]
+  end
+end
+
+
+
+
+---
+-- Get an accumulated value of an option of the syntactic edges
+-- corresponding to an arc.
+--
+-- @param option The option of interest
+-- @param accumulator A function taking two values. When there are
+-- more than one syntactic edges corresponding to |self| for which the
+-- |option| is set, this function will be called repeatedly for the
+-- different values. The first time it will be called for the first
+-- two values. Next, it will be called for the result of this call and
+-- the third value, and so on.
+-- @param only_aligned A boolean. If true, only the aligned syntactic
+-- edges will be considered.
+--
+-- @return If the option is not set for any (aligned) syntactic edges
+-- corresponding to |self|, |nil| is returned. If there is exectly one
+-- edge, the value of this edge is returned. Otherwise, the result of
+-- repeatedly applying the |accumulator| function as described
+-- above.
+--
+-- The result is cached, repeated calls will not invoke the
+-- |accumulator| function again.
+--
+-- @usage Here is typical usage:
+--\begin{codeexample}[code only]
+--local total_length = a:optionsAccumulated('/graph drawing/length', function (a,b) return a+b end) or 0
+--\end{codeexample}
+--
+function Arc:optionsAccumulated(option, accumulator, only_aligned)
+  local opt = self:options(option)
+  if only_aligned then
+    local aligned = opt.aligned
+    local v = aligned[accumulator]
+    if v == nil then
+      v = opt[1]
+      for i=2,#aligned do
+	v = accumulator(v, opt[i])
+      end
+      align[accumulator] = v
+    end
+    return v
+  else
+    local v = opt[accumulator]
+    if v == nil then
+      v = opt[1]
+      for i=2,#opt do
+	v = accumulator(v, opt[i])
+      end
+      opt[accumulator] = v
+    end
+    return v
+  end
+end
+
+
+
+
+
+---
+-- Compute the point cloud.
+--
+-- @return This method will return the ``point cloud'' of an arc,
+-- which is an array of all points that must be rotated and shifted
+-- along with the endpoints of an edge.
+--
+function Arc:pointCloud ()
+  if self.cached_point_cloud then
+    return self.cached_point_cloud -- cached
+  end
+  local cloud = {}
+  local a = self.syntactic_digraph:arc(self.tail,self.head)
+  if a then
+    for _,e in ipairs(a.storage.syntactic_edges or {}) do
+      for _,p in ipairs(e.path) do
+	cloud[#cloud + 1] = p
+      end
+    end
+  end
+  self.cached_point_cloud = cloud
+  return cloud
+end  
+
+
+
+---
+-- Compute an event index for the arc.
+--
+-- @return The lowest event index of any edge involved
 -- in the arc (or nil, if there is no syntactic edge).
-
-Arc.collector(
-  "event_index",
-  function (array)
-    if array[1] then
-      return array[1].event_index
+--
+function Arc:eventIndex ()
+  if self.cached_event_index then
+    return self.cached_event_index
+  end
+  local head = self.head
+  local tail = self.tail
+  local e = math.huge
+  local a = self.syntactic_digraph:arc(tail,head)
+  if a then
+    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      e = math.min(e, m.event_index)
     end
   end
-)
+  local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
+  if a then
+    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      e = math.min(e, m.event_index)
+    end
+  end
+  self.cached_event_index = e
+  return e
+end  
+
 
 
 
 ---
--- The span priority collector
+-- The span collector
 --
--- This collector returns the top (that is, smallest) priority of any
+-- This method returns the top (that is, smallest) priority of any
 -- edge involved in the arc.
 --
 -- The priority of an edge is computed as follows:
 --
--- 1) If the option "/graph drawing/span priority" is set, this number
+-- \begin{enumerate}
+-- \item If the option |"/graph drawing/span priority"| is set, this number
 -- will be used.
 --
--- 2) If the edge has the same head as the arc, we lookup the key
--- "/graph drawing/span priority " .. edge.direction. If set, we use
+-- \item If the edge has the same head as the arc, we lookup the key\\
+-- |"/graph drawing/span priority " .. edge.direction|. If set, we use
 -- this value.
 --
--- 3) If the edge has a different head from the arc (the arc is
--- "reversed" with respect to the syntactic edge), we lookup the key
--- "/graph drawing/span priority reversed " .. edge.direction. If set,
+-- \item If the edge has a different head from the arc (the arc is
+-- ``reversed'' with respect to the syntactic edge), we lookup the key
+-- |"/graph drawing/span priority reversed " .. edge.direction|. If set,
 -- we use this value.
 --
--- 4) Otherwise, we use priority 5.
+-- \item Otherwise, we use priority 5.
+-- \end{enumerate}
+--
+-- @return The priority of the arc, as described above.
+--
+function Arc:spanPriority()
+  if self.cached_span_priority then
+    return self.cached_span_priority
+  end
+  
+  local head = self.head
+  local tail = self.tail
+  local min
+  local g = self.syntactic_digraph
+  
+  local a = g:arc(tail,head)
+  if a then
+    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      local p =
+	m.options["/graph drawing/span priority"] or
+	Options.lookup("/graph drawing/span priority " .. m.direction, m, g)
 
-Arc.collector(
-  "span_priority",
-  function (array, arc)
-    local min 
-    local g = arc.syntactic_digraph
-    for _,e in ipairs(array) do
-      local p = e.options["/graph drawing/span priority"]
-      if not p then
-	if e.head == arc.head then
-	  p = Options.lookup("/graph drawing/span priority " .. e.direction, e, g)
-	else
-	  p = Options.lookup("/graph drawing/span priority reversed " .. e.direction, e, g)
-	end
-      end
       min = math.min(p or 5, min or math.huge)
     end
-    return min or 5
   end
-)
+
+  local a = head ~= tail and g:arc(head,tail)
+  if a then
+    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      local p =
+	m.options["/graph drawing/span priority"] or
+	Options.lookup("/graph drawing/span priority reversed " .. m.direction, m, g)
+      
+      min = math.min(p or 5, min or math.huge)
+    end
+  end
+  
+  self.cached_span_priority = min or 5
+  
+  return min or 5
+end
+
+
+
+
 
 
 ---
--- Installs a path distributor
+-- Sync an |Arc| with its syntactic edges. Currently, this means that
+-- if the |path| field of the arc is not empty, it will be copied to
+-- all syntactic edges underlying the arc. 
 --
 -- You use this method like this:
+--\begin{codeexample}[code only]
+--...
+--local arc = g:connect(s,t)
+--arc.path = { Coordinate.new(x,y), Coordinate.new(x1,y1) }
+--...
+--arc:sync()
+--\end{codeexample}
 --
--- ...
--- local path = {}
--- Arc.pathDistributor(path)
--- ...
--- local arc = g:connect(s,t)
--- arc.path = { Coordinate.new(x,y), Coordinate.new(x1,y1) }
--- ...
--- local arc = g:connect(s1,t2)
--- arc.path = { Coordinate.new(x,y), Coordinate.new(x1,y1) }
--- ...
--- Arc.done(path) -- Cause path fields to be set in edges
--- corresponding to the arcs.
+-- Note that this function will automatically be called for all arcs
+-- of the |ugraph|, the |digraph|, and the |spanning_tree| of an
+-- algorithm by the rendering pipeline.
 --
--- @param key Distributor key
-
-function Arc.pathDistributor(key)
-  Arc.distributor(
-    key,
-    function (array, path, arc)
-      for _,m in ipairs(array) do
+function Arc:sync()
+  if self.path then
+    local path = self.path
+    local head = self.head
+    local tail = self.tail
+    local a = self.syntactic_digraph:arc(tail,head)
+    if a then
+      for _,m in ipairs(a.storage.syntactic_edges or {}) do
 	local copy = {}
-	if m.head == arc.head then
-	  for i=1,#path do
-	    copy [i] = path[i]:clone()
-	  end
-	else
-	  for i=#path,1,-1 do
-	    copy [i] = path[i]:clone()
-	  end
+	for i=1,#path do
+	  copy [i] = path[i]:clone()
 	end
 	m.path = copy
       end
     end
-  )
+    local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
+    if a then
+      for _,m in ipairs(a.storage.syntactic_edges or {}) do
+	local copy = {}
+	for i=1,#path do
+	  copy [i] = path[i]:clone()
+	end
+	m.path = copy
+      end
+    end
+  end
 end
-
 
 
 

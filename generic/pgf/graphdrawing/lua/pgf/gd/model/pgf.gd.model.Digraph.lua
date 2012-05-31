@@ -49,8 +49,8 @@
 -- \item Deleting an arc takes time $O(t_o+h_i)$ where $t_o$ is the
 --   number of outgoing arcs at the arc's tail and $h_i$ is the number
 --   of incoming arcs at the arc's head. After a call to |disconnect|,
---   the next use of the |arcs| field will take time $\catcode`\|=12
---   O(|V| + |E|)$, while subsequent accesses take time $O(1)$ -- till the
+--   the next use of the |arcs| field will take time $O(|V| + |E|)$,
+--   while subsequent accesses take time $O(1)$ -- till the  
 --   next use of |disconnect|. This means that once you start deleting
 --   arcs using |disconnect|, you should perform as many additional
 --   |disconnect|s before accessing |arcs| one more.
@@ -172,7 +172,10 @@
 -- @field syntactic_digraph is a reference to the syntactic digraph
 --    from which this graph stems ultimately. This may be a cyclic
 --    reference to the graph itself.
--- @field storage is the storage. See the section on |Storage| objects. 
+-- @field storage is the storage. See the section on |Storage|
+-- objects. 
+-- @field options If present, it will be an |Options| object, storing
+-- the options set for the syntactic digraph.
 --
 local Digraph = {}
 
@@ -528,7 +531,7 @@ end
 
 
 --- 
--- Disconnect either a single vertex |V| from all its neighbors (remove all
+-- Disconnect either a single vertex |v| from all its neighbors (remove all
 -- incoming and outgoing arcs of this vertex) or, in case two nodes
 -- are given as parameter, remove the arc between them, if it exsits. 
 --
@@ -671,6 +674,17 @@ function Digraph:reconnect(arc, tail, head)
 end
 
 
+
+---
+-- Invokes the |sync| method for all arcs of the graph.
+--
+-- @see Arc:sync()
+--
+function Digraph:sync()
+  for _,a in ipairs(self.arcs) do
+    a:sync()
+  end
+end
 
 
 

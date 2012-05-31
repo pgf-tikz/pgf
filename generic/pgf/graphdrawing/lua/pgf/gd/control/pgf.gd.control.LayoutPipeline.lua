@@ -114,6 +114,13 @@ function LayoutPipeline.run(scope, algorithm_class)
       end
     end
 
+    -- Step 4.10: Sync the graphs
+    c:sync()
+    ugraph:sync()
+    if algorithm.spanning_tree then
+      algorithm.spanning_tree:sync()
+    end
+    
     -- Step 4.10: Orient the graph
     Orientation.orient(algorithm, algorithm.ugraph)
   end

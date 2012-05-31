@@ -41,11 +41,11 @@
 <%end%>
 <%if type(func.see) == "string" then %>
 \emph{See also:}
-	|<%=func.see%>|
+	\texttt{<%=func.see%>}
 <%elseif type(func.see) == "table" and #func.see > 0 then %>
 \emph{See also:}
-\begin{itemize}
-	<%for i = 1, #func.see do%>\item[] |<%=func.see[i]%>|<%end%>
-\end{itemize}
+\begin{parameterdescription}
+	<%for i = 1, #func.see do%>\item[\texttt{<%=func.see[i]%>}]<%end%>
+\end{parameterdescription}
 <%end%>
 \end{luacommand}

@@ -224,7 +224,7 @@ function Components:pack(syntactic_digraph, components)
     end
 
     for _,a in ipairs(c.arcs) do
-      for _,p in ipairs(a.point_cloud) do
+      for _,p in ipairs(a:pointCloud()) do
 	vertices [#vertices + 1] = Vertex.new { pos = p, kind = "dummy" }
       end
     end
