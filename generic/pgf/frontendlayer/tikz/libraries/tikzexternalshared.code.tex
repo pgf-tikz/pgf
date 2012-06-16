@@ -257,7 +257,13 @@
 	up to date check/.is choice,
 	up to date check/simple/.code={\def\tikzexternal@uptodate@mode{0}},
 	% md5 relies on \pdfmdfivesum of pdftex. It uses 'diff' as fallback if we do not have that command.
-	up to date check/md5/.code={\def\tikzexternal@uptodate@mode{1}},
+	up to date check/md5/.code={%
+		\pgfutil@ifundefined{pdfmdfivesum}{%
+			\pgfkeys{/tikz/external/up to date check=diff}%
+		}{%
+			\def\tikzexternal@uptodate@mode{1}%
+		}%
+	},
 	up to date check/diff/.code={\def\tikzexternal@uptodate@mode{2}},
 	up to date check=md5,
 }
@@ -1195,13 +1201,6 @@
 \long\def\tikzexternal@list@and@makefile@mode@picture@#1{%
 	%
 	\tikzexternal@check@uptodate@mode{#1}%
-	\if0\tikzexternal@uptodate@mode
-		% up to date check=simple
-	\else
-		% respect it in the makefile: changes to the hash key should
-		% result in a remake.
-		\tikzexternalwritetomakefile{\tikzexternal@curfilename\tikzexternalimgextension: \tikzexternal@curfilename\tikzexternal@check@uptodate@ext^^J}%
-	\fi
 	%
 	\gdef\pgf@filename{}%
 	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
@@ -1392,11 +1391,29 @@
 	% \meaning results in a string of catcode 12 - which is expandable.
 	\edef\pgfretval{\meaning\tikzexternal@temp}%
 }
-\pgfutil@ifundefined{pdfmdfivesum}{%
-	\let\tikzexternal@computemdfivesum=\tikzexternal@computemdfivesum@diff@fallback
-}{%
+
+% Will be set dynamically, depending on 'up to date check'.
+%
+% It expands to code such that \tikzexternallastkey contains the
+% serialized version of '#1'.
+%
+% It is used as argument for \write{..}
+%
+% #1 the hash key to serialize.
+% \def\tikzexternal@hashfct@serialize 
+\long\def\tikzexternal@hashfct@serialize@std#1{%
+	\noexpand\def\noexpand\tikzexternallastkey{#1}%
 }%
 
+% serializes using temporary token registers. Necessary if #1 contains
+% executable code.
+\long\def\tikzexternal@hashfct@serialize@tok#1{%
+	\noexpand\begingroup
+		% in order to allow '#' inside of the body, we have to use token registers:
+		\noexpand\toks0={#1}%
+		\noexpand\xdef\noexpand\tikzexternallastkey{\noexpand\the\noexpand\toks0 }%
+	\noexpand\endgroup
+}%
 
 \def\tikzexternal@check@uptodate@ext{.md5}
 
@@ -1406,11 +1423,14 @@
 		% up to date check=simple
 		% nothing to do -- file existance is checked anyway.
 		\let\tikzexternal@hashfct=\pgfutil@empty
+		\let\tikzexternal@hashfct@serialize=\pgfutil@empty
 	\or
 		% up to date check=md5
 		\let\tikzexternal@hashfct=\tikzexternal@computemdfivesum
+		\let\tikzexternal@hashfct@serialize=\tikzexternal@hashfct@serialize@std
 	\or
 		\let\tikzexternal@hashfct=\tikzexternal@computemdfivesum@diff@fallback
+		\let\tikzexternal@hashfct@serialize=\tikzexternal@hashfct@serialize@tok
 	\fi
 	\ifx\tikzexternal@hashfct\pgfutil@empty
 	\else
@@ -1446,13 +1466,7 @@
 		\else
 			\tikzexternal@file@isuptodatefalse
 			\immediate\openout\w@pgf@writea=\tikzexternal@curfilename\tikzexternal@check@uptodate@ext\relax%
-			\immediate\write\w@pgf@writea{%
-				\noexpand\begingroup
-					% in order to allow '#' inside of the body, we have to use token registers:
-					\noexpand\toks0={\tikzexternal@lastkey@new}%
-					\noexpand\xdef\noexpand\tikzexternallastkey{\noexpand\the\noexpand\toks0 }%
-				\noexpand\endgroup
-			}%
+			\immediate\write\w@pgf@writea{\tikzexternal@hashfct@serialize{\tikzexternal@lastkey@new}}%
 			\immediate\closeout\w@pgf@writea
 		\fi
 	\fi
