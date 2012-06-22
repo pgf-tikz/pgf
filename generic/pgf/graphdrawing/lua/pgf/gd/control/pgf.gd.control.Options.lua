@@ -13,14 +13,18 @@
 
 
 
---- The Options class
--- It handles table that store options (for vertices, graphs, etc.).
+---
+-- The |Options| class handles table that store options (for vertices, graphs, etc.). 
 --
 -- An option table can be accessed like a normal table; however, there
 -- is a global fallback for this table. If an index is not defined,
 -- the value of this index in the global fallback table is used. This
 -- reduces the overall amount of option keys that need to be stored
 -- with object.
+--
+-- @field defaults This table stores the global fallbacks.
+-- @field accumulates Stores options that accumulate. See the |add|
+-- method for details.
 
 local Options = {
   defaults = {},
@@ -101,26 +105,26 @@ end
 --
 -- This function iterates over all objects given as parameters. In
 -- each, it tries to find out whether the options field of the object
--- contains the option key given by the name parameter and, if so,
+-- contains the option |name| and, if so,
 -- returns the value. The important point is that checking whether the
 -- option table of an object contains the name field is done using
--- rawget for all but the last parameter. This means that when you
+-- |rawget| for all but the last parameter. This means that when you
 -- write
---
--- Opptions.lookup("/graph drawing/foo", vertex, graph)
---
--- and if "/graph drawin/foo" has an .parameter initial set, if the
+--\begin{codeexample}[code only]
+--Opptions.lookup("/graph drawing/foo", vertex, graph)
+--\end{codeexample}
+-- and if |/graph drawin/foo| has a |.parameter initial| set, if the
 -- parameter is not explicitly set in a vertex, you will get the value
 -- set for the graph or, if it is not set there either, the value from
--- the .parameter initial. In contrast, if you write
---
+-- the |.parameter initial|. In contrast, if you write
+--\begin{codeexample}[code only]
 -- vertex.options["/graph drawing/foo"] or graph.options["/graph drawing/foo"]
---
--- what happens is that the first access to .options will
--- \emph{always} return something when .parameter initial has been
--- set. So the above will return the .parameter initial value whenever
--- the option "/graph drawing/foo" is not set for a node, but is set
--- for the graph.
+--\end{codeexample}
+-- what happens is that the first access to |.options| will
+-- \emph{always} return something when |.parameter| |initial| has been
+-- set. So the above will return the |.parameter| |initial| value whenever
+-- the option |/graph drawing/foo| is not set for |vertex|, even
+-- though it is set for the |graph|.
 --
 -- @param name   The name of the options  
 -- @param ...    Any number of objects. Each must have an options
