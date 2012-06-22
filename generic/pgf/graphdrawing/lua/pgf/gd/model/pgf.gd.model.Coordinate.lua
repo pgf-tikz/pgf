@@ -10,8 +10,7 @@
 -- @release $Header$
 
 
---- The Coordinate class
---
+--- 
 -- A Coordinate models a position on the drawing canvas.
 --
 -- It has an |x| field and a |y| field, which are numbers that will be
@@ -48,9 +47,7 @@ end
 
 --- Creates a new coordinate that is a copy of an existing one.
 --
--- @param c A coordinate
---
--- @return A new coordinate at the same location as self
+-- @return A new coordinate at the same location as |self|
 --
 function Coordinate:clone()
   local new = { x = self.x, y = self.y }
@@ -60,20 +57,21 @@ end
 
 
 
---- Apply a transformation matrix to a coordinate
+--- Apply a transformation matrix to a coordinate,
+-- see |pgf.gd.lib.Transform| for details.
 --
--- @param m The matrix
+-- @param t A tansformation
 
-function Coordinate:apply(m)
+function Coordinate:apply(t)
   local x = self.x
   local y = self.y
-  self.x = m[1]*x + m[2]*y + m[5]
-  self.y = m[3]*x + m[4]*y + m[6]
+  self.x = t[1]*x + t[2]*y + t[5]
+  self.y = t[3]*x + t[4]*y + t[6]
 end
 
 
 
---- Shift a coordinate by another coordinate or by an x and a y value.
+--- Shift a coordinate
 --
 -- @param a An $x$ offset
 -- @param b A $y$ offset 

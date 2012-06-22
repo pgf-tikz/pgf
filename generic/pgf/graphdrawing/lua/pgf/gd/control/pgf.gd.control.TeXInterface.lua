@@ -35,8 +35,7 @@ local Digraph    = require "pgf.gd.model.Digraph"
 local Coordinate = require "pgf.gd.model.Coordinate"
 
 local Storage    = require "pgf.gd.lib.Storage"
-
-
+local Event      = require "pgf.gd.lib.Event"
 
 
 
@@ -61,7 +60,6 @@ function TeXInterface.beginGraphDrawingScope(options)
     syntactic_digraph = Digraph.new { options = Options.new(options), syntactic_digraph = "self" },
     events            = {},
     node_names        = {},
-    clusters          = {},
     storage           = Storage.new(),
   }
   
@@ -153,7 +151,7 @@ function TeXInterface.addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max
   scope.node_names[name] = v
 
   -- Register event
-  scope.events[#scope.events + 1] = { 
+  scope.events[#scope.events + 1] = Event.new { 
     kind = 'node', 
     parameters = v
   }
@@ -175,10 +173,7 @@ function TeXInterface.setLateNodeOptions(name, options)
   local scope = TeXInterface.topScope()
   local node = assert(scope.node_names[name], "node is missing, cannot set late options")
   
-  for k,v in pairs(options) do
-    node.options [k] = v
-  end
-  
+  Options.add(node.options, options)  
 end
 
 
@@ -263,7 +258,7 @@ function TeXInterface.addPgfEdge(from, to, direction, options, pgf_options, pgf_
   arc.storage.syntactic_edges = arc.storage.syntactic_edges or {}
   arc.storage.syntactic_edges[#arc.storage.syntactic_edges+1] = edge
 
-  scope.events[#scope.events + 1] = { kind = 'edge', parameters = { arc, #arc.storage.syntactic_edges } }
+  scope.events[#scope.events + 1] = Event.new { kind = 'edge', parameters = { arc, #arc.storage.syntactic_edges } }
 end
 
 
@@ -277,41 +272,9 @@ end
 function TeXInterface.addEvent(kind, param)
   local scope = TeXInterface.topScope()
   
-  scope.events[#scope.events + 1] = { kind = kind, parameters = param}
+  scope.events[#scope.events + 1] = Event.new { kind = kind, parameters = param}
 end
 
-
-
-
---- Adds a node to a cluster
---
--- Conceptually, a cluster is a digraph whose node set is a subset of
--- the nodes of the scope's main graph. However, in most cases a
--- cluster will just be a discrete graph (contain no arcs) and, thus,
--- just identifies a set of arcs.
---
--- @param node_name    Name of a node.
--- @param cluster_name Name of a cluster.
---
-
-function TeXInterface.addNodeToCluster(node_name, cluster_name)
-  assert (type(cluster_name) == "string" and cluster_name ~= "", "illegal cluster name")
-  local scope = TeXInterface.topScope()
-  local clusters = scope.clusters
-  
-  local cluster = clusters[cluster_name]
-  local v = assert(scope.node_names[node_name], "node not found")
-
-  if not cluster then
-    cluster = Digraph.new{
-      options = Options.new{},
-      syntactic_digraph = scope.syntactic_digraph
-    }
-    clusters[cluster_name] = cluster
-  end
-
-  cluster:add {v}
-end
 
 
 
@@ -465,12 +428,23 @@ end
 -- @param key The commplete path of the to-be-defined key
 -- @param value A string containing the value
 --
-function TeXInterface.setGraphParameterDefault(key,value)
+function TeXInterface.setParameterDefault(key,value)
   assert (not Options.defaults[key], "you may not set a parameter default twice")
   Options.defaults[key] = value
 end
 
 
+---
+-- Specifies, that a given parameter accumulates. This means that when
+-- the same option is used several times, the value of the option is
+-- not overwritten each time, but, rather, the new values are added to
+-- the table that is stored in the option.
+--
+-- @param key The commplete path of the to-be-defined key
+--
+function TeXInterface.setParameterAccumulates(key)
+  Options.accumulates[key] = true
+end
 
 
 

@@ -10,14 +10,14 @@
 -- @release $Header$
 
 
---- The Transform class
+---
+-- The |Transform| table provides a set of static methods for
+-- creating and handling canvas transformation matrices. Such a matrix
+-- is actually just an array of six numbers. The idea is that
+-- ``applying'' an array { a, b, c, d, e, f } a vector $(x,y)$ will
+-- yield the new vector $(ax+by+e,cx+dy+f)$. For details on how such
+-- matrices work, see Section~\ref{section-transform-cm}
 --
--- A Transform models a position on the drawing canvas.
---
--- It has an x field and a y field, which are numbers that will be
--- interpreted as TeX points (1/72.27th of an inch). The x-axis goes
--- right and the y-axis goes up.
-
 local Transform = {}
 
 
@@ -26,7 +26,7 @@ local Transform = {}
 require("pgf.gd.model").Transform = Transform
 
 
---- Creates a new general transformation object.
+--- Creates a new transformation array.
 --
 -- @param a First component
 -- @param b Second component
@@ -69,8 +69,8 @@ end
 
 --- Creates a new transformation object that represents a scaling. 
 --
--- @param x The x scaling
--- @param y The y scaling (if missing, the x scaling is used)
+-- @param x The horizontal scaling
+-- @param y The vertical scaling (if missing, the horizontal scaling is used)
 --
 -- @return A transformation object
 --
@@ -81,12 +81,14 @@ end
 
 
 
---- Concatenate two transformation matrices, returning the new one.
+---
+-- Concatenate two transformation matrices, returning the new one.
 --
--- @param a The first matrix
--- @param b The second matrix
+-- @param a The first transformation
+-- @param b The second transformation
 --
--- @return The concatenated matrix a * b
+-- @return The transformation representing first applying |b| and then
+-- applying |a|.
 --
 function Transform.concat(a,b)
   local a1, a2, a3, a4, a5, a6, b1, b2, b3, b4, b5, b6 =

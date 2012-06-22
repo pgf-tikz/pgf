@@ -25,14 +25,14 @@ require("pgf.gd.layered").Sugiyama = Sugiyama
 
 -- Imports
 
-local lib     = require "pgf.gd.lib"
-
 local Ranking = require "pgf.gd.layered.Ranking"
 
 local Edge    = require "pgf.gd.model.Edge"
 local Node    = require "pgf.gd.model.Node"
 
-
+local Iterators   = require "pgf.gd.lib.Iterators"
+local Simplifiers = require "pgf.gd.lib.Simplifiers"
+local Vector      = require "pgf.gd.lib.Vector"
 
 
 function Sugiyama:run()
@@ -65,20 +65,20 @@ function Sugiyama:run()
 
   self:mergeClusters()
   
-  lib.Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
-  lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
+  Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
+  Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
 
   require(cycle_removal_algorithm).new(self, self.graph):run()
   self.ranking = require(node_ranking_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 
-  lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
-  lib.Simplifiers:restoreLoopsOldModel(cluster_subalgorithm)
+  Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
+  Simplifiers:restoreLoopsOldModel(cluster_subalgorithm)
 
   self:expandClusters()
   
   -- Now do actual computation
-  lib.Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
+  Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
   require(cycle_removal_algorithm).new(self, self.graph):run()
   self:insertDummyNodes()
   
@@ -88,7 +88,7 @@ function Sugiyama:run()
   
   -- Cleanup
   self:removeDummyNodes()
-  lib.Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
+  Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
   require(edge_routing_algorithm).new(self, self.graph):run()
   self:restoreCycles()
 end
@@ -119,7 +119,7 @@ function Sugiyama:insertDummyNodes()
   -- keep track of dummy nodes introduced
   self.dummy_nodes = {}
 
-  for node in lib.Iterators:topologicallySorted(self.graph) do
+  for node in Iterators.topologicallySorted(self.graph) do
     local in_edges = node:getIncomingEdges()
 
     for edge in table.value_iter (in_edges) do
@@ -133,7 +133,7 @@ function Sugiyama:insertDummyNodes()
           local rank = self.ranking:getRank(neighbour) + i
 
           local dummy = Node.new{
-            pos = lib.Vector.new(),
+            pos = Vector.new(),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
 	    kind = "dummy",
 	    orig_vertex = pgf.gd.model.Vertex.new{}

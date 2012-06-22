@@ -19,8 +19,7 @@ local Components = {}
 
 
 -- Namespace
-local lib     = require "pgf.gd.lib"
-lib.Components = Components
+require("pgf.gd.lib").Components = Components
 
 -- Imports
 

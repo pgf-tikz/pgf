@@ -29,12 +29,19 @@ local Components  = require "pgf.gd.lib.Components"
 local Direct      = require "pgf.gd.lib.Direct"
 local Orientation = require "pgf.gd.lib.Orientation"
 local Storage     = require "pgf.gd.lib.Storage"
+local Simplifiers = require "pgf.gd.lib.Simplifiers"
 
 local Vertex     = require "pgf.gd.model.Vertex"
 local Digraph    = require "pgf.gd.model.Digraph"
 local Coordinate = require "pgf.gd.model.Coordinate"
 
 local Options    = require "pgf.gd.control.Options"
+
+
+-- Forward definitions
+
+local prepare_events
+local compute_clusters
 
 
 
@@ -48,10 +55,15 @@ function LayoutPipeline.run(scope, algorithm_class)
   local digraph = Direct.digraphFromSyntacticDigraph(syntactic_digraph)
   
   -- The pipeline...
-
-  -- Step 1: Prepare events
-  LayoutPipeline.prepareEvents(scope.events)
-
+  
+  -- Step 1: Preparations
+  
+  -- Step 1.1: Prepare events
+  prepare_events(scope.events)
+  
+  -- Step 1.2: Compute clusters
+  scope.clusters = compute_clusters(syntactic_digraph)
+  
   -- Step 2: Compute anchor nodes (relevant for rotated hull computations)
   Anchoring:computeAnchorNode(scope.syntactic_digraph)
   
@@ -162,27 +174,76 @@ end
     
 
 
---- Store for each begin/end event the index of
+--
+-- Store for each begin/end event the index of
 -- its corresponding end/begin event
 --
 -- @param events An event list
 
-function LayoutPipeline.prepareEvents(events)
+prepare_events =
+  function (events)
+    local stack = {}
 
-  local stack = {}
-
-  for i=1,#events do
-    if events[i].kind == "begin" then
-      stack[#stack + 1] = i
-    elseif events[i].kind == "end" then
-      local tos = stack[#stack]
-      stack[#stack] = nil -- pop
-
-      events[tos].end_index = i
-      events[i].begin_index = tos
+    for i=1,#events do
+      if events[i].kind == "begin" then
+	stack[#stack + 1] = i
+      elseif events[i].kind == "end" then
+	local tos = stack[#stack]
+	stack[#stack] = nil -- pop
+	
+	events[tos].end_index = i
+	events[i].begin_index = tos
+      end
     end
   end
-end
+
+
+--
+-- Compute the clusters
+--
+-- @param syntactic_digraph The syntactic digraph
+-- @return A clusters array. Each element of this array is a table
+-- having the fields |name|, |vertices| (an array of vertex objects),
+-- and |edges| (an array of edge tables).
+
+compute_clusters =
+  function (syntactic_digraph)
+    local cluster_table = {}
+
+    for _,v in ipairs(syntactic_digraph.vertices) do
+      for _,name in ipairs(v.options['/graph drawing/cluster table'] or {}) do
+	local t = cluster_table[name] 
+	if not t then
+	  t = { name = name, vertices = {}, edges = {} }
+	  cluster_table[name]               = t
+	  cluster_table[#cluster_table + 1] = t
+	end
+	if not t.vertices[v] then
+	  t.vertices[#t.vertices+1] = v
+	  t.vertices[v] = true
+	end
+      end
+    end
+
+    for _,a in ipairs(syntactic_digraph.arcs) do
+      for _,e in ipairs(a.syntactic_edges or {}) do
+	for _,name in ipairs(e.options['/graph drawing/cluster table'] or {}) do
+	  local t = cluster_table[name] 
+	  if not t then
+	    t = { name = name, vertices = {}, edges = {} }
+	    cluster_table[name]               = t
+	    cluster_table[#cluster_table + 1] = t
+	  end
+	  if not t.edges[e] then
+	    t.edges[#t.edges+1] = e
+	    t.edges[e] = true
+	  end
+	end
+      end
+    end
+
+    return cluster_table
+  end
 
 
 
@@ -411,8 +472,8 @@ local function compatibility_digraph_to_graph(scope, g)
   end
   
   -- Clusters
-  for name, c in pairs (scope.clusters) do
-    cluster = Cluster.new(name)
+  for _, c in ipairs(scope.clusters) do
+    cluster = Cluster.new(c.name)
     graph:addCluster(cluster)
     for _,v in ipairs(c.vertices) do
       if g:contains(v) then
@@ -450,12 +511,12 @@ function LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algori
     
   -- If requested, remove loops
   if algorithm_class.works_only_for_loop_free_graphs then
-    lib.Simplifiers:removeLoopsOldModel(algorithm)
+    Simplifiers:removeLoopsOldModel(algorithm)
   end
     
   -- If requested, collapse multiedges
   if algorithm_class.works_only_for_simple_graphs then
-    lib.Simplifiers:collapseMultiedgesOldModel(algorithm)
+    Simplifiers:collapseMultiedgesOldModel(algorithm)
   end
 
   -- Compute anchor_node
@@ -468,12 +529,12 @@ function LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algori
   
   -- If requested, expand multiedges
   if algorithm_class.works_only_for_simple_graphs then
-    lib.Simplifiers:expandMultiedgesOldModel(algorithm)
+    Simplifiers:expandMultiedgesOldModel(algorithm)
   end
   
   -- If requested, restore loops
   if algorithm_class.works_only_for_loop_free_graphs then
-    lib.Simplifiers:restoreLoopsOldModel(algorithm)
+    Simplifiers:restoreLoopsOldModel(algorithm)
   end
   
   compatibility_graph_to_digraph(graph)

@@ -24,7 +24,7 @@ require("pgf.gd.layered").NodeRankingMinimumHeight = NodeRankingMinimumHeight
 -- Imports
 
 local Ranking = require "pgf.gd.layered.Ranking"
-
+local Iterators = require "pgf.gd.lib.Iterators"
 
 
 function NodeRankingMinimumHeight.new(main_algorithm, graph)
@@ -41,7 +41,7 @@ end
 function NodeRankingMinimumHeight:run()
   local ranking = Ranking.new()
 
-  for node in lib.Iterators:topologicallySorted(self.graph) do
+  for node in Iterators.topologicallySorted(self.graph) do
     local edges = node:getIncomingEdges()
 
     if #edges == 0 then

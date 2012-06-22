@@ -59,7 +59,7 @@ local Options = require "pgf.gd.control.Options"
 
 
 ---
--- Get an options of the syntactic edges corresponding to an arc.
+-- Get an array of options of the syntactic edges corresponding to an arc.
 --
 -- An arc in a digraph is typically (but not always) present because
 -- there are one or more edges in the syntactic digraph between the

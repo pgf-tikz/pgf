@@ -20,8 +20,10 @@ local DepthFirstSearch = {}
 DepthFirstSearch.__index = DepthFirstSearch
 
 -- Namespace
-local lib     = require "pgf.gd.lib"
-lib.DepthFirstSearch = DepthFirstSearch
+require("pgf.gd.lib").DepthFirstSearch = DepthFirstSearch
+
+-- Imports
+local Stack = require "pgf.gd.lib.Stack"
 
 
 
@@ -33,7 +35,7 @@ function DepthFirstSearch.new(init_func, visit_func, complete_func)
     visit_func = visit_func,
     complete_func = complete_func,
 
-    stack = lib.Stack.new(),
+    stack = Stack.new(),
     discovered = {},
     visited = {},
     completed = {},
@@ -71,7 +73,7 @@ function DepthFirstSearch:reset()
   self.discovered = {}
   self.visited = {}
   self.completed = {}
-  self.stack = lib.Stack.new()
+  self.stack = Stack.new()
 end
 
 

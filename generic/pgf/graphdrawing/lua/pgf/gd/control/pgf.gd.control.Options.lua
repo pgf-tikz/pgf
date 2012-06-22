@@ -23,7 +23,8 @@
 -- with object.
 
 local Options = {
-  defaults = {}
+  defaults = {},
+  accumulates = {}
 }
 Options.defaults.__index = Options.defaults
 
@@ -43,17 +44,53 @@ require("pgf.gd.control").Options = Options
 -- option table gets this latter table attached as its meta table,
 -- causing all lookups for unknown options to go there.
 --
--- @param t A table
+-- @param t A table in the syntax described in the |add| method.
 --
 -- @return A copy of t with a new meta table
 
 function Options.new(t)
   local new = {}
-  for k,v in pairs(t) do
-    new[k]=v
-  end
+  Options.add(new,t)
   setmetatable(new, Options.defaults)
   return new  
+end
+
+
+---
+-- Add some options to an existing options table |t|.
+--
+-- The to-be-added options must be provided as an array. In this
+-- array, each entry must have two fields set: |key|, which must store
+-- the option's name, and |value|, which must store a value. If the
+-- value is |nil|, the option will be cleared (this is true even for
+-- accumulating keys, so use this to clear an accumulating key).
+--
+-- If an option with the name stored in |key| exists in |t|, it will
+-- normally be overwritten with the |value|. However, if |key| is a
+-- string in the |Options.accumulates| table, then the |value| will be
+-- added at the end to the table stored in |t| for the field |key|.
+--
+-- @param t An options table
+-- @param new_options An array of additional options in the form
+-- described above.
+
+function Options.add(t,new_options)
+  local accumulates = Options.accumulates
+  for _,p in ipairs(new_options) do
+    local k = p.key
+    local v = p.value
+    if v == nil then
+      t[k] = nil
+    else
+      if accumulates[k] then
+	local array = t[k] or {}
+	array[#array+1] = v
+	t[k] = array
+      else
+	t[k] = v
+      end
+    end
+  end
 end
 
 

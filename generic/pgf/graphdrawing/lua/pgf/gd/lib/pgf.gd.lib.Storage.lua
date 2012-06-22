@@ -25,7 +25,7 @@
 -- algorithm for a graph. This algorithm might wish to mark all nodes
 -- it has visisted. It could just say |v.marked = true|, but this might
 -- clash with someone else also using the |marked| key. The solution is
--- to use the fact that all keys have a storage attached to them. The
+-- to use the fact that all vertices have a storage attached to them. The
 -- algorithm can first say
 --\begin{codeexample}[code only]
 --local mark = {}

@@ -12,44 +12,45 @@
 
 
 
---- The PathLengths class is a singleton object.
---
--- It implements algorithms for computing distances between nodes of a graph 
--- (in the sense of path lengths).
+---
+-- This table provides algorithms for computing distances between
+-- nodes of a graph (in the sense of path lengths).
 
 local PathLengths = {}
 
 -- Namespace
-local lib     = require "pgf.gd.lib"
-lib.PathLengths = PathLengths
+require("pgf.gd.lib").PathLengths = PathLengths
+
+-- Import
+local PriorityQueue = require "pgf.gd.lib.PriorityQueue"
 
 
 
-
---- Performs the Dijkstra algorithm to solve the single-source shortes path problem.
+---
+-- Performs the Dijkstra algorithm to solve the single-source shortes path problem.
 --
--- The algorithm computes the shortest paths from \meta{source} to all nodes 
+-- The algorithm computes the shortest paths from |source| to all nodes 
 -- in the graph. It also generates a table with distance level sets, each of 
--- which  contain all nodes that have the same corresponding distance to 
--- \meta{source}. Finally, a mapping of nodes to their parents along the
+-- which contain all nodes that have the same corresponding distance to 
+-- |source|. Finally, a mapping of nodes to their parents along the
 -- shortest paths is generated to allow the reconstruction of the paths
 -- that were chosen by the Dijkstra algorithm.
 --
 -- @param graph  The graph to compute the shortest paths for.
 -- @param source The node to compute the distances to.
 --
--- @return A mapping of nodes to their distance to \meta{source}. 
+-- @return A mapping of nodes to their distance to |source|. 
 -- @return An array of distance level sets. The set at index |i| contains
---         all nodes that have a distance of |i| to \meta{source}.
+--         all nodes that have a distance of |i| to |source|.
 -- @return A mapping of nodes to their parents to allow the reconstruction
 --         of the shortest paths chosen by the Dijkstra algorithm.
-
-function PathLengths:dijkstra(graph, source)
+--
+function PathLengths.dijkstra(graph, source)
   local distance = {}
   local levels = {}
   local parent = {}
 
-  local queue = lib.PriorityQueue.new()
+  local queue = PriorityQueue.new()
 
   -- reset the distance of all nodes and insert them into the priority queue
   for node in table.value_iter(graph.nodes) do
@@ -93,13 +94,14 @@ end
 
 
 
---- Performs the Floyd-Warshall algorithm to solve the all-source shortes path problem. 
+---
+-- Performs the Floyd-Warshall algorithm to solve the all-source shortes path problem. 
 --
 -- @param graph  The graph to compute the shortest paths for.
 --
 -- @return A distance matrix
-
-function PathLengths:floydWarshall(graph)
+--
+function PathLengths.floydWarshall(graph)
   local distance = {}
   local infinity = math.huge
 
@@ -131,7 +133,8 @@ end
 
 
 
---- Computes the pseudo diameter of a graph.
+---
+-- Computes the pseudo diameter of a graph.
 --
 -- The diameter of a graph is the maximum of the shortest paths between
 -- any pair of nodes in the graph. A pseudo diameter is an approximation
@@ -149,7 +152,7 @@ end
 --         shortest path.
 -- @return The end node of that path.
 --
-function PathLengths:pseudoDiameter(graph)
+function PathLengths.pseudoDiameter(graph)
 
   -- find a node with minimum degree
   local start_node = table.combine_values(graph.nodes, function (min, node)
@@ -167,7 +170,7 @@ function PathLengths:pseudoDiameter(graph)
   local end_node = nil
 
   while true do
-    local distance, levels = lib.PathLengths:dijkstra(graph, start_node)
+    local distance, levels = PathLengths.dijkstra(graph, start_node)
 
     -- the number of levels is the same as the distance of the nodes
     -- in the last level to the start node

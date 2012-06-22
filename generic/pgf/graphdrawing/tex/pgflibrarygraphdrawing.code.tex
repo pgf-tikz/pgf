@@ -42,7 +42,7 @@
 %
 \directlua{
   require 'pgf'                          % Setup the main pgf table
-  require 'pgf.gd.lib.preload'           % Now preload the standrad libs
+  require 'pgf.gd.lib.cleanupthisstuff'  % Need to get rid of this ASAP!
   require 'pgf.gd.control.TeXInterface'  % Now load the main communication class
 }
 
@@ -220,13 +220,13 @@
 % drawing algorithms, see the documentation of the lua layer.
 
 \def\pgfgdgraphparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/graph parameters}{}{['\luaescapestring{#1}']=#2,}%
+  \pgfkeysaddvalue{/graph drawing/graph parameters}{}{{key='\luaescapestring{#1}',value=#2},}%
 }
 \def\pgfgdnodeparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/node parameters}{}{['\luaescapestring{#1}']=#2,}%
+  \pgfkeysaddvalue{/graph drawing/node parameters}{}{{key='\luaescapestring{#1}',value=#2},}%
 }
 \def\pgfgdedgeparameter#1#2{%
-  \pgfkeysaddvalue{/graph drawing/edge parameters}{}{['\luaescapestring{#1}']=#2,}%
+  \pgfkeysaddvalue{/graph drawing/edge parameters}{}{{key='\luaescapestring{#1}',value=#2},}%
 }
 
 \pgfgdset{
@@ -322,6 +322,17 @@
 \def\pgf@gd@@@parameter#1#2#3{#2{#3}{#1}}
 
 
+% Key handler /.accumulates
+% 
+% When this handler is used with a key, it tells the engine that the
+% parameter is "accumulating". This means that when the key is set
+% several times, new values do not overwrite previous values. Rather,
+% they are added to a table storing all values given to this key in
+% the previous usages.
+
+\pgfkeys{
+  /handlers/.accumulates/.code=\directlua{pgf.gd.control.TeXInterface.setParameterAccumulates('\luaescapestring{\pgfkeyscurrentpath}')}
+}
 
 
 
@@ -365,7 +376,7 @@
 }
 
 \def\pgf@gd@steal#1#2{%
-  \directlua{pgf.gd.control.TeXInterface.setGraphParameterDefault('\luaescapestring{#1}',#2)}%
+  \directlua{pgf.gd.control.TeXInterface.setParameterDefault('\luaescapestring{#1}',#2)}%
 }
 
 
@@ -1401,28 +1412,33 @@
 
 
 
+% Clusters
+% 
+% The cluster key allows you to specify that a node or an edge belongs
+% to a cluster. Using this key multiple times will cause a node to
+% become part of multiple clusters. Using the key without a value will
+% cause a unique cluster to be created.
+% 
+% On the Lua layer, clusters will be automatically "separated",
+% meaning that all nodes and edges belonging to the same cluster will
+% be collected in a table.
 
-% Add a node to a node cluster.
-%
-% #1 = name of the cluster.
-% #2 = name of the node to add.
-%
-% Description:
-%
-% This adds the node #2 to the cluster with the name #1.
-%
-% Clusters can be used to group nodes logically and, depending on the
-% type of drawing, influence the behavior of certain graph drawing 
-% algorithms. A layered drawing algorithm, for instance, could place
-% nodes in a cluster with the name "minimum layer" at the minimum 
-% layer in the final drawing.
+\pgfgddeclareforwardedkeys{/graph drawing}{cluster/.code=}
+\pgfkeys{/graph drawing/cluster/.append code=\pgf@gd@handle@cluster{#1}}
 
-\def\pgfgdaddnodetocluster#1#2{
-  \directlua{pgf.gd.control.TeXInterface.addNodeToCluster('\luaescapestring{#2}', '\luaescapestring{#1}')}
+\newcount\pgf@gd@clustercount
+
+\def\pgf@gd@handle@cluster#1{%
+  \def\pgf@gd@cluster@name{#1}%
+  \ifx\pgf@gd@cluster@name\pgfkeysnovalue@text%
+    \edef\pgf@gd@cluster@name{clusterPGFINTERNAL\the\pgf@gd@clustercount}%
+    \global\advance\pgf@gd@clustercount by 1\relax
+  \fi%
+  \pgfgdnodeparameter{/graph drawing/cluster table}{'\luaescapestring{\pgf@gd@cluster@name}'}%
+  \pgfgdedgeparameter{/graph drawing/cluster table}{'\luaescapestring{\pgf@gd@cluster@name}'}%
 }
 
-
-
+\pgfgdset{cluster table/.accumulates}
 
 
 %

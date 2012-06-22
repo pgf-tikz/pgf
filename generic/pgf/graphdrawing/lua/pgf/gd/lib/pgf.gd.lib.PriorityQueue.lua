@@ -12,10 +12,10 @@
 
 
 
---- A PriorityQueue supports operations for quickly finding the minimum from a set of elements
+---
+-- A PriorityQueue supports operations for quickly finding the minimum from a set of elements
 --
--- Its implementation is based on Fibonacci heaps.
-
+-- Its implementation is based on (simplified) Fibonacci heaps.
 local PriorityQueue = {}
 PriorityQueue.__index = PriorityQueue
 

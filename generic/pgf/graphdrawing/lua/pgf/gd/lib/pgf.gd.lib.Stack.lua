@@ -20,14 +20,13 @@ Stack.__index = Stack
 
 
 -- Namespace
-local lib = require "pgf.gd.lib"
-lib.Stack = Stack
+require("pgf.gd.lib").Stack = Stack
 
 
 --- Create a new stack
 function Stack.new()
   local stack = {}
-  setmetatable(stack, lib.Stack)
+  setmetatable(stack, Stack)
   return stack
 end
 
@@ -59,4 +58,4 @@ end
 
 -- done
 
-return lib.Stack
+return Stack

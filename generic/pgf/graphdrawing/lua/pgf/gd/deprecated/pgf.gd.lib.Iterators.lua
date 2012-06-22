@@ -19,8 +19,7 @@
 local Iterators = {}
 
 -- Namespace
-local lib     = require "pgf.gd.lib"
-lib.Iterators = Iterators
+require("pgf.gd.lib").Iterators = Iterators
 
 
 
@@ -39,7 +38,7 @@ lib.Iterators = Iterators
 --
 -- @return An iterator for traversing \meta{graph} in a topological order.
 --
-function Iterators:topologicallySorted(dag)
+function Iterators.topologicallySorted(dag)
   -- track visited edges 
   local deleted_edges = {}
 
