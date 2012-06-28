@@ -41,7 +41,7 @@ local Options    = require "pgf.gd.control.Options"
 -- Forward definitions
 
 local prepare_events
-local compute_clusters
+local compute_collections
 
 
 
@@ -61,8 +61,8 @@ function LayoutPipeline.run(scope, algorithm_class)
   -- Step 1.1: Prepare events
   prepare_events(scope.events)
   
-  -- Step 1.2: Compute clusters
-  scope.clusters = compute_clusters(syntactic_digraph)
+  -- Step 1.2: Compute collections
+  scope.collections = compute_collections(syntactic_digraph)
   
   -- Step 2: Compute anchor nodes (relevant for rotated hull computations)
   Anchoring:computeAnchorNode(scope.syntactic_digraph)
@@ -169,7 +169,6 @@ function LayoutPipeline.run(scope, algorithm_class)
   for _,c in ipairs(anchored) do
     Anchoring:anchor(c)
   end
-
 end
     
 
@@ -199,82 +198,79 @@ prepare_events =
 
 
 --
--- Compute the clusters
+-- Compute the collections
 --
 -- @param syntactic_digraph The syntactic digraph
--- @return A clusters array. Each element of this array is a table
--- having the fields |name|, |vertices| (an array of vertex objects),
--- and |edges| (an array of edge tables).
+-- @return A table of collection arrays. For each collection kind, there
+-- will be one entry in this table, which will be an array. Each
+-- element of this array will bea table having the fields |name|,
+-- |vertices| (an array of vertex objects), and |edges| (an array of
+-- edges). 
 
-compute_clusters =
+compute_collections =
   function (syntactic_digraph)
-    local cluster_table = {}
+    local collection_table = {}
 
     for _,v in ipairs(syntactic_digraph.vertices) do
-      for _,name in ipairs(v.options['/graph drawing/cluster table'] or {}) do
-	local t = cluster_table[name] 
+      for _,entry in ipairs(v.options['/graph drawing/collection memberships'] or {}) do
+	local kind, name = entry.kind, entry.name
+	local lookup = collection_table[kind] or {}
+	local t = lookup[name] 
 	if not t then
 	  t = { name = name, vertices = {}, edges = {} }
-	  cluster_table[name]               = t
-	  cluster_table[#cluster_table + 1] = t
+	  lookup[name]        = t
+	  lookup[#lookup + 1] = t
 	end
 	if not t.vertices[v] then
 	  t.vertices[#t.vertices+1] = v
 	  t.vertices[v] = true
 	end
+	collection_table[kind] = lookup
       end
     end
 
     for _,a in ipairs(syntactic_digraph.arcs) do
       for _,e in ipairs(a.syntactic_edges or {}) do
-	for _,name in ipairs(e.options['/graph drawing/cluster table'] or {}) do
-	  local t = cluster_table[name] 
+	for _,entry in ipairs(e.options['/graph drawing/collection memberships'] or {}) do
+	  local kind, name = entry.kind, entry.name
+	  local lookup = collection_table[kind] or {}
+	  local t = lookup[name] 
 	  if not t then
 	    t = { name = name, vertices = {}, edges = {} }
-	    cluster_table[name]               = t
-	    cluster_table[#cluster_table + 1] = t
+	    lookup[name]        = t
+	    lookup[#lookup + 1] = t
 	  end
 	  if not t.edges[e] then
 	    t.edges[#t.edges+1] = e
 	    t.edges[e] = true
 	  end
+	  collection_table[kind] = lookup
 	end
       end
     end
 
-    return cluster_table
+    return collection_table
   end
 
 
 
 
-local unique_count = 1
-
 ---
--- Generate a new vertex in the syntactic digraph.
+-- Generate a new vertex in the syntactic digraph. Calling this method
+-- allows algorithms to create nodes that are not present in the
+-- original input graph.
 --
--- This function can be used to add a vertex to a syntactic
--- digraph. Unlike the nodes added using addPgfNode, the 
--- vertex created using this function was not present in the original
--- graph. For such vertex, there is no corresponding (pgf) node in the
--- original graph; during the shipout process such a node is newly
--- created on the pgf layer. 
+-- In order to create the node, control is temporarily passed back
+-- from the Lua layer to the \TeX\ layer through the use of coroutines.
 --
 -- @param algorithm An algorithm for whose syntactic digraph the node should be added 
--- @param init  A table of initial values for the node.
---
--- The following keys are useful for init:
---
--- @param init.pos If present, an initial position of the key
+-- @param init  A table of initial values for the node. The following
+-- fields will be used:
 -- @param init.name If present, this name will be given to the
--- node. If not present, an iternal name is generated.
+-- node. If not present, an iternal name is generated. Note that this
+-- name may not be the name of an already present node of the graph;
+-- in this case an error results.
 -- @param init.shape If present, a shape of the node.
--- @param init.hull If present, a convex hull of the node. If not
--- present, this will be initialized with a single coordinate at the
--- origin. 
--- @param init.hull_center If present, the center of the convex hull
--- given in the previous key.
--- @param init.option If present, some options for the node.
 -- @param init.generated_options A table that is passed back to the
 -- higher (pgf) layer as a list of key-value pairs.
 -- @param init.text The text of the node, to be passed back to the
@@ -283,28 +279,8 @@ local unique_count = 1
 -- @return The newly created node
 
 function LayoutPipeline.generateNode(algorithm, init)
-
-  -- Create new node
-  init.kind = init.kind or "node"
-
-  local v = Vertex.new (init)
   
-  if not v.name then
-    v.name = "pgf@gd@node@" .. unique_count;
-    unique_count = unique_count + 1
-  end
-  
-  if v.shape == "none" then
-    v.shape = "rectangle"
-  end
-
-  v.options = Options.new(v.options)
-  v.event_index = #algorithm.scope.events + 1
-
-  algorithm.scope.events[#algorithm.scope.events + 1] = { 
-    kind = 'node', 
-    parameters = v
-  }
+  local v = algorithm.scope.interface.generateNode(init)
 
   -- Add node to graph
   algorithm.scope.syntactic_digraph:add {v}  
@@ -472,7 +448,7 @@ local function compatibility_digraph_to_graph(scope, g)
   end
   
   -- Clusters
-  for _, c in ipairs(scope.clusters) do
+  for _, c in ipairs(scope.collections['same rank'] or {}) do
     cluster = Cluster.new(c.name)
     graph:addCluster(cluster)
     for _,v in ipairs(c.vertices) do

@@ -21,6 +21,7 @@ local TeXInterface = {
   scopes = {},
   parameter_defaults = {},
   tex_boxes = {},
+  collection_kinds = {}
 }
 
 -- Namespace
@@ -61,6 +62,8 @@ function TeXInterface.beginGraphDrawingScope(options)
     events            = {},
     node_names        = {},
     storage           = Storage.new(),
+    coroutine         = nil,
+    interface         = TeXInterface
   }
   
   scope.syntactic_digraph.scope   = scope
@@ -178,6 +181,40 @@ end
 
 
 
+---
+-- Declare a new collection kind. 
+--
+-- @param kind A string that specifies a collection kind.
+-- @param layer A layer. Kinds are rendered in the order of the
+-- layers, where kinds with a negative layer number get rendered
+-- behind all nodes and edge and kinds with a positive layer
+-- number get rendered before all ndoes and edges. Layer 0 collections
+-- do not get rendered. 
+
+function TeXInterface.addCollectionKind(kind, layer)
+  
+  local kinds = TeXInterface.collection_kinds
+  
+  -- Search for position:
+  local found
+  for i=1,#kinds do
+    if kinds[i].layer > layer or (
+      kinds[i].layer == layer and kinds[i].kind > kind) then
+      found = i
+      break
+    end
+  end
+
+  if found and kinds[found].kind == kind then
+    -- replace
+    kinds[found].layer = layer
+  else
+    table.insert(kinds, found or #kinds+1, { kind = kind, layer = layer })
+  end
+end
+
+
+
 
 ---
 -- Convert a table into a node property table.
@@ -279,6 +316,49 @@ end
 
 
 
+---
+-- Create the graph drawing coroutine.
+--
+-- This function creates a coroutine that will run the current graph
+-- drawing algorithm. Coroutines are needed since a graph drawing
+-- algorithm may choose to create a new node. In this case, the
+-- algorithm needs to be suspended and control must be returned back
+-- to \TeX, so that the node can be typeset in order to determine the
+-- precise size information. Once this is done, control must be passed
+-- back to the exact point inside the algorithm where the node was
+-- created. Clearly, all of these actions are exactly what coroutines
+-- are for.
+--
+function TeXInterface.createGraphDrawingCoroutine()
+  local scope = TeXInterface.topScope()
+  assert(not scope.coroutine, "coroutine already created for current gd scope")
+  scope.coroutine = coroutine.create(TeXInterface.runGraphDrawingAlgorithm)
+end
+
+
+
+---
+-- Resume the graph drawing coroutine.
+--
+-- This function is the work horse of the coroutine management. It
+-- gets called whenever control passes back from the \TeX\ level to
+-- the Lua level. We resume the graph drawing coroutine so that the
+-- algorithm can start/proceed. The tricky part is when the algorithm
+-- yields, but is not done. In this case, the code needed for creating
+-- a new node is passed back to \TeX, but also code for, then,
+-- resuming the coroutine.
+--
+function TeXInterface.resumeGraphDrawingCoroutine()
+  local scope = TeXInterface.topScope()
+  assert(scope.coroutine, "coroutine must already be created for current gd scope")
+  local ok, text = coroutine.resume(scope.coroutine)
+  assert(ok, text)
+  if coroutine.status(scope.coroutine) ~= "dead" then
+    tex.print(text)
+    tex.print("\\directlua{pgf.gd.control.TeXInterface.resumeGraphDrawingCoroutine()}")
+  end
+end
+
 
 --- Arranges the current graph using the specified algorithm. 
 --
@@ -311,49 +391,108 @@ end
 
 
 
+
+local unique_count = 1
+
+---
+-- The ``node creation callback.''
+--
+-- This method gets called whenever the graph drawing algorithm
+-- request a new node to be created. What happens is that control is
+-- temporarily passed back to \TeX, which will create a node. This
+-- causes a new vertex to be added to the syntactic digraph, which is
+-- then returned.
+--
+-- @param init This is the array of initial values for the
+-- to-be-created vertex.
+--
+-- @return The new vertex.
+--
+function TeXInterface.generateNode(init)
+  
+  local scope = TeXInterface.topScope()
+  
+  -- Setup node
+  if not init.name then
+    init.name = "pgf@gd@node@" .. unique_count
+    unique_count = unique_count + 1
+  else
+    assert (scope.node_names[init.name] == nil, "node already present in graph")
+  end
+  
+  if not init.shape or init.shape == "none" then
+    init.shape = "rectangle"
+  end
+  
+  -- Create the text needed for creating a new node:
+  local opt = {}
+  for k,v in pairs(init.generated_options or {}) do
+    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
+    assert (type(k) == "number" or type(k) == "string", "algorithmically generated option value may not be a table")
+    if type(k) == "number" then
+      opt [#opt + 1] = tostring(v) .. ','
+    else
+      opt [#opt + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+    end
+  end
+  local tex_command = "\\pgfgdgeneratenodecallback{" .. init.name
+                  .. "}{" .. init.shape .. "}{" ..  table.concat(opt) .. "}{"
+		.. (init.text or "") .. "}"
+
+  -- Now, go back to TeX...
+  coroutine.yield(tex_command)	      
+  -- ... and come back with a new node!
+
+  local v = scope.syntactic_digraph.vertices[#scope.syntactic_digraph.vertices]
+  assert (v.name == init.name, "internal node creation failed")
+
+  return v  
+end
+
+
+local function option_table_to_string (options)
+  local s = { "{" }
+  
+  for k,v in pairs(options) do
+    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
+    if type(k) == "number" then
+      s [#s + 1] = tostring(v) .. ','
+    elseif type(k) == "string" then
+      s [#s + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
+    else
+      assert (false, "algorithmically generated option key must be a string")
+    end
+  end
+
+  s[#s+1] = "}"
+
+  return table.concat(s)
+end
+
+
 --- Passes the current graph back to the \TeX\ layer and removes it from the stack.
 --
 function TeXInterface.endGraphDrawingScope()
-  local digraph = TeXInterface.topScope().syntactic_digraph
+  local scope = TeXInterface.topScope()
+  local digraph = scope.syntactic_digraph
   
   tex.print("\\pgfgdbeginshipout")
   
     tex.print("\\pgfgdbeginnodeshipout")
       for _,vertex in ipairs(digraph.vertices) do
-	if vertex.tex then
-	  tex.print(
-	    string.format(
-	      "\\pgfgdshipoutnodecallback{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
-	      'not yet positionedPGFINTERNAL' .. vertex.name,
-	      vertex.tex.x_min,
-	      vertex.tex.x_max,
-	      vertex.tex.y_min,
-	      vertex.tex.y_max,
-	      vertex.pos.x,
-	      vertex.pos.y,
-	      vertex.tex.stored_tex_box_number,
-	      vertex.tex.late_setup))
-	else
-	  local opt = {}
-	  for k,v in pairs(vertex.generated_options or {}) do
-	    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
-	    if type(k) == "number" then
-	      opt [#opt + 1] = tostring(v) .. ','
-	    elseif type(k) == "string" then
-	      opt [#opt + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
-	    else
-	      assert (false, "algorithmically generated option key must be a string")
-	    end
-	  end
-	  
-	  tex.print("\\pgfgdgeneratenodecallback{" ..
-		    vertex.name .. "}{" ..
-		    vertex.shape .. "}{" ..
-		    table.concat(opt) .. "}{" ..
-		    vertex.pos.x .. "}{" ..
-		    vertex.pos.y .."}{" ..
-		    (vertex.text or "") .. "}")
-	end
+	assert(vertex.tex, "Thou shalt not modify the syntactic digraph")
+	tex.print(
+	  string.format(
+	    "\\pgfgdshipoutnodecallback{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
+	    'not yet positionedPGFINTERNAL' .. vertex.name,
+	    vertex.tex.x_min,
+	    vertex.tex.x_max,
+	    vertex.tex.y_min,
+	    vertex.tex.y_max,
+	    vertex.pos.x,
+	    vertex.pos.y,
+	    vertex.tex.stored_tex_box_number,
+	    vertex.tex.late_setup))
       end
     tex.print("\\pgfgdendnodeshipout")
 
@@ -367,21 +506,9 @@ function TeXInterface.endGraphDrawingScope()
 	    '{', m.direction,  '}',
 	    '{', m.tex and m.tex.pgf_options or "",  '}',
 	    '{', m.tex and m.tex.pgf_edge_nodes or "", '}',
-	    '{',
+	    option_table_to_string(m.generated_options),
+	    '{'
 	  }
-
-	  for k,v in pairs(m.generated_options) do
-	    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
-	    if type(k) == "number" then
-	      callback [#callback + 1] = tostring(v) .. ','
-	    elseif type(k) == "string" then
-	      callback [#callback + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
-	    else
-	      assert (false, "algorithmically generated option key must be a string")
-	    end
-	  end
-	  
-	  callback [#callback + 1] = '}{'
 
 	  for _,c in ipairs(m.path) do
 	    callback [#callback + 1] = '--(' .. tostring(c.x) .. 'pt,' .. tostring(c.y) .. 'pt)'	    
@@ -394,7 +521,38 @@ function TeXInterface.endGraphDrawingScope()
 	end
       end
     tex.print("\\pgfgdendedgeshipout")
-  
+
+    local kinds = TeXInterface.collection_kinds
+    local collections = scope.collections
+    
+    tex.print("\\pgfgdbeginprekindshipout")
+      for i=1,#kinds do
+	tex.print("\\pgfgdset{" .. kinds[i].kind .. "/begin rendering/.try}")
+	if kinds[i].layer < 0 then
+	  for _,c in ipairs(collections[kinds[i].kind] or {}) do
+	    tex.print(
+	      '\\pgfgdset{'.. kinds[i].kind .. "/render/.try="
+		.. option_table_to_string(c.generated_options or {}).."}")
+	  end
+	end
+	tex.print("\\pgfgdset{" .. kinds[i].kind .. "/end rendering/.try}")
+      end
+    tex.print("\\pgfgdendprekindshipout")
+    
+    tex.print("\\pgfgdbeginpostkindshipout")
+      for i=1,#kinds do
+	tex.print("\\pgfgdset{" .. kinds[i].kind .. "/begin rendering/.try}")
+	if kinds[i].layer > 0 then
+	  for _,c in ipairs(collections[kinds[i].kind] or {}) do
+	    tex.print(
+	      '\\pgfgdset{'.. kinds[i].kind .. "/render/.try="
+		.. option_table_to_string(c.generated_options or {}).."}")
+	  end
+	end
+	tex.print("\\pgfgdset{" .. kinds[i].kind .. "/end rendering/.try}")
+      end
+    tex.print("\\pgfgdendpostkindshipout")
+
   tex.print("\\pgfgdendshipout")
   
   table.remove(TeXInterface.scopes) -- pop

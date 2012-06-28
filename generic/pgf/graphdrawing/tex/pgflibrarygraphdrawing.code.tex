@@ -123,12 +123,13 @@
 % See \pgfgdbeginscope
 
 \def\pgfgdendscope{%
+      \directlua{
+        pgf.gd.control.TeXInterface.createGraphDrawingCoroutine()
+        pgf.gd.control.TeXInterface.resumeGraphDrawingCoroutine()
+      }
       \endgroup
     % Late positioning has ended
-    \directlua{
-      pgf.gd.control.TeXInterface.runGraphDrawingAlgorithm()
-      pgf.gd.control.TeXInterface.endGraphDrawingScope()
-    }
+    \directlua{pgf.gd.control.TeXInterface.endGraphDrawingScope()}
   \endgroup
 }
 
@@ -588,29 +589,54 @@
 
 \def\pgfgdbeginshipout{%
   \pgfscope%
-  \catcode`\@=11\relax%
+    \catcode`\@=11\relax%
 }
 \def\pgfgdendshipout{%
-    \box\pgf@gd@node@box%
+    \box\pgf@gd@prekind@box%
+    \ifpgf@gd@edges@behind@nodes%
+      \box\pgf@gd@edge@box%
+      \box\pgf@gd@node@box%
+    \else%
+      \box\pgf@gd@node@box%
+      \box\pgf@gd@edge@box%
+    \fi%
+    \box\pgf@gd@postkind@box%
   \endpgfscope
 }
 
 \newbox\pgf@gd@node@box
+\newbox\pgf@gd@edge@box
+\newbox\pgf@gd@prekind@box
+\newbox\pgf@gd@postkind@box
 \def\pgfgdbeginnodeshipout{%
-  \ifpgf@gd@edges@behind@nodes%
-    \setbox\pgf@gd@node@box=\hbox\bgroup%
-  \fi%
+  \setbox\pgf@gd@node@box=\hbox\bgroup%
 }
 \def\pgfgdendnodeshipout{%
-  \ifpgf@gd@edges@behind@nodes%
-    \egroup%
-  \fi%
+  \egroup%
 }
 
 \def\pgfgdbeginedgeshipout{%
+  \setbox\pgf@gd@edge@box=\hbox\bgroup%
 }
 
 \def\pgfgdendedgeshipout{%
+  \egroup
+}
+
+\def\pgfgdbeginprekindshipout{%
+  \setbox\pgf@gd@prekind@box=\hbox\bgroup%
+}
+
+\def\pgfgdendprekindshipout{%
+  \egroup
+}
+
+\def\pgfgdbeginpostkindshipout{%
+  \setbox\pgf@gd@postkind@box=\hbox\bgroup%
+}
+
+\def\pgfgdendpostkindshipout{%
+  \egroup
 }
 
 \newif\ifpgf@gd@edges@behind@nodes
@@ -1412,33 +1438,210 @@
 
 
 
-% Clusters
+
+%
+%
+% Collections
+%
+%
+
+% A collection is a pair consisting of a set of nodes and a set of
+% edges. Since the edges need not be between the nodes of the same
+% collection, collections are not subgraphs, but something more
+% ``loose'' -- namely collections.
+%
+% Collections are grouped into ``kinds'', that is, all collections
+% having the same kind will be grouped together. On the Lua layer, all
+% collections of the same kind can be accessed directly via a single
+% array; on the \pgfname\ layer, for each kind a separate key is available
+% to indicate that a node or an edge belongs to a collection. 
+%
+% Collections serve two purposes: First, they can be seen as ``hints''
+% to graph drawing algorithms that certain nodes and/or edges ``belong
+% together''. For instance, collections of kind |same rank| are used
+% by the Sugiyama algorithm to group together nodes that should appear
+% at the same height of the output. Second, since collections are also
+% passed back to the \pgfname\ layer in a postprocessing step, they can be
+% used to render complicated concepts such as hyperedges (which are
+% just collections of nodes, after all) or subgraphs.
+
+
+
+% Declares a new collection kind
+%
+% #1 = kind
+% #2 = layer number
+%
+% Description:
+%
+% Declares a new collection kind. This has a number of effects:
+%
+% First, a key |/graph drawing/|\meta{kind} gets declared and
+% key forwarding is setup for this key (so you can also write
+% /tikz/\meta{kind}). When this key is used inside a 
+% graph drawing scope, all nodes and edges mentioned in the rest of
+% the current \TeX\ scope will belong to a new collection whose kind
+% is \meta{kind}. This new collection may also have some local
+% options, which are specified as an argument to the key. For
+% instance, suppose you write
 % 
-% The cluster key allows you to specify that a node or an edge belongs
-% to a cluster. Using this key multiple times will cause a node to
-% become part of multiple clusters. Using the key without a value will
-% cause a unique cluster to be created.
+% \pgfgddeclarecollectionkind{hyper}{...}{...}{...}{...}{...}
+% ...
+% \graph {
+%   a, b, c, d;
+%   { [hyper={foo=bar}] a, b, c }
+%   { [hyper={red,green}] b, c, d }
+% };
 % 
-% On the Lua layer, clusters will be automatically "separated",
-% meaning that all nodes and edges belonging to the same cluster will
-% be collected in a table.
+% In this case, the nodes |a|, |b|, |c| will belong to a collection of
+% kind |hyper| and this collection will have the option |foo=bar|
+% set. The nodes |b|, |c|, and |d| will (also) belong to another
+% collection of the same kind |hyper|, but with the options |red| and
+% |green| set.
+% 
+% The options passed to the key are exectued with the path prefix
+% |/graph drawing|. The options must all be graph parameters, node
+% parameters, or edge parameters.
+% 
+% Normally, as claimed above, using the key will cause a new
+% collection to be started inside the current \TeX\ group. However,
+% this is not quite true: You can use the key |/graph drawing/name|
+% inside the options passed to the key. In this case, if a collection
+% of the same name has already been specified earlier (in some other
+% group), the following nodes and edges get added to this earlier
+% collection:
+%
+% \graph {
+%   a, b, c, d;
+%   { [hyper={name=core}] a, b }
+%   { [hyper] b, c, d }
+%   { [hyper={name=core}] d }
+% };
+% 
+% In the above example, the collection |core| will be of kind |hyper|
+% and will contain the nodes |a|, |b|, and |d|. A second (unnamed)
+% collection of kind |hyper| will contain the nodes |b|, |c|, and
+% |d|. Internally, unnamed collections get assigned a unique internal
+% name.
+% 
+% Let us next have a look at the further effects declaring a
+% collection kind has: On the Lua layer, when the graph drawing engine
+% gets warmed up, the collections of the input graph get ``sorted out''
+% according to their kinds. In detail, the representation of the graph
+% drawing scope has a table |collections| that has an entry for each
+% collection \meta{kind}. (In case \meta{kind} contains a space or
+% other strange characters, you have to access the |collections| table
+% through a string index. For instance, to access the |same rank|
+% collections, use |collections['same rank']|.)
+% 
+% Each entry of the |collections| table is an array in which the
+% collections of a certain kind are stored in the order they appear in
+% the input. Each of these collections is itself a table, having the
+% following fields: The |name| field contains the collection's name,
+% either the one passed using the |name| key or the internal name
+% created automatically. The |vertices| and |edges| fields each
+% contain arrays of all objects being part of the collection.
+%
+% 
+% Once a graph drawing algorithms has computed node and edge
+% placements, the binding layer will attempt to ``render'' all
+% collections: For this, for each collection kind, the key
+% |/graph drawing/|\meta{kind}|/begin rendering| is tried once. Next, |/graph
+% drawing/|\meta{kind}|/render| is tried once for each
+% collection. Each time, the values stored in the |generated_options|
+% table of the collection (if present) is passed to the |render|
+% key. Finally, |/graph drawing/|\meta{kind}|/end rendering| is tried.
+% 
+% The idea of the above is that you can setup certain collection kinds
+% to be rendered in a special way. Suppose, for instance, you would
+% like hyperedges to be rendered. In this case, a graph drawing
+% algorithm should iterate over all collections of type |hyper| and
+% compute some hints on how to render the hyperedge and store this
+% information in the |generated_options| table of the hyperedge. Then,
+% the key |/graph drawing/hyper/render| should be setup so that it
+% contains some code that is able to read key--value pairs passed to
+% it (which are the key--value pairs of the |generated_options| table)
+% and use this information to nicely draw the hyperedge.
+% 
+% The last parameter, the layer number, is used to specify the order
+% in which the different collection kinds are rendered. The higher the
+% number, the later the collection will be rendered. Thus, if there is
+% a collection kind with layer number 10 and another with layer number
+% 20, all collections of the first kind will be rendered first,
+% followed by all collections of the second kind.
+% 
+% Collections whose layer kinds are non-negative get rendered
+% \emph{after} the nodes and edges have already been rendered. In
+% contrast, collections with a negative layer number get shown
+% ``below'' the nodes and edges. Actually, they are also rendered
+% after the nodes and edges have already been drawn, but they are a
+% put in a box that is shipped out before the the box of the nodes and
+% edges gets shipped out.
+% 
 
-\pgfgddeclareforwardedkeys{/graph drawing}{cluster/.code=}
-\pgfkeys{/graph drawing/cluster/.append code=\pgf@gd@handle@cluster{#1}}
-
-\newcount\pgf@gd@clustercount
-
-\def\pgf@gd@handle@cluster#1{%
-  \def\pgf@gd@cluster@name{#1}%
-  \ifx\pgf@gd@cluster@name\pgfkeysnovalue@text%
-    \edef\pgf@gd@cluster@name{clusterPGFINTERNAL\the\pgf@gd@clustercount}%
-    \global\advance\pgf@gd@clustercount by 1\relax
-  \fi%
-  \pgfgdnodeparameter{/graph drawing/cluster table}{'\luaescapestring{\pgf@gd@cluster@name}'}%
-  \pgfgdedgeparameter{/graph drawing/cluster table}{'\luaescapestring{\pgf@gd@cluster@name}'}%
+\def\pgfgddeclarecollectionkind#1#2{
+  \pgfgddeclareforwardedkeys{/graph drawing}{#1/.code=}
+  \pgfgdset{#1/.append code=\pgf@gd@handle@collection{#1}{##1}}
+  \directlua{pgf.gd.control.TeXInterface.addCollectionKind('\luaescapestring{#1}',#2)}
 }
 
-\pgfgdset{cluster table/.accumulates}
+\def\pgf@gd@handle@collection#1#2{%
+  {%
+    % Reset options
+    \let\pgf@gd@collection@name=\pgfutil@empty%
+    \pgfkeyssetvalue{/graph drawing/graph parameters}{}%
+    \pgfkeyssetvalue{/graph drawing/edge parameters}{}%
+    \pgfkeyssetvalue{/graph drawing/node parameters}{}%
+    \pgfgdset{#2}%
+    \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@gp@temp\global\let\pgf@gd@gp@temp\pgf@gd@gp@temp
+    \pgfkeysgetvalue{/graph drawing/edge parameters}\pgf@gd@ep@temp\global\let\pgf@gd@ep@temp\pgf@gd@ep@temp
+    \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@np@temp\global\let\pgf@gd@np@temp\pgf@gd@np@temp
+    \global\let\pgf@gd@n@temp\pgf@gd@collection@name
+  }%
+  \ifx\pgf@gd@n@temp\pgfutil@empty%
+    \edef\pgf@gd@n@temp{collectionPGFINTERNAL\the\pgf@gd@collectioncount}%
+    \global\advance\pgf@gd@collectioncount by 1\relax
+  \fi%
+  \pgf@gd@handle@collection@set{#1}{\pgf@gd@n@temp}{\pgf@gd@gp@temp\pgf@gd@ep@temp\pgf@gd@np@temp}
+}
+
+\def\pgf@gd@handle@collection@set#1#2#3{%
+  \edef\pgf@temp{{/graph drawing/collection memberships}{{kind='\luaescapestring{#1}',name='\luaescapestring{#2}',options={#3}}}}%
+  \expandafter\pgfgdnodeparameter\pgf@temp
+  \expandafter\pgfgdedgeparameter\pgf@temp
+}
+
+\pgfgdset{name/.store in=\pgf@gd@collection@name}
+\pgfgdset{collection memberships/.accumulates}
+
+\newcount\pgf@gd@collectioncount
+
+
+
+%
+% Hyperedges
+%
+% The hyper key can be used to group together nodes to a
+% hyperedge. The hyperedges will be available to the graph drawing
+% algorithm through the collections.hyper field of the scope.
+% 
+% Currently, there is no default renderer for hyper edges. 
+%
+% Example:
+%
+% \graph {
+%   % The nodes:
+%   a, b, c, d;
+%  
+%   % The edges:
+%   {[hyper] a,b,c};
+%   {[hyper] b,c,d};
+%   {[hyper] a,c};
+%   {[hyper] d}
+% };
+
+\pgfgddeclarecollectionkind{hyper}{1}
+
 
 
 %
@@ -1516,18 +1719,15 @@
 % #2 = shape of the node
 % #3 = options generated by the algorithm in key-value syntax. The set
 % of generated options is algorithm-dependent.
-% #4 = x position of the node (in pt)
-% #5 = y position of the node
-% #6 = text
+% #4 = text
 %
 % This is an internal function and will be called by the Lua engine
 
-\def\pgfgdgeneratenodecallback#1#2#3#4#5#6{%
+\def\pgfgdgeneratenodecallback#1#2#3#4{%
   {
     \pgfkeys{#3}
-    \pgftransformshift{\pgfqpoint{#4pt}{#5pt}}
     \pgfnode{#2}{\pgfkeysvalueof{/graph drawing/generated
-        node/anchor}}{#6}{#1}{\pgfkeysvalueof{/graph drawing/generated
+        node/anchor}}{#4}{#1}{\pgfkeysvalueof{/graph drawing/generated
         node/use path}} 
   }
 }

@@ -1038,6 +1038,182 @@ forward.
 
 
 
+\subsection{Collections of Nodes and Edges}
+
+A \emph{collection} is a pair consisting of a set of nodes and a set of
+edges. Since the edges need not be between the nodes of the same
+collection, collections are not subgraphs, but something more
+``loose'' -- namely collections.
+
+Collections are grouped into ``kinds'', that is, all collections
+having the same kind will be grouped together. On the Lua layer, all
+collections of the same kind can be accessed directly via a single
+array; on the \pgfname\ layer, for each kind a separate key is available
+to indicate that a node or an edge belongs to a collection. 
+
+Collections serve two purposes: First, they can be seen as ``hints''
+to graph drawing algorithms that certain nodes and/or edges ``belong
+together''. For instance, collections of kind |same rank| are used
+by the Sugiyama algorithm to group together nodes that should appear
+at the same height of the output. Second, since collections are also
+passed back to the \pgfname\ layer in a postprocessing step, they can be
+used to render complicated concepts such as hyperedges (which are
+just collections of nodes, after all) or subgraphs.
+
+
+\begin{command}{\pgfgddeclarecollectionkind\marg{kind}\marg{layer}}
+  This coammand has a number of effects. First, a key is defined:
+
+  \begin{key}{/graph drawing/\meta{collection kind}=\meta{options}}
+    \keyalias{tikz}
+    \keyalias{tikz/graphs}
+    When this key is used inside a graph drawing scope, all nodes and
+    edges mentioned in the rest of 
+    the current \TeX\ scope will belong to a new collection whose kind
+    is \meta{kind}. This new collection may also have some local
+    options, which are specified as an argument to the key. For
+    instance, suppose you write
+\begin{codeexample}[code only]
+\pgfgddeclarecollectionkind{hyper}{0}
+\graph {
+  a, b, c, d;
+  { [hyper={foo=bar}] a, b, c }
+  { [hyper={red,green}] b, c, d }
+};
+\end{codeexample}
+
+    In this case, the nodes |a|, |b|, |c| will belong to a collection of
+    kind |hyper| and this collection will have the option |foo=bar|
+    set. The nodes |b|, |c|, and |d| will (also) belong to another
+    collection of the same kind |hyper|, but with the options |red| and
+    |green| set.
+    
+    The \meta{options} passed to the key are exectued with the path
+    prefix |/graph drawing|. The options must all be graph parameters,
+    node parameters, or edge parameters.
+    
+    Normally, as claimed above, using the key will cause a new
+    collection to be started inside the current \TeX\ group. However,
+    this is not quite true:
+  
+    \begin{key}{/graph drawing/name=\meta{name}}
+      You can use this key inside the options passed to the key. In this
+      case, if a collection 
+      of the same name has already been specified earlier (in some other
+      group), the following nodes and edges get added to this earlier
+      collection:
+\begin{codeexample}[code only]
+\graph {
+  a, b, c, d;
+  { [hyper={name=core}] a, b }
+  { [hyper] b, c, d }
+  { [hyper={name=core}] d }
+};
+\end{codeexample}
+
+      In the above example, the collection |core| will be of kind |hyper|
+      and will contain the nodes |a|, |b|, and |d|. A second (unnamed)
+      collection of kind |hyper| will contain the nodes |b|, |c|, and
+      |d|. Internally, unnamed collections get assigned a unique internal
+      name.
+    \end{key}
+  \end{key}
+
+  Let us next have a look at the further effects declaring a
+  collection kind has: On the Lua layer, when the graph drawing engine
+  gets warmed up, the collections of the input graph get ``sorted out''
+  according to their kinds. In detail, the representation of the graph
+  drawing scope has a table |collections| that has an entry for each
+  collection \meta{kind}. (In case \meta{kind} contains a space or
+  other strange characters, you have to access the |collections| table
+  through a string index. For instance, to access the |same rank|
+  collections, use |collections['same rank']|.)
+    
+  Each entry of the |collections| table is an array in which the
+  collections of a certain kind are stored in the order they appear in
+  the input. Each of these collections is itself a table, having the
+  following fields: The |name| field contains the collection's name,
+  either the one passed using the |name| key or the internal name
+  created automatically. The |vertices| and |edges| fields each
+  contain arrays of all objects being part of the collection.
+
+  Once a graph drawing algorithms has computed node and edge
+  placements, the binding layer will attempt to ``render'' all
+  collections: For this, for each collection kind, the following keys
+  are executed:
+
+  \begin{key}{/graph drawing/\meta{kind}/begin rendering}
+    This key is tried once for each kind, even if there are no
+    collections of the kind.
+  \end{key}
+  \begin{key}{/graph drawing/\meta{kind}/render=\meta{options}}
+    This key is tried once for each collection. Each time, the values
+    stored in the |generated_options| table of the collection (if
+    present) is passed as \meta{options}.
+  \end{key}
+  \begin{key}{/graph drawing/\meta{kind}/end rendering}
+    This key is tried once for each kind.
+  \end{key}
+  
+  The idea of the above is that you can setup certain collection kinds
+  to be rendered in a special way. Suppose, for instance, you would
+  like hyperedges to be rendered. In this case, a graph drawing
+  algorithm should iterate over all collections of type |hyper| and
+  compute some hints on how to render the hyperedge and store this
+  information in the |generated_options| table of the hyperedge. Then,
+  the key |/graph drawing/hyper/render| should be setup so that it
+  contains some code that is able to read key--value pairs passed to
+  it (which are the key--value pairs of the |generated_options| table)
+  and use this information to nicely draw the hyperedge.
+
+  The \meta{layer} parameter is used to specify the order
+  in which the different collection kinds are rendered. The higher the
+  number, the later the collection will be rendered. Thus, if there is
+  a collection kind with layer number 10 and another with layer number
+  20, all collections of the first kind will be rendered first,
+  followed by all collections of the second kind.
+  
+  Collections whose layer kinds are non-negative get rendered
+  \emph{after} the nodes and edges have already been rendered. In
+  contrast, collections with a negative layer number get shown
+  ``below'' the nodes and edges. Actually, they are also rendered
+  after the nodes and edges have already been drawn, but they are a
+  put in a box that is shipped out before the the box of the nodes and
+  edges gets shipped out.
+
+  The following shows the use of the |same rank| kind:
+  \begin{codeexample}[]
+\tikz [rounded corners] \graph [layered layout] {
+    1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
+        
+    { [same rank] 1972, Thompson };
+    { [same rank] 1976, Mashey, Bourne },
+    { [same rank] 1978, Formshell, csh },
+    { [same rank] 1980, esh, vsh },
+    { [same rank] 1982, ksh, "System-V" },
+    { [same rank] 1984, v9sh, tcsh },
+    { [same rank] 1986, "ksh-i" },
+    { [same rank] 1988, KornShell ,Perl, rc },
+    { [same rank] 1990, tcl, Bash },
+    { [same rank] "future", POSIX, "ksh-POSIX" },
+
+    Thompson -> { Mashey, Bourne, csh -> tcsh},
+    Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
+    { "ksh-i", KornShell } -> Bash,
+    { esh, vsh, Formshell, csh } -> ksh,
+    { KornShell, "System-V" } -> POSIX,
+    ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
+    Bourne -> Formshell,
+    
+    { [edge={draw=none}]
+      Bash -> tcl,
+      KornShell -> Perl
+    }
+  };
+\end{codeexample}
+\end{command}
+
+
 
 \subsection{Events}
 \label{section-gd-events}
