@@ -31,9 +31,10 @@ and must be implemented entirely in the Lua programming language,
 which is a small, easy-to-learn (and quite beautiful) language
 integrated into current versions of \TeX. The present section focuses
 on the Lua side of the graph drawing engine; the next section
-addresses the interface between this Lua side and \TeX\ side; the last
-of the three sections presents complete example code of simple graph
-drawing algorithms. 
+addresses the interface between this Lua side and \TeX\ side (most
+readers will wish to skip this section); the last of the three
+sections presents complete example code of simple graph drawing
+algorithms.  
 
 In the following, after a small ``hello world'' example of graph
 drawing and a discussion of technical details like
@@ -47,9 +48,22 @@ main parts of the graph drawing engine:
   user to specify a graph (like |{a -> {b,c}}| in the |graph|
   syntax). Instead, what a graph drawing algorithm sees is ``just'' a
   graph object that provides methods for accessing the vertices and
-  arcs. 
-\item Section~\ref{section-gd-syntactic-digraph} introduces the
-  notion of ``syntactic digraphs''. While most graph drawing
+  arcs.
+\item Section~\ref{section-gd-gd-scope} explores what the graph
+  drawing scope ``looks like on the Lua side.'' As the graph of a
+  graph drawing scope is being parsed, a lot of information is
+  gathered: The nodes and edges of the graph are identified and the
+  object-oriented model is built, but other information is also
+  collected. For instance, a sequence of \emph{events} is created
+  during the parsing process. As another example, numerous kinds of
+  \emph{collections} may be identified by the parser. The parsed graph
+  together with the event sequence and the collections are all
+  gathered in a single table, called the \emph{scope table} of the
+  current graph drawing scope. Algorithms can access this table to
+  retrieve information that goes beyond the ``pure'' graph model.
+
+  On entry in this table is of particular importance: The
+  \emph{syntactic digraph.} While most graph drawing 
   algorithms are not really interested in the ``details'' of how a
   graph was specified, for some algorithms it makes a big difference
   whether you write |a -> b| or |b <- a| in your specification of the
@@ -57,21 +71,22 @@ main parts of the graph drawing engine:
   input graph was specified through the syntactic digraph; all other
   algorithms can access their |digraph| or |ugraph| fields and do not
   have to worry about the difference between |a -> b| and |b <- a|.
-\item Section~\ref{section-gd-layout-pipeline} is devoted to what I
-  call the \emph{layout pipeline.} When the layout of a graph needs to
-  be computed, only very few algorithms will actually be able to
-  compute positions for the nodes of \emph{every} graph. For instance,
-  most algorithms implicitly assume that the input graph is
-  connected; algorithms for computing layouts for trees assume that
-  the input is, well, a tree; and so on. The job of the layout
-  pipeline is to apply numerous pre- and postprocessing operations
-  (like decomposing a graph into connected components or computing a
-  spanning tree) so that algorithms do not need to worry about these
-  steps. As we will see, the layout pipeline can vastly simplify the
-  code of algorithms.
-\item Section~\ref{section-gd-events} surveys ``events'', a concept
-  that enriches the syntactic digraph by ``even more information''
-  concerning the specification of the graph.
+\item Section~\ref{section-gd-transformations} explains how the
+  information in the graph drawing scope is processed. One might
+  expect that we simply run the algorithm selected by the user;
+  however, things are more involved in practice. When the layout of a
+  graph needs to be computed, only very few algorithms will actually
+  be able to compute positions for the nodes of \emph{every}
+  graph. For instance, most algorithms implicitly assume that the
+  input graph is connected; algorithms for computing layouts for trees
+  assume that the input is, well, a tree; and so on. For this reason,
+  graph drawing algorithms will not actually need the original input
+  graph as their input, but some \emph{transformed} version of
+  it. Indeed, \emph{all} graph drawing algorithms are treated as graph 
+  transformations by the graph drawing engine.
+
+  This section explains how transformations are chosen and which
+  transformations are applied by default.
 \item Finally, Section~\ref{section-gd-libs} documents the different
   libraries functions that come with the graph drawing engine. For
   instance, there are library functions for computing the (path)
@@ -92,13 +107,15 @@ organization of the whole engine.
 \subsubsection{The Hello World of Graph Drawing}
 
 Let us start our tour of the Lua side of \tikzname's graph drawing
-engine with a ``hello world'' version of graph drawing: Let us
-implement an algorithms that simply places all nodes of a graph in a
+engine with a ``hello world'' version of graph drawing: An algorithm
+that simply places all nodes of a graph in a 
 circle of a fixed radius. Naturally, this is not a particularly
 impressive or intelligent graph drawing algorithm; but neither is the
 classical ``hello world''\dots\ Here is the complete code:
 
 \begin{codeexample}[code only]
+-- File SimpleDemo.lua
+  
 local SimpleDemo = pgf.gd.new_algorithm_class {}
 
 function SimpleDemo:run()
@@ -142,14 +159,14 @@ node |2| to node |3| goes from left to right and the edge from |b| to
 |c| goes up at an angle of $45^\circ$, and the components are placed
 next to each other so that some spacing is achieved.
 
-The ``magic'' that achieves all this behind the scenes is called the
-``layout pipeline.'' It will heavily pre- and postprocess the input
-and output of graph drawing algorithms to achieve the above results.
+The ``magic'' that achieves all this behind the scenes is called 
+``graph transformations.'' They will heavily pre- and postprocess the
+input and output of graph drawing algorithms to achieve the above
+results. 
 
 Naturally, some algorithms may not wish their inputs and/or
-outputs to be ``tampered'' with by the pipeline. As we will see in the
-chapter on the layout pipeline, an algorithm can easily configure
-which steps of the pipeline should be applied, namely by passing
+outputs to be ``tampered'' with. An algorithm can easily configure
+which transformations should be applied, by passing
 appropriate options to the |new_algorithm_class| function.
 
 
@@ -158,12 +175,12 @@ appropriate options to the |new_algorithm_class| function.
 
 In order to typeset this manual, I had to cheat a little in the
 ``hello world'' example: There is no file named |SimpleDemo.lua| in
-the \pgfname\ distribution, so writing |algortihm=SimpleDemo| would
+the \pgfname\ distribution, so writing |layout=SimpleDemo| would
 result in an error. In reality, the code of |SimpleDemo| class resides
 in a file with the somewhat lengthy name
 |pgf.gd.examples.SimpleDemo.lua| and one actually has to write
 \begin{codeexample}[code only]
-..., algorithm=pgf.gd.examples.SimpleDemo, ...
+..., layout=pgf.gd.examples.SimpleDemo, ...
 \end{codeexample}
 \noindent
 to use it. The reason for the lengthy file name is that all parts of
@@ -420,10 +437,33 @@ that is small in practice.
 \includeluadocumentationof{pgf.gd.control.Options}
 
 
-\subsection{The Syntactic Digraph}
+
+
+\subsection{The Graph Drawing Scope}
+
+\label{section-gd-gd-scope}
+
+In theory, graph drawing algorithms take graphs as input and
+output graphs embedded into the plane as output. In practice, however,
+the input to a graph drawing algorithm is not ``just'' the
+graph. Rather, additional information about the graph, in particular
+about the way the user specified the graph, is also important to many
+graph drawing algorithms.
+
+The graph drawing system gathers both the original input graph as well
+as all additional information that is provided in the graph drawing
+scope inside a scope table. The object has a number of fields that
+inform an algorithm about the input.
+
+In order to supply graph drawing algorithms with additional
+information about the input, instead of being fed just the input
+graph, they get access to 
+
+
+
+\subsubsection{The Syntactic Digraph}
 
 \label{section-gd-syntactic-digraph}
-
 
 \subsubsection{Accessing the Syntactic Digraph: Finding Nodes and Edges}
 
@@ -439,13 +479,21 @@ that is small in practice.
 
 \subsubsection{Modifying the Syntactic Digraph: Adding Nodes}
 
+\subsubsection{Collections}
+
+\subsubsection{Events}
+
+\label{section-gd-events}
+
+\includeluadocumentationof{pgf.gd.lib.Event}
 
 
-\subsection{The Layout Pipeline}
 
-\label{section-gd-layout-pipeline}
+\subsection{Graph Transformations}
 
-\subsubsection{Clusters}
+\label{section-gd-transformations}
+
+\subsubsection{Graph Drawing as Graph Transformation}
 
 \subsubsection{Anchoring}
 
@@ -458,11 +506,6 @@ that is small in practice.
 \subsubsection{Spanning Dags}
 
 
-\subsection{Events}
-
-\label{section-gd-events}
-
-\includeluadocumentationof{pgf.gd.lib.Event}
 
 
 \subsection{Support Libraries}
