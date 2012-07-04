@@ -569,7 +569,7 @@ function Digraph:disconnect(v, t)
     end
   else
     -- Case 1: Remove all arcs incident to v:
-    local v_storage = v_storage
+    local v_storage = v.storage
     local self_incomings = self.incomings
     local self_outgoings = self.outgoings
     
@@ -667,7 +667,7 @@ function Digraph:reconnect(arc, tail, head)
     end
 
     -- Remove old arc:
-    self:diconnect(arc.tail, arc.head)
+    self:disconnect(arc.tail, arc.head)
 
     return new_arc
   end
