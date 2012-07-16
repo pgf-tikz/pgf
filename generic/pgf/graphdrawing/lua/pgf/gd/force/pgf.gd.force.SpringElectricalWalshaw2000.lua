@@ -62,6 +62,7 @@ local QuadTree    = require "pgf.gd.force.QuadTree"
 local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
 
+local lib = require "pgf.gd.lib"
 
 
 function SpringElectricalWalshaw2000:run()
@@ -100,7 +101,7 @@ function SpringElectricalWalshaw2000:run()
   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
 
   -- initialize node weights
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     node.weight = node:getOption('/graph drawing/electric charge')
 
     -- a node is charged if its weight derives from the default setting 
@@ -109,7 +110,7 @@ function SpringElectricalWalshaw2000:run()
   end
 
   -- initialize edge weights
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
   
@@ -285,17 +286,17 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
 	  local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
 	  -- compute the repulsive force between these cells and v
-	  for cell in table.value_iter(cells) do
+	  for _,cell in ipairs(cells) do
 	    -- check if the cell is a leaf
 	    if #cell.subcells == 0 then
 	      -- compute the forces between the node and all particles in the cell
-	      for particle in table.value_iter(cell.particles) do
+	      for _,particle in ipairs(cell.particles) do
 		-- build a table that contains the particle plus all its subparticles 
 		-- (particles at the same position)
-		local real_particles = table.custom_copy(particle.subparticles)
+		local real_particles = lib.copy(particle.subparticles)
 		table.insert(real_particles, particle)
 
-		for real_particle in table.value_iter(real_particles) do
+		for _,real_particle in ipairs(real_particles) do
 		  local delta = real_particle.pos:minus(v.pos)
 		  
 		  -- enforce a small virtual distance if the node and the cell's 
@@ -344,7 +345,7 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
 	    end
 	  end
 	else
-	  for u in table.value_iter(graph.nodes) do
+	  for _,u in ipairs(graph.nodes) do
 	    if u.name ~= v.name then
 	      -- compute the distance between u and v
 	      local delta = u.pos:minus(v.pos)
@@ -370,7 +371,7 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
 	end
 
 	-- compute attractive forces between v and its neighbours
-	for edge in table.value_iter(v.edges) do
+	for _,edge in ipairs(v.edges) do
 	  local u = edge:getNeighbour(v)
 
 	  -- compute the distance between u and v
@@ -419,7 +420,7 @@ end
 function SpringElectricalWalshaw2000:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
 
@@ -443,18 +444,16 @@ end
 
 function SpringElectricalWalshaw2000:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
-  local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
-    return Vector.new(2, function (n) 
-      return math.min(min_pos[n], node.pos[n])
-    end)
-  end, graph.nodes[1].pos)
+  local min_pos = graph.nodes[1].pos
+  for _,node in ipairs(graph.nodes) do
+    min_pos = Vector.new(2, function (n) return math.min(min_pos[n], node.pos[n]) end)
+  end
 
   -- compute maximum x and y coordinates of all nodes
-  local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
-    return Vector.new(2, function (n) 
-      return math.max(max_pos[n], node.pos[n])
-    end)
-  end, graph.nodes[1].pos)
+  local max_pos = graph.nodes[1].pos
+  for _,node in ipairs(graph.nodes) do
+    max_pos = Vector.new(2, function (n) return math.max(max_pos[n], node.pos[n]) end)
+  end
 
   -- make sure the maximum position is at least a tiny bit
   -- larger than the minimum position
@@ -476,7 +475,7 @@ function SpringElectricalWalshaw2000:buildQuadtree(graph)
 			  max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     local particle = QuadTree.Particle.new(node.pos, node.weight)
     particle.node = node
     quadtree:insert(particle)

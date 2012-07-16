@@ -20,6 +20,8 @@ CycleRemovalBergerS1990b.__index = CycleRemovalBergerS1990b
 require("pgf.gd.layered").CycleRemovalBergerS1990b = CycleRemovalBergerS1990b
 
 
+local lib = require("pgf.gd.lib")
+
 
 function CycleRemovalBergerS1990b.new(main_algorithm, graph)
   local algorithm = {
@@ -40,25 +42,29 @@ function CycleRemovalBergerS1990b:run()
   local reverse = {}
 
   -- iterate over all nodes of the graph
-  for node in table.randomized_value_iter(self.graph.nodes) do
+  for _,j in ipairs(lib.random_permutation(#self.graph.nodes)) do
+    local node = self.graph.nodes[j]
     -- get all outgoing edges that have not been removed yet
-    local out_edges = table.filter_values(node:getOutgoingEdges(), function (edge)
-      return not removed[edge]
-    end)
+    -- get all outgoing edges that have not been removed yet
+    local out_edges = lib.imap(node:getOutgoingEdges(),
+			       function (edge)
+				 if not removed[edge] then return edge end
+			       end)
 
     -- get all incoming edges that have not been removed yet
-    local in_edges = table.filter_values(node:getIncomingEdges(), function (edge)
-      return not removed[edge]
-    end)
+    local in_edges = lib.imap(node:getIncomingEdges(),
+			      function (edge)
+				if not removed[edge] then return edge end
+			      end)
 
     if #out_edges >= #in_edges then
       -- we have more outgoing than incoming edges, reverse all incoming 
       -- edges and mark all incident edges as removed
       
-      for edge in table.value_iter(out_edges) do
+      for _,edge in ipairs(out_edges) do
         removed[edge] = true
       end
-      for edge in table.value_iter(in_edges) do
+      for _,edge in ipairs(in_edges) do
         reverse[edge] = true
         removed[edge] = true
       end
@@ -66,18 +72,18 @@ function CycleRemovalBergerS1990b:run()
       -- we have more incoming than outgoing edges, reverse all outgoing
       -- edges and mark all incident edges as removed
 
-      for edge in table.value_iter(out_edges) do
+      for _,edge in ipairs(out_edges) do
         reverse[edge] = true
         removed[edge] = true
       end
-      for edge in table.value_iter(in_edges) do
+      for _,edge in ipairs(in_edges) do
         removed[edge] = true
       end
     end
   end
 
   -- mark edges as reversed
-  for edge in table.key_iter(reverse) do
+  for edge in pairs(reverse) do
     edge.reversed = true
   end
 end

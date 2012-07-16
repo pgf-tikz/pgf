@@ -97,7 +97,7 @@ end
 
 function Sugiyama:preprocess()
   -- initialize edge parameters
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     -- read edge parameters
     edge.weight = edge:getOption('/graph drawing/weight')
     edge.minimum_levels = edge:getOption('/graph drawing/minimum levels')
@@ -122,7 +122,7 @@ function Sugiyama:insertDummyNodes()
   for node in Iterators.topologicallySorted(self.graph) do
     local in_edges = node:getIncomingEdges()
 
-    for edge in table.value_iter (in_edges) do
+    for _,edge in ipairs (in_edges) do
       local neighbour = edge:getNeighbour(node)
       local dist = self.ranking:getRank(node) - self.ranking:getRank(neighbour)
 
@@ -176,7 +176,7 @@ function Sugiyama:insertDummyNodes()
     end
   end
 
-  for edge in table.value_iter(self.original_edges) do
+  for _,edge in ipairs(self.original_edges) do
     self.graph:deleteEdge(edge)
   end
 end
@@ -185,28 +185,32 @@ end
 
 function Sugiyama:removeDummyNodes()
   -- delete dummy nodes
-  for node in table.value_iter(self.dummy_nodes) do
+  for _,node in ipairs(self.dummy_nodes) do
     self.graph:deleteNode(node)
   end
 
   -- add original edge again
-  for edge in table.value_iter(self.original_edges) do
+  for _,edge in ipairs(self.original_edges) do
     -- add edge to the graph
     self.graph:addEdge(edge)
 
     -- add edge to the nodes
-    for node in table.value_iter(edge.nodes) do
+    for _,node in ipairs(edge.nodes) do
       node:addEdge(edge)
     end
 
     -- convert bend nodes to bend points for TikZ
-    for bend_node in table.value_iter(edge.bend_nodes) do
+    for _,bend_node in ipairs(edge.bend_nodes) do
       local point = bend_node.pos:copy()
       table.insert(edge.bend_points, point)
     end
 
     if edge.reversed then
-      edge.bend_points = table.reverse_values(edge.bend_points, edge.bend_points)
+      local bp = edge.bend_points
+      for i=1,#bp/2 do
+	local j = #bp + 1 - i
+	bp[i], bp[j] = bp[j], bp[i]
+      end
     end
 
     -- clear the list of bend nodes
@@ -224,7 +228,7 @@ function Sugiyama:mergeClusters()
   self.cluster_original_edges = {}
   self.original_nodes = {}
 
-  for cluster in table.value_iter(self.graph.clusters) do
+  for _,cluster in ipairs(self.graph.clusters) do
 
     local cluster_node = cluster.nodes[1]
     table.insert(self.cluster_nodes, cluster_node)
@@ -236,7 +240,7 @@ function Sugiyama:mergeClusters()
     end
   end
 
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     local tail = edge:getTail()
     local head = edge:getHead()
 
@@ -280,13 +284,13 @@ function Sugiyama:mergeClusters()
     table.insert(self.cluster_edges, edge)
   end
 
-  for node in table.value_iter(self.original_nodes) do
+  for _,node in ipairs(self.original_nodes) do
     self.graph:deleteNode(node)
   end
-  for edge in table.value_iter(self.cluster_edges) do
+  for _,edge in ipairs(self.cluster_edges) do
     self.graph:addEdge(edge)
   end
-  for edge in table.value_iter(self.cluster_original_edges) do
+  for _,edge in ipairs(self.cluster_original_edges) do
     self.graph:deleteEdge(edge)
   end
 end
@@ -295,26 +299,26 @@ end
 
 function Sugiyama:expandClusters()
 
-  for node in table.value_iter(self.original_nodes) do
+  for _,node in ipairs(self.original_nodes) do
     self.ranking:setRank(node, self.ranking:getRank(self.cluster_node[node]))
     self.graph:addNode(node)
   end
 
-  for edge in table.value_iter(self.cluster_original_edges) do
-    for node in table.value_iter(edge.nodes) do
+  for _,edge in ipairs(self.cluster_original_edges) do
+    for _,node in ipairs(edge.nodes) do
       node:addEdge(edge)
     end
     self.graph:addEdge(edge)
   end
 
-  for edge in table.value_iter(self.cluster_edges) do
+  for _,edge in ipairs(self.cluster_edges) do
     self.graph:deleteEdge(edge)
   end
 end
 
 
 function Sugiyama:restoreCycles()
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     edge.reversed = false
   end
 end

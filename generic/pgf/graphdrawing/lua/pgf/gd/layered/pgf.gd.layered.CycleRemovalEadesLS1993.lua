@@ -19,6 +19,7 @@ CycleRemovalEadesLS1993.__index = CycleRemovalEadesLS1993
 -- Namespace
 require("pgf.gd.layered").CycleRemovalEadesLS1993 = CycleRemovalEadesLS1993
 
+local lib = require "pgf.gd.lib"
 
 
 function CycleRemovalEadesLS1993.new(main_algorithm, graph)
@@ -42,11 +43,11 @@ function CycleRemovalEadesLS1993:run()
 
   local preserve = {}
 
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     copied_edge[edge] = edge:copy()
     origin_edge[copied_edge[edge]] = edge
 
-    for node in table.value_iter(edge.nodes) do
+    for _,node in ipairs(edge.nodes) do
       if copied_node[node] then
         copied_edge[edge]:addNode(copied_node[node])
       else
@@ -72,28 +73,28 @@ function CycleRemovalEadesLS1993:run()
   end
 
   while #copied_graph.nodes > 0 do
-    local sink = table.find(copied_graph.nodes, node_is_sink)
+    local sink = lib.find(copied_graph.nodes, node_is_sink)
     while sink do
-      for edge in table.value_iter(sink:getIncomingEdges()) do
+      for _,edge in ipairs(sink:getIncomingEdges()) do
         preserve[edge] = true
       end
       copied_graph:deleteNode(sink)
-      sink = table.find(copied_graph.nodes, node_is_sink)
+      sink = lib.find(copied_graph.nodes, node_is_sink)
     end
 
-    local isolated_node = table.find(copied_graph.nodes, node_is_isolated)
+    local isolated_node = lib.find(copied_graph.nodes, node_is_isolated)
     while isolated_node do
       copied_graph:deleteNode(isolated_node)
-      isolated_node = table.find(copied_graph.nodes, node_is_isolated)
+      isolated_node = lib.find(copied_graph.nodes, node_is_isolated)
     end
 
-    local source = table.find(copied_graph.nodes, node_is_source)
+    local source = lib.find(copied_graph.nodes, node_is_source)
     while source do
-      for edge in table.value_iter(source:getOutgoingEdges()) do
+      for _,edge in ipairs(source:getOutgoingEdges()) do
         preserve[edge] = true
       end
       copied_graph:deleteNode(source)
-      source = table.find(copied_graph.nodes, node_is_source)
+      source = lib.find(copied_graph.nodes, node_is_source)
     end
 
     if #copied_graph.nodes > 0 then
@@ -101,7 +102,7 @@ function CycleRemovalEadesLS1993:run()
       local max_out_edges = nil
       local max_in_edges = nil
 
-      for node in table.value_iter(copied_graph.nodes) do
+      for _,node in ipairs(copied_graph.nodes) do
         local out_edges = node:getOutgoingEdges()
         local in_edges = node:getIncomingEdges()
 
@@ -114,11 +115,11 @@ function CycleRemovalEadesLS1993:run()
 
       assert(max_node and max_out_edges and max_in_edges)
 
-      for edge in table.value_iter(max_out_edges) do
+      for _,edge in ipairs(max_out_edges) do
         preserve[edge] = true
         copied_graph:deleteEdge(edge)
       end
-      for edge in table.value_iter(max_in_edges) do
+      for _,edge in ipairs(max_in_edges) do
         copied_graph:deleteEdge(edge)
       end
 
@@ -126,7 +127,7 @@ function CycleRemovalEadesLS1993:run()
     end
   end
 
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     if not preserve[copied_edge[edge]] then
       edge.reversed = true
     end

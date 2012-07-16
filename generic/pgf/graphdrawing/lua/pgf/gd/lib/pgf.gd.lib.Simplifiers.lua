@@ -64,7 +64,8 @@ function Simplifiers:classifyEdges(graph)
 
   local initial_nodes = graph.nodes
 
-  for node in table.reverse_value_iter(initial_nodes) do
+  for i=#initial_nodes,1,-1 do
+    local node = initial_nodes[i] 
     push(node)
     discovered[node] = true
   end
@@ -79,7 +80,7 @@ function Simplifiers:classifyEdges(graph)
       recursed[node] = true
 
       local out_edges = node:getOutgoingEdges()
-      for edge in table.value_iter(out_edges) do
+      for _,edge in ipairs(out_edges) do
         local neighbour = edge:getNeighbour(node)
 
         if not discovered[neighbour] then
@@ -103,8 +104,8 @@ function Simplifiers:classifyEdges(graph)
         completed[node] = true
         pop()
       else
-        for edge in table.value_iter(table.reverse_values(edges_to_traverse)) do
-          local neighbour = edge:getNeighbour(node)
+	for i=#edges_to_traverse,1,-1 do
+          local neighbour = edges_to_traverse[i]:getNeighbour(node)
           discovered[neighbour] = true
           push(neighbour)
         end
@@ -258,7 +259,7 @@ function Simplifiers:expandMultiedgesOldModel(algorithm)
 	edge.algorithmically_generated_options[k] = v
       end
 
-      for node in table.value_iter(edge.nodes) do
+      for _,node in ipairs(edge.nodes) do
         node:addEdge(edge)
       end
 

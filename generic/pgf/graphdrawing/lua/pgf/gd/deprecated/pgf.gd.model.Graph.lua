@@ -30,7 +30,7 @@ model.Graph = Graph
 -- Imports
 local Edge = require "pgf.gd.model.Edge"
 
-
+local lib = require "pgf.gd.lib"
 
 
 --- Creates a new graph.
@@ -146,7 +146,7 @@ end
 -- @return The removed node or |nil| if it was not found in the graph.
 --
 function Graph:removeNode(node)
-  local index = table.find_index(self.nodes, function (other) 
+  local _, index = lib.find(self.nodes, function (other) 
     return other.name == node.name 
   end)
   if index then
@@ -179,7 +179,7 @@ end
 -- @return The first node for which \meta{test} returns |true|.
 --
 function Graph:findNodeIf(test)
-  return table.find(self.nodes, test)
+  return lib.find(self.nodes, test)
 end
 
 
@@ -196,9 +196,9 @@ end
 function Graph:deleteNode(node)
   local node = self:removeNode(node)
   if node then
-    for edge in table.value_iter(node.edges) do
+    for _,edge in ipairs(node.edges) do
       self:removeEdge(edge)
-      for other_node in table.value_iter(edge.nodes) do
+      for _,other_node in ipairs(edge.nodes) do
         if other_node.name ~= node.name then
           other_node:removeEdge(edge)
         end
@@ -218,7 +218,7 @@ end
 -- @return The edge if it was found in the graph, |nil| otherwise.
 --
 function Graph:findEdge(edge)
-  return table.find(self.edges, function (other) return other == edge end)
+  return lib.find(self.edges, function (other) return other == edge end)
 end
 
 
@@ -244,7 +244,7 @@ end
 -- @return The removed edge or |nil| if it was not found in the graph.
 --
 function Graph:removeEdge(edge)
-  local index = table.find_index(self.edges, function (other) return other == edge end)
+  local _, index = lib.find(self.edges, function (other) return other == edge end)
   if index then
     table.remove(self.edges, index)
     return edge
@@ -264,7 +264,7 @@ end
 function Graph:deleteEdge(edge)
   local edge = self:removeEdge(edge)
   if edge then
-    for node in table.value_iter(edge.nodes) do
+    for _,node in ipairs(edge.nodes) do
       node:removeEdge(edge)
     end
   end
@@ -282,7 +282,7 @@ end
 --
 function Graph:deleteEdgeBetweenNodes(from, to)
   -- try to find the edge
-  local edge = table.find(self.edges, function (edge)
+  local edge = lib.find(self.edges, function (edge)
     return edge.nodes[1] == from and edge.nodes[2] == to
   end)
 
@@ -338,7 +338,7 @@ end
 -- @return The cluster with the given name or |nil| if no such cluster is defined.
 --
 function Graph:findClusterByName(name)
-  return table.find(self.clusters, function (cluster)
+  return lib.find(self.clusters, function (cluster)
     return cluster.name == name
   end)
 end
@@ -378,13 +378,13 @@ function Graph:__tostring()
   Graph.__tostring = tmp
 
   local first = true
-  for node in table.value_iter(self.nodes) do
+  for _,node in ipairs(self.nodes) do
     if first then first = false else result = result .. ", " end
     result = result .. tostring(node)
   end
   result = result .. "), ("
   first = true
-  for edge in table.value_iter(self.edges) do
+  for _,edge in ipairs(self.edges) do
     if first then first = false else result = result .. ", " end
     result = result .. tostring(edge)
   end

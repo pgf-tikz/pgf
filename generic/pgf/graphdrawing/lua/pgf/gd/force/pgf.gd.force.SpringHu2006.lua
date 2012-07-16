@@ -40,6 +40,8 @@ local Vector      = require "pgf.gd.lib.Vector"
 
 local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
+local lib = require("pgf.gd.lib")
+
 
 
 
@@ -78,12 +80,12 @@ function SpringHu2006:run()
   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
   
   -- initialize node weights
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     node.weight = 1
   end
 
   -- initialize edge weights
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
   
@@ -113,9 +115,10 @@ function SpringHu2006:run()
     self:computeInitialLayout(coarse_graph.graph, spring_length)
 
     -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
+    spring_length = 0
+    for _,edge in ipairs(coarse_graph.graph.edges) do
+      spring_length = spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+    end
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- additionally improve the layout with the force-based algorithm
@@ -137,7 +140,7 @@ function SpringHu2006:run()
       local current_diameter = PathLengths.pseudoDiameter(coarse_graph.graph)
 
       -- scale node positions by the quotient of the pseudo diameters
-      for node in table.value_iter(coarse_graph.graph) do
+      for _,node in ipairs(coarse_graph.graph) do
         node.pos:update(function (n, value)
           return value * (current_diameter / parent_diameter)
         end)
@@ -151,18 +154,20 @@ function SpringHu2006:run()
     self:computeInitialLayout(coarse_graph.graph, self.natural_spring_length)
 
     -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
+    spring_length = 0
+    for _,edge in ipairs(coarse_graph.graph.edges) do
+      spring_length = spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+    end
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
     self:computeForceLayout(coarse_graph.graph, spring_length, SpringHu2006.adaptive_step_update)
   end
 
-  local avg_spring_length = table.combine_values(self.graph.edges, function (sum, edge)
-    return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-  end, 0)
+  local avg_spring_length = 0
+  for _,edge in ipairs(self.graph.edges) do
+    avg_spring_length = avg_spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+  end
   avg_spring_length = avg_spring_length / #self.graph.edges
 end
 
@@ -242,9 +247,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 
   while not converged and iteration < self.iterations do
     -- remember old node positions
-    local old_positions = table.map_pairs(graph.nodes, function (n, node)
-      return node, node.pos:copy()
-    end)
+    local old_positions = lib.map(graph.nodes, function (node) return node.pos:copy(), node end)
 
     -- remember the old system energy and reset it for the current iteration
     local old_energy = energy
@@ -255,7 +258,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 	-- vector for the displacement of v
 	local d = Vector.new(2)
 	
-	for u in table.value_iter(graph.nodes) do
+	for _,u in ipairs(graph.nodes) do
 	  if v ~= u then
 	    -- compute the distance between u and v
 	    local delta = u.pos:minus(v.pos)
@@ -292,14 +295,11 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
     step_length, progress = step_update_func(step_length, self.cooling_factor, energy, old_energy, progress)
 
     -- compute the maximum node movement in this iteration
-    local max_movement = table.combine_values(graph.nodes, function (max, x)
+    local max_movement = 0
+    for _,x in ipairs(graph.nodes) do
       local delta = x.pos:minus(old_positions[x])
-      if delta:norm() > max then
-        return delta:norm()
-      else
-        return max
-      end
-    end, 0)
+      max_movement = math.max(delta:norm(), max_movement)
+    end
     
     -- the algorithm will converge if the maximum movement is below a 
     -- threshold depending on the spring length and the convergence 
@@ -320,7 +320,7 @@ end
 function SpringHu2006:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
 

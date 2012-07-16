@@ -33,6 +33,7 @@ layered.NetworkSimplex = NetworkSimplex
 local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
 local Ranking          = require "pgf.gd.layered.Ranking"
 local Graph            = require "pgf.gd.model.Graph"
+local lib              = require "pgf.gd.lib"
 
 
 
@@ -59,7 +60,7 @@ function NetworkSimplex:run()
 
   -- initialize internal edge parameters
   self.cut_value = {}
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     self.cut_value[edge] = 0
   end
 
@@ -119,9 +120,9 @@ function NetworkSimplex:constructFeasibleTree()
 
     local min_slack_edge = nil
 
-    for node in table.value_iter(self.graph.nodes) do
+    for _,node in ipairs(self.graph.nodes) do
       local out_edges = node:getOutgoingEdges()
-      for edge in table.value_iter(out_edges) do
+      for _,edge in ipairs(out_edges) do
         if not self.tree_edge[edge] and self:isIncidentToTree(edge) then
           if not min_slack_edge or self:edgeSlack(edge) < self:edgeSlack(min_slack_edge) then
             min_slack_edge = edge
@@ -142,7 +143,7 @@ function NetworkSimplex:constructFeasibleTree()
         end
 
 
-        for node in table.value_iter(self.tree.nodes) do
+        for _,node in ipairs(self.tree.nodes) do
           local rank = self.ranking:getRank(self.orig_node[node])
           self.ranking:setRank(self.orig_node[node], rank + delta)
         end
@@ -204,7 +205,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
 
     if direction == 'out' then
       local out_edges = self.orig_node[v]:getOutgoingEdges()
-      for edge in table.value_iter(out_edges) do
+      for _,edge in ipairs(out_edges) do
         local head = edge:getHead()
         local tree_head = self.tree_node[head]
 
@@ -224,7 +225,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
         end
       end
 
-      for edge in table.value_iter(v:getIncomingEdges()) do
+      for _,edge in ipairs(v:getIncomingEdges()) do
         if slack <= 0 then
           break
         end
@@ -237,7 +238,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
       end
     else
       local in_edges = self.orig_node[v]:getIncomingEdges()
-      for edge in table.value_iter(in_edges) do
+      for _,edge in ipairs(in_edges) do
         local tail = edge:getTail()
         local tree_tail = self.tree_node[tail]
 
@@ -257,7 +258,7 @@ function NetworkSimplex:findReplacementEdge(leave_edge)
         end
       end
 
-      for edge in table.value_iter(v:getOutgoingEdges()) do
+      for _,edge in ipairs(v:getOutgoingEdges()) do
         if slack <= 0 then
           break
         end
@@ -320,11 +321,11 @@ function NetworkSimplex:balanceRanksTopBottom()
   local max_rank = {}
 
   -- compute the in and out weights of each node
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     -- assume there are no restrictions on how to rank the node
     min_rank[node], max_rank[node] = ranks[1], ranks[#ranks]
 
-    for edge in table.value_iter(node:getIncomingEdges()) do
+    for _,edge in ipairs(node:getIncomingEdges()) do
       -- accumulate the weights of all incoming edges
       in_weight[node] = (in_weight[node] or 0) + edge.weight
       
@@ -336,7 +337,7 @@ function NetworkSimplex:balanceRanksTopBottom()
       min_rank[node] = math.max(min_rank[node], neighbour_rank + edge.minimum_levels)
     end
     
-    for edge in table.value_iter(node:getOutgoingEdges()) do
+    for _,edge in ipairs(node:getOutgoingEdges()) do
       -- accumulate the weights of all outgoing edges
       out_weight[node] = (out_weight[node] or 0) + edge.weight
 
@@ -372,7 +373,7 @@ end
 
 
 function NetworkSimplex:balanceRanksLeftRight()
-  for edge in table.value_iter(self.tree.edges) do
+  for _,edge in ipairs(self.tree.edges) do
     if self.cut_value[edge] == 0 then
       local other_edge = self:findReplacementEdge(edge)
       if other_edge then
@@ -408,7 +409,7 @@ function NetworkSimplex:computeInitialRanking()
   local remaining_edges = {}
 
   -- add all sinks to the queue
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     local edges = node:getIncomingEdges()
     
     remaining_edges[node] = #edges
@@ -427,15 +428,15 @@ function NetworkSimplex:computeInitialRanking()
     local in_edges = node:getIncomingEdges()
 
     -- determine the minimum possible rank for the node
-    local rank = table.combine_values(in_edges, function (rank, edge)
+    local rank = 1
+    for _,edge in ipairs(in_edges) do
       local neighbour = edge:getNeighbour(node)
       if self.ranking:getRank(neighbour) then
         -- the minimum possible rank is the maximum of all neighbour ranks plus
         -- the corresponding edge lengths
         rank = math.max(rank, self.ranking:getRank(neighbour) + edge.minimum_levels)
       end
-      return rank
-    end, 1)
+    end 
 
     -- rank the node
     self.ranking:setRank(node, rank)
@@ -444,7 +445,7 @@ function NetworkSimplex:computeInitialRanking()
     local out_edges = node:getOutgoingEdges()
 
     -- queue neighbours of nodes for which all incoming edges have been scanned
-    for edge in table.value_iter(out_edges) do
+    for _,edge in ipairs(out_edges) do
       local head = edge:getHead()
       remaining_edges[head] = remaining_edges[head] - 1
       if remaining_edges[head] <= 0 then
@@ -467,14 +468,17 @@ function NetworkSimplex:findTightTree()
     local out_edges = node:getOutgoingEdges()
     local in_edges = node:getIncomingEdges()
 
-    local edges = table.merge_values(out_edges, in_edges)
+    local edges = lib.copy(out_edges)
+    for _,v in ipairs(in_edges) do
+      edges[#edges + 1] = v
+    end
 
-    for edge in table.value_iter(edges) do
+    for _,edge in ipairs(edges) do
       local neighbour = edge:getNeighbour(node)
       if (not marked[neighbour]) and self:edgeSlack(edge) == 0 then
         self:addEdgeToTree(edge)
 
-        for node in table.value_iter(edge.nodes) do
+        for _,node in ipairs(edge.nodes) do
           marked[node] = true
         end
         
@@ -491,7 +495,7 @@ function NetworkSimplex:findTightTree()
     return false
   end
 
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     self.tree = Graph.new()
     self.tree_node = {}
     self.orig_node = {}
@@ -549,14 +553,19 @@ function NetworkSimplex:initializeCutValues()
 
   local function visit(search, data)
     search:setVisited(data, true)
-
-    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+    
+    local into = data.node:getIncomingEdges()
+    local out = data.node:getOutgoingEdges()
+    
+    for i=#into,1,-1 do
+      local edge = into[i]
       if edge ~= data.parent_edge then
         search:push({ node = edge:getTail(), parent_edge = edge })
       end
     end
 
-    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+    for i=#out,1,-1 do
+      local edge = out[i]
       if edge ~= data.parent_edge then
         search:push({ node = edge:getHead(), parent_edge = edge })
       end
@@ -605,13 +614,18 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
     -- next we push all outgoing and incoming edges in reverse order
     -- to simulate recursive calls
     
-    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+    local into = data.node:getIncomingEdges()
+    local out  = data.node:getOutgoingEdges()
+    
+    for i=#into,1,-1 do
+      local edge = into[i]
       if edge ~= data.parent_edge then
         search:push({ node = edge:getTail(), parent_edge = edge })
       end
     end
 
-    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+    for i=#out,1,-1 do
+      local edge = out[i]
       if edge ~= data.parent_edge then
         search:push({ node = edge:getHead(), parent_edge = edge })
       end
@@ -630,7 +644,7 @@ function NetworkSimplex:calculateDFSRange(root, edge_from_parent, lowest)
   local lim_lookup = {}
   local min_lim = math.huge
   local max_lim = -math.huge
-  for node in table.value_iter(self.tree.nodes) do
+  for _,node in ipairs(self.tree.nodes) do
     assert(self.lim[node])
     assert(self.low[node])
     assert(not lim_lookup[self.lim[node]])
@@ -660,9 +674,12 @@ function NetworkSimplex:updateCutValue(tree_edge)
 
   local out_edges = self.orig_node[v]:getOutgoingEdges()
   local in_edges = self.orig_node[v]:getIncomingEdges()
-  local edges = table.merge_values(out_edges, in_edges)
+  local edges = lib.copy(out_edges)
+  for _,v in ipairs(in_edges) do
+    edges[#edges + 1] = v
+  end
 
-  for edge in table.value_iter(edges) do
+  for _,edge in ipairs(edges) do
     local other = edge:getNeighbour(self.orig_node[v])
 
     local f = 0
@@ -749,14 +766,19 @@ function NetworkSimplex:rerank(node, delta)
 
     local orig_node = self.orig_node[data.node]
     self.ranking:setRank(orig_node, self.ranking:getRank(orig_node) - data.delta)
-
-    for edge in table.reverse_value_iter(data.node:getIncomingEdges()) do
+    
+    local into = data.node:getIncomingEdges()
+    local out  = data.node:getOutgoingEdges()
+    
+    for i=#into,1,-1 do
+      local edge = into[i]
       if edge ~= self.parent_edge[data.node] then
         search:push({ node = edge:getTail(), delta = data.delta })
       end
     end
 
-    for edge in table.reverse_value_iter(data.node:getOutgoingEdges()) do
+    for i=#out,1,-1 do
+      local edge = out[i]
       if edge ~= self.parent_edge[data.node] then
         search:push({ node = edge:getHead(), delta = data.delta })
       end
@@ -832,7 +854,7 @@ function NetworkSimplex:addEdgeToTree(edge)
   self.tree_edge[edge] = tree_edge
 
   -- create tree nodes if necessary
-  for node in table.value_iter(edge.nodes) do
+  for _,node in ipairs(edge.nodes) do
     local tree_node 
     
     if self.tree_node[node] then

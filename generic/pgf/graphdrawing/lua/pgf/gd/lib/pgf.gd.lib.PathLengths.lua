@@ -53,7 +53,7 @@ function PathLengths.dijkstra(graph, source)
   local queue = PriorityQueue.new()
 
   -- reset the distance of all nodes and insert them into the priority queue
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     if node == source then
       distance[node] = 0
       parent[node] = nil
@@ -74,7 +74,7 @@ function PathLengths.dijkstra(graph, source)
       table.insert(levels[distance[u]], u)
     end
 
-    for edge in table.value_iter(u.edges) do
+    for _,edge in ipairs(u.edges) do
       local v = edge:getNeighbour(u)
       local alternative = distance[u] + 1
       if alternative < distance[v] then
@@ -105,23 +105,23 @@ function PathLengths.floydWarshall(graph)
   local distance = {}
   local infinity = math.huge
 
-  for i in table.value_iter(graph.nodes) do
+  for _,i in ipairs(graph.nodes) do
     distance[i] = {}
-    for j in table.value_iter(graph.nodes) do
+    for _,j in ipairs(graph.nodes) do
       distance[i][j] = infinity
     end
   end
 
-  for i in table.value_iter(graph.nodes) do
-    for edge in table.value_iter(i.edges) do
+  for _,i in ipairs(graph.nodes) do
+    for _,edge in ipairs(i.edges) do
       local j = edge:getNeighbour(i)
       distance[i][j] = edge.weight or 1
     end
   end
 
-  for k in table.value_iter(graph.nodes) do
-    for i in table.value_iter(graph.nodes) do
-      for j in table.value_iter(graph.nodes) do
+  for _,k in ipairs(graph.nodes) do
+    for _,i in ipairs(graph.nodes) do
+      for _,j in ipairs(graph.nodes) do
         distance[i][j] = math.min(distance[i][j], distance[i][k] + distance[k][j])
       end
     end
@@ -155,13 +155,12 @@ end
 function PathLengths.pseudoDiameter(graph)
 
   -- find a node with minimum degree
-  local start_node = table.combine_values(graph.nodes, function (min, node)
-    if node:getDegree() < min:getDegree() then
-      return node
-    else
-      return min
+  local start_node = graph.nodes[1]
+  for _,node in ipairs(graph.nodes) do
+    if node:getDegree() < start_node:getDegree() then
+      start_node = node
     end
-  end, graph.nodes[1])
+  end
 
   assert(start_node)
 
@@ -185,13 +184,12 @@ function PathLengths.pseudoDiameter(graph)
 
     -- select the node with the smallest degree from the last level as
     -- the start node for the next iteration
-    start_node = table.combine_values(levels[#levels], function (min, node)
-      if node:getDegree() < min:getDegree() then
-        return node
-      else
-        return min
+    start_node = levels[#levels][1]
+    for _,node in ipairs(levels[#levels]) do
+      if node:getDegree() < start_node:getDegree() then
+        start_node = node
       end
-    end, levels[#levels][1])
+    end
 
     assert(start_node)
   end

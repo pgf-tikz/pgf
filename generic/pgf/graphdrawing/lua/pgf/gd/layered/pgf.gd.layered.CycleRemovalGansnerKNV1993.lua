@@ -60,7 +60,7 @@ function CycleRemovalGansnerKNV1993:run()
   local tree_or_forward_edges, cross_edges, back_edges = Simplifiers:classifyEdges(self.graph)
 
   -- reverse the back edges in order to make the graph acyclic
-  for edge in table.value_iter(back_edges) do
+  for _,edge in ipairs(back_edges) do
     edge.reversed = true
   end
 end

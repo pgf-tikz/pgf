@@ -28,7 +28,7 @@ require("pgf.gd.force").QuadTree = QuadTree
 
 -- Imports:
 local Vector = require "pgf.gd.lib.Vector"
-
+local lib = require "pgf.gd.lib"
 
 
 --- Creates a new quad tree.
@@ -135,7 +135,7 @@ end
 
 
 function QuadTree.Cell:findSubcell(particle)
-  return table.find(self.subcells, function (cell)
+  return lib.find(self.subcells, function (cell)
     return cell:containsParticle(particle)
   end)
 end
@@ -147,8 +147,8 @@ function QuadTree.Cell:createSubcells()
   assert(type(self.particles) == 'table' and #self.particles <= self.max_particles)
 
   if #self.subcells == 0 then
-    for x in table.value_iter({self.x, self.x + self.width/2}) do
-      for y in table.value_iter({self.y, self.y + self.height/2}) do
+    for _,x in ipairs({self.x, self.x + self.width/2}) do
+      for _,y in ipairs({self.y, self.y + self.height/2}) do
         local cell = QuadTree.Cell.new(x, y, self.width/2, self.height/2, self.max_particles)
         table.insert(self.subcells, cell)
       end
@@ -160,7 +160,7 @@ end
 
 function QuadTree.Cell:insert(particle)
   -- check if we have a particle with the exact same position already
-  local existing = table.find(self.particles, function (other)
+  local existing = lib.find(self.particles, function (other)
     return other.pos:equals(particle.pos)
   end)
 
@@ -178,7 +178,7 @@ function QuadTree.Cell:insert(particle)
       end
         
       -- move particles to the new subcells
-      for existing in table.value_iter(self.particles) do
+      for _,existing in ipairs(self.particles) do
         local cell = self:findSubcell(existing)
         assert(cell, 'failed to find a cell for particle ' .. tostring(existing.pos))
         cell:insert(existing)
@@ -207,17 +207,17 @@ function QuadTree.Cell:updateMass()
 
   if #self.subcells == 0 then
     -- the mass is the number of particles of the cell
-    self.mass = table.combine_values(self.particles, function (mass, particle)
-      local subparticle_masses = table.combine_values(particle.subparticles, function (mass, subparticle)
-        return mass + subparticle.mass
-      end, 0)
-      return mass + particle.mass + subparticle_masses
-    end, 0)
+    for _,particle in ipairs(self.particles) do
+      self.mass = self.mass + particle.mass
+      for _,subparticle in ipairs(particle.subparticles) do
+	self.mass = self.mass + subparticle.mass
+      end
+    end
   else
     -- the mass is the sum of the masses of the subcells
-    self.mass = table.combine_values(self.subcells, function (sum, cell)
-      return sum + cell.mass
-    end, 0)
+    for _,subcell in ipairs(self.subcells) do
+      self.mass = self.mass + subcell.mass
+    end
   end
 end
 
@@ -226,28 +226,29 @@ end
 function QuadTree.Cell:updateCenterOfMass()
   -- reset center of mass, assuming the cell is empty
   self.center_of_mass = nil
-
+  
   if #self.subcells == 0 then
     -- the center of mass is the average position of the particles
     -- weighted by their masses
-    self.center_of_mass = table.combine_values(self.particles, function (pos, particle)
-      for subparticle in table.value_iter(particle.subparticles) do
-        pos = pos:plus(subparticle.pos:timesScalar(subparticle.mass))
+    self.center_of_mass = Vector.new (2)
+    for _,p in ipairs(self.particles) do
+      for _,sp in ipairs(p.subparticles) do
+	self.center_of_mass = self.center_of_mass:plus(sp.pos:timesScalar(sp.mass))
       end
-      return pos:plus(particle.pos:timesScalar(particle.mass))
-    end, Vector.new(2))
+      self.center_of_mass = self.center_of_mass:plus(p.pos:timesScalar(p.mass))
+    end
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
     -- the center of mass is the average of the weighted centers of mass 
     -- of the subcells
-    self.center_of_mass = table.combine_values(self.subcells, function (pos, cell)
-      if cell.center_of_mass then
-        return pos:plus(cell.center_of_mass:timesScalar(cell.mass))
+    self.center_of_mass = Vector.new(2)
+    for _,sc in ipairs(self.subcells) do
+      if sc.center_of_mass then
+	self.center_of_mass = self.center_of_mass:plus(sc.center_of_mass:timesScalar(sc.mass))
       else
-        assert(cell.mass == 0)
-        return pos:copy()
+	assert(sc.mass == 0)
       end
-    end, Vector.new(2))
+    end
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   end
 end
@@ -258,7 +259,7 @@ function QuadTree.Cell:findInteractionCells(particle, test_func, cells)
   if #self.subcells == 0 or test_func(self, particle) then
     table.insert(cells, self)
   else
-    for subcell in table.value_iter(self.subcells) do
+    for _,subcell in ipairs(self.subcells) do
       subcell:findInteractionCells(particle, test_func, cells)
     end
   end

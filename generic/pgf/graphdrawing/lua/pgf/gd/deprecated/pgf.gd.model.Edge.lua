@@ -28,6 +28,7 @@ Edge.__index = Edge
 local model   = require "pgf.gd.model"
 model.Edge = Edge
 
+local lib = require "pgf.gd.lib"
 
 
 -- Definitions
@@ -112,10 +113,13 @@ end
 -- @return |true| if the edge is a loop, |false| otherwise.
 --
 function Edge:isLoop()
-  local nodes_equal = table.combine_values(self.nodes, function (nodes_equal, node)
-    return nodes_equal and node == self.nodes[1]
-  end, true)
-  return nodes_equal
+  local nodes = self.nodes
+  for i=1,#nodes do
+    if nodes[i] ~= nodes[1] then
+      return false
+    end
+  end
+  return true
 end
 
 
@@ -152,7 +156,7 @@ end
 -- @return |true| if the node is adjacent to the edge. |false| otherwise.
 --
 function Edge:containsNode(node)
-  return table.find(self.nodes, function (other) return other == node end) ~= nil
+  return lib.find(self.nodes, function (other) return other == node end) ~= nil
 end
 
 
@@ -189,7 +193,7 @@ end
 -- @return The number of nodes on the edge.
 --
 function Edge:getDegree()
-  return table.count_pairs(self.nodes)
+  return #self.nodes
 end
 
 
@@ -308,10 +312,21 @@ end
 -- @return Shallow copy of the edge.
 --
 function Edge:copy()
-  local result = table.custom_copy(self, Edge.new())
+  local result = lib.copy(self, Edge.new())
   result.nodes = {}
   return result
  end
+
+
+
+
+local function reverse_values(source)
+  local copy = {}
+  for i = 1,#source do
+    copy[i] = source[#source-i+1]
+  end
+  return copy
+end
 
 
 --- Returns a readable string representation of the edge.
@@ -322,10 +337,8 @@ function Edge:copy()
 --
 function Edge:__tostring()
   local result = "Edge(" .. self.direction .. ", reversed = " .. tostring(self.reversed) .. ", "
-  if table.count_pairs(self.nodes) > 0 then
-    local node_strings = table.map_values(self.nodes, function (node)
-      return node.name
-    end)
+  if #self.nodes > 0 then
+    local node_strings = lib.imap(self.nodes, function (node) return node.name end)
     result = result .. table.concat(node_strings, ', ')
   end
   --return result .. ")"
@@ -334,11 +347,9 @@ function Edge:__tostring()
   -- of the edge that is more readable and can be used for debugging.
   -- So please don't remove this:
   --
-  local node_strings = table.map_values(self.nodes, function (node)
-    return node.name
-  end)
+  local node_strings = lib.imap(self.nodes, function (node) return node.name end)
   if self.reversed then
-    return table.concat(table.reverse_values(node_strings), ' ' .. self.direction .. ' ')
+    return table.concat(reverse_values(node_strings), ' ' .. self.direction .. ' ')
   else
     return table.concat(node_strings, ' ' .. self.direction .. ' ')
   end

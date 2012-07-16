@@ -19,6 +19,7 @@ CrossingMinimizationGansnerKNV1993.__index = CrossingMinimizationGansnerKNV1993
 -- Namespace
 require("pgf.gd.layered").CrossingMinimizationGansnerKNV1993 = CrossingMinimizationGansnerKNV1993
 
+local lib = require "pgf.gd.lib"
 
 -- Imports
 
@@ -72,10 +73,11 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
   local best_ranking = self.ranking:copy()
   local best_crossings = self:countRankCrossings(best_ranking)
 
-  for direction in table.value_iter({'down', 'up'}) do
+  for _,direction in ipairs({'down', 'up'}) do
 
     local function init(search)
-      for node in table.reverse_value_iter(self.graph.nodes) do
+      for i=#self.graph.nodes,1,-1 do
+	local node = self.graph.nodes[i]
         if direction == 'down' then
           if node:getInDegree() == 0 then
             search:push(node)
@@ -98,16 +100,18 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
       self.ranking:setRankPosition(node, pos)
 
       if direction == 'down' then
-        for edge in table.reverse_value_iter(node:getOutgoingEdges()) do
-          local neighbour = edge:getNeighbour(node)
+	local out = node:getOutgoingEdges()
+        for i=#out,1,-1 do
+          local neighbour = out[i]:getNeighbour(node)
           if not search:getDiscovered(neighbour) then
             search:push(neighbour)
             search:setDiscovered(neighbour)
           end
         end
       else
-        for edge in table.reverse_value_iter(node:getIncomingEdges()) do
-          local neighbour = edge:getNeighbour(node)
+	local into = node:getIncomingEdges()
+        for i=#into,1,-1 do 
+	    local neighbour = into[i]:getNeighbour(node)
           if not search:getDiscovered(neighbour) then
             search:push(neighbour)
             search:setDiscovered(neighbour)
@@ -162,7 +166,7 @@ end
 function CrossingMinimizationGansnerKNV1993:countNodeCrossings(ranking, left_node, right_node, sweep_direction)
 
   local ranks = ranking:getRanks()
-  local rank_index = table.find_index(ranks, function (rank)
+  local _, rank_index = lib.find(ranks, function (rank)
     return rank == ranking:getRank(left_node)
   end)
   local other_rank_index = (sweep_direction == 'down') and rank_index-1 or rank_index+1
@@ -237,7 +241,7 @@ function CrossingMinimizationGansnerKNV1993:orderByWeightedMedian(direction)
     for rank_index = 2, #ranks do
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
-      for node in table.value_iter(nodes) do
+      for _,node in ipairs(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index-1])
       end
 
@@ -249,7 +253,7 @@ function CrossingMinimizationGansnerKNV1993:orderByWeightedMedian(direction)
     for rank_index = 1, #ranks-1 do
       median = {}
       local nodes = self.ranking:getNodes(ranks[rank_index])
-      for node in table.value_iter(nodes) do
+      for _,node in ipairs(nodes) do
         median[node] = self:computeMedianPosition(node, ranks[rank_index+1])
       end
 
@@ -262,15 +266,14 @@ end
 
 function CrossingMinimizationGansnerKNV1993:computeMedianPosition(node, prev_rank)
 
-  local in_edges = table.filter_values(node.edges, function (edge)
-    local neighbour = edge:getNeighbour(node)
-    return self.ranking:getRank(neighbour) == prev_rank
-  end)
-
-  local positions = table.map_values(in_edges, function (edge)
-    local neighbour = edge:getNeighbour(node)
-    return self.ranking:getRankPosition(neighbour)
-  end)
+  local positions = lib.imap(
+    node.edges,
+    function (edge)
+      local n = edge:getNeighbour(node)
+      if self.ranking:getRank(n) == prev_rank then
+	return self.ranking:getRankPosition(n)
+      end
+    end)
 
   table.sort(positions)
 

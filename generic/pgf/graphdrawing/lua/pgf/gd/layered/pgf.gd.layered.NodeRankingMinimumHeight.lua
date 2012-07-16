@@ -47,9 +47,10 @@ function NodeRankingMinimumHeight:run()
     if #edges == 0 then
       ranking:setRank(node, 1)
     else
-      local max_rank = table.combine_values(edges, function (max_rank, edge)
-        return math.max(max_rank, ranking:getRank(edge:getNeighbour(node)))
-      end, -math.huge)
+      local max_rank = -math.huge
+      for _,edge in ipairs(edge) do
+	max_rank = math.max(max_rank, ranking:getRank(edge:getNeighbour(node)))
+      end
 
       assert(max_rank >= 1)
 

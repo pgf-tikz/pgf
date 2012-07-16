@@ -40,12 +40,7 @@
 % 
 % Initialize the lua graph drawing environment
 %
-\directlua{
-  require 'pgf'                          % Setup the main pgf table
-  require 'pgf.gd.lib.cleanupthisstuff'  % Need to get rid of this ASAP!
-  require 'pgf.gd.control.TeXInterface'  % Now load the main communication class
-}
-
+\directlua{ require 'pgf.gd.control.TeXInterface' } % Load the main communication class
 
 
 %
@@ -132,6 +127,11 @@
     \directlua{pgf.gd.control.TeXInterface.endGraphDrawingScope()}
   \endgroup
 }
+
+
+
+
+
 
 
 % Hook into graph specification
@@ -1485,8 +1485,8 @@
 % options, which are specified as an argument to the key. For
 % instance, suppose you write
 % 
-% \pgfgddeclarecollectionkind{hyper}{...}{...}{...}{...}{...}
-% ...
+% \pgfgddeclarecollectionkind{hyper}{1}
+% 
 % \graph {
 %   a, b, c, d;
 %   { [hyper={foo=bar}] a, b, c }
@@ -1641,6 +1641,134 @@
 % };
 
 \pgfgddeclarecollectionkind{hyper}{1}
+
+
+% Using multiple algorithms
+%
+% Description:
+% 
+% Inside each graph drawing scope, a main algorithm is used to perform
+% the graph drawing. However, parts of the graph may be drawn using
+% different algorithms: For instance, a graph might consist of
+% several, say, cliques that are arranged in a tree-like fashion. In
+% this case, it might be useful to layout each clique using a circular
+% layout, but then lay out all laid out cliques using a tree drawing
+% algorithm.
+% 
+% To support graph drawing with multiple algorithms, you can use
+% the special collection kind "sublayout". Each collection of this
+% kind specifies a set of nodes and edges that should be laid out
+% using some algorithm passed to the collection.
+% 
+% Since a node can be part of several collections, conflicting
+% placements may result when different algorithms are applied to the
+% nodes of the collections. For this reason, the following algorithm
+% is used to lay out graphs with sublayouts.
+% 
+% \begin{enumerate} 
+% \item We compute relations on the sublayout collections as follows: We
+% say that such a collection is \emph{inside} of another collection if
+% all nodes and all edges of the first collection are also inside the
+% second collection. We say that a collection is \emph{disjoint} from
+% another collection, if they have neither nodes nor edges in common.
+% 
+% The ``inside relation'' is a partial order on the sublayout
+% collection. In particular, for each collection $C$ there is a
+% (possibly empty) set $S_C$ of collections $C'$ that are inside $C$
+% and that are maximal with respect to the inside relation.
+% 
+% \item Now, consider a collection~$C$. We first (recursively) lay out
+% each element of $S_C$ using the algorithm specified for the
+% sublayout. Note that the elements of $S_C$ may overlap, but,
+% nevertheless, we run the algorithms separately on the elements of
+% $S_C$. In particular, different, conflicting positions may be
+% computed for nodes of $C$ when they are present in several elements
+% of $S_C$.
+% 
+% Also note that only elements of $S_C$ are considered here. When a
+% collection $D$ intersects with $C$, but is not inside $C$, it will
+% play no role at this point.
+% 
+% \item Once all elements of $S_C$ have been laid out, we \emph{join}
+% overlapping elements. This means the following: We build a
+% (conceptual) graph whose nodes are the elements of $S_C$ and in
+% which there is an edges between two nodes if the collections
+% represented by these elements have a node in common.
+% Inside the resulting graph, we treat each connected component
+% separately. Each component has the property that the collections
+% represented by the nodes in the component overlap by at least one
+% node. We now \emph{join} them as follows: We start with the first
+% collection in the component (``first'' with respect to the order in
+% which they appear in the input graph) and ``mark'' this
+% collection. We loop the following instructions as long as possible:
+% Search for the first collection (again, with respect to the order in
+% which they appear in the input) that is connect by an edge to a
+% marked collection. The collection will now have at least one node in
+% common with the marked collections (possibly, even more). We
+% consider the first such node (again, first respect to the input
+% ordering) and shift the whole collection is such a way that this
+% particular node is at the position is has in the marked
+% collections. Note that after the shift, other nodes that are also
+% present in the marked collections may lie at a different position in
+% the current collection. In this case, the position in the marked
+% collections ``wins.''
+% 
+% \item When the above algorithm has run, we will have computed for
+% all nodes in all collections of each of the components of $S_C$. In
+% order to lay out $C$, we do the following: Each component of $S_C$
+% is contracted to a single node (that is, in $C$, all nodes that are
+% part of such a component are removed and replaced by a single new
+% node; the arcs are adapted appropriately). This new node will be
+% ``large'' in the sense that its convex hull is the convex hull of
+% all the nodes in the component. We run the algorithm for $C$ on the
+% resulting graph.
+% 
+% \item In a last step, once $C$ has been laid out, we once more
+% expand the nodes that were previously contracted. For this, the
+% nodes that were deleted earlier get reinserted, but shifted by
+% whatever amount the contraction node got shifted.
+% \end{enumerate}
+% 
+% Admittedly, the above algorithm is somewhat involved since it has to
+% handle many involved special cases at once. However, there are two
+% ``typical'' use cases that are pretty easy to use:
+% 
+% First, consider a graph where we lay out the ``main'' graph using
+% some algorithm and then wish to ``attach'' some ``tentacles.'' For
+% this, use a sublayout for the main graph and use a sublayouts for
+% each tentacle and just ensure that each tentacle has exactly one
+% node in common with the main graph:
+% 
+% \graph [multiple layouts] {
+%   { [circular layout]  % Main layout
+%     a -> b -> c -> d -> e -> f -> a;
+%   }
+%   
+%   { [tree layout] % first tentacle
+%     a -> {a1,a2}
+%   }
+%
+%   { [tree layout] % second tentacle
+%     d -> {d1,d2 -> {h,g}}
+%   }
+% };
+% 
+% Second, we can layout graphs in which smaller graphs are treated as
+% ``giant nodes'' of a larger graph:
+% 
+% \graph [circular layout] {
+%   a -> b -> c -> d -> e -> f -> a;
+%   
+%   { [tree layout] % first ``giant node''
+%     a -> {a1,a2}
+%   }
+%
+%   { [tree layout] % second ``giant node''
+%     d -> {d1,d2 -> {h,g}}
+%   }
+% };
+
+\pgfgddeclarecollectionkind{sublayout}{0}
 
 
 

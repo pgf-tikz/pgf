@@ -30,6 +30,7 @@ force.CoarseGraph = CoarseGraph
 local Node = require "pgf.gd.model.Node"
 local Edge = require "pgf.gd.model.Edge"
 
+local lib = require "pgf.gd.lib"
 
 
 -- Class setup
@@ -94,6 +95,37 @@ end
 
 
 
+local function custom_merge(table1, table2, first_metatable)
+  local result = table1 and lib.copy(table1) or {}
+  local first_metatable = first_metatable == true or false
+
+  for key, value in pairs(table2) do
+    if not result[key] then
+      result[key] = value
+    end
+  end
+
+  if not first_metatable or not getmetatable(result) then
+    setmetatable(result, getmetatable(table2))
+  end
+
+  return result
+end
+
+
+local function pairs_by_sorted_keys (t, f)
+   local a = {}
+   for n in pairs(t) do a[#a + 1] = n end
+   table.sort (a, f)
+   local i = 0
+   return function ()
+	     i = i + 1
+	     return a[i], t[a[i]]
+	  end
+end
+
+
+
 function CoarseGraph:coarsen()
   -- update the level
   self.level = self.level + 1
@@ -103,7 +135,7 @@ function CoarseGraph:coarsen()
   if self.scheme == CoarseGraph.COARSEN_INDEPENDENT_EDGES then
     local matching, unmatched_nodes = self:findMaximalMatching()
 
-    for edge in table.value_iter(matching) do
+    for _,edge in ipairs(matching) do
       -- get the two nodes of the edge that we are about to collapse
       local u, v = edge.nodes[1], edge.nodes[2]
 
@@ -122,48 +154,33 @@ function CoarseGraph:coarsen()
       self.graph:addNode(supernode)
 
       -- collact all neighbours of the nodes to merge, create a node -> edge mapping
-      local u_neighbours = table.map_pairs(u.edges, function (n, edge)
-	return edge:getNeighbour(u), edge
-      end)
-      local v_neighbours = table.map_pairs(v.edges, function(n, edge)
-        return edge:getNeighbour(v), edge
-      end)
+      local u_neighbours = lib.map(u.edges, function(edge) return edge, edge:getNeighbour(u) end)
+      local v_neighbours = lib.map(v.edges, function(edge) return edge, edge:getNeighbour(v) end)
 
       -- remove the two nodes themselves from the neighbour lists
-      u_neighbours = table.filter_keys(u_neighbours, function (node)
-        return node ~= v
-      end)
-      v_neighbours = table.filter_keys(v_neighbours, function (node) 
-        return node ~= u 
-      end)
+      u_neighbours = lib.map(u_neighbours, function (edge,node) if node ~= v then return edge,node end end)
+      v_neighbours = lib.map(v_neighbours, function (edge,node) if node ~= u then return edge,node end end)
 
       -- compute a list of neighbours u and v have in common
-      local common_neighbours = table.filter_keys(u_neighbours, function (node)
-        return v_neighbours[node] ~= nil
-      end)
+      local common_neighbours = lib.map(u_neighbours,
+					function (edge,node)
+					  if v_neighbours[node] ~= nil then return edge,node end
+					end)
 
       -- create a node -> edges mapping for common neighbours
-      common_neighbours = table.map_pairs(common_neighbours, function (node, edge)
-        return node, { edge, v_neighbours[node] }
+      common_neighbours = lib.map(common_neighbours, function (edge, node)
+        return { edge, v_neighbours[node] }, node
       end)
 
       -- drop common edges from the neighbour mappings
-      u_neighbours = table.filter_keys(u_neighbours, function (node)
-        return not common_neighbours[node]
-      end)
-      v_neighbours = table.filter_keys(v_neighbours, function (node)
-        return not common_neighbours[node]
-      end)
+      u_neighbours = lib.map(u_neighbours, function (val,node) if not common_neighbours[node] then return val,node end end)
+      v_neighbours = lib.map(v_neighbours, function (val,node) if not common_neighbours[node] then return val,node end end)
 
       -- merge neighbour lists
-      local disjoint_neighbours = table.custom_merge(u_neighbours, v_neighbours)
+      local disjoint_neighbours = custom_merge(u_neighbours, v_neighbours)
 
       -- create edges between the supernode and the neighbours of the merged nodes
-      -- TT: I had to add the "pairs_by_sorted_keys" to ensure that the program
-      --     becomes determinisitc (in each run a different coarsening used to be computed, 
-      --     which was unacceptable). Unfortunately, I'm not sure whether I caught all placed, 
-      --     where this occurs.
-      for neighbour, edge in table.pairs_by_sorted_keys(disjoint_neighbours, function (n,m) return n.index < m.index end) do
+      for neighbour, edge in pairs_by_sorted_keys(disjoint_neighbours, function (n,m) return n.index < m.index end) do
 
         -- create a superedge to replace the existing one
         local superedge = Edge.new{
@@ -192,10 +209,11 @@ function CoarseGraph:coarsen()
       -- do the same for all neighbours that the merged nodes have
       -- in common, except that the weights of the new edges are the
       -- sums of the of the weights of the edges to the common neighbours
-      for neighbour, edges in table.pairs_by_sorted_keys(common_neighbours, function (n,m) return n.index < m.index end) do
-        local weights = table.combine_values(edges, function (weights, edge)
-          return weights + edge.weight
-        end, 0)
+      for neighbour, edges in pairs_by_sorted_keys(common_neighbours, function (n,m) return n.index < m.index end) do
+        local weights = 0
+	for _,e in ipairs(edges) do
+	  weights = weights + edge.weight
+	end
 
         local superedge = Edge.new{
           direction = Edge.UNDIRECTED,
@@ -210,7 +228,7 @@ function CoarseGraph:coarsen()
 
         -- replace the old edges
         self.graph:addEdge(superedge)
-        for edge in table.value_iter(edges) do
+        for _,edge in ipairs(edges) do
           self.graph:deleteEdge(edge)
         end
       end
@@ -261,7 +279,7 @@ function CoarseGraph:revertSuperedge(superedge)
       self:revertSuperedge(subedge)
     end
   else
-    for subedge in table.value_iter(superedge.subedges) do
+    for _,subedge in ipairs(superedge.subedges) do
       if not self.graph:findNode(subedge.nodes[1].name) then
         self.graph:addNode(subedge.nodes[1])
       end
@@ -290,9 +308,9 @@ function CoarseGraph:interpolate()
   -- and loops! Reverting generates the same edges multiple times which leads
   -- to distorted drawings compared to the awesome results we had before!
 
-  local nodes = table.map_values(self.graph.nodes, function (n) return n end)
+  local nodes = lib.copy(self.graph.nodes)
 
-  for supernode in table.value_iter(nodes) do
+  for _,supernode in ipairs(nodes) do
     assert(not supernode.level or supernode.level <= self.level)
 
     if supernode.level and supernode.level == self.level then
@@ -318,9 +336,9 @@ function CoarseGraph:interpolate()
         self.graph:addEdge(supernode.subnode_edge)
       end
 
-      local superedges = table.map_values(supernode.edges, function (e) return e end)
+      local superedges = lib.copy(supernode.edges)
 
-      for superedge in table.value_iter(superedges) do
+      for _,superedge in ipairs(superedges) do
         self:revertSuperedge(superedge)
       end
 
@@ -371,16 +389,18 @@ function CoarseGraph:findMaximalMatching()
   local unmatched_nodes = {}
 
   -- iterate over nodes in random order
-  for node in table.randomized_value_iter(self.graph.nodes) do
+  for _,j in ipairs(lib.random_permutation(#self.graph.nodes)) do
+    local node = self.graph.nodes[j]
     -- ignore nodes that have already been matched
     if not matched_nodes[node] then
       -- mark the node as matched
       matched_nodes[node] = true
 
       -- filter out edges adjacent to neighbours already matched
-      local edges = table.filter_values(node.edges, function (edge)
-        return not matched_nodes[edge:getNeighbour(node)]
-      end)
+      local edges = lib.imap(node.edges,
+			     function (edge)
+			       if not matched_nodes[edge:getNeighbour(node)] then return edge end
+			     end)
 
       -- FIXME TODO We use a light-vertex matching here. This is
       -- different from the algorithm proposed by Hu which collapses
@@ -399,7 +419,8 @@ function CoarseGraph:findMaximalMatching()
   end
 
   -- generate a list of nodes that were not matched at all
-  for node in table.randomized_value_iter(self.graph.nodes) do
+  for _,j in ipairs(lib.random_permutation(#self.graph.nodes)) do
+    local node = self.graph.nodes[j]
     if not matched_nodes[node] then
       table.insert(unmatched_nodes, node)
     end

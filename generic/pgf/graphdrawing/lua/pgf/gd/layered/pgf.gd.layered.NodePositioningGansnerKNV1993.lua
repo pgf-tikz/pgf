@@ -55,9 +55,9 @@ function NodePositioningGansnerKNV1993:run()
   local x_ranking = simplex.ranking
 
   local ranks = self.ranking:getRanks()
-  for rank in table.value_iter(ranks) do
+  for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)
-    for node in table.value_iter(nodes) do
+    for _,node in ipairs(nodes) do
       node.pos.x = x_ranking:getRank(node.aux_node)
       node.orig_vertex.storage[self.main_algorithm].layer = rank
     end
@@ -66,9 +66,9 @@ function NodePositioningGansnerKNV1993:run()
   layered.arrange_layers_by_baselines(self.main_algorithm, self.main_algorithm.ugraph)
   
   -- Copy back
-  for rank in table.value_iter(ranks) do
+  for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)
-    for node in table.value_iter(nodes) do
+    for _,node in ipairs(nodes) do
       node.pos.y = node.orig_vertex.pos.y
     end
   end
@@ -83,7 +83,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
 
   local edge_node = {}
 
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     local copy = Node.new{
       name = node.name,
       orig_node = node,
@@ -92,7 +92,8 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
     aux_graph:addNode(copy)
   end
 
-  for edge in table.reverse_value_iter(self.graph.edges) do
+  for i=#self.graph.edges,1,-1 do
+    local edge = self.graph.edges[i]
     local node = Node.new{
       name = '{' .. tostring(edge) .. '}',
     }
@@ -125,7 +126,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
   end
 
   local ranks = self.ranking:getRanks()
-  for rank in table.value_iter(ranks) do
+  for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)
     for n = 1, #nodes-1 do
       local v = nodes[n]

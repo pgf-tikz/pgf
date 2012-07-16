@@ -21,6 +21,7 @@ local Iterators = {}
 -- Namespace
 require("pgf.gd.lib").Iterators = Iterators
 
+local lib = require("pgf.gd.lib")
 
 
 
@@ -42,15 +43,8 @@ function Iterators.topologicallySorted(dag)
   -- track visited edges 
   local deleted_edges = {}
 
-  -- returns true if an edge has not been visited yet
-  local function isNotDeletedEdge(edge)
-    return not deleted_edges[edge]
-  end
-
   -- collect all sources (nodes with no incoming edges) of the dag
-  local sources = table.filter_values(dag.nodes, function (node)
-    return node:getInDegree() == 0
-  end)
+  local sources = lib.imap(dag.nodes, function (node) if node:getInDegree() == 0 then return node end end)
 
   -- return the iterator function
   return function () 
@@ -72,12 +66,12 @@ function Iterators.topologicallySorted(dag)
 	  
 	  -- get a list of all incoming edges of the neighbour that have
 	  -- not been visited yet
-	  local in_edges = neighbour:getIncomingEdges()
-	  in_edges = table.filter_values(in_edges, isNotDeletedEdge)
+	  local in_edges = lib.imap(neighbour:getIncomingEdges(),
+				    function (edge) if not deleted_edges[edge] then return edge end end)
 	  
 	  -- if there are no such edges then we have a new source
 	  if #in_edges == 0 then
-	    table.insert(sources, neighbour)
+	    sources[#sources+1] = neighbour
 	  end
 	end
       end

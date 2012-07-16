@@ -38,6 +38,8 @@ local Vector      = require "pgf.gd.lib.Vector"
 local QuadTree    = require "pgf.gd.force.QuadTree"
 local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
+local lib = require "pgf.gd.lib"
+
 
 function SpringElectricalHu2006:run()
 
@@ -75,12 +77,12 @@ function SpringElectricalHu2006:run()
   assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
 
   -- initialize node weights
-  for node in table.value_iter(self.graph.nodes) do
+  for _,node in ipairs(self.graph.nodes) do
     node.weight = node:getOption('/graph drawing/electric charge')
   end
   
   -- initialize edge weights
-  for edge in table.value_iter(self.graph.edges) do
+  for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
 
@@ -109,9 +111,10 @@ function SpringElectricalHu2006:run()
     self:computeInitialLayout(coarse_graph.graph, spring_length)
 
     -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
+    spring_length = 0
+    for _,edge in ipairs(coarse_graph.graph.edges) do
+      spring_length = spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+    end
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- additionally improve the layout with the force-based algorithm
@@ -134,7 +137,7 @@ function SpringElectricalHu2006:run()
       local current_diameter = PathLengths.pseudoDiameter(coarse_graph.graph)
 
       -- scale node positions by the quotient of the pseudo diameters
-      for node in table.value_iter(coarse_graph.graph) do
+      for _,node in ipairs(coarse_graph.graph) do
         node.pos:update(function (n, value)
           return value * (current_diameter / parent_diameter)
         end)
@@ -148,9 +151,10 @@ function SpringElectricalHu2006:run()
     self:computeInitialLayout(coarse_graph.graph, self.natural_spring_length)
 
     -- set the spring length to the average edge length of the initial layout
-    spring_length = table.combine_values(coarse_graph.graph.edges, function (sum, edge)
-      return sum + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
-    end, 0)
+    spring_length = 0
+    for _,e in ipairs(coarse_graph.graph.edges) do
+      spring_length = spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
+    end
     spring_length = spring_length / #coarse_graph.graph.edges
 
     -- improve the layout with the force-based algorithm
@@ -250,8 +254,8 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 
   while not converged and iteration < self.iterations do
     -- remember old node positions
-    local old_positions = table.map_pairs(graph.nodes, function (n, node)
-      return node, node.pos:copy()
+    local old_positions = lib.map(graph.nodes, function (node)
+      return node.pos:copy(), node
     end)
 
     -- remember the old system energy and reset it for the current iteration
@@ -275,15 +279,15 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	  local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 	  
 	  -- compute the repulsive force between these cells and v
-	  for cell in table.value_iter(cells) do
+	  for _,cell in ipairs(cells) do
 	    -- check if the cell is a leaf
 	    if #cell.subcells == 0 then
 	      -- compute the forces between the node and all particles in the cell
-	      for particle in table.value_iter(cell.particles) do
-		local real_particles = table.custom_copy(particle.subparticles)
+	      for _,particle in ipairs(cell.particles) do
+		local real_particles = lib.copy(particle.subparticles)
 		table.insert(real_particles, particle)
 		
-		for real_particle in table.value_iter(real_particles) do
+		for _,real_particle in ipairs(real_particles) do
 		  local delta = real_particle.pos:minus(v.pos)
 		  
 		  -- enforce a small virtual distance if the node and the cell's 
@@ -319,7 +323,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	    end
 	  end
 	else
-	  for u in table.value_iter(graph.nodes) do
+	  for _,u in ipairs(graph.nodes) do
 	    if v ~= u then
 	      -- compute the distance between u and v
 	      local delta = u.pos:minus(v.pos)
@@ -341,7 +345,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	end
     
 	-- compute attractive forces between v and its neighbours
-	for edge in table.value_iter(v.edges) do
+	for _,edge in ipairs(v.edges) do
 	  local u = edge:getNeighbour(v)
 	  
 	  -- compute the distance between u and v
@@ -381,14 +385,11 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
     step_length, progress = step_update_func(step_length, self.cooling_factor, energy, old_energy, progress)
 
     -- compute the maximum node movement in this iteration
-    local max_movement = table.combine_values(graph.nodes, function (max, x)
+    local max_movement = 0
+    for _,x in ipairs(graph.nodes) do
       local delta = x.pos:minus(old_positions[x])
-      if delta:norm() > max then
-        return delta:norm()
-      else
-        return max
-      end
-    end, 0)
+      max_movement = math.max(delta:norm(), max_movement)
+    end
     
     -- the algorithm will converge if the maximum movement is below a 
     -- threshold depending on the spring length and the convergence 
@@ -409,7 +410,7 @@ end
 function SpringElectricalHu2006:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     -- read the 'desired at' option of the node
     local coordinate = node:getOption('/graph drawing/desired at')
 
@@ -433,18 +434,16 @@ end
 
 function SpringElectricalHu2006:buildQuadtree(graph)
   -- compute the minimum x and y coordinates of all nodes
-  local min_pos = table.combine_values(graph.nodes, function (min_pos, node)
-    return Vector.new(2, function (n) 
-			    return math.min(min_pos[n], node.pos[n])
-    end)
-  end, graph.nodes[1].pos)
+  local min_pos = graph.nodes[1].pos
+  for _,node in ipairs(graph.nodes) do
+    min_pos = Vector.new(2, function (n) return math.min(min_pos[n], node.pos[n]) end)
+  end
 
   -- compute maximum x and y coordinates of all nodes
-  local max_pos = table.combine_values(graph.nodes, function (max_pos, node)
-    return Vector.new(2, function (n) 
-      return math.max(max_pos[n], node.pos[n])
-    end)
-  end, graph.nodes[1].pos)
+  local max_pos = graph.nodes[1].pos
+  for _,node in ipairs(graph.nodes) do
+    max_pos = Vector.new(2, function (n) return math.max(max_pos[n], node.pos[n]) end)
+  end
 
   -- make sure the maximum position is at least a tiny bit
   -- larger than the minimum position
@@ -466,7 +465,7 @@ function SpringElectricalHu2006:buildQuadtree(graph)
 			      max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
-  for node in table.value_iter(graph.nodes) do
+  for _,node in ipairs(graph.nodes) do
     local particle = QuadTree.Particle.new(node.pos, node.weight)
     particle.node = node
     quadtree:insert(particle)
