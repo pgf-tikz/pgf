@@ -96,7 +96,6 @@ function Vertex.new(values)
   new.shape = new.shape or "none"
   new.kind = new.kind or "dummy"
   new.pos = new.pos or Coordinate.new(0,0)
-  new.options = new.options or {},
   setmetatable(new, Vertex)
   return new
 end

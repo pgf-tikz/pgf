@@ -53,6 +53,100 @@
 %
 
 
+
+% 
+% All graph drawing keys normally live in the following namespace:
+% /graph drawing. 
+%
+
+\def\pgfgdset{\pgfqkeys{/graph drawing}}
+
+
+
+
+% 
+% Requests
+% 
+% Description:
+% 
+% This key is used to ``request'' a graph drawing scope and a
+% layout. The objective of this key is to make it easier for users and
+% algorithm designers to control the slightly involved
+% back-and-forth-calling between the different layers.
+% 
+% This key does the following: When called inside a pgfpicture
+% (otherwise, the call is "illegal"), it will call a call-back with
+% two parameters. This callback will get passed some code that should
+% be executed at the beginning of ``the next scope'' and some code
+% that should be executed at the end of that scope.
+% 
+% The code passed to the callbacks will have a different effect,
+% depending on whether we are currently inside a layout scope or not
+% (if no graph drawing scope is open, we are 
+% not inside a layout). If we are not inside a layout scope (or if the
+% layout scope has been interrupted), the code will issue a
+% \pgfgdbeginscope command in the opening code and a corresponding
+% scope ending command in the closing code. Next, the two code pieces
+% always contain \pgfgdbeginlayout and \pgfgdendlayout.
+% 
+%
+% The main use of this key is at the end of a layout style. The idea
+% is that a typical style like, say, "tree layout" can be defined like
+% this:
+% 
+% binary tree layout/.style={
+%   algorithm=pgf.gd.trees.ReingoldTilford1981,
+%   minimum number of children=2,
+%   significant sep=1em,
+%   request scope and layout
+% }
+%
+% Note that the "request scope and layout" key will not immediately
+% trigger a layout scope to be created; rather, the TikZ callback will
+% call it only at the beginning of the scope, which will be after
+% other options in the current list of options have been parsed. So,
+% when you write \graph [binary tree layout, significant sep=2em] ...,
+% the "significant sep" option has an effect despite being given
+% *after* the "request scope and layout" key since the actual opening
+% of the scope happens only before the "..." part is parsed.
+
+\pgfgdset{request scope and layout/.code=\pgfgd@requestcallback{\pgfgdbeginrequest}{\pgfgdendrequest}}
+
+\def\pgfgd@requestcallback#1#2{%
+  #1\def\pgf@gd@after@request{#2\egroup}\bgroup\aftergroup\pgf@gd@after@request%
+} % Default for basic layer
+
+\def\pgfgdbeginrequest{%
+  \ifpgfgdlayoutscopeactive%
+  \else%
+    \expandafter\pgfgdbeginscope%
+  \fi%
+      \pgfgdbeginlayout%  
+}
+\def\pgfgdendrequest{%
+      \pgfgdendlayout%
+  \ifpgfgdlayoutscopeactive%
+  \else%
+    \expandafter\pgfgdendscope%
+  \fi%  
+}
+\newif\ifpgfgdlayoutscopeactive
+
+
+% Set the request callback
+% 
+% #1 = A macro
+% 
+% Description:
+% 
+% Sets the request callback as described in the "request scope and
+% layout" key.
+
+\def\pgfgdsetrequestcallback#1{\let\pgfgd@requestcallback#1}
+
+
+
+
 %
 % An if that is true exactly if we are inside a graph drawing scope
 %
@@ -148,14 +242,6 @@
   \expandafter\def\expandafter\pgfgd@latecallback\expandafter{\pgfgd@latecallback#1}
 }
 \let\pgfgd@latecallback\pgfutil@empty
-
-% 
-% All graph drawing keys normally live in the following namespace:
-% /graph drawing. 
-%
-
-\def\pgfgdset{\pgfqkeys{/graph drawing}}
-
 
 
 
@@ -419,7 +505,7 @@
 %    \pgfmathparse{#1}\let\pgfgdresult\pgfmathresult
 
 \pgfgdset{
-  conversions/string/.code=\def\pgfgdresult{'\luaescapestring{#1}'},
+  conversions/string/.code=\def\pgfgdresult{'\luaescapestring{\detokenize{#1}}'},
   conversions/raw/.code=\def\pgfgdresult{#1},
   conversions/boolean/.code=\def\pgf@test{#1}\ifx\pgf@test\pgf@truetext\def\pgfgdresult{true}\else\def\pgfgdresult{false}\fi,
   conversions/number/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
@@ -761,8 +847,7 @@
 % /graph drawing/#1 is setup so that, when executed, the graph drawing
 % algorithm is configured by the options in #3 and the value passed to
 % are executed as keys with the path prefix /graph
-% drawing/#2. Furthermore, the key /graph 
-% drawing/at begin scope will be executed.This key does nothing by
+% drawing/#2. This key does nothing by
 % default, but it could be used to setup things (as is done in tikz)
 % to start the graph drawing engine for the current scope.
 % 
@@ -789,8 +874,7 @@
       #3,%
       #2/.cd,%
       ##1,%
-      /graph drawing/.cd,%
-      at begin scope
+      /graph drawing/request scope and layout%
     }
   }%
   \pgf@gd@setup@forwards{#1}
@@ -805,8 +889,6 @@
   }%
   \pgf@temp
 }
-
-\pgfgdset{/graph drawing/at begin scope/.code=} % does nothing by default.
 
 \let\pgf@gd@forwards@list\pgfutil@empty
 
@@ -1643,133 +1725,169 @@
 \pgfgddeclarecollectionkind{hyper}{1}
 
 
-% Using multiple algorithms
-%
-% Description:
-% 
-% Inside each graph drawing scope, a main algorithm is used to perform
-% the graph drawing. However, parts of the graph may be drawn using
-% different algorithms: For instance, a graph might consist of
-% several, say, cliques that are arranged in a tree-like fashion. In
-% this case, it might be useful to layout each clique using a circular
-% layout, but then lay out all laid out cliques using a tree drawing
-% algorithm.
-% 
-% To support graph drawing with multiple algorithms, you can use
-% the special collection kind "sublayout". Each collection of this
-% kind specifies a set of nodes and edges that should be laid out
-% using some algorithm passed to the collection.
-% 
-% Since a node can be part of several collections, conflicting
-% placements may result when different algorithms are applied to the
-% nodes of the collections. For this reason, the following algorithm
-% is used to lay out graphs with sublayouts.
-% 
-% \begin{enumerate} 
-% \item We compute relations on the sublayout collections as follows: We
-% say that such a collection is \emph{inside} of another collection if
-% all nodes and all edges of the first collection are also inside the
-% second collection. We say that a collection is \emph{disjoint} from
-% another collection, if they have neither nodes nor edges in common.
-% 
-% The ``inside relation'' is a partial order on the sublayout
-% collection. In particular, for each collection $C$ there is a
-% (possibly empty) set $S_C$ of collections $C'$ that are inside $C$
-% and that are maximal with respect to the inside relation.
-% 
-% \item Now, consider a collection~$C$. We first (recursively) lay out
-% each element of $S_C$ using the algorithm specified for the
-% sublayout. Note that the elements of $S_C$ may overlap, but,
-% nevertheless, we run the algorithms separately on the elements of
-% $S_C$. In particular, different, conflicting positions may be
-% computed for nodes of $C$ when they are present in several elements
-% of $S_C$.
-% 
-% Also note that only elements of $S_C$ are considered here. When a
-% collection $D$ intersects with $C$, but is not inside $C$, it will
-% play no role at this point.
-% 
-% \item Once all elements of $S_C$ have been laid out, we \emph{join}
-% overlapping elements. This means the following: We build a
-% (conceptual) graph whose nodes are the elements of $S_C$ and in
-% which there is an edges between two nodes if the collections
-% represented by these elements have a node in common.
-% Inside the resulting graph, we treat each connected component
-% separately. Each component has the property that the collections
-% represented by the nodes in the component overlap by at least one
-% node. We now \emph{join} them as follows: We start with the first
-% collection in the component (``first'' with respect to the order in
-% which they appear in the input graph) and ``mark'' this
-% collection. We loop the following instructions as long as possible:
-% Search for the first collection (again, with respect to the order in
-% which they appear in the input) that is connect by an edge to a
-% marked collection. The collection will now have at least one node in
-% common with the marked collections (possibly, even more). We
-% consider the first such node (again, first respect to the input
-% ordering) and shift the whole collection is such a way that this
-% particular node is at the position is has in the marked
-% collections. Note that after the shift, other nodes that are also
-% present in the marked collections may lie at a different position in
-% the current collection. In this case, the position in the marked
-% collections ``wins.''
-% 
-% \item When the above algorithm has run, we will have computed for
-% all nodes in all collections of each of the components of $S_C$. In
-% order to lay out $C$, we do the following: Each component of $S_C$
-% is contracted to a single node (that is, in $C$, all nodes that are
-% part of such a component are removed and replaced by a single new
-% node; the arcs are adapted appropriately). This new node will be
-% ``large'' in the sense that its convex hull is the convex hull of
-% all the nodes in the component. We run the algorithm for $C$ on the
-% resulting graph.
-% 
-% \item In a last step, once $C$ has been laid out, we once more
-% expand the nodes that were previously contracted. For this, the
-% nodes that were deleted earlier get reinserted, but shifted by
-% whatever amount the contraction node got shifted.
-% \end{enumerate}
-% 
-% Admittedly, the above algorithm is somewhat involved since it has to
-% handle many involved special cases at once. However, there are two
-% ``typical'' use cases that are pretty easy to use:
-% 
-% First, consider a graph where we lay out the ``main'' graph using
-% some algorithm and then wish to ``attach'' some ``tentacles.'' For
-% this, use a sublayout for the main graph and use a sublayouts for
-% each tentacle and just ensure that each tentacle has exactly one
-% node in common with the main graph:
-% 
-% \graph [multiple layouts] {
-%   { [circular layout]  % Main layout
-%     a -> b -> c -> d -> e -> f -> a;
-%   }
-%   
-%   { [tree layout] % first tentacle
-%     a -> {a1,a2}
-%   }
-%
-%   { [tree layout] % second tentacle
-%     d -> {d1,d2 -> {h,g}}
-%   }
-% };
-% 
-% Second, we can layout graphs in which smaller graphs are treated as
-% ``giant nodes'' of a larger graph:
-% 
-% \graph [circular layout] {
-%   a -> b -> c -> d -> e -> f -> a;
-%   
-%   { [tree layout] % first ``giant node''
-%     a -> {a1,a2}
-%   }
-%
-%   { [tree layout] % second ``giant node''
-%     d -> {d1,d2 -> {h,g}}
-%   }
-% };
 
-\pgfgddeclarecollectionkind{sublayout}{0}
 
+%
+% Sublayouts
+%
+% Description: For a general introduction to (sub)layouts, see
+% Section~\ref{section-gd-sublayouts} in the manual. 
+% 
+% This command starts a layout that ends at the end of the current TeX
+% scope. Addtionally, when no graph drawing scope is open currently, a
+% new scope is opened using
+%
+% A layout ends at the end of the current scope and, internally, they
+% are handled mainly using collections (each sublayout is a
+% collection). 
+%
+\pgfgddeclarecollectionkind{sublayout_collection}{0}
+
+\newcount\pgf@gd@sublayout@stack@height
+\newcount\pgf@gd@sublayout@num
+
+\def\pgfgdbeginlayout{
+  \begingroup
+    \pgfgdlayoutscopeactivetrue
+    % Start a collection:
+    % 
+    % First, compute a name
+    % 
+    \global\advance\pgf@gd@sublayout@num by1\relax% Note the difference with respect to \global
+    \advance\pgf@gd@sublayout@stack@height by1\relax%
+    % 
+    \pgfgdset{sublayout_collection={name/.expanded=sublayout \the\pgf@gd@sublayout@num}} % Will create the layout collection
+    \directlua{pgf.gd.control.TeXInterface.setupLayout('sublayout \the\pgf@gd@sublayout@num',\the\pgf@gd@sublayout@stack@height,{\pgfkeysvalueof{/graph drawing/graph parameters}},{\pgfkeysvalueof{/graph drawing/node parameters}})}%
+    \pgfgdset{layout node name=,layout node text=,layout node
+      options=}%reset.
+}
+
+\def\pgfgdendlayout{
+  \endgroup%
+}
+
+\def\pgfbegininterruptlayout{
+  \begingroup%
+    \pgfgdlayoutscopeactivefalse%
+}
+
+\def\pgfendinterruptlayout{
+  \endgroup%
+}
+
+
+%
+% Options for layout nodes
+% 
+% 
+% For each (sub)layout, a layout node may be created. This is done
+% after the nodes of the layout have been arranged. The idea is that
+% the node is "vast" and it encompasses all nodes (and the point
+% clouds) that are part of the sublayout. This node will then be used
+% as part of the layout containing the sublayout.
+% 
+% The node is created through the node-creating callback from the Lua
+% layer with appropriate options set.
+%
+% All of the following options are inspected the moment the
+% \pgfgdbeginlayout command is used. At this moment, a snapshot is
+% taken of these options.
+% 
+% layout node name = The name of the node. If this is empty, no
+% callback will be called and no special node will be created for the
+% sublayout. (Although the graph drawing engine will still create an
+% internal representing node, but this node is not accessible without
+% a name.)
+% 
+% layout node text = Some text to be displayed as part of the
+% node. Normally, this text is not displayed for such "vast" nodes,
+% but a shape may use it nevertheless (for instance, one might display
+% this text at the top of the node).
+% 
+% layout node options = Some options for the to-be-created
+% node. (Typically, these will be tikz options like "draw" or
+% "fill=blue!10,draw=blue".)
+% 
+%
+% When the callback is called, the values of the above keys will be
+% passed to the callback as follows:
+% 
+% layout point cloud = This will be a list of points (without
+% separating commas) like "(10pt,20pt)(0pt,0pt)(30pt,40pt)" always in
+% this syntax. The list will contain all points inside the
+% sublayout. In particular, a bounding box around these points will
+% encompass all nodes and bend points of the sublayout.
+% The bounding box of this point cloud is guaranteed to be centered on
+% the origin.
+% 
+% layout bounding box width = This will be the width of a bounding box
+% (in points with the "pt" suffix).
+% 
+% layout bounding box height = This will be the height of a bounding box
+% (in points with the "pt" suffix).
+% 
+% layout text = This will be text originally given to the layout node
+% text option.
+% 
+% The name of the node is passed using the name key.
+%
+% 
+% Note that the "text" given to the \node or \pgfnode command inside
+% the callback will be a call to \pgfgdlayoutnodecontents. This
+% command is empty by default, but feel free to redefine as a
+% side-effect of "every layout node".
+% 
+% 
+% All of the "layout..." keys as well as \pgfgdlayoutnodecontents will
+% be reset at the beginning of a layout. This ensures that nested
+% layouts do not "inherit" things like the layout name from
+% surrounding layouts (which would be wrong).
+%
+% 
+% Example:
+% 
+% Suppose you set
+% 
+% \pgfgdset{
+%   layout node name=vast node,
+%   layout node text=Vast Node 1,
+%   layout node options={draw, thick}
+% }
+% \pgfgdbeginlayout
+% 
+% 
+% Then, during the run of the graph drawing engine, at some point the
+% following command will be called (with some example point cloud):
+% 
+% \node [name=vast node,
+%        /graph drawing/.cd,
+%        layout point cloud={(-20pt,-10pt)(20pt,10pt)},
+%        layout bounding box width=40pt,
+%        layout bounding box height=20pt,
+%        layout text={Vast Node 1},
+%        start layout node,
+%        draw, thick] {\pgfgdlayoutnodecontents};
+%        
+%
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  layout node name/.graph parameter=string,
+  layout node text/.graph parameter=string,
+  layout node options/.graph parameter=string,
+}
+
+\pgfgdset{
+  layout point cloud/.initial=,
+  layout bounding box width/.initial=,
+  layout bounding box height/.initial=,
+  layout text/.initial=,
+  start layout node/.style=
+}
+
+\def\pgfgdlayoutnodecontents{%
+  \hbox to \pgfkeysvalueof{/graph drawing/layout bounding box width}{%
+    \vrule width0pt height\pgfkeysvalueof{/graph drawing/layout bounding box height}\hfil}%
+}
 
 
 %
@@ -1782,8 +1900,6 @@
   {%
     % save options to macro \pgf@gd@node@options
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options
-    % save late setup options
-    \expandafter\toks\expandafter0\expandafter0=\expandafter{\pgfpositionnodelaterpostsetup}%
     % evaluate coordinates
     \pgfmathsetmacro{\pgf@gd@node@minx}{\pgfpositionnodelaterminx}%
     \pgfmathsetmacro{\pgf@gd@node@miny}{\pgfpositionnodelaterminy}%
@@ -1799,8 +1915,7 @@
         \pgf@gd@node@miny,
         \pgf@gd@node@maxx,
         \pgf@gd@node@maxy,
-        {\pgf@gd@node@options},
-        '\luaescapestring{\the\toks0}') }
+        {\pgf@gd@node@options}) }
   }%
 }
 
@@ -1820,14 +1935,13 @@
 % This callback will be called by the engine for every original node
 % when it finally needs to placed at a final position.
 
-\def\pgfgdshipoutnodecallback#1#2#3#4#5#6#7#8#9{%
+\def\pgfgdshipoutnodecallback#1#2#3#4#5#6#7#8{%
   {%
     \def\pgfpositionnodelatername{#1}
     \def\pgfpositionnodelaterminx{#2}
     \def\pgfpositionnodelatermaxx{#3}
     \def\pgfpositionnodelaterminy{#4}
     \def\pgfpositionnodelatermaxy{#5}
-    \def\pgfpositionnodelaterpostsetup{#9}
     \directlua{
       texnode = pgf.gd.control.TeXInterface.retrieveBox(#8)
       tex.box[\pgfpositionnodelaterbox] = texnode

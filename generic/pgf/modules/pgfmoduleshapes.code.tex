@@ -57,16 +57,8 @@
       }%
       % Save the saved points and the transformation matrix
       \edef\pgf@node@name{#3}%
-      \ifx\pgf@positionnodelater@macro\relax%
-      \else%
-        % Rename node
-        \edef\pgf@node@name{not yet positionedPGFINTERNAL\pgf@node@name}%
-        % Interrupt bounding box!
-        \pgfinterruptboundingbox%
-          % Put everything in our box:
-          \pgf@relevantforpicturesizetrue%
-          \setbox\pgfpositionnodelaterbox=\hbox\bgroup%
-        %
+      \ifpgflatenodepositioning
+        \pgf@shapes@late@pos@begin%
       \fi%
       \ifx\pgf@node@name\pgfutil@empty%
       \else%
@@ -79,7 +71,6 @@
         \expandafter\xdef\csname pgf@sh@nt@\pgf@node@name\endcsname{\pgf@temp}%
         \expandafter\xdef\csname pgf@sh@pi@\pgf@node@name\endcsname{\pgfpictureid}%
       \fi%
-      \let\pgfpositionnodelaterpostsetup\pgfutil@empty% TT
       \pgfutil@ifundefined{pgf@sh@bbg@#1}{}
       {{\pgfscope\csname pgf@sh@bbg@#1\endcsname\endpgfscope}}%
       \pgfutil@ifundefined{pgf@sh@bg@#1}{}%
@@ -100,30 +91,44 @@
       {\csname pgf@sh@fg@#1\endcsname#4}%
       \pgfutil@ifundefined{pgf@sh@ffg@#1}{}%
       {{\pgfscope\csname pgf@sh@ffg@#1\endcsname\endpgfscope}}%
-      \ifx\pgf@positionnodelater@macro\relax%
-        \expandafter\pgf@nodecallback\expandafter{\pgf@node@name}%
+      \ifpgflatenodepositioning%
+        \pgf@shapes@late@pos@end%
       \else%
-          \egroup% Close box
-          \ifdim\pgf@picminx>\pgf@picmaxx\relax% happens for empty nodes
-            \def\pgfpositionnodelaterminx{0.0pt}%
-            \let\pgfpositionnodelaterminy\pgfpositionnodelaterminx%
-            \let\pgfpositionnodelatermaxx\pgfpositionnodelaterminx%
-            \let\pgfpositionnodelatermaxy\pgfpositionnodelaterminx%
-          \else%
-            \edef\pgfpositionnodelaterminx{\the\pgf@picminx}%
-            \edef\pgfpositionnodelaterminy{\the\pgf@picminy}%
-            \edef\pgfpositionnodelatermaxx{\the\pgf@picmaxx}%
-            \edef\pgfpositionnodelatermaxy{\the\pgf@picmaxy}%
-          \fi%
-          \let\pgfpositionnodelatername=\pgf@node@name%
-          \pgf@positionnodelater@macro%
-        \endpgfinterruptboundingbox%
+        \expandafter\pgf@nodecallback\expandafter{\pgf@node@name}%
       \fi%
     }%
   }%
 }
 
-
+\def\pgf@shapes@late@pos@begin{%
+  % Rename node
+  \edef\pgf@node@name{not yet positionedPGFINTERNAL\pgf@node@name}%
+  % Interrupt bounding box!
+  \pgfinterruptboundingbox%
+    % Put everything in our box:
+    \pgf@relevantforpicturesizetrue%
+    \setbox\pgfpositionnodelaterbox=\hbox%
+      \bgroup%
+}
+  
+\def\pgf@shapes@late@pos@end{%
+      \egroup% Close box
+    \ifdim\pgf@picminx>\pgf@picmaxx\relax% happens for empty nodes
+      \def\pgfpositionnodelaterminx{0.0pt}%
+      \let\pgfpositionnodelaterminy\pgfpositionnodelaterminx%
+      \let\pgfpositionnodelatermaxx\pgfpositionnodelaterminx%
+      \let\pgfpositionnodelatermaxy\pgfpositionnodelaterminx%
+    \else%
+      \edef\pgfpositionnodelaterminx{\the\pgf@picminx}%
+      \edef\pgfpositionnodelaterminy{\the\pgf@picminy}%
+      \edef\pgfpositionnodelatermaxx{\the\pgf@picmaxx}%
+      \edef\pgfpositionnodelatermaxy{\the\pgf@picmaxy}%
+    \fi%
+    \let\pgfpositionnodelatername=\pgf@node@name%
+    \pgf@positionnodelater@macro%
+  \endpgfinterruptboundingbox%
+}
+      
 \def\pgf@shift@node#1#2{%
   % This internal command shifts the recorded coordinates for node #1
   % by the vector #2. It is used to
@@ -217,17 +222,6 @@
 %   These four macros store the bounding box as dimensions that are
 %   guarenteed to end with "pt".
 %   
-%   \pgfpositionnodelaterpostsetup
-%   Actually, this macro will not be setup especially for the call of
-%   #1, except that is set to \pgfutil@empty at the beginning of every
-%   node. Rather, you can store code in this macro that should be
-%   executed after the final positioning has been done. What happens
-%   is that this macro is actually just executed when
-%   \pgfpositionnodenow is called later on and, just as for the other
-%   of the above macros, it is the job of #1 to ensure that all of
-%   these macros (including this one) have the same value when
-%   \pgfpositionnodenow is called that they had when #1 was called.
-%
 % By setting #1 to \relax (which is the default), you can switch off
 % the whole mechanism
 % 
@@ -238,10 +232,20 @@
 % When \pgfpositionnodenow is called, the macros mentioned above
 % should have the exact same values they had when #1 is called.
 
-\def\pgfpositionnodelater#1{\let\pgf@positionnodelater@macro=#1\relax}
+\def\pgfpositionnodelater#1{%
+  \let\pgf@positionnodelater@macro=#1%
+  \ifx\pgf@positionnodelater@macro\relax%
+    \pgflatenodepositioningfalse%
+  \else%
+    \pgflatenodepositioningtrue%
+  \fi%
+}
+\newif\ifpgflatenodepositioning
 \pgfpositionnodelater{\relax}
 \def\pgfpositionnodelaterbox{0}
-\let\pgfpositionnodelaterpostsetup\pgfutil@empty
+
+
+
 
 % Position a node that has been scheduled for later insertion
 %
@@ -279,7 +283,8 @@
   }%
   % Late setup%
   {%
-    \pgfpositionnodelaterpostsetup%
+    \csname pgf@lns@\pgfpositionnodelatername\endcsname%  
+    \expandafter\global\expandafter\let\csname pgf@lns@\pgfpositionnodelatername\endcsname\relax%  
   }%
 }
 
@@ -290,6 +295,50 @@
 
 
 
+% "Fake" a node 
+% 
+% #1 = node name
+% 
+% Description:
+% 
+% This command will setup things so that it "looks like" a node named
+% #1 has been created, but, in reality, no node is created. The idea
+% is that a node created in this way can be referenced by systems
+% using the late positioning, which will only create the node later
+% on.
+%
+\def\pgffakenode#1{%
+  \edef\pgf@temp{\ifpgflatenodepositioning not yet positionedPGFINTERNAL\fi#1}%
+  \expandafter\gdef\csname pgf@sh@ns@\pgf@temp\endcsname{coordinate}%
+  \expandafter\gdef\csname pgf@sh@np@\pgf@temp\endcsname{\def\centerpoint{\pgfpointorigin}}%
+  \expandafter\gdef\csname pgf@sh@nt@\pgf@temp\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+  \expandafter\global\expandafter\let\csname pgf@sh@ma@\pgf@temp\endcsname\pgfutil@empty%
+  \expandafter\gdef\csname pgf@sh@pi@\pgf@temp\endcsname{\pgfpictureid}%
+}
+
+
+
+% Specify code that should be executed after a node has been created
+%
+% #1 = node name
+% #2 = later code
+%
+% Description:
+%
+% This macro allows you to provide some code #2 that will be executed
+% right after a node has been positioned using \pgfpositionnodenow. If
+% the node has already been positioned (if the late positioning is not
+% switched on), nothing happens.
+
+\def\pgfnodepostsetupcode#1#2{%
+  \ifpgflatenodepositioning%
+    \expandafter\ifx\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname\relax%
+      \expandafter\gdef\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname{#2}%
+    \else%
+      \expandafter\pgfutil@g@addto@macro\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname{#2}%
+    \fi%
+  \fi%
+}
 
 
 
@@ -358,14 +407,18 @@
   \edef\pgf@temp{#1}%
   \ifx\pgf@temp\pgfutil@empty% do nothing
   \else%
-    \pgf@process{\pgfpointtransformed{#2}}%
-    \expandafter\gdef\csname pgf@sh@ns@#1\endcsname{coordinate}%
-    \expandafter\xdef\csname pgf@sh@np@#1\endcsname{%
-      \noexpand\def\noexpand\centerpoint{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-    }
-    \expandafter\gdef\csname pgf@sh@nt@#1\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
-    \expandafter\global\expandafter\let\csname pgf@sh@ma@#1\endcsname\pgfutil@empty%
-    \expandafter\gdef\csname pgf@sh@pi@#1\endcsname{\pgfpictureid}%
+    \ifpgflatenodepositioning%
+      {\pgftransformshift{#2}\pgfnode{coordinate}{center}{}{#1}{}}%
+    \else%
+      \pgf@process{\pgfpointtransformed{#2}}%
+      \expandafter\gdef\csname pgf@sh@ns@#1\endcsname{coordinate}%
+      \expandafter\xdef\csname pgf@sh@np@#1\endcsname{%
+        \noexpand\def\noexpand\centerpoint{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }
+      \expandafter\gdef\csname pgf@sh@nt@#1\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+      \expandafter\global\expandafter\let\csname pgf@sh@ma@#1\endcsname\pgfutil@empty%
+      \expandafter\gdef\csname pgf@sh@pi@#1\endcsname{\pgfpictureid}%
+    \fi%
   \fi%
 }
 
@@ -438,7 +491,7 @@
 % can be used to query the referenced node's name.
 % This macro is not defined during node creation.
 \def\pgfdeclaregenericanchor#1#2{%
-	\expandafter\def\csname pgf@anchor@generic@#1\endcsname##1{#2}%
+  \expandafter\def\csname pgf@anchor@generic@#1\endcsname##1{#2}%
 }%
 
 

@@ -30,6 +30,7 @@ require("pgf.gd.control").TeXInterface = TeXInterface
 -- Imports
 local LayoutPipeline = require "pgf.gd.control.LayoutPipeline"
 local Options        = require "pgf.gd.control.Options"
+local Sublayouts     = require "pgf.gd.control.Sublayouts"
 
 local Vertex     = require "pgf.gd.model.Vertex"
 local Digraph    = require "pgf.gd.model.Digraph"
@@ -58,12 +59,19 @@ function TeXInterface.beginGraphDrawingScope(options)
 
   -- Create a new scope table
   local scope = {
-    syntactic_digraph = Digraph.new { options = Options.new(options), syntactic_digraph = "self" },
+    syntactic_digraph = Digraph.new {
+      options = Options.new(options),
+      syntactic_digraph = "self"
+    },
     events            = {},
     node_names        = {},
     storage           = Storage.new(),
     coroutine         = nil,
-    interface         = TeXInterface
+    interface         = TeXInterface,
+    collections       = {
+      sublayout_collection = {}
+    },
+    sublayout_stack   = {}
   }
   
   scope.syntactic_digraph.scope   = scope
@@ -112,56 +120,55 @@ local magic_prefix_length = string.len("not yet positionedPGFINTERNAL") + 1
 -- @param x_max     Maximum x point of the bouding box.
 -- @param y_max     Maximum y point of the bouding box.
 -- @param options   Lua-Options for the node.
--- @param lateSetup Options for the node.
 --
-function TeXInterface.addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max, options, late_setup)
+function TeXInterface.addPgfNode(box, texname, shape, x_min, y_min, x_max, y_max, options)
   local scope = TeXInterface.topScope()
   local name  = texname:sub(magic_prefix_length)
-
+  
   -- Store tex box in internal table
   TeXInterface.tex_boxes[#TeXInterface.tex_boxes + 1] = node.copy_list(tex.box[box])
-
-  -- Create new node
-  local v = Vertex.new { 
-
-    -- Standard stuff
-    name  = name,
-    shape = shape,
-    kind  = "node",
-    hull  = { Coordinate.new(x_min, y_min), Coordinate.new(x_min, y_max), 
-	      Coordinate.new(x_max, y_max), Coordinate.new(x_max,y_min) },
-    hull_center = Coordinate.new((x_min + x_max)/2, (y_min+y_max)/2),
+  
+  -- Does node already exist partially?
+  local v = scope.node_names[name] or Vertex.new {}
+  assert (not v.tex, "tex node already present in graph")
+  
+  v.name  = name
+  v.shape = shape
+  v.kind  = "node"
+  v.hull  = { Coordinate.new(x_min, y_min), Coordinate.new(x_min, y_max), 
+	      Coordinate.new(x_max, y_max), Coordinate.new(x_max,y_min) }
+  v.hull_center = Coordinate.new((x_min + x_max)/2, (y_min+y_max)/2)
     
-    -- Event numbering
-    event_index = #scope.events + 1,
-
-    -- Local options
-    options = Options.new(options),
+  -- Local options
+  if not v.options then
+    v.options = Options.new(options)
+  end
       
-    -- Special tex stuff, should not be considered by gd algorithm
-    tex = {
-      x_min = x_min,
-      y_min = y_min,
-      x_max = x_max,
-      y_max = y_max,
-      stored_tex_box_number = #TeXInterface.tex_boxes, 
-      late_setup = late_setup,
-    },
+  -- Special tex stuff, should not be considered by gd algorithm
+  v.tex = {
+    x_min = x_min,
+    y_min = y_min,
+    x_max = x_max,
+    y_max = y_max,
+    stored_tex_box_number = #TeXInterface.tex_boxes, 
   }
 
   -- Create name lookup
-  assert (scope.node_names[name] == nil, "node already present in graph")
   scope.node_names[name] = v
+  
+  if not v.event_index then
+    -- Event numbering
+    v.event_index = #scope.events + 1
 
-  -- Register event
-  scope.events[#scope.events + 1] = Event.new { 
-    kind = 'node', 
-    parameters = v
-  }
-
+    -- Register event
+    scope.events[#scope.events + 1] = Event.new { 
+      kind = 'node', 
+      parameters = v
+    }
+  end
+  
   -- Add node to graph
   scope.syntactic_digraph:add {v}
-
 end
 
 
@@ -291,11 +298,14 @@ function TeXInterface.addPgfEdge(from, to, direction, options, pgf_options, pgf_
     },
     storage = Storage.new()
   }
-
+  
   arc.storage.syntactic_edges = arc.storage.syntactic_edges or {}
   arc.storage.syntactic_edges[#arc.storage.syntactic_edges+1] = edge
 
-  scope.events[#scope.events + 1] = Event.new { kind = 'edge', parameters = { arc, #arc.storage.syntactic_edges } }
+  scope.events[#scope.events + 1] = Event.new {
+    kind = 'edge',
+    parameters = { arc, #arc.storage.syntactic_edges }
+  }
 end
 
 
@@ -416,9 +426,9 @@ function TeXInterface.generateNode(init)
   if not init.name then
     init.name = "pgf@gd@node@" .. unique_count
     unique_count = unique_count + 1
-  else
-    assert (scope.node_names[init.name] == nil, "node already present in graph")
   end
+  
+  assert(not scope.node_names[init.name] or not scope.node_names[init.name].tex, "tex node already present in graph")
   
   if not init.shape or init.shape == "none" then
     init.shape = "rectangle"
@@ -426,27 +436,31 @@ function TeXInterface.generateNode(init)
   
   -- Create the text needed for creating a new node:
   local opt = {}
+  for k,v in ipairs(init.generated_options or {}) do
+    assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
+    opt [#opt + 1] = tostring(v) .. ','
+  end
   for k,v in pairs(init.generated_options or {}) do
     assert (type(v) ~= "table", "algorithmically generated option value may not be a table")
-    assert (type(k) == "number" or type(k) == "string", "algorithmically generated option value may not be a table")
-    if type(k) == "number" then
-      opt [#opt + 1] = tostring(v) .. ','
-    else
+    assert (type(k) == "number" or type(k) == "string", "algorithmically generated option key must be a string")
+    if type(k) ~= "number" then
       opt [#opt + 1] = tostring(k) .. '={' .. tostring(v) .. '},'
     end
   end
+  for _,v in ipairs(init.options or {}) do
+    opt [#opt + 1] = tostring(v.key) .. '={' .. tostring(v.value) .. '},'
+  end
   local tex_command = "\\pgfgdgeneratenodecallback{" .. init.name
-                  .. "}{" .. init.shape .. "}{" ..  table.concat(opt) .. "}{"
+                  .. "}{" .. init.shape .. "}{" ..  table.concat(opt)
+		.. "," .. (init.options_string or "") .. "}{"
 		.. (init.text or "") .. "}"
 
   -- Now, go back to TeX...
   coroutine.yield(tex_command)	      
   -- ... and come back with a new node!
-
-  local v = scope.syntactic_digraph.vertices[#scope.syntactic_digraph.vertices]
-  assert (v.name == init.name, "internal node creation failed")
-
-  return v  
+  
+  assert(scope.node_names[init.name].tex, "internal node creation failed")
+  return scope.node_names[init.name]
 end
 
 
@@ -483,7 +497,7 @@ function TeXInterface.endGraphDrawingScope()
 	assert(vertex.tex, "Thou shalt not modify the syntactic digraph")
 	tex.print(
 	  string.format(
-	    "\\pgfgdshipoutnodecallback{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}{%s}",
+	    "\\pgfgdshipoutnodecallback{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
 	    'not yet positionedPGFINTERNAL' .. vertex.name,
 	    vertex.tex.x_min,
 	    vertex.tex.x_max,
@@ -491,8 +505,7 @@ function TeXInterface.endGraphDrawingScope()
 	    vertex.tex.y_max,
 	    vertex.pos.x,
 	    vertex.pos.y,
-	    vertex.tex.stored_tex_box_number,
-	    vertex.tex.late_setup))
+	    vertex.tex.stored_tex_box_number))
       end
     tex.print("\\pgfgdendnodeshipout")
 
@@ -511,7 +524,7 @@ function TeXInterface.endGraphDrawingScope()
 	  }
 
 	  for _,c in ipairs(m.path) do
-	    callback [#callback + 1] = '--(' .. tostring(c.x) .. 'pt,' .. tostring(c.y) .. 'pt)'	    
+	    callback [#callback + 1] = '--(' .. tostring(c.x + a.tail.pos.x) .. 'pt,' .. tostring(c.y + a.tail.pos.y) .. 'pt)'	    
 	  end
 	  
 	  callback [#callback + 1] = '}'
@@ -602,6 +615,73 @@ end
 --
 function TeXInterface.setParameterAccumulates(key)
   Options.accumulates[key] = true
+end
+
+
+
+---
+-- Setup a layout. 
+--
+-- @param layout_name The name (actually a number) of the sublayout to be processed.
+-- @param height The height of the layout in the stack of sublayouts.
+-- @param options Some options, in particular, the algorithm.
+--
+function TeXInterface.setupLayout(layout_name, height, options_table, node_options_table)
+
+  local options = Options.new(options_table)
+  
+  -- First, create a layout event. This is for algorithms interested
+  -- in such things...
+  local scope = TeXInterface.topScope()
+  local layout_event = Event.new {
+    kind = "layout",
+    parameters = layout_name,
+    event_index = #scope.events+1,
+    callback_options = options["/graph drawing/layout node options"],
+    callback_text    = options["/graph drawing/layout node text"],
+    callback_name    = options["/graph drawing/layout node name"],
+  }
+  scope.events[#scope.events + 1] = layout_event
+
+  -- Second, create the layout node event.
+  local node_event = Event.new {
+    kind = "node",
+    parameters = nil,
+    event_index = #scope.events+1,
+  }
+  scope.events[#scope.events + 1] = node_event
+
+  -- Third, possibly create a start node
+  local name = options["/graph drawing/layout node name"]
+  if name and name ~= "" then
+    -- Aha, a node name is given. So, later on, we need to create a
+    -- new node for this layout. Right now, we just "fake" the node
+    -- "enough" so that it can be referenced.
+    local v  = Vertex.new { 
+      -- Standard stuff
+      name  = name,
+      kind  = "node",
+      
+      options = Options.new(node_options_table),
+      
+      -- Event numbering
+      event_index = #scope.events,
+    }
+
+    node_event.parameters = v
+      
+    -- Create name lookup
+    assert (scope.node_names[name] == nil, "layout node name already used in graph")
+    scope.node_names[name] = v
+    
+    -- Add node to graph
+    scope.syntactic_digraph:add {v}
+
+    -- Fake the node on the TeX layer
+    tex.print("\\pgffakenode{" .. name .. "}")
+  end
+
+  Sublayouts.setupLayout(layout_name, height, scope, layout_event, node_event, options)
 end
 
 

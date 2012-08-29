@@ -137,7 +137,7 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
     -- Compute children as they come in the event list:
     local children = {}
     
-    local i = v.event_index+1
+    local i = (v.event_index or 0)+1
     while i <= #events and events[i].kind == "edge" do
       i = i + 1
     end

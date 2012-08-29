@@ -135,9 +135,12 @@ end
 function Options.lookup(name, ...)
   local list = {...}
   for i=1,#list-1 do
-    local v = rawget(list[i].options, name)
-    if v then
-      return v
+    local o = list[i].options
+    if o then 
+      local v = rawget(o, name)
+      if v then
+	return v
+      end
     end
   end
   return list[#list].options[name]

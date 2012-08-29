@@ -39,35 +39,35 @@ local Arc       = require("pgf.gd.model.Arc")
 -- left to other method.
 --
 -- @param algorithm An algorithm
--- @param ugraph An undirected graph
+-- @param graph An undirected graph
 -- @param store An index into the graph's storage in which to store the computed information
 
-function Orientation.prepareRotateAround(algorithm, ugraph)
+function Orientation.prepareRotateAround(algorithm, graph)
 
   -- Find the vertex from which we orient
   local swap = true
 
-  local v,_,grow = lib.find (ugraph.vertices, function (v) return v.options["/graph drawing/grow"] end)
+  local v,_,grow = lib.find (graph.vertices, function (v) return v.options["/graph drawing/grow"] end)
   
-  if not v and ugraph.options["/graph drawing/grow"] then
-    v,grow,swap = ugraph.vertices[1], ugraph.options["/graph drawing/grow"], true
+  if not v and graph.options["/graph drawing/grow"] then
+    v,grow,swap = graph.vertices[1], graph.options["/graph drawing/grow"], true
   end
 
   if not v then
-    v,_,grow =  lib.find (ugraph.vertices, function (v) return v.options["/graph drawing/grow'"] end)
+    v,_,grow =  lib.find (graph.vertices, function (v) return v.options["/graph drawing/grow'"] end)
     swap = false
   end
   
-  if not v and ugraph.options["/graph drawing/grow'"] then
-    v,grow,swap = ugraph.vertices[1], ugraph.options["/graph drawing/grow'"], false
+  if not v and graph.options["/graph drawing/grow'"] then
+    v,grow,swap = graph.vertices[1], graph.options["/graph drawing/grow'"], false
   end
 
   if not v then
-    v, grow, swap = ugraph.vertices[1], -90, true
+    v, grow, swap = graph.vertices[1], -90, true
   end
   
   -- Now compute the rotation
-  local info = ugraph.storage[algorithm]
+  local info = graph.storage[algorithm]
   local growth_direction = v.growth_direction or algorithm.growth_direction
   
   if growth_direction == "fixed" then
@@ -81,14 +81,14 @@ function Orientation.prepareRotateAround(algorithm, ugraph)
   else
     info.from_node = v
     local other = lib.find_min(
-      ugraph:outgoing(v),
+      graph:outgoing(v),
       function (a)
 	if a.head ~= v and a:eventIndex() then
 	  return a, a:eventIndex()
 	end
       end)
     info.to_node = (other and other.head) or
-      (ugraph.vertices[1] == v and ugraph.vertices[2] or ugraph.vertices[1])
+      (graph.vertices[1] == v and graph.vertices[2] or graph.vertices[1])
     info.to_angle = grow/360*2*math.pi
     info.swap = swap
     info.angle = info.to_angle - math.atan2(info.to_node.pos.y - v.pos.y, info.to_node.pos.x - v.pos.x)
@@ -112,13 +112,13 @@ end
 -- rectangle.
 --
 -- @param algorithm An algorithm
--- @param ugraph    An graph
--- @param vertices  An array of to-be-prepared vertices inside ugraph
+-- @param graph    An graph
+-- @param vertices  An array of to-be-prepared vertices inside graph
 
-function Orientation.prepareBoundingBoxes(algorithm, vertices)
+function Orientation.prepareBoundingBoxes(algorithm, graph, vertices)
   
-  local angle = assert(algorithm.ugraph.storage[algorithm].angle, "angle field missing")
-  local swap  = algorithm.ugraph.storage[algorithm].swap
+  local angle = assert(graph.storage[algorithm].angle, "angle field missing")
+  local swap  = graph.storage[algorithm].swap
   
   for _,v in ipairs(vertices) do
     local bb = v.storage[algorithm]
@@ -163,7 +163,7 @@ end
 -- used to be the from_angle becomes the to_angle. If the flag "swap"
 -- is set, the graph is additionally swapped along the to_angle.
 --
--- @param ugraph The to-be-rotated (undirected) graph
+-- @param graph The to-be-rotated (undirected) graph
 -- @param around_x The x-coordinate of the point around which the graph should be rotated
 -- @param around_y The y-coordinate
 -- @param from_angle An "old" angle
@@ -171,8 +171,8 @@ end
 -- @param swap A boolean that, when true, requests that the graph is
 --             swapped (flipped) along the new angle
 
-function Orientation.rotateGraphAround(ugraph, around_x, around_y, from, to, swap)
-
+function Orientation.rotateGraphAround(graph, around_x, around_y, from, to, swap)
+  
   -- Translate to origin
   local t = Transform.new_shift(-around_x, -around_y)
   
@@ -191,15 +191,26 @@ function Orientation.rotateGraphAround(ugraph, around_x, around_y, from, to, swa
   t = Transform.concat(Transform.new_shift(around_x, around_y), t)
 
   -- perform the rotation
-  for _,v in ipairs(ugraph.vertices) do
-    v.pos:apply(t)
-  end
-  
-  for _,a in ipairs(ugraph.arcs) do
+  for _,a in ipairs(graph.arcs) do
+    local pos = a.tail.pos
     for _,p in ipairs(a:pointCloud()) do
+      p:shiftByCoordinate(pos)
       p:apply(t)
     end
   end
+  
+  for _,v in ipairs(graph.vertices) do
+    v.pos:apply(t)
+  end
+  
+  for _,a in ipairs(graph.arcs) do
+    local pos = a.tail.pos
+    for _,p in ipairs(a:pointCloud()) do
+      p:unshift(pos.x, pos.y)
+    end
+  end
+
+
 end
 
 
@@ -210,20 +221,20 @@ end
 -- the second node has the given angle. If swap is set to true, the
 -- graph is also flipped along this line.
 --
--- @param ugraph
+-- @param graph
 -- @param first_node
 -- @param seond_node
 -- @param target_angle
 -- @param swap 
 
-function Orientation.orientTwoNodes(ugraph, first_node, second_node, target_angle, swap)
+function Orientation.orientTwoNodes(graph, first_node, second_node, target_angle, swap)
   if first_node and second_node then
     -- Compute angle between first_node and second_node:
     local x = second_node.pos.x - first_node.pos.x
     local y = second_node.pos.y - first_node.pos.y
     
     local angle = math.atan2(y,x)
-    Orientation.rotateGraphAround(ugraph, first_node.pos.x,
+    Orientation.rotateGraphAround(graph, first_node.pos.x,
 			   first_node.pos.y, angle, target_angle, swap)
   end
 end
@@ -238,30 +249,30 @@ end
 -- 
 -- @param algorithm An algorithm object.
 
-function Orientation.orient(algorithm, ugraph)
+function Orientation.orient(algorithm, graph, scope)
   
   -- Sanity check
-  if #ugraph.vertices < 2 then return end
+  if #graph.vertices < 2 then return end
   
   -- Step 1: Search for an edge with the orient option:
-  for _, a in ipairs(ugraph.arcs) do
+  for _, a in ipairs(graph.arcs) do
     if a:options("/graph drawing/orient",true) then
-      return Orientation.orientTwoNodes(ugraph, a.tail, a.head, a:options("/graph drawing/orient")/360*2*math.pi, false)
+      return Orientation.orientTwoNodes(graph, a.tail, a.head, a:options("/graph drawing/orient")/360*2*math.pi, false)
     end
     if a:options("/graph drawing/orient'",true) then
-      return Orientation.orientTwoNodes(ugraph, a.tail, a.head, a:options("/graph drawing/orient'")/360*2*math.pi, true)
+      return Orientation.orientTwoNodes(graph, a.tail, a.head, a:options("/graph drawing/orient'")/360*2*math.pi, true)
     end
   end
   
   -- Step 2: Search for a node with the orient option:
-  for _, v in ipairs(ugraph.vertices) do
+  for _, v in ipairs(graph.vertices) do
     local function f (key, flag)
       local orient = v.options['/graph drawing/' .. key]
       if orient then
 	local angle, other_name = unpack (orient)
-	local other = ugraph.scope.node_names[other_name]
-	if ugraph:contains(other) then
-	  Orientation.orientTwoNodes(ugraph, v, other, tonumber(angle)/360*2*math.pi, flag)
+	local other = scope.node_names[other_name]
+	if graph:contains(other) then
+	  Orientation.orientTwoNodes(graph, v, other, tonumber(angle)/360*2*math.pi, flag)
 	  return true
 	end
       end
@@ -272,13 +283,13 @@ function Orientation.orient(algorithm, ugraph)
   
   -- Step 3: Search for global graph orient options:
   local function f (key, flag)
-    local orient = ugraph.options['/graph drawing/' .. key]
+    local orient = graph.options['/graph drawing/' .. key]
     if orient then
       local angle, name1, name2 = unpack (orient)
-      local n1 = ugraph.scope.node_names[name1]
-      local n2 = ugraph.scope.node_names[name2]
-      if ugraph:contains(n1) and ugraph:contains(n2) then
-	Orientation.orientTwoNodes(ugraph, n1, n2, tonumber(angle)/360*2*math.pi, flag)
+      local n1 = scope.node_names[name1]
+      local n2 = scope.node_names[name2]
+      if graph:contains(n1) and graph:contains(n2) then
+	Orientation.orientTwoNodes(graph, n1, n2, tonumber(angle)/360*2*math.pi, flag)
 	return true
       end
     end
@@ -287,13 +298,13 @@ function Orientation.orient(algorithm, ugraph)
   if f("orient'", true) then return end
   
   -- Computed during preprocessing:
-  local info = ugraph.storage[algorithm]
+  local info = graph.storage[algorithm]
   if info.from_node and info.from_node.growth_direction ~= "fixed" and algorithm.growth_direction ~= "fixed" then
     local x = info.from_node.pos.x
     local y = info.from_node.pos.y
     local from_angle = info.from_angle or math.atan2(info.to_node.pos.y - y, info.to_node.pos.x - x)
     
-    Orientation.rotateGraphAround(ugraph, x, y, from_angle, info.to_angle, info.swap)
+    Orientation.rotateGraphAround(graph, x, y, from_angle, info.to_angle, info.swap)
   end
 end
 

@@ -91,6 +91,7 @@ function Sugiyama:run()
   Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
   require(edge_routing_algorithm).new(self, self.graph):run()
   self:restoreCycles()
+  
 end
 
 

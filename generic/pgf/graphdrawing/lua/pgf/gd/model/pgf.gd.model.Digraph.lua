@@ -208,8 +208,9 @@ Digraph.__index =
 require("pgf.gd.model").Digraph = Digraph
 
 -- Imports
-local Arc     = require "pgf.gd.model.Arc"
-local Storage = require "pgf.gd.lib.Storage"
+local Arc         = require "pgf.gd.model.Arc"
+local Storage     = require "pgf.gd.lib.Storage"
+local LookupTable = require "pgf.gd.lib.LookupTable"
 
 
 
@@ -270,9 +271,13 @@ function Digraph.new(initial)
   local vertices = digraph.vertices
   digraph.vertices = {}
   digraph.arcs = {}
-  digraph.storage = Storage.new() 
-  digraph.incomings = {} -- a unique handle for vertices's storage
-  digraph.outgoings = {}  -- a unique handle for vertices's storage
+  digraph.storage = Storage.new()
+
+  -- Handles for the storage
+  digraph.incomings = {} 
+  digraph.outgoings = {} 
+
+  -- The syntactic digraph. This needs reworking.
   digraph.syntactic_digraph = assert(initial.syntactic_digraph, "no syntactic digraph specified")
   if digraph.syntactic_digraph == "self" then
     digraph.syntactic_digraph = digraph
@@ -321,6 +326,7 @@ end
 -- @param array The to-be-removed vertices.
 --
 function Digraph:remove(array)
+  local vertices = self.vertices
   
   -- Mark all to-be-deleted nodes
   for i=1,#array do
@@ -451,7 +457,7 @@ end
 
 
 ---
--- See |reorderOutgoing|.
+-- See |orderOutgoing|.
 --
 function Digraph:orderIncoming(v, a)
   local incoming = assert (v.storage[self.incomings], "vertex not in graph")
@@ -485,14 +491,14 @@ end
 --
 -- This operation takes time $O(1)$.
 --
--- @param tail The tail vertex
--- @param head The head vertex (may be identical to |tail| in case of a
+-- @param s The tail vertex
+-- @param t The head vertex (may be identical to |tail| in case of a
 --          loop)
 --
 -- @return The arc object connecting them (either newly created or
 --         already existing)
 --
-function Digraph:connect(s, t, object)
+function Digraph:connect(s, t)
   assert (s and t and self.vertices[s] and self.vertices[t], "trying connect nodes not in graph")
 
   local s_outgoings = s.storage[self.outgoings]
@@ -672,6 +678,149 @@ function Digraph:reconnect(arc, tail, head)
     return new_arc
   end
 end
+
+
+
+---
+-- Collapse a set of vertices into a single vertex
+--
+-- Often, algorithms will wish to treat a whole set of vertices ``as a
+-- single vertex''. The idea is that a new vertex is then inserted
+-- into the graph, and this vertex is connected to all vertices to
+-- which any of the original vertices used to be connected.
+--
+-- The |collapse| method takes an array of to-be-collapsed vertices as
+-- well as a vertex. First, it will store references to the
+-- to-be-collapsed vertices inside the vertex. Second, we iterate over
+-- all arcs of the to-be-collapsed vertices. If this arc connects a
+-- to-be-collapsed vertex with a non-to-be-collapsed vertex, the
+-- non-to-be-collapsed vertex is connected to the collapse
+-- vertex. Additionally, the arc is stored at the vertex.
+--
+-- Note that the collapse vertex will be added to the graph if it is
+-- not already an element. The collapsed vertices will not be removed
+-- from the graph, so you must remove them yourself, if necessary.
+--
+-- A collapse vertex will store the collapsed vertices so that you can
+-- call |expand| later on to ``restore'' the vertices and arcs that
+-- were saved during a collapse. This storage is \emph{not} local to
+-- the graph in which the collapse occured. 
+--
+-- @param collapse_vertices An array of to-be-collapsed vertices
+-- @param collapse_vertex The vertex that represents the collapse. If
+-- not given, a vertex will be created automatically.
+-- @param vertex_fun This function is called for each to-be-collapsed
+-- vertex. The parameters are the collapse vertex and the
+-- to-be-collapsed vertex. May be |nil|.
+-- @param arc_fun This function is called whenever a new arc is added
+-- between |rep| and some other vertex. The arguments are the new arc
+-- and the original arc. May bi |nil|.
+--
+-- @return The new vertex that represents the collapsed vertices. 
+
+function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fun)
+
+  -- Create and add node, if necessary.
+  if not collapse_vertex then
+    collapse_vertex = Vertex.new {}
+  end
+  self:add {collapse_vertex}
+  
+  -- Copy the collapse_vertices and create lookup
+  local cvs = {}
+  for i=1,#collapse_vertices do
+    local v = collapse_vertices[i]
+    cvs[i] = v
+    cvs[v] = true
+  end
+  assert (cvs[collapse_vertex] ~= true, "collapse_vertex is in collapse_vertices")
+  
+  -- Connected collapse_vertex appropriately
+  local collapsed_arcs = {}
+  
+  local outgoings = self.outgoings
+  local incomings = self.incomings
+  
+  if not arc_fun then
+    arc_fun = function () end
+  end
+  
+  for _,v in ipairs(cvs) do
+    if vertex_fun then
+      vertex_fun (collapse_vertex, v)
+    end
+    for _,a in ipairs(v.storage[outgoings]) do
+      if cvs[a.head] ~= true then
+	arc_fun (self:connect(collapse_vertex, a.head), a)
+      end
+      collapsed_arcs[#collapsed_arcs + 1] = a
+    end
+    for _,a in ipairs(v.storage[incomings]) do
+      if cvs[a.tail] ~= true then
+	arc_fun (self:connect(a.tail, collapse_vertex), a)
+      end
+      collapsed_arcs[#collapsed_arcs + 1] = a
+    end
+  end
+
+  -- Remember the old vertices.
+  collapse_vertex.collapsed_vertices = cvs
+  collapse_vertex.collapsed_arcs     = collapsed_arcs
+
+  return collapse_vertex
+end
+
+
+
+---
+-- Expand a previously collapsed vertex.
+--
+-- If you have collapsed a set of vertices in a graph using
+-- |collapse|, you can expand this set once more using this method. It
+-- will add all vertices that were previously removed from the graph
+-- and will also reinstall the deleted arcs. The collapse vertex is
+-- not removed.
+--
+-- @param vertex A to-be-expanded vertex that was previously returned
+-- by |collapse|.
+-- @param vertex_fun A function that is called once for each
+-- reinserted vertex. The parameters are the collapse vertex and the
+-- reinstalled vertex. May be |nil|.
+-- @param arc_fun A function that is called once for each
+-- reinserted arc. The parameter is the arc and the |vertex|. May be |nil|.
+--
+function Digraph:expand(vertex, vertex_fun, arc_fun)
+  local cvs = assert(vertex.collapsed_vertices, "no expand information stored")
+
+  -- Add all vertices:
+  self:add(cvs)
+  if vertex_fun then 
+    for _,v in ipairs(cvs) do
+      vertex_fun(vertex, v)
+    end
+  end
+
+  -- Add all arcs:
+  for _,arc in ipairs(vertex.collapsed_arcs) do
+    local new_arc = self:connect(arc.tail, arc.head)
+    
+    for k,v in pairs(arc) do
+      if k ~= "head" and k ~= "tail" and k ~= "storage" then
+	new_arc[k] = v
+      end
+    end
+
+    for k,v in pairs(arc.storage) do
+      new_arc.storage[k] = v
+    end
+    
+    if arc_fun then
+      arc_fun(new_arc, vertex)
+    end
+  end
+end
+
+
 
 
 

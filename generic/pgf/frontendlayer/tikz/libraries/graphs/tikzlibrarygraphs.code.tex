@@ -202,18 +202,20 @@
       \bgroup%
         \pgfinterruptpath%
           \scope[graphs/.cd,,@operators=,every graph/.try,#1]%
-            \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@outer@operators%
-            \let\tikz@lib@graph@options\pgfutil@empty%
-            \let\tikz@lib@graph@node@list\pgfutil@empty%
-            \pgfkeyssetvalue{/tikz/graphs/placement/depth}{0}%
-            \pgfkeyssetvalue{/tikz/graphs/placement/width}{0}%
-            \pgfkeyssetvalue{/tikz/graphs/placement/level}{0}%
-            \tikz@lib@graph@start@hint@group%
-              \tikz@lib@graph@parse@group{#2}%
-            \tikz@lib@graph@end@hint@group
-            \tikz@lib@graph@outer@operators%  
-            \let\tikz@lg@do=\tikz@lib@graph@cleanup%
-            \tikz@lib@graph@node@list%
+            \begingroup%
+              \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@outer@operators%
+              \let\tikz@lib@graph@options\pgfutil@empty%
+              \let\tikz@lib@graph@node@list\pgfutil@empty%
+              \pgfkeyssetvalue{/tikz/graphs/placement/depth}{0}%
+              \pgfkeyssetvalue{/tikz/graphs/placement/width}{0}%
+              \pgfkeyssetvalue{/tikz/graphs/placement/level}{0}%
+              \tikz@lib@graph@start@hint@group%
+                \tikz@lib@graph@parse@group{#2}%
+              \tikz@lib@graph@end@hint@group
+              \tikz@lib@graph@outer@operators%  
+              \let\tikz@lg@do=\tikz@lib@graph@cleanup%
+              \tikz@lib@graph@node@list%
+            \endgroup%
           \endscope%
         \endpgfinterruptpath%
       \egroup
@@ -540,8 +542,9 @@
   \tikz@smuggle\expandafter\expandafter\expandafter{\expandafter\tikzlibgraphreplaced\expandafter/\expandafter{\the\pgfkeys@temptoks}}%
   \expandafter\endgroup\expandafter\tikz@lib@graph@cont@quote\tikz@smuggle%
 }
-\def\tikz@lib@graph@quotes@slash{%
-  \expandafter\endgroup\expandafter\tikz@lib@graph@cont@quote\tikzlibgraphreplaced%
+\def\tikz@lib@graph@quotes@slash/{%
+  \pgfutil@ifnextchar/% Ah, double slash...
+  {\tikz@lib@graph@quotes@no@slash/}{\expandafter\endgroup\expandafter\tikz@lib@graph@cont@quote\tikzlibgraphreplaced/}%
 }
 \def\tikzlibgraphdoedef{\xdef\tikzlibgraphreplaced}
 
@@ -635,7 +638,7 @@
   % Syntax: node name [options]
   % 
   % Grab node name
-  \tikz@lib@graph@grab@name#1[\pgf@stop%
+  \tikz@lib@graph@grab@name#1\pgf@stop%
   \tikz@lib@graph@stored@actions%
   \pgfutil@ifnextchar\pgf@stop@eodashes{%
     \tikz@lib@graph@graph@done%
@@ -771,7 +774,7 @@
 % Handle node
 %
 \def\tikz@lib@graph@grab@name{%
-  \pgfutil@ifnextchar\foreach\tikz@lib@graph@do@foreach\tikz@lib@graph@grab@name@@%
+  \pgfutil@ifnextchar\foreach\tikz@lib@graph@do@foreach\tikz@lib@graph@parse@node@text%
 }
 
 \def\tikz@lib@graph@do@foreach\foreach#1in{%
@@ -781,7 +784,7 @@
   \expandafter\expandafter\expandafter\tikz@lib@graph@do@foreach@normal\expandafter\tikz@temp\expandafter{#1}%
 }
 
-\def\tikz@lib@graph@do@foreach@normal#1#2#3[\pgf@stop{%
+\def\tikz@lib@graph@do@foreach@normal#1#2#3\pgf@stop{%
   % Ok, we do a parse on a foreach loop.
   \begingroup
     \let\tikz@lib@graph@node@list@saved\pgfutil@empty%
@@ -826,38 +829,151 @@
   \pgfkeyssetvalue{/tikz/graphs/placement/depth}{#6}%
 }
 
-\def\tikz@lib@graph@grab@name@@#1[{%
-  \tikz@lib@graph@read#1\pgf@stop%
+\def\tikz@lib@graph@parse@node@text#1\pgf@stop{%
+  % 
+  % Ok, first test whether #1 contains "//" 
+  % 
+  \pgfutil@in@{//}{#1 }
+  \ifpgfutil@in@%
+    % Ok, a layout node: 
+    \tikz@lib@parse@layout@node#1\pgf@stop%
+  \else%
+    \tikz@lib@graph@fake@nodefalse
+    \let\tikz@lib@graph@node@parsed\tikz@lib@graph@node@opt@normal%
+    \def\tikz@lib@graph@empty@node@parsed{\tikzgdeventcallback{node}{}}%
+    \tikz@lib@parse@normal@node#1[\pgf@stop%
+  \fi%
+}
+
+
+% 
+% Parse the normal part of a node (name and, possibly, text after slash) 
+% 
+
+\def\tikz@lib@parse@normal@node#1[{
+  % 
+  % Test whether #1 contains "/" or "__" 
+  % 
+  \pgfutil@in@{/}{#1}%
+  \ifpgfutil@in@%
+    \tikz@lib@parse@node@with@slash#1\pgf@stop%
+  \else
+    \pgfutil@in@{__}{#1}%
+    \ifpgfutil@in@%
+      \tikz@lib@parse@node@with@doubleunder#1\pgf@stop%
+    \else
+      \pgfkeys@spdef\tikz@lib@graph@name@only{#1}%
+      \let\tikz@lib@graph@node@text\tikz@lib@graph@name@only%
+      \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
+    \fi%
+  \fi%
+  \tikz@lib@graph@handle@node@cont%  
+}
+
+\def\tikz@lib@parse@node@with@slash#1/{
+  \pgfkeys@spdef\tikz@lib@graph@name@only{#1}%
+  \ifx\tikz@lib@graph@name@only\pgfutil@empty%
+    \global\advance\tikz@fig@count by1\relax
+    \edef\tikz@lib@graph@name@only{tikz@f@\the\tikz@fig@count}%
+  \fi%  
+  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
+  \pgfutil@ifnextchar"\tikz@lg@slash@quote{\pgfutil@ifnextchar\tikz@active@quotes@token\tikz@lg@slash@quote@active\tikz@lg@slash@cont}
+}
+\def\tikz@lg@slash@quote"#1"#2\pgf@stop{%
+  \def\tikz@lib@graph@node@text{#1}%
+}
+{\catcode`\"=13\relax
+  \gdef\tikz@lg@slash@quote@active"#1"#2\pgf@stop{%
+    \def\tikz@lib@graph@node@text{#1}%
+  }
+}
+\def\tikz@lg@slash@cont#1\pgf@stop{%
+  \def\tikz@lib@graph@node@text{#1}%
+}
+
+\def\tikz@lib@parse@node@with@doubleunder#1__{\tikz@lib@parse@node@with@slash{#1}/}
+
+\def\tikz@lg@find@fresh@name{%
+  \edef\tikz@lib@graph@name@only{\tikz@lib@graph@name@only'}%
+  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
+  \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
+}
+
+
+% 
+% We have now parsed everything up to the opening "[". We continue 
+%
+
+\def\tikz@lib@graph@handle@node@cont{%
+  \iftikz@lib@graph@fresh@node%
+    \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
+  \fi%
   \let\tikzgraphnodeas\tikzgraphnodeas@default%
   \pgfutil@ifnextchar\pgf@stop{%
     \ifx\tikz@lib@graph@name@only\pgfutil@empty%
-      \tikzgdeventcallback{node}{}%
+      \expandafter\tikz@lib@graph@node@empty@done%
     \else
-      \expandafter\tikz@lib@graph@noskip%
+      \expandafter\tikz@lib@graph@node@opt\expandafter[\expandafter]\expandafter[%
     \fi%
   }{\tikz@lib@graph@node@opt[}%
 }
-\def\tikz@lib@graph@noskip{\tikz@lib@graph@node@opt[][}%]
 
 \def\tikzgraphnodeas@default{%
   \tikz@lib@graph@typesetter%
 }
 
-\def\tikz@lib@graph@read#1\pgf@stop{%
-  \pgfkeys@spdef\tikz@lib@graph@name@only{#1}%
-}
-
-
-
-\newif\iftikz@lib@graph@use@list
-\def\tikz@lib@graph@test@use@list{%
-  \pgfutil@ifnextchar({\tikz@lib@graph@use@list@grap}{\tikz@lib@graph@test@use@list@done}%)
-}
-
-\def\tikz@lib@graph@test@use@list@done#1\pgf@stop{\tikz@lib@graph@use@listfalse}
-\def\tikz@lib@graph@use@list@grap(#1)\pgf@stop{\def\tikz@lib@graph@use@list{#1}\tikz@lib@graph@use@listtrue}
+\let\tikz@lib@graph@empty@node@parsed\relax%
 
 \def\tikz@lib@graph@node@opt[#1]#2[\pgf@stop{%
+  \tikz@lib@graph@node@parsed{#1}%
+}
+
+\def\tikz@lib@graph@node@empty@done\pgf@stop{\tikz@lib@graph@empty@node@parsed}
+
+% 
+% Parse a layout node 
+%
+
+\def\tikz@lib@parse@layout@node#1//{%
+  \pgf@lib@graph@empty@layout@nodefalse%
+  \let\tikz@lib@graph@node@parsed\tikz@lib@layout@node@parsed%
+  \let\tikz@lib@graph@empty@node@parsed\tikz@lib@graph@empty@layout@node@parsed
+  \tikz@lib@parse@normal@node#1[\pgf@stop%
+}
+
+\newif\ifpgf@lib@graph@empty@layout@node
+
+\def\tikz@lib@layout@node@parsed{%
+  \tikz@lib@layout@parse@rest%
+}
+
+\def\tikz@lib@graph@empty@layout@node@parsed{%
+  \pgf@lib@graph@empty@layout@nodetrue
+  \tikz@lib@layout@parse@rest{}%
+}
+
+\def\tikz@lib@layout@parse@rest#1{%
+  \def\tikz@lib@layout@node@options{#1}%
+  \pgfutil@ifnextchar[{\tikz@lib@layout@node@opt}{\tikz@lib@layout@node@opt[]}%}
+}
+
+\def\tikz@lib@layout@node@parsed#1{%
+  \def\tikz@lib@layout@node@options{#1}%
+  \pgfutil@ifnextchar[{\tikz@lib@layout@node@opt}{\tikz@lib@layout@node@opt[]}%}
+}
+
+\def\tikz@lib@layout@node@opt[#1]{%
+  \def\tikz@lib@layout@options{#1}%
+  \pgfutil@ifnextchar\bgroup{\tikz@lib@layout@start}{\PackageError{graphs
+      library}{Opening brace at beginning of sublayout expected}{}}%
+}
+
+
+%
+% Typeset a normal node
+%
+
+\def\tikz@lib@graph@node@opt@normal#1{%
   \expandafter\tikz@lib@graph@test@use@list\tikz@lib@graph@name@only\pgf@stop
   \iftikz@lib@graph@use@list%
     % Ok, make a list of the nodes stored in #1:
@@ -872,7 +988,6 @@
     \let\tikz@lg@do\tikz@lib@graph@do@use%
     \tikz@lg@temp%
   \else%
-    \tikz@lg@test@underscore%
     \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
     \expandafter\ifx\csname tikz@lib@graph@def@\tikz@lib@graph@name@only\endcsname\relax%
       \pgfkeysgetvalue{/tikz/graphs/placement/level}\tikz@temp%
@@ -890,7 +1005,7 @@
         \pgfkeyslet{/tikz/graphs/@operators}\pgfutil@empty%
         \tikz@lib@activate@source@target@edge@syntax%
         \tikz@lg@if@local@node{\tikz@lib@graph@name}%
-        {\tikzgraphsset{source,target,#1}\tikzgdlatenodeoptionacallback{\tikz@lib@graph@name}\pgfkeysvalueof{/tikz/graphs/@operators}}%
+        {\tikz@lg@local@node@handle{#1}}%
         {%
           \tikz@lg@init@color{\tikz@lib@graph@name}{\tikz@lgc@all@true\tikz@lgc@source@true\tikz@lgc@target@true}%
           \iftikz@lib@graph@all%
@@ -898,24 +1013,34 @@
           \else%
             \pgfkeys{/tikz/graphs/placement/place}%
             \let\tikzgraphnodetext\tikz@lib@graph@node@text%
+            \let\tikzgraphnodename\tikz@lib@graph@name@only%
             \let\tikzgraphnodepath\tikz@lib@graph@path%
             \let\tikzgraphnodefullname\tikz@lib@graph@name%
+            \iftikz@lib@graph@fake@node%
+              {% run options in protected mode...
+                \pgfkeys{
+                  /tikz/graphs/.cd,%
+                  .unknown/.code=,
+                  /tikz/graphs/@nodes styling,%
+                  #1}%
+                \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@op@save%
+                \global\let\tikz@lib@graph@op@save\tikz@lib@graph@op@save%                
+              }%
+            \else%
             \node [%
               name=\tikz@lib@graph@name,%
               execute at end node={%
                 \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@op@save%
                 \global\let\tikz@lib@graph@op@save\tikz@lib@graph@op@save%
               },%
-              graphs/.unknown/.code={%
-                \let\tikz@key\pgfkeyscurrentname% 
-                \pgfkeys{tikz/.cd,\tikz@key={##1},/tikz/graphs/.cd}%
-              },%
+              graphs/redirect unknown to tikz,
               /tikz/graphs/.cd,%
               /tikz/graphs/@nodes styling,%
               #1]%
               {%
                 \tikzgraphnodeas%
               };%
+            \fi%
             \tikz@lib@graph@op@save\global\let\tikz@lib@graph@op@save\relax%%
             \global\tikz@lib@graph@node@createdtrue%
           \fi
@@ -932,6 +1057,124 @@
       \tikz@lib@graph@handle@graph{#1}%      
     \fi
   \fi%  
+}
+
+\newif\iftikz@lib@graph@fake@node
+
+\newif\iftikz@lib@graph@use@list
+\def\tikz@lib@graph@test@use@list{%
+  \pgfutil@ifnextchar({\tikz@lib@graph@use@list@grap}{\tikz@lib@graph@test@use@list@done}%)
+}
+
+\def\tikz@lib@graph@test@use@list@done#1\pgf@stop{\tikz@lib@graph@use@listfalse}
+\def\tikz@lib@graph@use@list@grap(#1)\pgf@stop{\def\tikz@lib@graph@use@list{#1}\tikz@lib@graph@use@listtrue}
+
+
+% 
+% Typeset a layout node 
+%
+
+\def\tikz@lib@layout@start#1#2\pgf@stop{%
+  \tikz@lib@ensure@gd@loaded%
+  % Parameters are:
+  % 
+  % Node name is \tikz@lib@graph@name@only
+  % Node text is \tikz@lib@graph@node@text
+  % Node options are \tikz@lib@layout@node@options
+  % Layout options are \tikz@lib@layout@options
+  % Layout is #1
+  % Rest is #2 (should be empty or just whitespace
+  \ifpgf@lib@graph@empty@layout@node%
+  \else%
+    \ifx\tikz@lib@graph@name\pgfutil@empty%
+      \PackageError{graphs library}{Internal error: Node has no name, but it should!}{}
+    \else
+      \tikz@lib@graph@fake@nodetrue%
+      \expandafter\tikz@lib@graph@node@opt@normal\expandafter{\tikz@lib@layout@node@options}%
+    \fi%
+  \fi%
+  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
+  % 
+  % Prepare tikz node options 
+  %
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@lib@layout@node@options\expandafter\expandafter\expandafter{\expandafter\tikz@lib@layout@startup@node@options\tikz@lib@layout@node@options,}%
+  % 
+  % Tougher: prepare normal node options: 
+  % 
+  \begingroup%
+  \setbox0=\hbox{{%
+      \pgfinterruptpath%
+        \expandafter\tikzset\expandafter{\tikz@lib@layout@node@options}%
+        \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options%
+        \global\let\pgf@gd@node@options@smuggle\pgf@gd@node@options%
+      \endpgfinterruptpath%
+    }}%
+  \endgroup%
+  % 
+  % Here comes the scope: 
+  %
+  \expandafter\expandafter\expandafter\scope\expandafter\expandafter\expandafter[%
+    \expandafter\tikz@lib@layout@startup@options\tikz@lib@layout@options,%
+    /utils/exec=\pgfgdsetrequestcallback\tikz@gd@request@callback,%
+    /graph drawing/request scope and layout]%
+    \tikzgdeventgroupcallback{array}%
+    \let\tikz@lib@graph@node@list\pgfutil@empty%
+    \tikz@lib@graph@start@hint@group%
+      \tikz@lib@graph@parse@group{#1}%
+    \tikz@lib@graph@end@hint@group%
+    \def\tikz@lg@old@col{\tikz@lgc@source@true}%
+    \let\tikz@lg@new@col\pgfutil@empty%
+    \let\tikz@lg@do\tikz@lg@change@color%
+    \tikz@lib@graph@node@list%
+    \def\tikz@lg@old@col{\tikz@lgc@target@true}%
+    \tikz@lib@graph@node@list%
+    \expandafter%  
+  \endscope%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
+  \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}%
+  \tikz@lib@graph@hint@aftergroup%
+}
+
+\def\tikz@lib@layout@startup@node@options{%
+  /utils/exec=\tikzlibignorecomparisonsINTERNAL,
+  graphs/redirect unknown to tikz,%
+  /tikz/graphs/.cd,%
+}
+\def\tikzlibignorecomparisonsINTERNAL{%
+  \pgfkeys{/handlers/first char syntax=true}
+  \pgfkeyssetvalue{/handlers/first char syntax/the character >}{\pgfutil@gobble}%
+  \pgfkeyssetvalue{/handlers/first char syntax/the character <}{\pgfutil@gobble}%
+}
+\def\tikz@lib@layout@startup@options{
+  /utils/exec={
+    \pgfkeyslet{/graph drawing/node parameters}\pgf@gd@node@options@smuggle,
+    \pgfgdsetrequestcallback\pgfutil@gobbletwo},
+  /graph drawing/layout node name/.expanded=\ifpgf@lib@graph@empty@layout@node\else\tikz@lib@graph@name\fi,
+  /graph drawing/layout node text/.expand once=\tikz@lib@graph@node@text,
+  /graph drawing/layout node options/.expand once=\tikz@lib@layout@node@options,
+  /tikz/graphs/.cd,
+}
+
+\ifx\tikz@lib@ensure@gd@loaded\pgfutil@undefined%
+\def\tikz@lib@ensure@gd@loaded{\PackageError{graphs library}{You must say \string\usetikzlibrary{graphdrawing} to use the (sub)layout syntax}{}}
+\fi
+
+\def\tikz@lg@local@node@handle#1{%
+  %
+  % Handle late options and operators
+  \tikzgraphsset{source,target,.unknown/.code=,#1}%
+  \tikzgdlatenodeoptionacallback{\tikz@lib@graph@name}%
+  \node also[graphs/redirect unknown to tikz,/tikz/graphs/.cd,#1](\tikz@lib@graph@name);%
+  \pgfkeysvalueof{/tikz/graphs/@operators}%
+}
+
+\tikzgraphsset{redirect unknown to tikz/.style={
+    /tikz/graphs/.unknown/.code={%
+      \let\tikz@key\pgfkeyscurrentname% 
+      \pgfkeys{tikz/.cd,\tikz@key={##1},/tikz/graphs/.cd}%
+    }}
 }
 
 \def\tikz@lib@activate@source@target@edge@syntax{%
@@ -997,57 +1240,6 @@
 \newif\iftikz@lib@graph@fresh@node
 \tikzgraphsset{fresh nodes/.is if=tikz@lib@graph@fresh@node}
 
-\def\tikz@lg@test@underscore{%
-  \expandafter\pgfutil@in@\expandafter{\expandafter_\expandafter_\expandafter}\expandafter{\tikz@lib@graph@name@only}%
-  \ifpgfutil@in@%
-    \expandafter\tikz@lg@is@underscore\tikz@lib@graph@name@only\pgf@stop%
-  \else%
-    \expandafter\pgfutil@in@\expandafter{\expandafter/\expandafter}\expandafter{\tikz@lib@graph@name@only}%
-    \ifpgfutil@in@%
-      \expandafter\tikz@lg@is@slash\tikz@lib@graph@name@only\pgf@stop%
-    \else%
-      \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
-      \let\tikz@lib@graph@node@text\tikz@lib@graph@name@only%
-      \iftikz@lib@graph@fresh@node%
-        \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
-      \fi%
-    \fi%
-  \fi  
-}
-
-\def\tikz@lg@find@fresh@name{%
-  \edef\tikz@lib@graph@name@only{\tikz@lib@graph@name@only'}%
-  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
-  \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
-}
-
-\def\tikz@lg@is@underscore#1__{%
-  \def\pgf@temp{#1}%
-  \ifx\pgf@temp\pgfutil@empty%
-    \global\advance\tikz@fig@count by1\relax
-    \edef\tikz@lib@graph@name@only{tikz@f@\the\tikz@fig@count}%
-  \else%
-    \def\tikz@lib@graph@name@only{#1}%
-  \fi%  
-  \edef\tikz@lib@graph@name{\tikz@lib@graph@path\tikz@lib@graph@name@only}%
-  \iftikz@lib@graph@fresh@node%
-    \tikz@lg@if@local@node{\tikz@lib@graph@name}{\tikz@lg@find@fresh@name}{}%
-  \fi%
-  \pgfutil@ifnextchar"\tikz@lg@underscore@quote{\pgfutil@ifnextchar\tikz@active@quotes@token\tikz@lg@underscore@quote@active\tikz@lg@underscore@cont}
-}
-\def\tikz@lg@underscore@quote"#1"\pgf@stop{%
-  \def\tikz@lib@graph@node@text{#1}%
-}
-{\catcode`\"=13\relax
-  \gdef\tikz@lg@underscore@quote@active"#1"\pgf@stop{%
-    \def\tikz@lib@graph@node@text{#1}%
-  }
-}
-\def\tikz@lg@underscore@cont#1\pgf@stop{%
-  \def\tikz@lib@graph@node@text{#1}%
-}
-
-\def\tikz@lg@is@slash#1/{\tikz@lg@is@underscore{#1}__}
 
 \newif\iftikz@lib@graph@node@created
 
@@ -1168,7 +1360,7 @@
     }},
     not #1/.style={operator={%
       \edef\tikz@lg@old@col{\expandafter\noexpand\csname tikz@lgc@#1@true\endcsname}%
-      \def\tikz@lg@new@col{}%
+      \let\tikz@lg@new@col\pgfutil@empty%
       \let\tikz@lg@do\tikz@lg@change@color%
       \tikz@lib@graph@node@list%
     }},
@@ -1597,9 +1789,11 @@
 
 \def\tikz@lib@graph@flow@rest{%
   \ifnum\c@pgf@countb<\c@pgf@counta\relax%
-    \advance\c@pgf@countb by1\relax%
-    \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countb\endcsname}{\tikz@lg@prev}%
-    \expandafter\tikz@lib@graph@flow@rest%
+    \ifnum\c@pgf@countb>0\relax%
+      \advance\c@pgf@countb by1\relax%
+      \tikz@lib@graph@default@new@edge{\csname tikz@lg\the\c@pgf@countb\endcsname}{\tikz@lg@prev}%
+      \expandafter\tikz@lib@graph@flow@rest%
+    \fi%
   \fi%
 }
 

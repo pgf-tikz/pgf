@@ -35,6 +35,9 @@ require("pgf.gd.circular").Tantau2012 = Tantau2012
 local Options = require "pgf.gd.control.Options"
 local Coordinate = require "pgf.gd.model.Coordinate"
 
+local lib = require "pgf.gd.lib"
+
+
 
 
 
@@ -46,7 +49,7 @@ function Tantau2012:run()
   local sib_dists = self:computeNodeDistances ()
   local radii = self:computeNodeRadii()
   local diam, adjusted_radii = self:adjustNodeRadii(sib_dists, radii)
-  
+
   -- Compute total necessary length. For this, iterate over all 
   -- consecutive pairs and keep track of the necessary space for 
   -- this node. We imagine the nodes to be aligned from left to 
@@ -96,7 +99,7 @@ function Tantau2012:computeNodeDistances()
   end
 
   sib_dists.total = math.max(self.digraph.options['/graph drawing/circular layout/radius'] * 2 * math.pi, sum_length)
-
+  
   return sib_dists
 end
 
@@ -104,7 +107,7 @@ end
 function Tantau2012:computeNodeRadii()
   local radii = {}
   for i,v in ipairs(self.digraph.vertices) do
-    local min_x, min_y, max_x, max_y = Coordinate:boundingBox(v.hull)
+    local min_x, min_y, max_x, max_y = Coordinate.boundingBox(v.hull)
     local w, h = max_x-min_x, max_y-min_y
     if v.shape == "circle" or v.shape == "ellipse" then
       radii[i] = math.max(w,h)/2
@@ -118,14 +121,16 @@ end
 
 function Tantau2012:adjustNodeRadii(sib_dists,radii)
   local total = 0
+  local max_rad = 0
   for i=1,#radii do
     total = total + 2*radii[i] 
             + Options.lookup('/graph drawing/node post sep', self.digraph.vertices[i], self.digraph)
             + Options.lookup('/graph drawing/node pre sep', self.digraph.vertices[i], self.digraph)
+    max_rad = math.max(max_rad, radii[i])  
   end
-  total = math.max(total, sib_dists.total)
+  total = math.max(total, sib_dists.total, max_rad*math.pi)
   local diam = total/(math.pi)
-
+  
   -- Now, adjust the radii:
   local adjusted_radii = {}
   for i=1,#radii do

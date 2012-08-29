@@ -37,7 +37,7 @@ local Transform  = require "pgf.gd.lib.Transform"
 --
 -- @return An array of graph objects that represent the connected components of the graph. 
 
-function Components:decompose (digraph)
+function Components.decompose (digraph)
 
   -- The list of connected components (node sets)
   local components = {}
@@ -110,14 +110,14 @@ end
 --- Handling of component order
 --
 -- Components are ordered according to a function that is stored in
--- a key of the Components:component_ordering_functions table (subject
+-- a key of the Components.component_ordering_functions table (subject
 -- to change...) whose name is the graph option /graph
 -- drawing/component order. 
 --
 -- @param component_order An ordering method
 -- @param subgraphs A list of to-be-sorted subgraphs
 
-function Components:sort(component_order, subgraphs)
+function Components.sort(component_order, subgraphs)
   if component_order then
     local f = Components.component_ordering_functions[component_order]
     if f then
@@ -205,7 +205,7 @@ end
 -- @param graph The graph
 -- @param components A list of components
 
-function Components:pack(syntactic_digraph, components)
+function Components.pack(syntactic_digraph, components)
 
   local store = {} -- Unique id
   
@@ -224,7 +224,7 @@ function Components:pack(syntactic_digraph, components)
 
     for _,a in ipairs(c.arcs) do
       for _,p in ipairs(a:pointCloud()) do
-	vertices [#vertices + 1] = Vertex.new { pos = p, kind = "dummy" }
+	vertices [#vertices + 1] = Vertex.new { pos = p + a.tail.pos, kind = "dummy" }
       end
     end
     c.storage[store] = vertices
@@ -412,8 +412,10 @@ function Components:pack(syntactic_digraph, components)
     local y =  x_shifts[i]*math.sin(angle) + y_shifts[i]*math.cos(angle)
     
     for _,v in ipairs(c.storage[store]) do
-      v.pos.x = v.pos.x + x
-      v.pos.y = v.pos.y + y
+      if v.kind ~= "dummy" then
+	v.pos.x = v.pos.x + x
+	v.pos.y = v.pos.y + y
+      end
     end
   end
 end

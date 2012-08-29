@@ -74,7 +74,7 @@ function LookupTable.remove(l, array)
     local t = l[i]
     if l[t] == false then
       l[t] = nil
-    elseif target < i then
+    else
       l[target] = t
       target = target + 1
     end

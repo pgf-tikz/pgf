@@ -25,32 +25,32 @@ lib.Anchoring = Anchoring
 
 
 
---- Pre layout step:
---
--- Determine the anchor node of the graph
---
--- @param graph A graph whose anchor_node key will be set
---        if a user-specified anchor node is found in the algorithm's graph.
+-- --- Pre layout step:
+-- --
+-- -- Determine the anchor node of the graph
+-- --
+-- -- @param graph A graph whose anchor_node key will be set
+-- --        if a user-specified anchor node is found in the algorithm's graph.
 
-function Anchoring:computeAnchorNode(graph)
+-- function Anchoring.computeAnchorNode(graph, scope)
 
-  local anchor_node
+--   local anchor_node
   
-  local anchor_node_name = graph.options['/graph drawing/anchor node']
-  if anchor_node_name then
-    anchor_node = graph.scope.node_names[anchor_node_name]
-  end
-  
-  if not graph:contains(anchor_node) then
-    anchor_node =
-      lib.find (graph.vertices, function (v) return v.options['/graph drawing/anchor here'] end) or
-      lib.find (graph.vertices, function (v) return v.options['/graph drawing/desired at'] end)
-  end
+--   local anchor_node_name = graph.options['/graph drawing/anchor node']
+--   if anchor_node_name then
+--     anchor_node = scope.node_names[anchor_node_name]
+--   end
 
-  if graph:contains(anchor_node) then
-    graph.storage[Anchoring].anchor_node = anchor_node
-  end
-end
+--   if not graph:contains(anchor_node) then
+--     anchor_node =
+--       lib.find (graph.vertices, function (v) return v.options['/graph drawing/anchor here'] end) or
+--       lib.find (graph.vertices, function (v) return v.options['/graph drawing/desired at'] end)
+--   end
+
+--   if graph:contains(anchor_node) then
+--     graph.storage[Anchoring].anchor_node = anchor_node
+--   end
+-- end
 
 
 
@@ -61,9 +61,25 @@ end
 -- 
 -- @param graph A graph
 
-function Anchoring:anchor(graph)
+function Anchoring.anchor(graph, scope)
+  
+  -- Step 1: Find anchor node:
+  local anchor_node
+  
+  local anchor_node_name = graph.options['/graph drawing/anchor node']
+  if anchor_node_name then
+    anchor_node = scope.node_names[anchor_node_name]
+  end
 
-  local anchor_node = graph.storage[Anchoring].anchor_node or graph.vertices[1]
+  if not graph:contains(anchor_node) then
+    anchor_node =
+      lib.find (graph.vertices, function (v) return v.options['/graph drawing/anchor here'] end) or
+      lib.find (graph.vertices, function (v) return v.options['/graph drawing/desired at'] end) or
+      graph.vertices[1]
+  end
+  
+  -- Sanity check
+  assert(graph:contains(anchor_node), "anchor node is not in graph!")
   
   local anchor_x = anchor_node.pos.x
   local anchor_y = anchor_node.pos.y
@@ -79,13 +95,6 @@ function Anchoring:anchor(graph)
   -- Step 3: Shift nodes
   for _,v in ipairs(graph.vertices) do
     v.pos:shift(delta_x,delta_y)
-  end
-  for _,a in ipairs(graph.arcs) do
-    for _,m in ipairs(a.storage.syntactic_edges) do
-      for _,p in ipairs(m.path) do
-	p:shift(delta_x, delta_y)
-      end
-    end
   end
 end
 
