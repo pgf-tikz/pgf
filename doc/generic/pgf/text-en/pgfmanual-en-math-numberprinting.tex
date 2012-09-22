@@ -108,39 +108,64 @@ The parameters can be customized using the optional integer argument(s): if $\te
 
 \end{keylist}
 
-\begin{keylist}{/pgf/number format/relative=\meta{exponent base 10}}
+\begin{keylist}{/pgf/number format/relative*=\meta{exponent base 10}}
 	Configures |\pgfmathprintnumber| to format numbers relative to an order of magnitude, $10^r$, where $r$ is an integer number.
 
-	The motivation is to provide a unified format for a \emph{sequence} of numbers:
+	This key addresses different use-cases. 
+	
+	\paragraph{First use-case:} provide a unified format for a \emph{sequence} of numbers. Consider the following test:
 \begin{codeexample}[]
-\pgfkeys{/pgf/number format/relative={1}}
+\pgfkeys{/pgf/number format/relative*={1}}
 \pgfmathprintnumber{6.42e-16}\hspace{1em}
 \pgfmathprintnumber{1.2}\hspace{1em}
 \pgfmathprintnumber{6}\hspace{1em}
 \pgfmathprintnumber{20.6}\hspace{1em}
 \pgfmathprintnumber{87}
 \end{codeexample}
-	\noindent With any other style, the |6.42e-16| would have been formatted as an isolated number. Here, it is rounded to |0| because when viewed relative to $10^3$, it has no significant digits.
+	\noindent With any other style, the |6.42e-16| would have been formatted as an isolated number. Here, it is rounded to |0| because when viewed relative to $10^1$ (the exponent $1$ is the argument for |relative|), it has no significant digits.
 
 \begin{codeexample}[]
-\pgfkeys{/pgf/number format/relative={2}}
+\pgfkeys{/pgf/number format/relative*={2}}
 \pgfmathprintnumber{123.345}\hspace{1em}
 \pgfmathprintnumber{0.0012}\hspace{1em}
 \pgfmathprintnumber{0.0014}\hspace{1em}
 \end{codeexample}
-	Here, it applies the initial |precision=2| to |123.345| -- relative to $100$. Two significant digits of |123.345| relative to $100$ are |123|. Similarly, the other two numbers are |0| compared to $100$ using the given |precision|.
+	\noindent The example above applies the initial |precision=2| to |123.345| -- relative to $100$. Two significant digits of |123.345| relative to $100$ are |123|. Note that the ``$2$ significant digits of |123.345|'' translates to ``round |1.2345| to $2$ digits'', which would yield |1.2300|. Similarly, the other two numbers are |0| compared to $100$ using the given |precision|.
 
 
 \begin{codeexample}[]
-\pgfkeys{/pgf/number format/relative={-3}}
+\pgfkeys{/pgf/number format/relative*={-3}}
 \pgfmathprintnumber{123.345}\hspace{1em}
 \pgfmathprintnumber{0.0012}\hspace{1em}
 \pgfmathprintnumber{0.0014}\hspace{1em}
 \end{codeexample}
 
+	\paragraph{Second use-case:} improve rounding in the presence of \emph{inaccurate} numbers. Let us suppose that some limited-precision arithmetics resulted in the result |123456999| (like the |fpu| of \pgfname). You know that its precision is about five or six significant digits. And you want to provide a fixed point output. In this case, the trailing digits |....999| are a numerical artifact due to the limited precision. Use |relative*=3,precision=0| to eliminate the artifacts:
+\begin{codeexample}[]
+\pgfkeys{/pgf/number format/.cd,relative*={3},precision=0}
+\pgfmathprintnumber{123456999}\hspace{1em}
+\pgfmathprintnumber{123456999.12}
+\end{codeexample}
+\noindent Here, |precision=0| means that we inspect |123456.999| and round that number to $0$ digits. Finally, we move the period back to its initial position. Adding |relative style=fixed| results in fixed point output format:
+\begin{codeexample}[]
+\pgfkeys{/pgf/number format/.cd,relative*={3},precision=0,relative style=fixed}
+\pgfmathprintnumber{123456999}\hspace{1em}
+\pgfmathprintnumber{123456999.12}
+\end{codeexample}
+	\noindent Note that there is another alternative for this use-case which is discussed later: the |fixed relative| style.
+\begin{codeexample}[]
+\pgfkeys{/pgf/number format/.cd,fixed relative,precision=6}
+\pgfmathprintnumber{123456999}\hspace{1em}
+\pgfmathprintnumber{123456999.12}
+\end{codeexample}
+	
+	You might wonder why there is an asterisk in the key's name. The short answer is: there is also a \declareandlabel{/pgf/number format/relative} number printer which does unexpected things. The key |relative*| repairs this. Existing code will still use the old behavior.
 
-	When applied to a number $x = \pm m \cdot 10^e$, the |relative=|$r$ method actually rounds $x / 10^r$ to the desired precision. More precisely: if $e-r>0$, it only rounds the mantissa of $x/10^r$ to the desired precision, otherwise it rounds the complete number to the desired precision. Afterwards, it disables rounding, multiplies the intermediate result by $10^r$, and evaluates the style |every relative| to actually format the result.
+	
+	Technically, the key works as follows: as already explained above, |relative*=3| key applied to |123456999.12| moves the period by three positions and analyzes |123456.99912|. Mathematically speaking, we are given a number $x = \pm m \cdot 10^e$ and we attempt to apply |relative*=|$r$. The method then rounds $x / 10^r$ to |precision| digits. Afterwards, it multiplies the result by $10^r$ and typesets it.
+	
 \end{keylist}
+
 \begin{stylekey}{/pgf/number format/every relative}
 	A style which configures how the |relative| method finally displays its results.
 
@@ -154,7 +179,11 @@ The parameters can be customized using the optional integer argument(s): if $\te
 	Although supported, I discourage from using |fixed zerofill| or |sci zerofill| in this context -- it may lead to a suggestion of higher precision than is actually used (because |fixed zerofill| might simply add |.00| although there was a different information before |relative| rounded the result).
 \end{stylekey}
 
-\begin{key}{/pgf/number format/fixed relative}
+\begin{key}{/pgf/number format/relative style=\marg{options}}
+	The same as |every relative/.append style=|\marg{options}.
+\end{key}
+
+\begin{keylist}{/pgf/number format/fixed relative}
 	Configures |\pgfmathprintnumber| to format numbers in a similar way to the |fixed| style, but the |precision| is interpreted relatively to the number's exponent.
 
 	The motivation is to get the same rounding effect as for |sci|, but to display the number in the |fixed| style:
@@ -174,7 +203,10 @@ The parameters can be customized using the optional integer argument(s): if $\te
 	Use |fixed relative| if you want |fixed| and if you know that only the first $n$ digits are correct. Use |sci| if you need a scientific display style and only the first $n$ digits are correct.
 
 	Note that |fixed relative| ignores the |fixed zerofill| flag.
-\end{key}
+
+	See also the |relative*| key. Note that the |relative=|\marg{exponent} key explicitly moves the period to some designated position before it attempts to round the number. Afterwards, it ``rounds from the right'', i.e.\ it rounds to that explicitly chosen digit position. In contrast to that, |fixed relative| ``rounds from the left'': it takes the \emph{first} non-zero digit, temporarily places the period after this digit, and rounds that number. The rounding style |fixed| leaves the period where it is, and rounds everything behind that digit. The |sci| style is similar to |fixed relative|.
+\end{keylist}
+
 
 \begin{key}{/pgf/number format/int detect}
 Configures |\pgfmathprintnumber| to detect integers automatically. If the input number is an integer, no period is displayed at all. If not, the scientific format is chosen.
