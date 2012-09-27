@@ -250,7 +250,7 @@ end
 -- @param algorithm An algorithm object.
 
 function Orientation.orient(algorithm, graph, scope)
-  
+
   -- Sanity check
   if #graph.vertices < 2 then return end
   

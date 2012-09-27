@@ -32,12 +32,14 @@ local Storage     = require "pgf.gd.lib.Storage"
 local Simplifiers = require "pgf.gd.lib.Simplifiers"
 local LookupTable = require "pgf.gd.lib.LookupTable"
 
-local Vertex     = require "pgf.gd.model.Vertex"
-local Digraph    = require "pgf.gd.model.Digraph"
-local Coordinate = require "pgf.gd.model.Coordinate"
+local Vertex      = require "pgf.gd.model.Vertex"
+local Digraph     = require "pgf.gd.model.Digraph"
+local Coordinate  = require "pgf.gd.model.Coordinate"
 
-local Options    = require "pgf.gd.control.Options"
-local Sublayouts = require "pgf.gd.control.Sublayouts"
+local Options     = require "pgf.gd.control.Options"
+local Sublayouts  = require "pgf.gd.control.Sublayouts"
+
+local lib         = require "pgf.gd.lib"
 
 -- Forward definitions
 
@@ -68,7 +70,10 @@ function LayoutPipeline.run(scope, algorithm_class)
   
   -- Now, anchor!
   Anchoring.anchor(scope.syntactic_digraph, scope)
-
+  
+  -- And, now, do regadless
+  Sublayouts.regardless(scope.syntactic_digraph)
+  
 end
 
 
@@ -192,8 +197,8 @@ prepare_events =
 -- @param collection_table A table of collections.
 --
 -- @return A table of collection arrays. For each collection kind, there
--- will be one entry in this table, which will be an array. Each
--- element of this array will be table having the fields |name|,
+-- will be one entry in this table, which will be a lookup table. Each
+-- element of this lookup table will be table having the fields |name|,
 -- |vertices| (an array of vertex objects), and |edges| (an array of
 -- edges). 
 
@@ -205,13 +210,14 @@ compute_collections =
 	local lookup = collection_table[kind] or {}
 	local t = lookup[name] 
 	if not t then
-	  t = { name = name, vertices = {}, edges = {} }
+	  t = { name = name, vertices = {}, edges = {}, options = {}, options = Options.new() }
 	  lookup[name]        = t
 	  lookup[#lookup + 1] = t
 	end
 	if not t.vertices[v] then
 	  LookupTable.add(t.vertices,{v})
 	end
+	Options.add(t.options,entry.options)
 	collection_table[kind] = lookup
       end
     end
@@ -223,13 +229,14 @@ compute_collections =
 	  local lookup = collection_table[kind] or {}
 	  local t = lookup[name] 
 	  if not t then
-	    t = { name = name, vertices = {}, edges = {} }
+	    t = { name = name, vertices = {}, edges = {}, options = Options.new() }
 	    lookup[name]        = t
 	    lookup[#lookup + 1] = t
 	  end
 	  if not t.edges[e] then
 	    LookupTable.add(t.edges,{e})
 	  end
+	  Options.add(t.options, entry.options)
 	  collection_table[kind] = lookup
 	end
       end

@@ -319,6 +319,7 @@
 \pgfgdset{
   graph parameters/.initial=,
   node parameters/.initial=,
+  layout node parameters/.initial=,
   edge parameters/.initial=,
 }  
 
@@ -1009,17 +1010,77 @@
 
 % Desired positiong for a node
 % 
-% #1 = an x-position
-% #2 = an y-position
+% #1 = a coordinate
 % 
 % Description:
 % 
-% This node parameter stores two numbers in the format {#1}{#2}. When
-% set, the layout algorithm is "requested" to try an place the node at
+% This node parameter stores a coordiante. When set, the layout
+% algorithm is "requested" to try an place the node at 
 % this position.
 
 \pgfgddeclareforwardedkeys{/graph drawing}{
   desired at/.node parameter=coordinate
+}
+
+
+
+
+% Nudging a node
+% 
+% #1 = an offset (as a coordinate)
+% 
+% Description:
+% 
+% This node parameter allows you to slightly ``nudge'' (move) nodes
+% after they have been positioned by the given offset. The idea is
+% that this nudging is 
+% done after the position of the node has been computed, so nudging
+% has no influence on the actual graph drawing algorithms. This, in
+% turn, means that you can use nudging to "correct" or "optimize" the
+% positioning of nodes after the algorithm has computed something.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  nudge/.node parameter=coordinate
+}
+
+
+% Forcing a node
+% 
+% #1 = a coordinate
+% 
+% Description:
+% 
+% This node parameter allows you provide a position for a node to wish
+% it will be forced after the graph algorithms have run. So, the node
+% is positioned normally and the graph drawing algorithm does not know
+% about the position #1. However, afterwards, the node is placed at #1
+% regardless of what the algorithm has computed (all other nodes are
+% unaffected). 
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  regardless at/.node parameter=coordinate
+}
+
+
+% "Nail" a node to a position
+% 
+% #1 = a coordinate
+% 
+% Description:
+% 
+% This option combines "desired at" and "regardless at". Thus, the
+% algorithm is "told" about the desired position. If it fails to place
+% the node at the desired position, it will be put there
+% regardless. The name of the key is intended to remind one of a node
+% begin "nailed" to the canvas.
+
+\pgfgddeclareforwardedkeys{/graph drawing}{
+  nail at/.style={}
+}
+\pgfgdset{nail at/.style={%
+    /graph drawing/desired at={#1},
+    /graph drawing/regardless at={#1}
+  }
 }
 
 
@@ -1678,13 +1739,13 @@
     \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@gp@temp\global\let\pgf@gd@gp@temp\pgf@gd@gp@temp
     \pgfkeysgetvalue{/graph drawing/edge parameters}\pgf@gd@ep@temp\global\let\pgf@gd@ep@temp\pgf@gd@ep@temp
     \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@np@temp\global\let\pgf@gd@np@temp\pgf@gd@np@temp
-    \global\let\pgf@gd@n@temp\pgf@gd@collection@name
+    \global\let\pgfgdlastcollectionname\pgf@gd@collection@name
   }%
-  \ifx\pgf@gd@n@temp\pgfutil@empty%
-    \edef\pgf@gd@n@temp{collectionPGFINTERNAL\the\pgf@gd@collectioncount}%
+  \ifx\pgfgdlastcollectionname\pgfutil@empty%
+    \edef\pgfgdlastcollectionname{collectionPGFINTERNAL\the\pgf@gd@collectioncount}%
     \global\advance\pgf@gd@collectioncount by 1\relax
   \fi%
-  \pgf@gd@handle@collection@set{#1}{\pgf@gd@n@temp}{\pgf@gd@gp@temp\pgf@gd@ep@temp\pgf@gd@np@temp}
+  \pgf@gd@handle@collection@set{#1}{\pgfgdlastcollectionname}{\pgf@gd@gp@temp\pgf@gd@ep@temp\pgf@gd@np@temp}
 }
 
 \def\pgf@gd@handle@collection@set#1#2#3{%
@@ -1757,9 +1818,9 @@
     \advance\pgf@gd@sublayout@stack@height by1\relax%
     % 
     \pgfgdset{sublayout_collection={name/.expanded=sublayout \the\pgf@gd@sublayout@num}} % Will create the layout collection
-    \directlua{pgf.gd.control.TeXInterface.setupLayout('sublayout \the\pgf@gd@sublayout@num',\the\pgf@gd@sublayout@stack@height,{\pgfkeysvalueof{/graph drawing/graph parameters}},{\pgfkeysvalueof{/graph drawing/node parameters}})}%
-    \pgfgdset{layout node name=,layout node text=,layout node
-      options=}%reset.
+    \directlua{pgf.gd.control.TeXInterface.setupLayout('sublayout
+      \the\pgf@gd@sublayout@num',\the\pgf@gd@sublayout@stack@height,{\pgfkeysvalueof{/graph
+          drawing/graph parameters}})}%
 }
 
 \def\pgfgdendlayout{
@@ -1776,117 +1837,137 @@
 }
 
 
+
+
 %
-% Options for layout nodes
+% Options for subgraph nodes
 % 
-% 
-% For each (sub)layout, a layout node may be created. This is done
-% after the nodes of the layout have been arranged. The idea is that
-% the node is "vast" and it encompasses all nodes (and the point
-% clouds) that are part of the sublayout. This node will then be used
-% as part of the layout containing the sublayout.
-% 
-% The node is created through the node-creating callback from the Lua
-% layer with appropriate options set.
 %
-% All of the following options are inspected the moment the
-% \pgfgdbeginlayout command is used. At this moment, a snapshot is
-% taken of these options.
+% A subgraph node is a node that "surrounds" the nodes of a
+% subgraph. The special property of a subgraph node opposed to a
+% normal node is that it is created only after the subgraph has been
+% laid out. However, the difference to a collection like "hyper" is
+% that the node is availble immediately as a normal node in the sense
+% that you can connect edges to it.
 % 
-% layout node name = The name of the node. If this is empty, no
-% callback will be called and no special node will be created for the
-% sublayout. (Although the graph drawing engine will still create an
-% internal representing node, but this node is not accessible without
-% a name.)
+% What happens internally is that subgraph nodes get "registered"
+% immediately both on the pgf level and on the lua level, but the
+% actual node is only created inside the layout pipeline using a
+% callback.
+%
+% The actual node creating happens when the innermost layout in which
+% the subgraph node is declared has finished.
+%
 % 
-% layout node text = Some text to be displayed as part of the
-% node. Normally, this text is not displayed for such "vast" nodes,
+% Because of this somewhat asynchronous call order, subgraph nodes get
+% created using the special key "subgraph node". It takes three
+% parameters: 
+% 
+% #1 = The name of the node. If this is empty, an automatic name will
+% be generated.
+% 
+% #2 = Subgraph node text. Some text to be displayed as part of the
+% node. Often, this text is not displayed for such "vast" nodes,
 % but a shape may use it nevertheless (for instance, one might display
 % this text at the top of the node).
 % 
-% layout node options = Some options for the to-be-created
-% node. (Typically, these will be tikz options like "draw" or
-% "fill=blue!10,draw=blue".)
+% #3 = Some options for the to-be-created node. (Typically, these will
+% be tikz options like "draw" or "fill=blue!10,draw=blue".)
 % 
 %
 % When the callback is called, the values of the above keys will be
 % passed to the callback as follows:
 % 
-% layout point cloud = This will be a list of points (without
+% subgraph point cloud = This will be a list of points (without
 % separating commas) like "(10pt,20pt)(0pt,0pt)(30pt,40pt)" always in
 % this syntax. The list will contain all points inside the
-% sublayout. In particular, a bounding box around these points will
-% encompass all nodes and bend points of the sublayout.
+% subgraph. In particular, a bounding box around these points will
+% encompass all nodes and bend points of the subgraph.
 % The bounding box of this point cloud is guaranteed to be centered on
 % the origin.
 % 
-% layout bounding box width = This will be the width of a bounding box
+% subgraph bounding box width = This will be the width of a bounding box
 % (in points with the "pt" suffix).
 % 
-% layout bounding box height = This will be the height of a bounding box
+% subgraph bounding box height = This will be the height of a bounding box
 % (in points with the "pt" suffix).
 % 
-% layout text = This will be text originally given to the layout node
+% subgraph text = This will be text originally given to the subgraph node
 % text option.
 % 
 % The name of the node is passed using the name key.
+% 
+% The subgraph options will be passed as options to the callback.
 %
 % 
 % Note that the "text" given to the \node or \pgfnode command inside
-% the callback will be a call to \pgfgdlayoutnodecontents. This
-% command is empty by default, but feel free to redefine as a
-% side-effect of "every layout node".
+% the callback will be a call to \pgfgdsubgraphnodecontents. This
+% command expands to a box of height "subgraph bounding box height" and
+% width "subgraph bounding box width", but feel free to redefine as a
+% side-effect of "every subgraph node".
 % 
-% 
-% All of the "layout..." keys as well as \pgfgdlayoutnodecontents will
-% be reset at the beginning of a layout. This ensures that nested
-% layouts do not "inherit" things like the layout name from
-% surrounding layouts (which would be wrong).
-%
 % 
 % Example:
 % 
-% Suppose you set
+% Suppose you say
 % 
-% \pgfgdset{
-%   layout node name=vast node,
-%   layout node text=Vast Node 1,
-%   layout node options={draw, thick}
-% }
-% \pgfgdbeginlayout
-% 
+% \tikzset{subgraph node={vast node}{Vast Node 1}{draw, thick}}
 % 
 % Then, during the run of the graph drawing engine, at some point the
-% following command will be called (with some example point cloud):
+% following command will be called, assuming that the nodes inside the
+% subgraph node occupy an area with a bounding box of 40pt by 20pt:
 % 
 % \node [name=vast node,
 %        /graph drawing/.cd,
-%        layout point cloud={(-20pt,-10pt)(20pt,10pt)},
-%        layout bounding box width=40pt,
-%        layout bounding box height=20pt,
-%        layout text={Vast Node 1},
-%        start layout node,
-%        draw, thick] {\pgfgdlayoutnodecontents};
-%        
-%
+%        subgraph point cloud={(-20pt,-10pt)(20pt,10pt)},
+%        subgraph bounding box width=40pt,
+%        subgraph bounding box height=20pt,
+%        subgraph text={Vast Node 1},
+%        start subgraph node,
+%        draw, thick] {\pgfgdsubgraphnodecontents};
 
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  layout node name/.graph parameter=string,
-  layout node text/.graph parameter=string,
-  layout node options/.graph parameter=string,
+\pgfgddeclarecollectionkind{subgraph node collection}{0}
+
+\pgfgddeclareforwardedkeys{/graph drawing}{%
+  subgraph node/.code n args={3}{},
+  subgraph node text/.node parameter=string,
+  subgraph node options/.node parameter=string,
+}
+
+\pgfgdset{/graph drawing/subgraph node/.code n args={3}{%
+    \pgfgdset{
+      subgraph node collection={%
+        name/.expanded={#1}
+      }
+    }
+    \begingroup% build protections inside which we can execute options
+      \setbox0=\hbox{{%
+          \pgfinterruptpath%
+          \pgfgdset{.unknown/.code=,
+            subgraph node text={#2},
+            subgraph node options={#3},
+            #3}%
+            \directlua{pgf.gd.control.TeXInterface.registerSubgraphNode('\pgfgdlastcollectionname', %
+              \the\pgf@gd@sublayout@stack@height,%
+              {\pgfkeysvalueof{/graph drawing/node parameters}})}
+            \expandafter\pgffakenode\expandafter{\pgfgdlastcollectionname}
+          \endpgfinterruptpath%
+        }}%
+    \endgroup%
+  }
 }
 
 \pgfgdset{
-  layout point cloud/.initial=,
-  layout bounding box width/.initial=,
-  layout bounding box height/.initial=,
-  layout text/.initial=,
-  start layout node/.style=
+  subgraph point cloud/.initial=,
+  subgraph bounding box width/.initial=,
+  subgraph bounding box height/.initial=,
+  subgraph text/.initial=,
+  start subgraph node/.style=
 }
 
-\def\pgfgdlayoutnodecontents{%
-  \hbox to \pgfkeysvalueof{/graph drawing/layout bounding box width}{%
-    \vrule width0pt height\pgfkeysvalueof{/graph drawing/layout bounding box height}\hfil}%
+\def\pgfgdsubgraphnodecontents{%
+  \hbox to \pgfkeysvalueof{/graph drawing/subgraph bounding box width}{%
+    \vrule width0pt height\pgfkeysvalueof{/graph drawing/subgraph bounding box height}\hfil}%
 }
 
 

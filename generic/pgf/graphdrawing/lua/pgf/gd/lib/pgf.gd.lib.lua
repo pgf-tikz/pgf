@@ -105,6 +105,7 @@ end
 
 
 
+
 ---
 -- Apply a function to all pairs of a table, resulting in a new table. 
 --
@@ -144,6 +145,7 @@ end
 -- array. The result of this function is placed at the end of a new
 -- array, expect when the function returns |nil|, in which case the
 -- element is skipped.
+-- @param new The target array (if |nil|, a new array is create).
 --
 --\begin{codeexample}[code only]
 --  local a = lib.imap(array, function(v) if some_test(v) then return v end end)
@@ -152,10 +154,18 @@ end
 -- The above code is a filter that will remove all elements from the
 -- array that do not pass |some_test|.
 --
+--\begin{codeexample}[code only]
+--  lib.imap(a, lib.id, b)
+--\end{codeexample}
+--
+-- The above code appends the array |a| at the end of the array |b|.
+--
 -- @return The new array
 --
-function lib.imap(source, fun)
-  local new = {}
+function lib.imap(source, fun, new)
+  if not new then
+    new = {}
+  end
   for i, v in ipairs(source) do
     new[#new+1] = fun(v, i)
   end

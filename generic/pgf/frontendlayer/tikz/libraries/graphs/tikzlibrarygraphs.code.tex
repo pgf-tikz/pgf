@@ -553,11 +553,20 @@
     \catcode`#1=13\relax%
     \scantokens{\gdef\tikzlibgraphactivator{\def#2{@#3@}}}%
   }
-  \g@addto@macro\tikzlibgraphactivations{\catcode`#1=13\relax}  
-  \expandafter\g@addto@macro\expandafter\tikzlibgraphactivations\expandafter{\tikzlibgraphactivator}
+  \pgfutil@g@addto@macro\tikzlibgraphactivations{\catcode`#1=13\relax}  
+  \expandafter\pgfutil@g@addto@macro\expandafter\tikzlibgraphactivations\expandafter{\tikzlibgraphactivator}
 }
 
 \let\tikzlibgraphactivations\pgfutil@empty
+
+%
+% Remove \outer from \+ for plain TeX
+%
+
+\outer\def\tikz@lib@outer@test{\tabalign}
+\ifx\+\tikz@lib@outer@test
+  \def\+{\tabalign}
+\fi
 
 \tikz@lib@prepare@active{\$}{$}{DOLLAR SIGN}% $
 \tikz@lib@prepare@active{\&}{&}{AMPERSAND}%
@@ -591,15 +600,15 @@
 \tikz@lib@prepare@active{\#}{#}{NUMBER SIGN}
 }
 
-\g@addto@macro\tikzlibgraphactivations{\catcode`\\=13\relax}
+\pgfutil@g@addto@macro\tikzlibgraphactivations{\catcode`\\=13\relax}
 {
   \catcode`\|=0\relax
   \catcode`\\=13\relax
-  |g@addto@macro|tikzlibgraphactivations{|def\{@REVERSE SOLIDUS@}}
+  |pgfutil@g@addto@macro|tikzlibgraphactivations{|def\{@REVERSE SOLIDUS@}}
 }
 {
   \gdef\tikzlibgraphscommercialat{@COMMERCIAL AT@}
-  \let\g=\g@addto@macro  
+  \let\g=\pgfutil@g@addto@macro  
   \catcode`\@=13\relax
   \g\tikzlibgraphactivations{\catcode`\@=13\relax\let@=\tikzlibgraphscommercialat}
 }
@@ -615,8 +624,8 @@
   \catcode`\}=13\relax%
   \catcode`\<=1\relax%
   \catcode`\>=2\relax%
-  \g@addto@macro\tikzlibgraphactivationsbrace<\def{<@LEFT CURLY BRACE@>> %}
-  \g@addto@macro\tikzlibgraphactivationsbrace<\def}<@RIGHT CURLY BRACE@>> %{
+  \pgfutil@g@addto@macro\tikzlibgraphactivationsbrace<\def{<@LEFT CURLY BRACE@>> %}
+  \pgfutil@g@addto@macro\tikzlibgraphactivationsbrace<\def}<@RIGHT CURLY BRACE@>> %{
 >
 
 % A normal node
@@ -1027,19 +1036,19 @@
                 \global\let\tikz@lib@graph@op@save\tikz@lib@graph@op@save%                
               }%
             \else%
-            \node [%
-              name=\tikz@lib@graph@name,%
-              execute at end node={%
-                \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@op@save%
-                \global\let\tikz@lib@graph@op@save\tikz@lib@graph@op@save%
-              },%
-              graphs/redirect unknown to tikz,
-              /tikz/graphs/.cd,%
-              /tikz/graphs/@nodes styling,%
-              #1]%
-              {%
-                \tikzgraphnodeas%
-              };%
+              \node [%
+                name=\tikz@lib@graph@name,%
+                execute at end node={%
+                  \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@op@save%
+                  \global\let\tikz@lib@graph@op@save\tikz@lib@graph@op@save%
+                },%
+                graphs/redirect unknown to tikz,
+                /tikz/graphs/.cd,%
+                /tikz/graphs/@nodes styling,%
+                #1]%
+                {%
+                  \tikzgraphnodeas%
+                };%
             \fi%
             \tikz@lib@graph@op@save\global\let\tikz@lib@graph@op@save\relax%%
             \global\tikz@lib@graph@node@createdtrue%
@@ -1084,6 +1093,7 @@
   % Layout options are \tikz@lib@layout@options
   % Layout is #1
   % Rest is #2 (should be empty or just whitespace
+  \tikz@lib@graph@fake@nodefalse%
   \ifpgf@lib@graph@empty@layout@node%
   \else%
     \ifx\tikz@lib@graph@name\pgfutil@empty%
@@ -1099,25 +1109,22 @@
   %
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@layout@node@options\expandafter\expandafter\expandafter{\expandafter\tikz@lib@layout@startup@node@options\tikz@lib@layout@node@options,}%
-  % 
-  % Tougher: prepare normal node options: 
-  % 
-  \begingroup%
-  \setbox0=\hbox{{%
-      \pgfinterruptpath%
-        \expandafter\tikzset\expandafter{\tikz@lib@layout@node@options}%
-        \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options%
-        \global\let\pgf@gd@node@options@smuggle\pgf@gd@node@options%
-      \endpgfinterruptpath%
-    }}%
-  \endgroup%
+  \begingroup
+      % Create a subgraph node, if name is given.
+    \iftikz@lib@graph@fake@node%
+      \expandafter\expandafter\expandafter%
+      \expandafter\expandafter\expandafter\expandafter\tikz@lib@make@subgraph@node%
+      \expandafter\expandafter\expandafter%
+      \expandafter\expandafter\expandafter\expandafter{%
+        \expandafter\expandafter\expandafter\tikz@lib@graph@name%
+        \expandafter\expandafter\expandafter}%
+      \expandafter\expandafter\expandafter{%
+        \expandafter\tikz@lib@graph@node@text\expandafter}\expandafter{\tikz@lib@layout@node@options}
+    \fi%
   % 
   % Here comes the scope: 
   %
-  \expandafter\expandafter\expandafter\scope\expandafter\expandafter\expandafter[%
-    \expandafter\tikz@lib@layout@startup@options\tikz@lib@layout@options,%
-    /utils/exec=\pgfgdsetrequestcallback\tikz@gd@request@callback,%
-    /graph drawing/request scope and layout]%
+  \expandafter\expandafter\expandafter\scope\expandafter\expandafter\expandafter[\expandafter\tikz@lib@layout@node@options@prefix\tikz@lib@layout@options]
     \tikzgdeventgroupcallback{array}%
     \let\tikz@lib@graph@node@list\pgfutil@empty%
     \tikz@lib@graph@start@hint@group%
@@ -1130,32 +1137,27 @@
     \def\tikz@lg@old@col{\tikz@lgc@target@true}%
     \tikz@lib@graph@node@list%
     \expandafter%  
-  \endscope%
+  \endscope\expandafter%
+  \endgroup%
   \expandafter\expandafter\expandafter\def%
   \expandafter\expandafter\expandafter\tikz@lib@graph@node@list%
   \expandafter\expandafter\expandafter{\expandafter\tikz@lib@graph@node@list\tikz@lib@graph@node@list}%
   \tikz@lib@graph@hint@aftergroup%
 }
-
+\def\tikz@lib@make@subgraph@node#1#2#3{%
+  \pgfkeys{/graph drawing/subgraph node={#1}{#2}{#3}}%
+}
 \def\tikz@lib@layout@startup@node@options{%
   /utils/exec=\tikzlibignorecomparisonsINTERNAL,
-  graphs/redirect unknown to tikz,%
   /tikz/graphs/.cd,%
+  redirect unknown to tikz,%
 }
 \def\tikzlibignorecomparisonsINTERNAL{%
   \pgfkeys{/handlers/first char syntax=true}
   \pgfkeyssetvalue{/handlers/first char syntax/the character >}{\pgfutil@gobble}%
   \pgfkeyssetvalue{/handlers/first char syntax/the character <}{\pgfutil@gobble}%
 }
-\def\tikz@lib@layout@startup@options{
-  /utils/exec={
-    \pgfkeyslet{/graph drawing/node parameters}\pgf@gd@node@options@smuggle,
-    \pgfgdsetrequestcallback\pgfutil@gobbletwo},
-  /graph drawing/layout node name/.expanded=\ifpgf@lib@graph@empty@layout@node\else\tikz@lib@graph@name\fi,
-  /graph drawing/layout node text/.expand once=\tikz@lib@graph@node@text,
-  /graph drawing/layout node options/.expand once=\tikz@lib@layout@node@options,
-  /tikz/graphs/.cd,
-}
+\def\tikz@lib@layout@node@options@prefix{graphs/.cd,}
 
 \ifx\tikz@lib@ensure@gd@loaded\pgfutil@undefined%
 \def\tikz@lib@ensure@gd@loaded{\PackageError{graphs library}{You must say \string\usetikzlibrary{graphdrawing} to use the (sub)layout syntax}{}}

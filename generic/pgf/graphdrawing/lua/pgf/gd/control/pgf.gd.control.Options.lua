@@ -80,7 +80,7 @@ end
 
 function Options.add(t,new_options)
   local accumulates = Options.accumulates
-  for _,p in ipairs(new_options) do
+  for _,p in ipairs(new_options or {}) do
     local k = p.key
     local v = p.value
     if v == nil then

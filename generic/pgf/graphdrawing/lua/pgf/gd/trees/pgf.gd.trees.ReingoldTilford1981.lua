@@ -25,6 +25,39 @@ local ReingoldTilford1981 = pgf.gd.new_algorithm_class {
 }
 
 
+
+-- local Declarations = require "pgf.gd.interface.Declarations"
+
+-- ---
+-- -- An implementation of the Reingold-Tilford algorithm
+-- --
+-- -- This implemenation follows the ideas outlined in
+-- --
+-- -- A. Brüggemann-Klein, D. Wood, Drawing trees nicely with TeX,
+-- -- Electronic Publishing, 2(2), 101-115, 1989
+
+-- local ReingoldTilford1981 = Declarations.algorithm {
+--   requires = { "connected", "tree" },
+--   delivers = { "upward oriented" }
+-- }
+
+-- Declarations.graph_transformation 
+
+
+-- ---
+-- -- Toggles, whether an extended version of the graph should be drawn.   
+-- --
+-- -- @codeexample
+-- -- 
+-- -- \tikz \graph [tree layout, missing nodes get space=false]
+-- --   { a -- {b, , c -- {e, f} };
+-- --
+-- Declarations.key ("missing nodes get space", "boolean")
+--
+-- Declarations.style ("ternary tree", { ...=..., ...=..., })
+
+
+
 -- Imports
 local layered = require "pgf.gd.layered"
 

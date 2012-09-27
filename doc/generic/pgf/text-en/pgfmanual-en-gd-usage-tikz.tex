@@ -12,6 +12,9 @@
 
 {\noindent {\emph{by Till Tantau}}}
 
+File status: The section on sublayouts needs polish.
+
+
 \begin{tikzlibrary}{graphdrawing}
   This package provides capabilities for automatic graph drawing. It
   requires that the document is typeset using Lua\TeX. This package
@@ -192,6 +195,10 @@ You can specify that a set of nodes form a hyperedge by using the
   draw them.
 \end{key}
 
+Hyperedges are, internally, \emph{collections}, see
+Section~\ref{section-gd-collections}.
+
+There is currently no default renderer for hyperedges. 
 
 
 \subsection{Padding and Node Distances}
@@ -490,8 +497,7 @@ drawing engine relies on the following key:
 \end{tikzpicture}
 \end{codeexample}
 
-  A problem arises when two or more nodes have this key set
-  and when these nodes are in the same connected component, because
+  A problem arises when two or more nodes have this key set, because
   then your ``desires'' for placement and the positions computed by
   the graph drawing algorithm may clash. Graph drawing algorithms are
   ``told'' about the desired positions. Most algorithms will simply
@@ -613,7 +619,6 @@ determine the node at which the graph should be anchored:
 
 In the above description, the ``first'' node refers to the node first
 encountered in the specification of the graph.
-
 
 
 \subsection{Orienting a Graph}
@@ -899,9 +904,23 @@ graph.
 
 
 
+\subsection{Fine-Tuning Positions of Nodes}
+
+\begin{key}{/graph drawing/nudge=\marg{offset coordinate}}
+...  
+\end{key}
+\begin{key}{/graph drawing/regardless at=\marg{offset coordinate}}
+...  
+\end{key}
+\begin{key}{/graph drawing/nail at=\marg{offset coordinate}}
+...  
+\end{key}
+
+
 \subsection{Packing of Connected Components}
 
 \label{subsection-gd-component-packing}
+\label{section-gd-packing}
 
 Graphs may be composed of subgraphs or \emph{components} that are not
 connected to each other. In order to draw these nicely, most graph
@@ -947,19 +966,7 @@ follows:
   oriented as described
   Section~\ref{subsection-library-graphdrawing-standard-orientation}
   on the orientation of graphs. 
-\item Then, we differentiate between two kinds of components: Those
-  that contain an anchored node and those that do not. As described in
-  Section~\ref{subsection-library-graphdrawing-anchoring}, you can
-  directly specify for a node where it should be placed on the
-  page. If a component contains such a node, it is clear where the
-  component should go (we call it ``anchored'').
-  
-  The packing collects and considers all unanchored components, plus the
-  first anchored component, if such a component exists. The second and
-  further anchored component are not considered during the packing
-  process, they are simply anchored according to their anchor nodes. 
-\item If the previous step has yielded two or more components that now
-  need to be packed, they are sorted as prescribed by the
+\item The components are sorted as prescribed by the
   |component order| key.
 \item The first component is now placed (conceptually) at the
   origin. (The final position of this and all other components will be
@@ -969,10 +976,11 @@ follows:
   component. The ``direction'' in which the next component is placed
   relative to the first one is determined by the |component direction|
   key, so components can be placed from left to right or up to down or
-  in any other direction (even something like $30^\circ$). However, both internally and in the
-  following description, we assume that the components are placed from
-  left to right; other directions are achieved by doing some (clever)
-  rotating of the arrangement achieved in this way.
+  in any other direction (even something like $30^\circ$). However,
+  both internally and in the following description, we assume that the
+  components are placed from left to right; other directions are
+  achieved by doing some (clever) rotating of the arrangement achieved
+  in this way. 
 
   So, we now wish to place the second component to the right of the
   first component. The component is first shifted vertically according
@@ -1413,6 +1421,249 @@ edges. This behaviour can be changed using the following keys:
 \end{key}
 
 
+
+\subsection{Using Several Different Layouts to Draw a Single Graph}
+
+\label{section-gd-sublayouts}
+
+Inside each graph drawing scope, a main algorithm is used to perform
+the graph drawing. However, parts of the graph may be drawn using
+different algorithms: For instance, a graph might consist of
+several, say, cliques that are arranged in a tree-like fashion. In
+this case, it might be useful to layout each clique using a circular
+layout, but then lay out all laid out cliques using a tree drawing
+algorithm.
+
+In order to lay out a graph using multiple algorithms, we need two
+things: First, we must be able to \emph{specify} which algorithms
+should be used where and, second, we must be able to \emph{resolve}
+conflicts that may result from different algorithms ``having different
+ideas'' concerning where nodes should be placed.
+
+Specifying different layouts for a graph is easy: Inside a graph
+drawing scope, simply open scopes, in which you use an option like
+|tree layout| for the nodes mentioned in this scope. Inside these
+scopes, you can open even subscopes for sublayouts, and so
+on. Furthermore, the |graphs| library has special support for
+sublayouts.
+
+Let us start with the ``plain'' syntax for opening sublayouts: You
+pass a key for creating layouts to a |scope|:
+
+\begin{codeexample}[]
+\tikz [spring layout] {
+  \begin{scope}[tree layout]    
+    \node (a) {a};
+    \node (b) {b};
+    \node (c) {c};
+    \draw (a) edge (b) edge (c);
+  \end{scope}
+  
+  \begin{scope}[tree layout]    
+    \node (1) {1};
+    \node (2) {2};
+    \draw (1) edge (2);
+  \end{scope}
+
+  \draw (a) edge (1);
+}
+\end{codeexample}
+
+Let us see, what is going on here. The main layout (|spring layout|)
+contains two sublayouts (the two |tree layouts|). Both of them are
+laid out indepentendly (more on the details in a moment). Then, from
+the main layout's point of view, the sublayouts behave like ``large
+nodes'' and, thus, the edge between |a| and |1| is actually the only
+edge that is used by the |spring layout| -- resulting in a simple
+layout consisting of one big node at the top and a big node at the
+bottom.
+
+The |graphs| library has a special support for sublayouts: The syntax
+is as follows:
+
+\begin{quote}
+  \opt{|"|}\meta{node
+    name}\opt{|"|}\opt{|/|\opt{|"|}\meta{text}\opt{|"|}}
+  \opt{\oarg{node options}}
+  |//| \opt{\oarg{layout options}} |{|\meta{sublayout}|}|
+\end{quote}
+
+The idea ist that a normal node specification can be followed by a
+double slash. Following this double slash, you may provide
+\meta{layout options} in square brackets. However, you \emph{must}
+provide a sublayout in braces. The contents of \meta{sublayout} will
+be parsed using the usual |graph| syntax, but will form a sublayout.
+
+\begin{codeexample}[]
+\tikz \graph [spring layout] {
+  // [tree layout] { a -- {b, c} };
+  // [tree layout] { 1 -- 2 };
+  a -- 1;
+};
+\end{codeexample}
+
+In the above example, there is no node before the double slash, which
+means that the two sublayouts will be part of the main graph, but will
+not be indicated otherwise.
+
+\begin{codeexample}[] 
+\tikz \graph [circular layout] {
+ // [circular layout] { a -> b -> c -> d -> e -> f -> a };
+  
+ // [tree layout] { % first tentacle
+   a -> {1, 2}; 
+ };
+
+ // [tree layout] {% second tentacle
+   d -> {3, 4 -> {5, 6}}
+ };
+};
+\end{codeexample}
+
+In the above example, the first sublayout is the one for the nodes
+with letter names. These nodes are arranged using a circular layout
+as the sublayout inherits this option from the main layout. The two
+small trees (|a -> {1, 2}| and the tree starting at the |d| node)
+are also sublayouts, triggered by the |tree layout| option. They are
+also arranged. Then, all of the layouts are merged (as described
+later). The result is actually a single node, so the main layout
+does nothing here.
+
+Compare the above to the following code:
+  
+\begin{codeexample}[] 
+\tikz \graph [circular layout] {
+  // [tree layout] { % first ``giant node''
+    a -> {1, 2}; 
+  };
+  
+  a -> b -> c -> d;   
+
+  // [tree layout] {% second ``giant node''
+    d -> {3, 4 -> {5, 6}}
+  },
+
+  d -> e -> f -> a;
+};
+\end{codeexample}  
+
+Here, only the two trees are laid out first. They are then
+contracted into ``giant nodes'' and these are then part of the set
+of nodes that are arranged by the |circular layout|. For details of
+how this contracting works, see below.
+
+
+\begin{codeexample}[] 
+\tikz \graph [circular layout] {
+     tree 1[draw] // [tree layout] { a -> {1, 2}; }
+  -> b
+  -> c
+  -> tree 2[draw] // [tree layout] { d -> {3, 4 -> {5, 6} } }
+  -> e
+  -> f
+  -> tree 1;
+};
+\end{codeexample}  
+
+
+We just saw that nodes and edges can be part of several layouts. This
+will inevitably lead to conflicts because algorithm will disagree on
+where a node should be placed on the canvas. For this reason, there
+are some rules governing how such conflicts are resolved: Given a
+layout, starting with the main layout, the graph drawing system does
+the following: 
+
+\begin{enumerate} 
+\item We start by first processing the (direct) sublayouts of the
+  current layout (recursively). Sublayouts may overlap (they may share
+  one or more nodes), but we run the specified layout algorithm for
+  each sublayout independently on a ``fresh copy'' of all the nodes
+  making up the sublayout. In particular, different, conflicting
+  positions may be computed for nodes when they are present in several
+  sublayouts. 
+\item Once all nodes in the sublayouts have been laid out in this way,
+  we \emph{join} overlapping elements. The idea is that if two layouts
+  share exactly one vertex, we can shift them around so that his
+  vertex is at the same position in both layouts. In more detail, the
+  following happens:
+
+  We build a (conceptual) graph whose nodes are the sublayouts and in
+  which there is an edge between two nodes if the sublayouts
+  represented by these elements have a node in common.
+  Inside the resulting graph, we treat each connected component
+  separately. Each component has the property that the sublayouts
+  represented by the nodes in the component overlap by at least one
+  node. We now \emph{join} them as follows: We start with the first
+  sublayout in the component (``first'' with respect to the order in
+  which they appear in the input graph) and ``mark'' this
+  sublayout. We loop the following instructions as long as possible:
+  Search for the first sublayout (again, with respect to the order in
+  which they appear in the input) that is connect by an edge to a
+  marked sublayout. The sublayout will now have at least one node in
+  common with the marked sublayouts (possibly, even more). We
+  consider the first such node (again, first respect to the input
+  ordering) and shift the whole sublayout is such a way that this
+  particular node is at the position is has in the marked
+  sublayouts. Note that after the shift, other nodes that are also
+  present in the marked sublayouts may lie at a different position in
+  the current sublayout. In this case, the position in the marked
+  sublayouts ``wins.'' We then mark the sublayout.
+\item When the above algorithm has run, we will have computed
+  positions for all nodes in all sublayouts of each of the
+  components. For each component, we contract all
+  nodes of the component to a single node. This new 
+  node will be ``large'' in the sense that its convex hull is the
+  convex hull of all the nodes in the component. All nodes that used
+  to be part of the component are removed and the new large node is
+  added (with arcs adjusted appropriately). 
+\item We now run the layout's algorithm on the resulting nodes
+  (the remaining orginal nodes and the contracted nodes).
+\item In a last step, once the graph has been laid out, we expand the
+  nodes that were previously contracted. For this, the 
+  nodes that were deleted earlier get reinserted, but shifted by
+  whatever amount the contraction node got shifted.
+\end{enumerate}
+
+
+\subsection{Styling the Layout Nodes}
+
+\begin{key}{/tikz/layout nodes=\meta{options}}
+  \keyalias{tikz/graphs}
+  ...
+\end{key}
+
+\begin{stylekey}{/tikz/every layout node (initially layout text above inside)}
+  ...
+\end{stylekey}
+
+
+\begin{key}{/tikz/layout text none}
+  ...
+\end{key}
+
+\begin{key}{/tikz/layout text above inside=\meta{text alignment
+      options} (default text ragged right)}
+  ...
+\end{key}
+
+
+\begin{key}{/tikz/layout text below inside=\meta{text alignment
+      options} (default text ragged right)}
+  ...
+\end{key}
+
+\begin{key}{/tikz/layout text sep=\meta{dimension} (initially .1em)}
+  ...
+\end{key}
+
+
+\begin{key}{/tikz/layout text label=\opt{\meta{label options}}}
+  ...
+\end{key}
+
+\begin{key}{/tikz/layout text pin=\opt{\meta{pin options}}}
+  ...
+\end{key}
 
 \endinput
 

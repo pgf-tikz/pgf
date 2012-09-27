@@ -22,6 +22,9 @@
 \label{section-base-graphdrawing}
 \label{section-gd-internals}
 
+File status: Layout management has changed, this is not reflected by
+the contents of this file...
+
 
 \begin{pgflibrary}{graphdrawing}
   This package provides the \TeX\ interface to the graph drawing
@@ -179,92 +182,7 @@ parameters are setup and configured.
 \subsection{Graph Drawing Scopes}
 \label{section-gd-scopes}
 
-Users of the graph drawing engine typically use a key like
-|tree layout| to specify a graph drawing algorithm. This key is
-actually just a style that uses the key |graph drawing scope|, which
-in turn calls the macro |\pgfgdbeginscope|:
-
-\begin{key}{/tikz/graph drawing scope}
-  This key can (only) be used as an option when a \tikzname\ scope is
-  started. Thus, you can pass it to |\tikz|, to |{tikzpicture}|, to
-  |\scoped|, to |{scope}|, to |graph|, and to |{graph}|. For instance,
-  the |tree layout| option (which uses |graph drawing scope| internally) can
-  be used in the following ways:
-\begin{codeexample}[]
-\tikz [tree layout] \graph        {1 -> {b,c}};  
-\tikz \graph [tree layout]        {2 -> {b,c}};
-\tikz \path graph [tree layout]   {3 -> {b,c}};
-
-\begin{tikzpicture}[tree layout]
-  \graph                          {4 -> {b,c}};
-\end{tikzpicture}
-
-\begin{tikzpicture}
-  \scoped [tree layout] \graph    {5 -> {b,c}};
-    
-  \begin{scope}[tree layout, xshift=1.5cm]
-    \graph                        {6 -> {b,c}};
-  \end{scope}
-\end{tikzpicture}
-\end{codeexample}
-
-  You can \emph{not} use the |graph drawing scope| key with a single
-  node or on a path. In particular, to typeset a tree given in the
-  |child| syntax somewhere inside a |{tikzpicture}|, you must prefix
-  it with the |\scoped| command:
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \scoped [tree layout]
-    \node {root}
-    child { node {left child} }
-    child { node {right child} };
-\end{tikzpicture}
-\end{codeexample}
-  Naturally, the above could have been written more succinctly as
-\begin{codeexample}[]
-\tikz [tree layout]
-  \node {root}
-  child { node {left child} }
-  child { node {right child} };
-\end{codeexample}
-  Or even more succinctly:
-\begin{codeexample}[]
-\tikz \graph [tree layout] { root -- {left child, right child} };
-\end{codeexample}
-
-  In detail, adding the |graph drawing scope| command to a scope has
-  the following effects:
-  \begin{itemize}
-  \item The basic layer is informed, using the
-    |execute at begin scope| key, that the current scope will contain
-    nodes that should be positioned by a graph drawing engine. Which
-    algorithm is used depends on the value of the |algorithm| key.
-  \item If the |graphs| library has been loaded, the default
-    positioning mechanisms of this library are switched off, leaving
-    the positioning to the graph drawing engine. Also, when an edge is
-    created by the |graphs| library, this is signalled to the graph
-    drawing library. (To be more precise: The keys |new ->| and so on
-    are redefined so that they call |\pgfgdedge| instead of creating
-    an edge.
-  \item The |edge| path command is modified so that it also calls
-    |\pgfgdedge| instead of immediately creating any edges.
-  \item The |edge from parent| path command is modified so that is
-    also calls |\pgfgdedge|.
-  \item The keys |append after command| and |prefix after command|
-    keys are modified so that they are executed only via
-    |late options| when the node has ``reached its final parking
-    position''. 
-  \end{itemize}
-\end{key}
-
-\begin{key}{/tikz/layout=\meta{algorithm}}
-  \keyalias{tikz/graphs}
-  A shorthand for saying |graph drawing scope| and then
-  |algorithm=|\meta{algorithm}. This key is mainly for demonstration
-  purposes, usually you should declare algorithms using the
-  |\pgfgddeclarealgorithmkey| macro.
-\end{key}
-
+\subsubsection{The Main Graph Drawing Scope}
 
 \begin{command}{\pgfgdbeginscope}
   This macro starts a \TeX\ scope. The following things will happen:
@@ -332,9 +250,9 @@ in turn calls the macro |\pgfgdbeginscope|:
     specification hook command also ends (provided it had no global
     effects).
   \item Then, on the Lua layer, the graph drawing algorithm is
-    started. Which algorithm is started, depends on the current value
-    of the |algorithm| key, see below.
-  \item When the algorithm has finished, a so-called \emph{shipout
+    started. The hierarchy of layouts processed as described in
+    Section~\ref{section-gd-layout-scopes} below.
+  \item When the processing has finished, a so-called \emph{shipout
       phase} is started.
   \item During this phase, all nodes that were intercepted during the
     graph drawing scope get inserted into the output stream at the
@@ -347,6 +265,57 @@ in turn calls the macro |\pgfgdbeginscope|:
 \end{command}
 
 
+
+\subsubsection{Layout Scopes}
+
+\label{section-gd-layout-scopes}
+
+As described in Section~\ref{section-gd-sublayouts}, the graph drawing
+engine does not always apply only a single algorithm. Rather, several
+different algorithm may be applied to different parts of the
+graph. How this happens, exactly, is goverened by a hierarchy of
+layouts, which are setup using the following command:
+
+\begin{command}{\pgfgdlayout}
+  NO LONGER CORRECT.
+  
+  This command can only be used inside a graph drawing scope. It will
+  start a \emph{layout}, which will end at the end of the current \TeX\
+  scope. All nodes and edges mentioned inside a layout will become
+  part of a collection of kind |layout|.
+
+  When a layout is created inside another layout (that is, when 
+  |\pgfgdlayout| is called again before the end of the current scope),
+  the second layout becomes a \emph{sublayout} of the first 
+  layout, resulting in a hierarchy of layouts. In such cases, nodes
+  and edges mentioned inside the second layout are also part of the
+  first layout.
+
+  In order to make a node part of two different layouts that are not
+  nested in one another, use the |\pgfgdsetlatenodeoption| command
+  (this command is called automatically by |node also| and when you
+  reference a node several times in a |graph| path command, so,
+  usually, you do not need to this yourself).
+
+  The current set of graph drawing options is used to determine which
+  algorithm should be used to lay out the nodes of the layout.
+\end{command}
+
+
+Document:
+
+layout node name/.graph parameter=string,
+layout node text/.graph parameter=string,
+layout node options/.graph parameter=string,
+layout point cloud/.initial=,
+layout bounding box width/.initial=,
+layout bounding box height/.initial=,
+layout text/.initial=,
+start layout node/.style=
+
+
+
+\subsubsection{Algorithm Selection}
 
 \begin{key}{/graph drawing/algorithm=\meta{algorithm's name}}
   \label{section-gd-algorithm-key}%
@@ -370,7 +339,7 @@ in turn calls the macro |\pgfgdbeginscope|:
   Here is an example where we switch on the graph drawing engine
   explicitly and explicitly select an algorithm:
 \begin{codeexample}[]
-\tikz [graph drawing scope,
+\tikz [/graph drawing/request scope and layout,
        /graph drawing/algorithm=pgf.gd.force.SpringElectricalWalshaw2000]
   \graph { a <-> {b, c} };  
 \end{codeexample}
@@ -379,7 +348,10 @@ in turn calls the macro |\pgfgdbeginscope|:
   \ref{section-last-graphdrawing-library-in-manual}.
 \end{key}
 
-As described above, inside a graph drawing scope, nodes are
+
+\subsubsection{Handling of Edges}
+
+Inside a graph drawing scope, nodes are
 automatically passed down to the graph drawing engine, while for edges
 a command has to be called explicitly:
 
@@ -499,6 +471,96 @@ a command has to be called explicitly:
   fancy \meta{macro} is used that takes all of the parameters into
   account.
 \end{command}
+
+
+
+\subsubsection{Frontend Keys}
+
+Users of the graph drawing engine typically use a key like
+|tree layout| to specify a graph drawing algorithm. This key is
+actually just a style that uses the key |graph drawing scope|, which
+in turn calls the macro |\pgfgdbeginscope|:
+
+\begin{key}{/tikz/graph drawing scope}
+  This key can (only) be used as an option when a \tikzname\ scope is
+  started. Thus, you can pass it to |\tikz|, to |{tikzpicture}|, to
+  |\scoped|, to |{scope}|, to |graph|, and to |{graph}|. For instance,
+  the |tree layout| option (which uses |graph drawing scope| internally) can
+  be used in the following ways:
+\begin{codeexample}[]
+\tikz [tree layout] \graph        {1 -> {b,c}};  
+\tikz \graph [tree layout]        {2 -> {b,c}};
+\tikz \path graph [tree layout]   {3 -> {b,c}};
+
+\begin{tikzpicture}[tree layout]
+  \graph                          {4 -> {b,c}};
+\end{tikzpicture}
+
+\begin{tikzpicture}
+  \scoped [tree layout] \graph    {5 -> {b,c}};
+    
+  \begin{scope}[tree layout, xshift=1.5cm]
+    \graph                        {6 -> {b,c}};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
+
+  You can \emph{not} use the |graph drawing scope| key with a single
+  node or on a path. In particular, to typeset a tree given in the
+  |child| syntax somewhere inside a |{tikzpicture}|, you must prefix
+  it with the |\scoped| command:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \scoped [tree layout]
+    \node {root}
+    child { node {left child} }
+    child { node {right child} };
+\end{tikzpicture}
+\end{codeexample}
+  Naturally, the above could have been written more succinctly as
+\begin{codeexample}[]
+\tikz [tree layout]
+  \node {root}
+  child { node {left child} }
+  child { node {right child} };
+\end{codeexample}
+  Or even more succinctly:
+\begin{codeexample}[]
+\tikz \graph [tree layout] { root -- {left child, right child} };
+\end{codeexample}
+
+  In detail, adding the |graph drawing scope| command to a scope has
+  the following effects:
+  \begin{itemize}
+  \item The basic layer is informed, using the
+    |execute at begin scope| key, that the current scope will contain
+    nodes that should be positioned by a graph drawing engine. Which
+    algorithm is used depends on the value of the |algorithm| key.
+  \item If the |graphs| library has been loaded, the default
+    positioning mechanisms of this library are switched off, leaving
+    the positioning to the graph drawing engine. Also, when an edge is
+    created by the |graphs| library, this is signalled to the graph
+    drawing library. (To be more precise: The keys |new ->| and so on
+    are redefined so that they call |\pgfgdedge| instead of creating
+    an edge.
+  \item The |edge| path command is modified so that it also calls
+    |\pgfgdedge| instead of immediately creating any edges.
+  \item The |edge from parent| path command is modified so that is
+    also calls |\pgfgdedge|.
+  \item The keys |append after command| and |prefix after command|
+    keys are modified so that they are executed only via
+    |late options| when the node has ``reached its final parking
+    position''. 
+  \end{itemize}
+\end{key}
+
+\begin{key}{/tikz/layout=\meta{algorithm}}
+  \keyalias{tikz/graphs}
+  A shorthand for saying |graph drawing scope| and then
+  |algorithm=|\meta{algorithm}. This key is mainly for demonstration
+  purposes, usually you should declare algorithms using the
+  |\pgfgddeclarealgorithmkey| macro.
+\end{key}
 
 
 
@@ -1039,6 +1101,8 @@ forward.
 
 
 \subsection{Collections of Nodes and Edges}
+
+\label{section-gd-collections}
 
 A \emph{collection} is a pair consisting of a set of nodes and a set of
 edges. Since the edges need not be between the nodes of the same

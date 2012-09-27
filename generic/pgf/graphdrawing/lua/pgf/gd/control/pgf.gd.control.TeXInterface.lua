@@ -626,7 +626,7 @@ end
 -- @param height The height of the layout in the stack of sublayouts.
 -- @param options Some options, in particular, the algorithm.
 --
-function TeXInterface.setupLayout(layout_name, height, options_table, node_options_table)
+function TeXInterface.setupLayout(layout_name, height, options_table)
 
   local options = Options.new(options_table)
   
@@ -636,54 +636,54 @@ function TeXInterface.setupLayout(layout_name, height, options_table, node_optio
   local layout_event = Event.new {
     kind = "layout",
     parameters = layout_name,
-    event_index = #scope.events+1,
-    callback_options = options["/graph drawing/layout node options"],
-    callback_text    = options["/graph drawing/layout node text"],
-    callback_name    = options["/graph drawing/layout node name"],
+    event_index = #scope.events+1
   }
   scope.events[#scope.events + 1] = layout_event
 
-  -- Second, create the layout node event.
+  Sublayouts.setupLayout(layout_name, height, scope, layout_event, options)
+end
+
+
+---
+-- Register a subgraph node. 
+--
+-- @param name The name of the node.
+-- @param options Some local options for the node.
+--
+function TeXInterface.registerSubgraphNode(name, height, options_table)
+  
+  local scope = TeXInterface.topScope()
+  local sublayout_stack = scope.sublayout_stack
+
+  -- Sanity checks
+  assert (scope.node_names[name] == nil, "subgraph node name already used in graph")
+  assert (sublayout_stack[height], "no layout at current layout steack height")
+
+  local options = Options.new(options_table)
+  
+  -- Right now, we just "fake" the node "enough" so that it can be referenced.
+  local v  = Vertex.new { 
+    -- Standard stuff
+    name  = name,
+    kind  = "subgraph node",
+    options = Options.new(options_table),
+    event_index = #scope.events+1,
+  }
   local node_event = Event.new {
     kind = "node",
-    parameters = nil,
+    parameters = v,
     event_index = #scope.events+1,
   }
   scope.events[#scope.events + 1] = node_event
-
-  -- Third, possibly create a start node
-  local name = options["/graph drawing/layout node name"]
-  if name and name ~= "" then
-    -- Aha, a node name is given. So, later on, we need to create a
-    -- new node for this layout. Right now, we just "fake" the node
-    -- "enough" so that it can be referenced.
-    local v  = Vertex.new { 
-      -- Standard stuff
-      name  = name,
-      kind  = "node",
-      
-      options = Options.new(node_options_table),
-      
-      -- Event numbering
-      event_index = #scope.events,
-    }
-
-    node_event.parameters = v
-      
-    -- Create name lookup
-    assert (scope.node_names[name] == nil, "layout node name already used in graph")
-    scope.node_names[name] = v
-    
-    -- Add node to graph
-    scope.syntactic_digraph:add {v}
-
-    -- Fake the node on the TeX layer
-    tex.print("\\pgffakenode{" .. name .. "}")
-  end
-
-  Sublayouts.setupLayout(layout_name, height, scope, layout_event, node_event, options)
+  scope.node_names[name] = v
+  
+  -- Add node to graph
+  scope.syntactic_digraph:add {v}  
+  
+  -- Add to current layout
+  local nodes = sublayout_stack[height].subgraph_nodes
+  nodes[#nodes + 1] = v 
 end
-
 
 
 -- Done 
