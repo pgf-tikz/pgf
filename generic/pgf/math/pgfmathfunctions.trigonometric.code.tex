@@ -91,6 +91,7 @@
 			\advance\pgfmath@x1pt\relax%
 			\expandafter\pgfmath@x\csname pgfmath@cos@\the\c@pgfmath@counta\endcsname\pgfmath@x%
 			\advance\c@pgfmath@counta1\relax%
+			\ifnum\c@pgfmath@counta=181\relax\c@pgfmath@counta179\relax\fi%
 			\expandafter\advance\expandafter\pgfmath@x\csname pgfmath@cos@\the\c@pgfmath@counta\endcsname\pgfmath@xa%
 		\fi%
 		\pgfmath@returnone\pgfmath@x%
@@ -203,21 +204,27 @@
 	\endgroup%
 }
 
+\def\pgfmath@multiply@thousand#1.#2#3#4#5\relax{%
+	\edef\pgfmathresult{#1#2#3#4.#5}%
+}%
+
 % \pgfmathasin
 %
 % The asin of #1
 %
 \pgfmathdeclarefunction{asin}{1}{%
 	\begingroup%
-		\expandafter\pgfmath@x#1pt\relax%
+		\pgfmath@x=#1pt %
 		\pgfmath@xa\pgfmath@x%
+		\edef\pgf@temp{\pgf@sys@tonumber\pgfmath@x}%
+		% compute lossless '*1000' operation:
+		\expandafter\pgfmath@multiply@thousand\pgf@temp 000\relax
+		\pgfmath@x=\pgfmathresult pt %
 		\ifdim\pgfmath@x<0pt\relax%
 			\pgfmath@x-\pgfmath@x%
 		\fi%
-		\pgfmath@x1000\pgfmath@x%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgfmath@counta\the\pgfmath@x\relax\pgfmath@%
-		\pgfmath@x-\csname pgfmath@acos@\the\c@pgfmath@counta\endcsname pt\relax%
+		\pgfmath@table@lookup{\pgfmath@x}{pgfmath@acos@}{1001}%
+		\pgfmath@x=-\pgfmath@x
 		\advance\pgfmath@x90pt\relax%
 		\ifdim\pgfmath@xa<0pt\relax%
 			\pgfmath@x-\pgfmath@x%
@@ -226,21 +233,50 @@
 	\endgroup%
 }
 
+% Defines \pgfmath@x to be the result of the table lookup for value
+% '#1' in table '#2'
+%
+% #1: a value for which lookup should be performed
+% #2: the table's prefix name
+% #3: the table's size
+\def\pgfmath@table@lookup#1#2#3{%
+	\pgfmath@x=#1\relax
+	\expandafter\pgfmath@table@lookup@\the\pgfmath@x\relax{#2}{#3}%
+}
+\def\pgfmath@table@lookup@#1.#2\relax#3#4{%
+	\edef\pgf@temp{\Pgf@geT#2}% strip 'pt' suffix.
+	%
+	% prepare constant interpolant (i.e. the value at node '#1'):
+	\pgfmath@x=\csname #3#1\endcsname pt %
+	%
+	\c@pgfmath@countc=#1 %
+	\advance\c@pgfmath@countc by1 %
+	\ifnum\c@pgfmath@countc<#4 %
+		% Ah - we have enough elements in the table.
+		%
+		% perform linear interpolation:
+		\pgfmath@ya=\csname #3\the\c@pgfmath@countc\endcsname pt %
+		\advance\pgfmath@ya by-\pgfmath@x %
+		\advance\pgfmath@x by0.\pgf@temp\pgfmath@ya
+	\fi
+}%
+
 % \pgfmathacos
 %
 % The acos of #1
 %	
 \pgfmathdeclarefunction{acos}{1}{%
 	\begingroup%
-		\expandafter\pgfmath@x#1pt\relax%
+		\pgfmath@x#1pt\relax%
 		\pgfmath@xa\pgfmath@x%
+		\edef\pgf@temp{\pgf@sys@tonumber\pgfmath@x}%
+		% compute lossless '*1000' operation:
+		\expandafter\pgfmath@multiply@thousand\pgf@temp 000\relax
+		\pgfmath@x=\pgfmathresult pt %
 		\ifdim\pgfmath@x<0pt\relax%
 			\pgfmath@x-\pgfmath@x%
 		\fi%
-		\pgfmath@x1000\pgfmath@x%
-		\afterassignment\pgfmath@gobbletilpgfmath@%
-		\expandafter\c@pgfmath@counta\the\pgfmath@x\relax\pgfmath@%
-		\expandafter\pgfmath@x\csname pgfmath@acos@\the\c@pgfmath@counta\endcsname pt\relax%
+		\pgfmath@table@lookup{\pgfmath@x}{pgfmath@acos@}{1001}%
 		\ifdim\pgfmath@xa<0pt\relax%
 			\pgfmath@x-\pgfmath@x%
 			\advance\pgfmath@x by180pt\relax%
@@ -262,6 +298,8 @@
 			\pgfmathreciprocal@{\pgfmath@temp}%
 			\pgfmath@x\pgfmathresult pt\relax%
 		\fi%
+		% FIXME : use the same table lookup as for acos and asin here!
+		% This here has low precision (constant interpolation)
 		\pgfmath@x1000\pgfmath@x%
 		\afterassignment\pgfmath@gobbletilpgfmath@%
 		\expandafter\c@pgfmath@counta\the\pgfmath@x\relax\pgfmath@%
