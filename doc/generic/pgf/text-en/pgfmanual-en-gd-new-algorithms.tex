@@ -114,38 +114,54 @@ impressive or intelligent graph drawing algorithm; but neither is the
 classical ``hello world''\dots\ Here is the complete code:
 
 \begin{codeexample}[code only]
--- File SimpleDemo.lua
-  
-local SimpleDemo = pgf.gd.new_algorithm_class {}
-
-function SimpleDemo:run()
-  local alpha = (2 * math.pi) / #self.ugraph.vertices
-  for i,vertex in ipairs(self.ugraph.vertices) do
-    vertex.pos.x = math.cos(i * alpha) * 25
-    vertex.pos.y = math.sin(i * alpha) * 25
-  end
-end
-
-return SimpleDemo  
+pgf.gd.interface.InterfaceToAlgorithms.declare {
+  key = "very simple demo layout",
+  algorithm = {
+    run =
+      function (self)
+        local alpha = (2 * math.pi) / #self.ugraph.vertices
+        for i,vertex in ipairs(self.ugraph.vertices) do
+          vertex.pos.x = math.cos(i * alpha) * 25
+          vertex.pos.y = math.sin(i * alpha) * 25
+        end
+      end
+  }
+}
 \end{codeexample}
+\directlua{
+pgf.gd.interface.InterfaceToAlgorithms.declare {
+  key = "very simple demo layout",
+  algorithm = {
+    run =
+      function (self)
+        local alpha = (2 * math.pi) / \luaescapestring{#}self.ugraph.vertices
+        for i,vertex in ipairs(self.ugraph.vertices) do
+          vertex.pos.x = math.cos(i * alpha) * 25
+          vertex.pos.y = math.sin(i * alpha) * 25
+        end
+      end
+  }
+}
+}
 
-We can employ this algorithm as follows:
 
-\begin{codeexample}[pre={
-    \pgfkeys{
-      /graph drawing/radius=25,
-      /graph drawing/algorithm/.code={\pgfgdgraphparameter{/graph drawing/algorithm}{"pgf.gd.examples.##1"}}}}]
-\tikz [layout=SimpleDemo]
+We can employ this algorithm as follows. First, we need to somehow
+execute the above code. You can either just use |\directlua| on it
+(you need to put the |#| in |\luaescapestring|, however) or
+put it in a file and then use |\directlua| plus |require| (a better
+alternative) or you put it in a file like |simpledemo.lua| and use
+|\usegdlibrary{simpledemo}| (undoubtedly the ``best'' way). Whatever
+way you choose, you can now use it as follows:
+
+\begin{codeexample}[]
+\tikz [very simple demo layout]
   \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
 \end{codeexample}
 
 It turns out, that our little algorithm is already more powerful than
 one might expect. Consider the following example:
-\begin{codeexample}[pre={
-    \pgfkeys{
-      /graph drawing/radius=25,
-      /graph drawing/algorithm/.code={\pgfgdgraphparameter{/graph drawing/algorithm}{"pgf.gd.examples.##1"}}}}]
-\tikz [layout=SimpleDemo, componentwise]
+\begin{codeexample}[]
+\tikz [very simple demo layout, componentwise]
   \graph {
     1 -> 2 ->[orient=right] 3 -> 1;
     a -- b --[orient=45]  c -- d -- a;
@@ -166,30 +182,18 @@ results.
 
 Naturally, some algorithms may not wish their inputs and/or
 outputs to be ``tampered'' with. An algorithm can easily configure
-which transformations should be applied, by passing
-appropriate options to the |new_algorithm_class| function.
+which transformations should be applied, by passing appropriate options
+to |declare|.
 
 
 
 \subsubsection{Namespaces}
 
-In order to typeset this manual, I had to cheat a little in the
-``hello world'' example: There is no file named |SimpleDemo.lua| in
-the \pgfname\ distribution, so writing |layout=SimpleDemo| would
-result in an error. In reality, the code of |SimpleDemo| class resides
-in a file with the somewhat lengthy name
-|pgf.gd.examples.SimpleDemo.lua| and one actually has to write
-\begin{codeexample}[code only]
-..., layout=pgf.gd.examples.SimpleDemo, ...
-\end{codeexample}
-\noindent
-to use it. The reason for the lengthy file name is that all parts of
-the graph drawing library reside in the Lua ``namespace'' |pgf.gd|,
-which is itself a ``sub-namespace'' of |pgf|. For your own algorithms,
-you are free to place them in whatever namespace you like, so the
-|SimpleDemo| example would work as advertised; only for the official
-distribution of \pgfname\ everything has been put into the correct
-namespace.
+All parts of the graph drawing library reside in the Lua ``namespace''
+|pgf.gd|, which is itself a ``sub-namespace'' of |pgf|. For your own
+algorithms, you are free to place them in whatever namespace you like;
+only for the official distribution of \pgfname\ everything has been
+put into the correct namespace.
 
 Let us now have a more detailed look at these namespaces. A namespace
 is just a Lua table, and sub-namespaces are just subtables of
@@ -218,16 +222,13 @@ the graph drawing engine:
   part of the object-oriented model of graphs employed
   throughout the graph drawing engine. For readers familiar with the
   model--view--controller pattern: This is the namespace containing
-  the model-part of this pattern. 
-\item |pgf.gd.control| As the name suggests, this namespace contains
-  the ``control'' classes and functions. These classes manage the
-  communication with the \TeX\ layer and stage the layout
-  pipeline. For instance, the whole communication between the \TeX\
-  part and the Lua part of the graph drawing engine is done entirely
-  inside the class |pgf.gd.control.TeXInterface|.
-
-  Readers still familiar with the model--view--controller pattern will
-  have recognized the ``control'' part of the pattern at this point.
+  the model-part of this pattern.
+\item |pgf.gd.interface| This namespace handles, on the one hand, the
+  communication between the algorithm layer and the binding layer and,
+  on the other hand, the communication between the display layer
+  (\tikzname) and the binding layer.
+\item |pgf.gd.binding| So-called ``bindings'' between display layers
+  and the graph drawing system reside in this namespace.
 \item |pgf.gd.lib| Numerous useful classes that ``make an algorithm's
   your life easier'' are collected in this namespace. Examples are a
   class for decomposing a graph into connected components or a class
@@ -357,6 +358,11 @@ they are placed in a directory path also representing the complete
 namespace path. 
 
 
+\subsection{The Interface To Algorithms}
+
+\includeluadocumentationof{pgf.gd.interface.InterfaceToAlgorithms}
+
+
 \subsection{The Model Classes}
 
 \label{section-gd-models}
@@ -426,6 +432,10 @@ that is small in practice.
 
 \includeluadocumentationof{pgf.gd.model.Arc}
 
+\subsubsection{Collections}
+
+\includeluadocumentationof{pgf.gd.model.Collection}
+
 \subsubsection{Coordinates and Transformations}
 
 \includeluadocumentationof{pgf.gd.model.Coordinate}
@@ -434,8 +444,6 @@ that is small in practice.
 \subsubsection{Options and Data Storages for Vertices, Arcs, and Digraphs}
 
 \includeluadocumentationof{pgf.gd.lib.Storage}
-\includeluadocumentationof{pgf.gd.control.Options}
-
 
 
 
@@ -443,22 +451,7 @@ that is small in practice.
 
 \label{section-gd-gd-scope}
 
-In theory, graph drawing algorithms take graphs as input and
-output graphs embedded into the plane as output. In practice, however,
-the input to a graph drawing algorithm is not ``just'' the
-graph. Rather, additional information about the graph, in particular
-about the way the user specified the graph, is also important to many
-graph drawing algorithms.
-
-The graph drawing system gathers both the original input graph as well
-as all additional information that is provided in the graph drawing
-scope inside a scope table. The object has a number of fields that
-inform an algorithm about the input.
-
-In order to supply graph drawing algorithms with additional
-information about the input, instead of being fed just the input
-graph, they get access to 
-
+\includeluadocumentationof{pgf.gd.interface.Scope}
 
 
 \subsubsection{The Syntactic Digraph}
@@ -479,8 +472,6 @@ graph, they get access to
 
 \subsubsection{Modifying the Syntactic Digraph: Adding Nodes}
 
-\subsubsection{Collections}
-
 \subsubsection{Events}
 
 \label{section-gd-events}
@@ -493,18 +484,7 @@ graph, they get access to
 
 \label{section-gd-transformations}
 
-\subsubsection{Graph Drawing as Graph Transformation}
-
-\subsubsection{Anchoring}
-
-\subsubsection{Packing}
-
-\subsubsection{Orientation}
-
-\subsubsection{Spanning Trees}
-
-\subsubsection{Spanning Dags}
-
+\includeluadocumentationof{pgf.gd.control.LayoutPipeline}
 
 
 
@@ -534,164 +514,5 @@ are used by different algorithms.
 \subsubsection{Priority Queues}
 
 \includeluadocumentationof{pgf.gd.lib.PriorityQueue}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\endinput
-
-BEGIN OLD STUFF...
-
-
-TODO: Work on this:
-
-Let us now look at the |graph_drawing_algorithm| function in more
-detail. It takes a single parameter \meta{info}, which must be a
-table, and does the following:
-
-\begin{enumerate}
-\item It declares a new class.
-\item It declares a |new| method for this class, which takes two
-  parameters |g| and |algo| and returns a new \meta{instance} of the
-  class. The first parameter will be installed in the attribute
-  |graph| of \meta{instance}, the second in the |parent_algorithm|
-  attribute. The |new| method tests whether a key called 
-  |graph_options| is defined in the \meta{info} table. If so, the
-  value for this key must be a table of \meta{options}. This table is
-  processed as follows: For each pair \meta{key} |=| \meta{value}
-  inside the \meta{options} table, an attribute \meta{key} is created
-  in \meta{instance}. The \meta{value} is then used to set \meta{key}
-  to 
-  \begin{quote}
-    |graph:getOption(|\meta{value}|)|
-  \end{quote}
-\item If the key |properties| is defined inside the \meta{info} table,
-  its value should be table of ``static'' or ``default'' values for
-  the class. More precisely, this table is used as the metatable of
-  the class.
-\end{enumerate}
-
-Let us have a look at an example: We redo our |SimpleDemo|, but this
-time using the full power of the |graph_drawing_algorithm| function:
-
-\begin{codeexample}[code only]
-local SimpleDemo = pgf.gd.new_algorithm_class = {
-  
-  -- Declare a property:
-  properties = {
-    -- Ensures, that the graph is always connected when the graph
-    -- drawing algorithm is called
-    works_only_on_connected_graphs = true
-  },
-
-  -- Declare a graph parameter:
-  graph_parameters = {
-    label  = '/graph drawing/label',
-    radius = '/graph drawing/radius',
-  }
-}
-\end{codeexample}
-
-The code is equivalent to the following:
-\begin{codeexample}[code only]
-local SimpleDemo = { works_only_on_connected_graphs = true }
-SimpleDemo.__index = SimpleDemo
-
-function SimpleDemo:new(g)
-  local obj = { graph = g }
-  setmetatable(obj, SimpleDemo)
-  
-  obj.label  = g:getOption('/graph drawing/label')
-  obj.radius = g:getOption('/graph drawing/radius')
-  
-  return obj  
-end  
-\end{codeexample}
-
-A number of tasks in graph drawing can be performed independently of
-the actual algorithm used. For instance, many algorithms require that
-the graph is connected. In this case, unconnected input graphs first
-need to be decomposed into their connected components, which should
-then be processed independently. Such a step would be
-\emph{preprocessing} step. Similarly, once a graph has been laid out
-by an algorithm, it often still needs to be shifted around to its
-anchoring position. This step is the same for any algorithm and can be
-done in a \emph{postprocessing} step.
-
-It turns out that some pre- or postprocessing steps make sense for
-certain algorithms, but not for other algorithms. For this reason, an
-algorithm can specify which steps should (not) be performed by setting
-certain attributes in the algorithm's class. Usually, these attributes
-will be set using the |properties| key in the declaration of the
-algorithm's class.
-
-In the following, we describe which steps are performed and which keys
-influence them.
-
-
-\subsubsection{Preprocessing}
-
-The following preprocessing steps are performed for every graph:
-\begin{enumerate}
-\item If the |works_only_on_connected_graphs| property is set, the
-  connected components of the graph will first be computed.
-\item For each component or, if the property is not set, for the whole
-  graph, a new algorithm object is created.
-\item The |run| method is then called for each component,
-  \emph{unless} the size of the component is |1|. If, however, the
-  |run_also_for_single_node| property is set, the algorithm is even
-  invoked for a 1-node graph.
-\end{enumerate}
-
-\subsubsection{Postprocessing}
-
-Each time the |run| method finishes, the following postprocessing
-operations are performed:
-\begin{enumerate}
-\item The graph is oriented, see
-  Section~\ref{subsection-library-graphdrawing-standard-orientation}. A
-  graph drawing algorithm can set the |growth_direction| property in
-  case the graph has a natural growth direction.
-\item The graph is anchored, see
-  Section~\ref{subsection-library-graphdrawing-anchoring}. 
-\end{enumerate}
-The above steps are applied to each connected component individually
-if the splitting key has been set.
-
-The components then need to be ``packed'', but this is not yet
-implemented.
-
 
 

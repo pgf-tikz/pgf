@@ -23,25 +23,66 @@ File status: The section on sublayouts needs polish.
 \end{tikzlibrary}
 
 
-To use the graph drawing engine, you first need to load some
-libraries. First, you should always load the |graphdrawing| library,
-which will setup the basic keys. Next, you need to load another
-library like |graphdrawing.trees|, see the following
-Sections~\ref{section-first-graphdrawing-library-in-manual} to
-\ref{section-last-graphdrawing-library-in-manual} for the different
-libraries that are available. The actual graph drawing
-algorithms reside in these libraries. Finally, you may also wish to
-load the |graphs| library, but this is only necessary if you wish to
-use the |graph| path command, which provides an easy-to-use syntax for
-specifying graphs. You can also use the graph drawing engine
+\subsection{Choosing a Layout and a Library}
+
+The graph drawing engine is initalized when you load the library
+|graphdrawing|. This library provides the basic framework for graph
+drawing, including all options and keys described in the present
+section. However, this library does \emph{not} load any actual
+algorithms for drawing graphs. For this, you need to use the following
+command, which is defined by the |graphdrawing| library:
+
+\begin{command}{\usegdlibrary\marg{list of libraries}}
+  This command is used to load the special graph drawing libraries
+  (the |gd| in the name of the command stands for ``graph
+  drawing''). The \meta{list of libraries} is a comma-separated list
+  of library written in the Lua programming language (which is why a
+  special command is needed).
+
+  In detail, this command does the following. For each \meta{name} in
+  the \meta{list of libraries} we do:
+  \begin{enumerate}
+  \item Check whether \TeX\ can find a file called
+    |pgf.gd.|\meta{name}|.library.lua| using \TeX's usual file search
+    mechanism (so texmf-trees are searched in the usual manner for a
+    Lua-file). If such a file is found, it is read using the Lua
+    function |require|.
+  \item Otherwise, check whether there is a file
+    |pgf.gd.|\meta{name}|.lua|. If so, read it using |require|.
+  \item Otherwise, check whether there is a file
+    \meta{name}|.library.lua|. If so, read is using |require|.
+  \item Otherwise, apply |require| to the file \meta{name}|.lua|. If
+    this fails, an error message results.
+  \end{enumerate}
+  The net effect of the above is the following: Authors of graph
+  drawing algorithms can bundle together multiple algorithms in a
+  library by creating a |...xyz.library.lua| file that internally just
+  calls |require| for all files containing declarations. On the other
+  hand, if a graph drawing algorithm completely fits inside a single
+  file, it can also be read directly using |\usegdlibrary|.
+\begin{codeexample}[code only]
+\usetikzlibrary{graphdrawing}
+\usegdlibrary{trees,force}    
+\end{codeexample}
+
+  The different graph drawing libraries are documented in the following
+  Sections~\ref{section-first-graphdrawing-library-in-manual} to
+  \ref{section-last-graphdrawing-library-in-manual}.
+\end{command}
+
+Note that in addition to the graph \emph{drawing} libraries, you may
+also wish to load the normal \tikzname\ library |graphs|. It provides
+the powerful |graph| path command with its easy-to-use syntax for
+specifying graphs, but you can use the graph drawing engine
 independently of the |graphs| library, for instance in conjunction
 with the |child| or the |edge| syntax. Here is a typical setup:
 
 \begin{codeexample}[code only]
-\usetikzlibrary{graphs, graphdrawing, graphdrawing.trees}  
+\usetikzlibrary{graphs, graphdrawing}
+\usegdlibrary{trees, layered}  
 \end{codeexample}
 
-Having setup things, you must then specify for which scopes the
+Having set things up, you must then specify for which scopes the
 graph drawing engine should apply a layout algorithm to the nodes in
 the scope. Typically, you just add an option ending with |... layout|
 to the |graph| path operation and then let the graph drawing do its
@@ -60,10 +101,7 @@ magic:
   };    
 \end{codeexample}
 
-Whenever you use such an option, (to be more precise, inside every
-scope with the |graph drawing scope| key set either
-explicitly or implicitly, which is exactly what happens when one such
-an option is used) you can:
+Whenever you use such an option, you can:
 \begin{itemize}
 \item Create nodes in the usual way. The nodes will be created
   completely, but then tucked away in an internal table. This means
@@ -110,8 +148,7 @@ If you are interested in the ``fine print'' of what happens, please
 see Section~\ref{section-gd-internals}.
 
 
-
-\subsection{Graph, Node, and Edge Parameters}
+\subsection{Graph Drawing Parameters}
 
 Graph drawing algorithms can typically be configured in some way. For
 instance, for a graph drawing algorithm that visualizes its nodes as a
@@ -119,1307 +156,42 @@ tree, it will typically be useful when the user can change the
 so-called \emph{level distance} and the \emph{sibling distance}. For
 other algorithms, like force-based algorithms, a large number of
 parameters influence the way the algorithms work.
-
 Options that influence graph drawing algorithms will be called
-\emph{graph drawing parameters} in the following. There are three kinds of
-graph drawing parameters:
-\begin{itemize}
-\item Graph parameters,
-\item node parameters, and
-\item edge parameters.
-\end{itemize}
-A \emph{graph parameter} influences the layout of the whole
-graph. A  \emph{node parameter} is an option that is attached to
-a single node and should only have a direct influence on this node
-(like ``place this node exactly at this position, no matter what''). An
-\emph{edge parameter} is important for a single edge (like
-``this edge must be exactly |2cm| long'').
+\emph{(graph drawing) parameters} in the following. From the user's
+point of view, these parameters look like normal \tikzname\ keys and
+you set them in the usual way. Internally, they are treated a bit
+differently from normal keys since their ``effect'' becomes apparent
+only later on, namely during the run of the graph drawing algorithm.
 
-A graph drawing algorithm may or may not take the different graph
+A graph drawing algorithm may or may not take different graph 
 parameters into account. After all, these options may even outright
 contradict each other, so an algorithm can only try to ``do its
-best''.
-
-While many graph parameters are very specific to a single algorithm, a
-number of graph parameters will be important for many algorithms. Such
-graph parameters are called \emph{common} graph parameters, the most
-important of which are documented in the following. The common graph
-parameters can be used like any normal \tikzname\ option. In contrast,
-specific options for algorithms must be passed to the key that
-installs the algorithm. For example, the orientation of a graph
-is setup with the common key |orient|, which is given alongside a key
-like |spring layout|:
+best''. While many graph parameters are very specific to a single
+algorithm, a number of graph parameters will be important for many
+algorithms and they are documented in the course of the present
+section. Here is an example of an option the ``always works'':
 
 \begin{codeexample}[]
-\tikz \graph [spring layout, orient=1|2] { 1--2--3--1 };  
+\tikz \graph [spring layout, vertical=1 to 2] { 1--2--3--1 };  
 \end{codeexample}
 
-In contrast, the very specific option |iterations| must be
-passed to the |spring layout| key:
 
-\begin{codeexample}[]
-\tikz \graph [spring layout={iterations=3}] { 1--2--3--1 };  
-\end{codeexample}
-
-
-
-\subsection{Hyperedges}
-
-A \emph{hyperedge} of a graph does not connect just two nodes, but is
-any subset of the node set (although a normal edge is also a hyperedge
-that happens to contain just two nodes).
-
-You can specify that a set of nodes form a hyperedge by using the
-|hyper| key:
-
-\begin{key}{/graph drawing/hyper=\opt{\meta{options}}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  When this key is used in a scope, all nodes in the scope will belong
-  to a new hyperedge. This hyperedge will have options
-  \meta{options}. You can write the following:
-\begin{codeexample}[code only]
-\graph {
-  % The vertices:
-  a, b, c, d, e;
-
-  % Four hyperedges:
-  { [hyper] a, b, c };
-  { [hyper] c, d, e };
-  { [hyper] a, b, d, e };
-  { [hyper] b, c };
-};    
-\end{codeexample}
-  ``Normal'' graph drawing algorithms cannot handle hyperedges
-  directly, indeed, hypergraph drawing is a bit of an art. However,
-  specialized algorithms may take the hyper edges into account and
-  draw them.
-\end{key}
-
-Hyperedges are, internally, \emph{collections}, see
-Section~\ref{section-gd-collections}.
-
-There is currently no default renderer for hyperedges. 
-
-
-\subsection{Padding and Node Distances}
-
-\label{subsection-gd-dist-pad}
-
-In many drawings, you may wish to specify how ``near'' two nodes should
-be placed by a graph drawing algorithm. Naturally, this depends
-strongly on the specifics of the algorithm, but there are a number of
-general keys that will be used by many algorithms.
-
-
-\subsubsection{Distances and Paddings Between Nodes Connected by an Edge}
-
-You specify the ``natural'' distance between nodes
-connected by an edge using |node distance|, which is also available in
-normal \tikzname\ albeit for a slightly different purpose. However,
-not every algorithm will (or can) honour the key; see the description
-of each algorithm what it will ``make of this option''.
-
-\begin{key}{/graph drawing/node distance=\meta{dimension} (initially 1cm)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is minimum distance that the centers of nodes connected by an
-  edge should have. It will not always be possible to satisfy this
-  desired distance, for instance in case the nodes are too big. In
-  this case, the \meta{dimension} is just considered as a lower bound.
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \graph [circular layout,  node distance=1cm, node sep=0pt,
-          nodes={draw,circle,as=.}]
-  {
-    1 -- 2 [minimum size=2cm] -- 3 --
-    4 -- 5 -- 6 -- 7 --[orient=up] 8
-  };
-  \draw [red,|-|] (1.center) -- ++(0:1cm);
-  \draw [red,|-|] (5.center) -- ++(180:1cm);
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-
-\begin{key}{/graph drawing/node pre sep=\meta{dimension} (initially 0.333em)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is a minimum ``padding'' or ``separation'' between the border
-  of nodes connected by an edge. Thus, if nodes are so big that nodes
-  with a distance of |node distance| would overlap (or
-  just come with \meta{dimension} distance of one another), their
-  distance is enlarged so that this distance is still satisfied.
-
-  The |pre| means that the padding is added to the node ``at the
-  front.'' This make sense only for some algorithms, like for a
-  circular layout:
-  
-\begin{codeexample}[]
-\tikz \graph [circular layout, node distance=0cm, nodes={circle,draw}]
-  { 1--2--3--4--5--1 };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [circular layout, node distance=0cm, node sep=0mm,
-              nodes={circle,draw}]
-  { 1--2--3[node pre sep=5mm]--4--5[node pre sep=1mm]--1 };  
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/node post sep=\meta{dimension} (initially 0.5pt)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Works like |node pre sep|.
-\end{key}
-
-\begin{key}{/graph drawing/node sep=\meta{dimension}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Sets both |node pre sep| and |node post sep| to
-  $\meta{dimension}/2$.
-\end{key}
-
-
-\subsubsection{Distances and Paddings Between Layers}
-
-A number of graph drawing algorithms arrange nodes in layers; we refer
-to the nodes on the same layer as siblings (although, in a tree,
-siblings are only nodes with the same parent; nevertheless we use
-``sibling'' loosely also for nodes that are more like ``cousins'').
-
-\begin{key}{/graph drawing/level distance=\meta{dimension} (initially 1cm)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is minimum distance that the centers of nodes on one
-  level should have from the centers of nodes on the next level. It
-  will not always be possible to satisfy this desired distance, for
-  instance in case the nodes are too big. In this case, the
-  \meta{dimension} is just considered as a lower bound.
-\begin{codeexample}[]
-\begin{tikzpicture}[inner sep=2pt]
-  \draw [help lines] (0,0) grid (3.5,2);
-  \graph [layered layout, level distance=1cm, level sep=0]
-    { 1 [x=1,y=2] -- 2 -- 3 -- 1 };  
-  \graph [layered layout, level distance=5mm, level sep=0]
-    { 1 [x=3,y=2] -- 2 -- 3 -- 1, 3 -- {4,5} -- 6 -- 3 };  
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/level pre sep=\meta{dimension} (initially .333em)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is a minimum ``padding'' or ``separation'' between the border
-  of the nodes on a level to any nodes on the previous level. Thus, if
-  nodes are so big that nodes on consecutive levels would overlap (or
-  just come with \meta{dimension} distance of one another), their
-  distance is enlarged so that this distance is still satisfied.
-
-  If a node on the previous level also has a |level post sep|, this
-  post padding and the \meta{dimension} add up. Thus, these keys
-  behave like the ``padding'' keys rather
-  than the ``margin'' key of cascading style sheets.
-  
-\begin{codeexample}[]
-\begin{tikzpicture}[inner sep=2pt, level sep=0pt, sibling distance=0pt]
-  \draw [help lines] (0,0) grid (3.5,2);
-  \graph [layered layout, level distance=0cm, nodes=draw]
-    { 1 [x=1,y=2] -- {2,3[level pre sep=1mm],4[level pre sep=5mm]} -- 5 };  
-  \graph [layered layout, level distance=0cm, nodes=draw]
-    { 1 [x=3,y=2] -- {2,3,4} -- 5[level pre sep=5mm] };  
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/level post sep=\meta{dimension} (initially .333em)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Works like |level pre sep|.
-\end{key}
-
-\begin{key}{/graph drawing/level sep=\meta{dimension}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Sets both |level pre sep| and |level post sep| to
-  $\meta{dimension}/2$.
-\end{key}
-
-Note that if you set |level distance=0| and |level sep=1em|, you get
-a layout where any two consecutive layers are ``spaced apart'' by
-|1em|.
-
-
-\subsubsection{Distances and Paddings Between Siblings}
-
-The following keys work much like the |level ...| keys, only for
-siblings:
-
-\begin{key}{/graph drawing/sibling distance=\meta{dimension} (initially 1cm)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is minimum distance that the centers of node should have to the
-  center of the next node on the same level. As for levels, this is
-  just a lower bound.
-
-  For some layouts, like a circular layout, the \meta{dimension} is
-  measured as the distance on the circle:
-\begin{codeexample}[]
-\tikz \graph [tree layout, sibling distance=1cm, nodes={circle,draw}]
-  { 1--{2,3,4,5} };  
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
-              nodes={circle,draw}]
-  { 1--{2,3,4,5} };  
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
-              nodes={circle,draw}]
-  { 1--{2,3[sibling distance=1cm],4,5} };  
-\end{codeexample}
-\end{key}
-
-
-\begin{key}{/graph drawing/sibling pre sep=\meta{dimension} (initially 0.5pt)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Works like |level pre sep|, only for siblings.
-\begin{codeexample}[]
-\tikz \graph [tree layout, sibling distance=0cm, nodes={circle,draw},
-              sibling sep=0pt]
-  { 1--{2,3[sibling pre sep=1cm],4,5} };  
-\end{codeexample}
-\end{key}
-\begin{key}{/graph drawing/level sibling sep=\meta{dimension} (initially 0.5pt)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Works like |level sibling sep|.
-\end{key}
-
-\begin{key}{/graph drawing/sibling sep=\meta{dimension}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Sets both |sibling pre sep| and |sibling post sep| to
-  $\meta{dimension}/2$.
-\end{key}
-
-
-
-
-\subsubsection{Paddings Between Components}
-
-When a graph consists of several connected component, many graph
-drawing algorithms will layout these components individually. The
-different components will then be arranged next to each other, see
-Section~\ref{section-gd-packing} for the details, such that between
-the nodes of any two components the following padding is avaiable:
-
-\begin{key}{/graph drawing/component sep=\meta{dimension} (initially 2em)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is distance between the bounding boxes that nodes of different
-  connected components will have when they are placed next to each
-  other:
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
-              components go right top aligned,
-              component sep=1pt, nodes=draw]  
-{
-  1 -> 2 -> {3->4[second]->5,6,7};
-  a -> b[second] -> c[second] -> d -> e;
-  x -> y[second] -> z -> u[second] -> v;
-};  
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
-              components go right top aligned,
-              component sep=1em, nodes=draw]  
-{
-  1 -> 2 -> {3->4[second]->5,6,7};
-  a -> b[second] -> c[second] -> d -> e;
-  x -> y[second] -> z -> u[second] -> v;
-};  
-\end{codeexample}
-\end{key}
-
-
-
-\subsection{Anchoring a Graph}
-
-\label{subsection-library-graphdrawing-anchoring}
-
-A graph drawing algorithm must compute positions of the nodes of a
-graph, but the computed positions are only \emph{relative} (``this
-node is left of this node, but above that other node''). It is not
-immediately obvious where the ``the whole graph'' should be placed
-\emph{absolutely} once all relative positions have been computed. In
-case that the graph consists of several unconnected components, the
-situation is even more complicated.
-In order to determine the absolute position of a graph, the graph
-drawing engine relies on the following key:
-
-\begin{key}{/graph drawing/desired at=\marg{coordinate}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  When you add this key to a node in a graph, you ``desire'' that the
-  node should be placed at the \meta{coordinate} by the graph drawing
-  algorithm. Now, when you set this key for a single node of a graph,
-  then, by shifting the graph around, this ``wish'' can obviously
-  always be fulfill:
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a [desired at={(1,2)}] -- b -- c -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- b[desired at={(2,1)}] -- c -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-  Since the key's name is a bit long and since the many braces and
-  parentheses are a bit cumbersome, there is a special support for
-  this key inside a |graph|: The standard |/tikz/at| key is redefined
-  inside a |graph| so that it points to |/graph drawing/desired at|
-  instead. (Which is more logical anyway, since it makes no sense to
-  specify an |at| position for a node whose position it to be computed
-  by a graph drawing algorithm.) A nice side effect of this is that
-  you can use the |x| and |y| keys (see
-  Section~\ref{section-graphs-xy}) to specify desired positions:
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- b[x=2,y=0] -- c -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [layered layout]
-  {
-    a [x=1,y=2] -- { b, c } -- {e, f} -- a
-  };
-\end{tikzpicture}
-\end{codeexample}
-
-  A problem arises when two or more nodes have this key set, because
-  then your ``desires'' for placement and the positions computed by
-  the graph drawing algorithm may clash. Graph drawing algorithms are
-  ``told'' about the desired positions. Most algorithms will simply
-  ignore these desired positions since they will be taken care of in
-  the so-called post-anchoring phase, see below. However, for some
-  algorithms it makes a lot of sense to fix the positions of some
-  nodes and only compute the positions 
-  of the other nodes relative to these nodes. For instance, for a
-  |spring layout| it makes perfect sense that some nodes are
-  ``nailed to the canvas'' while other nodes can ``move freely''.
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a[x=1] -- { b, c, d, e -- {f,g,h} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- { b, c, d[x=0], e -- {f[x=2], g, h[x=1]} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- { b, c, d[x=0], e -- {f[x=2,y=1], g, h[x=1]} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-
-\begin{key}{/graph drawing/anchor node=\meta{node name}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This option can be used with a graph to specify a node that should
-  be used for anchoring the whole graph. When this option is
-  specified, after the layout has been computed, the whole graph will
-  be shifted in such a way that the \meta{node name} is either
-  \begin{itemize}
-  \item at the current value of |anchor at| or 
-  \item at the position that is specified in the form of a
-    |desired at| for the \meta{node name}.
-  \end{itemize}
-\begin{codeexample}[]
-\tikz \draw (0,0)
-  -- (1,0.5) graph [edges=red,  layered layout, anchor node=a] { a -> {b,c} }
-  -- (2,0)   graph [edges=blue, layered layout,
-                    anchor node=y, anchor at={(2,0)}]          { x -> {y,z} };
-\end{codeexample}
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  
-  \graph [layered layout, anchor node=c, edges=rounded corners]
-    { a -- {b [x=1,y=1], c [x=1,y=1] } -- d -- a};
-\end{tikzpicture}
-\end{codeexample}
-  Note how in the above example |c| is placed at |(1,1)| rather than
-  |b| as would happen by default.
-\end{key}
-
-\begin{key}{/graph drawing/anchor at=\meta{coordinate} (initially the origin)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  The coordinate at which the graph should be anchored when no
-  explicit anchor is given for any node.
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (2,2);
-  
-  \graph [layered layout, edges=rounded corners, anchor at={(1,2)}]
-    { a -- {b, c [anchor here] } -- d -- a};
-\end{tikzpicture}
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/anchor here=\opt{\meta{true or false}} (default true)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This option can be passed to a single node (rather than the graph as
-  a whole) in order to specify that this node should be used for the
-  anchoring process.
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (2,2);
-  
-  \graph [layered layout, edges=rounded corners]
-    { a -- {b, c [anchor here] } -- d -- a};
-\end{tikzpicture}
-\end{codeexample}
-  In the above example, |c| is placed at the origin since this is the
-  default |anchor at| position.
-\end{key}
-
-Let us briefly summarize the order in which \tikzname\ tries to
-determine the node at which the graph should be anchored:
-\begin{enumerate}
-\item If the |anchor node=|\meta{node name} option given to the graph
-  as a whole, the graph is anchored at \meta{node name}, provided
-  there is a node of this name in the graph. (If there is no node of
-  this name or if it is misspelled, the effect is the same as if this
-  option had not been given at all.)
-\item Otherwise, if there is a node where the |anchor here| option is
-  specified, the first node with this option set is used.
-\item Otherwise, if there is a node where the |desired at| option is
-  set (perhaps implicitly through keys like |x|), the first such node
-  is used.
-\item Finally, in all other cases, the first node is used.
-\end{enumerate}
-
-In the above description, the ``first'' node refers to the node first
-encountered in the specification of the graph.
-
-
-\subsection{Orienting a Graph}
-
-\label{subsection-library-graphdrawing-standard-orientation}
-
-Just as a graph drawing algorithm cannot know \emph{where} a graph
-should be placed on a page, it is also often unclear which
-\emph{orientation} it should have. Some graphs, like trees, have a
-natural direction in which they ``grow'', but for an ``arbitrary''
-graph the ``natural orientation'' is, well, arbitrary.
-
-As for anchoring, the graph drawing algorithm is ``told'' about
-the desired ``orientation of certain edges and certain nodes'': for
-each node and each edge, keys may specify a ``desired
-orientation''. For edges, you can, for instance, request that an
-edge should be vertical, going up by saying |orient=up|. For a
-node, ``specifying an orientation'' means that the rest of the graph
-should be rotated in such a way that certain other nodes or
-vectors should lie at a certain angle relative to the current node.
-
-
-\subsubsection{Orienting a Graph by Fixing the Slope of Edges}
-
-The following keys are used to specify orientations:
-\begin{key}{/graph drawing/orient=\meta{angle}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Adding this key to an edge tells the graph drawing engine that the
-  edge should have a slope of the given \meta{angle}. This ``slope''
-  is defined as the angle of the line connecting the start of the edge
-  to the end of the edge (independently of the actual to-path of the
-  edge, which might define a bend or more complicated shapes). For
-  instance, a \meta{angle} of |45| requests that the end node is ``up
-  and right'' relative to the start node.
-  
-  Instead of an \meta{angle}, you can also specify the standard
-  direction texts |north| or |south east| and so forth and also
-  |up|, |down|, |left|, and |right|.
-    
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a -- { b, c, d, e -- {f, g, h} };
-  h -- [orient=30] a;
-};
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a -- { b, c, d[> orient=right], e -- {f, g, h} };
-  h -- a;
-};
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/orient'=\meta{angle}}
-  Same as above, only the rest of the graph should be flipped relative
-  to the edge.
-    
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a -- { b, c, d[> orient'=right], e -- {f, g, h} };
-  h -- a;
-};
-\end{codeexample}
-\end{key}
-
-
-\subsubsection{Orienting a Graph by Fixing the Slope Between Nodes}
-
-\begin{key}{/graph drawing/orient=\opt{|:|}\meta{angle}|:|\meta{another node}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Adding this version of the |orient| key (it is detected by the
-  presence of the colon) to a node requests that the graph drawing
-  engine should ensure that the straight line from the origin (typically
-  the center) of the node to the origin of \meta{another node}
-  should have a slope of \meta{angle}. Note that the current node
-  and the \meta{another node} need not be connected by an edge.
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a [orient=:-90:f] -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-  
-  Instead of an \meta{angle}, you can also specify the standard
-  direction texts |north| or |south east| and so forth and also
-  |up|, |down|, |left|, and |right|. Furthermore, the leading colon is
-  optional: 
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a [orient=down:h] -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-
-  As special features, a dash somewhere inside the |orient| key is
-  replaced by |:0:| and a vertical bar by |:-90:|. Thus, |orient=-a|
-  is the same as |orient=:0:a|. Similarly:
-\begin{codeexample}[]
-\tikz \graph [spring layout]
-{
-  a [orient=|h] -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/orient'=\meta{angle}:\meta{another node}}
-  Same as above, only the rest of the graph should be flipped relative
-  to the edge.
-\end{key}
-
-Instead of specifying the slope between two nodes ``at the nodes'' it 
-is sometimes more natural to specify it at the beginning of the
-graph. For this, the following special key is available:
-
-\begin{key}{/graph drawing/orient=\meta{node1}|:|\meta{angle}|:|\meta{node2}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This has nearly the same effect as specifying
-  |orient=|\meta{angle}|:|\meta{node2} as an option for the node
-  \meta{node1}. The only difference is that |orient| options given at
-  a node always take precedence over this ``global'' option.
-
-  As above, \meta{node1}|-|\meta{node2} gets replaced by
-  \meta{node1}|:0:|\meta{node2} and \meta{node1}\verb!|!\meta{node2}
-  gets replaced by \meta{node1}|:-90:|\meta{node2}.
-\begin{codeexample}[]
-\tikz \graph [spring layout] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a-b] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=b-a] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=b|a] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=a:10:b] { a -- b -- c -- a };
-\tikz \graph [spring layout,orient=1-2] { subgraph K_n[n=5] };
-\tikz \graph [spring layout,orient=2-1] { subgraph K_n[n=5] };
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/orient'=\meta{orientation}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  Does the same as |orient| except that the nodes are flipped over the
-  principal axis.
-\begin{codeexample}[]
-\tikz \graph [spring layout,orient=a-b]  { a -- b -- c -- a };
-\tikz \graph [spring layout,orient'=a-b] { a -- b -- c -- a };
-\end{codeexample}
-\end{key}
-
-
-
-\subsubsection{Orienting a Graph by Fixing the Direction of Growth of the Children}
-
-\begin{key}{/graph drawing/grow=\meta{angle}}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This key specifies in which direction the neighbors of a node
-  ``should grow.'' For some graph drawing algorithms, especially for
-  those that layout trees, but also for those that produce layered
-  layouts, there is a natural direction in which the ``children'' of
-  a node should be placed. For instance, saying |grow=down| will cause
-  the children of a node in a tree to be placed in a left-to-right
-  line below the node (as always, you can replace the \meta{angle}
-  by direction texts). The children are requested to be placed in a
-  counter-clockwise fashion, the |grow'| key will place them in a
-  clockwise fashion.
-  
-  Note that when you say |grow=down| it is not necessarily the case
-  that any particular node is actually directly below the current
-  node; the key just requests that the direction of growth is
-  downward.
-  
-  In principle, you can specify the direction of growth for each node 
-  individually, but do not count on graph drawing algorithms to
-  honour these wishes.
-  
-\begin{codeexample}[]
-\tikz \graph [layered layout, sibling distance=5mm]
-{
-  a [grow=right] -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-
-  When you give the |grow=right| key to the graph as a whole, it will
-  be applied to all nodes. This happens to be exactly what you want:
-  
-\begin{codeexample}[]
-\tikz \graph [layered layout, grow=right, sibling distance=5mm]
-{
-  a -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-  
-\begin{codeexample}[]
-\tikz
-  \graph [layered layout, grow=-80]
-  {
-    {a,b,c} --[complete bipartite] {e,d,f}
-            --[complete bipartite] {g,h,i};
-  };
-\end{codeexample}
-\end{key}
-  
-\begin{key}{/graph drawing/grow'=\meta{angle}}
-  Same as above, only with the children in clockwise order.
-\begin{codeexample}[]
-\tikz \graph [layered layout, sibling distance=5mm]
-{
-  a [grow'=right] -- { b, c, d, e -- {f, g, h} };
-  { h, g } -- a;
-};
-\end{codeexample}
-\end{key}
-
-
-
-\subsubsection{The Phases of the Orientation Procedure}
-\label{subsection-graph-orientation-phases}
-
-As for anchoring a graph, the different keys for orienting graphs may
-easily produce conflicting demands, which need to be
-resolved. The following steps are normally performed for each
-connected component of the graph independently (see 
-Section~\ref{subsection-gd-component-packing} for details on connected components),
-but algorithms may choose to consider the graph ``as a whole''. In
-this case, the following steps are performed only once for the whole
-graph. 
-
-\begin{enumerate}
-\item
-  The graph drawing algorithm is ``told'' about the desired
-  orientations in the form of graph, node, and edge parameters. 
-  An algorithm may or may not try to honor the desired
-  orientations. As for the anchoring of graphs, for some algorithms it
-  is natural and easy to restrict the way nodes are placed so as to
-  honor orientation requests, for others this makes sense, at best, on
-  a global scale. Algorithms will internally tell the graph drawing
-  engine when they grow the graph in some direction. They can even
-  indicate that they have already taken care of all growth demands for
-  individual nodes.
-
-  Nevertheless, the following steps are always performed:
-\item
-  The engine checks whether there is an edge in the graph whose
-  slope has been fixed using the |orient| key. If there is at least one
-  such edge, the first such edge is considered. The graph is rotated
-  such that this edge has the desired slope. The orientation process
-  stops at this point, all other orientation requests are ignored.
-\item
-  Otherwise, if there is no specified slope for any edge, it is
-  checked whether there is a node with a specified |orient| to another
-  node. If this is the case, the first such specification is taken for
-  which the other node exists and the graph is rotated so that this
-  orientation is satisfied. Again, the process stops in this case.
-\item
-  It is next checked whether there is a |orient| request for the graph
-  as a whole like |orient=a-b|. Provided |a| and |b| exist, this
-  request is honoured and the process stops.
-\item
-  If the algorithm has indicated that it has already taken care of all
-  |grow| requests (using an internal function), the process stops at
-  this point.
-\item
-  Otherwise, if none of the above cases is encountered, we look for
-  a node with a |grow| key attached to it. If there is such a node,
-  the graph is rotated so that the direction of growth of the graph is
-  the desired growth direction. For this, the orientation procedure
-  obviously needs to know what the direction of growth the algorithm
-  was using; the algorithm signals this internally by setting the
-  |growth_direction| of the algorithm object or by attaching a
-  |growth_direction| to nodes. If an algorithm fails to attach such a
-  direction, the direction of the first edge of the node is chosen
-  and, for an isolated node, the direction is a line to the first node
-  in the graph other than the current node.
-  
-  If no node has |grow| specified, the orientation is chosen in such a
-  way as if |grow=down| had been specified for the first node of the
-  graph.   
-\end{enumerate}
-
-
-
-\subsection{Fine-Tuning Positions of Nodes}
-
-\begin{key}{/graph drawing/nudge=\marg{offset coordinate}}
-...  
-\end{key}
-\begin{key}{/graph drawing/regardless at=\marg{offset coordinate}}
-...  
-\end{key}
-\begin{key}{/graph drawing/nail at=\marg{offset coordinate}}
-...  
-\end{key}
-
-
-\subsection{Packing of Connected Components}
-
-\label{subsection-gd-component-packing}
-\label{section-gd-packing}
-
-Graphs may be composed of subgraphs or \emph{components} that are not
-connected to each other. In order to draw these nicely, most graph
-drawing algorithms split them into separate graphs, compute
-their layouts with the same graph drawing algorithm independently and,
-in a postprocessing step, arrange them next to each other. Note,
-however, that some graph drawing algorithms can also arrange the nodes
-of the graph in a uniform way even for unconnected components (the
-|circular layout| is a case in point); for such algorithms you can
-choose whether they should be applied to each component individually
-or not (if not, the following options do not apply). To configure
-which is the case, use the following key:
-
-\begin{key}{/graph drawing/componentwise=\meta{boolean} (initially
-    false)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  For algorithms that also support drawing unconnected graphs, use
-  this key to enforce that the components of the graph are,
-  nevertheless, laid out individually. For algorithms that do not
-  support laying out unconnected graphs, this option has no effect;
-  rather it works as if this option were always set.
-\begin{codeexample}[]
-\tikz \graph [circular layout]
-  {
-    a -- b -- c -- d -- a,
-    1 -- 2 -- 3 -- 1
-  };    
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [circular layout, componentwise]
-  {
-    a -- b -- c -- d -- a,
-    1 -- 2 -- 3 -- 1
-  };    
-\end{codeexample}
-\end{key}
-
-The default method for placing the different components works as
-follows:
-
-\begin{enumerate}
-\item For each component, a layout is determined and the component is
-  oriented as described
-  Section~\ref{subsection-library-graphdrawing-standard-orientation}
-  on the orientation of graphs. 
-\item The components are sorted as prescribed by the
-  |component order| key.
-\item The first component is now placed (conceptually) at the
-  origin. (The final position of this and all other components will be
-  determined later, namely in the anchoring phase, but let us imagine
-  that the first component lies at the origin at this point.)
-\item The second component is now positioned relative to the first
-  component. The ``direction'' in which the next component is placed
-  relative to the first one is determined by the |component direction|
-  key, so components can be placed from left to right or up to down or
-  in any other direction (even something like $30^\circ$). However,
-  both internally and in the following description, we assume that the
-  components are placed from left to right; other directions are
-  achieved by doing some (clever) rotating of the arrangement achieved
-  in this way. 
-
-  So, we now wish to place the second component to the right of the
-  first component. The component is first shifted vertically according
-  to some alignment strategy. For instance, it can be shifted so that
-  the topmost node of the first component and the topmost node of the
-  second component have the same vertical position. Alternatively, we
-  might require that certain ``alignment nodes'' in both components
-  have the same vertical position. There are several other strategies,
-  which can be configured using the |component align| key.
-
-  One the vertical position has been fixed, the horizontal position is
-  computed. Here, two different strategies are available: First, image
-  rectangular bounding boxed to be drawn around both components. Then
-  we shift the second component such that the right border of the
-  bounding box of the first component touches the left border of the
-  bounding box of the second component. Instead of having the bounding
-  boxes ``touch,'' we can also have a padding of |component sep|
-  between them. The second strategy is more involved and also known as
-  a ``skyline'' strategy, where (roughly) the components are ``moved together as
-  near as possible so that nodes do not touch''. 
-\item
-  After the second component has been placed, the third component is
-  considered and positioned relative to the second one, and so on.
-\item
-  At the end, as hinted at earlier, the whole arrangement is rotate so
-  that instead of ``going right'' the component go in the direction of
-  |component direction|. Note, however, that this rotation applies only
-  to the ``shift'' of the components; the components themselves are
-  not rotated. Fortunately, this whole rotation process happens in the
-  background and the result is normally exactly what you would expect.
-\end{enumerate}
-
-In the following, we go over the different keys that can be used to
-configure the component packing.
-
-
-\subsubsection{Ordering the Component}
-
-The different connected components of the graph are collected in a
-list. The ordering of the nodes in this list can be configured using
-the following key:
-
-\begin{key}{/graph drawing/component order=\meta{strategy} (initially
-    by first specified node)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  The following values are permissible for \meta{strategy}
-  \begin{itemize}
-  \item \declare{|by first specified node|}
-
-    The components are ordered ``in the way they appear in the input
-    specification of the graph''. More precisely, for each component
-    consider the node that is first encountered in the description
-    of the graph. Order the components in the same way as these nodes
-    appear in the graph description.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle}]
-{ a, b, c, f -- g, c -- d -- e };
-\end{codeexample}
-  \item \declare{|increasing node number|}
-    
-    The components are ordered by increasing number of nodes. For
-    components with the same number of nodes, the first node in each
-    component is considered and they are ordered according to the
-    sequence in which these nodes appear in the input.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-              component order=increasing node number]
-{ a, b, c -- d -- e, f -- g };
-\end{codeexample}
-    \begin{key}{/graph drawing/small components first}
-      \keyalias{tikz}
-      \keyalias{tikz/graphs}
-      A shorthand for |component order=increasing node number|.
-    \end{key}
-  \item \declare{|decreasing node number|}
-    As above, but in decreasing order.  
-    \begin{key}{/graph drawing/large components first}
-      \keyalias{tikz}
-      \keyalias{tikz/graphs}
-      A shorthand for |component order=decreasing node number|.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-              large components first]
-{ a, b, c -- d -- e, f -- g };
-\end{codeexample}
-    \end{key}
-  \end{itemize}
-\end{key}
-
-
-\subsubsection{Arranging Components in a Certain Direction}
-
-\begin{key}{/graph drawing/component direction=\meta{angle} (initially 0)}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  The \meta{angle} is used to determine the relative position of each
-  component relative to the previous one. The direction need not be a
-  multiple of |90|.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-              component direction=left]
-  { a, b, c -- d -- e, f -- g };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-              component direction=10]
-  { a, b, c -- d -- e, f -- g };
-\end{codeexample}
-  As usual, you can use texts like |up| or |right| instead of a
-  number.
-
-  As the example shows, the direction only has an influence on the
-  relative positions of the components, not on the direction of growth
-  inside the components. In particular, the components are not rotated
-  by this option in any way. You can use the |grow| option or |orient|
-  options to orient individual components:
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-              component direction=up]
-  { a, b, c [grow=right] -- d -- e, f[grow=45] -- g };
-\end{codeexample}
-\end{key}
-
-
-
-\subsubsection{Aligning Components}
-
-When components are placed next to each from left to right, it
-is not immediately clear how the components should be aligned
-vertically. What happens is that in each component a horizontal line is
-determined and then all components are shifted vertically so that the
-lines are aligned. There are different strategies for choosing these
-``lines'', see the description of the options described later on.
-When the |component direction| option is used to change the direction
-in which components are placed, it certainly make no longer sense to
-talk about ``horizontal'' and ``vertical'' lines. Instead, what
-actually happens is that the alignment does not consider
-``horizontal'' lines, but lines that go in the direction specified by
-|component direction| and aligns them by moving components along a
-line that is perpendicular to the line. For these reasons, let us call
-the line in the component direction the \emph{alignment line} and a
-line that is perpendicular to it the \emph{shift line}.
-
-The first way of specifying through which point of a component the
-alignment line should get is to use the following option:
-
-\begin{key}{/graph drawing/align here}
-  \keyalias{tikz}
-  \keyalias{tikz/graphs}
-  When this option is given to a node, this alignment line will go
-  through the origin of this node. If this option is passed to more
-  than one node of a component, the node encountered first in the
-  component is used.
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw}]
-{ a, b -- c[align here], d -- e[second, align here] -- f };
-\end{codeexample}
-\end{key}
-
-In many cases, however, you will not wish to specify an alignment node
-manually in each component. Instead, you will use the following key to
-specify a \emph{strategy} that should be used to automatically
-determine such a node:
-
-\begin{key}{/graph drawing/component align=\meta{strategy} (initially first node)}
-  \keyalias{tikz}
-  \keyalias{tikz/graphs}
-  The following values are permissible:
-  \begin{itemize}
-  \item \declare{|first node|}
-    In each component, the alignment line goes through the center of
-    the first node of the component encountered during specification
-    of the component.
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component align=first node]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-  \item \declare{|center|}
-    
-    The nodes of the component are projected onto the shift line. The
-    alignment line is now chosen so that it is exactly in the middle
-    between the maximum and minimum value that the projected nodes
-    have on the shift line.
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component align=center]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component direction=90,
-              component align=center]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-  \item \declare{|counterclockwise|}
-
-    As for |center|, we project the nodes of the component onto the
-    shift line. The alignment line is now chosen so that it goes
-    through the center of the node whose center has the highest
-    projected value.
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component align=counterclockwise]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component direction=90,
-              component align=counterclockwise]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-    The name |counterclockwise| is intended to indicate that the align
-    line goes through the node that comes last if we go from the
-    alignment direction in a counter-clockwise direction.
-  \item \declare{|clockwise|}
-    
-    Works like |counterclockwise|, only in the other direction:
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component align=clockwise]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [binary tree layout, nodes={draw},
-              component direction=90,
-              component align=clockwise]
-{ a, b -- c, d -- e[second] -- f };
-\end{codeexample}
-  \item \declare{|counterclockwise bounding box|}
-
-    This method is quite similar to |counterclockwise|, only the
-    alignment line does not go through the center of the node with a
-    maximum projected value on the shift line, but through the maximum
-    value of the projected bounding boxes. For a left-to-right
-    packing, this means that the components are aligned so that the
-    bounding boxes of the components are aligned at the top.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw, align=center},
-  component sep=0pt, component align=counterclockwise]
-{ a, "high\\node" -- b};\quad
-\tikz \graph [tree layout, nodes={draw, align=center},
-  component sep=0pt, component align=counterclockwise bounding box]
-{ a, "high\\node" -- b};
-\end{codeexample}
-  \item \declare{|clockwise bounding box|}
-    
-    Works like |counterclockwise bounding box|.
-  \end{itemize}
-\end{key}
-
-Using a combination of |component direction| and |component align|,
-numerous different packing strategies can be configured. However,
-since names like |counterclockwise| are a bit hard to remember and to
-apply in practice, a number of easier-to-remember keys are predefined
-that combine an alignment and a direction:
-
-\begin{key}{/graph drawing/components go right top aligned}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-  Shorthand for |component direction=right| and
-  |component align=counterclockwise|. This means that, as the name
-  suggest, the components will be placed left-to-right and they are
-  aligned such that their top nodes are in a line.  
-\begin{codeexample}[]  
-\tikz \graph [tree layout, nodes={draw, align=center},
-              components go right top aligned]
-  { a, "high\\node" -- b};
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/components go right absolute top aligned}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-  Like the previous key, but with
-  |component align=counterclockwise bounding box|. This means that the
-  components will be aligned with their bounding boxed being
-  top-aligned: 
-\begin{codeexample}[]  
-\tikz \graph [tree layout, nodes={draw, align=center},
-              components go right absolute top aligned]
-  { a, "high\\node" -- b};
-\end{codeexample}
-\end{key}
-
-\begin{key}{/graph drawing/components go right bottom aligned}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-  As above, only with an alignment of the bottom nodes.
-\end{key}
-
-\begin{key}{/graph drawing/components go right absolute bottom aligned}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-\end{key}
-
-\begin{key}{/graph drawing/components go right center aligned}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-  As above, but with the alignment at the centers.
-\end{key}
-
-\begin{key}{/graph drawing/components go right}
-  \keyalias{tikz/graphs}
-  \keyalias{tikz}
-  Shorthand for |component direction=right| and
-  |component align=first node|.
-\end{key}
-
-The above options are all available also with |right| replaced by
-|left|. Here is an example:
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw, align=center},
-              components go left top aligned]
-  { a, "high\\node" -- b};
-\end{codeexample}
-Next, the options are also available with |right| replaced by |up| and
-also by |down|. Then, instead of |top| or |bottom| for the alignment,
-|left| and |right| must be used:
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw, align=center},
-              components go down left aligned]
-  { a, hello -- {world,s} };
-\end{codeexample}
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw, align=center},
-              components go up absolute left aligned]
-  { a, hello -- {world,s}};
-\end{codeexample}
-
-
+\includeluadocumentationof{pgf.gd.control.Distances}
+\includeluadocumentationof{pgf.gd.control.Anchoring}
+\includeluadocumentationof{pgf.gd.control.Orientation}
 
-\subsubsection{The Distance Between Components}
 
-Once the components of a graph have been oriented, sorted, aligned,
-and a direction has been chosen, it remains to determine the distance
-between adjacent components. Two methods are available for computing
-this distance, as specified by the following option:
 
-\begin{key}{/graph drawing/component packing=\meta{method} (initially
-    skyline)}
-  \keyalias{tikz}
-  \keyalias{tikz/graphs}
-  Given two components, their distance is computed as follows in
-  depencende of \meta{method}:
-  \begin{itemize}
-  \item \declare{|rectangular|}
+\includeluadocumentationof{pgf.gd.control.FineTune}
 
-    Imagine a bounding box to be drawn around both components. They
-    are then shifted such that the padding (separating distance)
-    between the two boxes is the current value of |component sep|.
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw}, component sep=0pt,
-              component packing=rectangular]
-  { a -- long text, longer text -- b};
-\end{codeexample}
-  \item \declare{|skyline|}
-
-    The ``skyline method'' is used to compute the distance. It works
-    as follows: For simplicity, assume that the component direction is
-    right (other case work similary, only everything is
-    rotated). Imaging the second  component to be placed far right
-    beyond the first component. Now start moving the second component
-    back to the left until one of the nodes of the second component
-    touches a node of the first component, and stop. Again, the
-    padding |component sep| can be used to avoid the nodes actually
-    touching each other. 
-    
-\begin{codeexample}[]
-\tikz \graph [tree layout, nodes={draw}, component sep=0pt,
-              level distance=1.5cm,
-              component packing=skyline]
-  { a -- long text, longer text -- b};
-\end{codeexample}
-
-    In order to avoid nodes of the second component ``passing through
-    a hole in the first component,'' the actual algorithm is a bit
-    more complicated: For both components, a ``skyline'' is
-    computed. For the first component, consider an arbitrary
-    horizontal line. If there are one or more nodes on this line, the
-    rightmost point on any of the bounding boxes of these nodes will
-    be the point on the skyline of the first component for this
-    line. Similarly, for the second component, for each horizontal
-    level the skyline is given by the leftmost point on any of the
-    bounding boxes intersecting the line.
-
-    Now, the interesting case are horizontal lines that do not
-    intersect any of the nodes of the first and/or second
-    component. Such lines represent ``holes'' in the skyline. For
-    them, the following rule is used: Move the horizontal line upward
-    and downward as little as possible until a height is reached where
-    there is a skyline defined. Then the skyline position on the
-    original horizontal line is the skyline position at the reached
-    line, minus (or, for the second component, plus) the distance by
-    which the line was moved. This means that the holes are ``filled
-    up by slanted roofs.''
-\begin{codeexample}[]
-\begin{tikzpicture}
-  \graph [tree layout, nodes={draw}, component sep=0pt,
-          component packing=skyline]
-  { a -- long text, longer text -- b};
-  \draw[red] (long text.north east) -- ++(north west:1cm);
-\end{tikzpicture}
-\end{codeexample}
+\includeluadocumentationof{pgf.gd.control.Components}
+\includeluadocumentationof{pgf.gd.control.ComponentOrder}
+\includeluadocumentationof{pgf.gd.control.ComponentDirection}
+\includeluadocumentationof{pgf.gd.control.ComponentAlign}
+\includeluadocumentationof{pgf.gd.control.ComponentDistance}
 
-\end{itemize}
-\end{key}
-
-
-
-\subsection{Layering of Nodes and Edges}
-
-Once a graph drawing algorithm has determined positions for the nodes,
-they are drawn \emph{before} the edges are drawn; after
-all, it is hard to draw an edge between nodes when their positions
-are not yet known. However, we typically want the nodes to be
-rendered \emph{after} or rather \emph{on top} of the edges. For
-this reason, the default behaviour is that the nodes at their
-final positions are collected in a box that is inserted into the
-output stream only after the edges have been drawn -- which has
-the effect that the nodes will be placed ``on top'' of the
-edges. This behaviour can be changed using the following keys:
-
-\begin{key}{/graph drawing/nodes behind edges}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  When this key is invoked, nodes are placed \emph{behind} the edges:
-\begin{codeexample}[]
-\tikz \graph [spring layout, nodes={draw,fill=white}, nodes behind edges]
-  { subgraph K_n [n=7] };    
-\end{codeexample}
-\end{key}
-\begin{key}{/graph drawing/edges behind nodes}
-  \keyalias{tikz}\keyalias{tikz/graphs}
-  This is the default placemenet of edges: Behind the nodes.
-\begin{codeexample}[]
-\tikz \graph [spring layout, nodes={draw,fill=white}, edges behind nodes]
-  { subgraph K_n [n=7] };    
-\end{codeexample}
-\end{key}
 
+\includeluadocumentationof{pgf.gd.model.Hyperedge}
 
 
 \subsection{Using Several Different Layouts to Draw a Single Graph}
@@ -1507,8 +279,8 @@ means that the two sublayouts will be part of the main graph, but will
 not be indicated otherwise.
 
 \begin{codeexample}[] 
-\tikz \graph [circular layout] {
- // [circular layout] { a -> b -> c -> d -> e -> f -> a };
+\tikz \graph [simple necklace layout] {
+ // [simple necklace layout] { a -> b -> c -> d -> e -> f -> a };
   
  // [tree layout] { % first tentacle
    a -> {1, 2}; 
@@ -1521,7 +293,7 @@ not be indicated otherwise.
 \end{codeexample}
 
 In the above example, the first sublayout is the one for the nodes
-with letter names. These nodes are arranged using a circular layout
+with letter names. These nodes are arranged using a simple necklace layout
 as the sublayout inherits this option from the main layout. The two
 small trees (|a -> {1, 2}| and the tree starting at the |d| node)
 are also sublayouts, triggered by the |tree layout| option. They are
@@ -1532,7 +304,7 @@ does nothing here.
 Compare the above to the following code:
   
 \begin{codeexample}[] 
-\tikz \graph [circular layout] {
+\tikz \graph [simple necklace layout] {
   // [tree layout] { % first ``giant node''
     a -> {1, 2}; 
   };
@@ -1549,12 +321,12 @@ Compare the above to the following code:
 
 Here, only the two trees are laid out first. They are then
 contracted into ``giant nodes'' and these are then part of the set
-of nodes that are arranged by the |circular layout|. For details of
+of nodes that are arranged by the |simple necklace layout|. For details of
 how this contracting works, see below.
 
 
 \begin{codeexample}[] 
-\tikz \graph [circular layout] {
+\tikz \graph [simple necklace layout] {
      tree 1[draw] // [tree layout] { a -> {1, 2}; }
   -> b
   -> c
@@ -1664,6 +436,11 @@ the following:
 \begin{key}{/tikz/layout text pin=\opt{\meta{pin options}}}
   ...
 \end{key}
+
+
+\subsection{Miscellaneous Options}
+
+\includeluadocumentationof{pgf.gd.control.library}
 
 \endinput
 

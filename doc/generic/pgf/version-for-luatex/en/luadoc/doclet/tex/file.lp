@@ -7,7 +7,20 @@
 
 <%if #file_doc.tables > 0 then%>
   <%for _, tab_name in ipairs(file_doc.tables) do%>
+  <%if file_doc.tables[tab_name].library then%>
+    <%=luadoc.doclet.tex.include("library.lp", { doc=doc, file_doc=file_doc, tab=file_doc.tables[tab_name] })%>
+  <%elseif file_doc.tables[tab_name].section then%>
+    <%=luadoc.doclet.tex.include("section.lp", { doc=doc, file_doc=file_doc, tab=file_doc.tables[tab_name] })%>  
+  <%else%>
     <%=luadoc.doclet.tex.include("table.lp", { doc=doc, file_doc=file_doc, tab=file_doc.tables[tab_name] })%>
+  <%end%>
+  <%end%>
+<%end%>
+
+
+<%if #file_doc.declares > 0 then%>
+  <%for _, func_name in ipairs(file_doc.declares) do%>
+    <%=luadoc.doclet.tex.include("declare.lp", { doc=doc, file_doc=file_doc, declare=file_doc.declares[func_name] })%>
   <%end%>
 <%end%>
 

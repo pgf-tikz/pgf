@@ -12,6 +12,8 @@ local string = require "string"
 local table = require "table"
 local kpse = kpse 
 local pgf = pgf
+local ipairs = ipairs
+local math = math
 
 module 'luadoc.taglet.pgfmanual'
 
@@ -91,6 +93,123 @@ local function check_table (line)
   local name = line:match("("..identifier_pattern..")%s*=%s*{") 
   if name then
     return name
+  end
+
+  local l, name = line:match("^(local%s+)("..identifier_pattern..")%s*$") 
+  if name then
+    return name
+  end
+
+  local l, name = line:match("^(local%s+)("..identifier_pattern..")%s*--.*$") 
+  if name then
+    return name
+  end
+end
+
+
+local function strip_quotes(s)
+  if s then return string.gsub(s, '^"(.*)"$', "%1") end
+end
+
+local function split(s)
+  local t = {}
+  for line in string.gmatch(s, ".-\n") do
+    t[#t+1] = line
+  end
+  return t
+end
+
+
+local function process_example(s)
+  local t = split(s)
+  -- Compute min spaces
+  local min = math.huge
+  for _,l in ipairs(t) do
+    min = math.min(min, string.find(l, "%S") or math.huge)
+  end
+  if min < math.huge then
+    -- Now, trim 'em all!
+    for i=1,#t do
+      t[i] = string.sub(t[i],min)
+    end
+  end
+  return table.concat(t)
+end
+
+
+local function process_examples(t)
+  if not t then
+    return nil
+  end
+
+  if type(t) == "string" then
+    t = {t}
+  end
+  
+  local n = {}
+  for i=1,#t do
+    n[i] = process_example(strip_quotes(t[i]))
+  end
+  return n
+end
+
+
+-------------------------------------------------------------------------------
+-- Checks if the line contains a table definition
+-- @param line string with line text
+-- @return table information or nil if no function definition found
+
+local function check_declaration (line, code)
+
+  line = util.trim(line)
+  
+  local l = line:match("^declare%s*{") 
+  if l then
+    local name
+    local default
+    local initial
+    local type
+    
+    -- Ok, now search for interesting stuff in the code:
+    for _,line in ipairs(code) do
+      if not name then
+	name = line:match("key%s*=%s*\"([^\"]+)\"")
+      end
+      if not default then
+	default = line:match("default%s*=%s*\"(.*)\"")
+      end
+      if not default then
+	default = line:match("default%s*=%s*(.*),")
+      end
+      if not default then
+	default = line:match("default%s*=%s*(.*)$")
+      end
+      if not initial then
+	initial = line:match("initial%s*=%s*\"(.*)\"")
+      end
+      if not initial then
+	initial = line:match("initial%s*=%s*(.*),")
+      end
+      if not initial then
+	initial = line:match("initial%s*=%s*(.*)$")
+      end
+      if not type then
+	type = line:match("type%s*=%s*\"([^\"]+)\"")
+      end
+    end
+    
+    local keys = pgf.gd.interface.InterfaceToDisplay.getDeclaredKeys()
+    local key = keys[name]
+
+    return {
+      name = name,
+      default = default,
+      initial = initial,
+      type = type,
+      key_summary = strip_quotes(key.summary),
+      documentation = strip_quotes(key.documentation),
+      examples = process_examples(key.examples)
+    }
   end
 end
 
@@ -196,25 +315,31 @@ local function parse_comment (block, first_line)
 	
 	-- parse first line of code
 	if code ~= nil then
-		local func_info = check_function(code)
-		local module_name = check_module(code)
-		local table_name = check_table(code)
-		if func_info then
-			block.class = "function"
-			block.name = func_info.name
-			block.param = func_info.param
-			block.private = func_info.private
-		elseif module_name then
-			block.class = "module"
-			block.name = module_name
-			block.param = {}
-		elseif table_name then
-		        block.class = "table"
-		        block.name = table_name
-		        block.param = {}
-	        else
-			block.param = {}
-		end
+	  local func_info = check_function(code)
+	  local declare_info = check_declaration(code, block.code)
+	  local module_name = check_module(code)
+	  local table_name = check_table(code)
+	  if func_info then
+	    block.class = "function"
+	    block.name = func_info.name
+	    block.param = func_info.param
+	    block.private = func_info.private
+	  elseif module_name then
+	    block.class = "module"
+	    block.name = module_name
+	    block.param = {}
+	  elseif table_name then
+	    block.class = "table"
+	    block.name = table_name
+	    block.param = {}
+	  elseif declare_info then
+	    block.class = "declare"
+	    block.name = declare_info.name
+	    block.info = declare_info
+	    block.param = declare_info.param
+	  else
+	    block.param = {}
+	  end
 	else
 		-- TODO: comment without any code. Does this means we are dealing
 		-- with a file comment?
@@ -228,6 +353,10 @@ local function parse_comment (block, first_line)
 		line = util.trim_comment(line)
 		
 		local r, _, tag, text = string.find(line, "@([_%w%.]+)%s+(.*)")
+		if not r then
+		  r, _, tag = string.find(line, "@([_%w%.]+)$")
+		  text = ""
+		end
 		if r ~= nil then
 		  -- found new tag, add previous one, and start a new one
 		  -- TODO: what to do with invalid tags? issue an error? or log a warning?
@@ -430,6 +559,13 @@ function parse_file (filepath, doc)
 	for t in class_iterator(blocks, "table")() do
 		table.insert(doc.files[filepath].tables, t.name)
 		doc.files[filepath].tables[t.name] = t
+	end
+	
+	-- make declare table
+	doc.files[filepath].declares = {}
+	for t in class_iterator(blocks, "declare")() do
+		table.insert(doc.files[filepath].declares, t.name)
+		doc.files[filepath].declares[t.name] = t
 	end
 	
 	return doc
