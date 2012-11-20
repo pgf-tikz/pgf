@@ -25,34 +25,17 @@
 
 
 
-%
-% This file defines the basic interactions between LUA and PGF
-%
 
 %
-% This box is used for passing pgf elements to lua and vice versa 
+% This file defines the pgf display layer for the graph drawing
+% system.
 %
-% After the invocation of \pgfpositionnodelater the caller should copy the contents of 
-% \box\pgfpositionnodelaterbox to another box register (for this refer to the manual).
+% Load the graph drawing system and bind it to pgf:
 %
-
-
-% 
-% Initialize the lua graph drawing environment
-%
-\directlua{ require 'pgf.gd.control.TeXInterface' } % Load the main communication class
-
-
-%
-% Basic Interface to the Graph Drawing Engine
-%
-
-% 
-% In order to use the graph drawing engine, inside a pgfpicture you
-% need to create a graph drawing scope using the following commands;
-%
-
-
+\directlua{
+  require 'pgf.gd.interface.InterfaceToDisplay' 
+  pgf.gd.interface.InterfaceToDisplay.bind(require 'pgf.gd.bindings.BindingToPGF')
+} 
 
 % 
 % All graph drawing keys normally live in the following namespace:
@@ -62,6 +45,874 @@
 \def\pgfgdset{\pgfqkeys{/graph drawing}}
 
 
+% Setup a key
+% 
+% #1 = key
+% 
+% Description:
+% 
+% An internal macro that sets up #1 as a graph drawing key.
+
+\def\pgfgd@callbackkey#1{
+  \pgf@gd@setup@forwards{#1}
+  \pgfutil@g@addto@macro\pgf@gd@forwards@list{\pgf@gd@setup@forwards{#1}}
+}
+\def\pgf@gd@setup@forwards#1{
+  \let\pgf@temp\pgfutil@empty
+  \foreach \pgf@gd@path in \pgf@gd@forwarding@list {
+    \ifx\pgf@gd@path\pgfutil@empty\else%
+      \expandafter\pgfutil@g@addto@macro%
+      \expandafter\pgf@temp\expandafter{%
+        \expandafter\pgfkeys\expandafter{\pgf@gd@path#1/.forward to=/graph drawing/#1}}
+    \fi%
+  }%
+  \pgf@temp
+}
+
+\let\pgf@gd@forwards@list\pgfutil@empty
+
+
+% Append to the forwarding list:
+% 
+% #1 = paths to append to the forwarding list
+% 
+% Description:
+% 
+% Append the paths in #1 (with trailing slashes) to the forwarding
+% list.
+% 
+% If algorithms have already been declared, forwarding will also be
+% setup for them (using a bit of magic...).
+
+\def\pgfgdappendtoforwardinglist#1{%
+  \let\pgf@gd@forwarding@list@orig\pgf@gd@forwarding@list
+  \def\pgf@gd@forwarding@list{#1}%
+  \pgf@gd@forwards@list%
+  \expandafter\def\expandafter\pgf@gd@forwarding@list\expandafter{\pgf@gd@forwarding@list@orig,#1}
+}
+\let\pgf@gd@forwarding@list\pgfutil@empty
+
+
+
+% 
+% 
+% Callbacks
+% 
+% The following macros are called *from* the binding layer. You do not
+% call them from the pgf layer.
+%  
+%
+
+
+% Callback for declaring a graph parameter key
+%
+% #1 = Parameter key
+% #2 = Parameter type
+% #3 = Parameter default value
+%
+% Description:
+%
+% When a graph drawing algorithm starts working, a set of options,
+% called "graph drawing parameters" in the following, can influence the
+% way the algorithm works. For instance, an graph drawing parameter
+% might be the average distance between vertices which the algorithm
+% should take into account. Another example might be the fact the
+% certain nodes are special nodes and that a certain edge should have
+% a large label.
+%
+% These graph drawing parameters are different from "usual" pgf
+% options: An alogrithmic parameter influenced the way the algorithm
+% works, while usual options normally only influence how the result
+% looks like. For instance, the fact that a node is red is not an
+% graph drawing parameter (usually, at least), while the shape of a node
+% might be an graph drawing parameter.
+%
+% Graph drawing parameters are declared by the algorithmic layer
+% (since only this layer "knows" which parameters there are). The
+% binding to TeX will call the \pgfgddeclareparameter function
+% internally.
+% 
+% Specifying the set of graph drawing parameters for a given graph or
+% node or edge works as follows: When the graph drawing engine is
+% started for a graph (using \pgfgdbeginscope), a snapshot is taken of
+% all graph drawing parameters currently setup at this
+% point. Similarly, when a node is created inside such a scope, a
+% snapshot is taken of the set of all graph drawing parameters in
+% force at this point is taken and stored together with the
+% node. Finally, when an edge is created, a snapshot of the setting of
+% the graph drawing parameters is taken.
+
+\def\pgfgdcallbackdeclareparameter#1#2#3{%
+  \pgfkeysdef{/graph drawing/#1}{\pgf@gd@handle@parameter{#1}{#2}{##1}}%
+  \def\pgf@temp{#3}%
+  \ifx\pgf@temp\pgfutil@empty\else%
+    \pgfkeys{/graph drawing/#1/.default={#3}}
+  \fi%
+  \pgfgd@callbackkey{#1}%  
+}
+\def\pgf@gd@handle@parameter#1#2#3{%
+  \pgfkeys{/graph drawing/conversions/#2={#3}}%
+  \advance\pgf@gd@parameter@stack@height by1\relax%
+  \directlua{pgf.gd.interface.InterfaceToDisplay.pushOption%
+    ('\luaescapestring{#1}',\pgfgdresult,\the\pgf@gd@parameter@stack@height)}
+}%
+\newcount\pgf@gd@parameter@stack@height
+
+\def\pgfgdcallbacksetinitial#1#2#3{%
+  \pgfkeys{/graph drawing/conversions/#2={#3}}%
+  \directlua{pgf.gd.interface.InterfaceToDisplay.setOptionInitial('\luaescapestring{#1}',\pgfgdresult)}
+}
+
+% Conversions are used to adapt the syntactic description of a
+% parameter on the TikZ layer to the one expected by Lua. The set of
+% permissible conversions is described in
+% InterfaceToAlgorithms.declareParameter. 
+
+\pgfgdset{
+  conversions/string/.code=\def\pgfgdresult{'\luaescapestring{\detokenize{#1}}'},
+  conversions/raw/.code=\def\pgfgdresult{#1},
+  conversions/boolean/.code=\def\pgf@test{#1}\ifx\pgf@test\pgf@truetext\def\pgfgdresult{true}\else\ifx\pgf@test\pgfkeysnovalue@text\def\pgfgdresult{true}\else\def\pgfgdresult{false}\fi\fi,
+  conversions/number/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
+  conversions/length/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
+  conversions/direction/.code=\pgf@lib@gd@grow@dir{#1}\let\pgfgdresult\pgfmathresult,
+  conversions/canvas coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{pgf.gd.model.Coordinate.new(#1,#2)}},
+  % deprecated, will be removed:
+  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1,#2}}},
+  conversions/number with optional and/.code={
+    \pgfutil@in@{ and }{#1}%
+    \ifpgfutil@in@%
+      \pgf@gd@convert@and#1\pgf@stop%
+    \else%
+      \pgf@gd@convert@and#1 and #1\pgf@stop%
+    \fi%
+  },
+  conversions/table with node keys/.code=\def\pgfgdresult{pgf.gd.control.TeXInterface.convertNameKeysToVertexKeys({#1})},
+}
+\def\pgf@truetext{true}
+
+\def\pgf@gd@convert@and#1 and #2\pgf@stop{\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult}
+
+\def\pgf@lib@gd@grow@dir#1{%
+  \def\pgf@temp{#1}%
+  \ifx\pgf@temp\pgf@gd@lib@active@bar%
+    \def\pgfmathresult{-90}
+  \else%
+    \ifcsname pgf@orient@direction@#1\endcsname%
+      \expandafter\let\expandafter\pgfmathresult\csname pgf@orient@direction@#1\endcsname%
+    \else
+      \pgfmathparse{#1}%
+    \fi
+  \fi
+}
+
+\def\pgf@orient@direction@down{-90}
+\def\pgf@orient@direction@up{90}
+\def\pgf@orient@direction@left{180}
+\def\pgf@orient@direction@right{0}
+
+\def\pgf@orient@direction@south{-90}
+\def\pgf@orient@direction@north{90}
+\def\pgf@orient@direction@west{180}
+\def\pgf@orient@direction@east{0}
+
+\expandafter\def\csname pgf@orient@direction@north east\endcsname{45}
+\expandafter\def\csname pgf@orient@direction@north west\endcsname{135}
+\expandafter\def\csname pgf@orient@direction@south east\endcsname{-45}
+\expandafter\def\csname pgf@orient@direction@south west\endcsname{-135}
+
+\expandafter\def\csname pgf@orient@direction@-\endcsname{0}
+\expandafter\def\csname pgf@orient@direction@|\endcsname{-90}
+
+{
+  \catcode`\|=13
+  \gdef\pgf@gd@lib@active@bar{|}
+}
+
+
+
+% Callback for declaring a graph parameter style
+%
+% #1 = Style key
+% #2 = List of to-be-executed keys.
+% #3 = A default value
+%
+% Description:
+% 
+% This callback is called to declare a style.
+
+\def\pgfgdcallbackdeclareparametersequence#1#2#3{%
+  \pgfkeys{/graph drawing/#1/.style={#2}}%
+  \def\pgf@temp{#3}%
+  \ifx\pgf@temp\pgfutil@empty\else%
+    \pgfkeys{/graph drawing/#1/.default={#3}}
+  \fi%
+  \pgfgd@callbackkey{#1}%  
+}
+
+
+% Callback for declaring a graph drawing algorithm
+%
+% #1 = Key
+% #2 = Phase
+%
+% Description:
+% 
+% This callback is called to declare a key that selects a specific
+% graph drawing algrorithm.
+
+\def\pgfgdcallbackdeclarealgorithm#1#2{%
+  \def\pgf@temp{#2}%
+  \ifx\pgf@temp\pgf@gd@maintext%
+    \pgfkeysdef{/graph drawing/#1}{\pgf@gd@handle@phase{#1}{#2}\pgfgdset{request scope and layout}}%
+  \else
+    \pgfkeysdef{/graph drawing/#1}{\pgf@gd@handle@phase{#1}{#2}}%
+  \fi%
+  \pgfgd@callbackkey{#1}%  
+}
+\def\pgf@gd@handle@phase#1#2{%
+  \advance\pgf@gd@parameter@stack@height by1\relax%
+  \directlua{pgf.gd.interface.InterfaceToDisplay.pushPhase%
+    ('\luaescapestring{#1}','\luaescapestring{#2}',\the\pgf@gd@parameter@stack@height)}
+}%
+\def\pgf@gd@maintext{main}
+
+
+
+% Callback for declaring a collection kind
+%
+% #1 = Key
+%
+% Description:
+% 
+% This callback is called to declare a key that creates a new
+% collection kind. See |Binding.declare_collection_kind| for details.
+%
+
+\def\pgfgdcallbackdeclarecollectionkind#1{
+  \pgfkeysdef{/graph drawing/#1}{\pgf@gd@make@collection{#1}}
+  \pgfgd@callbackkey{#1}%  
+}
+
+\def\pgf@gd@make@collection#1{%
+  \advance\pgf@gd@parameter@stack@height by1\relax%
+  \directlua{pgf.gd.interface.InterfaceToDisplay.pushCollection%
+    ('\luaescapestring{#1}',\the\pgf@gd@parameter@stack@height)}%
+}
+
+
+
+% Callback for starting the rendering of a collection kind
+%
+% #1 = Kind
+% #2 = Layer
+%
+% Description:
+% 
+% Executes /graph drawing/#1/begin rendering/.try
+%
+
+\def\pgfgdcallbackrendercollectionkindstart#1#2{
+  \ifnum#2<0\relax
+    \setbox\pgf@gd@prekind@box=\hbox\bgroup%
+    \unhbox\pgf@gd@prekind@box%
+  \else%
+    \setbox\pgf@gd@postkind@box=\hbox\bgroup%
+    \unhbox\pgf@gd@postkind@box%
+  \fi
+  \pgfgdset{/graph drawing/#1/begin rendering/.try}
+}
+
+
+% Callback for ending the rendering of a collection kind
+%
+% #1 = Kind
+% #2 = Layer
+%
+% Description:
+% 
+% Executes /graph drawing/#1/end rendering/.try
+%
+
+\def\pgfgdcallbackrendercollectionkindstop#1{
+  \pgfgdset{/graph drawing/#1/end rendering/.try}
+  \egroup % close box
+}
+
+
+
+% Callback for rendering a collection 
+% 
+% #1 = Kind
+% #2 = Options
+%
+% Description:
+% 
+% Executes /graph drawing/#1/render/.try={#2}
+%
+
+\def\pgfgdcallbackrendercollection#1#2{
+  \pgfgdset{/graph drawing/#1/render/.try={#2}}
+}
+
+
+
+
+
+% Graph events  
+% 
+% Although a graph consists of nodes and edges, during the
+% construction of the graph a lot of information concerning the
+% structure of the graph is often available. For instance, as we
+% specify a graph using the child-syntax, we do not only which edges
+% are present, but we can implicitly specify an ordering on the
+% nodes. Even more, there is even information availble concerning
+% nodes that are not present at all: A child[missing] is not present
+% as a node or an edge, but a tree drawing algorithm will want to know
+% about this child nevertheless.
+% 
+% In order to communicate such information to the graph drawing
+% engine, "events" are used. As a graph is created, in addition to
+% nodes and edges, "events" may happen. The events come in a
+% sequential order and they are stored together with the graph. For
+% each node and each edge, its index in the event sequence is
+% stored, that is, it is stored how many events happened before the
+% node or edge was created.
+% 
+% Internally, an event consists of a name and, possibly, some
+% parameters. When the parameter is created on the tikz level, it will
+% be a string that is passed down to Lua. Internally created events
+% will also have parameters that are objects.
+% 
+% Two events are a bit special since they get special internal
+% support: The begin and end events. The first signals that some kind
+% of group has started; which is closed by the corresponding end
+% event. The "kind" of group is indicated by the parameter of the
+% begin event.
+% 
+% 
+% 
+% Standard events are:
+% 
+% For each node entered into a graph, a "node" event is automatically
+% created internally with the parameter being the node. However, you
+% can also create this event yourself. In this case, the parameter
+% will be a string and will mean that the node is "virtual" or
+% "missing", but space should be reserved for it, if possible (this is
+% use, for instance, by certain tree layouts).
+% 
+% For each edge entered into a graph, an "edge" event is automatically
+% created, with the edge as the parameter. Again, an event with a
+% string parameter corresponds to a "non-existing" node.
+% 
+%
+% Standard event groups are:
+% 
+%
+% The "descendants" event group include a set of nodes that, at least
+% inside the specification, are descendants of the last node
+%
+% begin descendants
+% ...
+% end
+% 
+% 
+% The "array" event group collects together some nodes in an array of
+% nodes. This can be used, for instance, to specify matrices.
+% 
+% begin array
+% ...
+% end 
+
+
+
+% Create a new event
+% 
+% #1 = event name (should be a valid lua identifier name)
+% #2 = parameter (some text)
+% 
+% Description:
+% 
+% Adds a new event to the event sequence of the graph
+
+\def\pgfgdevent#1#2{%
+  \directlua{pgf.gd.interface.InterfaceToDisplay.createEvent('\luaescapestring{#1}', '\luaescapestring{#2}')}%
+}
+
+
+% Start an event group
+% 
+% #1 = kind of event group
+% 
+% Description:
+% 
+% Creates a begin event with #1 as the parameter of the begin
+% event.
+
+\def\pgfgdbegineventgroup#1{%
+  \pgfgdevent{begin}{#1}%
+}
+
+% End an event group
+% 
+% Description:
+% 
+% Creates an end event.
+
+\def\pgfgdendeventgroup{%
+  \pgfgdevent{end}{}%
+}
+
+
+% Creates an event group for the current TeX group
+%
+% #1 = event group name 
+%
+% Description:
+% 
+% Issues a begin event for #1 and, using \aftergroup, adds an end
+% event at the end of the current tex group.
+
+\def\pgfgdeventgroup#1{%
+  \pgfgdbegineventgroup{#1}%
+  \aftergroup\pgfgdendeventgroup%
+}
+
+
+
+
+
+%
+% Nodes
+%
+
+
+
+%
+% Callback method for \pgfpositionnodelater
+% 
+% This function is called by \pgfnode whenever a node has been newly
+% created inside a graph drawing scope. It will create a new vertex on
+% the Lua layer.
+%
+\def\pgf@gd@positionnode@callback{%
+  {%
+    % evaluate coordinates
+    \pgfmathsetmacro{\pgf@gd@node@minx}{\pgfpositionnodelaterminx}%
+    \pgfmathsetmacro{\pgf@gd@node@miny}{\pgfpositionnodelaterminy}%
+    \pgfmathsetmacro{\pgf@gd@node@maxx}{\pgfpositionnodelatermaxx}%
+    \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
+    % call lua system library to create a lua node object
+    \directlua{
+      local new = pgf.gd.model.Coordinate.new
+      pgf.gd.interface.InterfaceToDisplay.createVertex(
+        string.sub('\luaescapestring{\pgfpositionnodelatername}',30), % strip "not yet positionedPGFINTERNAL"
+        '\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}',
+        {
+          new(\pgf@gd@node@minx, \pgf@gd@node@miny),
+          new(\pgf@gd@node@minx, \pgf@gd@node@maxy),
+          new(\pgf@gd@node@maxx, \pgf@gd@node@maxy),
+          new(\pgf@gd@node@maxx, \pgf@gd@node@miny),
+        },
+        \the\pgf@gd@parameter@stack@height,
+        {
+          x_min = \pgf@gd@node@minx,
+          y_min = \pgf@gd@node@miny,
+          x_max = \pgf@gd@node@maxx,
+          y_max = \pgf@gd@node@maxy,
+        }
+      )
+    }
+  }%
+}
+
+% Set options for an already existing node
+% 
+% #1 = node name
+% 
+% These node parameters of #1 will be updated with the current values
+% of the node parameters. The node #1 must previously have been passed
+% to the gd engine. If some of the options have already been set for
+% the node, these settings will be overruled.
+
+\def\pgfgdsetlatenodeoption#1{%
+  \directlua{
+    pgf.gd.interface.InterfaceToDisplay.addToVertexOptions('\luaescapestring{#1}',\the\pgf@gd@parameter@stack@height)
+  }
+}
+
+
+
+%
+% A callback for rendering (finally positioning) a node
+% 
+% #1 = name of the node
+% #2 = x min of the bounding box
+% #3 = x max of the bounding box
+% #4 = y min of the bounding box
+% #5 = y max of the bounding box
+% #6 = desired x pos of the node
+% #7 = desired y pos of the node
+% #8 = box register number of the TeX node
+%
+% This callback will be called by the engine for every original node
+% when it finally needs to placed at a final position.
+
+\def\pgfgdcallbackrendernode#1#2#3#4#5#6#7#8{%
+  {%
+    \def\pgfpositionnodelatername{#1}
+    \def\pgfpositionnodelaterminx{#2}
+    \def\pgfpositionnodelatermaxx{#3}
+    \def\pgfpositionnodelaterminy{#4}
+    \def\pgfpositionnodelatermaxy{#5}
+    \directlua{pgf.gd.interface.InterfaceCore.binding:retrieveBox(#8,\pgfpositionnodelaterbox)}
+    \pgfpositionnodenow{\pgfqpoint{#6pt}{#7pt}}
+  }%
+}
+
+
+
+% Adds an edge to the graph
+%
+% #1 = first node
+% #2 = second node
+% #3 = edge direction
+% #4 = edge options (will be executed in a protected environment)
+% #5 = aux stuff (curtesy for TikZ -- edge nodes)
+%
+% Description:
+%
+% Creating an edge means that you tell the graph drawing algorithm
+% that #1 and #2 are connected. The "kind" of connection is indicated
+% by #3, which may be one of the following:
+% 
+% ->  = a directed edge (also known as an arc) from #1 to #2
+% --  = an undirected edge between #1 and #2
+% <-  = a directed edge from #2 to #1, but with the "additional hint"
+%       that this is a "backward" edge. A graph drawing algorithm may
+%       or may not take this hint into account
+% <-> = a bi-directed edge between #1 and #2.
+% 
+%
+% The parameters #4 and #5 are a bit more tricky. When an edge between
+% two vertices of a graph is created via \pgfgdedge, nothing is
+% actually done immediately. After all, without knowing the final
+% positions of the nodes #1 and #2, there is no way of
+% creating the actual drawing commands for the edge. Thus, the actual
+% drawing of the edge is done only when the graph drawing algorithm is
+% done (namely in the macro \pgfgdcallbackedge, see later).
+% 
+% Because of this "delayed" drawing of edges, options that influence
+% the edge must be retained until the moment when the edge is actually
+% drawn. Parameters #4 and #5 store such options.
+% 
+% Let us start with #4. This parameter should be set to a list of
+% key-value pairs like
+% 
+%   /tikz/.cd, color=red, very thick, this edge must be vertical
+% 
+% Some of these options may be of interest to the graph drawing
+% algorithm (like the last option) while others will 
+% only be important during the drawing of edge (like the first
+% option). The options that are important for the graph drawing
+% algorithm must be passed to the algorithm via setting keys that have
+% been declared using the handler .edge parameter (see 
+% above).
+% 
+% The tricky part is that options that are of interest to the graph
+% drawing algorithm must be executed *before* the algorithm starts,
+% but the options as a whole are usually only executed during the
+% drawing of the edges, which is *after* the algorithm has finished.
+% 
+% To overcome this problem, the following happens:
+% 
+% The options in #4 are executed "tentatively" inside
+% \pgfgdedge. However, this execution is done in a "heavily guarded
+% sandbox" where all effects of the options (like changing the
+% color or the line width) do not propagate beyond the sandbox. Only
+% the changes of the graph drawing edge parameters leave the
+% sandbox. These parameters are then passed down to the graph drawing
+% engine.
+% 
+% Later, when the edge is drawn using \pgfgdcallbackedge, the options #4
+% are available once more and then they are executed normally.
+%
+% Note that when the options in #4 are executed, no path is
+% preset. Thus, you typically need to start it with, say, /tikz/.cd.
+%
+%
+% The text in #5 is some "auxilliary" text that is simply stored away
+% and later directly to \pgfgdcallbackedge. This is a curtesy to TikZ,
+% which can use it to store its node labels. 
+%
+% Example:
+%
+% \pgfgdedge{A}{B}{->}{red}{}
+%
+\def\pgfgdedge#1#2#3#4#5{%
+  % Ok, setup sandbox
+  \begingroup%
+    \setbox0=\hbox{{%
+        \pgfinterruptpath%
+          \pgfgdprepareedge%
+          \pgfkeys{#4}%
+          % create edge in Lua
+          \toks0={#4}%
+          \toks1={#5}%
+          \directlua{
+            pgf.gd.interface.InterfaceToDisplay.createEdge(
+            '\luaescapestring{#1}','\luaescapestring{#2}','\luaescapestring{#3}',
+            \the\pgf@gd@parameter@stack@height,
+            { pgf_options = '\luaescapestring{\the\toks0}',
+              pgf_edge_nodes = '\luaescapestring{\the\toks1}',
+            })
+          }%
+        \endpgfinterruptpath%
+      }}%
+  \endgroup%
+}
+
+\let\pgfgdprepareedge=\pgfutil@empty
+\def\pgfgdaddprepareedgehook#1{\expandafter\def\expandafter\pgfgdprepareedge\expandafter{\pgfgdprepareedge#1}}
+
+
+\newif\ifpgf@gd@nodes@behind@edges
+
+
+
+% Define a callback for rendering edges
+%
+% #1 = macro name
+% 
+% Descriptions:
+% 
+% This is a callback from the graph drawing engine. At the end of the
+% creation of a graph, when the nodes have been positioned, this macro
+% is called once for each edge. The macro should take the following
+% parameters:
+% 
+% #1 = from node, optionally followed by "." and the tail anchor
+% #2 = to node, optionally followed by "." and the head anchor
+% #3 = direction (<-, --, ->, or <->)
+% #4 = original options
+% #5 = aux text (typically edge nodes)
+% #6 = algorithm-generated options
+% #7 = bend information
+%
+% The first five parameters are the original values that were passed
+% down to the \pgfgdedge command.
+% 
+% #6 contains options that have been "computed by the algorithm". For
+% instance, an algorithm might have determined, say, flow capacities
+% for edges and it might now wish to communicate this information back
+% to the upper layers. These options should be executed with the path
+% /graph drawing.
+% 
+% #7 contains algorithmically-computed information concerning how the
+% edge should bend. This will be a text like
+% "--(10pt,20pt)--(30pt,40pt)" in tikz-syntax, using the path
+% operations "--", "..controls" and "--cycle".
+% 
+% By default, a simple line is drawn between the nodes. Usually, you
+% will wish to install a more "fancy" callback, here.
+
+\def\pgfgdsetedgecallback#1{\let\pgfgdcallbackedge=#1}
+
+\def\pgfgddefaultedgecallback#1#2#3#4#5#6#7{%
+  {%
+    \pgfscope
+      \pgfpathmoveto{
+        \pgfutil@in@.{#1}%
+        \ifpgfutil@in@
+          \pgf@gd@unravel#1\relax%
+        \else
+          \pgfpointshapeborder{#1}{\pgfpointanchor{#2}{center}}
+        \fi
+      }
+      \pgfpathlineto{
+        \pgfutil@in@.{#2}%
+        \ifpgfutil@in@
+          \pgf@gd@unravel#2\relax%
+        \else
+          \pgfpointshapeborder{#2}{\pgfpointanchor{#1}{center}}
+        \fi
+      }
+      \pgfusepath{stroke}
+    \endpgfscope
+  }
+}
+
+\pgfgdsetedgecallback{\pgfgddefaultedgecallback}
+
+\def\pgf@gd@unravel#1.#2\relax{%
+  \pgfpointanchor{#1}{#2}%
+}
+
+
+
+
+% Callbacks: Called before the shipout of nodes and edges starts
+%
+% First, the general begin shipout is called. Then, the node shipout
+% starts, the nodes are created, and then the end of the node shipout
+% is signaled. Next, the edge shipout starts and ends. Finally, the
+% end shipout is called.
+
+\def\pgfgdcallbackbeginshipout{%
+  \pgfscope%
+    \catcode`\@=11\relax%
+    \setbox\pgf@gd@prekind@box=\box\pgfutil@voidb@x%
+    \setbox\pgf@gd@postkind@box=\box\pgfutil@voidb@x%
+}
+\def\pgfgdcallbackendshipout{%
+    \box\pgf@gd@prekind@box%
+    \ifpgf@gd@nodes@behind@edges%
+      \box\pgf@gd@node@box%
+      \box\pgf@gd@edge@box%
+    \else%
+      \box\pgf@gd@edge@box%
+      \box\pgf@gd@node@box%
+    \fi%
+    \box\pgf@gd@postkind@box%
+  \endpgfscope
+}
+
+\newbox\pgf@gd@node@box
+\newbox\pgf@gd@edge@box
+\newbox\pgf@gd@prekind@box
+\newbox\pgf@gd@postkind@box
+
+\def\pgfgdcallbackbeginnodeshipout{%
+  \setbox\pgf@gd@node@box=\hbox\bgroup%
+}
+\def\pgfgdcallbackendnodeshipout{%
+  \egroup%
+}
+
+\def\pgfgdcallbackbeginedgeshipout{%
+  \setbox\pgf@gd@edge@box=\hbox\bgroup%
+}
+
+\def\pgfgdcallbackendedgeshipout{%
+  \egroup
+}
+
+
+
+
+% Generate a node 
+%
+% This callback is called from the engine whenever an algorithm
+% generates a new node internally.
+%
+% #1 = name of the node
+% #2 = shape of the node
+% #3 = options generated by the algorithm in key-value syntax. The set
+% of generated options is algorithm-dependent.
+% #4 = text
+%
+% This is an internal function and will be called by the binding layer
+
+\def\pgfgdcallbackcreatevertex#1#2#3#4{%
+  {
+    \pgfkeys{#3}
+    \pgfnode{#2}{\pgfkeysvalueof{/graph drawing/generated
+        node/anchor}}{#4}{#1}{\pgfkeysvalueof{/graph drawing/generated
+        node/use path}} 
+  }
+}
+
+\pgfkeys{
+  /graph drawing/generated node/anchor/.initial=center,
+  /graph drawing/generated node/use path/.initial=\pgfusepath{}
+}
+
+
+
+%
+% Sublayouts
+%
+% Description: For a general introduction to (sub)layouts, see
+% Section~\ref{section-gd-sublayouts} in the manual. 
+% 
+
+\def\pgfgdbeginlayout{
+  \begingroup
+    \pgfgdlayoutscopeactivetrue
+    \advance\pgf@gd@parameter@stack@height by1\relax%
+    \directlua{pgf.gd.interface.InterfaceToDisplay.pushLayout(\the\pgf@gd@parameter@stack@height)}
+}
+
+\def\pgfgdendlayout{
+  \endgroup%
+}
+
+\def\pgfbegininterruptlayout{
+  \begingroup%
+    \pgfgdlayoutscopeactivefalse%
+}
+
+\def\pgfendinterruptlayout{
+  \endgroup%
+}
+
+
+
+
+% Creates a subgraph node
+% 
+% #1 = name
+% #2 = node options
+% #3 = node text
+% 
+% Description:
+% 
+% A subgraph node is a node that "surrounds" the nodes of a
+% subgraph. The special property of a subgraph node opposed to a
+% normal node is that it is created only after the subgraph has been
+% laid out. However, the difference to a collection like "hyper" is
+% that the node is availble immediately as a normal node in the sense
+% that you can connect edges to it.
+% 
+% What happens internally is that subgraph nodes get "registered"
+% immediately both on the pgf level and on the lua level, but the
+% actual node is only created inside the layout pipeline using a
+% callback. The actual node creation happens when the innermost layout
+% in which the subgraph node is declared has finished.
+% 
+% When you create a subgraph node using this macro, you also start a
+% collection (of an internal kind) that stores the subgraph. All
+% following nodes in the current TeX scope will become part of this
+% collection. 
+% 
+% See |InterfaceToDisplay.pushSubgraphVertex| for details.
+
+\def\pgfgdsubgraphnode#1#2#3{%
+  \advance\pgf@gd@parameter@stack@height by1\relax%
+  {%
+    % create edge in Lua
+    \toks0={#2}%
+    \toks1={#3}%
+    \directlua{pgf.gd.interface.InterfaceToDisplay.pushSubgraphVertex%
+      ('\luaescapestring{#1}',\the\pgf@gd@parameter@stack@height,
+      {
+        shape = 'rectangle', % typically overwritten by the pgf_options:
+        pgf_options = '\luaescapestring{\the\toks0}',
+        text = '\luaescapestring{\the\toks1}',
+      })
+    }%
+  }
+}
+
+\def\pgfgdsubgraphnodecontents#1{% helper function
+  \hbox to \pgfkeysvalueof{/graph drawing/subgraph bounding box width}{%
+    \vrule width0pt height\pgfkeysvalueof{/graph drawing/subgraph bounding box height}\hfil}%
+}
+
+\pgfgdset{
+  subgraph point cloud/.initial=,
+  subgraph bounding box width/.initial=,
+  subgraph bounding box height/.initial=,
+}
 
 
 % 
@@ -184,9 +1035,8 @@
 \def\pgfgdbeginscope{%
   \begingroup % Protecting scope
     % get options
-    \pgfkeysgetvalue{/graph drawing/graph parameters}\pgf@gd@graph@parameters%
     \directlua{
-      pgf.gd.control.TeXInterface.beginGraphDrawingScope({\pgf@gd@graph@parameters})
+      pgf.gd.interface.InterfaceToDisplay.beginGraphDrawingScope(\the\pgf@gd@parameter@stack@height)
     }%
     \begingroup % Inner scope, the actual nodes will be inserted after
                 % this scope has been closed
@@ -213,12 +1063,12 @@
 
 \def\pgfgdendscope{%
       \directlua{
-        pgf.gd.control.TeXInterface.createGraphDrawingCoroutine()
-        pgf.gd.control.TeXInterface.resumeGraphDrawingCoroutine()
+        pgf.gd.interface.InterfaceToDisplay.runGraphDrawingAlgorithm()
       }
-      \endgroup
+    \endgroup
     % Late positioning has ended
-    \directlua{pgf.gd.control.TeXInterface.endGraphDrawingScope()}
+    \directlua{pgf.gd.interface.InterfaceToDisplay.renderGraph()}
+    \directlua{pgf.gd.interface.InterfaceToDisplay.endGraphDrawingScope()}
   \endgroup
 }
 
@@ -242,6 +1092,119 @@
   \expandafter\def\expandafter\pgfgd@latecallback\expandafter{\pgfgd@latecallback#1}
 }
 \let\pgfgd@latecallback\pgfutil@empty
+
+
+
+
+
+
+
+
+
+
+% Loading further libraries
+
+% Include a graph drawing library file.
+%
+% #1 = List of names of library file.
+%  
+% Description:
+%
+% This command includes a list of graph drawing library files. For
+% each file X in the list, the file pgf.gd.X.lua is included using
+% |require|. 
+%
+% For the convenience of Context users, both round and square brackets
+% are possible for the argument.
+% 
+%
+% Example:
+%
+% \usegdlibrary{trees}
+% \usegdlibrary[force,circular]
+
+\def\usegdlibrary{\pgfutil@ifnextchar[{\use@gdlibrary}{\use@@gdlibrary}}%}
+\def\use@gdlibrary[#1]{\use@@gdlibrary{#1}}
+\def\use@@gdlibrary#1{%
+  \edef\pgf@list{#1}%
+  \pgfutil@for\pgf@temp:=\pgf@list\do{%
+    \expandafter\pgfkeys@spdef\expandafter\pgf@temp\expandafter{\pgf@temp}%
+    \ifx\pgf@temp\pgfutil@empty
+    \else
+      \pgfutil@IfFileExists{pgf.gd.\pgf@temp.library.lua}{%
+        \directlua{require 'pgf.gd.\pgf@temp.library'}
+      }{%
+        \pgfutil@IfFileExists{pgf.gd.\pgf@temp.lua}{%
+          \directlua{require 'pgf.gd.\pgf@temp'}
+        }{%
+          \pgfutil@IfFileExists{\pgf@temp.library.lua}{%
+            \directlua{require '\pgf@temp.library'}
+          }{%
+            \directlua{require '\pgf@temp'}
+          }}}%
+    \fi
+  }%
+}
+
+
+% 
+% Load standard declarations
+% 
+
+\usegdlibrary{model,control}
+
+
+
+%
+% Special setup for keys that are declared by the above libraries, but
+% that have a special meaning on the display layer.
+%
+
+\pgfkeys{/graph drawing/nodes behind edges/.append code=\csname pgf@gd@nodes@behind@edges#1\endcsname}
+
+
+
+
+\endinput
+
+
+%
+%
+% Begin old Stuff
+%
+%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%
+% Basic Interface to the Graph Drawing Engine
+%
+
+% 
+% In order to use the graph drawing engine, inside a pgfpicture you
+% need to create a graph drawing scope using the following commands;
+%
+
+\directlua{require 'pgf.gd.control.TeXInterface'} % deprecated
+
+
+
+
+
+
 
 
 
@@ -319,9 +1282,13 @@
 \pgfgdset{
   graph parameters/.initial=,
   node parameters/.initial=,
-  layout node parameters/.initial=,
   edge parameters/.initial=,
 }  
+
+
+
+
+
 
 
 
@@ -410,19 +1377,6 @@
 \def\pgf@gd@@@parameter#1#2#3{#2{#3}{#1}}
 
 
-% Key handler /.accumulates
-% 
-% When this handler is used with a key, it tells the engine that the
-% parameter is "accumulating". This means that when the key is set
-% several times, new values do not overwrite previous values. Rather,
-% they are added to a table storing all values given to this key in
-% the previous usages.
-
-\pgfkeys{
-  /handlers/.accumulates/.code=\directlua{pgf.gd.control.TeXInterface.setParameterAccumulates('\luaescapestring{\pgfkeyscurrentpath}')}
-}
-
-
 
 % Key handler /.parameter initial
 %
@@ -469,63 +1423,6 @@
 
 
 
-% In many cases, when you specify a graph parameter, you will not wish
-% the "actual" setting of the key to be passed to the algorithm. For
-% instance, suppose we write 
-% 
-%   /some path/width/.graph parameter
-% 
-% Now we could write /some path/width=20pt+2pt, and inside the
-% algorithm the parameter "width" would equal the string
-% "20pt+2pt". However, inside the algorithm, it would be somewhat
-% preferable to have access to the value "22" rather than the string
-% "20pt+2pt". Similary, when the width is "1in", the algorithm will
-% prefer to get passed the number "72.27" instead of "1in".
-% 
-% For this reason, when you define a graph drawing parameter, you can
-% optionally specify a conversion that will be applied to the
-% key's value before it is passed to the algorithm. To do so, 
-% write
-% 
-% /some path/my key/.graph parameter=conversion key
-% 
-% The conversion key will be executed with path prefix /graph
-% drawing/conversions/. It gets passed the value that was
-% assigned to the parameter key. It should store the "result" of the
-% conversion in the macro \pgfgdresult. The contents of this macro is
-% the text that will actually be passed down to the algorithm.
-% 
-% As an example, let us start with the default conversion: It simply
-% stores its parameter as the result:
-% 
-% /graph drawing/conversions/string/.code=\def\pgfgdresult{'\luaescapestring{#1}'}
-% 
-% A more complicated example is the math conversion:
-% 
-% /graph drawing/conversions/math/.code=
-%    \pgfmathparse{#1}\let\pgfgdresult\pgfmathresult
-
-\pgfgdset{
-  conversions/string/.code=\def\pgfgdresult{'\luaescapestring{\detokenize{#1}}'},
-  conversions/raw/.code=\def\pgfgdresult{#1},
-  conversions/boolean/.code=\def\pgf@test{#1}\ifx\pgf@test\pgf@truetext\def\pgfgdresult{true}\else\def\pgfgdresult{false}\fi,
-  conversions/number/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
-  conversions/number with optional and/.code={
-    \pgfutil@in@{ and }{#1}%
-    \ifpgfutil@in@%
-      \pgf@gd@convert@and#1\pgf@stop%
-    \else%
-      \pgf@gd@convert@and#1 and #1\pgf@stop%
-    \fi%
-  },
-  conversions/direction/.code=\pgf@lib@gd@grow@dir{#1}\let\pgfgdresult\pgfmathresult,
-  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1,#2}}},
-  conversions/table with node keys/.code=\def\pgfgdresult{pgf.gd.control.TeXInterface.convertNameKeysToVertexKeys({#1})},
-}
-\def\pgf@truetext{true}
-
-\def\pgf@gd@convert@and#1 and #2\pgf@stop{\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult}
-
 % Graph drawing graph parameter "algorithm"
 %  
 % Description:
@@ -534,252 +1431,13 @@
 % for drawing the next graph.
 
 \pgfgdset{
-  algorithm/.graph parameter=string
+  algorithm/.graph parameter=string,
+  layout algorithm/.graph parameter=algorithm,
 }
 
 
 
 
-
-% Set options for an already existing node
-% 
-% #1 = node name
-% 
-% These node parameters of #1 will be updated with the current values
-% of the node parameters. The node #1 must previously have been passed
-% to the gd engine. If some of the options have already been set for
-% the node, these settings will be overruled.
-
-\def\pgfgdsetlatenodeoption#1{%
-  {%
-    \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options%
-    % call lua system library to create a lua node object
-    \directlua{pgf.gd.control.TeXInterface.setLateNodeOptions(
-        '\luaescapestring{#1}',
-        {\pgf@gd@node@options}) }
-  }%
-}
-
-
-
-
-
-% Adds an edge to the graph
-%
-% #1 = first node
-% #2 = second node
-% #3 = edge direction
-% #4 = edge options (will be executed in a protected environment)
-% #5 = aux stuff (curtesy for TikZ -- edge nodes)
-%
-% Description:
-%
-% Creating an edge means that you tell the graph drawing algorithm
-% that #1 and #2 are connected. The "kind" of connection is indicated
-% by #3, which may be one of the following:
-% 
-% ->  = a directed edge (also known as an arc) from #1 to #2
-% --  = an undirected edge between #1 and #2
-% <-  = a directed edge from #2 to #1, but with the "additional hint"
-%       that this is a "backward" edge. A graph drawing algorithm may
-%       or may not take this hint into account
-% <-> = a bi-directed edge between #1 and #2.
-% 
-%
-% The parameters #4 and #5 are a bit more tricky. When an edge between
-% two vertices of a graph is created via \pgfgdedge, nothing is
-% actually done immediately. After all, without knowing the final
-% positions of the nodes #1 and #2, there is no way of
-% creating the actual drawing commands for the edge. Thus, the actual
-% drawing of the edge is done only when the graph drawing algorithm is
-% done (namely in the macro \pgfgdedgecallback, see later).
-% 
-% Because of this "delayed" drawing of edges, options that influence
-% the edge must be retained until the moment when the edge is actually
-% drawn. Parameters #4 and #5 store such options.
-% 
-% Let us start with #4. This parameter should be set to a list of
-% key-value pairs like
-% 
-%   /tikz/.cd, color=red, very thick, this edge must be vertical
-% 
-% Some of these options may be of interest to the graph drawing
-% algorithm (like the last option) while others will 
-% only be important during the drawing of edge (like the first
-% option). The options that are important for the graph drawing
-% algorithm must be passed to the algorithm via setting keys that have
-% been declared using the handler .edge parameter (see 
-% above).
-% 
-% The tricky part is that options that are of interest to the graph
-% drawing algorithm must be executed *before* the algorithm starts,
-% but the options as a whole are usually only executed during the
-% drawing of the edges, which is *after* the algorithm has finished.
-% 
-% To overcome this problem, the following happens:
-% 
-% The options in #4 are executed "tentatively" inside
-% \pgfgdedge. However, this execution is done in a "heavily guarded
-% sandbox" where all effects of the options (like changing the
-% color or the line width) do not propagate beyond the sandbox. Only
-% the changes of the graph drawing edge parameters leave the
-% sandbox. These parameters are then passed down to the graph drawing
-% engine.
-% 
-% Later, when the edge is drawn using \pgfgdedgecallback, the options #4
-% are available once more and then they are executed normally.
-%
-% Note that when the options in #4 are executed, no path is
-% preset. Thus, you typically need to start it with, say, /tikz/.cd.
-%
-%
-% The text in #5 is some "auxilliary" text that is simply stored away
-% and later directly to \pgfgdedgecallback. This is a curtesy to TikZ,
-% which can use it to store its node labels. 
-%
-% Example:
-%
-% \pgfgdedge{A}{B}{->}{red}{}
-%
-\def\pgfgdedge#1#2#3#4#5{%
-  % Ok, setup sandbox
-  \begingroup%
-    \setbox0=\hbox{{%
-        \pgfinterruptpath%
-          \pgfgdprepareedge%
-          \pgfkeys{#4}%
-          \pgfkeysgetvalue{/graph drawing/edge parameters}\pgf@gd@edge@options%
-          % create edge in Lua
-          \toks0={#4}%
-          \toks1={#5}%
-          \directlua{
-            pgf.gd.control.TeXInterface.addPgfEdge(
-            '\luaescapestring{#1}','\luaescapestring{#2}','\luaescapestring{#3}',
-            {\pgf@gd@edge@options},
-            '\luaescapestring{\the\toks0}','\luaescapestring{\the\toks1}')
-          }%
-        \endpgfinterruptpath%
-      }}%
-  \endgroup%
-}
-
-\let\pgfgdprepareedge=\pgfutil@empty
-\def\pgfgdaddprepareedgehook#1{\expandafter\def\expandafter\pgfgdprepareedge\expandafter{\pgfgdprepareedge#1}}
-
-
-% Callbacks: Called before the shipout of nodes and edges starts
-%
-% First, the general begin shipout is called. Then, the node shipout
-% starts, the nodes are created, and then the end of the node shipout
-% is signaled. Next, the edge shipout starts and ends. Finally, the
-% end shipout is called.
-
-\def\pgfgdbeginshipout{%
-  \pgfscope%
-    \catcode`\@=11\relax%
-}
-\def\pgfgdendshipout{%
-    \box\pgf@gd@prekind@box%
-    \ifpgf@gd@edges@behind@nodes%
-      \box\pgf@gd@edge@box%
-      \box\pgf@gd@node@box%
-    \else%
-      \box\pgf@gd@node@box%
-      \box\pgf@gd@edge@box%
-    \fi%
-    \box\pgf@gd@postkind@box%
-  \endpgfscope
-}
-
-\newbox\pgf@gd@node@box
-\newbox\pgf@gd@edge@box
-\newbox\pgf@gd@prekind@box
-\newbox\pgf@gd@postkind@box
-\def\pgfgdbeginnodeshipout{%
-  \setbox\pgf@gd@node@box=\hbox\bgroup%
-}
-\def\pgfgdendnodeshipout{%
-  \egroup%
-}
-
-\def\pgfgdbeginedgeshipout{%
-  \setbox\pgf@gd@edge@box=\hbox\bgroup%
-}
-
-\def\pgfgdendedgeshipout{%
-  \egroup
-}
-
-\def\pgfgdbeginprekindshipout{%
-  \setbox\pgf@gd@prekind@box=\hbox\bgroup%
-}
-
-\def\pgfgdendprekindshipout{%
-  \egroup
-}
-
-\def\pgfgdbeginpostkindshipout{%
-  \setbox\pgf@gd@postkind@box=\hbox\bgroup%
-}
-
-\def\pgfgdendpostkindshipout{%
-  \egroup
-}
-
-\newif\ifpgf@gd@edges@behind@nodes
-\pgf@gd@edges@behind@nodestrue
-
-
-
-% Define a callback for rendering edges
-%
-% #1 = macro name
-% 
-% Descriptions:
-% 
-% This is a callback from the graph drawing engine. At the end of the
-% creation of a graph, when the nodes have been positioned, this macro
-% is called once for each edge. The macro should take the following
-% parameters:
-% 
-% #1 = from node
-% #2 = to node
-% #3 = direction (<-, --, ->, or <->)
-% #4 = original options
-% #5 = aux text (typically edge nodes)
-% #6 = algorithm-generated options
-% #7 = bend information
-%
-% The first five parameters are the original values that were passed
-% down to the \pgfgdedge command.
-% 
-% #6 contains options that have been "computed by the algorithm". For
-% instance, an algorithm might have determined, say, flow capacities
-% for edges and it might now wish to communicate this information back
-% to the upper layers. These options should be executed with the path
-% /graph drawing.
-% 
-% #7 contains algorithmically-computed information concerning how the
-% edge should bend. Currently, this will be a text like
-% "--(10pt,20pt)--(30pt,40pt)" in tikz-syntax, but this may change to
-% make things more portable.
-% 
-% By default, a simple line is drawn between the nodes. Usually, you
-% will wish to install a more "fancy" callback, here.
-
-\def\pgfgdsetedgecallback#1{\let\pgfgdedgecallback=#1}
-
-\def\pgfgddefaultedgecallback#1#2#3#4#5#6#7{%
-  {%
-    \pgfscope
-      \pgfpathmoveto{\pgfpointshapeborder{#1}{\pgfpointanchor{#2}{center}}}
-      \pgfpathlineto{\pgfpointshapeborder{#2}{\pgfpointanchor{#1}{center}}}
-      \pgfusepath{stroke}
-    \endpgfscope
-  }
-}
-
-\pgfgdsetedgecallback{\pgfgddefaultedgecallback}
 
 
 
@@ -881,40 +1539,8 @@
   \pgf@gd@setup@forwards{#1}
   \pgfutil@g@addto@macro\pgf@gd@forwards@list{\pgf@gd@setup@forwards{#1}}
 }
-\def\pgf@gd@setup@forwards#1{
-  \let\pgf@temp\pgfutil@empty
-  \foreach \pgf@gd@path in \pgf@gd@forwarding@list {
-    \ifx\pgf@gd@path\pgfutil@empty\else%
-      \expandafter\pgfutil@g@addto@macro\expandafter\pgf@temp\expandafter{\expandafter\pgfkeys\expandafter{\pgf@gd@path#1/.forward to=/graph drawing/#1}}
-    \fi%
-  }%
-  \pgf@temp
-}
-
-\let\pgf@gd@forwards@list\pgfutil@empty
 
 
-
-
-% Append to the forwarding list:
-% 
-% #1 = paths to append to the forwarding list
-% 
-% Description:
-% 
-% Append the paths in #1 (with trailing slashes) to the forwarding
-% list.
-% 
-% If algorithms have already been declared, forwarding will also be
-% setup for them (using a bit of magic...).
-
-\def\pgfgdappendtoforwardinglist#1{%
-  \let\pgf@gd@forwarding@list@orig\pgf@gd@forwarding@list
-  \def\pgf@gd@forwarding@list{#1}%
-  \pgf@gd@forwards@list%
-  \expandafter\def\expandafter\pgf@gd@forwarding@list\expandafter{\pgf@gd@forwarding@list@orig,#1}
-}
-\let\pgf@gd@forwarding@list\pgfutil@empty
 
 
 
@@ -976,606 +1602,12 @@
 
 
 
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  nodes behind edges/.code=\pgf@gd@edges@behind@nodesfalse,
-  edges behind nodes/.code=\pgf@gd@edges@behind@nodestrue
-}
 
 
 
 
 
 
-
-% 
-% 
-% 
-% Anchoring 
-% 
-% (see Section~\ref{subsection-library-graphdrawing-anchoring})
-% 
-% 
-
-
-% Anchors for an edge: An edge can have a tail and a head
-% anchor. Ideally, the edge should start at the tail anchor of the
-% tail node and end at the head anchor of the head node. A graph
-% drawing algorithm may choose to ignore these settings.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  tail anchor/.edge parameter=string,
-  head anchor/.edge parameter=string
-}
-
-
-% Desired positiong for a node
-% 
-% #1 = a coordinate
-% 
-% Description:
-% 
-% This node parameter stores a coordiante. When set, the layout
-% algorithm is "requested" to try an place the node at 
-% this position.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  desired at/.node parameter=coordinate
-}
-
-
-
-
-% Nudging a node
-% 
-% #1 = an offset (as a coordinate)
-% 
-% Description:
-% 
-% This node parameter allows you to slightly ``nudge'' (move) nodes
-% after they have been positioned by the given offset. The idea is
-% that this nudging is 
-% done after the position of the node has been computed, so nudging
-% has no influence on the actual graph drawing algorithms. This, in
-% turn, means that you can use nudging to "correct" or "optimize" the
-% positioning of nodes after the algorithm has computed something.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  nudge/.node parameter=coordinate
-}
-
-
-% Forcing a node
-% 
-% #1 = a coordinate
-% 
-% Description:
-% 
-% This node parameter allows you provide a position for a node to wish
-% it will be forced after the graph algorithms have run. So, the node
-% is positioned normally and the graph drawing algorithm does not know
-% about the position #1. However, afterwards, the node is placed at #1
-% regardless of what the algorithm has computed (all other nodes are
-% unaffected). 
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  regardless at/.node parameter=coordinate
-}
-
-
-% "Nail" a node to a position
-% 
-% #1 = a coordinate
-% 
-% Description:
-% 
-% This option combines "desired at" and "regardless at". Thus, the
-% algorithm is "told" about the desired position. If it fails to place
-% the node at the desired position, it will be put there
-% regardless. The name of the key is intended to remind one of a node
-% begin "nailed" to the canvas.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  nail at/.style={}
-}
-\pgfgdset{nail at/.style={%
-    /graph drawing/desired at={#1},
-    /graph drawing/regardless at={#1}
-  }
-}
-
-
-
-% Default anchoring position
-% 
-% Description:
-% 
-% This node parameter stores two numbers in the format {#1}{#2}. A
-% graph should be anchored at this position when there is no explict
-% anchoring of any node.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  anchor at/.graph parameter=coordinate,
-  anchor at/.parameter initial={(0pt,0pt)}
-}
-
-
-% Specify an anchor node
-% 
-% Description:
-% 
-% Requests that the graph is "anchored" at this node. If there are
-% several, the first one is used. If there are none, the first node
-% with a "desired at" is chosen. If there are none with that option
-% either, the first node is used.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  anchor here/.node parameter=string,
-  anchor here/.default=true,
-  anchor node/.graph parameter=string,
-}
-
-
-
-
-% 
-% 
-% 
-% Orientation
-% 
-% (see Section~\ref{subsection-library-graphdrawing-standard-orientation})
-% 
-% 
-
-
-% The orient key
-% 
-% Description:
-% 
-% When used with an edge, the orient key specifies the desired slope of
-% the edge:
-% 
-%   a --[orient=90] b  % Vertical edge, going up from a to b 
-%  
-% When used with a node, the syntax is :angle:anther_node, causing the
-% graph to be oriented so that the line from the node to the other
-% node has a slope of "angle"
-% 
-%   a[orient=:90:b] -- c -- b  % b will be above a.
-%   
-% The leading colon is optional, so orient=90:b is also fine.
-%
-% When used with a graph as a whole, the syntax is node1:angle:node2,
-% with node1 being nonempty, causing the graph to be oriented so that
-% the line from node1 to node2 has a slope of "angle"
-% 
-%  graph [orient=a:90:b] { a -- c -- b } % b will be above a.
-%  
-%  
-% If a dash is found in the parameter, it will be replaced by :0:, so
-% saying orient=a-b has the same effect as orient=a:0:b. A vertical
-% bar is replaced by :-90:.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{orient/.code=,orient'/.code=}
-
-\pgfkeys{/graph drawing/orient/.append code=\pgf@gd@orient@handle{#1}{orient}}
-\pgfkeys{/graph drawing/orient'/.append code=\pgf@gd@orient@handle{#1}{orient'}}
-
-\def\pgf@gd@orient@handle#1#2{
-  \pgfutil@in@:{#1}%
-  \ifpgfutil@in@%
-    \pgf@lib@gd@parse@orient#1\pgf@stop{#2}%
-  \else%
-    \pgfutil@in@-{#1}%
-    \ifpgfutil@in@%
-      \pgf@lib@gd@parse@dash#1\pgf@stop{#2}%
-    \else
-      \pgfutil@in@|{#1}
-      \ifpgfutil@in@%
-        \pgf@lib@gd@parse@bar#1\pgf@stop{#2}%
-      \else
-        \expandafter\pgfutil@in@\pgf@lib@active@bar{#1}
-        \ifpgfutil@in@%
-          \pgf@lib@gd@parse@active@bar#1\pgf@stop{#2}%
-        \else
-          \pgf@lib@gd@grow@dir{#1}%
-          \edef\pgf@marshal{\noexpand\pgfgdedgeparameter{/graph drawing/#2}{\pgfmathresult}}%
-          \pgf@marshal%
-        \fi%
-      \fi%
-    \fi%
-  \fi%
-}
-
-\def\pgf@lib@gd@parse@dash#1-#2\pgf@stop#3{%
-  \pgf@lib@gd@parse@orient#1:0:#2\pgf@stop{#3}%
-}
-
-\def\pgf@lib@gd@parse@bar#1|#2\pgf@stop#3{%
-  \pgf@lib@gd@parse@orient#1:-90:#2\pgf@stop{#3}%
-}
-
-{
-  \catcode`\|=13
-  \gdef\pgf@lib@active@bar{|}
-  \gdef\pgf@lib@gd@parse@active@bar#1|#2\pgf@stop#3{%
-    \pgf@lib@gd@parse@orient#1:-90:#2\pgf@stop{#3}%
-  }
-}
-
-\def\pgf@lib@gd@parse@orient#1:#2\pgf@stop#3{%
-  \pgfutil@in@:{#2}%
-  \ifpgfutil@in@%
-    \pgf@lib@gd@parse@orient@final#1:#2\pgf@stop{#3}%
-  \else%
-    \pgf@lib@gd@parse@orient@final:#1:#2\pgf@stop{#3}%
-  \fi%
-}
-
-\def\pgf@lib@gd@parse@orient@final#1:#2:#3\pgf@stop#4{%
-  \pgf@lib@gd@grow@dir{#2}%
-  \def\pgf@temp{#1}%
-  \ifx\pgf@temp\pgfutil@empty
-    \edef\pgf@marshal{\noexpand\pgfgdnodeparameter{/graph drawing/#4}{{\pgfmathresult,'\luaescapestring{#3}'}}}%
-  \else%
-    \edef\pgf@marshal{\noexpand\pgfgdgraphparameter{/graph drawing/#4}{{\pgfmathresult,'\luaescapestring{#1}','\luaescapestring{#3}'}}}%
-  \fi%
-  \pgf@marshal%
-}
-
-
-\def\pgf@lib@gd@grow@dir#1{%
-  \ifcsname pgf@orient@direction@#1\endcsname%
-    \expandafter\let\expandafter\pgfmathresult\csname pgf@orient@direction@#1\endcsname%
-  \else
-    \pgfmathparse{#1}%
-  \fi
-}
-
-\def\pgf@orient@direction@down{-90}
-\def\pgf@orient@direction@up{90}
-\def\pgf@orient@direction@left{180}
-\def\pgf@orient@direction@right{0}
-
-\def\pgf@orient@direction@south{-90}
-\def\pgf@orient@direction@north{90}
-\def\pgf@orient@direction@west{180}
-\def\pgf@orient@direction@east{0}
-
-\expandafter\def\csname pgf@orient@direction@north east\endcsname{45}
-\expandafter\def\csname pgf@orient@direction@north west\endcsname{135}
-\expandafter\def\csname pgf@orient@direction@south east\endcsname{-45}
-\expandafter\def\csname pgf@orient@direction@south west\endcsname{-135}
-
-
-
-% The grow key
-% 
-% Description:
-% 
-% When specified with a node, causes the graph to be rotated such that
-% the "growth" direction of the graph is the given angle (at least
-% locally at the node).
-
-\pgfgddeclareforwardedkeys{/graph drawing}{grow/.code=,grow'/.code=}
-
-\pgfkeys{/graph drawing/grow/.append code=\pgf@gd@grow@handle{#1}{grow}}
-\pgfkeys{/graph drawing/grow'/.append code=\pgf@gd@grow@handle{#1}{grow'}}
-
-\def\pgf@gd@grow@handle#1#2{%
-  \pgf@lib@gd@grow@dir{#1}%
-  \edef\pgf@marshal{\noexpand\pgfgdhybridnodegraphparameter{/graph drawing/#2}{\pgfmathresult}}%
-  \pgf@marshal%
-}
-
-
-
-
-
-
-% 
-% 
-% 
-% Packing
-% 
-% 
-% 
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  componentwise/.graph parameter=boolean,
-  componentwise/.parameter initial=false,
-  componentwise/.default=true
-}
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  component sep/.graph parameter=number,
-  component sep/.parameter initial=1.5em,
-  component direction/.graph parameter=direction,
-  component direction/.parameter initial=0,
-  component align/.graph parameter=string,
-  component align/.parameter initial=first node,
-  align here/.node parameter=boolean,
-  align here/.default=true,
-  component order/.graph parameter=string,
-  component packing/.graph parameter=string,
-  small components first/.style={/graph drawing/component order=increasing node number},
-  large components first/.style={/graph drawing/component order=decreasing node number},
-  % Shortcuts
-  components go right top aligned/.style={/graph drawing/component direction=0,/graph drawing/component align=counterclockwise},
-  components go right absolute top aligned/.style={/graph drawing/component direction=0,/graph drawing/component align=counterclockwise bounding box},
-  components go right bottom aligned/.style={/graph drawing/component direction=0,/graph drawing/component align=clockwise},
-  components go right absolute bottom aligned/.style={/graph drawing/component direction=0,/graph drawing/component align=clockwise bounding box},
-  components go right center aligned/.style={/graph drawing/component direction=0,/graph drawing/component align=center},
-  components go right/.style={/graph drawing/component direction=0,/graph drawing/component align=first node},
-  % left
-  components go left top aligned/.style={/graph drawing/component direction=180,/graph drawing/component align=clockwise},
-  components go left absolute top aligned/.style={/graph drawing/component direction=180,/graph drawing/component align=clockwise bounding box},
-  components go left bottom aligned/.style={/graph drawing/component direction=180,/graph drawing/component align=counterclockwise},
-  components go left absolute bottom aligned/.style={/graph drawing/component direction=180,/graph drawing/component align=counterclockwise bounding box},
-  components go left center aligned/.style={/graph drawing/component direction=180,/graph drawing/component align=center},
-  components go left/.style={/graph drawing/component direction=180,/graph drawing/component align=first node},
-  % up
-  components go down right aligned/.style={/graph drawing/component direction=270,/graph drawing/component align=counterclockwise},
-  components go down absolute right aligned/.style={/graph drawing/component direction=270,/graph drawing/component align=counterclockwise bounding box},
-  components go down left aligned/.style={/graph drawing/component direction=270,/graph drawing/component align=clockwise},
-  components go down absolute left aligned/.style={/graph drawing/component direction=270,/graph drawing/component align=clockwise bounding box},
-  components go down center aligned/.style={/graph drawing/component direction=270,/graph drawing/component align=center},
-  components go down/.style={/graph drawing/component direction=270,/graph drawing/component align=first node},
-  % down
-  components go up right aligned/.style={/graph drawing/component direction=90,/graph drawing/component align=clockwise},
-  components go up absolute right aligned/.style={/graph drawing/component direction=90,/graph drawing/component align=clockwise bounding box},
-  components go up left aligned/.style={/graph drawing/component direction=90,/graph drawing/component align=counterclockwise},
-  components go up absolute left aligned/.style={/graph drawing/component direction=90,/graph drawing/component align=counterclockwise bounding box},
-  components go up center aligned/.style={/graph drawing/component direction=90,/graph drawing/component align=center},
-  components go up/.style={/graph drawing/component direction=90,/graph drawing/component align=first node},
-}
-
-
-
-% 
-% 
-% 
-% Always-present all-purpose keys
-% 
-% 
-%
-
-
-% Random seed
-%
-% To ensure that the same is always shown in the same way when the
-% same algorithm is applied, the random is seed is reset on each call
-% of the graph drawing engine. To (possibly) get different results on
-% different runs, change this value.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  random seed/.graph parameter=number,
-  random seed/.parameter initial=42
-}
-
-
-
-% General node distance.
-% 
-% Description:
-% 
-% The node distance is used as a generic term for specifying the
-% desired distance between nodes in, for instance, spring layouts. For
-% layered or tree layouts, the two options sibling distance and level
-% distance are used instead.
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  node distance/.graph parameter=number with optional and,
-  node distance/.parameter initial=10mm,
-  node pre sep/.node or graph parameter=number,
-  node pre sep/.parameter initial=.333em,
-  node post sep/.node or graph parameter=number,
-  node post sep/.parameter initial=.333em,
-  node sep/.style=,
-}
-
-
-% Distances between levels and siblings in layered drawings or
-% tree drawings.
-% 
-% Description:
-% 
-% These keys work as in the classical typesetting of TikZ for trees. 
-% Their default value is 10mm (as in tikz).
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  level distance/.graph parameter=number,
-  level distance/.parameter initial=10mm,
-  level pre sep/.node or graph parameter=number,
-  level pre sep/.parameter initial=.333em,
-  level post sep/.node or graph parameter=number,
-  level post sep/.parameter initial=.333em,
-  level sep/.style=,
-  sibling distance/.node or graph parameter=number,
-  sibling distance/.parameter initial=10mm,
-  sibling pre sep/.node or graph parameter=number,
-  sibling pre sep/.parameter initial=0.333em,
-  sibling post sep/.node or graph parameter=number,
-  sibling post sep/.parameter initial=0.333em,
-  sibling sep/.style=,
-}
-
-\pgfkeys{/graph drawing/sibling sep/.style=%
-  {/graph drawing/sibling pre sep={(#1)/2},/graph drawing/sibling post sep={(#1)/2}}}
-\pgfkeys{/graph drawing/level sep/.style=%
-  {/graph drawing/level pre sep={(#1)/2},/graph drawing/level post sep={(#1)/2}}}
-\pgfkeys{/graph drawing/node sep/.style=%
-  {/graph drawing/node pre sep={(#1)/2},/graph drawing/node post sep={(#1)/2}}}
-
-
-
-%
-%
-% Spanning
-%
-%
-
-\pgfgddeclareforwardedkeys{/graph drawing}{
-  span priority/.edge parameter=number,
-  span edge/.style={/graph drawing/span priority=1},
-  no span edge/.style={/graph drawing/span priority=10},
-  span priority ->/.graph parameter=number,
-  span priority ->/.parameter initial=3,
-  span priority reversed ->/.graph parameter=number,
-  span priority reversed ->/.parameter initial=9,
-  span priority <-/.graph parameter=number,
-  span priority <-/.parameter initial=8,
-  span priority reversed <-/.graph parameter=number,
-  span priority reversed <-/.parameter initial=7,
-  span priority --/.graph parameter=number,
-  span priority --/.parameter initial=5,
-  span priority reversed --/.graph parameter=number,
-  span priority reversed --/.parameter initial=5,
-  span priority <->/.graph parameter=number,
-  span priority <->/.parameter initial=5,
-  span priority reversed <->/.graph parameter=number,
-  span priority reversed <->/.parameter initial=5,
-  span priority -!-/.graph parameter=number,
-  span priority -!-/.parameter initial=10,
-  span priority reversed -!-/.graph parameter=number,
-  span priority reversed -!-/.parameter initial=10,
-  span using directed/.style={
-    /graph drawing/span priority reversed <-=3,
-    /graph drawing/span priority <->=3,
-    /graph drawing/span priority reversed <->=3,
-  },
-  span using all/.style={
-    /graph drawing/span priority <-=5,
-    /graph drawing/span priority ->=5,
-    /graph drawing/span priority <->=5,
-    /graph drawing/span priority --=5,
-    /graph drawing/span priority -!-=5,
-    /graph drawing/span priority reversed <-=5,
-    /graph drawing/span priority reversed ->=5,
-    /graph drawing/span priority reversed <->=5,
-    /graph drawing/span priority reversed --=5,
-    /graph drawing/span priority reversed -!-=5,
-  }
-}
-
-
-% Graph events  
-% 
-% Although a graph consists of nodes and edges, during the
-% construction of the graph a lot of information concerning the
-% structure of the graph is often available. For instance, as we
-% specify a graph using the child-syntax, we do not only which edges
-% are present, but we can implicitly specify an ordering on the
-% nodes. Even more, there is even information availble concerning
-% nodes that are not present at all: A child[missing] is not present
-% as a node or an edge, but a tree drawing algorithm will want to know
-% about this child nevertheless.
-% 
-% In order to communicate such information to the graph drawing
-% engine, "events" are used. As a graph is created, in addition to
-% nodes and edges, "events" may happen. The events come in a
-% sequential order and they are stored together with the graph. For
-% each node and each edge, its index in the event sequence is
-% stored, that is, it is stored how many events happened before the
-% node or edge was created.
-% 
-% Internally, an event consists of a name and, possibly, some
-% parameters. When the parameter is created on the tikz level, it will
-% be a string that is passed down to Lua. Internally created events
-% will also have parameters that are objects.
-% 
-% Two events are a bit special since they get special internal
-% support: The begin and end events. The first signals that some kind
-% of group has started; which is closed by the corresponding end
-% event. The "kind" of group is indicated by the parameter of the
-% begin event.
-% 
-% 
-% 
-% Standard events are:
-% 
-% For each node entered into a graph, a "node" event is automatically
-% created internally with the parameter being the node. However, you
-% can also create this event yourself. In this case, the parameter
-% will be a string and will mean that the node is "virtual" or
-% "missing", but space should be reserved for it, if possible (this is
-% use, for instance, by certain tree layouts).
-% 
-% For each edge entered into a graph, an "edge" event is automatically
-% created, with the edge as the parameter. Again, an event with a
-% string parameter corresponds to a "non-existing" node.
-% 
-%
-% Standard event groups are:
-% 
-%
-% The "descendants" event group include a set of nodes that, at least
-% inside the specification, are descendants of the last node
-%
-% begin descendants
-% ...
-% end
-% 
-% 
-% The "array" event group collects together some nodes in an array of
-% nodes. This can be used, for instance, to specify matrices.
-% 
-% begin array
-% ...
-% end 
-
-
-
-% Create a new event
-% 
-% #1 = event name (should be a valid lua identifier name)
-% #2 = parameter (some text)
-% 
-% Description:
-% 
-% Adds a new event to the event sequence of the graph
-
-\def\pgfgdevent#1#2{%
-  \directlua{pgf.gd.control.TeXInterface.addEvent('\luaescapestring{#1}', '\luaescapestring{#2}')}%
-}
-
-
-% Start an event group
-% 
-% #1 = kind of event group
-% 
-% Description:
-% 
-% Creates a begin event with #1 as the parameter of the begin
-% event.
-
-\def\pgfgdbegineventgroup#1{%
-  \pgfgdevent{begin}{#1}%
-}
-
-% End an event group
-% 
-% Description:
-% 
-% Creates an end event.
-
-\def\pgfgdendeventgroup{%
-  \pgfgdevent{end}{}%
-}
-
-
-% Creates an event group for the current TeX group
-%
-% #1 = event group name 
-%
-% Description:
-% 
-% Issues a begin event for #1 and, using \aftergroup, adds an end
-% event at the end of the current tex group.
-
-\def\pgfgdeventgroup#1{%
-  \pgfgdbegineventgroup{#1}%
-  \aftergroup\pgfgdendeventgroup%
-}
 
 
 
@@ -1755,307 +1787,12 @@
 }
 
 \pgfgdset{name/.store in=\pgf@gd@collection@name}
-\pgfgdset{collection memberships/.accumulates}
 
 \newcount\pgf@gd@collectioncount
 
 
 
-%
-% Hyperedges
-%
-% The hyper key can be used to group together nodes to a
-% hyperedge. The hyperedges will be available to the graph drawing
-% algorithm through the collections.hyper field of the scope.
-% 
-% Currently, there is no default renderer for hyper edges. 
-%
-% Example:
-%
-% \graph {
-%   % The nodes:
-%   a, b, c, d;
-%  
-%   % The edges:
-%   {[hyper] a,b,c};
-%   {[hyper] b,c,d};
-%   {[hyper] a,c};
-%   {[hyper] d}
-% };
-
-\pgfgddeclarecollectionkind{hyper}{1}
 
 
 
-
-%
-% Sublayouts
-%
-% Description: For a general introduction to (sub)layouts, see
-% Section~\ref{section-gd-sublayouts} in the manual. 
-% 
-% This command starts a layout that ends at the end of the current TeX
-% scope. Addtionally, when no graph drawing scope is open currently, a
-% new scope is opened using
-%
-% A layout ends at the end of the current scope and, internally, they
-% are handled mainly using collections (each sublayout is a
-% collection). 
-%
-\pgfgddeclarecollectionkind{sublayout_collection}{0}
-
-\newcount\pgf@gd@sublayout@stack@height
-\newcount\pgf@gd@sublayout@num
-
-\def\pgfgdbeginlayout{
-  \begingroup
-    \pgfgdlayoutscopeactivetrue
-    % Start a collection:
-    % 
-    % First, compute a name
-    % 
-    \global\advance\pgf@gd@sublayout@num by1\relax% Note the difference with respect to \global
-    \advance\pgf@gd@sublayout@stack@height by1\relax%
-    % 
-    \pgfgdset{sublayout_collection={name/.expanded=sublayout \the\pgf@gd@sublayout@num}} % Will create the layout collection
-    \directlua{pgf.gd.control.TeXInterface.setupLayout('sublayout
-      \the\pgf@gd@sublayout@num',\the\pgf@gd@sublayout@stack@height,{\pgfkeysvalueof{/graph
-          drawing/graph parameters}})}%
-}
-
-\def\pgfgdendlayout{
-  \endgroup%
-}
-
-\def\pgfbegininterruptlayout{
-  \begingroup%
-    \pgfgdlayoutscopeactivefalse%
-}
-
-\def\pgfendinterruptlayout{
-  \endgroup%
-}
-
-
-
-
-%
-% Options for subgraph nodes
-% 
-%
-% A subgraph node is a node that "surrounds" the nodes of a
-% subgraph. The special property of a subgraph node opposed to a
-% normal node is that it is created only after the subgraph has been
-% laid out. However, the difference to a collection like "hyper" is
-% that the node is availble immediately as a normal node in the sense
-% that you can connect edges to it.
-% 
-% What happens internally is that subgraph nodes get "registered"
-% immediately both on the pgf level and on the lua level, but the
-% actual node is only created inside the layout pipeline using a
-% callback.
-%
-% The actual node creating happens when the innermost layout in which
-% the subgraph node is declared has finished.
-%
-% 
-% Because of this somewhat asynchronous call order, subgraph nodes get
-% created using the special key "subgraph node". It takes three
-% parameters: 
-% 
-% #1 = The name of the node. If this is empty, an automatic name will
-% be generated.
-% 
-% #2 = Subgraph node text. Some text to be displayed as part of the
-% node. Often, this text is not displayed for such "vast" nodes,
-% but a shape may use it nevertheless (for instance, one might display
-% this text at the top of the node).
-% 
-% #3 = Some options for the to-be-created node. (Typically, these will
-% be tikz options like "draw" or "fill=blue!10,draw=blue".)
-% 
-%
-% When the callback is called, the values of the above keys will be
-% passed to the callback as follows:
-% 
-% subgraph point cloud = This will be a list of points (without
-% separating commas) like "(10pt,20pt)(0pt,0pt)(30pt,40pt)" always in
-% this syntax. The list will contain all points inside the
-% subgraph. In particular, a bounding box around these points will
-% encompass all nodes and bend points of the subgraph.
-% The bounding box of this point cloud is guaranteed to be centered on
-% the origin.
-% 
-% subgraph bounding box width = This will be the width of a bounding box
-% (in points with the "pt" suffix).
-% 
-% subgraph bounding box height = This will be the height of a bounding box
-% (in points with the "pt" suffix).
-% 
-% subgraph text = This will be text originally given to the subgraph node
-% text option.
-% 
-% The name of the node is passed using the name key.
-% 
-% The subgraph options will be passed as options to the callback.
-%
-% 
-% Note that the "text" given to the \node or \pgfnode command inside
-% the callback will be a call to \pgfgdsubgraphnodecontents. This
-% command expands to a box of height "subgraph bounding box height" and
-% width "subgraph bounding box width", but feel free to redefine as a
-% side-effect of "every subgraph node".
-% 
-% 
-% Example:
-% 
-% Suppose you say
-% 
-% \tikzset{subgraph node={vast node}{Vast Node 1}{draw, thick}}
-% 
-% Then, during the run of the graph drawing engine, at some point the
-% following command will be called, assuming that the nodes inside the
-% subgraph node occupy an area with a bounding box of 40pt by 20pt:
-% 
-% \node [name=vast node,
-%        /graph drawing/.cd,
-%        subgraph point cloud={(-20pt,-10pt)(20pt,10pt)},
-%        subgraph bounding box width=40pt,
-%        subgraph bounding box height=20pt,
-%        subgraph text={Vast Node 1},
-%        start subgraph node,
-%        draw, thick] {\pgfgdsubgraphnodecontents};
-
-\pgfgddeclarecollectionkind{subgraph node collection}{0}
-
-\pgfgddeclareforwardedkeys{/graph drawing}{%
-  subgraph node/.code n args={3}{},
-  subgraph node text/.node parameter=string,
-  subgraph node options/.node parameter=string,
-}
-
-\pgfgdset{/graph drawing/subgraph node/.code n args={3}{%
-    \pgfgdset{
-      subgraph node collection={%
-        name/.expanded={#1}
-      }
-    }
-    \begingroup% build protections inside which we can execute options
-      \setbox0=\hbox{{%
-          \pgfinterruptpath%
-          \pgfgdset{.unknown/.code=,
-            subgraph node text={#2},
-            subgraph node options={#3},
-            #3}%
-            \directlua{pgf.gd.control.TeXInterface.registerSubgraphNode('\pgfgdlastcollectionname', %
-              \the\pgf@gd@sublayout@stack@height,%
-              {\pgfkeysvalueof{/graph drawing/node parameters}})}
-            \expandafter\pgffakenode\expandafter{\pgfgdlastcollectionname}
-          \endpgfinterruptpath%
-        }}%
-    \endgroup%
-  }
-}
-
-\pgfgdset{
-  subgraph point cloud/.initial=,
-  subgraph bounding box width/.initial=,
-  subgraph bounding box height/.initial=,
-  subgraph text/.initial=,
-  start subgraph node/.style=
-}
-
-\def\pgfgdsubgraphnodecontents{%
-  \hbox to \pgfkeysvalueof{/graph drawing/subgraph bounding box width}{%
-    \vrule width0pt height\pgfkeysvalueof{/graph drawing/subgraph bounding box height}\hfil}%
-}
-
-
-%
-% Callback method for \pgf@gd@positionnodelater
-% 
-% Pipes the box which contains the nodes to lua.
-% The called lua method then saves the data.
-%
-\def\pgf@gd@positionnode@callback{%
-  {%
-    % save options to macro \pgf@gd@node@options
-    \pgfkeysgetvalue{/graph drawing/node parameters}\pgf@gd@node@options
-    % evaluate coordinates
-    \pgfmathsetmacro{\pgf@gd@node@minx}{\pgfpositionnodelaterminx}%
-    \pgfmathsetmacro{\pgf@gd@node@miny}{\pgfpositionnodelaterminy}%
-    \pgfmathsetmacro{\pgf@gd@node@maxx}{\pgfpositionnodelatermaxx}%
-    \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
-    % call lua system library to create a lua node object
-    \directlua{
-      pgf.gd.control.TeXInterface.addPgfNode(
-        \pgfpositionnodelaterbox,
-        '\luaescapestring{\pgfpositionnodelatername}',
-        '\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}',
-        \pgf@gd@node@minx,
-        \pgf@gd@node@miny,
-        \pgf@gd@node@maxx,
-        \pgf@gd@node@maxy,
-        {\pgf@gd@node@options}) }
-  }%
-}
-
-%
-% Shipout a node callback
-% 
-% #1 = name of the node
-% #2 = x min of the bounding box
-% #3 = x max of the bounding box
-% #4 = y min of the bounding box
-% #5 = y max of the bounding box
-% #6 = desired x pos of the node
-% #7 = desired y pos of the node
-% #8 = box register number of the TeX node
-% #9 = the late setup options
-%
-% This callback will be called by the engine for every original node
-% when it finally needs to placed at a final position.
-
-\def\pgfgdshipoutnodecallback#1#2#3#4#5#6#7#8{%
-  {%
-    \def\pgfpositionnodelatername{#1}
-    \def\pgfpositionnodelaterminx{#2}
-    \def\pgfpositionnodelatermaxx{#3}
-    \def\pgfpositionnodelaterminy{#4}
-    \def\pgfpositionnodelatermaxy{#5}
-    \directlua{
-      texnode = pgf.gd.control.TeXInterface.retrieveBox(#8)
-      tex.box[\pgfpositionnodelaterbox] = texnode
-    }
-    \pgfpositionnodenow{\pgfqpoint{#6pt}{#7pt}}
-  }%
-}
-
-
-
-% Generate a node 
-%
-% This callback is called from the engine whenever an algorithm
-% generates a new node internally.
-%
-% #1 = name of the node
-% #2 = shape of the node
-% #3 = options generated by the algorithm in key-value syntax. The set
-% of generated options is algorithm-dependent.
-% #4 = text
-%
-% This is an internal function and will be called by the Lua engine
-
-\def\pgfgdgeneratenodecallback#1#2#3#4{%
-  {
-    \pgfkeys{#3}
-    \pgfnode{#2}{\pgfkeysvalueof{/graph drawing/generated
-        node/anchor}}{#4}{#1}{\pgfkeysvalueof{/graph drawing/generated
-        node/use path}} 
-  }
-}
-
-\pgfkeys{
-  /graph drawing/generated node/anchor/.initial=center,
-  /graph drawing/generated node/use path/.initial=\pgfusepath{}
-}
+\endinput
