@@ -11,25 +11,7 @@
 
 
 
---- An sub of Modular for routing edges
-
-EdgeRoutingGansnerKNV1993 = {}
-EdgeRoutingGansnerKNV1993.__index = EdgeRoutingGansnerKNV1993
-
-
--- Namespace
-require("pgf.gd.layered").EdgeRoutingGansnerKNV1993 = EdgeRoutingGansnerKNV1993
-
-
-function EdgeRoutingGansnerKNV1993.new(main_algorithm, graph)
-  local algorithm = {
-    main_algorithm = main_algorithm,
-    graph = graph,
-  }
-  setmetatable(algorithm, EdgeRoutingGansnerKNV1993)
-  return algorithm
-end
-
+local EdgeRoutingGansnerKNV1993 = {}
 
 
 function EdgeRoutingGansnerKNV1993:run()

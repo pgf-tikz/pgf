@@ -15,7 +15,7 @@
 -- less nodes and edges than the original graph while retaining the overall 
 -- structure.
 
-local Graph = require "pgf.gd.model.Graph"   -- we subclass from here
+local Graph = require "pgf.gd.deprecated.Graph"   -- we subclass from here
 local CoarseGraph = Graph.new()
 CoarseGraph.__index = CoarseGraph
 
@@ -27,8 +27,8 @@ force.CoarseGraph = CoarseGraph
 
 
 -- Imports
-local Node = require "pgf.gd.model.Node"
-local Edge = require "pgf.gd.model.Edge"
+local Node = require "pgf.gd.deprecated.Node"
+local Edge = require "pgf.gd.deprecated.Edge"
 
 local lib = require "pgf.gd.lib"
 

@@ -10,33 +10,14 @@
 -- @release $Header$
 
 
---- An sub of Modular for reducing crossings
 
-CrossingMinimizationGansnerKNV1993 = {}
-CrossingMinimizationGansnerKNV1993.__index = CrossingMinimizationGansnerKNV1993
+local CrossingMinimizationGansnerKNV1993 = {}
 
-
--- Namespace
-require("pgf.gd.layered").CrossingMinimizationGansnerKNV1993 = CrossingMinimizationGansnerKNV1993
-
-local lib = require "pgf.gd.lib"
 
 -- Imports
 
+local lib = require "pgf.gd.lib"
 local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
-
-
-
-
-function CrossingMinimizationGansnerKNV1993.new(main_algorithm, graph, ranking)
-  local algorithm = {
-    main_algorithm = main_algorithm,
-    graph = graph,
-    ranking = ranking,
-  }
-  setmetatable(algorithm, CrossingMinimizationGansnerKNV1993)
-  return algorithm
-end
 
 
 

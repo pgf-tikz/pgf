@@ -32,58 +32,9 @@ local Coordinate = require "pgf.gd.model.Coordinate"
 
 local lib        = require "pgf.gd.lib"
 
+local InterfaceCore = require "pgf.gd.interface.InterfaceCore"
 
----
--- Setup a layout. 
---
--- @param name The name (actually a number) of the sublayout to be processed.
--- @param height The height of the layout in the stack of sublayouts.
--- @param scope The graph drawing scope to which this layout should belong
--- @param layout_event The event corresponding to the layout. 
--- @param node_event The event corresponding to the layout's
--- node. This is a dummy node, but when a new node representing the
--- layout is created, its event index will be this.  
--- @param options Some options (this table will be used to decide which
--- algorithm is to be used later on).
---
-function Sublayouts.setupLayout(name, height, scope, layout_event, options)
-  
-  local sls = scope.sublayout_stack
-  local sublayouts = scope.collections.sublayout_collection
-    
-  -- Clear stack from height onwards
-  for i=#sls,height,-1 do
-    sls[i] = nil
-  end
-  
-  -- Create new entry:
-  local layout = { 
-    name = name,
-    vertices = {},
-    edges = {},
-    parent_layout = scope.sublayout_stack[height-1],
-    child_layouts = {},
-    options = options,
-    layout_event = layout_event,
-    event_index = layout_event.event_index,
-    subgraph_nodes = {},
-  }
-  
-  -- Enter:
-  sls[height] = layout
-  
-  assert (not sublayouts[name], "layout already exists")
-  sublayouts[name]            = layout
-  sublayouts[#sublayouts + 1] = layout
 
-  -- Setup child array
-  if layout.parent_layout then
-    local child_array = layout.parent_layout.child_layouts
-    child_array[#child_array+1] = layout
-  else
-    assert(#sublayouts == 1, "there may be only one root layout per scope")
-  end
-end
 
 
 
@@ -108,9 +59,9 @@ end
 --
 local function nudge(graph)
   for _,v in ipairs(graph.vertices) do
-    local nudge = v.options['/graph drawing/nudge']
+    local nudge = v.options['nudge']
     if nudge and not v.storage[Sublayouts].alreadyNudged then
-      offset_vertex(v, Coordinate.new(nudge[1],nudge[2]))
+      offset_vertex(v, nudge)
       v.storage[Sublayouts].alreadyNudged = true
     end
   end
@@ -125,8 +76,8 @@ end
 -- @param test Only for vertices whose subgraph collection passes this test will we create subgraph nodes 
 local function create_subgraph_node(scope, syntactic_digraph, vertex)
   
-  local subgraph_node_collection = assert(scope.collections['subgraph node collection'], "no subgraph node collection")
-  local subgraph_collection = assert(subgraph_node_collection[vertex.name], "collection not found")
+  local subgraph_collection = vertex.subgraph_collection
+  local binding = InterfaceCore.binding
   
   local cloud = {}
   -- Add all points of n's collection, except for v itself, to the cloud:
@@ -140,7 +91,9 @@ local function create_subgraph_node(scope, syntactic_digraph, vertex)
   end
   for _,e in ipairs(subgraph_collection.edges) do
     for _,p in ipairs(e.path) do
-      cloud[#cloud+1] = p + e.tail.pos
+      if type(p) == "table" then
+	cloud[#cloud+1] = p + e.tail.pos
+      end
     end
   end
   local x_min, y_min, x_max, y_max, c_x, c_y = Coordinate.boundingBox(cloud)
@@ -149,22 +102,15 @@ local function create_subgraph_node(scope, syntactic_digraph, vertex)
   for _,p in ipairs(cloud) do
     p:unshift(c_x,c_y)
   end
-  
-  local init = {
-    name = vertex.name,
-    options = {
-      { key = "subgraph point cloud", value = table.concat(lib.imap(cloud, tostring)) },
-      { key = "subgraph bounding box height", value = tostring(y_max-y_min) .. "pt" },
-      { key = "subgraph bounding box width", value = tostring(x_max-x_min) .. "pt" },
-      { key = "subgraph text", value = vertex.options['/graph drawing/subgraph node text'] },
-      { key = "start subgraph node", value = ""},
-    },
-    options_string = vertex.options['/graph drawing/subgraph node options'],
-    text = "\\pgfgdsubgraphnodecontents"
-  }
+
+  local o = vertex.subgraph_info.generated_options
+
+  o[#o+1] = { key = "subgraph point cloud", value = table.concat(lib.imap(cloud, tostring)) }
+  o[#o+1] = { key = "subgraph bounding box height", value = tostring(y_max-y_min) .. "pt" }
+  o[#o+1] = { key = "subgraph bounding box width", value = tostring(x_max-x_min) .. "pt" }
     
   -- And now, the "grand call":
-  scope.interface.generateNode(init)
+  binding:createVertex(vertex.subgraph_info)
   
   -- Shift it were it belongs
   vertex.pos:shift(c_x,c_y)
@@ -202,29 +148,30 @@ local function special_vertex_subset(vertices, graph)
 end
 
 
+
 ---
--- The layout recursion
+-- The layout recursion. See \ref{section-gd-sublayouts} for details.
 --
 -- @param scope The graph drawing scope
 -- @param layout The to-be-laid-out collection
 -- @param fun The to-be-called function for laying out the graph.
+-- processed. This stack is important when a new syntactic vertex is
+-- added by the algorithm: In this case, this vertex is added to all
+-- layouts on this stack.
 --
--- @return A layed out graph.
+-- @return A laid out graph.
+
 function Sublayouts.layoutRecursively(scope, layout, fun)
-  
-  local algorithm = assert(require(layout.options['/graph drawing/algorithm']), "algorithm not found")
-  local uncollapsed_subgraph_nodes = lib.copy(layout.subgraph_nodes)
   
   -- Step 1: Iterate over all sublayouts of the current layout:
   local resulting_graphs = {}
   local loc = {} -- unique index
    
   -- Now, iterate over all sublayouts
-  for i,child in ipairs(layout.child_layouts) do
+  for i,child in ipairs(layout:childrenOfKind(InterfaceCore.sublayout_kind)) do
     resulting_graphs[i] = Sublayouts.layoutRecursively(scope, child, fun)
     resulting_graphs[i].storage[loc].layout = child
   end
-
   
   -- Step 2: Run the merge process:
   local merged_graphs = {}
@@ -285,7 +232,8 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
     end
 
     -- Now, we can collapse all marked graphs into one graph:
-    local merge = Digraph.new { syntactic_digraph = "self" }
+    local merge = Digraph.new {}
+    merge.syntactic_digraph = merge
     local remaining = {}
     
     -- Add all vertices and edges:
@@ -310,28 +258,39 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
   end
   
   -- Step 3: Run the algorithm on the layout:
+  
+  local class = layout.options.algorithm_phases.main 
+  assert (type(class) == "table", "algorithm selection failed")
+  
+  local algorithm = class
+  local uncollapsed_subgraph_nodes = lib.imap(
+    scope.collections[InterfaceCore.subgraph_node_kind] or {},
+    function (c)
+      if c.parent_layout == layout then
+	return c.subgraph_node
+      end
+    end)
 
+  
   -- Create a new syntactic digraph:
   local syntactic_digraph = Digraph.new {
-    syntactic_digraph = "self",
     options = layout.options
   }
 
+  syntactic_digraph.syntactic_digraph = syntactic_digraph
+  
   -- Copy all vertices and edges from the collection...
   syntactic_digraph:add (layout.vertices)
   for _,e in ipairs(layout.edges) do
     syntactic_digraph:add {e.head, e.tail}
     local arc = syntactic_digraph:connect(e.tail, e.head)    
-    arc.storage.syntactic_edges = arc.storage.syntactic_edges or {}
-    arc.storage.syntactic_edges[#arc.storage.syntactic_edges+1] = e
+    arc.syntactic_edges[#arc.syntactic_edges+1] = e
   end
-
+  
   -- Find out which subgraph nodes can be created now and make them part of the merged graphs
-  local subgraph_node_collection = scope.collections['subgraph node collection']
   for i=#uncollapsed_subgraph_nodes,1,-1 do
     local v = uncollapsed_subgraph_nodes[i]
-    local subgraph_collection = assert(subgraph_node_collection[v.name], "collection not found")
-    local vertices = subgraph_collection.vertices
+    local vertices = v.subgraph_collection.vertices
     -- Test, if all vertices of the subgraph are in one of the merged graphs.
     for _,g in ipairs(merged_graphs) do
       if special_vertex_subset(vertices, g) then
@@ -345,7 +304,6 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       end
     end
   end
-  
   
   
   -- Collapse the nodes that are part of a merged_graph
@@ -367,9 +325,11 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	end
       end
       for _,a in ipairs(g.arcs) do
-	for _,e in ipairs(a.storage.syntactic_edges or {}) do
+	for _,e in ipairs(a.syntactic_edges) do
 	  for _,p in ipairs(e.path) do
-	    array[#array+1] = p + a.tail.pos
+	    if type(p) == "table" then
+	      array[#array+1] = p + a.tail.pos
+	    end
 	  end
 	end
       end
@@ -383,8 +343,8 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       x_max = x_max - c_x
       y_min = y_min - c_y
       y_max = y_max - c_y
-      
-      local event_index = g.storage[loc].layout.event_index
+
+      local index = g.storage[loc].layout.event.index
 
       local v = Vertex.new {
 	-- Standard stuff
@@ -394,21 +354,19 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 		  Coordinate.new(x_max, y_max),
 		  Coordinate.new(x_max, y_min) },
 	options = {},
-	event_index = event_index,
+	event = scope.events[index]
       }
       
       -- Update node_event
-      scope.events[event_index].parameters = v
+      scope.events[index].parameters = v
       
       local collapse_vertex = syntactic_digraph:collapse(
 	intersection,
 	v,
 	nil,
 	function (new_arc, arc)
-	  for _,e in ipairs(arc.storage.syntactic_edges) do
-	    local s_edges = new_arc.storage.syntactic_edges or {}
-	    s_edges[#s_edges + 1] = e
-	    new_arc.storage.syntactic_edges = s_edges
+	  for _,e in ipairs(arc.syntactic_edges) do
+	    new_arc.syntactic_edges[#new_arc.syntactic_edges+1] = e
 	  end
 	end)
       syntactic_digraph:remove(intersection)
@@ -417,7 +375,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
   end
   
   -- Sort the vertices
-  table.sort(syntactic_digraph.vertices, function(u,v) return u.event_index < v.event_index end) 
+  table.sort(syntactic_digraph.vertices, function(u,v) return u.event.index < v.event.index end) 
   
   -- Should we "hide" the subgraph nodes?
   local hidden_node
@@ -432,9 +390,31 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       syntactic_digraph:remove {hidden_node}
     end
   end
-  
-  -- Ok, everything setup! Run the algorithm recursively...
-  fun(scope, algorithm, syntactic_digraph)
+
+  -- Now, we want to call the actual algorithm. This call may modify
+  -- the layout's vertices and edges fields, namely when new vertices
+  -- and edges are create. We then need to add these to our local
+  -- syntactic digraph. So, we remember the length of these fields
+  -- prior to the call and then add everything ``behind'' these
+  -- positions later on.
+
+  do
+    local num_v = #layout.vertices
+    local num_e = #layout.edges
+    
+    -- Ok, everything setup! Run the algorithm...
+    fun(scope, algorithm, syntactic_digraph, layout)
+    
+    for i=num_v+1,#layout.vertices do
+      syntactic_digraph:add { layout.vertices[i] }
+    end
+    for i=num_e+1,#layout.edges do
+      e = layout.edges[i]
+      syntactic_digraph:add {e.head, e.tail}
+      local arc = syntactic_digraph:connect(e.tail, e.head)    
+      arc.syntactic_edges[#arc.syntactic_edges+1] = e
+    end    
+  end
 
   if hidden_node then
     syntactic_digraph:expand(hidden_node)
@@ -449,10 +429,12 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       end
     )
     for _,a in ipairs(syntactic_digraph:outgoing(collapsed_vertices[i])) do
-      for _,e in ipairs(a.storage.syntactic_edges) do
+      for _,e in ipairs(a.syntactic_edges) do
 	for _,p in ipairs(e.path) do
-	  p:shiftByCoordinate(a.tail.pos)
-	  p:unshiftByCoordinate(e.tail.pos)
+	  if type(p) == "table" then
+	    p:shiftByCoordinate(a.tail.pos)
+	    p:unshiftByCoordinate(e.tail.pos)
+	  end
 	end
       end
     end
@@ -489,9 +471,9 @@ end
 --
 function Sublayouts.regardless(graph)
   for _,v in ipairs(graph.vertices) do
-    local regardless = v.options['/graph drawing/regardless at']
+    local regardless = v.options['regardless at']
     if regardless then
-      offset_vertex(v, Coordinate.new(regardless[1],regardless[2]) - v.pos)
+      offset_vertex(v, regardless - v.pos)
     end
   end
 end

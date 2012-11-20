@@ -32,7 +32,7 @@ layered.NetworkSimplex = NetworkSimplex
 -- Imports
 local DepthFirstSearch = require "pgf.gd.lib.DepthFirstSearch"
 local Ranking          = require "pgf.gd.layered.Ranking"
-local Graph            = require "pgf.gd.model.Graph"
+local Graph            = require "pgf.gd.deprecated.Graph"
 local lib              = require "pgf.gd.lib"
 
 
@@ -55,6 +55,9 @@ end
 
 
 function NetworkSimplex:run()
+
+  assert (#self.graph.nodes > 0, "graph must contain at least one node")
+  
   -- initialize the tree edge search index
   self.search_index = 1
 
@@ -69,8 +72,12 @@ function NetworkSimplex:run()
   self.low = {}
   self.parent_edge = {}
   self.ranking = Ranking.new()
-
-  self:rankNodes()
+  
+  if #self.graph.nodes == 1 then
+    self.ranking:setRank(self.graph.nodes[1], 1)
+  else
+    self:rankNodes()
+  end
 end
 
 
@@ -421,12 +428,13 @@ function NetworkSimplex:computeInitialRanking()
 
   -- run long as there are nodes to be ranked
   while #queue > 0 do
+    
     -- fetch the next unranked node from the queue
     local node = dequeue()
 
     -- get a list of its incoming edges
     local in_edges = node:getIncomingEdges()
-
+    
     -- determine the minimum possible rank for the node
     local rank = 1
     for _,edge in ipairs(in_edges) do
@@ -472,7 +480,7 @@ function NetworkSimplex:findTightTree()
     for _,v in ipairs(in_edges) do
       edges[#edges + 1] = v
     end
-
+    
     for _,edge in ipairs(edges) do
       local neighbour = edge:getNeighbour(node)
       if (not marked[neighbour]) and self:edgeSlack(edge) == 0 then
@@ -494,7 +502,7 @@ function NetworkSimplex:findTightTree()
 
     return false
   end
-
+  
   for _,node in ipairs(self.graph.nodes) do
     self.tree = Graph.new()
     self.tree_node = {}
@@ -503,7 +511,7 @@ function NetworkSimplex:findTightTree()
     self.orig_edge = {}
 
     build_tight_tree(node)
-
+    
     if #self.tree.edges > 0 then
       break
     end

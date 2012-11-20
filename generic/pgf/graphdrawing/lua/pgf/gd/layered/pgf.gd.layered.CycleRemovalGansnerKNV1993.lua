@@ -1,4 +1,4 @@
--- Copyright 2011 by Jannis Pohlmann
+-- Copyright 2011 by Jannis Pohlmann and 2012 by Till Tantau
 --
 -- This file may be distributed and/or modified
 --
@@ -10,34 +10,15 @@
 -- @release $Header$
 
 
+local CycleRemovalGansnerKNV1993 = {}
 
---- An sub of Modular for removing cycles
-
-CycleRemovalGansnerKNV1993 = {}
-CycleRemovalGansnerKNV1993.__index = CycleRemovalGansnerKNV1993
-
-
--- Namespace
-require("pgf.gd.layered").CycleRemovalGansnerKNV1993 = CycleRemovalGansnerKNV1993
 
 -- Imports
+local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 local Simplifiers = require "pgf.gd.lib.Simplifiers"
 
 
-
-
-function CycleRemovalGansnerKNV1993.new(main_algorithm, graph)
-  local algorithm = {
-    main_algorithm = main_algorithm,
-    graph = graph,
-  }
-  setmetatable(algorithm, CycleRemovalGansnerKNV1993)
-  return algorithm
-end
-
-
-
-function CycleRemovalGansnerKNV1993:run()
+function CycleRemovalGansnerKNV1993:run ()
   -- merge nonempty sets into supernodes
   --
   -- ignore self-loops
@@ -58,7 +39,7 @@ function CycleRemovalGansnerKNV1993:run()
   
   -- classify edges as tree/forward, cross and back edges using a DFS traversal
   local tree_or_forward_edges, cross_edges, back_edges = Simplifiers:classifyEdges(self.graph)
-
+  
   -- reverse the back edges in order to make the graph acyclic
   for _,edge in ipairs(back_edges) do
     edge.reversed = true

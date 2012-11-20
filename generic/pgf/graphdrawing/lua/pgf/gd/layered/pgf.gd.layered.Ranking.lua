@@ -96,7 +96,7 @@ end
 
 
 function Ranking:getNodes(rank)
-  return self.rank_to_nodes[rank]
+  return self.rank_to_nodes[rank] or {}
 end
 
 

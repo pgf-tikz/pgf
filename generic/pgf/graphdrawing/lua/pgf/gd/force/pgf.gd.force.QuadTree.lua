@@ -27,7 +27,7 @@ QuadTree.__index = QuadTree
 require("pgf.gd.force").QuadTree = QuadTree
 
 -- Imports:
-local Vector = require "pgf.gd.lib.Vector"
+local Vector = require "pgf.gd.deprecated.Vector"
 local lib = require "pgf.gd.lib"
 
 

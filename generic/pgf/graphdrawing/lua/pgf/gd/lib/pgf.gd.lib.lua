@@ -203,6 +203,54 @@ function lib.id(...)
 end
 
 
+
+---
+-- Tries to find an option in different objects that have an
+-- options field.
+--
+-- This function iterates over all objects given as parameters. In
+-- each, it tries to find out whether the options field of the object
+-- contains the option |name| and, if so,
+-- returns the value. The important point is that checking whether the
+-- option table of an object contains the name field is done using
+-- |rawget| for all but the last parameter. This means that when you
+-- write
+--\begin{codeexample}[code only]
+--lib.lookup_option("foo", vertex, graph)
+--\end{codeexample}
+-- and if |/graph drawin/foo| has an inital value set, if the
+-- parameter is not explicitly set in a vertex, you will get the value
+-- set for the graph or, if it is not set there either, the initial
+-- value. In contrast, if you write 
+--\begin{codeexample}[code only]
+-- vertex.options["foo"] or graph.options["foo"]
+--\end{codeexample}
+-- what happens is that the first access to |.options| will
+-- \emph{always} return something when an initial parameter has been
+-- set for the option |foo|. 
+--
+-- @param name   The name of the options  
+-- @param ...    Any number of objects. Each must have an options
+--               field. 
+--
+-- @return The found option
+
+function lib.lookup_option(name, ...)
+  local list = {...}
+  for i=1,#list-1 do
+    local o = list[i].options
+    if o then 
+      local v = rawget(o, name)
+      if v then
+	return v
+      end
+    end
+  end
+  return list[#list].options[name]
+end
+
+
+
 -- Done
 
 return lib

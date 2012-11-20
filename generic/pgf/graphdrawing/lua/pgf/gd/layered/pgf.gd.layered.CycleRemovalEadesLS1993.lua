@@ -10,27 +10,12 @@
 -- @release $Header$
 
 
---- An sub of Modular for removing cycles
 
-CycleRemovalEadesLS1993 = {}
-CycleRemovalEadesLS1993.__index = CycleRemovalEadesLS1993
+-- Declare
+local CycleRemovalEadesLS1993 = {}
 
-
--- Namespace
-require("pgf.gd.layered").CycleRemovalEadesLS1993 = CycleRemovalEadesLS1993
-
+-- Import
 local lib = require "pgf.gd.lib"
-
-
-function CycleRemovalEadesLS1993.new(main_algorithm, graph)
-  local algorithm = {
-    main_algorithm = main_algorithm,
-    graph = graph,
-  }
-  setmetatable(algorithm, CycleRemovalEadesLS1993)
-  return algorithm
-end
-
 
 
 function CycleRemovalEadesLS1993:run()

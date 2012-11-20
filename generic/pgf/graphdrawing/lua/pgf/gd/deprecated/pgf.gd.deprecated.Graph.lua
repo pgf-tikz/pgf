@@ -24,11 +24,8 @@ Graph.__index = Graph
 
 -- Namespace
 
-local model   = require "pgf.gd.model"
-model.Graph = Graph
-
 -- Imports
-local Edge = require "pgf.gd.model.Edge"
+local Edge = require "pgf.gd.deprecated.Edge"
 
 local lib = require "pgf.gd.lib"
 
@@ -104,7 +101,7 @@ end
 -- @return The value of the graph option \meta{name} or |nil|.
 --
 function Graph:getOption(name)
-  return self.options[name] or pgf.gd.control.TeXInterface.parameter_defaults[name]
+  return self.options[name]
 end
 
 

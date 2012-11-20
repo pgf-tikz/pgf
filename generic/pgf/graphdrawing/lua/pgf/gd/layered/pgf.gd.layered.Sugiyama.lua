@@ -10,43 +10,149 @@
 -- @release $Header$
 
 
---- An implementation of a modular version of the Sugiyama method
 
-local Sugiyama = pgf.gd.new_algorithm_class {
-  works_only_on_connected_graphs = true,
-  works_only_for_loop_free_graphs = true,
-  growth_direction = 90,
-  old_graph_model = true,
-}
+---
+-- @section subsection {The Modular Sugiyama Method}
+--
+local Sugiyama = {}
 
 -- Namespace
 require("pgf.gd.layered").Sugiyama = Sugiyama
 
-
 -- Imports
+local layered = require "pgf.gd.layered"
+local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
-local Ranking = require "pgf.gd.layered.Ranking"
-
-local Edge    = require "pgf.gd.model.Edge"
-local Node    = require "pgf.gd.model.Node"
-
-local Iterators   = require "pgf.gd.lib.Iterators"
+local Ranking     = require "pgf.gd.layered.Ranking"
 local Simplifiers = require "pgf.gd.lib.Simplifiers"
-local Vector      = require "pgf.gd.lib.Vector"
 
+-- Deprecated stuff. Need to get rid of it!
+local Edge        = require "pgf.gd.deprecated.Edge"
+local Node        = require "pgf.gd.deprecated.Node"
+
+local Iterators   = require "pgf.gd.deprecated.Iterators"
+local Vector      = require "pgf.gd.deprecated.Vector"
+
+
+
+---
+
+declare {
+  key       = "layered layout",
+  algorithm = Sugiyama,
+  
+  preconditions = {
+    connected = true,
+    loop_free = true,
+  },
+
+  postconditions = {
+    upward_oriented = true
+  },
+
+  old_graph_model = true,
+
+  documentation = [["  
+       The |layered layout| is the key used to select the modular Sugiyama
+       layout algorithm. As explained in the overview of this section, this
+       algorithm consists of five consecutive steps, each of which can be
+       configured independently of the other ones (how this is done is
+       explained later in this section). Naturally, the ``best'' heuristics
+       are selected by default, so there is typically no need to change the
+       settings, but what is the ``best'' method for one graph need not be
+       the best one for another graph.
+        
+       \begin{codeexample}[]
+       \tikz \graph [layered layout, sibling distance=7mm]
+       {
+         a -> {
+           b,
+           c -> { d, e, f }
+         } ->
+         h ->
+         a
+       };    
+       \end{codeexample}
+      
+       As can be seen in the above example, the algorithm will not only
+       position the nodes of a graph, but will also perform an edge
+       routing. This will look visually quite pleasing if you add the
+       |rounded corners| option:
+      
+       \begin{codeexample}[]
+       \tikz [rounded corners] \graph [layered layout, sibling distance=7mm]
+       {
+         a -> {
+           b,
+           c -> { d, e, f }
+         } ->
+         h -> 
+         a
+       };    
+       \end{codeexample}
+  "]]
+}
+
+---
+
+declare {
+  key = "minimum layers",
+  type = "number",
+  initial = "1",
+
+  documentation = [["  
+       The minimum number of levels that an edge must span. It is a bit of
+       the opposite of the |weight| parameter: While a large |weight|
+       causes an edge to become shorter, a larger |minimum layers| value
+       causes an edge to be longer.
+      
+      \begin{codeexample}[]
+      \tikz \graph [layered layout] {
+        a -- {b [> minimum layers=3], c, d} -- e -- a;
+      };
+      \end{codeexample}
+ "]]
+}
+
+
+---
+
+declare {
+  key = "same layer",
+  layer = 0,
+
+  documentation = [["  
+       The |same layer| collection allows you to enforce that several nodes
+       a on the same layer of a layered layout (this option is also known
+       as |same rank|). You use it like this:
+      
+       \begin{codeexample}[]
+       \tikz \graph [layered layout] {
+         a -- b -- c -- d -- e;
+      
+         { [same layer] a, b };
+         { [same layer] d, e };
+       };
+       \end{codeexample}
+  "]]
+}
+
+
+
+-- Implementation
 
 function Sugiyama:run()
   if #self.graph.nodes <= 1 then
      return
   end
-
+    
   local options = self.digraph.options
   
-  local cycle_removal_algorithm         = options['/graph drawing/layered layout/cycle removal']
-  local node_ranking_algorithm          = options['/graph drawing/layered layout/node ranking']
-  local crossing_minimization_algorithm = options['/graph drawing/layered layout/crossing minimization']
-  local node_positioning_algorithm      = options['/graph drawing/layered layout/node positioning']
-  local edge_routing_algorithm          = options['/graph drawing/layered layout/edge routing']
+  local cycle_removal_algorithm_class         = options.algorithm_phases['cycle removal'] 
+  local node_ranking_algorithm_class          = options.algorithm_phases['node ranking']
+  local crossing_minimization_algorithm_class = options.algorithm_phases['crossing minimization']
+  local node_positioning_algorithm_class      = options.algorithm_phases['node positioning']
+  local edge_routing_algorithm_class          = options.algorithm_phases['layer edge routing']
   
   self:preprocess()
 
@@ -64,12 +170,12 @@ function Sugiyama:run()
   self.graph:registerAlgorithm(cluster_subalgorithm)
 
   self:mergeClusters()
-  
+
   Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
   Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
-
-  require(cycle_removal_algorithm).new(self, self.graph):run()
-  self.ranking = require(node_ranking_algorithm).new(self, self.graph):run()
+  
+  cycle_removal_algorithm_class.new { main_algorithm = self, graph = self.graph }:run()
+  self.ranking = node_ranking_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:restoreCycles()
 
   Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
@@ -79,17 +185,25 @@ function Sugiyama:run()
   
   -- Now do actual computation
   Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
-  require(cycle_removal_algorithm).new(self, self.graph):run()
+  cycle_removal_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:insertDummyNodes()
   
   -- Main algorithm
-  require(crossing_minimization_algorithm).new(self, self.graph, self.ranking):run()
-  require(node_positioning_algorithm).new(self, self.graph, self.ranking):run()
+  crossing_minimization_algorithm_class.new{
+    main_algorithm = self,
+    graph = self.graph,
+    ranking = self.ranking
+  }:run()
+  node_positioning_algorithm_class.new{
+    main_algorithm = self,
+    graph = self.graph,
+    ranking = self.ranking
+  }:run()
   
   -- Cleanup
   self:removeDummyNodes()
   Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
-  require(edge_routing_algorithm).new(self, self.graph):run()
+  edge_routing_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:restoreCycles()
   
 end
@@ -100,11 +214,11 @@ function Sugiyama:preprocess()
   -- initialize edge parameters
   for _,edge in ipairs(self.graph.edges) do
     -- read edge parameters
-    edge.weight = edge:getOption('/graph drawing/weight')
-    edge.minimum_levels = edge:getOption('/graph drawing/minimum levels')
+    edge.weight = edge:getOption('weight')
+    edge.minimum_levels = edge:getOption('minimum layers')
 
     -- validate edge parameters
-    assert(edge.minimum_levels >= 0, 'the edge ' .. tostring(edge) .. ' needs to have a minimum levels value greater than or equal to 0')
+    assert(edge.minimum_levels >= 0, 'the edge ' .. tostring(edge) .. ' needs to have a minimum layers value greater than or equal to 0')
   end
 end
 
@@ -230,7 +344,7 @@ function Sugiyama:mergeClusters()
   self.original_nodes = {}
 
   for _,cluster in ipairs(self.graph.clusters) do
-
+    
     local cluster_node = cluster.nodes[1]
     table.insert(self.cluster_nodes, cluster_node)
 

@@ -174,7 +174,7 @@
 --    reference to the graph itself.
 -- @field storage is the storage. See the section on |Storage|
 -- objects. 
--- @field options If present, it will be an |Options| object, storing
+-- @field options If present, it will be a table storing
 -- the options set for the syntactic digraph.
 --
 local Digraph = {}
@@ -277,12 +277,6 @@ function Digraph.new(initial)
   digraph.incomings = {} 
   digraph.outgoings = {} 
 
-  -- The syntactic digraph. This needs reworking.
-  digraph.syntactic_digraph = assert(initial.syntactic_digraph, "no syntactic digraph specified")
-  if digraph.syntactic_digraph == "self" then
-    digraph.syntactic_digraph = digraph
-  end
-  
   if vertices then 
     digraph:add(vertices)
   end
@@ -510,7 +504,8 @@ function Digraph:connect(s, t)
       tail = s,
       head = t,
       storage = Storage.new(),
-      syntactic_digraph = self.syntactic_digraph
+      syntactic_digraph = self.syntactic_digraph,
+      syntactic_edges = {}
     }
     setmetatable(arc, Arc)
 

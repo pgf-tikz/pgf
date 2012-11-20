@@ -10,36 +10,142 @@
 -- @release $Header$
 
 
---- A circular layout
---
--- This layout places the nodes on a circle, starting at the growth
--- direction.  
---
--- The objective is that nodes are ideally spaced at a distance
--- (measured on the circle) of "node distance", but with a minimum
--- spacing of "node sep" and a minimum radius.
---
--- The order of the nodes will be the order they are encountered, the
--- edges actually play no role.
+-- Imports
+local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
-local Tantau2012 = pgf.gd.new_algorithm_class {
-  growth_direction = 180
+-- The algorithm class
+local Tantau2012 = {}
+
+---
+declare {
+  key       = "simple necklace layout",
+  algorithm = Tantau2012,
+  
+  postconditions = {
+    upward_oriented = true
+  },
+
+  summary = [["
+      This simple layout arranges the nodes in a circle, which is especially 
+      useful for drawing, well, circles of nodes.
+      "]],
+  
+  documentation = [["
+     The name
+     |simple necklace layout| is reminiscent of the more general
+     ``necklace layout,'' a term coined by Speckmann and Verbeek in
+     their paper
+     \begin{itemize}
+     \item
+       Bettina Speckmann and Kevin Verbeek,
+       \newblock Necklace Maps,
+       \newblock \emph{?,}
+       ?, 2010.
+     \end{itemize}
+    
+     For a |simple necklace layout|, the centers of the nodes
+     are placed on a counter-clockwise circle, starting with the first
+     node at the |grow| direction (for |grow'|, the circle is
+     clockwise). The order of the nodes is the order in which they appear
+     in the graph, the edges are not taken into consideration, unless the
+     |componentwise| option is given.
+    
+\begin{codeexample}[]
+\tikz[>=spaced stealth']
+  \graph [simple necklace layout, grow'=down, node sep=1em,
+          nodes={draw,circle}, math nodes]
+  {
+    x_1 -> x_2 -> x_3 -> x_4 ->
+    x_5 -> "\dots"[draw=none] -> "x_{n-1}" -> x_n -> x_1
+  };    
+\end{codeexample}
+     
+     When you give the |componentwise| option, the graph will be
+     decomposed into connected components, which are then laid out
+     individually and packed using the usual component packing
+     mechanisms:
+    
+\begin{codeexample}[]
+\tikz \graph [simple necklace layout] {
+  a -- b -- c -- d -- a,
+  1 -- 2 -- 3 -- 1
+};    
+\end{codeexample}
+\begin{codeexample}[]
+\tikz \graph [simple necklace layout, componentwise] {
+  a -- b -- c -- d -- a,
+  1 -- 2 -- 3 -- 1
+};    
+\end{codeexample}
+    
+     The nodes are placed in such a way that
+     \begin{enumerate}
+     \item The (angular) distance between the centers of consecutive
+       nodes is at least  |node distance|,
+     \item the distance between the borders of consecutive nodes is at
+       least |node sep|, and
+     \item the radius is at least |radius|.
+     \end{enumerate}
+     The radius of the circle is chosen near-minimal such that the above
+     properties are satisfied. To be more precise, if all nodes are
+     circles, the radius is chosen optimally while for, say, rectangular
+     nodes there may be too much space between the nodes in order to
+     satisfy the second condition.
+   "]],
+
+   examples = {
+     [["
+     \tikz \graph [simple necklace layout,
+                   node sep=0pt, node distance=0pt,
+                   nodes={draw,circle}]
+       { 1 -- 2 [minimum size=30pt] -- 3 --
+         4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 };
+     "]],
+     [[" 
+     \begin{tikzpicture}[radius=1.25cm]
+       \graph [simple necklace layout,
+               node sep=0pt, node distance=0pt,
+               nodes={draw,circle}]
+       { 1 -- 2 [minimum size=30pt] -- 3 --
+         4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+      
+       \draw [red] (0,-1.25) circle [];
+     \end{tikzpicture}
+     "]],
+     [[" 
+     \tikz \graph [simple necklace layout,
+         node sep=0pt, node distance=1cm,
+         nodes={draw,circle}]
+       { 1 -- 2 [minimum size=30pt] -- 3 --
+         4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+     "]],
+     [[" 
+     \tikz \graph [simple necklace layout,
+         node sep=2pt, node distance=0pt,
+         nodes={draw,circle}]
+       { 1 -- 2 [minimum size=30pt] -- 3 --
+         4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+     "]],
+     [[" 
+     \tikz \graph [simple necklace layout,
+         node sep=0pt, node distance=0pt,
+         nodes={rectangle,draw}]
+       { 1 -- 2 [minimum size=30pt] -- 3 --
+         4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+    "]]      
+  } 
 }
 
--- Make public
-require("pgf.gd.circular").Tantau2012 = Tantau2012
 
 
 -- Imports
 
-local Options = require "pgf.gd.control.Options"
 local Coordinate = require "pgf.gd.model.Coordinate"
 
 local lib = require "pgf.gd.lib"
 
 
-
-
+-- The implementation
 
 function Tantau2012:run()
   local g = self.digraph
@@ -62,8 +168,8 @@ function Tantau2012:run()
     positions[i] = ideal_pos + carry
     ideal_pos = ideal_pos + sib_dists[i]
     local node_sep =
-      Options.lookup('/graph drawing/node post sep', vertices[i], g) +
-      Options.lookup('/graph drawing/node pre sep', vertices[wrap(i+1)], g)
+      lib.lookup_option('node post sep', vertices[i], g) +
+      lib.lookup_option('node pre sep', vertices[wrap(i+1)], g)
     local arc = node_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
     local needed = carry + arc
     local dist = math.sin( arc/diam ) * diam
@@ -74,8 +180,8 @@ function Tantau2012:run()
 
   local radius = length / (2 * math.pi)
   for i,vertex in ipairs(vertices) do
-    vertex.pos.x = radius * math.cos(2 * math.pi * positions[i] / length)
-    vertex.pos.y = -radius * math.sin(2 * math.pi * positions[i] / length)
+    vertex.pos.x = radius * math.cos(2 * math.pi * (positions[i] / length + 1/4))
+    vertex.pos.y = -radius * math.sin(2 * math.pi * (positions[i] / length + 1/4))
   end
 end
 
@@ -85,11 +191,11 @@ function Tantau2012:computeNodeDistances()
   local sum_length = 0
   local vertices = self.digraph.vertices
   for i=1,#vertices do
-     sib_dists[i] = Options.lookup('/graph drawing/node distance', vertices[i], self.digraph)
-     sum_length = sum_length + sib_dists[i]
+    sib_dists[i] = lib.lookup_option('node distance', vertices[i], self.digraph)
+    sum_length = sum_length + sib_dists[i]
   end
 
-  local missing_length = self.digraph.options['/graph drawing/circular layout/radius'] * 2 * math.pi - sum_length
+  local missing_length = self.digraph.options['radius'] * 2 * math.pi - sum_length
   if missing_length > 0 then
      -- Ok, the sib_dists to not add up to the desired minimum value. 
      -- What should we do? Hmm... We increase all by the missing amount:
@@ -98,7 +204,7 @@ function Tantau2012:computeNodeDistances()
      end
   end
 
-  sib_dists.total = math.max(self.digraph.options['/graph drawing/circular layout/radius'] * 2 * math.pi, sum_length)
+  sib_dists.total = math.max(self.digraph.options['radius'] * 2 * math.pi, sum_length)
   
   return sib_dists
 end
@@ -124,8 +230,8 @@ function Tantau2012:adjustNodeRadii(sib_dists,radii)
   local max_rad = 0
   for i=1,#radii do
     total = total + 2*radii[i] 
-            + Options.lookup('/graph drawing/node post sep', self.digraph.vertices[i], self.digraph)
-            + Options.lookup('/graph drawing/node pre sep', self.digraph.vertices[i], self.digraph)
+            + lib.lookup_option('node post sep', self.digraph.vertices[i], self.digraph)
+            + lib.lookup_option('node pre sep', self.digraph.vertices[i], self.digraph)
     max_rad = math.max(max_rad, radii[i])  
   end
   total = math.max(total, sib_dists.total, max_rad*math.pi)

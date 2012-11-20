@@ -22,9 +22,6 @@ Cluster.__index = Cluster
 
 -- Namespace
 
-local model   = require "pgf.gd.model"
-model.Cluster = Cluster
-
 
 
 --- TODO Jannis: Add documentation for this class.

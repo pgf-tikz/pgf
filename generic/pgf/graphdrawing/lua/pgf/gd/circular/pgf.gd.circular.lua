@@ -11,10 +11,12 @@
 
 
 
+local circular = {}
+
 -- Declare namespace
-require("pgf.gd").circular = {}
+require("pgf.gd").circular = circular
 
 
 -- Done
 
-return pgf.gd.circular
+return circular

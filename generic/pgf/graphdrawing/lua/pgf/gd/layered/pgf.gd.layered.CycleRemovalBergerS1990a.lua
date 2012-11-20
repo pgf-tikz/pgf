@@ -11,28 +11,9 @@
 
 
 
---- An sub of Modular for removing cycles
-
-CycleRemovalBergerS1990a = {}
-CycleRemovalBergerS1990a.__index = CycleRemovalBergerS1990a
-
-
--- Namespace
-require("pgf.gd.layered").CycleRemovalBergerS1990a = CycleRemovalBergerS1990a
-
+local CycleRemovalBergerS1990a = {}
 
 local lib = require("pgf.gd.lib")
-
-
-function CycleRemovalBergerS1990a.new(main_algorithm, graph)
-  local algorithm = {
-    main_algorithm = main_algorithm,
-    graph = graph,
-  }
-  setmetatable(algorithm, CycleRemovalBergerS1990a)
-  return algorithm
-end
-
 
 
 function CycleRemovalBergerS1990a:run()

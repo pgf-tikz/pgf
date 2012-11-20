@@ -26,8 +26,8 @@ lib.Simplifiers = Simplifiers
 
 -- Imports
 
-local Edge            = require "pgf.gd.model.Edge"
-local Node            = require "pgf.gd.model.Node"
+local Edge            = require "pgf.gd.deprecated.Edge"
+local Node            = require "pgf.gd.deprecated.Node"
 
 
 

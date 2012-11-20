@@ -63,6 +63,9 @@
 -- 
 -- @field kind A string representing the kind of the events. 
 -- @field parameters Kind-specific parameters.
+-- @field index A number that stores the events logical position in
+-- the sequence of events. The number need not be an integer array
+-- index. 
 --
 local Event = {}
 Event.__index = Event
@@ -85,8 +88,7 @@ function Event.new(values)
   for k,v in pairs(values) do
     new[k] = v
   end
-  setmetatable(new, Event)
-  return new
+  return setmetatable(new, Event)
 end
 
 

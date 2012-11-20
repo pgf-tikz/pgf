@@ -14,7 +14,6 @@
 
 
 
-
 --- The Edge class
 --
 --
@@ -24,9 +23,6 @@ Edge.__index = Edge
 
 
 -- Namespace
-
-local model   = require "pgf.gd.model"
-model.Edge = Edge
 
 local lib = require "pgf.gd.lib"
 
@@ -101,7 +97,7 @@ end
 -- @return The value of the edge option \meta{name} or |nil|.
 --
 function Edge:getOption(name, graph)
-   return self.options[name] or (graph and graph.options[name]) or pgf.gd.control.TeXInterface.parameter_defaults[name]
+   return lib.lookup_option(name, self, graph) 
 end
 
 

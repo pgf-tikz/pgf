@@ -30,19 +30,28 @@
 -- @field pos A coordinate object that stores the position where the
 -- vertex should be placed on the canvas. The main objective of graph drawing
 -- algorithms is to update this coordinate.
+--
 -- @field name An optional string that is used as a textual representation
 --        of the node.
+--
 -- @field hull An array of coordinate that should be interpreted relative
 --        to the pos field. They should describe a convex hull of the
 --        node corresponding to this vertex.
+--
 -- @field hull_center A coordinate storing the center of the
 -- |hull|. Typically, this will be the origin.
+--
 -- @field options A table of options that contains user-defined options.
+--
 -- @field shape A string describing the shape of the node (like |rectangle|
 --        or |circle|).
+--
 -- @field kind A string describing the kind of the node. For instance, a
 --        node of type |"dummy"| does not correspond to any real node in
 --        the graph but is used by the graph drawing algorithm.
+--
+-- @field event The |Event| when this vertex was created (may be |nil|
+-- if the vertex is not part of the syntactic digraph).
 --
 local Vertex = {}
 Vertex.__index = Vertex

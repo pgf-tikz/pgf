@@ -19,6 +19,7 @@
 -- the position of the table (used as a key) and this position is set
 -- to |true|. This means that you can test whether a table |t| is in the
 -- lookup table |l| simply by testing whether |l[t]| is true.
+--
 local LookupTable = {}
 
 -- Namespace
@@ -27,7 +28,9 @@ require("pgf.gd.lib").LookupTable = LookupTable
 
 
 ---
--- Add tables to a lookup table
+-- Add all elements in the |array| to a lookup table. If an element of
+-- the array is already present in the table, it will not be added
+-- again. 
 --
 -- This operation takes time $O(|\verb!array!|)$.
 --
@@ -41,6 +44,23 @@ function LookupTable.add(l, array)
       l[t] = true
       l[#l + 1] = t
     end
+  end
+end
+
+
+---
+-- Add one element to a lookup table. If it is already present in the
+-- table, it will not be added again. 
+--
+-- This operation takes time $O(1)$.
+--
+-- @param l Lookup table
+-- @param e The to-be-added element.
+
+function LookupTable.addOne(l, e)
+  if not l[e] then
+    l[e] = true
+    l[#l + 1] = e
   end
 end
 

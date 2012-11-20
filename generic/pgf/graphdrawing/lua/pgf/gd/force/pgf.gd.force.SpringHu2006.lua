@@ -11,32 +11,50 @@
 -- @release $Header$
 
 
---- Implementation of a spring spring graph drawing algorithm.
--- 
--- This implementation is based on the paper 
---
---   "Efficient and High Quality Force-Directed Graph Drawing"
---   Yifan Hu, 2006
---
--- Modifications compared to the original algorithm are explained in 
--- the manual.
 
-local SpringHu2006 = pgf.gd.new_algorithm_class {
-  works_only_on_connected_graphs = true,
-  works_only_for_loop_free_graphs = true,
-  works_only_for_simple_graphs = true,
+local SpringHu2006 = {}
+
+-- Imports
+local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
+
+
+
+
+---
+
+declare {
+  key       = "spring Hu 2006 layout",
+  algorithm = SpringHu2006,
+  
+  preconditions = {
+    connected = true,
+    loop_free = true,
+    simple    = true,
+  },
+
   old_graph_model = true,
+
+  documentation = [["  
+       Implementation of a spring graph drawing algorithm based on
+       the paper   
+      
+       \begin{itemize}
+       \item
+         Y. Hu.
+         \newblock Efficient, high-quality force-directed graph drawing.
+         \newblock \emph{The Mathematica Journal}, 2006.
+       \end{itemize}
+      
+       There are some modifications compared to the original algorithm,
+       see the Diploma thesis of Pohlmann for details.
+  "]]
 }
-
-
--- Namespace:
-require("pgf.gd.force").SpringHu2006 = SpringHu2006
 
 
 -- Imports
 
 local PathLengths = require "pgf.gd.lib.PathLengths"
-local Vector      = require "pgf.gd.lib.Vector"
+local Vector      = require "pgf.gd.deprecated.Vector"
 
 local CoarseGraph = require "pgf.gd.force.CoarseGraph"
 
@@ -51,16 +69,16 @@ function SpringHu2006:run()
   -- Setup some parameters
   local options = self.digraph.options
   
-  self.iterations = options['/graph drawing/force based/iterations']
-  self.cooling_factor = options['/graph drawing/force based/cooling factor']
-  self.initial_step_length = options['/graph drawing/force based/initial step dimension']
-  self.convergence_tolerance = options['/graph drawing/force based/convergence tolerance']
+  self.iterations = options['iterations']
+  self.cooling_factor = options['cooling factor']
+  self.initial_step_length = options['initial step length']
+  self.convergence_tolerance = options['convergence tolerance']
 
-  self.natural_spring_length = options['/graph drawing/node distance']
+  self.natural_spring_length = options['node distance']
    
-  self.coarsen = options['/graph drawing/force based/coarsen']
-  self.downsize_ratio = options['/graph drawing/force based/coarsening/downsize ratio']
-  self.minimum_graph_size = options['/graph drawing/force based/coarsening/minimum graph size']
+  self.coarsen = options['coarsen']
+  self.downsize_ratio = options['downsize ratio']
+  self.minimum_graph_size = options['minimum coarsening size']
 
 
   -- Setup
@@ -73,11 +91,11 @@ function SpringHu2006:run()
   -- validate input parameters
   assert(self.iterations >= 0, 'iterations (value: ' .. self.iterations .. ') need to be greater than 0')
   assert(self.cooling_factor >= 0 and self.cooling_factor <= 1, 'the cooling factor (value: ' .. self.cooling_factor .. ') needs to be between 0 and 1')
-  assert(self.initial_step_length >= 0, 'the initial step dimension (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
+  assert(self.initial_step_length >= 0, 'the initial step length (value: ' .. self.initial_step_length .. ') needs to be greater than or equal to 0')
   assert(self.convergence_tolerance >= 0, 'the convergence tolerance (value: ' .. self.convergence_tolerance .. ') needs to be greater than or equal to 0')
   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
-  assert(self.minimum_graph_size >= 2, 'the minimum graph size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
+  assert(self.minimum_graph_size >= 2, 'the minimum coarsening size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
   
   -- initialize node weights
   for _,node in ipairs(self.graph.nodes) do
@@ -315,19 +333,19 @@ end
 
 
 
---- Fixes nodes at their specified positions.
+-- Fixes nodes at their specified positions.
 --
 function SpringHu2006:fixateNodes(graph)
   local number_of_fixed_nodes = 0
 
   for _,node in ipairs(graph.nodes) do
     -- read the 'desired at' option of the node
-    local coordinate = node:getOption('/graph drawing/desired at')
+    local coordinate = node:getOption('desired at')
 
     if coordinate then
       -- apply the coordinate
-      node.pos.x = coordinate[1]
-      node.pos.y = coordinate[2]
+      node.pos.x = coordinate.x
+      node.pos.y = coordinate.y
 
       -- mark the node as fixed
       node.fixed = true

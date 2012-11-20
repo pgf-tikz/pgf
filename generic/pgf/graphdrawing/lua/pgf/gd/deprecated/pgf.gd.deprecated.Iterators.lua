@@ -19,7 +19,6 @@
 local Iterators = {}
 
 -- Namespace
-require("pgf.gd.lib").Iterators = Iterators
 
 local lib = require("pgf.gd.lib")
 

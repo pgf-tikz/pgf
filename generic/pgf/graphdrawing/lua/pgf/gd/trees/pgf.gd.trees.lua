@@ -10,17 +10,12 @@
 --- @release $Header$
 
 
-
--- Imports
-
-require "pgf"
-require "pgf.gd"
-
+local trees = {}
 
 -- Declare namespace
-pgf.gd.trees = {}
+require("pgf.gd").trees = tree
 
 
 -- Done
 
-return pgf.gd.trees
+return trees

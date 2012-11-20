@@ -55,7 +55,7 @@ require("pgf.gd.model").Arc = Arc
 
 -- Imports
 
-local Options = require "pgf.gd.control.Options"
+local lib = require "pgf.gd.lib"
 
 
 ---
@@ -66,7 +66,7 @@ local Options = require "pgf.gd.control.Options"
 -- tail and the head of the arc or between the head and the tail.
 --
 -- Since for every arc there can be several edges present in the
--- syntactic digraph, an option like |/graph drawing/length| may have
+-- syntactic digraph, an option like |length| may have
 -- been given multiple times for the edges corresponding to the arc.
 --
 -- If your algorithm gets confused by multiple edges, try saying
@@ -74,7 +74,7 @@ local Options = require "pgf.gd.control.Options"
 -- sensible'' choice of the option if there are multiple edges
 -- corresponding to the same arc. 
 --
--- @param option A string option like |"/graph drawing/length"|.
+-- @param option A string option like |"length"|.
 --
 -- @return A table with the following contents: 
 -- \begin{enumerate}
@@ -93,7 +93,7 @@ local Options = require "pgf.gd.control.Options"
 --\end{codeexample}
 -- Suppose, furthermore, that |length| has been setup as an edge
 -- option. Now suppose that |a| is the arc from the vertex |tail| to
--- the vertex |head|. Calling |a:optionsArray('/graph drawing/length')| will
+-- the vertex |head|. Calling |a:optionsArray('length')| will
 -- yield the array part |{1,3,2,8,7}|. The reason for the ordering is
 -- as follows: First come all values |length| had for syntactic edges
 -- going from |self.tail| to |self.head| in the order they appear in the graph
@@ -118,7 +118,7 @@ local Options = require "pgf.gd.control.Options"
 --
 --\begin{codeexample}[code only]
 --local a = g:arc(tail.head)   -- some arc
---local opt = a:optionsArray('/graph drawing/length')
+--local opt = a:optionsArray('length')
 --local sum = 0
 --for i=1,#opt.aligned do
 --  sum = sum + opt[i]
@@ -145,27 +145,27 @@ function Arc:optionsArray(option)
   local tail = self.tail
   local head = self.head
   local s_graph = self.syntactic_digraph
-  
+
   local arc = s_graph:arc(tail, head)
   local aligned = {}
   if arc then
-    for _,m in ipairs(arc.storage.syntactic_edges) do
+    for _,m in ipairs(arc.syntactic_edges) do
       if m.options[option] ~= nil then
 	aligned[#aligned + 1] = m
       end
     end
-    table.sort(aligned, function (a,b) return a.event_index < b.event_index end)
+    table.sort(aligned, function (a,b) return a.event.index < b.event.index end)
   end
   
   local arc = head ~= tail and s_graph:arc(head, tail)
   local anti_aligned = {}
   if arc then
-    for _,m in ipairs(arc.storage.syntactic_edges) do
+    for _,m in ipairs(arc.syntactic_edges) do
       if m.options[option] ~= nil then
 	anti_aligned[#anti_aligned + 1] = m
       end
     end
-    table.sort(anti_aligned, function (a,b) return a.event_index < b.event_index end)
+    table.sort(anti_aligned, function (a,b) return a.event.index < b.event.index end)
   end
   
   -- Now merge them together
@@ -232,7 +232,7 @@ end
 --
 -- @usage Here is typical usage:
 --\begin{codeexample}[code only]
---local total_length = a:optionsAccumulated('/graph drawing/length', function (a,b) return a+b end) or 0
+--local total_length = a:optionsAccumulated('length', function (a,b) return a+b end) or 0
 --\end{codeexample}
 --
 function Arc:optionsAccumulated(option, accumulator, only_aligned)
@@ -279,9 +279,11 @@ function Arc:pointCloud ()
   local cloud = {}
   local a = self.syntactic_digraph:arc(self.tail,self.head)
   if a then
-    for _,e in ipairs(a.storage.syntactic_edges or {}) do
+    for _,e in ipairs(a.syntactic_edges) do
       for _,p in ipairs(e.path) do
-	cloud[#cloud + 1] = p
+	if type(p) == "table" then
+	  cloud[#cloud + 1] = p
+	end
       end
     end
   end
@@ -306,14 +308,14 @@ function Arc:eventIndex ()
   local e = math.huge
   local a = self.syntactic_digraph:arc(tail,head)
   if a then
-    for _,m in ipairs(a.storage.syntactic_edges or {}) do
-      e = math.min(e, m.event_index)
+    for _,m in ipairs(a.syntactic_edges) do
+      e = math.min(e, m.event.index)
     end
   end
   local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
   if a then
-    for _,m in ipairs(a.storage.syntactic_edges or {}) do
-      e = math.min(e, m.event_index)
+    for _,m in ipairs(a.syntactic_edges) do
+      e = math.min(e, m.event.index)
     end
   end
   self.cached_event_index = e
@@ -332,16 +334,16 @@ end
 -- The priority of an edge is computed as follows:
 --
 -- \begin{enumerate}
--- \item If the option |"/graph drawing/span priority"| is set, this number
+-- \item If the option |"span priority"| is set, this number
 -- will be used.
 --
 -- \item If the edge has the same head as the arc, we lookup the key\\
--- |"/graph drawing/span priority " .. edge.direction|. If set, we use
+-- |"span priority " .. edge.direction|. If set, we use
 -- this value.
 --
 -- \item If the edge has a different head from the arc (the arc is
 -- ``reversed'' with respect to the syntactic edge), we lookup the key
--- |"/graph drawing/span priority reversed " .. edge.direction|. If set,
+-- |"span priority reversed " .. edge.direction|. If set,
 -- we use this value.
 --
 -- \item Otherwise, we use priority 5.
@@ -358,13 +360,13 @@ function Arc:spanPriority()
   local tail = self.tail
   local min
   local g = self.syntactic_digraph
-  
+
   local a = g:arc(tail,head)
   if a then
-    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+    for _,m in ipairs(a.syntactic_edges) do
       local p =
-	m.options["/graph drawing/span priority"] or
-	Options.lookup("/graph drawing/span priority " .. m.direction, m, g)
+	m.options["span priority"] or
+	lib.lookup_option("span priority " .. m.direction, m, g)
 
       min = math.min(p or 5, min or math.huge)
     end
@@ -372,10 +374,10 @@ function Arc:spanPriority()
 
   local a = head ~= tail and g:arc(head,tail)
   if a then
-    for _,m in ipairs(a.storage.syntactic_edges or {}) do
+    for _,m in ipairs(a.syntactic_edges) do
       local p =
-	m.options["/graph drawing/span priority"] or
-	Options.lookup("/graph drawing/span priority reversed " .. m.direction, m, g)
+	m.options["span priority"] or
+	lib.lookup_option("span priority reversed " .. m.direction, m, g)
       
       min = math.min(p or 5, min or math.huge)
     end
@@ -416,20 +418,30 @@ function Arc:sync()
     local tail = self.tail
     local a = self.syntactic_digraph:arc(tail,head)
     if a then
-      for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      for _,m in ipairs(a.syntactic_edges) do
 	local copy = {}
 	for i=1,#path do
-	  copy [i] = path[i]:clone()
+	  local p = path[i]
+	  if type(p) == "table" then
+	    copy [i] = p:clone()
+	  else
+	    copy [i] = p
+	  end
 	end
 	m.path = copy
       end
     end
     local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
     if a then
-      for _,m in ipairs(a.storage.syntactic_edges or {}) do
+      for _,m in ipairs(a.syntactic_edges) do
 	local copy = {}
 	for i=1,#path do
-	  copy [i] = path[i]:clone()
+	  local p = path[i]
+	  if type(p) == "table" then
+	    copy [i] = p:clone()
+	  else
+	    copy [i] = p
+	  end
 	end
 	m.path = copy
       end
@@ -444,7 +456,7 @@ end
 -- @return The Arc as string.
 --
 function Arc:__tostring()
-  return tostring(self.tail) .. "->" .. tostring(self.head);
+  return tostring(self.tail) .. "->" .. tostring(self.head)
 end
 
 

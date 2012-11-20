@@ -20,7 +20,13 @@ require("pgf").gd = gd
 
 
 
---- Helping function for creating new algorithm classes
+
+
+
+-- Deprecated:
+--
+--
+-- Helping function for creating new algorithm classes
 --
 -- This function creates a new algorithm class. This class will have a
 -- new method, that takes a graph and, optionally, a parent algorithm
@@ -56,6 +62,8 @@ function gd.new_algorithm_class (class)
 
       return obj
     end
+  class.preconditions = {}
+  class.postconditions = {}
 
   return class
 end

@@ -17,15 +17,10 @@ local layered = {}
 require("pgf.gd").layered = layered
 
 
-
--- Imports
-
-local Options = require "pgf.gd.control.Options"
+local lib = require "pgf.gd.lib"
 
 
-
-
---- 
+-- 
 -- This file defines some basic functions to compute and/or set the
 -- ideal distances between nodes of any kind of layered drawing of a
 -- graph.
@@ -46,17 +41,17 @@ function layered.ideal_sibling_distance (algorithm, graph, n1, n2)
   local n2_is_node = n2.kind == "node"
 
   if not n1_is_node and not n2_is_node then
-    ideal_distance = graph.options['/graph drawing/sibling distance']
-    sep =   graph.options['/graph drawing/sibling post sep']
-          + graph.options['/graph drawing/sibling pre sep']
+    ideal_distance = graph.options['sibling distance']
+    sep =   graph.options['sibling post sep']
+          + graph.options['sibling pre sep']
   else
     if n1_is_node then
-      ideal_distance = Options.lookup('/graph drawing/sibling distance', n1, graph)
+      ideal_distance = lib.lookup_option('sibling distance', n1, graph)
     else
-      ideal_distance = Options.lookup('/graph drawing/sibling distance', n2, graph)
+      ideal_distance = lib.lookup_option('sibling distance', n2, graph)
     end
-    sep =   (n1_is_node and Options.lookup('/graph drawing/sibling post sep', n1, graph) or 0)
-          + (n2_is_node and Options.lookup('/graph drawing/sibling pre sep', n2, graph) or 0)
+    sep =   (n1_is_node and lib.lookup_option('sibling post sep', n1, graph) or 0)
+          + (n2_is_node and lib.lookup_option('sibling pre sep', n2, graph) or 0)
   end
   
   return math.max(ideal_distance, sep + 
@@ -99,15 +94,15 @@ function layered.baseline_distance (algorithm, graph, l1, l2)
   local min_pre = math.huge
 
   for _,n in ipairs(l1) do
-    layer_distance = math.max(layer_distance, Options.lookup('/graph drawing/level distance', n, graph))
-    layer_post_sep = math.max(layer_post_sep, Options.lookup('/graph drawing/level post sep', n, graph))
+    layer_distance = math.max(layer_distance, lib.lookup_option('level distance', n, graph))
+    layer_post_sep = math.max(layer_post_sep, lib.lookup_option('level post sep', n, graph))
     if n.kind == "node" then
       max_post = math.max(max_post, n.storage[algorithm].layer_post)
     end
   end
 
   for _,n in ipairs(l2) do
-    layer_pre_sep = math.max(layer_pre_sep, Options.lookup('/graph drawing/level pre sep', n, graph))
+    layer_pre_sep = math.max(layer_pre_sep, lib.lookup_option('level pre sep', n, graph))
     if n.kind == "node" then
       min_pre = math.min(min_pre, n.storage[algorithm].layer_pre)
     end

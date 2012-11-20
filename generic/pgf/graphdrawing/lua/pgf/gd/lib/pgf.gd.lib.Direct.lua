@@ -42,11 +42,11 @@ local Digraph = require "pgf.gd.model.Digraph"
 
 function Direct.digraphFromSyntacticDigraph(syntactic_digraph)
   local digraph = Digraph.new(syntactic_digraph) -- copy
-  
+
   -- Now go over all arcs of the syntactic_digraph and turn them into
   -- arcs with the correct direction in the digraph:
   for _,a in ipairs(syntactic_digraph.arcs) do
-    for _,m in ipairs(a.storage.syntactic_edges) do
+    for _,m in ipairs(a.syntactic_edges) do
       local direction = m.direction
       if direction == "->" then
 	digraph:connect(a.tail, a.head)
