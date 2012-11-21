@@ -52,34 +52,36 @@ declare {
 
   old_graph_model = true,
 
-  documentation = [["  
+  summary = [["  
        The |layered layout| is the key used to select the modular Sugiyama
-       layout algorithm. As explained in the overview of this section, this
-       algorithm consists of five consecutive steps, each of which can be
+       layout algorithm. 
+  "]],
+  documentation = [["
+       This algorithm consists of five consecutive steps, each of which can be
        configured independently of the other ones (how this is done is
        explained later in this section). Naturally, the ``best'' heuristics
        are selected by default, so there is typically no need to change the
        settings, but what is the ``best'' method for one graph need not be
        the best one for another graph.
         
-       \begin{codeexample}[]
-       \tikz \graph [layered layout, sibling distance=7mm]
-       {
-         a -> {
-           b,
-           c -> { d, e, f }
-         } ->
-         h ->
-         a
-       };    
-       \end{codeexample}
-      
-       As can be seen in the above example, the algorithm will not only
+       As can be seen in the first example, the algorithm will not only
        position the nodes of a graph, but will also perform an edge
        routing. This will look visually quite pleasing if you add the
        |rounded corners| option:
-      
-       \begin{codeexample}[]
+  "]],
+  examples = {
+    [["
+       \tikz \graph [layered layout, sibling distance=7mm]
+       {
+	 a -> {
+	   b,
+	   c -> { d, e, f }
+	 } ->
+	 h ->
+	 a
+       };    
+    "]],
+    [["
        \tikz [rounded corners] \graph [layered layout, sibling distance=7mm]
        {
          a -> {
@@ -89,8 +91,8 @@ declare {
          h -> 
          a
        };    
-       \end{codeexample}
-  "]]
+   "]]
+  }
 }
 
 ---
@@ -100,18 +102,17 @@ declare {
   type = "number",
   initial = "1",
 
-  documentation = [["  
+  summary = [["  
        The minimum number of levels that an edge must span. It is a bit of
        the opposite of the |weight| parameter: While a large |weight|
        causes an edge to become shorter, a larger |minimum layers| value
        causes an edge to be longer.
-      
-      \begin{codeexample}[]
+  "]],
+  examples = [["
       \tikz \graph [layered layout] {
         a -- {b [> minimum layers=3], c, d} -- e -- a;
       };
-      \end{codeexample}
- "]]
+  "]]
 }
 
 
@@ -121,19 +122,18 @@ declare {
   key = "same layer",
   layer = 0,
 
-  documentation = [["  
+  summary = [["  
        The |same layer| collection allows you to enforce that several nodes
        a on the same layer of a layered layout (this option is also known
        as |same rank|). You use it like this:
-      
-       \begin{codeexample}[]
+  "]],
+  examples = [["
        \tikz \graph [layered layout] {
          a -- b -- c -- d -- e;
       
          { [same layer] a, b };
          { [same layer] d, e };
        };
-       \end{codeexample}
   "]]
 }
 

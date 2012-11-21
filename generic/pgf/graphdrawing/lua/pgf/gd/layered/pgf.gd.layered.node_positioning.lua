@@ -44,10 +44,11 @@ declare {
   phase = "node positioning",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        This node positioning method, due to Gasner et al., is based on a
        linear optimization problem.
-      
+  "]],
+  documentation = [["            
        For more details, please see Section 4.1.3 of Pohlmann's Diploma
        thesis. 
       

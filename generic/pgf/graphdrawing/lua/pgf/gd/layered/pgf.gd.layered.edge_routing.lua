@@ -38,9 +38,10 @@ declare {
   phase = "layer edge routing",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        This edge routing algorithm uses polygonal lines to connect nodes. 
-      
+  "]],
+  documentation = [["            
        For more details, please see Section 4.1.5 of Pohlmann's Diploma
        thesis. 
       

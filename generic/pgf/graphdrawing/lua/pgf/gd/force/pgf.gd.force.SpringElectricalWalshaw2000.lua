@@ -35,10 +35,11 @@ declare {
 
   old_graph_model = true,
 
-  documentation = [["  
+  summary = [["  
        Implementation of a spring electrical graph drawing algorithm based on
-       the paper   
-      
+       a paper by Walshaw.
+ "]],
+  documentation = [["        
        \begin{itemize}
        \item
          C. Walshaw.

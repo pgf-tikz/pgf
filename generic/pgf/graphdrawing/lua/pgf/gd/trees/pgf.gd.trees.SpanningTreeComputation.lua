@@ -90,12 +90,13 @@ declare {
   phase = "spanning tree computation",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        This key selects ``breadth first'' as the (sub)algorithm for
        computing spanning trees. Note that this key does not cause a graph
        drawing scope to start; the key only has an effect in conjunction
        with keys like |tree layout|.
-      
+  "]],      
+  documentation = [["  
        The algorithm will be called whenever a graph drawing algorithm
        needs a spanning tree on which to operate. It works as follows:
        \begin{enumerate}
@@ -158,7 +159,7 @@ declare {
   },
   phase = "spanning tree computation",
 
-  documentation = [["  
+  summary = [["  
        Works exactly like |breadth first spanning tree| (same handling of
        priorities), only the queues are now lifo instead of
        fifo.
@@ -172,7 +173,7 @@ declare {
   type    = "boolean",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        This Boolean parameter is used in the computation of spanning
        trees. When can be set for a node, this node will be used as the
        root for the spanning tree computation. If several nodes have this
@@ -187,7 +188,7 @@ declare {
   key = "span priority",
   type = "number",
 
-  documentation = [["  
+  summary = [["  
        Explicitly sets the ``span priority'' of an edge to \meta{number}, which must be 
        a number between |1| and |10|. The priority of edges is used by
        spanning tree computations, see |breadth first spanning tree|.
@@ -202,7 +203,7 @@ declare {
   key = "span edge",
   { key = "span priority", value = 1 },
 
-  documentation = [["  
+  summary = [["  
        An easy-to-remember shorthand for |span priority=1|. When this key
        is used with an edge, it will always be preferred over other edges
    "]]
@@ -217,15 +218,17 @@ declare {
   key = "no span edge",
   { key = "span priority", value = 10 },
 
-  documentation = [["  
+  summary = [["  
        An easy-to-remember shorthand for |span priority=10|. This causes
        the edge to be used only as a last resort as part of a spanning
        tree. 
-      
-       In the following example, we add lots of edges that would normally be
+ "]],
+  documentation = [["  
+       In the example, we add lots of edges that would normally be
        preferred in the computation of the spanning tree, but use
        |no span edge| to cause the algorithm to ignore these edges.
-      \begin{codeexample}[]
+ "]],
+  examples = [["  
       \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
                     every group/.style={
                       default edge kind=->, no span edge,
@@ -238,26 +241,27 @@ declare {
           }
         }
       };
-      \end{codeexample}     
- "]]
-  }
+  "]]
+}
+
+
 
 ---
-
 declare {
   key = "span priority ->",
   type = "number",
   initial = "3",
 
-  documentation = [["  
+  summary = [["  
        This key stores the span priority of all edges whose direction is
        |->|. There are similar keys for all other directions, such as
        |span priority <-| and so on.
-      
+  "]],
+  documentation = [["  
        When you write
-       \begin{codeexample}[code only]
-       graph { a -> b -- c <- [span priority=2] d }      
-       \end{codeexample}
+\begin{codeexample}[code only]
+graph { a -> b -- c <- [span priority=2] d }      
+\end{codeexample}
        the priority of the edge from |a| to |b| would be the current
        value of the key |span priority ->|, the priority of the edge from
        |b| to |c| would be the current value of |span priority --|, and
@@ -287,10 +291,13 @@ declare {
   documentation = [["  
        This key stores the span priority of traveling across reversed
        edges whose actual direction is |->| (again, there are similar keys
-       for all other directions). Continuing the above example, when you write
-       \begin{codeexample}[code only]
-       graph { a -> b -- c <- [span priority=2] d }      
-       \end{codeexample}
+       for all other directions).
+  "]],
+  documentation = [["  
+       When you write
+\begin{codeexample}[code only]
+graph { a -> b -- c <- [span priority=2] d }      
+\end{codeexample}
        there are, in addition to the priorities indicated above, also
        further edge priorities: The priority of the (reversed) edge |b|
        to |a| is |span priority reversed ->|, the priority of the
@@ -375,15 +382,15 @@ declare {
   { key = "span priority <->", value = 3},
   { key = "span priority reversed <->", value = 3},
 
-  documentation = [["  
+  summary = [["  
        This style sets a priority of |3| for all edges that are directed
        and ``go along the arrow direction'', that is, we go from |a| to
        |b| with a priority of |3| for the cases |a -> b|, |b <- a|,
-       |a <-> b|, and |b <-> a|.
-       
+       |a <-> b|, and |b <-> a|.       
        This strategy is nice with trees specified with both forward and
-       backward edges:
-       \begin{codeexample}[]
+       backward edges.
+  "]],
+  examples = [["  
        \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
                      span using directed]
        {
@@ -392,7 +399,6 @@ declare {
          7 <- 8 -> 9,
          1 -- 4 -- 7 -- 9
        };
-       \end{codeexample}
   "]]
 }
 
@@ -411,7 +417,7 @@ declare {
   { key = "span priority reversed --", value = 5},
   { key = "span priority reversed -!-", value = 5},
 
-  documentation = [["  
+  summary = [["  
        Assings a uniform priority of 5 to all edges.
   "]]
 }

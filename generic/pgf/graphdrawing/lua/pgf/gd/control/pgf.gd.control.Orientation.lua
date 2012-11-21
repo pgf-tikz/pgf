@@ -49,7 +49,7 @@ declare {
   type = "direction",
   default = 0,
 
-  documentation = [["  
+  summary = [["  
        This key specifies that the straight line from the |orient tail| to
        the |orient head| should be at an angle of \meta{direction} relative to
        the right-going $x$-axis. Which vertices are used as tail an head
@@ -59,33 +59,35 @@ declare {
        explicitly and the node is used as the node missing in the
        specification. When used with a graph as a whole, both the head and
        tail nodes must be specified explicitly.
-      
+  "]],
+  documentation = [["
        Note that the \meta{direction} is independent of the actual to-path
        of an edge, which might define a bend or more complicated shapes. For
        instance, a \meta{angle} of |45| requests that the end node is ``up
-       and right'' relative to the start node.
-          
-       \begin{codeexample}[]
+       and right'' relative to the start node. 
+
+       You can also specify the standard direction texts |north| or |south east|
+       and so forth as \meta{direction} and also |up|, |down|, |left|, and |right|. Also, you 
+       can specify |-| for ``right'' and \verb!|! for ``down.''
+  "]],        
+  examples = {
+    [["
        \tikz \graph [spring layout]
        {
          a -- { b, c, d, e -- {f, g, h} };
          h -- [orient=30] a;
        };
-       \end{codeexample}
-       \begin{codeexample}[]
+    "]],
+    [["
        \tikz \graph [spring layout]
        {
          a -- { b, c, d[> orient=right], e -- {f, g, h} };
          h -- a;
        };
-       \end{codeexample}
-      
-       @param direction A direction. This is usually a number, but you can
-       also specify the standard direction texts |north| or |south east|
-       and so forth and also |up|, |down|, |left|, and |right|. Also, you
-       can specify |-| for ``right'' and \verb!|! for ``down.''
-  "]]
+    "]]
+  }
 }
+
 
 ---
 
@@ -94,17 +96,16 @@ declare {
   type = "direction",
   default = 0,
 
-  documentation = [["  
-       Same as |orient| above, only the rest of the graph should be
+  summary = [["  
+       Same as |orient|, only the rest of the graph should be
        flipped relative to the connection line.
-      
-       \begin{codeexample}[]
+  "]],
+  examples = [["
        \tikz \graph [spring layout]
        {
          a -- { b, c, d[> orient'=right], e -- {f, g, h} };
          h -- a;
        };
-       \end{codeexample}
   "]]
 }
 
@@ -114,26 +115,24 @@ declare {
   key = "orient tail",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        Specifies the tail vertex for the orientation of a graph. See
        |orient| for details.
-      
-       \begin{codeexample}[]
-       \tikz \graph [spring layout]
-       {
+  "]],
+  examples = {
+    [["
+       \tikz \graph [spring layout] {
          a [orient=|, orient tail=f] -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
-      
-       \begin{codeexample}[]
-       \tikz \graph [spring layout]
-       {
+    "]],
+    [["
+       \tikz \graph [spring layout] {
          a [orient=down, orient tail=h] -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
     
 
@@ -146,24 +145,24 @@ declare {
   key = "orient head",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        Specifies the head vertex for the orientation of a graph. See
        |orient| for details.
-      
-       \begin{codeexample}[]
+  "]],
+  examples = {     
+    [["
        \tikz \graph [spring layout]
        {
          a [orient=|, orient head=f] -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
-      
-       \begin{codeexample}[]
+    "]],
+    [["
        \tikz \graph [spring layout] { a -- b -- c -- a };
        \tikz \graph [spring layout, orient=10,
                      orient tail=a, orient head=b] { a -- b -- c -- a };
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
 
 ---
@@ -172,15 +171,14 @@ declare {
   key = "horizontal",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        A shorthand for specifying |orient tail|, |orient head| and
        |orient=0|. The tail will be everything before the part ``| to |''
        and the head will be everything following it. 
-      
-       \begin{codeexample}[]
+  "]],
+  examples = [["     
        \tikz \graph [spring layout]                    { a -- b -- c -- a };
        \tikz \graph [spring layout, horizontal=a to b] { a -- b -- c -- a };
-       \end{codeexample}
   "]]
 }
        
@@ -193,7 +191,7 @@ declare {
   key = "horizontal'",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        Like |horizontal|, but with a flip.
   "]]
 }
@@ -210,14 +208,13 @@ declare {
   key = "vertical",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        A shorthand for specifying |orient tail|, |orient head| and
        |orient=-90|.
-      
-       \begin{codeexample}[]
+  "]],
+  examples = [["
        \tikz \graph [spring layout]                  { a -- b -- c -- a };
        \tikz \graph [spring layout, vertical=a to b] { a -- b -- c -- a };
-       \end{codeexample}
   "]]
 }
        
@@ -231,7 +228,7 @@ declare {
   key = "vertical'",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        Like |vertical|, but with a flip.
   "]]
 }
@@ -244,7 +241,7 @@ declare {
   key = "grow",
   type = "direction",
 
-  documentation = [["  
+  summary = [["  
        This key specifies in which direction the neighbors of a node
        ``should grow.'' For some graph drawing algorithms, especially for
        those that layout trees, but also for those that produce layered
@@ -255,8 +252,9 @@ declare {
        by direction texts). The children are requested to be placed in a
        counter-clockwise fashion, the |grow'| key will place them in a
        clockwise fashion.
-        
-       Note that when you say |grow=down| it is not necessarily the case
+  "]],
+  documentation = [["        
+       Note that when you say |grow=down|, it is not necessarily the case
        that any particular node is actually directly below the current
        node; the key just requests that the direction of growth is
        downward.
@@ -264,35 +262,34 @@ declare {
        In principle, you can specify the direction of growth for each node 
        individually, but do not count on graph drawing algorithms to
        honour these wishes.
-        
-       \begin{codeexample}[]
+       
+       When you give the |grow=right| key to the graph as a whole, it will
+       be applied to all nodes. This happens to be exactly what you want:
+  "]],
+  examples = {     
+    [["
        \tikz \graph [layered layout, sibling distance=5mm]
        {
          a [grow=right] -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
-      
-       When you give the |grow=right| key to the graph as a whole, it will
-       be applied to all nodes. This happens to be exactly what you want:
-        
-       \begin{codeexample}[]
+    "]],      
+    [["
        \tikz \graph [layered layout, grow=right, sibling distance=5mm]
        {
          a -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
-        
-       \begin{codeexample}[]
+    "]],      
+    [["
        \tikz
          \graph [layered layout, grow=-80]
          {
            {a,b,c} --[complete bipartite] {e,d,f}
                    --[complete bipartite] {g,h,i};
          };
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
 
 
@@ -302,15 +299,13 @@ declare {
   key = "grow'",
   type = "direction",
 
-  documentation = [["  
-       Same as |grow|, only with the children in clockwise order.
-       \begin{codeexample}[]
+  summary = "Same as |grow|, only with the children in clockwise order.",
+  examples = [["
        \tikz \graph [layered layout, sibling distance=5mm]
        {
          a [grow'=right] -- { b, c, d, e -- {f, g, h} };
          { h, g } -- a;
        };
-       \end{codeexample}
   "]]
 }
 

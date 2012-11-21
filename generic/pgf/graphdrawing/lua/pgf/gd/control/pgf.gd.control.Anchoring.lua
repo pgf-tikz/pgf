@@ -74,24 +74,24 @@ declare {
      Now, when you set this key for a single node of a graph,
      then, by shifting the graph around, this ``wish'' can obviously
      always be fulfill:
-     \begin{codeexample}[]
-     \begin{tikzpicture}
-       \draw [help lines] (0,0) grid (3,2);
-       \graph [spring layout]
-       {
-         a [desired at={(1,2)}] -- b -- c -- a;
-       };
-     \end{tikzpicture}
-     \end{codeexample}
-     \begin{codeexample}[]
-     \begin{tikzpicture}
-       \draw [help lines] (0,0) grid (3,2);
-       \graph [spring layout]
-       {
-         a -- b[desired at={(2,1)}] -- c -- a;
-       };
-     \end{tikzpicture}
-     \end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a [desired at={(1,2)}] -- b -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a -- b[desired at={(2,1)}] -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
      Since the key's name is a bit long and since the many braces and
      parentheses are a bit cumbersome, there is a special support for
      this key inside a |graph|: The standard |/tikz/at| key is redefined
@@ -101,24 +101,24 @@ declare {
      by a graph drawing algorithm.) A nice side effect of this is that
      you can use the |x| and |y| keys (see
      Section~\ref{section-graphs-xy}) to specify desired positions:
-     \begin{codeexample}[]
-     \begin{tikzpicture}
-       \draw [help lines] (0,0) grid (3,2);
-       \graph [spring layout]
-       {
-         a -- b[x=2,y=0] -- c -- a;
-       };
-     \end{tikzpicture}
-     \end{codeexample}
-     \begin{codeexample}[]
-     \begin{tikzpicture}
-       \draw [help lines] (0,0) grid (3,2);
-       \graph [layered layout]
-       {
-         a [x=1,y=2] -- { b, c } -- {e, f} -- a
-       };
-     \end{tikzpicture}
-     \end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [spring layout]
+  {
+    a -- b[x=2,y=0] -- c -- a;
+  };
+\end{tikzpicture}
+\end{codeexample}
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \graph [layered layout]
+  {
+    a [x=1,y=2] -- { b, c } -- {e, f} -- a
+  };
+\end{tikzpicture}
+\end{codeexample}
     
      A problem arises when two or more nodes have this key set, because
      then your ``desires'' for placement and the positions computed by

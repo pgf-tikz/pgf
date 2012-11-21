@@ -29,14 +29,6 @@
 -- called by the display layer. For instance, it provides methods for
 -- starting a graph drawing scope, managing the stack of such scope,
 -- adding a node to a graph and so on.
---
--- 
---
--- @field scopes This is a stack of graph drawing scopes. All
--- interface methods refer to the top of this stack. 
---
--- @field collection_kinds This table stores which collection kinds
--- have been defined together with their properties.
 
 local InterfaceToDisplay = {}
 
@@ -83,11 +75,11 @@ local option_cache = nil -- The option cache
 -- layer at the very beginning. For instance, \tikzname\ does the
 -- following call:
 --
---\begin{codeexample}[]
+--\begin{codeexample}[code only]
 --InterfaceToDisplay.bind(require "pgf.gd.bindings.BindingToPGF")
 --\end{codeexample}
 --
--- Susequently, the |binding| field of the |InterfaceCore| can be used.
+-- Subsequently, the |binding| field of the |InterfaceCore| can be used.
 --
 -- @param class A subclass of |Binding|.
 

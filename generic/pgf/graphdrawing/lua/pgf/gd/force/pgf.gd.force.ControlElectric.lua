@@ -30,27 +30,30 @@ declare {
   type = "number",
   initial = 1,
 
-  documentation = [["  
+  summary = [["  
        Defines the electric charge of the node. The stronger the 
        |electric charge| of a node the stronger the repulsion between the
        node and others in the graph. A negative |electric charge| means that
        other nodes are further attracted to the node rather than repulsed,
        although in theory this effect strongly depends on how the 
        |spring electrical layout| algorithm works.
-      
        Two typcal effects of increasing the |electric charge| are distortion
-       of symmetries and an upscaling of the drawings:
-       \begin{codeexample}[width=5cm] 
+       of symmetries and an upscaling of the drawings.
+  "]],
+  examples = {
+    [["
        \tikz \graph [spring electrical layout, horizontal=0 to 1] 
          { 0 [electric charge=1] -- subgraph C_n [n=10] };
-      
+    "]],
+    [["
        \tikz \graph [spring electrical layout, horizontal=0 to 1] 
          { 0 [electric charge=5] -- subgraph C_n [n=10] };
-      
+    "]],
+    [["
        \tikz \graph [spring electrical layout, horizontal=0 to 1] 
          { [clique] 1 [electric charge=5], 2, 3, 4 };
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
 
 
@@ -61,7 +64,7 @@ declare {
   type = "number",
   initial = "1",
 
-  documentation = [["  
+  summary = [["  
        Sometimes, when drawing symmetric and mesh-like graphs, the
        peripheral distortion caused by long-range electric forces may be
        undesired. Some electric force models allow to reduce long-range
@@ -80,7 +83,7 @@ declare {
   key = "approximate remote forces",
   type = "boolean",
 
-  documentation = [["  
+  summary = [["  
        Force based algorithms often need to compute a force for each pair
        of vertices, which, for larger numbers of vertices, can lead to a
        significant time overhead. This problem can be addressed by

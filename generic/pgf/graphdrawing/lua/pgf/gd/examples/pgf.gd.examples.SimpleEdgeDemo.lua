@@ -30,9 +30,9 @@ declare {
   key = "simple edge demo layout",
   algorithm = SimpleEdgeDemo,
 
+  summary = "This algorithm shows how edges can be created by an algorithm.",
   documentation = [["  
-       This algorithm shows how edges can be created by an algorithm. For
-       this job, one can use the function |createEdge|, which can be
+       For its job, the algorithm uses the function |createEdge|, which can be
        called during the run of the algorithm to create edges in the
        syntactic graph. The algorithm first does exactly the same as the
        simple demo layout, then it creates an edge for every node where the
@@ -110,7 +110,7 @@ declare {
   key = "new edge to",
   type = "string",
 
-  documentation = [["  
+  summary = [["  
        This option takes the name of a vertex. An edge leading to this
        vertex is added to the syntactic digraph.
    "]]

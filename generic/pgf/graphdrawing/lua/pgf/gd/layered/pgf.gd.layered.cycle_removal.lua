@@ -34,13 +34,17 @@ declare {
   phase = "cycle removal",
   default = true,
 
-  documentation = [["  
-       In \tikzname, graphs are usually created by humans manually. This allows
-       to make assumptions about the input graph that would otherwise not
+  summary = [["  
+       Selects a cycle removal algorithm that is especially
+       appropriate for graphs specified ``by hand''. 
+  "]],
+  documentation = [["      
+       When graphs are created by humans manually, one can 
+       make assumptions about the input graph that would otherwise not
        be possible. For instance, it seems reasonable to assume that the
        order in which nodes and edges are entered by the user somehow
        reflects the natural flow the user has had in mind for the graph.
-      
+
        In order to preserve the natural flow of the input graph, Gansner
        et al.\ propose to remove cycles by performing a series of
        depth-first searches starting at individual nodes in the order they
@@ -72,12 +76,14 @@ declare {
   algorithm = "pgf.gd.layered.CycleRemovalEadesLS1993",
   phase = "cycle removal",
 
-  documentation = [["  
+  summary = [["  
        This algorithm implements a greedy heuristic of Eades et al.\ for
-       cycle removal, see section 4.1.1 of Pohlmann's Diploma theses, that
-       prioritizes sources and sinks.
-   "]]
- }
+       cycle removal that  prioritizes sources and sinks.
+  "]],
+  documentation = [["      
+       See section 4.1.1 of Pohlmann's Diploma theses for details.
+  "]]
+}
 
 
 ---
@@ -87,11 +93,13 @@ declare {
   algorithm = "pgf.gd.layered.CycleRemovalEadesLS1993",
   phase = "cycle removal",
 
-  documentation = [["  
+  summary = [["  
        This algorithm implements a greedy heuristic of Eades et al.\ for
-       cycle removal, see section 4.1.1 of Pohlmann's Diploma theses, that
-       prioritizes sources and sinks.
-   "]]
+       cycle removal that prioritizes sources and sinks.
+  "]],
+  documentation = [["      
+       See section 4.1.1 of Pohlmann's Diploma theses for details.
+  "]]
  }
 
 ---
@@ -101,12 +109,15 @@ declare {
   algorithm = "pgf.gd.layered.CycleRemovalBergerS1990a",
   phase = "cycle removal",
 
-  documentation = [["  
+  summary = [["  
        This algorithm implements a greedy heuristic of Berger and Shor for
-       cycle removal, see section 4.1.1 of Pohlmann's Diploma theses. It
+       cycle removal. It
        is not really compared to the other heuristics and only included
        for demonstration purposes.
-   "]]
+  "]],
+  documentation = [["      
+       See section 4.1.1 of Pohlmann's Diploma theses for details.
+  "]]
  }
 
 ---
@@ -116,11 +127,13 @@ declare {
   algorithm = "pgf.gd.layered.CycleRemovalBergerS1990b",
   phase = "cycle removal",
 
-  documentation = [["  
+  summary = [["  
        This algorithm implements a randomized greedy heuristic of Berger
-       and Shor for cycle removal, see section 4.1.1 of Pohlmann's Diploma
-       theses. It, too, is not really compared to the other heuristics and
-       only included for demonstration purposes.
-   "]]
+       and Shor for cycle removal. It, too, is not really compared to
+       the other heuristics and only included for demonstration purposes.
+  "]],
+  documentation = [["      
+       See section 4.1.1 of Pohlmann's Diploma theses for details.
+  "]]
  }
 

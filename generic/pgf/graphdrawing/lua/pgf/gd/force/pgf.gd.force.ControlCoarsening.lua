@@ -29,7 +29,7 @@ declare {
   type = "boolean",
   initial = "true",
 
-  documentation = [["  
+  summary = [["  
        Defines whether or not a multilevel approach is used that
        iteratively coarsens the input graph into graphs $G_1,\dots,G_l$
        with a smaller and smaller number of nodes. The coarsening stops as
@@ -37,7 +37,8 @@ declare {
        |minimum coarsening size| option, or if, in the last iteration, the
        number of nodes was not reduced by at least the ratio specified via
        |downsize ratio|. 
-      
+  "]],
+  documentation = [["
        A random initial layout is computed for the coarsest graph $G_l$ first.
        Afterwards, it is laid out by computing the attractive and repulsive
        forces between its nodes. 
@@ -59,17 +60,17 @@ declare {
        The following example demonstrates how coarsening can improve the
        quality of graph drawings generated with Walshaw's algorihtm 
        |spring electrical layout'|.
-       \begin{codeexample}[width=5cm]
+ "]],
+  examples = [["
        \tikz \graph [spring electrical layout', coarsen=false, vertical=3 to 4] 
-         { 
-           { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
-         };
-      
+       { 
+         { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
+       };
+       
        \tikz \graph [spring electrical layout', coarsen, vertical=3 to 4] 
-         { 
-           { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
-         };
-       \end{codeexample}
+       { 
+         { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
+       };
   "]]
 }
 
@@ -80,28 +81,29 @@ declare {
   type = "number",
   initial = 2,
 
-  documentation = [["  
+  summary = [["  
        Defines the minimum number of nodes down to which the graph is 
        coarsened iteratively. The first graph that has a smaller or equal 
        number of nodes becomes the coarsest graph $G_l$, where $l$ is the 
        number of coarsening steps. The algorithm proceeds with the steps 
        described in the documentation of the |coarsen| option.
-      
+  "]],      
+  documentation = [["  
        In the following example the same graph is coarsened down to two
        and four nodes, respectively. The layout of the original graph is 
        interpolated from the random initial layout and is not improved
        further because the forces are not computed (0 iterations). Thus, 
        in the two graphs, the nodes are placed at exactly two and four
-       coordinates in the final drawing:
-       \begin{codeexample}[width=5.5cm]\
-       \tikz \graph [spring layout, iterations=0,
-                     minimum coarsening size=2] 
-         { subgraph C_n [n=8] };
+       coordinates in the final drawing.
+ "]],
+  examples = [["
+      \tikz \graph [spring layout, iterations=0,
+	            minimum coarsening size=2] 
+        { subgraph C_n [n=8] };
       
-       \tikz \graph [spring layout, iterations=0,
-                     minimum coarsening size=4] 
-         { subgraph C_n [n=8] };
-       \end{codeexample}
+      \tikz \graph [spring layout, iterations=0,
+                    minimum coarsening size=4] 
+        { subgraph C_n [n=8] };
   "]]
 }
 
@@ -112,16 +114,16 @@ declare {
   type = "number",
   initial = "0.25",
 
-  documentation = [["  
+  summary = [["  
        Minimum ratio between 0 and 1 by which the number of nodes between 
        two coarse graphs $G_i$ and $G_{i+1}$ need to be reduced in order for 
        the coarsening to stop and for the algorithm to use $G_{i+1}$ as the 
        coarsest graph $G_l$. Aside from the input graph, the optimal value 
        of |downsize ratio| mostly depends on the coarsening scheme being
        used. Possible schemes are |collapse independent edges| and 
-       |connect independent nodes| which are explained later in this
-       document.
-      
+       |connect independent nodes|.
+  "]],      
+  documentation = [["        
        Increasing this option possibly reduces the number of coarse
        graphs computed during the coarsening phase as coarsening will stop as
        soon as a coarse graph does not reduce the number of nodes
@@ -129,7 +131,8 @@ declare {
        coarsest graph $G_l$ is much larger than |minimum coarsening size|, the 
        multilevel approach may not produce drawings as good as with a lower
        |downsize ratio|.
-       \begin{codeexample}[width=5cm]
+ "]],
+  examples = [["
        % 1. ratio too high, coarsening stops early, benefits are lost
        \tikz \graph [spring electrical layout',
                      downsize ratio=1.0,
@@ -141,7 +144,6 @@ declare {
                      downsize ratio=0.2,
                      node distance=7mm, vertical=3 to 4] 
          { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
-       \end{codeexample}
   "]]
 }
 

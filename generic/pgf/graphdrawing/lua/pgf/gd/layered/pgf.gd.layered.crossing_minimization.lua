@@ -66,12 +66,13 @@ declare {
   phase = "crossing minimization",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        Gansner et al. combine an initial ordering based on a depth-first
        search with the median and greedy switch heuristics applied in the
        form of an alternating layer-by-layer sweep based on a weighted
        median. 
-      
+  "]],
+  documentation = [["      
        For more details, please see Section 4.1.4 of Pohlmann's Diploma
        thesis. 
       

@@ -28,7 +28,7 @@ declare {
   key = "spring layout",
   { key = "spring Hu 2006 layout" },
 
-  documentation = [["  
+  summary = [["  
        This key selects Hu's 2006 spring layout with appropriate settings
        for some parameters.
    "]]

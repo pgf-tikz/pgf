@@ -31,8 +31,7 @@ declare {
       "]],
   
   documentation = [["
-     The name
-     |simple necklace layout| is reminiscent of the more general
+     The name |simple necklace layout| is reminiscent of the more general
      ``necklace layout,'' a term coined by Speckmann and Verbeek in
      their paper
      \begin{itemize}

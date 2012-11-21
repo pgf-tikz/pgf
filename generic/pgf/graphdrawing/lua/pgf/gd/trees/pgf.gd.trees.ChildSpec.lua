@@ -76,6 +76,10 @@ declare {
   type    = "number",
   initial = "0",
 
+  summary = [["
+      Specifies how many children a tree node must have at least. If
+      there are less, ``virtual'' children are added.
+  "]],
   documentation = [["  
        When this key is set to |2| or more, the following happens: We first
        compute a spanning tree for the graph, see
@@ -90,12 +94,11 @@ declare {
        that, for instance, in a tree with \meta{number} set to |2|, for
        every node with a single child, this child will be the first child
        and the second child will be missing.
-      
-      \begin{codeexample}[]
+  "]],
+  examples = [["
       \tikz \graph [binary tree layout,level distance=5mm]
       { a -> { b->c->d, e->f->g } };  
-      \end{codeexample}
- "]]
+  "]]
 }
 
 ---
@@ -104,13 +107,16 @@ declare {
   key  = "desired child index",
   type = "number",
 
-  documentation = [["  
+  summary = [["  
        Pass this key to a node to tell the graph drawing engine which child
        number you ``desired'' for the node. Whenever all desires for the
        children of a node are conflict-free, they will all be met; children
        for which no desired indices were given will remain at their
        position, whenever possible, but will ``make way'' for children with
-       a desired position. In detail, the following happens: We first
+       a desired position. 
+  "]],
+  documentation = [["
+       In detail, the following happens: We first
        determine the total number of children (real or dummy) needed, which
        is the maximum of the actual number of children, of the
        \texttt{minimum number of children}, and of the highest desired
@@ -134,32 +140,35 @@ declare {
       
        Since |desired child index=2| is a bit long, the following shortcuts
        are available: |first|, |second|, |third|, and |fourth|.
-      \begin{codeexample}[]
+       You might wonder why |second| is used rather than |right|. The 
+       reason is that trees may also grow left and right and, additionally,
+       the |right| and |left| keys are already in use for
+       anchoring. Naturally, you can locally redefine them, if you want.
+  "]],
+  examples = {
+    [["
       \tikz \graph [binary tree layout, level distance=5mm]
       { a -> b[second] };  
-      \end{codeexample}
-      \begin{codeexample}[]
+    "]],
+    [["
       \tikz \graph [binary tree layout, level distance=5mm]
       { a -> { b[second], c} };  
-      \end{codeexample}
-      \begin{codeexample}[]
+    "]],
+    [["
       \tikz \graph [binary tree layout, level distance=5mm]
       { a -> { b, c[first]} };  
-      \end{codeexample}
-      \begin{codeexample}[]
+    "]],
+    [["
       \tikz \graph [binary tree layout, level distance=5mm]
       { a -> { b[second], c[second]} };  
-      \end{codeexample}
-      \begin{codeexample}[]
+    "]],
+    [["
       \tikz \graph [binary tree layout, level distance=5mm]
       { a -> { b[third], c[first], d} };  
-      \end{codeexample}
-        You might wonder why |second| is used rather than |right|. The
-        reason is that trees may also grow left and right and, additionally,
-        the |right| and |left| keys are already in use for
-        anchoring. Naturally, you can locally redefine them, if you want.
- "]]
+    "]]
   }
+}
+
 
 ---
 
@@ -167,7 +176,7 @@ declare {
   key  = "first",
   { key = "desired child index", value = 1},
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting the desired child number to |1|.      
    "]]
  }
@@ -178,9 +187,8 @@ declare {
   key  = "second",
   { key = "desired child index", value = 2},
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting the desired child number to |2|.
-      
    "]]
  }
     
@@ -191,10 +199,9 @@ declare {
   key  = "third",
   { key = "desired child index", value = 3},
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting the desired child number to |3|.
-      
-   "]]
+  "]]
  }
     
 
@@ -204,11 +211,11 @@ declare {
   key  = "fourth",
   { key = "desired child index", value = 4},
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting the desired child number to |4|.
-      
-   "]]
+  "]]
  }
+
 
 -- Done
 

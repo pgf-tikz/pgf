@@ -40,10 +40,11 @@ declare {
   phase = "node ranking",
   default = true,
 
-  documentation = [["  
+  summary = [["  
        This layer assigment method, due to Gasner et al., is based on a
        linear optimization problem.
-      
+  "]],
+  documentation = [["      
        For more details, please see Section 4.1.2 of Pohlmann's Diploma
        thesis. 
       
@@ -60,10 +61,11 @@ declare {
   algorithm = "pgf.gd.layered.NodeRankingMinimumHeight",
   phase = "node ranking",
 
-  documentation = [["  
+  summary = [["  
        This layer assigment method minimizes the height of the resulting
        graph. 
-      
+  "]],
+  documentation = [["      
        For more details, please see Section 4.1.3 of Pohlmann's Diploma
        thesis. 
    "]]

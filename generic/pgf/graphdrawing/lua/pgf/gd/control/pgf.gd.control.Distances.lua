@@ -56,12 +56,13 @@ declare {
   type = "length",
   initial = "1cm",
 
-  documentation = [["  
+  summary = [["  
        This is minimum distance that the centers of nodes connected by an
        edge should have. It will not always be possible to satisfy this
        desired distance, for instance in case the nodes are too big. In
-       this case, the \meta{dimension} is just considered as a lower bound.
-       \begin{codeexample}[]
+       this case, the \meta{length} is just considered as a lower bound.
+  "]],
+  examples = [["
        \begin{tikzpicture}
          \graph [simple necklace layout,  node distance=1cm, node sep=0pt,
                  nodes={draw,circle,as=.}]
@@ -72,7 +73,6 @@ declare {
          \draw [red,|-|] (1.center) -- ++(0:1cm);
          \draw [red,|-|] (5.center) -- ++(180:1cm);
        \end{tikzpicture}
-       \end{codeexample}
   "]]
 }
 
@@ -84,27 +84,27 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        This is a minimum ``padding'' or ``separation'' between the border
        of nodes connected by an edge. Thus, if nodes are so big that nodes
        with a distance of |node distance| would overlap (or
        just come with \meta{dimension} distance of one another), their
        distance is enlarged so that this distance is still satisfied.
-      
        The |pre| means that the padding is added to the node ``at the
        front.'' This make sense only for some algorithms, like for a
-       simple necklace layout:
-        
-       \begin{codeexample}[]
+       simple necklace layout.
+  "]],
+  examples = {
+    [["  
        \tikz \graph [simple necklace layout, node distance=0cm, nodes={circle,draw}]
          { 1--2--3--4--5--1 };
-       \end{codeexample}
-       \begin{codeexample}[]
+    "]],
+    [["  
        \tikz \graph [simple necklace layout, node distance=0cm, node sep=0mm,
                      nodes={circle,draw}]
          { 1--2--3[node pre sep=5mm]--4--5[node pre sep=1mm]--1 };  
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
 
 ---
@@ -114,7 +114,7 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        Works like |node pre sep|.
    "]]
 }
@@ -129,11 +129,11 @@ declare {
   { key = "node pre sep", value = "(#1)/2" },
   { key = "node post sep", value = "(#1)/2" },
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting both |node pre sep| and |node post sep| to
        $\meta{length}/2$. 
-    "]]
-  }
+  "]]
+}
 
 
 ---
@@ -143,13 +143,14 @@ declare {
   type = "length",
   initial = "1cm",
 
-  documentation = [["  
+  summary = [["  
        This is minimum distance that the centers of nodes on one
        level should have from the centers of nodes on the next level. It
        will not always be possible to satisfy this desired distance, for
        instance in case the nodes are too big. In this case, the
-       \meta{dimension} is just considered as a lower bound.
-       \begin{codeexample}[]
+       \meta{length} is just considered as a lower bound.
+  "]],
+  examples = [["
        \begin{tikzpicture}[inner sep=2pt]
          \draw [help lines] (0,0) grid (3.5,2);
          \graph [layered layout, level distance=1cm, level sep=0]
@@ -157,9 +158,6 @@ declare {
          \graph [layered layout, level distance=5mm, level sep=0]
            { 1 [x=3,y=2] -- 2 -- 3 -- 1, 3 -- {4,5} -- 6 -- 3 };  
        \end{tikzpicture}
-       \end{codeexample}
-      
-       @param length A length.
   "]]
 }
 
@@ -171,19 +169,18 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        This is a minimum ``padding'' or ``separation'' between the border
        of the nodes on a level to any nodes on the previous level. Thus, if
        nodes are so big that nodes on consecutive levels would overlap (or
-       just come with \meta{dimension} distance of one another), their
+       just come with \meta{lrngth} distance of one another), their
        distance is enlarged so that this distance is still satisfied.
-      
        If a node on the previous level also has a |level post sep|, this
        post padding and the \meta{dimension} add up. Thus, these keys
        behave like the ``padding'' keys rather
        than the ``margin'' key of cascading style sheets.
-      
-       \begin{codeexample}[]
+  "]],
+  examples = [["
        \begin{tikzpicture}[inner sep=2pt, level sep=0pt, sibling distance=0pt]
          \draw [help lines] (0,0) grid (3.5,2);
          \graph [layered layout, level distance=0cm, nodes=draw]
@@ -191,7 +188,6 @@ declare {
          \graph [layered layout, level distance=0cm, nodes=draw]
            { 1 [x=3,y=2] -- {2,3,4} -- 5[level pre sep=5mm] };  
        \end{tikzpicture}
-       \end{codeexample}
   "]]
 }
 
@@ -202,7 +198,7 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        Works like |level pre sep|.
    "]]
 }
@@ -218,7 +214,7 @@ declare {
   { key = "level pre sep", value = "(#1)/2" },
   { key = "level post sep", value = "(#1)/2" },
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting both |level pre sep| and |level post sep| to
        $\meta{length}/2$. Note that if you set |level distance=0| and
        |level sep=1em|, you get a layout where any two consecutive layers
@@ -236,28 +232,29 @@ declare {
   type = "length",
   initial = "1cm",
 
-  documentation = [["  
+  summary = [["  
        This is minimum distance that the centers of node should have to the
        center of the next node on the same level. As for levels, this is
-       just a lower bound.
-      
+       just a lower bound.      
        For some layouts, like a simple necklace layout, the \meta{length} is
-       measured as the distance on the circle:
-       \begin{codeexample}[]
+       measured as the distance on the circle.
+  "]],
+  examples = {
+    [["
        \tikz \graph [tree layout, sibling distance=1cm, nodes={circle,draw}]
          { 1--{2,3,4,5} };  
-       \end{codeexample}
-       \begin{codeexample}[]
+    "]],
+    [["
        \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
                      nodes={circle,draw}]
          { 1--{2,3,4,5} };  
-       \end{codeexample}
-       \begin{codeexample}[]
+    "]],
+    [["
        \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
                      nodes={circle,draw}]
          { 1--{2,3[sibling distance=1cm],4,5} };  
-       \end{codeexample}
-  "]]
+    "]]
+  }
 }
 
 
@@ -268,13 +265,13 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        Works like |level pre sep|, only for siblings.
-       \begin{codeexample}[]
+  "]],
+  examples = [["
        \tikz \graph [tree layout, sibling distance=0cm, nodes={circle,draw},
                      sibling sep=0pt]
          { 1--{2,3[sibling pre sep=1cm],4,5} };  
-       \end{codeexample}
   "]]
 }
 
@@ -285,7 +282,7 @@ declare {
   type = "length",
   initial = ".333em",
 
-  documentation = [["  
+  summary = [["  
        Works like |sibling pre sep|.
    "]]
  }
@@ -300,7 +297,7 @@ declare {
   { key = "sibling pre sep", value = "(#1)/2" },
   { key = "sibling post sep", value = "(#1)/2" },
 
-  documentation = [["  
+  summary = [["  
        A shorthand for setting both |sibling pre sep| and |sibling post sep| to
        $\meta{length}/2$. 
   "]]
@@ -316,11 +313,13 @@ declare {
   type = "length",
   initial = "1.5em",
 
-  documentation = [["  
+  summary = [["  
        This is distance between the bounding boxes that nodes of different
        connected components will have when they are placed next to each
-       other:
-       \begin{codeexample}[]
+       other.
+  "]],
+  examples = {
+    [["
        \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
                      components go right top aligned,
                      component sep=1pt, nodes=draw]  
@@ -329,8 +328,8 @@ declare {
          a -> b[second] -> c[second] -> d -> e;
          x -> y[second] -> z -> u[second] -> v;
        };  
-       \end{codeexample}
-       \begin{codeexample}[]
+    "]],
+    [["
        \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
                      components go right top aligned,
                      component sep=1em, nodes=draw]  
@@ -339,14 +338,9 @@ declare {
          a -> b[second] -> c[second] -> d -> e;
          x -> y[second] -> z -> u[second] -> v;
        };  
-       \end{codeexample}
-      
-       @param length The length.
-  "]]
+    "]]
+  }  
 }
-
-
-
 
 
 
