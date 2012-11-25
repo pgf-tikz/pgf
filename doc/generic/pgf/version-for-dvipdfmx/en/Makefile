@@ -12,6 +12,7 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
+	mkdir -p plots
 	(TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	dvipdfmx -p a4 $(doc)
