@@ -78,7 +78,7 @@ end
 -- @param t The table passed from |InterfaceToAlgorithms.declare|.
 
 function Binding:declareAlgorithmCallback(t)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 
@@ -94,7 +94,7 @@ end
 -- @param t See |InterfaceToAlgorithms.declare| for details.
 
 function Binding:declareParameterCallback(t)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 
@@ -106,7 +106,7 @@ end
 -- @param t See |InterfaceToAlgorithms.declare| for details.
 
 function Binding:declareParameterSequenceCallback(t)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 
@@ -117,7 +117,7 @@ end
 -- @param t See |InterfaceToAlgorithms.declare| for details.
 
 function Binding:declareCollectionKind(t)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 

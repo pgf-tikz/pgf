@@ -10,11 +10,61 @@
 -- @release $Header$
 
 
---- The LayoutPipeline class is a singleton object.
+---
+-- This class controls the running of graph drawing algorithms on
+-- graphs. In particular, it performs pre- and posttransformations and
+-- also invokes the collapsing of sublayouts.
 --
--- Its methods implement the steps that are applied 
--- to all graphs prior and after a graph drawing algorithm is
--- called.
+-- You do not call any of the methods of this class directly, the
+-- whole class is included only for documentation purposes.
+--
+-- Before an algorithm is applied, a number of transformations will
+-- have been applied, depending on the algorithm's |preconditions|
+-- field:
+--
+-- \begin{itemize}
+-- \item |connected|
+--
+--   If this property is set for an algorithm (that is, in the
+--   |declare| statement for the algorithm the |predconditions| field
+--   has the entry |connected=true| set), then the graph will be
+--   decomposed into connected components. The algorithm is run on each
+--   component individually.
+-- \item |tree|
+--
+--   When set, the field |spanning_tree| of the algorithm will be set
+--   to a spanning tree of the graph.
+-- \item |loop_free|
+--
+--   When set, all loops (arcs from a vertex to itself) will have been
+--   removed when the algorithm runs.
+--
+-- \item |at_least_two_nodes|
+--
+--   When explicitly set to |false| (this precondition is |true| by
+--   default), the algorithm will even be run if there is only a
+--   single vertex in the graph.
+-- \end{itemize}
+--
+-- Once the algorithm has run, the algorithm's |postconditions| will
+-- be processed:
+--
+-- \begin{itemize}
+-- \item |upward_oriented|
+--
+--   When set, the algorithm tells the layout pipeline that the graph
+--   has been laid out in a layered manner with each layer going from
+--   left to right and layers at a whole going upwards (positive
+--   $y$-coordinates). The graph will then be rotated and possibly
+--   swapped in accordance with the |grow| key set by the user.
+-- \item |fixed|
+--
+--   When set, no rotational postprocessing will be done after the
+--   algorithm has run. Usually, a graph is rotated to meet a user's
+--   |orient| settings. However, when the algorithm has already
+--   ``ideally'' rotated the graph, set this postcondition.
+-- \end{itemize}
+--
 
 local LayoutPipeline = {}
 
@@ -50,7 +100,7 @@ local prepare_events
 
 
 
---- The main ``graph drawing pipeline'' that handles the pre- and 
+-- The main ``graph drawing pipeline'' that handles the pre- and 
 -- postprocessing for a graph. This method is called by the diplay
 -- interface.  
 --
@@ -80,57 +130,10 @@ end
 
 
 
----
+--
 -- This method is called by the sublayout rendering pipeline when the
 -- algorithm should be invoked for an individual graph. At this point,
 -- the sublayouts will already have been collapsed.
---
--- Before the algorithm is applied, a number of transformations will
--- have been applied, depending on the algorithm's |preconditions|
--- field:
---
--- \begin{itemize}
--- \item |connected|
---
---   If this property is set for an algorithm (that is, in the
---   |declare| statement for the algorithm the |predconditions| field
---   has the entry |connected=true| set), then the graph will be
---   decomposed into connected components. The algorithm is run on each
---   component individually.
--- \item |tree|
---
---   When set, the field |spanning_tree| of the algorithm will be set
---   to a spanning tree of the graph.
--- \item |loop_free|
---
---   When set, all loops (arcs from a vertex to itself) will have been
---   removed when the algorithm runs.
---
--- \item |at_least_two_nodes|
---
---   When explicitly set to |false| (this precondition is |true| by
---   default), the algorithm will even be run if there is only a
---   single vertex in the graph.
--- \end{itemize}
---
--- Once the algorithm has run, the algorithm's |postconditions| will
--- be processed:
---
--- \begin{itemize}
--- \item |upward_oriented|
---
--- When set, the algorithm tells the layout pipeline that the graph
--- has been laid out in a layered manner with each layer going from
--- left to right and layers at a whole going upwards (positive
--- $y$-coordinates). The graph will then be rotated and possibly
--- swapped in accordance with the |grow| key set by the user.
--- \item |fixed|
---
--- When set, no rotational postprocessing will be done after the
--- algorithm has run. Usually, a graph is rotated to meet a user's
--- |orient| settings. However, when the algorithm has already
--- ``ideally'' rotated the graph, set this postcondition.
--- \end{itemize}
 --
 -- @param scope The graph drawing scope, in which the
 -- |syntactic_digraph| will have been restricted to the current layout
@@ -160,7 +163,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
   
   -- Step 2: For all components do:
   for i,c in ipairs(syntactic_components) do
-  
+    
     -- Step 2.1: Reset random number generator to make sure that the
     -- same graph is always typeset in  the same way.
     math.randomseed(layout_graph.options['random seed'])
@@ -224,8 +227,10 @@ end
 
 
 ---
--- Performs the graph anchoring procedure described in
--- Section~\ref{subsection-library-graphdrawing-anchoring}.
+-- This function is called internally to perform the graph anchoring
+-- procedure described in
+-- Section~\ref{subsection-library-graphdrawing-anchoring}. These
+-- transformations are always performed.
 -- 
 -- @param graph A graph
 -- @param scope The scope
@@ -265,14 +270,14 @@ end
 -- This method tries to determine in which direction the graph is supposed to
 -- grow and in which direction the algorithm will grow the graph. These two
 -- pieces of information togehter produce a necessary rotation around some node.
--- This rotation is stored in the graph's storage at the store key.
+-- This rotation is stored in the graph's |storage| at the algorithm
+-- used as key.
 --
 -- Note that this method does not actually cause a rotation to happen; this is
 -- left to other method.
 --
 -- @param algorithm An algorithm
 -- @param graph An undirected graph
--- @param store An index into the graph's storage in which to store the computed information
 
 function LayoutPipeline.prepareRotateAround(algorithm, graph)
   
@@ -330,7 +335,7 @@ end
 
 
 ---
--- Compute growth-adjusted node sizes
+-- Compute growth-adjusted node sizes.
 --
 -- For each node of the graph, compute bounding box of the node that
 -- results when the node is rotated so that it is in the correct
@@ -390,7 +395,7 @@ end
 
 
 
----
+--
 -- Rotate the whole graph around a point 
 --
 -- Causes the graph to be rotated around \meta{around} so that what
@@ -447,7 +452,7 @@ end
 
 
 
---- 
+-- 
 -- Orient the whole graph using two nodes
 --
 -- The whole graph is rotated so that the line from the first node to
@@ -559,7 +564,11 @@ end
 
 
 
---- Decompose a graph into its components
+---
+-- This internal function is called to decompose a graph into its
+-- components. Whether or not this function is called depends on
+-- whether the precondition |connected| is set for the algorithm class
+-- and whether the |componentwise| key is used.
 --
 -- @param graph A to-be-decomposed graph
 --
@@ -635,7 +644,7 @@ end
 
 
 
---- Handling of component order
+-- Handling of component order
 --
 -- LayoutPipeline are ordered according to a function that is stored in
 -- a key of the |LayoutPipeline.component_ordering_functions| table
@@ -725,7 +734,7 @@ end
 
 
 --- 
--- Pack the components of a graph. See
+-- This internal function packs the components of a graph. See
 -- Section~\ref{subsection-gd-component-packing} for details. 
 --
 -- @param graph The graph
@@ -1018,9 +1027,9 @@ local function compatibility_digraph_to_graph(scope, g)
 	tex_node = v.tex and v.tex.stored_tex_box_number,
 	shape = v.shape,
 	minX = v.hull[1].x,
-	maxX = v.hull[3].x,
+	maxX = (v.hull[3] and v.hull[3].x) or v.hull[1].x,
 	minY = v.hull[1].y,
-	maxY = v.hull[3].y,
+	maxY = (v.hull[3] and v.hull[3].y) or v.hull[1].y,
       }, 
       options = v.options,
       event_index = v.event.index,

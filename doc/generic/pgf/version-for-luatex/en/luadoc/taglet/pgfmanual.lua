@@ -120,20 +120,22 @@ local function split(s)
 end
 
 
-local function process_example(s)
-  local t = split(s)
-  -- Compute min spaces
-  local min = math.huge
-  for _,l in ipairs(t) do
-    min = math.min(min, string.find(l, "%S") or math.huge)
-  end
-  if min < math.huge then
-    -- Now, trim 'em all!
-    for i=1,#t do
-      t[i] = string.sub(t[i],min)
+local function process_string(s)
+  if s then
+    local t = split(s)
+    -- Compute min spaces
+    local min = math.huge
+    for _,l in ipairs(t) do
+      min = math.min(min, string.find(l, "%S") or math.huge)
     end
+    if min < math.huge then
+      -- Now, trim 'em all!
+      for i=1,#t do
+	t[i] = string.sub(t[i],min)
+      end
+    end
+    return table.concat(t)
   end
-  return table.concat(t)
 end
 
 
@@ -148,7 +150,7 @@ local function process_examples(t)
   
   local n = {}
   for i=1,#t do
-    n[i] = process_example(strip_quotes(t[i]))
+    n[i] = process_string(strip_quotes(t[i]))
   end
   return n
 end
@@ -206,8 +208,8 @@ local function check_declaration (line, code)
       default = default,
       initial = initial,
       type = type,
-      key_summary = strip_quotes(key.summary),
-      documentation = strip_quotes(key.documentation),
+      key_summary = process_string(strip_quotes(key.summary)),
+      documentation = process_string(strip_quotes(key.documentation)),
       examples = process_examples(key.examples)
     }
   end

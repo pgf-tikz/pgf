@@ -12,7 +12,7 @@
 
 
 ---
--- @section subsection {How To Generate Edges Inside an Algorithm}
+-- @section subsubsection {How To Generate Edges Inside an Algorithm}
 
 local _
 
@@ -56,16 +56,15 @@ declare {
       
        And the algorithm:
 \begin{codeexample}[code only]
--- File pgf.gd.examples.SimpleEdgeDemo
+ -- File pgf.gd.examples.SimpleEdgeDemo
        
--- Imports
-local InterfaceToAlgorithms = require "pgf.gd.interface.InterfaceToAlgorithms"
-local declare               = InterfaceToAlgorithms.declare
+ -- Imports
+ local InterfaceToAlgorithms = require "pgf.gd.interface.InterfaceToAlgorithms"
+ local declare               = InterfaceToAlgorithms.declare
 
--- The class object
-local SimpleEdgeDemo = {}
+ -- The class object
+ local SimpleEdgeDemo = {}
 
----
 declare {
   key = "simple edge demo layout",
   algorithm = SimpleEdgeDemo,
@@ -76,7 +75,6 @@ declare {
        Next comes the declaration of the new option |new edge to|:
       
 \begin{codeexample}[code only]
----
 declare {
   key = "new edge to",
   type = "string",
@@ -96,7 +94,7 @@ function SimpleEdgeDemo:run()
     if name then
       local node = InterfaceToAlgorithms.findVertexByName(name)
       if node and self.digraph:contains(node) then
-	InterfaceToAlgorithms.createEdge (self, tail, node)
+        InterfaceToAlgorithms.createEdge (self, tail, node)
       end
     end
   end
@@ -114,7 +112,7 @@ declare {
        This option takes the name of a vertex. An edge leading to this
        vertex is added to the syntactic digraph.
    "]]
- }
+}
 
 
 function SimpleEdgeDemo:run()
@@ -135,7 +133,7 @@ function SimpleEdgeDemo:run()
     if name then
       local node = InterfaceToAlgorithms.findVertexByName(name)
       if node and self.digraph:contains(node) then
-	InterfaceToAlgorithms.createEdge (self, tail, node)
+        InterfaceToAlgorithms.createEdge (self, tail, node)
       end
     end
   end

@@ -79,6 +79,9 @@ local option_cache = nil -- The option cache
 --InterfaceToDisplay.bind(require "pgf.gd.bindings.BindingToPGF")
 --\end{codeexample}
 --
+-- Inside this call, many standard declarations will be executed, that
+-- is, the declared binding will be used immediately.
+--
 -- Subsequently, the |binding| field of the |InterfaceCore| can be used.
 --
 -- @param class A subclass of |Binding|.
@@ -89,6 +92,10 @@ function InterfaceToDisplay.bind(class)
   
   -- Create a new object
   InterfaceCore.binding = setmetatable({}, class)
+  
+  -- Load these libraries, which contain many standard declarations:
+  require "pgf.gd.model.library"
+  require "pgf.gd.control.library"
 end
 
 
@@ -235,20 +242,16 @@ end
 -- |parameter| will be the vertex.
 --
 -- @param name Name of the vertex.
---
 -- @param shape The shape of the vertex such as |"circle"| or
 -- |"rectangle"|. This shape may help a graph drawing algorithm
 -- figuring out how the node should be placed.
---
 -- @param hull An array of |Coordinate| objects that form the convex
 -- hull of the vertex.
---
 -- @param height The to-be-used height of the options stack. All
 -- options above this height will be popped prior to attacking the
 -- options to the syntactic digraph.
---
 -- @param binding_infos These options will be stored in the |storage|
--- of the vertex at the field index by the binding.
+-- of the vertex at the field indexed by the binding.
 --
 function InterfaceToDisplay.createVertex(name, shape, hull, height, binding_infos)
   
@@ -440,7 +443,7 @@ end
 -- being able to call this function.
 --
 -- After the edge has been created, the binding layer's function
--- |handleEdgeCreation| will be called, allowing the binding layer to
+-- |everyEdgeCreation| will be called, allowing the binding layer to
 -- store information about the edge.
 --
 -- For each edge an event is created, whose kind is |"edge"| and whose
@@ -540,7 +543,7 @@ end
 -- above this height will be removed. 
 
 function InterfaceToDisplay.pushPhase(algorithm_name, phase, height)
-    
+
   if type(InterfaceCore.algorithm_classes[algorithm_name]) == "function" then
     -- Call the constructor function 
     InterfaceCore.algorithm_classes[algorithm_name] = InterfaceCore.algorithm_classes[algorithm_name]()
@@ -612,7 +615,6 @@ end
 --
 -- @param height A stack height at which to insert the key. Everything
 -- above this height will be removed.
---
 -- @return The layout
 
 function InterfaceToDisplay.pushLayout(height)
@@ -695,7 +697,7 @@ end
 --binding:renderStop()
 --\end{codeexample}
 --
--- Here, the |render_...| functions are internal functions that are,
+-- Here, the |render_...| functions are local, internal functions that are,
 -- nevertheless, documented here.
 --
 -- @param name Returns the algorithm class that has been declared using
@@ -720,7 +722,7 @@ end
 
 ---
 -- Render the vertices after the graph drawing algorithm has
--- finished. This function is internal and included only for
+-- finished. This function is local and internal and included only for
 -- documenting the call graph.
 --
 -- When the graph drawing algorithm is done, the interface will start
@@ -760,7 +762,7 @@ end
 
 
 ---
--- Render the collections whose layer is not |0|. This internal
+-- Render the collections whose layer is not |0|. This local, internal
 -- function is called to render the different collection kinds.
 --
 -- Collection kinds rendered in the order provided by the |layer|
@@ -817,7 +819,7 @@ end
 
 ---
 -- Render the syntactic edges of a graph after the graph drawing
--- algorithm has finished. This function is internal and included only
+-- algorithm has finished. This function is local and internal and included only
 -- for documenting the call graph.
 --
 -- When the graph drawing algorithm is done, the interface will first
@@ -868,12 +870,11 @@ end
 -- reduces the overall amount of option keys that need to be stored
 -- with object.)
 --
--- (This function is internal and included only for documentation
+-- (This function is local and internal and included only for documentation
 -- purposes.) 
 --
 -- @param height The stack height for which the option table is
 -- required.
---
 -- @param table If non |nil|, the options will be added to this
 -- table. 
 --

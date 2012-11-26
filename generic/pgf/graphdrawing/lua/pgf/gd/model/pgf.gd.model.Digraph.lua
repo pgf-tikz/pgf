@@ -136,8 +136,8 @@
 --   always simple graphs, there can be at most one such object for every
 --   pair of vertices. However, you can store any information you like in
 --   the |Arc|'s |storage|, see the |Storage| class for details. In
---   particular, an |Arc| can store an array of all the multiple edges
---   that are present in the user's input.
+--   particular, an |Arc| stores an array called |syntactic_edges| of
+--   all the multiple edges that are present in the user's input.
 --
 --   Unlike vertices, the arc objects of a graph are always local to a
 --   graph; an |Arc| object can never be part of two digraphs at the same
@@ -220,9 +220,9 @@ local LookupTable = require "pgf.gd.lib.LookupTable"
 ---
 -- Graphs are created using the |new| method, which takes a table of
 -- |initial| values as input (like most |new| methods in the graph
--- drawing engine). It is permissible that this table of initial values
+-- drawing system). It is permissible that this table of initial values
 -- has a |vertices| field, in which case this array will be copied. In
--- contrast, an |arcs| field in the table will be ignores -- newly
+-- contrast, an |arcs| field in the table will be ignored -- newly
 -- created graphs always have an empty arcs set. This means that
 -- writing |Digraph.new(g)| where |g| is a graph creates a new graph
 -- whose vertex set is the same as |g|'s, but where there are no edges:
@@ -354,7 +354,7 @@ end
 
 ---
 -- Returns the arc between two nodes, provided it exists. Otherwise,
--- nil is retured.
+-- |nil| is retured.
 --
 -- This operation takes time $O(1)$.
 --
@@ -688,8 +688,8 @@ end
 -- well as a vertex. First, it will store references to the
 -- to-be-collapsed vertices inside the vertex. Second, we iterate over
 -- all arcs of the to-be-collapsed vertices. If this arc connects a
--- to-be-collapsed vertex with a non-to-be-collapsed vertex, the
--- non-to-be-collapsed vertex is connected to the collapse
+-- to-be-collapsed vertex with a not-to-be-collapsed vertex, the
+-- not-to-be-collapsed vertex is connected to the collapse
 -- vertex. Additionally, the arc is stored at the vertex.
 --
 -- Note that the collapse vertex will be added to the graph if it is
@@ -709,7 +709,7 @@ end
 -- to-be-collapsed vertex. May be |nil|.
 -- @param arc_fun This function is called whenever a new arc is added
 -- between |rep| and some other vertex. The arguments are the new arc
--- and the original arc. May bi |nil|.
+-- and the original arc. May be |nil|.
 --
 -- @return The new vertex that represents the collapsed vertices. 
 

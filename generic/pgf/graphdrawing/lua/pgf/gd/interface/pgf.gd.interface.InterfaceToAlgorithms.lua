@@ -92,7 +92,7 @@ local declare_collection_kind
 -- demonstrating how the key is used.
 --
 -- Note that you can take advantage of the Lua syntax of enclosing
--- very long multi-line strings in [[ and ]]. As a bonus, if the
+-- very long multi-line strings in |[[| and |]]|. As a bonus, if the
 -- summary, documentation, or an example starts and ends with a quote,
 -- these two quotes will be stripped. This allows you to enclose the
 -- whole multi-line string (additionally) in quotes, leading to better
@@ -591,7 +591,7 @@ local unique_count = 1
 
 ---
 -- Generate a new vertex in the syntactic digraph. Calling this method
--- allows algorithms to create vretices that are not present in the
+-- allows algorithms to create vertices that are not present in the
 -- original input graph. Using the graph drawing coroutine, this
 -- function will pass back control to the display layer in order to
 -- render the vertex and, thereby, create precise size information

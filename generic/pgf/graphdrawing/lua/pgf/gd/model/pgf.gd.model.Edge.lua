@@ -19,7 +19,7 @@
 -- are present in the syntactic digraph.
 --
 -- In detail, the relationship between arcs and edges is as follows:
--- In there is an |Edge| between two vertices $u$ and $v$ in the
+-- If there is an |Edge| between two vertices $u$ and $v$ in the
 -- syntactic digraph, there will be an |Arc| from $u$ to $v$ and the
 -- array |syntactic_edges| of this |Arc| object will contain the
 -- |Edge| object. In particular, if there are several edges between

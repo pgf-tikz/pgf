@@ -11,7 +11,7 @@
 
 
 ---
--- @section subsection {How To Generate Nodes Inside an Algorithm}
+-- @section subsubsection {How To Generate Nodes Inside an Algorithm}
 
 local _
 
@@ -72,7 +72,6 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 -- The class
 local SimpleHuffman = {}
 
---- This algorithm demonstrates... (documentation)
 declare {
   key            = "simple Huffman layout",
   algorithm      = SimpleHuffman,
@@ -80,7 +79,6 @@ declare {
   summary = "..."
 }
 
---- The probability parameter. ... (documentation)
 declare {
   key = "probability",
   type = "number",
