@@ -1,0 +1,634 @@
+% Copyright 2010-2011 by Renée Ahrens
+% Copyright 2010-2011 by Olof Frahm
+% Copyright 2010-2011 by Jens Kluttig
+% Copyright 2010-2011 by Matthias Schulz
+% Copyright 2010-2011 by Stephan Schuster
+% Copyright 2011 by Jannis Pohlmann
+% Copyright 2011 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+\section{The Binding Layer}
+
+{\noindent {\itshape{Original by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
+  Matthias Schulz, Stephan Schuster\par\noindent Rewritten by Till Tantau}}}
+
+\label{section-gd-binding-layer}
+
+\label{section-base-graphdrawing}
+\label{section-gd-internals}
+
+File status: Total mess...
+
+
+\begin{pgflibrary}{graphdrawing}
+  This library is what users will usually load. It loads the above
+  library automatically. Nevertheless, the graph drawing engine can be
+  used independently of \tikzname.
+\end{pgflibrary}
+
+
+This chapter explains the technical details of how the \TeX\ layer
+communicates with the Lua side of the graph drawing engine. A note of
+caution:
+
+\begin{quote}
+  \itshape You do not need to understand the details of this
+  chapter to write new graph drawing algorithms. It is of interest
+  only to those wishing to extend the syntactic features of the \TeX\ side
+  of the graph drawing engine.
+\end{quote}
+
+\subsection{The Interface Core}
+
+\includeluadocumentationof{pgf.gd.interface.InterfaceCore}
+
+
+
+\subsection{Bindings}
+
+\includeluadocumentationof{pgf.gd.bindings.Binding}
+\includeluadocumentationof{pgf.gd.bindings.BindingToPGF}
+
+
+\subsection{An Example Binding}
+
+\label{section-gd-binding-layer-example}
+TODO
+
+\subsection{The Binding to PGF}
+
+\subsubsection{The Call Graph of the Graph Drawing Engine}
+
+Let us start with the broad picture. The general idea behind the whole
+graph drawing engine is that whenever \pgfname\ creates a node, we
+intercept this node creation and \emph{do not} immediately place the
+node. Rather, we pass it down to Lua, which tucks it away in
+some internal tables. For edges, we introduce a special command called
+|\pgfgdedge| that tells Lua that there is an edge between two
+tucked-away nodes. Then, after the graph has been completely
+specified, a graph drawing algorithm written in Lua starts to work on
+the graph by computing new positions for the nodes. Then, the graph
+drawing engine will send back the nodes and edges to \pgfname, which
+then finally places them at their final positions.
+Note that graph drawing algorithms need no knowledge of how any of
+these internals work.
+
+Let us have a look at a simple example to see what happens when a
+graph is specified:
+
+\begin{codeexample}[]
+\tikz[tree layout]
+  \graph {root [as=Hello] -> World[fill=blue!20]};
+\end{codeexample}
+
+The key |tree layout| internally calls the key |request scope and layout|,
+which in turn calls the macro |\pgfgdbeginscope|, which starts up the
+graph drawing engine. Once this macro has been 
+called, until the next call of |\pgfgdendscope|, all nodes that are
+created actually get passed down to the graph drawing engine. This is
+implemented on the lowest layer, namely by directly intercepting
+nodes freshly created using |\pgfnode|. In our example, this happens
+in two places: For the |root| node and for the |World| node. The
+|graph| library and \tikzname\ internally call the |\pgfnode| macro
+for these two nodes (after a large number of internal syntax
+translations, but the graph drawing engine does not care about them).
+
+Note that the node boxes will have been fully created before they are
+passed down to the graph drawing engine -- only their final position
+is not yet fixed. It is not possible to modify the size of nodes
+inside the graph drawing engine. 
+
+In contrast, the single edge of the graph that is created by the |->|
+command is not fully created before it is passed down to the
+engine. This would not really make sense since before the final
+positions of the nodes are fixed, we cannot even begin to compute the
+length of this edge, let alone where it should start or end. For this
+reason, on the upper \tikzname\ layer, the normal edge creation that
+would be caused by |->| via |new ->| is suppressed. Instead, the
+command |\pgfgdedge| is called. Similarly, inside a graph drawing
+scope, \tikzname\ will suppress both the |edge| and the
+|edge from parent| command and cause |\pgfgdedge| to be called
+instead. 
+
+An overview of what happens is illustrated by the following call graph:
+
+\begin{tikzpicture}[
+    class name/.style={draw,minimum size=20pt, fill=blue!20},
+    object node/.style={draw,minimum size=15pt, fill=yellow!20},
+    p/.style={->,>=spaced stealth'},
+    livespan/.style={very thick},
+    xscale=0.8]
+  % class names above
+  \node (tikz) at (0,4) [class name] {\tikzname\ layer};
+  \node (tex) at (6,4) [class name] {\pgfname\ layer};
+  \node (interface) at (13,4) [class name] {Lua};
+  % lines from the class names to the bottom of the picture
+  \draw[livespan] (tikz) -- (0,-6.5);
+  \draw[livespan] (tex) -- (6,-6.5);
+  \draw[livespan] (interface) -- (13,-6.5);
+  % first command: \graph{  -- generates new graph in lua interface
+  \node (tikz-begin-graph) at (0,3) [object node] {|\graph[... layout]{|}; %}
+  \node (tex-begin-graph) at (6,3) [object node] {|\pgfgdbeginscope|};  
+  \node (interface-new-graph) at (13,3) [object node] {|beginGraphDrawingScope(|...|)|};
+  \draw [p] (tikz-begin-graph.east) -- (tex-begin-graph.west);
+  \draw [p] (tex-begin-graph.east) -- (interface-new-graph.west);    
+  % second command: a -> b   -- generates two nodes in lua
+  % and one edge
+  \node (tikz-node) at (0,2) [object node] {|a -> b;|};
+  \node (tex-node) at (6,2) [object node, double copy shadow] {|\pgfnode|};
+  \draw[p] (tikz-node.east) -- (tex-node.west);
+  
+  \node (interface-add-node) at (13,2) [object node, double copy shadow] {|addPgfNode(|...|)|};
+  \draw[p] (tex-node.east) -- (interface-add-node.west);
+
+  \node (tex-add-edge) at (6,1) [object node, double copy shadow] {|\pgfgdedge|};
+  \node (interface-add-edge) at (13,1) [object node, double copy shadow] {|addPgfEdge(|...|)|};
+  \draw[p] (tikz-node.east) -- (1.5,2) -- (1.5,1) -- (tex-add-edge.west);
+  \draw[p] (tex-add-edge.east) -- (interface-add-edge.west);
+
+  % scope ends -- cloes graph, layouts it and draws it
+  \node (tikz-end) at (0,0) [object node] {|};|};
+  \node (tex-end) at (6,0) [object node] {|\pgfgdendscope|};
+  \node (interface-draw-graph) at (13,0) [object node] {|runGraphDrawingAlgorithm()|};
+  \node (interface-finish-graph) at (13,-2) [object node] {|endGraphDrawingScope()|};
+
+  \node (invoke-algorithm) at (15.5,-1) [object node] {invoke algorithm};
+  \draw[p] (tikz-end.east) -- (tex-end.west);
+  \draw[p] (tex-end.east) -- (interface-draw-graph.west);
+  \draw[p] (interface-draw-graph.east) -| (invoke-algorithm.20);
+  \draw[p] (tex-end.east) -- (9.5,0) -- (9.5,-2) -- (interface-finish-graph.west);
+
+  % begin shipout
+  \node (tex-begin-shipout) at (6,-3) [object node] {|\pgfgdbeginshipout|};
+
+  \node (tex-puttexbox) at (6,-4) [object node, double copy shadow] {|\pgfpositionnodenow|};
+  \node (tex-putedge) at (6,-5) [object node, double copy shadow] {|\pgfgdedgecallback|};
+  
+  \node (tex-end-shipout) at (6,-6) [object node] {|\pgfgdendshipout|};
+  
+  \draw [p] (interface-finish-graph.-170) |- (tex-begin-shipout.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-puttexbox.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-putedge.east);
+  \draw [p] (interface-finish-graph.-170) |- (tex-end-shipout.east);
+  %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-4) -- (sys-puttexbox.west);
+
+  % put edge
+  %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-5) -- (sys-put-edge.west);
+  % end shipout
+  %(interface-finish-graph.east) -- (12.5,-2) -- (12.5,-6) -- (sys-end-shipout.west);
+\end{tikzpicture}
+
+In Section~\ref{section-gd-scopes} we detail the different commands
+needed to communicate with the graph drawing engine. In particular,
+the commands for beginning and ending scopes are explained here. The
+next section, Section~\ref{section-gd-parameters} explains how graph
+parameters are setup and configured.
+
+
+\subsubsection{Graph Drawing Scopes}
+\label{section-gd-scopes}
+
+\begin{command}{\pgfgdbeginscope}
+  This macro starts a \TeX\ scope. The following things will happen:
+  \begin{enumerate}
+  \item A new |scope| object is created and put on an internal stack
+    of scopes. All subsequent operations will work on this graph until
+    |\pgfgdendscope| is called. In particular, it is permissible to
+    have nested graph drawing scopes.
+  \item Inside the scope, no nodes are placed immediately. Rather, 
+    the macro |\pgfpositionnodelater|, see
+    Section~\ref{section-shapes-deferred-node-positioning}, is used to
+    send all nodes created inside the scope to some internal collector
+    macro. This internal collector macro will pass down the created
+    node to Lua.
+  \item Some additional \meta{code} is executed, which has been set
+    using the following command:
+    \begin{command}{\pgfgdaddspecificationhook\marg{code}}
+      This command adds the \meta{code} to the code that is executed
+      whenever a graph drawing scope starts. For instance, the
+      \tikzname\ library |graphdrawing| uses this macro to add some
+      \meta{code} that will redirect the |edge| and |edge from parent|
+      path commands to |\pgfgdedge|.
+    \end{command}
+  \item |\pgftransformreset| is called. See
+    Section~\ref{section-gd-lua-coordinates} for details on the effect
+    of this.
+  \item The following \TeX-if is set to true:
+    {
+      \let\ifpgfgdgraphdrawingscopeactive=\relax
+      \begin{textoken}{\ifpgfgdgraphdrawingscopeactive}
+        Will be true inside a graph drawing scope.
+      \end{textoken}
+    }
+  \end{enumerate}
+  The above has a number of consequences for what can happen inside a
+  graph drawing scope:
+  \begin{itemize}
+  \item Since no nodes are actually created before the end of the
+    scope, you cannot reference these nodes. Thus, you cannot write
+\begin{codeexample}[code only]
+\tikz [spring layout] {
+  \node (a) {a};
+  \node (b) {b};
+  \draw (a) -- (b);
+}
+\end{codeexample}
+    The problem is that we cannot connect |(a)| and |(b)| via a
+    straight line since these nodes do not exist at that point (they
+    are available only deeply inside the Lua layer).
+  \item In order to create edges between nodes inside a graph drawing
+    scope, you need to call the |\pgfgdedge| command, described below.
+  \end{itemize}
+\end{command}
+
+
+\begin{command}{\pgfgdendscope}
+  This macro is used to end a graph drawing scope. It must be given on
+  the same \TeX\ grouping level as the corresponding
+  |\pgfgdbeginscope|. When the macro is called, it triggers a lot of
+  new calls:
+  \begin{enumerate}
+  \item The special treatment of newly created boxes is ended. Nodes
+    are once more created normally.
+  \item The effects of the \meta{code} that was inserted via the
+    specification hook command also ends (provided it had no global
+    effects).
+  \item Then, on the Lua layer, the graph drawing algorithm is
+    started. The hierarchy of layouts processed as described in
+    Section~\ref{section-gd-layout-scopes} below.
+  \item When the processing has finished, a so-called \emph{shipout
+      phase} is started.
+  \item During this phase, all nodes that were intercepted during the
+    graph drawing scope get inserted into the output stream at the
+    positions that were computed for them. Also, for each edge that
+    was requested via |\pgfgdedge|, the macro |\pgfgdedgecallback| is
+    called (see below).
+  \item Finally, the shipout phase is finished, the scope is popped
+    from the scope stack and the \TeX\ scope is ended. 
+  \end{enumerate}
+\end{command}
+
+
+
+
+\label{section-gd-layout-scopes}
+
+As described in Section~\ref{section-gd-sublayouts}, the graph drawing
+engine does not always apply only a single algorithm. Rather, several
+different algorithm may be applied to different parts of the
+graph. How this happens, exactly, is goverened by a hierarchy of
+layouts, which are setup using the following command:
+
+TODO.
+
+
+
+TODO
+
+
+Inside a graph drawing scope, nodes are
+automatically passed down to the graph drawing engine, while for edges
+a command has to be called explicitly:
+
+\begin{command}{\pgfgdedge\marg{first node}\marg{second
+      node}\marg{edge direction}\marg{edge options}\marg{edge nodes}}
+  This command is used to tell the graph drawing engine that there is
+  an edge between \meta{first node} and \meta{second node} in your
+  graph. The ``kind'' of connection is indicated by \meta{direction},
+  which may be one of the following:
+  \begin{itemize}
+  \item 
+    |->| indicates a directed edge (also known as an arc) from
+    \meta{first node} to \meta{second node}.
+  \item |--| indicates an undirected edge between \meta{first node}
+    and \meta{second node},
+  \item |<-| indicates a directed edge from \meta{second node} to
+    \meta{first node}, but with the ``additional hint'' that this is a
+    ``backward'' edge. A graph drawing algorithm may  or may not take
+    this hint into account.
+  \item |<->| indicates a bi-directed edge between \meta{first node}
+    and \meta{second node}. 
+  \item |-!-| indicates that the edge from \meta{first node} to
+    \meta{second node} is ``missing''. 
+  \end{itemize}
+  Note that in all cases, the syntatic digraph will contain an arc
+  from \meta{first node} to \meta{second node}, regardless of the
+  value of \meta{direction}. The \meta{direction} is ``just'' a
+  ``semantic annotation''.
+  
+  The parameters \meta{edge options} and \meta{edge nodes} are a bit
+  more tricky. When an edge between two vertices of a graph is created
+  via |\pgfgdedge|, nothing is actually done immediately. After all,
+  without knowing the final positions of the nodes \meta{first node}
+  and \meta{second node}, there is no way of creating the actual
+  drawing commands for the edge. Thus, the actual drawing of the edge
+  is done only when the graph drawing algorithm is done (namely in the
+  macro |\pgfgdedgecallback|, see later). 
+
+  Because of this ``delayed'' drawing of edges, options that influence
+  the edge must be retained until the moment when the edge is actually
+  drawn. Parameters \meta{edge options} and \meta{edge nodes} store such
+  options. 
+
+  Let us start with \meta{edge options}. This parameter should be set
+  to a list of key-value pairs like
+\begin{codeexample}[code only]
+/tikz/.cd, color=red, very thick, this edge must be vertical
+\end{codeexample}
+  Some of these options may be of interest to the graph drawing
+  algorithm (like the last option) while others will 
+  only be important during the drawing of edge (like the first
+  option). The options that are important for the graph drawing
+  algorithm must be passed to the algorithm via setting keys that have
+  been declared using the handler |.edge parameter|, see
+  Section~\ref{section-gd-parameters}. 
+
+  The tricky part is that options that are of interest to the graph
+  drawing algorithm must be executed \emph{before} the algorithm starts,
+  but the options as a whole are usually only executed during the
+  drawing of the edges, which is \emph{after} the algorithm has finished.
+  To overcome this problem, the following happens:
+
+  The options in \meta{edge options} are executed ``tentatively'' inside
+  |\pgfgdedge|. However, this execution is done in a ``heavily guarded
+  sandbox'' where all effects of the options (like changing the
+  color or the line width) do not propagate beyond the sandbox. Only
+  the changes of the graph drawing edge parameters leave the
+  sandbox. These parameters are then passed down to the graph drawing
+  engine.
+
+  Later, when the edge is drawn using |\pgfgdedgecallback|, the
+  options \meta{edge options} are available once more and then they
+  are executed normally.
+
+  Note that when the options in \meta{edge options} are executed, no
+  path is preset. Thus, you typically need to start it with, say,
+  |/tikz/.cd|. Also note that the sandbox is not perfect and changing
+  global values will have an effect outside the sandbox. Indeed,
+  ``putting things in a sandbox'' just means that the options are
+  executed inside a \TeX\ scope inside an interrupted path inside a
+  \TeX\ box that is thrown away immediately. 
+  
+  The text in \meta{edge nodes} is some ``auxilliary'' text that is
+  simply stored away and later directly to |\pgfgdedgecallback|. This
+  is used for instance by \tikzname\ to store its node labels. 
+\end{command}
+
+
+\begin{command}{\pgfgdsetedgecallback\marg{macro}}
+  This command allows you to change the \meta{macro} that gets called
+  form inside the graph drawing engine at the end of the creation of a
+  graph, when the nodes have been positioned. The \meta{macro} will be 
+  called once for each edge with the following parameters:
+  \begin{quote}
+    \meta{macro}\marg{first node}\marg{second
+      node}\marg{direction}\marg{edge options}\marg{edge
+      nodes}\marg{algorithm-generated options}\marg{bend information} 
+  \end{quote}
+
+  The first five parameters are the original values that were passed
+  down to the |\pgfgdedge| command.
+  
+  The \meta{algorithm-generated options} have been ``computed by the
+  algorithm''. For instance, an algorithm might have determined, say,
+  flow capacities for edges and it might now wish to communicate this
+  information back to the upper layers. These options should be
+  executed with the path |/graph drawing|.
+  
+  The parameter \meta{bend information} contains
+  algorithmically-computed information concerning how the 
+  edge should bend. Currently, this will be a text like
+  |(10pt,20pt)--(30pt,40pt)| in \tikzname-syntax, but this may change
+  to make things more portable.
+
+  The default \meta{macro} simply draws a line between the nodes. When
+  the |graphdrawing| library of the \tikzname\ layer is loaded, a more
+  fancy \meta{macro} is used that takes all of the parameters into
+  account.
+\end{command}
+
+
+
+\subsubsection{Layout Keys}
+
+Users of the graph drawing engine typically use a key like
+|tree layout| to specify a graph drawing algorithm. They call the
+macro |\pgfgdbeginscope| internally. All of these keys can (only) be
+used as an option when a \tikzname\ scope is started. Thus, you can
+pass them to |\tikz|, to |{tikzpicture}|, to |\scoped|, to |{scope}|,
+to |graph|, and to |{graph}|. For instance, the |tree layout| option can
+be used in the following ways:
+\begin{codeexample}[]
+\tikz [tree layout] \graph        {1 -> {b,c}};  
+\tikz \graph [tree layout]        {2 -> {b,c}};
+\tikz \path graph [tree layout]   {3 -> {b,c}};
+
+\begin{tikzpicture}[tree layout]
+  \graph                          {4 -> {b,c}};
+\end{tikzpicture}
+
+\begin{tikzpicture}
+  \scoped [tree layout] \graph    {5 -> {b,c}};
+    
+  \begin{scope}[tree layout, xshift=1.5cm]
+    \graph                        {6 -> {b,c}};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}
+
+You can \emph{not} use layout keys with a single
+node or on a path. In particular, to typeset a tree given in the
+|child| syntax somewhere inside a |{tikzpicture}|, you must prefix
+it with the |\scoped| command:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \scoped [tree layout]
+    \node {root}
+    child { node {left child} }
+    child { node {right child} };
+\end{tikzpicture}
+\end{codeexample}
+  Naturally, the above could have been written more succinctly as
+\begin{codeexample}[]
+\tikz [tree layout]
+  \node {root}
+  child { node {left child} }
+  child { node {right child} };
+\end{codeexample}
+  Or even more succinctly:
+\begin{codeexample}[]
+\tikz \graph [tree layout] { root -- {left child, right child} };
+\end{codeexample}
+
+  In detail, adding a layout key to a scope has the following effects:
+  \begin{itemize}
+  \item The basic layer is informed, using the
+    |execute at begin scope| key, that the current scope will contain
+    nodes that should be positioned by a graph drawing engine. Which
+    algorithm is used depends on the value of the |algorithm| key.
+  \item If the |graphs| library has been loaded, the default
+    positioning mechanisms of this library are switched off, leaving
+    the positioning to the graph drawing engine. Also, when an edge is
+    created by the |graphs| library, this is signalled to the graph
+    drawing library. (To be more precise: The keys |new ->| and so on
+    are redefined so that they call |\pgfgdedge| instead of creating
+    an edge.
+  \item The |edge| path command is modified so that it also calls
+    |\pgfgdedge| instead of immediately creating any edges.
+  \item The |edge from parent| path command is modified so that is
+    also calls |\pgfgdedge|.
+  \item The keys |append after command| and |prefix after command|
+    keys are modified so that they are executed only via
+    |late options| when the node has ``reached its final parking
+    position''. 
+  \end{itemize}
+
+
+\subsubsection{Parameters}
+\label{section-gd-parameters}
+
+When a graph drawing algorithm starts working, a set of options,
+called ``graph drawing parameters'' or just ``parameters'' (in
+constrast to ``options'') in the following, can influence
+the way the algorithm works. For instance, a graph drawing parameter
+might be the average distance between vertices which the algorithm
+should take into account. Another example might be the fact the
+certain nodes are special nodes and that a certain edge should have
+a large label.
+
+These graph drawing parameters are different from ``usual'' \pgfname\
+options: An alogrithmic parameter influences the way the algorithm
+works, while usual options influence the way the result
+looks like. For instance, the fact that a node is red is not a
+graph drawing parameter, while the shape of a node might be an graph
+drawing parameter. 
+
+
+TODO: Document
+
+Specifying the set of graph drawing parameters for a given graph or
+node or edge works as follows: When the graph drawing engine is
+started for a graph (using |\pgfgdbeginscope|), a snapshot is taken of
+all graph drawing graph parameters currently setup at this
+point. Similarly, when a node is created inside such a scope (using
+|\pgfnode|), a snapshot is taken of the set of all graph drawing node
+parameters in force at this point and stored together with
+the node. Finally, when an edge is created (using |\pgfgdedge|), a
+snapshot of the setting of the graph drawing edge parameters is
+taken. 
+
+The options set in this way can later be access from the Lua code via
+the |options| fields of digraphs, vertices, and arcs. (For arcs, the
+situation is a bit more involved, but most of the time, you can access
+the option as expected.)
+
+
+
+\subsubsection{Collections of Nodes and Edges}
+
+\label{section-gd-collections}
+
+A \emph{collection} is a pair consisting of a set of nodes and a set of
+edges. Since the edges need not be between the nodes of the same
+collection, collections are not subgraphs, but something more
+``loose'' -- namely collections.
+
+Collections are grouped into ``kinds'', that is, all collections
+having the same kind will be grouped together. On the Lua layer, all
+collections of the same kind can be accessed directly via a single
+array; on the \pgfname\ layer, for each kind a separate key is available
+to indicate that a node or an edge belongs to a collection. 
+
+Collections serve two purposes: First, they can be seen as ``hints''
+to graph drawing algorithms that certain nodes and/or edges ``belong
+together''. For instance, collections of kind |same layer| are used
+by the Sugiyama algorithm to group together nodes that should appear
+at the same height of the output. Second, since collections are also
+passed back to the \pgfname\ layer in a postprocessing step, they can be
+used to render complicated concepts such as hyperedges (which are
+just collections of nodes, after all) or subgraphs.
+
+TODO: Describe collection keys.
+
+  The following shows the use of the |same layer| kind:
+  \begin{codeexample}[]
+\tikz [rounded corners] \graph [layered layout] {
+    1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
+        
+    { [same layer] 1972, Thompson };
+    { [same layer] 1976, Mashey, Bourne },
+    { [same layer] 1978, Formshell, csh },
+    { [same layer] 1980, esh, vsh },
+    { [same layer] 1982, ksh, "System-V" },
+    { [same layer] 1984, v9sh, tcsh },
+    { [same layer] 1986, "ksh-i" },
+    { [same layer] 1988, KornShell ,Perl, rc },
+    { [same layer] 1990, tcl, Bash },
+    { [same layer] "future", POSIX, "ksh-POSIX" },
+
+    Thompson -> { Mashey, Bourne, csh -> tcsh},
+    Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
+    { "ksh-i", KornShell } -> Bash,
+    { esh, vsh, Formshell, csh } -> ksh,
+    { KornShell, "System-V" } -> POSIX,
+    ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
+    Bourne -> Formshell,
+    
+    { [edge={draw=none}]
+      Bash -> tcl,
+      KornShell -> Perl
+    }
+  };
+\end{codeexample}
+
+
+
+\subsubsection{Events}
+\label{section-gd-events}
+
+\emph{Events} are used to pass information from the parser about the
+syntactic structure of a graph to graph drawing algorithms. Consider,
+for instance, a graph that is actually a tree in which some node
+``misses'' its first child. In this case, the information that the
+child is missing is neither part of any node (because the node is
+missing, after all) nor is it an option of the whole graph. However,
+events are created by the parser the allow an algorithm to reconstruct
+the fact that the child is missing. Naturally, graph drawing
+algorithms may choose to ignore events and most will.
+
+Most of the creation and handling of events is done automatically. The
+only reason you might wish to use the following commands is when you
+write a ``parser extension'' together with a new graph drawing
+algorithm. For instance, you might come up with new options that, when
+used, trigger events.
+
+\begin{command}{\pgfgdevent\marg{kind}\marg{parameter}}
+  Creates a new |Event| object on the Lua layer whose |kind| field is
+  set to \meta{kind} and the |parameters| field to \meta{parameter}.
+  You must be inside a graph drawing scope to use this command.
+\end{command}
+
+\begin{command}{\pgfgdbegineventgroup\marg{parameter}}
+  Starts an event group. This just means that an |Event| of kind
+  |begin| is created with the given \meta{parameter}.
+\end{command}
+
+\begin{command}{\pgfgdendeventgroup}
+  Ends an event group. This is done by adding an event of kind |end|
+  without any parameters to the event string.
+\end{command}
+
+\begin{command}{\pgfgdeventgroup\marg{parameters}}
+  Starts an event group just like |\pgfgdbegineventgroup|, but adds a
+  corresponding closing |end| event at the end of the current \TeX\
+  group (using |\aftergroup|).
+\end{command}
+
+
