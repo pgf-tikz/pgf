@@ -13,6 +13,7 @@ local table = require"table"
 local kpse=kpse
 local tex=tex
 local texio=texio
+local pgf=pgf
 
 module "luadoc.doclet.tex"
 
@@ -221,7 +222,7 @@ function start (doc)
 			repeat
 			   current = string.find(filepath, "/", pos)
 			   if current ~= nil then pos = current + 1 end
-			   until(current == nil)
+			until(current == nil)
 			file_doc.shortname = string.sub(filepath, pos)
 
 			-- print(string.format("generating file `%s'", filename))

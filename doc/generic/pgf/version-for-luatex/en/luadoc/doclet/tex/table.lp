@@ -1,4 +1,8 @@
-\begin{luatable}{<%=file_doc.shortname:match('(.*)%..-%.lua')..'.'%>}{<%=tab.name:gsub('_', '\\_')%>}
+\begin{luatable}{%
+  <%if file_doc.name:match('(.*)%..-%..*$') then%>%
+    <%=file_doc.name:match('(.*)%..-%..*$')..'.'%>%
+  <%end%>%
+}{<%=tab.name:gsub('_', '\\_')%>}
   <%=tab.description%>
   <%if type(tab.field) == "table" and #tab.field > 0 then%>
   \emph{Fields:}

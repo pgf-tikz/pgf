@@ -435,7 +435,7 @@ end
 -- @param doc table with documentation
 -- @return table with documentation
 
-function parse_file (filepath, doc)
+function parse_file (luaname, filepath, doc)
 	local blocks = {}
 	local modulename = nil
 	
@@ -467,7 +467,8 @@ function parse_file (filepath, doc)
 	table.insert(doc.files, filepath)
 	doc.files[filepath] = {
 		type = "file",
-		name = filepath,
+		name = luaname,
+		luaname = luaname,
 		doc = blocks,
 --		functions = class_iterator(blocks, "function"),
 --		tables = class_iterator(blocks, "table"),
@@ -581,7 +582,7 @@ end
 -- @return table with documentation
 -- @see parse_file
 
-function file (filepath, doc)
+function file (luaname, filepath, doc)
 	local patterns = { "%.lua$", "%.luadoc$" }
 	local valid = table.foreachi(patterns, function (_, pattern)
 		if string.find(filepath, pattern) ~= nil then
@@ -591,7 +592,7 @@ function file (filepath, doc)
 	
 	if valid then
 		logger:info(string.format("processing file `%s'", filepath))
-		doc = parse_file(filepath, doc)
+		doc = parse_file(luaname, filepath, doc)
 	end
 	
 	return doc
@@ -603,16 +604,16 @@ end
 -- @param doc table with documentation
 -- @return table with documentation
 
-function directory (path, doc)
+function directory (luaname, path, doc)
 	for f in lfs.dir(path) do
 		local fullpath = path .. "/" .. f
 		local attr = lfs.attributes(fullpath)
 		assert(attr, string.format("error stating file `%s'", fullpath))
 		
 		if attr.mode == "file" then
-			doc = file(fullpath, doc)
+			doc = file(luaname .. "." .. f, fullpath, doc)
 		elseif attr.mode == "directory" and f ~= "." and f ~= ".." then
-			doc = directory(fullpath, doc)
+			doc = directory(luaname .. "." .. f, fullpath, doc)
 		end
 	end
 	return doc
@@ -648,15 +649,15 @@ function start (files, doc)
   table.foreachi(
     files, 
     function (_, path)
-      local filename = kpse.find_file(path, 'tex')
-    
+      local filename = kpse.find_file((path:gsub('%.','/')):gsub('/lua$','.lua'), 'tex')
+
       local attr = lfs.attributes(filename)
       assert(attr, string.format("error stating path `%s'", filename))
       
       if attr.mode == "file" then
-	doc = file(filename, doc)
+	doc = file(path, filename, doc)
       elseif attr.mode == "directory" then
-	doc = directory(filename, doc)
+	doc = directory(path, filename, doc)
       end
     end)
   

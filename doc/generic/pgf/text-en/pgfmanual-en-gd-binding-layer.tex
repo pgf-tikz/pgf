@@ -16,53 +16,165 @@
 
 \section{The Binding Layer}
 
-{\noindent {\itshape{Original by Ren\'ee Ahrens, Olof-Joachim Frahm, Jens Kluttig,
-  Matthias Schulz, Stephan Schuster\par\noindent Rewritten by Till Tantau}}}
-
 \label{section-gd-binding-layer}
 
 \label{section-base-graphdrawing}
 \label{section-gd-internals}
 
-File status: Total mess...
+\subsection{Introduction}
+
+This section explains how the \emph{binding} of the graph drawing
+system to a particular display layer works. We will go over the
+general setup, then have a look at a simple example, and then go over
+the particulars of the binding to \pgfname\ in details. Let me stress
+that all of this is important only for readers who
+\begin{itemize}
+\item either wish to write new display system (see
+  Section~\ref{section-gd-display-layer})
+\item or wish to know more about how the graph drawing system works on
+  the pure \pgfname layer (this is were the binding occurs). 
+\end{itemize}
 
 
-\begin{pgflibrary}{graphdrawing}
-  This library is what users will usually load. It loads the above
-  library automatically. Nevertheless, the graph drawing engine can be
-  used independently of \tikzname.
-\end{pgflibrary}
 
+\subsection{The Binding Class and the Interface Core}
 
-This chapter explains the technical details of how the \TeX\ layer
-communicates with the Lua side of the graph drawing engine. A note of
-caution:
-
-\begin{quote}
-  \itshape You do not need to understand the details of this
-  chapter to write new graph drawing algorithms. It is of interest
-  only to those wishing to extend the syntactic features of the \TeX\ side
-  of the graph drawing engine.
-\end{quote}
-
-\subsection{The Interface Core}
-
+\includeluadocumentationof{pgf.gd.bindings.Binding}
 \includeluadocumentationof{pgf.gd.interface.InterfaceCore}
 
 
-
-\subsection{Bindings}
-
-\includeluadocumentationof{pgf.gd.bindings.Binding}
-\includeluadocumentationof{pgf.gd.bindings.BindingToPGF}
-
-
-\subsection{An Example Binding}
+\subsection{An Example Binding Class}
 
 \label{section-gd-binding-layer-example}
-TODO
+
+\begin{codeexample}[code only]
+local InterfaceToDisplay = require "pgf.gd.interface.InterfaceToDisplay"
+local Binding = require "pgf.gd.bindings.Binding"
+local lib = require "pgf.gd.lib"
+
+-- Create a binding to ourselves
+local BindingToASCII = {}
+BindingToASCII.__index = BindingToASCII
+setmetatable(BindingToASCII, Binding) -- subclass of Binding
+
+function BindingToASCII:__tostring()
+  return "BindingToASCII"
+end
+\end{codeexample}
+
+\begin{codeexample}[code only]
+local field
+  
+function BindingToASCII:renderStart()
+  field = {}
+  -- Clear the field
+  for x=-30,30 do
+    field [x] = {}
+    for y=-30,30 do
+      field[x][y] = ' '
+    end
+  end
+end
+
+function BindingToASCII:renderStop()
+  for y=10,-30,-1 do
+    local t = {}
+    for x=-30,30 do
+      local s = field[x][y]
+      for i=1,#s do
+        pos = x+30+i-math.floor(#s/2)
+        if not t[pos] or t[pos] == " " or t[pos] == "." then
+          t[pos] = string.sub(s,i,i)
+        end
+      end
+    end
+    print(table.concat(t))
+  end
+end
+
+function BindingToASCII:renderVertex(v)
+  field [math.floor(v.pos.x)][math.floor(v.pos.y)] = v.name
+end
+\end{codeexample}
+
+\begin{codeexample}[code only]
+function BindingToASCII:renderEdge(e)
+
+  local function connect (p,q)
+
+    local x1, y1, x2, y2 = math.floor(p.x+0.5), math.floor(p.y+0.5), math.floor(q.x+0.5), math.floor(q.y+0.5)
+    
+    -- Go upward with respect to x
+    if x2 < x1 then
+      x1, y1, x2, y2 = x2, y2, x1, y1
+    end
+    
+    local delta_x = x2-x1
+    local delta_y = y2-y1
+
+    if math.abs(delta_x) > math.abs(delta_y) then
+      local slope = delta_y/delta_x
+      for i=x1,x2 do
+        local x,y = i, math.floor(y1 + (i-x1)*slope + 0.5)
+
+        if field[x][y] == " " then
+          field[x][y] = '.'
+        end
+      end
+    elseif math.abs(delta_y) > 0 then
+      local slope = delta_x/delta_y
+      for i=y1,y2,(y1<y2 and 1) or -1 do
+        local x,y = math.floor(x1 + (i-y1)*slope + 0.5), i
+
+        if field[x][y] == " " then
+          field[x][y] = '.'
+        end
+      end
+    end
+  end
+  
+  
+  local p = e.tail.pos
+  
+  for i=1,#e.path do
+    connect(p, e.tail.pos + e.path[i])
+    p = e.tail.pos + e.path[i]
+  end
+  
+  connect(p, e.head.pos)
+end
+\end{codeexample}
+
+\begin{codeexample}[code only]
+local factors = { cm = 10, em = 5, mm=1, [""]=1 }
+local Coordinate = require "pgf.gd.model.Coordinate"
+
+function BindingToASCII:declareParameterCallback(t)
+  if t.initial then
+    local v = t.initial
+    if t.type == "number" then
+      v = tonumber (v)
+    elseif t.type == "length" then
+      local num, dim = string.match(v, "([%d.]+)(.*)")
+
+      v = tonumber(num) * factors[dim]
+    elseif t.type == "coordinate" or t.type == "canvas coordinate" then
+      local x, y = string.match(v,"%(([%d.]+)pt,([%d.]+)pt%)")
+
+      v = Coordinate.new(tonumber(x),tonumber(y))
+    end
+
+    InterfaceToDisplay.setOptionInitial(t.key, v)
+  end
+end
+
+return BindingToASCII
+\end{codeexample}
+
 
 \subsection{The Binding to PGF}
+
+\includeluadocumentationof{pgf.gd.bindings.BindingToPGF}
 
 \subsubsection{The Call Graph of the Graph Drawing Engine}
 
