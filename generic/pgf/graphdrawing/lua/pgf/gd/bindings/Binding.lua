@@ -207,7 +207,7 @@ end
 -- @param vertex The |Vertex| object.
 
 function Binding:renderVertex(vertex)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 
@@ -257,7 +257,7 @@ end
 -- @param edge The |Edge| object.
 
 function Binding:renderEdge(edge)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 

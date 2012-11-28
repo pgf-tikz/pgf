@@ -134,7 +134,6 @@ function InterfaceToAlgorithms.declare (t)
   -- Set!
   keys[t.key]     = t
   keys[#keys + 1] = t
-  
 end
 
 
@@ -209,6 +208,10 @@ function declare_parameter (t)
   -- Declare via the hub:
   InterfaceCore.binding:declareParameterCallback(t)
 
+  -- Handle initials:
+  if t.initial then
+    InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
+  end
 end
 
 
@@ -377,7 +380,7 @@ end
 function declare_algorithm (t)
   -- Algorithm declaration!
   assert(type(t.algorithm) == "table" or type(t.algorithm) == "string")
-      
+  
   t.phase = t.phase or "main"
 
   local function make_class ()
@@ -428,7 +431,7 @@ function declare_algorithm (t)
   else
     store_me = make_class
   end
-  
+
   -- Save in the algorithm_classes table:
   InterfaceCore.algorithm_classes[t.key] = store_me
   
@@ -442,6 +445,7 @@ function declare_algorithm (t)
 	    "default algorithms must be loaded immediately")
     InterfaceCore.option_initial.algorithm_phases[t.phase] = store_me
   end 
+  
 end
 
 

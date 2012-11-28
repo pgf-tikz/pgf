@@ -55,9 +55,6 @@ end
 function BindingToPGF:declareParameterCallback(t)
   tex.print("\\pgfgdcallbackdeclareparameter{" .. t.key .. "}{"
 	    .. t.type .. "}{" .. tostring(t.default or "") .. "}")
-  if t.initial then
-    tex.print("\\pgfgdcallbacksetinitial{" .. t.key .. "}{" .. t.type .. "}{" .. t.initial .. "}")
-  end
 end
 
 function BindingToPGF:declareParameterSequenceCallback(t)

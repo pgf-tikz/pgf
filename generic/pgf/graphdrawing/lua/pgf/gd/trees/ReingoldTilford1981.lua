@@ -21,7 +21,6 @@ local layered = require "pgf.gd.layered"
 local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
 
-
 ---
 declare {
   key       = "tree layout",
@@ -198,7 +197,6 @@ declare {
 
 
 
-
 ---
 declare {
   key    = "missing nodes get space",
@@ -295,6 +293,7 @@ declare {
     "]]
   }
 }
+
 
 
     

@@ -7,41 +7,19 @@ local BindingToASCII = {}
 BindingToASCII.__index = BindingToASCII
 setmetatable(BindingToASCII, Binding) -- subclass of Binding
 
-local field
+local canvas
 
 function BindingToASCII:__tostring()
   return "BindingToASCII"
 end
 
-local factors = { cm = 10, em = 5, mm=1, [""]=1 }
-local Coordinate = require "pgf.gd.model.Coordinate"
-
-function BindingToASCII:declareParameterCallback(t)
-  if t.initial then
-    local v = t.initial
-    if t.type == "number" then
-      v = tonumber (v)
-    elseif t.type == "length" then
-      local num, dim = string.match(v, "([%d.]+)(.*)")
-
-      v = tonumber(num) * factors[dim]
-    elseif t.type == "coordinate" or t.type == "canvas coordinate" then
-      local x, y = string.match(v,"%(([%d.]+)pt,([%d.]+)pt%)")
-
-      v = Coordinate.new(tonumber(x),tonumber(y))
-    end
-
-    InterfaceToDisplay.setOptionInitial(t.key, v)
-  end
-end
-
 function BindingToASCII:renderStart()
-  field = {}
-  -- Clear the field
+  canvas = {}
+  -- Clear the canvas
   for x=-30,30 do
-    field [x] = {}
+    canvas [x] = {}
     for y=-30,30 do
-      field[x][y] = ' '
+      canvas[x][y] = ' '
     end
   end
 end
@@ -50,7 +28,7 @@ function BindingToASCII:renderStop()
   for y=10,-30,-1 do
     local t = {}
     for x=-30,30 do
-      local s = field[x][y]
+      local s = canvas[x][y]
       for i=1,#s do
 	pos = x+30+i-math.floor(#s/2)
 	if not t[pos] or t[pos] == " " or t[pos] == "." then
@@ -63,12 +41,7 @@ function BindingToASCII:renderStop()
 end
 
 function BindingToASCII:renderVertex(v)
-  field [math.floor(v.pos.x)][math.floor(v.pos.y)] = v.name
-end
-
-function BindingToASCII:retrieveBox(index, box_num)
-  tex.box[box_num] = assert(boxes[index], "no box stored at given index")
-  boxes[index] = nil -- remove from memory
+  canvas [math.floor(v.pos.x)][math.floor(v.pos.y)] = v.name
 end
 
 function BindingToASCII:renderEdge(e)
@@ -90,8 +63,8 @@ function BindingToASCII:renderEdge(e)
       for i=x1,x2 do
 	local x,y = i, math.floor(y1 + (i-x1)*slope + 0.5)
 
-	if field[x][y] == " " then
-	  field[x][y] = '.'
+	if canvas[x][y] == " " then
+	  canvas[x][y] = '.'
 	end
       end
     elseif math.abs(delta_y) > 0 then
@@ -99,8 +72,8 @@ function BindingToASCII:renderEdge(e)
       for i=y1,y2,(y1<y2 and 1) or -1 do
 	local x,y = math.floor(x1 + (i-y1)*slope + 0.5), i
 
-	if field[x][y] == " " then
-	  field[x][y] = '.'
+	if canvas[x][y] == " " then
+	  canvas[x][y] = '.'
 	end
       end
     end

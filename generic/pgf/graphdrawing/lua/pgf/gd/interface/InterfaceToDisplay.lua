@@ -70,6 +70,7 @@ local option_cache = nil -- The option cache
 
 
 
+
 ---
 -- Initiliaze the binding. This function is called once by the display
 -- layer at the very beginning. For instance, \tikzname\ does the
@@ -516,7 +517,8 @@ end
 -- including this position will be popped from the stack.
 --
 -- @param key A parameter (must be a string).
--- @param value A value (can be anything).
+-- @param value A value (can be anything). If it is a string, it will
+-- be converted to whatever the key expects.
 -- @param height A stack height at which to insert the key. Everything
 -- above this height will be removed. 
 
@@ -525,7 +527,7 @@ function InterfaceToDisplay.pushOption(key, value, height)
 	  key ~= "algorithm_phases" and
 	  key ~= "collections", "illegal parameter key")
   
-  push_on_option_stack(key, value, height)
+  push_on_option_stack(key, InterfaceCore.convert(value, InterfaceCore.keys[key].type), height)
 end
 
 
@@ -623,21 +625,6 @@ end
 
 
 
-
-
-
---- Defines a default value for a graph parameter. 
---
--- Whenever a graph parameter has not been set by the user explicitly,
--- the value that was last set using this function is used instead.
---
--- @param key The commplete path of the to-be-defined key
--- @param value A string containing the value
---
-function InterfaceToDisplay.setOptionInitial(key,value)
-  assert (not InterfaceCore.option_initial[key], "you may not set a parameter default twice")
-  InterfaceCore.option_initial[key] = value
-end
 
 
 

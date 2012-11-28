@@ -171,7 +171,6 @@ binding; we can ignore it for now.
 
 \begin{codeexample}[code only]
 local InterfaceToDisplay = require "pgf.gd.interface.InterfaceToDisplay"
-
 InterfaceToDisplay.bind(require "pgf.gd.examples.BindingToASCII")
 
 -- Load two libraries that define graph drawing algorithms. We can do this only *after* the binding
@@ -180,12 +179,61 @@ require "pgf.gd.layered.library"
 require "pgf.gd.force.library"
 \end{codeexample}
 
-Next, we specify the to-be-parsed string encoding the to-be-laid-out
-graph. Naturally, this string could also be read from a file or from
-standard in:
+Now comes some preparation code that starts a graph drawing scope and
+sets up the algorithm to the string provided between the square
+brackets:
 
 \begin{codeexample}[code only]
-local graph = [[
+local algorithm = io.read():match("%s*graph%s*%[(.-)%]")
+  
+InterfaceToDisplay.pushPhase(algorithm, "main", 1)
+InterfaceToDisplay.pushOption("level distance", 6, 2)
+InterfaceToDisplay.pushOption("sibling distance", 8, 3)
+InterfaceToDisplay.beginGraphDrawingScope(3)
+InterfaceToDisplay.pushLayout(4)
+\end{codeexample}
+
+The numbers |1| to |4| are the positions on the options stack at which
+the options should be placed. See the description of |pushOption| for
+more details.
+
+We are now ready to create the vertices and edges via a very simple
+parser:
+
+\begin{codeexample}[code only]
+\begin{codeexample}[code only]
+for line in io.lines() do
+  if line:match("}") then
+    break
+  elseif line:find("-") then
+    local n1, dir, n2 = string.match(line, "^%s*(.-)%s*(-.)%s*(.-)%s*;")
+    InterfaceToDisplay.createEdge(n1, n2, dir, 4)
+  else
+    local n1 = string.match(line, "^%s*(.-)%s*;")
+    InterfaceToDisplay.createVertex(n1, "rectangle", nil, 4)
+  end
+end
+\end{codeexample}
+
+The graph is now completely constructed inside the graph drawing
+system. We can now invoke the algorithms:
+
+\begin{codeexample}[code only]
+InterfaceToDisplay.runGraphDrawingAlgorithm()
+InterfaceToDisplay.renderGraph()
+InterfaceToDisplay.endGraphDrawingScope()
+\end{codeexample}
+
+We can now run the resulting file using the Lua interpreter. If we
+provide the input shown on the left, we get the output shown on the
+right:
+
+\bigskip
+\noindent
+\begin{minipage}[t]{.5\textwidth}
+\emph{Input given to ASCIIDisplayer:}  
+  
+\begin{verbatim}
 graph [layered layout] {
   Alice;
   Bob;
@@ -205,83 +253,39 @@ graph [layered layout] {
   George -> Fritz;
   Alice -> George;
 }  
-]]  
-\end{codeexample}
-
-Now comes some preparation code that starts a graph drawing scope and
-sets up the algorithm to the string provided between the square
-brackets:
-
-\begin{codeexample}[code only]
--- Scan names:
-local algorithm, graph_spec = string.match(graph, "%s*graph%s*%[(.-)%]%s*{%s*\n(.*)}")
-  
-InterfaceToDisplay.pushPhase(algorithm, "main", 1)
-InterfaceToDisplay.pushOption("level distance", 6, 2)    -- Setup some options
-InterfaceToDisplay.pushOption("sibling distance", 8, 3) -- More options
-InterfaceToDisplay.beginGraphDrawingScope(3)
-InterfaceToDisplay.pushLayout(4) 
-\end{codeexample}
-
-The numbers |1| to |4| are the positions on the options stack at which
-the options should be placed. See the description of |pushOption| for
-more details.
-
-We are now ready to create the vertices and edges via a very simple
-parser:
-
-\begin{codeexample}[code only]
-for line in string.gmatch(graph_spec, "([^\n]*)\n") do
-  if line:find("-") then
-    local n1, dir, n2 = string.match(line, "^%s*(.-)%s*(-.)%s*(.-)%s*;")
-    InterfaceToDisplay.createEdge(n1, n2, dir, 4)
-  else
-    local n1 = string.match(line, "^%s*(.-)%s*;")
-    InterfaceToDisplay.createVertex(n1, "rectangle", nil, 4)
-  end
-end
-\end{codeexample}
-
-The graph is now completely constructed inside the graph drawing
-system. We can now invoke the algorithms:
-
-\begin{codeexample}[code only]
-InterfaceToDisplay.runGraphDrawingAlgorithm()
-InterfaceToDisplay.renderGraph()
-InterfaceToDisplay.endGraphDrawingScope()
-\end{codeexample}
-
-The |renderGraph| method will now use the binding to output the
-``\textsc{ascii} rendering'' of the graph. It will look like this (see
-the binding for details on what happens here):
-\begin{verbatim}
-                            Alice                            
-                          .......                            
-                        .. .  .  .                           
-                     ...  .   .   .                          
-                  ...   ..    .    ..                        
-                ..     .      .      .                       
-           Charly    Bob      .       .                      
-               ..     .       .       .                      
-                 .    .       .       .                      
-                  .   .       .       .                      
-                   .. .       .       .                      
-                     ..       .       .                      
-                    Dave   George     .                      
-                       ..     . ...   .                      
-                         .    .    .. .                      
-                          .   .      ...                     
-                           .. .       . ...                  
-                             ..       .    ..                
-                             Eve      .      ..              
-                               ..     .     ..               
-                                 .    .    .                 
-                                  .   .   .                  
-                                   .. . ..                   
-                                     ...                     
-                                    Fritz                    
 \end{verbatim}
-
+\end{minipage}%
+\begin{minipage}[t]{.49\textwidth}
+\emph{Output produced by ASCIIDisplayer:}  
+  
+\begin{verbatim}
+                   Alice                            
+                 .......                            
+               .. .  .  .                           
+            ...  .   .   .                          
+         ...   ..    .    ..                        
+       ..     .      .      .                       
+  Charly    Bob      .       .                      
+      ..     .       .       .                      
+        .    .       .       .                      
+         .   .       .       .                      
+          .. .       .       .                      
+            ..       .       .                      
+           Dave   George     .                      
+              ..     . ...   .                      
+                .    .    .. .                      
+                 .   .      ...                     
+                  .. .       . ...                  
+                    ..       .    ..                
+                    Eve      .      ..              
+                      ..     .     ..               
+                        .    .    .                 
+                         .   .   .                  
+                          .. . ..                   
+                            ...                     
+                           Fritz                    
+\end{verbatim}
+\end{minipage}
 
 
 \subsection{The Interface to Display Systems}
