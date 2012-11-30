@@ -38,10 +38,10 @@ declare {
   },
 
   summary = [["
-      This algorithm is the 'Hello World' of graph drawing.
+      This algorithm is the ``Hello World'' of graph drawing.
   "]],
   documentation = [=["  
-      The algorithm is a ``hello world'' version of graph drawing: It
+      The algorithm 
       arranges nodes in a circle (without paying heed to the sizes of the
       nodes or to the edges). In order to ``really'' layout nodes in a
       circle, use |simple necklace layout|; the present layout is only intended

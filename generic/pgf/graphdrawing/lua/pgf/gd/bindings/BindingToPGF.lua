@@ -11,10 +11,39 @@
 
 
 ---
--- This class binds the graph drawing system to
--- \pgfname/\tikzname\ display system by overriding (that is,
--- implementing) the methods of the |Binding| class. 
+-- This class, which is a subclass of |Binding|, binds the graph
+-- drawing system to the \pgfname\ display system by overriding (that
+-- is, implementing) the methods of the |Binding| class. As a typical
+-- example, consider the implementation of the function |renderVertex|:
 --
+--\begin{codeexample}[code only]
+--function BindingToPGF:renderVertex(v)
+--  local info = assert(v.storage[self], "thou shalt not modify the syntactic digraph")
+--  tex.print(
+--    string.format(
+--      "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
+--      'not yet positionedPGFINTERNAL' .. v.name,
+--      info.x_min,
+--      info.x_max,
+--      info.y_min,
+--      info.y_max,
+--      v.pos.x,
+--      v.pos.y,
+--      info.box_count))
+--end
+--\end{codeexample}
+--
+-- As can be seen, the main job of this function is to call a function
+-- on the \TeX\ layer that is called |\pgfgdcallbackrendernode|, which gets
+-- several parameters like the name of the to-be-rendered node or the
+-- (new) position for the node. For almost all methods of the
+-- |Binding| class there is a corresponding ``callback'' macro on the
+-- \TeX\ layer, all of which are implemented in the \pgfname\ library
+-- |graphdrawing|. For details on these callbacks, 
+-- please consult the code of that file and of the class
+-- |BindingToPGF| (they are not documented here since they are local
+-- to the binding and should not be called by anyone other than the
+-- binding class).
 
 local BindingToPGF = {}
 BindingToPGF.__index = BindingToPGF

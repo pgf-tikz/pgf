@@ -38,8 +38,7 @@ declare {
      \item
        Bettina Speckmann and Kevin Verbeek,
        \newblock Necklace Maps,
-       \newblock \emph{?,}
-       ?, 2010.
+     \newblock \emph{IEEE Transactions on Visualization and Computer Graphics,} 16(6):881--889, 2010.
      \end{itemize}
     
      For a |simple necklace layout|, the centers of the nodes

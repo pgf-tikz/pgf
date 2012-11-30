@@ -127,14 +127,43 @@ declare {
        a on the same layer of a layered layout (this option is also known
        as |same rank|). You use it like this:
   "]],
-  examples = [["
+  examples = {[["
        \tikz \graph [layered layout] {
          a -- b -- c -- d -- e;
       
          { [same layer] a, b };
          { [same layer] d, e };
        };
-  "]]
+  "]],[["
+       \tikz [rounded corners] \graph [layered layout] {
+	 1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
+        
+	 { [same layer] 1972, Thompson };
+	 { [same layer] 1976, Mashey, Bourne },
+	 { [same layer] 1978, Formshell, csh },
+	 { [same layer] 1980, esh, vsh },
+	 { [same layer] 1982, ksh, "System-V" },
+	 { [same layer] 1984, v9sh, tcsh },
+	 { [same layer] 1986, "ksh-i" },
+	 { [same layer] 1988, KornShell ,Perl, rc },
+	 { [same layer] 1990, tcl, Bash },
+	 { [same layer] "future", POSIX, "ksh-POSIX" },
+	 
+	 Thompson -> { Mashey, Bourne, csh -> tcsh},
+	 Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
+	 { "ksh-i", KornShell } -> Bash,
+	 { esh, vsh, Formshell, csh } -> ksh,
+	 { KornShell, "System-V" } -> POSIX,
+	 ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
+	 Bourne -> Formshell,
+	 
+	 { [edge={draw=none}]
+	   Bash -> tcl,
+	   KornShell -> Perl
+	 }
+       };
+   "]]
+  }     
 }
 
 

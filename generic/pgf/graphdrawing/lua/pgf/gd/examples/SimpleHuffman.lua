@@ -136,10 +136,10 @@ function SimpleHuffman:run()
     
     for i=1,#vertices do
       if not min1 or prop(vertices[i]) < prop(vertices[min1]) then
-	min2 = min1
-	min1 = i
+        min2 = min1
+        min1 = i
       elseif not min2 or prop(vertices[i]) < prop(vertices[min2]) then
-	min2 = i
+        min2 = i
       end
     end
 \end{codeexample}
@@ -178,7 +178,7 @@ end
 \begin{codeexample}[code only]
 \pgfkeys{
   /graph drawing/HuffmanLabel/.style={
-    /tikz/edge node={node[fill=white,font=\pgfutil@font@footnotesize,inner sep=1pt]{#1}}
+    /tikz/edge node={node[fill=white,font=\footnotesize,inner sep=1pt]{#1}}
   },
   /graph drawing/HuffmanNode/.style={
     /tikz/.cd,circle,inner sep=0pt,outer sep=0pt,draw,minimum size=3pt
@@ -233,10 +233,10 @@ function SimpleHuffman:run()
 
     for i=1,#vertices do
       if not min1 or prop(vertices[i]) < prop(vertices[min1]) then
-	min2 = min1
-	min1 = i
+        min2 = min1
+        min1 = i
       elseif not min2 or prop(vertices[i]) < prop(vertices[min2]) then
-	min2 = i
+        min2 = i
       end
     end
 
@@ -249,9 +249,9 @@ function SimpleHuffman:run()
     vertices[#vertices + 1] = v
     
     InterfaceToAlgorithms.createEdge (self, v, vertices[min1],
-				 {generated_options = {{key="HuffmanLabel", value = "0"}}})
+                                 {generated_options = {{key="HuffmanLabel", value = "0"}}})
     InterfaceToAlgorithms.createEdge (self, v, vertices[min2],
-				 {generated_options = {{key="HuffmanLabel", value = "1"}}})
+                                 {generated_options = {{key="HuffmanLabel", value = "1"}}})
 
     table.remove(vertices, math.max(min1, min2))
     table.remove(vertices, math.min(min1, min2))
