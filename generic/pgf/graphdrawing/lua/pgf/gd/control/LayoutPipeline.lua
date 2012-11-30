@@ -341,9 +341,15 @@ end
 -- results when the node is rotated so that it is in the correct
 -- orientation for what the algorithm assumes.
 --
--- The ``bounding box'' actually consists of the fields |sibling_pre|,
--- |sibling_post|, |layer_pre|, |layer_post|, which correspond to
--- ``min x'', ``min y'', ``min y'', and ``max y'' for a tree growing up.
+-- The ``bounding box'' actually consists of the fields
+-- \begin{itemize}
+-- \item |sibling_pre|,
+-- \item |sibling_post|,
+-- \item |layer_pre|, and
+-- \item |layer_post|,
+-- \end{itemize}
+-- which correspond to ``min x'', ``min y'', ``min y'', and ``max y''
+-- for a tree growing up. 
 --
 -- The computation of the ``bounding box'' treats a centered circle in
 -- a special way, all other shapes are currently treated like a
@@ -481,7 +487,7 @@ end
 
 ---
 -- Performs a post-layout orientation of the graph by performing the
--- steps documented in Section~\ref{subsection-graph-orientation-phases}.
+-- steps documented in Section~\ref{subsection-library-graphdrawing-standard-orientation}.
 -- 
 -- @param algorithm An algorithm object.
 -- @param graph A to-be-oriented graph.

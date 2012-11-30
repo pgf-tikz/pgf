@@ -703,7 +703,7 @@ end
 --
 -- @param collapse_vertices An array of to-be-collapsed vertices
 -- @param collapse_vertex The vertex that represents the collapse. If
--- not given, a vertex will be created automatically.
+-- missing, a vertex will be created automatically and added to the graph. 
 -- @param vertex_fun This function is called for each to-be-collapsed
 -- vertex. The parameters are the collapse vertex and the
 -- to-be-collapsed vertex. May be |nil|.

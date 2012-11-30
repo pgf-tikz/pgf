@@ -39,8 +39,8 @@
 --   \newblock Diploma Thesis,
 --   \newblock Institute of Theoretical Computer Science, Univerist\"at
 --   zu L\"ubeck, 2011.\\[.5em]
---   \newblock Online at 
---   \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
+--   \newblock Available online via 
+--   \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/}\\ \url{2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
 --   \\[.5em]
 --   (Note that since the publication of this thesis some option names
 --   have been changed. Most noticeably, the option name

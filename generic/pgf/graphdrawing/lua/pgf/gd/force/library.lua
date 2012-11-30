@@ -96,7 +96,7 @@
 --   \newblock Institute of Theoretical Computer Science, Univerist\"at
 --   zu L\"ubeck, 2011.\\[.5em]
 --   \newblock Online at 
---   \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
+--   \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/}\\ \url{2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
 -- \end{itemize}
 --
 -- In the future, I hope that most, if not all, of the force-based

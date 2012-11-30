@@ -532,9 +532,8 @@ end
 
 
 ---
--- Push an algorithm phase to the stack of options. 
---
--- This is like pushing an option, only this option sets the algorithm
+-- Push an algorithm phase to the stack of options. Works like pushing
+-- an option, only this option sets the algorithm  
 -- used in a particular algorithm phase. Use this to set
 -- algorithm phases previously declared using |declare|, see
 -- |InterfaceToAlgorithm.declare| for details.

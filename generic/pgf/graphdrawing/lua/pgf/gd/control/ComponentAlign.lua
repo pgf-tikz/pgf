@@ -193,7 +193,7 @@ declare {
 
   summary = [["  
        Like |components go right top aligned|, but with
-       |component align=counterclockwise bounding box|. This means that the
+       |component align| set to |counterclockwise| |bounding box|. This means that the
        components will be aligned with their bounding boxed being
        top-aligned.
   "]],
