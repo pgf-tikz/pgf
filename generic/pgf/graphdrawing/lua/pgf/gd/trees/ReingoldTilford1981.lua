@@ -326,7 +326,7 @@ declare {
   
 function ReingoldTilford1981:run()
   
-  local root = self.spanning_tree.storage.root
+  local root = self.spanning_tree.root
   
   self.extended_version = self.digraph.options['missing nodes get space']
   

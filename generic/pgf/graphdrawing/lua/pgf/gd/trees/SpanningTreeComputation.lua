@@ -436,7 +436,7 @@ declare {
 -- @param dfs True if depth first should be used, false if breadth
 -- first should be used.
 --
--- @return A new graph that is a spanning tree
+-- @return A new graph that is a spanning tree.
 
 function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
 
@@ -617,7 +617,7 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
     end
   end
   
-  tree.storage.root = root
+  tree.root = root
 
   return tree
 end

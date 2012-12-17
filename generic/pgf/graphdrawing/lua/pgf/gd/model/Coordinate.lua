@@ -39,9 +39,7 @@ require("pgf.gd.model").Coordinate = Coordinate
 -- @return A coordinate
 --
 function Coordinate.new(x,y)
-  local new = { x = x, y = y }
-  setmetatable(new, Coordinate)
-  return new
+  return setmetatable( {x=x, y=y}, Coordinate)
 end
 
 
