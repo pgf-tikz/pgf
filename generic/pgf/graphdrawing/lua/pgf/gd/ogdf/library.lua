@@ -36,6 +36,8 @@ local Control = require "pgf.gd.ogdf.c.Control" -- This is a compiled C file
 local Bridge  = require "pgf.gd.ogdf.Bridge"    -- This is a Lua file
 
 
+Control.do_declarations()
+
 
 -- Declare an algorithm
 

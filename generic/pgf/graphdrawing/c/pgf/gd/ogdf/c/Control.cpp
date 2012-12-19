@@ -6,6 +6,7 @@ extern "C" {
 int luaopen_pgf_gd_ogdf_c_Control (lua_State *L);
 }
 
+#include <pgf/gd/ogdf/c/Declare.h>
 
 #include <pgf/gd/ogdf/c/GraphBridged.h>
 
@@ -18,6 +19,8 @@ int luaopen_pgf_gd_ogdf_c_Control (lua_State *L);
 
 #include <ogdf/energybased/FMMMLayout.h>
 
+#include <cstdlib>
+
 using namespace ogdf;
 using namespace pgf;
 
@@ -28,7 +31,7 @@ using namespace pgf;
 // 3 is graph prepared for use by GraphBridge
 
 static int run (lua_State *L) {
-
+  
   GraphBridged gb (L);
   lua_pop(L, 1);
   
@@ -50,12 +53,15 @@ static int run_fmmm (lua_State *L) {
 
   GraphBridged gb (L);
   lua_pop(L, 1);
+
+  srand(gb.getGraphOptions().getNumberField("random seed"));
   
   FMMMLayout fmmm;
   
-  fmmm.useHighLevelOptions(true);
-  fmmm.unitEdgeLength(15.0); 
-  fmmm.newInitialPlacement(true);
+  //  fmmm.useHighLevelOptions(true);
+  fmmm.unitEdgeLength(gb.getGraphOptions().getNumberField("node distance")); 
+  fmmm.randSeed(gb.getGraphOptions().getNumberField("random seed"));
+  fmmm.newInitialPlacement(false);
   fmmm.qualityVersusSpeed(FMMMLayout::qvsGorgeousAndEfficient);
   
   fmmm.call(gb.getGraphAttributes());
@@ -67,7 +73,25 @@ static int run_fmmm (lua_State *L) {
   return 0;
 }
 
+static int do_declarations(lua_State* L) {
+  
+  Parameter p;
+  p.key = "layered crossing fail stop";
+  p.type = "number";
+  p.initial = "4";
+  p.summary =
+"The number of times that the number of crossings may not\n\
+decrease after a complete top-down bottom-up traversal,\n\
+before a run is terminated.";
+  p.declare(L);
+
+  return 0;
+  
+}
+
+
 static const struct luaL_reg registry [] = {
+  {"do_declarations", do_declarations},
   {"run", run},
   {"run_fmmm", run_fmmm},
   {NULL, NULL}  /* sentinel */
