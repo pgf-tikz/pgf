@@ -105,6 +105,10 @@ namespace pgf {
   bool TableBridged::isStringField(const string& field) const {
     return rep->string_fields.count(field) > 0 || (rep->defaults && rep->defaults->isStringField(field));
   }
+  
+  bool TableBridged::isTableField(const string& field) const {
+    return rep->table_fields.count(field) > 0 || (rep->defaults && rep->defaults->isTableField(field));
+  }
 
   bool TableBridged::getBooleanField (const string& field) const {
     if (rep->bool_fields.count(field)>0)

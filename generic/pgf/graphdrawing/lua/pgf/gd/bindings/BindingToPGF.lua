@@ -62,10 +62,6 @@ local lib = require "pgf.gd.lib"
 -- Forward
 local table_in_pgf_syntax
 
-function BindingToPGF:__tostring()
-  return "BindingToPGF"
-end
-
 
 -- Scope handling
 
@@ -86,9 +82,11 @@ function BindingToPGF:declareParameterCallback(t)
 	    .. t.type .. "}{" .. tostring(t.default or "") .. "}")
 end
 
+
 function BindingToPGF:declareParameterSequenceCallback(t)
   tex.print("\\pgfgdcallbackdeclareparametersequence{" .. t.key
-	    .. "}{" .. table_in_pgf_syntax(t) .. "}{" .. (t.default or "") .. "}")
+	    .. "}{" .. table_in_pgf_syntax(t)
+	    .. "}{" .. (t.default or "") .. "}")
 end
 
 function BindingToPGF:declareCollectionKind(t)

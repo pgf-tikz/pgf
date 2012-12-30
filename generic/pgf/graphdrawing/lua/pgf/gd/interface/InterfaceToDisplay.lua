@@ -89,7 +89,6 @@ local option_cache = nil -- The option cache
 
 function InterfaceToDisplay.bind(class)
   assert (not InterfaceCore.binding, "binding already initialized")
-  assert (getmetatable(class.__index) == Binding, "must bind to a direct subclass of Binding")
   
   -- Create a new object
   InterfaceCore.binding = setmetatable({}, class)

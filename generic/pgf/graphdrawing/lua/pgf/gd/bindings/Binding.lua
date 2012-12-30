@@ -44,17 +44,6 @@ require("pgf.gd.bindings").Binding = Binding
 
 
 
---
--- The type of the current binding. Mainly for printing error
--- messages.
---
--- @return A name
-
-function Binding:__tostring()
-  return "Binding"
-end
-
-
 
 --
 -- This method gets called whenever the graph drawing coroutine should
@@ -66,7 +55,7 @@ end
 -- @param code Some code to be executed by the display layer.
 
 function Binding:resumeGraphDrawingCoroutine(code)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 
@@ -295,7 +284,7 @@ end
 -- \end{itemize}
 
 function Binding:createVertex(init)
-  error("method must be implemented in binding " .. tostring(self))
+  -- Does nothing by default
 end
 
 

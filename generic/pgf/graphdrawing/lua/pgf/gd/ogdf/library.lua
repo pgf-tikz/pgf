@@ -26,38 +26,10 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @library
 
-local ogdf = require "pgf.gd.ogdf"
-
-ogdf.loaded = true -- Workaround for a bug in LuaTeX loader code
+local ogdf
 
 
--- Load the adaptor code
-local Control = require "pgf.gd.ogdf.c.Control" -- This is a compiled C file
-local Bridge  = require "pgf.gd.ogdf.Bridge"    -- This is a Lua file
+-- Load sublibraries
 
-
-Control.do_declarations()
-
-
--- Declare an algorithm
-
-declare {
-  key = "ogdf layered layout",
-  algorithm = {
-    run =
-      function (self)
-	Control.run(Bridge.unbridgeGraph, self.digraph, Bridge.bridgeGraph(self.digraph, self))
-      end
-  },
-  postconditions = { upward_oriented = true }
-}
-
-declare {
-  key = "ogdf force layout",
-  algorithm = {
-    run =
-      function (self)
-	Control.run_fmmm(Bridge.unbridgeGraph, self.digraph, Bridge.bridgeGraph(self.digraph, self))
-      end
-  },
-}
+require "pgf.gd.ogdf.layered.SugiyamaLayout"
+require "pgf.gd.ogdf.energybased.FMMMLayout"

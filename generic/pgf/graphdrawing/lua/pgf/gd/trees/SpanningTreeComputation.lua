@@ -11,7 +11,6 @@
 
 
 
-
 ---
 -- @section subsection {Spanning Tree Computation}
 --
@@ -52,6 +51,7 @@
 --
 
 local SpanningTreeComputation = {}
+
 
 
 -- Namespace

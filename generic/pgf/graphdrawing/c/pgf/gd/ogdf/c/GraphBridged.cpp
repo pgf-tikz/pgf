@@ -41,7 +41,7 @@ namespace pgf {
     Rep (lua_State* L, int index);
     ~Rep ();
     
-    void unbridgeGraph        (lua_State *L);
+    void unbridgeGraph        (lua_State *L, int index);
     
   private:
     
@@ -205,30 +205,26 @@ namespace pgf {
   
   // Called after the C code has run. See
   // Bridge.unbridgeGraph for details. 
-  void GraphBridged::Rep::unbridgeGraph(lua_State *L) {
-
-    // Create lot's of interesting tables:
-    lua_createtable(L, 0, 6);
-    int table = lua_gettop(L);
+  void GraphBridged::Rep::unbridgeGraph(lua_State *L, int index) {
     
     // Vertex tables
-    lua_createtable(L, graph.numberOfNodes(), 0);
+    lua_getfield(L, index, "vertex_indices");
     int vertex_indices = lua_gettop(L);
 
-    lua_createtable(L, graph.numberOfNodes(), 0);
+    lua_getfield(L, index, "x");
     int x = lua_gettop(L);
 
-    lua_createtable(L, graph.numberOfNodes(), 0);
+    lua_getfield(L, index, "y");
     int y = lua_gettop(L);
     
     // Edge tables
-    lua_createtable(L, graph.numberOfEdges(), 0);
+    lua_getfield(L, index, "arc_indices");
     int arc_indices = lua_gettop(L);
 
-    lua_createtable(L, graph.numberOfEdges(), 0);
+    lua_getfield(L, index, "syntactic_edge_indices");
     int se_indices = lua_gettop(L);
 
-    lua_createtable(L, graph.numberOfEdges(), 0);
+    lua_getfield(L, index, "bends");
     int bends = lua_gettop(L);
     
     // Start writing back the computed coordinates of the vertices:
@@ -262,7 +258,7 @@ namespace pgf {
       lua_rawseti(L, se_indices, j);
 
       // Now, build bend table
-      lua_newtable(L);
+      lua_createtable(L, 0, 1); // The 1 is temporary until the link problem is fixed
 
       DPolyline bend = graph_attributes.bends(e);
       bend.unify();
@@ -282,13 +278,8 @@ namespace pgf {
       lua_rawseti(L, bends, j);
     }
 
-    // Now, build main table:
-    lua_setfield(L, table, "bends");
-    lua_setfield(L, table, "syntactic_edge_indices");
-    lua_setfield(L, table, "arc_indices");
-    lua_setfield(L, table, "y");
-    lua_setfield(L, table, "x");
-    lua_setfield(L, table, "vertex_indices");
+    // Ok, cleanup
+    lua_pop(L, 6);
   }  
   
 
@@ -329,9 +320,9 @@ namespace pgf {
     return *rep->graph_options;
   }
 
-  void GraphBridged::unbridgeGraph(lua_State *L)
+  void GraphBridged::unbridgeGraph(lua_State *L, int index)
   {
-    rep->unbridgeGraph(L);
+    rep->unbridgeGraph(L, index);
   }
   
 }

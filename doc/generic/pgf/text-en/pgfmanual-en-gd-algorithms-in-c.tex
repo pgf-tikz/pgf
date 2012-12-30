@@ -1,0 +1,166 @@
+% Copyright 2012 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+
+
+\section{Writing Graph Drawing Algorithms in C}
+\label{section-algorithms-in-c}
+
+\noindent{\emph{by Till Tantau}}
+
+In the present section we have a look at how graph drawing
+algorithms written in the C programming language (or in C++) can be
+used in the graph drawing framework.
+
+\emph{Warning:} Writing graph drawing algorithms in C certainly has
+one big advantange over algorithms written in Lua: They are
+fast. Incredibly so, if you use the facilities of C
+correctly. \emph{However,} C code is much less portable than Lua
+code in the sense that it has to be compiled for the specific
+platform used by the user and that it has to be linked dynamically
+during a run of the \TeX\ program. All of this in possible (and
+works, as demonstrated by the linking of the \textsc{ogdf}
+framework), but it is \emph{much} harder to get right than writing
+Lua code. So, bottom line, you really should be using this method
+only if it is really necessary (namely, when Lua code is simply not
+fast enough).
+
+In the following, we use the ``hello world'' of graph
+drawing (placing all nodes on a circle) as a running example to show
+how a graph drawing algorithm can be implemented in C.
+
+
+\subsection{Declarations on the Lua side}
+
+Suppose our algorithm is to be implemented in a function
+|fast_hello_world| in a file |FastSimpleDemo.c|. In order to use this
+algorithm in Lua, we need to augment the file we would normally write
+(or we need to write a wrapper around it) so the that algorithm
+contains some startup-code needed by Lua (we will come to that) and
+then we need to compile the algorithm as a shared library that is
+understood by Lua's dynamic linker. Let us suppose that the library resides in
+|FastSimpleDemo.so| and the (wrapper around) the algorithm is in the
+function |fast_algorithm|. We make the graph drawing system aware of
+our algorithm using the following Lua code: 
+
+\begin{codeexample}[code only]
+---
+declare {
+  key = "fast simple demo layout",
+  algorithm_written_in_c = "FastSimpleDemo.fast_hello_world",
+  preconditions = { connected = true }, -- say...
+  summary = "A fast hello world.",
+  documentation = "...",
+  examples = "...",
+}
+\end{codeexample}
+
+As you can see, much of the setup of a C algorithm is the same
+as for a Lua algorithm. The string given to the
+|algorithm_written_in_c| field will be split into everything before
+the last dot (there must be at least one dot) and everything before
+it will be used as the C library filename (more precisely, |require|
+will be applied to it). Everything after the last dot will be used
+as the name of a function (registered by the C Lua registration
+functions) that will be called during a run of the algorithm.
+
+In detail, what happens is that an algorithm class
+gets created whose |run| method is preinitialized to call the
+C function, but with some special parameters: Normally, the |run|
+method of a Lua graph drawing class 
+gets a |self| pointer as input that contains lots of information,
+including the to-be-drawn graph. In principle, C code could now
+start using the function |lua_getfield| a lot to walk through the
+Lua tables and use |lua_setfield| later on to modify the graph
+structures. However, that is neither convenient nor well
+structured. For this reason, the C function is called with a
+modified version of the graph that is much more C-friendly. When
+the C function is called, the two results of applying the function
+|bridgeGraph| from the class |InterfaceToC| (see
+Section~\ref{section-interfacetoc} below) are on the top of the
+Lua stack. The second of these parameters (which will be passed to
+|unbridgeGraph| automatically) must be modified by the C code. 
+
+\subsection{The C Code}
+
+Let us now have a look at the C side of things. As always, our
+``hello world'' program simply places nodes on a circle. The number
+of nodes will be available through the length of the
+|vertices_for_c| field of the first parameter on the stack. 
+
+\begin{codeexample}[code only]
+#include <lauxlib.h>
+#include <math.h>
+
+static int fast_hello_world (lua_State *L) {
+  // First, get number of vertices:
+  lua_getfield(L, 1, "vertices_for_c");
+  int n = lua_objlen(L, -1);
+  double angle = 6.28318530718 / n;
+\end{codeexample}
+
+Ok, now we can start filling the second table of the stack. For
+this, we first retrieve three arrays from this second entry:
+
+\begin{codeexample}[code only]
+  // Get the to-be-filled arrays
+  lua_getfield(L, 2, "vertex_indices");
+  lua_getfield(L, 2, "x");
+  lua_getfield(L, 2, "y");
+\end{codeexample}
+
+Now, finally, we start computing the positions and filling these
+arrays:
+
+\begin{codeexample}[code only]
+  int i;
+  for (i = 1; i <= n; i++) {// set the positions
+    // vertex_indices[i] = i
+    lua_pushinteger(L, i);
+    lua_rawseti(L, -3, i);
+
+    // x[i] = cos(angle*i)
+    lua_pushnumber(L, cos(angle*i));
+    lua_rawseti(L, -2, i);
+
+    // y[i] = sin(angle*i)
+    lua_pushnumber(L, sin(angle*i));
+    lua_rawseti(L, -1, i);
+  }
+  return 0;
+}
+\end{codeexample}
+
+The next step is to create the ``startup code'' needed by Lua:
+
+\begin{codeexample}[code only]
+static const struct luaL_reg registry [] = {
+  {"fast_hello_world", fast_hello_world},
+  {NULL, NULL}  // sentinel
+};
+
+int luaopen_FastSimpleDemo (lua_State *L) {
+  luaL_register(L, "FastSimpleDemo", registry);
+  return 1;
+}
+\end{codeexample}
+
+You must now compile the C code, build a shared library out of it, and
+make \TeX\ aware of the position of this library (none of these
+actions are trivial); but, in principle, we can use the code now.
+
+
+\subsection{How Graphs are Represented in C}
+
+\label{section-interfacetoc}
+
+\includeluadocumentationof{pgf.gd.interface.InterfaceToC}
+
+

@@ -1,24 +1,32 @@
 MYCFLAGS=-isysroot/Developer/SDKs/MacOSX10.5.sdk
 MYLDFLAGS=-isysroot/Developer/SDKs/MacOSX10.5.sdk
 
+BASE=../../../../..
+
+LIBRARIES=pgf.gd.ogdf.library
+
 CC=g++
-FLAGS=-DLUA_USE_MACOS $(MYCFLAGS) -g -O2 -Wall -I../../../.. -I../../../../ogdf -I../../../../lua_c_api/include
+FLAGS=-DLUA_USE_MACOS $(MYCFLAGS) -g -O2 -Wall -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
 
-all: Control.o GraphBridged.o TableBridged.o Declare.o
-	$(CC) $(FLAGS) -bundle $(MYLDFLAGS) -L../../../../lua_c_api/lib -llua -L../../../../ogdf/_release -lOGDF -o Control.so \
-	Control.o GraphBridged.o TableBridged.o Declare.o
+all: CLibrary.o GraphBridged.o TableBridged.o AlgorithmBase.o
+	$(CC) $(FLAGS) -bundle $(MYLDFLAGS) -L$(BASE)/c/lua_c_api/lib -llua -L$(BASE)/c/ogdf/_release -lOGDF -o CLibrary.so \
+	CLibrary.o GraphBridged.o TableBridged.o AlgorithmBase.o
 
-Control.o: Control.cpp
-	$(CC) $(FLAGS) -c -o Control.o Control.cpp
+CLibrary.cpp: CLibrary.cpp.in
+	lualatex --luaonly $(BASE)/lua/pgf/gd/tools/make_gd_wrap.lua $(LIBRARIES) \
+	CLibrary.cpp.in pgf.gd.ogdf.c.CLibrary CLibrary.cpp
 
-GraphBridged.o: GraphBridged.cpp
+CLibrary.o: CLibrary.cpp AlgorithmBase.h GraphBridged.h TableBridged.h
+	$(CC) $(FLAGS) -c -o CLibrary.o CLibrary.cpp
+
+GraphBridged.o: GraphBridged.cpp TableBridged.h
 	$(CC) $(FLAGS) -c -o GraphBridged.o GraphBridged.cpp
-
-Declare.o: Declare.cpp
-	$(CC) $(FLAGS) -c -o Declare.o Declare.cpp
 
 TableBridged.o: TableBridged.cpp
 	$(CC) $(FLAGS) -c -o TableBridged.o TableBridged.cpp
+
+AlgorithmBase.o: AlgorithmBase.cpp
+	$(CC) $(FLAGS) -c -o AlgorithmBase.o AlgorithmBase.cpp
 
 
 

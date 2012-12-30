@@ -32,6 +32,7 @@ require("pgf.gd.interface").InterfaceToAlgorithms = InterfaceToAlgorithms
 -- Imports
 local InterfaceCore      = require "pgf.gd.interface.InterfaceCore"
 local InterfaceToDisplay = require "pgf.gd.interface.InterfaceToDisplay"
+local InterfaceToC       = require "pgf.gd.interface.InterfaceToC"
 
 local LookupTable        = require "pgf.gd.lib.LookupTable"
 local LayoutPipeline     = require "pgf.gd.control.LayoutPipeline"
@@ -43,10 +44,20 @@ local Edge               = require "pgf.gd.model.Edge"
 
 -- Forwards
 
-local declare_parameter
-local declare_parameter_sequence
-local declare_algorithm
-local declare_collection_kind
+local declare_handlers
+
+---
+-- Adds a handler for the |declare| function. The |declare|
+-- command is just a ``dispatcher'' to one of many possible
+-- declaration functions. Which function is used, depends on which
+-- fields are present in the table passed to |declare|. For each
+-- registered handler, we call the |test| function. If it returns
+-- neither |nil| nor |false|, the handler is called and the |declare|
+-- is finished; otherwise, the next handler is tried.
+
+function InterfaceToAlgorithms.addHandler(test, handler)
+  table.insert(declare_handlers, 1, { test = test, handler = handler })
+end
 
 
 ---
@@ -119,16 +130,11 @@ function InterfaceToAlgorithms.declare (t)
     error("parameter '" .. t.key .. "' already declared")
   end
 
-  -- Detect kind
-  if t.type then
-    declare_parameter(t)
-  elseif t.algorithm then
-    declare_algorithm(t)
-  elseif t.layer then
-    declare_collection_kind(t)
-  else
-    -- Parameter sequence
-    declare_parameter_sequence(t)
+  for _,h in ipairs (declare_handlers) do
+    if h.test(t) then
+      h.handler(t)
+      break
+    end
   end
     
   -- Set!
@@ -145,14 +151,14 @@ end
 --
 --\begin{codeexample}[code only]
 -- ---
--- -- The |electrical charge| is a property of a node that is used in
--- -- force directed algorithms... (description of the parameter,
--- -- will be used in the automatic documentation.)
---
 -- declare {
 --   key     = "electrical charge",
 --   type    = "number",
 --   initial = "1.0",
+--
+--   summary = "The ``electrical charge'' is a property...",
+--   documentation = [[...]],
+--   examples = [[...]]
 -- }
 --\end{codeexample}
 --
@@ -201,7 +207,7 @@ end
 --
 -- @param t The table originally passed to |declare|.
 
-function declare_parameter (t)
+local function declare_parameter (t)
   -- Normal key
   assert (type(t.type) == "string", "key type must be a string")
   
@@ -231,16 +237,14 @@ end
 --
 --\begin{codeexample}[code only]
 -- ---
--- -- The |binary tree layout| places node under the assumption that
--- -- the graph is a binary tree. This means, in particular, ...
--- -- (description of the parameter, will be used in the automatic
--- -- documentation.)
---
 -- declare {
 --   key = "binary tree layout",
 --   { key = "minimum number of children", value = 2 },
 --   { key = "significant sep",            value = 12 },
 --   { key = "tree layout" },
+--   summary = "The |binary tree layout| places node...",
+--   documentation = ...,
+--   examples = ...,
 -- }
 --\end{codeexample}
 --
@@ -255,7 +259,7 @@ end
 -- @param t The table originally passed to |declare|.
 --
 
-function declare_parameter_sequence (t)
+local function declare_parameter_sequence (t)
   InterfaceCore.binding:declareParameterSequenceCallback(t)
 end
 
@@ -269,9 +273,6 @@ end
 -- local ReingoldTilford1981 = {}
 --
 -- ---
--- -- The Reingold--Tilford method is a standard method for drawing
--- -- trees. It is described in: ...
---
 -- declare {
 --   key       = "tree layout",
 --   algorithm = ReingoldTilford1981,
@@ -283,7 +284,11 @@ end
 --
 --   postconditions = {
 --     upward_oriented = true
---   }
+--   },
+--
+--   summary = "The Reingold--Tilford method is...",
+--   documentation = ...,
+--   examples = ...,
 -- }
 --
 -- function ReingoldTilford1981:run()
@@ -336,8 +341,6 @@ end
 --
 --\begin{codeexample}[code only]
 -- ---
--- -- This key selects ``breadth first'' as the (sub)algorithm for
--- -- computing spanning trees. Note that ...
 -- declare {
 --   key = "breadth first spanning tree",
 --   algorithm = { 
@@ -348,6 +351,7 @@ end
 --   },
 --   phase = "spanning tree computation",
 --   default = true,
+--   summary = ...
 -- }
 --\end{codeexample}
 --
@@ -377,7 +381,7 @@ end
 --
 -- @param t The table originally passed to |declare|.
 
-function declare_algorithm (t)
+local function declare_algorithm (t)
   -- Algorithm declaration!
   assert(type(t.algorithm) == "table" or type(t.algorithm) == "string")
   
@@ -448,6 +452,41 @@ function declare_algorithm (t)
   
 end
 
+
+
+---
+-- This function is called by |declare| for ``algorithm
+-- keys'' where the algorithm is not written in Lua, but rather in the
+-- programming language C. They are detected by the presence of the
+-- field |algorithm_written_in_c|. This field must be set to a string
+-- consisting of a library name (which will be loaded using |require|)
+-- and a function name, separated by a dot.
+--
+-- You will find a detailed description of how algorithms are written
+-- in C in Section~\ref{section-algorithms-in-c}. 
+--
+-- (You cannot call this function directly, it is included for
+-- documentation purposes only.)
+--
+-- @param t The table originally passed to |declare|.
+
+local function declare_algorithm_written_in_c (t)
+  
+  local library, fun_name = t.algorithm_written_in_c:match("(.*)%.(.*)");
+  
+  t.algorithm = {
+    run =
+      function (self)
+	local lib = require(library)
+	local briged, unbridge = InterfaceToC.bridgeGraph(self.digraph, self)
+	lib[fun_name](briged, unbridge)
+	InterfaceToC.unbridgeGraph(self.digraph, unbridge)
+      end
+  }
+
+  declare_algorithm(t)
+  
+end
 
 
 ---
@@ -537,7 +576,7 @@ end
 -- 
 -- @param t The table originally passed to |declare|.
 
-function declare_collection_kind (t)
+local function declare_collection_kind (t)
   assert (type(t.layer) == "number", "layer must be a number")
 
   local layer = t.layer
@@ -562,6 +601,30 @@ function declare_collection_kind (t)
   -- Bind
   InterfaceCore.binding:declareCollectionKind(t)
 end
+
+
+
+
+
+-- Build in handlers:
+
+declare_handlers = {
+  { test = function (t) return t.type end, handler = declare_parameter },
+  { test = function (t) return t.algorithm end, handler = declare_algorithm },
+  { test = function (t) return t.algorithm_written_in_c end, handler = declare_algorithm_written_in_c },
+  { test = function (t) return t.layer end, handler = declare_collection_kind },
+  { test = function (t) return true end, handler = declare_parameter_sequence }
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -748,6 +811,7 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   add_to_collections(algorithm.layout, "edges", edge)
   
 end
+
 
 
 

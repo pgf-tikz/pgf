@@ -21,7 +21,7 @@ class GraphBridged {
  public:
   
   // Create a TableBridged from a table on the top of the Lua stack
-  GraphBridged(lua_State *L, int index=-1);
+  GraphBridged(lua_State *L, int index=1);
   ~GraphBridged();
   
   ogdf::Graph&                     getGraph ();
@@ -32,7 +32,7 @@ class GraphBridged {
   
   TableBridged&                    getGraphOptions (); 
   
-  void                             unbridgeGraph(lua_State *L);
+  void                             unbridgeGraph(lua_State *L, int index=2);
   
  private:
   
