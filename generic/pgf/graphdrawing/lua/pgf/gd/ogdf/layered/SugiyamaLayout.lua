@@ -27,7 +27,7 @@ declare {
     connected = true
   },
   postconditions = {
-    upward_oriented = true
+    upward_oriented_swapped = true
   },
   includes = {
     "#include <ogdf/layered/SugiyamaLayout.h>"

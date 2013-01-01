@@ -305,7 +305,12 @@ function LayoutPipeline.prepareRotateAround(algorithm, graph)
   
   -- Now compute the rotation
   local info = graph.storage[algorithm]
-  local growth_direction = v.growth_direction or algorithm.growth_direction or (algorithm.postconditions.upward_oriented and 90)
+  local growth_direction = v.growth_direction or algorithm.growth_direction
+    or (algorithm.postconditions.upward_oriented and 90) or (algorithm.postconditions.upward_oriented_swapped and 90)
+  
+  if algorithm.postconditions.upward_oriented_swapped then
+    swap = not swap
+  end
   
   if growth_direction == "fixed" then
     info.angle = 0 -- no rotation
