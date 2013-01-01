@@ -29,6 +29,8 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local ogdf
 
 
+require "pgf.gd.ogdf.ModuleHandler"
+
 -- Load sublibraries
 
 require "pgf.gd.ogdf.layered.SugiyamaLayout"

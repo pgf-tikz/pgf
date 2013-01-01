@@ -52,8 +52,9 @@ local declare_handlers
 -- declaration functions. Which function is used, depends on which
 -- fields are present in the table passed to |declare|. For each
 -- registered handler, we call the |test| function. If it returns
--- neither |nil| nor |false|, the handler is called and the |declare|
--- is finished; otherwise, the next handler is tried.
+-- neither |nil| nor |false|, the |handler| field of this handler is
+-- called. If it returns |true|, the handler immediately
+-- finishes. Otherwise, the next handler is tried. 
 
 function InterfaceToAlgorithms.addHandler(test, handler)
   table.insert(declare_handlers, 1, { test = test, handler = handler })
@@ -132,8 +133,9 @@ function InterfaceToAlgorithms.declare (t)
 
   for _,h in ipairs (declare_handlers) do
     if h.test(t) then
-      h.handler(t)
-      break
+      if h.handler(t) then
+	break
+      end
     end
   end
     
@@ -218,6 +220,8 @@ local function declare_parameter (t)
   if t.initial then
     InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
   end
+
+  return true
 end
 
 
@@ -261,6 +265,7 @@ end
 
 local function declare_parameter_sequence (t)
   InterfaceCore.binding:declareParameterSequenceCallback(t)
+  return true
 end
 
 
@@ -450,6 +455,7 @@ local function declare_algorithm (t)
     InterfaceCore.option_initial.algorithm_phases[t.phase] = store_me
   end 
   
+  return true
 end
 
 
@@ -483,8 +489,6 @@ local function declare_algorithm_written_in_c (t)
 	InterfaceToC.unbridgeGraph(self.digraph, unbridge)
       end
   }
-
-  declare_algorithm(t)
   
 end
 
@@ -600,6 +604,8 @@ local function declare_collection_kind (t)
   
   -- Bind
   InterfaceCore.binding:declareCollectionKind(t)
+
+  return true
 end
 
 
@@ -609,10 +615,10 @@ end
 -- Build in handlers:
 
 declare_handlers = {
-  { test = function (t) return t.type end, handler = declare_parameter },
-  { test = function (t) return t.algorithm end, handler = declare_algorithm },
   { test = function (t) return t.algorithm_written_in_c end, handler = declare_algorithm_written_in_c },
+  { test = function (t) return t.algorithm end, handler = declare_algorithm },
   { test = function (t) return t.layer end, handler = declare_collection_kind },
+  { test = function (t) return t.type end, handler = declare_parameter },
   { test = function (t) return true end, handler = declare_parameter_sequence }
 }
 

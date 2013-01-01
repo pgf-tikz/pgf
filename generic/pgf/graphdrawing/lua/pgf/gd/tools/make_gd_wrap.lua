@@ -63,8 +63,10 @@ file:close()
 
 -- Let us grab the declaration:
 
-local pre, declaration, post = template:match("(.*\n)%${wrap_start}(.*)%${wrap_end}(.*)")
-
+local functions_dec     = (template:match("%$functions(%b{})") or ""):match("^{(.*)}$")
+local functions_reg_dec = (template:match("%$functions_registry(%b{})") or ""):match("^{(.*)}$")
+local factories_dec     = (template:match("%$factories(%b{})") or ""):match("^{(.*)}$")
+local factories_reg_dec = (template:match("%$factories_registry(%b{})") or ""):match("^{(.*)}$")
 
 -- Now, handle all keys with a algorithm_written_in_c field
 
@@ -73,8 +75,11 @@ local filename = arg[#arg]
 local target = arg[#arg-1]
 
 local includes = {}
-local codes = {}
-local registry = {}
+local functions = {}
+local functions_registry = {}
+
+local factories = {}
+local factories_reg = {}
 
 for _,k in ipairs(keys) do
   
@@ -99,16 +104,58 @@ for _,k in ipairs(keys) do
       end
       
       -- Second, create a code block:
-      codes[#codes+1] = declaration:gsub("%${(.-)}",
-					 {
-					   function_name = fun_name,
-					   function_body = k.code
-					 })
-
-      -- Third, create registry entry
-      registry[#registry + 1] =
-	'  {"' .. fun_name .. '", ' .. fun_name .. '},'      
+      functions[#functions+1] = functions_dec:gsub("%$([%w_]-)%b{}",
+					   {
+					     function_name = fun_name,
+					     function_body = k.code
+					   })
+      
+      -- Third, create functions_registry entry
+      functions_registry[#functions_registry + 1] = functions_reg_dec:gsub("%$([%w_]-)%b{}",
+						       {
+							 function_name = fun_name,
+							 function_body = k.code
+						       })
     end
+  end
+
+  
+  if k.module_class then
+    
+    -- First, gather the includes:
+    if type(k.includes) == "string" then
+      if not includes[k.includes] then
+	includes[#includes + 1] = k.includes
+	includes[k.includes]    = true
+      end
+    elseif type(k.includes) == "table" then
+      for _,i in ipairs(k.includes) do
+	if not includes[i] then
+	  includes[#includes + 1] = i
+	  includes[i] = true
+	end
+      end
+    end
+    
+    -- Second, create a code block:
+    factories[#factories+1] = factories_dec:gsub(
+      "%$([%w_]-)%b{}",
+      {
+	factory_class = k.module_class,
+	factory_code  = k.code,
+	factory_base  = k.module_base,
+	factory_name  = k.module_class .. '_factory'
+      })
+    
+    -- Third, create factories_registry entry
+    factories_reg[#factories_reg + 1] = factories_reg_dec:gsub(
+      "%$([%w_]-)%b{}",
+      {
+	factory_class = k.module_class,
+	factory_code  = k.code,
+	factory_base  = k.module_base,
+	factory_name  = k.module_class .. '_factory'
+      })
   end
 end
 
@@ -120,14 +167,17 @@ if not file then
   os.exit(-1)
 end
 
-file:write((pre:gsub("%${includes}", table.concat(includes, "\n"))))
-file:write(table.concat(codes, "\n\n"))
-file:write((post:gsub("%${(.-)}",
-		      {
-			registry       = table.concat(registry, "\n"),
-			library_c_name = target:gsub("%.", "_"),
-			library_name   = target
-		      })))
+file:write ((template:gsub(
+  "%$([%w_]-)%b{}",
+  {
+    factories          = table.concat(factories, "\n\n"),
+    factories_registry = table.concat(factories_reg, "\n"),
+    functions          = table.concat(functions, "\n\n"),
+    functions_registry = table.concat(functions_registry, "\n"),
+    includes           = table.concat(includes, "\n"),
+    library_c_name     = target:gsub("%.", "_"),
+    library_name       = target
+  })))
 file:close()
 
 	   
