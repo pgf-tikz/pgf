@@ -41,11 +41,10 @@ declare {
       if (is_module_set<TwoLayerCrossMin>())
         SL.setCrossMin(new_module<TwoLayerCrossMin>());
 	
+      if (is_module_set<HierarchyLayoutModule>())
+        SL.setLayout(new_module<HierarchyLayoutModule>());
+	
       SL.call(graph_attributes);
-
-      // Flip:
-      node v;
-      forall_nodes (v, graph) graph_attributes.x(v) = -graph_attributes.x(v);
   ]],
   summary = "The OGDF implementation of the Sugiyama algorithm.",
   documentation = [["  
@@ -105,5 +104,5 @@ declare {
 require "pgf.gd.ogdf.layered.RankingModule"
 require "pgf.gd.ogdf.layered.TwoLayerCrossMin"
 require "pgf.gd.ogdf.layered.AcyclicSubgraphModule"
--- require "pgf.gd.ogdf.layered.HierarchyLayoutModule" -- missing...
+require "pgf.gd.ogdf.layered.HierarchyLayoutModule"
     
