@@ -563,7 +563,7 @@ function LayoutPipeline.orient(algorithm, graph, scope)
   
   -- Computed during preprocessing:
   local info = graph.storage[algorithm]
-  if info.from_node and info.from_node.growth_direction ~= "fixed" and algorithm.growth_direction ~= "fixed" or algorithm.postconditions.fixed == true then
+  if info.from_node and info.from_node.growth_direction ~= "fixed" and algorithm.growth_direction ~= "fixed" and algorithm.postconditions.fixed ~= true then
     local x = info.from_node.pos.x
     local y = info.from_node.pos.y
     local from_angle = info.from_angle or math.atan2(info.to_node.pos.y - y, info.to_node.pos.x - x)

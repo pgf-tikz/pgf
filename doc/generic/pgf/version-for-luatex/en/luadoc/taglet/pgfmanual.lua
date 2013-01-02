@@ -122,7 +122,7 @@ end
 
 local function process_string(s)
   if s then
-    local t = split(s)
+    local t = split(s.."\n")
     -- Compute min spaces
     local min = math.huge
     for _,l in ipairs(t) do
@@ -202,7 +202,7 @@ local function check_declaration (line, code)
     
     local keys = pgf.gd.interface.InterfaceToDisplay.getDeclaredKeys()
     local key = keys[name]
-
+    
     return {
       name = name,
       default = default,

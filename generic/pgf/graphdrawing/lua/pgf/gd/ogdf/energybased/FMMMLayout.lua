@@ -35,7 +35,7 @@ declare {
   ]],
   summary = "The OGDF implementation of the FMMM algorithm.",
   documentation = [["  
-      ...
+      Not yet fully implemented interface...
   "]],
 }
 

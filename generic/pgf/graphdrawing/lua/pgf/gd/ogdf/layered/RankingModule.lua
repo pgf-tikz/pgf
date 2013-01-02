@@ -145,7 +145,7 @@ declare {
 ---
 declare {
   key = "CoffmanGrahamRanking.width",
-  type = "number",
+  type = "length",
   initial = "3",
   summary = "A mysterious width parameter..."
 }
