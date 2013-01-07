@@ -22,7 +22,7 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 ---
 declare {
   key = "CircularLayout",
-  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.circular_layout",
+  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.CircularLayout_call",
   preconditions = {
     connected = true
   },

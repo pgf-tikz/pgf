@@ -11,7 +11,9 @@
 
 
 ---
--- @section subsubsection {The FMMM Method}
+-- @section subsection {The FMMM Method}
+--
+-- The configuration is still missing!
 
 local section
 
@@ -21,21 +23,35 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 ---
 declare {
   key = "FMMMLayout",
-  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.fmmm_layout",
+  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.FMMMLayout_call",
   includes = {
     "#include <ogdf/energybased/FMMMLayout.h>"
   },
   code = [[
-      FMMMLayout fmmm;
-      fmmm.unitEdgeLength(number_option("node distance")); 
-      fmmm.randSeed(number_option("random seed"));
-      fmmm.newInitialPlacement(false);
-      fmmm.qualityVersusSpeed(FMMMLayout::qvsGorgeousAndEfficient);
-      fmmm.call(graph_attributes);
+      FMMMLayout layout;
+      layout.unitEdgeLength(number_option("node distance")); 
+      layout.randSeed(number_option("random seed"));
+      layout.newInitialPlacement(false);
+      layout.qualityVersusSpeed(FMMMLayout::qvsGorgeousAndEfficient);
+      layout.call(graph_attributes);
   ]],
-  summary = "The OGDF implementation of the FMMM algorithm.",
-  documentation = [["  
-      Not yet fully implemented interface...
+  summary = "The fast multipole multilevel layout algorithm.",
+  documentation = [["
+      |FMMMLayout| implements a force-directed graph drawing
+      method suited also for very large graphs. It is based on a
+      combination of an efficient multilevel scheme and a strategy for
+      approximating the repulsive forces in the system by rapidly
+      evaluating potential fields.
+ 
+      The implementation is based on the following publication:
+      
+      \begin{itemize}
+      \item Stefan Hachul, Michael J\"unger: Drawing Large Graphs with
+        a Potential-Field-Based Multilevel Algorithm. \emph{12th
+        International Symposium on Graph Drawing 1998 (GD '04)}, New York, LNCS 3383,
+        pp. 285--295, 2004.
+      \end{itemize}
   "]],
 }
+	
 

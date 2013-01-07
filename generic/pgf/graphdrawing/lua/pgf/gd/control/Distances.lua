@@ -160,10 +160,15 @@ declare {
        \end{tikzpicture}
   "]]
 }
-
+	   
+---
+declare {   
+  key = "layer distance",
+  { key = "level distance", value = "#1" },
+  summary = "An alias for |level distance|"
+}
 
 ---
-
 declare {
   key = "level pre sep",
   type = "length",
@@ -203,6 +208,20 @@ declare {
    "]]
 }
     
+---
+declare {   
+  key = "layer pre sep",
+  { key = "level pre sep", value = "#1" },
+  summary = "An alias for |level pre sep|."
+}
+
+---
+declare {   
+  key = "layer post sep",
+  { key = "level post sep", value = "#1" },
+  summary = "An alias for |level post sep|."
+}
+
 
 
 
@@ -223,6 +242,12 @@ declare {
 }
 
 
+---
+declare {   
+  key = "layer sep",
+  { key = "level sep", value = "#1" },
+  summary = "An alias for |level sep|."
+}
 
 
 ---

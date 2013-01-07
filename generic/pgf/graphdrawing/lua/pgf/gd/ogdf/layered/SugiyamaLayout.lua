@@ -22,7 +22,7 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 ---
 declare {
   key = "SugiyamaLayout",
-  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.sugiyama_layout",
+  algorithm_written_in_c = "pgf.gd.ogdf.c.CLibrary.SugiyamaLayout_call",
   preconditions = {
     connected = true
   },
@@ -33,18 +33,18 @@ declare {
     "#include <ogdf/layered/SugiyamaLayout.h>"
   },
   code = [[
-      SugiyamaLayout SL;
+      SugiyamaLayout layout;
       
       if (is_module_set<RankingModule>())
-        SL.setRanking(new_module<RankingModule>());
+        layout.setRanking(new_module<RankingModule>());
 	
       if (is_module_set<TwoLayerCrossMin>())
-        SL.setCrossMin(new_module<TwoLayerCrossMin>());
+        layout.setCrossMin(new_module<TwoLayerCrossMin>());
 	
       if (is_module_set<HierarchyLayoutModule>())
-        SL.setLayout(new_module<HierarchyLayoutModule>());
+        layout.setLayout(new_module<HierarchyLayoutModule>());
 	
-      SL.call(graph_attributes);
+      layout.call(graph_attributes);
   ]],
   summary = "The OGDF implementation of the Sugiyama algorithm.",
   documentation = [["  

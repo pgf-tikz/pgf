@@ -102,7 +102,6 @@ declare {
 }
 
 ---
-
 declare {
   key = "random seed",
   type = "number",
@@ -115,11 +114,17 @@ declare {
        different runs, change this value.
   "]]
 }
+    
 
+---
+declare {
+  key = "variation",
+  { key = "random seed", value = "#1" },
+  summary = "An alias for |random seed|."
+}
 
 
 ---
-
 declare {
   key = "weight",
   type = "number",

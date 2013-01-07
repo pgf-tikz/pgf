@@ -11,7 +11,7 @@
 
 
 ---
--- @section subsection {The Two Layer Crossing Minimization}
+-- @section subsubsection {The Two Layer Crossing Minimization}
 --
 
 local _

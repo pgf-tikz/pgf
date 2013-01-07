@@ -34,6 +34,11 @@ require "pgf.gd.ogdf.ModuleHandler"
 -- Load sublibraries
 
 require "pgf.gd.ogdf.layered.SugiyamaLayout"
+
 require "pgf.gd.ogdf.misclayout.CircularLayout"
+require "pgf.gd.ogdf.misclayout.BalloonLayout"
 
 require "pgf.gd.ogdf.energybased.FMMMLayout"
+require "pgf.gd.ogdf.energybased.DavidsonHarelLayout"
+
+require "pgf.gd.ogdf.planarity.PlanarizationLayout"
