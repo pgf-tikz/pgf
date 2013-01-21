@@ -246,9 +246,11 @@ declare {
 ---
 declare {
   key  = "binary tree layout",
-  { key = "tree layout" },
-  { key = "minimum number of children" , value=2 },
-  { key = "significant sep", value = 10 },
+  use = {
+    { key = "tree layout" },
+    { key = "minimum number of children" , value=2 },
+    { key = "significant sep", value = 10 },
+  },
 
   summary = [["
       A layout based on the Reingold--Tilford method for drawing binary trees. 
@@ -300,10 +302,12 @@ declare {
 ---
 declare {
   key = "extended binary tree layout",
-  { key = "tree layout" },
-  { key = "minimum number of children" , value=2 },
-  { key = "missing nodes get space" },
-  { key = "significant sep", value = 0 },
+  use = {
+    { key = "tree layout" },
+    { key = "minimum number of children" , value=2 },
+    { key = "missing nodes get space" },
+    { key = "significant sep", value = 0 },
+  },
 
   summary = [["
      This algorithm is similar to |binary tree layout|, only the option

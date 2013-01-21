@@ -87,17 +87,6 @@ function Binding:declareParameterCallback(t)
 end
 
 
----
--- Declare a new parameter sequence. As for
--- |declareParameterCallback|, but now the parameter |t| represents a
--- parameter sequence, see |declare_parameter_sequence|. 
---
--- @param t See |InterfaceToAlgorithms.declare| for details.
-
-function Binding:declareParameterSequenceCallback(t)
-  -- Does nothing by default
-end
-
 
 ---
 -- This function is called by |declare_collection_kind|, see that function

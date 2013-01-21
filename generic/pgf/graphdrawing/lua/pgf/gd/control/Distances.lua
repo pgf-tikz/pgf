@@ -11,7 +11,7 @@
 
 
 local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
-
+local lib           = require "pgf.gd.lib"
 
 ---
 -- @section subsection {Padding and Node Distances}
@@ -126,9 +126,11 @@ declare {
 
 declare {
   key = "node sep",
-  { key = "node pre sep", value = "(#1)/2" },
-  { key = "node post sep", value = "(#1)/2" },
-
+  type = "length",
+  use = {
+    { key = "node pre sep",  value = function(v) return v/2 end },
+    { key = "node post sep", value = function(v) return v/2 end },
+  },
   summary = [["  
        A shorthand for setting both |node pre sep| and |node post sep| to
        $\meta{length}/2$. 
@@ -164,7 +166,10 @@ declare {
 ---
 declare {   
   key = "layer distance",
-  { key = "level distance", value = "#1" },
+  type = "length",
+  use = {
+    { key = "level distance", value = lib.id },
+  },
   summary = "An alias for |level distance|"
 }
 
@@ -211,14 +216,20 @@ declare {
 ---
 declare {   
   key = "layer pre sep",
-  { key = "level pre sep", value = "#1" },
+  type = "length",
+  use = {
+    { key = "level pre sep", value = lib.id },
+  },
   summary = "An alias for |level pre sep|."
 }
 
 ---
 declare {   
   key = "layer post sep",
-  { key = "level post sep", value = "#1" },
+  type = "length",
+  use = {
+    { key = "level post sep", value = lib.id },
+  },
   summary = "An alias for |level post sep|."
 }
 
@@ -230,8 +241,11 @@ declare {
 
 declare {
   key = "level sep",
-  { key = "level pre sep", value = "(#1)/2" },
-  { key = "level post sep", value = "(#1)/2" },
+  type = "length",
+  use = {
+    { key = "level pre sep", value = function (v) return v/2 end },
+    { key = "level post sep", value = function (v) return v/2 end },
+  },
 
   summary = [["  
        A shorthand for setting both |level pre sep| and |level post sep| to
@@ -245,7 +259,10 @@ declare {
 ---
 declare {   
   key = "layer sep",
-  { key = "level sep", value = "#1" },
+  type = "number",
+  use = {
+    { key = "level sep", value = lib.id },
+  },
   summary = "An alias for |level sep|."
 }
 
@@ -319,8 +336,11 @@ declare {
 
 declare {
   key = "sibling sep",
-  { key = "sibling pre sep", value = "(#1)/2" },
-  { key = "sibling post sep", value = "(#1)/2" },
+  type = "length",
+  use = {
+    { key = "sibling pre sep", value = function(v) return v/2 end },
+    { key = "sibling post sep", value = function(v) return v/2 end },
+  },
 
   summary = [["  
        A shorthand for setting both |sibling pre sep| and |sibling post sep| to

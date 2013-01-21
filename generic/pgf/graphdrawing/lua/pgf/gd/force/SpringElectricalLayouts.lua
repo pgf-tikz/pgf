@@ -26,8 +26,10 @@ local _
 
 declare {
   key = "spring electrical layout",
-  { key = "spring electrical Hu 2006 layout" },
-  { key = "spring constant", value = "0.2" }  ,
+  use = {
+    { key = "spring electrical Hu 2006 layout" },
+    { key = "spring constant", value = "0.2" }
+  },
 
   summary = [["  
        This key selects Hu's 2006 spring electrical layout with
@@ -40,9 +42,11 @@ declare {
 
 declare {
   key = "spring electrical layout'",
-  { key = "spring electrical Walshaw 2000 layout" },
-  { key = "spring constant", value = "0.01" },
-  { key = "convergence tolerance", value = "0.001" },
+  use = {
+    { key = "spring electrical Walshaw 2000 layout" },
+    { key = "spring constant", value = "0.01" },
+    { key = "convergence tolerance", value = "0.001" },
+  },
 
   summary = [["  
        This key selects Walshaw's 2000 spring electrical layout with

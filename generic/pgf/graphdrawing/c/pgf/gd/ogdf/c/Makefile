@@ -6,7 +6,7 @@ BASE=../../../../..
 LIBRARIES=pgf.gd.ogdf.library
 
 CC=g++
-FLAGS=-DLUA_USE_MACOS $(MYCFLAGS) -g -O2 -Wall -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
+FLAGS=-arch x86_64 -DLUA_USE_MACOS -dynamic $(MYCFLAGS) -g -O2 -Wall -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
 
 all: CLibrary.o GraphBridged.o TableBridged.o AlgorithmBase.o ModuleManager.o
 	$(CC) $(FLAGS) -bundle $(MYLDFLAGS) -L$(BASE)/c/lua_c_api/lib -llua -L$(BASE)/c/ogdf/_release -lOGDF -o CLibrary.so \

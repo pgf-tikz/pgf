@@ -168,8 +168,10 @@ declare {
 
 declare {
   key = "components go right top aligned",
-  { key = "component direction", value = 0},
-  { key = "component align", value = "counterclockwise"},
+  use = {
+    { key = "component direction", value = 0},
+    { key = "component align", value = "counterclockwise"},
+  },
 
   summary = [["  
          Shorthand for |component direction=right| and
@@ -188,9 +190,11 @@ declare {
 
 declare {
   key = "components go right absolute top aligned",
-  { key = "component direction", value=0},
-  { key = "component align", value = "counterclockwise bounding box"},
-
+  use = {
+    { key = "component direction", value=0},
+    { key = "component align", value = "counterclockwise bounding box"},
+  },
+  
   summary = [["  
        Like |components go right top aligned|, but with
        |component align| set to |counterclockwise| |bounding box|. This means that the
@@ -208,9 +212,11 @@ declare {
 
 declare {
   key = "components go right bottom aligned",
-  { key = "component direction", value=0},
-  { key = "component align", value = "clockwise"},
-
+  use = {
+    { key = "component direction", value=0},
+    { key = "component align", value = "clockwise"},
+  },
+  
   summary = "See the other |components go ...| keys."
 }
 
@@ -219,9 +225,11 @@ declare {
 
 declare {
   key = "components go right absolute bottom aligned",
-  { key = "component direction", value=0},
-  { key = "component align", value = "clockwise bounding box"},
-
+  use = {
+    { key = "component direction", value=0},
+    { key = "component align", value = "clockwise bounding box"},
+  },
+  
   summary = "See the other |components go ...| keys."
 }
 
@@ -230,8 +238,10 @@ declare {
 
 declare {
   key = "components go right center aligned",
-  { key = "component direction", value=0},
-  { key = "component align", value = "center"},
+  use = {
+    { key = "component direction", value=0},
+    { key = "component align", value = "center"},
+  },
   
   summary = "See the other |components go ...| keys."
 }
@@ -241,9 +251,11 @@ declare {
 
 declare {
   key = "components go right",
-  { key = "component direction", value=0},
-  { key = "component align", value = "first node"},
-
+  use = {
+    { key = "component direction", value=0},
+    { key = "component align", value = "first node"},
+  },
+  
   summary = [["  
        Shorthand for |component direction=right| and
        |component align=first node|.
@@ -255,8 +267,10 @@ declare {
 
 declare {
   key = "components go left top aligned",
-  { key = "component direction", value=180},
-  { key = "component align", value = "clockwise"},
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "clockwise"},
+  },
   
   summary = "See the other |components go ...| keys.",
 
@@ -272,8 +286,10 @@ declare {
 
 declare {
   key = "components go left absolute top aligned",
-  { key = "component direction", value=180},
-  { key = "component align", value = "clockwise bounding box"},
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "clockwise bounding box"},
+  },
   
   summary = "See the other |components go ...| keys."
 }
@@ -284,9 +300,11 @@ declare {
 
 declare {
   key = "components go left bottom aligned",
-  { key = "component direction", value=180},
-  { key = "component align", value = "counterclockwise"},
-    
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "counterclockwise"},
+  },
+  
   summary = "See the other |components go ...| keys."
 }
 
@@ -296,9 +314,11 @@ declare {
 
 declare {
   key = "components go left absolute bottom aligned",
-  { key = "component direction", value=180},
-  { key = "component align", value = "counterclockwise bounding box"},
-    
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "counterclockwise bounding box"},
+  },
+  
   summary = "See the other |components go ...| keys."
 }
 
@@ -308,9 +328,10 @@ declare {
 
 declare {
   key = "components go left center aligned",
-  { key = "component direction", value=180},
-  { key = "component align", value = "center"},
-    
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "center"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -320,9 +341,10 @@ declare {
 
 declare {
   key = "components go left",
-  { key = "component direction", value=180},
-  { key = "component align", value = "first node"},
-    
+  use = {
+    { key = "component direction", value=180},
+    { key = "component align", value = "first node"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -332,9 +354,10 @@ declare {
 
 declare {
   key = "components go down right aligned",
-  { key = "component direction", value=270},
-  { key = "component align", value = "counterclockwise"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "counterclockwise"},
+  },
   summary = "See the other |components go ...| keys.",
 
   examples = {
@@ -356,9 +379,10 @@ declare {
 
 declare {
   key = "components go down absolute right aligned",
-  { key = "component direction", value=270},
-  { key = "component align", value = "counterclockwise bounding box"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "counterclockwise bounding box"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -368,9 +392,10 @@ declare {
 
 declare {
   key = "components go down left aligned",
-  { key = "component direction", value=270},
-  { key = "component align", value = "clockwise"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "clockwise"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -380,9 +405,10 @@ declare {
 
 declare {
   key = "components go down absolute left aligned",
-  { key = "component direction", value=270},
-  { key = "component align", value = "clockwise bounding box"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "clockwise bounding box"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -392,9 +418,10 @@ declare {
 
 declare {
   key = "components go down center aligned",
-  { key = "component direction", value=270},
-  { key = "component align", value = "center"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "center"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -404,9 +431,10 @@ declare {
 
 declare {
   key = "components go down",
-  { key = "component direction", value=270},
-  { key = "component align", value = "first node"},
-    
+  use = {
+    { key = "component direction", value=270},
+    { key = "component align", value = "first node"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -415,9 +443,10 @@ declare {
 
 declare {
   key = "components go up right aligned",
-  { key = "component direction", value=90},
-  { key = "component align", value = "clockwise"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "clockwise"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -427,9 +456,10 @@ declare {
 
 declare {
   key = "components go up absolute right aligned",
-  { key = "component direction", value=90},
-  { key = "component align", value = "clockwise bounding box"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "clockwise bounding box"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -439,9 +469,10 @@ declare {
 
 declare {
   key = "components go up left aligned",
-  { key = "component direction", value=90},
-  { key = "component align", value = "counterclockwise"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "counterclockwise"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -451,9 +482,10 @@ declare {
 
 declare {
   key = "components go up absolute left aligned",
-  { key = "component direction", value=90},
-  { key = "component align", value = "counterclockwise bounding box"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "counterclockwise bounding box"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -463,9 +495,10 @@ declare {
 
 declare {
   key = "components go up center aligned",
-  { key = "component direction", value=90},
-  { key = "component align", value = "center"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "center"},
+  },
   summary = "See the other |components go ...| keys."
 }
 
@@ -475,9 +508,10 @@ declare {
 
 declare {
   key = "components go up",
-  { key = "component direction", value=90},
-  { key = "component align", value = "first node"},
-    
+  use = {
+    { key = "component direction", value=90},
+    { key = "component align", value = "first node"},
+  },
   summary = "See the other |components go ...| keys."
 }
 

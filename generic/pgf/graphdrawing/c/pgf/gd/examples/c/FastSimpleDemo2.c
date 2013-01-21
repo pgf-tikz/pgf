@@ -15,7 +15,7 @@ static void fast_hello_world (pgfgd_Digraph* graph) {
 
 int luaopen_pgf_gd_examples_c_FastSimpleDemo (lua_State *state) {
 
-  pgfgd_declarations_start(state, "pgf.gd.examples.c.FastSimpleDemo2");
+  pgfgd_declarations_start(state);
 
   pgfgd_declare(pgfgd_new_algorithm("fast simple demo layout", fast_hello_world, "The C version of the hello world of graph drawing"));
   pgfgd_declare(pgfgd_new_option("my radius", "length", "30", "A radius value for the hello world of graph drawing"));

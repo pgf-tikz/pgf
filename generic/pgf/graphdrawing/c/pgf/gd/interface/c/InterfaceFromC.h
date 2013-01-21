@@ -23,34 +23,69 @@ int         pgfgd_toboolean(pgfgd_OptionTable* t, const char* key);
 struct pgfgd_Coordinate {
   double x;
   doubel y;
-}
+};
 
-struct pgfgd_Node {
+struct pgfgd_Vertex {
+  
+  // The name field
   const char* name;
-  pgfgd_Coordinate pos;
+  
+  // The hull field
+  int hull_len;
+  pgfgd_Coordinate* hull;
 
+  // The hull_center field
+  pgfgd_Coordinate* hull_center;
+
+  // The shape field
+  const char* shape;
+
+  // The kind field
+  const char* kind;
+  
+  // The pos field
+  pgfgd_Coordinate pos;
+  
+  // The options field
   pgfgd_OptionTable* options;
 };
+
 
 struct pgfgd_Edge {
-  pgfgd_Node* tail;
-  pgfgd_Node* head;
+  
+  // The tail field
+  pgfgd_Vertex* tail;
 
+  // The head field
+  pgfgd_Vertex* head;
+
+  // The direction field
   const char* direction;
 
-  int bends_len;
-  pgfgd_Coordinate* bends;
-
+  // The path field. The two arrays both have length path_len. For
+  // each position, exactly one of the two arrays will not non-null.  
+  int path_len;
+  pgfgd_Coordinate* path_coordinates;
+  const char**      path_strings
+  
+  // The options field
   pgfgd_OptionTable* options;
+  
 };
 
+
 struct pgfgd_Digraph {
+
+  // The vertices field. Currently, you cannot add to this array.
   int vertices_len;
-  pgfgd_Node* vertices;
+  pgfgd_Vertex* vertices;
   
+  // The syntactic_edges. You do not have access to the |arcs| field,
+  // but, instead, to an array of all syntactic edges.
   int syntactic_edges_len;
   pgfgd_Edge* syntactic_edges;
-
+  
+  // The options field.
   pgfgd_OptionTable* options;  
 };
 
@@ -60,7 +95,7 @@ struct pgfgd_Digraph {
 
 typedef struct lua_State lua_State;
 
-extern void pgfgd_declarations_start(lua_State* state, const char* library_name);
+extern void pgfgd_declarations_start(lua_State* state);
 extern int  pgfgd_declarations_done(void);
 
 

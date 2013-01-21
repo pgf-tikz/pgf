@@ -845,6 +845,23 @@ function render_edges(arcs)
 end
 
 
+local aliases = InterfaceCore.option_aliases
+local option_initial = InterfaceCore.option_initial
+
+local option_metatable = {
+  __index = 
+    function (t, key)
+      local k = aliases[key]
+      if k then
+	local v = t[k]
+	if v then
+	  return v
+	end
+      end
+      return option_initial[key]
+    end
+}
+
 
 ---
 -- Get the current options table.
@@ -884,7 +901,7 @@ function get_current_options_table (height, table)
 	{
 	  algorithm_phases = setmetatable({}, InterfaceCore.option_initial.algorithm_phases),
 	  collections = {}
-	}, InterfaceCore.option_initial)
+	}, option_metatable)
     else
       cache = lib.copy(table)
       cache.algorithm_phases = lib.copy(cache.algorithm_phases)
@@ -893,18 +910,30 @@ function get_current_options_table (height, table)
       
     local algorithm_phases = cache.algorithm_phases
     local collections = cache.collections
+    local keys = InterfaceCore.keys
     
-    for _,s in ipairs(stack) do
-      local k = s.key
-      local v = s.value
-      
+    local function handle (k, v)
       if k == phase_unique then
 	algorithm_phases[v.phase] = v.algorithm
       elseif k == "collections" then
 	LookupTable.addOne(collections, v)
       else
 	cache[k] = v
+	if keys[k].use then
+	  for _,u in ipairs(keys[k].use) do
+	    local use_k = u.key
+	    local use_v = u.value
+	    if type(use_v) == "function" then
+	      use_v = use_v(v)
+	    end
+	    handle(use_k, use_v)
+	  end
+	end
       end
+    end
+    
+    for _,s in ipairs(stack) do
+      handle (s.key, s.value)
     end
     
     -- Cache it, if this was not added:

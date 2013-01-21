@@ -77,7 +77,9 @@ declare {
 
 declare {
   key = "small components first",
-  { key = "component order", value = "increasing node number" },
+  use = {
+    { key = "component order", value = "increasing node number" }
+  },
 
   summary = [["  
        A shorthand for |component order=increasing node number|.
@@ -88,8 +90,9 @@ declare {
 
 declare {
   key = "large components first",
-  { key = "component order", value = "decreasing node number" },
-
+  use = {
+    { key = "component order", value = "decreasing node number" },
+  },
   summary = [["  
       A shorthand for |component order=decreasing node number|.
   "]],

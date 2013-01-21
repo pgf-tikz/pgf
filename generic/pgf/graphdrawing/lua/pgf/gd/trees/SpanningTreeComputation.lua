@@ -201,7 +201,9 @@ declare {
 -- when it comes to choosing which edges are part of the spanning tree.    
 declare {
   key = "span edge",
-  { key = "span priority", value = 1 },
+  use = {
+    { key = "span priority", value = 1 },
+  },
 
   summary = [["  
        An easy-to-remember shorthand for |span priority=1|. When this key
@@ -216,7 +218,9 @@ declare {
 --
 declare {
   key = "no span edge",
-  { key = "span priority", value = 10 },
+  use = {
+    { key = "span priority", value = 10 },
+  },
 
   summary = [["  
        An easy-to-remember shorthand for |span priority=10|. This causes
@@ -378,10 +382,11 @@ declare {
 
 declare {
   key = "span using directed",
-  { key = "span priority reversed <-", value = 3},
-  { key = "span priority <->", value = 3},
-  { key = "span priority reversed <->", value = 3},
-
+  use = {
+    { key = "span priority reversed <-", value = 3},
+    { key = "span priority <->", value = 3},
+    { key = "span priority reversed <->", value = 3},
+  },
   summary = [["  
        This style sets a priority of |3| for all edges that are directed
        and ``go along the arrow direction'', that is, we go from |a| to
@@ -406,17 +411,19 @@ declare {
 
 declare {
   key = "span using all",
-  { key = "span priority <-", value = 5},
-  { key = "span priority ->", value = 5},
-  { key = "span priority <->", value = 5},
-  { key = "span priority --", value = 5},
-  { key = "span priority -!-", value = 5},
-  { key = "span priority reversed <-", value = 5},
-  { key = "span priority reversed ->", value = 5},
-  { key = "span priority reversed <->", value = 5},
-  { key = "span priority reversed --", value = 5},
-  { key = "span priority reversed -!-", value = 5},
-
+  use = {
+    { key = "span priority <-", value = 5},
+    { key = "span priority ->", value = 5},
+    { key = "span priority <->", value = 5},
+    { key = "span priority --", value = 5},
+    { key = "span priority -!-", value = 5},
+    { key = "span priority reversed <-", value = 5},
+    { key = "span priority reversed ->", value = 5},
+    { key = "span priority reversed <->", value = 5},
+    { key = "span priority reversed --", value = 5},
+    { key = "span priority reversed -!-", value = 5},
+  },
+  
   summary = [["  
        Assings a uniform priority of 5 to all edges.
   "]]

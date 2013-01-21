@@ -82,13 +82,6 @@ function BindingToPGF:declareParameterCallback(t)
 	    .. t.type .. "}{" .. tostring(t.default or "") .. "}")
 end
 
-
-function BindingToPGF:declareParameterSequenceCallback(t)
-  tex.print("\\pgfgdcallbackdeclareparametersequence{" .. t.key
-	    .. "}{" .. table_in_pgf_syntax(t)
-	    .. "}{" .. (t.default or "") .. "}")
-end
-
 function BindingToPGF:declareCollectionKind(t)
   tex.print("\\pgfgdcallbackdeclarecollectionkind{" .. t.key .. "}")
 end

@@ -174,7 +174,9 @@ declare {
 
 declare {
   key  = "first",
-  { key = "desired child index", value = 1},
+  use = {
+    { key = "desired child index", value = 1},
+  },
 
   summary = [["  
        A shorthand for setting the desired child number to |1|.      
@@ -185,7 +187,9 @@ declare {
 
 declare {
   key  = "second",
-  { key = "desired child index", value = 2},
+  use = {
+    { key = "desired child index", value = 2},
+  },
 
   summary = [["  
        A shorthand for setting the desired child number to |2|.
@@ -197,7 +201,9 @@ declare {
 
 declare {
   key  = "third",
-  { key = "desired child index", value = 3},
+  use = {
+    { key = "desired child index", value = 3},
+  },
 
   summary = [["  
        A shorthand for setting the desired child number to |3|.
@@ -209,7 +215,9 @@ declare {
 
 declare {
   key  = "fourth",
-  { key = "desired child index", value = 4},
+  use = {
+    { key = "desired child index", value = 4}
+  },
 
   summary = [["  
        A shorthand for setting the desired child number to |4|.

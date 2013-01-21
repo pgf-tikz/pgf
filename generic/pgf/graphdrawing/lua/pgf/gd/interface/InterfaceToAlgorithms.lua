@@ -110,7 +110,55 @@ end
 -- whole multi-line string (additionally) in quotes, leading to better
 -- syntax highlighting in editors.
 --
--- Now, as metioned above, |declare| is a work-horse that will call
+-- When you declare a key, you can provide a |use| field. If present,
+-- you must set it to an array of small tables which have two fields:
+-- \begin{itemize}
+-- \item |key| This is the name of another key.
+-- \item |value| This is either a value (like a string or a number) or
+--   a function or |nil|.
+-- \end{itemize}
+--
+-- Here is an example:
+--
+--\begin{codeexample}[code only]
+-- ---
+-- declare {
+--   key = "binary tree layout",
+--   use = {
+--     { key = "minimum number of children", value = 2 },
+--     { key = "significant sep",            value = 12 },
+--     { key = "tree layout" }
+--   },
+--   summary = "The |binary tree layout| places node...",
+--   documentation = ...,
+--   examples = ...,
+-- }
+--\end{codeexample}
+--
+-- The effect of a |use| field is the following: Whenever the key is
+-- encountered on the option stack, the key is first handled
+-- normally. Then, we iterate over all elements of the |use|
+-- array. For each element, we perform the action as if the |key| of
+-- the array had been set explicitly to the value given by the |value|
+-- field. The only execption is when the |value| is a function. In
+-- this case, we pass a different value to the key, namely the result
+-- of applying the function to the value originally passed to the
+-- original key. Here is a typical example:
+--
+--\begin{codeexample}[code only]
+-- ---
+-- declare {
+--   key = "level sep",
+--   type = "length",
+--   use = {
+--     { key = "level pre sep",  value = function (v) return v/2 end },
+--     { key = "level post sep", value = function (v) return v/2 end }
+--   },
+--   summary = "..."
+-- }
+--\end{codeexample}
+--
+-- As metioned at the beginning, |declare| is a work-horse that will call
 -- different internal functions depending on whether you declare a
 -- parameter key or a new algorithm or a collection kind. Which kind
 -- of declaration is being done is detected by the presence of certain
@@ -147,9 +195,9 @@ end
 
 
 ---
--- This function is called by |declare| for ``normal parameter keys.''
--- They are detected by the presence of the |type| field in the table
--- |t| passed to |declare|. Suppose you write
+-- This function is called by |declare| for ``normal parameter keys,''
+-- which are all keys for which no special field like |algorithm| or
+-- |layer| is declared. You write
 --
 --\begin{codeexample}[code only]
 -- ---
@@ -164,14 +212,14 @@ end
 -- }
 --\end{codeexample}
 --
--- Now, when an author writes |my node[electrical charge=5-3]| in the
+-- When an author writes |my node[electrical charge=5-3]| in the
 -- description of her graph, the object |vertex| corresponding to the
 -- node |my node| will have a field |options| attached to it with
 --\begin{codeexample}[code only]
 --vertex.options["electrical charge"] == 2
 --\end{codeexample}
 --
--- The |type| is not the same as Lua types. Rather, these types are
+-- The |type| field does not refer to Lua types. Rather, these types are
 -- sensible types for graph drawing and they are mapped by the higher
 -- layers to Lua types. In detail, the following types are available:
 --
@@ -195,7 +243,14 @@ end
 -- display layer. All of them will be mapped to a number. Furthermore,
 -- a vertical bar (\verb!|!) will be mapped to |-90| and a minus sign
 -- (|-|) will be mapped to |0|.
+-- \item |hidden| A key of this type ``cannot be set,'' that is,
+-- users cannot set this key at all. However algorithms can still read
+-- this key and, through the use of |alias|, can use the key as a
+-- handle to another key.
 -- \end{itemize}
+--
+-- If the |type| field is missing, it is automatically set to
+-- |"string"|. 
 --
 -- A parameter can have an |initial| value. This value will be used
 -- whenever the parameter has not been set explicitly for an object.
@@ -204,69 +259,84 @@ end
 -- the parameter value whenever the parameter is explicitly set, but
 -- no value is provided.
 --
+-- A parameter can habe an |alias| field. This field must be set to
+-- the name of another key. Whenever you access the current key and
+-- this key is not set, the |alias| key is tried instead. If it is
+-- set, its value will be returned (if the |alias| key has itself an
+-- alias set, this is tried recursively). If the alias is not set
+-- either and neither does it have an initial value, the |initial|
+-- value is used. Note that in case the alias has its |initial| field
+-- set, the |initial| value of the current key will never be used.
+--
+-- The main purpose of the current key is to allow algorithms to
+-- introduce their own terminology for keys while still having access
+-- to the standard keys. For instance, the |OptimalHierarchyLayout|
+-- class uses the name |layerDistance| for what would be called
+-- |level distance| in the rest of the graph drawing system. In this
+-- case, we can declare the |layerDistance| key as follows:
+--
+--\begin{codeexample}[code only]
+-- declare {
+--   key     = "layerDistance",
+--   type    = "length",
+--   alias   = "level distance"
+-- }
+--\end{codeexample}
+--
+-- Inside the algorithm, we can write |...options.layerDistance| and
+-- will get the current value of the |level distance| unless the
+-- |layerDistance| has been set explicitly. Indeed, we might set the
+-- |type| to |hidden| to ensure that \emph{only} the |level distance|
+-- can and must set to set the layerDistance.
+--
+-- Note that there is a difference between |alias| and the |use|
+-- field: Suppose we write
+--
+--\begin{codeexample}[code only]
+-- declare {
+--   key     = "layerDistance",
+--   type    = "length",
+--   use     = {
+--     { key = "level distance", value = lib.id }
+--   }
+-- }
+--\end{codeexample}
+--
+-- Here, when you say |layerDistance=1cm|, the |level distance| itself
+-- will be modified. When the |level distance| is set, however the
+-- |layerDistance| will not be modified.
+--
 -- (You cannot call this function directly, it is included for
 -- documentation purposes only.)
 --
 -- @param t The table originally passed to |declare|.
 
 local function declare_parameter (t)
+
+  t.type = t.type or "string"
+  
   -- Normal key
   assert (type(t.type) == "string", "key type must be a string")
   
   -- Declare via the hub:
-  InterfaceCore.binding:declareParameterCallback(t)
+  if t.type ~= "hidden" then 
+    InterfaceCore.binding:declareParameterCallback(t)
+  
+    -- Handle initials:
+    if t.initial then
+      InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
+    end
+  end
 
-  -- Handle initials:
-  if t.initial then
-    InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
+  if t.alias then
+    assert (type(t.alias) == "string", "alias must be a string")
+    InterfaceCore.option_aliases[t.key] = t.alias
   end
 
   return true
 end
 
 
-
----
--- This function is called by |declare| for ``parameters sequence
--- keys.'' They are detected by the presence numeric fields in the table
--- |t| passed to |declare|. Such a key stores a sequence of parameters
--- that get set ``all at once'' when a the key is used (this is
--- exactly the same as a \emph{style} in \tikzname). They only trigger
--- some ``real'' parameter keys to be set; they do not set any fields
--- in |options| tables. 
---
--- The sequence of keys is stored in the numeric fields (the array
--- part) of the |t| table. Each entry must have at least a |key| key and,
--- possibly, a |value| key. Here is an example:
---
---\begin{codeexample}[code only]
--- ---
--- declare {
---   key = "binary tree layout",
---   { key = "minimum number of children", value = 2 },
---   { key = "significant sep",            value = 12 },
---   { key = "tree layout" },
---   summary = "The |binary tree layout| places node...",
---   documentation = ...,
---   examples = ...,
--- }
---\end{codeexample}
---
--- You can also provide a |default| value. The reason for this is that
--- inside the values of the sequence, you can use the special string
--- |"#1"| to refer to the value passed to the key (this works as for
--- styles in \tikzname).
---
--- (You cannot call this function directly, it is included for
--- documentation purposes only.)
---
--- @param t The table originally passed to |declare|.
---
-
-local function declare_parameter_sequence (t)
-  InterfaceCore.binding:declareParameterSequenceCallback(t)
-  return true
-end
 
 
 ---
@@ -618,8 +688,7 @@ declare_handlers = {
   { test = function (t) return t.algorithm_written_in_c end, handler = declare_algorithm_written_in_c },
   { test = function (t) return t.algorithm end, handler = declare_algorithm },
   { test = function (t) return t.layer end, handler = declare_collection_kind },
-  { test = function (t) return t.type end, handler = declare_parameter },
-  { test = function (t) return true end, handler = declare_parameter_sequence }
+  { test = function (t) return true end, handler = declare_parameter }
 }
 
 

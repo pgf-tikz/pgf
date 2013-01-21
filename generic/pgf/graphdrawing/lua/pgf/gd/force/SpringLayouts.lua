@@ -26,7 +26,9 @@ local _
 
 declare {
   key = "spring layout",
-  { key = "spring Hu 2006 layout" },
+  use = {
+    { key = "spring Hu 2006 layout" },
+  },
 
   summary = [["  
        This key selects Hu's 2006 spring layout with appropriate settings
