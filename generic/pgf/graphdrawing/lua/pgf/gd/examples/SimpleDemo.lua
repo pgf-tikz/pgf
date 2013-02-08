@@ -74,6 +74,8 @@ declare {
 \end{codeexample}
       
        On the display layer (\tikzname, that is) the algorithm can now
-       immediately be used by saying |\usegdlibrary{examples.SimpleDemo}|.  
+       immediately be employed; you just need to say
+       |\usegdlibrary{examples.SimpleDemo}| at the beginning
+       somewhere.   
   "]=]
 }

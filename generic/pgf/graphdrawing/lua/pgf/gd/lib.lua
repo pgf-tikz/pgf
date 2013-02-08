@@ -251,6 +251,83 @@ end
 
 
 
+---
+-- Turns a table |t| into a class in the sense of object oriented
+-- programming. In detail, this means that |t| is augmented by
+-- a |new| function, which takes an optional table of |initial| values
+-- and which outputs a new table whose metatable is the
+-- class. The |new| function will call the function |constructor| if
+-- it exsist. Furthermore, the class object's |__index| is set to itself
+-- and its meta table is set to the |base_class| field of the
+-- table. If |t| is |nil|, a new table is created.
+--
+-- Here is a typical usage of this function:
+--
+--\begin{codeexample}[code only]
+--local Point = lib.class {}
+--
+--function Point:length()
+--  return math.sqrt(self.x*self.x + self.y*self.y)
+--end
+--
+--local p = Point.new { x = 5, y = 6 }
+--
+--print(p:length())
+--\end{codeexample}
+-- We can subclass this as follows:
+--
+--\begin{codeexample}[code only]
+--local Point3D = lib.class { base_class = Point }
+--
+--function Point3D:length()
+--  local l = Point.length(self) -- Call base class's function 
+--  return math.sqrt(l*l + self.z*self.zdy)
+--end
+--
+--local p = Point3D.new { x = 5, y = 6, z = 6 }
+--
+--print(p:length())
+--\end{codeexample}
+--
+-- @param t A table that gets augmented to a class. If |nil|, a new
+-- table is created.
+-- @return The augmented table.
+
+function lib.class(t)
+  t = t or {}
+  
+  -- First, setup indexing, if necessary
+  if not t.__index then
+    t.__index = t
+  end
+  
+  -- Second, setup new method, if necessary
+  t.new = t.new or 
+    function (initial) 
+      
+      -- Create new object
+      local obj = {}
+      for k,v in pairs(initial or {}) do
+	obj[k] = v
+      end
+      setmetatable(obj, t)
+
+      if obj.constructor then
+	obj:constructor()
+      end
+      
+      return obj
+    end
+  
+  -- Third, setup inheritence, if necessary
+  if not getmetatable(t) then
+    setmetatable(t, t.base_class)
+  end
+
+  return t
+end
+
+
 -- Done
 
 return lib

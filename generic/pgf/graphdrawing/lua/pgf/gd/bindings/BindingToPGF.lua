@@ -10,6 +10,11 @@
 -- @release $Header$
 
 
+
+-- Imports
+local Storage = require "pgf.gd.lib.Storage"
+
+
 ---
 -- This class, which is a subclass of |Binding|, binds the graph
 -- drawing system to the \pgfname\ display system by overriding (that
@@ -18,7 +23,7 @@
 --
 --\begin{codeexample}[code only]
 --function BindingToPGF:renderVertex(v)
---  local info = assert(v.storage[self], "thou shalt not modify the syntactic digraph")
+--  local info = assert(self.infos[v], "thou shalt not modify the syntactic digraph")
 --  tex.print(
 --    string.format(
 --      "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
@@ -45,7 +50,9 @@
 -- to the binding and should not be called by anyone other than the
 -- binding class).
 
-local BindingToPGF = {}
+local BindingToPGF = {
+  storage = Storage.newTableStorage () -- overwrite default storage
+}
 BindingToPGF.__index = BindingToPGF
 setmetatable(BindingToPGF, require "pgf.gd.bindings.Binding") -- subclass of Binding
 
@@ -56,11 +63,12 @@ require("pgf.gd.bindings").BindingToPGF = BindingToPGF
 -- Imports
 local lib = require "pgf.gd.lib"
 
-
 -- The implementation
 
 -- Forward
 local table_in_pgf_syntax
+
+
 
 
 -- Scope handling
@@ -73,21 +81,14 @@ end
 
 -- Declarations
 
-function BindingToPGF:declareAlgorithmCallback(t)
-  tex.print("\\pgfgdcallbackdeclarealgorithm{" .. t.key .. "}{" .. t.phase .. "}")
-end
-
-function BindingToPGF:declareParameterCallback(t)
+function BindingToPGF:declareCallback(t)
   tex.print("\\pgfgdcallbackdeclareparameter{" .. t.key .. "}{"
-	    .. t.type .. "}{" .. tostring(t.default or "") .. "}")
+	    .. (t.type or "nil") .. "}{" .. tostring(t.default or "") .. "}")
 end
 
-function BindingToPGF:declareCollectionKind(t)
-  tex.print("\\pgfgdcallbackdeclarecollectionkind{" .. t.key .. "}")
-end
+
 
 -- Rendering
-
 
 function BindingToPGF:renderStart()
   tex.print("\\pgfgdcallbackbeginshipout")
@@ -120,7 +121,7 @@ local boxes = {}
 local box_count = 0
 
 function BindingToPGF:everyVertexCreation(v)
-  local info = v.storage[self]
+  local info = self.storage[v]
   
   -- Save the box!
   box_count = box_count + 1
@@ -131,7 +132,7 @@ function BindingToPGF:everyVertexCreation(v)
 end
 
 function BindingToPGF:renderVertex(v)
-  local info = assert(v.storage[self], "thou shalt not modify the syntactic digraph")
+  local info = assert(self.storage[v], "thou shalt not modify the syntactic digraph")
   tex.print(
     string.format(
       "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
@@ -162,7 +163,7 @@ end
 -- Managing edges
 
 function BindingToPGF:renderEdge(e)
-  local info = assert(e.storage[self], "thou shalt not modify the syntactic digraph")
+  local info = assert(self.storage[e], "thou shalt not modify the syntactic digraph")
   
   local function get_anchor(e, anchor)
     local a = e.options[anchor]
@@ -250,13 +251,14 @@ end
 
 -- Local helpers
 
-function table_in_pgf_syntax (t, prefix)
-  prefix = prefix or "/graph drawing/"
+function table_in_pgf_syntax (t)
+  local prefix = "/graph drawing/"
+  local suffix = "/.try"
   return table.concat( lib.imap( t, function(table)
 	   if table.value then
-	     return prefix .. table.key .. "={" .. tostring(table.value) .. "}"
+	     return prefix .. table.key .. suffix .. "={" .. tostring(table.value) .. "}"
 	   else
-	     return prefix .. table.key
+	     return prefix .. table.key .. suffix
 	   end
 	 end), ",")
 end

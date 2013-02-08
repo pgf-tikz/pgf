@@ -106,7 +106,7 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- @return A new edge object.
 --
 function Edge.new(values)
-  local new = { storage = Storage.new() }
+  local new = {}
   for k,v in pairs(values) do
     new[k] = v
   end

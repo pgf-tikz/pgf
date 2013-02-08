@@ -94,17 +94,19 @@ local Coordinate = require "pgf.gd.model.Coordinate"
 -- table. 
 --
 -- @param graph The input graph.
--- @param algorithm Optionally, an algorithm object. If non |nil|, we
--- attempt to get the bounding box information of the vertices from
--- the storage object attached to the vertices (this is important only
--- for algorithms that draw layered graphs and wish to profit from the
--- automatic node rotation).
+-- @param paddings Optionally, a padding storage (see
+-- |layered.lua|). If non |nil|, we attempt to get the bounding box
+-- information of the vertices from this padding storage 
+-- for the vertices (this is important only for algorithms that draw
+-- layered graphs and wish to profit from the automatic node
+-- rotation).
+--
 -- @return The table |t| as decribed above.
 -- @return A table |unbridge| that contains an empty array for each
 -- field expected by the |unbridgeGraph| function. It is the job of
 -- the C code to fill these tables.
 
-function InterfaceToC.bridgeGraph(graph, algorithm)
+function InterfaceToC.bridgeGraph(graph, paddings)
   
   local vertices_for_c = {}
   local syntactic_edges_for_c = {}
@@ -136,10 +138,10 @@ function InterfaceToC.bridgeGraph(graph, algorithm)
     local min_x, min_y, max_x, max_y
     
     -- Construct bounding box:
-    if not algorithm or not v.storage[algorithm].sibling_pre then
+    if not paddings or not paddings[v].sibling_pre then
       min_x, min_y, max_x, max_y = Coordinate.boundingBox(v.hull)
     else
-      local bb = v.storage[algorithm]
+      local bb = paddings[v]
       min_x = bb.sibling_pre
       max_x = bb.sibling_post
       min_y = bb.layer_pre

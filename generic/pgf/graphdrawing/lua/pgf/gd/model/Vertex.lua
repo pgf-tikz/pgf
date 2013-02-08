@@ -93,10 +93,19 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- \item[|kind|] A kind like |"node"| or |"dummy"|. If not given, |"dummy"| is used.
 -- \end{description}
 --
+-- @field incomings A table indexed by |Digraph| objects. For each
+-- digraph, the table entry is an array of all vertices from which
+-- there is an |Arc| to this vertex. This field is internal and may
+-- not only be accessed by the |Digraph| class.
+-- @field outgoings Like |incomings|, but for outgoing arcs.
+--
 -- @return A newly allocated node.
 --
 function Vertex.new(values)
-  local new = { storage = Storage.new() }
+  local new = {
+    incomings = Storage.new(),
+    outgoings = Storage.new()
+  }
   for k,v in pairs(values) do
     new[k] = v
   end
@@ -105,8 +114,7 @@ function Vertex.new(values)
   new.shape = new.shape or "none"
   new.kind = new.kind or "dummy"
   new.pos = new.pos or Coordinate.new(0,0)
-  setmetatable(new, Vertex)
-  return new
+  return setmetatable (new, Vertex)
 end
 
 

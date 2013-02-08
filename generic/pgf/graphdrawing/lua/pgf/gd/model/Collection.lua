@@ -96,7 +96,6 @@ function Collection.new(t)
       kind                   = t.kind,
       event                  = t.event,
       child_collections      = t.child_collections or {},
-      storage                = Storage.new(),
     }, Collection)
 end
 

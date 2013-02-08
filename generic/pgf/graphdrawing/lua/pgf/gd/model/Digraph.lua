@@ -134,10 +134,11 @@
 --   an arc from |t| to |h|. If this is the case, there is an |Arc|
 --   object that represents this arc. Note that, since |Digraph|s are
 --   always simple graphs, there can be at most one such object for every
---   pair of vertices. However, you can store any information you like in
---   the |Arc|'s |storage|, see the |Storage| class for details. In
---   particular, an |Arc| stores an array called |syntactic_edges| of
---   all the multiple edges that are present in the user's input.
+--   pair of vertices. However, you can store any information you like for
+--   an |Arc| through a |Storage|, see the |Storage| class for
+--   details. Each |Arc| for an edge of the syntactic digraph stores
+--   an array called |syntactic_edges| of all the multiple edges that
+--   are present in the user's input. 
 --
 --   Unlike vertices, the arc objects of a graph are always local to a
 --   graph; an |Arc| object can never be part of two digraphs at the same
@@ -172,8 +173,6 @@
 -- @field syntactic_digraph is a reference to the syntactic digraph
 --    from which this graph stems ultimately. This may be a cyclic
 --    reference to the graph itself.
--- @field storage is the storage. See the section on |Storage|
--- objects. 
 -- @field options If present, it will be a table storing
 -- the options set for the syntactic digraph.
 --
@@ -182,9 +181,8 @@ local Digraph = {}
 local function recalc_arcs (digraph)
   local arcs = {}
   local vertices = digraph.vertices
-  local outgoings = digraph.outgoings
   for i=1,#vertices do
-    local out = vertices[i].storage[outgoings]
+    local out = vertices[i].outgoings[digraph]
     for j=1,#out do
       arcs[#arcs + 1] = out[j]
     end
@@ -209,7 +207,6 @@ require("pgf.gd.model").Digraph = Digraph
 
 -- Imports
 local Arc         = require "pgf.gd.model.Arc"
-local Storage     = require "pgf.gd.lib.Storage"
 local LookupTable = require "pgf.gd.lib.LookupTable"
 
 
@@ -249,8 +246,7 @@ local LookupTable = require "pgf.gd.lib.LookupTable"
 --                this array contains a |vertices| field. In this
 --                case, this field must be an array and its entries
 --                must be nodes, which will be inserted. If initial
---                has an |arcs| field or a |storage| field, these fields
---                will be ignored.
+--                has an |arcs| field, this field will be ignored.
 --                The table must contain a field |syntactic_digraph|,
 --                which should normally be the syntactic digraph of
 --                the graph, but may also be the string |"self"|, in
@@ -271,11 +267,6 @@ function Digraph.new(initial)
   local vertices = digraph.vertices
   digraph.vertices = {}
   digraph.arcs = {}
-  digraph.storage = Storage.new()
-
-  -- Handles for the storage
-  digraph.incomings = {} 
-  digraph.outgoings = {} 
 
   if vertices then 
     digraph:add(vertices)
@@ -292,16 +283,13 @@ end
 --
 function Digraph:add(array)
   local vertices = self.vertices
-  local incomings = self.incomings
-  local outgoings = self.outgoings
   for i=1,#array do
     local v = array[i]
     if not vertices[v] then
       vertices[v] = true
       vertices[#vertices + 1] = v
-      local s = v.storage
-      s[incomings] = {}
-      s[outgoings] = {}
+      v.incomings[self] = {}
+      v.outgoings[self] = {}
     end
   end
 end
@@ -364,7 +352,7 @@ end
 -- @return The arc object connecting them
 --
 function Digraph:arc(tail, head)
-  return assert(tail.storage[self.outgoings], "tail vertex not in graph")[head]
+  return assert(tail.outgoings[self], "tail vertex not in graph")[head]
 end
 
 
@@ -381,7 +369,7 @@ end
 -- whose tail is the vertex)
 --
 function Digraph:outgoing(v)
-  return assert(v.storage[self.outgoings], "vertex not in graph")
+  return assert(v.outgoings[self], "vertex not in graph")
 end
 
 
@@ -396,7 +384,7 @@ end
 -- @param f A comparison function that is passed to |table.sort|
 --
 function Digraph:sortOutgoing(v, f)
-  table.sort(assert(v.storage[self.outgoings], "vertex not in graph"), f)
+  table.sort(assert(v.outgoings[self], "vertex not in graph"), f)
 end
 
 
@@ -412,7 +400,7 @@ end
 -- @param vertices An array containing the outgoing vertices in some order.
 --
 function Digraph:orderOutgoing(v, vertices)
-  local outgoing = assert (v.storage[self.outgoings], "vertex not in graph")
+  local outgoing = assert (v.outgoings[self], "vertex not in graph")
   assert (#outgoing == #vertices)
 
   -- Create back hash
@@ -438,7 +426,7 @@ end
 --- See |outgoing|.
 --
 function Digraph:incoming(v)
-  return assert(v.storage[self.incomings], "vertex not in graph")
+  return assert(v.incomings[self], "vertex not in graph")
 end
 
 
@@ -446,15 +434,15 @@ end
 -- See |sortOutgoing|.
 --
 function Digraph:sortIncoming(v, f)
-  table.sort(assert(v.storage[self.incomings], "vertex not in graph"), f)
+  table.sort(assert(v.incomings[self], "vertex not in graph"), f)
 end
 
 
 ---
 -- See |orderOutgoing|.
 --
-function Digraph:orderIncoming(v, a)
-  local incoming = assert (v.storage[self.incomings], "vertex not in graph")
+function Digraph:orderIncoming(v, vertices)
+  local incoming = assert (v.incomings[self], "vertex not in graph")
   assert (#incoming == #vertices)
 
   -- Create back hash
@@ -495,7 +483,7 @@ end
 function Digraph:connect(s, t)
   assert (s and t and self.vertices[s] and self.vertices[t], "trying connect nodes not in graph")
 
-  local s_outgoings = s.storage[self.outgoings]
+  local s_outgoings = s.outgoings[self]
   local arc = s_outgoings[t]
 
   if not arc then
@@ -503,7 +491,7 @@ function Digraph:connect(s, t)
     arc = {
       tail = s,
       head = t,
-      storage = Storage.new(),
+      option_cache = {},
       syntactic_digraph = self.syntactic_digraph,
       syntactic_edges = {}
     }
@@ -513,7 +501,7 @@ function Digraph:connect(s, t)
     s_outgoings [#s_outgoings + 1] = arc
     s_outgoings [t] = arc
 
-    local t_incomings = t.storage[self.incomings]
+    local t_incomings = t.incomings[self]
     -- Insert into incomings:
     t_incomings [#t_incomings + 1] = arc
     t_incomings [s] = arc
@@ -547,8 +535,8 @@ end
 function Digraph:disconnect(v, t)
   if t then
     -- Case 2: Remove a single arc.
-    local s_outgoings = assert(v.storage[self.outgoings], "tail node not in graph")
-    local t_incomings = assert(t.storage[self.incomings], "head node not in graph")
+    local s_outgoings = assert(v.outgoings[self], "tail node not in graph")
+    local t_incomings = assert(t.incomings[self], "head node not in graph")
 
     if s_outgoings[t] then
       -- Remove:
@@ -570,19 +558,16 @@ function Digraph:disconnect(v, t)
     end
   else
     -- Case 1: Remove all arcs incident to v:
-    local v_storage = v.storage
-    local self_incomings = self.incomings
-    local self_outgoings = self.outgoings
     
     -- Step 1: Delete all incomings arcs:
-    local incomings = assert(v_storage[self_incomings], "node not in graph")
+    local incomings = assert(v.incomings[self], "node not in graph")
     local vertices = self.vertices
 
     for i=1,#incomings do
       local s = incomings[i].tail
       if s ~= v and vertices[s] then -- skip self-loop and to-be-deleted nodes
 	-- Remove this arc from s:
-	local s_outgoings = s.storage[self_outgoings]
+	local s_outgoings = s.outgoings[self]
 	s_outgoings[v] = nil
 	for i=1,#s_outgoings do
 	  if s_outgoings[i].head == v then
@@ -594,11 +579,11 @@ function Digraph:disconnect(v, t)
     end
 
     -- Step 2: Delete all outgoings arcs:
-    local outgoings = v_storage[self_outgoings]
+    local outgoings = v.outgoings[self]
     for i=1,#outgoings do
       local t = outgoings[i].head
       if t ~= v and vertices[t] then
-	local t_incomings = t.storage[self_incomings]
+	local t_incomings = t.incomings[self]
 	t_incomings[v] = nil
 	for i=1,#t_incomings do
 	  if t_incomings[i].tail == v then
@@ -614,8 +599,8 @@ function Digraph:disconnect(v, t)
     end
 
     -- Step 3: Reset incomings and outgoings fields
-    v_storage[self_incomings] = {}
-    v_storage[self_outgoings] = {}
+    v.incomings[self] = {}
+    v.outgoings[self] = {}
   end
 end
 
@@ -627,8 +612,7 @@ end
 -- and |self.head|, it now connects a new |head| and |tail|. The
 -- difference to first disconnecting and then reconnecting is that all
 -- fields of the arc (other than |head| and |tail|, of course), will
--- be ``moved along.'' Also, all fields of the |storage| will be
--- copied. Reconnecting an arc in the same way as before has no
+-- be ``moved along.'' Reconnecting an arc in the same way as before has no
 -- effect.
 --
 -- If there is already an arc at the new position, fields of the
@@ -658,13 +642,9 @@ function Digraph:reconnect(arc, tail, head)
     local new_arc = self:connect(tail, head)
     
     for k,v in pairs(arc) do
-      if k ~= "head" and k ~= "tail" and k ~= "storage" then
+      if k ~= "head" and k ~= "tail" then
 	new_arc[k] = v
       end
-    end
-
-    for k,v in pairs(arc.storage) do
-      new_arc.storage[k] = v
     end
 
     -- Remove old arc:
@@ -733,9 +713,6 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
   -- Connected collapse_vertex appropriately
   local collapsed_arcs = {}
   
-  local outgoings = self.outgoings
-  local incomings = self.incomings
-  
   if not arc_fun then
     arc_fun = function () end
   end
@@ -744,13 +721,13 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
     if vertex_fun then
       vertex_fun (collapse_vertex, v)
     end
-    for _,a in ipairs(v.storage[outgoings]) do
+    for _,a in ipairs(v.outgoings[self]) do
       if cvs[a.head] ~= true then
 	arc_fun (self:connect(collapse_vertex, a.head), a)
       end
       collapsed_arcs[#collapsed_arcs + 1] = a
     end
-    for _,a in ipairs(v.storage[incomings]) do
+    for _,a in ipairs(v.incomings[self]) do
       if cvs[a.tail] ~= true then
 	arc_fun (self:connect(a.tail, collapse_vertex), a)
       end
@@ -800,13 +777,9 @@ function Digraph:expand(vertex, vertex_fun, arc_fun)
     local new_arc = self:connect(arc.tail, arc.head)
     
     for k,v in pairs(arc) do
-      if k ~= "head" and k ~= "tail" and k ~= "storage" then
+      if k ~= "head" and k ~= "tail" then
 	new_arc[k] = v
       end
-    end
-
-    for k,v in pairs(arc.storage) do
-      new_arc.storage[k] = v
     end
     
     if arc_fun then
@@ -844,7 +817,7 @@ function Digraph:__tostring()
   local astrings = {}
   for i,v in ipairs(self.vertices) do
     vstrings[i] = "    " .. tostring(v) .. "[x=" .. math.floor(v.pos.x) .. "pt,y=" .. math.floor(v.pos.y) .. "pt]"
-    local out_arcs = v.storage[self.outgoings]
+    local out_arcs = v.outgoings[self]
     if #out_arcs > 0 then
       local t = {}
       for j,a in ipairs(out_arcs) do

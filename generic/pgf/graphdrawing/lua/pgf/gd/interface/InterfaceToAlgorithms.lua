@@ -39,6 +39,8 @@ local LayoutPipeline     = require "pgf.gd.control.LayoutPipeline"
 
 local Edge               = require "pgf.gd.model.Edge"
 
+local lib                = require "pgf.gd.lib"
+
 
 
 
@@ -175,7 +177,7 @@ function InterfaceToAlgorithms.declare (t)
   
   -- Sanity check:
   assert (type(t.key) == "string" and t.key ~= "", "parameter key may not be the empty string")
-  if keys[t.key] or t.key == "collections" or t.keys == "algorithm_phases" then
+  if keys[t.key] or t.keys == "algorithm_phases" then
     error("parameter '" .. t.key .. "' already declared")
   end
 
@@ -320,7 +322,7 @@ local function declare_parameter (t)
   
   -- Declare via the hub:
   if t.type ~= "hidden" then 
-    InterfaceCore.binding:declareParameterCallback(t)
+    InterfaceCore.binding:declareCallback(t)
   
     -- Handle initials:
     if t.initial then
@@ -466,30 +468,11 @@ local function declare_algorithm (t)
     local class
 
     if type(t.algorithm) == "table" then
-      class = t.algorithm
+      class = lib.class(t.algorithm)
     else
-      class = require(t.algorithm)
+      class = lib.class(require(t.algorithm))
     end
-  
-    -- First, setup indexing, if necessary
-    if not class.__index then
-      class.__index = class
-    end
-  
-    -- Second, setup new method, if necessary
-    class.new = class.new or 
-      function (initial) 
       
-	-- Create new object
-	local obj = {}
-	for k,v in pairs(initial) do
-	  obj[k] = v
-	end
-	setmetatable(obj, class)
-	
-	return obj
-      end
-  
     -- Now, save pre- and postconditions
     class.preconditions  = t.preconditions or {}
     class.postconditions = t.postconditions or {}
@@ -515,7 +498,7 @@ local function declare_algorithm (t)
   InterfaceCore.algorithm_classes[t.key] = store_me
   
   -- Install!
-  InterfaceCore.binding:declareAlgorithmCallback(t)
+  InterfaceCore.binding:declareCallback(t)
   
   if t.default then
     assert (not InterfaceCore.option_initial.algorithm_phases[t.phase],
@@ -554,7 +537,7 @@ local function declare_algorithm_written_in_c (t)
     run =
       function (self)
 	local lib = require(library)
-	local briged, unbridge = InterfaceToC.bridgeGraph(self.digraph, self)
+	local briged, unbridge = InterfaceToC.bridgeGraph(self.digraph, self.adjusted_bb)
 	lib[fun_name](briged, unbridge)
 	InterfaceToC.unbridgeGraph(self.digraph, unbridge)
       end
@@ -673,7 +656,7 @@ local function declare_collection_kind (t)
   kinds[#kinds+1] = new_entry
   
   -- Bind
-  InterfaceCore.binding:declareCollectionKind(t)
+  InterfaceCore.binding:declareCallback(t)
 
   return true
 end
@@ -798,10 +781,12 @@ function InterfaceToAlgorithms.createVertex(algorithm, init)
   algorithm.ugraph:add {v}
   
   -- Compute bounding boxes:  
-  LayoutPipeline.prepareBoundingBoxes(algorithm, algorithm.digraph, {v})
+  LayoutPipeline.prepareBoundingBoxes(algorithm.rotation_info, algorithm.adjusted_bb, algorithm.digraph, {v})
   
   -- Add the node to the layout stack:
   add_to_collections(algorithm.layout, "vertices", v)
+
+  algorithm.layout_graph:add { v }
   
   return v
 end
@@ -837,7 +822,7 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  local syntactic_digraph = scope.syntactic_digraph
+  local syntactic_digraph = algorithm.layout_graph
   
   assert (syntactic_digraph:contains(tail) and
 	  syntactic_digraph:contains(head),
@@ -851,6 +836,7 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
     direction = init.direction or "--",
     options = init.options or algorithm.layout.options,
     path = init.path,
+    generated_options = init.generated_options
   }
 
   -- Add to arc    
@@ -866,7 +852,7 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   end
 
   -- Call binding
-  edge.storage[binding] = {}
+  binding.storage[edge] = {}
   binding:everyEdgeCreation(edge)
   
   -- Add edge to digraph and ugraph

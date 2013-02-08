@@ -34,6 +34,15 @@ local lib        = require "pgf.gd.lib"
 
 local InterfaceCore = require "pgf.gd.interface.InterfaceCore"
 
+local Storage    = require "pgf.gd.lib.Storage"
+
+
+
+-- Storages
+
+local subs           = Storage.newTableStorage()
+local already_nudged = Storage.new()
+local positions      = Storage.newTableStorage()
 
 
 
@@ -46,7 +55,7 @@ local InterfaceCore = require "pgf.gd.interface.InterfaceCore"
 --
 local function offset_vertex(v, delta)
   v.pos:shiftByCoordinate(delta)
-  for _,sub in ipairs(v.storage[Sublayouts].subs or {}) do
+  for _,sub in ipairs(subs[v]) do
     offset_vertex(sub, delta)
   end
 end
@@ -60,9 +69,9 @@ end
 local function nudge(graph)
   for _,v in ipairs(graph.vertices) do
     local nudge = v.options['nudge']
-    if nudge and not v.storage[Sublayouts].alreadyNudged then
+    if nudge and not already_nudged[v] then
       offset_vertex(v, nudge)
-      v.storage[Sublayouts].alreadyNudged = true
+      already_nudged[v] = true
     end
   end
 end
@@ -117,14 +126,14 @@ local function create_subgraph_node(scope, syntactic_digraph, vertex)
   
   -- Remember all the subnodes for nudging and regardless
   -- positioning
-  local subs = {}
+  local s = {}
   for _,v in ipairs(subgraph_collection.vertices) do
     if v ~= vertex then
-      subs[#subs+1] = v
+      s[#s+1] = v
     end
   end
-  
-  vertex.storage[Sublayouts].subs = subs
+
+  subs[vertex] = s
 end
 
 
@@ -165,12 +174,12 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
   
   -- Step 1: Iterate over all sublayouts of the current layout:
   local resulting_graphs = {}
-  local loc = {} -- unique index
+  local loc = Storage.new()
    
   -- Now, iterate over all sublayouts
   for i,child in ipairs(layout:childrenOfKind(InterfaceCore.sublayout_kind)) do
     resulting_graphs[i] = Sublayouts.layoutRecursively(scope, child, fun)
-    resulting_graphs[i].storage[loc].layout = child
+    loc[resulting_graphs[i]] = child
   end
   
   -- Step 2: Run the merge process:
@@ -188,10 +197,10 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
     
     -- Mark first graph and copy everything from there
     marked[1] = true
-    local touched = {}
+    local touched = Storage.new()
     for _,v in ipairs(resulting_graphs[1].vertices) do
-      v.pos = v.storage[resulting_graphs[1]].pos
-      v.storage[touched] = true
+      v.pos = positions[v][resulting_graphs[1]]
+      touched[v] = true
     end    
 
     -- Repeatedly find a node that is connected to a marked node:
@@ -209,14 +218,14 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	      connected_some_graph = true
 	      
 	      -- Shift the i-th graph:
-	      local x_offset = v.pos.x - v.storage[resulting_graphs[i]].pos.x
-	      local y_offset = v.pos.y - v.storage[resulting_graphs[i]].pos.y
+	      local x_offset = v.pos.x - positions[v][resulting_graphs[i]].x
+	      local y_offset = v.pos.y - positions[v][resulting_graphs[i]].y
 
 	      	      
 	      for _,u in ipairs(resulting_graphs[i].vertices) do
-		if u.storage[touched] ~= true then
-		  u.storage[touched] = true
-		  u.pos = u.storage[resulting_graphs[i]].pos:clone()
+		if not touched[u] then
+		  touched[u] = true
+		  u.pos = positions[u][resulting_graphs[i]]:clone()
 		  u.pos:shift(x_offset, y_offset)
 		end
 	      end
@@ -249,7 +258,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
     end
 
     -- Remember the first layout this came from:
-    merge.storage[loc].layout = resulting_graphs[1].storage[loc].layout
+    loc[merge] = loc[resulting_graphs[1]]
 
     -- Restart with rest:
     merged_graphs[#merged_graphs+1] = merge
@@ -344,7 +353,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       y_min = y_min - c_y
       y_max = y_max - c_y
 
-      local index = g.storage[loc].layout.event.index
+      local index = loc[g].event.index
 
       local v = Vertex.new {
 	-- Standard stuff
@@ -393,29 +402,14 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 
   -- Now, we want to call the actual algorithm. This call may modify
   -- the layout's vertices and edges fields, namely when new vertices
-  -- and edges are create. We then need to add these to our local
+  -- and edges are created. We then need to add these to our local
   -- syntactic digraph. So, we remember the length of these fields
   -- prior to the call and then add everything ``behind'' these
   -- positions later on.
 
-  do
-    local num_v = #layout.vertices
-    local num_e = #layout.edges
+  -- Ok, everything setup! Run the algorithm...
+  fun(scope, algorithm, syntactic_digraph, layout)
     
-    -- Ok, everything setup! Run the algorithm...
-    fun(scope, algorithm, syntactic_digraph, layout)
-    
-    for i=num_v+1,#layout.vertices do
-      syntactic_digraph:add { layout.vertices[i] }
-    end
-    for i=num_e+1,#layout.edges do
-      e = layout.edges[i]
-      syntactic_digraph:add {e.head, e.tail}
-      local arc = syntactic_digraph:connect(e.tail, e.head)    
-      arc.syntactic_edges[#arc.syntactic_edges+1] = e
-    end    
-  end
-
   if hidden_node then
     syntactic_digraph:expand(hidden_node)
   end
@@ -454,9 +448,9 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
   -- Step 5: Cleanup  
   -- Push the computed position into the storage:
   for _,v in ipairs(syntactic_digraph.vertices) do
-    v.storage[syntactic_digraph].pos = v.pos:clone()
+    positions[v][syntactic_digraph] = v.pos:clone()
   end
-
+  
   return syntactic_digraph
 end
 

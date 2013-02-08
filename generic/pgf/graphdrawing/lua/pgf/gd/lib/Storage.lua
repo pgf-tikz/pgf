@@ -13,70 +13,90 @@
 
 ---
 -- A storage is an object that, as the name suggests, allows you to
--- ``store stuff.'' Basically, you use a storage object like a
--- table. The only difference is that (a) the keys of this table are
--- weak, so the entries will go away if you no longer use the key any
--- more and (b) whenever you access the table with a key that is a
--- table and that was not yet used, an empty table is created
--- automatically for this key inside the storage.
+-- ``store stuff concerning objects.'' Basically, it behaves like
+-- table having weak keys, which means that once the objects for which
+-- you ``store stuff'' go out of scope, they are also removed from the
+-- storage. Also, you can specify that for each object of the storage
+-- you store a table. In this case, there is no need to initialize
+-- this table for each object; rather, when you write into such a
+-- table and it does not yet exist, it is created ``on the fly''. 
 --
 -- The typical way you use storages is best explained with the
 -- following example: Suppose you want to write a depth-first search
 -- algorithm for a graph. This algorithm might wish to mark all nodes
 -- it has visisted. It could just say |v.marked = true|, but this might
 -- clash with someone else also using the |marked| key. The solution is
--- to use the fact that all vertices have a storage attached to them. The
--- algorithm can first say
+-- to create a |marked| storage. The algorithm can first say
 --\begin{codeexample}[code only]
---local mark = {}
+--local marked = Storage.new()
 --\end{codeexample}
--- to create a unique key and then say
+-- and then say
 --\begin{codeexample}[code only]
---v.storage[mark] = true
+--marked[v] = true
 --\end{codeexample}
--- to mark its objects. This way, the algorithm cannot get into
--- conflict with other algorithms and, even better, once the algorithm
--- is done and |mark| goes out of scope, the entries in the storage table
--- will automatically be removed (it is a table with weak keys).
+-- to mark its objects. The |marked| storage object does not need to
+-- be created locally inside a function, you can declare it as a local
+-- variable of the whole file; nevertheless, the entries for vertices
+-- no longer in use get removed automatically. You can also make it a
+-- member variable of the algorithm class, which allows you make the
+-- information about which objects are marked globally
+-- accessible. 
 --
 -- Now suppose the algorithm would like to store even more stuff in
 -- the storage. For this, we might use a table and can use the fact
 -- that a storage will automatically create a table when necessary:
 --\begin{codeexample}[code only]
---local algo = {} -- some local/unique table
+--local info = Storage.newTableStorage() 
 --
---v.storage[algo].marked = true  -- the "storage[algo]" table is
---                               -- created automatically here
+--info[v].marked = true  -- the "info[v]" table is
+--                       -- created automatically here
 --
---v.storage[algo].foo    = "bar"
+--info[v].foo    = "bar"
 --\end{codeexample}
--- Again, once |algo| goes out of scope, the table will removed. 
+-- Again, once |v| goes out of scope, both it and the info table will
+-- removed.
+
 local Storage = {}
 
 -- Namespace
 require("pgf.gd.lib").Storage = Storage
 
 
+-- The simple metatable
 
-function Storage.__index (t, k)
-  if type(k) == "table" then
-    local new = {}
-    rawset(t, k, new)
-    return new
-  end
-end
+local SimpleStorageMetaTable = { __mode = "k" }
 
-Storage.__mode = "k"
+-- The adcanved metatable for table storages:
+
+local TableStorageMetaTable = {
+  __mode = "k",
+  __index =
+    function(t, k)
+      local new = {}
+      rawset(t, k, new)
+      return new
+    end
+}
 
 
---- Create a new storage object
+---
+-- Create a new storage object.
 --
 -- @return A new |Storage| instance.
 
 function Storage.new()
-  local new = {}
-  setmetatable(new, Storage)
-  return new
+  return setmetatable({}, SimpleStorageMetaTable)
+end
+
+
+---
+-- Create a new storage object which will install a table for every
+-- entry automatilly.
+--
+-- @return A new |Storage| instance.
+
+function Storage.newTableStorage()
+  return setmetatable({}, TableStorageMetaTable)
 end
 
 

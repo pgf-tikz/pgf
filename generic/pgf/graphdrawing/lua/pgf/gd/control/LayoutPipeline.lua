@@ -118,7 +118,7 @@ function LayoutPipeline.run(scope)
   -- Pick first layout:
   local root_layout = assert(scope.collections[InterfaceCore.sublayout_kind][1], "no layout in scope")
   
-  Sublayouts.layoutRecursively(scope, root_layout, LayoutPipeline.runOnLayout, { root_layout })
+  scope.syntactic_digraph = Sublayouts.layoutRecursively(scope, root_layout, LayoutPipeline.runOnLayout, { root_layout })
   
   -- Now, anchor!
   LayoutPipeline.anchor(scope.syntactic_digraph, scope)
@@ -135,15 +135,15 @@ end
 -- algorithm should be invoked for an individual graph. At this point,
 -- the sublayouts will already have been collapsed.
 --
--- @param scope The graph drawing scope, in which the
--- |syntactic_digraph| will have been restricted to the current layout
--- and in which sublayouts will have been contracted to a single node.
+-- @param scope The graph drawing scope.
 -- @param algorithm_class The to-be-applied algorithm class.
--- @param layout_graph A subgraph of the syntactic digraph. 
+-- @param layout_graph A subgraph of the syntactic digraph which is
+-- restricted to the current layout and in which sublayouts have
+-- been contracted to single nodes. 
 -- @param layout The layout to which the graph belongs.
 --
 function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout)
-  
+
   if #layout_graph.vertices < 1 then
     return
   end
@@ -179,7 +179,13 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     local ugraph  = Direct.ugraphFromDigraph(c)
     
     -- Step 2.5: Create an algorithm object
-    local algorithm = algorithm_class.new{ digraph = c, ugraph = ugraph, scope = scope, layout = layout }
+    local algorithm = algorithm_class.new{
+      digraph = c,
+      ugraph = ugraph,
+      scope = scope,
+      layout = layout,
+      layout_graph = layout_graph
+    }
       
     -- Step 2.7: Compute a spanning tree, if necessary
     if algorithm_class.preconditions.tree then
@@ -193,11 +199,13 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     end
 
     -- Step 2.8: Compute growth-adjusted sizes
-    LayoutPipeline.prepareRotateAround(algorithm, c)
-    LayoutPipeline.prepareBoundingBoxes(algorithm, c, c.vertices)
+    algorithm.rotation_info = LayoutPipeline.prepareRotateAround(algorithm.postconditions, c)
+    algorithm.adjusted_bb = Storage.newTableStorage()
+    LayoutPipeline.prepareBoundingBoxes(algorithm.rotation_info, algorithm.adjusted_bb, c, c.vertices)
     
     -- Step 2.9: Finally, run algorithm on this component!
-    if #c.vertices > 1 or algorithm_class.run_also_for_single_node or algorithm_class.preconditions.at_least_two_nodes == false then
+    if #c.vertices > 1 or algorithm_class.run_also_for_single_node
+                       or algorithm_class.preconditions.at_least_two_nodes == false then
       -- Main run of the algorithm:
       if algorithm_class.old_graph_model then
 	LayoutPipeline.runOldGraphModel(scope, c, algorithm_class, algorithm)
@@ -214,7 +222,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     end
     
     -- Step 2.10: Orient the graph
-    LayoutPipeline.orient(algorithm, c, scope)
+    LayoutPipeline.orient(algorithm.rotation_info, algorithm.postconditions, c, scope)
   end
 
   -- Step 5: Packing:
@@ -270,16 +278,16 @@ end
 -- This method tries to determine in which direction the graph is supposed to
 -- grow and in which direction the algorithm will grow the graph. These two
 -- pieces of information togehter produce a necessary rotation around some node.
--- This rotation is stored in the graph's |storage| at the algorithm
--- used as key.
+-- This rotation is returned in a table.
 --
 -- Note that this method does not actually cause a rotation to happen; this is
 -- left to other method.
 --
--- @param algorithm An algorithm
+-- @param postconditions The algorithm's postconditions.
 -- @param graph An undirected graph
+-- @return A table containing the computed information.
 
-function LayoutPipeline.prepareRotateAround(algorithm, graph)
+function LayoutPipeline.prepareRotateAround(postconditions, graph)
   
   -- Find the vertex from which we orient
   local swap = true
@@ -304,11 +312,10 @@ function LayoutPipeline.prepareRotateAround(algorithm, graph)
   end
   
   -- Now compute the rotation
-  local info = graph.storage[algorithm]
-  local growth_direction = v.growth_direction or algorithm.growth_direction
-    or (algorithm.postconditions.upward_oriented and 90) or (algorithm.postconditions.upward_oriented_swapped and 90)
+  local info = {}
+  local growth_direction = (postconditions.upward_oriented and 90) or (postconditions.upward_oriented_swapped and 90)
   
-  if algorithm.postconditions.upward_oriented_swapped then
+  if postconditions.upward_oriented_swapped then
     swap = not swap
   end
   
@@ -335,6 +342,8 @@ function LayoutPipeline.prepareRotateAround(algorithm, graph)
     info.swap = swap
     info.angle = info.to_angle - math.atan2(info.to_node.pos.y - v.pos.y, info.to_node.pos.x - v.pos.x)
   end
+
+  return info
 end
 
 
@@ -360,17 +369,18 @@ end
 -- a special way, all other shapes are currently treated like a
 -- rectangle.
 --
--- @param algorithm An algorithm
+-- @param rotation_info The table computed by prepareRotateAround
+-- @param packing_storage A storage in which the computed distances are stored. 
 -- @param graph    An graph
 -- @param vertices  An array of to-be-prepared vertices inside graph
 
-function LayoutPipeline.prepareBoundingBoxes(algorithm, graph, vertices)
+function LayoutPipeline.prepareBoundingBoxes(rotation_info, adjusted_bb, graph, vertices)
   
-  local angle = assert(graph.storage[algorithm].angle, "angle field missing")
-  local swap  = graph.storage[algorithm].swap
+  local angle = assert(rotation_info.angle, "angle field missing")
+  local swap  = rotation_info.swap
   
   for _,v in ipairs(vertices) do
-    local bb = v.storage[algorithm]
+    local bb = adjusted_bb[v]
     local a  = angle
     
     if v.shape == "circle" and v.hull_center.x == 0 and v.hull_center.y == 0 then
@@ -494,12 +504,13 @@ end
 -- Performs a post-layout orientation of the graph by performing the
 -- steps documented in Section~\ref{subsection-library-graphdrawing-standard-orientation}.
 -- 
--- @param algorithm An algorithm object.
+-- @param rotation_info The info record computed by prepareRotateAround.
+-- @param postconditions The algorithm's postconditions.
 -- @param graph A to-be-oriented graph.
 -- @param scope The graph drawing scope.
 
-function LayoutPipeline.orient(algorithm, graph, scope)
-
+function LayoutPipeline.orient(rotation_info, postconditions, graph, scope)
+  
   -- Sanity check
   if #graph.vertices < 2 then return end
   
@@ -525,7 +536,6 @@ function LayoutPipeline.orient(algorithm, graph, scope)
   local tail, head = string.match(graph.options["vertical'"] or "", "^(.*) to (.*)$")
   if f(-90, tail, head, true) then return end
   
-    
   -- Step 2: Search for a node with the orient option:
   for _, v in ipairs(graph.vertices) do
     local function f (key, flag)
@@ -562,13 +572,12 @@ function LayoutPipeline.orient(algorithm, graph, scope)
   end
   
   -- Computed during preprocessing:
-  local info = graph.storage[algorithm]
-  if info.from_node and info.from_node.growth_direction ~= "fixed" and algorithm.growth_direction ~= "fixed" and algorithm.postconditions.fixed ~= true then
-    local x = info.from_node.pos.x
-    local y = info.from_node.pos.y
-    local from_angle = info.from_angle or math.atan2(info.to_node.pos.y - y, info.to_node.pos.x - x)
+  if rotation_info.from_node and postconditions.fixed ~= true then
+    local x = rotation_info.from_node.pos.x
+    local y = rotation_info.from_node.pos.y
+    local from_angle = rotation_info.from_angle or math.atan2(rotation_info.to_node.pos.y - y, rotation_info.to_node.pos.x - x)
     
-    LayoutPipeline.rotateGraphAround(graph, x, y, from_angle, info.to_angle, info.swap)
+    LayoutPipeline.rotateGraphAround(graph, x, y, from_angle, rotation_info.to_angle, rotation_info.swap)
   end
 end
 
@@ -701,7 +710,7 @@ LayoutPipeline.component_ordering_functions = {
 
 
 
-local function compute_rotated_bb(vertices, angle, sep, store)
+local function compute_rotated_bb(vertices, angle, sep, bb)
   
   local r = Transform.new_rotation(-angle)
   
@@ -734,11 +743,11 @@ local function compute_rotated_bb(vertices, angle, sep, store)
     
     center:apply(t)
     
-    v.storage[store].min_x = min_x
-    v.storage[store].max_x = max_x
-    v.storage[store].min_y = min_y
-    v.storage[store].max_y = max_y
-    v.storage[store].c_y = center.y
+    bb[v].min_x = min_x
+    bb[v].max_x = max_x
+    bb[v].min_y = min_y
+    bb[v].max_y = max_y
+    bb[v].c_y = center.y
   end
 end
 
@@ -753,7 +762,8 @@ end
 
 function LayoutPipeline.packComponents(syntactic_digraph, components)
 
-  local store = {} -- Unique id
+  local vertices = Storage.newTableStorage()
+  local bb = Storage.newTableStorage()
   
   -- Step 1: Preparation, rotation to target direction
   local sep = syntactic_digraph.options['component sep']
@@ -763,19 +773,19 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
   for _,c in ipairs(components) do
     
     -- Setup the lists of to-be-considered nodes
-    local vertices = {}
+    local vs = {}
     for _,v in ipairs(c.vertices) do
-      vertices [#vertices + 1] = v
+      vs [#vs + 1] = v
     end
 
     for _,a in ipairs(c.arcs) do
       for _,p in ipairs(a:pointCloud()) do
-	vertices [#vertices + 1] = Vertex.new { pos = p + a.tail.pos, kind = "dummy" }
+	vs [#vs + 1] = Vertex.new { pos = p + a.tail.pos, kind = "dummy" }
       end
     end
-    c.storage[store] = vertices
+    vertices[c] = vs
 
-    compute_rotated_bb(vertices, angle, sep/2, store)
+    compute_rotated_bb(vs, angle, sep/2, bb)
   end
   
   local x_shifts = { 0 }
@@ -789,7 +799,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     local min_center_y = math.huge
     
     for _,v in ipairs(c.vertices) do
-      local info = v.storage[store]
+      local info = bb[v]
       max_max_y = math.max(info.max_y, max_max_y)
       max_center_y = math.max(info.c_y, max_center_y)
       min_min_y = math.min(info.min_y, min_min_y)
@@ -808,7 +818,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     elseif valign == "clockwise" then
       line = min_center_y
     elseif valign == "first node" then
-      line = c.vertices[1].storage[store].c_y
+      line = bb[c.vertices[1]].c_y
     else 
       line = min_min_y
     end
@@ -816,7 +826,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     -- Overruled?
     for _,v in ipairs(c.vertices) do
       if v.options['align here'] then
-	line = v.storage[store].c_y
+	line = bb[v].c_y
 	break
       end
     end
@@ -825,8 +835,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     y_shifts[i] = -line
 
     -- Adjust nodes:
-    for _,v in ipairs(c.storage[store]) do
-      local info = v.storage[store]
+    for _,v in ipairs(vertices[c]) do
+      local info = bb[v]
       info.min_y = info.min_y - line
       info.max_y = info.max_y - line
       info.c_y = info.c_y - line
@@ -837,8 +847,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
   local y_values = {}
 
   for _,c in ipairs(components) do
-    for _,v in ipairs(c.storage[store]) do
-      local info = v.storage[store]
+    for _,v in ipairs(vertices[c]) do
+      local info = bb[v]
       y_values[#y_values+1] = info.min_y
       y_values[#y_values+1] = info.max_y
       y_values[#y_values+1] = info.c_y
@@ -860,8 +870,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     -- First, update right_face:
     local touched = {}
     
-    for _,v in ipairs(components[i].storage[store]) do
-      local info = v.storage[store]      
+    for _,v in ipairs(vertices[components[i]]) do
+      local info = bb[v]
       local border = info.max_x
       
       for i=y_ranks[info.min_y],y_ranks[info.max_y] do
@@ -899,8 +909,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     for i=1,#y_values do
       left_face[i] = math.huge
     end
-    for _,v in ipairs(components[i+1].storage[store]) do
-      local info = v.storage[store]
+    for _,v in ipairs(vertices[components[i+1]]) do
+      local info = bb[v]
       local border = info.min_x
 
       for i=y_ranks[info.min_y],y_ranks[info.max_y] do
@@ -945,8 +955,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     
     -- Adjust nodes:
     x_shifts[i+1] = shift
-    for _,v in ipairs(components[i+1].storage[store]) do
-      local info = v.storage[store]
+    for _,v in ipairs(vertices[components[i+1]]) do
+      local info = bb[v]
       info.min_x = info.min_x + shift
       info.max_x = info.max_x + shift
     end
@@ -957,7 +967,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     local x =  x_shifts[i]*math.cos(angle) - y_shifts[i]*math.sin(angle)
     local y =  x_shifts[i]*math.sin(angle) + y_shifts[i]*math.cos(angle)
     
-    for _,v in ipairs(c.storage[store]) do
+    for _,v in ipairs(vertices[c]) do
       if v.kind ~= "dummy" then
 	v.pos.x = v.pos.x + x
 	v.pos.y = v.pos.y + y
@@ -1052,13 +1062,13 @@ local function compatibility_digraph_to_graph(scope, g)
   end
 
   -- Edges
-  local mark = {}
+  local mark = Storage.new()
   for _,a in ipairs(g.arcs) do
     local da = g.syntactic_digraph:arc(a.tail, a.head)
     if da then
       for _,m in ipairs(da.syntactic_edges) do
-	if m.storage[mark] ~= true then
-	  m.storage[mark] = true
+	if not mark[m] then
+	  mark[m] = true
 	  local from_node = graph:findNode(da.tail.name)
 	  local to_node = graph:findNode(da.head.name)
 	  local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)
@@ -1071,8 +1081,8 @@ local function compatibility_digraph_to_graph(scope, g)
     local da = g.syntactic_digraph:arc(a.head, a.tail)
     if da then 
       for _,m in ipairs(da.syntactic_edges) do
-	if m.storage[mark] ~= true then
-	  m.storage[mark] = true
+	if not mark[m] then
+	  mark[m] = true
 	  local from_node = graph:findNode(da.tail.name)
 	  local to_node = graph:findNode(da.head.name)
 	  local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)

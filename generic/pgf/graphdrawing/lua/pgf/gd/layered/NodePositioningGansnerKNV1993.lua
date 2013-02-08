@@ -23,7 +23,7 @@ local Edge  = require "pgf.gd.deprecated.Edge"
 local Node  = require "pgf.gd.deprecated.Node"
 
 local NetworkSimplex = require "pgf.gd.layered.NetworkSimplex"
-
+local Storage = require "pgf.gd.lib.Storage"
 
 
 function NodePositioningGansnerKNV1993:run()
@@ -32,17 +32,19 @@ function NodePositioningGansnerKNV1993:run()
   local simplex = NetworkSimplex.new(auxiliary_graph, NetworkSimplex.BALANCE_LEFT_RIGHT)
   simplex:run()
   local x_ranking = simplex.ranking
-
+  
+  local layers = Storage.new()
+  
   local ranks = self.ranking:getRanks()
   for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)
     for _,node in ipairs(nodes) do
       node.pos.x = x_ranking:getRank(node.aux_node)
-      node.orig_vertex.storage[self.main_algorithm].layer = rank
+      layers[node.orig_vertex] = rank
     end
   end
 
-  layered.arrange_layers_by_baselines(self.main_algorithm, self.main_algorithm.ugraph)
+  layered.arrange_layers_by_baselines(layers, self.main_algorithm.adjusted_bb, self.main_algorithm.ugraph)
   
   -- Copy back
   for _,rank in ipairs(ranks) do
@@ -143,7 +145,7 @@ end
 
 
 function NodePositioningGansnerKNV1993:getDesiredHorizontalDistance(v, w)
-  return layered.ideal_sibling_distance(self.main_algorithm, self.graph.orig_digraph, v.orig_vertex, w.orig_vertex)
+  return layered.ideal_sibling_distance(self.main_algorithm.adjusted_bb, self.graph.orig_digraph, v.orig_vertex, w.orig_vertex)
 end
 
 

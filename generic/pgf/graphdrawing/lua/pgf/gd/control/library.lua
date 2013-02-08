@@ -156,6 +156,28 @@ declare {
   }
 }
 
+     
+     
+---
+declare {
+  key = "length",
+  type = "length",
+  initial = 1,
+
+  summary = [["  
+       Sets the ``length'' of an edge. Algorithms may take this value
+       into account when drawing a graph.
+  "]],
+  examples = {
+    [["
+      \tikz \graph [phylogenetic tree layout] {
+        a --[length=2] b --[length=1] {c,d};
+	a --[length=3] e
+      };
+   "]],
+  }
+}
+
 
 ---
 

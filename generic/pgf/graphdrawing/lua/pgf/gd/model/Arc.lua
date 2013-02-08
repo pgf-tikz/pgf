@@ -20,7 +20,7 @@
 -- another graph, you need to newly connect two vertices in the other graph. 
 --
 -- You may read the |head| and |tail| fields, but you may not write
--- them. In order to store data in an arc, use the |storage| field.
+-- them. In order to store data for an arc, use |Storage| objects.
 --
 -- Between any two vertices of a graph there can be only one arc, so
 -- all digraphs are always simple graphs. However, in the
@@ -40,7 +40,6 @@
 -- @field tail The tail vertex of the arc.
 -- @field head The head vertex of the arc. May be the same as the tail
 -- in case of a loop.
--- @field storage A storage.
 -- @field path If nonempty, the path of the arc. See the description
 -- above.
 -- @field syntactic_edges This field is an array containing syntactic
@@ -138,8 +137,8 @@ local lib = require "pgf.gd.lib"
 --
 function Arc:optionsArray(option)
   
-  local storage = self.storage
-  local t = storage[option]
+  local cache = self.option_cache
+  local t = cache[option]
   if t then
     return t
   end
@@ -179,7 +178,7 @@ function Arc:optionsArray(option)
   for i=1,#anti_aligned do
     t[#t+1] = anti_aligned[i].options[option]
   end
-  storage[option] = t
+  cache[option] = t
   
   return t
 end
@@ -266,6 +265,29 @@ end
 
 
 
+---
+-- Compute the syntactic head and tail of an arc. For this, we have a
+-- look at the syntactic digraph underlying the arc. If there is at
+-- least once syntactic edge going from the arc's tail to the arc's
+-- head, the arc's tail and head are returned. Otherweise, we test
+-- whether there is a syntactic edge in the other direction and, if
+-- so, return head and tail in reverse order. Finally, if there is no
+-- syntactic edge at all corresponding to the arc in either direction,
+-- |nil| is returned.
+--
+-- @return The syntactic tail
+-- @return The syntactic head
+
+function Arc:syntacticTailAndHead ()
+  local s_graph = self.syntactic_digraph
+  local tail = self.tail
+  local head = self.head
+  if s_graph:arc(tail, head) then
+    return tail, head
+  elseif s_graph:arc(head, tail) then
+    return head, tail
+  end
+end
 
 
 ---

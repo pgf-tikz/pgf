@@ -19,7 +19,7 @@ local ReingoldTilford1981 = {}
 -- Imports
 local layered = require "pgf.gd.layered"
 local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
-
+local Storage = require "pgf.gd.lib.Storage"
 
 ---
 declare {
@@ -331,45 +331,48 @@ declare {
 function ReingoldTilford1981:run()
   
   local root = self.spanning_tree.root
+
+  local layers = Storage.new()
+  local descendants = Storage.new()
   
   self.extended_version = self.digraph.options['missing nodes get space']
   
-  self:precomputeDescendants(root, 1)
-  self:computeHorizontalPosition(root)
-  layered.arrange_layers_by_baselines(self, self.ugraph)
+  self:precomputeDescendants(root, 1, layers, descendants)
+  self:computeHorizontalPosition(root, layers, descendants)
+  layered.arrange_layers_by_baselines(layers, self.adjusted_bb, self.ugraph)
 
 end
 
 
-function ReingoldTilford1981:precomputeDescendants(node, depth)
-  local descendants = { node }
+function ReingoldTilford1981:precomputeDescendants(node, depth, layers, descendants)
+  local my_descendants = { node }
 
   for _,arc in ipairs(self.spanning_tree:outgoing(node)) do
     local head = arc.head
-    self:precomputeDescendants(head, depth+1)
-    for _,d in ipairs(head.storage[self].descendants) do
-      descendants[#descendants + 1] = d
+    self:precomputeDescendants(head, depth+1, layers, descendants)
+    for _,d in ipairs(descendants[head]) do
+      my_descendants[#my_descendants + 1] = d
     end
   end
-
-  node.storage[self].layer = depth
-  node.storage[self].descendants = descendants
+  
+  layers[node] = depth
+  descendants[node] = my_descendants
 end
 
 
 
-function ReingoldTilford1981:computeHorizontalPosition(node)
+function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants)
   
   local children = self.spanning_tree:outgoing(node)
 
   node.pos.x = 0
 
-  local child_depth = node.storage[self].layer + 1
+  local child_depth = layers[node] + 1
 
   if #children > 0 then
     -- First, compute positions for all children:
     for i=1,#children do
-      self:computeHorizontalPosition(children[i].head)
+      self:computeHorizontalPosition(children[i].head, layers, descendants)
     end
     
     -- Now, compute minimum distances and shift them
@@ -381,8 +384,8 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
       
       -- Advance "right border" of the subtree rooted at
       -- the i-th child
-      for _,d in ipairs(children[i].head.storage[self].descendants) do
-        local layer = d.storage[self].layer
+      for _,d in ipairs(descendants[children[i].head]) do
+        local layer = layers[d]
         local x     = d.pos.x          
         if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
           if not right_borders[layer] or right_borders[layer].pos.x < x then
@@ -396,8 +399,8 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
 
       local left_borders = {}
       -- Now left for i+1 st child
-      for _,d in ipairs(children[i+1].head.storage[self].descendants) do
-        local layer = d.storage[self].layer
+      for _,d in ipairs(descendants[children[i+1].head]) do
+        local layer = layers[d]
         local x     = d.pos.x          
         if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
           if not left_borders[layer] or left_borders[layer].pos.x > x then
@@ -418,7 +421,7 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
         if n1 then
           shift = math.max(
             shift, 
-            layered.ideal_sibling_distance(self, self.ugraph, n1, n2) + n1.pos.x - n2.pos.x
+            layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, n1, n2) + n1.pos.x - n2.pos.x
           )
         end
         if local_right_borders[layer] then
@@ -434,7 +437,7 @@ function ReingoldTilford1981:computeHorizontalPosition(node)
       end
 
       -- Shift all nodes in the subtree by shift:
-      for _,d in ipairs(children[i+1].head.storage[self].descendants) do
+      for _,d in ipairs(descendants[children[i+1].head]) do
         d.pos.x = d.pos.x + shift
       end
     end

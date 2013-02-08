@@ -65,8 +65,9 @@ local vertex_created
 
 -- Local objects
 
-local phase_unique = {}  -- a unique handle
-local option_cache = nil -- The option cache
+local phase_unique       = {}  -- a unique handle
+local collections_unique = {}  -- a unique handle
+local option_cache       = nil -- The option cache
 
 
 
@@ -283,7 +284,7 @@ function InterfaceToDisplay.createVertex(name, shape, hull, height, binding_info
   v.created_on_display_layer = true
 
   -- Call binding
-  v.storage[binding] = binding_infos
+  binding.storage[v] = binding_infos
   binding:everyVertexCreation(v)
 end
 
@@ -386,7 +387,8 @@ function InterfaceToDisplay.pushSubgraphVertex(name, height, info)
   v.subgraph_info        = info
 
   -- Create collection and link it to v
-  v.subgraph_collection = InterfaceToDisplay.pushCollection(InterfaceCore.subgraph_node_kind, height)
+  local _, _, entry = InterfaceToDisplay.pushOption(InterfaceCore.subgraph_node_kind, nil, height)
+  v.subgraph_collection = entry.value
   v.subgraph_collection.subgraph_node = v
 
   -- Find parent collection in options stack:
@@ -496,7 +498,7 @@ function InterfaceToDisplay.createEdge(tail, head, direction, height, binding_in
   end
 
   -- Call binding
-  edge.storage[binding] = binding_infos
+  binding.storage[edge] = binding_infos
   binding:everyEdgeCreation(edge)
   
 end
@@ -515,96 +517,110 @@ end
 -- which you actually wish to push something; everything above and
 -- including this position will be popped from the stack.
 --
+-- When an option is pushed, several additional options may also be
+-- pushed, namely whenever the option has a |use| field set. These
+-- additional options may, in turn, also push new options. Because of
+-- this, this function returns a new stack height, representing the
+-- resulting stack height.
+--
+-- In addition to this stack height, this function returns a Boolean
+-- value indicating whether a ``main algorithm phase was set.'' This
+-- happens whenever a key is executed (directly or indirectly through
+-- the |use| field) that selects an algorithm for the ``main''
+-- algorithm phase. This information may help the caller to setup the
+-- graph drawing scopes correctly.
+--
 -- @param key A parameter (must be a string).
 -- @param value A value (can be anything). If it is a string, it will
 -- be converted to whatever the key expects.
 -- @param height A stack height at which to insert the key. Everything
--- above this height will be removed. 
-
-function InterfaceToDisplay.pushOption(key, value, height)
-  assert (type(key) == "string" and
-	  key ~= "algorithm_phases" and
-	  key ~= "collections", "illegal parameter key")
-  
-  push_on_option_stack(key, InterfaceCore.convert(value, InterfaceCore.keys[key].type), height)
-end
-
-
----
--- Push an algorithm phase to the stack of options. Works like pushing
--- an option, only this option sets the algorithm  
--- used in a particular algorithm phase. Use this to set
--- algorithm phases previously declared using |declare|, see
--- |InterfaceToAlgorithm.declare| for details.
---
--- @param algorithm_name The name (key) of an algorithm.
--- @param phase The phase name.
--- @param height A stack height at which to insert the key. Everything
--- above this height will be removed. 
-
-function InterfaceToDisplay.pushPhase(algorithm_name, phase, height)
-
-  if type(InterfaceCore.algorithm_classes[algorithm_name]) == "function" then
-    -- Call the constructor function 
-    InterfaceCore.algorithm_classes[algorithm_name] = InterfaceCore.algorithm_classes[algorithm_name]()
-  end
-
-  local algorithm = InterfaceCore.algorithm_classes[algorithm_name]
-  
-  assert (type(phase) == "string", "phase name must be a string")
-  assert (algorithm, "algorithm class not found")
-  
-  push_on_option_stack(phase_unique,
-		       { phase = phase, algorithm = algorithm },
-		       height)
-end
-
-
-
----
--- Push a collection to the stack of options. 
---
--- To start a collection, you call this function to push a collection
--- onto the option stack. As long as this collection is on the stack, all
--- vertices and edges whose options table contains this collection
--- will be part of the collection. Additionally, the collection itself
--- will be a child collection of the next collection on the stack and it
--- will be a descendant of all collections on the stack.
---
--- @param kind The collection kind.
--- @param height A stack height at which to insert the key. Everything
 -- above this height will be removed.
 --
--- @return The pushed collection.
+-- @return A new stack height
+-- @return A Boolean that is |true| iff the main algorithm phase was
+-- set by the option or one option |use|d by it.
+-- @return The newly created entry on the stack. If more entries are
+-- created through the use of the |use| field, the original entry is
+-- returned nevertheless.
 
-function InterfaceToDisplay.pushCollection(kind, height)
 
-  local stack = InterfaceCore.option_stack
-  local scope = InterfaceCore.topScope()
-
-  assert (InterfaceCore.collection_kinds[kind], "collection kind not declared")
-
-  -- Get the stack above "height":
-  local options = get_current_options_table(height-1)
+function InterfaceToDisplay.pushOption(key, value, height)
+  assert(type(key) == "string", "illegal key")
   
-  -- Create the collection event
-  local event = InterfaceToDisplay.createEvent ("collection", kind)
+  local key_record = assert(InterfaceCore.keys[key], "unknown key")
+  local main_phase_set = false
   
-  -- Create collection object:
-  local collection = Collection.new { kind = kind, options = options, event = event }
-
-  -- Store in collections table of current scope:
-  local collections = scope.collections[kind] or {}
-  collections[#collections + 1] = collection
-  scope.collections[kind] = collections
-
-  -- Build collection tree
-  collection:registerAsChildOf(options.collections[#options.collections])
+  -- Find out what kind of key we are pushing:
   
-  -- Push on stack
-  push_on_option_stack("collections", collection, height)
+  if key_record.algorithm then
+    -- Push a phase
+    if type(InterfaceCore.algorithm_classes[key]) == "function" then
+      -- Call the constructor function 
+      InterfaceCore.algorithm_classes[key] = InterfaceCore.algorithm_classes[key]()
+    end
 
-  return collection
+    local algorithm = InterfaceCore.algorithm_classes[key]
+    
+    assert (algorithm, "algorithm class not found")
+    
+    push_on_option_stack(phase_unique,
+			 { phase = key_record.phase, algorithm = algorithm },
+			 height)
+    
+    if key_record.phase == "main" then
+      main_phase_set = true
+    end
+    
+  elseif key_record.layer then
+    -- Push a collection
+    local stack = InterfaceCore.option_stack
+    local scope = InterfaceCore.topScope()
+    
+    -- Get the stack above "height":
+    local options = get_current_options_table(height-1)
+    
+    -- Create the collection event
+    local event = InterfaceToDisplay.createEvent ("collection", key)
+    
+    -- Create collection object:
+    local collection = Collection.new { kind = key, options = options, event = event }
+    
+    -- Store in collections table of current scope:
+    local collections = scope.collections[key] or {}
+    collections[#collections + 1] = collection
+    scope.collections[key] = collections
+    
+    -- Build collection tree
+    collection:registerAsChildOf(options.collections[#options.collections])
+    
+    -- Push on stack
+    push_on_option_stack(collections_unique, collection, height)
+    
+  else
+    
+    -- A normal key
+    push_on_option_stack(key, InterfaceCore.convert(value, InterfaceCore.keys[key].type), height)
+    
+  end
+
+  local newly_created = InterfaceCore.option_stack[#InterfaceCore.option_stack]
+
+  -- Now, push use keys:
+  local use = key_record.use
+  if key_record.use then
+    local flag
+    for _,u in ipairs(InterfaceCore.keys[key].use) do
+      local use_k = u.key
+      local use_v = u.value
+      if type(use_v) == "function" then
+	use_v = use_v(value)
+      end
+      height, flag = InterfaceToDisplay.pushOption(use_k, use_v, height+1)
+      main_phase_set = main_phase_set or flag
+    end
+  end
+
+  return height, main_phase_set, newly_created
 end
 
 
@@ -615,14 +631,10 @@ end
 --
 -- @param height A stack height at which to insert the key. Everything
 -- above this height will be removed.
--- @return The layout
 
 function InterfaceToDisplay.pushLayout(height)
-  return InterfaceToDisplay.pushCollection(InterfaceCore.sublayout_kind, height)
+  InterfaceToDisplay.pushOption(InterfaceCore.sublayout_kind, nil, height)
 end
-
-
-
 
 
 
@@ -915,20 +927,10 @@ function get_current_options_table (height, table)
     local function handle (k, v)
       if k == phase_unique then
 	algorithm_phases[v.phase] = v.algorithm
-      elseif k == "collections" then
+      elseif k == collections_unique then
 	LookupTable.addOne(collections, v)
       else
 	cache[k] = v
-	if keys[k].use then
-	  for _,u in ipairs(keys[k].use) do
-	    local use_k = u.key
-	    local use_v = u.value
-	    if type(use_v) == "function" then
-	      use_v = use_v(v)
-	    end
-	    handle(use_k, use_v)
-	  end
-	end
       end
     end
     

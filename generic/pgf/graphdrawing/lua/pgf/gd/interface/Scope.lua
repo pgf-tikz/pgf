@@ -48,8 +48,6 @@
 -- @field node_names A table that maps the names of nodes to node
 -- objects. Every node must have a unique name.
 --
--- @field storage A |Storage| object for the scope.
---
 -- @field coroutine A Lua coroutine that is used internally to allow
 -- callbacks to the display layer to be issued deep down during a run
 -- of an algorithm.
@@ -83,7 +81,6 @@ function Scope.new(initial)
 				  syntactic_digraph = Digraph.new{},
 				  events            = {},
 				  node_names        = {},
-				  storage           = Storage.new(),
 				  coroutine         = nil,
 				  collections       = {},
 				}), Scope)

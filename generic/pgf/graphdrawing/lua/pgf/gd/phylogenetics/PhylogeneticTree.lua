@@ -1,62 +1,91 @@
-local PhylogeneticTree = pgf.gd.new_algorithm_class {
-  properties = {},
-  growth_direction = 90,
-}
+-- Copyright 2013 by Sarah Mäusle and Till Tantau
+--
+-- This file may be distributed an/or modified
+--
+-- 1. under the LaTeX Project Public License and/or
+-- 2. under the GNU Public License
+--
+-- See the file doc/generic/pgf/licenses/LICENSE for more information
 
-require("pgf.gd.trees").PhylogeneticTree = PhylogeneticTree
+-- @release $Header$
 
-local UPGMA = require "pgf.gd.trees.UPGMA1958"
-local BME = require "pgf.gd.trees.BalancedMinimumEvolution2002"
-local Maeusle2012 = require "pgf.gd.trees.Maeusle2012"
+
+local PhylogeneticTree = {}
+
+
+-- Namespace
+require("pgf.gd.phylogenetics").PhylogeneticTree = PhylogeneticTree
+
+-- Imports
+local InterfaceToAlgorithms = require "pgf.gd.interface.InterfaceToAlgorithms"
+local Storage               = require "pgf.gd.lib.Storage"
+local Direct                = require "pgf.gd.lib.Direct"
+
+-- Shorthand:
+local declare = InterfaceToAlgorithms.declare
+
 
 ---
--- The edge length between two vertices should be stored in vertex.storage.length[vertex2]
---
+declare {
+  key = "phylogenetic tree layout",
+  algorithm = PhylogeneticTree,
+  
+  postconditions = {
+    upward_oriented = true
+  },
 
---- Computes a phylogenetic tree and/or visualizes it
---	- computes a phylogenetic tree according to what the "phylogenetic algorithm" key is set to
---	- invokes a graph drawing algorithm according to what the "phylogenetic layout" key is set to
---	@return The complete phylogenetic tree
+  summary = [["  
+      Layout for drawing phylogenetic trees. 
+  "]],
+  documentation = [["
+      ...
+  "]],
+  examples = [["
+      \tikz \graph [phylogenetic tree layout, upgma,
+                    distance matrix={
+                      0 4 9 9 9 9 9
+                      4 0 9 9 9 9 9
+                      9 9 0 2 7 7 7
+                      9 9 2 0 7 7 7
+                      9 9 7 7 0 3 5
+                      9 9 7 7 3 0 5
+                      9 9 7 7 5 5 0}]
+        { a, b, c, d, e, f, g };
+  "]]
+}
+    
+    
+-- Computes a phylogenetic tree and/or visualizes it
+-- - computes a phylogenetic tree according to what the "phylogenetic
+-- algorithm" key is set to
+-- - invokes a graph drawing algorithm according to what the
+-- "phylogenetic layout" key is set to 
 function PhylogeneticTree:run()
-  local g = self.digraph
-  -- get the distance scaling factor
-  g.storage.factor = g.options['/graph drawing/distance scaling factor'] 
+  
+  local options = self.digraph.options
+  
+  -- Two storages for some information computed by the phylogenetic
+  -- tree generation algorithm 
+  local lengths   = Storage.newTableStorage()
+  
+  -- First, compute the phylogenetic tree
+  local tree = options.algorithm_phases['phylogenetic tree generation'].new {
+    main_algorithm = self,
+    lengths        = lengths
+  }:run()
+  
+  tree = Direct.ugraphFromDigraph(tree)
+  
+  -- Second, layout the tree
+  local layout_class = options.algorithm_phases['phylogenetic tree layout']
+  layout_class.new {
+    main_algorithm = self,
+    distances      = distances,
+    lengths        = lengths,
+    tree           = tree
+  }:run()
 
-  -- get phylogenetic algorithm from user input
-  local p_a = g.options['/graph drawing/phylogenetic algorithm']
-  -- run BME
-  if (p_a == 'BME' or p_a == 'bme' or
-      p_a == 'balanced minimum evolution' or
-      p_a == 'Balanced Minimum Evolution' or
-      p_a == 'BME without BNNI') then
-  	g.storage.bme = true
-    BME:run(self)
-  -- run UPGMA
-  elseif (p_a == 'UPGMA' or
-          p_a == 'upgma') then
-		g.storage.upgma = true
-    UPGMA:run(self)
-  elseif (not p_a or p_a == 'none') then
-    -- tree topology must be specified by the user
-  else
-    assert(false, "Phylogenetic algorithm does not exist.")
-	end
-
-  -- get graph drawing options from user input
-  g.storage.layout = g.options['/graph drawing/phylogenetic layout']
-  local layout = g.storage.layout
-
-  -- run phylogenetic graph drawing algorithm: Maeusle2012
-  if (layout == 'rectangular phylogram' or
-      layout == 'rooted rectangular phylogram' or
-      layout == 'rooted straight phylogram' or
-      layout == 'straight phylogram' or
-      layout == 'unrooted rectangular phylogram' or
-      layout == 'unrooted straight phylogram') then
-    Maeusle2012:run(self)
-  else
-    assert(false, "No layout specified.")
-  end
+  tree:sync()
 end
 
 return PhylogeneticTree

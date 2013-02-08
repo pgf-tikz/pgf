@@ -48,7 +48,7 @@ declare {
       the Huffman tree, new nodes are created and connected.
       
       \pgfgdset{
-        HuffmanLabel/.style={/tikz/edge node={node[fill=white,font=\pgfutil@font@footnotesize,inner sep=1pt]{#1}}},
+        HuffmanLabel/.style={/tikz/edge node={node[fill=white,font=\footnotesize,inner sep=1pt]{#1}}},
         HuffmanNode/.style={/tikz/.cd,circle,inner sep=0pt,outer sep=0pt,draw,minimum size=3pt}
       }
       
@@ -89,6 +89,10 @@ declare {
 -- Import
 local layered = require "pgf.gd.layered"
 local InterfaceToAlgorithms = require "pgf.gd.interface.InterfaceToAlgorithms"
+local Storage = require "pgf.gd.lib.Storage"
+
+local probability = Storage.new()
+local layer       = Storage.new()
 
 function SimpleHuffman:run()
   -- Construct a Huffman tree on top of the vertices...
@@ -98,7 +102,9 @@ function SimpleHuffman:run()
          that changes as the Huffman coding method proceeds:
 \begin{codeexample}[code only]
   -- Shorthand
-  local function prop (v) return v.storage[self].prop or v.options['probability'] end
+  local function prop (v)
+    return probability[v] or v.options['probability']
+  end
         
   -- Copy the vertex table, since we are going to modify it:
   local vertices = {}
@@ -110,19 +116,18 @@ function SimpleHuffman:run()
          The initial vertices are arranged in a line on the last layer. The
          function |ideal_sibling_distance| takes care of the rather
          complicated handling of the (possibly rotated) bounding boxes and
-         separations. The |storage[self]| is a table that can be used by
-         algorithms to ``store stuff'' at a vertex or at an arc. In this
-         case, we store the ``layer'' of the vertices here. The table will be
-         accessed by |arrange_layers_by_baselines| to determine the ideal
-         vertical placements.
+         separations. The |props| and |layer| are tables used by
+         algorithms to ``store stuff'' at a vertex or at an arc. The
+         table will be accessed by |arrange_layers_by_baselines| to
+         determine the ideal vertical placements.
 \begin{codeexample}[code only]
   -- Now, arrange the nodes in a line:
   vertices [1].pos.x = 0
-  vertices [1].storage[self].layer = #vertices
+  layer[ vertices [1] ] = #vertices
   for i=2,#vertices do
-    local d = layered.ideal_sibling_distance(self, self.ugraph, vertices[i-1], vertices[i])
+    local d = layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, vertices[i-1], vertices[i])
     vertices [i].pos.x = vertices[i-1].pos.x + d
-    vertices [i].storage[self].layer = #vertices
+    layer[ vertices [i] ] = #vertices
   end
 \end{codeexample}  
       
@@ -150,8 +155,8 @@ function SimpleHuffman:run()
     -- Create new node:
     local p = prop(vertices[min1]) + prop(vertices[min2])
     local v = InterfaceToAlgorithms.createVertex(self, { generated_options = {{key="HuffmanNode"}}})
-    v.storage[self].prop = p
-    v.storage[self].layer = #vertices-1
+    probability[v] = p
+    layer[v] = #vertices-1
     v.pos.x = (vertices[min1].pos.x + vertices[min2].pos.x)/2
     vertices[#vertices + 1] = v
     
@@ -167,7 +172,7 @@ function SimpleHuffman:run()
          Ok, we are mainly done now. Finish by computing vertical placements
          and do formal cleanup.
 \begin{codeexample}[code only]
-  layered.arrange_layers_by_baselines(self, self.ugraph)
+  layered.arrange_layers_by_baselines(layers, self.adjusted_bb, self.ugraph)
 end
 \end{codeexample}
       
@@ -203,13 +208,22 @@ declare {
 }
   
 -- Imports
+    
+local Storage    =  require 'pgf.gd.lib.Storage'
+    
+-- Storages
+    
+local probability = Storage.new()
+local layer       = Storage.new()
 
 
 function SimpleHuffman:run()
   -- Construct a Huffman tree on top of the vertices...
 
   -- Shorthand
-  local function prop (v) return v.storage[self].prop or v.options['probability'] end
+  local function prop (v)
+    return probability[v] or v.options['probability']
+  end
   
   -- Copy the vertex table, since we are going to modify it:
   local vertices = {}
@@ -219,11 +233,11 @@ function SimpleHuffman:run()
   
   -- Now, arrange the nodes in a line:
   vertices [1].pos.x = 0
-  vertices [1].storage[self].layer = #vertices
+  layer[vertices [1]] = #vertices
   for i=2,#vertices do
-    local d = layered.ideal_sibling_distance(self, self.ugraph, vertices[i-1], vertices[i])
+    local d = layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, vertices[i-1], vertices[i])
     vertices [i].pos.x = vertices[i-1].pos.x + d
-    vertices [i].storage[self].layer = #vertices
+    layer[vertices [i]] = #vertices
   end
   
   -- Now, do the Huffman thing...
@@ -243,8 +257,8 @@ function SimpleHuffman:run()
     -- Create new node:
     local p = prop(vertices[min1]) + prop(vertices[min2])
     local v = InterfaceToAlgorithms.createVertex(self, { generated_options = {{key="HuffmanNode"}}})
-    v.storage[self].prop = p
-    v.storage[self].layer = #vertices-1
+    probability[v] = p
+    layer[v] = #vertices-1
     v.pos.x = (vertices[min1].pos.x + vertices[min2].pos.x)/2
     vertices[#vertices + 1] = v
     
@@ -257,7 +271,7 @@ function SimpleHuffman:run()
     table.remove(vertices, math.min(min1, min2))
   end
   
-  layered.arrange_layers_by_baselines(self, self.ugraph)
+  layered.arrange_layers_by_baselines(layer, self.adjusted_bb, self.ugraph)
 end
 
 return SimpleHuffman
