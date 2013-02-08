@@ -172,7 +172,7 @@ declare {
     [["
       \tikz \graph [phylogenetic tree layout] {
         a --[length=2] b --[length=1] {c,d};
-	a --[length=3] e
+        a --[length=3] e
       };
    "]],
   }

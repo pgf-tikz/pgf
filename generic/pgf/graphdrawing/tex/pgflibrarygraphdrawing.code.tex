@@ -142,15 +142,17 @@
 \def\pgf@gd@handle@parameter#1#2#3{%
   \pgfkeys{/graph drawing/conversions/#2={#3}}%
   \advance\pgf@gd@parameter@stack@height by1\relax%
-  \directlua{pgf.gd.interface.InterfaceToDisplay.pushOption%
-    ('\luaescapestring{#1}',\pgfgdresult,\the\pgf@gd@parameter@stack@height)}
+  \pgf@gd@parameter@stack@height\directlua{%
+    local new, main = pgf.gd.interface.InterfaceToDisplay.pushOption('\luaescapestring{#1}',\pgfgdresult,\the\pgf@gd@parameter@stack@height)
+    tex.print(new..'\luaescapestring{\relax}')
+    if main then
+      tex.print('\luaescapestring{\noexpand\pgfgdtriggerrequest}') 
+    end}%   
 }%
 \newcount\pgf@gd@parameter@stack@height
 
-%\def\pgfgdcallbacksetinitial#1#2#3{%
-%  \pgfkeys{/graph drawing/conversions/#2={#3}}%
-%  \directlua{pgf.gd.interface.InterfaceToDisplay.setOptionInitial('\luaescapestring{#1}',\pgfgdresult)}
-%}
+\def\pgfgdtriggerrequest{\pgfgdset{@request scope and layout}}
+
 
 % Conversions are used to adapt the syntactic description of a
 % parameter on the TikZ layer to the one expected by Lua. The set of
@@ -160,26 +162,17 @@
 \pgfgdset{
   conversions/string/.code=\def\pgfgdresult{'\luaescapestring{\detokenize{#1}}'},
   conversions/raw/.code=\def\pgfgdresult{#1},
+  conversions/nil/.code=\let\pgfgdresult\pgfgd@niltext,
   conversions/boolean/.code=\def\pgf@test{#1}\ifx\pgf@test\pgf@truetext\def\pgfgdresult{true}\else\ifx\pgf@test\pgfkeysnovalue@text\def\pgfgdresult{true}\else\def\pgfgdresult{false}\fi\fi,
   conversions/number/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
   conversions/length/.code=\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult,
   conversions/direction/.code=\pgf@lib@gd@grow@dir{#1}\let\pgfgdresult\pgfmathresult,
   conversions/canvas coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{pgf.gd.model.Coordinate.new(#1,#2)}},
   % deprecated, will be removed:
-  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1,#2}}},
-  conversions/number with optional and/.code={
-    \pgfutil@in@{ and }{#1}%
-    \ifpgfutil@in@%
-      \pgf@gd@convert@and#1\pgf@stop%
-    \else%
-      \pgf@gd@convert@and#1 and #1\pgf@stop%
-    \fi%
-  },
-  conversions/table with node keys/.code=\def\pgfgdresult{pgf.gd.control.TeXInterface.convertNameKeysToVertexKeys({#1})},
+  conversions/coordinate/.code args={(#1pt,#2pt)}{\edef\pgfgdresult{{#1,#2}}}
 }
 \def\pgf@truetext{true}
-
-\def\pgf@gd@convert@and#1 and #2\pgf@stop{\pgfmathparse{#1}\let\pgfgdresult\pgfmathresult}
+\def\pgfgd@niltext{nil}
 
 \def\pgf@lib@gd@grow@dir#1{%
   \def\pgf@temp{#1}%
@@ -218,55 +211,6 @@
 }
 
 
-
-% Callback for declaring a graph drawing algorithm
-%
-% #1 = Key
-% #2 = Phase
-%
-% Description:
-% 
-% This callback is called to declare a key that selects a specific
-% graph drawing algrorithm.
-
-\def\pgfgdcallbackdeclarealgorithm#1#2{%
-  \def\pgf@temp{#2}%
-  \ifx\pgf@temp\pgf@gd@maintext%
-    \pgfkeysdef{/graph drawing/#1}{\pgf@gd@handle@phase{#1}{#2}\pgfgdset{@request scope and layout}}%
-  \else
-    \pgfkeysdef{/graph drawing/#1}{\pgf@gd@handle@phase{#1}{#2}}%
-  \fi%
-  \pgfgd@callbackkey{#1}%  
-}
-\def\pgf@gd@handle@phase#1#2{%
-  \advance\pgf@gd@parameter@stack@height by1\relax%
-  \directlua{pgf.gd.interface.InterfaceToDisplay.pushPhase%
-    ('\luaescapestring{#1}','\luaescapestring{#2}',\the\pgf@gd@parameter@stack@height)}
-}%
-\def\pgf@gd@maintext{main}
-
-
-
-% Callback for declaring a collection kind
-%
-% #1 = Key
-%
-% Description:
-% 
-% This callback is called to declare a key that creates a new
-% collection kind. See |Binding.declare_collection_kind| for details.
-%
-
-\def\pgfgdcallbackdeclarecollectionkind#1{
-  \pgfkeysdef{/graph drawing/#1}{\pgf@gd@make@collection{#1}}
-  \pgfgd@callbackkey{#1}%  
-}
-
-\def\pgf@gd@make@collection#1{%
-  \advance\pgf@gd@parameter@stack@height by1\relax%
-  \directlua{pgf.gd.interface.InterfaceToDisplay.pushCollection%
-    ('\luaescapestring{#1}',\the\pgf@gd@parameter@stack@height)}%
-}
 
 
 

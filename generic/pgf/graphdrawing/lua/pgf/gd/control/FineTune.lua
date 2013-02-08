@@ -12,6 +12,8 @@
 
 local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 
+local Coordinate    = require "pgf.gd.model.Coordinate"
+local lib           = require "pgf.gd.lib"
 
 ---
 -- @section subsection {Fine-Tuning Positions of Nodes}
@@ -50,7 +52,10 @@ declare {
 
 declare {
   key = "nudge up",
-  { key = "nudge", value = "(0,#1)" },
+  type = "length",
+  use = {
+    { key = "nudge", value = function (v) return Coordinate.new(0,v) end }
+  },
 
   summary = "A shorthand for nudging a node upwards.",
   examples = [["
@@ -67,7 +72,10 @@ declare {
 
 declare {
   key = "nudge down",
-  { key = "nudge", value = "(0,-#1)" },
+  type = "length",
+  use = {
+    { key = "nudge", value = function (v) return Coordinate.new(0,-v) end }
+  },
 
   summary = "Like |nudge up|, but downwards."
 }
@@ -77,7 +85,10 @@ declare {
 
 declare {
   key = "nudge left",
-  { key = "nudge", value = "(-#1,0)" },
+  type = "length",
+  use = {
+    { key = "nudge", value = function (v) return Coordinate.new(-v,0) end }
+  },
 
   summary = "Like |nudge up|, but left.",
   examples = [["
@@ -93,7 +104,10 @@ declare {
 
 declare {
   key = "nudge right",
-  { key = "nudge", value = "(#1,0)" },
+  type = "length",
+  use = {
+    { key = "nudge", value = function (v) return Coordinate.new(v,0) end }
+  },
 
   summary = "Like |nudge left|, but right."
 }
@@ -128,8 +142,11 @@ declare {
 
 declare {
   key = "nail at",
-  { key = "desired at", value = "#1" },
-  { key = "regardless at", value = "#1" },
+  type = "canvas coordinate",
+  use = {
+    { key = "desired at", value = lib.id },
+    { key = "regardless at", value = lib.id },
+  },
 
   summary = [["
       This option combines |desired at| and |regardless at|. Thus, the
@@ -137,6 +154,12 @@ declare {
       the node at the desired position, it will be put there
       regardless. The name of the key is intended to remind one of a node
       being ``nailed'' to the canvas.
+  "]],
+  examples = [["
+      \tikz \graph [edges=rounded corners, nodes=draw,
+                    layered layout, sibling distance=0] {
+        a -- {b,c,d[nail at={(1,0)}]} -- e[nail at={(1.5,-1)}] -- a;
+      };
   "]]
 }
 
