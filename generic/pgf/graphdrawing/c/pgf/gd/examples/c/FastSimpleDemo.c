@@ -5,7 +5,7 @@
 
 static void fast_hello_world (pgfgd_Digraph* graph) {
   double angle  = 6.28318530718 / graph->vertices.length;
-  double radius = pgfgd_tonumber(graph->options,"my radius");
+  double radius = pgfgd_tonumber(graph->options, "my radius");
   
   int i;
   for (i = 0; i < graph->vertices.length; i++) {
@@ -13,10 +13,6 @@ static void fast_hello_world (pgfgd_Digraph* graph) {
     v->pos.x = cos(angle*i) * radius;
     v->pos.y = sin(angle*i) * radius;
   }
-
-  pgfgd_Edge* e = graph->syntactic_edges.array[0];
-
-  pgfgd_path_add_coordinate(e, 10, 20);
 }
 
 
