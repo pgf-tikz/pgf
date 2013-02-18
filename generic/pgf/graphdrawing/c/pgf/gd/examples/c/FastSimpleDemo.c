@@ -1,42 +1,45 @@
-#include <lauxlib.h>
+#include <pgf/gd/interface/c/InterfaceFromC.h>
+
 #include <math.h>
 #include <stdio.h>
 
-static int fast_hello_world (lua_State *L) {
-
-  // First, get number of vertices:
-  lua_getfield(L, 1, "vertices_for_c");
-  int n = lua_objlen(L, -1);
-  double angle = 6.28318530718 / n;
-  
-  // Get the to-be-filled arrays
-  lua_getfield(L, 2, "vertex_indices");
-  lua_getfield(L, 2, "x");
-  lua_getfield(L, 2, "y");
+static void fast_hello_world (pgfgd_Digraph* graph) {
+  double angle  = 6.28318530718 / graph->vertices.length;
+  double radius = pgfgd_tonumber(graph->options,"my radius");
   
   int i;
-  for (i = 1; i <= n; i++) {// set the positions
-    // vertex_indices[i] = i
-    lua_pushinteger(L, i);
-    lua_rawseti(L, -4, i);
-    
-    // x[i] = cos(angle*i)
-    lua_pushnumber(L, cos(angle*i) * 30);
-    lua_rawseti(L, -3, i);
-
-    // y[i] = sin(angle*i)
-    lua_pushnumber(L, sin(angle*i) * 30);
-    lua_rawseti(L, -2, i);
+  for (i = 0; i < graph->vertices.length; i++) {
+    pgfgd_Vertex* v = graph->vertices.array[i];
+    v->pos.x = cos(angle*i) * radius;
+    v->pos.y = sin(angle*i) * radius;
   }
-  return 0;
+
+  pgfgd_Edge* e = graph->syntactic_edges.array[0];
+
+  pgfgd_path_add_coordinate(e, 10, 20);
 }
 
-static const struct luaL_reg registry [] = {
-  {"fast_hello_world", fast_hello_world},
-  {NULL, NULL}  // sentinel
-};
 
-int luaopen_pgf_gd_examples_c_FastSimpleDemo (lua_State *L) {
-  luaL_register(L, "pgf.gd.examples.c.FastSimpleDemo", registry);
-  return 1;
+int luaopen_pgf_gd_examples_c_FastSimpleDemo (struct lua_State *state) {
+  
+  {
+    // The main layout key
+    pgfgd_Declaration* d = pgfgd_new_key (state, "fast simple demo layout");
+    pgfgd_key_summary   (d, "The C version of the hello world of graph drawing");
+    pgfgd_key_algorithm (d, fast_hello_world);
+    pgfgd_declare       (d);
+  }
+
+  {
+    // The radius key
+    pgfgd_Declaration* d = pgfgd_new_key (state, "my radius");
+    pgfgd_key_summary (d, "A radius value for the hello world of graph drawing");
+    pgfgd_key_type    (d, "length");
+    pgfgd_key_initial (d, "1cm");
+    pgfgd_key_add_use (d, "radius", "1cm");
+    pgfgd_key_add_use (d, "radius", "2cm");
+    pgfgd_declare     (d);
+  }
+  
+  return 0;
 }
