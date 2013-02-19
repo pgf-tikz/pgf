@@ -41,7 +41,7 @@ static void init_edge_array(pgfgd_Edge_array* a, int count)
 }
 
 
-static void init_path_array(pgfgd_path_array* a, int count)
+static void init_path_array(pgfgd_Path_array* a, int count)
 {
   a->length      = count;
   a->coordinates = (pgfgd_Coordinate*) calloc(count, sizeof(pgfgd_Coordinate));
@@ -62,6 +62,7 @@ struct pgfgd_OptionTable {
 #define GRAPH_INDEX 1
 #define VERTICES_INDEX 2
 #define EDGES_INDEX 3
+#define ALGORITHM_INDEX 4
 
 
 static pgfgd_OptionTable* make_option_table(lua_State* L, int kind, int index)
@@ -162,6 +163,10 @@ char* pgfgd_tostring(pgfgd_OptionTable* t, const char* key)
 
 // Handling algorithms
 
+struct pgfgd_SyntacticDigraph_internals {
+  lua_State* state;
+};
+
 static char* make_string_from(lua_State* L, const char* name)
 {
   lua_getfield(L, -1, name);
@@ -189,8 +194,11 @@ static void make_coordinate(lua_State* L, pgfgd_Coordinate* c)
   lua_pop(L, 1);
 }
 
-static void construct_digraph(lua_State* L, pgfgd_Digraph* d)
+static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
 {
+  d->internals = (pgfgd_SyntacticDigraph_internals*) calloc(1, sizeof(pgfgd_SyntacticDigraph_internals));
+  d->internals->state = L;
+  
   // Create the options table:
   d->options = make_option_table(L, GRAPH_INDEX, 0);
 
@@ -296,7 +304,7 @@ static void construct_digraph(lua_State* L, pgfgd_Digraph* d)
 }
 
 
-static void sync_digraph(lua_State* L, pgfgd_Digraph* d)
+static void sync_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
 {
   // Writes back the computed position information to the digraph:
   int i;
@@ -320,10 +328,9 @@ static void sync_digraph(lua_State* L, pgfgd_Digraph* d)
   // Write back the paths
   
   // First, get "Coordinate.new" as a "local"
-  lua_getglobal(L, "pgf");
-  lua_getfield(L, -1, "gd");
-  lua_getfield(L, -1, "model");
-  lua_getfield(L, -1, "Coordinate");
+  lua_getglobal(L, "require");
+  lua_pushstring(L, "pgf.gd.model.Coordinate");
+  lua_call(L, 1, 1);
   lua_getfield(L, -1, "new");
   int new_fun_index = lua_gettop(L);
   
@@ -351,11 +358,11 @@ static void sync_digraph(lua_State* L, pgfgd_Digraph* d)
     lua_pop(L, 1);            
   }
 
-  lua_pop(L, 5); // new 
+  lua_pop(L, 2); // new 
 }
 
 
-static void free_digraph(pgfgd_Digraph* digraph)
+static void free_digraph(pgfgd_SyntacticDigraph* digraph)
 {
   int i;
   for (i=0; i < digraph->vertices.length; i++) {
@@ -388,13 +395,14 @@ static void free_digraph(pgfgd_Digraph* digraph)
   free(digraph->vertices.array);
   free(digraph->syntactic_edges.array);  
   free(digraph->options);
+  free(digraph->internals);
   free(digraph);
 }
 
 static int algorithm_dispatcher(lua_State* L)
 {
   // The actual function is stored in an upvalue.
-  pgfgd_Digraph* digraph = (pgfgd_Digraph*) calloc(1, sizeof(pgfgd_Digraph));
+  pgfgd_SyntacticDigraph* digraph = (pgfgd_SyntacticDigraph*) calloc(1, sizeof(pgfgd_SyntacticDigraph));
   
   construct_digraph(L, digraph);
   
@@ -450,6 +458,47 @@ void pgfgd_path_add_string(pgfgd_Edge* e, const char* s)
 }
 
 
+// Handling digraphs
+
+struct pgfgd_Digraph {
+  lua_State* state;
+  const char* name;
+};
+
+
+pgfgd_Digraph* pgfgd_get_digraph (pgfgd_SyntacticDigraph* g, const char* graph_name)
+{
+  pgfgd_Digraph* new = (pgfgd_Digraph*) calloc(1, sizeof(pgfgd_Digraph));
+
+  new->state = g->internals->state;
+  new->name = graph_name;
+  
+  return new;
+}
+
+int pgfgd_digraph_num_vertices (pgfgd_Digraph* g)
+{
+  lua_getfield(g->state, ALGORITHM_INDEX, g->name);
+  if (lua_isnil(g->state, -1)) 
+    luaL_error(g->state, "digraph named %s not found in algorithm class", g->name);
+
+  lua_getfield(g->state, -1, "vertices");
+  int num = lua_objlen(g->state, -1);
+  lua_pop(g->state, 2);
+
+  return num;
+}
+
+// void           pgfgd_digraph_arcs             (pgfgd_Digraph* g, pgfgd_Arc_array* arcs);
+// pgfgd_Vertex*  pgfgd_digraph_syntactic_vertex (pgfgd_Digraph* g, int v);
+// int            pgfgd_digraph_isarc            (pgfgd_Digraph* g, int tail, int head);
+// void           pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, int head, pgfgd_Edge_array* edges);
+// void           pgfgd_digraph_incoming         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* incoming_arcs);
+// void           pgfgd_digraph_outgoing         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* outgoing_arcs);
+
+
+
+
 
 // Handling declarations
 
@@ -491,10 +540,9 @@ void pgfgd_declare(pgfgd_Declaration* d)
     int tos = lua_gettop(d->state);
     
     // Find declare function:
-    lua_getfield(d->state, LUA_GLOBALSINDEX, "pgf");
-    lua_getfield(d->state, -1, "gd");
-    lua_getfield(d->state, -1, "interface");
-    lua_getfield(d->state, -1, "InterfaceToAlgorithms");
+    lua_getglobal(d->state, "require");
+    lua_pushstring(d->state, "pgf.gd.interface.InterfaceToAlgorithms");
+    lua_call(d->state, 1, 1);
     lua_getfield(d->state, -1, "declare");
     
     // Build a Lua table:

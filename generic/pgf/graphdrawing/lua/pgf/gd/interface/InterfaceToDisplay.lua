@@ -172,7 +172,7 @@ function InterfaceToDisplay.runGraphDrawingAlgorithm()
       -- Nothing needs to be done
       return
     end
-  
+    
     LayoutPipeline.run(scope)
   end
 	 

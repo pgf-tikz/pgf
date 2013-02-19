@@ -104,6 +104,26 @@ function lib.copy(source, target)
 end
 
 
+---
+-- Copies an array while preserving its metatable.
+--
+-- @param source The array to copy.
+-- @param target The array to which values are to be copied or |nil| if a new 
+-- table is to be allocated. The elements of the
+-- |source| array will be added at the end.
+-- 
+-- @return The |target| table or a newly allocated table containing all
+--         keys and values of the |source| table.
+--
+function lib.icopy(source, target)
+  target = target or {}
+  for _, val in ipairs(source) do
+    target[#target+1] = val
+  end
+  return setmetatable(target, getmetatable(source))
+end
+
+
 
 
 ---
@@ -144,7 +164,8 @@ end
 -- current index). This function is applied to all elements of the
 -- array. The result of this function is placed at the end of a new
 -- array, expect when the function returns |nil|, in which case the
--- element is skipped.
+-- element is skipped. If this function is not provided (is |nil|),
+-- the identity function is used.
 -- @param new The target array (if |nil|, a new array is create).
 --
 --\begin{codeexample}[code only]
@@ -158,7 +179,7 @@ end
 --  lib.imap(a, lib.id, b)
 --\end{codeexample}
 --
--- The above code appends the array |a| at the end of the array |b|.
+-- The above code has the same effect as |lib.icopy(a,b)|.
 --
 -- @return The new array
 --

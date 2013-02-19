@@ -75,14 +75,14 @@ typedef struct pgfgd_Vertex_array {
 } pgfgd_Vertex_array;
 
 
-typedef struct pgfgd_path_array {
+typedef struct pgfgd_Path_array {
   // The type of the path field. The two arrays both have length
   // path_len. For each position, exactly one of the two arrays will
   // not non-null. 
   int                length;
   pgfgd_Coordinate*  coordinates;
   char**             strings;
-} pgfgd_path_array;
+} pgfgd_Path_array;
 
 
 struct pgfgd_Edge {
@@ -96,7 +96,7 @@ struct pgfgd_Edge {
   // The direction field
   char* direction;
   
-  pgfgd_path_array path;
+  pgfgd_Path_array path;
   
   // The options field
   pgfgd_OptionTable* options;
@@ -104,8 +104,9 @@ struct pgfgd_Edge {
 };
 
 
+typedef struct pgfgd_SyntacticDigraph_internals pgfgd_SyntacticDigraph_internals;
 
-typedef struct  pgfgd_Digraph {
+typedef struct pgfgd_SyntacticDigraph {
 
   // The vertices field. Currently, you cannot add to this array.
   pgfgd_Vertex_array vertices;
@@ -116,35 +117,57 @@ typedef struct  pgfgd_Digraph {
   
   // The options field.
   pgfgd_OptionTable* options;
+
+  pgfgd_SyntacticDigraph_internals* internals;
   
-} pgfgd_Digraph;
+} pgfgd_SyntacticDigraph;
 
 
 
 // Modifying edge bend paths
 
-extern void pgfgd_path_clear(pgfgd_Edge* e);
-extern void pgfgd_path_add_coordinate(pgfgd_Edge* e, double x, double y);
-extern void pgfgd_path_add_string(pgfgd_Edge* e, const char* s);
+extern void pgfgd_path_clear          (pgfgd_Edge* e);
+extern void pgfgd_path_add_coordinate (pgfgd_Edge* e, double x, double y);
+extern void pgfgd_path_add_string     (pgfgd_Edge* e, const char* s);
+
+
+// Querying graphs other than the syntactic digraph
+
+typedef struct pgfgd_Digraph pgfgd_Digraph;
+
+typedef struct pgfgd_Arc_array {
+  int length;
+  int* tails;
+  int* heads;
+} pgfgd_Arc_array;
+
+extern pgfgd_Digraph* pgfgd_get_digraph              (pgfgd_SyntacticDigraph* g, const char* graph_name);
+extern int            pgfgd_digraph_num_vertices     (pgfgd_Digraph* g);
+extern void           pgfgd_digraph_arcs             (pgfgd_Digraph* g, pgfgd_Arc_array* arcs);
+extern pgfgd_Vertex*  pgfgd_digraph_syntactic_vertex (pgfgd_Digraph* g, int v);
+extern int            pgfgd_digraph_isarc            (pgfgd_Digraph* g, int tail, int head);
+extern void           pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, int head, pgfgd_Edge_array* edges);
+extern void           pgfgd_digraph_incoming         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* incoming_arcs);
+extern void           pgfgd_digraph_outgoing         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* outgoing_arcs);
 
 
 // Declarations
 
 struct lua_State;
-typedef void (*pgfgd_algorithm_fun) (pgfgd_Digraph* g);
+typedef void (*pgfgd_algorithm_fun) (pgfgd_SyntacticDigraph* component);
 typedef struct pgfgd_Declaration pgfgd_Declaration;
 
 extern pgfgd_Declaration* pgfgd_new_key (struct lua_State* state, const char* key);
-extern void pgfgd_key_summary(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_type(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_initial(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_default(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_alias(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_documentation(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_phase(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_algorithm(pgfgd_Declaration* d, pgfgd_algorithm_fun f);
-extern void pgfgd_key_add_use(pgfgd_Declaration* d, const char* key, const char* value);
-extern void pgfgd_key_add_example(pgfgd_Declaration* d, const char* s);
-extern void pgfgd_declare(pgfgd_Declaration* d);
+extern void pgfgd_key_summary       (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_type          (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_initial       (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_default       (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_alias         (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_documentation (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_phase         (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_algorithm     (pgfgd_Declaration* d, pgfgd_algorithm_fun f);
+extern void pgfgd_key_add_use       (pgfgd_Declaration* d, const char* key, const char* value);
+extern void pgfgd_key_add_example   (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_declare           (pgfgd_Declaration* d);
 
 #endif

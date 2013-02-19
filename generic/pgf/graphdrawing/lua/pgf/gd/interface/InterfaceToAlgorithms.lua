@@ -42,8 +42,6 @@ local Edge               = require "pgf.gd.model.Edge"
 local lib                = require "pgf.gd.lib"
 
 
-
-
 -- Forwards
 
 local declare_handlers
@@ -513,38 +511,6 @@ end
 
 
 
----
--- This function is called by |declare| for ``algorithm
--- keys'' where the algorithm is not written in Lua, but rather in the
--- programming language C. They are detected by the presence of the
--- field |algorithm_written_in_c|. This field must be set to a string
--- consisting of a library name (which will be loaded using |require|)
--- and a function name, separated by a dot.
---
--- You will find a detailed description of how algorithms are written
--- in C in Section~\ref{section-algorithms-in-c}. 
---
--- (You cannot call this function directly, it is included for
--- documentation purposes only.)
---
--- @param t The table originally passed to |declare|.
-
-local function declare_algorithm_written_in_c (t)
-  
-  local library, fun_name = t.algorithm_written_in_c:match("(.*)%.(.*)");
-  
-  t.algorithm = {
-    run =
-      function (self)
-	local lib = require(library)
-	local briged, unbridge = InterfaceToC.bridgeGraph(self.digraph, self.adjusted_bb)
-	lib[fun_name](briged, unbridge)
-	InterfaceToC.unbridgeGraph(self.digraph, unbridge)
-      end
-  }
-  
-end
-
 
 ---
 -- This function is called by |declare| for ``collection kinds.'' They
@@ -663,21 +629,14 @@ end
 
 
 
-
-
 -- Build in handlers:
 
 declare_handlers = {
-  { test = function (t) return t.algorithm_written_in_c end, handler = declare_algorithm_written_in_c },
+  { test = function (t) return t.algorithm_written_in_c end, handler = InterfaceToC.declare_algorithm_written_in_c },
   { test = function (t) return t.algorithm end, handler = declare_algorithm },
   { test = function (t) return t.layer end, handler = declare_collection_kind },
   { test = function (t) return true end, handler = declare_parameter }
 }
-
-
-
-
-
 
 
 

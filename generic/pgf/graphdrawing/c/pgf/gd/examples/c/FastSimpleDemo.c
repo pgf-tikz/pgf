@@ -1,9 +1,8 @@
 #include <pgf/gd/interface/c/InterfaceFromC.h>
 
 #include <math.h>
-#include <stdio.h>
 
-static void fast_hello_world (pgfgd_Digraph* graph) {
+static void fast_hello_world (pgfgd_SyntacticDigraph* graph) {
   double angle  = 6.28318530718 / graph->vertices.length;
   double radius = pgfgd_tonumber(graph->options, "my radius");
   
