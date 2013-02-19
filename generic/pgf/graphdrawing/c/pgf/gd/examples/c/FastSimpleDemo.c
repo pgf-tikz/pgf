@@ -20,9 +20,10 @@ int luaopen_pgf_gd_examples_c_FastSimpleDemo (struct lua_State *state) {
   {
     // The main layout key
     pgfgd_Declaration* d = pgfgd_new_key (state, "fast simple demo layout");
-    pgfgd_key_summary   (d, "The C version of the hello world of graph drawing");
-    pgfgd_key_algorithm (d, fast_hello_world);
-    pgfgd_declare       (d);
+    pgfgd_key_summary          (d, "The C version of the hello world of graph drawing");
+    pgfgd_key_algorithm        (d, fast_hello_world);
+    pgfgd_key_add_precondition (d, "connected");
+    pgfgd_declare              (d);
   }
 
   {

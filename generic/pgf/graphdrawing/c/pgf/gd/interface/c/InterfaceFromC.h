@@ -158,16 +158,18 @@ typedef void (*pgfgd_algorithm_fun) (pgfgd_SyntacticDigraph* component);
 typedef struct pgfgd_Declaration pgfgd_Declaration;
 
 extern pgfgd_Declaration* pgfgd_new_key (struct lua_State* state, const char* key);
-extern void pgfgd_key_summary       (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_type          (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_initial       (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_default       (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_alias         (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_documentation (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_phase         (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_key_algorithm     (pgfgd_Declaration* d, pgfgd_algorithm_fun f);
-extern void pgfgd_key_add_use       (pgfgd_Declaration* d, const char* key, const char* value);
-extern void pgfgd_key_add_example   (pgfgd_Declaration* d, const char* s);
-extern void pgfgd_declare           (pgfgd_Declaration* d);
+extern void pgfgd_key_summary           (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_type              (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_initial           (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_default           (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_alias             (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_documentation     (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_phase             (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_algorithm         (pgfgd_Declaration* d, pgfgd_algorithm_fun f);
+extern void pgfgd_key_add_use           (pgfgd_Declaration* d, const char* key, const char* value);
+extern void pgfgd_key_add_example       (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_add_precondition  (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_key_add_postcondition (pgfgd_Declaration* d, const char* s);
+extern void pgfgd_declare               (pgfgd_Declaration* d);
 
 #endif

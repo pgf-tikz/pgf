@@ -521,6 +521,12 @@ struct pgfgd_Declaration {
   
   int examples_length;
   const char** examples;
+
+  int pre_length;
+  const char** pre;
+
+  int post_length;
+  const char** post;
 };
 
 
@@ -558,7 +564,6 @@ void pgfgd_declare(pgfgd_Declaration* d)
     set_field (d->state, d->phase, "phase");
 
     if (d->use) {
-      
       lua_createtable(d->state, d->use_length, 0);
       int i;
       for (i=0; i < d->use_length; i++) {
@@ -567,19 +572,36 @@ void pgfgd_declare(pgfgd_Declaration* d)
 	set_field(d->state, d->use[i*2+1], "value");
 	lua_rawseti(d->state, -2, i+1);
       }
-
       lua_setfield(d->state, -2, "use");
     }
     
+    if (d->pre) {
+      lua_createtable(d->state, 0, d->pre_length);
+      int i;
+      for (i=0; i < d->pre_length; i++) {
+	lua_pushboolean(d->state, 1);
+	lua_setfield(d->state, -2, d->pre[i]);
+      }
+      lua_setfield(d->state, -2, "preconditions");
+    }
+    
+    if (d->post) {
+      lua_createtable(d->state, 0, d->post_length);
+      int i;
+      for (i=0; i < d->post_length; i++) {
+	lua_pushboolean(d->state, 1);
+	lua_setfield(d->state, -2, d->post[i]);
+      }
+      lua_setfield(d->state, -2, "postconditions");
+    }
+    
     if (d->examples) {
-
       lua_createtable(d->state, d->examples_length, 0);
       int i;
       for (i=0; i < d->examples_length; i++) {
 	lua_pushstring(d->state, d->examples[i]);
 	lua_rawseti(d->state, -2, i+1);
       }
-
       lua_setfield(d->state, -2, "examples");
     }
 
@@ -614,9 +636,25 @@ void pgfgd_key_add_use(pgfgd_Declaration* d, const char* key, const char* value)
 void pgfgd_key_add_example(pgfgd_Declaration* d, const char* s)
 {
   d->examples_length++;
-  d->examples = (const char **) realloc(d->use, d->examples_length*sizeof(const char*));
+  d->examples = (const char **) realloc(d->examples, d->examples_length*sizeof(const char*));
   
   d->examples[d->examples_length-1] = s;
+}
+
+void pgfgd_key_add_precondition(pgfgd_Declaration* d, const char* s)
+{
+  d->pre_length++;
+  d->pre = (const char **) realloc(d->pre, d->pre_length*sizeof(const char*));
+  
+  d->pre[d->pre_length-1] = s;
+}
+
+void pgfgd_key_add_postcondition(pgfgd_Declaration* d, const char* s)
+{
+  d->post_length++;
+  d->post = (const char **) realloc(d->post, d->post_length*sizeof(const char*));
+  
+  d->post[d->post_length-1] = s;
 }
 
 void pgfgd_key_summary(pgfgd_Declaration* d, const char* s)
