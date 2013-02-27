@@ -40,8 +40,14 @@ static void init_edge_array(pgfgd_Edge_array* a, int count)
   a->array  = (pgfgd_Edge**) calloc(count, sizeof(pgfgd_Edge*));
 }
 
+static void init_arcs_array(pgfgd_Arc_array* arcs, int length)
+{
+  arcs->length = length;
+  arcs->tails  = (int*) calloc(length, sizeof(int));
+  arcs->heads  = (int*) calloc(length, sizeof(int));
+}
 
-static void init_path_array(pgfgd_Path_array* a, int count)
+static void init_path_array(pgfgd_path_field_array* a, int count)
 {
   a->length      = count;
   a->coordinates = (pgfgd_Coordinate*) calloc(count, sizeof(pgfgd_Coordinate));
@@ -63,6 +69,11 @@ struct pgfgd_OptionTable {
 #define VERTICES_INDEX 2
 #define EDGES_INDEX 3
 #define ALGORITHM_INDEX 4
+
+#define BACKINDEX_STORAGE_INDEX 5
+
+#define FUNCTION_UPVALUE 1
+#define DIGRAPH_OBJECT_UPVALUE 2
 
 
 static pgfgd_OptionTable* make_option_table(lua_State* L, int kind, int index)
@@ -131,6 +142,15 @@ int pgfgd_isstring(pgfgd_OptionTable* t, const char* key)
   return is_string;
 }
 
+int pgfgd_isuser(pgfgd_OptionTable* t, const char* key)
+{
+  push_option_table(t);
+  lua_getfield(t->state, -1, key);
+  int is_user = lua_isuserdata(t->state, -1);
+  lua_pop(t->state, 2);
+  return is_user;
+}
+
 
 double pgfgd_tonumber(pgfgd_OptionTable* t, const char* key)
 {
@@ -158,6 +178,15 @@ char* pgfgd_tostring(pgfgd_OptionTable* t, const char* key)
   char* copy = strcpy((char*) malloc(strlen(s)+1), s);
   lua_pop(t->state, 2);
   return copy;
+}
+
+void* pgfgd_touser(pgfgd_OptionTable* t, const char* key)
+{
+  push_option_table(t);
+  lua_getfield(t->state, -1, key);
+  void* d = lua_touserdata(t->state, -1);
+  lua_pop(t->state, 2);
+  return d;
 }
 
 
@@ -401,12 +430,15 @@ static void free_digraph(pgfgd_SyntacticDigraph* digraph)
 
 static int algorithm_dispatcher(lua_State* L)
 {
+  // Push the back index table. It will be at index BACKINDEX_STORAGE_INDEX
+  lua_createtable(L, 0, 1);
+  
   // The actual function is stored in an upvalue.
   pgfgd_SyntacticDigraph* digraph = (pgfgd_SyntacticDigraph*) calloc(1, sizeof(pgfgd_SyntacticDigraph));
   
   construct_digraph(L, digraph);
   
-  pgfgd_algorithm_fun fun = lua_touserdata(L, lua_upvalueindex(1));
+  pgfgd_algorithm_fun fun = lua_touserdata(L, lua_upvalueindex(FUNCTION_UPVALUE));
   fun(digraph);
 
   sync_digraph(L, digraph);
@@ -463,15 +495,24 @@ void pgfgd_path_add_string(pgfgd_Edge* e, const char* s)
 struct pgfgd_Digraph {
   lua_State* state;
   const char* name;
+  pgfgd_SyntacticDigraph* syntactic_digraph;
 };
 
 
 pgfgd_Digraph* pgfgd_get_digraph (pgfgd_SyntacticDigraph* g, const char* graph_name)
 {
+  lua_State* L = g->internals->state;
+  
+  lua_getfield(L, ALGORITHM_INDEX, graph_name);
+  if (lua_isnil(L, -1)) 
+    luaL_error(L, "digraph named %s not found in algorithm class", graph_name);
+  lua_pop(L, 1);
+  
   pgfgd_Digraph* new = (pgfgd_Digraph*) calloc(1, sizeof(pgfgd_Digraph));
 
-  new->state = g->internals->state;
+  new->state = L;
   new->name = graph_name;
+  new->syntactic_digraph = g;
   
   return new;
 }
@@ -479,9 +520,6 @@ pgfgd_Digraph* pgfgd_get_digraph (pgfgd_SyntacticDigraph* g, const char* graph_n
 int pgfgd_digraph_num_vertices (pgfgd_Digraph* g)
 {
   lua_getfield(g->state, ALGORITHM_INDEX, g->name);
-  if (lua_isnil(g->state, -1)) 
-    luaL_error(g->state, "digraph named %s not found in algorithm class", g->name);
-
   lua_getfield(g->state, -1, "vertices");
   int num = lua_objlen(g->state, -1);
   lua_pop(g->state, 2);
@@ -489,14 +527,266 @@ int pgfgd_digraph_num_vertices (pgfgd_Digraph* g)
   return num;
 }
 
-// void           pgfgd_digraph_arcs             (pgfgd_Digraph* g, pgfgd_Arc_array* arcs);
-// pgfgd_Vertex*  pgfgd_digraph_syntactic_vertex (pgfgd_Digraph* g, int v);
-// int            pgfgd_digraph_isarc            (pgfgd_Digraph* g, int tail, int head);
-// void           pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, int head, pgfgd_Edge_array* edges);
-// void           pgfgd_digraph_incoming         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* incoming_arcs);
-// void           pgfgd_digraph_outgoing         (pgfgd_Digraph* g, int v, pgfgd_Arc_array* outgoing_arcs);
+static void push_digraph_and_backindex(pgfgd_Digraph* g)
+{
+  lua_State* L = g->state;
+  
+  // Get digraph
+  lua_getfield(L, ALGORITHM_INDEX, g->name);
+  int digraph_pos = lua_gettop(L);
+  
+  // Get entry in back index table
+  lua_pushvalue(L, digraph_pos);    
+  lua_gettable(L, BACKINDEX_STORAGE_INDEX);
+  int backtable_pos = lua_gettop(L);
+  if (lua_isnil(L, backtable_pos)) {
+    // Aha. We need to install a new table:
+    lua_pop(L, 1); // Get rid of nil
+
+    lua_createtable(L, 0, 1);
+    
+    lua_pushvalue(L, digraph_pos); // The digraph object
+    lua_pushvalue(g->state, backtable_pos); // The new table
+    lua_settable(L, BACKINDEX_STORAGE_INDEX);
+
+    // Fill the table:
+    lua_getfield(L, digraph_pos, "vertices");
+    int vertex_pos = lua_gettop(L);
+    int i;
+    int n = lua_objlen(L, -1);
+    for (i = 1; i <= n; i++) {
+      lua_rawgeti(L, vertex_pos, i);
+      lua_pushinteger(L, i);
+      lua_settable(L, backtable_pos);
+    }
+    lua_pop(L, 1);
+  }
+}
+
+static pgfgd_Arc_array* build_c_array_of_arcs_from_lua_array_of_arcs(pgfgd_Digraph* g)
+{
+  lua_State* L = g->state;
+
+  pgfgd_Arc_array* arcs = (pgfgd_Arc_array*) calloc(1, sizeof(pgfgd_Arc_array));
+  
+  int array_pos = lua_gettop(L);
+  
+  push_digraph_and_backindex(g);
+  int backtable_pos = lua_gettop(L);  
+
+  // Get number of arcs:
+  init_arcs_array(arcs, lua_objlen(L, array_pos));
+  int i;
+  for (i = 1; i<=arcs->length; i++) {
+    lua_rawgeti(L, array_pos, i); // Get arcs[i]
+    
+    // The tail field:
+    lua_getfield(L, -1, "tail");
+    lua_gettable(L, backtable_pos);
+    
+    arcs->tails[i-1] = lua_tointeger(L, -1);
+    lua_pop(L, 1); // The number
+    
+    // The head field:
+    lua_getfield(L, -1, "head");
+    lua_gettable(L, backtable_pos);
+    arcs->heads[i-1] = lua_tointeger(L, -1);
+    lua_pop(L, 1); // The number
+    
+    lua_pop(L, 1); // Pop arcs[i]
+  }
+  
+  lua_settop(L, array_pos);
+
+  return arcs;
+}
 
 
+pgfgd_Arc_array* pgfgd_digraph_arcs (pgfgd_Digraph* g)
+{
+  lua_getfield(g->state, ALGORITHM_INDEX, g->name);
+  lua_getfield(g->state, -1, "arcs");
+
+  pgfgd_Arc_array* a = build_c_array_of_arcs_from_lua_array_of_arcs(g);
+
+  lua_pop(g->state, 2);
+
+  return a;
+}
+
+
+pgfgd_Vertex* pgfgd_digraph_syntactic_vertex (pgfgd_Digraph* g, int v)
+{
+  int tos = lua_gettop(g->state);
+  pgfgd_Vertex* return_me = 0;
+  
+  lua_getfield(g->state, ALGORITHM_INDEX, g->name);
+  lua_getfield(g->state, -1, "vertices");
+  lua_rawgeti(g->state, -1, v);
+  
+  lua_gettable(g->state, VERTICES_INDEX);
+  if (lua_isnumber(g->state, -1)) {
+    return_me = g->syntactic_digraph->vertices.array[lua_tointeger(g->state, -1)-1];
+  }
+  
+  lua_settop(g->state, tos);
+  return return_me;
+}
+
+
+int pgfgd_digraph_isarc (pgfgd_Digraph* g, int tail, int head)
+{
+  lua_State* L = g->state;
+  int is_arc = 0;
+  
+  lua_getfield(L, ALGORITHM_INDEX, g->name);
+  int digraph_pos = lua_gettop(L);
+  
+  lua_getfield(L, digraph_pos, "vertices");
+  int vertices_pos = lua_gettop(L);
+
+  // Call digraph:connected(tail, head)
+  lua_pushvalue(L, lua_upvalueindex(DIGRAPH_OBJECT_UPVALUE));
+  lua_getfield(L, -1, "arc");
+  lua_pushvalue(L, digraph_pos);
+  lua_rawgeti(L, vertices_pos, tail);
+  lua_rawgeti(L, vertices_pos, head);
+  lua_call(L, 3, 1);
+  
+  is_arc = !lua_isnil(L, -1);
+
+  lua_settop(L, digraph_pos-1);
+  
+  return is_arc;
+}
+
+pgfgd_Arc_array* pgfgd_digraph_incoming (pgfgd_Digraph* g, int v)
+{
+  lua_State* L = g->state;
+  
+  lua_getfield(L, ALGORITHM_INDEX, g->name);
+  int digraph_pos = lua_gettop(L);
+  
+  lua_getfield(L, digraph_pos, "vertices");
+  int vertices_pos = lua_gettop(L);
+
+  // Call digraph:connected(tail, head)
+  lua_pushvalue(L, lua_upvalueindex(DIGRAPH_OBJECT_UPVALUE));
+  lua_getfield(L, -1, "incoming");
+  lua_pushvalue(L, digraph_pos);
+  lua_rawgeti(L, vertices_pos, v);
+  lua_call(L, 2, 1);
+  
+  pgfgd_Arc_array* a = build_c_array_of_arcs_from_lua_array_of_arcs(g);
+
+  lua_settop(L, digraph_pos-1);
+  
+  return a;  
+}
+
+pgfgd_Arc_array* pgfgd_digraph_outgoing (pgfgd_Digraph* g, int v)
+{
+  lua_State* L = g->state;
+  
+  lua_getfield(L, ALGORITHM_INDEX, g->name);
+  int digraph_pos = lua_gettop(L);
+  
+  lua_getfield(L, digraph_pos, "vertices");
+  int vertices_pos = lua_gettop(L);
+
+  // Call digraph:connected(tail, head)
+  lua_pushvalue(L, lua_upvalueindex(DIGRAPH_OBJECT_UPVALUE));
+  lua_getfield(L, -1, "outgoing");
+  lua_pushvalue(L, digraph_pos);
+  lua_rawgeti(L, vertices_pos, v);
+  lua_call(L, 2, 1);
+  
+  pgfgd_Arc_array* a = build_c_array_of_arcs_from_lua_array_of_arcs(g);
+
+  lua_settop(L, digraph_pos-1);
+  
+  return a;  
+}
+
+pgfgd_Edge_array* pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, int head)
+{
+  pgfgd_Edge_array* edges = (pgfgd_Edge_array*) calloc(1, sizeof(pgfgd_Edge_array));
+
+  // First, get the arc in the syntatic digraph.
+  lua_State* L = g->state;
+  int tos = lua_gettop(L);
+  
+  lua_getfield(L, ALGORITHM_INDEX, g->name);
+  int digraph_pos = lua_gettop(L);
+  
+  lua_getfield(L, digraph_pos, "vertices");
+  int vertices_pos = lua_gettop(L);
+
+  // Call digraph:arc(tail, head)
+  lua_pushvalue(L, lua_upvalueindex(DIGRAPH_OBJECT_UPVALUE));
+  int digraph_class_index = lua_gettop(L);
+  
+  lua_getfield(L, digraph_class_index, "arc");
+  lua_pushvalue(L, digraph_pos);
+  lua_rawgeti(L, vertices_pos, tail);
+  lua_rawgeti(L, vertices_pos, head);
+  lua_call(L, 3, 1);
+
+  if (!lua_isnil(L, -1)) {
+    // Get syntactic_digraph of the arc:
+    lua_getfield(L, -1, "syntactic_digraph");
+
+    // Call syntactic_digraph:arc(tail, head)
+    lua_getfield(L, digraph_class_index, "arc");
+    lua_pushvalue(L, -2);
+    lua_rawgeti(L, vertices_pos, tail);
+    lua_rawgeti(L, vertices_pos, head);
+    lua_call(L, 3, 1);
+
+    if (!lua_isnil(L, -1)) {
+      lua_getfield(L, -1, "syntactic_edges");
+      int syntactic_edges_index = lua_gettop(L);
+      
+      int n = lua_objlen(L, syntactic_edges_index);
+      init_edge_array(edges, n);
+      int i;
+      for (i=1; i<=n; i++) {
+	lua_rawgeti(L, syntactic_edges_index, i);
+	lua_gettable(L, EDGES_INDEX);
+	if (!lua_isnumber(L, -1)) {
+	  pgfgd_digraph_free_edge_array(edges);
+	  luaL_error(L, "syntactic edge index not found");
+	}
+	int p = lua_tonumber(L, -1);
+	edges->array[i-1] = g->syntactic_digraph->syntactic_edges.array[p-1];
+      }
+    }      
+  }
+
+  lua_settop(L, tos);
+  
+  return edges;
+}
+
+
+
+void pgfgd_digraph_free (pgfgd_Digraph* g)
+{
+  free(g);
+}
+
+void pgfgd_digraph_free_arc_array (pgfgd_Arc_array* arcs)
+{
+  free (arcs->tails);
+  free (arcs->heads);
+  free (arcs);
+}
+
+void pgfgd_digraph_free_edge_array (pgfgd_Edge_array* edges)
+{
+  free (edges->array);
+  free (edges);
+}
 
 
 
@@ -504,12 +794,11 @@ int pgfgd_digraph_num_vertices (pgfgd_Digraph* g)
 
 
 struct pgfgd_Declaration {
-  struct lua_State* state;
-  
   const char* key;
   const char* summary;
   const char* type;
   const char* initial;
+  void* initial_user;
   const char* default_value;
   const char* alias;
   const char* documentation;
@@ -517,7 +806,9 @@ struct pgfgd_Declaration {
   const char*         phase;
 
   int use_length;
-  const char** use;
+  const char** use_keys;
+  const char** use_values_strings;
+  void**       use_values_user;
   
   int examples_length;
   const char** examples;
@@ -530,107 +821,133 @@ struct pgfgd_Declaration {
 };
 
 
-pgfgd_Declaration* pgfgd_new_key (struct lua_State* state, const char* key)
+pgfgd_Declaration* pgfgd_new_key (const char* key)
 {
   pgfgd_Declaration* d = (pgfgd_Declaration*) calloc(1, sizeof(pgfgd_Declaration));
   
-  d->state = state;
   d->key = key;
   
   return d;
 }
 
-void pgfgd_declare(pgfgd_Declaration* d)
+void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
 {
   if (d && d->key) {
-    int tos = lua_gettop(d->state);
+    int tos = lua_gettop(state);
     
     // Find declare function:
-    lua_getglobal(d->state, "require");
-    lua_pushstring(d->state, "pgf.gd.interface.InterfaceToAlgorithms");
-    lua_call(d->state, 1, 1);
-    lua_getfield(d->state, -1, "declare");
+    lua_getglobal(state, "require");
+    lua_pushstring(state, "pgf.gd.interface.InterfaceToAlgorithms");
+    lua_call(state, 1, 1);
+    lua_getfield(state, -1, "declare");
     
     // Build a Lua table:
-    lua_createtable(d->state, 0, 11);
+    lua_createtable(state, 0, 11);
 
-    set_field (d->state, d->key, "key");
-    set_field (d->state, d->summary, "summary");
-    set_field (d->state, d->type, "type");
-    set_field (d->state, d->initial, "initial");
-    set_field (d->state, d->documentation, "documentation");
-    set_field (d->state, d->default_value, "default");
-    set_field (d->state, d->alias, "alias");
-    set_field (d->state, d->phase, "phase");
+    set_field (state, d->key, "key");
+    set_field (state, d->summary, "summary");
+    set_field (state, d->type, "type");
+    set_field (state, d->initial, "initial");
+    set_field (state, d->documentation, "documentation");
+    set_field (state, d->default_value, "default");
+    set_field (state, d->alias, "alias");
+    set_field (state, d->phase, "phase");
 
-    if (d->use) {
-      lua_createtable(d->state, d->use_length, 0);
+    if (d->initial_user) {
+      lua_pushlightuserdata(state, d->initial_user);
+      lua_setfield(state, -2, "initial");
+    }
+    
+    if (d->use_length > 0) {
+      lua_createtable(state, d->use_length, 0);
       int i;
       for (i=0; i < d->use_length; i++) {
-	lua_createtable(d->state, 0, 2);
-	set_field(d->state, d->use[i*2], "key");
-	set_field(d->state, d->use[i*2+1], "value");
-	lua_rawseti(d->state, -2, i+1);
+	lua_createtable(state, 0, 2);
+	set_field(state, d->use_keys[i], "key");
+	if (d->use_values_strings[i])
+	  set_field(state, d->use_values_strings[i], "value");
+	if (d->use_values_user[i]) {
+	  lua_pushlightuserdata(state, d->use_values_user[i]);
+	  lua_setfield(state, -2, "value");
+	}
+	lua_rawseti(state, -2, i+1);
       }
-      lua_setfield(d->state, -2, "use");
+      lua_setfield(state, -2, "use");
     }
     
     if (d->pre) {
-      lua_createtable(d->state, 0, d->pre_length);
+      lua_createtable(state, 0, d->pre_length);
       int i;
       for (i=0; i < d->pre_length; i++) {
-	lua_pushboolean(d->state, 1);
-	lua_setfield(d->state, -2, d->pre[i]);
+	lua_pushboolean(state, 1);
+	lua_setfield(state, -2, d->pre[i]);
       }
-      lua_setfield(d->state, -2, "preconditions");
+      lua_setfield(state, -2, "preconditions");
     }
     
     if (d->post) {
-      lua_createtable(d->state, 0, d->post_length);
+      lua_createtable(state, 0, d->post_length);
       int i;
       for (i=0; i < d->post_length; i++) {
-	lua_pushboolean(d->state, 1);
-	lua_setfield(d->state, -2, d->post[i]);
+	lua_pushboolean(state, 1);
+	lua_setfield(state, -2, d->post[i]);
       }
-      lua_setfield(d->state, -2, "postconditions");
+      lua_setfield(state, -2, "postconditions");
     }
     
     if (d->examples) {
-      lua_createtable(d->state, d->examples_length, 0);
+      lua_createtable(state, d->examples_length, 0);
       int i;
       for (i=0; i < d->examples_length; i++) {
-	lua_pushstring(d->state, d->examples[i]);
-	lua_rawseti(d->state, -2, i+1);
+	lua_pushstring(state, d->examples[i]);
+	lua_rawseti(state, -2, i+1);
       }
-      lua_setfield(d->state, -2, "examples");
+      lua_setfield(state, -2, "examples");
     }
 
     if (d->algorithm) {
       // The algorithm function is stored as lightuserdate upvalue 
-      lua_pushlightuserdata(d->state, (void *) d->algorithm);
-      lua_pushcclosure(d->state, algorithm_dispatcher, 1);
-      lua_setfield(d->state, -2, "algorithm_written_in_c");
+      lua_pushlightuserdata(state, (void *) d->algorithm);
+
+      // Find the Digraph.arc function and store it as the second upvalue:
+      lua_getglobal(state, "require");
+      lua_pushstring(state, "pgf.gd.model.Digraph");
+      lua_call(state, 1, 1);
+      
+      lua_pushcclosure(state, algorithm_dispatcher, 2);
+      lua_setfield(state, -2, "algorithm_written_in_c");
     }
 
     // Call the declare function:
-    lua_call(d->state, 1, 0);
+    lua_call(state, 1, 0);
 
     // Cleanup:
-    lua_settop(d->state, tos);
-    
-    free(d->examples);
-    free(d->use);
-    free(d);
+    lua_settop(state, tos);
   }
 }
 
 void pgfgd_key_add_use(pgfgd_Declaration* d, const char* key, const char* value)
 {
   d->use_length++;
-  d->use = (const char **) realloc(d->use, 2*d->use_length*sizeof(const char*));
+  d->use_keys = (const char **) realloc(d->use_keys, d->use_length*sizeof(const char*));
+  d->use_values_strings = (const char **) realloc(d->use_values_strings, d->use_length*sizeof(const char*));
+  d->use_values_user = (void **) realloc(d->use_values_user, d->use_length*sizeof(void*));
   
-  d->use[d->use_length*2-2] = key;
-  d->use[d->use_length*2-1] = value;  
+  d->use_keys          [d->use_length-1] = key;
+  d->use_values_strings[d->use_length-1] = value;  
+  d->use_values_user   [d->use_length-1] = 0;  
+}
+
+void pgfgd_key_add_use_user(pgfgd_Declaration* d, const char* key, void* value)
+{
+  d->use_length++;
+  d->use_keys = (const char **) realloc(d->use_keys, d->use_length*sizeof(const char*));
+  d->use_values_strings = (const char **) realloc(d->use_values_strings, d->use_length*sizeof(const char*));
+  d->use_values_user = (void **) realloc(d->use_values_user, d->use_length*sizeof(void*));
+  
+  d->use_keys          [d->use_length-1] = key;
+  d->use_values_strings[d->use_length-1] = 0;  
+  d->use_values_user   [d->use_length-1] = value;  
 }
 
 void pgfgd_key_add_example(pgfgd_Declaration* d, const char* s)
@@ -672,6 +989,11 @@ void pgfgd_key_initial(pgfgd_Declaration* d, const char* s)
   d->initial = s;
 }
 
+void pgfgd_key_initial_user(pgfgd_Declaration* d, void* s)
+{
+  d->initial_user = s;
+}
+
 void pgfgd_key_default(pgfgd_Declaration* d, const char* s)
 {
   d->default_value = s;
@@ -695,4 +1017,15 @@ void pgfgd_key_phase(pgfgd_Declaration* d, const char* s)
 void pgfgd_key_algorithm(pgfgd_Declaration* d, pgfgd_algorithm_fun f)
 {
   d->algorithm = f;
+}
+
+void pgfgd_free_key(pgfgd_Declaration* d)
+{
+  if (d) {
+    free(d->examples);
+    free(d->use_keys);
+    free(d->use_values_user);
+    free(d->use_values_strings);
+    free(d);    
+  }
 }
