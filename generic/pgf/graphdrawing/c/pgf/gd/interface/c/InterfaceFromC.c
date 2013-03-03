@@ -73,7 +73,8 @@ struct pgfgd_OptionTable {
 #define BACKINDEX_STORAGE_INDEX 5
 
 #define FUNCTION_UPVALUE 1
-#define DIGRAPH_OBJECT_UPVALUE 2
+#define USER_UPVALUE 2
+#define DIGRAPH_OBJECT_UPVALUE 3
 
 
 static pgfgd_OptionTable* make_option_table(lua_State* L, int kind, int index)
@@ -249,7 +250,10 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
     
     // Options:
     v->options = make_option_table(L, VERTICES_INDEX, i+1);
-
+    
+    // Index:
+    v->array_index = i;
+    
     // Setup pos field
     lua_getfield(L, -1, "pos");
     make_coordinate(L, &v->pos);
@@ -288,6 +292,9 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
     
     e->direction = make_string_from(L, "direction");      
     e->options = make_option_table(L, EDGES_INDEX, edge_index+1);
+    
+    // Index:
+    e->array_index = edge_index;
 
     // Compute the tail vertex index:
     lua_getfield(L, -1, "tail");
@@ -439,7 +446,7 @@ static int algorithm_dispatcher(lua_State* L)
   construct_digraph(L, digraph);
   
   pgfgd_algorithm_fun fun = lua_touserdata(L, lua_upvalueindex(FUNCTION_UPVALUE));
-  fun(digraph);
+  fun(digraph, lua_touserdata(L, lua_upvalueindex(USER_UPVALUE)));
 
   sync_digraph(L, digraph);
   
@@ -794,30 +801,31 @@ void pgfgd_digraph_free_edge_array (pgfgd_Edge_array* edges)
 
 
 struct pgfgd_Declaration {
-  const char* key;
-  const char* summary;
-  const char* type;
-  const char* initial;
-  void* initial_user;
-  const char* default_value;
-  const char* alias;
-  const char* documentation;
-  pgfgd_algorithm_fun algorithm;
-  const char*         phase;
+  const char*            key;
+  const char*            summary;
+  const char*            type;
+  const char*            initial;
+  void*                  initial_user;
+  const char*            default_value;
+  const char*            alias;
+  const char*            documentation;
+  pgfgd_algorithm_fun    algorithm;
+  void*                  algorithm_user;
+  const char*            phase;
 
-  int use_length;
-  const char** use_keys;
-  const char** use_values_strings;
-  void**       use_values_user;
+  int                    use_length;
+  const char**           use_keys;
+  const char**           use_values_strings;
+  void**                 use_values_user;
   
-  int examples_length;
-  const char** examples;
+  int                    examples_length;
+  const char**           examples;
 
-  int pre_length;
-  const char** pre;
+  int                    pre_length;
+  const char**           pre;
 
-  int post_length;
-  const char** post;
+  int                    post_length;
+  const char**           post;
 };
 
 
@@ -906,15 +914,16 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
     }
 
     if (d->algorithm) {
-      // The algorithm function is stored as lightuserdate upvalue 
+      // The algorithm function and the user data is stored as lightuserdate upvalue 
       lua_pushlightuserdata(state, (void *) d->algorithm);
+      lua_pushlightuserdata(state, (void *) d->algorithm_user);
 
       // Find the Digraph.arc function and store it as the second upvalue:
       lua_getglobal(state, "require");
       lua_pushstring(state, "pgf.gd.model.Digraph");
       lua_call(state, 1, 1);
       
-      lua_pushcclosure(state, algorithm_dispatcher, 2);
+      lua_pushcclosure(state, algorithm_dispatcher, 3);
       lua_setfield(state, -2, "algorithm_written_in_c");
     }
 
@@ -1014,9 +1023,10 @@ void pgfgd_key_phase(pgfgd_Declaration* d, const char* s)
   d->phase = s;
 }
 
-void pgfgd_key_algorithm(pgfgd_Declaration* d, pgfgd_algorithm_fun f)
+void pgfgd_key_algorithm(pgfgd_Declaration* d, pgfgd_algorithm_fun f, void* user_data)
 {
   d->algorithm = f;
+  d->algorithm_user = user_data;
 }
 
 void pgfgd_free_key(pgfgd_Declaration* d)

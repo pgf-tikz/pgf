@@ -8,6 +8,10 @@
 */
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 
 
@@ -149,6 +153,10 @@ typedef struct pgfgd_Vertex {
 
   /** Like the incoming fields. */
   pgfgd_Edge_array outgoing;
+
+  /** The index of this vertex in the array entry of the syntactic
+      digraph. */
+  int array_index;
   
 } pgfgd_Vertex;
 
@@ -234,6 +242,10 @@ struct pgfgd_Edge {
       options table of pgdgd_Vertex and the same restrictions apply.
    */
   pgfgd_OptionTable* options;
+  
+  /** The index of this edge in the array entry of the syntactic
+      digraph. */
+  int array_index;
   
 };
 
@@ -478,7 +490,7 @@ extern void              pgfgd_digraph_free_edge_array  (pgfgd_Edge_array* edges
 // Declarations
 
 struct lua_State;
-typedef void (*pgfgd_algorithm_fun) (pgfgd_SyntacticDigraph* component);
+typedef void (*pgfgd_algorithm_fun) (pgfgd_SyntacticDigraph* component, void* user_data);
 typedef struct pgfgd_Declaration pgfgd_Declaration;
 
 
@@ -521,7 +533,9 @@ extern void pgfgd_key_phase             (pgfgd_Declaration* d, const char* s);
 /** Sets the algorithm field of the key. The function f must conform
     to the function prototype pgfgd_algorithm_fun, which prescribes
     that the function takes a syntactic digraph as input
-    (pgfgd_SyntacticDigraph*) and does not return anything.
+    (pgfgd_SyntacticDigraph*) and some user data and does not return
+    anything. The user data that is passed to the function is the
+    datum passed here.
 
     Whenever the key is now used on the Lua layer, the graph drawing
     system will run the normal layout pipeline on the graph. Then, at
@@ -530,7 +544,9 @@ extern void pgfgd_key_phase             (pgfgd_Declaration* d, const char* s);
     parameter of this function will be a representation of the
     to-be-drawn syntatic digraph as a C pgfgd_SyntacticDigraph. 
 */
-extern void pgfgd_key_algorithm         (pgfgd_Declaration* d, pgfgd_algorithm_fun f);
+extern void pgfgd_key_algorithm         (pgfgd_Declaration* d,
+					 pgfgd_algorithm_fun f,
+					 void* user_data);
 
 /** Adds a use to the key. This means that whenever the key is used,
     the given key--value pairs will also be set. This is used, in
@@ -562,5 +578,10 @@ extern void pgfgd_declare               (struct lua_State* s, pgfgd_Declaration*
 
 /** Frees the memory used by the key object. */
 extern void pgfgd_free_key              (pgfgd_Declaration* d);
+  
+#ifdef __cplusplus
+}
+#endif
 
+  
 #endif
