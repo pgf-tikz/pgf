@@ -10,9 +10,6 @@
 --- @release $Header$
 
 
--- Imports
-local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
-
 ---
 -- The Open Graph Drawing Framework (\textsc{ogdf}) is a large,
 -- powerful graph drawing system written in C++. This library enables
@@ -29,16 +26,6 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local ogdf
 
 
-require "pgf.gd.ogdf.ModuleHandler"
+-- Load the C++ code:
 
--- Load sublibraries
-
-require "pgf.gd.ogdf.layered.SugiyamaLayout"
-
-require "pgf.gd.ogdf.misclayout.CircularLayout"
-require "pgf.gd.ogdf.misclayout.BalloonLayout"
-
-require "pgf.gd.ogdf.energybased.FMMMLayout"
-require "pgf.gd.ogdf.energybased.DavidsonHarelLayout"
-
-require "pgf.gd.ogdf.planarity.PlanarizationLayout"
+require "pgf.gd.ogdf.c.ScriptingOGDF"

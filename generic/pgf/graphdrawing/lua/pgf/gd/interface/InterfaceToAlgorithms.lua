@@ -247,6 +247,9 @@ end
 -- users cannot set this key at all. However algorithms can still read
 -- this key and, through the use of |alias|, can use the key as a
 -- handle to another key.
+-- \item |user value| The key stores a Lua user value (userdata). Such
+-- keys can only be set from C since user values cannot be created in
+-- Lua (let alone in \tikzname).
 -- \end{itemize}
 --
 -- If the |type| field is missing, it is automatically set to

@@ -190,6 +190,14 @@ declare {
        The radius of a circular object used in graph drawing.
   "]]
 }
+    
+---
+    
+declare {
+  key = "no layout",
+  algorithm = { run = function () end },
+  summary = "This layout does nothing.",
+}
 
 
 -- The following collection kinds are internal

@@ -352,7 +352,10 @@ end
 -- @return The arc object connecting them
 --
 function Digraph:arc(tail, head)
-  return assert(tail.outgoings[self], "tail vertex not in graph")[head]
+  local out = tail.outgoings[self]
+  if out then
+    return out[head]
+  end
 end
 
 

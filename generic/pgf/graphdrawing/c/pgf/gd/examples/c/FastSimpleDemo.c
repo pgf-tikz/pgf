@@ -15,13 +15,12 @@ static void fast_hello_world (pgfgd_SyntacticDigraph* graph, void* v) {
 
 int luaopen_pgf_gd_examples_c_FastSimpleDemo (struct lua_State *state) {
   pgfgd_Declaration* d;
-  
+
   // The main layout key
   d = pgfgd_new_key ("fast simple demo layout");
   pgfgd_key_summary          (d, "The C version of the hello world of graph drawing");
   pgfgd_key_algorithm        (d, fast_hello_world, 0);
   pgfgd_key_add_precondition (d, "connected");
-  pgfgd_key_add_precondition (d, "tree");
   pgfgd_declare              (state, d);
   pgfgd_free_key             (d);
 

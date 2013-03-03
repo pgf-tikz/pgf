@@ -89,7 +89,7 @@ struct SugiyamaLayout_script :
     
     parameters->configure_module ("RankingModule",
 				  &SugiyamaLayout::setRanking, layout);
-
+    
     layout.call (graph_attributes);
   }
   
@@ -101,7 +101,7 @@ struct SugiyamaLayout_script :
 	       .precondition ("connected")
 	       .postcondition ("upward_oriented_swapped")
 	       .algorithm (this));
-    
+
     s.declare (key ("SugiyamaLayout.runs")
 	       .summary ("Determines, how many times the crossing minimization is repeated.")
 	       .type ("number")

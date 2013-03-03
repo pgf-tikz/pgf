@@ -4,7 +4,7 @@ MYLDFLAGS=-isysroot/Developer/SDKs/MacOSX10.5.sdk
 BASE=../../../../..
 
 CC=gcc
-FLAGS=$(MYCFLAGS) -arch x86_64 -O2 -Wall  -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
+FLAGS=$(MYCFLAGS) -arch x86_64 -O2 -Wall -g -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
 
 all: FastSimpleDemo.so FastSimpleDemoC++.so FastSimpleDemoOGDF.so
 
