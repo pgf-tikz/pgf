@@ -41,8 +41,8 @@ local InterfaceCore      = require "pgf.gd.interface.InterfaceCore"
 -- The default parser for documentation. It works as follows:
 --
 -- The text is separated into parts, each part describes one key. Each
--- part begins with a line whose first words are |Documentation of:|
--- followed by the name of a key.
+-- part begins with a line starting with three minus signs, followed by
+-- |Documentation of:|, followed by the name of a key.
 --
 -- Inside each part, if the first line starts with
 -- at least two minus signs, it is ignored.
@@ -55,7 +55,7 @@ local InterfaceCore      = require "pgf.gd.interface.InterfaceCore"
 --
 -- Here is a typical example of how a documentation might look like:
 --\begin{codeexample}[code only]
---
+-- --------------------------------
 -- Documentation of: SugiyamaLayout 
 -- --------------------------------
 --
@@ -67,26 +67,17 @@ local InterfaceCore      = require "pgf.gd.interface.InterfaceCore"
 -- following publications:
 --
 -- \begin{itemize}
--- \item Emden R. Gansner, Eleftherios Koutsofios, Stephen
---   C. North, Kiem-Phong Vo: A technique for drawing directed
---   graphs. \emph{IEEE Trans. Software Eng.} 19(3):214--230, 1993. 
--- \item Georg Sander: \emph{Layout of compound directed graphs.}
---   Technical Report, Universität des Saarlandes, 1996. 
+-- \item ...
 -- \end{itemize}
 --
---
 -- Example:
---
 -- \tikz \graph [SugiyamaLayout] { a -- {b,c,d} -- e -- a };
 --
---
 -- Example:
+-- \tikz \graph [SugiyamaLayout, grow=right]
+-- { a -- {b,c,d} -- e -- a };
 --
--- \tikz \graph [SugiyamaLayout, grow=right] {
---   a -- {b,c,d} -- e -- a
--- };
---
---
+-- -------------------------------------
 -- Documentation of: SugiyamaLayout.runs
 -- -------------------------------------
 --
@@ -149,8 +140,8 @@ local function default_parser (string)
       mode = "doc"   -- do nothing
     else
       -- does it start a key?
-      local key = line:match("^%s*Documentation of:%s*(.-)%s*\r?\n$")
-      if key then
+      local start = line:match("^---")
+      if line:match("^---") then 
 	finish_doc()
 	finish_summary()
 	finish_example()
@@ -158,8 +149,8 @@ local function default_parser (string)
 	if current_key.key then
 	  keys [#keys + 1] = current_key
 	end
-	current_key = { key = key }
-	mode = "first"
+	current_key = { }
+	mode = "start"
       else
 	local summary = line:match("^%s*Summary:%s*(.*\r?\n)$")
 	if summary then
@@ -174,7 +165,10 @@ local function default_parser (string)
 	  else
 	    
 	    -- Depending on the mode, add appropriately:
-	    if mode == "summary" then
+	    if mode == "start" then
+	      current_key.key =  assert(line:match("^%s*Documentation of:%s*(.-)%s*\r?\n$"), "'Documentation of:' expected")
+	      mode = "first"
+	    elseif mode == "summary" then
 	      if line:match("^%s*\r?\n$") then
 		mode = "doc"
 	      else
@@ -190,6 +184,14 @@ local function default_parser (string)
 	end
       end
     end
+  end
+  
+  finish_doc()
+  finish_summary()
+  finish_example()
+  finish_examples()
+  if current_key.key then
+    keys [#keys + 1] = current_key
   end
 
   return keys

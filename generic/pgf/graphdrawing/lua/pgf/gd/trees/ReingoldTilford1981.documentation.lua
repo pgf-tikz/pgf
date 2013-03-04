@@ -11,7 +11,7 @@
 
 
 return [[
-    
+-----------------------------    
 Documentation of: tree layout
 -----------------------------
 
@@ -170,9 +170,10 @@ Example:
     1 -- { 2 -- 3 -- { 4 -- 5, 6 -- { 7, 8, 9 }}, 10 -- 11 -- { 12, 13 } }
   };
   
-
+  
+-----------------------------------------
 Documentation of: missing nodes get space
----------------------------------------  
+-----------------------------------------
 
 Summary: When set to true, missing children are treated as if they 
 where zero-width, zero-height nodes during the whole tree layout
@@ -184,6 +185,7 @@ Example:
 { a -> { b -> c -> d, e -> f -> g } };
 
 
+---------------------------------
 Documentation of: significant sep
 ---------------------------------
 
@@ -204,7 +206,8 @@ Example:
     a -- { b -- c -- d -- e, i -- j -- { f -- {g,h}, k } }
   };
 
-  
+
+------------------------------------
 Documentation of: binary tree layout
 ------------------------------------
 
@@ -247,7 +250,8 @@ Example:
     }
   };
 
-    
+  
+---------------------------------------------
 Documentation of: extended binary tree layout
 ---------------------------------------------  
 
@@ -262,6 +266,4 @@ Example:
     a -- { b -- c -- { d -- e, f -- { g, h }}, i -- j -- k[second] }
   };
   
-
-
 ]]

@@ -102,6 +102,7 @@ local key_metatable = {}
 -- }
 --\end{codeexample}
 --
+-- \medskip\noindent\textbf{Inlining Documentation.}
 -- The three keys |summary|, |documentation| and |examples| are
 -- intended for the display layer to give the users information about
 -- what the key does. The |summary| should be a string that succinctly
@@ -119,6 +120,33 @@ local key_metatable = {}
 -- whole multi-line string (additionally) in quotes, leading to better
 -- syntax highlighting in editors.
 --
+-- \medskip\noindent\textbf{External Documentation.}
+-- It is sometimes more desirable to put the documentation of a key
+-- into an external file. First, this makes the code leaner and, thus,
+-- faster to read (both for humans and for computers). Second, for C
+-- code, it is quite inconvenient to have long strings inside a C
+-- file. In such cases, you can use the |documentation_in| field:
+--
+--\begin{codeexample}[code only]
+-- ---
+-- declare {
+--   key     = "electrical charge",
+--   type    = "number",
+--   initial = "1.0",
+--   documentation_in = "some_filename"
+-- }
+--\end{codeexample}
+--
+-- The |some_filename| must be the name of a Lua (!) file that will be
+-- read ``on demand,'' that is, whenever someone tries to access the
+-- documentation, summary, or examples field of the key, this file
+-- will be loaded using |require|. The file must just return a single
+-- string, which will be parsed using the function
+-- |DocumentationParser.parse|, see that function for details of the
+-- syntax. It will ``fill'' the missing documentation of the keys at
+-- that moment.
+--
+-- \medskip\noindent\textbf{The Use Field.}
 -- When you declare a key, you can provide a |use| field. If present,
 -- you must set it to an array of small tables which have two fields:
 -- \begin{itemize}
@@ -167,7 +195,7 @@ local key_metatable = {}
 -- }
 --\end{codeexample}
 --
--- As metioned at the beginning, |declare| is a work-horse that will call
+-- As mentioned at the beginning, |declare| is a work-horse that will call
 -- different internal functions depending on whether you declare a
 -- parameter key or a new algorithm or a collection kind. Which kind
 -- of declaration is being done is detected by the presence of certain
@@ -208,12 +236,14 @@ local documentation_already_read = {} -- unique index
 
 function key_metatable.__index (key_table, what)
   if not rawget(key_table, documentation_already_read) then
-    local doc = rawget(key_table,"documentation_in")
-    if doc then
-      local documentation = require (doc)
-      DocumentationParser.parse(documentation)
-      key_table[documentation_already_read] = true
-      return rawget(key_table, what)
+    if what == "documentation" or what == "summary" or what == "examples" then
+      local doc = rawget(key_table,"documentation_in")
+      if doc then
+	local documentation = require (doc)
+	DocumentationParser.parse(documentation)
+	key_table[documentation_already_read] = true
+	return rawget(key_table, what)
+      end
     end
   end
 end
