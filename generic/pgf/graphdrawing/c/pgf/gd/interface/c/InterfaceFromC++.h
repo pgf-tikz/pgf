@@ -54,21 +54,22 @@ namespace scripting {
     key (struct pgfgd_Declaration*);
     ~key ();
     
-    const key& summary       (const char*) const;
-    const key& initial       (const char*) const;
-    const key& initial       (factory_base*) const;
-    const key& type          (const char*) const;
-    const key& module_type   () const;
-    const key& default_value (const char*) const;
-    const key& alias         (const char*) const;
-    const key& documentation (const char*) const;
-    const key& phase         (const char*) const;
-    const key& set_key       (const char*, const char*) const;
-    const key& set_module    (const char*, factory_base*) const;
-    const key& example       (const char*) const;
-    const key& precondition  (const char*) const;
-    const key& postcondition (const char*) const;
-    const key& algorithm     (runner*) const;
+    const key& summary          (const char*) const;
+    const key& initial          (const char*) const;
+    const key& initial          (factory_base*) const;
+    const key& type             (const char*) const;
+    const key& module_type      () const;
+    const key& default_value    (const char*) const;
+    const key& alias            (const char*) const;
+    const key& documentation    (const char*) const;
+    const key& documentation_in (const char*) const;
+    const key& phase            (const char*) const;
+    const key& set_key          (const char*, const char*) const;
+    const key& set_module       (const char*, factory_base*) const;
+    const key& example          (const char*) const;
+    const key& precondition     (const char*) const;
+    const key& postcondition    (const char*) const;
+    const key& algorithm        (runner*) const;
 
   private:
       

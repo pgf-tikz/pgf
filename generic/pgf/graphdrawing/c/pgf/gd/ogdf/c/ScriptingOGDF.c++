@@ -30,7 +30,8 @@ struct LongestPathRanking_script :
   void declare (scripting::script s) {
     using namespace scripting;
     using namespace ogdf;
-    s.declare (key ("LongestPathRanking")
+    s.declare (key ("LongestPathRanking").
+	       .documentation_in ("pgf.gd.ogdf.layered.RankingModule_documentation")
 	       .summary ("The longest-path ranking algorithm.")
 	       .documentation ("\
                    |LongestPathRanking| implements the well-known longest-path \
@@ -44,16 +45,19 @@ struct LongestPathRanking_script :
     s.declare (key ("LongestPathRanking.separateDeg0Layer")
 	       .type ("boolean")
 	       .initial ("true")
+	       .documentation_in ("pgf.gd.ogdf.layered.RankingModule_documentation")
 	       .summary ("If set to true, isolated nodes are placed on a separate layer."));
 
     s.declare (key ("LongestPathRanking.separateMultiEdges")
 	       .type ("boolean")
 	       .initial ("true")
+	       .documentation_in ("pgf.gd.ogdf.layered.RankingModule_documentation")
 	       .summary ("If set to true, multi-edges will span at least two layers."));
 
     s.declare (key ("LongestPathRanking.optimizeEdgeLength")
 	       .type ("boolean")
 	       .initial ("true")
+	       .documentation_in ("pgf.gd.ogdf.layered.RankingModule_documentation")
 	       .summary ("If set to true the ranking algorithm tries to reduce\
                    edge length even if this might increase the height of the\
                    layout. Choose false, if the longest-path ranking known from the\
@@ -97,12 +101,14 @@ struct SugiyamaLayout_script :
     using namespace scripting;
     using namespace ogdf;
     s.declare (key ("SugiyamaLayout")
+	       .documentation_in ("pgf.gd.ogdf.layered.SugiyamaLayout_documentation")
 	       .summary ("The OGDF implementation of the Sugiyama method")
 	       .precondition ("connected")
 	       .postcondition ("upward_oriented_swapped")
 	       .algorithm (this));
 
     s.declare (key ("SugiyamaLayout.runs")
+	       .documentation_in ("pgf.gd.ogdf.layered.SugiyamaLayout_documentation")
 	       .summary ("Determines, how many times the crossing minimization is repeated.")
 	       .type ("number")
 	       .initial ("15")
@@ -113,6 +119,7 @@ struct SugiyamaLayout_script :
     s.declare (key ("SugiyamaLayout.transpose")
 	       .type ("boolean") 
 	       .initial ("true") 
+	       .documentation_in ("pgf.gd.ogdf.layered.SugiyamaLayout_documentation")
 	       .summary ("Determines whether the transpose step is performed \
                     after each 2-layer crossing minimization; this step tries to \
                     reduce the number of crossings by switching neighbored nodes on \

@@ -809,6 +809,7 @@ struct pgfgd_Declaration {
   const char*            default_value;
   const char*            alias;
   const char*            documentation;
+  const char*            documentation_in;
   pgfgd_algorithm_fun    algorithm;
   void*                  algorithm_user;
   const char*            phase;
@@ -857,6 +858,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
     set_field (state, d->type, "type");
     set_field (state, d->initial, "initial");
     set_field (state, d->documentation, "documentation");
+    set_field (state, d->documentation_in, "documentation_in");
     set_field (state, d->default_value, "default");
     set_field (state, d->alias, "alias");
     set_field (state, d->phase, "phase");
@@ -1016,6 +1018,11 @@ void pgfgd_key_alias(pgfgd_Declaration* d, const char* s)
 void pgfgd_key_documentation(pgfgd_Declaration* d, const char* s)
 {
   d->documentation = s;
+}
+
+void pgfgd_key_documentation_in(pgfgd_Declaration* d, const char* s)
+{
+  d->documentation_in = s;
 }
 
 void pgfgd_key_phase(pgfgd_Declaration* d, const char* s)

@@ -81,6 +81,11 @@ namespace scripting {
     return *this;
   }
 
+  const key& key::documentation_in (const char* x) const {
+    pgfgd_key_documentation_in(d, x);
+    return *this;
+  }
+
   const key& key::phase (const char* x) const {
     pgfgd_key_phase(d, x);
     return *this;

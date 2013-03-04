@@ -527,6 +527,9 @@ extern void pgfgd_key_alias             (pgfgd_Declaration* d, const char* s);
 /** Sets the documentation field of the key. */
 extern void pgfgd_key_documentation     (pgfgd_Declaration* d, const char* s);
 
+/** Sets the documentation_in field of the key. */
+extern void pgfgd_key_documentation_in  (pgfgd_Declaration* d, const char* s);
+
 /** Sets the phase field of the key. */
 extern void pgfgd_key_phase             (pgfgd_Declaration* d, const char* s);
 
