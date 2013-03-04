@@ -28,4 +28,4 @@ local ogdf
 
 -- Load the C++ code:
 
-require "pgf.gd.ogdf.c.ScriptingOGDF"
+require "pgf.gd.ogdf.c.ogdf_script"
