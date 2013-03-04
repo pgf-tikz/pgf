@@ -30,21 +30,25 @@ require("pgf.gd.interface").InterfaceToAlgorithms = InterfaceToAlgorithms
 
 
 -- Imports
-local InterfaceCore      = require "pgf.gd.interface.InterfaceCore"
-local InterfaceToDisplay = require "pgf.gd.interface.InterfaceToDisplay"
-local InterfaceToC       = require "pgf.gd.interface.InterfaceToC"
+local InterfaceCore       = require "pgf.gd.interface.InterfaceCore"
+local InterfaceToDisplay  = require "pgf.gd.interface.InterfaceToDisplay"
+local InterfaceToC        = require "pgf.gd.interface.InterfaceToC"
+local DocumentationParser = require "pgf.gd.interface.DocumentationParser"
 
-local LookupTable        = require "pgf.gd.lib.LookupTable"
-local LayoutPipeline     = require "pgf.gd.control.LayoutPipeline"
+local LookupTable         = require "pgf.gd.lib.LookupTable"
+local LayoutPipeline      = require "pgf.gd.control.LayoutPipeline"
 
-local Edge               = require "pgf.gd.model.Edge"
+local Edge                = require "pgf.gd.model.Edge"
 
-local lib                = require "pgf.gd.lib"
+local lib                 = require "pgf.gd.lib"
 
 
 -- Forwards
 
 local declare_handlers
+
+
+
 
 ---
 -- Adds a handler for the |declare| function. The |declare|
@@ -60,6 +64,11 @@ function InterfaceToAlgorithms.addHandler(test, handler)
   table.insert(declare_handlers, 1, { test = test, handler = handler })
 end
 
+
+
+-- Local stuff
+
+local key_metatable = {}
 
 ---
 -- This function is the ``work-horse'' for declaring things. It allows
@@ -186,10 +195,27 @@ function InterfaceToAlgorithms.declare (t)
       end
     end
   end
+
+  -- Attach metatable:
+  setmetatable (t, key_metatable)
     
   -- Set!
   keys[t.key]     = t
   keys[#keys + 1] = t
+end
+
+local documentation_already_read = {} -- unique index
+
+function key_metatable.__index (key_table, what)
+  if not rawget(key_table, documentation_already_read) then
+    local doc = rawget(key_table,"documentation_in")
+    if doc then
+      local documentation = require (doc)
+      DocumentationParser.parse(documentation)
+      key_table[documentation_already_read] = true
+      return rawget(key_table, what)
+    end
+  end
 end
 
 
