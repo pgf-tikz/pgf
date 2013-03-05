@@ -13,7 +13,7 @@ struct DfsAcyclicSubgraph_script :
   void declare (scripting::script s) {
     using namespace scripting;
     s.declare (key ("DfsAcyclicSubgraph")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation")
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.DfsAcyclicSubgraph")
 	       .set_module ("AcyclicSubgraphModule", this));
   }
 };

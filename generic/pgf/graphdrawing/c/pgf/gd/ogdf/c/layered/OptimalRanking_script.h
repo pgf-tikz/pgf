@@ -22,13 +22,13 @@ struct OptimalRanking_script :
     using namespace scripting;
     using namespace ogdf;
     s.declare (key ("OptimalRanking")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation")
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.OptimalRanking")
 	       .set_module ("RankingModule", this));
 
     s.declare (key ("OptimalRanking.separateMultiEdges")
 	       .type ("boolean")
 	       .initial ("true")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation"));
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.OptimalRanking"));
   }
 };
 

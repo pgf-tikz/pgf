@@ -13,6 +13,8 @@ struct SugiyamaLayout_script :
 				  &SugiyamaLayout::runs, layout);
     parameters->configure_option ("SugiyamaLayout.transpose",
 				  &SugiyamaLayout::transpose, layout);
+    parameters->configure_option ("SugiyamaLayout.fails",
+				  &SugiyamaLayout::fails, layout);
     
     parameters->configure_module ("RankingModule",
 				  &SugiyamaLayout::setRanking, layout);
@@ -31,17 +33,22 @@ struct SugiyamaLayout_script :
 	       .precondition ("connected")
 	       .postcondition ("upward_oriented_swapped")
 	       .algorithm (this)
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation"));
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.SugiyamaLayout"));
 
     s.declare (key ("SugiyamaLayout.runs")
 	       .type ("number")
 	       .initial ("15")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation"));
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.SugiyamaLayout"));
     
     s.declare (key ("SugiyamaLayout.transpose")
 	       .type ("boolean") 
 	       .initial ("true") 
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation"));
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.SugiyamaLayout"));
+    
+    s.declare (key ("SugiyamaLayout.fails")
+	       .type ("number") 
+	       .initial ("4") 
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.SugiyamaLayout"));
   }
   
 };

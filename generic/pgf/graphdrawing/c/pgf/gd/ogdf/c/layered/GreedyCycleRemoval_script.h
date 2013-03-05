@@ -13,7 +13,7 @@ struct GreedyCycleRemoval_script :
   void declare (scripting::script s) {
     using namespace scripting;
     s.declare (key ("GreedyCycleRemoval")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation")
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.GreedyCycleRemoval")
 	       .set_module ("AcyclicSubgraphModule", this));
   }
 };

@@ -22,13 +22,13 @@ struct CoffmanGrahamRanking_script :
     using namespace scripting;
     using namespace ogdf;
     s.declare (key ("CoffmanGrahamRanking")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation")
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.CoffmanGrahamRanking")
 	       .set_module ("RankingModule", this));
 
     s.declare (key ("CoffmanGrahamRanking.width")
 	       .type ("number")
 	       .initial ("3")
-	       .documentation_in ("pgf.gd.ogdf.layered.documentation"));
+	       .documentation_in ("pgf.gd.doc.ogdf.layered.CoffmanGrahamRanking"));
   }
 };
 

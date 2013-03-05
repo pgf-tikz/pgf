@@ -33,7 +33,6 @@ require("pgf.gd.interface").InterfaceToAlgorithms = InterfaceToAlgorithms
 local InterfaceCore       = require "pgf.gd.interface.InterfaceCore"
 local InterfaceToDisplay  = require "pgf.gd.interface.InterfaceToDisplay"
 local InterfaceToC        = require "pgf.gd.interface.InterfaceToC"
-local DocumentationParser = require "pgf.gd.interface.DocumentationParser"
 
 local LookupTable         = require "pgf.gd.lib.LookupTable"
 local LayoutPipeline      = require "pgf.gd.control.LayoutPipeline"
@@ -137,14 +136,11 @@ local key_metatable = {}
 -- }
 --\end{codeexample}
 --
--- The |some_filename| must be the name of a Lua (!) file that will be
+-- The |some_filename| must be the name of a Lua file that will be
 -- read ``on demand,'' that is, whenever someone tries to access the
 -- documentation, summary, or examples field of the key, this file
--- will be loaded using |require|. The file must just return a single
--- string, which will be parsed using the function
--- |DocumentationParser.parse|, see that function for details of the
--- syntax. It will ``fill'' the missing documentation of the keys at
--- that moment.
+-- will be loaded using |require|. The file should then use
+-- |pgf.gd.doc| to install the missing information in the keys.
 --
 -- \medskip\noindent\textbf{The Use Field.}
 -- When you declare a key, you can provide a |use| field. If present,
@@ -232,18 +228,13 @@ function InterfaceToAlgorithms.declare (t)
   keys[#keys + 1] = t
 end
 
-local documentation_already_read = {} -- unique index
 
 function key_metatable.__index (key_table, what)
-  if not rawget(key_table, documentation_already_read) then
-    if what == "documentation" or what == "summary" or what == "examples" then
-      local doc = rawget(key_table,"documentation_in")
-      if doc then
-	local documentation = require (doc)
-	DocumentationParser.parse(documentation)
-	key_table[documentation_already_read] = true
-	return rawget(key_table, what)
-      end
+  if what == "documentation" or what == "summary" or what == "examples" then
+    local doc = rawget(key_table,"documentation_in")
+    if doc then
+      require (doc)
+      return rawget(key_table, what)
     end
   end
 end

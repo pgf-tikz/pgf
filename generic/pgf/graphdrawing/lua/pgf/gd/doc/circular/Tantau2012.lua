@@ -9,15 +9,21 @@
 
 -- @release $Header$
 
+local key           = require 'pgf.gd.doc'.key
+local documentation = require 'pgf.gd.doc'.documentation
+local summary       = require 'pgf.gd.doc'.summary
+local example       = require 'pgf.gd.doc'.example
 
-return [[
-----------------------------------------
-Documentation of: simple necklace layout
-----------------------------------------
 
-Summary: This simple layout arranges the nodes in a circle, which is
-especially useful for drawing, well, circles of nodes.
+--------------------------------------------------------------------
+key          "simple necklace layout"
 
+summary
+[[ This simple layout arranges the nodes in a circle, which is
+especially useful for drawing, well, circles of nodes. ]]
+
+documentation
+[[
 The name |simple necklace layout| is reminiscent of the more general
 ``necklace layout,'' a term coined by Speckmann and Verbeek in
 their paper
@@ -25,7 +31,8 @@ their paper
 \item
   Bettina Speckmann and Kevin Verbeek,
   \newblock Necklace Maps,
-  \newblock \emph{IEEE Transactions on Visualization and Computer Graphics,} 16(6):881--889, 2010.
+  \newblock \emph{IEEE Transactions on Visualization and Computer
+    Graphics,} 16(6):881--889, 2010. 
 \end{itemize}
 
 For a |simple necklace layout|, the centers of the nodes
@@ -76,16 +83,19 @@ properties are satisfied. To be more precise, if all nodes are
 circles, the radius is chosen optimally while for, say, rectangular
 nodes there may be too much space between the nodes in order to
 satisfy the second condition.
+]]
 
-
-Example:
+example
+[[
 \tikz \graph [simple necklace layout,
               node sep=0pt, node distance=0pt,
               nodes={draw,circle}]
 { 1 -- 2 [minimum size=30pt] -- 3 --
   4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 };
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}[radius=1.25cm]
   \graph [simple necklace layout,
           node sep=0pt, node distance=0pt,
@@ -95,26 +105,32 @@ Example:
   
   \draw [red] (0,-1.25) circle [];
 \end{tikzpicture}
+]]
 
-Example:
+example
+[[
 \tikz \graph [simple necklace layout,
               node sep=0pt, node distance=1cm,
               nodes={draw,circle}]
 { 1 -- 2 [minimum size=30pt] -- 3 --
   4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+]]
 
-Example:
+example
+[[
 \tikz \graph [simple necklace layout,
               node sep=2pt, node distance=0pt,
               nodes={draw,circle}]
 { 1 -- 2 [minimum size=30pt] -- 3 --
   4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
+]]
 
-Example:
+example
+[[
 \tikz \graph [simple necklace layout,
               node sep=0pt, node distance=0pt,
               nodes={rectangle,draw}]
 { 1 -- 2 [minimum size=30pt] -- 3 --
   4 [minimum size=50pt] -- 5 [minimum size=40pt] -- 6 -- 7 }; 
-
 ]]
+--------------------------------------------------------------------

@@ -9,17 +9,24 @@
 
 -- @release $Header$
 
-return [[
-----------------------------
-Documentation of: desired at
-----------------------------
+local key           = require 'pgf.gd.doc'.key
+local documentation = require 'pgf.gd.doc'.documentation
+local summary       = require 'pgf.gd.doc'.summary
+local example       = require 'pgf.gd.doc'.example
 
-Summary:
+
+--------------------------------------------------------------------
+key          "desired at"
+
+summary
+[[
 When you add this key to a node in a graph, you ``desire''
 that the node should be placed at the \meta{coordinate} by the graph
 drawing algorithm.
+]]
 
-
+documentation
+[[
 Now, when you set this key for a single node of a graph,
 then, by shifting the graph around, this ``wish'' can obviously
 always be fulfill:
@@ -80,8 +87,10 @@ nodes and only compute the positions
 of the other nodes relative to these nodes. For instance, for a
 |spring layout| it makes perfect sense that some nodes are
 ``nailed to the canvas'' while other nodes can ``move freely''.
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -90,8 +99,10 @@ Example:
     { h, g } -- a;
   };
 \end{tikzpicture}
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -100,8 +111,10 @@ Example:
     { h, g } -- a;
   };
 \end{tikzpicture}
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -110,18 +123,25 @@ Example:
     { h, g } -- a;
   };
 \end{tikzpicture}
+]]
+--------------------------------------------------------------------
 
 
------------------------------
-Documentation of: anchor node
------------------------------
 
-Summary: This option can be used with a graph to specify a node that
+--------------------------------------------------------------------
+key          "anchor node"
+
+summary
+[[
+This option can be used with a graph to specify a node that
 should  be used for anchoring the whole graph.
+]]
 
-When this option is
-specified, after the layout has been computed, the whole graph will
-be shifted in such a way that the \meta{node name} is either
+documentation
+[[
+When this option is specified, after the layout has been computed, the
+whole graph will be shifted in such a way that the \meta{node name} is
+either 
 \begin{itemize}
 \item at the current value of |anchor at| or 
 \item at the position that is specified in the form of a
@@ -129,56 +149,76 @@ be shifted in such a way that the \meta{node name} is either
 \end{itemize}
 Note how in the last example |c| is placed at |(1,1)| rather than
 |b| as would happen by default.
+]]
 
-Example:
+example
+[[
 \tikz \draw (0,0)
   -- (1,0.5) graph [edges=red,  layered layout, anchor node=a] { a -> {b,c} }
   -- (1.5,0) graph [edges=blue, layered layout,
                     anchor node=y, anchor at={(2,0)}]          { x -> {y,z} };
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   
   \graph [layered layout, anchor node=c, edges=rounded corners]
     { a -- {b [x=1,y=1], c [x=1,y=1] } -- d -- a};
 \end{tikzpicture}
+]]
+--------------------------------------------------------------------
 
 
----------------------------
-Documentation of: anchor at
----------------------------
 
-Summary: The coordinate at which the graph should be anchored when no 
+
+--------------------------------------------------------------------
+key          "anchor at"
+
+summary
+[[
+The coordinate at which the graph should be anchored when no 
 explicit anchor is given for any node. The initial value is the origin. 
+]]
 
-
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (2,2);
   
   \graph [layered layout, edges=rounded corners, anchor at={(1,2)}]
     { a -- {b, c [anchor here] } -- d -- a};
 \end{tikzpicture}
+]]
+--------------------------------------------------------------------
 
 
------------------------------
-Documentation of: anchor here
------------------------------
 
-Summary: This option can be passed to a single node (rather than the
+
+--------------------------------------------------------------------
+key          "anchor here"
+
+summary
+[[
+This option can be passed to a single node (rather than the
 graph as a whole) in order to specify that this node should be used
 for the anchoring process.
+]]
 
+documentation
+[[
 In the example, |c| is placed at the origin since this is the
 default |anchor at| position.
+]]
 
-Example:
+example
+[[
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (2,2);
   
   \graph [layered layout, edges=rounded corners]
     { a -- {b, c [anchor here] } -- d -- a};
 \end{tikzpicture}
-
 ]]
+--------------------------------------------------------------------

@@ -10,14 +10,19 @@
 -- @release $Header$
 
 
-return [[
------------------------------    
-Documentation of: tree layout
------------------------------
+local key           = require 'pgf.gd.doc'.key
+local documentation = require 'pgf.gd.doc'.documentation
+local summary       = require 'pgf.gd.doc'.summary
+local example       = require 'pgf.gd.doc'.example
 
-Summary: This layout uses the Reingold--Tilform method for drawing
-trees.
 
+--------------------------------------------------------------------
+key          "tree layout"
+
+summary      "This layout uses the Reingold--Tilform method for drawing trees."
+
+documentation
+[[
 The Reingold--Tilford method is a standard method for drawing
 trees. It is described in:
 \begin{itemize}
@@ -156,43 +161,62 @@ while in the second example |a| and |b| form such a pair.
 Whenever the algorithm encounters a significant pair, it adds extra
 space between the siblings as specified by the |significant sep|
 key.
+]]
 
-Example:
+
+example
+[[
 \tikz [tree layout, sibling distance=8mm]
   \graph [nodes={circle, draw, inner sep=1.5pt}]{
     1 -- { 2 -- 3 -- { 4 -- 5, 6 -- { 7, 8, 9 }}, 10 -- 11 -- { 12, 13 } }
   };
-  
-Example:
+]]
+
+
+example
+[[
 \tikz [tree layout, grow=-30,
        sibling distance=0mm, level distance=0mm,]
   \graph [nodes={circle, draw, inner sep=1.5pt}]{
     1 -- { 2 -- 3 -- { 4 -- 5, 6 -- { 7, 8, 9 }}, 10 -- 11 -- { 12, 13 } }
   };
-  
-  
------------------------------------------
-Documentation of: missing nodes get space
------------------------------------------
+]]
+--------------------------------------------------------------------
 
-Summary: When set to true, missing children are treated as if they 
+
+
+--------------------------------------------------------------------
+key          "missing nodes get space"
+
+summary
+[[
+When set to true, missing children are treated as if they 
 where zero-width, zero-height nodes during the whole tree layout
 process.
+]]
 
-Example:
+
+example
+[[
 \tikz \graph [tree layout, missing nodes get space,
               minimum number of children=2, nodes={draw,circle}]
 { a -> { b -> c -> d, e -> f -> g } };
+]]
+--------------------------------------------------------------------
 
 
----------------------------------
-Documentation of: significant sep
----------------------------------
 
-Summary: This space is added to signifcant pairs by the modified 
-Reingold--Tilford algorithm.
 
-Example:
+
+--------------------------------------------------------------------
+key          "significant sep"
+
+summary
+[[ This space is added to signifcant pairs by the modified 
+Reingold--Tilford algorithm. ]]
+
+example
+[[
 \tikz [baseline=(a.base), tree layout, significant sep=1em,
        minimum number of children=2,
        sibling distance=5mm, level distance=5mm]
@@ -205,15 +229,20 @@ Example:
   \graph [nodes={circle, inner sep=0pt, minimum size=2mm, fill, as=}]{
     a -- { b -- c -- d -- e, i -- j -- { f -- {g,h}, k } }
   };
+]]
+--------------------------------------------------------------------
 
 
-------------------------------------
-Documentation of: binary tree layout
-------------------------------------
 
-Summary: A layout based on the Reingold--Tilford method for drawing
-binary trees.
+--------------------------------------------------------------------
+key          "binary tree layout"
 
+summary
+[[ A layout based on the Reingold--Tilford method for drawing
+binary trees. ]]
+
+documentation
+[[
 This key executes:
 \begin{enumerate}
 \item |tree layout|, thereby selecting the Reingold--Tilford method,
@@ -225,14 +254,19 @@ In the examples, the last one is taken from the paper of
 Br\"uggemann-Klein and Wood. It demonstrates nicely the
 advantages of having the full power of \tikzname's anchoring and the
 graph drawing engine's orientation mechanisms at one's disposal.
+]]
 
-Example:
+
+example
+[[
 \tikz [grow'=up, binary tree layout, sibling distance=7mm, level distance=7mm]
   \graph {
     a -- { b -- c -- { d -- e, f -- { g, h }}, i -- j -- k[second] }
   };
-  
-Example:
+]]
+
+example
+[[
 \tikz \graph [binary tree layout] {
   Knuth -> {
     Beeton -> Kellermann [second] -> Carnes,
@@ -249,21 +283,27 @@ Example:
       Tobin -> Plass -> { Lamport, Spivak } 
     }
   };
+]]
+--------------------------------------------------------------------
+
 
   
----------------------------------------------
-Documentation of: extended binary tree layout
----------------------------------------------  
+--------------------------------------------------------------------
+key          "extended binary tree layout"
 
-Summary: This algorithm is similar to |binary tree layout|, only the
+summary
+[[ This algorithm is similar to |binary tree layout|, only the
 option \texttt{missing nodes get space} is executed and the
-\texttt{significant sep} is zero.
+\texttt{significant sep} is zero. ]]
 
-Example:
+example
+[[
 \tikz [grow'=up, extended binary tree layout,
        sibling distance=7mm, level distance=7mm]
   \graph {
     a -- { b -- c -- { d -- e, f -- { g, h }}, i -- j -- k[second] }
   };
-  
 ]]
+--------------------------------------------------------------------
+
+
