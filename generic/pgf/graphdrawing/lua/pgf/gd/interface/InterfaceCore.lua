@@ -63,7 +63,9 @@ local InterfaceCore = {
   option_initial      = {
     algorithm_phases = {}
   },
-  option_aliases      = {},
+  option_aliases      = {
+    [{}] = true -- dummy entry to make sure table is not empty
+  },
 
   -- Constant strings for special collection kinds.
   sublayout_kind      = "INTERNAL_sublayout_kind",

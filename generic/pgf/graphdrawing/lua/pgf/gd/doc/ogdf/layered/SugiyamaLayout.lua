@@ -16,16 +16,10 @@ local summary       = require 'pgf.gd.doc'.summary
 local example       = require 'pgf.gd.doc'.example
 
 
----
--- @section subsubsection {The Sugiyama Method}
---
-
-local _
-
-
 --------------------------------------------------------------------------------
 key           "SugiyamaLayout"
 summary       "The OGDF implementation of the Sugiyama algorithm."
+
 documentation 
 [[
 This layout represents a customizable implementation of Sugiyama's
@@ -40,7 +34,12 @@ on the following publications:
   Technical Report, Universität des Saarlandes, 1996. 
 \end{itemize}
 ]]
-example      "\tikz \graph [SugiyamaLayout] { a -- {b,c,d} -- e -- a };"
+
+example
+[[
+\tikz \graph [SugiyamaLayout] { a -- {b,c,d} -- e -- a };
+]]
+
 example     
 [[
 \tikz \graph [SugiyamaLayout, grow=right] {

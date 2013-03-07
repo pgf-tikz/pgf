@@ -524,6 +524,9 @@ extern void pgfgd_key_default           (pgfgd_Declaration* d, const char* s);
 /** Sets the alias field of the key. */
 extern void pgfgd_key_alias             (pgfgd_Declaration* d, const char* s);
 
+/** Sets the alias_function_string field of the key. */
+extern void pgfgd_key_alias_function    (pgfgd_Declaration* d, const char* s);
+
 /** Sets the documentation field of the key. */
 extern void pgfgd_key_documentation     (pgfgd_Declaration* d, const char* s);
 

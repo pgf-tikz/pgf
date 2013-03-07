@@ -76,6 +76,11 @@ namespace scripting {
     return *this;
   }
 
+  const key& key::alias_function (const char* x) const {
+    pgfgd_key_alias_function(d, x);
+    return *this;
+  }
+
   const key& key::documentation (const char* x) const {
     pgfgd_key_documentation(d, x);
     return *this;

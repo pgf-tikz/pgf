@@ -1,6 +1,8 @@
 #include <pgf/gd/interface/c/InterfaceFromOGDF.h>
 
 
+#include "module/module_script.h"
+
 #include "layered/SugiyamaLayout_script.h"
 
 #include "layered/LongestPathRanking_script.h"
@@ -16,12 +18,15 @@
 #include "layered/MedianHeuristic_script.h"
 #include "layered/SplitHeuristic_script.h"
 
-#include "module/module_script.h"
+#include "layered/FastHierarchyLayout_script.h"
+#include "layered/FastSimpleHierarchyLayout_script.h"
 
 
 extern "C" int luaopen_pgf_gd_ogdf_c_ogdf_script (struct lua_State *state) {
   
   scripting::script s (state);
+
+  s.declare (new module_script);
   
   s.declare (new SugiyamaLayout_script);
   
@@ -37,8 +42,9 @@ extern "C" int luaopen_pgf_gd_ogdf_c_ogdf_script (struct lua_State *state) {
   s.declare (new SiftingHeuristic_script);
   s.declare (new MedianHeuristic_script);
   s.declare (new SplitHeuristic_script);
-
-  s.declare (new module_script);
+  
+  s.declare (new FastHierarchyLayout_script);
+  s.declare (new FastSimpleHierarchyLayout_script);
   
   return 0;
 }

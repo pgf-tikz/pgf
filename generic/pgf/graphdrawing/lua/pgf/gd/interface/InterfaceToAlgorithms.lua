@@ -310,13 +310,14 @@ end
 -- no value is provided.
 --
 -- A parameter can habe an |alias| field. This field must be set to
--- the name of another key. Whenever you access the current key and
--- this key is not set, the |alias| key is tried instead. If it is
--- set, its value will be returned (if the |alias| key has itself an
--- alias set, this is tried recursively). If the alias is not set
--- either and neither does it have an initial value, the |initial|
--- value is used. Note that in case the alias has its |initial| field
--- set, the |initial| value of the current key will never be used.
+-- the name of another key or to a function. Whenever you access the
+-- current key and this key is not set, the |alias| key is tried
+-- instead. If it is  set, its value will be returned (if the |alias|
+-- key has itself an  alias set, this is tried recursively). If the
+-- alias is not set either and neither does it have an initial value,
+-- the |initial| value is used. Note that in case the alias has its
+-- |initial| field set, the |initial| value of the current key will
+-- never be used. 
 --
 -- The main purpose of the current key is to allow algorithms to
 -- introduce their own terminology for keys while still having access
@@ -353,8 +354,25 @@ end
 --\end{codeexample}
 --
 -- Here, when you say |layerDistance=1cm|, the |level distance| itself
--- will be modified. When the |level distance| is set, however the
+-- will be modified. When the |level distance| is set, however, the
 -- |layerDistance| will not be modified.
+--
+-- If the alias is a function, it will be called with the option table
+-- as its parameter. You can thus say things like
+--
+--\begin{codeexample}[code only]
+-- declare {
+--   key     = "layerDistance",
+--   type    = "length",
+--   alias   = function (option)
+--               return option["layer pre dist"] + option["layer post dist"]
+--             end
+-- }
+--\end{codeexample}
+--
+-- As a special curtesy to C code, you can also set the key
+-- |alias_function_string|, which allows you to put the function into
+-- a string that is read using |loadstring|. 
 --
 -- (You cannot call this function directly, it is included for
 -- documentation purposes only.)
@@ -377,9 +395,24 @@ local function declare_parameter (t)
       InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
     end
   end
+  
+  if t.alias_function_string and not t.alias then
+    local count = 0
+    t.alias = load (
+      function ()
+ 	count = count + 1
+ 	if count == 1 then
+ 	  return "return "
+ 	elseif count == 2 then
+ 	  return t.alias_function_string
+ 	else
+ 	  return nil
+ 	end
+      end)()
+  end
 
   if t.alias then
-    assert (type(t.alias) == "string", "alias must be a string")
+    assert (type(t.alias) == "string" or type(t.alias == "function"), "alias must be a string or a function")
     InterfaceCore.option_aliases[t.key] = t.alias
   end
 

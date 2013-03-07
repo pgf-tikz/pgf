@@ -865,8 +865,8 @@ local option_metatable = {
     function (t, key)
       local k = aliases[key]
       if k then
-	local v = t[k]
-	if v then
+	local v = (type(k) == "string" and t[k]) or (type(k) == "function" and k(t)) or nil
+	if v ~= nil then
 	  return v
 	end
       end

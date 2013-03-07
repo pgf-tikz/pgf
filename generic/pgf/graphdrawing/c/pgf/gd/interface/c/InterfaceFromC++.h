@@ -61,6 +61,7 @@ namespace scripting {
     const key& module_type      () const;
     const key& default_value    (const char*) const;
     const key& alias            (const char*) const;
+    const key& alias_function   (const char*) const;
     const key& documentation    (const char*) const;
     const key& documentation_in (const char*) const;
     const key& phase            (const char*) const;
