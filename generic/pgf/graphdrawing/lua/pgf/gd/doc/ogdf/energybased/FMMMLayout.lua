@@ -17,44 +17,40 @@ local example       = require 'pgf.gd.doc'.example
 
 
 --------------------------------------------------------------------------------
-key           "SugiyamaLayout"
-summary       "The OGDF implementation of the Sugiyama algorithm."
+key           "FMMMLayout"
+summary       "The fast multipole multilevel layout algorithm."
 
 documentation 
 [[
-This layout represents a customizable implementation of Sugiyama's
-layout algorithm. The implementation used in |SugiyamaLayout| is based
-on the following publications:
-    
+|FMMMLayout| implements a force-directed graph drawing
+method suited also for very large graphs. It is based on a
+combination of an efficient multilevel scheme and a strategy for
+approximating the repulsive forces in the system by rapidly
+evaluating potential fields.
+
+The implementation is based on the following publication:
+
 \begin{itemize}
-\item Emden R. Gansner, Eleftherios Koutsofios, Stephen
-  C. North, Kiem-Phong Vo: A technique for drawing directed
-  graphs. \emph{IEEE Trans. Software Eng.} 19(3):214--230, 1993. 
-\item Georg Sander: \emph{Layout of compound directed graphs.}
-  Technical Report, Universität des Saarlandes, 1996. 
+\item Stefan Hachul, Michael J\"unger: Drawing Large Graphs with
+  a Potential-Field-Based Multilevel Algorithm. \emph{12th
+    International Symposium on Graph Drawing 1998 (GD '04)}, New York, LNCS 3383,
+  pp. 285--295, 2004.
 \end{itemize}
 ]]
 
 example
 [[
-\tikz \graph [SugiyamaLayout] { a -- {b,c,d} -- e -- a };
+\tikz \graph [FMMMLayout] { a -- {b,c,d} -- e -- a };
 ]]
 
-example     
-[[
-\tikz \graph [SugiyamaLayout, grow=right] {
-  a -- {b,c,d} -- e -- a
-};
-]]
 
 example     
 [[
 \tikz [nodes={text height=.7em, text depth=.2em,
               draw=black!20, thick, fill=white, font=\footnotesize},
        >=spaced stealth', rounded corners, semithick]
-  \graph [SugiyamaLayout, FastSimpleHierarchyLayout, grow=-30,
-       level distance=1.5cm, sibling distance=7mm] {
-    "5th Edition" -> { "6th Edition", "PWB 1.0" };
+  \graph [FMMMLayout, node sep=1mm, variation=2] {
+    "5th Edition" ->[orient=right] { "6th Edition", "PWB 1.0" };
     "6th Edition" -> { "LSX",  "1 BSD", "Mini Unix", "Wollongong", "Interdata" };
     "Interdata" -> { "Unix/TS 3.0", "PWB 2.0", "7th Edition" };
     "7th Edition" -> { "8th Edition", "32V", "V7M", "Ultrix-11", "Xenix", "UniPlus+" };
@@ -75,38 +71,54 @@ example
 
 
 --------------------------------------------------------------------------------
-key           "SugiyamaLayout.runs"
-summary       "Determines, how many times the crossing minimization is repeated."
+key           "FMMMLayout.randSeed"
+summary       "Sets the random seed for the |FMMMLayout|."
 documentation 
 [[
-Each repetition (except for the first) starts with
-randomly permuted nodes on each layer. Deterministic behaviour can
-be achieved by setting |SugiyamaLayout.runs| to 1.
+By changing this number, you can vary the appearance of the generated
+graph drawing. This key is an alias for |random seed|, which in turn
+can be set by using the |variation| key.
+]]
+
+example
+[[
+\tikz \graph [FMMMLayout, variation=1] { a -- {b,c,d} -- e -- a };
+]]
+example
+[[
+\tikz \graph [FMMMLayout, variation=2] { a -- {b,c,d} -- e -- a };
 ]]
 --------------------------------------------------------------------------------
 
 
 
 --------------------------------------------------------------------------------
-key           "SugiyamaLayout.transpose"
+key           "FMMMLayout.unitEdgeLength"
+summary       "The ``ideal'' padding between two nodes."
+
 documentation
 [[
-Determines whether the transpose step is performed
-after each 2-layer crossing minimization; this step tries to
-reduce the number of crossings by switching neighbored nodes on
-a layer.
+The algorithm will try to make the padding between any two vertices
+this distance. Naturally, this is not always possible, so, normally,
+distance will actually be different. This key is an alias for the more
+natural |node sep|.
 ]]
---------------------------------------------------------------------------------
 
-
-
---------------------------------------------------------------------------------
-key           "SugiyamaLayout.fails"
-documentation
+example
 [[
-The number of times that the number of crossings may
-not decrease after a complete top-down bottom-up traversal,
-before a run is terminated.
+\tikz {
+  \graph [FMMMLayout, node sep=1cm] { subgraph C_n[n=6]; };
+
+  \draw [red, ultra thick, |-|] (1.south) -- ++(down:1cm);
+}
+]]
+example
+[[
+\tikz {
+  \graph [FMMMLayout, node sep=5mm] { subgraph C_n[n=6]; };
+  
+  \draw [red, ultra thick, |-|] (1.south) -- ++(down:5mm);
+}
 ]]
 --------------------------------------------------------------------------------
 

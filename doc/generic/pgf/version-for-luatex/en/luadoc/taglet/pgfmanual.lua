@@ -116,6 +116,14 @@ local function split(s)
   for line in string.gmatch(s, ".-\n") do
     t[#t+1] = line
   end
+  for i=#t,1,-1 do
+    if t[i]:match("^%s*$") then
+      t[i] = nil
+    else
+      t[i] = t[i]:match("^(.-)\n?$")
+      return t
+    end
+  end
   return t
 end
 
@@ -165,38 +173,17 @@ local function check_declaration (line, code)
 
   line = util.trim(line)
   
-  local l = line:match("^declare%s*{") 
+  local l = line:match("^declare%s*{") or line:match('^key%s*".*"')
   if l then
     local name
-    local default
-    local initial
-    local type
     
     -- Ok, now search for interesting stuff in the code:
     for _,line in ipairs(code) do
       if not name then
 	name = line:match("key%s*=%s*\"([^\"]+)\"")
       end
-      if not default then
-	default = line:match("default%s*=%s*\"(.*)\"")
-      end
-      if not default then
-	default = line:match("default%s*=%s*(.*),")
-      end
-      if not default then
-	default = line:match("default%s*=%s*(.*)$")
-      end
-      if not initial then
-	initial = line:match("initial%s*=%s*\"(.*)\"")
-      end
-      if not initial then
-	initial = line:match("initial%s*=%s*(.*),")
-      end
-      if not initial then
-	initial = line:match("initial%s*=%s*(.*)$")
-      end
-      if not type then
-	type = line:match("type%s*=%s*\"([^\"]+)\"")
+      if not name then
+	name = line:match('key%s*"([^"]+)"')
       end
     end
     
@@ -205,9 +192,9 @@ local function check_declaration (line, code)
     
     return {
       name = name,
-      default = default,
-      initial = initial,
-      type = type,
+      default = type(key.default) == "string" and key.default or nil,
+      initial = type(key.initial) == "string" and key.initial or nil,
+      typ = type(key.type) == "string" and key.type or nil,
       key_summary = process_string(strip_quotes(key.summary)),
       documentation = process_string(strip_quotes(key.documentation)),
       examples = process_examples(key.examples)
@@ -649,7 +636,7 @@ function start (files, doc)
   table.foreachi(
     files, 
     function (_, path)
-      local filename = kpse.find_file((path:gsub('%.','/')):gsub('/lua$','.lua'), 'tex')
+      local filename = assert(kpse.find_file((path:gsub('%.','/')):gsub('/lua$','.lua'), 'tex'), "file " .. path .. " not found")
 
       local attr = lfs.attributes(filename)
       assert(attr, string.format("error stating path `%s'", filename))

@@ -40,6 +40,13 @@ The implementation is based on:
     Drawing 2000}, volumne 1984 of LNCS, pages 229--240, 2001.
 \end{itemize}
 ]]
+
+example
+[[
+\tikz \graph [SugiyamaLayout, FastHierarchyLayout] {
+  a -- {b,c,d} -- e -- a;
+};
+]]
 --------------------------------------------------------------------
 
 
@@ -62,6 +69,14 @@ Sets the (minimum?) padding between nodes on two consecutive
 layers. It defaults to the sum of the keys
 |level pre sep| and |level post sep|.
 ]]
+
+example
+[[
+\tikz \graph [SugiyamaLayout, FastHierarchyLayout,
+              level sep=1cm] {
+  a -- {b,c,d} -- e -- a;
+};
+]]
 --------------------------------------------------------------------
 
 --------------------------------------------------------------------
@@ -72,5 +87,13 @@ documentation
 [[
 Sets the (minimum?) padding between sibling nodes. It defaults to the
 sum of the keys |sibling pre sep| and |sibling post sep|.
+]]
+
+example
+[[
+\tikz \graph [SugiyamaLayout, FastHierarchyLayout,
+              sibling sep=5mm] {
+  a -- {b,c,d} -- e -- a;
+};
 ]]
 --------------------------------------------------------------------
