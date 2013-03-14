@@ -6,6 +6,11 @@ BASE=../../../../..
 CC=gcc
 FLAGS=$(MYCFLAGS) -arch x86_64 -O2 -Wall  -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
 
+
+InterfaceFromOGDF.o: InterfaceFromC++.h InterfaceFromC++.c++ InterfaceFromC.c InterfaceFromC.h \
+			InterfaceFromOGDF.c++ InterfaceFromOGDF.h
+	$(CC) $(FLAGS) -c -o InterfaceFromOGDF.o InterfaceFromOGDF.c++
+
 ogdf_script.so: ogdf_script.o \
 		../../interface/c/InterfaceFromOGDF.o \
 		../../interface/c/InterfaceFromC++.o \

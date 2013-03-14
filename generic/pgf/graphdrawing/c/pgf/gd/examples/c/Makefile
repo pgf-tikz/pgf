@@ -1,20 +1,16 @@
-MYCFLAGS=-isysroot/Developer/SDKs/MacOSX10.5.sdk
-MYLDFLAGS=-isysroot/Developer/SDKs/MacOSX10.5.sdk
+include ../../MakefileConfig.mk
 
-BASE=../../../../..
-
-CC=gcc
-FLAGS=$(MYCFLAGS) -arch x86_64 -O2 -Wall -g -I$(BASE)/c -I$(BASE)/c/ogdf -I$(BASE)/c/lua_c_api/include
+FLAGS=$(MYCFLAGS) $(ARCHFLAGS) -O2 -Wall -I$(LUAINCLUDES) -I$(PGFINCLUDES)
 
 all: FastSimpleDemo.so FastSimpleDemoC++.so FastSimpleDemoOGDF.so
 
-
-FastSimpleDemo.so: FastSimpleDemo.o  ../../interface/c/InterfaceFromC.o Makefile
-	$(CC) $(FLAGS) -undefined dynamic_lookup -bundle $(MYLDFLAGS) -L$(BASE)/c/lua_c_api/lib -llua  -o FastSimpleDemo.so \
+FastSimpleDemo.so: FastSimpleDemo.o 
+	$(CC) $(FLAGS) -undefined dynamic_lookup -bundle $(MYLDFLAGS) -o FastSimpleDemo.so \
 	FastSimpleDemo.o ../../interface/c/InterfaceFromC.o
 
-FastSimpleDemo.o: FastSimpleDemo.c ../../interface/c/InterfaceFromC.h
+FastSimpleDemo.o: FastSimpleDemo.c
 	$(CC) $(FLAGS) -c -o FastSimpleDemo.o FastSimpleDemo.c
+
 
 
 FastSimpleDemoC++.so: FastSimpleDemoC++.o ../../interface/c/InterfaceFromC++.o  ../../interface/c/InterfaceFromC.o Makefile
