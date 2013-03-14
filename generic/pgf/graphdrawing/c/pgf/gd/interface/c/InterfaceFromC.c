@@ -10,6 +10,13 @@
 #include <string.h>
 
 
+#if LUA_VERSION_NUM >= 502
+#define RAWLEN lua_rawlen
+#else
+#define RAWLEN lua_objlen
+#endif
+
+
 
 // Help functions
 
@@ -233,7 +240,7 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
   d->options = make_option_table(L, GRAPH_INDEX, 0);
 
   // Create the vertex table
-  init_vertex_array(&d->vertices, lua_objlen(L, VERTICES_INDEX));
+  init_vertex_array(&d->vertices, RAWLEN(L, VERTICES_INDEX));
 
   // Create the vertices
   int i;
@@ -266,7 +273,7 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
 
     // Setup hull array:
     lua_getfield(L, -1, "hull");
-    init_coordinate_array(&v->hull, lua_objlen(L, -1));
+    init_coordinate_array(&v->hull, RAWLEN(L, -1));
     int j;
     for (j=0; j<v->hull.length; j++) {
       lua_rawgeti(L, -1, j+1);
@@ -282,7 +289,7 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
   }
 
   // Construct the edges:
-  init_edge_array(&d->syntactic_edges, lua_objlen(L, EDGES_INDEX));
+  init_edge_array(&d->syntactic_edges, RAWLEN(L, EDGES_INDEX));
 
   int edge_index;
   for (edge_index = 0; edge_index < d->syntactic_edges.length; edge_index++) {
@@ -309,7 +316,7 @@ static void construct_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
     
     // Fill path:
     lua_getfield(L, -1, "path");
-    int path_length = lua_objlen(L, -1);
+    int path_length = RAWLEN(L, -1);
     if (path_length > 0) {
       init_path_array(&e->path, path_length);
       int i;
@@ -528,7 +535,7 @@ int pgfgd_digraph_num_vertices (pgfgd_Digraph* g)
 {
   lua_getfield(g->state, ALGORITHM_INDEX, g->name);
   lua_getfield(g->state, -1, "vertices");
-  int num = lua_objlen(g->state, -1);
+  int num = RAWLEN(g->state, -1);
   lua_pop(g->state, 2);
 
   return num;
@@ -560,7 +567,7 @@ static void push_digraph_and_backindex(pgfgd_Digraph* g)
     lua_getfield(L, digraph_pos, "vertices");
     int vertex_pos = lua_gettop(L);
     int i;
-    int n = lua_objlen(L, -1);
+    int n = RAWLEN(L, -1);
     for (i = 1; i <= n; i++) {
       lua_rawgeti(L, vertex_pos, i);
       lua_pushinteger(L, i);
@@ -582,7 +589,7 @@ static pgfgd_Arc_array* build_c_array_of_arcs_from_lua_array_of_arcs(pgfgd_Digra
   int backtable_pos = lua_gettop(L);  
 
   // Get number of arcs:
-  init_arcs_array(arcs, lua_objlen(L, array_pos));
+  init_arcs_array(arcs, RAWLEN(L, array_pos));
   int i;
   for (i = 1; i<=arcs->length; i++) {
     lua_rawgeti(L, array_pos, i); // Get arcs[i]
@@ -754,7 +761,7 @@ pgfgd_Edge_array* pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, in
       lua_getfield(L, -1, "syntactic_edges");
       int syntactic_edges_index = lua_gettop(L);
       
-      int n = lua_objlen(L, syntactic_edges_index);
+      int n = RAWLEN(L, syntactic_edges_index);
       init_edge_array(edges, n);
       int i;
       for (i=1; i<=n; i++) {
