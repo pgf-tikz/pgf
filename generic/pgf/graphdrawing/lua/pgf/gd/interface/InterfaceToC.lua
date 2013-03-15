@@ -63,7 +63,9 @@ function InterfaceToC.declare_algorithm_written_in_c (t)
 	    for i=1,#edges do
 	      edges[edges[i]] = i
 	    end
+	    collectgarbage("stop") -- BUG! Remove this when everything is linked against a SINGLE Lua lib at runtime
 	    t.algorithm_written_in_c (self.digraph, back_table, edges, self)
+	    collectgarbage("restart") -- Remove also!
 	  end
   }  
 end

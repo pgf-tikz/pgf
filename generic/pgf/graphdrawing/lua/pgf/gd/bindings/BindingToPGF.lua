@@ -82,8 +82,7 @@ end
 -- Declarations
 
 function BindingToPGF:declareCallback(t)
-  tex.print("\\pgfgdcallbackdeclareparameter{" .. t.key .. "}{"
-	    .. (t.type or "nil") .. "}{" .. tostring(t.default or "") .. "}")
+  tex.print("\\pgfgdcallbackdeclareparameter{" .. t.key .. "}{" .. (t.type or "nil") .. "}")
 end
 
 

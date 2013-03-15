@@ -268,7 +268,6 @@ declare {
 
 
 ---
-
 declare {
   key = "sibling distance",
   type = "length",
@@ -348,6 +347,61 @@ declare {
   "]]
 }
 
+    
+
+    
+
+    
+---
+declare {
+  key = "part distance",
+  type = "length",
+  initial = "1.5cm",
+
+  summary = [["  
+       This is minimum distance between the centers of ``parts'' of a
+       graph. What a ``part'' is depends on the algorithm. 
+  "]]
+}
+
+
+---
+
+declare {
+  key = "part pre sep",
+  type = "length",
+  initial = "1em",
+  summary = "A pre-padding for parts."
+}
+
+---
+
+declare {
+  key = "part post sep",
+  type = "length",
+  initial = "1em",
+  summary = "A post-padding for pars."
+ }
+    
+
+
+---
+--  @param length A length
+
+declare {
+  key = "part sep",
+  type = "length",
+  use = {
+    { key = "part pre sep", value = function(v) return v/2 end },
+    { key = "part post sep", value = function(v) return v/2 end },
+  },
+
+  summary = [["  
+       A shorthand for setting both |part pre sep| and |part post sep| to
+       $\meta{length}/2$. 
+  "]]
+}
+
 
 
 
@@ -359,7 +413,7 @@ declare {
   initial = "1.5em",
 
   summary = [["  
-       This is distance between the bounding boxes that nodes of different
+       This is pading between the bounding boxes that nodes of different
        connected components will have when they are placed next to each
        other.
   "]],
@@ -387,6 +441,21 @@ declare {
   }  
 }
 
+
+
+---
+
+declare {
+  key = "component distance",
+  type = "length",
+  initial = "2cm",
+
+  summary = [["
+      This is the minimum distance between the centers of bounding
+      boxes of connected components when they are placed next to each
+      other. (Not used, currently.)
+  "]]
+}
 
 
 return Distances

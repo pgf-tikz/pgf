@@ -33,7 +33,7 @@
 -- \item |tree|
 --
 --   When set, the field |spanning_tree| of the algorithm will be set
---   to a spanning tree of the graph.
+--   to a spanning tree of the graph. This option implies |connected|. 
 -- \item |loop_free|
 --
 --   When set, all loops (arcs from a vertex to itself) will have been
@@ -153,7 +153,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
   -- Step 1: Decompose the graph into connected components, if necessary:
   local syntactic_components
-  if algorithm_class.preconditions.connected or layout_graph.options['componentwise'] then
+  if algorithm_class.preconditions.tree or algorithm_class.preconditions.connected or layout_graph.options['componentwise'] then
      syntactic_components = LayoutPipeline.decompose(digraph)
      LayoutPipeline.sortComponents(layout_graph.options['component order'], syntactic_components)    
   else
@@ -189,7 +189,6 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
     -- Step 2.7: Compute a spanning tree, if necessary
     if algorithm_class.preconditions.tree then
-      assert(algorithm_class.preconditions.connected)
       local spanning_algorithm_class = c.options.algorithm_phases["spanning tree computation"]
       algorithm.spanning_tree =
 	spanning_algorithm_class.new{

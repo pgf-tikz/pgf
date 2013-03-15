@@ -41,6 +41,7 @@ local Edge                = require "pgf.gd.model.Edge"
 
 local lib                 = require "pgf.gd.lib"
 
+local doc                 = require "pgf.gd.doc"
 
 -- Forwards
 
@@ -146,7 +147,7 @@ local key_metatable = {}
 -- When you declare a key, you can provide a |use| field. If present,
 -- you must set it to an array of small tables which have two fields:
 -- \begin{itemize}
--- \item |key| This is the name of another key.
+-- \item |key| This is the name of another key or a function.
 -- \item |value| This is either a value (like a string or a number) or
 --   a function or |nil|.
 -- \end{itemize}
@@ -173,10 +174,9 @@ local key_metatable = {}
 -- normally. Then, we iterate over all elements of the |use|
 -- array. For each element, we perform the action as if the |key| of
 -- the array had been set explicitly to the value given by the |value|
--- field. The only execption is when the |value| is a function. In
--- this case, we pass a different value to the key, namely the result
--- of applying the function to the value originally passed to the
--- original key. Here is a typical example:
+-- field. If the |value| is a function, we pass a different value to
+-- the key, namely the result of applying the function to the value
+-- originally passed to the original key. Here is a typical example: 
 --
 --\begin{codeexample}[code only]
 -- ---
@@ -190,6 +190,10 @@ local key_metatable = {}
 --   summary = "..."
 -- }
 --\end{codeexample}
+--
+-- Just like the value, the key itself can also be a function. In this
+-- case, the to-be-used key is also computed by applying the function
+-- to the value passed to the original key. 
 --
 -- As mentioned at the beginning, |declare| is a work-horse that will call
 -- different internal functions depending on whether you declare a

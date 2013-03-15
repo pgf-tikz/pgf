@@ -185,7 +185,7 @@ end
 --
 function lib.imap(source, fun, new)
   if not new then
-    new = {}
+    new = { }
   end
   for i, v in ipairs(source) do
     new[#new+1] = fun(v, i)
