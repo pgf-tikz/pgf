@@ -42,7 +42,7 @@ declare {
   key = "linear optimization node positioning",
   algorithm = require "pgf.gd.layered.NodePositioningGansnerKNV1993",
   phase = "node positioning",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        This node positioning method, due to Gasner et al., is based on a

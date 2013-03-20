@@ -16,6 +16,11 @@ OGDFLIBPATH = $(OGDFPATH)/_release
 # Where the pgf C includes are found
 PGFINCLUDES=../../../..
 
+
+# Where the shared libraries should be installed (base dir)
+INSTALLDIR=/usr/texbin/lib/luatex/lua
+
+
 # If you need special flags:
 MYCFLAGS=
 MYLDFLAGS=

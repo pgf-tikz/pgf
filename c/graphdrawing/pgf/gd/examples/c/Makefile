@@ -9,6 +9,10 @@ all: SimpleDemoC.so SimpleDemoCPlusPlus.so
 clean:
 	rm *.o *.so
 
+install: SimpleDemoC.so SimpleDemoCPlusPlus.so
+	mkdir -p $(INSTALLDIR)/pgf/gd/examples/c
+	cp SimpleDemoC.so SimpleDemoCPlusPlus.so $(INSTALLDIR)/pgf/gd/examples/c
+
 SimpleDemoC.so: SimpleDemoC.o
 	$(CC) $(FLAGS) $(SHAREDFLAGS) $(MYLDFLAGS) \
 	$(LINKSHAREDLUA) \

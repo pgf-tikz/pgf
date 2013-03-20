@@ -88,7 +88,7 @@ declare {
       end
   },
   phase = "spanning tree computation",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        This key selects ``breadth first'' as the (sub)algorithm for

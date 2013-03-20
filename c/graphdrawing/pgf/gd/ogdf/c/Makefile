@@ -8,6 +8,10 @@ all: ogdf_script.so SimpleDemoOGDF.so
 clean:
 	rm *.o *.so
 
+install: ogdf_script.so SimpleDemoOGDF.so
+	mkdir -p $(INSTALLDIR)/pgf/gd/ogdf/c
+	cp SimpleDemoOGDF.so ogdf_script.so $(INSTALLDIR)/pgf/gd/ogdf/c
+
 
 ogdf_script.so: ogdf_script.o InterfaceFromOGDF.o ../../interface/c/InterfaceFromC++.o ../../interface/c/InterfaceFromC.o 
 	$(CC) $(FLAGS) $(SHAREDFLAGS) $(MYLDFLAGS) \

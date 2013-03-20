@@ -8,6 +8,8 @@ all: InterfaceFromC.o InterfaceFromC++.o
 clean:
 	rm *.o
 
+install:
+
 InterfaceFromC.o: InterfaceFromC.c InterfaceFromC.h
 	$(CC) $(FLAGS) -c -o InterfaceFromC.o InterfaceFromC.c
 

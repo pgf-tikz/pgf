@@ -10,7 +10,7 @@ struct FastLayout : scripting::declarations, scripting::runner {
     pgfgd_SyntacticDigraph* graph = parameters->syntactic_digraph;
     
     double angle  = 6.28318530718 / graph->vertices.length;
-    double radius = parameters->option<double>("my radius c++");
+    double radius = parameters->option<double>("fast simple demo radius c++");
 
     for (int i = 0; i < graph->vertices.length; i++) {
       pgfgd_Vertex* v = graph->vertices.array[i];
@@ -28,7 +28,7 @@ struct FastLayout : scripting::declarations, scripting::runner {
 	      .precondition ("tree")
 	      .algorithm (this));
     
-    s.declare(key ("my radius c++")
+    s.declare(key ("fast simple demo radius c++")
 	      .summary ("A radius value for the hello world of graph drawing")
 	      .type ("length")
 	      .initial ("1cm"));

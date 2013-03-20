@@ -39,15 +39,15 @@
 -- \item Next, for each to-be-lazily-documented key, add a block to
 -- the file like the following:
 --\begin{codeexample}[code only]
------
---key           "my radius"
---summary       "This key specifies a radius."
---documentation
---[[
---This key is used, whenever...
---]]
---example       "\tikz \graph [foo layout, my radius=5] { a--b };"
---example       "\tikz \graph [foo layout, my radius=3] { c--d };"
+-- ---
+-- key           "my radius"
+-- summary       "This key specifies a radius."
+-- documentation
+-- [[
+-- This key is used, whenever...
+-- ]]
+-- example       "\tikz \graph [foo layout, my radius=5] { a--b };"
+-- example       "\tikz \graph [foo layout, my radius=3] { c--d };"
 --\end{codeexample}
 --
 -- Note that |[[| and |]]| are used in Lua for raw multi-line

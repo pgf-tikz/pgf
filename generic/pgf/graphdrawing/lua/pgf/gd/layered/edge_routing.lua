@@ -36,7 +36,7 @@ declare {
   key = "polyline layer edge routing",
   algorithm = require "pgf.gd.layered.EdgeRoutingGansnerKNV1993",
   phase = "layer edge routing",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        This edge routing algorithm uses polygonal lines to connect nodes. 

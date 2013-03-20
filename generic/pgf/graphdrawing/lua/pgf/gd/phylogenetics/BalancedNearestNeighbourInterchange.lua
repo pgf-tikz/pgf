@@ -31,7 +31,7 @@ declare {
   key = "balanced nearest neighbour interchange",
   algorithm = BalancedNearestNeighbourInterchange,
   phase = "phylogenetic tree optimization",
-  default = true,
+  phase_default = true,
 
   summary = [["  
       The BNNI (Balanced Nearest Neighbour Interchange) is a

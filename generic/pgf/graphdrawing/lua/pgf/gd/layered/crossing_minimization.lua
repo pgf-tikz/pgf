@@ -64,7 +64,7 @@ declare {
   key = "sweep crossing minimization",
   algorithm = require "pgf.gd.layered.CrossingMinimizationGansnerKNV1993",
   phase = "crossing minimization",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        Gansner et al. combine an initial ordering based on a depth-first

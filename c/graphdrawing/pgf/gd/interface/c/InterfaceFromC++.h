@@ -144,8 +144,11 @@ namespace scripting {
     template <class T> bool option        (const char*, T&);
     template <class T> T    option        (const char*);
     template <class T> bool option_is_set (const char*);
+    
+    template <class T> T*   make          (const char*);
 
-    void* invoke_factory_for (const char*);
+  protected:
+    void* invoke_void_factory_for (const char*);
   };
   
   template <class T>
@@ -174,9 +177,12 @@ namespace scripting {
   template <class Layout, class T>
   void run_parameters::configure_module (const char* k, void (Layout::*f) (T*), Layout& l)
   {
-    if (void* obj = invoke_factory_for(k))
+    if (void* obj = invoke_void_factory_for(k))
       (l.*f) (static_cast<T*> (obj));
   }
+  
+  template <class T>
+  T* run_parameters::make (const char* k) { return static_cast<T*>(invoke_void_factory_for(k)); }
 
 }
 

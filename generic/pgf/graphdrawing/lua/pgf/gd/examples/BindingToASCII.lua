@@ -1,17 +1,9 @@
-local InterfaceToDisplay = require "pgf.gd.interface.InterfaceToDisplay"
-local Binding = require "pgf.gd.bindings.Binding"
 local lib = require "pgf.gd.lib"
 
 -- Create a binding to ourselves
-local BindingToASCII = {}
-BindingToASCII.__index = BindingToASCII
-setmetatable(BindingToASCII, Binding) -- subclass of Binding
+local BindingToASCII = lib.class { base_class = require "pgf.gd.bindings.Binding" }
 
 local canvas
-
-function BindingToASCII:__tostring()
-  return "BindingToASCII"
-end
 
 function BindingToASCII:renderStart()
   canvas = {}

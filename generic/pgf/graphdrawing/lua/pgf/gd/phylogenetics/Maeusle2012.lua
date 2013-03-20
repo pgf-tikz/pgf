@@ -43,7 +43,7 @@ declare {
 	  end
   },
   phase = "phylogenetic tree layout",
-  default = true,
+  phase_default = true,
 
   summary = [["  
       A rooted rectangular phylogram is...

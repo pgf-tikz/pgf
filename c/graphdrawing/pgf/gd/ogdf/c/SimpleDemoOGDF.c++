@@ -34,7 +34,7 @@ struct FastLayoutOGDF : declarations, ogdf_runner {
   
 };
 
-extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoOGDF (struct lua_State *state) {
+extern "C" int luaopen_pgf_gd_ogdf_c_SimpleDemoOGDF (struct lua_State *state) {
 
   script (state).declare (new FastLayoutOGDF);
    

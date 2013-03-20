@@ -153,7 +153,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
   -- Step 1: Decompose the graph into connected components, if necessary:
   local syntactic_components
-  if algorithm_class.preconditions.tree or algorithm_class.preconditions.connected or layout_graph.options['componentwise'] then
+  if algorithm_class.preconditions.tree or algorithm_class.preconditions.connected or layout_graph.options.componentwise then
      syntactic_components = LayoutPipeline.decompose(digraph)
      LayoutPipeline.sortComponents(layout_graph.options['component order'], syntactic_components)    
   else
@@ -568,6 +568,30 @@ function LayoutPipeline.orient(rotation_info, postconditions, graph, scope)
     if a:options("orient'",true) then
       return LayoutPipeline.orientTwoNodes(graph, a.tail, a.head, a:options("orient'")/360*2*math.pi, true)
     end
+  end
+  
+  -- Step 4: Search two nodes with a desired at option:
+  local first, second, third
+  
+  for _, v in ipairs(graph.vertices) do
+    if v.options['desired at'] then
+      if first then
+	if second then
+	  third = v
+	  break
+	else
+	  second = v
+	end
+      else
+	first = v
+      end
+    end
+  end
+
+  if second then
+    local a = first.options['desired at']
+    local b = second.options['desired at']
+    return LayoutPipeline.orientTwoNodes(graph, first, second, math.atan2(b.y-a.y,b.x-a.x), false)
   end
   
   -- Computed during preprocessing:

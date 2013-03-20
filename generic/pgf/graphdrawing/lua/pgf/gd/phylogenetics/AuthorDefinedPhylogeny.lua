@@ -31,7 +31,7 @@ declare {
   key = "phylogenetic tree by author",
   algorithm = AuthorDefinedPhylogeny,
   phase = "phylogenetic tree generation",
-  default = true,
+  phase_default = true,
 
   summary = [["  
       When this key is used, the phylogenetic tree must be specified

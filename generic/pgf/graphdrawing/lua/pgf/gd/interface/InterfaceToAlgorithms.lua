@@ -311,7 +311,8 @@ end
 --
 -- A parameter can have a |default| value. This value will be used as
 -- the parameter value whenever the parameter is explicitly set, but
--- no value is provided.
+-- no value is provided. For a key of type |"boolean"|, if no
+-- |default| is provided, |"true"| will be used automatically.
 --
 -- A parameter can habe an |alias| field. This field must be set to
 -- the name of another key or to a function. Whenever you access the
@@ -386,6 +387,10 @@ end
 local function declare_parameter (t)
 
   t.type = t.type or "string"
+  
+  if t.type == "boolean" and t.default == nil then
+    t.default = true
+  end
   
   -- Normal key
   assert (type(t.type) == "string", "key type must be a string")
@@ -512,7 +517,7 @@ end
 --       end
 --   },
 --   phase = "spanning tree computation",
---   default = true,
+--   phase_default = true,
 --   summary = ...
 -- }
 --\end{codeexample}
@@ -532,7 +537,7 @@ end
 -- local spanning_tree = spanning_algorithm:run()
 --\end{codeexample}
 --
--- If you set the |default| field of |t| to |true|, the algorithm will
+-- If you set the |phase_default| field of |t| to |true|, the algorithm will
 -- be installed as the default algorithm for the phase. This can be
 -- done only once per phase. Furthermore, for such a default algorithm
 -- the |algorithm| key must be table, it may not be a phase (in other
@@ -585,7 +590,7 @@ local function declare_algorithm (t)
   -- Install!
   InterfaceCore.binding:declareCallback(t)
   
-  if t.default then
+  if t.phase_default then
     assert (not InterfaceCore.option_initial.algorithm_phases[t.phase],
 	    "default algorithm for phase already set")
     assert (type(store_me) == "table",

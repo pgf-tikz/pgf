@@ -38,7 +38,7 @@ declare {
   key = "linear optimization layer assignment",
   algorithm = require "pgf.gd.layered.NodeRankingGansnerKNV1993",
   phase = "node ranking",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        This layer assigment method, due to Gasner et al., is based on a

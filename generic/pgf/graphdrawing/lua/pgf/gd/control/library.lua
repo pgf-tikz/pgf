@@ -60,7 +60,6 @@ declare {
 declare {
   key = "nodes behind edges",
   type = "boolean",
-  default = true,
 
   summary = "Specifies, that nodes should be drawn behind the edges",
   documentation = [["  

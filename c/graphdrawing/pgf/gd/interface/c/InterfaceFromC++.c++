@@ -203,7 +203,7 @@ namespace scripting {
   template <> bool run_parameters::option<double> (const char* k, double& t)
   { return fromnumber<double> (syntactic_digraph, k, t); }
   
-  void* run_parameters::invoke_factory_for (const char* k)
+  void* run_parameters::invoke_void_factory_for (const char* k)
   {
     if (pgfgd_isuser (syntactic_digraph->options, k)) {
       factory_base* user = static_cast<factory_base *>(pgfgd_touser (syntactic_digraph->options, k));

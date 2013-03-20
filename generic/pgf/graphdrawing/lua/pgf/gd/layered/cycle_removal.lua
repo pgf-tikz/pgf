@@ -32,7 +32,7 @@ declare {
   key = "depth first cycle removal",
   algorithm = require "pgf.gd.layered.CycleRemovalGansnerKNV1993",
   phase = "cycle removal",
-  default = true,
+  phase_default = true,
 
   summary = [["  
        Selects a cycle removal algorithm that is especially
