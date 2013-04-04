@@ -13,10 +13,11 @@
 
 ---
 -- @section subsubsection {The ``Hello World'' of Graph Drawing}
+--
 
-local _
 
 
+-- Inputs
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 
 ---

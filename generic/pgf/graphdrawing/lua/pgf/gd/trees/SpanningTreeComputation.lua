@@ -70,9 +70,9 @@ local declare  = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
 
 
------------------------------
--- General tree parameters --
------------------------------
+-- ------------------------- --
+-- General tree parameters   --
+-- ------------------------- --
 
 
 

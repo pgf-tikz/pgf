@@ -7,7 +7,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- @release $Header$
+-- @release $Header$
 
 
 ---
@@ -40,7 +40,7 @@ function pgf.debug(...)
   texio.write_nl("Debug called for: ")
   -- this is to even print out nil arguments in between
   local args = {...}
-  for i = 1, table.getn(args) do
+  for i = 1, #args do
     if i ~= 1 then texio.write(", ") end
     texio.write(tostring_table(args[i], "", 5))
   end
