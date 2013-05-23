@@ -48,9 +48,7 @@ end
 -- @return A new coordinate at the same location as |self|
 --
 function Coordinate:clone()
-  local new = { x = self.x, y = self.y }
-  setmetatable(new, Coordinate)
-  return new
+  return setmetatable( { x = self.x, y = self.y }, Coordinate)
 end
 
 
@@ -66,31 +64,6 @@ function Coordinate:apply(t)
   self.x = t[1]*x + t[2]*y + t[5]
   self.y = t[3]*x + t[4]*y + t[6]
 end
-
-
-
----
--- Like |shift|, only for coordinate parameters.
---
--- @param c Another coordinate. The $x$- and $y$-values of |self| are
--- increased by the $x$- and $y$-values of this coordinate.
-
-function Coordinate:shiftByCoordinate(c)
-  self.x = self.x + c.x
-  self.y = self.y + c.y
-end
-
-
----
--- Like |unshift|, only for coordinate parameters.
---
--- @param c Another coordinate. 
-
-function Coordinate:unshiftByCoordinate(c)
-  self.x = self.x - c.x
-  self.y = self.y - c.y
-end
-
 
 
 --- Shift a coordinate
@@ -117,6 +90,42 @@ function Coordinate:unshift(a,b)
 end
 
 
+---
+-- Like |shift|, only for coordinate parameters.
+--
+-- @param c Another coordinate. The $x$- and $y$-values of |self| are
+-- increased by the $x$- and $y$-values of this coordinate.
+
+function Coordinate:shiftByCoordinate(c)
+  self.x = self.x + c.x
+  self.y = self.y + c.y
+end
+
+
+---
+-- Like |unshift|, only for coordinate parameters.
+--
+-- @param c Another coordinate. 
+
+function Coordinate:unshiftByCoordinate(c)
+  self.x = self.x - c.x
+  self.y = self.y - c.y
+end
+
+
+---
+-- Moves the coordinate a fraction of |f| along a straight line to |c|. 
+--
+-- @param c Another coordinate
+-- @param f A fraction
+
+function Coordinate:moveTowards(c,f)
+  self.x = self.x + f*(c.x-self.x)
+  self.y = self.y + f*(c.y-self.y)
+end
+
+
+
 --- Scale a coordinate by a factor
 --
 -- @param s A factor.
@@ -125,6 +134,8 @@ function Coordinate:scale(s)
   self.x = s*self.x
   self.y = s*self.y
 end
+
+
 
 
 ---
@@ -242,7 +253,8 @@ end
 
 
 
---- Compute a bounding box around an array of coordinates
+---
+-- Compute a bounding box around an array of coordinates
 --
 -- @param array An array of coordinates
 --

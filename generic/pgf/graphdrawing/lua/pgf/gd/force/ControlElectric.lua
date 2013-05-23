@@ -19,8 +19,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- @section subsubsection {Forces and Their Effects: Electrical
 -- Repulsion}
 --
-
-local _
+-- @end
 
 
 ---

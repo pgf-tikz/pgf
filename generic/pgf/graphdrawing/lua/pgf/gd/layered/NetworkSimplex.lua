@@ -140,7 +140,7 @@ function NetworkSimplex:constructFeasibleTree()
 
     if min_slack_edge then
       local delta = self:edgeSlack(min_slack_edge)
-
+      
       if delta > 0 then
         local head = min_slack_edge:getHead()
         local tail = min_slack_edge:getTail()
@@ -483,7 +483,7 @@ function NetworkSimplex:findTightTree()
     
     for _,edge in ipairs(edges) do
       local neighbour = edge:getNeighbour(node)
-      if (not marked[neighbour]) and self:edgeSlack(edge) == 0 then
+      if (not marked[neighbour]) and math.abs(self:edgeSlack(edge)) < 0.00001 then
         self:addEdgeToTree(edge)
 
         for _,node in ipairs(edge.nodes) do

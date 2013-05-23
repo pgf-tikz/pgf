@@ -414,29 +414,63 @@
     \pgfmathsetmacro{\pgf@gd@node@miny}{\pgfpositionnodelaterminy}%
     \pgfmathsetmacro{\pgf@gd@node@maxx}{\pgfpositionnodelatermaxx}%
     \pgfmathsetmacro{\pgf@gd@node@maxy}{\pgfpositionnodelatermaxy}%
+    % Assemble the Path object:
+    \directlua{pgf.temp = require 'pgf.gd.model.Path'.new ()}%
+    \let\pgfsyssoftpath@movetotoken\pgf@gd@movetotoken%
+    \let\pgfsyssoftpath@linetotoken\pgf@gd@linetotoken%
+    \let\pgfsyssoftpath@rectcornertoken\pgf@gd@rectcornertoken%
+    \let\pgfsyssoftpath@curvetosupportatoken\pgf@gd@curvetosupportatoken%
+    \let\pgfsyssoftpath@closepathtoken\pgf@gd@closepathtoken%
+    \pgfpositionnodelaterpath%
+    % 
+    \pgfmathsetlength\pgf@xa{\pgfkeysvalueof{/pgf/outer xsep}}%
+    \pgfmathsetlength\pgf@ya{\pgfkeysvalueof{/pgf/outer ysep}}%
+    % 
+    {%
+      \pgf@process{\pgfpointanchor{\pgfpositionnodelatername}{center}}
+      \pgfsettransform{\csname pgf@sh@nt@\pgfpositionnodelatername\endcsname}%
+      \pgf@pos@transform{\pgf@x}{\pgf@y}%
+      \global\pgf@x=\pgf@x%
+      \global\pgf@y=\pgf@y%
+    }%
     % call lua system library to create a lua node object
     \directlua{
-      local new = pgf.gd.model.Coordinate.new
       pgf.gd.interface.InterfaceToDisplay.createVertex(
         string.sub('\luaescapestring{\pgfpositionnodelatername}',30), % strip "not yet positionedPGFINTERNAL"
         '\luaescapestring{\csname pgf@sh@ns@\pgfpositionnodelatername\endcsname}',
-        {
-          new(\pgf@gd@node@minx, \pgf@gd@node@miny),
-          new(\pgf@gd@node@minx, \pgf@gd@node@maxy),
-          new(\pgf@gd@node@maxx, \pgf@gd@node@maxy),
-          new(\pgf@gd@node@maxx, \pgf@gd@node@miny),
-        },
-        \the\pgf@gd@parameter@stack@height,
-        {
+        pgf.temp:pad((\pgf@sys@tonumber\pgf@xa+\pgf@sys@tonumber\pgf@ya)/2), % Padded path
+        \the\pgf@gd@parameter@stack@height, % Stack height
+        {% Binding info
           x_min = \pgf@gd@node@minx,
           y_min = \pgf@gd@node@miny,
           x_max = \pgf@gd@node@maxx,
           y_max = \pgf@gd@node@maxy,
+        },
+        {% Anchors
+          center = require 'pgf.gd.model.Coordinate'.new(\pgf@sys@tonumber\pgf@x,\pgf@sys@tonumber\pgf@y)
         }
       )
+      pgf.temp = nil  
     }
   }%
 }
+
+
+\def\pgf@gd@movetotoken#1#2{\directlua{pgf.temp:appendMoveto(\Pgf@geT#1,\Pgf@geT#2)}}
+\def\pgf@gd@linetotoken#1#2{\directlua{pgf.temp:appendLineto(\Pgf@geT#1,\Pgf@geT#2)}}
+\def\pgf@gd@rectcornertoken#1#2#3#4#5{%
+  \directlua{%
+    local x,y,dx,dy=\Pgf@geT#1,\Pgf@geT#2,\Pgf@geT#4,\Pgf@geT#5
+    pgf.temp:appendMoveto(x,y)
+    pgf.temp:appendLineto(x,y+dy)
+    pgf.temp:appendLineto(x+dx,y+dy)
+    pgf.temp:appendLineto(x+dx,y)
+    pgf.temp:appendClosepath()%    
+  }%
+}
+\def\pgf@gd@curvetosupportatoken#1#2#3#4#5#6#7#8{\directlua{pgf.temp:appendCurveto(\Pgf@geT#1,\Pgf@geT#2,\Pgf@geT#4,\Pgf@geT#5,\Pgf@geT#7,\Pgf@geT#8)}}
+\def\pgf@gd@closepathtoken#1#2{\directlua{pgf.temp:appendClosepath()}}
+
 
 % Set options for an already existing node
 % 
@@ -920,7 +954,7 @@
 %   \pgfgdedge{C}{A}{->}{}{}
 % \pgfgdendscope
 % 
-% Naturally, users will typically use TikZ's somewhat simpler syntax: 
+% Naturally, users will typically use TikZ's somewhat simpler syntax: '
 % 
 % \tikz \graph [some algorithm] { A -> B -> C -> A };
 
@@ -1027,20 +1061,29 @@
   }
 }
 
+% In the following code: Does anyone know how to determine the
+% file-system separator in Lua? Or in TeX? 
 {
   \catcode`\%=11
 \directlua{
   function pgf_lookup_and_require(name)
     local function lookup(name)
-      local sub = name:gsub('%.','/')
-      if kpse.find_file(sub, 'lua') then
+      local sub_unix = name:gsub('%.','/')  
+      local sub_windows = name:gsub('%.','\string\\')
+      if kpse.find_file(sub_unix, 'lua') then
         require(name)
-        return true
-      end
-      if kpse.find_file(sub, 'clua') then
+      elseif kpse.find_file(sub_unix, 'clua') then
+        collectgarbage('stop') 
         require(name)
-        return true
+        collectgarbage('restart')
+      elseif kpse.find_file(sub_windows, 'lua') then
+        require(name)
+      elseif kpse.find_file(sub_windows, 'clua') then
+        require(name)
+      else
+        return false
       end
+      return true
     end
     return
       lookup('pgf.gd.' .. name .. '.library') or
@@ -1069,6 +1112,7 @@
 
 \pgfkeys{/graph drawing/nodes behind edges/.append code=\csname pgf@gd@nodes@behind@edges#1\endcsname}
 \pgfkeys{/graph drawing/nodes behind edges/.default=true}
+
 
 
 

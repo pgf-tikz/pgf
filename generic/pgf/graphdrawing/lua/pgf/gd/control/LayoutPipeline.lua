@@ -78,12 +78,13 @@ local Direct        = require "pgf.gd.lib.Direct"
 local Storage       = require "pgf.gd.lib.Storage"
 local Simplifiers   = require "pgf.gd.lib.Simplifiers"
 local LookupTable   = require "pgf.gd.lib.LookupTable"
-local Transform     = require("pgf.gd.lib.Transform")
+local Transform     = require "pgf.gd.lib.Transform"
 
-local Arc           = require("pgf.gd.model.Arc")
+local Arc           = require "pgf.gd.model.Arc"
 local Vertex        = require "pgf.gd.model.Vertex"
 local Digraph       = require "pgf.gd.model.Digraph"
 local Coordinate    = require "pgf.gd.model.Coordinate"
+local Path          = require "pgf.gd.model.Path"
 
 local Sublayouts    = require "pgf.gd.control.Sublayouts"
 
@@ -112,19 +113,26 @@ function LayoutPipeline.run(scope)
   
   -- Step 1: Preparations
   
-  -- Step 1.1: Prepare events
+  -- Prepare events
   prepare_events(scope.events)
   
-  -- Pick first layout:
+  -- Step 2: Recursively layout the graph, starting with the root layout
   local root_layout = assert(scope.collections[InterfaceCore.sublayout_kind][1], "no layout in scope")
   
-  scope.syntactic_digraph = Sublayouts.layoutRecursively(scope, root_layout, LayoutPipeline.runOnLayout, { root_layout })
+  scope.syntactic_digraph =
+    Sublayouts.layoutRecursively (scope,
+				  root_layout,
+				  LayoutPipeline.runOnLayout,
+				  { root_layout })
   
-  -- Now, anchor!
+  -- Step 3: Anchor the graph
   LayoutPipeline.anchor(scope.syntactic_digraph, scope)
   
-  -- And, now, do regadless
+  -- Step 4: Apply regardless transforms
   Sublayouts.regardless(scope.syntactic_digraph)
+
+  -- Step 5: Cut edges
+  LayoutPipeline.cutEdges(scope.syntactic_digraph)
   
 end
 
@@ -149,47 +157,54 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
   end
 
   -- The involved main graphs:
-  local digraph = Direct.digraphFromSyntacticDigraph(layout_graph)
-
+  local layout_copy = Digraph.new (layout_graph) --Direct.digraphFromSyntacticDigraph(layout_graph)
+  for _,a in ipairs(layout_graph.arcs) do
+    local new_a = layout_copy:connect(a.tail,a.head)
+    new_a.syntactic_edges = a.syntactic_edges
+  end
+  
   -- Step 1: Decompose the graph into connected components, if necessary:
   local syntactic_components
   if algorithm_class.preconditions.tree or algorithm_class.preconditions.connected or layout_graph.options.componentwise then
-     syntactic_components = LayoutPipeline.decompose(digraph)
-     LayoutPipeline.sortComponents(layout_graph.options['component order'], syntactic_components)    
+    syntactic_components = LayoutPipeline.decompose(layout_copy) 
+    LayoutPipeline.sortComponents(layout_graph.options['component order'], syntactic_components)    
   else
     -- Only one component: The graph itself...
-    syntactic_components = { digraph }
+    syntactic_components = { layout_copy }
   end
-  
+
   -- Step 2: For all components do:
-  for i,c in ipairs(syntactic_components) do
+  for i,syntactic_component in ipairs(syntactic_components) do
     
     -- Step 2.1: Reset random number generator to make sure that the
     -- same graph is always typeset in  the same way.
     math.randomseed(layout_graph.options['random seed'])
+    
+    local digraph  = Direct.digraphFromSyntacticDigraph(syntactic_component)
 
     -- Step 2.3: If requested, remove loops
     if algorithm_class.preconditions.loop_free then
-      for _,v in ipairs(c.vertices) do
-	c:disconnect(v,v)
+      for _,v in ipairs(digraph.vertices) do
+	digraph:disconnect(v,v)
       end
     end
 
     -- Step 2.4: Precompute the underlying undirected graph
-    local ugraph  = Direct.ugraphFromDigraph(c)
+    local ugraph  = Direct.ugraphFromDigraph(digraph)
     
     -- Step 2.5: Create an algorithm object
     local algorithm = algorithm_class.new{
-      digraph = c,
+      digraph = digraph,
       ugraph = ugraph,
       scope = scope,
       layout = layout,
-      layout_graph = layout_graph
+      layout_graph = layout_graph,
+      syntactic_component = syntactic_component,
     }
-
+    
     -- Step 2.7: Compute a spanning tree, if necessary
     if algorithm_class.preconditions.tree then
-      local spanning_algorithm_class = c.options.algorithm_phases["spanning tree computation"]
+      local spanning_algorithm_class = syntactic_component.options.algorithm_phases["spanning tree computation"]
       algorithm.spanning_tree =
 	spanning_algorithm_class.new{
 	  ugraph = ugraph,
@@ -198,33 +213,33 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     end
 
     -- Step 2.8: Compute growth-adjusted sizes
-    algorithm.rotation_info = LayoutPipeline.prepareRotateAround(algorithm.postconditions, c)
+    algorithm.rotation_info = LayoutPipeline.prepareRotateAround(algorithm.postconditions, syntactic_component)
     algorithm.adjusted_bb = Storage.newTableStorage()
-    LayoutPipeline.prepareBoundingBoxes(algorithm.rotation_info, algorithm.adjusted_bb, c, c.vertices)
-    
+    LayoutPipeline.prepareBoundingBoxes(algorithm.rotation_info, algorithm.adjusted_bb, syntactic_component, syntactic_component.vertices)
+
     -- Step 2.9: Finally, run algorithm on this component!
-    if #c.vertices > 1 or algorithm_class.run_also_for_single_node
-                       or algorithm_class.preconditions.at_least_two_nodes == false then
+    if #digraph.vertices > 1 or algorithm_class.run_also_for_single_node
+                             or algorithm_class.preconditions.at_least_two_nodes == false then
       -- Main run of the algorithm:
       if algorithm_class.old_graph_model then
-	LayoutPipeline.runOldGraphModel(scope, c, algorithm_class, algorithm)
+	LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algorithm)
       else
 	algorithm:run ()
       end
     end
-    
+
     -- Step 2.10: Sync the graphs
-    c:sync()
+    digraph:sync()
     ugraph:sync()
     if algorithm.spanning_tree then
       algorithm.spanning_tree:sync()
     end
     
-    -- Step 2.10: Orient the graph
-    LayoutPipeline.orient(algorithm.rotation_info, algorithm.postconditions, c, scope)
+    -- Step 2.11: Orient the graph
+    LayoutPipeline.orient(algorithm.rotation_info, algorithm.postconditions, syntactic_component, scope)
   end
 
-  -- Step 5: Packing:
+  -- Step 3: Packing:
   LayoutPipeline.packComponents(layout_graph, syntactic_components)
 end
 
@@ -268,6 +283,12 @@ function LayoutPipeline.anchor(graph, scope)
   -- Step 3: Shift nodes
   for _,v in ipairs(graph.vertices) do
     v.pos:shiftByCoordinate(delta)
+  end
+  for _,a in ipairs(graph.arcs) do
+    if a.path then a.path:shiftByCoordinate(delta) end
+    for _,e in ipairs(a.syntactic_edges) do
+      e.path:shiftByCoordinate(delta)
+    end
   end
 end
 
@@ -382,7 +403,7 @@ function LayoutPipeline.prepareBoundingBoxes(rotation_info, adjusted_bb, graph, 
     local bb = adjusted_bb[v]
     local a  = angle
     
-    if v.shape == "circle" and v.hull_center.x == 0 and v.hull_center.y == 0 then
+    if v.shape == "circle" then
       a = 0 -- no rotation for circles.
     end
     
@@ -394,7 +415,7 @@ function LayoutPipeline.prepareBoundingBoxes(rotation_info, adjusted_bb, graph, 
     
     local c = math.cos(angle)
     local s = math.sin(angle)
-    for _,p in ipairs(v.hull) do
+    for _,p in ipairs(v.path:coordinates()) do
       local x =  p.x*c + p.y*s
       local y = -p.x*s + p.y*c
       
@@ -449,23 +470,12 @@ function LayoutPipeline.rotateGraphAround(graph, around_x, around_y, from, to, s
   -- Translate back
   t = Transform.concat(Transform.new_shift(around_x, around_y), t)
 
-  -- perform the rotation
-  for _,a in ipairs(graph.arcs) do
-    local pos = a.tail.pos
-    for _,p in ipairs(a:pointCloud()) do
-      p:shiftByCoordinate(pos)
-      p:apply(t)
-    end
-  end
-  
   for _,v in ipairs(graph.vertices) do
     v.pos:apply(t)
   end
-  
   for _,a in ipairs(graph.arcs) do
-    local pos = a.tail.pos
     for _,p in ipairs(a:pointCloud()) do
-      p:unshift(pos.x, pos.y)
+      p:apply(t)
     end
   end
 end
@@ -673,10 +683,12 @@ function LayoutPipeline.decompose (digraph)
     table.sort (c.vertices, function (u,v) return u.event.index < v.event.index end)
     for _,v in ipairs(c.vertices) do
       for _,a in ipairs(digraph:outgoing(v)) do
-	c:connect(a.tail, a.head)
+	local new_a = c:connect(a.tail, a.head)
+	new_a.syntactic_edges = a.syntactic_edges
       end
       for _,a in ipairs(digraph:incoming(v)) do
-	c:connect(a.tail, a.head)
+	local new_a = c:connect(a.tail, a.head)
+	new_a.syntactic_edges = a.syntactic_edges
       end
     end
   end
@@ -746,14 +758,16 @@ local function compute_rotated_bb(vertices, angle, sep, bb)
     local min_y = math.huge
     local max_y = -math.huge
 	
-    for i=1,#v.hull do
-      local c = v.hull[i]:clone()
-      c:apply(t)
+    for _,e in ipairs(v.path) do
+      if type(e) == "table" then
+	local c = e:clone()
+	c:apply(t)
       
-      min_x = math.min (min_x, c.x)
-      max_x = math.max (max_x, c.x)
-      min_y = math.min (min_y, c.y)
-      max_y = math.max (max_y, c.y)
+	min_x = math.min (min_x, c.x)
+	max_x = math.max (max_x, c.x)
+	min_y = math.min (min_y, c.y)
+	max_y = math.max (max_y, c.y)
+      end
     end
 
     -- Enlarge by sep:
@@ -762,7 +776,8 @@ local function compute_rotated_bb(vertices, angle, sep, bb)
     min_y = min_y - sep
     max_y = max_y + sep
     
-    local center = v.hull_center:clone()
+    local _,_,_,_,c_x,c_y = v:boundingBox()
+    local center = Coordinate.new(c_x,c_y)
     
     center:apply(t)
     
@@ -803,7 +818,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
 
     for _,a in ipairs(c.arcs) do
       for _,p in ipairs(a:pointCloud()) do
-	vs [#vs + 1] = Vertex.new { pos = p + a.tail.pos, kind = "dummy" }
+	vs [#vs + 1] = Vertex.new { pos = p }
       end
     end
     vertices[c] = vs
@@ -991,10 +1006,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     local y =  x_shifts[i]*math.sin(angle) + y_shifts[i]*math.cos(angle)
     
     for _,v in ipairs(vertices[c]) do
-      if v.kind ~= "dummy" then
-	v.pos.x = v.pos.x + x
-	v.pos.y = v.pos.y + y
-      end
+      v.pos.x = v.pos.x + x
+      v.pos.y = v.pos.y + y
     end
   end
 end
@@ -1027,6 +1040,72 @@ prepare_events =
       end
     end
   end
+
+
+
+---
+-- Cut the edges. This function handles the ``cutting'' of edges. The
+-- idea is that every edge is a path going from the center of the from
+-- node to the center of the target node. Now, we intersect this path
+-- with the path of the start node and cut away everything before this
+-- intersection. Likewise, we intersect the path with the head node
+-- and, again, cut away everything following the intersection.
+--
+-- These cuttings are not done if appropriate options are set.
+
+function LayoutPipeline.cutEdges(graph)
+
+  for _,a in ipairs(graph.arcs) do
+    for _,e in ipairs(a.syntactic_edges) do
+      local p = e.path
+      p:makeRigid()
+      local orig = p:clone()
+      
+      if e.options['tail cut'] and e.tail.options['cut policy'] == "as edge requests" 
+	or e.tail.options['cut policy'] == "all" then
+
+	local vpath = e.tail.path:clone()
+	vpath:shiftByCoordinate(e.tail.pos)
+	
+	local x = p:intersectionsWith (vpath)
+	
+	if #x > 0 then
+	  p:cutAtBeginning(x[1].index, x[1].time)
+	end
+      end
+      
+      if e.options['head cut'] and e.head.options['cut policy'] == "as edge requests" 
+	or e.head.options['cut policy'] == "all" then
+	
+	local vpath = e.head.path:clone()
+	vpath:shiftByCoordinate(e.head.pos)
+	x = p:intersectionsWith (vpath)
+	if #x > 0 then
+	  p:cutAtEnd(x[#x].index, x[#x].time)
+	else
+	  -- Check whether there was an intersection with the original
+	  --path:
+	  local x2 = orig:intersectionsWith (vpath)
+	  if #x2 > 0 then
+	    -- Ok, after cutting the tail vertex, there is no longer
+	    -- an intersection with the head vertex, but there used to
+	    -- be one. This means that the vertices overlap and the
+	    -- path should be ``inside'' them. Hmm...
+	    if e.options['allow inside edges'] and #p > 1 then
+	      local from = p[2]
+	      local to = x2[1].point
+	      p:clear()
+	      p:appendMoveto(from)
+	      p:appendLineto(to)
+	    else
+	      p:clear()
+	    end
+	  end
+	end
+      end
+    end
+  end
+end
 
 
 
@@ -1065,15 +1144,16 @@ local function compatibility_digraph_to_graph(scope, g)
       v.name = "auto generated node nameINTERNAL" .. unique_count
       unique_count = unique_count + 1
     end
+    local minX, minY, maxX, maxY = v:boundingBox()
     local node = Node.new{
       name = v.name,
       tex = {
 	tex_node = v.tex and v.tex.stored_tex_box_number,
 	shape = v.shape,
-	minX = v.hull[1].x,
-	maxX = (v.hull[3] and v.hull[3].x) or v.hull[1].x,
-	minY = v.hull[1].y,
-	maxY = (v.hull[3] and v.hull[3].y) or v.hull[1].y,
+	minX = minX, 
+	maxX = maxX, 
+	minY = minY, 
+	maxY = maxY, 
       }, 
       options = v.options,
       event_index = v.event.index,
@@ -1145,9 +1225,12 @@ local function compatibility_graph_to_digraph(graph)
     n.orig_vertex.pos.y = n.pos.y
   end
   for _,e in ipairs(graph.edges) do
-    local tail = e:getTail()
-    for i,p in ipairs (e.bend_points) do
-      e.orig_m.path [i] = Coordinate.new(p.x - tail.pos.x, p.y - tail.pos.y)
+    if #e.bend_points > 0 then
+      local c = {}
+      for _,x in ipairs(e.bend_points) do
+	c[#c+1] = Coordinate.new (x.x, x.y)
+      end
+      e.orig_m:setPolylinePath(c)
     end
   end
 end

@@ -90,8 +90,8 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- In the following, we go over the different keys that can be used to
 -- configure the component packing.
-
-local _
+--
+-- @end
 
 
 ---

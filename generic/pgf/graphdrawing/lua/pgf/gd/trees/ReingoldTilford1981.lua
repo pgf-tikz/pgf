@@ -14,6 +14,8 @@
 ---
 -- @section subsubsection {The Reingold--Tilford Layout}
 --
+-- @end
+
 local ReingoldTilford1981 = {}
 
 -- Imports
@@ -86,7 +88,7 @@ declare {
 -- Now comes the implementation:
   
 function ReingoldTilford1981:run()
-  
+
   local root = self.spanning_tree.root
 
   local layers = Storage.new()

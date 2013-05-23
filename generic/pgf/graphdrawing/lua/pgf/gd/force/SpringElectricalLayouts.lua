@@ -17,8 +17,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 ---
 -- @section subsection {Spring Electrical Layouts}
 --
-
-local _
+-- @end
 
 
 

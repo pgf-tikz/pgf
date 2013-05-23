@@ -20,8 +20,8 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 -- and a direction has been chosen, it remains to determine the distance
 -- between adjacent components. Two methods are available for computing
 -- this distance, as specified by the following option:
-
-local _
+--
+-- @end
 
   
 ---

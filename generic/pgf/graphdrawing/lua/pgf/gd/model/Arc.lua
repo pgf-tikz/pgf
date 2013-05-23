@@ -35,7 +35,21 @@
 -- edges. Indeed, you will normally want to setup and modify the
 -- |path| field of an arc during your algorithm and only at the very
 -- end, ``write it back'' to the multiple syntactic edges underlying
--- the graph. For this purpose, use the method |sync|.
+-- the graph. For this purpose, the method |sync| is used, which is
+-- called automatically for the |ugraph| and |digraph| of a scope as
+-- well as for spanning trees.
+--
+-- The bottom line concerning the |path| field is the following: If
+-- you just want a straight line along an arc, just leave the field as
+-- it is (namely, |nil|). If you want to have all edges along a path
+-- to follow a certain path, set the |path| field of the arc to the
+-- path you desire (typically, using the |setPolylinePath| or a
+-- similar method). This will cause all syntactic edges underlying the
+-- arc to be set to the specified path. In the event that you want to
+-- set different paths for the edges underlying a single arc
+-- differently, set the |path| fields of these edges and set the
+-- |path| field of the arc to |nil|. This will disable the syncing for
+-- the arc and will cause the edge |paths| to remain untouched.
 --
 -- @field tail The tail vertex of the arc.
 -- @field head The head vertex of the arc. May be the same as the tail
@@ -57,7 +71,8 @@ require("pgf.gd.model").Arc = Arc
 
 -- Imports
 
-local lib = require "pgf.gd.lib"
+local Path = require 'pgf.gd.model.Path'
+local lib = require 'pgf.gd.lib'
 
 
 ---
@@ -419,15 +434,19 @@ end
 
 
 ---
--- Sync an |Arc| with its syntactic edges. Currently, this means that
--- if the |path| field of the arc is not empty, it will be copied to
--- all syntactic edges underlying the arc. 
+-- Sync an |Arc| with its syntactic edges. This causes the following:
+-- If the |path| field of the arc is |nil|, nothing
+-- happens. Otherwise, a copy of the |path| is created. However, for
+-- every path element that is a function, this function is invoked
+-- with the syntactic edge as its parameter. The result of this call
+-- should now be a |Coordinate|, which will replace the function in
+-- the |Path|.
 --
 -- You use this method like this:
 --\begin{codeexample}[code only]
 --...
 --local arc = g:connect(s,t)
---arc.path = { Coordinate.new(x,y), Coordinate.new(x1,y1) }
+--arc:setPolylinePath { Coordinate.new(x,y), Coordinate.new(x1,y1) }
 --...
 --arc:sync()
 --\end{codeexample}
@@ -442,37 +461,112 @@ function Arc:sync()
     local head = self.head
     local tail = self.tail
     local a = self.syntactic_digraph:arc(tail,head)
-    if a then
-      for _,m in ipairs(a.syntactic_edges) do
-	local copy = {}
-	for i=1,#path do
-	  local p = path[i]
-	  if type(p) == "table" then
-	    copy [i] = p:clone()
-	  else
-	    copy [i] = p
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+	local clone = path:clone()
+	for i=1,#clone do
+	  local p = clone[i]
+	  if type(p) == "function" then
+	    clone[i] = p(e)
+	    if type(clone[i]) == "table" then
+	      clone[i] = clone[i]:clone()
+	    end
 	  end
 	end
-	m.path = copy
+	e.path = clone
       end
     end
     local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
-    if a then
-      for _,m in ipairs(a.syntactic_edges) do
-	local copy = {}
-	for i=1,#path do
-	  local p = path[i]
-	  if type(p) == "table" then
-	    copy [i] = p:clone()
-	  else
-	    copy [i] = p
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+	local clone = path:reversed()
+	for i=1,#clone do
+	  local p = clone[i]
+	  if type(p) == "function" then
+	    clone[i] = p(e)
+	    if type(clone[i]) == "table" then
+	      clone[i] = clone[i]:clone()
+	    end
 	  end
 	end
-	m.path = copy
-      end
+	e.path = clone
+       end
     end
   end
 end
+
+
+---
+-- This method returns a ``coordinate factory'' that can be used as
+-- the coordinate of a |moveto| at the beginning of a path starting at
+-- the |tail| of the arc. Suppose you want to create a path starting
+-- at the tail vertex, going to the coordinate $(10,10)$ and ending at
+-- the head vertex. The trouble is that when you create the path
+-- corresponding to this route, you typically do not know where the
+-- tail vertex is going to be. Even if that \emph{has} already been
+-- settled, you will still have the problem that different edges
+-- underlying the arc may wish to start their paths at different
+-- anchors inside the tail vertex. In such cases, you use this
+-- method to get a function that will, later on, compute the correct
+-- position of the anchor as needed.
+--
+-- Here is the code you would use to create the abovementioned path:
+--
+--\begin{codeexample}[code only]
+--local a = g:connect(tail,head)
+--...
+--arc.path = Path.new()
+--arc.path:appendMoveto(arc:tailAnchorForArcPath())
+--arc.path:appendLineto(10, 10)
+--arc.path:appendLineto(arc:headAnchorForArcPath())
+--\end{codeexample}
+--
+-- Normally, however, you will not write code as detailed as the above
+-- and you would just write instead of the last three lines:
+--
+--\begin{codeexample}[code only]
+--arc:setPolylinePath { Coordinate.new (10, 10) }
+--\end{codeexample}
+
+function Arc:tailAnchorForArcPath()
+  return function (edge)
+	   return self.tail:anchor(edge.options['tail anchor']) + self.tail.pos
+	 end
+end
+
+---
+-- See |Arc:tailAnchorForArcPath|.
+
+function Arc:headAnchorForArcPath()
+  return function (edge)
+	   return self.head:anchor(edge.options['head anchor']) + self.head.pos
+	 end
+end
+
+
+
+---
+-- Setup the |path| field of an arc in such a way that it corresponds
+-- to a sequence of straight line segments starting at the tail's
+-- anchor and ending at the head's anchor.
+--
+-- @param coordinates An array of |Coordinates| through which the line
+-- will go through.
+
+function Arc:setPolylinePath(coordinates)
+  local p = Path.new ()
+
+  p:appendMoveto(self:tailAnchorForArcPath())
+
+  for _,c in ipairs(coordinates) do
+    p:appendLineto(c)
+  end
+
+  p:appendLineto(self:headAnchorForArcPath())
+  
+  self.path = p
+end
+
 
 
 

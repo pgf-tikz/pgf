@@ -21,8 +21,8 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- number of edges need to be redirected so that acyclicity arises. In
 -- the following, the different options that allow you to fine-tune
 -- this process are documented.
-
-local _
+--
+-- @end
 
 
 

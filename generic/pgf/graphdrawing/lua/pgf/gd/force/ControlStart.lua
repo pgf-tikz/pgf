@@ -36,7 +36,5 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --
 -- Other methods, like a planar preembedding, are not implemented
 -- currently. 
-
-local _
-
-
+--
+-- @end

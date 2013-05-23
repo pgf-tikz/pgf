@@ -105,7 +105,7 @@ end
 function Tantau2012:computeNodeRadii()
   local radii = {}
   for i,v in ipairs(self.digraph.vertices) do
-    local min_x, min_y, max_x, max_y = Coordinate.boundingBox(v.hull)
+    local min_x, min_y, max_x, max_y = v:boundingBox()
     local w, h = max_x-min_x, max_y-min_y
     if v.shape == "circle" or v.shape == "ellipse" then
       radii[i] = math.max(w,h)/2

@@ -19,8 +19,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 ---
 -- @section subsubsection {The Iterative Process and Cooling}
 --
-
-local _
+-- @end
 
 
 

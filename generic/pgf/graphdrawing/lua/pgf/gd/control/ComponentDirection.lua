@@ -15,8 +15,8 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 
 ---
 -- @section subsubsection {Arranging Components in a Certain Direction}
-
-local _
+--
+-- @end
 
 ---
 

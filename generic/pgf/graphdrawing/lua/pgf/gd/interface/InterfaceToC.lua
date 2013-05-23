@@ -49,15 +49,15 @@ local lib = require "pgf.gd.lib"
 function InterfaceToC.declare_algorithm_written_in_c (t)
   t.algorithm = {
     run = function (self)
-	    local back_table = lib.icopy(self.digraph.vertices)
-	    for i,v in ipairs(self.digraph.vertices) do
+	    local back_table = lib.icopy(self.ugraph.vertices)
+	    for i,v in ipairs(self.ugraph.vertices) do
 	      back_table[v] = i
 	    end
 	    local edges = {}
-	    for _,a in ipairs(self.digraph.arcs) do
-	      local a = self.layout_graph:arc(a.tail,a.head)
-	      if a then
-		lib.icopy(a.syntactic_edges, edges)
+	    for _,a in ipairs(self.ugraph.arcs) do
+	      local b = self.layout_graph:arc(a.tail,a.head)
+	      if b then
+		lib.icopy(b.syntactic_edges, edges)
 	      end
 	    end
 	    for i=1,#edges do

@@ -159,6 +159,15 @@ function BindingToPGF:renderVerticesStop()
 end
 
 
+local function rigid(x)
+  if type(x) == "function" then
+    return x()
+  else
+    return x
+  end
+end
+
+  
 -- Managing edges
 
 function BindingToPGF:renderEdge(e)
@@ -184,39 +193,37 @@ function BindingToPGF:renderEdge(e)
     '{'
   }
   
-  local path_ends_with_curveto = false
-  
-  for i=1,#e.path do
+  local i = 1
+  while i <= #e.path do
     local c = e.path[i]
+    assert (type(c) == "string", "illegal path operand")
     
-    if type(c) == "table" then
-      callback [#callback + 1] = '--(' .. tostring(c.x + e.tail.pos.x) .. 'pt,' .. tostring(c.y + e.tail.pos.y) .. 'pt)'
+    if c == "lineto" then
+      i = i + 1
+      local d = rigid(e.path[i])
+      callback [#callback + 1] = '--(' .. tostring(d.x) .. 'pt,' .. tostring(d.y) .. 'pt)'
+      i = i + 1
     elseif c == "moveto" then
       i = i + 1
-      local d = e.path[i]
-      callback [#callback + 1] = '(' .. tostring(d.x + e.tail.pos.x) .. 'pt,' .. tostring(d.y + e.tail.pos.y) .. 'pt)'
+      local d = rigid(e.path[i])
+      callback [#callback + 1] = '(' .. tostring(d.x) .. 'pt,' .. tostring(d.y) .. 'pt)'
+      i = i + 1
     elseif c == "closepath" then
       callback [#callback + 1] = '--cycle'
+      i = i + 1
     elseif c == "curveto" then
-      local d1, d2, d3 = e.path[i+1], e.path[i+2], e.path[i+3]
+      local d1, d2, d3 = rigid(e.path[i+1]), rigid(e.path[i+2]), rigid(e.path[i+3])
       i = i + 3
-      callback [#callback + 1] = '..controls(' .. tostring(d1.x + e.tail.pos.x) .. 'pt,' .. tostring(d1.y + e.tail.pos.y) .. 'pt)and('
-                                               .. tostring(d2.x + e.tail.pos.x) .. 'pt,' .. tostring(d2.y + e.tail.pos.y) .. 'pt)..'
-      if d3 then
-	callback [#callback + 1] = '(' .. tostring(d3.x + e.tail.pos.x) .. 'pt,' .. tostring(d3.y + e.tail.pos.y) .. 'pt)'
-      else
-	path_ends_with_curveto = true
-      end
+      callback [#callback + 1] = '..controls(' .. tostring(d1.x) .. 'pt,' .. tostring(d1.y) .. 'pt)and('
+                                               .. tostring(d2.x) .. 'pt,' .. tostring(d2.y) .. 'pt)..'
+      callback [#callback + 1] = '(' .. tostring(d3.x) .. 'pt,' .. tostring(d3.y) .. 'pt)'
+      i = i + 1
     else				     
       error("illegal operation in edge path")
     end
   end
 
-  if path_ends_with_curveto then
-    callback [#callback + 1] = "}"
-  else
-    callback [#callback + 1] = '--}'
-  end
+  callback [#callback + 1] = '}'
   
   -- hand TikZ code over to TeX
   tex.print(table.concat(callback))

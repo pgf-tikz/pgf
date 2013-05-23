@@ -46,6 +46,10 @@
 --
 -- Once the node has been determined, the graph is shifted so that
 -- this node lies at the poistion specified by |anchor at|.
+--
+-- @end
+
+
 
 local Anchoring = {}
 

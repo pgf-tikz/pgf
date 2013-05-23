@@ -94,7 +94,53 @@ typedef struct pgfgd_Edge_array {
   
 } pgfgd_Edge_array;
 
+  
+/** This struct is used to model a Lua Path. In Lua, a path is an
+    array where each entry is either a Coordinate object or a
+    string. This is modeled on the C layer by having
+    two arrays and for each position, either the coordinates array or
+    the strings array is set (the strings
+    array is set at position i if, and only if, it is not null).  
 
+    Graph drawing functions may wish to modify Edge paths, namely
+    whenever they wish to setup a special routing for an edge. In this
+    case, you may not directly modify the object, but, rather, you
+    must use the functions pgfgd_path_xxx to modify the path
+    field. When the graph drawing function is done, the values stored
+    in the the path fields of the Edges of the syntactic digraph are
+    copied back to Lua.
+
+    Note that numbering starts at 0. Also note that you have to set
+    the path field for each syntactic edge individually.
+
+    The |length| field will be |-1| for the ``default path'' of an
+    edge. The actual path (a straight line from the tail to the head
+    vertex) is generated only when the graph is written back, because
+    only then the coordinates of the nodes will be known. 
+*/
+
+typedef struct pgfgd_Path {
+
+  /** Both arrays of this struct will have this length, except when
+      this field is set to -1, indicating that a default path should
+      be generated when this path is written back to the graph. */
+  int                length;
+
+  /** An array of coordinates. Not all entries of this array are
+      relevant, namely only those for which the strings array is null
+      at the some position.
+  */
+  pgfgd_Coordinate*  coordinates;
+
+  /** An array of strings. Whenever an entry in this array is not
+      null, the entry in the coordinates array at the same position is
+      ignored. */
+  char**             strings;
+  
+} pgfgd_Path;
+
+
+  
 /** An abstraction of a pgf.gd.model.Vertex. These objects are
     managed by the library (including creation and deletion), you
     should not create them yourself or modify them, except for the pos
@@ -106,12 +152,9 @@ typedef struct pgfgd_Vertex {
   
   /** The name field of the Lua Vertex class. */
   char* name;
-  
-  /** The hull field of the Lua Vertex class. */
-  pgfgd_Coordinate_array hull;
 
-  /** The hull_center field of the Lua Vertex class. */
-  pgfgd_Coordinate hull_center;
+  /** The path field of the Lua Vertex class. */
+  pgfgd_Path* path;
 
   /** The shape field of the Lua Vertex class. */
   char* shape;
@@ -172,50 +215,17 @@ typedef struct pgfgd_Vertex_array {
   pgfgd_Vertex** array;
 } pgfgd_Vertex_array;
 
-
-/** This struct is used to model the array stored in a path field of
-    an Edge or Arc object in Lua. In Lua, each entry of such an array
-    is either a Coordinate object or a string. This is modeled on the
-    C layer by having two arrays and for each position, either the
-    coordinates array or the strings array is set (the strings array
-    is set at position i if, and only if, it is not null). 
-
-    Graph drawing functions may wish to modify such arrays, namely
-    whenever they wish to setup a special routing for an edge. In this
-    case, you may not directly modify the object, but, rather, you
-    must use the functions pgfgd_path_xxx to modify the path
-    field. When the graph drawing function is done, the values stored
-    in the the path fields of the Edges of the syntactic digraph are
-    copied back to Lua.
-
-    Note that numbering starts at 0. Also note that you have to set
-    the path field for each syntactic edge individually. Finally, note
-    that the coordinates of a path field are always considered
-    relative to the coordinate of the tail of the Edge.
-*/
-
-typedef struct pgfgd_path_field_array {
-
-  /** Both arrays of this struct will have this length. */
-  int                length;
-
-  /** An array of coordinates. Not all entries of this array are
-      relevant, namely only those for which the strings array is null
-      at the some position.
-  */
-  pgfgd_Coordinate*  coordinates;
-
-  /** An array of strings. Whenever an entry in this array is not
-      null, the entry in the coordinates array at the same position is
-      ignored. */
-  char**             strings;
   
-} pgfgd_path_field_array;
 
+/** This function allows you to query an anchor of a vertex (like a
+    call to |Vertex:anchor|). The function returns
+    |1| if there is such an anchor, otherwise |0| is returned and
+    both |x| and |y| will be set to 0. */
+extern int pgfgd_vertex_anchor(pgfgd_Vertex* v, const char* anchor, double* x, double* y);
+  
+  
 
-
-/** An abstraction of pgf.gd.model.Edge. 
- */
+/** An abstraction of pgf.gd.model.Edge. */
 
 struct pgfgd_Edge {
   
@@ -236,7 +246,7 @@ struct pgfgd_Edge {
       routinge, the value stored in this field will be written back to
       the path field of the original syntactic edge.
   */
-  pgfgd_path_field_array path;
+  pgfgd_Path* path;
 
   /** A pointer to the options table of the Edge. This works like the
       options table of pgdgd_Vertex and the same restrictions apply.
@@ -314,20 +324,30 @@ typedef struct pgfgd_SyntacticDigraph {
     stored in it. 
 */
 extern void pgfgd_path_clear          (pgfgd_Edge* e);
-
-/** This function adds one coordinate at the end of the path stored in
-    the edge. Note that these coordinates are always considered
-    relative to the tail vertex of the edge.
-*/
-extern void pgfgd_path_add_coordinate (pgfgd_Edge* e, double x, double y);
-
-/** Adds a string to the path of an edge. These strings, like for
-    instance "curveto" are used to created edges of more complicated
-    shapes. See the description of the Lua Edge class for details.
-*/
-extern void pgfgd_path_add_string     (pgfgd_Edge* e, const char* s);
-
-
+  
+/** This function adds a moveto at the end of a path. */
+extern void pgfgd_path_append_moveto (pgfgd_Edge* e, double x, double y);
+  
+/** This function adds a moveto to the |tail anchor| of the tail of
+    the edge. This call is useful for ``starting'' a path. This
+    function is a ``service function,'' you can achieve the same
+    effect by directly reading the option table of the tail vertex
+    and then using the pgfgd_vertex_anchor method. */
+extern void pgfgd_path_append_moveto_tail (pgfgd_Edge* e);
+  
+/** This function adds a lineto at the end of a path. */
+extern void pgfgd_path_append_lineto (pgfgd_Edge* e, double x, double y);
+  
+/** This function adds a linto to the |head anchor| of the head of
+    the edge. This call is useful for ``ending'' a path. */
+extern void pgfgd_path_append_lineto_head (pgfgd_Edge* e);
+  
+/** This function adds a closepath at the end of a path. */
+extern void pgfgd_path_append_closepath (pgfgd_Edge* e);
+  
+/** This function adds a curevto at the end of a path. */
+extern void pgfgd_path_append_curveto (pgfgd_Edge* e, double x1, double y1, double x2, double y2, double x, double y);
+   
 
 
 

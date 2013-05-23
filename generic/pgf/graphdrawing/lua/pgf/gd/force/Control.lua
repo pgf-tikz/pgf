@@ -22,7 +22,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- can be used to influence the behaviour of this general pattern; more
 -- specific options that apply only to individual algorithms are
 -- explained along with these algorithms.
-
-local _
+--
+-- @end
 
 

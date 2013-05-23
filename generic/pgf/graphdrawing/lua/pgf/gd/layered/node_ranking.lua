@@ -27,8 +27,8 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --
 -- For more details, please see Section 4.1.2 of Pohlmann's Diploma
 -- thesis. 
-
-local _
+--
+-- @end
 
 
 

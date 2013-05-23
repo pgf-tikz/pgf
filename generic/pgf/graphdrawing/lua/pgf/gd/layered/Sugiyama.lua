@@ -14,6 +14,8 @@
 ---
 -- @section subsection {The Modular Sugiyama Method}
 --
+-- @end
+
 local Sugiyama = {}
 
 -- Namespace

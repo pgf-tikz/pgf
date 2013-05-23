@@ -43,8 +43,8 @@ local lib           = require "pgf.gd.lib"
 -- Section~\ref{section-gd-packing} for the details, such that between
 -- the nodes of any two components a padding is avaiable.
 -- \end{itemize}
-
-local _
+--
+-- @end
 
 
 

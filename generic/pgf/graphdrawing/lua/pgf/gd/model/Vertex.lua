@@ -27,6 +27,46 @@
 -- references to |tex| inside a |Vertex|; this information is only
 -- available in the syntactic digraph.
 --
+-- One important aspect of vertices are its anchors -- a concept well
+-- familiar for users of \tikzname, but since we need to abstract from
+-- \tikzname, a separate anchor management is available inside the
+-- graph drawing system. It works as follows:
+--
+-- First of all, every vertex has a path, which is a (typically
+-- closed) line around the vertex. The display system will pass down
+-- the vertex' path to the graph drawing system and this path will be
+-- stored as a |Path| object in the |path| field of the vertex. This
+-- path lives in a special ``local'' coordinate system, that is, all
+-- coordinates of this path should actually be considered relative to
+-- the vertex' |pos| field. Note that the path is typically, but not
+-- alwyas, ``centered'' on the origin. A graph drawing algorithm
+-- should arrange the vertices in such a way that the origins in the
+-- path coordinate systems are aligned.
+--
+-- To illustrate the difference between the origin and the vertex
+-- center, conside a tree drawing algorithm in which a node |root| has
+-- three children |a|, |b|, and |g|. Now, if we were to simply center
+-- these three letters vertically and arrange them in a line, the
+-- letters would appear to ``jump up and down'' since the height of
+-- the three letters are quite different. A solution is to shift the
+-- letters (and, thus, the paths of the vertices) in such a way that
+-- in all three letters the baseline of the letters is exactly at the
+-- origin. Now, when a graph drawing algorithm aligns these vertices
+-- along the origins, the letters will all have the same baseline. 
+--
+-- Apart from the origin, there may be other positions in the path
+-- coordinate system that are of interest -- such as the center of
+-- the vertex. As mentioned above, this need not be the origin and
+-- although a graph drawing algorithm should align the origins,
+-- \emph{edges} between vertices should head toward these vertex
+-- centers rather that toward the origins. Other points of interest
+-- might be the ``top'' of the node. 
+--
+-- All points of special interest are called ``anchors''. The |anchor|
+-- method allows you to retrieve them. By default, you always have
+-- access to the |center| anchor, but other anchors may or may not be
+-- available also, see the |anchor| method for details.
+--
 -- @field pos A coordinate object that stores the position where the
 -- vertex should be placed on the canvas. The main objective of graph drawing
 -- algorithms is to update this coordinate.
@@ -34,17 +74,28 @@
 -- @field name An optional string that is used as a textual representation
 --        of the node.
 --
--- @field hull An array of coordinate that should be interpreted relative
---        to the pos field. They should describe a convex hull of the
---        node corresponding to this vertex.
+-- @field path The path of the vertex's shape. This is a path along
+-- the outer line resulting from stroking the vertex's original
+-- shape. For instance, if you have a quadratic shape of size 1cm and
+-- you stroke the path with a pen of 2mm thickness, this |path| field
+-- would store a path of a square of edge length 12mm. 
 --
--- @field hull_center A coordinate storing the center of the
--- |hull|. Typically, this will be the origin.
+-- @field anchors A table of anchors (in the TikZ sense). The table is
+-- indexed by the anchor names (strings) and the values are
+-- |Coordinate|s. Currently, it is only guaranteed that the |center|
+-- anchor is present. Note that the |center| anchor need not lie at
+-- the origin: A graph drawing system should align nodes relative to
+-- the origin of the path's coordinate system. However, lines going to
+-- and from the node will head towards the |center| anchor. See
+-- Section~\ref{section-gd-anchors} for details.
 --
 -- @field options A table of options that contains user-defined options.
 --
 -- @field shape A string describing the shape of the node (like |rectangle|
---        or |circle|).
+-- or |circle|). Note, however, that this is more ``informative''; the
+-- actual information that is used by the graph drawing system for
+-- determining the extent of a node, its bounding box, convex hull,
+-- and line intersections is the |path| field. 
 --
 -- @field kind A string describing the kind of the node. For instance, a
 --        node of type |"dummy"| does not correspond to any real node in
@@ -65,6 +116,7 @@ require("pgf.gd.model").Vertex = Vertex
 -- Imports
 
 local Coordinate   = require "pgf.gd.model.Coordinate"
+local Path         = require "pgf.gd.model.Path"
 local Storage      = require "pgf.gd.lib.Storage"
 
 
@@ -82,12 +134,8 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- \begin{description}
 -- \item[|pos|] Initial position of the node.
 -- \item[|name|] The name of the node. It is optional to define this.
--- \item[|hull|] An array of coordinate objects. It will not
--- be copied, but referenced. If not given, an array with the only
--- entry being the origin is used.
--- \item[\texttt{hull\_center}] A coordinate storing the ``center'' of the
--- hull. Typically, this will be the origin, which is also the default
--- which this field is not given.
+-- \item[|path|] A |Path| object representing the vertex's hull. 
+-- \item[|anchors|] A table of anchors.
 -- \item[|options|] An options table for the vertex.
 -- \item[|shape|] A string describing the shape. If not given, |"none"| is used.
 -- \item[|kind|] A kind like |"node"| or |"dummy"|. If not given, |"dummy"| is used.
@@ -109,23 +157,120 @@ function Vertex.new(values)
   for k,v in pairs(values) do
     new[k] = v
   end
-  new.hull = new.hull or { Coordinate.new(0,0) }
-  new.hull_center = new.hull_center or Coordinate.new(0,0)
+  new.path = new.path or Path.new { 0, 0 }
   new.shape = new.shape or "none"
   new.kind = new.kind or "dummy"
   new.pos = new.pos or Coordinate.new(0,0)
+  new.anchors = new.anchors or { center = Coordinate.new(0,0) }
   return setmetatable (new, Vertex)
 end
 
 
 
+
+---
+-- Returns a bounding box of a vertex. 
 --
--- Returns a string representation of an arc. This is mainly for debugging
+-- @return |min_x| The minimum $x$ value of the bounding box of the path
+-- @return |min_y| The minimum $y$ value
+-- @return |max_x|
+-- @return |max_y|
+-- @return |center_x| The center of the bounding box
+-- @return |center_y| 
+
+function Vertex:boundingBox()
+  return self.path:boundingBox()
+end
+
+
+
+local anchor_cache = Storage.new ()
+
+local directions = {
+  north = function(min_x, min_y, max_x, max_y)
+	    pgf.debug(min_x,min_y,max_x,max_y)
+	    return (min_x+max_x)/2, max_y
+	  end,
+  south = function(min_x, min_y, max_x, max_y)
+	    return (min_x+max_x)/2, min_y
+	  end,
+  east  = function(min_x, min_y, max_x, max_y)
+	    return max_x, (min_y+max_y)/2
+	  end,
+  west  = function(min_x, min_y, max_x, max_y)
+	    return min_x, (min_y+max_y)/2
+	  end,
+  ["north west"] = function(min_x, min_y, max_x, max_y)
+		     return min_x, max_y
+		   end,
+  ["north east"] = function(min_x, min_y, max_x, max_y)
+		     return max_x, max_y
+		   end,
+  ["south west"] = function(min_x, min_y, max_x, max_y)
+		     return min_x, min_y
+		   end,
+  ["south east"] = function(min_x, min_y, max_x, max_y)
+		     return max_x, min_y
+		   end,
+}
+
+---
+-- Returns an anchor position in a vertex. First, we try to look 
+-- the anchor up in the vertex's |anchors| table. If it is not found
+-- there, we test whether it is one of the direction strings |north|,
+-- |south east|, and so on. If so, we consider a line from the center
+-- of the node to the position on the bounding box that corresponds to
+-- the given direction (so |south east| would be the lower right
+-- corner). We intersect this line with the vertex's path and return
+-- the result. Finally, if the above fails, we try to consider the
+-- anchor as a number and return the intersection of a line starting
+-- at the vertex's center with the number as its angle and the path of
+-- the vertex.
+--
+-- @param anchor An anchor as detailed above
+-- @return A coordinate in the vertex's local coordinate system (so
+-- add the |pos| field to arrive at the actual position). If the
+-- anchor was not found, |nil| is returned
+
+function Vertex:anchor(anchor)
+  local c = self.anchors[anchor]
+  if not c then
+    local b
+    local d = directions [anchor]
+    if d then
+      b = Coordinate.new(d(self:boundingBox()))
+    else
+      local n = tonumber(anchor)
+      if n then
+	local x1, y1, x2, y2 = self:boundingBox()
+	local r = math.max(x2-x1, y2-y1)
+	b = Coordinate.new(r*math.cos(n/180*math.pi),r*math.sin(n/180*math.pi))
+	b:shiftByCoordinate(self.anchors.center)
+      end
+    end
+    if not b then
+      return
+    end
+    local p = Path.new {'moveto', self.anchors.center, 'lineto', b}
+    local intersections = p:intersectionsWith(self.path)
+    if #intersections > 0 then
+      c = intersections[1].point
+      c:unshiftByCoordinate(self.anchors.center)
+    end
+  end
+  self.anchors[anchor] = c
+  return c
+end
+
+
+
+--
+-- Returns a string representation of a vertex. This is mainly for debugging
 --
 -- @return The Arc as string.
 --
 function Vertex:__tostring()
-  return self.name or tostring(self.hull)
+  return self.name or tostring(self.path)
 end
 
 

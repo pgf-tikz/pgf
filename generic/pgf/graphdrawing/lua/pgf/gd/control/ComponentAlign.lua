@@ -44,8 +44,8 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 -- since names like |counterclockwise| are a bit hard to remember and to
 -- apply in practice, a number of easier-to-remember keys are predefined
 -- that combine an alignment and a direction.
-
-local aligning_components
+--
+-- @end
 
   
 ---

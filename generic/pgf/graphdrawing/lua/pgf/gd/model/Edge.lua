@@ -53,25 +53,10 @@
 --
 -- @field direction One of the directions named above.
 --
--- @field path An array of |Coordinate| objects and |strings| that
--- describe the path of the edge. The coordinates are interpreted
--- relative to the position of the |tail| vertex and the path starts
--- at this vertex. The following strings are allowed in
--- this array:
---
--- \begin{itemize}
--- \item |"moveto"| The line's path should stop at the current
--- position and then start anew at the next coordinate in the array.
--- \item |"lineto"| The line should continue from the current position
--- to the next coordinate in the array. Since this is the default
--- operation if none is given, this string may also be omitted.
--- \item |"curveto"| The line should continue form the current
--- position with a Bézier curve that is specified bz the next three
--- |Coordinate| objects (in the usual manner).
--- \item |"closepath"| The line's path should be ``closed'' in the sense
--- that the current subpath that was started with the most recent
--- moveto operation should now form a closed curve.
--- \end{itemize}
+-- @field path A |Path| object that describes the path of the
+-- edge. The path's coordinates are interpreted relative to the
+-- position of the |tail| vertex and the path starts at this
+-- vertex. 
 --
 -- @field generated_options This is an options array that is generated
 -- by the algorithm. When the edge is rendered later on, this array
@@ -90,7 +75,7 @@ require("pgf.gd.model").Edge = Edge
 
 -- Imports
 
-local Storage      = require "pgf.gd.lib.Storage"
+local Path         = require "pgf.gd.model.Path"
 
 
 --- 
@@ -111,8 +96,90 @@ function Edge.new(values)
     new[k] = v
   end
   new.generated_options = new.generated_options or {}
-  new.path              = new.path or {}
+  if not new.path then
+    local p = Path.new ()
+    p:appendMoveto(Edge.tailAnchorForEdgePath(new))
+    p:appendLineto(Edge.headAnchorForEdgePath(new))
+    new.path = p
+  end
+
   return setmetatable(new, Edge)
+end
+
+
+
+
+---
+-- This method returns a ``coordinate factory'' that can be used as
+-- the coordinate of a |moveto| at the beginning of a path starting at
+-- the |tail| of the arc. Suppose you want to create a path starting
+-- at the tail vertex, going to the coordinate $(10,10)$ and ending at
+-- the head vertex. The trouble is that when you create the path
+-- corresponding to this route, you typically do not know where the
+-- tail vertex is going to be. In this case, you use this
+-- method to get a function that will, later on, compute the correct
+-- position of the anchor as needed.
+--
+-- Note that you typically do not use this function, but use the
+-- corresponding function of the |Arc| class. Use this function only
+-- if there are multiple edges between two vertices that need to be
+-- routed differently. 
+--
+-- Here is the code you would use to create the abovementioned path:
+--
+--\begin{codeexample}[code only]
+--local a = g:connect(tail,head)
+--local e = a.syntactic_edges[1]
+--...
+--e.path = Path.new()
+--e.path:appendMoveto(e:tailAnchorForEdgePath())
+--e.path:appendLineto(10, 10)
+--e.path:appendLineto(e:headAnchorForEdgePath())
+--\end{codeexample}
+--
+-- As for the |Arc| class, you can also setup a polyline more easily:
+--
+--\begin{codeexample}[code only]
+--e:setPolylinePath { Coordinate.new (10, 10) }
+--\end{codeexample}
+
+function Edge:tailAnchorForEdgePath()
+  return function ()
+	   return self.tail:anchor(self.options['tail anchor']) + self.tail.pos
+	 end
+end
+
+---
+-- See |Arc:tailAnchorForArcPath|.
+
+function Edge:headAnchorForEdgePath()
+  return function ()
+	   return self.head:anchor(self.options['head anchor']) + self.head.pos
+	 end
+end
+
+
+
+---
+-- Setup the |path| field of an edge in such a way that it corresponds
+-- to a sequence of straight line segments starting at the tail's
+-- anchor and ending at the head's anchor.
+--
+-- @param coordinates An array of |Coordinates| through which the line
+-- will go through.
+
+function Edge:setPolylinePath(coordinates)
+  local p = Path.new ()
+
+  p:appendMoveto(self:tailAnchorForEdgePath())
+
+  for _,c in ipairs(coordinates) do
+    p:appendLineto(c)
+  end
+
+  p:appendLineto(self:headAnchorForEdgePath())
+  
+  self.path = p
 end
 
 

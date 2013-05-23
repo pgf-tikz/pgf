@@ -29,6 +29,7 @@ require("pgf.gd.control").Sublayouts = Sublayouts
 local Digraph    = require "pgf.gd.model.Digraph"
 local Vertex     = require "pgf.gd.model.Vertex"
 local Coordinate = require "pgf.gd.model.Coordinate"
+local Path       = require "pgf.gd.model.Path"
 
 local lib        = require "pgf.gd.lib"
 
@@ -93,15 +94,17 @@ local function create_subgraph_node(scope, syntactic_digraph, vertex)
   for _,v in ipairs(subgraph_collection.vertices) do
     if vertex ~= v then
       assert(syntactic_digraph:contains(v), "the layout must contain all nodes of the subgraph")
-      for _,p in ipairs(v.hull) do
-	cloud[#cloud+1] = p + v.pos
+      for _,p in ipairs(v.path) do
+	if type(p) == "table" then
+	  cloud[#cloud+1] = p + v.pos
+	end
       end
     end
   end
   for _,e in ipairs(subgraph_collection.edges) do
     for _,p in ipairs(e.path) do
       if type(p) == "table" then
-	cloud[#cloud+1] = p + e.tail.pos
+	cloud[#cloud+1] = p:clone()
       end
     end
   end
@@ -227,6 +230,16 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 		  touched[u] = true
 		  u.pos = positions[u][resulting_graphs[i]]:clone()
 		  u.pos:shift(x_offset, y_offset)
+
+		  for _,a in ipairs(resulting_graphs[i]:outgoing(u)) do
+		    for _,e in ipairs(a.syntactic_edges) do
+		      for _,p in ipairs(e.path) do
+			if type(p) == "table" then
+			  p:shift(x_offset, y_offset)
+			end
+		      end
+		    end
+		  end
 		end
 	      end
 	      
@@ -329,15 +342,15 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       -- hull) Hmm...:
       local array = {}
       for _,v in ipairs(g.vertices) do
-	for _,p in ipairs(v.hull) do
-	  array[#array+1] = p + v.pos
-	end
+	local min_x, min_y, max_x, max_y = v:boundingBox()
+	array[#array+1] = Coordinate.new(min_x + v.pos.x, min_y + v.pos.y)
+	array[#array+1] = Coordinate.new(max_x + v.pos.x, max_y + v.pos.y)
       end
       for _,a in ipairs(g.arcs) do
 	for _,e in ipairs(a.syntactic_edges) do
 	  for _,p in ipairs(e.path) do
 	    if type(p) == "table" then
-	      array[#array+1] = p + a.tail.pos
+	      array[#array+1] = p
 	    end
 	  end
 	end
@@ -347,6 +360,15 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       -- Shift the graph so that it is centered on the origin:
       for _,v in ipairs(g.vertices) do
 	v.pos:unshift(c_x,c_y)
+      end
+      for _,a in ipairs(g.arcs) do
+	for _,e in ipairs(a.syntactic_edges) do
+	  for _,p in ipairs(e.path) do
+	    if type(p) == "table" then
+	      p:unshift(c_x,c_y)
+	    end
+	  end
+	end
       end
       x_min = x_min - c_x
       x_max = x_max - c_x
@@ -359,9 +381,14 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	-- Standard stuff
 	shape = "none",
 	kind  = "node",
-	hull  = { Coordinate.new(x_min, y_min), Coordinate.new(x_min, y_max), 
-		  Coordinate.new(x_max, y_max),
-		  Coordinate.new(x_max, y_min) },
+	path  = Path.new {
+	  "moveto",
+	  x_min, y_min,
+	  x_min, y_max, 
+	  x_max, y_max,
+	  x_max, y_min,
+	  "closepath"
+	},
 	options = {},
 	event = scope.events[index]
       }

@@ -115,7 +115,7 @@ function NodePositioningGansnerKNV1993:constructAuxiliaryGraph()
 
       local separator_edge = Edge.new{
         direction = Edge.RIGHT,
-        minimum_levels = math.ceil(self:getDesiredHorizontalDistance(v, w)),
+        minimum_levels = self:getDesiredHorizontalDistance(v, w),
         weight = 0,
       }
       separator_edge:addNode(v.aux_node)

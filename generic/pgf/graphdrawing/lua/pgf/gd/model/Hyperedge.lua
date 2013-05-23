@@ -14,8 +14,8 @@
 --- 
 -- @section subsection {Hyperedges}
 --
+-- @end
 
-local _
 
 -- Includes
 

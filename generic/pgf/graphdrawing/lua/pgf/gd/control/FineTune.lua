@@ -18,8 +18,7 @@ local lib           = require "pgf.gd.lib"
 ---
 -- @section subsection {Fine-Tuning Positions of Nodes}
 --
-
-local _
+-- @end
 
 
 

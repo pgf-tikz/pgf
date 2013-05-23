@@ -102,7 +102,7 @@
 -- In the future, I hope that most, if not all, of the force-based
 -- algorithms become ``just configuration options'' of a general
 -- force-based algorithm similar to the way the modular Sugiyama method
--- is implemented in the |graphdrawing.layered| library.
+-- is implemented in the |layered| graph drawing library.
 --
 -- @library
 

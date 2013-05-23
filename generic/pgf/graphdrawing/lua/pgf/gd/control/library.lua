@@ -22,37 +22,13 @@ require "pgf.gd.control.ComponentAlign"
 require "pgf.gd.control.ComponentDirection"
 require "pgf.gd.control.ComponentDistance"
 require "pgf.gd.control.ComponentOrder"
+require "pgf.gd.control.NodeAnchors"
 
 
 local InterfaceCore  = require "pgf.gd.interface.InterfaceCore"
 local declare        = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local lib            = require "pgf.gd.lib"
 
-
-
----
-
-declare {
-  key = "tail anchor",
-  type = "string",
-
-  summary = [["  
-       Anchors for edges: An edge can have a |tail anchor| and a |head anchor|.
-       Ideally, the edge should start at the tail anchor of the
-       tail node and end at the head anchor of the head node. A graph
-       drawing algorithm may choose to ignore these settings.
-  "]]
-}
-    
----
---
-
-declare {
-  key = "head anchor",
-  type = "string",
-
-  summary = "See |tail anchor|"
-}
 
 
 ---
@@ -194,9 +170,19 @@ declare {
     
 declare {
   key = "no layout",
-  algorithm = { run = function () end },
+  algorithm = {
+    run =
+      function (self)
+	for _,v in ipairs(self.digraph.vertices) do
+	  if v.options['desired at'] then
+	    v.pos.x = v.options['desired at'].x
+	    v.pos.y = v.options['desired at'].y
+	  end
+	end
+      end },
   summary = "This layout does nothing.",
 }
+
 
 
 -- The following collection kinds are internal

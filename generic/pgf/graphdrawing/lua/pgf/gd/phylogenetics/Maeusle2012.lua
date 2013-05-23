@@ -13,6 +13,7 @@
 -- Imports
 local Digraph               = require 'pgf.gd.model.Digraph'
 local Coordinate            = require 'pgf.gd.model.Coordinate'
+local Path                  = require 'pgf.gd.model.Path'
 
 local layered               = require 'pgf.gd.layered'
 
@@ -581,7 +582,7 @@ end
 function Maeusle2012:bendEdge90Degree(head, tail)
   local arc = self.tree:arc(tail,head)
   local syntactic_tail = arc:syntacticTailAndHead()
-  arc.path = { Coordinate.new(head.pos.x, tail.pos.y) - syntactic_tail.pos }
+  arc:setPolylinePath { Coordinate.new(head.pos.x, tail.pos.y) }
 end
 
 

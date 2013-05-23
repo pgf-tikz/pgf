@@ -75,8 +75,10 @@ function BindingToASCII:renderEdge(e)
   local p = e.tail.pos
   
   for i=1,#e.path do
-    connect(p, e.tail.pos + e.path[i])
-    p = e.tail.pos + e.path[i]
+    if type(e.path[i]) == "table" then
+      connect(p, e.path[i])
+      p = e.path[i]
+    end
   end
   
   connect(p, e.head.pos)

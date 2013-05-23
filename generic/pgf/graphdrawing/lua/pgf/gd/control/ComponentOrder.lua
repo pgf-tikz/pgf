@@ -21,8 +21,8 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 -- The different connected components of the graph are collected in a
 -- list. The ordering of the nodes in this list can be configured using
 -- the following key.
-
-local _
+--
+-- @end
 
 
 ---

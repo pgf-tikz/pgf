@@ -29,8 +29,7 @@
 -- are specified in explained momentarily. Second, you can specify a
 -- so-called ``growth direction'' for trees. 
 --
-
-local _
+-- @end
 
 
 -- Namespace

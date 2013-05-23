@@ -18,8 +18,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 ---
 -- @section subsubsection {Coarsening}
 --
-
-local _
+-- @end
 
 
 ---

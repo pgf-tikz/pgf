@@ -61,8 +61,9 @@
 -- \item You can simply specify the index of a child directly using
 -- the key |desired child index|.
 -- \end{enumerate}
+--
+-- @end
 
-local ChildSpec = {}
 
 -- Imports
 local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
@@ -224,7 +225,3 @@ declare {
   "]]
  }
 
-
--- Done
-
-return ChildSpec

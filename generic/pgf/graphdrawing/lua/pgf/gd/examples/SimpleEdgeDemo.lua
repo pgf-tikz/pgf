@@ -13,8 +13,8 @@
 
 ---
 -- @section subsubsection {How To Generate Edges Inside an Algorithm}
-
-local _
+--
+-- @end
 
 
 -- Imports

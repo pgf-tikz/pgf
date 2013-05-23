@@ -12,8 +12,8 @@
 
 ---
 -- @section subsubsection {How To Generate Nodes Inside an Algorithm}
-
-local _
+--
+-- @end
 
 
 

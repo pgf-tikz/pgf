@@ -828,6 +828,7 @@ function InterfaceToAlgorithms.createVertex(algorithm, init)
   local v = assert(scope.node_names[init.name], "internal node creation failed")
   
   -- Add vertex to the algorithm's digraph and ugraph
+  algorithm.syntactic_component:add {v}  
   algorithm.digraph:add {v}  
   algorithm.ugraph:add {v}
   
@@ -873,14 +874,15 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  local syntactic_digraph = algorithm.layout_graph
+  local syntactic_digraph   = algorithm.layout_graph
+  local syntactic_component = algorithm.syntactic_component
   
   assert (syntactic_digraph:contains(tail) and
 	  syntactic_digraph:contains(head),
 	  "attempting to create edge between nodes that are not in the syntactic digraph")
   
   local arc = syntactic_digraph:connect(tail, head)
-
+  
   local edge = Edge.new {
     head = head,
     tail = tail,
@@ -892,6 +894,9 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
 
   -- Add to arc    
   arc.syntactic_edges[#arc.syntactic_edges+1] = edge
+  
+  local s_arc = syntactic_component:connect(tail, head)
+  s_arc.syntactic_edges = arc.syntactic_edges
   
   -- Create Event
   local e = InterfaceToDisplay.createEvent ("edge", { arc, #arc.syntactic_edges })

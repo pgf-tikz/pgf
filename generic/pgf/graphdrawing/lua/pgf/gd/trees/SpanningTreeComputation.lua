@@ -49,6 +49,7 @@
 --};   
 --\end{codeexample} 
 --
+-- @end
 
 local SpanningTreeComputation = {}
 
