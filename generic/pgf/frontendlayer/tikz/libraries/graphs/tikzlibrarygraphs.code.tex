@@ -195,7 +195,7 @@
   \pgfutil@ifnextchar[{\tikz@lib@graph@parser@}{\tikz@lib@graph@parser@[]}%]
 }
 
-\long\def\tikz@lib@graph@parser@[#1]#2{%
+\def\tikz@lib@graph@parser@[#1]{%
   \setbox\tikz@figbox=\hbox\bgroup%
     \unhbox\tikz@figbox%
     \hbox\bgroup
@@ -203,6 +203,14 @@
         \pgfinterruptpath%
           \scope[graphs/.cd,@graph drawing setup/.try,@operators=,every graph/.try,#1]%
             \begingroup%
+            \iftikz@graph@quick%
+              \expandafter\tikz@lib@graphs@parse@quick@graph%
+            \else%
+              \expandafter\tikz@lib@graphs@normal@main%
+            \fi%
+}
+
+\long\def\tikz@lib@graphs@normal@main#1{%
               \pgfkeysgetvalue{/tikz/graphs/@operators}\tikz@lib@graph@outer@operators%
               \let\tikz@lib@graph@options\pgfutil@empty%
               \let\tikz@lib@graph@node@list\pgfutil@empty%
@@ -210,11 +218,15 @@
               \pgfkeyssetvalue{/tikz/graphs/placement/width}{0}%
               \pgfkeyssetvalue{/tikz/graphs/placement/level}{0}%
               \tikz@lib@graph@start@hint@group%
-                \tikz@lib@graph@parse@group{#2}%
+                \tikz@lib@graph@parse@group{#1}%
               \tikz@lib@graph@end@hint@group
               \tikz@lib@graph@outer@operators%  
               \let\tikz@lg@do=\tikz@lib@graph@cleanup%
               \tikz@lib@graph@node@list%
+              \tikz@lib@graph@main@done%
+}
+
+\def\tikz@lib@graph@main@done{%
             \endgroup%
           \endscope%
         \endpgfinterruptpath%
@@ -2382,8 +2394,8 @@
 % <node spec> <connector> <node spec> <connector> <node spec> ... <connector> <node spec>;
 %
 % Here, the <node spec> are node specifications as described above,
-% the <connector> is one of the five connectors "->", "<-", "--",
-% "<->", and "-!-", followed by optional options in square
+% the <connector> is one of the four connectors "->", "<-", "--", and
+% "<->", followed by optional options in square
 % brackets. The semicolon may be replaced by a comma.
 %
 % 4) Every group is of the form
@@ -2406,6 +2418,9 @@
 % - Using anonymous nodes.
 % - Using the "fresh nodes" option.
 % - Using sublayouts.
+% - Using the -!- edge connector.
+% - Using the "simple" option.
+% - Using edge annotations.
 %
 % Example:
 %
@@ -2418,6 +2433,199 @@
 %
 %
 
+\tikzgraphsset{quick/.is if=tikz@graph@quick}
+\newif\iftikz@graph@quick
 
+\def\tikz@lib@graphs@parse@quick@graph{
+  % Ok, we are before the initial brace. We open a group and start
+  % setting up some bookkeeping
+  \begingroup%
+  \global\tikz@qnode@count0\relax%
+  \let\tikzgraphnodepath\pgfutil@empty%
+  \tikz@q@outertrue%
+  \afterassignment\tikz@lib@graphs@quick@main\let\pgf@temp=%
+}
+
+\newcount\tikz@qnode@count
+\newif\iftikz@q@outer
+
+\def\tikz@lib@graphs@quick@main{%
+  \afterassignment\tikz@lib@graphs@quick@handle\let\pgf@let@token=%
+}
+\def\tikz@lib@graphs@quick@handle{%
+  \ifx\pgf@let@token"%
+    \expandafter\tikz@lib@graphs@quick@first@node%
+  \else%
+    \expandafter\tikz@lib@graphs@quick@other%
+  \fi%
+}
+\def\tikz@lib@graphs@quick@other{%
+  \let\tikz@next\tikz@lib@graphs@quick@error%
+  \ifx\pgf@let@token\egroup%
+    \let\tikz@next\tikz@lib@graphs@quick@end@group%
+  \else%
+    \ifx\pgf@let@token\bgroup%
+      \let\tikz@next\tikz@lib@graphs@quick@start@group%
+    \else%
+      \ifx\pgf@let@token\par%
+        \let\tikz@next\tikz@lib@graphs@quick@main%
+      \fi%
+    \fi
+  \fi%  
+  \tikz@next%
+}
+
+\def\tikz@lib@graphs@quick@error#1{\PackageError{tikz}{Unexpected token '\string#1' in quick graph syntax}{}\tikz@lib@graphs@quick@main}
+\def\tikz@lib@graphs@quick@start@group{%
+  \pgfutil@ifnextchar[\tikz@lib@graphs@quick@start@group@{\PackageError{tikz}{Group
+      in quick graph syntax must start with options.}{}}
+}
+
+\def\tikz@lib@graphs@quick@start@group@[#1]{%
+  \begingroup%
+    \tikz@q@outerfalse%
+    \tikzgraphsset{#1}%
+    \tikz@lib@graphs@quick@main%
+}
+\def\tikz@lib@graphs@quick@end@group{%
+  \iftikz@q@outer%
+    \endgroup%
+    % Ok, cleanup!
+    \pgfutil@loop%
+    \ifnum\tikz@qnode@count>0\relax%
+      \expandafter\global\expandafter\let\csname tikz@gr@q@@\csname tikz@gr@qn@@\the\tikz@qnode@count\endcsname\endcsname\relax%
+      \expandafter\global\expandafter\let\csname tikz@gr@qn@@\the\tikz@qnode@count\endcsname\relax%
+      \global\advance\tikz@qnode@count by-1\relax%  
+    \pgfutil@repeat%
+    \expandafter\tikz@lib@graph@main@done%
+  \else%
+    \endgroup%
+    \expandafter\tikz@lib@graphs@end@group@%  
+  \fi%  
+}
+\def\tikz@lib@graphs@end@group@{%
+  \pgfutil@ifnextchar;{\expandafter\tikz@lib@graphs@quick@main\pgfutil@gobble}{%
+    \pgfutil@ifnextchar,{\expandafter\tikz@lib@graphs@quick@main\pgfutil@gobble}{%
+      \PackageError{tikz}{Graph groups in quick syntax must be
+        followed by a semicolon or a comma.}{}%
+    }%
+  }%
+}
+
+
+\def\tikz@lib@graphs@quick@first@node{%
+  \let\tikz@quick@prev@node\relax%
+  \tikz@lib@graphs@quick@node%
+}
+
+\def\tikz@lib@graphs@quick@node#1"{%
+  \def\tikzgraphnodename{#1}%
+  \pgfutil@ifnextchar/\tikz@lib@graphs@quick@text\tikz@lib@graphs@quick@notext%
+}
+\def\tikz@lib@graphs@quick@text/"#1"{%
+  \def\tikzgraphnodetext{#1}%
+  \tikz@lib@graphs@quick@opt%
+}
+\def\tikz@lib@graphs@quick@notext{%
+  \let\tikzgraphnodetext\tikzgraphnodename%
+  \tikz@lib@graphs@quick@opt%
+}
+\def\tikz@lib@graphs@quick@opt{%
+  \pgfutil@ifnextchar[\tikz@lib@graphs@quick@withopt{\tikz@lib@graphs@quick@withopt[]}%]
+}
+\def\tikz@lib@graphs@quick@withopt[#1]{%
+  % Test, whether node already exists
+  \expandafter\ifx\csname tikz@gr@q@@\tikzgraphnodename\endcsname\relax%
+    % New node
+    \global\advance\tikz@qnode@count by1\relax%
+    \expandafter\global\expandafter\let\csname tikz@gr@q@@\tikzgraphnodename\endcsname\pgfutil@empty% not relax
+    \expandafter\global\expandafter\let\csname tikz@gr@qn@@\the\tikz@qnode@count\endcsname\tikzgraphnodename% back pointer
+    \let\tikzgraphnodefullname\tikzgraphnodename%
+    \let\tikzgraphnodeas\tikzgraphnodeas@default%
+    \node [%
+      name=\tikzgraphnodename,%
+      graphs/redirect unknown to tikz,
+      /tikz/graphs/.cd,%
+      /tikz/graphs/@nodes styling,%
+      #1]%
+      {%
+        \tikzgraphnodeas%
+      };%
+  \else%
+    %  
+    % Handle late options and operators
+    \tikzgdlatenodeoptionacallback{\tikzgraphnodename}%
+    \node also[graphs/redirect unknown to tikz,/tikz/graphs/.cd,#1](\tikzgraphnodename);%
+  \fi%
+  % Connect, if necessary 
+  \tikz@lig@graph@quikc@make@edge@if@necessary%
+  \tikz@lib@graphs@quick@scan@after@node%
+}
+
+\def\tikz@lig@graph@quikc@make@edge@if@necessary{%
+  \ifx\tikz@quick@prev@node\relax%
+  \else%
+    \tikz@lib@graphs@quick@make@edge%
+  \fi%
+}
+
+\def\tikz@lib@graphs@quick@scan@after@node{%
+  \pgfutil@ifnextchar,\tikz@lib@graphs@quick@comma{%
+    \pgfutil@ifnextchar;\tikz@lib@graphs@quick@semi{%
+      \pgfutil@ifnextchar\egroup{\tikz@lib@graphs@quick@semi;}{%
+        \pgfutil@ifnextchar\par{\expandafter\tikz@lib@graphs@quick@scan@after@node\tikz@lib@graphs@quick@gobble@par}%
+        \tikz@lib@graphs@quick@connector}}}%    
+}
+\long\def\tikz@lib@graphs@quick@gobble@par#1{}%
+
+\def\tikz@lib@graphs@quick@comma,{\tikz@lib@graphs@quick@main}
+\def\tikz@lib@graphs@quick@semi;{\tikz@lib@graphs@quick@main}
+\def\tikz@lib@graphs@quick@connector#1#2{%
+  \def\tikz@lib@graphs@quick@edge@kind{#1#2}%
+  \pgfutil@ifnextchar>\tikz@lib@graphs@back@edge{%
+    \pgfutil@ifnextchar[\tikz@lib@graphs@quick@connector@handle@opt{\tikz@lib@graphs@quick@connector@handle@opt[]}%]
+  }%
+}
+\def\tikz@lib@graphs@back@edge#1{%
+  \expandafter\def\expandafter\tikz@lib@graphs@quick@edge@kind\expandafter{\tikz@lib@graphs@quick@edge@kind#1}%
+  \pgfutil@ifnextchar[\tikz@lib@graphs@quick@connector@handle@opt{\tikz@lib@graphs@quick@connector@handle@opt[]}%]
+}
+\def\tikz@lib@graphs@quick@connector@handle@opt[#1]{%
+  \def\tikz@lib@graphs@quick@edge@options{#1}%
+  \let\tikz@quick@prev@node\tikzgraphnodename%
+  \tikz@lib@graphs@quick@scan@after@connector%
+}
+\def\tikz@lib@graphs@quick@scan@after@connector{%
+  \pgfutil@ifnextchar\par{\expandafter\tikz@lib@graphs@quick@scan@after@connector\tikz@lib@graphs@quick@gobble@par}{%
+    \pgfutil@ifnextchar"{\expandafter\tikz@lib@graphs@quick@node\pgfutil@gobble}{%
+      \PackageError{tikz}{Quotation marks expected after edge
+        connector}{}%
+      }%
+  }%
+}
+
+\def\tikz@lib@graphs@quick@make@edge{%
+  {
+    \expandafter\tikz@lib@graphs@quick@make@edge@styling\expandafter{\tikz@lib@graphs@quick@edge@options}%
+    \expandafter\expandafter\expandafter\tikz@lib@graphs@quick@make@edge@for%
+    \expandafter\expandafter\expandafter{\expandafter\tikz@quick@prev@node\expandafter}\expandafter{\tikzgraphnodename}%
+  }
+}
+
+\def\tikz@lib@graphs@quick@make@edge@styling#1{%
+  \tikz@enable@edge@quotes%
+  \tikzgraphsset{.unknown/.code=\tikz@lib@graph@unknown@edge@option{##1},#1}%
+}
+
+\def\tikz@lib@graphs@quick@make@edge@for#1#2{%
+  \pgfkeysgetvalue{/tikz/graphs/@edges styling}\pgf@tempa
+  \pgfkeysgetvalue{/tikz/graphs/@edges node}\pgf@temp@b
+  \expandafter\expandafter\expandafter\tikz@lib@graphs@quick@make@edge@for@with%
+  \expandafter\expandafter\expandafter{\expandafter\pgf@tempa\expandafter}\expandafter{\pgf@temp@b}{#1}{#2}%
+}
+
+\def\tikz@lib@graphs@quick@make@edge@for@with#1#2#3#4{%
+  \tikzgraphsset{new \tikz@lib@graphs@quick@edge@kind={#3}{#4}{#1}{#2}}%
+}
 
 \endinput
