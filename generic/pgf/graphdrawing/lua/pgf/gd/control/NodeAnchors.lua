@@ -43,7 +43,7 @@ local declare        = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 declare {
   key = "tail anchor",
   type = "string",
-  initial = "center",
+  initial = "",
 
   summary = [["  
       Specifies where in the tail vertex the edge should start. 
@@ -62,7 +62,16 @@ declare {
       node in the designated direction. Finally, if the anchor is a
       number, we use a point on the border of the node that is on a
       line from the center in the specified direction.
-    
+
+      If the anchor is set to the empty string (which is the default), 
+      the anchor is interpreted as the |center| anchor inside the
+      graph drawing system. However, a display system may choose to
+      make a difference between the |center| anchor and an empty
+      anchor (\tikzname\ does: for options like |bend left| if the
+      anchor is empty, the bend line starts at the border of the node,
+      while for the anchor set explicitly to |center| it starts at the
+      center).
+
       Note that graph drawing algorithms need not take the
       setting of this option into consideration. However, the final
       rendering of the edge will always take it into consideration
@@ -76,7 +85,7 @@ declare {
 declare {
   key = "head anchor",
   type = "string",
-  initial = "center",
+  initial = "",
 
   summary = "See |tail anchor|"
 }

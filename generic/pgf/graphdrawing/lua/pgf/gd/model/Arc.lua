@@ -530,7 +530,11 @@ end
 
 function Arc:tailAnchorForArcPath()
   return function (edge)
-	   return self.tail:anchor(edge.options['tail anchor']) + self.tail.pos
+	   local a = edge.options['tail anchor']
+	   if a == "" then
+	     a = "center"
+	   end
+	   return self.tail:anchor(a) + self.tail.pos
 	 end
 end
 
@@ -539,7 +543,11 @@ end
 
 function Arc:headAnchorForArcPath()
   return function (edge)
-	   return self.head:anchor(edge.options['head anchor']) + self.head.pos
+	   local a = edge.options['head anchor']
+	   if a == "" then
+	     a = "center"
+	   end
+	   return self.head:anchor(a) + self.head.pos
 	 end
 end
 
