@@ -186,20 +186,31 @@ expected.
   described next.
 \end{pathoperation}
 
+There is special coordinate called |current subpath start| that is
+always at the position of the last move-to operation on the current
+path.
+
+\begin{codeexample}[]
+\tikz [line width=2mm]
+  \draw (0,0) -- (1,0) -- (1,1)
+        -- (0,1) -- (current subpath start);
+\end{codeexample}
+
+Note how in the above example the path is not closed (as |--cycle|
+would do). Rather, the line just starts and ends at the origin without
+being a closed path.
+
 
 \subsection{The Line-To Operation}
 
-
 \subsubsection{Straight Lines}
 
-\begin{pathoperation}{--}{\meta{coordinate}}
+\begin{pathoperation}{--}{\meta{coordinate or cycle}}
   The line-to operation extends the current path from the current
-  point in a straight line to the given coordinate. The ``current
+  point in a straight line to the given \meta{coordinate} (the ``or
+  cycle'' part is explained in a moment). The ``current
   point'' is the endpoint of the previous drawing operation or the point
   specified by a prior move-to operation.
-
-  You use two minus signs followed by a coordinate in round
-  brackets. You can add spaces before and after the~|--|.
 
   When a line-to operation is used and some path segment has just been
   constructed, for example by another line-to operation, the two line
@@ -217,7 +228,35 @@ expected.
 \end{tikzpicture}
 \end{codeexample}
 
+  Instead of a coordinate following the two minus signs, you can also
+  use the text |cycle|. This causes the straight line from the current 
+  point to go to the last point specified by a move-to operation. Note
+  that this need not be the beginning of the path. Furthermore, a
+  smooth join is created between the first segment created after the
+  last move-to operation and the straight line appended by the cycle
+  operation. 
+
+  Consider the following example. In the left example, two triangles are
+  created using three straight lines, but they are not joined at the
+  ends. In the second example cycle operations are used.
+
+\begin{codeexample}[]
+\begin{tikzpicture}[line width=10pt]
+  \draw (0,0) -- (1,1) -- (1,0) -- (0,0) (2,0) -- (3,1) -- (3,0) -- (2,0);
+  \draw (5,0) -- (6,1) -- (6,0) -- cycle (7,0) -- (8,1) -- (8,0) -- cycle;
+  \useasboundingbox (0,1.5); % make bounding box higher
+\end{tikzpicture}
+\end{codeexample}
 \end{pathoperation}
+
+Writing |cycle| instead of a coordinate at the end of a path operation
+is possible with all path operations that end with a coordinate (such
+as |--| or |..| or |sin| or |grid|, but not |graph| or |plot|).
+In all cases, the effect is that the coordinate of the last moveto is
+used as the coordinate expected by the path operation and that a
+smooth join is added. (What actually happens that the text |cycle|
+used with any path operation other than |--| gets replaced by
+|(current subpath start)--cycle|.)
 
 
 \subsubsection{Horizontal and Vertical Lines}
@@ -227,21 +266,28 @@ only horizontal and vertical. For this, you can use two path
 construction operations.
 
 {\catcode`\|=12
-\begin{pathoperation}[noindex]{-|}{\meta{coordinate}}
+\begin{pathoperation}[noindex]{-|}{\meta{coordinate or cycle}}
   \index{--1@\protect\texttt{-\protect\pgfmanualbar} path operation}%
   \index{Path operations!--1@\protect\texttt{-\protect\pgfmanualbar}}%
   \pgfmanualpdflabel[\catcode`\|=12 ]{-|}{}%
   This operation means ``first horizontal, then vertical.''
 
-  \begin{codeexample}[]
+\begin{codeexample}[]
 \begin{tikzpicture}
   \draw (0,0) node(a) [draw] {A}  (1,1) node(b) [draw] {B};
   \draw (a.north) |- (b.west);
   \draw[color=red] (a.east) -| (2,1.5) -| (b.north);
 \end{tikzpicture}
 \end{codeexample}
+  Instead of a coordinate you can also write \verb!cycle! to close the
+  path:
+\begin{codeexample}[]
+\begin{tikzpicture}[ultra thick]
+  \draw (0,0) -- (1,1) -| cycle;
+\end{tikzpicture}
+\end{codeexample}
 \end{pathoperation}
-\begin{pathoperation}[noindex]{|-}{\meta{coordinate}}
+\begin{pathoperation}[noindex]{|-}{\meta{coordinate or cycle}}
   \index{--2@\protect\texttt{\protect\pgfmanualbar-} path operation}%
   \index{Path operations!--2@\protect\texttt{\protect\pgfmanualbar-}}%
   \pgfmanualpdflabel[\catcode`\|=12 ]{|-}{}%
@@ -255,9 +301,11 @@ construction operations.
 The curve-to operation allows you to extend a path using a B\'ezier
 curve.
 
-\begin{pathoperation}{..}{\declare{|controls|}\meta{c}\opt{|and|\meta{d}}\declare{|..|\meta{y}}}
+\begin{pathoperation}{..}{\declare{|controls|}\meta{c}\opt{|and|\meta{d}}\declare{|..|\meta{y or cycle}}}
   This operation extends the current path from the current
-  point, let us call it $x$, via a curve to a the current point~$y$.
+  point, let us call it $x$, via a curve to a point~$y$ (if, instead
+  of a coordinate you say |cycle| at the end, $y$ will be the
+  coordinate of the last move-to operation).
   The curve is a cubic B\'ezier curve. For such a curve,
   apart from $y$, you also specify two control points $c$ and $d$. The
   idea is that the curve starts at $x$, ``heading'' in the direction
@@ -277,6 +325,12 @@ curve.
 \end{tikzpicture}
 \end{codeexample}
 
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw[line width=10pt] (0,0) -- (2,0) .. controls (1,1) .. cycle;
+\end{tikzpicture}
+\end{codeexample}
+
   As with the line-to operation, it makes a difference whether two curves
   are joined because they resulted from consecutive curve-to or line-to
   operations, or whether they just happen to have a common (end) point:
@@ -284,31 +338,8 @@ curve.
 \begin{codeexample}[]
 \begin{tikzpicture}[line width=10pt]
   \draw (0,0) -- (1,1) (1,1) .. controls (1,0) and (2,0) .. (2,0);
-  \draw (3,0) -- (4,1) .. controls (4,0) and (5,0) .. (5,0);
-  \useasboundingbox (0,1.5); % make bounding box higher
-\end{tikzpicture}
-\end{codeexample}
-\end{pathoperation}
-
-
-\subsection{The Cycle Operation}
-
-\begin{pathoperation}{--cycle}{}
-  This operation adds a straight line from the current
-  point to the last point specified by a move-to operation. Note that
-  this need not be the beginning of the path. Furthermore, a smooth join
-  is created between the first segment created after the last move-to
-  operation and the straight line appended by the cycle operation.
-
-  Consider the following example. In the left example, two triangles are
-  created using three straight lines, but they are not joined at the
-  ends. In the second example cycle operations are used.
-
-\begin{codeexample}[]
-\begin{tikzpicture}[line width=10pt]
-  \draw (0,0) -- (1,1) -- (1,0) -- (0,0) (2,0) -- (3,1) -- (3,0) -- (2,0);
-  \draw (5,0) -- (6,1) -- (6,0) -- cycle (7,0) -- (8,1) -- (8,0) -- cycle;
-  \useasboundingbox (0,1.5); % make bounding box higher
+  \draw [yshift=-1.5cm]
+        (0,0) -- (1,1)       .. controls (1,0) and (2,0) .. (2,0);
 \end{tikzpicture}
 \end{codeexample}
 \end{pathoperation}
@@ -321,10 +352,10 @@ A rectangle can obviously be created using four straight lines and a
 cycle operation. However, since rectangles are needed so often, a
 special syntax is available for them.
 
-\begin{pathoperation}{rectangle}{\meta{corner}}
+\begin{pathoperation}{rectangle}{\meta{corner or cycle}}
   When this operation is used, one corner will be the current point,
   another corner is given by \meta{corner}, which becomes the new
-  current point.
+  current point. 
 
 \begin{codeexample}[]
 \begin{tikzpicture}
@@ -332,6 +363,9 @@ special syntax is available for them.
   \draw (.5,1) rectangle (2,0.5) (3,0) rectangle (3.5,1.5) -- (2,0);
 \end{tikzpicture}
 \end{codeexample}
+
+  Just for consistency, you can also use |cycle| instead of a
+  coordinate, but it is a bit unclear what use this might have.
 \end{pathoperation}
 
 
@@ -553,9 +587,12 @@ path.
 You can add a grid to the current path using the |grid| path
 operation.
 
-\begin{pathoperation}{grid}{\opt{\oarg{options}}\meta{corner}}
+\begin{pathoperation}{grid}{\opt{\oarg{options}}\meta{corner or cycle}}
   This operations adds a grid filling a rectangle whose two corners
-  are given by \meta{corner} and by the previous coordinate. Thus, the
+  are given by \meta{corner} and by the previous coordinate. (Instead
+  of a coordiante you can also say |cycle| to use the position of the
+  last move-to as the corner coordinate, but it not very natural to
+  do so.) corner Thus, the
   typical way in which a grid is drawn is |\draw (1,1) grid (3,3);|,
   which yields a grid filling the rectangle whose corners are at
   $(1,1)$ and $(3,3)$. All coordinate transformations apply to the
@@ -643,20 +680,26 @@ equation $f(x) = x^2$ and looks like this: \tikz \draw (-1ex,1.5ex)
 parabola[parabola height=-1.5ex] +(2ex,0ex);.
 
 \begin{pathoperation}{parabola}{\opt{\oarg{options}|bend|\meta{bend
-        coordinate}}\meta{coordinate}}
+        coordinate}}\meta{coordinate or cycle}}
   This operation adds a parabola through the current point and the
-  given \meta{coordinate}. If the |bend| is given, it specifies where
+  given \meta{coordinate} or, if |cycle| is used instead of coordinate
+  at the end, the \meta{coordinate} is set to the position of the last
+  move-to and the path gets closed after the parabola. If the |bend|
+  is given, it specifies where 
   the bend should go; the \meta{options} can also be used to specify
   where the bend is. By default, the bend is at the old current point.
 
 \begin{codeexample}[]
 \begin{tikzpicture}
-  \draw               (0,0) rectangle                (1,1.5)
-                      (0,0) parabola                 (1,1.5);
-  \draw[xshift=1.5cm] (0,0) rectangle                (1,1.5)
-                      (0,0) parabola[bend at end]    (1,1.5);
-  \draw[xshift=3cm]   (0,0) rectangle                (1,1.5)
-                      (0,0) parabola bend (.75,1.75) (1,1.5);
+  \draw                (0,0) rectangle                (1,1.5)
+                       (0,0) parabola                 (1,1.5);
+  \draw[xshift=1.5cm]  (0,0) rectangle                (1,1.5)
+                       (0,0) parabola[bend at end]    (1,1.5);
+  \draw[xshift=3cm]    (0,0) rectangle                (1,1.5)
+                       (0,0) parabola bend (.75,1.75) (1,1.5);
+                      
+  \draw[yshift=-2cm]   (1,1.5) --
+                       (0,0) parabola                 cycle;
 \end{tikzpicture}
 \end{codeexample}
 
@@ -733,7 +776,7 @@ The |sin| and |cos| operations are similar to the |parabola|
 operation. They, too, can be used to draw (parts of) a sine or cosine
 curve.
 
-\begin{pathoperation}{sin}{\meta{coordinate}}
+\begin{pathoperation}{sin}{\meta{coordinate or cycle}}
   The effect of |sin| is to draw a scaled and shifted version of a sine
   curve in the interval $[0,\pi/2]$. The scaling and shifting is done in
   such a way that the start of the sine curve in the interval is at the
@@ -746,7 +789,7 @@ curve.
 \end{codeexample}
 \end{pathoperation}
 
-\begin{pathoperation}{cos}{\meta{coordinate}}
+\begin{pathoperation}{cos}{\meta{coordinate or cycle}}
   This operation works similarly, only a cosine in the interval
   $[0,\pi/2]$ is drawn. By correctly alternating |sin| and |cos|
   operations, you can create a complete sine or cosine curve:
@@ -774,7 +817,7 @@ consult this specification for details.
   This operation adds the path specified in the \meta{path data} in
   \textsc{svg 1.1 path data} syntax to the current path. Unlike the
   \textsc{svg}-specification, it \emph{is} permissible that the path
-  data does not start with a moveto command (|m| or |M|), in which
+  data does not start with a move-to command (|m| or |M|), in which
   case the last point of the current path is used as start point.
   The optional \meta{options} apply locally to this path operation,
   typically you will use them to set up, say, some transformations.
@@ -795,8 +838,8 @@ consult this specification for details.
   (yes, this works, although some rather evil magic is involved) will
   cause 1cm to be the basic unit.
 
-  \emph{Warning:} The arc operations (|a| and |A|) are not numerically
-  stable. This means that they will be quite imprecise, except when
+  \emph{Warning:} The arc operations (|a| and |A|) are  numerically
+  instable. This means that they will be quite imprecise, except when
   the angle is a multiple of $90^\circ$ (as is, fortunately, most
   often the case).
 \end{pathoperation}
@@ -823,7 +866,7 @@ of 45$^\circ$ at |b|. This is because the options |in| and |out|
 trigger a special path to be used instead of the straight line.
 
 \begin{pathoperation}{to}{\opt{|[|\meta{options}|]|}
-    \opt{\meta{nodes}} |(|\meta{coordinate}|)|}
+    \opt{\meta{nodes}} \meta{coordinate or cycle}}
 
   This path operation inserts the path currently set via the |to path|
   option at the current position. The \meta{options} can be used to
@@ -838,22 +881,25 @@ trigger a special path to be used instead of the straight line.
   \medskip
   \textbf{Start and Target Coordinates.}\ \
   The |to| operation is always followed by a \meta{coordinate}, called
-  the target coordinate. The macro |\tikztotarget| is set to this
-  coordinate (without the parentheses). There is also a \emph{start
-    coordinate}, which is the coordinate preceding the |to|
-  operation. This coordinate can be accessed via the macro
-  |\tikztostart|. In the following example, for the first |to|, the
-  macro |\tikztostart| is |0pt,0pt| and the |\tikztotarget| is
-  |0,2|. For the second |to|, the macro |\tikztostart| is |10pt,10pt|
-  and |\tikztotarget| is |a|.
+  the target coordinate, or the text |cycle|, in which case the last
+  move-to is used as a coordinate and the path gets closed. The macro
+  |\tikztotarget| is set to this coordinate (without its
+  parentheses). There is also a \emph{start coordinate}, which is the
+  coordinate preceding the |to| operation. This coordinate can be
+  accessed via the macro |\tikztostart|. In the following example, for
+  the first |to|, the macro |\tikztostart| is |0pt,0pt| and the
+  |\tikztotarget| is |0,2|. For the second |to|, the macro
+  |\tikztostart| is |10pt,10pt| and |\tikztotarget| is |a|. For the
+  third, they are set to |a| and |current subpath start|.
 
 \begin{codeexample}[]
 \begin{tikzpicture}
   \draw[help lines] (0,0) grid (3,2);
+  \node       (a)         at (2,2) {a};
 
-  \draw      (0,0)       to (0,2);
-  \node      (a)         at (2,2) {a};
-  \draw[red] (10pt,10pt) to (a);
+  \draw       (0,0)       to (0,2);
+  \draw[red]  (10pt,10pt) to (a);
+  \draw[blue] (3,0) -- (3,2) -- (a) to cycle;
 \end{tikzpicture}
 \end{codeexample}
 
@@ -1251,9 +1297,9 @@ used deep inside clever macros, not on normal paths.
   This is an alternative syntax for the |\pgfextra| command. If the
   code following |\pgfextra| does not start with a brace, the
   \meta{code} is executed until |\endpgfextra| is encountered. What
-  actually happens is that |\pgfextra| that is not followed by a brace
-  completely shuts down the \tikzname\ parse and |\endpgfextra| is a
-  normal macro that restarts the parser.
+  actually happens is that when |\pgfextra| is not followed by a
+  brace, this completely shuts down the \tikzname\ parser and
+  |\endpgfextra| is a normal macro that restarts the parser.
 
 \begin{codeexample}[]
 \newdimen\mydim
