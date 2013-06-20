@@ -1,4 +1,5 @@
 % Copyright 2006 by Till Tantau
+% Copyright 2011 by Saso Zivanovic
 %
 % This file may be distributed and/or modified
 %
@@ -6,12 +7,12 @@
 % 2. under the GNU Public License.
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
+%
+% Based on pgfmoduleoo.code.tex v1.8 by Till Tantau.  This version adds inheritance. 
 
-\ProvidesFileRCS $Header$
 
 
-
-% Support of object-oriented programming in TeX.
+% Support of object-oriented programming in TeX, with inheritance.
 
 
 % The oo support works as follows:
@@ -52,30 +53,215 @@
 %
 % Description:
 %
-% This command declares a class for futurue use. Inside #2, the macro
+% This command declares a class for future use. Inside #2, the macro
 % \method can be used to declare a method. The \method macro takes a
 % method name, parameters (methods are normal TeX macros, after all)
 % and body.
 
-\long\def\pgfooclass#1#2{%
-  \def\pgfoo@classname{#1}%
+% base classes are put in parenthesis before the new class name, but
+% are optional.
+\def\pgfooclass{%
+  \pgfutil@ifnextchar ({%
+    \pgfooclass@
+  }{%
+    \pgfooclass@()
+  }%
+}
+\long\def\pgfooclass@(#1)#2#3{%
+  \def\pgfoo@classname{#2}%
+  \expandafter\ifx\csname pgfooY\pgfoo@classname.@pgfooinit\endcsname\relax\else
+    \PackageError{pgfoo}{class #2 is already defined}{}%
+  \fi
+  \pgfoo@ciii{#2}{#1}%
+  \expandafter\let\csname pgfooY#2@pgfoo@mro\endcsname\pgfoo@mro
   \let\pgfoo@origmethod=\method%
   \let\pgfoo@origattribute=\attribute%
   \let\method=\pgfoo@declaremethod%
   \let\attribute=\pgfoo@declareattribute%
-  \let\pgfoo@attribute@collection=\pgfutil@empty%
-  \let\pgfoo@attribute@collection@gc=\pgfutil@empty%
-  #2%
-  % Attribute initializer:
-  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfooinit\endcsname\pgfoo@attribute@collection%
-  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfoogc\endcsname\pgfoo@attribute@collection@gc%
-  % Always persent methods:
+  \let\pgfoo@attributes=\pgfutil@empty%
+  \let\pgfoo@methods=\pgfutil@empty%
+  #3%
+  % inherit
+  \def\pgfoo@temp@baseclasses{#1}%
+  \pgfoo@inherit@methods
+  \pgfoo@inherit@attributes
+  % Always present (and never inherited) methods:
   \expandafter\let\csname pgfooY\pgfoo@classname.get handle\endcsname\pgfoo@obj%
   \expandafter\let\csname pgfooY\pgfoo@classname.get id\endcsname\pgfoo@id%
+  % for compatibility with previous versions of pgfoo, define method
+  % with the same name as the class as a synonym for init
+  \expandafter\let\expandafter\pgfoo@init\csname pgfooY\pgfoo@classname.init\endcsname
+  \expandafter\let\csname pgfooY\pgfoo@classname.\pgfoo@classname\endcsname\pgfoo@init
+  % Cleanup
   \let\method=\pgfoo@origmethod%
   \let\attribute=\pgfoo@origattribute%
 }
 
+\def\pgfoo@emptyinit(){}
+\def\pgfoo@escapeif#1#2\fi{\fi#1}% a little helper
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Compute MRO using C3 algorithm
+% The sequences are enclosed in brackets; elements of sequences and
+% the big list are terminated by a comma and a dot, respectively. (Why
+% comma *and* a dot: TeX's parset---brackets don't form groups! Soooo,
+% why not braces? Because I don't know how do delete excess "{},"s...)
+
+% #1 = current class, #2 = list of base classes
+\def\pgfoo@ciii#1#2{%
+  % \pgfoo@seq will hold a list of sequences.
+  % (i) the first sequence has just one element: the current class
+  \def\pgfoo@seq{[#1,].}%
+  % (ii) every subclass has a sequence (in the order as they were
+  % given): the class' sequence is its mro.
+  \pgfutil@for\pgfoo@baseclass:={#2}\do{%
+    \edef\pgfoo@baseclass@mro{\csname pgfooY\pgfoo@baseclass @pgfoo@mro\endcsname}%
+    \expandafter\ifx\expandafter\relax\pgfoo@baseclass@mro\relax\else
+      \edef\pgfoo@seq{\pgfoo@seq[\pgfoo@baseclass@mro,].}%
+    \fi
+  }%
+  % The final sequence is a sequence of base classes, in the order as
+  % they were given. 
+  \ifx\relax#2\relax\else
+    \edef\pgfoo@seq{\pgfoo@seq[#2,].}%
+  \fi
+  \edef\pgfoo@temp{()(\pgfoo@seq)}%
+  \expandafter\pgfoo@ciii@merge\pgfoo@temp
+}
+
+% #1 = MRO so far
+% #2 = remaining sequences
+% no empty sequences [] should arrive here: they should be removed
+% before calling this macro
+\def\pgfoo@ciii@merge(#1)(#2){%
+  \ifx\relax#2\relax
+    \pgfoo@ciii@done(#1)%
+  \else\pgfoo@escapeif{% split #2
+    \pgfoo@ciii@merge@A(#1)(#2)%
+  }\fi%
+}
+% a splitter: to be only called from \pgfoo@ciii@merge
+\def\pgfoo@ciii@merge@A(#1)(#2.#3){%
+  \ifx\relax#3\relax % if #3 is empty, we can take the shortcut
+    \pgfoo@ciii@mergeA@done(#1)(#2)%
+  \else\pgfoo@escapeif{% 
+    \pgfoo@ciii@merge@checkHead(#1)()(#2)()(#3)%
+  }\fi
+}
+
+\def\pgfoo@ciii@mergeA@done(#1)([#2]){%
+  \pgfoo@ciii@done(#1#2)%
+}
+
+% #1 = MRO so far
+% #2 = sequences with bad heads (dot after each sequence)
+% [#3,#4] = the sequence whose head we're testing right
+%           now---obviously, it should not be empty! (#3 has no comma,
+%           #4 has a comma after each class name)
+% #5 = #3 does not occur in the tail of these sequences (dot after
+%      each sequence)
+% #6 = the remaining sequences (dot after each sequence)
+\def\pgfoo@ciii@merge@checkHead(#1)(#2)([#3,#4])(#5)(#6){%
+  \pgfutil@in@{[#3,}{#2}%
+  \ifpgfutil@in@\pgfoo@escapeif{% #3 is already blacklisted
+    \pgfoo@ciii@clean\pgfoo@ciii@merge@checkHead@P{(#1)(#2[#3,#4].)(#5#6)}%    
+  }\else\pgfoo@escapeif{%
+    \ifx\relax#6\relax\pgfoo@escapeif{% no more sequences to test the head against! 
+                                 % so, #3 is a good head, and we can recurse
+      \pgfoo@ciii@goodHeadFound(#1)(#3)(#2[#4].#5)%
+    }\else\pgfoo@escapeif{% split #6 and get to work
+      \pgfoo@ciii@merge@checkHead@A(#1)(#2)([#3,#4])(#5)(#6)%
+    }\fi
+  }\fi
+}
+% splitter: to be only called from \pgfoo@ciii@merge@checkHead
+% we will check if #3 occurs in the tail of #6
+\def\pgfoo@ciii@merge@checkHead@A(#1)(#2)([#3,#4])(#5)(#6.#7){%
+  \pgfoo@ciii@merge@checkHead@B(#1)(#2)([#3,#4])(#5)(#6)(#7)%
+}
+% splitter: to be only called from \pgfoo@ciii@merge@checkHead@A
+% &worker: we will check if #3 occurs in #7. If it does, #3 is a bad head.
+\def\pgfoo@ciii@merge@checkHead@B(#1)(#2)([#3,#4])(#5)([#6,#7])(#8){%
+%  \def\pgfoo@ciii@tempA{#3}\def\pgfoo@ciii@tempB{#5}%
+%  \ifx\pgfoo@ciii@tempA\pgfoo@ciii@tempB
+%    \PackageError{pgfoo}{An attempt to derive from the same class twice}{}%
+%  \else\pgfoo@escapeif{%
+    \pgfutil@in@{,#3,}{,#7}%
+    \ifpgfutil@in@\pgfoo@escapeif{% bad head! get next head and restart
+                             % but: need to clean up first!
+      \pgfoo@ciii@clean\pgfoo@ciii@merge@checkHead@P{(#1)(#2[#3,#4].)(#5[#6,#7].#8)}%
+    }\else\pgfoo@escapeif{% so far, so good
+      \ifx\relax#8\relax\pgfoo@escapeif{% if #8 is empty, we won:
+        % #3 is a good head! we will move it to MRO
+        % but clean-up first!
+        \pgfoo@ciii@goodHeadFound(#1)(#3)(#2[#4].#5[#6,#7].)%
+      }\else\pgfoo@escapeif{% proceed to the first seq in #8
+        \pgfoo@ciii@clean\pgfoo@ciii@merge@checkHead{(#1)(#2)([#3,#4])(#5[#6,#7].)(#8)}%
+      }\fi
+    }\fi
+%  }\fi
+}
+
+% #1 = MRO
+% #2 = good head
+% #3 = the remaining sequences (in need of removing the good head from
+% them, and then also some general cleanup)
+\def\pgfoo@ciii@goodHeadFound(#1)(#2)(#3){%
+  \pgfutil@in@{,#2,}{#3}%
+  \ifpgfutil@in@\pgfoo@escapeif{%
+    \def\pgfoo@ciii@removeGoodHead(##1)(##2)(##3,#2,##4){%
+      \pgfoo@ciii@goodHeadFound(##1)(##2)(##3,##4)}%
+    \pgfoo@ciii@removeGoodHead(#1)(#2)(#3)%
+  }\else\pgfoo@escapeif{%
+    \pgfutil@in@{[#2,}{#3}%
+    \ifpgfutil@in@\pgfoo@escapeif{%
+      \def\pgfoo@ciii@removeGoodHead(##1)(##2)(##3[#2,##4){%
+        \pgfoo@ciii@goodHeadFound(##1)(##2)(##3[##4)}%
+      \pgfoo@ciii@removeGoodHead(#1)(#2)(#3)%
+    }\else\pgfoo@escapeif{%
+      \pgfoo@ciii@clean\pgfoo@ciii@merge{(#1#2,)(#3)}%
+    }\fi
+  }\fi
+}
+
+% mediates between the bad head exit of \pgfoo@ciii@merge@checkHead@B
+% and \pgfoo@ciii@merge@checkHead; we need the mediator because #3
+% below might have been affected by cleaning.
+\def\pgfoo@ciii@merge@checkHead@P(#1)(#2)(#3){%
+  \if\relax#3\relax % no more good head candidates!
+    \PackageError{pgfoo}{Bad MRO}{There is no good (monotonic etc.)
+      Method Resolution Order for your class hierarchy}%
+  \else\pgfoo@escapeif{%
+    \pgfoo@ciii@merge@checkHead@Q(#1)(#2)(#3)%
+  }\fi
+}
+% splitter for \pgfoo@ciii@merge@checkHead@P
+% #3 = the sequence containing the newest good head candidate
+\def\pgfoo@ciii@merge@checkHead@Q(#1)(#2)(#3.#4){%
+  \pgfoo@ciii@merge@checkHead(#1)(#2)(#3)()(#4)%
+}
+
+% cyclically removes all occurrences of "[]," and "[]." (i.e., empty
+% sequences) in #2. When done, calls #1 with whatever remains.
+\def\pgfoo@ciii@clean#1#2{% clean commas
+  \pgfutil@in@{[].}{#2}% clean dots
+  \ifpgfutil@in@\pgfoo@escapeif{%
+    \pgfoo@ciii@clean@dot#1#2\pgfoo@ciii@clean@END
+  }\else\pgfoo@escapeif{%
+    #1#2%
+  }\fi
+}
+\def\pgfoo@ciii@clean@dot#1#2[].#3\pgfoo@ciii@clean@END{%
+  \pgfoo@ciii@clean#1{#2#3}%
+}
+
+\def\pgfoo@ciii@done(#1,){%
+  \def\pgfoo@mro{#1}%
+}
+
+% end of C3
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 % Declare a method
@@ -111,9 +297,70 @@
 %   }
 % }
 
+%   define the method macro and append the method to the method collection
 \def\pgfoo@declaremethod#1(#2)#3{%
-  \expandafter\long\expandafter\def\csname pgfooY\pgfoo@classname.#1\endcsname(#2){#3}%
+  \def\pgfoo@method{#1}%
+  \ifx\pgfoo@classname\pgfoo@method
+    \def\pgfoo@method{init}%
+  \fi
+  \expandafter\long\expandafter\def\csname pgfooY\pgfoo@classname.\pgfoo@method\endcsname(#2){#3}%
+  \edef\pgfoo@methods{\pgfoo@methods,\pgfoo@method}%
 }
+
+\def\pgfoo@inherit@methods{%
+  % for non-derived classes:
+  \expandafter\ifx\expandafter\relax\pgfoo@temp@baseclasses\relax
+    % if init is not defined, define an empty one 
+    \expandafter\ifx\csname pgfooY\pgfoo@classname.init\endcsname\relax
+      \expandafter\let\csname pgfooY\pgfoo@classname.init\endcsname\pgfoo@emptyinit%
+      \edef\pgfoo@methods{,init\pgfoo@methods}%
+    \fi
+  \fi
+  \if\relax\pgfoo@methods\relax\else
+    % gobble the initial comma
+    \edef\pgfoo@methods{\expandafter\pgfutil@gobble\pgfoo@methods}%
+  \fi
+  % remember the list of collected methods
+  \expandafter\let\csname pgfooY\pgfoo@classname @pgfoo@methods\endcsname\pgfoo@methods
+  % get MRO
+  \expandafter\let\expandafter\pgfoo@mro\csname pgfooY\pgfoo@classname @pgfoo@mro\endcsname  
+  % loop throough base classes in MRO
+  \pgfutil@for\pgfoo@baseclass:=\pgfoo@mro\do{%
+    \ifx\pgfoo@baseclass\pgfoo@classname % skip self
+    \else\pgfoo@escapeif{%
+      % get methods defined in this base class
+      \expandafter\let\expandafter\pgfoo@methods\csname pgfooY\pgfoo@baseclass @pgfoo@methods\endcsname
+      \pgfutil@for\pgfoo@method:=\pgfoo@methods\do{% for each method
+        % check if it is already defined in our class
+        \expandafter\ifx\csname pgfooY\pgfoo@classname.\pgfoo@method\endcsname\relax 
+          % if not, link the method name from our class to base class
+          \edef\pgfoo@temp{\noexpand\let
+            \expandafter\noexpand\csname pgfooY\pgfoo@classname.\pgfoo@method\endcsname
+            \expandafter\noexpand\csname pgfooY\pgfoo@baseclass.\pgfoo@method\endcsname}%
+          \pgfoo@temp
+        \fi
+      }%
+    }\fi
+  }%
+}
+
+\def\pgfoosuper(#1,#2).#3({%
+  #2.get id(\pgfoo@temp@id)%
+  \edef\pgfoo@classname{\csname pgfooX\pgfoo@temp@id @class\endcsname}%
+  \def\pgfoo@super@A##1,#1,##2.##3({%
+    \pgfoo@super@B##2.##3(%
+  }%
+  \expandafter\let\expandafter\pgfoo@mro\csname pgfooY\pgfoo@classname @pgfoo@mro\endcsname
+  \expandafter\pgfoo@super@A\expandafter,\pgfoo@mro,.#3(%
+}
+\def\pgfoo@super@B#1,#2.#3({%
+  \expandafter\ifx\csname pgfooY#1.#3\endcsname\relax
+    \pgfoo@escapeif{\pgfoo@super@B#2.#3(}%
+  \else
+    \pgfoo@escapeif{\expandafter\pgfoo@caller\pgfoo@temp@id.#1.#3(}%
+  \fi
+}
+
 
 
 % Declare an attribute
@@ -136,19 +383,76 @@
     \ifpgfutil@in@%
       \pgfoo@declareunpack#1;%
     \else%
-      \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfoolet{#1}\pgfutil@empty}%  
-      \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
+      \pgfoo@declareattribute@\let{#1}\pgfutil@empty
     \fi%  
   \fi%  
 }
-\def\pgfoo@declareunpack#1=#2;{%
-  \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfooset{#1}{#2}}%  
-  \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
+\def\pgfoo@declareunpack#1=#2;{\pgfoo@declareattribute@\def{#1}{{#2}}}
+\def\pgfoo@declareunpackspace#1 =#2;{\pgfoo@declareattribute@\def{#1}{{#2}}}
+
+% put the initial value in the class's namespace
+% put the attr name in a list
+\def\pgfoo@declareattribute@#1#2#3{%
+  \expandafter#1\csname pgfooY\pgfoo@classname @#2\endcsname#3%
+  \expandafter\def\expandafter\pgfoo@attributes\expandafter{\pgfoo@attributes,#2}%
 }
-\def\pgfoo@declareunpackspace#1 =#2;{%
-  \expandafter\def\expandafter\pgfoo@attribute@collection\expandafter{\pgfoo@attribute@collection\pgfooset{#1}{#2}}%  
-  \expandafter\def\expandafter\pgfoo@attribute@collection@gc\expandafter{\pgfoo@attribute@collection@gc\pgfoolet{#1}\relax}%  
+
+% for each base class:
+%   for each attribute declared in that class:
+%       add the attr on a list if it's not there yet
+% convert the list of (attr,class which it comes from) into an
+% efficient sequence of triples \op{attrname}\pointer-to-initial-value
+% (\op is then set differently in init and garbage collection)
+\def\pgfoo@inherit@attributes{%
+  % store the list of attributes declared in this class for use in
+  % derived classes
+  \if\relax\pgfoo@attributes\relax\else
+    \edef\pgfoo@attributes{\expandafter\pgfutil@gobble\pgfoo@attributes}% gobble comma
+  \fi
+  \expandafter\let\csname pgfooY\pgfoo@classname.@pgfoo@attributes\endcsname\pgfoo@attributes%
+  % get MRO
+  \expandafter\let\expandafter\pgfoo@mro\csname pgfooY\pgfoo@classname @pgfoo@mro\endcsname  
+  \def\pgfoo@allattributes{}% here we will store the attrs declared in base classes
+  \pgfutil@for\pgfoo@baseclass:=\pgfoo@mro\do{% for each base class in MRO order
+    % the attributes declared in this base class
+    \expandafter\let\expandafter\pgfoo@attributes\csname pgfooY\pgfoo@baseclass.@pgfoo@attributes\endcsname
+    \pgfutil@for\pgfoo@attribute:=\pgfoo@attributes\do{% for each attribute
+      % check if we have already found it in some previous base class
+      \edef\pgfoo@temp{{,\pgfoo@attribute=}{\pgfoo@allattributes,}}
+      \expandafter\pgfutil@in@\pgfoo@temp
+      \ifpgfutil@in@\else % don't overwrite
+        % append to the list
+        \edef\pgfoo@allattributes{\pgfoo@allattributes,\pgfoo@attribute=\pgfoo@baseclass}%
+      \fi
+    }%
+  }%
+  \if\relax\pgfoo@allattributes\relax\else
+    \edef\pgfoo@allattributes{\expandafter\pgfutil@gobble\pgfoo@allattributes}% gobble comma
+  \fi
+  % this macro will hold a list of attributes from all base classes
+  % we run this macro at init and gc 
+  \def\pgfoo@process@attributes{}  
+  \pgfutil@for\pgfoo@attributeclass:=\pgfoo@allattributes\do{% for each (attribute, class) pair
+    % append to the attribute processor
+    \expandafter\pgfoo@inherit@attributes@appendattribute\pgfoo@attributeclass.%
+  }%
+  \expandafter\let\csname pgfooY\pgfoo@classname .@pgfoo@process@attributes\endcsname\pgfoo@process@attributes
 }
+
+
+% #1=attr, #2=class which the attr comes from
+\def\pgfoo@inherit@attributes@appendattribute#1=#2.{%
+  \def\pgfoo@tempA{\pgfoo@attribute@op{#1}}%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfoo@tempB\expandafter\expandafter\expandafter{\expandafter\pgfoo@tempA\csname pgfooY#2@#1\endcsname}%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfoo@process@attributes\expandafter\expandafter\expandafter{\expandafter\pgfoo@process@attributes\pgfoo@tempB}%
+  % above is just this:
+  %     \def\pgfoo@process@attributes{\pgfoo@process@attributes\pgfoo@attribute@op{#1}%
+  %     \csname pgfooY#2@#1\endcsname}
+  %  with \pgfoo@process@attributes and \csname expanded exactly once:
+}
+
+% \pgfoo@attribute@op for garbace collection
+\def\pgfoo@gc@attribute#1#2{\pgfoolet{#1}\relax}
 
 
 \newcount\pgfoo@objectcount
@@ -280,15 +584,13 @@
   \expandafter\ifx\csname pgfooY#2.get id\endcsname\relax%
     \PackageError{pgfoo}{Unknown class '#2'}{}%
   \else%
-    \advance\pgfoo@objectcount by 1\relax%
-    \edef\pgfoolastobj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
-    \expandafter\gdef\csname pgfooX\the\pgfoo@objectcount @class\endcsname{#2}%
-    \let#1\pgfoolastobj%
+    \pgfoo@new@create#1{#2}%
     {%
       \pgfoothis@count\pgfoo@objectcount%
-      \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.@pgfooinit\endcsname%
+      \let\pgfoo@attribute@op\pgfoolet
+      \csname pgfooY#2.@pgfoo@process@attributes\endcsname
     }%
-    \pgfoolastobj.#2(#3)%
+    \pgfoolastobj.init(#3)%
     \aftergroup\pgfoogc% cleanup after group
   \fi%
 }
@@ -296,12 +598,25 @@
   \pgfoo@new\pgf@oo@temp=new #2(#3)%
   \pgfoolet{#1}\pgf@oo@temp%
 }
-
+\def\pgfoo@new@create#1#2{%
+  \advance\pgfoo@objectcount by 1\relax%
+  \edef\pgfoolastobj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
+  \expandafter\gdef\csname pgfooX\the\pgfoo@objectcount @class\endcsname{#2}%
+  \let#1\pgfoolastobj%
+}
 
 \def\pgfoo@caller#1.#2(#3){%
+  \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY\csname pgfooX#1@class\endcsname.#2\endcsname
+  \ifx\pgfoo@caller@temp\relax
+    % assume that #2 is of form "superclass.method"
+    \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY#2\endcsname
+    \ifx\pgfoo@caller@temp\relax
+      \PackageError{pgfoo}{Object #1 has no method #2}{}
+    \fi
+  \fi    
   \def\pgf@marshal{%
     \pgfoothis@count=#1\relax%
-    \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#2\endcsname(#3)%
+    \pgfoo@caller@temp(#3)%
   }%
   \expandafter\pgf@marshal\expandafter\pgfoothis@count\the\pgfoothis@count\relax%
 }
@@ -310,10 +625,13 @@
 % The special "this" object
 
 \def\pgfoothis.#1(#2){%
-  \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#1\endcsname(#2)%
+  \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#1\endcsname
+  \ifx\pgfoo@caller@temp\relax
+    % assume that #1 is of form "superclass.method"
+    \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY#1\endcsname
+  \fi  
+  \pgfoo@caller@temp(#2)%
 }
-
-
 
 
 
@@ -390,13 +708,36 @@
   \else%
     % Cleanup this object:
     % The following is the fast version of \pgfooobj{\the\pgfoo@objectcount}.@pgfoogc:
-    \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.@pgfoogc\endcsname%
+    \let\pgfoo@attribute@op\pgfoo@gc@attribute
+    \csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.@pgfoo@process@attributes\endcsname%
     \expandafter\global\expandafter\let\csname pgfooX\the\pgfoothis@count @class\endcsname\relax%
   \fi%
   \pgfoo@next%
 }
   
 
+
+%
+%
+% Object class
+% defines method "copy"
+%
+%
+
+\pgfooclass{object}{%
+  \method copy(#1) {%
+    % create a new object
+    \edef\pgfoo@temp@classname{\csname pgfooX\the\pgfoothis@count @class\endcsname}%
+    \expandafter\pgfoo@new@create\expandafter#1\expandafter{\pgfoo@temp@classname}%
+    \def\pgfoo@copy@attributes##1##2{%
+      \pgfooget{##1}\pgfoo@attrvalue
+      \expandafter\let\csname pgfooX\the\pgfoo@objectcount @##1\endcsname\pgfoo@attrvalue
+    }%
+    \let\pgfoo@attribute@op\pgfoo@copy@attributes
+    \csname pgfooY\pgfoo@temp@classname .@pgfoo@process@attributes\endcsname  
+    \aftergroup\pgfoogc% cleanup after group
+  }
+}
 
 
 %

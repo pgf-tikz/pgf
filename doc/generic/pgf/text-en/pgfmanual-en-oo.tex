@@ -42,8 +42,8 @@ for non-time-critical things.
 Basically, the oo-system supports \emph{classes} (in the
 object-oriented sense, this has nothing to do with \LaTeX-classes),
 \emph{methods}, \emph{constructors}, \emph{attributes},
-\emph{objects}, and \emph{object identities}. It (currently) does not
-support either inheritance, overloading, destructors, or class nesting.
+\emph{objects}, \emph{object identities}, and (thanks to Sa\v o \v
+Zivanovi\'c) \emph{inheritance} and \emph{overloading.} 
 
 The first step is to define a class, using the macro |\pgfooclass|
 (all normal macros in \pgfname's object-oriented system start with
@@ -101,11 +101,12 @@ addition to \pgfname).
 We start with the definition of the |stamp| class. This is done using
 the |\pgfooclass| macro:
 
-\begin{command}{\pgfooclass\marg{class name}\marg{body}}
+\begin{command}{\pgfooclass\opt{|(|\meta{list of superclasses}|)|}\marg{class name}\marg{body}}
   This command defines a class named \meta{class name}. The name of
   the class can contain spaces and most other characters, but no
   periods. So, valid class names are |MyClass| or |my class| or
-  |Class_C++_emulation??1|.
+  |Class_C++_emulation??1|. The \meta{list of superclasses} is
+  optional just like the parenthesis around it.
 
   The \meta{body} is actually just executed, so any
   normal \TeX-code is permissible here. However, while the \meta{body} is
@@ -133,6 +134,17 @@ the |\pgfooclass| macro:
 
 % We can now create objects of type "stamp"
 \end{codeexample}
+
+  Concerning the list of base classes, the Method Resolution Order
+  (\textsc{mro}) is computed using the C3 algorithm also used in Python, v2.3
+  and higher. The linearization computed by the algorithm respects
+  both  local precedence ordering and monotonicity. Resolution of both
+  methods and attributes depends on the \textsc{mro}: when a method method name
+  is called on an object of class $C$, the system invokes method
+  method name from the first class in the \textsc{mro} of $C$ which defines
+  method method name; when an object is created, each attribute |attr|
+  is initialized to the value specified in the first class in the \textsc{mro}
+  of $C$ which declares attribute |attr|. 
 \end{command}
 
 The \meta{body} of a class usually just consists of calls to the macros
@@ -217,20 +229,21 @@ command:
   names can contain spaces and other characters, so \meta{method names} like
   |put_stamp_here| or |put stamp here| are both legal.
 
-  Three method names are special: First, a method having the same name
-  as the class is called the \emph{constructor} of the class. There must be
-  such a method, even if its body is empty. There are (currently) no
+  Three method names are special: First, a method having either the
+  same name as the class or having the name |init| is called the
+  \emph{constructor} of the class. There are (currently) no
   destructors; objects simply become ``undefined'' at the
   end of the scope in which they have been created. The other two
   methods are called |get id| and |get handle|, which are always automatically
   defined and which you cannot redefine. They are discussed in
   Section~\ref{section-identities}.
 
-  Overloading of methods is not possible, that is, it is illegal to
-  have two methods inside a single class with the same name (despite
-  possibly different parameter lists). However, two different classes
-  may contain a method with the same name, that is, classes form
-  namespaces for methods.
+  Overloading of methods by differing numbers of parameters is not
+  possible, that is, it is illegal to have two methods inside a single
+  class with the same name (despite possibly different parameter
+  lists). However, two different classes may contain a method with the
+  same name, that is, classes form namespaces for methods. Also, a
+  class can (re)implement a method from a superclass.
 
   The \meta{method name} must be followed by a \meta{parameter list}
   in parentheses, which must be present even when the \meta{parameter
@@ -245,7 +258,7 @@ command:
   When a method is called, the \meta{body} of
   the method will be executed. The main difference to a normal macro
   is that while the \meta{body} is executed, a special macro called
-  |\pgfoothis| is set up in such a way that it references that object
+  |\pgfoothis| is set up in such a way that it references the object
   for which the method is executed.
 \end{command}
 
@@ -255,11 +268,18 @@ method for this object, a special syntax is used that is similar to
 Java or C++ syntax:
 
 \begin{pgfmanualentry}
-  \pgfmanualentryheadline{\meta{object handle}|.|\meta{method name}|(|\meta{parameters}|)|}%
+  \pgfmanualentryheadline{\meta{object handle}\opt{|.|\meta{super
+        class}}|.|\meta{method name}|(|\meta{parameters}|)|}% 
   \pgfmanualbody
   This causes the method \meta{method name} to be called for the
-  object referenced by the \meta{object handle}. Naturally, the method
-  is the one defined in the class of the object. The \meta{parameters}
+  object referenced by the \meta{object handle}. The method is the one
+  defined in the class of the object or, if it is not defined there,
+  the method defined in the superclasses of the object's class (if
+  there are several superclasses that define the same method, the
+  method resultion order is used to determine which one gets
+  called). If the optional \meta{super class} is specified, the method
+  implementation of that class will be used rather than the
+  implementation in the object's class. The \meta{parameters} 
   are matched against the parameters of the method and, then, the
   method body is executed. The execution of the method body is
   \emph{not} done inside a scope, so the effects of a method body
@@ -320,6 +340,16 @@ Java or C++ syntax:
 \end{pgfmanualentry}
 
 
+\begin{command}{\pgfoosuper|(|\meta{class},\meta{object
+      handle}|).|\meta{method name}|(|\meta{arguments}|)|}
+  This macro gives you finer control over which method gets invoked in
+  case of multiple inheritance. This macro calls \meta{method name} of
+  the object sepcified by \meta{object handle}, but which
+  implementation of the method is called is determined as follows: it
+  will be the implementation in the first class (in the method
+  resolution order) after \meta{class} that defines \meta{method
+    name}. 
+\end{command}
 
 \subsection{Attributes}
 
@@ -535,13 +565,32 @@ used to create object handles.
 
 
 
+\subsection{The Object Class}
+
+\label{section-object}
+
+The object-oriented module predefines a basic class |object| that can
+be used as a base class in different context.
+
+\begin{ooclass}{object}
+  This class current only implements one method:
+
+  \begin{method}{copy(\meta{handle})}
+    Creates a new object and initializes the values of its (declared)
+    attributes to the values of the original. The method takes one
+    argument: a control sequence which receives the handle of the
+    copy. 
+  \end{method}
+\end{ooclass}
+
+
 \subsection{The Signal Class}
 
 \label{section-signals}
 
-The object-oriented module predefines, in addition to the basic mechanism
-for defining and using classes and object, one class: |signal|. This
-class implements a so-called signal--slot mechanism.
+In addition to the basic mechanism for defining and using classes and
+object, the class |signal| is predefined. It implements a so-called
+signal--slot mechanism. 
 
 \begin{ooclass}{signal}
   This class is used to implement a simple signal--slot
