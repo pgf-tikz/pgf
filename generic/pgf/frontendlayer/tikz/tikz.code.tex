@@ -686,7 +686,7 @@
           node [every label, 
                 tikz@label@angle = #2,
                 #1,
-                tikz@label@post = \tikz@label@distance] {#3}
+                tikz@label@post = \tikz@label@distance] {\iftikz@handle@active@nodes\expandafter\scantokens\fi{#3}}
           \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
         \egroup}}}
 \endgroup
@@ -715,7 +715,7 @@
         node [every label, 
               tikz@label@angle = #2,
               #1,
-              tikz@label@post = \tikz@label@distance] {#3}
+              tikz@label@post = \tikz@label@distance] {\iftikz@handle@active@nodes\expandafter\scantokens\fi{#3}}
         \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
       \egroup}}}
 
@@ -774,6 +774,9 @@
 % deprecated:
 \def\tikzaddafternodepathoption#1{#1\tikzset{prefix after command={\pgfextra{#1}}}}
 \tikzset{after node path/.style={append after command={#1}}}
+
+
+% Anchoring
 
 \tikzoption{anchor}{\def\tikz@anchor{#1}\let\tikz@do@auto@anchor=\relax}
 
@@ -1239,6 +1242,15 @@
 \let\tikz@ampersand@replacement=\pgfutil@empty
 
 
+% Automatic shorthand management
+\tikzset{%
+  handle active characters in code/.is if=tikz@handle@active@code,
+  handle active characters in nodes/.is if=tikz@handle@active@nodes,
+}
+\newif\iftikz@handle@active@code
+\newif\iftikz@handle@active@nodes
+
+
 % Execute option
 \tikzoption{execute at begin picture}{\expandafter\def\expandafter\tikz@atbegin@picture\expandafter{\tikz@atbegin@picture#1}}
 \tikzoption{execute at end picture}{\expandafter\def\expandafter\tikz@atend@picture\expandafter{\tikz@atend@picture#1}}
@@ -1248,6 +1260,8 @@
 \tikzoption{execute at end to}{\expandafter\def\expandafter\tikz@atend@to\expandafter{\tikz@atend@to#1}}
 \tikzoption{execute at begin node}{\expandafter\def\expandafter\tikz@atbegin@node\expandafter{\tikz@atbegin@node#1}}
 \tikzoption{execute at end node}{\expandafter\def\expandafter\tikz@atend@node\expandafter{\tikz@atend@node#1}}
+\tikzoption{execute at begin matrix}{\expandafter\def\expandafter\tikz@atbegin@matrix\expandafter{\tikz@atbegin@matrix#1}}
+\tikzoption{execute at end matrix}{\expandafter\def\expandafter\tikz@atend@matrix\expandafter{\tikz@atend@matrix#1}}
 \tikzoption{execute at begin cell}{\expandafter\def\expandafter\tikz@atbegin@cell\expandafter{\tikz@atbegin@cell#1}}
 \tikzoption{execute at end cell}{\expandafter\def\expandafter\tikz@atend@cell\expandafter{\tikz@atend@cell#1}}
 \tikzoption{execute at empty cell}{\expandafter\def\expandafter\tikz@at@emptycell\expandafter{\tikz@at@emptycell#1}}
@@ -1263,6 +1277,8 @@
 \let\tikz@atbegin@cell=\pgfutil@empty
 \let\tikz@atend@cell=\pgfutil@empty
 \let\tikz@at@emptycell=\pgfutil@empty
+\let\tikz@atbegin@matrix=\pgfutil@empty
+\let\tikz@atend@matrix=\pgfutil@empty
 
 
 % Pre and post actions
@@ -1589,6 +1605,9 @@
 % Install the abbreviated commands
 %
 \def\tikz@installcommands{%
+  \iftikz@handle@active@code%
+    \tikz@switchoff@shorthands%
+  \fi%
   \ifnum\the\catcode`\;=\active\relax\expandafter\let\expandafter\tikz@origsemi\expandafter=\tikz@activesemicolon\fi%
   \ifnum\the\catcode`\:=\active\relax\expandafter\let\expandafter\tikz@origcolon\expandafter=\tikz@activecolon\fi%
   \ifnum\the\catcode`\|=\active\relax\expandafter\let\expandafter\tikz@origbar\expandafter=\tikz@activebar\fi%
@@ -1614,7 +1633,7 @@
   \let\tikz@origdv=\datavisualization%
   \let\tikz@origgraph=\graph%
   %
-  \tikz@deactivatthings%
+  \iftikz@handle@active@code\else\tikz@deactivatthings\fi%
   %
   \let\scope=\tikz@scope@env%
   \let\scoped=\tikz@scoped%
@@ -1706,11 +1725,37 @@
     \def;{\tikz@nonactivesemicolon}%
     \def:{\tikz@nonactivecolon}%
     \def|{\tikz@nonactivebar}%
-	\def!{\tikz@nonactiveexlmark}%
+    \def!{\tikz@nonactiveexlmark}%
   }
 }
 
-
+\let\tikz@orig@shorthands\pgfutil@empty
+\def\tikz@switchoff@shorthands{%
+  \edef\tikz@orig@shorthands{%
+    \catcode\noexpand`\noexpand\;\the\catcode`\;\relax%
+    \catcode\noexpand`\noexpand\:\the\catcode`\:\relax%
+    \catcode\noexpand`\noexpand\|\the\catcode`\|\relax%
+    \catcode\noexpand`\noexpand\!\the\catcode`\!\relax%
+    \catcode\noexpand`\noexpand\,\the\catcode`\,\relax%
+    \catcode\noexpand`\noexpand\<\the\catcode`\<\relax%
+    \catcode\noexpand`\noexpand\>\the\catcode`\>\relax%
+    \catcode\noexpand`\noexpand\"\the\catcode`\"\relax%
+    \catcode\noexpand`\noexpand\'\the\catcode`\'\relax%
+    \catcode\noexpand`\noexpand\-\the\catcode`\-\relax%
+    \catcode\noexpand`\noexpand\=\the\catcode`\=\relax%
+  }%
+  \catcode`\;12\relax%
+  \catcode`\:12\relax%
+  \catcode`\|12\relax%
+  \catcode`\!12\relax%
+  \catcode`\,12\relax%
+  \catcode`\<12\relax%
+  \catcode`\>12\relax%
+  \catcode`\"12\relax%
+  \catcode`\'12\relax%
+  \catcode`\-12\relax%
+  \catcode`\=12\relax%
+}
 
 
 
@@ -2343,7 +2388,11 @@
   \tikz@collect@label@scan#1%
 }
 \def\tikz@collect@arg#1#2{%
-  \expandafter\def\expandafter\tikz@collected@onpath\expandafter{\tikz@collected@onpath{#2}}%
+  \iftikz@handle@active@nodes%
+    \expandafter\def\expandafter\tikz@collected@onpath\expandafter{\tikz@collected@onpath{\scantokens{#2}}}%
+  \else%
+    \expandafter\def\expandafter\tikz@collected@onpath\expandafter{\tikz@collected@onpath{#2}}%
+  \fi%
   #1%
 }
 
@@ -3370,6 +3419,7 @@
             \tikz@uninstallcommands%
             \aftergroup\tikz@fig@collectresetcolor%
             \tikz@halign@check%
+            \iftikz@handle@active@code\tikz@orig@shorthands\fi%
             \ignorespaces%
 }
 \def\tikz@fig@collectresetcolor{%
@@ -3458,10 +3508,12 @@
                   \tikz@at@emptycell%
                   \pgfsys@endscope%
                 }%
+                \tikz@atbegin@matrix%
                 \aftergroup\tikz@do@matrix@cont}%
               \bgroup%
 }
-\def\tikz@do@matrix@cont{%            
+\def\tikz@do@matrix@cont{%
+              \tikz@atend@matrix%
             \endpgfscope
           \endpgfinterruptpath%
       \egroup\egroup%
@@ -4002,8 +4054,13 @@
   \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text[#1]}
   \tikz@p@c@s}
 \def\tikz@p@c@s@group#1{%
+  \iftikz@handle@active@node%
+  \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text{\scantokens{#1}}}%
+  \else%
   \expandafter\def\expandafter\tikz@child@node@text\expandafter{\tikz@child@node@text{#1}}
-  \tikz@parse@child@node@rest}
+  \fi%
+  \tikz@parse@child@node@rest%
+}
 
 
 
