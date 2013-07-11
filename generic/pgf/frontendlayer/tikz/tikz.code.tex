@@ -896,16 +896,17 @@
 \tikzoption{text depth}{\def\tikz@text@depth{#1}}
 \tikzoption{text ragged}[]%
 {\def\tikz@text@action{\pgfutil@raggedright\rightskip0pt plus2em \spaceskip.3333em \xspaceskip.5em\relax}}
-\tikzoption{text badly ragged}[]{\def\tikz@text@action{\raggedright\relax}}
+\tikzoption{text badly ragged}[]{\def\tikz@text@action{\pgfutil@raggedright\relax}}
 \tikzoption{text ragged left}[]%
 {\def\tikz@text@action{\pgfutil@raggedleft\leftskip0pt plus2em \spaceskip.3333em \xspaceskip.5em\relax}}
-\tikzoption{text badly ragged left}[]{\def\tikz@text@action{\raggedleft\relax}}
+\tikzoption{text badly ragged left}[]{\def\tikz@text@action{\pgfutil@raggedleft\relax}}
 \tikzoption{text justified}[]{\def\tikz@text@action{\leftskip0pt\rightskip0pt\relax}}
 \tikzoption{text centered}[]{\def\tikz@text@action{%
   \leftskip0pt plus2em%
   \rightskip0pt plus2em%
   \spaceskip.3333em \xspaceskip.5em%
   \parfillskip=0pt%
+  \iftikz@warn@for@narrow@centered\else\hbadness10000\fi%
   \let\\=\@centercr% for latex
   \relax}}
 \tikzoption{text badly centered}[]%
@@ -914,6 +915,8 @@
   \parfillskip=0pt%
   \rightskip\pgfutil@flushglue%
   \leftskip\pgfutil@flushglue\relax}}
+\tikzset{badness warnings for centered text/.is if=tikz@warn@for@narrow@centered}
+\newif\iftikz@warn@for@narrow@centered
 
 \let\tikz@text@width=\pgfutil@empty
 \let\tikz@text@height=\pgfutil@empty
@@ -922,7 +925,7 @@
 \let\tikz@textfont=\pgfutil@empty
 \let\tikz@textopacity=\pgfutil@empty
 
-\def\tikz@text@action{\raggedright\rightskip0pt plus2em \spaceskip.3333em \xspaceskip.5em\relax}
+\def\tikz@text@action{\pgfutil@raggedright\rightskip0pt plus2em \spaceskip.3333em \xspaceskip.5em\relax}
 
 
 % Alignment
@@ -955,14 +958,24 @@
 \tikzoption{shorten <}{\pgfsetshortenstart{#1}}
 \tikzoption{shorten >}{\pgfsetshortenend{#1}}
 
+\tikzset{>> sep/.store in=\tikzdoublearrowsep}%<<
+\def\tikzdoublearrowsep{\the\pgflinewidth-\pgfinnerlinewidth}
+
 \def\tikz@set@pointed#1#2{%
   \pgfutil@ifundefined{pgf@arrow@code@tikze@>@#2}
   {%
     \pgfarrowsdeclarealias{tikzs@<@#2}{tikze@>@#2}{#1}{#2}%
     \pgfarrowsdeclarereversed{tikzs@>@#2}{tikze@<@#2}{#1}{#2}%
     \pgfarrowsdeclarecombine*{tikz@|<@#2}{tikz@>|@#2}{#1}{#2}{|}{|}%
-    \pgfarrowsdeclaredouble[\pgflinewidth]{tikzs@<<@#2}{tikze@>>@#2}{#1}{#2}%<<
-    \pgfarrowsdeclarereversed{tikzs@>>@#2}{tikze@<<@#2}{tikzs@<<@#2}{tikze@>>@#2}%<<
+    \pgfarrowsdeclaredouble[\noexpand\tikzdoublearrowsep]{tikzs@<<@#2}{tikze@>>@#2}{#1}{#2}%<<
+    \pgfsetarrowoptions{tikze@>>@#2}{\tikzdoublearrowsep}
+    \pgfarrowsdeclaredouble[\noexpand\tikzdoublearrowsep]{tikzs@>>@#2}{tikze@<<@#2}{tikzs@>@#2}{tikze@<@#2}%<<
+    \pgfsetarrowoptions{tikze@<<@#2}{\tikzdoublearrowsep}
+    \pgfarrowsdeclarecombine*[\noexpand\tikzdoublearrowsep]{tikzs@< <@#2}{tikze@> >@#2}{tikzs@<@#2}{tikze@>@#2}{tikzs@<@#2}{tikze@>@#2}%
+    \pgfsetarrowoptions{tikze@> >@#2}{\tikzdoublearrowsep}
+    \pgfarrowsdeclarecombine*[\noexpand\tikzdoublearrowsep]{tikzs@> >@#2}{tikze@< <@#2}{tikzs@>@#2}{tikze@<@#2}{tikzs@>@#2}{tikze@<@#2}%
+    \pgfsetarrowoptions{tikze@< <@#2}{\tikzdoublearrowsep}
+%    \pgfarrowsdeclarereversed{tikzs@>>@#2}{tikze@<<@#2}{tikzs@<<@#2}{tikze@>>@#2}%<<
   }{}%
   \pgfutil@namedef{tikz@special@arrow@start<}{tikzs@<@#2}%
   \pgfutil@namedef{tikz@special@arrow@end>}{tikze@>@#2}%
@@ -974,6 +987,10 @@
   \pgfutil@namedef{tikz@special@arrow@end>>}{tikze@>>@#2}%<<
   \pgfutil@namedef{tikz@special@arrow@start>>}{tikzs@>>@#2}%<<
   \pgfutil@namedef{tikz@special@arrow@end<<}{tikze@<<@#2}%>>
+  \pgfutil@namedef{tikz@special@arrow@start< <}{tikzs@< <@#2}%
+  \pgfutil@namedef{tikz@special@arrow@end> >}{tikze@> >@#2}%<<
+  \pgfutil@namedef{tikz@special@arrow@start> >}{tikzs@> >@#2}%<<
+  \pgfutil@namedef{tikz@special@arrow@end< <}{tikze@< <@#2}%>>
 }
 
 \def\tikz@processarrows#1{%
@@ -1358,11 +1375,17 @@
 \tikzstyle{densely dashed}=          [dash pattern=on 3pt off 2pt]
 \tikzstyle{loosely dashed}=          [dash pattern=on 3pt off 6pt]
 \tikzstyle{dashdotted}=              [dash pattern=on 3pt off 2pt on \the\pgflinewidth off 2pt]
+\tikzstyle{dash dot}=                [dash pattern=on 3pt off 2pt on \the\pgflinewidth off 2pt]
 \tikzstyle{densely dashdotted}=      [dash pattern=on 3pt off 1pt on \the\pgflinewidth off 1pt]
+\tikzstyle{densely dash dot}=        [dash pattern=on 3pt off 1pt on \the\pgflinewidth off 1pt]
 \tikzstyle{loosely dashdotted}=      [dash pattern=on 3pt off 4pt on \the\pgflinewidth off 4pt]
+\tikzstyle{loosely dash dot}=        [dash pattern=on 3pt off 4pt on \the\pgflinewidth off 4pt]
 \tikzstyle{dashdotdotted}=           [dash pattern=on 3pt off 2pt on \the\pgflinewidth off 2pt on \the\pgflinewidth off 2pt]
 \tikzstyle{densely dashdotdotted}=   [dash pattern=on 3pt off 1pt on \the\pgflinewidth off 1pt on \the\pgflinewidth off 1pt]
 \tikzstyle{loosely dashdotdotted}=   [dash pattern=on 3pt off 4pt on \the\pgflinewidth off 4pt on \the\pgflinewidth off 4pt]
+\tikzstyle{dash dot dot}=         [dash pattern=on 3pt off 2pt on \the\pgflinewidth off 2pt on \the\pgflinewidth off 2pt]
+\tikzstyle{densely dash dot dot}=   [dash pattern=on 3pt off 1pt on \the\pgflinewidth off 1pt on \the\pgflinewidth off 1pt]
+\tikzstyle{loosely dash dot dot}=   [dash pattern=on 3pt off 4pt on \the\pgflinewidth off 4pt on \the\pgflinewidth off 4pt]
 
 
 \tikzstyle{transparent}=             [opacity=0]
@@ -3430,12 +3453,13 @@
           \pgfsetstrokeopacity{\tikz@textopacity}%
         \fi%
         \pgfinterruptpicture%
-          \tikz@textfont%  
           \ifx\tikz@text@width\pgfutil@empty%
+            \tikz@textfont%  
           \else%
             \begingroup%
             	\pgfmathsetlength{\pgf@x}{\tikz@text@width}%
               \pgfutil@minipage[t]{\pgf@x}\leavevmode\hbox{}%
+                \tikz@textfont%  
                 \tikz@text@action%
           \fi%
           \tikz@atbegin@node%
@@ -3465,7 +3489,6 @@
   \pgfutil@ifnextchar\reset@color% hack for color package
   {\reset@color\afterassignment\tikz@fig@collectresetcolor\let\tikz@temp=}\tikz@fig@boxdone%
 }
-\def\tikz@show{\show\pgf@temp}
 \def\tikz@fig@boxdone{%
             \tikz@atend@node%
           \ifx\tikz@text@width\pgfutil@empty%
@@ -3655,7 +3678,7 @@
     \global\setbox\tikz@tempbox=\box\tikz@figbox%
   \endgroup\endgroup%
   \setbox\tikz@figbox=\box\tikz@tempbox%
-  \pgflinewidth=\tikz@save@line@width%
+  \global\pgflinewidth=\tikz@save@line@width%
   \tikz@do@after@path@smuggle%
   \tikz@do@after@node%
 }
