@@ -262,7 +262,7 @@ end
 
 
 function InterfaceToDisplay.createVertex(name, shape, path, height, binding_infos, anchors)
-  
+
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding

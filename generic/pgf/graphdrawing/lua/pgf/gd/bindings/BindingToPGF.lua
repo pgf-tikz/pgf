@@ -26,7 +26,7 @@ local Storage = require "pgf.gd.lib.Storage"
 --  local info = assert(self.infos[v], "thou shalt not modify the syntactic digraph")
 --  tex.print(
 --    string.format(
---      "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
+--      "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%fpt}{%fpt}{%s}",
 --      'not yet positionedPGFINTERNAL' .. v.name,
 --      info.x_min,
 --      info.x_max,
@@ -113,6 +113,12 @@ function BindingToPGF:renderCollectionStopKind(kind, layer)
   tex.print("\\pgfgdcallbackrendercollectionkindstop{" .. kind .. "}{" .. tostring(layer) .. "}")
 end
 
+-- Printing points
+
+local function to_pt(x)
+  return string.format("%.12fpt", x)
+end
+
 
 -- Managing vertices (pgf nodes)
 
@@ -134,7 +140,7 @@ function BindingToPGF:renderVertex(v)
   local info = assert(self.storage[v], "thou shalt not modify the syntactic digraph")
   tex.print(
     string.format(
-      "\\pgfgdcallbackrendernode{%s}{%fpt}{%fpt}{%fpt}{%fpt}{%s}{%s}{%s}",
+      "\\pgfgdcallbackrendernode{%s}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%s}",
       'not yet positionedPGFINTERNAL' .. v.name,
       info.x_min,
       info.x_max,
@@ -201,12 +207,12 @@ function BindingToPGF:renderEdge(e)
     if c == "lineto" then
       i = i + 1
       local d = rigid(e.path[i])
-      callback [#callback + 1] = '--(' .. tostring(d.x) .. 'pt,' .. tostring(d.y) .. 'pt)'
+      callback [#callback + 1] = '--(' .. to_pt(d.x) .. ',' .. to_pt(d.y) .. ')'
       i = i + 1
     elseif c == "moveto" then
       i = i + 1
       local d = rigid(e.path[i])
-      callback [#callback + 1] = '(' .. tostring(d.x) .. 'pt,' .. tostring(d.y) .. 'pt)'
+      callback [#callback + 1] = '(' .. to_pt(d.x) .. ',' .. to_pt(d.y) .. ')'
       i = i + 1
     elseif c == "closepath" then
       callback [#callback + 1] = '--cycle'
@@ -214,9 +220,9 @@ function BindingToPGF:renderEdge(e)
     elseif c == "curveto" then
       local d1, d2, d3 = rigid(e.path[i+1]), rigid(e.path[i+2]), rigid(e.path[i+3])
       i = i + 3
-      callback [#callback + 1] = '..controls(' .. tostring(d1.x) .. 'pt,' .. tostring(d1.y) .. 'pt)and('
-                                               .. tostring(d2.x) .. 'pt,' .. tostring(d2.y) .. 'pt)..'
-      callback [#callback + 1] = '(' .. tostring(d3.x) .. 'pt,' .. tostring(d3.y) .. 'pt)'
+      callback [#callback + 1] = '..controls(' .. to_pt(d1.x) .. ',' .. to_pt(d1.y) .. ')and('
+                                               .. to_pt(d2.x) .. ',' .. to_pt(d2.y) .. ')..'
+      callback [#callback + 1] = '(' .. to_pt(d3.x) .. ',' .. to_pt(d3.y) .. ')'
       i = i + 1
     else				     
       error("illegal operation in edge path")
