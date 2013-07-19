@@ -554,6 +554,21 @@
 
 
 
+% Help macro for scanning arguments
+\newtoks\pgfoo@toks
+
+\def\pgfoo@collect@args{%
+  \pgfutil@ifnextchar\bgroup\pgfoo@collect@args@group\pgfoo@collect@args@nogroup%
+}
+\def\pgfoo@collect@args@nogroup#1){%
+  \pgfoo@toks{#1}%
+  \pgfoo@continue%
+}
+\def\pgfoo@collect@args@group#1{%
+  \pgfutil@ifnextchar){\pgfoo@toks{{#1}}\expandafter\pgfoo@continue\pgfutil@gobble}{\pgfoo@collect@args@nogroup{#1}}%
+}
+
+
 % Instantiate an object
 %
 % Possible syntax:
@@ -580,7 +595,7 @@
     }%
   }%
 }
-\def\pgfoo@new#1=new #2(#3){%
+\def\pgfoo@new#1=new #2({%
   \expandafter\ifx\csname pgfooY#2.get id\endcsname\relax%
     \pgferror{Unknown class '#2'}%
   \else%
@@ -588,16 +603,39 @@
     {%
       \pgfoothis@count\pgfoo@objectcount%
       \let\pgfoo@attribute@op\pgfoolet
-      \csname pgfooY#2.@pgfoo@process@attributes\endcsname
+      \csname pgfooY#2.@pgfoo@process@attributes\endcsname%
     }%
-    \pgfoolastobj.init(#3)%
-    \aftergroup\pgfoogc% cleanup after group
+    \let\pgfoo@continue=\pgf@oo@new@cont%
+    \expandafter\pgfoo@collect@args%
   \fi%
 }
-\def\pgfoo@new@attribute#1=new #2(#3){%
-  \pgfoo@new\pgf@oo@temp=new #2(#3)%
-  \pgfoolet{#1}\pgf@oo@temp%
+
+\def\pgf@oo@new@cont{%
+  \expandafter\pgfoolastobj\expandafter.\expandafter i\expandafter n\expandafter i\expandafter t\expandafter(\the\pgfoo@toks)%
+  \aftergroup\pgfoogc% cleanup after group
 }
+
+\def\pgfoo@new@attribute#1=new #2({%
+  \expandafter\ifx\csname pgfooY#2.get id\endcsname\relax%
+    \pgferror{Unknown class '#2'}%
+  \else%
+    \pgfoo@new@create\pgfoo@temp{#2}%
+    {%
+      \pgfoothis@count\pgfoo@objectcount%
+      \let\pgfoo@attribute@op\pgfoolet%
+      \csname pgfooY#2.@pgfoo@process@attributes\endcsname%
+    }%
+    \pgfoolet{#1}\pgfoo@temp%
+    \let\pgfoo@continue=\pgf@oo@new@cont%
+    \expandafter\pgfoo@collect@args%
+  \fi%
+}
+
+\def\pgf@oo@new@cont{%
+  \expandafter\pgfoolastobj\expandafter.\expandafter i\expandafter n\expandafter i\expandafter t\expandafter(\the\pgfoo@toks)%
+  \aftergroup\pgfoogc% cleanup after group
+}
+
 \def\pgfoo@new@create#1#2{%
   \advance\pgfoo@objectcount by 1\relax%
   \edef\pgfoolastobj{\noexpand\pgfoo@caller{\the\pgfoo@objectcount}}%
@@ -605,7 +643,7 @@
   \let#1\pgfoolastobj%
 }
 
-\def\pgfoo@caller#1.#2(#3){%
+\def\pgfoo@caller#1.#2({%
   \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY\csname pgfooX#1@class\endcsname.#2\endcsname%
   \ifx\pgfoo@caller@temp\relax%
     % assume that #2 is of form "superclass.method"
@@ -616,7 +654,14 @@
   \fi%    
   \def\pgf@marshal{%
     \pgfoothis@count=#1\relax%
-    \pgfoo@caller@temp(#3)%
+  }%
+  \let\pgfoo@continue\pgfoo@caller@cont%
+  \pgfoo@collect@args%
+}
+\def\pgfoo@caller@cont{%
+  \edef\pgf@marshal{%
+    \pgf@marshal%
+    \noexpand\pgfoo@caller@temp(\the\pgfoo@toks)%
   }%
   \expandafter\pgf@marshal\expandafter\pgfoothis@count\the\pgfoothis@count\relax%
 }
@@ -624,13 +669,17 @@
 
 % The special "this" object
 
-\def\pgfoothis.#1(#2){%
-  \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#1\endcsname
-  \ifx\pgfoo@caller@temp\relax
+\def\pgfoothis.#1({%
+  \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY\csname pgfooX\the\pgfoothis@count @class\endcsname.#1\endcsname%
+  \ifx\pgfoo@caller@temp\relax%
     % assume that #1 is of form "superclass.method"
-    \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY#1\endcsname
-  \fi  
-  \pgfoo@caller@temp(#2)%
+    \expandafter\let\expandafter\pgfoo@caller@temp\csname pgfooY#1\endcsname%
+  \fi%
+  \let\pgfoo@continue\pgfoothis@cont%
+  \pgfoo@collect@args%
+}
+\def\pgfoothis@cont{%
+  \expandafter\pgfoo@caller@temp\expandafter(\the\pgfoo@toks)%
 }
 
 
