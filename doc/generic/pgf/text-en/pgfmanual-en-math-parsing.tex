@@ -53,56 +53,77 @@ engine is the following:
 
   \begin{itemize}
   \item
-  The result stored in the macro |\pgfmathresult| is a decimal
-  \emph{without units}. This is true regardless of whether the
-  \meta{expression} contains any unit specification. All numbers
-  with units are converted to points first.
-
+    The result stored in the macro |\pgfmathresult| is a decimal
+    \emph{without units}. This is true regardless of whether the
+    \meta{expression} contains any unit specification. All numbers
+    with units are converted to points first.
+    You can check whether an expression contained a unit using
+    the following \TeX-if.
+    {\let\ifpgfmathunitsdeclared\relax
+      \begin{command}{\ifpgfmathunitsdeclared}
+        After a call  of |\pgfmathparse| this if will be true exactly if
+        some unit was encountered in the expression. It is always set
+        globally in each call.
+      \end{command}
+    }
+    
+    A special kind of units are \TeX's ``math units'' (|mu|). It will
+    be treated as if |pt| had been used, but you can
+    check whether an expression contained a math unit using the
+    following: 
+    {\let\ifpgfmathmathunitsdeclared\relax
+      \begin{command}{\ifpgfmathmathunitsdeclared}
+        This \TeX-if is similar to |\ifpgfmathunitsdeclared|, but it
+        is only set when the unit |mu| is encountered at least
+        once. In this case, |\ifpgfmathunitsdeclared| will \emph{also}
+        be set to true.
+      \end{command}
+    }
   \item
- 	You can check whether an expression contained a unit using
-  the \TeX-if |\||ifpgfmathunitsdeclared|. After a call
-  of |\pgfmathparse| this if will be true exactly if some unit was
-  encountered in the expression.
-
+    The parser will recognize \TeX{} registers and box dimensions,
+    so |\mydimen|, |0.5\mydimen|, |\wd\mybox|, |0.5\dp\mybox|,
+    |\mycount\mydimen| and so on can be parsed.
+    
   \item
-  The parser can recognize \TeX{} registers and box dimensions,
-  so |\mydimen|, |0.5\mydimen|, |\wd\mybox|, |0.5\dp\mybox|,
-  |\mycount\mydimen| and so on can be parsed.
-
+    The \eTeX\ extensions |\dimexpr|, |\numexpr|, |\glueexpr|, and
+    |\muexpr| are recognized and evaluated. The values they
+    result in will be used in the further evaluation, as if you had
+    put |\the| before them. 
+    
   \item
-  Parenthesis can be used to change the order of the evaluation.
-
+    Parenthesis can be used to change the order of the evaluation.
+    
   \item
-  Various functions are recognized, so it is possible to parse
-  |sin(.5*pi r)*60|, which means ``the sine of $0.5$ times $\pi$
-  radians, multiplied by 60''. The argument of functions can
-  be any expression.
-
+    Various functions are recognized, so it is possible to parse
+    |sin(.5*pi r)*60|, which means ``the sine of $0.5$ times $\pi$
+    radians, multiplied by 60''. The argument of functions can
+    be any expression.
+    
   \item
-  Scientific notation in the form |1.234e+4| is recognized (but
-  the restriction on the range of values still applies). The exponent
-  symbol can be upper or lower case (i.e., |E| or |e|).
-
+    Scientific notation in the form |1.234e+4| is recognized (but
+    the restriction on the range of values still applies). The exponent
+    symbol can be upper or lower case (i.e., |E| or |e|).
+    
   \item
-  An integer with a zero-prefix (excluding, of course zero itself),
-  is interpreted as an octal number and is automatically converted
-  to base 10.
-
+    An integer with a zero-prefix (excluding, of course zero itself),
+    is interpreted as an octal number and is automatically converted
+    to base 10.
+    
   \item
-  An integer with prefix |0x| or |0X| is interpreted as a hexadecimal
-  number and is automatically converted to base 10. Alphabetic digits
-  can be in uppercase or lowercase.
-
-	\item
-  An integer with prefix |0b| or |0B| is interpreted as a binary
-  number and is automatically converted to base 10.
-
+    An integer with prefix |0x| or |0X| is interpreted as a hexadecimal
+    number and is automatically converted to base 10. Alphabetic digits
+    can be in uppercase or lowercase.
+    
   \item
-  An expression (or part of an expression) surrounded with double
-  quotes (i.e., the character |"|) will not be evaluated.
-  Obviously this should be used with great care.
-
-\end{itemize}
+    An integer with prefix |0b| or |0B| is interpreted as a binary
+    number and is automatically converted to base 10.
+    
+  \item
+    An expression (or part of an expression) surrounded with double
+    quotes (i.e., the character |"|) will not be evaluated.
+    Obviously this should be used with great care.
+    
+  \end{itemize}
 
 \end{command}
 
@@ -155,15 +176,54 @@ magnitude faster than calling the parser.
 The effect of the following commands is always local to the current
 \TeX\ scope.
 
-\begin{command}{\pgfmathsetlength\marg{dimension register}\marg{expression}}
-  Sets the length of the \TeX{} \meta{dimension register}, to the value
-  (in points) specified by \meta{expression}. The \meta{expression}
-  will be parsed using |\pgfmathparse|.
+\begin{command}{\pgfmathsetlength\marg{register}\marg{expression}}
+  Basically, this command sets the length of the \TeX{}
+  \meta{register} to the value specified by
+  \meta{expression}. However, there is some fine print:
+
+  First, in case \meta{expression} starts with a |+|, a simple \TeX\
+  assigment is done. In particular, \meta{register} can be a glue
+  register and \meta{expression} be something like |+1pt plus 1fil|
+  and the \meta{register} will be assigned the expected value.
+
+  Second, when the \meta{expected} does not start with |+|, it is
+  first parsed using |\pgfmathparse|, resulting in a (dimensionless)
+  value |\pgfmathresult|. Now, if the parser encountered the unit |mu|
+  somewhere in the expression, it assumes that \meta{register} is a
+  |\muskip| register and will try to assign to \meta{register} the
+  value |\pgfmathresult| followed by |mu|. Otherwise, in case |mu| was
+  not encountered, it is assumed that \meta{register} is a dimension
+  register or a glue register and we assign |\pgfmathresult| followed
+  by |pt| to it.
+
+  The net effect of the above is that you can write things like
+\begin{codeexample}[]
+  \muskipdef\mymuskip=0
+  \pgfmathsetlength{\mymuskip}{1mu+3*4mu} \the\mymuskip 
+\end{codeexample}
+\begin{codeexample}[]  
+  \dimendef\mydimen=0  
+  \pgfmathsetlength{\mydimen}{1pt+3*4pt}  \the\mydimen
+\end{codeexample}
+\begin{codeexample}[]  
+  \skipdef\myskip=0  
+  \pgfmathsetlength{\myskip}{1pt+3*4pt}  \the\myskip
+\end{codeexample}
+
+  One thing that will \emph{not} work is
+  |\pgfmathsetlength{\myskip}{1pt plus 1fil}| since the parser does
+  not support fill's. You can, however, use the |+| notation in this
+  case: 
+\begin{codeexample}[]  
+  \skipdef\myskip=0  
+  \pgfmathsetlength{\myskip}{+1pt plus 1fil}  \the\myskip
+\end{codeexample}
 \end{command}
 
-\begin{command}{\pgfmathaddtolength\marg{dimension register}\marg{expression}}
-  Adds the value (in points) of \meta{expression} to the \TeX{}
-  \meta{dimension register}.
+\begin{command}{\pgfmathaddtolength\marg{register}\marg{expression}}
+  Adds the value of \meta{expression} to the \TeX{}
+  \meta{register}. All of the special consideration mentioned for
+  |\pgfmathsetlength| also apply here in the same way.
 \end{command}
 
 \begin{command}{\pgfmathsetcount\marg{count register}\marg{expression}}
