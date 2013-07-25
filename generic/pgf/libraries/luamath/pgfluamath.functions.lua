@@ -289,8 +289,8 @@ function pgfluamathfunctions.aTan(x)
    return mathdeg(mathatan(x))
 end
 
-function pgfluamathfunctions.aTan2(x,y)
-   return mathdeg(mathatan2(x,y))
+function pgfluamathfunctions.aTan2(y,x)
+   return mathdeg(mathatan2(y,x))
 end
 
 function pgfluamathfunctions.pointnormalised (pgfx, pgfy)
