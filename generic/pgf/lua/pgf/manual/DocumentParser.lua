@@ -262,7 +262,7 @@ DocumentParser.addRenderer (
 	  tex.print("\\par\\emph{Alphabetical method summary:}\\par{\\small")
 	  table.sort(output[name], function (a,b) return a.text < b.text end)
 	  for _,l in ipairs(output[name]) do
-	    tex.print("\\texttt{\\hyperlink{" .. l.link .. "}{" .. l.text:gsub("_", "\\_") .. "}}\\\\")
+	    tex.print("\\texttt{\\hyperlink{" .. l.link .. "}{" .. l.text:gsub("_", "\\_") .. "}}\\par")
 	  end
 	  tex.print("}")
 	end

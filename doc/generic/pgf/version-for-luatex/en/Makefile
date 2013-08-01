@@ -27,6 +27,11 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	@echo "Use 'make dist' to generate auto-xrefs."
 
+test: $(doc)-test.tex $(doc).ind 
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
+	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
+	@echo "Use 'make dist' to generate auto-xrefs."
+
 FORCE:
 
 clean:
