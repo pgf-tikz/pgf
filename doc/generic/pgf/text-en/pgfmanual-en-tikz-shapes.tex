@@ -19,8 +19,8 @@ another simple shape with some text on it.
 
 Nodes are added to paths using the special path
 operation |node|. Nodes \emph{are not part of the path
-  itself}. Rather, they are added to the picture after the path has
-been drawn.
+  itself}. Rather, they are added to the picture just before or after
+the path has been drawn.
 
 In Section~\ref{section-nodes-basic} the basic syntax of the node
 operation is explained, followed in Section~\ref{section-nodes-multi}
@@ -58,7 +58,7 @@ There are no special \TeX\ commands for adding a node to a picture; rather,
 there is path operation called |node| for this. Nodes are created
 whenever \tikzname\ encounters |node| or |coordinate| at a point on a
 path where it would expect a normal path operation (like |-- (1,1)| or
-|sin (1,1)|). It is also possible to give node specifications
+|rectangle (1,1)|). It is also possible to give node specifications
 \emph{inside} certain path operations as explained later.
 
 The node operation is typically followed by some options, which apply
@@ -66,23 +66,29 @@ only to the node. Then, you can optionally \emph{name} the node by
 providing a name in round braces. Lastly, for the |node| operation you
 must provide some label text for the node in curly braces, while for
 the |coordinate| operation you may not. The node is placed at the
-current position of the path \emph{after the path has been
-  drawn}. Thus, all nodes are drawn ``on top'' of the path and are
-retained until the path is complete. If there are several nodes on a
-path, they are drawn on top of the path in the order they are
-encountered.
+current position of the path either \emph{after the path has been
+  drawn} or (more seldomly and only if you add the |behind path|
+option) \emph{just before the path is drawn.} Thus, all nodes are
+drawn ``on top'' or ``behind'' the path and are retained until the
+path is complete. If there are several nodes on a path, perhaps some
+behind and some on top of the path, first come the nodes behind the
+path in the order they were encountered, then comes that path, and
+then come the remaining node, again in the order they are
+encountered. 
 
 \begin{codeexample}[]
-\tikz \fill[fill=examplefill]
-     (0,0) node {first node}
-  -- (1,1) node {second node}
-  -- (0,2) node {third node};
+\tikz \fill [fill=yellow!80!black]
+     (0,0) node              {first node}  
+  -- (1,1) node[behind path] {second node}
+  -- (0,2) node              {third node};
 \end{codeexample}
+
+\subsubsection{Syntax of the Node Command}
 
 The syntax for specifying nodes is the following:
 \begin{pathoperation}{node}{\opt{\meta{foreach statements}}%
       \opt{|[|\meta{options}|]|}\opt{|(|\meta{name}|)|}%
-    \opt{|at(|\meta{coordinate}|)|}\opt{\marg{text}}}
+    \opt{|at(|\meta{coordinate}|)|}\opt{\marg{node contents}}}
   Since this path operation is one of the most involved around, let us
   go over it step by step.
 
@@ -95,11 +101,44 @@ The syntax for specifying nodes is the following:
   \meta{options}, the  \meta{name}, and \meta{coordinate}) is
   arbitrary, indeed, there can be multiple occurrences of any of these
   elements (although only for options this makes much sense).  
+  
+  \medskip
+  \textbf{The text of a node.}
+  At the end of a node, you must (normally) provide some \meta{node contents}
+  in curly braces; indeed, the ``end'' of the node specification is
+  detected by the opening curly brace. For normal nodes it is possible to use
+  ``fragile'' stuff inside the \meta{node contents} like the |\verb|
+  command (for the technically savvy: code inside the \meta{node
+    contents} is allowed to change catcodes; however, this rule does
+  not apply to ``nodes on a path'' to be discussed later).
+
+  Instead of giving \meta{node contents} at the end of the node in
+  curly braces, you can also use the following key:
+  \begin{key}{/tikz/node contents=\meta{node contents}}
+    \label{option-node-contents}%
+    This key sets that contents of the node to the given text as if
+    you had given it at the end in curly braces. When the option is
+    used inside the options of a node, the parsing of the node stops
+    immediately after the end of the option block. In particular, the
+    option block cannot be followed by further option blocks or curly
+    braces (or, rather, these do not count as part of the node
+    specification.) Also note that the \meta{node contents} may not
+    contain fragile stuff since the catcodes get fixed upon reading
+    the options. Here is an example:
+\begin{codeexample}[]
+\tikz {
+  \path (0,0) node [red]                    {A}
+        (1,0) node [blue]                   {B}
+        (2,0) node [green, node contents=C]
+        (3,0) node [node contents=D]           ;
+}
+\end{codeexample}
+\end{key}
 
   \medskip
   \textbf{Specifying the location of the node.}
-  Normally, as explained earlier, nodes at placed at the last position
-  mentioned on the path. The effect of adding ``|at|'' to a node
+  Nodes are placed at the last position mentioned on the path. The
+  effect of adding ``|at|'' to a node 
   specification is that the coordinate given after |at| is used
   instead. The |at| syntax is not available when a node is given
   inside a path operation (it would not make any sense there).
@@ -109,6 +148,43 @@ The syntax for specifying nodes is the following:
     typically, you will have to enclose the \meta{coordinate} in curly
     braces so that a comma inside the \meta{coordinate} does not
     confuse \TeX.
+  \end{key}
+
+  Another aspect of the ``location'' of a node is whether it appears
+  \emph{in front of} or \emph{behind} the current path. You can change
+  which of these two possibilities happens on a node-by-node basis
+  using the following keys:
+  \begin{key}{/tikz/behind path}
+    When this key is set, either as a local option for the node or
+    some surrounding scope, the node will be drawn behind the current
+    path. For this, \tikzname\ collects all nodes defined on the
+    current path with this option set and then inserts all of them, in
+    the order they appear, just before it draws the path. Thus,
+    several nodes with this option set may obscure one anther, but
+    never the path itself. ``Just before it draws the path'' actually
+    means that the nodes are inserted into the page output just before
+    any pre-actions are applied to the path (see below for what
+    pre-actions are).
+\begin{codeexample}[]
+\tikz \fill [fill=blue!50, draw=blue, very thick]
+      (0,0)   node [behind path, fill=red!50]   {first node}
+   -- (1.5,0) node [behind path, fill=green!50] {second node}
+   -- (1.5,1) node [behind path, fill=brown!50] {third node}
+   -- (0,1)   node [             fill=blue!30]  {fourth node};
+\end{codeexample}
+    
+    Note that |behind path| only applies to the current path; not to
+    the current scope or picture. To put a node ``behind everything''
+    you need to use layers and options like |on background layer|, see
+    the background library in Section~\ref{section-tikz-backgrounds}.
+  \end{key}
+
+  \begin{key}{/tikz/in front of path}
+    This is the opposite of |behind path|: It causes nodes to be drawn
+    on top of the path. Since this is the default behaviour, you
+    usually do not need this option; it is only needed when an
+    enclosing scope has used |behind path| and you now wish to
+    ``switch back'' to the normal behaviour.
   \end{key}
   
   \medskip
@@ -130,10 +206,11 @@ The syntax for specifying nodes is the following:
   \begin{key}{/tikz/alias=\meta{another node name}}
     This option allows you to provide another name for the
     node. Giving this option multiple times will allow you to access
-    the node via several aliases. Using the |late options| option,
-    you can also assign an alias name to a node at a later point.
+    the node via several aliases. Using the |node also| syntax,
+    you can also assign an alias name to a node at a later point, see
+    Section~\ref{section-node-also}. 
   \end{key}
-
+    
   \medskip
   \textbf{The options of a node.}
   The \meta{options} is an optional list of options that \emph{apply
@@ -149,9 +226,9 @@ The syntax for specifying nodes is the following:
   As mentioned before, we can add a border and even a background to a
   node:
 \begin{codeexample}[]
-\tikz \fill[fill=examplefill]
+\tikz \fill[fill=yellow!80!black]
       (0,0) node {first node}
-   -- (1,1) node[draw] {second node}
+   -- (1,1) node[draw, behind path] {second node}
    -- (0,2) node[fill=red!20,draw,double,rounded corners] {third node};
 \end{codeexample}
 
@@ -162,10 +239,10 @@ The syntax for specifying nodes is the following:
   |shapes.geometric| library for the latter shape):
 
 \begin{codeexample}[]
-\tikz \fill[fill=examplefill]
-      (0,0) node{first node}
-   -- (1,1) node[ellipse,draw] {second node}
-   -- (0,2) node[circle,fill=red!20] {third node};
+\tikz \fill[fill=yellow!80!black]
+      (0,0) node                            {first node}
+   -- (1,1) node[ellipse,draw, behind path] {second node}
+   -- (0,2) node[circle,fill=red!20]        {third node};
 \end{codeexample}
 
   There are many more shapes available such as, say, a shape for a
@@ -192,7 +269,7 @@ The syntax for specifying nodes is the following:
 
   \medskip
   \textbf{The foreach statement for nodes.}
-  A the beginning of a node specification you can provide multiple
+  At the beginning of a node specification (and only there) you can provide multiple
   \meta{foreach statements}, each of which has the form |foreach| \meta{var}
   |in| |{|\meta{list}|}| (note that there is no slash before
   |foreach|). When they are given, instead of a single node, multiple
@@ -243,6 +320,46 @@ The syntax for specifying nodes is the following:
 \end{tikzpicture}
 \end{codeexample}
   \end{stylekey}
+  
+  \medskip
+  \textbf{Name scopes.}
+  It turns out that the name of a node can further be influenced using
+  two keys:
+  \begin{key}{/tikz/name prefix=\meta{text} (initially \normalfont empty)}
+    The value of this key is prefixed to every node inside the
+    current scope. This includes both the naming of the node (via
+    the |name| key or via the implicit |(|\meta{name}|)| syntax) as
+    well as any referencing of the node. Outside the scope,
+    the nodes can (and need to) be referenced using ``full name''
+    consisting of the prefix and the node name.
+    
+    The net effect of this is that you can set the name prefix at
+    the beginning of a scope to some value and then use short and
+    simple names for the nodes inside the scope. Later, outside the
+    scope, you can reference the nodes via their full name:
+\begin{codeexample}[]
+\tikz {
+  \begin{scope}[name prefix = top-]
+    \node (A) at (0,1) {A};
+    \node (B) at (1,1) {B};
+    \draw (A) -- (B);
+  \end{scope}
+  \begin{scope}[name prefix = bottom-]
+    \node (A) at (0,0) {A};
+    \node (B) at (1,0) {B};
+    \draw (A) -- (B);
+  \end{scope}
+  
+  \draw [red] (top-A) -- (bottom-B);  
+}
+\end{codeexample}
+    As can be seen, name prefixing makes it easy to write
+    ``recycable'' code.
+  \end{key}
+  \begin{key}{/tikz/name suffix=\meta{text} (initially \normalfont empty)}
+    Works as |name prefix|, only the \meta{text} is appended to
+    every node name in the current scope.  
+  \end{key}      
 \end{pathoperation}
 
 There is a special syntax for specifying ``light-weight'' nodes:
@@ -299,12 +416,12 @@ demonstrates the difference:
   \path[yshift=1.5cm,shape=rectangle]
     (0,0) node(a1){} (1,0) node(a2){}
     (1,1) node(a3){} (0,1) node(a4){};
-  \filldraw[fill=examplefill] (a1) -- (a2) -- (a3) -- (a4);
+  \filldraw[fill=yellow!80!black] (a1) -- (a2) -- (a3) -- (a4);
 
   \path[shape=coordinate]
     (0,0) coordinate(b1) (1,0) coordinate(b2)
     (1,1) coordinate(b3) (0,1) coordinate(b4);
-  \filldraw[fill=examplefill] (b1) -- (b2) -- (b3) -- (b4);
+  \filldraw[fill=yellow!80!black] (b1) -- (b2) -- (b3) -- (b4);
 \end{tikzpicture}
 \end{codeexample}
 
@@ -336,7 +453,7 @@ shapes:
 \begin{tikzpicture}
   \draw (0,0)     node[inner sep=0pt,draw] {tight}
         (0cm,2em) node[inner sep=5pt,draw] {loose}
-        (0cm,4em) node[fill=examplefill]   {default};
+        (0cm,4em) node[fill=yellow!80!black]   {default};
 \end{tikzpicture}
 \end{codeexample}
 \end{key}
@@ -369,7 +486,7 @@ shapes:
 \begin{codeexample}[]
 \begin{tikzpicture}
   \draw[line width=5pt]
-    (0,0) node[outer sep=0pt,fill=examplefill]     (f) {filled}
+    (0,0) node[outer sep=0pt,fill=yellow!80!black]     (f) {filled}
     (2,0) node[inner sep=.5\pgflinewidth+2pt,draw] (d) {drawn};
 
   \draw[->] (1,-1) -- (f);
@@ -705,7 +822,7 @@ lines of text. There are three different ways of achieving this:
   The |\\| command takes an optional extra space as an argument in square
   brackets.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,align=right]
+\tikz \node[fill=yellow!80!black,align=right]
   {This is a\\[-2pt] demonstration text for\\[1ex] alignments.};
 \end{codeexample}
 \item You can request that \tikzname\ does an automatic line-breaking
@@ -730,7 +847,7 @@ Let us now first have a look at the |text width| command.
   change the alignment using |align| or directly using commands line
   |\centering|.
 \begin{codeexample}[]
-\tikz \draw (0,0) node[fill=examplefill,text width=3cm]
+\tikz \draw (0,0) node[fill=yellow!80!black,text width=3cm]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
   Setting \meta{dimension} to an empty string causes the automatic
@@ -758,13 +875,13 @@ Let us now first have a look at the |text width| command.
     For alignment without line breaking, the different lines are simply
     aligned such that their left borders are below one another.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,align=left]
+\tikz \node[fill=yellow!80!black,align=left]
   {This is a\\ demonstration text for\\ alignments.};
 \end{codeexample}
     For alignment with line breaking, the same will happen only
     the lines will now, additionally, be broken automatically:
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=left]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=left]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
@@ -779,36 +896,36 @@ Let us now first have a look at the |text width| command.
     it may be useful for very narrow boxes and when you wish to avoid
     hyphenations.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=flush left]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=flush left]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
   \item[|align=|\declare{|right|}]
     Works like |left|, only for right alignment.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,align=right]
+\tikz \node[fill=yellow!80!black,align=right]
   {This is a\\ demonstration text for\\ alignments.};
 \end{codeexample}
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=right]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=right]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
   \item[|align=|\declare{\texttt{flush right}}]
     Works like |flush left|, only for right alignment.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=flush right]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=flush right]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
   \item[|align=|\declare{|center|}]
     Works like |left| or |right|, only for centered alignment.
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,align=center]
+\tikz \node[fill=yellow!80!black,align=center]
   {This is a\\ demonstration text for\\ alignments.};
 \end{codeexample}
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=center]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=center]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
@@ -840,7 +957,7 @@ Let us now first have a look at the |text width| command.
     text, in which case |center| will give the typographically better
     results. 
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=flush center]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=flush center]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 
@@ -851,7 +968,7 @@ Let us now first have a look at the |text width| command.
 {%
 \hbadness=10000
 \begin{codeexample}[]
-\tikz \node[fill=examplefill,text width=3cm,align=justify]
+\tikz \node[fill=yellow!80!black,text width=3cm,align=justify]
   {This is a demonstration text for showing how line breaking works.};
 \end{codeexample}
 }
@@ -2665,6 +2782,7 @@ page).
 
 
 \subsection{Late Code and Late Options}
+\label{section-node-also}
 
 All options given to a node only locally affect this one node. While
 this is a blessing in most cases, you may sometimes want to cause

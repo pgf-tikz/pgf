@@ -39,15 +39,29 @@
 % To avoid this problem, we need to change the color temporarily to another.
 %
 % We assume that black is the default color when no color is specified.
-\def\start@force@reset@color{%
+\def\pgfsys@dvipdfmx@start@force@reset@color{%
   \special{pdf:bcolor [1]}%
   \special{pdf:bcolor [0]}%
 }
-\def\stop@force@reset@color{%
+\def\pgfsys@dvipdfmx@stop@force@reset@color{%
   \special{pdf:ecolor}%
   \special{pdf:ecolor}%
 }
 
+
+\def\pgfsys@dvipdfmx@suspendcontent{%
+  \special{pdf:code q -1 0 0 -1 0 0 cm q}%
+  \special{pdf: econtent}%
+  \special{pdf: bcontent}%
+  \special{pdf:code -1 0 0 -1 0 0 cm}%
+  \special{pdf:code q}% translate to original system
+  \special{pdf: econtent}%
+}
+
+\def\pgfsys@dvipdfmx@unsuspendcontent{%
+  \special{pdf: bcontent}%
+  \special{pdf:code Q Q Q}%
+}
 
 \def\pgfsys@hbox#1{%
   \pgfsys@beginscope%
@@ -55,37 +69,35 @@
     \wd#1=0pt%
     \ht#1=0pt%
     \dp#1=0pt%
+    \pgfsys@dvipdfmx@suspendcontent%
     \pgfsys@invoke{0 J [] 0 d}% reset line cap and dash
-   \box#1%
+    \pgfsys@dvipdfmx@start@force@reset@color%
+    \box#1%
+    \pgfsys@dvipdfmx@stop@force@reset@color%
+    \pgfsys@dvipdfmx@unsuspendcontent%
   \pgfsys@endscope%
 }
 
 % We cannot use many codes in pgfsys-common-pdf-via-dvi.def.
 % So it is rewritten here (with some bugs fixed).
 \def\pgfsys@hboxsynced#1{%
-  {%
-    \pgfsys@beginscope%
-    \setbox\pgf@hbox=\hbox{%
-      \hskip\pgf@pt@x%
-      \raise\pgf@pt@y\hbox{%
-        \pgf@pt@x=0pt%
-        \pgf@pt@y=0pt%
-        % The order of `pdf:bcontent' is important here. It should be
-        % followed by \pgflowlevelsynccm, not reverse order.
-        \special{pdf:bcontent}%
-        \pgflowlevelsynccm% 
-        \start@force@reset@color%
-        \pgfsys@hbox#1%
-        \stop@force@reset@color%
-        \special{pdf:econtent}}%
-      \hss%
-    }%
-    \wd\pgf@hbox=0pt%
-    \ht\pgf@hbox=0pt%
-    \dp\pgf@hbox=0pt%
-    \box\pgf@hbox%
-    \pgfsys@endscope%
-  }%
+  \pgfsys@beginscope%
+    \setbox#1=\hbox{\box#1}%
+    \wd#1=0pt%
+    \ht#1=0pt%
+    \dp#1=0pt%
+    \pgfsys@dvipdfmx@suspendcontent%
+    \pgfsys@invoke{0 J [] 0 d}% reset line cap and dash
+    \pgfsys@dvipdfmx@start@force@reset@color%
+    \pgf@sys@bp@correct\pgf@pt@x%
+    \pgf@sys@bp@correct\pgf@pt@y%
+    \special{pdf:btrans matrix \pgf@pt@aa\space \pgf@pt@ab\space \pgf@pt@ba\space \pgf@pt@bb\space 
+      \pgf@sys@tonumber{\pgf@pt@x} \pgf@sys@tonumber{\pgf@pt@y}}%
+    \box#1%
+    \special{pdf:etrans}%
+    \pgfsys@dvipdfmx@stop@force@reset@color%
+    \pgfsys@dvipdfmx@unsuspendcontent%
+  \pgfsys@endscope%
 }
 
 % All text materials between `pdf:bcontent' and `pdf:econtent' are

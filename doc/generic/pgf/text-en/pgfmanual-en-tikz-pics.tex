@@ -1,0 +1,454 @@
+% Copyright 2013 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\section{Pics: Small Pictures on Paths}
+
+\label{section-pics}
+
+\subsection{Overview}
+
+A ``pic'' is a ``short picture'' (hence the short name\dots) that can
+be inserted anywhere in \tikzname-picture where you could also insert
+a node. Similarly to nodes, pics have a ``shape'' (called \emph{type}
+to avoid confusion) that someone has defined. Each time a pic of a
+specified type is used, the type's code is executed, resulting in some
+drawings to be added to the current picture. The syntax for adding
+nodes and adding pics to a picture are also very similar. The core
+difference is that pics are typically more complex than nodes and may
+consist of a whole bunch of nodes themselves together with complex
+paths joining them.
+
+As a very simple example, suppose we want to define a pic type
+|seagull| that just draw ``two bumps.'' The code for this definition
+is quite easy:
+\begin{codeexample}[code only]
+\tikzset{ 
+  seagull/.pic={
+    % Code for a "seagull". Do you see it?...
+    \draw (-3mm,0) to [bend left] (0,0) to [bend left] (3mm,0);
+  }
+}
+\end{codeexample}
+
+The first line just tells \TeX\ that you set some \tikzname\ options
+for the current scope (which is the whole document); you could put
+|seagull/.pic=...| anywhere else where \tikzname\ options are allowed
+(which is just about anywhere). We have now defined a |seagull| pic
+type and can use it as follows:
+
+\tikzset{ 
+  seagull/.pic={
+    % Code for a "seagull". Do you see it?...
+    \draw (-3mm,0) to [bend left] (0,0) to [bend left] (3mm,0);
+  }
+}
+\begin{codeexample}[]
+\tikz \fill [fill=blue!20]
+     (1,1)
+  -- (2,2) pic             {seagull}
+  -- (3,2) pic             {seagull}
+  -- (3,1) pic [rotate=30] {seagull}
+  -- (2,1) pic [red]       {seagull};
+\end{codeexample}
+
+As can be see, defining new types of pics is much easier than defining
+new shapes for nodes; but see Section~\ref{section-new-pic-types}
+for the fine details.
+
+Since defining new pics types is easier than defining new node shapes
+and since using pics is as easy as using nodes, why should you use
+nodes at all? There are chiefly two reasons:
+
+\begin{enumerate}
+\item Unlike nodes, pics cannot be referenced later on. You \emph{can}
+  reference nodes that are inside a pic, but not ``the pic itself.''
+  In particular, you cannot draw lines between pics the way you
+  can draw them between nodes. In general, whenever it makes sense
+  that some drawing could conceivably be connected to other
+  node-like-things, then a node is better than a pic. 
+\item If pics are used to emulate the full power of a node (which is
+  possible, in principle), they will be slower to construct and take
+  up more memory than a node achieving the same effect.
+\end{enumerate}
+
+Despite these drawbacks, pics are an excellent choice for creating
+highly configurable reusable pieces of drawings that can be inserted
+into larger contexts.
+
+
+\subsection{The Pic Syntax}
+
+\begin{command}{\pic}
+  Inside |{tikzpicture}| this is an abbreviation for |\path pic|.
+\end{command}
+
+The syntax for adding a pic to a picture is very similar to the syntax
+used for nodes (indeed, internally the same parser code is used). The
+main difference is that instead of a node contents you provide the
+picture's type between the  braces:
+
+\begin{pathoperation}{pic}{\opt{\meta{foreach statements}}%
+      \opt{|[|\meta{options}|]|}\opt{|(|\meta{prefix}|)|}%
+    \opt{|at(|\meta{coordinate}|)|}\opt{\marg{pic type}}}
+  
+  Adds a pic to the current \tikzname\ picture of the specified
+  \meta{pic type}. The effect is, basically, that some code associated
+  with the \meta{pic type} (how this works, exactly, is explained
+  later). This code can consists of arbitrary \tikzname\ code. As for
+  nodes, the current path will not be modified by this path command,
+  all drawings produced by the code are ``external'' to the path the
+  same way neither a node nor its border are part of the path on which
+  they are specified. 
+  
+  Just like the |node| command, this path operation is somewhat
+  complex and we go over it step by step.
+
+  \medskip
+  \textbf{Order of the parts of the specification.}
+  Just like for nodes, everything between ``|pic|'' and the opening
+  brace of the \meta{pic type} is optional and can be given in any
+  order. If there are \meta{foreach statements}, they must come
+  first, directly following ``|pic|.'' As for nodes, the ``end'' of
+  the pic specification is normally detected by the presence of the
+  opening brace. You can, however, use the |pic type|
+  option to specify the pic type as an option.
+  
+  \begin{key}{/tikz/pic type=\meta{pic type}}
+    This key sets the pic type of the current~|pic|. When this option
+    is used inside an option block of a |pic|, the parsing of the
+    |pic| ends immediately and no pic type in braces is expected. (In
+    other words, this option behaves exactly like the |node contents|
+    option and, indeed, the two are interchangeable.) 
+\begin{codeexample}[]
+\tikz {
+  \path (0,0) pic [pic type = seagull]
+        (1,0) pic                      {seagull};
+}
+\end{codeexample}
+  \end{key}
+
+  \medskip
+  \textbf{The location of a pic.}
+  Just like nodes, pics are placed at the last position mentioned on
+  the path or, when |at| is used, at a specified position. ``Placing''
+  a pic somewhere actually means that the coordinate system is
+  translated (shifted) to this last position. This means that inside
+  of the pic type's code any mentioning of the origin refers to the
+  last position used on the path or to the specified |at|.
+
+\begin{codeexample}[]
+\tikz { % different ways of placing pics
+  \draw [help lines] (0,0) grid (3,2);
+  \pic  at (1,0)     {seagull};
+  \path (2,1)    pic {seagull};
+  \pic  [at={(3,2)}] {seagull};
+}
+\end{codeexample}
+
+  As for nodes, except for the described shifting, the coordinate
+  system of a pic is reset prior to executing the pic type's
+  code. This can be changed using the |transform shape| option, which
+  has the same effect as for nodes: The ``outer'' transformation gets
+  applied to the node:
+\begin{codeexample}[]
+\tikz [scale=2] { 
+  \pic at (0,0)                   {seagull};
+  \pic at (1,0) [transform shape] {seagull};
+}
+\end{codeexample}
+
+  When the \meta{options} contain transformation commands like |scale|
+  or |rotate|, these transformations always apply to the pic:
+\begin{codeexample}[]
+\tikz [rotate=30] { 
+  \pic at (0,0)             {seagull};
+  \pic at (1,0) [rotate=90] {seagull};
+}
+\end{codeexample}
+
+  Just like nodes, pics can also be positioned implicitly and,
+  somewhat unsurprisingly, the same rules concerning positioning and
+  sloping apply:
+\begin{codeexample}[]
+\tikz \draw
+  (0,0) to [bend left] 
+           pic [near start]       {seagull} 
+           pic                    {seagull}
+           pic [sloped, near end] {seagull} (4,0);
+\end{codeexample}
+  
+  \medskip
+  \textbf{The options of a node.}
+  As always, any given \meta{options} apply only to the pic and have
+  no effect outside. As for nodes, most ``outside'' options also apply
+  to the pics, but not the ``action'' options like |draw| or
+  |fill|. These must be given in the \meta{options} of the pic.
+
+  \medskip
+  \textbf{The code of a pic.}
+  As stated earlier, the main job of a pic is to execute some code in
+  a scope that is shifted according to the last point on the path or
+  to the |at| position specified in the pic. It was also claimed that
+  this code is specified by the \meta{pic type}. However, this
+  specification is somewhat indirect. What really happens is the
+  following: When a |pic| is encountered, the current path is
+  suspended and a new internal scope is started. The \meta{options}
+  are executed and also the \meta{pic type} (as explained
+  in a moment). After all this is done, the code stored in the following key
+  gets executed:
+
+  \begin{key}{/tikz/pics/code=\meta{code}}
+    This key stores the \meta{code} that should be drawn in the
+    current pic. Normally, setting this key is done by the \meta{pic
+      type}, but you can also set it in the \meta{options} and leave
+    the \meta{pic type} empty:
+\begin{codeexample}[]
+\tikz \pic [pics/code={\draw (-3mm,0) to[bend left] (0,0)
+                                      to[bend left] (3mm,0);}]
+      {}; % no pic type specified
+\end{codeexample}
+  \end{key}
+  
+  Now, how does the \meta{pic type} set |pics/code|? It turns out that
+  the \meta{pic type} is actually just a list of keys that are
+  executed with the prefix |/tikz/pics/|. In the above examples, this
+  ``list of keys'' just consisted of the single key ``|seagull|'' that
+  did not take any arguments, but, in principle, you could provide any
+  arbitrary text understood by |\pgfkeys| here. This means that when
+  we write |pic{seagull}|, \tikzname\ will execute the key
+  |/tikz/pics/seagull|. It turns out, see
+  Section~\ref{section-new-pic-types}, that this key is just a style
+  set to |code={\draw(-3mm,0)...;}|. Thus, |pic{seagull}| will cause
+  the |pics/code| key to be set to the text needed to draw the
+  seagull.
+  
+  In our seagull example, we always explicitly used |\draw| to draw
+  the seagull. This implies that when a user writes something
+  |pic[fill]{seagull}| in the hope of having a ``filled'' seagull,
+  nothing special will happen: The |\draw| inside the pic explicitly
+  states that the path should be drawn, not filled, and the fact that
+  in the surrounding scope the |fill| option is set has no effect.
+  The following key can be used to change this:
+  \begin{key}{/tikz/pic action}
+    This key is a style that can be used (only) inside the code of a
+    pic. There, it will set the ``action'' keys set inside the
+    \meta{options} of the pic (``actions'' are drawing, filling,
+    shading, and clipping or any combination thereof).
+
+    To see how this key works, let us define the following pic:
+\begin{codeexample}[code only]
+\tikzset{
+  my pic/.pic = {
+    \path [pic actions] (0,0) circle[radius=3mm];
+    \draw (-3mm,-3mm) rectangle (3mm,3mm);
+  }
+}
+\end{codeexample}
+    In the code, whether or not the circle gets drawn/filled/shaded
+    depends on which options where given to the |pic| command when it
+    is used. In contrast, the rectangle will always (just) be drawn.
+\tikzset{
+  my pic/.pic = {
+    \path [pic actions] (0,0) circle[radius=3mm];
+    \draw (-3mm,-3mm) rectangle (3mm,3mm);
+  }
+}
+\begin{codeexample}[width=6cm]
+\tikz \pic                      {my pic}; \space
+\tikz \pic [red]                {my pic}; \space
+\tikz \pic [draw]               {my pic}; \space
+\tikz \pic [draw=red]           {my pic}; \space
+\tikz \pic [draw, shading=ball] {my pic}; \space
+\tikz \pic [fill=red!50]        {my pic};
+\end{codeexample}
+  \end{key}
+  
+  \medskip
+  \textbf{Code executed behind or in front of the path.}
+  As for nodes, a pic can be ``behind'' the current path or ``in front
+  of it'' and, just as for nodes, the two options |behind path| and
+  |in front of path| are used to specify which is meant. In detail, if
+  |node| and |pic| are both used repeatedly on a path, in the
+  resulting picture we first see all nodes and pics with the
+  |behind path| option set in the order they appear on the path (nodes
+  and pics are interchangeable in this regard), then comes the path,
+  and then come all nodes and pics that are in front of the path in
+  the order they appeared.
+\begin{codeexample}[]
+\tikz \fill [fill=blue!20]
+     (1,1)
+  -- (2,2) pic [behind path]      {seagull}
+  -- (3,2) pic                    {seagull}
+  -- (3,1) pic [rotate=30]        {seagull}
+  -- (2,1) pic [red, behind path] {seagull};
+\end{codeexample}
+  In contrast to nodes, a pic need not only be completely behind
+  the path or in front of the path as specified by the user. Instead,
+  a pic type may also specify that a certain part of the drawing
+  should always be behind the path and it may specify that a certain
+  other part should always be before the path. For this, the values of
+  the following keys are relevant:
+  
+  \begin{key}{/tikz/pics/foreground code=\meta{code}}
+    This key stores \meta{code} that will always be drawn in front of
+    the current path, even when |behind path| is used. If
+    |behind path| is not used and |code| is (also) set, the code of
+    |code| is 
+    drawn first, following by the foreground \meta{code}.
+  \end{key}
+  
+  \begin{key}{/tikz/pics/background code=\meta{code}}
+    Like |foreground code|, only that the \meta{code} is always put
+    behind the path, never in front of it.
+  \end{key}
+  
+  \medskip
+  \textbf{The foreach statement for pics.}
+  As for nodes, a pic specification may start with |foreach|. The
+  effect and semantics are the same as for nodes.
+\begin{codeexample}[]
+\tikz \pic foreach \x in {1,2,3} at (\x,0) {seagull};
+\end{codeexample}
+
+  \medskip
+  \textbf{Styles for pics.}
+  The following styles influence how nodes are rendered:
+  \begin{stylekey}{/tikz/every pic (initially \normalfont empty)}
+    This style is installed at the beginning of every pic.
+\begin{codeexample}[]
+\begin{tikzpicture}[every node/.style={draw}]
+  \draw (0,0) node {A} -- (1,1) node {B};
+\end{tikzpicture}
+\end{codeexample}
+  \end{stylekey}
+
+  
+  \medskip
+  \textbf{Name scopes.}
+  You can specify a \meta{name} for a pic using the key
+  |name=|\meta{name} or by giving the name in parenthesis inside the
+  pic's specification. The effect of this is, for once, quite
+  different from what happens for nodes: All that happens is that
+  |name prefix| is set to \meta{name} at the beginning of the pic.
+  
+  The |name prefix| key was already introduced in the description of
+  the |node| command: It allows you to set some text that is prefixed
+  to all nodes in a scope. For pics this makes particular sense: All
+  nodes defined by a pic's code can be referenced from outside the pic
+  with the prefix provided.
+
+  To see how this works, let us add some nodes to the code of the
+  seagull:
+\begin{codeexample}[code only]
+\tikzset{ 
+  seagull/.pic={
+    % Code for a "seagull". Do you see it?...
+    \coordinate (-left wing) at (-3mm,0);
+    \coordinate (-head)      at (0,0);
+    \coordinate (-right wing) at (3mm,0);
+    
+    \draw (-left wing) to [bend left] (0,0) (-head) to [bend left] (-right wing);
+  }
+}
+\end{codeexample}
+\tikzset{ 
+  seagull/.pic={
+    % Code for a "seagull". Do you see it?...
+    \coordinate (-left wing) at (-3mm,0);
+    \coordinate (-head)      at (0,0);
+    \coordinate (-right wing) at (3mm,0);
+    
+    \draw (-left wing) to [bend left] (0,0) (-head) to [bend left] (-right wing);
+  }
+}
+
+  Now, we can use it as follows:
+\begin{codeexample}[code only]
+\tikz {
+  \pic (Emma)               {seagull};
+  \pic (Alexandra) at (0,1) {seagull};
+
+  \draw (Emma-left wing) -- (Alexandra-right wing);
+}
+\end{codeexample}
+\end{pathoperation}
+
+
+\subsection{Defining New Pic Types}
+\label{section-new-pic-types}
+
+As explained in the description of the |pic| command, in order to
+define a new pic type you need to
+\begin{enumerate}
+\item define a key with the path prefix |/tikz/pics| that
+\item sets the key |/tikz/pics/code| to the code of the pic. 
+\end{enumerate}
+
+It turns out that this is easy enough to achieve using styles:
+
+\begin{codeexample}[code only]
+\tikzset{
+  pics/seagull/.style = % Ok, this is the key that should, when
+                        % executed, set the code key:
+  {
+    code = { %
+      \draw (...) ... ;
+    }
+  }
+}
+\end{codeexample}
+
+Even though the above pattern is easy enough, there is a special
+so-called key handler that allows us to write even simpler code,
+namely:
+
+\begin{codeexample}[code only]
+\tikzset{
+  seagull/.pic = {
+    \draw (...) ... ;
+  }
+}
+\end{codeexample}
+
+\begin{handler}{.pic}
+  This handler can only be used with a key with the prefix |/tikz/|,
+  so just should normally use it only as an option to a \tikzname\
+  command or to the |\tikzset| command. When used as in
+\begin{codeexample}[code only]
+/tikz/some key/.pic=some code    
+\end{codeexample}
+  it takes key's path (|/tikz/some key|) and, inside that path, it
+  replaces |/tikz/| by |/tikz/pics/| (so, basically, it adds the
+  ``missing'' |pics| part of the path). Then, it sets up things so
+  that the resulting name to key is a style that executes
+  |code=some code|.
+\end{handler}
+
+In almost all cases, the |.pic| key handler will suffice to setup
+keys. However, there are cases where you really need to use the first
+version using  |.style| and |code=|:
+\begin{itemize}
+\item Whenever your pic type needs to set the foreground or the
+  background code.
+\item In case of complicated arguments given to the keys.
+\end{itemize}
+
+As an example, let us define a simple pic that draws a filled circle
+behind the path. Furthermore, we make the circle's radius a parameter
+of the pic:
+
+\begin{codeexample}[]
+\tikzset{
+  pics/my circle/.style = {
+    background code = { \fill circle [radius=#1]; }
+  }
+}
+\tikz [fill=blue!30]
+  \draw (0,0) pic {my circle=2mm} -- (1,1) pic {my circle=5mm};
+\end{codeexample}
