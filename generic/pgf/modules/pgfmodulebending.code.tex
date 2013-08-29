@@ -1,0 +1,156 @@
+% Copyright 2013 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+%
+% This file defines commands for "bending coordinate systems". This is
+% needed, for instance, for bend arrow heads.
+%
+%
+% By "bending coordinate system" I mean a curvilinear coordinate
+% system in which the x-axis "goes along" a Bezier curve and the
+% y-axis is always perpendicular to the (Bezier) curve at the given
+% x-coordinate. Formally, given a pair (x,y), let B(x) be the point on
+% the Bezier curve B at distance x from the start of the curve. Let
+% T(x) be the tangent of B at B(x) and let P(x) be the (normalized)
+% vector perpendicular to T(x). Then (x,y) would be mapped to B(x) +
+% y*P(x). As an example, if B is a circle, then the corresponding
+% bending coordinate system is (essentially, except for an offset in
+% the y value) the polar coordinate system.
+%
+% Since it is next to impossible to quickly compute precise length
+% of Bezier curves in TeX, instead of real distances along Bezier
+% curves, we use the following trick: We compute precisely the "time" t_1
+% (in the parametrization of the Bezier curve as a function of "time")
+% needed to travel along one unit (1pt in TeX). We then act as if a
+% length of, say, 20pt were then reached at time 20*t_1. In reality,
+% this will not "really" be the correct point, but close enough for
+% our purposes; especially when only small values of x near to the
+% start/end of the curve are used.
+%
+% You use the bending cs by first telling pgf which Bezier curve you
+% are interested in (using \pgfsetbendingline or \pgfsetbendingcurve)
+% and then using \pgfpointbending. The results will be best if small
+% values of x are used because of the abovementioned trick of
+% substituing distance by time. 
+%
+% When a new bending cs is installed, some, possibly expensive,
+% precomputations are done. Subsequent calls to \pgfpointbending
+% should then be relatively quick.
+
+
+
+% Returns a point in the current bending coordinate system.
+% 
+% #1 = distance along the curve
+% #2 = distance perpendicular to the curve
+% 
+% Description:
+% 
+% Returns the computed position in \pgf@x and \pgf@y.
+
+\def\pgfpointbending#1#2{%
+  \pgf@bending@point{#1}{#2}%
+}
+
+\def\pgf@bending@point{\pgferror{No bending coordinate system set}}
+
+
+
+% Sets B to the straight line from #1 to #2. 
+%
+% #1 = start point
+% #2 = end point
+%
+% Example:
+%
+% \pgfsetbendingline{\pgfpoint{1cm}{1cm}}{\pgfpoint{3cm}{2cm}}
+% \pgfpointbending{1pt}{0pt} % this will be 1pt along the line from
+%                            % (1,1) to (3,2)
+
+\def\pgfsetbendingline#1#2{%
+  \pgf@process{#1}%
+  \edef\pgf@bending@line@start{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@process{\pgfpointnormalised{\pgfpointdiff{}{#2}}}%
+  \edef\pgf@bending@line@normal{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@xa-\pgf@x%
+  \pgf@y=\pgf@x%
+  \pgf@x=\pgf@xa%
+  \edef\pgf@bending@line@orth{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \let\pgf@bending@point\pgf@bending@line@point%
+}
+
+\def\pgf@bending@line@point#1#2{%
+  \pgfmathsetmacro\pgf@bending@xfactor{#1}%
+  \pgfmathsetmacro\pgf@bending@yfactor{#2}%
+  \pgf@process{\pgf@bending@line@normal}%
+  \pgf@xa\pgf@bending@xfactor\pgf@x%
+  \pgf@ya\pgf@bending@xfactor\pgf@y%
+  \pgf@process{\pgf@bending@line@orth}%
+  \advance\pgf@xa by\pgf@bending@yfactor\pgf@x%
+  \advance\pgf@ya by\pgf@bending@yfactor\pgf@y%
+  \pgf@process{\pgf@bending@line@start}%
+  \advance\pgf@x by\pgf@xa%
+  \advance\pgf@y by\pgf@ya%
+}
+
+
+
+% Sets B to the curve line from #1 to #4 via the control points #2 and
+% #3. 
+%
+% #1 = start point
+% #2 = first control point
+% #3 = second control point
+% #4 = end point
+%
+% Example:
+%
+% \pgfsetbendingline
+% {\pgfpoint{0mm}{10mm}}
+% {\pgfpoint{5.5mm}{10mm}}
+% {\pgfpoint{10mm}{5.5mm}}
+% {\pgfpoint{10mm}{0mm}} % nearly a quarter circle
+% \pgfpointbending{5mm}{5mm} % should be 5mm along the circle, put at
+%                            % distance 15mm from the origin (5mm fromt he circle line).
+
+\def\pgfsetbendingcurve#1#2#3#4{%
+  \pgf@process{#1}%
+  \edef\pgf@bending@line@a{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@process{#2}%
+  \edef\pgf@bending@line@b{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@process{#3}%
+  \edef\pgf@bending@line@c{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@process{#4}%
+  \edef\pgf@bending@line@d{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgfmathsetmacro\pgf@bending@line@unit{1/(5.5cm)}%
+  \let\pgf@bending@point\pgf@bending@curve@point%
+}
+
+\def\pgf@bending@curve@point#1#2{%
+  \pgfpointcurveattime{(#1)*\pgf@bending@line@unit}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}
+  \pgf@xc=\pgf@x% save
+  \pgf@yc=\pgf@y% save
+  % compute normal:
+  \advance\pgf@xb by-\pgf@x%
+  \advance\pgf@yb by-\pgf@y%
+  \pgf@process{\pgfpointnormalised{\pgf@x=\pgf@yb\pgf@y=-\pgf@xb}}
+  \pgfmathsetmacro\pgf@bending@yfactor{#2}%
+  \pgf@x=\pgf@bending@yfactor\pgf@x%
+  \pgf@y=\pgf@bending@yfactor\pgf@y%
+  \advance\pgf@x by\pgf@xc%
+  \advance\pgf@y by\pgf@yc%
+}
+
+
+
+
+
+\endinput
