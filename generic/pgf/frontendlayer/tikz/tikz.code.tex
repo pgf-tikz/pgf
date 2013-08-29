@@ -305,6 +305,26 @@
   }%
 }
 
+\tikzset{turn/.code={%
+    \pgf@x=0pt%
+    \pgf@y\pgf@x%
+    \pgf@process{\tikz@tangent}%
+    \advance\pgf@x by-\tikz@lastx%
+    \advance\pgf@y by-\tikz@lasty%
+    \pgfpointnormalised{}% x/y = normalised vector
+    \pgf@x=-\pgf@x%
+    \pgf@ya=-\pgf@y%
+    \pgftransformcm%
+    {\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@ya}}%
+    {\pgf@sys@tonumber{\pgf@y}}{\pgf@sys@tonumber{\pgf@x}}{\pgfqpoint{\tikz@lastx}{\tikz@lasty}}%
+  }%
+}
+
+\def\tikz@tangent@lookup{%
+  \pgfgetpath\tikz@temp%
+  \pgfprocesspathextractpoints\tikz@temp%
+  \pgfpointsecondlastonpath%
+}
 
 % Grid options
 \tikzoption{xstep}{\def\tikz@grid@x{#1}}
@@ -1886,6 +1906,7 @@
     \let\tikz@mode=\pgfutil@empty%
     \let\tikz@moveto@waiting=\relax%
     \let\tikz@timer=\relax%
+    \let\tikz@tangent=\relax%
     \let\tikz@collected@onpath=\pgfutil@empty%
     \let\tikz@preactions=\pgfutil@empty%
     \let\tikz@postactions=\pgfutil@empty%
@@ -2323,6 +2344,7 @@
 \def\tikz@@endscope{% 
     \global\setbox\tikz@tempbox=\box\tikz@figbox%
     \global\setbox\tikz@tempbox@bg=\box\tikz@figbox@bg%
+    \global\let\tikz@tangent@temp\tikz@tangent%
     \edef\tikz@marshal{%
       \tikz@lastx=\the\tikz@lastx%
       \tikz@lasty=\the\tikz@lasty%
@@ -2347,6 +2369,7 @@
   \endgroup\tikz@marshal%
   \setbox\tikz@figbox=\box\tikz@tempbox%
   \setbox\tikz@figbox@bg=\box\tikz@tempbox@bg%
+  \let\tikz@tangent\tikz@tangent@temp%
   \tikz@scan@next@command}
 
 
@@ -2610,6 +2633,7 @@
     \edef\tikz@timer@end{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \fi%
   \let\tikz@timer=\tikz@timer@line%
+  \let\tikz@tangent\tikz@timer@start%
   \tikz@scan@next@command%
 }
 
@@ -2649,6 +2673,7 @@
   \edef\tikz@timer@start{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@yc=\tikz@lasty%
   \tikz@make@last@position{#1}%
+  \edef\tikz@tangent{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\pgf@yc}}%
   \tikz@flush@moveto@toward{\pgfqpoint{\tikz@lastx}{\pgf@yc}}\pgf@x\pgf@yc%
   \iftikz@shapeborder%
     % ok, target is a shape. have to work now:
@@ -2683,6 +2708,7 @@
   \edef\tikz@timer@start{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@xc=\tikz@lastx%
   \tikz@make@last@position{#1}%
+  \edef\tikz@tangent{\noexpand\pgfqpoint{\the\pgf@xc}{\the\tikz@lasty}}%
   \tikz@flush@moveto@toward{\pgfqpoint{\pgf@xc}{\tikz@lasty}}\pgf@xc\pgf@y%
   \iftikz@shapeborder%
     % ok, target is a shape. have to work now:
@@ -2717,6 +2743,7 @@
   \def\pgfstrokehook{}%
   \edef\tikz@timer@end{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \let\tikz@timer=\tikz@timer@line%
+  \let\tikz@tangent\tikz@timer@start%
   \tikz@scan@next@command%
 }
 
@@ -2988,7 +3015,8 @@
     \let\tikz@timer@end=\tikz@curve@third
     \let\tikz@moveto@waiting=\relax%
   \fi%
-  \let\tikz@timer=\tikz@timer@curve%  
+  \let\tikz@timer=\tikz@timer@curve%
+  \let\tikz@tangent=\tikz@curve@second%
   \tikz@scan@next@command%
 }
 
@@ -3021,6 +3049,7 @@
   \pgfpathclose%
   \pgfpathmoveto{\pgfqpoint{\tikz@lastx}{\tikz@lasty}}%
   \def\pgfstrokehook{}%
+  \let\tikz@tangent\relax%
   \tikz@scan@next@command%
 }
 
@@ -3038,6 +3067,7 @@
   \tikz@cycle@expander{\tikz@scan@one@point\tikz@gridB}}%
 \def\tikz@gridB#1{%
   \tikz@make@last@position{#1}%
+  \let\tikz@tangent\relax%
   {%
     \let\tikz@after@path\pgfutil@empty%
     \expandafter\tikzset\expandafter{\tikz@grid@options}
@@ -3072,6 +3102,7 @@
   \tikz@flush@moveto%
   \pgfutil@ifnextchar[{\tikz@@plot}{\tikz@@plot[]}}%}
 \def\tikz@@plot[#1]{%
+  \let\tikz@tangent\tikz@tangent@lookup%
   \begingroup%
     \let\tikz@after@path\pgfutil@empty%
     \let\tikz@options=\pgfutil@empty%
@@ -3183,6 +3214,7 @@
 % cos <end of quarter-period>
 \def\tikz@cosine s{\tikz@cycle@expander{\tikz@scan@one@point\tikz@@cosine}}
 \def\tikz@@cosine#1{%
+  \let\tikz@tangent\tikz@tangent@lookup%
   \tikz@flush@moveto%
   \pgf@process{#1}%
   \pgf@xc=\pgf@x%
@@ -3202,6 +3234,7 @@
 % sin <end of quarter-period>
 \def\tikz@sine in{\tikz@cycle@expander{\tikz@scan@one@point\tikz@@sine}}
 \def\tikz@@sine#1{%
+  \let\tikz@tangent\tikz@tangent@lookup%
   \tikz@flush@moveto%
   \pgf@process{#1}%
   \pgf@xc=\pgf@x%
@@ -3220,6 +3253,7 @@
 % Syntax for parabolas: 
 % parabola[options] bend <coordinate> <coordinate>
 \def\tikz@parabola arabola{%
+  \let\tikz@tangent\tikz@tangent@lookup%
   \pgfutil@ifnextchar[{\tikz@parabola@options}{\tikz@parabola@options[]}}%}
 
 \def\tikz@parabola@options[#1]{%
@@ -3273,6 +3307,7 @@
 \def\tikz@circle ircle{\tikz@flush@moveto\tikz@@circle}
 \def\tikz@ellipse llipse{\tikz@flush@moveto\tikz@@circle}
 \def\tikz@@circle{%
+  \let\tikz@tangent\relax%
   \pgfutil@ifnextchar(\tikz@@@circle
   {\pgfutil@ifnextchar[\tikz@circle@opt{%])
     \advance\tikz@expandcount by -10\relax% go down quickly
@@ -3407,6 +3442,7 @@
   \tikz@do@arc{#1}{#2}{#3}{#4}%
 }
 \def\tikz@do@arc#1#2#3#4{%
+  \let\tikz@tangent\tikz@tangent@lookup%
   \edef\tikz@timer@start{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \edef\tikz@timer@start@angle{#1}%
   \edef\tikz@timer@end@angle{#2}%
