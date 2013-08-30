@@ -25,15 +25,17 @@
 % bending coordinate system is (essentially, except for an offset in
 % the y value) the polar coordinate system.
 %
-% Since it is next to impossible to quickly compute precise length
-% of Bezier curves in TeX, instead of real distances along Bezier
-% curves, we use the following trick: We compute precisely the "time" t_1
-% (in the parametrization of the Bezier curve as a function of "time")
-% needed to travel along one unit (1pt in TeX). We then act as if a
-% length of, say, 20pt were then reached at time 20*t_1. In reality,
-% this will not "really" be the correct point, but close enough for
-% our purposes; especially when only small values of x near to the
-% start/end of the curve are used.
+% The length along Bezier curves are approximated using a lookup table
+% of four time/length points. For this, an approximate time for length
+% 1pt is computed first, and then the length for twice this time, four
+% times this time, and eight times this time are approximated. A
+% distance-to-time conversion is then done by a linear interpolation
+% of distance-to-time for these four points. Note that all of these
+% computations are not particularly precise, but a compromise trading
+% speed against precision. Also note that the results will only be
+% best near the start of the curve and may be far off near the end if
+% that end is degenerate (second control point very near to end
+% point). 
 %
 % You use the bending cs by first telling pgf which Bezier curve you
 % are interested in (using \pgfsetbendingline or \pgfsetbendingcurve)
@@ -103,6 +105,13 @@
 
 
 
+\newif\ifpgf@bendinging@crawling@start
+\newdimen\pgf@bending@time@a
+\newdimen\pgf@bending@length@a
+\newdimen\pgf@bending@length@b
+\newdimen\pgf@bending@length@c
+\newdimen\pgf@bending@length@d
+
 % Sets B to the curve line from #1 to #4 via the control points #2 and
 % #3. 
 %
@@ -128,24 +137,141 @@
   \pgf@ya=-\pgf@y%
   \pgf@process{#2}%
   \edef\pgf@bending@line@b{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@xb=-\pgf@x%
+  \pgf@yb=-\pgf@y%
+  \advance\pgf@x by\pgf@xa%
+  \advance\pgf@y by\pgf@ya%
+  \pgfmathsetmacro\pgf@bending@lenab{veclen(\the\pgf@x,\the\pgf@y)}%
   \pgf@process{#3}%
   \edef\pgf@bending@line@c{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+  \pgf@xc=-\pgf@x%
+  \pgf@yc=-\pgf@y%
+  \advance\pgf@x by\pgf@xb%
+  \advance\pgf@y by\pgf@yb%
+  \pgfmathsetmacro\pgf@bending@lenbc{veclen(\the\pgf@x,\the\pgf@y)}%
   \pgf@process{#4}%
   \edef\pgf@bending@line@d{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-  \advance\pgf@xa by\pgf@x%
-  \advance\pgf@ya by\pgf@y%
-  \pgfmathparse{veclen(\the\pgf@xa,\the\pgf@ya)}%
-  \pgfmathsetmacro\pgf@bending@line@unit{1/\pgfmathresult}%
+  \advance\pgf@x by\pgf@xc%
+  \advance\pgf@y by\pgf@yc%
+  \pgfmathsetmacro\pgf@bending@lencd{veclen(\the\pgf@x,\the\pgf@y)}%
+  %
+  \pgf@x=\pgf@bending@lenab pt%
+  \advance\pgf@x by\pgf@bending@lenbc pt%
+  \advance\pgf@x by\pgf@bending@lencd pt%
+  \pgfmathreciprocal@{\pgf@x}%
+  \pgf@bending@time@a\pgfmathresult pt%
+  \pgf@process{\pgfpointcurveattime{\pgf@bending@time@a}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}}%
+  \pgf@xb=-\pgf@x%
+  \pgf@yb=-\pgf@y%
+  \advance\pgf@x by\pgf@xa%
+  \advance\pgf@y by\pgf@ya%
+  \pgfmathsetlength\pgf@bending@length@a{veclen(\the\pgf@x,\the\pgf@y)}%
+  \ifdim\pgf@bending@length@a>1pt\relax%
+    % Ok, too large, let us make this smaller
+    \pgfmathsetlength\pgf@bending@time@a{\pgf@bending@time@a/\pgf@bending@length@a}%
+    \pgf@process{\pgfpointcurveattime{\pgf@bending@time@a}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}}
+    \pgf@xb=-\pgf@x%
+    \pgf@yb=-\pgf@y%
+    \advance\pgf@x by\pgf@xa%
+    \advance\pgf@y by\pgf@ya%
+    \pgfmathsetlength\pgf@bending@length@a{veclen(\the\pgf@x,\the\pgf@y)}%
+  \fi%
+  % Compute three positions:
+  \pgf@process{\pgfpointcurveattime{2\pgf@bending@time@a}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}}
+  \pgf@xa=-\pgf@x%
+  \pgf@ya=-\pgf@y%
+  \advance\pgf@x by\pgf@xb%
+  \advance\pgf@y by\pgf@yb%
+  \pgfmathsetlength\pgf@bending@length@b{veclen(\the\pgf@x,\the\pgf@y)+\pgf@bending@length@a}%
+  \pgf@process{\pgfpointcurveattime{4\pgf@bending@time@a}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}}
+  \pgf@xb=-\pgf@x%
+  \pgf@yb=-\pgf@y%
+  \advance\pgf@x by\pgf@xa%
+  \advance\pgf@y by\pgf@ya%
+  \pgfmathsetlength\pgf@bending@length@c{veclen(\the\pgf@x,\the\pgf@y)+\pgf@bending@length@b}%
+  \pgf@process{\pgfpointcurveattime{8\pgf@bending@time@a}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}}
+  \advance\pgf@x by\pgf@xb%
+  \advance\pgf@y by\pgf@yb%
+  \pgfmathsetlength\pgf@bending@length@d{veclen(\the\pgf@x,\the\pgf@y)+\pgf@bending@length@c}%
+  \let\pgf@bending@comp@a\pgf@bending@comp@a@initial%
+  \let\pgf@bending@comp@b\pgf@bending@comp@b@initial%
+  \let\pgf@bending@comp@c\pgf@bending@comp@c@initial%
+  \let\pgf@bending@comp@d\pgf@bending@comp@d@initial%
+  \let\pgf@bending@comp@e\pgf@bending@comp@e@initial%
   \let\pgf@bending@point\pgf@bending@curve@point%
 }
 
+\def\pgf@bending@comp@a@initial{%
+  \pgfmathsetmacro{\pgf@bending@quot@a}{\pgf@bending@time@a/\pgf@bending@length@a}%
+  \let\pgf@bending@comp@a\pgf@bending@comp@a@cont%
+  \pgf@bending@comp@a@cont%
+}
+\def\pgf@bending@comp@a@cont{%
+  \pgf@x\pgf@bending@quot@a\pgf@x%
+}
+
+\def\pgf@bending@comp@b@initial{%
+  \pgf@y=\pgf@bending@length@b%
+  \advance\pgf@y by-\pgf@bending@length@a%
+  \pgfmathreciprocal@{\the\pgf@y}%
+  \let\pgf@temp\pgfmathresult%
+  \pgfmathsetmacro\pgf@bending@quot@b{\pgfmathresult\pgf@bending@time@a}%
+  \pgfmathsetmacro\pgf@bending@correct@b{-\pgf@bending@quot@b\pgf@bending@length@a+\pgf@bending@time@a}%
+  \let\pgf@bending@comp@b\pgf@bending@comp@b@cont%
+  \pgf@bending@comp@b@cont%
+}
+\def\pgf@bending@comp@b@cont{%
+  \pgf@x\pgf@bending@quot@b\pgf@x%
+  \advance\pgf@x by\pgf@bending@correct@b pt%
+}
+
+\def\pgf@bending@comp@c@initial{%
+  \pgf@y=\pgf@bending@length@c%
+  \advance\pgf@y by-\pgf@bending@length@b%
+  \pgfmathreciprocal@{\the\pgf@y}%
+  \let\pgf@temp\pgfmathresult%
+  \pgfmathsetmacro\pgf@bending@quot@c{2*\pgfmathresult\pgf@bending@time@a}%
+  \pgfmathsetmacro\pgf@bending@correct@c{-\pgf@bending@quot@c\pgf@bending@length@b+2*\pgf@bending@time@a}%
+  \let\pgf@bending@comp@c\pgf@bending@comp@c@cont%
+  \pgf@bending@comp@c@cont%
+}
+\def\pgf@bending@comp@c@cont{%
+  \pgf@x\pgf@bending@quot@c\pgf@x%
+  \advance\pgf@x by\pgf@bending@correct@c pt%
+}
+
+\def\pgf@bending@comp@d@initial{%
+  \pgf@y=\pgf@bending@length@d%
+  \advance\pgf@y by-\pgf@bending@length@c%
+  \pgfmathreciprocal@{\the\pgf@y}%
+  \let\pgf@temp\pgfmathresult%
+  \pgfmathsetmacro\pgf@bending@quot@d{4*\pgfmathresult\pgf@bending@time@a}%
+  \pgfmathsetmacro\pgf@bending@correct@d{-\pgf@bending@quot@d\pgf@bending@length@c+4*\pgf@bending@time@a}%
+  \let\pgf@bending@comp@d\pgf@bending@comp@d@cont%
+  \pgf@bending@comp@d@cont%
+}
+\def\pgf@bending@comp@d@cont{%
+  \pgf@x\pgf@bending@quot@d\pgf@x%
+  \advance\pgf@x by\pgf@bending@correct@d pt%
+}
+
+\def\pgf@bending@comp@e@initial{%
+  \pgfmathsetmacro{\pgf@bending@quot@e}{8*\pgf@bending@time@a/\pgf@bending@length@d}%
+  \let\pgf@bending@comp@e\pgf@bending@comp@e@cont%
+  \pgf@bending@comp@e@cont%
+}
+\def\pgf@bending@comp@e@cont{%
+  \pgf@x\pgf@bending@quot@e\pgf@x%
+}
+
 \def\pgf@bending@curve@point#1#2{%
-  \pgfpointcurveattime{(#1)*\pgf@bending@line@unit}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}
+  \pgfbendingdistancetotime{#1}%
+  \pgfpointcurveattime{\pgf@x}{\pgf@bending@line@a}{\pgf@bending@line@b}{\pgf@bending@line@c}{\pgf@bending@line@d}
   \pgf@xc=\pgf@x% save
   \pgf@yc=\pgf@y% save
   % compute normal:
-  \advance\pgf@xb by-\pgf@x%
-  \advance\pgf@yb by-\pgf@y%
+  \advance\pgf@xb by-\pgf@xa%
+  \advance\pgf@yb by-\pgf@ya%
   \pgf@process{\pgfpointnormalised{\pgf@x=\pgf@yb\pgf@y=-\pgf@xb}}
   \pgfmathsetmacro\pgf@bending@yfactor{#2}%
   \pgf@x=\pgf@bending@yfactor\pgf@x%
@@ -155,6 +281,32 @@
 }
 
 
+% Convert a distance into a time
+% 
+% #1 = a distance
+% 
+% Description:
+%
+% After having called \pgfsetbendingcurve, you can use this macro to
+% convert a distance into a time along the curve set in that
+% command. The result will be stored in \pgf@x.
+
+\def\pgfbendingdistancetotime#1{%
+  \pgfmathsetlength{\pgf@x}{#1}%
+  \ifdim\pgf@x<\pgf@bending@length@c\relax%
+    \ifdim\pgf@x<\pgf@bending@length@a\relax%
+      \pgf@bending@comp@a%
+    \else\ifdim\pgf@x<\pgf@bending@length@b\relax%
+      \pgf@bending@comp@b%
+    \else%
+      \pgf@bending@comp@c%
+    \fi\fi%
+  \else\ifdim\pgf@x<\pgf@bending@length@d\relax%
+    \pgf@bending@comp@d%
+  \else%
+    \pgf@bending@comp@e%
+  \fi\fi%
+}
 
 
 
