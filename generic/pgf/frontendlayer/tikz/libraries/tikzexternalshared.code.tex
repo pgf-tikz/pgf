@@ -935,32 +935,66 @@
 		% could be auto-generated: empty file name means "picture
 		% won't be externalized". Skip it.
 	\else
-		\edef\tikzpicturedependsonfile@name{#1.\tikzexternaldepext}%
-		\ifx\tikzexternal@dep@file@name\tikzpicturedependsonfile@name
-			% file is open and ready.
-		\else
-			% create new output file.
-			\pgfutil@ifundefined{tikzexternal@dep@file}{%
-				\begingroup
-					% this makes \tikzexternal@dep@file global:
-					\globaldefs=1
-					% this gets round '\outer\newwrite' in plain TeX:
-					\csname newwrite\endcsname\tikzexternal@dep@file
-				\endgroup
-			}{}%
-			\ifx\tikzexternal@dep@file@name\pgfutil@empty
-			\else
-				% it is already open. Close it.
-				\immediate\closeout\tikzexternal@dep@file
-			\fi
-			\global\let\tikzexternal@dep@file@name=\tikzpicturedependsonfile@name
-			\immediate\openout\tikzexternal@dep@file=\tikzexternal@dep@file@name\relax
-		\fi
-		\immediate\write\tikzexternal@dep@file{#1\tikzexternalimgextension: #2}%
+		% if we encounter any dependencies while we externalize a
+		% picture, we have to write these things into the image's .dep
+		% file.
+		\tikzifexternalizingcurrent
+			{\tikzexternalfiledependsonfile@append@to@dep@file{#1}{#2}}
+			{\tikzexternalfiledependsonfile@append@to@makefile{#1}{#2}}
 	\fi
 	\endgroup
 }%
 \def\tikzexternalfiledependsonfile#1#2{}% NO-OP until \tikzexternalize has been called.
+
+% sub-routine of \tikzexternalfiledependsonfile which appends stuff to
+% the pictures .dep file.
+%
+% The file #1.dep is generated during the externalization of #1. If
+% you change and/or overwrite it in any other context, its information
+% might get lost (because #1 won't be regenerated).
+%
+% Consequently, this here has to be called if and only if #1 is about
+% to be externalized.
+\def\tikzexternalfiledependsonfile@append@to@dep@file#1#2{%
+	% write every dependency which is defined *INSIDE* of the current
+	% picture into the .dep file of the current picture:
+	\tikzexternalgetcurrentfilename\tikzpicturedependsonfile@name
+	\edef\tikzpicturedependsonfile@name{\tikzpicturedependsonfile@name.\tikzexternaldepext}%
+	%\edef\tikzpicturedependsonfile@name{#1.\tikzexternaldepext}%
+	\ifx\tikzexternal@dep@file@name\tikzpicturedependsonfile@name
+		% file is open and ready.
+	\else
+		% create new output file.
+		\pgfutil@ifundefined{tikzexternal@dep@file}{%
+			\begingroup
+				% this makes \tikzexternal@dep@file global:
+				\globaldefs=1
+				% this gets round '\outer\newwrite' in plain TeX:
+				\csname newwrite\endcsname\tikzexternal@dep@file
+			\endgroup
+		}{}%
+		\ifx\tikzexternal@dep@file@name\pgfutil@empty
+		\else
+			% it is already open. Close it.
+			\immediate\closeout\tikzexternal@dep@file
+		\fi
+		\global\let\tikzexternal@dep@file@name=\tikzpicturedependsonfile@name
+		\immediate\openout\tikzexternal@dep@file=\tikzexternal@dep@file@name\relax
+	\fi
+	\immediate\write\tikzexternal@dep@file{#1\tikzexternalimgextension: #2}%
+}
+
+% sub-routine of \tikzexternalfiledependsonfile which appends stuff to
+% the makefile of the current \jobname .
+%
+% This is used for dependencies which are recomputed by every run of
+% tex; we must not write them into #1.dep (for reasons explained in
+% the documentation of
+% \tikzexternalfiledependsonfile@append@to@dep@file)
+\def\tikzexternalfiledependsonfile@append@to@makefile#1#2{%
+	\edef\tikzexternal@temp{#1\tikzexternalimgextension: #2}%
+	\expandafter\tikzexternalwritetomakefile\expandafter{\tikzexternal@temp}%
+}
 
 % Adds a dependency for the NEXT picture which is about to be
 % externalized. If we are currently inside of a picture, the
