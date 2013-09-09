@@ -1,0 +1,235 @@
+% Copyright 2013 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+
+%
+% This file defines commands for nonlinear coordinate systems. This is
+% needed, for instance, for bend arrow heads.
+%
+%
+% Non-linear coordinate systems transform coordinates, in addition to
+% the normal linear transformations, in a, well, non-linear way. An
+% example are polar coordinates.
+%
+% Like the linear transformations, non-linear transformations are
+% applied on a low level and they are integrated into the whole path
+% construction mechanism. So, while \pgfpointpolar also "does
+% something nonlinear", it just provides a way of computing a
+% coordinate. In contrast, installing a polar transformation will
+% transform everything being drawn using the \pgfpath... commands an
+% will even turn a straight line into a circle. 
+%
+% Since computing non-linear transformations is expensive, they are
+% only applied "if really necessary".
+
+
+
+
+% Adds a non-linear transformation to the current list of
+% transformations. 
+%
+% #1 = code
+%
+% Description:
+%
+% When the code #1 is called, \pgf@x and \pgf@y will be to some
+% values. The result should be modified values of \pgf@x and
+% \pgf@y. The macro should not do any global assignments except to
+% \pgf@x and \pgf@y, but may do arbitrary local assignments.
+% 
+% The effect of installing a new transformation is the following: As
+% long as there is at least one nonlinear transformation installed,
+% whenever the path construction commands add a curve or line to the
+% softpath, the line or curve will be "bend" by applying all of the
+% nonlinear transformation installed. In particular, straight lines
+% will be replaced by curves.
+% 
+% Note that the normal linear transformation are always applied before
+% any nonlinear transformations are applied.
+
+\def\pgftransformnonlinear#1{%
+  \expandafter\def\expandafter\pgf@nlt@list\expandafter{\pgf@nlt@list#1}%
+  \let\pgf@nlt@moveto\pgf@nlt@moveto@nlt
+  \let\pgf@nlt@lineto\pgf@nlt@lineto@nlt
+  \let\pgf@nlt@curveto\pgf@nlt@curveto@nlt
+  \let\pgf@nlt@closepath\pgf@nlt@closepath@nlt
+}
+
+\def\pgf@nlt@infos{{0pt}{0pt}{0pt}{0pt}{0pt}{0pt}{0pt}{0pt}}
+% last coordinate, last coordinate transformed, last moveto, last moveto transformed
+
+\def\pgf@nlt@moveto@nlt#1#2{%
+  {%
+    \edef\pgf@restore{\pgf@x\the\pgf@x\pgf@y\the\pgf@y}%
+    \pgfutil@tempdima#1%
+    \pgfutil@tempdimb#2%
+    \pgf@x\pgfutil@tempdima%
+    \pgf@y\pgfutil@tempdimb%
+    \pgf@process{\pgf@nlt@list}%
+    \pgf@protocolsizes{\pgf@x}{\pgf@y}%
+    \pgfsyssoftpath@moveto{\the\pgf@x}{\the\pgf@y}%
+    \expandafter\pgf@nlt@redef@info@moveto\pgf@nlt@infos%
+  \expandafter}%
+  \pgf@restore
+}
+\def\pgf@nlt@redef@info@moveto#1#2#3#4#5#6#7#8{%
+  \xdef\pgf@nlt@infos{%
+    {\the\pgfutil@tempdima}{\the\pgfutil@tempdimb}%last coordinate
+    {\the\pgf@x}{\the\pgf@y}%last coordinate transformed
+    {\the\pgfutil@tempdima}{\the\pgfutil@tempdimb}% last moveto
+    {\the\pgf@x}{\the\pgf@y}%last moveto transformed
+  }%
+}
+
+\def\pgf@nlt@lineto@nlt#1#2{%
+  {%
+    \edef\pgf@restore{\pgf@x\the\pgf@x\pgf@y\the\pgf@y}%
+    \edef\pgf@temp{\pgf@xc\the#1\pgf@yc\the#2}%
+    \pgf@temp%
+    \expandafter\pgf@nlt@get@last@coord\pgf@nlt@infos%
+    % Test, whether the points are quite near:
+    \pgf@xa\pgf@x\advance\pgf@xa by-\pgf@xc%
+    \pgf@ya\pgf@y\advance\pgf@ya by-\pgf@yc%
+    \pgfutil@tempswafalse%
+    \ifdim\pgf@xa<0.1pt\relax\ifdim\pgf@xa>-0.1pt\relax\ifdim\pgf@ya<0.1pt\relax\ifdim\pgf@ya>-0.1pt\relax\pgfutil@tempswatrue\fi\fi\fi\fi%
+    \ifpgfutil@tempswa%
+      \pgf@x\pgf@xc\pgf@y\pgf@yc%
+      \pgf@process{\pgf@nlt@list}%
+      \pgf@protocolsizes{\pgf@x}{\pgf@y}%
+      \pgfsyssoftpath@lineto{\the\pgf@x}{\the\pgf@y}%
+      \pgfutil@tempdima\pgf@x\pgfutil@tempdimb\pgf@y%
+      \expandafter\pgf@nlt@redef@info\pgf@nlt@infos%
+    \else%
+      % Compute support points
+      \pgf@xb=.33333\pgf@x%
+      \advance\pgf@xb by.66666\pgf@xc%
+      \pgf@yb=.33333\pgf@y%
+      \advance\pgf@yb by.66666\pgf@yc%
+      \pgf@xa=.33333\pgf@xc%
+      \advance\pgf@xa by.66666\pgf@x%
+      \pgf@ya=.33333\pgf@yc%
+      \advance\pgf@ya by.66666\pgf@y%
+      \pgf@nlt@inner@curve%
+    \fi%
+  \expandafter}%
+  \pgf@restore
+}
+
+\def\pgf@nlt@get@last@coord#1#2#3#4#5#6#7#8{%
+  \pgf@x#1\pgf@y#2%
+  \pgfutil@tempdima#3\pgfutil@tempdimb#4%
+}
+
+\def\pgf@nlt@curveto@nlt#1#2#3#4#5#6{%
+  {%
+    \edef\pgf@restore{\pgf@x\the\pgf@x\pgf@y\the\pgf@y}%
+    \edef\pgf@temp{\pgf@xa\the#1\pgf@ya\the#2\pgf@xb\the#3\pgf@yb\the#4\pgf@xc\the#5\pgf@yc\the#6}%
+    \pgf@temp%
+    \expandafter\pgf@nlt@get@last@coord\pgf@nlt@infos%
+    \pgf@nlt@inner@curve%
+  \expandafter}%
+  \pgf@restore
+}
+
+
+\newdimen\pgf@nlt@x
+\newdimen\pgf@nlt@y
+
+% Compute a curve from \pgf@x/pgf@y to \pgf@xc/\pgf@yc via the
+% controls \pgf@xa/\pgf@ya and \pgf@xb/\pgf@yb.
+\def\pgf@nlt@inner@curve{%
+  % Replace supports by relative supports
+  \advance\pgf@xa by-\pgf@x%
+  \advance\pgf@ya by-\pgf@y%
+  \advance\pgf@xb by-\pgf@xc%
+  \advance\pgf@yb by-\pgf@yc%
+  % tempdim a/b = transformed x/y
+  \advance\pgf@x by0.25pt%
+  \pgf@process{\pgf@nlt@list}%
+  \pgf@nlt@x\pgf@x%
+  \pgf@nlt@y\pgf@y%
+  \advance\pgf@nlt@x by-\pgfutil@tempdima% nlt@x/y = 1/10 of tangent vector in transformed cs
+  \advance\pgf@nlt@y by-\pgfutil@tempdimb%
+  \pgf@nlt@x=4\pgf@nlt@x% nlt = tangent
+  \pgf@nlt@y=4\pgf@nlt@y%
+  \pgf@process{\pgfpointnormalised{\pgfqpoint{-\pgf@nlt@y}{\pgf@nlt@x}}}% \pgf@x/y = normal vector in transformed cs
+  % Multiply normal vector by \pgf@ya and add 4*tangent*\pgf@xa and add start
+  \pgf@x\pgf@sys@tonumber\pgf@ya\pgf@x%
+  \pgf@y\pgf@sys@tonumber\pgf@ya\pgf@y%
+  \advance\pgf@x by\pgf@sys@tonumber\pgf@xa\pgf@nlt@x%
+  \advance\pgf@y by\pgf@sys@tonumber\pgf@xa\pgf@nlt@y%
+  \advance\pgf@x by\pgfutil@tempdima%
+  \advance\pgf@y by\pgfutil@tempdimb%
+  \pgf@xa\pgf@x% Save!
+  \pgf@ya\pgf@y%
+  % Now same thing for end:
+  \pgf@x\pgf@xc\pgf@y\pgf@yc%
+  \pgf@process{\pgf@nlt@list}%
+  \pgfutil@tempdima\pgf@x%
+  \pgfutil@tempdimb\pgf@y% tempdim = transformed end
+  \pgf@x\pgf@xc%
+  \pgf@y\pgf@yc%
+  \advance\pgf@x by0.25pt%
+  \pgf@process{\pgf@nlt@list}%
+  \pgf@nlt@x\pgf@x%
+  \pgf@nlt@y\pgf@y%
+  \advance\pgf@nlt@x by-\pgfutil@tempdima% nlt@x/y = 1/4 of tangent vector in transformed cs
+  \advance\pgf@nlt@y by-\pgfutil@tempdimb%
+  \pgf@nlt@x=4\pgf@nlt@x% nlt = tangent
+  \pgf@nlt@y=4\pgf@nlt@y%
+  \pgf@process{\pgfpointnormalised{\pgfqpoint{-\pgf@nlt@y}{\pgf@nlt@x}}}% \pgf@x/y = normal vector in transformed cs
+  % Multiply normal vector by \pgf@ya and add 10*tangent*\pgf@xa
+  \pgf@x\pgf@sys@tonumber\pgf@yb\pgf@x%
+  \pgf@y\pgf@sys@tonumber\pgf@yb\pgf@y%
+  \advance\pgf@x by\pgf@sys@tonumber\pgf@xb\pgf@nlt@x%
+  \advance\pgf@y by\pgf@sys@tonumber\pgf@xb\pgf@nlt@y%
+  \advance\pgf@x by\pgfutil@tempdima%
+  \advance\pgf@y by\pgfutil@tempdimb%
+  \pgf@xb\pgf@x%
+  \pgf@yb\pgf@y%
+  \pgf@protocolsizes{\pgf@xa}{\pgf@ya}%
+  \pgf@protocolsizes{\pgf@xb}{\pgf@yb}%
+  \pgf@protocolsizes{\pgfutil@tempdima}{\pgfutil@tempdimb}%
+  \pgfsyssoftpath@curveto{\the\pgf@xa}{\the\pgf@ya}{\the\pgf@xb}{\the\pgf@yb}{\the\pgfutil@tempdima}{\the\pgfutil@tempdimb}
+  \expandafter\pgf@nlt@redef@info\pgf@nlt@infos%
+}
+
+\def\pgf@nlt@redef@info#1#2#3#4#5#6#7#8{%
+  \xdef\pgf@nlt@infos{%
+    {\the\pgf@xc}{\the\pgf@yc}%last coordinate
+    {\the\pgfutil@tempdima}{\the\pgfutil@tempdimb}%last coordinate transformed
+    {#5}{#6}% last moveto
+    {#7}{#8}%last moveto transformed
+  }
+}
+
+
+\def\pgf@nlt@closepath@nlt{%
+  {%
+    \expandafter\pgf@nlt@get@closepath\pgf@nlt@infos%
+    \pgfutil@tempswatrue%
+    \ifdim\pgf@xc<0.01pt\relax\ifdim\pgf@xc>-0.01pt\relax\ifdim\pgf@yc<0.01pt\relax\ifdim\pgf@yc>-0.01pt\relax\pgfutil@tempswafalse\fi\fi\fi\fi%
+    \ifpgfutil@tempswa%
+      \pgf@nlt@lineto@nlt{\pgf@x}{\pgf@y}%
+    \fi%
+    \pgfsyssoftpath@closepath%
+  }%
+}
+
+\def\pgf@nlt@get@closepath#1#2#3#4#5#6#7#8{%
+  \pgf@x#5\pgf@y#6%
+  \pgf@xc#1\pgf@yc#2%
+  \advance\pgf@xc by-\pgf@x%
+  \advance\pgf@yc by-\pgf@y%
+}
+
+
+\endinput
