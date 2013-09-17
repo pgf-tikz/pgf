@@ -1,4 +1,4 @@
-% Copyright 2006 by Till Tantau
+% Copyright 2006, 2013 by Till Tantau
 %
 % This file may be distributed and/or modified
 %
@@ -23,6 +23,7 @@
 % name        = Name of the arrow. If the name contains a dash
 %               (hyphen), the text before the hyphen is the start name
 %               and the text behind it the end name.
+%
 % means       = If set, none of the below options may be
 %               given. The effect is that whenever the arrow is
 %               used, it gets replaced by this "text", which is
@@ -31,7 +32,7 @@
 % setup       = Code that does "precomputations". These will be
 %               executed only once for each combination of the
 %               dependencies. At the end of this code, you can use
-%                \savethe and \save to "save" computed values, which
+%               \savethe and \save to "save" computed values, which
 %               will then be available inside the "code". Values needed
 %               only for the "... end" keys and the convex hull do not
 %               need to be saved since these are also executed only
@@ -44,14 +45,6 @@
 %               caching off. In this case, each time the arrow is drawn,
 %               its code is simply executed. This allows you to put things
 %               like text or shadings in arrow tips.
-% convex hull = A sequence of pairs of coordinates (like
-%               {1pt}{2pt}{3pt}{4pt} for the points (1pt,2pt) and
-%               (3pt,4pt)) that "envelope" the arrow tip
-%               completely. Should be as small and as short as
-%               possible. In particular, it usually should not contain 
-%               x-coordinates outside the interval [back end, tip
-%               end]. This hull is used for updating the picture's
-%               bounding box when the arrow tip is used.
 % defaults    = A list of "default" options for the arrow tip. These
 %               are executed as if they were given to the arrow tip in
 %               brackets. This is useful for setting up default values.
@@ -406,25 +399,27 @@
   /pgf/@arrows/.cd,
   length/.code={%
     \pgfarrowsthreeparameters{#1}%
-    \expandafter\pgfarrowsaddtooption\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowlength\pgf@x}%
+    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowlength\pgf@x}%
   },
-  inset/.code=\pgfarrowsaddtooption{\pgfarrowinset#1},
+  inset/.code=\pgfarrowsaddtooptions{\pgfarrowinset#1},
   width/.code={%
     \pgfarrowsthreeparameters{#1}%
-    \expandafter\pgfarrowsaddtooption\expandafter{\expandafter\pgfarrowslengthdependent\pgfarrowstheparameters\pgfarrowwidth\pgf@x}%
+    \expandafter\pgfarrowsaddtolateoptions\expandafter{\expandafter\pgfarrowslengthdependent\pgfarrowstheparameters\pgfarrowwidth}%
   },
-  degrees/.code=\pgfarrowsaddtooption{\def\pgfarrowdegrees{#1}},
+  degrees/.code=\pgfarrowsaddtooptions{\def\pgfarrowdegrees{#1}},
   sep/.code={
     \pgfarrowsthreeparameters{#1}%
-    \expandafter\pgfarrowsaddtooption\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\edef\pgfarrowsep{\the\pgf@x}}%
+    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\edef\pgfarrowsep{\the\pgf@x}}%
   },
   sep/.default=0.88pt .3 1,
   %
-  swap/.code=\pgfarrowsaddtooption{\ifpgfarrowswap\pgfarrowswapfalse\else\pgfarrowswaptrue\fi},
-  reversed/.code=\pgfarrowsaddtooption{\ifpgfarrowreversed\pgfarrowreversedfalse\else\pgfarrowreversedtrue\fi},
+  swap/.code=\pgfarrowsaddtooptions{\ifpgfarrowswap\pgfarrowswapfalse\else\pgfarrowswaptrue\fi},
+  reversed/.code=\pgfarrowsaddtooptions{\ifpgfarrowreversed\pgfarrowreversedfalse\else\pgfarrowreversedtrue\fi},
 }
 
-\def\pgfarrowsaddtooption#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options#1}}
+\def\pgfarrowsaddtooptions#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options#1}}
+\def\pgfarrowsaddtolateoptions#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options\pgf@arrows@add@to@late@options{#1}}}
+\def\pgf@arrows@add@to@late@options#1{\expandafter\def\expandafter\pgf@arrows@late@options\expandafter{\pgf@arrows@late@options#1}}
 \def\pgfarrowsep{0pt}
 
 \def\pgfarrowsthreeparameters#1{%
@@ -457,16 +452,12 @@
   \advance\pgf@x by#1\pgf@xa%
 }
 
-\def\pgfarrowslengthdependent#1#2#3{%
-  \pgf@x#1%
-  \advance\pgf@x by#2\pgfarrowlength%
+
+\def\pgfarrowslengthdependent#1#2#3#4{%
+  #4#1%
+  \advance#4by#2\pgfarrowlength%
 }
 
-\def\pgfarrowslwdependent#1#2#3{%
-  \pgf@x#1%
-  \advance\pgf@x by#2\pgfarrowlength%
-  \advance\pgf@x by#3\pgfarrowwidth%
-}
 
 
 % Build the full name:
@@ -488,6 +479,7 @@
 
 \def\pgfarrows@getid#1#2{%
   % Execute options:
+  \let\pgf@arrows@late@options\pgfutil@empty%
   % 1. Defaults:
   \csname pgf@ar@defaults@#1\endcsname%
   % 2. Scope:
@@ -496,6 +488,8 @@
   #2\relax%
   % 4. Nested:
   \pgf@arrows@nested@options% 
+  % 5. Last options:
+  \pgf@arrows@late@options%
   % Now, test:
   \expandafter\global\expandafter\let\expandafter\pgf@arrow@id\csname\pgf@arrow@fullname{#1}\endcsname\relax%
   \ifx\pgf@arrow@id\relax%
@@ -638,7 +632,7 @@
 \newif\ifpgf@arrow@after@line@end
 
 \def\pgf@arrow@compute@shortening@#1#2{%
-  {\pgfarrows@getid{#1}{#2}}%
+  {\pgfarrows@getid{#1}{#2}\ifpgf@shorten@curved\global\pgf@shorten@curvedtrue\fi}%
   \expandafter\expandafter\expandafter\pgf@arrow@cont@short\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
 }
 \def\pgf@dot@text{.}
