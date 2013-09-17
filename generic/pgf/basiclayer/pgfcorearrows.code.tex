@@ -91,7 +91,7 @@
 
 \def\pgfdeclarearrow#1{%
   \let\pgf@decl@arrow@defaults\pgfutil@empty%
-  \pgfkeys{/pgf/@arrows/.cd,
+  \pgfkeys{/pgf/@arrows decl/.cd,
     name=,
     means=,
     setup=,
@@ -117,7 +117,10 @@
       \let\pgf@arrow@translate\relax%
       \expandafter\let\expandafter\pgf@arrows@direct\csname pgf@arrows@direct@name@end@\pgf@decl@arrow@means\endcsname%
       \ifx\pgf@arrows@direct\relax%
+        \let\pgf@arrows@options@orig\pgf@arrows@options%
+        \let\pgf@arrows@options\pgfutil@empty%
         \expandafter\pgfarrows@initial@parser\pgf@decl@arrow@means[]\pgf@stop%
+        \let\pgf@arrows@options\pgf@arrows@options@orig%
       \else%
         \let\pgf@arrow@tip@sequence\pgf@arrows@direct%
       \fi%
@@ -134,7 +137,7 @@
 }
 
 \pgfkeys{
-  /pgf/@arrows/.cd,
+  /pgf/@arrows decl/.cd,
   name/.code={%
     \pgfutil@in@-{#1}%
     \ifpgfutil@in@%
@@ -148,9 +151,11 @@
   cache/.is if=pgf@decl@arrow@cache,
   parameters/.store in=\pgf@decl@arrow@par,
   defaults/.code={%
+    \let\pgf@arrows@options@orig\pgf@arrows@options%
     \let\pgf@arrows@options\pgfutil@empty%
-    \pgfkeys{/pgf/arrows/.cd,#1}%
+    \pgfkeys{/pgf/@arrows/.cd,#1}%
     \let\pgf@decl@arrow@defaults\pgf@arrows@options%
+    \let\pgf@arrows@options\pgf@arrows@options@orig%
   }
 }
 
@@ -161,6 +166,7 @@
   \def\pgf@decl@arrow@name@end{#2}%
 }
 
+\let\pgf@arrows@options\pgfutil@empty
 
 
 % Handler for defining arrow tips:
@@ -218,11 +224,11 @@
 
 \newif\ifpgf@arrows@translate
 
-\def\pgfarrows@initial@parser{\pgfutil@ifnextchar[\pgfarrows@initial@parser@{\pgfarrows@initial@parser@[]}}%}
+\def\pgfarrows@initial@parser{%
+  \let\pgf@arrows@options@original\pgf@arrows@options%
+  \pgfutil@ifnextchar[\pgfarrows@initial@parser@{\pgfarrows@initial@parser@[]}}%}
 \def\pgfarrows@initial@parser@[#1]{%
-  \let\pgf@arrows@options\pgfutil@empty%
-  \pgfkeys{/pgf/arrows/.cd,#1}%
-  \let\pgf@arrows@options@initial\pgf@arrows@options%
+  \pgfkeys{/pgf/@arrows/.cd,#1}%
   \pgfarrows@parser%
 }
 
@@ -258,7 +264,7 @@
 }
 
 \def\pgf@arrows@empty[#1]{%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\pgfarrows@parser%  
+  \pgfutil@ifnextchar\pgf@stop\pgf@arrows@parser@done\pgfarrows@parser%  
 }
 
 \def\pgf@arrows@single@char@parser#1{%
@@ -290,16 +296,19 @@
 \def\pgf@arrows@meta@parsed#1[#2]{%
   % Ok, run the keys #2. This will add commands to \pgf@arrows@options:
   % 
-  \let\pgf@arrows@options\pgf@arrows@options@initial%
-  \pgfkeys{/pgf/arrows/.cd,#2}%
+  \pgfkeys{/pgf/@arrows/.cd,#2}%
   % Append the arrow and its options to the arrow tip sequence:
   \expandafter\pgf@arrows@meta@set\expandafter{\pgf@arrows@options}{#1}{\pgf@arrow@handle}%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\pgfarrows@parser%  
+  \pgfutil@ifnextchar\pgf@stop\pgf@arrows@parser@done\pgfarrows@parser%  
+}
+
+\def\pgf@arrows@parser@done#1{%
+  \let\pgf@arrows@options\pgf@arrows@options@original%
 }
 
 \def\pgf@arrows@dot@parsed#1[#2]{%
   \pgf@arrows@append@to@tips{\pgf@arrow@handle@dot}%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\pgfarrows@parser%  
+  \pgfutil@ifnextchar\pgf@stop\pgf@arrows@parser@done\pgfarrows@parser%  
 }
 
 \def\pgf@arrows@meta@set#1#2#3{%
@@ -318,14 +327,13 @@
 }
 
 \def\pgf@arrows@shorthand@parsed#1[#2]{%
-  \let\pgf@arrows@options\pgf@arrows@options@initial%
-  \pgfkeys{/pgf/arrows/.cd,#2}%
+  \pgfkeys{/pgf/@arrows/.cd,#2}%
   \ifx\pgf@arrows@options\pgfutil@empty%
     \pgf@arrows@append@to@tips{\pgf@arrow@handle@shorthand@empty{#1}}%
   \else%
     \expandafter\pgf@arrows@meta@set\expandafter{\pgf@arrows@options}{#1}{\pgf@arrow@handle@shorthand}%
   \fi%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\pgfarrows@parser%  
+  \pgfutil@ifnextchar\pgf@stop\pgf@arrows@parser@done\pgfarrows@parser%  
 }
 
 
@@ -401,7 +409,7 @@
 \newif\ifpgfarrowreversed
 
 \pgfkeys{
-  /pgf/arrows/.cd,
+  /pgf/@arrows/.cd,
   length/.code={%
     \pgfarrowsthreeparameters{#1}%
     \expandafter\pgfarrowsaddtooption\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowlength\pgf@x}%
@@ -769,18 +777,32 @@
 
 % Sets arrows
 %
-% #1 = An arrow specification of the form ``left''-``right''. The last
-%      and right should be arrow types that have been defined using
-%      the \pgfarrowsdef command
+% #1 = An arrow specification of the form
+%      <start spec>-<end spec>. This will call \pgfsetstartarrow{start
+%        spec} and \pgfsetendarrow{end spec}.
+%      
+%      Alternatively, it may be of the form [options]. In this case,
+%      the arrow options are set for the local scope and all arrows in
+%      the current scope will have these options set.
 %
 % Example:
 %
 % \pgfsetarrows{-to}
 
 \def\pgfsetarrows#1{\pgf@arrows#1\pgf@stop}
-\def\pgf@arrows#1-#2\pgf@stop{%
+\def\pgf@arrows{\pgfutil@ifnextchar[\pgf@arrows@test@opt\pgf@arrows@}%}
+\def\pgf@arrows@#1-#2\pgf@stop{%
   \pgfsetarrowsstart{#1}%
   \pgfsetarrowsend{#2}%
+}
+\def\pgf@arrows@test@opt[#1]{%
+  \pgfutil@ifnextchar\pgf@stop{%
+    \pgfkeys{/pgf/@arrows/.cd,#1}%
+    % Ok, setup the options
+    \pgfutil@gobble%
+  }{%
+    \pgf@arrows@[#1]% Oops: go back to normal mode
+  }%
 }
 
 
