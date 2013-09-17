@@ -117,10 +117,8 @@
       \let\pgf@arrow@translate\relax%
       \expandafter\let\expandafter\pgf@arrows@direct\csname pgf@arrows@direct@name@end@\pgf@decl@arrow@means\endcsname%
       \ifx\pgf@arrows@direct\relax%
-        \let\pgf@arrows@options@orig\pgf@arrows@options%
         \let\pgf@arrows@options\pgfutil@empty%
         \expandafter\pgfarrows@initial@parser\pgf@decl@arrow@means[]\pgf@stop%
-        \let\pgf@arrows@options\pgf@arrows@options@orig%
       \else%
         \let\pgf@arrow@tip@sequence\pgf@arrows@direct%
       \fi%
@@ -151,11 +149,9 @@
   cache/.is if=pgf@decl@arrow@cache,
   parameters/.store in=\pgf@decl@arrow@par,
   defaults/.code={%
-    \let\pgf@arrows@options@orig\pgf@arrows@options%
     \let\pgf@arrows@options\pgfutil@empty%
     \pgfkeys{/pgf/@arrows/.cd,#1}%
     \let\pgf@decl@arrow@defaults\pgf@arrows@options%
-    \let\pgf@arrows@options\pgf@arrows@options@orig%
   }
 }
 
@@ -165,8 +161,6 @@
   \def\pgf@decl@arrow@name@start{#1}%
   \def\pgf@decl@arrow@name@end{#2}%
 }
-
-\let\pgf@arrows@options\pgfutil@empty
 
 
 % Handler for defining arrow tips:
@@ -225,7 +219,6 @@
 \newif\ifpgf@arrows@translate
 
 \def\pgfarrows@initial@parser{%
-  \let\pgf@arrows@options@original\pgf@arrows@options%
   \pgfutil@ifnextchar[\pgfarrows@initial@parser@{\pgfarrows@initial@parser@[]}}%}
 \def\pgfarrows@initial@parser@[#1]{%
   \pgfkeys{/pgf/@arrows/.cd,#1}%
@@ -296,6 +289,7 @@
 \def\pgf@arrows@meta@parsed#1[#2]{%
   % Ok, run the keys #2. This will add commands to \pgf@arrows@options:
   % 
+  \let\pgf@arrows@options\pgfutil@empty%
   \pgfkeys{/pgf/@arrows/.cd,#2}%
   % Append the arrow and its options to the arrow tip sequence:
   \expandafter\pgf@arrows@meta@set\expandafter{\pgf@arrows@options}{#1}{\pgf@arrow@handle}%
@@ -303,7 +297,6 @@
 }
 
 \def\pgf@arrows@parser@done#1{%
-  \let\pgf@arrows@options\pgf@arrows@options@original%
 }
 
 \def\pgf@arrows@dot@parsed#1[#2]{%
@@ -327,6 +320,7 @@
 }
 
 \def\pgf@arrows@shorthand@parsed#1[#2]{%
+  \let\pgf@arrows@options\pgfutil@empty%
   \pgfkeys{/pgf/@arrows/.cd,#2}%
   \ifx\pgf@arrows@options\pgfutil@empty%
     \pgf@arrows@append@to@tips{\pgf@arrow@handle@shorthand@empty{#1}}%
@@ -451,18 +445,16 @@
   \fi%
 }
 \def\pgf@arrows@inner@line@width@dep#1#2{%
+  % #1*((1-#2/2)*full line width - (#2/2) * inner line width)
   % Compute "real" line width
-  \pgf@xa.5\pgflinewidth%
+  \pgf@xa\pgflinewidth%
+  \pgf@xb-.5\pgflinewidth%
+  \pgf@xb#2\pgf@xb%
+  \advance\pgf@xa by\pgf@xb%
   \pgf@xb\pgfinnerlinewidth%
-  \advance\pgf@xa by-.5\pgf@xb%
+  \pgf@xb-.5\pgf@xb
+  \advance\pgf@xa by#2\pgf@xb%
   \advance\pgf@x by#1\pgf@xa%
-  % Compute "dampening":
-  \pgf@xa.5\pgflinewidth%
-  \advance\pgf@xa by.5\pgf@xb%
-  \pgf@xc-\pgf@xa
-  \pgf@xa#2\pgf@xa%
-  \advance\pgf@xa by\pgf@xc%
-  \advance\pgf@x by-\pgf@xa%
 }
 
 \def\pgfarrowslengthdependent#1#2#3{%
@@ -496,9 +488,14 @@
 
 \def\pgfarrows@getid#1#2{%
   % Execute options:
-  \csname pgf@ar@defaults@#1\endcsname% defaults
-  #2\relax% local options
-  \pgf@arrows@nested@options% enclosing options
+  % 1. Defaults:
+  \csname pgf@ar@defaults@#1\endcsname%
+  % 2. Scope:
+  \pgf@arrows@options@scope
+  % 3. Local:
+  #2\relax%
+  % 4. Nested:
+  \pgf@arrows@nested@options% 
   % Now, test:
   \expandafter\global\expandafter\let\expandafter\pgf@arrow@id\csname\pgf@arrow@fullname{#1}\endcsname\relax%
   \ifx\pgf@arrow@id\relax%
@@ -789,15 +786,21 @@
 %
 % \pgfsetarrows{-to}
 
-\def\pgfsetarrows#1{\pgf@arrows@#1\pgf@stop}
+\def\pgfsetarrows#1{\pgf@arrows#1\pgf@stop}
 \def\pgf@arrows{\pgfutil@ifnextchar[\pgf@arrows@test@opt\pgf@arrows@}%}
 \def\pgf@arrows@#1-#2\pgf@stop{%
   \pgfsetarrowsstart{#1}%
   \pgfsetarrowsend{#2}%
 }
-\def\pgf@arrows@test@opt[#1]{%
+\def\pgf@arrows@test@opt[{%
+  \pgfutil@ifnextchar-{\pgf@arrows@[}%} go back to normal reading for compat. reasons.
+  \pgf@arrows@test@opt@%
+}
+\def\pgf@arrows@test@opt@#1]{%
   \pgfutil@ifnextchar\pgf@stop{%
+    \let\pgf@arrows@options\pgf@arrows@options@scope%
     \pgfkeys{/pgf/@arrows/.cd,#1}%
+    \let\pgf@arrows@options@scope\pgf@arrows@options%    
     % Ok, setup the options
     \pgfutil@gobble%
   }{%
@@ -805,7 +808,7 @@
   }%
 }
 
-
+\let\pgf@arrows@options@scope\pgfutil@empty
 
 
 
@@ -838,7 +841,7 @@
 \pgfdeclarearrow{
   name = Latex,
   defaults = {
-    length=2.8pt 3 .4,
+    length=2.8pt 3 .8,
     width=0pt .375,
   },
   setup = {
