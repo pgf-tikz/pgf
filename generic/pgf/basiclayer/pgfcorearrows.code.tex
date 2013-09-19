@@ -20,43 +20,42 @@
 % This command is used to define a new arrow tip kind. For more
 % details on the description of the keys, please see the pgfmanual.
 % 
-% name        = Name of the arrow. If the name contains a dash
-%               (hyphen), the text before the hyphen is the start name
-%               and the text behind it the end name.
+% name         = Name of the arrow. If the name contains a dash
+%                (hyphen), the text before the hyphen is the start name
+%                and the text behind it the end name.
 %
-% means       = If set, none of the below options may be
-%               given. The effect is that whenever the arrow is
-%               used, it gets replaced by this "text", which is
-%               parsed by the parser.
+% means        = If set, none of the below options may be
+%                given. The effect is that whenever the arrow is
+%                used, it gets replaced by this "text", which is
+%                parsed by the parser.
 %
-% setup       = Code that does "precomputations". These will be
-%               executed only once for each combination of the
-%               dependencies. At the end of this code, you can use
-%               \savethe and \save to "save" computed values, which
-%               will then be available inside the "code". Values needed
-%               only for the "... end" keys and the convex hull do not
-%               need to be saved since these are also executed only
-%               once. 
-% code        = Code for drawing the arrow. When the cache key is set to
-%               true, which is the default, the code will be protocolled
-%               and the resulting code is inserted using \pgflowlevelobj.
-% cache       = Boolean that decides whether the arrow can be cached. The
-%               default is true, so you have to say cache=false to switch
-%               caching off. In this case, each time the arrow is drawn,
-%               its code is simply executed. This allows you to put things
-%               like text or shadings in arrow tips.
-% bendable    = Defaults to true. If false, the arrow will never bend,
-%               even when the bend option is set. This is useful for
-%               instance with arrows made from text.
-% defaults    = A list of "default" options for the arrow tip. These
-%               are executed as if they were given to the arrow tip in
-%               brackets. This is useful for setting up default values.
-% parameters  = A list of comma-separated macro names on whose values
-%               the appearance of the arrow tip depends. When an arrow
-%               tip is used, these macros are expanded. If an
-%               arrow tip was already installed with the same macro
-%               names (and caching is true), the cached code is
-%               used. Note that when you use dimensions here, add \the.
+% setup        = Code that does "precomputations". These will be
+%                executed only once for each combination of the
+%                dependencies. At the end of this code, you can use
+%                \savethe and \save to "save" computed values, which
+%                will then be available inside the "code". Values needed
+%                only for the "... end" keys and the convex hull do not
+%                need to be saved since these are also executed only
+%                once. 
+% code         = Code for drawing the arrow. When the cache key is set to
+%                true, which is the default, the code will be protocolled
+%                and the resulting code is inserted using \pgflowlevelobj.
+% cache        = Boolean that decides whether the arrow can be cached. The
+%                default is true, so you have to say cache=false to switch
+%                caching off. In this case, each time the arrow is drawn,
+%                its code is simply executed. This allows you to put things
+%                like text or shadings in arrow tips.
+% bending mode = Can be set to "orthogonal", "polar", or
+%                "none". Defaults to "orthogonal".
+% defaults     = A list of "default" options for the arrow tip. These
+%                are executed as if they were given to the arrow tip in
+%                brackets. This is useful for setting up default values.
+% parameters   = A list of comma-separated macro names on whose values
+%                the appearance of the arrow tip depends. When an arrow
+%                tip is used, these macros are expanded. If an
+%                arrow tip was already installed with the same macro
+%                names (and caching is true), the cached code is
+%                used. Note that when you use dimensions here, add \the.
 %               
 % Inside the setup code, the following macros are available:               
 %
@@ -93,7 +92,7 @@
     setup=,
     code=,
     cache=true,
-    bendable=true,
+    bending mode=orthogonal,
     parameters=,%
     #1%
   }%
@@ -107,7 +106,7 @@
       \pgf@arrow@letter{code}%
       \pgf@arrow@letter{defaults}%
       \pgf@arrow@letter{setup}%
-      \pgf@arrow@letter{bendable}%
+      \pgf@arrow@letter{bending@mode}%
       \pgf@arrow@letter{par}%
     \else%
       \let\pgf@arrow@tip@sequence\pgfutil@empty%
@@ -144,7 +143,10 @@
   setup/.store in=\pgf@decl@arrow@setup,
   code/.store in=\pgf@decl@arrow@code,
   cache/.is if=pgf@decl@arrow@cache,
-  bendable/.store in=\pgf@decl@arrow@bendable,
+  bending mode/.is choice,
+  bending mode/none/.code=\let\pgf@decl@arrow@bending@mode\pgfutil@empty,
+  bending mode/orthogonal/.code=\def\pgf@decl@arrow@bending@mode{\pgfpointcurvilinearbezierorthogonal},
+  bending mode/polar/.code=\def\pgf@decl@arrow@bending@mode{\pgfpointcurvilinearbezierpolar},
   parameters/.store in=\pgf@decl@arrow@par,
   defaults/.code={%
     \let\pgf@arrows@options\pgfutil@empty%
@@ -446,6 +448,9 @@
 \newif\ifpgfarrowreversed
 \newif\ifpgfarrowharpoon
 
+\let\pgf@arrows@stroke@color\pgfutil@empty
+\let\pgf@arrows@fill@color\pgfutil@empty
+
 \pgfkeys{
   /pgf/@arrows/.cd,
   length/.code={%
@@ -454,7 +459,7 @@
   },
   inset/.code={%
     \pgfarrowsthreeparameters{#1}%
-    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowinset\pgf@x}%
+    \expandafter\pgfarrowsaddtolateoptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowinset\pgf@x}%
   },
   inset'/.code={
     \pgfarrowsthreeparameters{#1}%
@@ -462,13 +467,19 @@
   },
   width/.code={%
     \pgfarrowsthreeparameters{#1}%
-    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowwidth\pgf@x}%
+    \expandafter\pgfarrowsaddtolateoptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowwidth\pgf@x}%
   },
   width'/.code={%
     \pgfarrowsthreeparameters{#1}%
     \expandafter\pgfarrowsaddtolateoptions\expandafter{\expandafter\pgfarrowslengthdependent\pgfarrowstheparameters\pgfarrowwidth}%
   },
-  degrees/.code=\pgfarrowsaddtooptions{\def\pgfarrowdegrees{#1}},
+  angle/.code={%
+    \pgfarrowsfourparameters{#1}%
+    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrows@angle@setup\pgfarrowstheparameters}%
+  },
+  angle'/.code={
+    \pgfarrowsaddtolateoptions{\pgfarrows@angle@setup@prime{#1}}%
+  },
   sep/.code={
     \pgfarrowsthreeparameters{#1}%
     \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowsep\pgf@x}%
@@ -478,6 +489,8 @@
   swap/.code=\pgfarrowsaddtooptions{\ifpgfarrowswap\pgfarrowswapfalse\else\pgfarrowswaptrue\fi},
   reversed/.code=\pgfarrowsaddtooptions{\ifpgfarrowreversed\pgfarrowreversedfalse\else\pgfarrowreversedtrue\fi},
   harpoon/.code=\pgfarrowsaddtooptions{\pgfarrowharpoontrue},
+  color/.code=\pgfarrowsaddtooptions{\def\pgf@arrows@stroke@color{#1}},
+  fill/.code=\pgfarrowsaddtooptions{\def\pgf@arrows@fill@color{#1}},
 }
 
 \def\pgfarrowsaddtooptions#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options#1}}
@@ -492,6 +505,31 @@
   \edef\pgfarrowstheparameters{{\the\pgf@x}{#2}{#3}}%
 }
 
+\def\pgfarrowsfourparameters#1{%
+  \pgfarrowsfourparameters@#1 0 0 0 \pgf@stop%
+}
+\def\pgfarrowsfourparameters@#1:#2 #3 #4 #5\pgf@stop{%
+  \pgfmathsetlength\pgf@x{#2}%
+  \edef\pgfarrowstheparameters{{#1}{\the\pgf@x}{#3}{#4}}%
+}
+
+\def\pgfarrows@angle@setup#1#2#3#4{%
+  \pgfarrowslinewidthdependent{#2}{#3}{#4}
+  \pgf@xc\pgf@x
+  \pgf@yc#1 pt%
+  \pgf@yc.5\pgf@yc%
+  \pgfpointpolar{\pgf@yc}{\pgf@xc}
+  \pgfarrowlength\pgf@x%
+  \pgf@y2\pgf@y%
+  \expandafter\pgf@arrows@add@to@late@options\expandafter{\expandafter\pgfarrowwidth\the\pgf@y}%
+}
+
+\def\pgfarrows@angle@setup@prime#1{%
+  \pgf@yc#1 pt%
+  \pgfmathtan@{.5\pgf@yc}%
+  \pgfarrowwidth\pgfmathresult\pgfarrowlength%
+  \pgfarrowwidth2\pgfarrowwidth%
+}
 
 \def\pgfarrowslinewidthdependent#1#2#3{%
   \pgf@x#1%
@@ -524,7 +562,9 @@
 
 % Build the full name:
 
-\def\pgf@arrow@fullname#1{pgf@@ar@#1@\the\pgflinewidth @\pgfinnerlinewidth @\ifpgfarrowreversed r\fi @\csname pgf@ar@par@#1\endcsname}
+\def\pgf@arrow@fullname#1{pgf@@ar@#1@\the\pgflinewidth
+  @\pgfinnerlinewidth @\ifpgfarrowreversed r\fi @\pgf@arrows@stroke@color
+  @\pgf@arrows@fill@color @\csname pgf@ar@par@#1\endcsname}
 
 \def\pgf@arrow@id@count{0}%
 
@@ -595,9 +635,9 @@
           \pgftransformreset%
           \pgfsysprotocol@setcurrentprotocol\pgfutil@empty%
           \pgfsysprotocol@bufferedtrue%
-          \pgfsys@beginscope%
+          \pgfscope%
           \pgf@arrow@code%
-          \pgfsys@endscope%
+          \endpgfscope%
           \pgfsysprotocol@getcurrentprotocol\pgf@@arrow@temp%
           \expandafter\gdef\expandafter\pgf@arrow@code\expandafter{\expandafter\pgfsys@invoke\expandafter{\pgf@@arrow@temp}}%
         \endpgfinterruptpath%
@@ -754,7 +794,19 @@
     \fi%
     {%
       \csname pgf@ar@saves@\pgf@arrow@id\endcsname%
-      \pgfscope\pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname\endpgfscope%
+      \pgfscope%
+        \ifx\pgf@arrows@stroke@color\pgfutil@empty\else\pgfsetstrokecolor{\pgf@arrows@stroke@color}\fi%
+        \ifx\pgf@arrows@fill@color\pgfutil@empty%
+          \expandafter\expandafter\expandafter\ifx%
+            \expandafter\csname\expandafter\string\expandafter\color@pgfstrokecolor\expandafter\endcsname\csname\string\color@pgffillcolor\endcsname%
+            \else
+            \pgfsetfillcolor{pgfstrokecolor}%
+          \fi%
+        \else%  
+          \pgfsetfillcolor{\pgf@arrows@fill@color}%
+        \fi%
+        \pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname%
+      \endpgfscope%
       \pgf@arrows@rigid@hull%
     }%  
   \expandafter}%
@@ -896,39 +948,77 @@
 
 
 
-% A "Bar" arrow, which is just a line orthogonal to the line.
+% Square Hooks are arrows heads that look like an I at the end of a line.
 
 \pgfdeclarearrow{
-  name = Bar,
+  name = Square Hooks,
   defaults = {
-    width = 4pt 4,
+    width = +4pt 4,
   },
+  bending mode=polar,
   setup = {
+    % Two useful numbers... 
+    \pgfutil@tempdima\pgfarrowinset\ifdim\pgfutil@tempdima<.5\pgflinewidth\pgfutil@tempdima.5\pgflinewidth\fi%
+    \pgfutil@tempdimb-\pgfarrowlength\advance\pgfutil@tempdimb by\pgfarrowinset\ifdim\pgfutil@tempdimb>-.5\pgflinewidth\pgfutil@tempdimb-.5\pgflinewidth\fi
     % The following are needed in the code:
     \pgfarrowssavethe\pgfarrowwidth
+    \pgfarrowssavethe\pgfutil@tempdima
+    \pgfarrowssavethe\pgfutil@tempdimb
     % Infos:
-    \pgfarrowssettipend{.5\pgflinewidth}
-    \pgfarrowssetbackend{-.5\pgflinewidth}
+    \pgfarrowssettipend{\pgfutil@tempdima}
     \pgfarrowssetrigidbackend{.5\pgflinewidth}
+    \pgfarrowssetbackend{\pgfutil@tempdimb}
+    \pgfarrowssetlineend{-.25\pgflinewidth}%
     % The hull:
-    \pgfarrowshullpoint{.5\pgflinewidth}{.5\pgfarrowwidth}%
-    \pgfarrowshullpoint{-.5\pgflinewidth}{.5\pgfarrowwidth}%
+    \pgfarrowshullpoint{\pgfutil@tempdima}{.5\pgfarrowwidth}%
+    \pgfarrowshullpoint{\pgfutil@tempdimb}{.5\pgfarrowwidth}%
     \ifpgfarrowharpoon
-      \pgfarrowshullpoint{.5\pgflinewidth}{0pt}%
+      \pgfarrowshullpoint{.5\pgflinewidth}{-.5\pgflinewidth}%
     \else
-      \pgfarrowshullpoint{.5\pgflinewidth}{-.5\pgfarrowwidth}%
-      \pgfarrowshullpoint{-.5\pgflinewidth}{-.5\pgfarrowwidth}%
+      \pgfarrowshullpoint{\pgfutil@tempdima}{-.5\pgfarrowwidth}%
+      \pgfarrowshullpoint{\pgfutil@tempdimb}{-.5\pgfarrowwidth}%
     \fi
   },
   code = {
     \pgfsetdash{}{+0pt}
     \pgfsetbuttcap
-    \pgfpathmoveto{\pgfqpoint{0pt}{\ifpgfarrowharpoon-.5\pgflinewidth\else-.5\pgfarrowwidth\fi}}
-    \pgfpathlineto{\pgfqpoint{0pt}{.5\pgfarrowwidth}}
+    \pgfsetmiterjoin
+    \pgf@x\pgfutil@tempdima\advance\pgf@x by-.5\pgflinewidth%
+    \pgf@y\pgfutil@tempdimb\advance\pgf@y by.5\pgflinewidth%
+    % Case 1: No bar atop the I:
+    \ifdim\pgf@x=\pgf@y%
+      \pgfpathmoveto{\pgfqpoint{0pt}{.5\pgfarrowwidth}}
+      \pgfpathlineto{\pgfqpoint{0pt}{\ifpgfarrowharpoon-.5\pgflinewidth\else-.5\pgfarrowwidth\fi}}
+    \else
+      % Case 2: Bar, but only in one direction:
+      \ifdim\pgfutil@tempdima=.5\pgflinewidth%
+        \pgfpathmoveto{\pgfqpoint{\pgfutil@tempdimb}{.5\pgfarrowwidth\advance\pgf@y by-.5\pgflinewidth}}
+        \pgfpathlineto{\pgfqpoint{0pt}{.5\pgfarrowwidth\advance\pgf@y by-.5\pgflinewidth}}
+        \ifpgfarrowharpoon%
+          \pgfpathlineto{\pgfqpoint{0pt}{-.5\pgflinewidth}}%
+        \else%
+          \pgfpathlineto{\pgfqpoint{0pt}{-.5\pgfarrowwidth\advance\pgf@y by.5\pgflinewidth}}
+          \pgfpathlineto{\pgfqpoint{\pgfutil@tempdimb}{-.5\pgfarrowwidth\advance\pgf@y by.5\pgflinewidth}}
+        \fi
+      \else% Case 3: Complete I:
+        \pgfpathmoveto{\pgfqpoint{\pgfutil@tempdimb}{.5\pgfarrowwidth\advance\pgf@y by-.5\pgflinewidth}}
+        \pgfpathlineto{\pgfqpoint{\pgfutil@tempdima}{.5\pgfarrowwidth\advance\pgf@y by-.5\pgflinewidth}}
+        \pgfpathmoveto{\pgfqpoint{0pt}{.5\pgfarrowwidth\advance\pgf@y by-.5\pgflinewidth}}
+        \ifpgfarrowharpoon%
+          \pgfpathlineto{\pgfqpoint{0pt}{-.5\pgflinewidth\advance\pgf@y by.5\pgflinewidth}}%
+        \else%
+          \pgfpathlineto{\pgfqpoint{0pt}{-.5\pgfarrowwidth\advance\pgf@y by.5\pgflinewidth}}
+          \pgfpathmoveto{\pgfqpoint{\pgfutil@tempdimb}{-.5\pgfarrowwidth\advance\pgf@y by.5\pgflinewidth}}
+          \pgfpathlineto{\pgfqpoint{\pgfutil@tempdima}{-.5\pgfarrowwidth\advance\pgf@y by.5\pgflinewidth}}
+        \fi
+      \fi
+    \fi
     \pgfusepathqstroke
   },
   parameters = {
     \the\pgfarrowwidth,%
+    \the\pgfarrowlength,%
+    \the\pgfarrowinset,%
     \ifpgfarrowharpoon h\fi%
   },
 }
@@ -942,37 +1032,58 @@
 \pgfdeclarearrow{
   name = Latex,
   defaults = {
-    length = 2.8pt 3 .8,
-    width' = 0pt .75,
+    length = +3.8pt 0.55 -0.45,
+    width' = +0pt .75,
   },
   setup = {
+    \pgf@xb\pgflinewidth
+    \ifdim\pgfinnerlinewidth>0pt
+      \advance\pgf@xb by-\pgfinnerlinewidth\pgf@xb.5\pgf@xb
+    \fi
     % The following are needed in the code:
     \pgfarrowssavethe\pgfarrowlength
     \pgfarrowssavethe\pgfarrowwidth
     % Infos:
-    \pgfarrowssettipend{\pgfarrowlength}
-    \pgfarrowssetlineend{.1\pgfarrowlength}
+    % Compute miter length:
+    \pgfmathdivide@\pgfarrowlength\pgfarrowwidth%
+    \let\pgf@temp@quot\pgfmathresult%
+    \pgf@x\pgfmathresult pt%
+    \pgf@x\pgfmathresult\pgf@x%
+    \pgf@x9\pgf@x%
+    \advance\pgf@x by1pt%
+    \pgfmathsqrt@\pgf@x%
+    \pgf@xc\pgfmathresult\pgf@xb%
+    \pgfarrowssettipend{.741\pgfarrowlength\advance\pgf@x by.5\pgf@xc%
+      \ifpgfarrowharpoon\pgf@xa\pgf@temp@quot\pgf@xb\advance\pgf@x by1.5\pgf@xa\fi% miter correction
+    }
+    \pgfarrowssetbackend{-.5\pgf@xb}
+    \pgfarrowssetlineend{.2\pgf@xb}
     % The hull:
-    \pgfarrowshullpoint{\pgfarrowlength}{\ifpgfarrowharpoon-.5\pgflinewidth\else0pt\fi}%
-    \pgfarrowshullpoint{0pt}{.5\pgfarrowwidth\ifpgfarrowharpoon\advance\pgf@y by-.5\pgflinewidth\fi}%
-    \pgfarrowshullpoint{0pt}{\ifpgfarrowharpoon-.5\pgflinewidth\else-.5\pgfarrowwidth\fi}%
+    \pgfarrowshullpoint{\pgfarrowlength}{\ifpgfarrowharpoon-.5\pgf@xb\else0pt\fi}%
+    \pgfarrowshullpoint{0pt}{.5\pgfarrowwidth\ifpgfarrowharpoon\advance\pgf@y by-.5\pgf@xb\fi}%
+    \pgfarrowshullpoint{0pt}{\ifpgfarrowharpoon-.5\pgf@xb\else-.5\pgfarrowwidth\fi}%
   },
   code = {
-    \ifpgfarrowharpoon \pgftransformyshift{+-.5\pgflinewidth} \fi
-    \pgfpathmoveto    {\pgfqpoint{\pgfarrowlength}{0pt}}
-    \pgfpathcurveto   {\pgfqpoint{.73333\pgfarrowlength}{.0666666\pgfarrowwidth}}
-                      {\pgfqpoint{.3\pgfarrowlength}{.2666666\pgfarrowwidth}}
-                      {\pgfqpoint{0pt}{.5\pgfarrowwidth}}
-    \pgfpathlineto    {\pgfqpoint{0pt}{-.5\pgfarrowwidth}}
+    \pgfsetdash{}{+0pt}
+    \pgfsetmiterjoin
+    \ifdim\pgfinnerlinewidth>0pt%
+      \advance\pgflinewidth by-\pgfinnerlinewidth\pgflinewidth.5\pgflinewidth
+      \pgfsetlinewidth{\pgflinewidth}
+    \fi
+    \pgfpathmoveto    {\pgfqpoint{.741\pgfarrowlength}{0pt}}
+    \pgfpathcurveto   {\pgfqpoint{.65\pgfarrowlength}{.03\pgfarrowwidth}}
+                      {\pgfqpoint{.25\pgfarrowlength}{.2\pgfarrowwidth}}
+                      {\pgfqpoint{0pt}{.385\pgfarrowwidth}}
     \ifpgfarrowharpoon
       \pgfpathlineto  {\pgfpointorigin}
     \else  
-      \pgfpathcurveto {\pgfqpoint{.3\pgfarrowlength}{-.2666666\pgfarrowwidth}}
-                      {\pgfqpoint{.73333\pgfarrowlength}{-.0666666\pgfarrowwidth}}
-                      {\pgfqpoint{\pgfarrowlength}{0pt}}
+      \pgfpathlineto  {\pgfqpoint{0pt}{-.385\pgfarrowwidth}}
+      \pgfpathcurveto {\pgfqpoint{.25\pgfarrowlength}{-.2\pgfarrowwidth}}
+                      {\pgfqpoint{.65\pgfarrowlength}{-.03\pgfarrowwidth}}
+                      {\pgfqpoint{.741\pgfarrowlength}{0pt}}
     \fi
     \pgfpathclose
-    \pgfusepathqfill
+    \pgfusepathqfillstroke
   },
   parameters = {
     \the\pgfarrowlength,%
@@ -991,9 +1102,9 @@
 \pgfdeclarearrow{
   name = Stealth,
   defaults = {
-    length  = 2.24pt 2.4 .8,
-    width'  = 0pt 1,
-    inset'  = 0pt 0.375
+    length  = +2.24pt 2.4 .8,
+    width'  = +0pt 1,
+    inset'  = +0pt 0.375
   },
   setup = {
     % The following are needed in the code:
@@ -1001,7 +1112,18 @@
     \pgfarrowssavethe\pgfarrowwidth
     % Infos:
     \pgfarrowssettipend{\pgfarrowlength}
-    \pgfarrowssetlineend{\pgfarrowinset\ifpgfarrowreversed\advance\pgf@x by.5\pgflinewidth\fi}
+    \ifpgfarrowreversed%
+      \pgfarrowssetlineend{\pgfarrowinset \ifdim\pgfinnerlinewidth=0pt\advance\pgf@x by.5\pgflinewidth\fi}
+    \else%
+      \pgfmathdivide@{\pgfarrowlength}{\pgfarrowwidth}
+      \pgfarrowssetlineend{%
+        \pgfarrowlength%
+        \advance\pgf@x by-\pgfmathresult\pgflinewidth%
+        \advance\pgf@x by-.5\pgflinewidth
+        \ifpgfarrowharpoon\advance\pgf@x by-\pgfmathresult\pgflinewidth\fi
+        \ifdim\pgf@x<\pgfarrowinset\pgf@x\pgfarrowinset\fi
+      }
+    \fi%
     \pgfarrowssetrigidbackend{\pgfarrowinset}
     % The hull:
     \pgfarrowshullpoint{\pgfarrowlength}{\ifpgfarrowharpoon-.5\pgflinewidth\else0pt\fi}%
@@ -1041,8 +1163,8 @@
 \pgfdeclarearrow{
   name = Classical TikZ Rightarrow,
   defaults = {
-    length = 1.05pt 1.125,
-    width'  = 0pt 2.133333
+    length  = +1.05pt 1.125,
+    width'  = +0pt 2.133333
   },
   setup = 
   {
@@ -1153,8 +1275,8 @@
 \pgfdeclarearrow{
   name = Computer Modern Rightarrow,
   defaults = {
-    length = 0pt 5.2,
-    width' = 0pt 2.3077
+    length = +1.6pt 1.2, % 0pt 5.2
+    width' = +0pt 2.3077
   },
   setup = 
   {
@@ -1224,9 +1346,10 @@
 % Default shorthands:
 
 \pgfkeys{
-  to /.tip            = Classical TikZ Rightarrow,
-  <-> /.tip           = to,
-  >-< /.tip           = >[reversed],
+  to /.tip            = {Classical TikZ Rightarrow},
+  bar /.tip           = {Square Hooks[length=0pt,inset=0pt]},
+  <-> /.tip           = {to},
+  >-< /.tip           = {>[reversed]},
 }
 
 
@@ -1235,16 +1358,19 @@
 
 \pgfkeys {
   latex /.tip                  = {Latex},
-  latex reversed/.tip          = {Latex[reversed]},
+  latex reversed/.tip          = {latex[reversed]},
   space /.tip                  = {_},
-  to reversed /.tip            = {Classical TikZ Rightarrow[reversed]},
-  left to /.tip                = {Classical TikZ Rightarrow[harpoon]},
-  right to /.tip               = {Classical TikZ Rightarrow[harpoon,swap]},
-  left to reversed /.tip       = {Classical TikZ Rightarrow[harpoon,reversed]},
-  right to reversed /.tip      = {Classical TikZ Rightarrow[harpoon,swap,reversed]},
+  to reversed /.tip            = {to[reversed]},
+  left to /.tip                = {to[harpoon]},
+  right to /.tip               = {to[harpoon,swap]},
+  left to reversed /.tip       = {to[harpoon,reversed]},
+  right to reversed /.tip      = {to[harpoon,swap,reversed]},
   stealth /.tip                = {Stealth},
-  stealth reversed /.tip       = {Stealth[reversed]},
-  | /.tip                      = {Bar}
+  stealth reversed /.tip       = {stealth[reversed]},
+  | /.tip                      = {bar},
+  square bracket /.tip         = {Square Hooks[length=1pt 1.25]},
+  [-] /.tip                    = {square bracket[length=1pt 1.25]},
+  ]-[ /.tip                    = {square bracket[length=1pt 1.25, reversed]},
 }
 
 \def\pgf@arrows@direct@def#1#2{%
