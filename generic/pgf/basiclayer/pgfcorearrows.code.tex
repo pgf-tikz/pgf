@@ -447,6 +447,9 @@
 \newif\ifpgfarrowswap
 \newif\ifpgfarrowreversed
 \newif\ifpgfarrowharpoon
+\newif\ifpgfarrowopen
+\newif\ifpgfarrowroundcap
+\newif\ifpgfarrowroundjoin
 
 \let\pgf@arrows@stroke@color\pgfutil@empty
 \let\pgf@arrows@fill@color\pgfutil@empty
@@ -489,8 +492,26 @@
   swap/.code=\pgfarrowsaddtooptions{\ifpgfarrowswap\pgfarrowswapfalse\else\pgfarrowswaptrue\fi},
   reversed/.code=\pgfarrowsaddtooptions{\ifpgfarrowreversed\pgfarrowreversedfalse\else\pgfarrowreversedtrue\fi},
   harpoon/.code=\pgfarrowsaddtooptions{\pgfarrowharpoontrue},
+  % 
+  line cap/.is choice,
+  line cap/butt/.code=\pgfarrowsaddtooptions{\pgfarrowroundcapfalse},
+  line cap/round/.code=\pgfarrowsaddtooptions{\pgfarrowroundcaptrue},
+  line join/.is choice,
+  line join/miter/.code=\pgfarrowsaddtooptions{\pgfarrowroundjoinfalse},
+  line join/round/.code=\pgfarrowsaddtooptions{\pgfarrowroundjointrue},
+  round/.style={line cap=round,line join=round},
+  %
   color/.code=\pgfarrowsaddtooptions{\def\pgf@arrows@stroke@color{#1}},
-  fill/.code=\pgfarrowsaddtooptions{\def\pgf@arrows@fill@color{#1}},
+  fill/.code={%
+    \def\pgf@temp{#1}%
+    \ifx\pgf@temp\pgf@nonetext%
+      \pgfarrowsaddtooptions{\pgfarrowopentrue}
+    \else
+      \pgfarrowsaddtooptions{\pgfarrowopenfalse\def\pgf@arrows@fill@color{#1}}
+    \fi
+  },
+  fill/.value required,
+  open/.style={fill=none},
   .unknown/.code={ 
     \expandafter\pgfutil@in@\expandafter!\expandafter{\pgfkeyscurrentname}%
     \ifpgfutil@in@%
@@ -509,6 +530,7 @@
       \fi
     }
 }
+\def\pgf@nonetext{none}
 
 \def\pgfarrowsaddtooptions#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options#1}}
 \def\pgfarrowsaddtolateoptions#1{\expandafter\def\expandafter\pgf@arrows@options\expandafter{\pgf@arrows@options\pgf@arrows@add@to@late@options{#1}}}
@@ -979,16 +1001,18 @@
   bending mode=polar,
   setup = {
     % Two useful numbers... 
-    \pgfutil@tempdima\pgfarrowinset\ifdim\pgfutil@tempdima<.5\pgflinewidth\pgfutil@tempdima.5\pgflinewidth\fi%
-    \pgfutil@tempdimb-\pgfarrowlength\advance\pgfutil@tempdimb by\pgfarrowinset\ifdim\pgfutil@tempdimb>-.5\pgflinewidth\pgfutil@tempdimb-.5\pgflinewidth\fi
+    \pgfutil@tempswafalse%
+    \pgfutil@tempswbfalse%
+    \pgfutil@tempdima\pgfarrowinset\ifdim\pgfutil@tempdima<.5\pgflinewidth\pgfutil@tempdima.5\pgflinewidth\pgfutil@tempswatrue\fi%
+    \pgfutil@tempdimb-\pgfarrowlength\advance\pgfutil@tempdimb by\pgfarrowinset\ifdim\pgfutil@tempdimb>-.5\pgflinewidth\pgfutil@tempdimb-.5\pgflinewidth\pgfutil@tempswbtrue\fi
     % The following are needed in the code:
     \pgfarrowssavethe\pgfarrowwidth
     \pgfarrowssavethe\pgfutil@tempdima
     \pgfarrowssavethe\pgfutil@tempdimb
     % Infos:
-    \pgfarrowssettipend{\pgfutil@tempdima}
+    \pgfarrowssettipend{\pgfutil@tempdima\ifpgfarrowroundcap\ifpgfutil@tempswa\else\advance\pgf@x by.5\pgflinewidth\fi\fi}
     \pgfarrowssetrigidbackend{.5\pgflinewidth}
-    \pgfarrowssetbackend{\pgfutil@tempdimb}
+    \pgfarrowssetbackend{\pgfutil@tempdimb\ifpgfarrowroundcap\ifpgfutil@tempswb\else\advance\pgf@x by-.5\pgflinewidth\fi\fi}
     \pgfarrowssetlineend{-.25\pgflinewidth}%
     % The hull:
     \pgfarrowshullpoint{\pgfutil@tempdima}{.5\pgfarrowwidth}%
@@ -1002,8 +1026,8 @@
   },
   code = {
     \pgfsetdash{}{+0pt}
-    \pgfsetbuttcap
-    \pgfsetmiterjoin
+    \ifpgfarrowroundcap\pgfsetroundcap\else\pgfsetbuttcap\fi
+    \ifpgfarrowroundjoin\pgfsetroundjoin\else\pgfsetmiterjoin\fi
     \pgf@x\pgfutil@tempdima\advance\pgf@x by-.5\pgflinewidth%
     \pgf@y\pgfutil@tempdimb\advance\pgf@y by.5\pgflinewidth%
     % Case 1: No bar atop the I:
@@ -1041,8 +1065,11 @@
     \the\pgfarrowlength,%
     \the\pgfarrowinset,%
     \ifpgfarrowharpoon h\fi%
+    \ifpgfarrowroundjoin j\fi%
+    \ifpgfarrowroundcap c\fi%
   },
 }
+
 
 
 
@@ -1053,19 +1080,16 @@
 \pgfdeclarearrow{
   name = Latex,
   defaults = {
-    length = +3.8pt 0.55 -0.45,
+    length = +2.8pt 3 0.8,
     width' = +0pt .75,
   },
   setup = {
+    % Let xb be the "real" line width (without doubling)
     \pgf@xb\pgflinewidth
     \ifdim\pgfinnerlinewidth>0pt
       \advance\pgf@xb by-\pgfinnerlinewidth\pgf@xb.5\pgf@xb
     \fi
-    % The following are needed in the code:
-    \pgfarrowssavethe\pgfarrowlength
-    \pgfarrowssavethe\pgfarrowwidth
-    % Infos:
-    % Compute miter length:
+    % Compute front miter length:
     \pgfmathdivide@\pgfarrowlength\pgfarrowwidth%
     \let\pgf@temp@quot\pgfmathresult%
     \pgf@x\pgfmathresult pt%
@@ -1074,42 +1098,73 @@
     \advance\pgf@x by1pt%
     \pgfmathsqrt@\pgf@x%
     \pgf@xc\pgfmathresult\pgf@xb%
-    \pgfarrowssettipend{.741\pgfarrowlength\advance\pgf@x by.5\pgf@xc%
-      \ifpgfarrowharpoon\pgf@xa\pgf@temp@quot\pgf@xb\advance\pgf@x by1.5\pgf@xa\fi% miter correction
-    }
+    \pgf@xa\pgf@temp@quot\pgf@xb
+    % Inner length (pgfutil@tempdima) is now arrowlength - front miter
+    % - 0.5 linewidth (back thickness)
+    \pgfutil@tempdima\pgfarrowlength%
+    \advance\pgfutil@tempdima by-.5\pgf@xc%
+    \advance\pgfutil@tempdima by-.5\pgf@xb%
+    % harpoon miter correction
     \pgfarrowssetbackend{-.5\pgf@xb}
-    \pgfarrowssetlineend{.2\pgf@xb}
+    \ifpgfarrowreversed
+      \ifdim\pgfinnerlinewidth>0pt
+        \pgfarrowssetlineend{0pt}
+      \else
+        \pgfarrowssetlineend{\pgfutil@tempdima\advance\pgf@x by-.5\pgf@xb}
+      \fi
+    \else
+      \pgfarrowssetlineend{0pt}
+    \fi
+    \ifpgfarrowroundjoin
+      \pgfarrowssettipend{\pgfutil@tempdima\advance\pgf@x by.5\pgf@xb}    
+    \else
+      \pgfarrowssettipend{\pgfarrowlength\advance\pgf@x by-.5\pgf@xb\ifpgfarrowharpoon\advance\pgf@x  by1.5\pgf@xa\fi}
+    \fi
+    % The following are needed in the code:
+    \pgfarrowssavethe\pgfutil@tempdima
+    % Now, compute back tip miter limit:
+    \pgf@process{\pgfpointnormalised{\pgfqpoint{.3\pgfarrowlength}{.2333333\pgfarrowwidth}}}%
+    \advance\pgf@y by1pt%
+    \pgf@yc\pgf@y\pgf@xc\pgf@x%
+    \pgfmathdivide@\pgf@yc\pgf@xc%
+    \pgfutil@tempdimb\pgfmathresult\pgf@xb%
+    \pgfutil@tempdimb-.5\pgfutil@tempdimb%
+    \advance\pgfutil@tempdimb by.5\pgfarrowwidth%
+    \pgfarrowssavethe\pgfutil@tempdimb%
     % The hull:
-    \pgfarrowshullpoint{\pgfarrowlength}{\ifpgfarrowharpoon-.5\pgf@xb\else0pt\fi}%
-    \pgfarrowshullpoint{0pt}{.5\pgfarrowwidth\ifpgfarrowharpoon\advance\pgf@y by-.5\pgf@xb\fi}%
-    \pgfarrowshullpoint{0pt}{\ifpgfarrowharpoon-.5\pgf@xb\else-.5\pgfarrowwidth\fi}%
+    \pgfarrowshullpoint{\pgfarrowlength\advance\pgf@x by-.5\pgf@xb\ifpgfarrowharpoon\advance\pgf@x  by1.5\pgf@xa\fi}{\ifpgfarrowharpoon-.5\pgf@xb\else0pt\fi}%
+    \pgfarrowshullpoint{-.5\pgf@xb}{.5\pgfarrowwidth\ifpgfarrowharpoon\advance\pgf@y by-.5\pgf@xb\fi}%
+    \pgfarrowshullpoint{-.5\pgf@xb}{\ifpgfarrowharpoon-.5\pgf@xb\else-.5\pgfarrowwidth\fi}%
   },
   code = {
     \pgfsetdash{}{+0pt}
-    \pgfsetmiterjoin
+    \ifpgfarrowroundjoin\pgfsetroundjoin\else\pgfsetmiterjoin\fi
     \ifdim\pgfinnerlinewidth>0pt%
       \advance\pgflinewidth by-\pgfinnerlinewidth\pgflinewidth.5\pgflinewidth
       \pgfsetlinewidth{\pgflinewidth}
     \fi
-    \pgfpathmoveto    {\pgfqpoint{.741\pgfarrowlength}{0pt}}
-    \pgfpathcurveto   {\pgfqpoint{.65\pgfarrowlength}{.03\pgfarrowwidth}}
-                      {\pgfqpoint{.25\pgfarrowlength}{.2\pgfarrowwidth}}
-                      {\pgfqpoint{0pt}{.385\pgfarrowwidth}}
+    \pgfpathmoveto    {\pgfqpoint{\pgfutil@tempdima}{0pt}}
+    \pgfpathcurveto   {\pgfqpoint{.877192\pgfutil@tempdima}{.077922\pgfutil@tempdimb}}
+                      {\pgfqpoint{.337381\pgfutil@tempdima}{.519480\pgfutil@tempdimb}}
+                      {\pgfqpoint{0pt}{\pgfutil@tempdimb}}
     \ifpgfarrowharpoon
       \pgfpathlineto  {\pgfpointorigin}
     \else  
-      \pgfpathlineto  {\pgfqpoint{0pt}{-.385\pgfarrowwidth}}
-      \pgfpathcurveto {\pgfqpoint{.25\pgfarrowlength}{-.2\pgfarrowwidth}}
-                      {\pgfqpoint{.65\pgfarrowlength}{-.03\pgfarrowwidth}}
-                      {\pgfqpoint{.741\pgfarrowlength}{0pt}}
+      \pgfpathlineto  {\pgfqpoint{0pt}{-\pgfutil@tempdimb}}
+      \pgfpathcurveto {\pgfqpoint{.337381\pgfutil@tempdima}{-.519480\pgfutil@tempdimb}}
+                      {\pgfqpoint{.877192\pgfutil@tempdima}{-.077922\pgfutil@tempdimb}}
+                      {\pgfqpoint{\pgfutil@tempdima}{0pt}}
     \fi
     \pgfpathclose
-    \pgfusepathqfillstroke
+    \ifpgfarrowopen\pgfusepathqstroke\else\pgfusepathqfillstroke\fi
   },
   parameters = {
     \the\pgfarrowlength,%
     \the\pgfarrowwidth,%
     \ifpgfarrowharpoon h\fi%
+    \ifpgfarrowreversed r\fi%
+    \ifpgfarrowopen o\fi%
+    \ifpgfarrowroundjoin j\fi%
   },
 }
 
@@ -1375,7 +1430,7 @@
 
 
 
-% Compatibility stuff: 
+% Compatibility with old arrow system: 
 
 \pgfkeys {
   latex /.tip                  = {Latex},
@@ -1394,13 +1449,8 @@
   ]-[ /.tip                    = {square bracket[length=1pt 1.25, reversed]},
 }
 
-\def\pgf@arrows@direct@def#1#2{%
-  \expandafter\pgf@arrows@direct@def@\expandafter{\csname pgf@ar@means@#2\endcsname}{#1}
-}
-\def\pgf@arrows@direct@def@#1#2{%
-  \expandafter\def\csname pgf@arrows@direct@name@#2\endcsname{\pgf@arrow@handle@shorthand@empty{#1}}
-}
-
+\def\pgf@arrows@direct@def#1#2{\expandafter\pgf@arrows@direct@def@\expandafter{\csname pgf@ar@means@#2\endcsname}{#1}}
+\def\pgf@arrows@direct@def@#1#2{\expandafter\def\csname pgf@arrows@direct@name@#2\endcsname{\pgf@arrow@handle@shorthand@empty{#1}}}
 \pgf@arrows@direct@def{start@[}{]}
 \pgf@arrows@direct@def{start@]}{[}
 \pgf@arrows@direct@def{start@spaced [}{spaced ]}
@@ -1410,77 +1460,26 @@
 \pgf@arrows@direct@def{end@spaced [}{spaced [}
 \pgf@arrows@direct@def{end@spaced ]}{spaced ]}
 
-
-% Compatibility stuff with old arrow system:
-
-% Use "parameters" key instead:
-
-\def\pgfsetarrowoptions#1#2{%
-  \expandafter\def\csname pgf@arrow@compat@opt@#1\endcsname{#2}%
-}
-
-\def\pgfgetarrowoptions#1{%
-  \csname pgf@arrow@compat@opt@#1\endcsname%
-}
-
+\def\pgfsetarrowoptions#1#2{\expandafter\def\csname pgf@arrow@compat@opt@#1\endcsname{#2}}
+\def\pgfgetarrowoptions#1{\csname pgf@arrow@compat@opt@#1\endcsname}
 \def\pgfarrowsdeclare#1#2#3#4{%
-  \pgfdeclarearrow{
-    name  ={#1}-{#2},
-    setup ={#3},
-    code  ={#4},
-    parameters/.expand once={\csname pgf@arrow@compat@opt@#2\endcsname}
-  }  
-  \expandafter\def\csname pgf@arrow@compat@opt@#2\endcsname{0}%
-}
-
+  \pgfdeclarearrow{ name  ={#1}-{#2}, setup ={#3}, code  ={#4}, parameters/.expand once={\csname pgf@arrow@compat@opt@#2\endcsname}}  
+  \expandafter\def\csname pgf@arrow@compat@opt@#2\endcsname{0}}
 \def\pgfarrowsleftextend#1{\pgfmathsetlength\pgf@xa{#1}\pgfarrowssetbackend{\pgf@xa}}
 \def\pgfarrowsrightextend#1{\pgfmathsetlength\pgf@xb{#1}\pgfarrowssettipend{\pgf@xb}}
-
-\def\pgfarrowsdeclarealias#1#2#3#4{%
-  \pgfdeclarearrow{%
-    name  ={#1}-{#2},
-    means ={#4}
-  }
-}
-
-\def\pgfarrowsdeclarereversed#1#2#3#4{%
-  \pgfdeclarearrow{%
-    name ={#1}-{#2},
-    means={{#4}[reversed]}
-  }
-}
-
+\def\pgfarrowsdeclarealias#1#2#3#4{\pgfdeclarearrow{ name  ={#1}-{#2}, means ={#4} } }
+\def\pgfarrowsdeclarereversed#1#2#3#4{\pgfdeclarearrow{ name ={#1}-{#2}, means={{#4}[reversed]}}}
 \def\pgfarrowsdeclarecombine{\pgfutil@ifnextchar*{\pgfarrowsdeclarecombine@star}{\pgf@@arrowsdeclarecombine}}
-
 \def\pgf@@arrowsdeclarecombine{\pgfutil@ifnextchar[{\pgf@arrowsdeclarecombine}{\pgf@arrowsdeclarecombine[0pt]}}
-\def\pgf@arrowsdeclarecombine[#1]#2#3#4#5#6#7{%
-  \pgfdeclarearrow{%
-    name ={#2}-{#3},
-    means={#5[sep=#1]#6}
-  }
-}
+\def\pgf@arrowsdeclarecombine[#1]#2#3#4#5#6#7{\pgfdeclarearrow{name ={#2}-{#3}, means={#5[sep=#1]#6}}}
 \def\pgf@linewidth@text{\pgflinewidth}
 \def\pgfarrowsdeclarecombine@star*{\pgfutil@ifnextchar[{\pgf@arrowsdeclarecombine@star}{\pgf@arrowsdeclarecombine@star[0pt]}}
-\def\pgf@arrowsdeclarecombine@star[#1]#2#3#4#5#6#7{%
-  \pgfdeclarearrow{%
-    name ={#2}-{#3},
-    means={#5[sep=#1].#6}
-  }
-}
-
+\def\pgf@arrowsdeclarecombine@star[#1]#2#3#4#5#6#7{\pgfdeclarearrow{name ={#2}-{#3}, means={#5[sep=#1].#6}}}
 \def\pgfarrowsdeclaredouble{\pgfutil@ifnextchar[{\pgf@arrowsdeclaredouble}{\pgf@arrowsdeclaredouble[0pt]}}
 \def\pgf@arrowsdeclaredouble[#1]#2#3#4#5{\pgfarrowsdeclarecombine[#1]{#2}{#3}{#4}{#5}{#4}{#5}}
 \def\pgfarrowsdeclaretriple{\pgfutil@ifnextchar[{\pgf@arrowsdeclaretriple}{\pgf@arrowsdeclaretriple[0pt]}}
-\def\pgf@arrowsdeclaretriple[#1]#2#3#4#5{%
-  \pgfarrowsdeclarecombine[#1]{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}{#4}{#5}%
-  \pgfarrowsdeclarecombine[#1]{#2}{#3}{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}%
-}
-
-
-
-
-
-
+\def\pgf@arrowsdeclaretriple[#1]#2#3#4#5{ \pgfarrowsdeclarecombine[#1]{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}{#4}{#5}%
+  \pgfarrowsdeclarecombine[#1]{#2}{#3}{pgf@trip@#2}{pgf@trip@#3}{#4}{#5}}
 
 
 \endinput
