@@ -116,7 +116,7 @@
         \begingroup%
           \pgf@prepare@start@of@path%
       \fi%
-          \pgfsyssoftpath@invokecurrentpath%
+         \pgfsyssoftpath@invokecurrentpath%
           \pgf@up@action%
           \pgf@stroke@inner@line@if@needed%
       \ifpgfutil@tempswa%
@@ -259,10 +259,10 @@
     \let\pgf@do@draw@end\pgf@do@draw@straightend%
     \let\pgf@prep@end\pgf@prep@movetoend%
   \else\ifx#4\pgfsyssoftpath@curvetosupportatoken% A curve -> this will get complicated...
+    \def\pgfsubpathfourthlasttoken{#1}%
+    \def\pgfpointfourthlastonpath{\pgfqpoint{#2}{#3}}%
+    \def\pgfpointthirdlastonpath{\pgfqpoint{#5}{#6}}%
     \ifpgf@shorten@curved%
-      \def\pgfsubpathfourthlasttoken{#1}%
-      \def\pgfpointfourthlastonpath{\pgfqpoint{#2}{#3}}%
-      \def\pgfpointthirdlastonpath{\pgfqpoint{#5}{#6}}%
       \let\pgf@do@shorten@end\pgf@do@shorten@curvedend%
       \let\pgf@do@draw@end\pgf@do@draw@curvedend%
       \let\pgf@prep@end\pgf@prep@curveend%
@@ -277,6 +277,8 @@
     \def\pgfsubpathstart{\noexpand#1{#2}{#3}\noexpand#4}%
     \def\pgfpointsecondlastonpath{\pgfqpoint{#2}{#3}}%
     \def\pgfpointlastonpath{\pgfqpoint{#5}{#6}}%
+    \let\pgfpointfourthlastonpath\relax%
+    \let\pgfpointthirdlastonpath\relax%
     \let\pgf@next\pgf@parse@end@gobble@three%  
     \let\pgf@do@shorten@end\pgf@do@shorten@straightend%
     \let\pgf@do@draw@end\pgf@do@draw@straightend%
@@ -306,7 +308,18 @@
   \pgf@yc\pgf@y
 }
 \def\pgf@prep@straightend{%
-  \pgfpointlineatdistance{\pgf@path@shortening@distance}{\pgfpointlastonpath}{\pgfpointsecondlastonpath}%
+  \let\pgf@ref\pgfpointsecondlastonpath
+  \ifx\pgfpointlastonpath\pgfpointsecondlastonpath% degenerate!
+    \ifx\pgfpointthirdlastonpath\relax% cannot help it: really a zero-length path
+    \else%
+      \ifx\pgfpointlastonpath\pgfpointthirdlastonpath% double degenerate!
+        \let\pgf@ref\pgfpointfourthlastonpath% Use third point for reference.
+      \else
+        \let\pgf@ref\pgfpointthirdlastonpath% Use third point for reference.
+      \fi%
+    \fi%
+  \fi%
+  \pgfpointlineatdistance{\pgf@path@shortening@distance}{\pgfpointlastonpath}{\pgf@ref}%
   \pgf@xa\pgf@x%
   \pgf@ya\pgf@y%
 }
@@ -417,6 +430,8 @@
 \def\pgf@parse@start#1#2#3#4#5#6{%
   \def\pgfpointfirstonpath{\pgfqpoint{#2}{#3}}%
   \def\pgfpointsecondonpath{\pgfqpoint{#5}{#6}}%
+  \let\pgfpointthirdonpath\relax%
+  \let\pgfpointfourthonpath\relax%
   \def\pgfsubpathfirsttoken{\noexpand#1}%
   \def\pgfsubpathsecondtoken{\noexpand#4}%
   \ifx#4\pgf@stop% Only a moveto! -> do nothing!
@@ -431,7 +446,7 @@
       \let\pgf@do@draw@start\pgf@do@draw@curvedstart%
       \let\pgf@prep@start\pgf@prep@curvedstart%
     \else% can treat the end like a straight line...
-      \let\pgf@next\pgf@parse@start@till@stop%  
+      \let\pgf@next\pgf@parse@start@curve@cont@straight%
       \let\pgf@do@shorten@start\pgf@do@shorten@straightstart%
       \let\pgf@do@draw@start\pgf@do@draw@straightstart%
       \let\pgf@prep@start\pgf@prep@straightstart%
@@ -450,7 +465,13 @@
 \def\pgf@parse@start@curve@cont#1#2#3#4#5#6#7\pgf@stop\pgf@stop\pgf@stop{%
   \def\pgfpointthirdonpath{\pgfqpoint{#2}{#3}}%
   \def\pgfpointfourthonpath{\pgfqpoint{#5}{#6}}%
-  \def\pgfsubpathend{#1}%
+  \def\pgfsubpathend{#7}%
+}
+
+\def\pgf@parse@start@curve@cont@straight#1#2#3#4#5#6#7\pgf@stop\pgf@stop\pgf@stop{%
+  \def\pgfpointthirdonpath{\pgfqpoint{#2}{#3}}%
+  \def\pgfpointfourthonpath{\pgfqpoint{#5}{#6}}%
+  \def\pgfsubpathend{#1{#2}{#3}#4{#5}{#6}#7}%
 }
 
 % 
@@ -464,7 +485,18 @@
   \pgf@yc\pgf@y
 }
 \def\pgf@prep@straightstart{%
-  \pgfpointlineatdistance{\pgf@path@shortening@distance}{\pgfpointfirstonpath}{\pgfpointsecondonpath}%
+  \let\pgf@ref\pgfpointsecondonpath
+  \ifx\pgfpointfirstonpath\pgfpointsecondonpath% degenerate!
+    \ifx\pgfpointthirdonpath\relax% cannot help it: really a zero-length path
+    \else%
+      \ifx\pgfpointfirstonpath\pgfpointthirdonpath% double degenerate!
+        \let\pgf@ref\pgfpointfourthonpath% Use third point for reference.
+      \else
+        \let\pgf@ref\pgfpointthirdonpath% Use third point for reference.
+      \fi%
+    \fi%
+  \fi%
+  \pgfpointlineatdistance{\pgf@path@shortening@distance}{\pgfpointfirstonpath}{\pgf@ref}%
   \pgf@xa\pgf@x%
   \pgf@ya\pgf@y%
 }
