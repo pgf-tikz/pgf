@@ -51,17 +51,19 @@ Section~\ref{section-arrows}.
 
 \subsection{Where and When Arrow Tips Are Placed}
 
-In order to add arrow tips to the lines you draw, two conditions must
-be met:
+In order to add arrow tips to the lines you draw, the following
+conditions must be met:
 
 \begin{enumerate}
-\item You must have specified that arrow tips should be added to 
+\item You have specified that arrow tips should be added to 
   lines, using the |arrows| key or its short form.
-\item The line actually has two ``end points'' (it is not
+\item You use the |draw| key (directly or indirectly) with the current
+  path. 
+\item The path actually has two ``end points'' (it is not
   ``closed'').
 \end{enumerate}
 
-Let us start with the |arrows| key:
+Let us start with an introduction to the basics of the |arrows| key: 
 
 \begin{key}{/tikz/arrows=\meta{start arrow specification}|-|\meta{end
       arrow specification}} 
@@ -84,11 +86,11 @@ Let us start with the |arrows| key:
   In the above example, the first start specification is empty and the
   second is |>|. The end specifications are |>| for the first line and
   |Stealth| for the second line. Note that it makes a difference
-  whether |>| in a start specification or in an end specification: In
-  an end specification it creates, as one would expect, a pointed tip
-  at the end of the line. In the start specification, however, it
-  creates a ``reversed'' version if this arrow -- which happens to be
-  what one would expect here.
+  whether |>| is used in a start specification or in an end
+  specification: In an end specification it creates, as one would
+  expect, a pointed tip  at the end of the line. In the start
+  specification, however, it creates a ``reversed'' version if this
+  arrow -- which happens to be what one would expect here.
 
   The above specifications are very simple and only select a single
   arrow tip without any special configuration options, resulting in
@@ -117,23 +119,150 @@ Let us start with the |arrows| key:
   below for details.
 \end{key}
 
-When you draw a line using |\draw|, you can add arrow tips at the
-ends. It is only possible to add one arrow tip at the start and one at the end. If
-the path consists of several segments, only the last segment gets
-arrow tips. The behavior for paths that are closed is not specified
-and may change in the future.
+As was pointed out earlier, to add arrow tips to a path, the path must
+have ``end points'' and not be ``closed'' -- otherwise adding arrow
+tips makes little sense, after all. However, a path can actually
+consist of several subpath, which may be open or not and may even
+consist of only a single point (a single move-to). In this case, it is
+not immediately obvious, where arrow heads should be placed. Here are
+the rules that \tikzname\ uses:
 
+\begin{enumerate}
+\item If the path is empty (as in |\path ;|), no arrow tips are drawn.
+\item If at least one of the subpaths of a path is closed (|cycle| is
+  used somewhere or something like |circle| or |rectangle|), no arrow
+  tips are drawn anywhere -- even if there are open subpaths.
+\item Otherwise, if all subpaths are closed and there is at least one
+  subpath, we consider only the last subpath. Arrow tips are added to
+  this last subpath.
+\item If this last subpath is degenerate (only a ``move-to'' as in
+  |\path (0,0);| or a ``move-to'' followed by a ``line-to'' to the
+  same position as in |\path (1,2) -- (1,2)|), arrow tips are drawn
+  pointing upwards.
+\end{enumerate}
 
-\subsection{Configuring The Appearance of a Single Arrow Tip}
+\begin{codeexample}[]
+% No path, no arrow tips:
+\tikz [<->] \draw; 
+\end{codeexample}
+\begin{codeexample}[]
+% Degenerate path, draw arrow tips (but no path, it is degenerate...)
+\tikz [<->] \draw (0,0); 
+\end{codeexample}
+\begin{codeexample}[]
+% Normal case:
+\tikz [<->] \draw (0,0) -- (1,0); 
+\end{codeexample}
+\begin{codeexample}[]
+% Two subpaths, only second gets tips
+\tikz [<->] \draw (0,0) -- (1,0) (2,0) -- (3,0);
+\end{codeexample}
+\begin{codeexample}[]
+% Two subpaths, second degenerate, but still gets tips
+\tikz [<->] \draw (0,0) -- (1,0) (2,0);
+\end{codeexample}
+\begin{codeexample}[]
+% Two subpaths, but one is closed: No tips, even though last subpath is open
+\tikz [<->] \draw (0,0) circle[radius=2pt] (2,0) -- (3,0);
+\end{codeexample}
+
+\subsection{Arrow Keys: Configuring The Appearance of a Single Arrow Tip}
 \label{section-arrow-config}
+
+For standard arrow tip kinds, like |Stealth| or |Latex| or |Bar|, 
+you can easily change their size, aspect ratio, color, and other
+parameters. This is similar to selecting a font face from a font
+family: \emph{``This text''} is not just typeset in the font 
+``Computer Modern,'' but rather in ``Computer Modern, italic face,
+11pt size, medium weight, black color, no underline, \dots''
+Similarly, an arrow tip is not just a ``Stealth'' arrow tip, but
+rather a ``Stealth arrow tip at its natural size, flexing, but not
+bending along the path, miter line caps, draw and fill colors
+identical to the path draw color, \dots''
+
+Just as most programs make it easy to ``configure'' which font should
+be used at a certain point in a text, \tikzname\ tries to make it easy
+which configuration of an arrow tip should be used. You use
+\emph{arrow keys}, where a certain parameter like the |length| of an
+arrow is set to a given value using the standard key--value
+syntax. You can provide several arrow keys following an arrow tip kind
+in  an arrow tip specification as in
+|Stealth[length=4pt,width=2pt]|.
+
+While selecting a font may be easy, \emph{designing} a new font is a
+highly creative and difficult process and more often than not, not all
+faces of a font are available on any given system. The difficulties
+involved in designing a new arrow tip are somewhat to designing a new
+letter for a font and, thus, it may also happen that not all
+configuration options are actually implemented for a given arrow
+tip. Naturally, for the standard arrow tips, all configuration options
+are available -- but for special-purpose arrow tips it may well happen
+that an arrow tip kind simply ``ignores'' some of the configurations
+given by you.
+
 
 \subsubsection{Size}
 
-\subsubsection{General Appearance Parameters}
+The most important configuration parameter of an arrow tip is
+undoubtedly its size. The following two keys are the main keys that
+are important in this context:
+
+\begin{key}{/pgf/arrow key/length=\meta{dimension}| |\opt{\meta{line width factor}}%
+    | |\opt{\meta{double factor}}}
+  This parameter is usually the most important parameter that governs
+  the size of an arrow tip: The \meta{dimension} that you provide
+  dictates the distance from the ``very tip'' of the arrow to its
+  ``back end'':
+\begin{codeexample}[]
+\tikz{
+  \draw [-{Stealth[length=5mm]}] (0,0) -- (2,0);
+  \draw [|<->|] (1.5,.4) -- node[above=1mm] {5mm} (2,.4);
+}
+\end{codeexample}
+
+  Following the \meta{dimension}, you may put a space followed by a
+  \meta{line width factor}, which must be a plain number. When you
+  provide such a number, the size of the arrow tip is not just
+  \meta{dimension}, but rather $\meta{dimension} + \meta{line width
+    factor}\cdot\mathit{linewidth}$ where $\mathit{linewidth}$ is the
+  width of the to-be-drawn path. This makes it very easy to vary the
+  size of an arrow tip in accordance with the line width -- usually a
+  very good idea since thicker lines will need thicker arrow tips.
+
+  As an example, when you write |length=0pt 3|, the length of the
+  arrow will be exactly three times the current line width. The
+  default length of a |Latex| arrow is |length=2.8pt 3|, which means
+  that for the standard line width of |0.4pt|, the length of a |Latex|
+  arrow will be exactly 4pt (2.8pt plus three times |0.4pt|).
+
+  Following the line width factor, you can additionally provide a
+  \meta{double factor}, again preceded by a space. This factor is
+  important\dots
+
+  For a well-designed arrow tip kind, the specified dimension will
+  \emph{exactly} equal the distance from the tip to the back end, even
+  if the arrow tip is constructed by stroking a path. In other words,
+  the length should take the thickness of lines into account that make
+  up the drawing of the arrow tip itself:
+\begin{codeexample}[]
+\tikz{
+  \draw [line width=.5mm, -{Stealth[length=5mm, open]}]
+          (0,0) -- (2,0);
+  \draw [|<->|] (1.5,.4) -- node[above=1mm] {5mm} (2,.4);
+}
+\end{codeexample}
+  An exception to this rule occurs when the line caps and joins are
+  rounded, see Section~\ref{section-arrow-key-caps} for details on
+  this. 
+\end{key}
+
 
 \subsubsection{Swapping, Reversing, Halving}
 
 \subsubsection{Coloring}
+
+\subsubsection{Line Caps and Joins}
+\label{section-arrow-key-caps}
 
 \subsubsection{Bending and Flexing}
 
