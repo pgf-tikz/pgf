@@ -54,9 +54,7 @@
 -- @field direction One of the directions named above.
 --
 -- @field path A |Path| object that describes the path of the
--- edge. The path's coordinates are interpreted relative to the
--- position of the |tail| vertex and the path starts at this
--- vertex. 
+-- edge. The path's coordinates are interpreted \emph{absolutely}.
 --
 -- @field generated_options This is an options array that is generated
 -- by the algorithm. When the edge is rendered later on, this array

@@ -9,6 +9,23 @@
 
 -- @release $Header$
 
+local function full_print(g, pref)
+  local s = ""
+
+  for _,v in ipairs(g.vertices) do
+    s = s .. tostring(v) .. "[" .. tostring(v.pos) .. "]\n "
+  end
+  
+  s = s .. "\n"
+
+  for _,a in ipairs(g.arcs) do
+    for _,e in ipairs(a.syntactic_edges) do
+      s = s .. tostring(e) .. "(" .. tostring(e.path) .. ")\n"
+    end
+  end
+  
+  pgf.debug((pref or "") .. s)
+end
 
 
 ---
@@ -191,7 +208,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
   while #resulting_graphs > 0 do
     
     local n = #resulting_graphs
-    
+
     -- Setup marked array:
     local marked = {}
     for i=1,n do
@@ -223,7 +240,6 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	      -- Shift the i-th graph:
 	      local x_offset = v.pos.x - positions[v][resulting_graphs[i]].x
 	      local y_offset = v.pos.y - positions[v][resulting_graphs[i]].y
-
 	      	      
 	      for _,u in ipairs(resulting_graphs[i].vertices) do
 		if not touched[u] then
@@ -263,7 +279,10 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       if marked[i] then
 	merge:add (resulting_graphs[i].vertices)
 	for _,a in ipairs(resulting_graphs[i].arcs) do
-	  merge:connect(a.tail,a.head)
+	  local ma = merge:connect(a.tail,a.head)
+	  for _,e in ipairs(a.syntactic_edges) do
+	    ma.syntactic_edges[#ma.syntactic_edges+1] = e
+	  end
 	end
       else
 	remaining[#remaining + 1] = resulting_graphs[i]
@@ -308,7 +327,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
     local arc = syntactic_digraph:connect(e.tail, e.head)    
     arc.syntactic_edges[#arc.syntactic_edges+1] = e
   end
-  
+
   -- Find out which subgraph nodes can be created now and make them part of the merged graphs
   for i=#uncollapsed_subgraph_nodes,1,-1 do
     local v = uncollapsed_subgraph_nodes[i]
@@ -326,11 +345,11 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       end
     end
   end
-  
-  
+
   -- Collapse the nodes that are part of a merged_graph
   local collapsed_vertices = {}
   for _,g in ipairs(merged_graphs) do
+
     local intersection = {}
     for _,v in ipairs(g.vertices) do
       if syntactic_digraph:contains(v) then
@@ -356,7 +375,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	end
       end
       local x_min, y_min, x_max, y_max, c_x, c_y = Coordinate.boundingBox(array)
-      
+
       -- Shift the graph so that it is centered on the origin:
       for _,v in ipairs(g.vertices) do
 	v.pos:unshift(c_x,c_y)
@@ -370,6 +389,7 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	  end
 	end
       end
+
       x_min = x_min - c_x
       x_max = x_max - c_x
       y_min = y_min - c_y
@@ -405,11 +425,12 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
 	    new_arc.syntactic_edges[#new_arc.syntactic_edges+1] = e
 	  end
 	end)
+
       syntactic_digraph:remove(intersection)
       collapsed_vertices[#collapsed_vertices+1] = collapse_vertex
     end
   end
-  
+
   -- Sort the vertices
   table.sort(syntactic_digraph.vertices, function(u,v) return u.event.index < v.event.index end) 
   
@@ -447,6 +468,15 @@ function Sublayouts.layoutRecursively(scope, layout, fun)
       collapsed_vertices[i],
       function (c, v)
 	v.pos:shiftByCoordinate(c.pos)
+      end,
+      function (a, v)
+	for _,e in ipairs(a.syntactic_edges) do
+	  for _,p in ipairs(e.path) do
+	    if type(p) == "table" then
+	      p:shiftByCoordinate(v.pos)
+	    end
+	  end
+	end
       end
     )
     for _,a in ipairs(syntactic_digraph:outgoing(collapsed_vertices[i])) do

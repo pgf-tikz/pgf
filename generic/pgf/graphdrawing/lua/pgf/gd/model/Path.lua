@@ -41,7 +41,7 @@
 -- Instead of a |Coordinate|, a |Path| may also contain a function. In
 -- this case, the function, when called, must return the |Coordinate|
 -- that is ``meant'' by the position. This allows algorithms to
--- add coordinates on a path that are still not fixed at the moment
+-- add coordinates to a path that are still not fixed at the moment
 -- they are added to the path.
 
 local Path = {}
