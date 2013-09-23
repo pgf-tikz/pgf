@@ -21,12 +21,18 @@
 % Configuration options for arrow tips:
 
 \pgfkeys{
-  /pgf/arrow keys/flex/.code=\pgfarrowsaddtooptions{\pgf@bend@set@rigidity{#1}},
+  /pgf/arrow keys/flex/.code=\pgfarrowsaddtooptions{\pgf@arrows@the@rigidity#1pt\let\pgf@arrow@flex@mode\pgf@arrow@mode@is@flex},
   /pgf/arrow keys/flex/.default=1,
-  /pgf/arrow keys/bend/.code=\pgfarrowsaddtooptions{\pgf@bend@set@rigidity{-1}}
+  /pgf/arrow keys/flex'/.code=\pgfarrowsaddtooptions{\pgf@arrows@the@rigidity#1pt\let\pgf@arrow@flex@mode\pgf@arrow@mode@is@flex@prime},
+  /pgf/arrow keys/flex'/.default=1,
+  /pgf/arrow keys/bend/.code=\pgfarrowsaddtooptions{\let\pgf@arrow@flex@mode\pgf@arrow@mode@is@bend}
 }
 
-\def\pgf@bend@set@rigidity#1{\pgf@arrows@the@rigidity#1pt\pgf@shorten@curvedtrue}
+
+\def\pgf@arrow@mode@is@flex{1}
+\def\pgf@arrow@mode@is@flex@prime{2}
+\def\pgf@arrow@mode@is@bend{3}
+
 \newdimen\pgf@arrows@the@rigidity
 
 %
@@ -92,11 +98,19 @@
     % Do shift:
     \expandafter\expandafter\expandafter\pgf@arrow@drawer@rigid@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
     \expandafter\let\expandafter\pgf@arrow@bending@mode\csname pgf@ar@bending@mode@#1\endcsname%
-    \ifx\pgf@arrow@bending@mode\pgfutil@empty\ifdim\pgf@arrows@the@rigidity<0pt\pgf@arrows@the@rigidity-\pgf@arrows@the@rigidity\fi\fi%
+    \ifx\pgf@arrow@bending@mode\pgfutil@empty\let\pgf@arrow@flex@mode\pgf@arrow@mode@is@flex\fi%
     % do swap:
     {%
       \csname pgf@ar@saves@\pgf@arrow@id\endcsname%
-      \expandafter\expandafter\expandafter\pgf@arrow@drawer@rigid@or@bend\csname pgf@ar@rigid@\pgf@arrow@id\endcsname%      
+      \ifcase\pgf@arrow@flex@mode\relax%
+        \pgferror{}% cannot happen!
+      \or%
+        \expandafter\expandafter\expandafter\pgf@arrow@drawer@rigid\csname pgf@ar@rigid@\pgf@arrow@id\endcsname%      
+      \or%
+        \expandafter\expandafter\expandafter\pgf@arrow@drawer@rigid\csname pgf@ar@ends@\pgf@arrow@id\endcsname%      
+      \or%
+        \pgf@arrow@drawer@bend%
+      \fi%
       % hull points inside the above
     }%
   \expandafter}%
@@ -116,48 +130,48 @@
 }
 
 
-\def\pgf@arrow@drawer@rigid@or@bend#1#2{% rigid start, rigid end, bending mode
-  \ifdim\pgf@arrows@the@rigidity<0pt%
-    \pgftransformnonlinear{\pgf@arrow@bending@mode{\pgf@x}{\pgf@y}}
-    \pgftransformscale{-1}%
-    \pgftransformxshift{-\pgf@xa}%
-    \ifpgfarrowswap%
-      \pgftransformyscale{-1}%
-    \fi%
-    {%
-      \pgf@relevantforpicturesizefalse%
-      \pgfscope%
-        \pgf@arrows@color@setup%
-        \csname pgf@ar@code@\pgf@arrow@id\endcsname%
-      \endpgfscope%
-    }%
-    \pgf@arrows@bending@hull%
-  \else%
-    % Compute the rigid positions:
-    \pgf@x#1% start
-    \pgf@y#2% flexibility*(end-start) + start
-    \advance\pgf@y by-\pgf@x%
-    \pgf@y\pgf@sys@tonumber\pgf@arrows@the@rigidity\pgf@y%
-    \advance\pgf@y by\pgf@x%
-    % Are they equal?
-    \ifdim\pgf@x=\pgf@y%
-      % Yes, do tangent:
-      \pgf@bending@do@tangent%
-    \else%
-      \pgf@bending@do@flex%
-    \fi%
-    \pgf@xc#1%
-    \pgf@xc-\pgf@xc%
-    \pgftransformxshift{+\pgf@xc}%
-    \ifpgfarrowswap%
-      \pgftransformyscale{-1}%
-    \fi%
+\def\pgf@arrow@drawer@bend{%
+  \pgftransformnonlinear{\pgf@arrow@bending@mode{\pgf@x}{\pgf@y}}
+  \pgftransformscale{-1}%
+  \pgftransformxshift{-\pgf@xa}%
+  \ifpgfarrowswap%
+    \pgftransformyscale{-1}%
+  \fi%
+  {%
+    \pgf@relevantforpicturesizefalse%
     \pgfscope%
       \pgf@arrows@color@setup%
-      \pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname%
+      \csname pgf@ar@code@\pgf@arrow@id\endcsname%
     \endpgfscope%
-    \pgf@arrows@rigid@hull%
+  }%
+  \pgf@arrows@bending@hull%
+}
+
+\def\pgf@arrow@drawer@rigid#1#2#3{% (rigid) start, (rigid) end, dummy
+  % Compute the rigid positions:
+  \pgf@x#1% start
+  \pgf@y#2% flexibility*(end-start) + start
+  \advance\pgf@y by-\pgf@x%
+  \pgf@y\pgf@sys@tonumber\pgf@arrows@the@rigidity\pgf@y%
+  \advance\pgf@y by\pgf@x%
+  % Are they equal?
+  \ifdim\pgf@x=\pgf@y%
+    % Yes, do tangent:
+    \pgf@bending@do@tangent%
+  \else%
+    \pgf@bending@do@flex%
   \fi%
+  \pgf@xc#1%
+  \pgf@xc-\pgf@xc%
+  \pgftransformxshift{+\pgf@xc}%
+  \ifpgfarrowswap%
+    \pgftransformyscale{-1}%
+  \fi%
+  \pgfscope%
+    \pgf@arrows@color@setup%
+    \pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname%
+  \endpgfscope%
+  \pgf@arrows@rigid@hull%
 }
 
 \def\pgf@bending@do@tangent{%
@@ -234,16 +248,14 @@
 
 \def\pgf@arrows@bending@hull{%
   \ifpgf@relevantforpicturesize%
-    \ifpgfoverlayarrowtips\else%
-      % Do bb update:
-      \expandafter\let\expandafter\pgf@temp\csname pgf@ar@hull@\pgf@arrow@id\endcsname%
-      \ifx\pgf@temp\pgfutil@empty\else%
-        \let\pgf@arrow@hull@point\pgf@arrow@bending@hull@point@first%
-        \pgf@temp%
-        \pgf@arrow@bending@update@bb%
-      \fi%
-    \fi%  
- \fi%  
+    % Do bb update:
+    \expandafter\let\expandafter\pgf@temp\csname pgf@ar@hull@\pgf@arrow@id\endcsname%
+    \ifx\pgf@temp\pgfutil@empty\else%
+      \let\pgf@arrow@hull@point\pgf@arrow@bending@hull@point@first%
+      \pgf@temp%
+      \pgf@arrow@bending@update@bb%
+    \fi%
+  \fi%  
 }
 
 \def\pgf@arrow@bending@hull@point@first#1#2{%
