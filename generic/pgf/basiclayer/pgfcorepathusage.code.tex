@@ -33,12 +33,13 @@
 % \pgfusepath{stroke}
 
 \pgfkeys{
-  /pgf/stroke/.code=\let\pgf@up@stroke\pgf@up@stroke@text\global\pgflastusepathstrokedtrue,
-  /pgf/draw/.code=\let\pgf@up@stroke\pgf@up@stroke@text\global\pgflastusepathstrokedtrue,
-  /pgf/fill/.code=\let\pgf@up@fill\pgf@up@fill@text\global\pgflastusepathfilledtrue,
-  /pgf/clip/.code=\let\pgf@up@clip\pgf@up@clip@text\global\pgflastusepathclippedtrue,
+  /pgf/stroke/.code=\let\pgf@up@stroke\pgf@up@stroke@text\pgf@up@path@neededtrue,
+  /pgf/draw/.code=\pgf@up@draw@arrowstrue\let\pgf@up@stroke\pgf@up@stroke@text\pgf@up@path@neededtrue,
+  /pgf/tips/.code=\pgf@up@draw@arrowstrue\pgf@up@path@neededtrue,
+  /pgf/fill/.code=\let\pgf@up@fill\pgf@up@fill@text\pgf@up@path@neededtrue,
+  /pgf/clip/.code=\let\pgf@up@clip\pgf@up@clip@text\pgf@up@path@neededtrue,
   /pgf/discard/.code=,
-  /pgf/use as bounding box/.code=\let\pgf@up@bb\pgf@up@bb@text,
+  /pgf/use as bounding box/.code=\let\pgf@up@bb\pgf@do@up@bb,
   /pgf/arrow keys/flex/.code=\pgferror{You need to say \string\usetikzlibrary{bending} for flexing and bending arrows},
   /pgf/arrow keys/flex'/.code=\pgferror{You need to say \string\usetikzlibrary{bending} for flexing and bending arrows},
   /pgf/arrow keys/bend/.code=\pgferror{You need to say \string\usetikzlibrary{bending} for flexing and bending arrows},
@@ -48,35 +49,33 @@
 % The following can only be set to "true" using the options in the
 % module "bending"
 \newif\ifpgf@precise@shortening
-
 \def\pgf@arrow@mode@is@quick{0}
 \let\pgf@arrow@flex@mode\pgf@arrow@mode@is@quick
 
-\newif\ifpgflastusepathstroked
-\newif\ifpgflastusepathfilled
-\newif\ifpgflastusepathclipped
-
+\newif\ifpgf@up@path@needed
+\newif\ifpgf@up@draw@arrows
 \def\pgf@up@stroke@text{stroke}
 \def\pgf@up@fill@text{fill}
 \def\pgf@up@clip@text{clip}
-\def\pgf@up@bb@text{\pgf@relevantforpicturesizefalse}
+\def\pgf@do@up@bb{\pgf@relevantforpicturesizefalse}
 
 \def\pgfusepath#1{%
-  \global\pgflastusepathstrokedfalse%
-  \global\pgflastusepathfilledfalse%
-  \global\pgflastusepathclippedfalse%
+  \pgf@up@path@neededfalse%
+  \pgf@up@draw@arrowsfalse%
   \let\pgf@up@stroke\pgfutil@empty%
   \let\pgf@up@fill\pgfutil@empty%
   \let\pgf@up@clip\pgfutil@empty%
-  \let\pgf@up@discard\pgfutil@empty%
   \let\pgf@up@bb\pgfutil@empty%
   \pgfset{#1}%
   \expandafter\def\expandafter\pgf@up@action\expandafter{\csname pgfsys@\pgf@up@fill\pgf@up@stroke\endcsname}%
+  \ifpgf@up@path@needed%
+  \else%
+    \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
+  \fi%
   \ifx\pgf@up@stroke\pgfutil@empty%
     \ifx\pgf@up@fill\pgfutil@empty%
+      \let\pgf@up@action=\pgfutil@empty%
       \ifx\pgf@up@clip\pgfutil@empty%
-        \let\pgf@up@action=\pgfutil@empty%
-        \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
       \else%
         % only clipping  
         \let\pgf@up@action=\pgfsys@discardpath%
@@ -109,8 +108,14 @@
   %
   \ifx\pgf@up@clip\pgfutil@empty%
     \ifx\pgf@up@stroke\pgfutil@empty%
-      \pgfsyssoftpath@invokecurrentpath%
-      \pgf@up@action%
+      \ifx\pgf@up@action\pgfutil@empty%
+        \ifpgf@up@draw@arrows%
+          \pgf@up@draw@arrows@only%
+        \fi%
+      \else%  
+        \pgfsyssoftpath@invokecurrentpath%
+        \pgf@up@action%
+      \fi%
     \else%
       \pgfgetpath\pgf@arrowpath%
       \pgfutil@tempswatrue%
@@ -139,6 +144,20 @@
   \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
   \pgf@resetpathsizes%
   \ignorespaces%
+}
+
+\def\pgf@up@draw@arrows@only{%
+  \pgfgetpath\pgf@arrowpath%
+  \pgfutil@tempswatrue%
+  \pgfprocesscheckclosed{\pgf@arrowpath}{\pgfutil@tempswafalse}%
+  \ifpgfutil@tempswa%
+    \pgf@prepare@end@of@path%
+    \begingroup%
+      \pgf@prepare@start@of@path%
+      \pgf@add@arrow@at@start%
+    \endgroup%
+    \pgf@add@arrow@at@end%
+  \fi%
 }
 
 \def\pgf@stroke@inner@line@if@needed{%
