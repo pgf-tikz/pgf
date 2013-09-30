@@ -113,12 +113,17 @@
         \let\pgf@arrow@tip@sequence\pgf@arrows@direct%
       \fi%
       \pgf@arrow@letter@\pgf@arrow@tip@sequence{means}%
+      \expandafter\let\csname pgf@ar@code@\pgf@decl@arrow@name@end\endcsname\relax%
     \else%
-      \pgf@arrow@letter{code}%
-      \pgf@arrow@letter{defaults}%
-      \pgf@arrow@letter{setup}%
-      \pgf@arrow@letter{bending@mode}%
-      \pgf@arrow@letter{par}%
+      \ifx\pgf@decl@arrow@means\pgfutil@empty%
+        \pgf@arrow@letter{code}%
+        \pgf@arrow@letter{defaults}%
+        \pgf@arrow@letter{setup}%
+        \pgf@arrow@letter{bending@mode}%
+        \pgf@arrow@letter{par}%
+      \else%
+        \pgferror{An arrow declaration cannot be both a meta arrow and a shorthand}
+      \fi%
     \fi%
   \fi%
 }
@@ -458,8 +463,28 @@
 \let\pgf@arrows@stroke@color\pgfutil@empty
 \let\pgf@arrows@fill@color\pgfutil@empty
 
+\def\pgfarrows@length@scale{1}
+\def\pgfarrows@width@scale{1}
+\def\pgfarrows@slant{0}
+
+\let\pgfarrows@scale@list\pgfutil@empty
+\def\pgfarrowsaddtolengthscalelist#1{\expandafter\def\expandafter\pgfarrows@scale@list\expandafter{\pgfarrows@scale@list#1\pgfarrows@length@scale#1}}
+\def\pgfarrowsaddtowidthscalelist#1{\expandafter\def\expandafter\pgfarrows@scale@list\expandafter{\pgfarrows@scale@list#1\pgfarrows@width@scale#1}}
+
+\pgfarrowsaddtolengthscalelist\pgfarrowlength
+\pgfarrowsaddtolengthscalelist\pgfarrowinset
+\pgfarrowsaddtowidthscalelist\pgfarrowwidth
+
 \pgfkeys{
   /pgf/arrow keys/.cd,
+  scale/.code={%
+    \pgfmathparse{#1}%
+    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\def\expandafter\pgfarrows@length@scale\expandafter{\pgfmathresult}}%
+    \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\def\expandafter\pgfarrows@width@scale\expandafter{\pgfmathresult}}%
+  },
+  scale length/.code={\pgfmathparse{#1}\expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\def\expandafter\pgfarrows@length@scale\expandafter{\pgfmathresult}}},
+  scale width/.code={\pgfmathparse{#1}\expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\def\expandafter\pgfarrows@width@scale\expandafter{\pgfmathresult}}},
+  slant/.code={\pgfmathparse{#1}\expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\def\expandafter\pgfarrows@slant\expandafter{\pgfmathresult}}},
   length/.code={%
     \pgfarrowsthreeparameters{#1}%
     \expandafter\pgfarrowsaddtooptions\expandafter{\expandafter\pgfarrowslinewidthdependent\pgfarrowstheparameters\pgfarrowlength\pgf@x}%
@@ -645,6 +670,8 @@
   \pgf@arrows@nested@options% 
   % 5. Last options:
   \pgf@arrows@late@options%
+  % 6. Scaling:
+  \pgfarrows@scale@list%
   % Now, test:
   \expandafter\global\expandafter\let\expandafter\pgf@arrow@id\csname\pgf@arrow@fullname{#1}\endcsname\relax%
   \ifx\pgf@arrow@id\relax%
@@ -667,7 +694,7 @@
       % Compute transformation:
       \pgf@arrows@handle@reverse%
     \fi%
-    % Safe computed values
+    % Save computed values
     \expandafter\global\expandafter\let\csname pgf@ar@saves@\pgf@arrow@id\endcsname\pgf@arrows@saves%
     \expandafter\global\expandafter\let\csname pgf@ar@hull@\pgf@arrow@id\endcsname\pgf@arrows@convexhull%
     \expandafter\xdef\csname pgf@ar@ends@\pgf@arrow@id\endcsname{{\pgf@arrows@the@tipend}{\pgf@arrows@the@backend}{\pgf@arrows@the@lineend}}%
@@ -841,6 +868,11 @@
     \pgfarrows@getid{#1}{#2}%
     % Do shift:
     \expandafter\expandafter\expandafter\pgf@arrow@drawer@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
+    % Do slant:  
+    \ifdim\pgfarrows@slant pt=0pt%
+    \else%
+      \pgftransformxslant{\pgfarrows@slant}%
+    \fi%
     % do swap:
     \ifpgfarrowswap%
       \pgftransformyscale{-1}%
@@ -894,7 +926,7 @@
 % Convex hull stuff:
 
 \def\pgf@arrow@hull@point@first#1#2{%
-%  {\pgfsys@beginscope\pgfpathcircle{\pgfqpoint{#1}{#2}}{0.1pt}\pgfusepathqfill\pgfsys@endscope}%
+%  {\pgfsys@beginscope\pgfpathcircle{\pgfqpoint{#1}{#2}}{0.5pt}\pgfusepathqfill\pgfsys@endscope}%
   \pgf@x#1\pgf@y#2%
   \pgf@xa\pgf@pt@aa\pgf@x%
   \advance\pgf@xa by\pgf@pt@ba\pgf@y%
@@ -904,7 +936,7 @@
   \let\pgf@arrow@hull@point\pgf@arrow@hull@point@other%
 }
 \def\pgf@arrow@hull@point@other#1#2{%
-%  {\pgfsys@beginscope\pgfpathcircle{\pgfqpoint{#1}{#2}}{0.1pt}\pgfusepathqfill\pgfsys@endscope}%
+%  {\pgfsys@beginscope\pgfpathcircle{\pgfqpoint{#1}{#2}}{0.5pt}\pgfusepathqfill\pgfsys@endscope}%
   \pgfutil@tempdima#1\pgfutil@tempdimb#2%
   \pgf@x\pgf@pt@aa\pgfutil@tempdima%
   \advance\pgf@x by\pgf@pt@ba\pgfutil@tempdimb%
@@ -1001,9 +1033,11 @@
 % Default shorthands:
 
 \pgfdeclarearrow{ name = To } % forward declaration
+\pgfdeclarearrow{ name = Bar } % forward declaration
 \pgfkeys{
   <-> /.tip           = {To},
   >-< /.tip           = {>[reversed]},
+  | /.tip             = {Bar}
 }
 
 
@@ -1158,7 +1192,7 @@
   \pgfusepathqfill
 }
 \pgfarrowsdeclarereversed{latex reversed}{latex reversed}{latex}{latex}
-\pgfarrowsdeclare{|}{|}
+\pgfarrowsdeclare{Bar}{Bar}
 {
   \pgfarrowsleftextend{+-0.25\pgflinewidth}
   \pgfarrowsrightextend{+.75\pgflinewidth}
