@@ -7,19 +7,20 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\section{Coordinate and Canvas Transformations}
+\section{Coordinate, Canvas, and Nonlinear Transformations}
 
 \subsection{Overview}
 
-\pgfname\ offers two different ways of scaling, shifting, and rotating
+\pgfname\ offers different ways of scaling, shifting, and rotating
 (these operations are generally known as \emph{transformations})
 graphics: You can apply \emph{coordinate transformations} to all
-coordinates and you can apply \emph{canvas transformations} to the
-canvas on which you draw. (The names ``coordinate'' and ``canvas''
+coordinates, you can apply \emph{canvas transformations} to the
+canvas on which you draw, and you can apply \emph{additional nonlinear
+  transformations.} (The names ``coordinate'' and ``canvas''
 transformations are not standard, I introduce them only for the
 purposes of this manual.) 
 
-The difference is the following:
+The differences are the following:
 
 \begin{itemize}
 \item
@@ -44,6 +45,17 @@ The difference is the following:
   canvas is transformed, in this case stretched by a factor of
   two. In the resulting image \emph{everything} will be larger: Text,
   lines, coordinates, and shadings.
+\item
+  Nonlinear transformations are a special form of coordinate
+  transformations that are, as the name suggests, not linear. The
+  support for nonlinear transformations is quite different from the
+  support for linear coordinate transformations, the main reason being
+  speed: While linear coordinate trnasformations can be applied very
+  quickly (\pgfname\ does so almost constantly), nonlinear
+  transformations are much harder to apply and also to use. For this
+  reason, nonlinear transformations are implemented in a special
+  module |nonlineartransformations| that has to be loaded
+  explicitly. By default, they are not available.
 \end{itemize}
 
 In many cases, it is preferable that you use coordinate
@@ -52,10 +64,12 @@ transformations are used, \pgfname\ looses track of the coordinates of
 nodes and shapes. Also, canvas transformations often cause undesirable
 effects like changing text size. For these reasons, \pgfname\ makes it
 easy to setup the coordinate transformation, but a bit harder to
-change the canvas transformation.
+change the canvas transformation. Because of the speed penalties
+caused by nonlinear transformations, they are even harder to set up.
 
 
 \subsection{Coordinate Transformations}
+\label{section-linear-coordinate-transformations}
 
 \subsubsection{How PGF Keeps Track of the Coordinate Transformation
   Matrix}
@@ -71,7 +85,7 @@ matrix to their inputs.
 
 The coordinate transformation matrix consists of four numbers $a$,
 $b$, $c$, and $d$, and two dimensions $s$ and $t$. When the coordinate
-transformation matrix is applied to a coordinate $(x,y)$ the new
+transformation matrix is applied to a coordinate $(x,y)$, the new
 coordinate $(ax+by+s,cx+dy+t)$ results. For more details on how
 transformation matrices work in general, please see, for example, the
 \textsc{pdf} or PostScript reference or a textbook on computer
@@ -610,6 +624,128 @@ a coordinate transformation, see the previous section).
 \end{contextenvironment}
 
 
+\subsection{Nonlinear Transformations}
+
+In order to use nonlinear transformations, you first have to load the
+following \pgfname\ module:
+
+\begin{pgfmodule}{nonlineartransformations}
+  Loads the necessary functionality for nonlinear transformations.
+\end{pgfmodule}
+
+
+The difference between the coordinate transformations introduced in
+Section~\ref{section-linear-coordinate-transformations} above to
+nonlinear transformations is, of course, that the transformations can
+be nonlinear. An example of a nonlinear transformation is the
+transformation underlying polar coordinates: A polar coordinate
+$(r,d)$ gets transformed to the canvas position $(d\cos r,d\sin r)$,
+which is clearly not a linear transformation.
+
+Nonlinear transformations work somewhat like the normal linear
+coordinate transformations in the sense that they apply to coordinate
+and thereby to the construction of paths, but not to things like text
+or line width or shadings. (Indeed, it is not possible to apply
+nonlinear transformations to, say, text, because the backend drivers
+do not support this.)
+
+This means that there is a fundamental
+difference between calling a function like |\pgfpointpolar| or
+specifying a coordinate as |(45:2)| in \tikzname\ and installing the
+nonlinear transformation ``polar coordinates'' using the command
+|\pgftransformnonlinear|: In a coordinate like |(45:2)| the user
+explicitly says ``please evaluate this one 
+coordinate in polar coordinate and then continue in the normal
+coordinate system with the result.'' Otherwise nothing changes and a
+line between two points specified in this way is still a straight
+line.
+
+Things are quite different when we install a polar
+\emph{transformation} using |\pgftransformnonlinear|. Now, even a
+seemingly low-level Cartesian coordinate |\pgfqpoint{1pt}{1pt}| will
+get transformed. Even more drastically, what is specified as a
+straight line like
+\begin{codeexample}[code only]
+\draw (0,1) -- (1,1);
+\end{codeexample}
+can become curved since \emph{everything} gets transformed.
+
+Due to the way nonlinear transformations are implemented, not every
+possible transformation is permissible. Rather, they should have the
+following properties:
+\begin{itemize}
+\item The transformation should be continuous and differentiable. When
+  drawing lines and curves, \pgfname\ will try to compute tangent
+  vectors at many points. At points where this is not possible (such
+  as at the origin for a polar transformation), wrong drawings will
+  result.
+\item Related to the problem of computing tangents, the nonlinear
+  transformation must honour the \emph{handedness} of the coordinate
+  system. This means, roughly, the ``right must stay right'': Imagine
+  a line somewhere and a point right of the line. The nonlinear
+  transformation will now transform the line to some new curve and
+  will place the coordinate somewhere else. It must now be the case
+  that the point is still to the right of the curve, it may not
+  ``switch sides.'' An example of a transformation that does not
+  honour handedness, we again have a look at polar transformations:
+  Consider a line from $(0,1)$ to $(90,1)$ and a point at
+  $(45,0.5)$. Clearly, in normal coordinate space, this point is ``to
+  the right'' of the line as we travel from $(0,1)$ to $(90,1)$. Now,
+  let us transform this line via a polar transformation: The first
+  component is the angle and the second the distance, so the line
+  becomes an arc at radius $1$ from $0^\circ$ to $90^\circ$. The point
+  is transformed to $(1/\sqrt 2, 1/\sqrt 2)$ and it now lies \emph{to
+    the left} of the curve as we travel along it. On the other hand,
+  if we consider a line with negative $y$-coordinates such as from
+  $(0,-1)$ to $(90,-1)$, the handedness is correct.
+\end{itemize}
+
+\begin{command}{\pgftransformnonlinear\marg{transformation code}}
+  This command adds the \meta{transformation code} to the list of non-linear
+  transformations currently in force. Thus, similar to linear
+  coordinate transformations, each additional call to this function
+  adds another transformation to the current \TeX\ scope and the
+  effect ends at the end of the current scope. In practice, however,
+  you typically will not have more than one active nonlinear
+  transformation.
+
+  The job of the \meta{transformation code} is to map a point given in
+  the registers |\pgf@x| and |\pgf@y| to a new coordinate, which
+  should be returned in |\pgf@x| and |\pgf@y| as well. The mapping
+  must honour the conditions listed above (continuous, differentiable,
+  honouring handedness). As an example, suppose we wish to install
+  polar coordinates (but with the angle going clockwise to ensure the
+  handedness condition). For this, we need a bit of code:
+\begin{codeexample}[code only]
+\pgftransformnonlinear{%
+  \pgfmathsincos@{-\pgf@x}% negate for handedness
+  \pgf@x=\pgfmathresultx\pgf@x%
+  \pgf@y=\pgfmathresultx\pgf@y%
+}
+\end{codeexample}
+  If we were to call this function again, we would get something funny
+  like ``polar-polar coordinates,'' so let's not do this. Let us
+  instead have a look at the effect this call has: Once a nonlinear
+  transformation is installed, all subsequent path constructions are
+  affected by this transformation. In particular, a normal grid now
+  becomes the typical ``polar grid'' (note that we do not try to draw
+  something near the origin since, there, the mapping is not
+  differentiable):
+\makeatletter
+\begin{codeexample}[]
+\tikz{
+  \draw [help lines] (0,-2) grid (3,0);
+  % Start nonlinear transformation
+  \pgftransformnonlinear{%
+    \pgfmathsincos@{-\pgf@x}%
+    \pgf@x=\pgfmathresultx\pgf@y%
+    \pgf@y=\pgfmathresulty\pgf@y%
+  }
+  \draw (0,1mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
+}
+\end{codeexample}
+  To be continued...
+\end{command}
 
 
 %%% Local Variables: 
