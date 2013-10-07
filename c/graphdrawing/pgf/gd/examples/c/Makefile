@@ -11,7 +11,8 @@ clean:
 
 install: SimpleDemoC.so SimpleDemoCPlusPlus.so
 	mkdir -p $(INSTALLDIR)/pgf/gd/examples/c
-	cp SimpleDemoC.so SimpleDemoCPlusPlus.so $(INSTALLDIR)/pgf/gd/examples/c
+	cp SimpleDemoC.so $(INSTALLDIR)/pgf/gd/examples/c/pgf_gd_examples_c_SimpleDemoC.so
+	cp SimpleDemoCPlusPlus.so  $(INSTALLDIR)/pgf/gd/examples/c/pgf_gd_examples_c_SimpleDemoCPlusPlus.so
 
 SimpleDemoC.so: SimpleDemoC.o
 	$(CC) $(FLAGS) $(SHAREDFLAGS) $(MYLDFLAGS) \

@@ -87,6 +87,11 @@ For each of the above points, there are some bells and whistles:
   the specific architecture of the executable. Thus, unlike normal Lua
   files, the library needs to be installed ``far away'' from the actual
   package of which it is part.
+\item Certain vesions of Lua\TeX\ have a broken handling of filenames
+  of libraries written in C. The TL2013 version of Lua\TeX, for
+  instance, crashes when the filename of a shared library does not
+  contain the complete path (while this works for normal
+  file). Hopefully, this, too, will be fixed in future versions.
 \item On certain platforms, the support for dynamic linking against
   Lua\TeX\ is broken since the symbol table of the Lua library has been
   stripped away. Hopefully, this will be fixed soon; in the meantime, a
@@ -252,7 +257,7 @@ achieve all of this in the directory |pgf/c/graphdrawing/pgf/gd/examples/c|,
 where you  will also find the code of the above example.
 
 Now, all you need to do to use it is to write in Lua (after you have
-loaded the |pgf.gd| library, of course):
+loaded the |pgf.gd| library, of course), would normally be the call
 
 \begin{codeexample}[code only]
 require 'pgf.gd.examples.c.SimpleDemoC'  
@@ -262,12 +267,34 @@ or in \tikzname
 \usegdlibrary {examples.c.SimpleDemoC}
 \end{codeexample}
 
-This will cause Lua\TeX\ to find the shared library, load it, and then
+This should cause Lua\TeX\ to find the shared library, load it, and then
 call the function in that library with the lengthy name (the name is
 always |luaopen_| followed by the path and filename with slashes
 replaced by underscores). 
 
-We can now use the key:
+\emph{Remark:} Unfortunately, the above does not work with the \TeX
+Live 2013 versions of Lua\TeX\ due to a bugs that causes the ``replace
+dots by slashes'' to fail. For this reason, we currently need to
+rename our sharded library file to
+\begin{codeexample}[code only]
+pgf_gd_examples_c_SimpleDemoC.so
+\end{codeexample}
+and then say
+\begin{codeexample}[code only]
+require 'pgf_gd_examples_c_SimpleDemoC'  
+\end{codeexample}
+or in \tikzname
+\begin{codeexample}[code only]
+\usegdlibrary {pgf_gd_examples_c_SimpleDemoC}
+\end{codeexample}
+
+In future versions of Lua\TeX, things should be ``back to normal'' in
+this regard. Also, the bug only concerns shared libraries; you can
+still create a normal Lua file with a nice name and place at a nice
+location and the only contents of this file is then the above
+|require| command.
+
+Anyway, once we have loaded the shared library we can say:
 
 \begin{codeexample}[]
 \tikz \graph [fast simple demo layout, fast simple demo radius=1.25cm]
@@ -276,7 +303,6 @@ We can now use the key:
 
 \subsubsection{Documenting Algorithms Written in C}
 \label{section-gd-documenting-c-algos}
-
 
 In our above example, we included a summary with the keys in the C
 code. It would be even better if we added a longer documentation and
@@ -342,9 +368,7 @@ example
 In the above example, we already saw some of the functions from the
 library |InterfaceFromC| that translated from Lua to C for us. For a
 complete list of all functions available, currently please see
-|graphdrawing/c/pgf/gd/interface/c/InterfaceFromC.h| directly. I am
-working on getting the documentation parsed out from that file and
-inserted here.
+|graphdrawing/c/pgf/gd/interface/c/InterfaceFromC.h| directly. 
 
 Currently, the library provides C functions to directly access all
 aspects of the syntactic digraph and also of the graphs computed by
@@ -476,11 +500,27 @@ Note that it is the job of the interface classes to free the passed
 |declarations| object. For this reason, you really need to call |new|
 and cannot pass the address of a temporary object.
 
+As before, because of the bug in some Lua\TeX\ versions, to actually
+load the library at runtime, we need to rename it to
+\begin{codeexample}[code only]
+pgf_gd_examples_c_SimpleDemoCPlusPlus.so
+\end{codeexample}
+and then say
+\begin{codeexample}[code only]
+require 'pgf_gd_examples_c_SimpleDemoCPlusPlus'  
+\end{codeexample}
+or in \tikzname
+\begin{codeexample}[code only]
+\usegdlibrary {pgf_gd_examples_c_SimpleDemoCPlusPlus}
+\end{codeexample}
+
+We can now use it:
 
 \begin{codeexample}[]
 \tikz \graph [fast simple demo layout c++, fast simple demo radius c++=1.25cm]
 { a -> b -> c -> d -> e -> a };
 \end{codeexample}
+
 
 \subsubsection{The Interface From C++}
 
@@ -599,7 +639,7 @@ parameters->configure_option("node distance", &MyClass::setMyDistance, m);
 
 \medskip
 \noindent\textbf{Factories and modules.}
-A Lua keys is normally either a Boolean, a double, or a
+A Lua key is normally either a Boolean, a double, or a
 string. However, in C++, we may also sometimes wish Lua users to
 configure which C function is used to achieve something. One could do
 this using strings or numbers and then use search algorithms or a long
@@ -611,7 +651,7 @@ function |make|. This function will return a new object of a template
 type. You can store such a factory in a key.
 
 The |make| method of a parameters object allows you to invoke the
-factory stored in a key. (If no factory is stored in it, null is
+factory stored in a key. (If no factory is stored in it, |null| is
 returned). 
 
 The |configure_module| method is akin to |configure_option|, only 
@@ -720,6 +760,8 @@ extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoOGDF (struct lua_State *state
 }
 \end{codeexample}
 
+Yet again, we need to rename the resulting shared library and then say
+|require| on it. We can now use it:
 
 \begin{codeexample}[]
 \tikz \graph [fast simple demo layout ogdf, my radius ogdf=1cm]

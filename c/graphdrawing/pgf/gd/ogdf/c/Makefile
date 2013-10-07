@@ -10,7 +10,8 @@ clean:
 
 install: ogdf_script.so SimpleDemoOGDF.so
 	mkdir -p $(INSTALLDIR)/pgf/gd/ogdf/c
-	cp SimpleDemoOGDF.so ogdf_script.so $(INSTALLDIR)/pgf/gd/ogdf/c
+	cp SimpleDemoOGDF.so $(INSTALLDIR)/pgf/gd/ogdf/c/pgf_gd_ogdf_c_SimpleDemoOGDF.so
+	cp ogdf_script.so $(INSTALLDIR)/pgf/gd/ogdf/c/pgf_gd_ogdf_c_ogdf_script.so
 
 
 ogdf_script.so: ogdf_script.o InterfaceFromOGDF.o ../../interface/c/InterfaceFromC++.o ../../interface/c/InterfaceFromC.o 

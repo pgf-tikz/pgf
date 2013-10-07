@@ -10,9 +10,11 @@
 #include <string.h>
 
 
-#if LUA_VERSION_NUM < 502
-#define lua_rawlen lua_objlen
-#endif
+// The following is a hack to avoid a problem with the Lua lib being linked twice.
+// When this happens, two version of "dummynode" exist in Lua and we must ensure that
+// we never create a table using such a dummynode while using a second lib.
+// The following should later be set to 0 and replaced everywhere, once this is fixed.
+#define MIN_HASH_SIZE_FIX 1
 
 
 
@@ -413,7 +415,7 @@ static void sync_digraph(lua_State* L, pgfgd_SyntacticDigraph* d)
       pgfgd_path_append_lineto_head(e);
     } 
     
-    lua_createtable(L, e->path->length ? e->path->length : 1, 0);
+    lua_createtable(L, e->path->length ? e->path->length : 1, MIN_HASH_SIZE_FIX);
     lua_pushvalue(L, Path_index);
     lua_setmetatable(L, -2);
 
@@ -477,7 +479,7 @@ static void free_digraph(pgfgd_SyntacticDigraph* digraph)
 static int algorithm_dispatcher(lua_State* L)
 {
   // Create the back index table. It will be at index BACKINDEX_STORAGE_INDEX
-  lua_createtable(L, 0, 1);
+  lua_createtable(L, 0, MIN_HASH_SIZE_FIX);
   
   // The actual function is stored in an upvalue.
   pgfgd_SyntacticDigraph* digraph = (pgfgd_SyntacticDigraph*) calloc(1, sizeof(pgfgd_SyntacticDigraph));
@@ -676,7 +678,7 @@ static void push_digraph_and_backindex(pgfgd_Digraph* g)
     // Aha. We need to install a new table:
     lua_pop(L, 1); // Get rid of nil
 
-    lua_createtable(L, 0, 1);
+    lua_createtable(L, 0, MIN_HASH_SIZE_FIX);
     
     lua_pushvalue(L, digraph_pos); // The digraph object
     lua_pushvalue(L, backtable_pos); // The new table
@@ -971,7 +973,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
   if (d && d->key) {
     int tos = lua_gettop(state);
 
-    lua_gc(state, LUA_GCSTOP, 0);
+    lua_gc(state, LUA_GCSTOP, 0); // BUG: Remove once linking against dynamic Lua lib works!
     
     // Find declare function:
     lua_getglobal(state, "require");
@@ -999,7 +1001,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
     }
     
     if (d->use_length > 0) {
-      lua_createtable(state, d->use_length, 0);
+      lua_createtable(state, d->use_length, MIN_HASH_SIZE_FIX);
       int i;
       for (i=0; i < d->use_length; i++) {
 	lua_createtable(state, 0, 2);
@@ -1036,7 +1038,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
     }
     
     if (d->examples) {
-      lua_createtable(state, d->examples_length, 0);
+      lua_createtable(state, d->examples_length, MIN_HASH_SIZE_FIX);
       int i;
       for (i=0; i < d->examples_length; i++) {
 	lua_pushstring(state, d->examples[i]);
