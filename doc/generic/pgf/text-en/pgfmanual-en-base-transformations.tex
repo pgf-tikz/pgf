@@ -634,6 +634,8 @@ following \pgfname\ module:
 \end{pgfmodule}
 
 
+\subsubsection{Introduction}
+
 The difference between the coordinate transformations introduced in
 Section~\ref{section-linear-coordinate-transformations} above to
 nonlinear transformations is, of course, that the transformations can
@@ -646,19 +648,18 @@ Nonlinear transformations work somewhat like the normal linear
 coordinate transformations in the sense that they apply to coordinate
 and thereby to the construction of paths, but not to things like text
 or line width or shadings. (Indeed, it is not possible to apply
-nonlinear transformations to, say, text, because the backend drivers
-do not support this.)
+nonlinear transformations to, say, text.)
 
 This means that there is a fundamental
-difference between calling a function like |\pgfpointpolar| or
-specifying a coordinate as |(45:2)| in \tikzname\ and installing the
-nonlinear transformation ``polar coordinates'' using the command
-|\pgftransformnonlinear|: In a coordinate like |(45:2)| the user
-explicitly says ``please evaluate this one 
-coordinate in polar coordinate and then continue in the normal
-coordinate system with the result.'' Otherwise nothing changes and a
-line between two points specified in this way is still a straight
-line.
+difference between, on the one hand, calling a function like
+|\pgfpointpolar| or specifying a coordinate as |(45:2)| in \tikzname\
+and, on the other hand, installing the nonlinear transformation
+``polar coordinates'' using the command |\pgftransformnonlinear|: In a
+coordinate like |(45:2)| the user explicitly says ``please evaluate
+this one  coordinate in polar coordinate and then continue in the
+normal coordinate system with the result.'' Otherwise nothing changes
+and a line between two points specified in this way is still a
+straight line.
 
 Things are quite different when we install a polar
 \emph{transformation} using |\pgftransformnonlinear|. Now, even a
@@ -670,35 +671,20 @@ straight line like
 \end{codeexample}
 can become curved since \emph{everything} gets transformed.
 
-Due to the way nonlinear transformations are implemented, not every
-possible transformation is permissible. Rather, they should have the
-following properties:
-\begin{itemize}
-\item The transformation should be continuous and differentiable. When
-  drawing lines and curves, \pgfname\ will try to compute tangent
-  vectors at many points. At points where this is not possible (such
-  as at the origin for a polar transformation), wrong drawings will
-  result.
-\item Related to the problem of computing tangents, the nonlinear
-  transformation must honour the \emph{handedness} of the coordinate
-  system. This means, roughly, the ``right must stay right'': Imagine
-  a line somewhere and a point right of the line. The nonlinear
-  transformation will now transform the line to some new curve and
-  will place the coordinate somewhere else. It must now be the case
-  that the point is still to the right of the curve, it may not
-  ``switch sides.'' An example of a transformation that does not
-  honour handedness, we again have a look at polar transformations:
-  Consider a line from $(0,1)$ to $(90,1)$ and a point at
-  $(45,0.5)$. Clearly, in normal coordinate space, this point is ``to
-  the right'' of the line as we travel from $(0,1)$ to $(90,1)$. Now,
-  let us transform this line via a polar transformation: The first
-  component is the angle and the second the distance, so the line
-  becomes an arc at radius $1$ from $0^\circ$ to $90^\circ$. The point
-  is transformed to $(1/\sqrt 2, 1/\sqrt 2)$ and it now lies \emph{to
-    the left} of the curve as we travel along it. On the other hand,
-  if we consider a line with negative $y$-coordinates such as from
-  $(0,-1)$ to $(90,-1)$, the handedness is correct.
-\end{itemize}
+
+\subsubsection{Installing Nonlinear Transformation}
+
+\makeatletter
+\def\polartransformation{
+  % \pgf@x will contain the radius
+  % \pgf@y will contain the distance
+  \pgfmathsincos@{\pgf@x}%
+  % pgfmathresultx is now the cosine of radius and
+  % pgfmathresulty is the sine of radius
+  \pgf@x=\pgfmathresultx\pgf@y%
+  \pgf@y=\pgfmathresulty\pgf@y%
+}
+\makeatother
 
 \begin{command}{\pgftransformnonlinear\marg{transformation code}}
   This command adds the \meta{transformation code} to the list of non-linear
@@ -709,42 +695,383 @@ following properties:
   you typically will not have more than one active nonlinear
   transformation.
 
-  The job of the \meta{transformation code} is to map a point given in
-  the registers |\pgf@x| and |\pgf@y| to a new coordinate, which
-  should be returned in |\pgf@x| and |\pgf@y| as well. The mapping
-  must honour the conditions listed above (continuous, differentiable,
-  honouring handedness). As an example, suppose we wish to install
-  polar coordinates (but with the angle going clockwise to ensure the
-  handedness condition). For this, we need a bit of code:
+  The job of the \meta{transformation code} is to map a point~$p$
+  given in the registers |\pgf@x| and |\pgf@y| to a new
+  coordinate~$f(p)$, which should be returned in |\pgf@x| and |\pgf@y|
+  as well. As an example, suppose we wish to install polar coordinates
+  as the nonlinear transformation. For this, we need a bit of code:
 \begin{codeexample}[code only]
-\pgftransformnonlinear{%
-  \pgfmathsincos@{-\pgf@x}% negate for handedness
-  \pgf@x=\pgfmathresultx\pgf@x%
-  \pgf@y=\pgfmathresultx\pgf@y%
+\def\polartransformation{%
+  % \pgf@x will contain the radius
+  % \pgf@y will contain the distance
+  \pgfmathsincos@{\pgf@x}%
+  % pgfmathresultx is now the cosine of radius and
+  % pgfmathresulty is the sine of radius
+  \pgf@x=\pgfmathresultx\pgf@y%
+  \pgf@y=\pgfmathresulty\pgf@y%
 }
 \end{codeexample}
+  (In case you wonder why you cannot just call |\pgfpointpolar| at
+  this point: You can, but this function internally uses |\pgf@x|
+  and |\pgf@y| in complicated ways, so you would first have to safe
+  them so some other registers. Also, the above is faster.)
+  
   If we were to call this function again, we would get something funny
   like ``polar-polar coordinates,'' so let's not do this. Let us
   instead have a look at the effect this call has: Once a nonlinear
   transformation is installed, all subsequent path constructions are
   affected by this transformation. In particular, a normal grid now
-  becomes the typical ``polar grid'' (note that we do not try to draw
-  something near the origin since, there, the mapping is not
-  differentiable):
-\makeatletter
+  becomes the typical ``polar grid.''
+
 \begin{codeexample}[]
-\tikz{
-  \draw [help lines] (0,-2) grid (3,0);
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
   % Start nonlinear transformation
-  \pgftransformnonlinear{%
-    \pgfmathsincos@{-\pgf@x}%
-    \pgf@x=\pgfmathresultx\pgf@y%
-    \pgf@y=\pgfmathresulty\pgf@y%
-  }
-  \draw (0,1mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
-}
+  \pgftransformnonlinear{\polartransformation}% see above
+  
+  % Draw something with this transformation in force
+  \draw (0pt,0mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
+\end{tikzpicture}
 \end{codeexample}
-  To be continued...
+\end{command}
+
+
+\subsubsection{Applying Nonlinear Transformations to Points}
+
+\begin{command}{\pgfpointtransformednonlinear\marg{point}}
+  Works like |\pgfpointtransformed|, but also applies the current
+  nonlinear transformation; that is, it first applies the current
+  linear transformation and then the current nonlinear
+  transformations. Note that, just like |\pgfpointtransformed|, you
+  normally do not call this function directly since it is called
+  internally by the path drawing commands.
+\end{command}
+
+
+\subsubsection{Applying Nonlinear Transformations to Paths}
+
+When a nonlinear transformation is installed, the normal path
+construction commands like |\pgfpathmoveto| get adjusted so that the
+``honour'' the nonlinear transformations currently in force. For
+|\pgfpathmoveto| this is pretty simple: Instead of just applying the
+linear transformation matrix to the point to which the path should
+``jump'' next, we also apply the nonlinear transformation. However,
+for a command like |\pgfpathlineto|, things are much more difficult:
+A straight line will no longer be a straight line!
+
+In order to make straight lines ``bend'', the following changes are in
+force while a nonlinear transformation is installed:
+
+\begin{enumerate}
+\item Whenever a straight line between two points $p$ and $q$ should
+  be added to the path, either through |\pgfpathlineto| or through
+  |\pgfpathclose|, we replace this straight line by a ``degenerated
+  curve'' from $p$ to $q$ whose control points are at one third and
+  two third of the distance between $p$ and $q$ on the line between
+  $p$ and $q$. In this way, while nonlinear transformations are in
+  force, we only need to transform curves.
+\item Next, suppose we wish to transform a curve from $p$ to $q$ with
+  supports $s$ and $t$. For this, we simply apply the nonlinear
+  transformation $f$ to all four points and draw a line with the
+  results. Note that this mapping is actually not quite satisfactory
+  for long lines that are strongly curved:
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  {
+    \pgftransformnonlinear{\polartransformation}
+    % The curve with the controls computed by pgf: a nice quarter arc
+    \draw [red] (0,20mm) -- (90pt,20mm);
+  }
+  % Here is the curve with controls just transformed:
+  \draw (0:20mm) .. controls (30pt:20mm) and (60pt:20mm) .. (90pt:20mm);  
+\end{tikzpicture}
+\end{codeexample}
+  As the example shows, the control points now lie on the arc; but in
+  reality they should point along the tangents at the start and the
+  end. This is exactly when \pgfname\ does through the computation
+  described above.
+\item
+  To overcome the effect of the control points being ``off,'' it is
+  necessary to split up longer curves into smaller parts, which are
+  drawn individually to increase the accuracy. When such splitting
+  occurs, can be configured using the following command: 
+  \begin{command}{\pgfsettransformnonlinearflatness\marg{dimension}
+      (initially 5pt)}
+    Whenever in a to-be-drawn curve the $L^\infty$-distance (maximum
+    of the distances in $x$- and $y$-directions) between the start of
+    a curve and its first control point or between the first and
+    second control points or between the second control point and the
+    end is more than \meta{distance}, the curve gets split in the
+    middle (more precisely, at time $t= 0.5$) and we draw the two
+    parts individually (for them, splitting may occur again, if the
+    curve is still too long).
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \draw[red] (0:20mm) arc [start angle=0, end angle=90, radius=2cm];
+  {
+    \pgftransformnonlinear{\polartransformation}
+    \pgfsettransformnonlinearflatness{2pt} % very precise
+    \draw (0,20mm) -- (90pt,20mm);
+  }
+\end{tikzpicture}
+\end{codeexample}
+  \end{command}
+\end{enumerate}
+
+
+\subsubsection{Applying Nonlinear Transformations to Text}
+
+Earlier, it was pointed that nonlinear transformations do not apply
+to text. Nevertheless, when you use |\pgftext| or |\pgfnode|,
+\pgfname\ will do a sort of ``best effort'' to render the text in
+the nonlinear coordinate system: The point where the text should be
+shown can obviously be computed easily. When then temporarily reset
+the nonlinear transformation and, instead, setup a linear
+transformation that matches the nonlinear transformation at the
+point where the text should be. Then, the text is shown. This means
+that if the text is longer, it will not ``follow'' the nonlinear
+transformation, but near the origin of the text it will look
+``correct.'' As an example, let us add some text at the grid point
+of the above example:
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \pgftransformnonlinear{\polartransformation}% see above
+  
+  % Draw something with this transformation in force
+  \draw (0pt,0mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
+  
+  \foreach \angle in {0,30,60,90}
+    \foreach \dist in {1,2}
+      {
+        \pgftransformshift{\pgfpoint{\angle pt}{\dist cm}}
+        \pgftext{\angle$^\circ$}
+      }
+\end{tikzpicture}
+\end{codeexample}
+
+
+\subsubsection{Approximating Nonlinear Transformations Using Linear Transformations}
+
+At any given point, the current nonlinear transformation can be
+approximated using a linear transformation. The following two
+functions allow you to install such a local approximation:
+
+\begin{command}{\pgftransformapproximatenonlineartransformation}
+  This command will do two things:
+  \begin{enumerate}
+  \item It clears the nonlinear transformations for the rest of the
+    current \TeX\ scope, so only linear transformations apply.
+  \item However, before removing the nonlinear transformations, the
+    linear transformation matrix is modified so that it mimics the
+    effect the nonlinear transformation had at the origin. That is,
+    after you call this command, drawing something near the origin
+    will look almost the same as if you had not called it.
+  \end{enumerate}
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \pgftransformnonlinear{\polartransformation}% see above
+  \draw (0pt,0mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
+
+  \begin{scope}[shift={(45pt,20mm)}]
+    % Draw something near "origin":
+    \draw [red] (-10pt,-10pt) -- (10pt,10pt);    
+    \draw [red] (10pt,-10pt) -- (-10pt,10pt);
+
+    % Now draw the same, but in the "approximate" coordinate system:
+    \pgftransformapproximatenonlineartransformation
+    \draw [] (-10pt,-10pt) -- (10pt,10pt);    
+    \draw [] (10pt,-10pt) -- (-10pt,10pt);
+    \pgftext{foo};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}  
+  This command is used by |\pgftext| and |\pgfnode| to transform text
+  when a nonlinear transformation is in force.
+\end{command}
+
+\begin{command}{\pgftransformapproximatenonlineartranslation}
+  This command works like the normal approximation command, but it
+  will only approximate how the origin gets translated, it will not
+  approximate the rotation, skewing, or scaling that is involved. This
+  is useful for drawing text at the right position, but without
+  ``mutilating'' the text.
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  \pgftransformnonlinear{\polartransformation}% see above
+  \draw (0pt,0mm) grid [xstep=10pt, ystep=5mm] (90pt, 20mm);
+
+  \begin{scope}[shift={(45pt,20mm)}]
+    % Draw something near "origin":
+    \draw [red] (-10pt,-10pt) -- (10pt,10pt);    
+    \draw [red] (10pt,-10pt) -- (-10pt,10pt);
+
+    % Now draw the same, but in the "approximate" coordinate system:
+    \pgftransformapproximatenonlineartranslation
+    \draw [] (-10pt,-10pt) -- (10pt,10pt);    
+    \draw [] (10pt,-10pt) -- (-10pt,10pt);
+    \pgftext{foo};
+  \end{scope}
+\end{tikzpicture}
+\end{codeexample}  
+\end{command}
+
+
+\subsubsection{Nonlinear Transformation Libraries}
+
+\begin{pgflibrary}{curvilinear}
+  This library defines commands for computing nonlinear
+  transformations ``along Bézier curves''.
+\end{pgflibrary}
+
+Up to now, our running example for a nonlinear transformation was
+polar transformation. However, is \pgfname\ nonlinear transformations
+are \emph{actually} mainly used for transforming arrow tips; and these
+need to be transformed ``along curves.'' The |curvilinear| library
+defines a number of commands that offer the necessary computations for
+such transformations.
+
+\begin{command}{\pgfsetcurvilinearbeziercurve\marg{start}\marg{first
+      support}\marg{second support}\marg{end}}
+  Prior to using any other command from this library, you first call
+  this function to ``install'' a Bézier curve to which the commands
+  will refer. This curve will be local to the current \TeX\ scope and
+  you can install only one curve at a time.
+
+  The main job of this command is to store the passed points
+  internally and to build a lookup table for distance-to-time
+  conversions, see the next command.
+\begin{codeexample}[code only]
+\pgfsetcurvilinearbeziercurve
+  {\pgfpointorigin}
+  {\pgfpoint{1cm}{1cm}}
+  {\pgfpoint{2cm}{1cm}}
+  {\pgfpoint{3cm}{0cm}}
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfcurvilineardistancetotime\marg{distance}}
+  This command does a ``distance-to-time-conversion'': It tries to
+  compute a time $t$, returned in |\pgf@x|, that corresponds to
+  travelling \meta{distance} along the curve that has last been
+  installed using the command   |\pgfsetcurvilinearbeziercurve|. The distance-to-time-conversion
+  uses the precomputations done by that command. Note that several
+  compromises had to be made between speed and accuracy:
+  \begin{itemize}
+  \item The conversion will be best near the start of the curve.
+  \item The more ``degenerate'' the curve, the worse the results.
+  \end{itemize}
+\end{command}
+
+
+\begin{command}{\pgfpointcurvilinearbezierorthogonal\marg{distance}\marg{offset}}
+  This command computes the following point: Consider the curve
+  last installed using the command |\pgfsetcurvilinearbeziercurve|. We
+  travel along this curve by \meta{distance}, arriving at a point
+  $p$. Then, we turn by $90^\circ$ and travel by \meta{offset} units
+  ``aways from the curve,'' arriving at a point $q$. This point $q$
+  will now be returned in |\pgf@x| and |\pgf@y|; furthermore, the
+  transformed local coordinate system at point $q$ will also be
+  returned |\pgf@xa| and the other registers, see
+  |\pgftransformnonlinear| for details.
+  \makeatletter
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  {
+    \pgfsetcurvilinearbeziercurve
+      {\pgfpoint{0mm}{20mm}}
+      {\pgfpoint{11mm}{20mm}}
+      {\pgfpoint{20mm}{11mm}}
+      {\pgfpoint{20mm}{0mm}}
+    \pgftransformnonlinear{\pgfpointcurvilinearbezierorthogonal\pgf@x\pgf@y}%
+    \draw (0,-30pt) grid [step=10pt] (80pt,30pt);
+  }
+  \draw[red, very thick]
+    (0mm,20mm) .. controls (11mm,20mm) and (20mm,11mm) .. (20mm,0mm);
+\end{tikzpicture}
+\end{codeexample}
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  {
+    \pgfsetcurvilinearbeziercurve
+      {\pgfpoint{0mm}{20mm}}
+      {\pgfpoint{10mm}{20mm}}
+      {\pgfpoint{10mm}{10mm}}
+      {\pgfpoint{20mm}{10mm}}
+    \pgftransformnonlinear{\pgfpointcurvilinearbezierorthogonal\pgf@x\pgf@y}%
+    \draw (0,-30pt) grid [step=10pt] (80pt,30pt);
+  }
+  \draw[red, very thick]
+    (0mm,20mm) .. controls (10mm,20mm) and (10mm,10mm) .. (20mm,10mm);
+\end{tikzpicture}
+\end{codeexample}
+\end{command}
+
+
+\begin{command}{\pgfpointcurvilinearbezierpolar\marg{x}\marg{y}}
+  This command is similar to the previous version, but the
+  transformation is different: The idea is that a line form $(0,0)$ to
+  $(x,0)$ gets transformed to the curve from the start of the curve to
+  a point at distance $x$ along the curve. This is identical to what
+  the ``orthogonal'' transformation above also does. The difference is
+  that a line from $(0,0)$ to $(0,y)$ gets still transformed to an
+  initial segment of the curve of a length of $y$, but now rotated by
+  $90^\circ$. In general, the point $p = (x,y)$ gets transferred to a
+  point that at distance $|p| = \sqrt{x^2+y^2}$ along the curve, but
+  rotated by the angle of $p$ relative to the $x$-axis.
+
+  All of these computations mainly have the following effect: Two
+  straight lines from the start of the curve as in a |Straight Barb|
+  arrow tip get transformed to an initial segment of the curve whose
+  length is the length of the two lines, but this segment gets rotated
+  by the angle of the two lines. 
+  \makeatletter
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  {
+    \pgfsetcurvilinearbeziercurve
+      {\pgfpoint{0mm}{20mm}}
+      {\pgfpoint{11mm}{20mm}}
+      {\pgfpoint{20mm}{11mm}}
+      {\pgfpoint{20mm}{0mm}}
+    \pgftransformnonlinear{\pgfpointcurvilinearbezierpolar\pgf@x\pgf@y}%
+    \draw (0,-30pt) grid [step=10pt] (80pt,30pt);
+    % Add a "barb":
+    \draw [blue, very thick] (20pt,10pt) -- (0,0) -- (20pt,-10pt);
+  }
+  \draw[red, very thick]
+    (0mm,20mm) .. controls (11mm,20mm) and (20mm,11mm) .. (20mm,0mm);
+\end{tikzpicture}
+\end{codeexample}
+
+\begin{codeexample}[]
+\begin{tikzpicture}
+  \draw [help lines] (0,0) grid (3,2);
+  {
+    \pgfsetcurvilinearbeziercurve
+      {\pgfpoint{0mm}{20mm}}
+      {\pgfpoint{10mm}{20mm}}
+      {\pgfpoint{10mm}{10mm}}
+      {\pgfpoint{20mm}{10mm}}
+    \pgftransformnonlinear{\pgfpointcurvilinearbezierpolar\pgf@x\pgf@y}%
+    \draw (0,-30pt) grid [step=10pt] (80pt,30pt);
+    % Add a "barb":
+    \draw [blue, very thick] (20pt,10pt) -- (0,0) -- (20pt,-10pt);
+  }
+  \draw[red, very thick]
+    (0mm,20mm) .. controls (10mm,20mm) and (10mm,10mm) .. (20mm,10mm);
+\end{tikzpicture}
+\end{codeexample}
 \end{command}
 
 

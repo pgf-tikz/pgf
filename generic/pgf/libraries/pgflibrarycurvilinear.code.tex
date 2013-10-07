@@ -258,7 +258,7 @@
 
 
 
-% Compute a "Bezier-orthogonal" point.
+% Compute a "Bezier-orthogonal" point for use in a nonlinear transformation.
 %
 % #1 = x
 % #2 = y
@@ -277,7 +277,8 @@
 % the y value) the polar coordinate system.
 %
 % In addition to setting \pgf@x and \pgf@y, \pgf@xa/ya will be set to
-% a normalised tangent to the given point. 
+% a tangent along the curve at the given point and \pgf@xb/yb to a
+% tanget orthogonal to the curve.
 
 \def\pgfpointcurvilinearbezierorthogonal#1#2{%
   \pgfmathsetmacro\pgf@curvilinear@yfactor{#2}%
@@ -288,13 +289,29 @@
   % compute normal:
   \advance\pgf@xb by-\pgf@xa%
   \advance\pgf@yb by-\pgf@ya%
-  \pgf@xa\pgf@xb% save
-  \pgf@ya\pgf@yb% save
+  \ifdim\pgf@xb<0.0001pt\ifdim\pgf@xb>-0.0001pt\ifdim\pgf@yb<0.0001pt\ifdim\pgf@yb>-0.0001pt\pgf@diff@curvi@ac\fi\fi\fi\fi
   \pgf@process{\pgfpointnormalised{\pgf@x=\pgf@yb\pgf@y=-\pgf@xb}}
   \pgf@x\pgf@curvilinear@yfactor\pgf@x%
   \pgf@y\pgf@curvilinear@yfactor\pgf@y%
   \advance\pgf@x by\pgf@xc%
   \advance\pgf@y by\pgf@yc%
+}
+
+\def\pgf@diff@curvi@ac{%
+  \pgf@curvilinear@line@a%
+  \pgf@xa\pgf@x\pgf@ya\pgf@y%
+  \pgf@curvilinear@line@c%
+  \pgf@xb\pgf@x\pgf@yb\pgf@y%
+  \advance\pgf@xb by-\pgf@xa%
+  \advance\pgf@yb by-\pgf@ya%
+  \ifdim\pgf@xb<0.0001pt\ifdim\pgf@xb>-0.0001pt\ifdim\pgf@yb<0.0001pt\ifdim\pgf@yb>-0.0001pt% still degenerate!
+    \pgf@curvilinear@line@d%
+    \pgf@xb\pgf@x\pgf@yb\pgf@y%
+    \advance\pgf@xb by-\pgf@xa%
+    \advance\pgf@yb by-\pgf@ya%
+  \fi\fi\fi\fi%
+  \pgf@xb-\pgf@xb%
+  \pgf@yb-\pgf@yb%
 }
 
 
@@ -320,35 +337,42 @@
 % the right.
 % 
 % Note that this command is pretty expensive.
-%
-% As for the orhtogonal curvilinear, \pgf@xa/ya will contain a tangent
-% to the current point.
 
 \def\pgfpointcurvilinearbezierpolar#1#2{%
-  {%
-    \pgfmathsetmacro\pgf@curvilinear@x{#1}%  
-    \pgfmathsetmacro\pgf@curvilinear@y{#2}%
-    % Compute angle:
-    \pgfpointnormalised{\pgfqpoint{\pgf@curvilinear@x pt}{\pgf@curvilinear@y pt}}%
-    \ifdim\pgf@curvilinear@x pt<0pt%
-      \pgf@x-\pgf@x%
-      \pgf@y-\pgf@y%
-    \fi%
-    \pgf@ya=-\pgf@y%
-    \pgfsettransformentries%
-      {\pgf@sys@tonumber\pgf@x}{\pgf@sys@tonumber\pgf@y}%
-      {\pgf@sys@tonumber\pgf@ya}{\pgf@sys@tonumber\pgf@x}{0pt}{0pt}%
-    \pgftransformshift{\pgfpointscale{-1}{\pgf@curvilinear@line@a}}%
-    \pgfmathveclen@{\pgf@curvilinear@x}{\pgf@curvilinear@y}%
-    \ifdim\pgf@curvilinear@x pt<0pt%
-      \edef\pgfmathresult{-\pgfmathresult}%
-    \fi%
-    \pgfcurvilineardistancetotime{\pgfmathresult}%
-    \pgf@process{\pgfpointadd{\pgfpointtransformed{\pgfpointcurveattime{\pgf@x}{\pgf@curvilinear@line@a}{\pgf@curvilinear@line@b}{\pgf@curvilinear@line@c}{\pgf@curvilinear@line@d}}}{\pgf@curvilinear@line@a}}%
+  \pgfmathsetlength\pgfutil@tempdima{#1}%
+  \pgfmathsetlength\pgfutil@tempdimb{#2}%
+  % Compute angle:
+  \pgfpointnormalised{\pgfqpoint{\pgfutil@tempdima}{\pgfutil@tempdimb}}%
+  \ifdim\pgfutil@tempdimb=0pt\relax\ifdim\pgfutil@tempdima=0pt\pgf@x1pt\pgf@y0pt\fi\fi%
+  \ifdim\pgfutil@tempdima<0pt%
+    \pgf@x-\pgf@x%
+    \pgf@y-\pgf@y%
+  \fi%
+  \pgf@ya=-\pgf@y%
+  \pgfsettransformentries%
+    {\pgf@sys@tonumber\pgf@x}{\pgf@sys@tonumber\pgf@y}%
+    {\pgf@sys@tonumber\pgf@ya}{\pgf@sys@tonumber\pgf@x}{0pt}{0pt}%
+  \pgftransformshift{\pgfpointscale{-1}{\pgf@curvilinear@line@a}}%
+  \pgfmathveclen@{\pgfutil@tempdima}{\pgfutil@tempdimb}%
+  \ifdim\pgfutil@tempdima<0pt%
+    \edef\pgfmathresult{-\pgfmathresult}%
+  \fi%
+  \pgfcurvilineardistancetotime{\pgfmathresult}%
+  % Now, transform:
+  \pgf@process{%
+    \pgfpointadd{%
+      \pgfpointtransformed{%
+        \pgfpointcurveattime%
+          {\pgf@x}%
+          {\pgf@curvilinear@line@a}%
+          {\pgf@curvilinear@line@b}%
+          {\pgf@curvilinear@line@c}%
+          {\pgf@curvilinear@line@d}%
+      }%
+    }%
+    \pgf@curvilinear@line@a%
   }%
 }
-
-
 
 
 \endinput
