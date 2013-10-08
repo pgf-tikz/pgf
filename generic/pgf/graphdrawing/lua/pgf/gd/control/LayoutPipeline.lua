@@ -389,7 +389,7 @@ end
 -- a special way, all other shapes are currently treated like a
 -- rectangle.
 --
--- @param rotation_info The table computed by prepareRotateAround
+-- @param rotation_info The table computed by the function prepareRotateAround
 -- @param packing_storage A storage in which the computed distances are stored. 
 -- @param graph    An graph
 -- @param vertices  An array of to-be-prepared vertices inside graph

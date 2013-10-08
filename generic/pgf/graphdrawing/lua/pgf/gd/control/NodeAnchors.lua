@@ -16,6 +16,8 @@ local declare        = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 ---
 -- @section subsection {Anchoring Edges}
 --
+-- \label{section-gd-anchors}
+--
 -- When a graph has been layed out completely, the edges between the
 -- nodes must be drawn. Conceptually, an edge is ``between two
 -- nodes,'' but when we actually draw the node, we do not really want
