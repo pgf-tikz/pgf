@@ -148,8 +148,16 @@
 \def\tikz@math@parse{\pgfutil@ifnextchar\bgroup\tikz@math@@parse@bgroup\tikz@math@@parse@nobgroup}
 
 
-\long\def\tikz@math@@parse@bgroup{%
-	\tikz@math@collecttosemicolon{\tikz@math@collected\relax\tikz@math@parse}}
+\def\tikz@math@@parse@bgroup{%
+	\tikz@math@collecttosemicolon{%
+		% MW: Don't know how reliable this test is.
+		\ifx\pgf@selectfontorig\tikz@math@undefined%
+			\begingroup\tikz@math@collected\endgroup%
+		\else%
+			\begingroup\csname nullfont\endcsname\tikz@math@collected\endgroup%
+		\fi\tikz@math@parse}}
+	
+
 
 \def\tikz@math@@parse@nobgroup{\tikz@math@collecttosemicolon{\tikz@math@@parse@@nobgroup}}
 
@@ -181,12 +189,50 @@
 	\tikz@math@next#1}
 
 
-\def\tikz@math@parse@keyword#1 {%
-	\expandafter\ifx\csname tikz@math@process@keyword@#1\endcsname\relax%
+\def\tikz@math@parse@keyword{%
+	\let\tikz@math@parsed@keyword=\pgfutil@empty%
+	\futurelet\tikz@math@parse@token\tikz@math@@parse@keyword}
+
+\def\tikz@math@@parse@keyword{%
+	\ifx\tikz@math@parse@token\pgfutil@sptoken%
+		\let\tikz@math@next=\tikz@math@@@parse@keyword%
 	\else%
-		\expandafter\let\expandafter\tikz@math@next\expandafter=\csname tikz@math@process@keyword@#1\endcsname%
+		\ifx\tikz@math@parse@token(%
+			\let\tikz@math@next=\tikz@math@@@parse@keyword%
+		\else%
+			\ifx\tikz@math@parse@token\bgroup%
+				\let\tikz@math@next=\tikz@math@@@parse@keyword%
+			\else%
+				\let\tikz@math@next=\tikz@math@@@@parse@keyword%
+			\fi%
+		\fi%
 	\fi%
 	\tikz@math@next}
+
+\def\tikz@math@error#1{\pgfutil@packageerror{tikz}{tikz math library: #1}{}}
+
+\def\tikz@math@@@parse@keyword{%
+		\expandafter\ifx\csname tikz@math@process@keyword@\tikz@math@parsed@keyword\endcsname\relax%
+			\expandafter\ifx\csname pgfmath\tikz@math@parsed@keyword\endcsname\relax%
+					\tikz@math@error{Unknown function or keyword '\tikz@math@parsed@keyword'}%
+			\else%
+				\def\tikz@math@next{\tikz@math@collecttosemicolon{\tikz@math@function@noassign}}%
+			\fi%
+		\else%
+			\expandafter\def\expandafter\tikz@math@next\expandafter{\csname tikz@math@process@keyword@\tikz@math@parsed@keyword\endcsname}%
+		\fi%
+	\tikz@math@next}
+	
+\def\tikz@math@@@@parse@keyword#1{%
+	\edef\tikz@math@parsed@keyword{\tikz@math@parsed@keyword#1}%
+	\futurelet\tikz@math@parse@token\tikz@math@@parse@keyword%
+}
+
+\def\tikz@math@function@noassign{%
+	\pgfmathparse{\tikz@math@parsed@keyword\tikz@math@collected}%
+	\tikz@math@parse%
+}
+		
 	
 	
 
