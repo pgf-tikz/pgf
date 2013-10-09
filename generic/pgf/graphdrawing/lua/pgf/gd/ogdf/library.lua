@@ -18,8 +18,9 @@
 --
 -- Since C++ code is compiled and not interpreted (like Lua), in order
 -- to use the present library, you need a compiled version of the
--- \textsc{ogdf} library installed for your particular
--- architecture. 
+-- \pgfname\ interface code for the \textsc{ogdf} library
+-- (|pgf/gd/ogdf/c/ogdf_script.so|) installed correctly for your particular
+-- architecture. This is by no means trivial\dots
 --
 -- @library
 

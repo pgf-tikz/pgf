@@ -513,7 +513,7 @@ end
 -- Performs a post-layout orientation of the graph by performing the
 -- steps documented in Section~\ref{subsection-library-graphdrawing-standard-orientation}.
 -- 
--- @param rotation_info The info record computed by prepareRotateAround.
+-- @param rotation_info The info record computed by the function |prepareRotateAround|.
 -- @param postconditions The algorithm's postconditions.
 -- @param graph A to-be-oriented graph.
 -- @param scope The graph drawing scope.
