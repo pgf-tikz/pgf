@@ -3,6 +3,8 @@ doc   = pgfmanual
 latex = lualatex
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 
+linkccode = '\\def\\setupcanlinkcode{\\canlinkccodetrue}'
+
 all: $(doc).pdf
 
 # make dist will also enable automatic cross references in codeexamples.
@@ -12,7 +14,7 @@ all: $(doc).pdf
 dist: FORCE
 	export TEXMFCNF="../../text-en:$(TEXMFCNF)"; \
 	export TEXINPUTS="$(TEXINPUTS)"; \
-	$(latex) --jobname=pgfmanual '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 \input{$(doc)}'
+	$(latex) --jobname=pgfmanual '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 $(linkccode) \input{$(doc)}'
 	makeindex $(doc).idx
 	@echo "$(doc).pdf remade with auto-xref support. Check if auto-xrefs work and rerun make dist if not."
 
@@ -23,7 +25,7 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
-	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
+	TEXINPUTS="$(TEXINPUTS)" $(latex) '$(linkcode)' $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	@echo "Use 'make dist' to generate auto-xrefs."
 
