@@ -257,19 +257,7 @@
 	up to date check/.is choice,
 	up to date check/simple/.code={\def\tikzexternal@uptodate@mode{0}},
 	% md5 relies on \pdfmdfivesum of pdftex. It uses 'diff' as fallback if we do not have that command.
-	up to date check/md5/.code={%
-		\pgfutil@ifundefined{pdfmdfivesum}{%
-			% FIXME : this can (will) also happen for luatex!
-			% I tried to fix it, but the closest that I came up with
-			% is \directlua{tex.print(md5.sumhexa('#1'))}
-			% this, however, has a different outcome as \pdfmdfivesum.
-			% Since it is always a risk to rely on external lua
-			% libraries, I kept it this way:
-			\pgfkeys{/tikz/external/up to date check=diff}%
-		}{%
-			\def\tikzexternal@uptodate@mode{1}%
-		}%
-	},
+	up to date check/md5/.code={\def\tikzexternal@uptodate@mode{1}},
 	up to date check/diff/.code={\def\tikzexternal@uptodate@mode{2}},
 	up to date check=md5,
 }
@@ -1458,11 +1446,18 @@
 	\fi
 }
 
+\pgfutil@IfUndefined{pdfmdfivesum}{%
+}{%
+	% predefine to this value. This does only make sense for pdftex.
+	% note that the latex library for 'external' loads \usepackage{pdftexcmds} which \let's this to \pdf@mdfivesum:
+	\let\tikzexternal@mdfivesum=\pdfmdfivesum
+}%
+
 \long\def\tikzexternal@computemdfivesum#1{%
 	\t@tikzexternal@tmpb={#1}%
 	\edef\tikzexternal@temp{\the\t@tikzexternal@tmpb}%
 	% \meaning results in a string of catcode 12 - which is expandable.
-	\edef\pgfretval{\pdfmdfivesum{\meaning\tikzexternal@temp}}%
+	\edef\pgfretval{\tikzexternal@mdfivesum{\meaning\tikzexternal@temp}}%
 }
 \long\def\tikzexternal@computemdfivesum@diff@fallback#1{%
 	\t@tikzexternal@tmpb={#1}%
@@ -1496,8 +1491,25 @@
 
 \def\tikzexternal@check@uptodate@ext{.md5}
 
+\def\tikzexternal@check@uptodate@mode@warn@fallback{%	
+	\message{! Package tikz Warning: The key 'up to date check=md5' is impossible, there is no macro to compute MD5. Falling back to 'up to date check=diff'.}%
+	%
+	% warn only once:
+	\global\let\tikzexternal@check@uptodate@mode@warn@fallback=\relax
+}%
+
 % assigns the boolean \iftikzexternal@file@isuptodate
 \long\def\tikzexternal@check@uptodate@mode#1{%
+	\if1\tikzexternal@uptodate@mode
+		% up to date check=md5:
+		% check if we CAN compute MD5 sums:
+		\pgfutil@IfUndefined{tikzexternal@mdfivesum}{%
+			% we cannot compute md5 sums - fallback to diff.
+			\tikzexternal@check@uptodate@mode@warn@fallback
+			\def\tikzexternal@uptodate@mode{2}%
+		}{}%
+	\fi
+	%
 	\ifcase\tikzexternal@uptodate@mode
 		% up to date check=simple
 		% nothing to do -- file existance is checked anyway.
