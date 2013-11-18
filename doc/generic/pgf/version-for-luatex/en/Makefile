@@ -3,7 +3,7 @@ doc   = pgfmanual
 latex = lualatex
 TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 
-linkccode = '\\def\\setupcanlinkcode{\\canlinkccodetrue}'
+linkccode = '\\def\\setupcanlinkcode{\\canlinkccodefalse}'
 
 all: $(doc).pdf
 

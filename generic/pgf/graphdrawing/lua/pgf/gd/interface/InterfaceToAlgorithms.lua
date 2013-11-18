@@ -540,7 +540,7 @@ end
 -- If you set the |phase_default| field of |t| to |true|, the algorithm will
 -- be installed as the default algorithm for the phase. This can be
 -- done only once per phase. Furthermore, for such a default algorithm
--- the |algorithm| key must be table, it may not be a phase (in other
+-- the |algorithm| key must be table, it may not be a string (in other
 -- words, all default algorithms are loaded immediately).
 --
 -- (You cannot call this function directly, it is included for
