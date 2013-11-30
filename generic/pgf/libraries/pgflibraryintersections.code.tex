@@ -26,6 +26,8 @@
 	\pgf@intersect@sort@by@second@pathtrue%
 }
 
+% #1: the index. It starts at 1 and ends with \pgfintersectionsolutions (inclusive).
+% Invalid values will implicitly result in the origin.
 \def\pgfpointintersectionsolution#1{%
 	\ifnum#1<1\relax%
 		\pgfpoint@intersect@solution@orgin%
@@ -38,6 +40,31 @@
 	\fi%
 }
 
+% Gets the segment indices of solution #1.
+%
+% #1: the solution index (i.e. the same argument as in \pgfpointintersectionsolution)
+% #2: [output] a macro name which will contain the segment index of the first path which contains the solution
+% #3: [output] a macro name which will contain the segment index of the second path which contains the solution
+%
+% Example: \pgfintersectiongetsolutionsegmentindices{0}{\first}{\second}
+%
+% -> \first may be 0 if point #0 is in the 0'th segment
+% -> \second may be 42 if point #0 is in the 42'th segment 
+\def\pgfintersectiongetsolutionsegmentindices#1#2#3{%
+	\ifnum#1<1\relax%
+		\let#2=\pgfutil@empty
+		\let#3=\pgfutil@empty
+	\else%
+		\ifnum#1>\pgfintersectionsolutions\relax%
+			\let#2=\pgfutil@empty
+			\let#3=\pgfutil@empty
+		\else%
+			\edef#2{\csname pgf@intersect@solution@segment@a@#1\endcsname}%
+			\edef#3{\csname pgf@intersect@solution@segment@b@#1\endcsname}%
+		\fi%
+	\fi%
+}%
+
 \def\pgfpoint@intersect@solution@orgin{%
 	\begingroup%
 		\pgftransforminvert%
@@ -48,6 +75,11 @@
 	\endgroup%
 }
 
+% #1 code which assigns the first path using \pgfsetpath.
+% #2 code which assigns the second path using \pgfsetpath.
+%
+% On output, the points, their properties, and the number of points are set.
+% Use \pgfintersectionsolutions which expands to the number of intersections
 \long\def\pgfintersectionofpaths#1#2{%
 	\begingroup%
 		\pgfinterruptpath%
@@ -87,6 +119,8 @@
 		\else%
 			\pgfutil@namelet{pgfpoint@intersect@solution@\pgfmathcounter}%
 				{pgfpoint@g@intersect@solution@\pgfmathcounter}%
+			\edef\pgf@marshal{\noexpand\pgf@intersection@set@properties\csname pgfpoint@g@intersect@solution@\pgfmathcounter @props\endcsname}%
+			\pgf@marshal
 			\ifpgf@intersect@sort%
 				\pgfutil@namelet{pgf@intersect@solution@\pgfmathcounter @time@a}%
 					{pgf@g@intersect@solution@\pgfmathcounter @time@a}%
@@ -95,6 +129,17 @@
 	\ifpgf@intersect@sort%
 		\pgfintersectionsolutionsortbytime%
 	\fi%
+}
+
+\def\pgf@intersection@set@properties#1#2{%
+	\pgfutil@namedef{pgf@intersect@solution@segment@a@\pgfmathcounter}{#1}%
+	\pgfutil@namedef{pgf@intersect@solution@segment@b@\pgfmathcounter}{#2}%
+}%
+
+% #1 a global name prefix to store properties.
+\def\pgf@intersection@store@properties#1{%
+	% we store the time offsets as well and make them available programmatically:
+	\expandafter\xdef\csname #1@props\endcsname{{\pgf@intersect@time@offset}{\pgf@intersect@time@offset@b}}%
 }
 
 \def\pgf@intersectionofpaths#1{%
@@ -159,6 +204,7 @@
 \def\pgf@intersect@path@process@a{%
 	\pgf@intersect@path@getpoints@a%
 	\let\pgf@intersect@token@after=\pgf@intersect@path@process@b%
+	\def\pgf@intersect@time@offset@b{0}%
 	\expandafter\pgf@intersectionofpaths\pgf@intersect@path@b\pgf@stop%
 	\let\pgfpoint@intersect@start=\pgfpoint@intersect@end@a%
 	\let\pgf@intersect@token@after=\pgf@intersect@path@process@a%
@@ -180,6 +226,9 @@
 	\pgf@intersect@path@getpoints@b%
 	\csname pgf@intersect@\pgf@intersect@type@a @and@\pgf@intersect@type@b\endcsname%
 	\let\pgfpoint@intersect@start=\pgfpoint@intersect@end@b%
+	\c@pgf@counta=\pgf@intersect@time@offset@b\relax%
+	\advance\c@pgf@counta by1\relax%
+	\edef\pgf@intersect@time@offset@b{\the\c@pgf@counta}%
 	\pgf@intersectionofpaths}
 
 \def\pgf@intersect@path@getpoints@b{%
@@ -231,6 +280,8 @@
 			\pgfpointintersectionoflines{\pgfpoint@intersect@start@a}{\pgfpoint@intersect@end@a}%
 				{\pgfpoint@intersect@start@b}{\pgfpoint@intersect@end@b}%
 		}%
+		\pgf@intersection@store@properties{pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions}%
+		%
 		\ifpgf@intersect@sort%
 			\pgf@xc=\pgf@x%
 			\pgf@yc=\pgf@y%
@@ -574,6 +625,7 @@
 									\pgf@ifsolution@duplicate\pgf@intersect@solution@candidate{}%
 									{%
 										\global\advance\pgf@intersect@solutions by1\relax%
+										\pgf@intersection@store@properties{pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions}%
 										\expandafter\global\expandafter\let%
 											\csname pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions\endcsname=%
 												\pgf@intersect@solution@candidate%
@@ -754,15 +806,16 @@
 				\csname pgf@intersect@solution@\the\pgfutil@tempcnta @time@a\endcsname pt\relax%
 				\pgf@intersect@solutions@sortfinishfalse%
 				%
-				\pgfutil@namelet{pgf@intersect@temp}{pgfpoint@intersect@solution@\pgfmathcounter}%
-				\pgfutil@namelet{pgfpoint@intersect@solution@\pgfmathcounter}%
+				\pgfintersectionsolutionsortbytime@swap{pgfpoint@intersect@solution@\pgfmathcounter}%
 					{pgfpoint@intersect@solution@\the\pgfutil@tempcnta}%
-				\pgfutil@namelet{pgfpoint@intersect@solution@\the\pgfutil@tempcnta}{pgf@intersect@temp}%
 				%
-				\pgfutil@namelet{pgf@intersect@temp}{pgf@intersect@solution@\pgfmathcounter @time@a}%
-				\pgfutil@namelet{pgf@intersect@solution@\pgfmathcounter @time@a}%
+				\pgfintersectionsolutionsortbytime@swap{pgf@intersect@solution@\pgfmathcounter @time@a}%
 					{pgf@intersect@solution@\the\pgfutil@tempcnta @time@a}%
-				\pgfutil@namelet{pgf@intersect@solution@\the\pgfutil@tempcnta @time@a}{pgf@intersect@temp}%
+				%
+				\pgfintersectionsolutionsortbytime@swap{pgf@intersect@solution@segment@a@\pgfmathcounter}%
+					{pgf@intersect@solution@segment@a@\the\pgfutil@tempcnta}%
+				\pgfintersectionsolutionsortbytime@swap{pgf@intersect@solution@segment@b@\pgfmathcounter}%
+					{pgf@intersect@solution@segment@b@\the\pgfutil@tempcnta}%
 			\fi%
 	\repeatpgfmathloop%
 	\ifpgf@intersect@solutions@sortfinish%
@@ -770,5 +823,11 @@
 		\expandafter\pgfintersectionsolutionsortbytime%
 	\fi%
 }
+
+\def\pgfintersectionsolutionsortbytime@swap#1#2{%
+	\pgfutil@namelet{pgf@intersect@temp}{#1}%
+	\pgfutil@namelet{#1}{#2}%
+	\pgfutil@namelet{#2}{pgf@intersect@temp}%
+}%
 
 \endinput
