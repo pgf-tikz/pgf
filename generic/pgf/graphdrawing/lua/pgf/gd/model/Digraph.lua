@@ -208,7 +208,7 @@ require("pgf.gd.model").Digraph = Digraph
 -- Imports
 local Arc         = require "pgf.gd.model.Arc"
 local LookupTable = require "pgf.gd.lib.LookupTable"
-
+local Vertex      = require "pgf.gd.model.Vertex"
 
 
 
