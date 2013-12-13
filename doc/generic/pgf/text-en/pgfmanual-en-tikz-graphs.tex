@@ -11,6 +11,7 @@
 \section{Specifying Graphs}
 \label{section-library-graphs}
 
+
 \subsection{Overview}
 
 \tikzname\ offers a powerful path command for specifying how the nodes
@@ -55,12 +56,15 @@ directed) such as the following:
   };
 \end{codeexample}
 
-\ifluatex
-\begin{codeexample}[]
-\tikz [shorten >=1pt, rotate=90, xscale=-1, mark/.style={fill=black!50}, mark/.default=]
-   \graph [trie, simple, sibling distance=8mm, nodes={circle,draw},
-           edges={nodes={inner sep=1pt,anchor=mid,fill=graphicbackground}},
-           put node text on incoming edges, layered layout]
+\begin{codeexample}[width=6.8cm]
+\tikz [>={To[sep]}, rotate=90, xscale=-1,
+       mark/.style={fill=black!50}, mark/.default=]
+  \graph [trie, simple, sibling distance=8mm,
+          nodes={circle,draw},
+          edges={nodes={
+              inner sep=1pt, anchor=mid,
+              fill=graphicbackground}}, % yellowish background
+          put node text on incoming edges]
     {
       root[mark] -> {
         a -> n -> {
@@ -79,12 +83,12 @@ directed) such as the following:
       }    
     };
 \end{codeexample}
-\fi
+
 
 The nodes of a graph are normal \tikzname\ nodes, the edges are
 normal lines drawn between nodes. There is nothing in the |graph|
 library that you cannot do using the normal |\node| and the |edge|
-command. Rather, its purpose is to offer a concise and powerful way of
+commands. Rather, its purpose is to offer a concise and powerful way of
 \emph{specifying} which nodes are present 
 and how they are connected. The |graph| library only offers simple
 methods for specifying \emph{where} the nodes should be shown, its
@@ -94,8 +98,40 @@ the nodes of a graph is left to \emph{graph drawing algorithms}, which
 are covered in Part~\ref{part-gd} of this manual and which
 are not part of the |graphs| library; indeed, these algorithms can be
 used also with graphs specified using |node| and |edge|
-commands. Again, the purpose of the |graph| command is mainly to
-specify which nodes and edges are present, nothing more and nothing less.
+commands. \ifluatex
+As an example, consider the above drawing of a trie, which is drawn
+without using the graph drawing libraries. Its layout can be 
+somewhat improved by loading the |layered| graph drawing library,
+saying |\tikz[layered layout,...|, and then using Lua\TeX, resulting
+in the following drawing of the same graph:
+\medskip
+
+\tikz [layered layout, >={To[sep]}, rotate=90, xscale=-1,
+       mark/.style={fill=black!50}, mark/.default=]
+  \graph [trie, simple, sibling distance=8mm,
+          nodes={circle,draw},
+          edges={nodes={
+              inner sep=1pt, anchor=mid, fill=white}},
+          put node text on incoming edges]
+    {
+      root[mark] -> {
+        a -> n -> {
+          g [mark],
+          f -> a -> n -> g [mark]
+        },
+        f -> a -> n -> g [mark],
+        g[mark],
+        n -> {
+          g[mark],
+          f -> a -> n -> g[mark]
+        }
+      },
+      { [edges=red] % highlight one path
+        root -> f -> a -> n
+      }    
+    };
+\medskip
+\fi
 
 The |graph| library uses a syntax that is quite different from the
 normal \tikzname\ syntax for specifying nodes. The reason for this is
@@ -206,8 +242,23 @@ Chain groups make it easy to create tree structures:
 \end{codeexample}
 
 As can be seen, the placement is not particularly nice by default, use
-the algorithms from the graph drawing libraries to get a better layout.
+the algorithms from the graph drawing libraries to get a better
+layout. For instance, adding |tree layout| to the above code results in the
+following somewhat more pleasing rendering:
 
+\medskip
+\tikz \graph [grow down, branch right=2.5cm, tree layout] {
+  root -> {
+    child 1,
+    child 2 -> {
+      grand child 1,
+      grand child 2
+    },
+    child 3 -> {
+      grand child 3
+    }
+  }
+};
 
 \subsubsection{Concept: Edge Labels and Styles}
 
@@ -365,8 +416,8 @@ the |butterfly| connector, allow you to add edges between color
 classes in a fancy manner.
 
 \begin{codeexample}[]
-\tikz [x=8mm, y=6mm, font=\footnotesize, circle]
-  \graph [nodes={fill=blue!70, text=white}, empty nodes, n=8] {
+\tikz [x=8mm, y=6mm, circle]
+  \graph [nodes={fill=blue!70}, empty nodes, n=8] {
     subgraph I_n [name=A] --[butterfly={level=4}]
     subgraph I_n [name=B] --[butterfly={level=2}]
     subgraph I_n [name=C] --[butterfly]
@@ -691,10 +742,9 @@ we have written |->| between them. Then the following happens:
     \end{enumerate}
     By default, the key executes the following code:
     \begin{quote}
-      |\path [draw,->,every new ->,|\meta{edge options}|]|\\
-      \hbox{}\quad|(|\meta{left
-        node}|\tikzgraphleftanchor) to |\meta{edge
-        nodes}||\\
+      |\path [->,every new ->]|\\
+      \hbox{}\quad|(|\meta{left node}|\tikzgraphleftanchor) edge [|%
+      \meta{edge options}|]| \meta{edge nodes}||\\
       \hbox{}\quad|(|\meta{right node}|\tikzgraphrightanchor);|
     \end{quote}
     You are welcome to change the code underlying the key.
@@ -1237,7 +1287,8 @@ specify graphs in which several nodes have the same label.
   You can even ``reiterate'' over a path in conjunction with the
   |simple| option. However, in this case, the default placement
   strategies will not work and you will need options like
-  |layered layout| from the graph drawing libraries.
+  |layered layout| from the graph drawing libraries, which need
+  Lua\TeX. 
 \ifluatex  
 \begin{codeexample}[]
 \tikz \graph [trie, simple, layered layout] {
@@ -2386,15 +2437,14 @@ Section~\ref{section-library-graphs-reference-macros}.
 The main job of the |graph| library is to make it easy to specify
 which nodes are present in a graph and how they are connected. In
 contrast, it is \emph{not} the primary job of the library to compute
-good positions for nodes in a graph and in many cases you will have to
-use for instance a |\matrix| or specify good positions ``by hand.''
-Nevertheless, some basic support for automatic node placement is
-provided for simple cases. The graph library will provide you with
-information about the position of nodes inside their groups and
-chains. 
+good positions for nodes in a graph -- use for instance a |\matrix|,
+specify good positions ``by hand'' or use the graph drawing
+facilities. Nevertheless, some basic support for automatic node
+placement is provided for simple cases. The graph library will provide
+you with information about the position of nodes inside their groups
+and chains. 
 
-
-As a graph is begin constructed, a \emph{placement strategy} is used
+As a graph is being constructed, a \emph{placement strategy} is used
 to determine a (reasonably good) position for the nodes as they are
 created. These placement strategies get some information about what
 \tikzname\ has already seen concerning the already constructed nodes,
@@ -2402,8 +2452,8 @@ but it gets no information concerning the upcoming nodes. Because of
 this lack of information concerning the future, the strategies need to
 be what is called an \emph{online strategy} in computer science. (The
 opposite are \emph{offline strategies}, which get information about
-the whole graph and all the sizes of the nodes in it. A library that
-allows such offline strategies is currently under development.)
+the whole graph and all the sizes of the nodes in it. The graph
+drawing libraries employ such offline strategies.)
 
 Strategies are selected using keys like |no placement| or
 |Cartesian placement|. It is permissible to use different strategies inside
