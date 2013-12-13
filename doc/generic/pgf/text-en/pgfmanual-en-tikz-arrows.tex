@@ -80,10 +80,10 @@ conditions must be met:
 \begin{enumerate}
 \item You have specified that arrow tips should be added to 
   lines, using the |arrows| key or its short form.
-\item You use the |draw| key (directly or indirectly) or the |tips|
-  key with the current path. 
-\item You do not use the |clip| key (directly or indirectly) with the current
-  path. 
+\item You set the |tips| key to some value that causes tips to be
+  drawn (to be explained later). 
+\item You do not use the |clip| key (directly or indirectly) with the
+  current path. 
 \item The path actually has two ``end points'' (it is not
   ``closed'').
 \end{enumerate}
@@ -149,22 +149,56 @@ have ``end points'' and not be ``closed'' -- otherwise adding arrow
 tips makes little sense, after all. However, a path can actually
 consist of several subpath, which may be open or not and may even
 consist of only a single point (a single move-to). In this case, it is
-not immediately obvious, where arrow heads should be placed. Here are
-the rules that \tikzname\ uses:
+not immediately obvious, where arrow heads should be placed. The
+actual rules that \tikzname\ uses are goverened by the setting of the
+key |tips|:
 
-\begin{enumerate}
-\item If the path is empty (as in |\path ;|), no arrow tips are drawn.
-\item If at least one of the subpaths of a path is closed (|cycle| is
-  used somewhere or something like |circle| or |rectangle|), no arrow
-  tips are drawn anywhere -- even if there are open subpaths.
-\item Otherwise, if all subpaths are open and there is at least one
-  subpath, we consider only the last subpath. Arrow tips are added to
-  this last subpath.
-\item If this last subpath is degenerate (only a ``move-to'' as in
-  |\path (0,0);| or a ``move-to'' followed by a ``line-to'' to the
-  same position as in |\path (1,2) -- (1,2)|), arrow tips are drawn
-  pointing upwards.
-\end{enumerate}
+\begin{key}{/pgf/tips=\meta{value} (default true, initially on draw)}
+  \keyalias{tikz}
+
+  This key governs in what situations arrow tips are added to a
+  path. The following \meta{values} are permissible:
+  \begin{itemize}
+  \item |true| (the value used when no \meta{value} is specified)
+  \item |proper|
+  \item |on draw| (the initial value, if the key has not yet been used
+    at all)
+  \item |on proper draw|
+  \item |never| or |false| (same effect)
+  \end{itemize}
+
+  Firstly, there are a whole bunch of situations where the setting of
+  these (or other) options causes no arrow tips to be shown:
+  \begin{itemize}
+  \item If no arrow tips have been specified (for instance, by having
+    said |arrows=-|), no arrow tips are drawn.    
+  \item If the |clip| option is set, no arrow tips are drawn.    
+  \item If |tips| has been set to |never| or |false|, no arrow tips are drawn.    
+  \item If |tips| has been set to |on draw| or |on proper draw|, but
+    the |draw| option is not set, no arrow tips are drawn.
+  \item If the path is empty (as in |\path ;|), no arrow tips are drawn.
+  \item If at least one of the subpaths of a path is closed (|cycle| is
+    used somewhere or something like |circle| or |rectangle|), arrow
+    tips are never drawn anywhere -- even if there are open subpaths.
+  \end{itemize}
+
+  Now, if we pass all of the above tests, we must have a closer look
+  at the path. All its subpaths must now be open and there must be at
+  least one subpath. We conside the last one. Arrow tips will only be
+  added to this last subpath.
+
+  \begin{enumerate}
+  \item If this last subpath not degenerate (all coordinates on the
+    subpath are the same as in a single ``move-to'' |\path (0,0);| or
+    in a ``move-to'' followed by a ``line-to'' to the same position as
+    in |\path (1,2) -- (1,2)|), arrow tips are added to this last
+    subpath now.
+  \item If the last subpath is degenerate, we add arrow tips pointing
+    upward at the single coordinate mentioned in the path, but only
+    for |tips| begin set to |true| or to |on draw| -- and not for
+    |proper| nor for |on proper draw|. In other words, ``proper''
+    suppresses arrow tips on degenerate paths.
+  \end{enumerate}
 
 \begin{codeexample}[]
 % No path, no arrow tips:
@@ -173,6 +207,10 @@ the rules that \tikzname\ uses:
 \begin{codeexample}[]
 % Degenerate path, draw arrow tips (but no path, it is degenerate...)
 \tikz [<->] \draw (0,0); 
+\end{codeexample}
+\begin{codeexample}[]
+% Degenerate path, tips=proper suppresses arrows
+\tikz [<->] \draw [tips=proper] (0,0); 
 \end{codeexample}
 \begin{codeexample}[]
 % Normal case:
@@ -187,10 +225,14 @@ the rules that \tikzname\ uses:
 \tikz [<->] \draw (0,0) -- (1,0) (2,0);
 \end{codeexample}
 \begin{codeexample}[]
+% Two subpaths, second degenerate, proper suppresses them
+\tikz [<->] \draw [tips=on proper draw] (0,0) -- (1,0) (2,0);
+\end{codeexample}
+\begin{codeexample}[]
 % Two subpaths, but one is closed: No tips, even though last subpath is open
 \tikz [<->] \draw (0,0) circle[radius=2pt] (2,0) -- (3,0);
 \end{codeexample}
-
+\end{key}
 
 One common pitfall when arrow tips are added to a path should be
 addressed right here at the beginning: When \tikzname\ positions an
@@ -209,6 +251,8 @@ subpath, only the last segment is considered.
 
 The bottom line is that wherever an arrow tip is added to a path, the
 line segment where it is added should be ``long enough.'' 
+
+
 
 
 \subsection{Arrow Keys: Configuring the Appearance of a Single Arrow Tip}
@@ -1030,12 +1074,12 @@ politely just called ``|quick|'' \dots):
   red line at the point touching the wall is perfectly horizontal.
   
   In order to add our arrow tip to the curved path, our first
-  objective is to ``shorten'' the path by 6.25cm. Unfortunately, this
+  objective is to ``shorten'' the path by 6.25mm. Unfortunately, this
   is now much more difficult than for a straight path. When the
   |quick| option is added to an arrow tip (it is also
   the default if no special libraries are loaded), we cheat somewhat:
-  Instead of really moving along 6.25cm along the path, we simply
-  shift the end of the curve by 6.25cm \emph{along the tangent} (which
+  Instead of really moving along 6.25mm along the path, we simply
+  shift the end of the curve by 6.25mm \emph{along the tangent} (which
   is easy to compute). We also have to shift the second support point
   by the same amount to ensure that the line still has the same
   tangent at the end. This will result in the following:
@@ -1097,7 +1141,7 @@ implemented. To use them, you need to load the following library:
     arrow tips. Indeed, some compromises are made in the
     implementation where accuracy was traded for speed, so the
     distance by which the line end is shifted is not necessarily
-    \emph{exactly} 6.25cm; only something reasonably close.
+    \emph{exactly} 6.25mm; only something reasonably close.
   \item The supports of the line are updated accordingly so that the
     shortened line will still follow \emph{exactly} the original
     line. This means that the curve deformation effect caused by the
@@ -1183,7 +1227,7 @@ implemented. To use them, you need to load the following library:
   difference is that a factor of |1| corresponds to rotating the arrow
   tip so that the instead of the visual end, the ``ultimate back end''
   of the arrow tip lies on the red path. In the example instead of
-  having the arrow tip at a distance of |6.25cm| from the tip lie on
+  having the arrow tip at a distance of |6.25mm| from the tip lie on
   the path, we have the point at a distance of |1cm| from the tip lie
   on the path:
 \begin{codeexample}[]

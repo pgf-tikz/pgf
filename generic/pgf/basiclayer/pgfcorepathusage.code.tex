@@ -16,9 +16,9 @@
 % of them are performed (in a sensible order).
 %
 % #1 = action(s) to be applied to the current path. Valid actions are: 
-%      stroke -  strokes the path. If no options are given, this is the
-%                default. 
-%      draw -    same as stroke.
+%      stroke -  strokes the path.
+%      draw -    strokes the path and adds arrow tips.
+%      tips -    adds arrow tips.
 %      fill -    fills the path.
 %      clip -    clip the path.
 %      discard - Discards the path. Same effect as having an empty
@@ -34,8 +34,7 @@
 
 \pgfkeys{
   /pgf/stroke/.code=\let\pgf@up@stroke\pgf@up@stroke@text\pgf@up@path@neededtrue,
-  /pgf/draw/.code=\pgf@up@draw@arrowstrue\let\pgf@up@stroke\pgf@up@stroke@text\pgf@up@path@neededtrue,
-  /pgf/tips/.code=\pgf@up@draw@arrowstrue\pgf@up@path@neededtrue,
+  /pgf/draw/.code=\let\pgf@up@stroke\pgf@up@stroke@text\pgf@up@path@neededtrue,
   /pgf/fill/.code=\let\pgf@up@fill\pgf@up@fill@text\pgf@up@path@neededtrue,
   /pgf/clip/.code=\let\pgf@up@clip\pgf@up@clip@text\pgf@up@path@neededtrue,
   /pgf/discard/.code=,
@@ -45,6 +44,25 @@
   /pgf/arrow keys/bend/.code=\pgferror{You need to say \string\usetikzlibrary{bending} for flexing and bending arrows},
   /pgf/arrow keys/quick/.code=\pgfarrowsaddtooptions{\let\pgf@arrow@flex@mode\pgf@arrow@mode@is@quick},
 }
+
+\pgfkeys{
+  /pgf/.cd,
+  tips/.is choice,
+  tips/.default=true,
+  tips/proper/.code=\let\pgf@tips@mode\pgf@tips@mode@onproper,
+  tips/on proper draw/.code=\let\pgf@tips@mode\pgf@tips@mode@onproperdraw,
+  tips/true/.code=\let\pgf@tips@mode\pgf@tips@mode@true,
+  tips/on draw/.code=\let\pgf@tips@mode\pgf@tips@mode@ondraw,
+  tips/never/.code=\let\pgf@tips@mode\pgf@tips@mode@false,
+  tips/false/.code=\let\pgf@tips@mode\pgf@tips@mode@false,
+}
+\def\pgf@tips@mode@onproper{4}
+\def\pgf@tips@mode@onproperdraw{3}
+\def\pgf@tips@mode@true{2}
+\def\pgf@tips@mode@ondraw{1}
+\def\pgf@tips@mode@false{0}
+\let\pgf@tips@mode\pgf@tips@mode@ondraw
+
 
 % The following can only be set to "true" using the options in the
 % module "bending"
@@ -68,6 +86,12 @@
   \let\pgf@up@bb\pgfutil@empty%
   \pgfset{#1}%
   \expandafter\def\expandafter\pgf@up@action\expandafter{\csname pgfsys@\pgf@up@fill\pgf@up@stroke\endcsname}%
+  \ifnum\pgf@tips@mode=2\relax%
+    \pgf@up@path@neededtrue%
+  \fi%
+  \ifnum\pgf@tips@mode=4\relax%
+    \pgf@up@path@neededtrue%
+  \fi%
   \ifpgf@up@path@needed%
   \else%
     \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
@@ -109,7 +133,10 @@
   \ifx\pgf@up@clip\pgfutil@empty%
     \ifx\pgf@up@stroke\pgfutil@empty%
       \ifx\pgf@up@action\pgfutil@empty%
-        \ifpgf@up@draw@arrows%
+        \ifnum\pgf@tips@mode=2\relax%
+          \pgf@up@draw@arrows@only%
+        \fi%
+        \ifnum\pgf@tips@mode=4\relax%
           \pgf@up@draw@arrows@only%
         \fi%
       \else%  
@@ -118,8 +145,9 @@
       \fi%
     \else%
       \pgfgetpath\pgf@arrowpath%
-      \pgfutil@tempswatrue%
+      \pgf@path@setup@tempswa%
       \pgfprocesscheckclosed{\pgf@arrowpath}{\pgfutil@tempswafalse}%
+      \pgf@path@check@proper%
       \ifpgfutil@tempswa%
         \pgf@prepare@end@of@path%
         \begingroup%
@@ -145,11 +173,18 @@
   \pgf@resetpathsizes%
   \ignorespaces%
 }
-
+\def\pgf@path@setup@tempswa{%
+  \ifnum\pgf@tips@mode>0\relax
+    \pgfutil@tempswatrue%
+  \else
+    \pgfutil@tempswafalse%
+  \fi%
+}
 \def\pgf@up@draw@arrows@only{%
   \pgfgetpath\pgf@arrowpath%
   \pgfutil@tempswatrue%
   \pgfprocesscheckclosed{\pgf@arrowpath}{\pgfutil@tempswafalse}%
+  \pgf@path@check@proper%
   \ifpgfutil@tempswa%
     \pgf@prepare@end@of@path%
     \begingroup%
@@ -159,6 +194,45 @@
     \pgf@add@arrow@at@end%
   \fi%
 }
+
+\def\pgf@path@check@proper{%
+  \ifpgfutil@tempswa%
+    \ifnum\pgf@tips@mode>2\relax%
+      \pgf@path@check@proper@%
+    \fi%
+  \fi%
+}
+
+
+\def\pgf@path@check@proper@{%
+  {%
+    \pgf@x0pt\pgf@y\pgf@x%
+    \pgfutil@tempswatrue%
+    \let\pgfsyssoftpath@movetotoken\pgf@path@proper@init%
+    \let\pgfsyssoftpath@linetotoken\pgf@path@proper@test%%
+    \let\pgfsyssoftpath@curvetosupportatoken\pgf@path@proper@test%
+    \let\pgfsyssoftpath@curvetosupportbtoken=\pgf@path@proper@test%
+    \let\pgfsyssoftpath@curvetotoken\pgf@path@proper@test%
+    \let\pgfsyssoftpath@rectcornertoken\pgf@path@proper@test%
+    \let\pgfsyssoftpath@rectsizetoken\pgf@path@proper@zero@test%
+    \let\pgfsyssoftpath@closepathtoken\pgf@path@proper@test%
+    % Execute the path:
+    \pgf@arrowpath%
+    \expandafter
+  }%
+  \ifpgfutil@tempswa\pgfutil@tempswafalse\else\pgfutil@tempswatrue\fi%
+}
+
+\def\pgf@path@proper@init#1#2{\pgfutil@tempswatrue\pgf@x#1\pgf@y#2}%
+\def\pgf@path@proper@test#1#2{%
+  \ifdim\pgf@x=#1\relax\else\pgfutil@tempswafalse\fi%
+  \ifdim\pgf@y=#2\relax\else\pgfutil@tempswafalse\fi}
+\def\pgf@path@proper@zero@test#1#2{%
+  \ifdim\pgf@x=0pt\relax\else\pgfutil@tempswafalse\fi%
+  \ifdim\pgf@y=0pt\relax\else\pgfutil@tempswafalse\fi}
+
+
+
 
 \def\pgf@stroke@inner@line@if@needed{%
   \ifdim\pgfinnerlinewidth>0pt\relax%
