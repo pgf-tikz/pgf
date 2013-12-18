@@ -254,7 +254,6 @@ function Vertex:anchor(anchor)
     local intersections = p:intersectionsWith(self.path)
     if #intersections > 0 then
       c = intersections[1].point
-      c:unshiftByCoordinate(self.anchors.center)
     end
   end
   self.anchors[anchor] = c
