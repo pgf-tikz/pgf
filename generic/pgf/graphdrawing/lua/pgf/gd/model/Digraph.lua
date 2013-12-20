@@ -72,7 +72,7 @@
 -- elements using |ipairs|, but you may not modify the array; use the
 -- |add| and |remove| methods, instead.
 --
--- \begin{codeexample}[code only]
+-- \begin{codeexample}[code only, tikz syntax=false]
 -- local g = Digraph.new {}
 --
 -- g:add { v1, v2 } -- Add vertices v1 and v2
@@ -103,7 +103,7 @@
 -- given vertex |v|, you cannot say something like |v.outgoings| or
 -- perhaps |v:getOutgoings()|. Rather, you have to say |g:outgoing(v)|
 -- to get this list:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --for _,a in ipairs(g:outgoing(v)) do  -- g is a Digraph object.    
 --  pgf.debug ("There is an arc leaving " .. tostring(v) ..
 --             " heading to " .. tostring(a.head))
@@ -112,7 +112,7 @@
 --   Naturally, there is also a method |g:incoming()|.
 --  
 --   To iterate over all arcs of a graph you can say:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --for _,v in ipairs(g.vertices) do
 --  for _,a in ipairs(g:outgoing(v)) do
 --   ...
@@ -123,7 +123,7 @@
 -- However, it will often be more convenient and, in case the there
 -- are far less arcs than vertices, also faster to write
 -- 
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --for _,a in ipairs(g.arcs) do
 --  ...
 --end
@@ -224,7 +224,7 @@ local Vertex      = require "pgf.gd.model.Vertex"
 -- writing |Digraph.new(g)| where |g| is a graph creates a new graph
 -- whose vertex set is the same as |g|'s, but where there are no edges:
 --  
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local g = Digraph.new {}
 --g:add { v1, v2, v3 }
 --g:connect (v1, v2)
@@ -235,7 +235,7 @@ local Vertex      = require "pgf.gd.model.Vertex"
 --\end{codeexample}
 --
 -- To completely copy a graph, including all arcs, you have to write:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local h = Digraph.new (g)
 --for _,a in ipairs(g.arcs) do h:connect(a.tail, a.head) end
 --\end{codeexample}

@@ -110,25 +110,25 @@ declare {
 
       Let us now have a look at several examples that all produce the
       same matrix. The vertices are |a|, |b|, |c|.
-      \begin{codeexample}[code only]
-        0, 1, 2
-        1, 0, 3
-        2, 3, 0
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        0 1 2 1 0 3 2 3 0
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        ;
-        1;
-        2 3
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        >,b 1; 2 3
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        >b 1 2 >c 3
-      \end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+0, 1, 2
+1, 0, 3
+2, 3, 0
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+0 1 2 1 0 3 2 3 0
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+;
+1;
+2 3
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+>,b 1; 2 3
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+>b 1 2 >c 3
+\end{codeexample}
   "]]
 }
       
@@ -150,18 +150,18 @@ declare {
       the same, only the notion of different ``rows'' is not
       used. Here are some examples that all have the same effect,
       provided the nodes are |a|, |b|, and |c|.
-      \begin{codeexample}[code only]
-        0, 1, 2
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        0 1 2
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        >b 1 2
-      \end{codeexample}
-      \begin{codeexample}[code only]
-        >c 2, >b 1
-      \end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+0, 1, 2
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+0 1 2
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+>b 1 2
+\end{codeexample}
+\begin{codeexample}[code only, tikz syntax=false]
+>c 2, >b 1
+\end{codeexample}
   "]]
 }
       

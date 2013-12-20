@@ -125,7 +125,7 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- some initial values.
 --
 -- @usage 
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local v = Vertex.new { name = "hello", pos = Coordinate.new(1,1) }
 --\end{codeexample} 
 --

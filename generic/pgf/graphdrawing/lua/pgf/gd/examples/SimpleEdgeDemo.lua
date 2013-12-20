@@ -55,7 +55,7 @@ declare {
 \end{codeexample}
       
        And the algorithm:
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
  -- File pgf.gd.examples.SimpleEdgeDemo
        
  -- Imports
@@ -74,7 +74,7 @@ declare {
        
        Next comes the declaration of the new option |new edge to|:
       
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
 declare {
   key = "new edge to",
   type = "string",
@@ -84,7 +84,7 @@ declare {
       
        Finally, the algorithm's code:
       
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
 function SimpleEdgeDemo:run()
   -- As in a SimpleDemo:
   ...

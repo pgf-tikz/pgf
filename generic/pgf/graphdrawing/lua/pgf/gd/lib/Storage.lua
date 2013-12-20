@@ -27,11 +27,11 @@
 -- it has visisted. It could just say |v.marked = true|, but this might
 -- clash with someone else also using the |marked| key. The solution is
 -- to create a |marked| storage. The algorithm can first say
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local marked = Storage.new()
 --\end{codeexample}
 -- and then say
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --marked[v] = true
 --\end{codeexample}
 -- to mark its objects. The |marked| storage object does not need to
@@ -45,7 +45,7 @@
 -- Now suppose the algorithm would like to store even more stuff in
 -- the storage. For this, we might use a table and can use the fact
 -- that a storage will automatically create a table when necessary:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local info = Storage.newTableStorage() 
 --
 --info[v].marked = true  -- the "info[v]" table is

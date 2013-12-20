@@ -77,7 +77,7 @@ local option_cache       = nil -- The option cache
 -- layer at the very beginning. For instance, \tikzname\ does the
 -- following call:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --InterfaceToDisplay.bind(require "pgf.gd.bindings.BindingToPGF")
 --\end{codeexample}
 --
@@ -700,7 +700,7 @@ end
 --
 -- In detail, this function calls:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local binding = InterfaceCore.binding
 --
 --binding:renderStart()
@@ -752,7 +752,7 @@ end
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local binding = InterfaceCore.binding
 --
 --binding:renderVerticesStart()
@@ -785,7 +785,7 @@ end
 -- (to ensure that they are always rendered in the same order).
 --
 -- Consider the following code:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --declare { key = "hyper", layer = 1 }
 --\end{codeexample}
 -- you can say on the \tikzname\ layer
@@ -800,7 +800,7 @@ end
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local binding = InterfaceCore.binding
 --
 --binding:renderCollectionStartKind("hyper", 1)
@@ -850,7 +850,7 @@ end
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- local binding = InterfaceCore.binding
 --
 -- binding:renderEdgesStart()

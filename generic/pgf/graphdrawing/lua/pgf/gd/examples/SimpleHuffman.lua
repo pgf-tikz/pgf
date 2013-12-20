@@ -64,7 +64,7 @@ declare {
 };    
 \end{codeexample}
      The file starts with some setups and declarations:
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
 -- File pgf.gd.examples.SimpleHuffman
       
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
@@ -100,7 +100,7 @@ function SimpleHuffman:run()
       
          Next comes a setup, where we create the working list of vertices
          that changes as the Huffman coding method proceeds:
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
   -- Shorthand
   local function prop (v)
     return probability[v] or v.options['probability']
@@ -120,7 +120,7 @@ function SimpleHuffman:run()
          algorithms to ``store stuff'' at a vertex or at an arc. The
          table will be accessed by |arrange_layers_by_baselines| to
          determine the ideal vertical placements.
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
   -- Now, arrange the nodes in a line:
   vertices [1].pos.x = 0
   layer[ vertices [1] ] = #vertices
@@ -133,7 +133,7 @@ function SimpleHuffman:run()
       
          Now comes the actual Huffman algorithm: Always find the vertices
          with a minimal probability\dots
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
   -- Now, do the Huffman thing...
   while #vertices > 1 do
     -- Find two minimum probabilities
@@ -151,7 +151,7 @@ function SimpleHuffman:run()
          \dots and connect them with a new node. This new node gets the
          option |HuffmanNode|. It is now the job of the higher layers to map
          this option to something ``nice''.
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
     -- Create new node:
     local p = prop(vertices[min1]) + prop(vertices[min2])
     local v = InterfaceToAlgorithms.createVertex(self, { generated_options = {{key="HuffmanNode"}}})
@@ -171,7 +171,7 @@ function SimpleHuffman:run()
 \end{codeexample}
          Ok, we are mainly done now. Finish by computing vertical placements
          and do formal cleanup.
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, tikz syntax=false]
   layered.arrange_layers_by_baselines(layers, self.adjusted_bb, self.ugraph)
 end
 \end{codeexample}

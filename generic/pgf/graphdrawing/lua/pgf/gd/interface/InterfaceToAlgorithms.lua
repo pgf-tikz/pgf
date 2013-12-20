@@ -77,7 +77,7 @@ local key_metatable = {}
 -- handling all declarations in order to make the declarations
 -- easy-to-use since you just need to import a single function:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --\end{codeexample}
 --
@@ -89,7 +89,7 @@ local key_metatable = {}
 -- \tikzname\ layer, using |/graph drawing/foo|. Here is a typical
 -- example of how a declaration is done: 
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key     = "electrical charge",
@@ -127,7 +127,7 @@ local key_metatable = {}
 -- code, it is quite inconvenient to have long strings inside a C
 -- file. In such cases, you can use the |documentation_in| field:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key     = "electrical charge",
@@ -154,7 +154,7 @@ local key_metatable = {}
 --
 -- Here is an example:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key = "binary tree layout",
@@ -178,7 +178,7 @@ local key_metatable = {}
 -- the key, namely the result of applying the function to the value
 -- originally passed to the original key. Here is a typical example: 
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key = "level sep",
@@ -250,7 +250,7 @@ end
 -- which are all keys for which no special field like |algorithm| or
 -- |layer| is declared. You write
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key     = "electrical charge",
@@ -266,7 +266,7 @@ end
 -- When an author writes |my node[electrical charge=5-3]| in the
 -- description of her graph, the object |vertex| corresponding to the
 -- node |my node| will have a field |options| attached to it with
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --vertex.options["electrical charge"] == 2
 --\end{codeexample}
 --
@@ -331,7 +331,7 @@ end
 -- |level distance| in the rest of the graph drawing system. In this
 -- case, we can declare the |layerDistance| key as follows:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
 --   type    = "length",
@@ -348,7 +348,7 @@ end
 -- Note that there is a difference between |alias| and the |use|
 -- field: Suppose we write
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
 --   type    = "length",
@@ -365,7 +365,7 @@ end
 -- If the alias is a function, it will be called with the option table
 -- as its parameter. You can thus say things like
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
 --   type    = "length",
@@ -436,7 +436,7 @@ end
 -- keys.'' They are detected by the presence of the field |algorithm|
 -- in the table |t| passed to |declare|. Here is an example of how it
 -- is used:
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- local ReingoldTilford1981 = {}
 --
 -- ---
@@ -506,7 +506,7 @@ end
 -- The following example shows the declaration of an algorithm that is
 -- the default for the phase |spanning tree computation|:
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key = "breadth first spanning tree",
@@ -526,7 +526,7 @@ end
 -- algorithms:
 --
 --
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 -- local graph = ... -- the graph object
 -- local spanning_algorithm_class = graph.options.algorithm_phases["spanning tree computation"]
 -- local spanning_algorithm =
@@ -624,7 +624,7 @@ end
 -- rest of the current option scope will belong to a new collection
 -- of kind |t.key|. 
 -- 
---\begin{codeexample}[code only]
+--\begin{codeexample}[code only, tikz syntax=false]
 --declare { key = "hyper", layer = 1 }
 --\end{codeexample}
 -- you can say on the \tikzname\ layer
