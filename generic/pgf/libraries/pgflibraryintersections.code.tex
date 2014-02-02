@@ -11,6 +11,8 @@
 %   Experimentally, it performed well while computing ~12 intersections of two
 %   plots, each with 600 samples. It failed when the number of samples exceeded 700.
 
+\usepgflibrary{fpu}
+
 \newcount\pgf@intersect@solutions
 
 \newif\ifpgf@intersect@sort
@@ -769,33 +771,74 @@
 	\ifdim\pgf@y>\pgf@yb\pgf@yb=\pgf@y\fi%
 }
 
+% The following subroutines are part of a conversion from pgfbasic
+% math to FPU. This transition is necessary due to the restricted
+% accuracy of pgfbasic. In order to limit the error rate of the
+% transition pgfbasic -> FPU, I chose to
+% keep the old "pattern" of sorts \advance\pgf@xa by0.5\pgf@y etc and
+% simply adapt to some FPU call.
+%
+% The following routines constitute the "adapter":
+
+\def\pgf@float@adapter@setxy{%
+	\pgfmathfloatparsenumber{\pgf@sys@tonumber\pgf@x}\let\pgf@fpu@x=\pgfmathresult
+	\pgfmathfloatparsenumber{\pgf@sys@tonumber\pgf@y}\let\pgf@fpu@y=\pgfmathresult
+}%
+\def\pgf@float@adapter@mult#1=#2*#3{%
+	\pgfmathfloatmultiplyfixed@{#3}{#2}%
+	\let#1=\pgfmathresult
+}%
+\def\pgf@float@adapter@advance#1by#2*#3{%
+	\pgfmathfloatmultiplyfixed@{#3}{#2}%
+	\let\pgfutil@temp=\pgfmathresult
+	\pgfmathfloatadd@{#1}{\pgfutil@temp}%
+	\let#1=\pgfmathresult
+}%
+
+\def\pgf@float@adapter@tostring#1{%
+	\pgfmathfloattofixed{#1}\edef#1{\pgfmathresult pt }%
+}%
 
 \def\pgf@curve@subdivide@left#1#2#3#4{%
 	%
 	% The left curve (from t=0 to t=.5) 
 	%
+	\begingroup
 	#1\relax%
 	\pgfutil@tempdima=\pgf@x%
 	\pgfutil@tempdimb=\pgf@y%
-	\pgf@xa=.5\pgf@x\pgf@ya=.5\pgf@y%
-	\pgf@xb=.25\pgf@x\pgf@yb=.25\pgf@y%
-	\pgf@xc=.125\pgf@x\pgf@yc=.125\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@mult\pgf@fpu@xa=.5*\pgf@fpu@x  \pgf@float@adapter@mult\pgf@fpu@ya=.5*\pgf@fpu@y%
+	\pgf@float@adapter@mult\pgf@fpu@xb=.25*\pgf@fpu@x \pgf@float@adapter@mult\pgf@fpu@yb=.25*\pgf@fpu@y%
+	\pgf@float@adapter@mult\pgf@fpu@xc=.125*\pgf@fpu@x\pgf@float@adapter@mult\pgf@fpu@yc=.125*\pgf@fpu@y%
 	#2\relax%
-	\advance\pgf@xa by.5\pgf@x\advance\pgf@ya by.5\pgf@y%
-	\advance\pgf@xb by.5\pgf@x\advance\pgf@yb by.5\pgf@y%
-	\advance\pgf@xc by.375\pgf@x\advance\pgf@yc by.375\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@fpu@xa by.5*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@ya by.5*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xb by.5*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yb by.5*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xc by.375*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yc by.375*\pgf@fpu@y%
 	#3\relax%
-	\advance\pgf@xb by.25\pgf@x\advance\pgf@yb by.25\pgf@y%
-	\advance\pgf@xc by.375\pgf@x\advance\pgf@yc by.375\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@fpu@xb by.25*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yb by.25*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xc by.375*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yc by.375*\pgf@fpu@y%
 	#4\relax%
-	\advance\pgf@xc by.125\pgf@x\advance\pgf@yc by.125\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@fpu@xc by.125*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yc by.125*\pgf@fpu@y%
+	%
+	\pgf@float@adapter@tostring\pgf@fpu@xa
+	\pgf@float@adapter@tostring\pgf@fpu@ya
+	\pgf@float@adapter@tostring\pgf@fpu@xb
+	\pgf@float@adapter@tostring\pgf@fpu@yb
+	\pgf@float@adapter@tostring\pgf@fpu@xc
+	\pgf@float@adapter@tostring\pgf@fpu@yc
 	\edef\pgf@marshal{%
 		\noexpand\pgf@curve@subdivde@after%
 			{\noexpand\pgf@x=\the\pgfutil@tempdima\noexpand\pgf@y=\the\pgfutil@tempdimb}%
-			{\noexpand\pgf@x=\the\pgf@xa\noexpand\pgf@y\the\pgf@ya}%
-			{\noexpand\pgf@x=\the\pgf@xb\noexpand\pgf@y=\the\pgf@yb}
-			{\noexpand\pgf@x=\the\pgf@xc\noexpand\pgf@y=\the\pgf@yc}%
+			{\noexpand\pgf@x=\pgf@fpu@xa\noexpand\pgf@y=\pgf@fpu@ya}%
+			{\noexpand\pgf@x=\pgf@fpu@xb\noexpand\pgf@y=\pgf@fpu@yb}
+			{\noexpand\pgf@x=\pgf@fpu@xc\noexpand\pgf@y=\pgf@fpu@yc}%
 	}%
+	\expandafter
+	\endgroup
 	\pgf@marshal%
 }
 
@@ -803,26 +846,43 @@
 	%
 	% The right curve (from t=0.5 to t=1) 
 	%
+	\begingroup
 	#1\relax%
-	\pgfutil@tempdima=.125\pgf@x\pgfutil@tempdimb=.125\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@mult\pgf@float@tmpa=.125*\pgf@fpu@x\pgf@float@adapter@mult\pgf@float@tmpb=.125*\pgf@fpu@y%
 	#2\relax%
-	\advance\pgfutil@tempdima by.375\pgf@x\advance\pgfutil@tempdimb by.375\pgf@y%
-	\pgf@xa=.25\pgf@x\pgf@ya=.25\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@float@tmpa by.375*\pgf@fpu@x\pgf@float@adapter@advance\pgf@float@tmpb by.375*\pgf@fpu@y%
+	\pgf@float@adapter@mult\pgf@fpu@xa=.25*\pgf@fpu@x\pgf@float@adapter@mult\pgf@fpu@ya=.25*\pgf@fpu@y%
 	#3\relax%
-	\advance\pgfutil@tempdima by.375\pgf@x\advance\pgfutil@tempdimb by.375\pgf@y%
-	\advance\pgf@xa by.5\pgf@x\advance\pgf@ya by.5\pgf@y%
-	\pgf@xb=.5\pgf@x\pgf@yb=.5\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@float@tmpa by.375*\pgf@fpu@x\pgf@float@adapter@advance\pgf@float@tmpb by.375*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xa by.5*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@ya by.5*\pgf@fpu@y%
+	\pgf@float@adapter@mult\pgf@fpu@xb=.5*\pgf@fpu@x\pgf@float@adapter@mult\pgf@fpu@yb=.5*\pgf@fpu@y%
 	#4\relax%
-	\advance\pgfutil@tempdima by.125\pgf@x\advance\pgfutil@tempdimb by.125\pgf@y%
-	\advance\pgf@xa by.25\pgf@x\advance\pgf@ya by.25\pgf@y%
-	\advance\pgf@xb by.5\pgf@x\advance\pgf@yb by.5\pgf@y%
-	\pgf@xc=\pgf@x\pgf@yc=\pgf@y%
+	\pgf@float@adapter@setxy
+	\pgf@float@adapter@advance\pgf@float@tmpa by.125*\pgf@fpu@x\pgf@float@adapter@advance\pgf@float@tmpb by.125*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xa by.25*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@ya by.25*\pgf@fpu@y%
+	\pgf@float@adapter@advance\pgf@fpu@xb by.5*\pgf@fpu@x\pgf@float@adapter@advance\pgf@fpu@yb by.5*\pgf@fpu@y%
+	\let\pgf@fpu@xc=\pgf@fpu@x\let\pgf@fpu@yc=\pgf@fpu@y%
+	%
+	\pgf@float@adapter@tostring\pgf@float@tmpa
+	\pgf@float@adapter@tostring\pgf@float@tmpb
+	\pgf@float@adapter@tostring\pgf@fpu@xa
+	\pgf@float@adapter@tostring\pgf@fpu@ya
+	\pgf@float@adapter@tostring\pgf@fpu@xb
+	\pgf@float@adapter@tostring\pgf@fpu@yb
+	\pgf@float@adapter@tostring\pgf@fpu@xc
+	\pgf@float@adapter@tostring\pgf@fpu@yc
 	\edef\pgf@marshal{%
 		\noexpand\pgf@curve@subdivde@after%
-			{\pgf@x\the\pgfutil@tempdima\pgf@y\the\pgfutil@tempdimb}%
-			{\pgf@x\the\pgf@xa\pgf@y\the\pgf@ya}{\pgf@x\the\pgf@xb\pgf@y\the\pgf@yb}
-				{\pgf@x\the\pgf@xc\pgf@y\the\pgf@yc}%
+			{\noexpand\pgf@x=\pgf@float@tmpa\noexpand\pgf@y=\pgf@float@tmpb}%
+			{\noexpand\pgf@x=\pgf@fpu@xa\noexpand\pgf@y=\pgf@fpu@ya}
+			{\noexpand\pgf@x=\pgf@fpu@xb\noexpand\pgf@y=\pgf@fpu@yb}
+			{\noexpand\pgf@x=\pgf@fpu@xc\noexpand\pgf@y=\pgf@fpu@yc}%
 	}%
+	\expandafter
+	\endgroup
 	\pgf@marshal%
 }
 
