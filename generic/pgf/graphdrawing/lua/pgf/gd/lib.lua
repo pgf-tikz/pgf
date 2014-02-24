@@ -351,6 +351,49 @@ function lib.class(t)
 end
 
 
+
+---
+-- Returns a method that is loaded only on demand for a class.
+--
+-- The idea behind this function is that you may have a class (or just
+-- a table) for which some methods are needed only seldomly. In this
+-- case, you can put these methods in a separate file and then use
+-- |ondemand| to indicate that the methods are found in a
+-- another file. 
+--
+--\begin{codeexample}[code only]
+-- -- File Foo.lua
+-- local Foo = {}
+-- function Foo.bar ()  ... end
+-- function Foo.bar2 () ... end
+-- Foo.bar3 = lib.ondemand("Foo_extra", Foo, "bar3")
+-- Foo.bar4 = lib.ondemand("Foo_extra", Foo, "bar4")
+--
+-- return Foo
+--
+-- -- Foo_extra.lua
+-- local Foo = require "Foo"
+-- function Foo.bar3 () ... end
+-- function Foo.bar4 () ... end
+--\end{codeexample}
+--
+-- @param filename The name of the file when extra methods are
+-- located.
+-- @param table The table for which the missing functions should be
+-- loaded when they are accessed.
+-- @param method The name of the method.
+--
+-- @return A function that, when called, loads the filename using
+-- |require| and, then, forwards the call to the method.
+
+function lib.ondemand(filename, table, name)
+  return function(...)
+	   require (filename)
+	   return table[name] (...)
+	 end
+end
+
+
 -- Done
 
 return lib

@@ -491,6 +491,8 @@ function print_docline_on_output(output, l, mode)
     mode = "text"
   elseif l:match("^%s*@library") then
     -- do nothing
+  elseif l:match("^%s*@function") then
+    -- do nothing
   elseif l:match("^%s*@end") then
     close_mode(output, mode)
     mode = "done"

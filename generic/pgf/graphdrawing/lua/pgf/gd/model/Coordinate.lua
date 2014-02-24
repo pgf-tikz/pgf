@@ -18,7 +18,9 @@
 -- right and the $y$-axis goes up.
 --
 -- @field x 
--- @field y 
+-- @field y
+--
+-- There is also a static field called |origin| that is always equal to the origin. 
 
 local Coordinate = {}
 Coordinate.__index = Coordinate
@@ -43,6 +45,9 @@ function Coordinate.new(x,y)
 end
 
 
+Coordinate.origin = Coordinate.new(0,0)
+
+
 --- Creates a new coordinate that is a copy of an existing one.
 --
 -- @return A new coordinate at the same location as |self|
@@ -56,7 +61,7 @@ end
 --- Apply a transformation matrix to a coordinate,
 -- see |pgf.gd.lib.Transform| for details.
 --
--- @param t A tansformation
+-- @param t A tansformation.
 
 function Coordinate:apply(t)
   local x = self.x

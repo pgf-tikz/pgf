@@ -433,7 +433,14 @@ end
 
 ---
 -- This function is called by |declare| for ``algorithm
--- keys.'' They are detected by the presence of the field |algorithm|
+-- keys.'' These keys are normally used without a value as in just
+-- |\graph[tree layout]|, but you can optionally pass a value to
+-- them. In this case, this value must be the name of a \emph{phase}
+-- and the algorithm of this phase will be set (and not the
+-- default phase of the key), see the description of phases below for
+-- details. 
+--
+-- Algorithm keys are detected by the presence of the field |algorithm|
 -- in the table |t| passed to |declare|. Here is an example of how it
 -- is used:
 --\begin{codeexample}[code only, tikz syntax=false]
@@ -488,23 +495,28 @@ end
 -- drawing engine which ``phase'' of the graph drawing process your
 -- option applies to. Each time you select an algorithm later on
 -- through use of the algorithm's key, the algorithm for this phase
--- will be set; algorithms of other phases will not be changed. So,
--- for instance, when an algorithm is part of the spanning tree
+-- will be set; algorithms of other phases will not be changed. 
+-- For instance, when an algorithm is part of the spanning tree
 -- computation, its phase will be |"spanning tree computation"| and
 -- using its key does not change the main algorithm, but only the
 -- algorithm used during the computation of a spanning tree for the
 -- current graph (in case this is needed by the main algorithm). In
 -- case the |phase| field is missing, the phase |main| is used. Thus,
 -- when no phase field is given, the key will change the main
--- algorithm used to draw the graph.
+-- algorithm used to draw the graph. 
 --
 -- Later on, the algorithm set for the current phase can be accessed
 -- through the special |algorithm_phases| field of |options|
--- tables. The |algorithm_phases| table will contain a field for each
--- phase for which some algorithm has been set.
+-- tables. The |algorithm_phases| table will contain two fields for each
+-- phase for which some algorithm has been set: One field is the name
+-- of the phase and its value will be the most recently set algorithm
+-- (class) set for this phase. The other field is the name of the
+-- phase followed by |" stack"|. It will contain an array of all
+-- algorithm classes that have been set for this key with the most
+-- recently at the end.
 --
 -- The following example shows the declaration of an algorithm that is
--- the default for the phase |spanning tree computation|:
+-- the default for the phase |"spanning tree computation"|:
 --
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
@@ -525,7 +537,6 @@ end
 -- The algorithm is called as follows during a run of the main
 -- algorithms:
 --
---
 --\begin{codeexample}[code only, tikz syntax=false]
 -- local graph = ... -- the graph object
 -- local spanning_algorithm_class = graph.options.algorithm_phases["spanning tree computation"]
@@ -541,7 +552,10 @@ end
 -- be installed as the default algorithm for the phase. This can be
 -- done only once per phase. Furthermore, for such a default algorithm
 -- the |algorithm| key must be table, it may not be a string (in other
--- words, all default algorithms are loaded immediately).
+-- words, all default algorithms are loaded immediately). Accessing
+-- the |algorithm_phases| table for a phase for which no algorithm has
+-- been set will result in the default algorithm and the phase stack
+-- will also contain this algorithm; otherwise the phase stack will be empty.
 --
 -- (You cannot call this function directly, it is included for
 -- documentation purposes only.)
@@ -587,6 +601,9 @@ local function declare_algorithm (t)
   -- Save in the algorithm_classes table:
   InterfaceCore.algorithm_classes[t.key] = store_me
   
+  assert(t.type == nil, "type may not be set for an algorithm key")
+  t.type = "string"
+  
   -- Install!
   InterfaceCore.binding:declareCallback(t)
   
@@ -596,6 +613,11 @@ local function declare_algorithm (t)
     assert (type(store_me) == "table",
 	    "default algorithms must be loaded immediately")
     InterfaceCore.option_initial.algorithm_phases[t.phase] = store_me
+    InterfaceCore.option_initial.algorithm_phases[t.phase .. " stack"] = { store_me }
+  else
+    InterfaceCore.option_initial.algorithm_phases[t.phase .. " stack"] = {
+      dummy = true -- Remove once Lua Link Bug is fixed
+    } 
   end 
   
   return true

@@ -57,14 +57,21 @@ local InterfaceCore = {
   -- The declared keys
   keys                = {},
 
+  -- The phase kinds
+  phase_kinds         = {},
+  
   -- Internals for handling the options stack
   option_stack        = {},
   option_cache_height = nil,
   option_initial      = {
-    algorithm_phases = {}
+    algorithm_phases = {
+      ["preprocessing stack"] = {},
+      ["edge routing stack"] = {},
+      ["postprocessing stack"] = {},
+    }
   },
   option_aliases      = {
-    [{}] = true -- dummy entry to make sure table is not empty
+    [{}] = true -- Remove, once Lua Link Bug is fixed
   },
 
   -- Constant strings for special collection kinds.

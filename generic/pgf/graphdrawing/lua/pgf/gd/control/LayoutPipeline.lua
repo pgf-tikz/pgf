@@ -65,6 +65,33 @@
 --   ``ideally'' rotated the graph, set this postcondition.
 -- \end{itemize}
 --
+--
+-- In addition to the above-described always-present and automatic
+-- transformations, users may also specify additional pre- and
+-- posttransformations. This happens when users install additional
+-- algorithms in appropriate phases. In detail, the following happens
+-- in order:
+--
+-- \begin{enumerate}
+-- \item If specified, the graph is decomposed into connected
+-- components and the following steps are applied to each component
+-- individually.
+-- \item All algorithms in the phase stack for the phase
+-- |preprocessing| are applied to the component. These algorithms are
+-- run one after the other in the order they appear in the phase
+-- stack.
+-- \item If necessary, the spanning tree is now computed and
+-- rotational information is gathered.
+-- \item The single algorithm in phase |main| is called.
+-- \item All algorithms in the phase stack for the phase
+-- |edge routing| are run. 
+-- \item All algorithms in the phase stack for phase |postprocessing|
+-- are run.
+-- \item Edge syncing, orientation, and anchoring are applied.
+-- \end{enumerate}
+--
+-- If sublayouts are used, all of the above (except for anchoring)
+-- happens for each sublayout.
 
 local LayoutPipeline = {}
 
@@ -162,7 +189,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     local new_a = layout_copy:connect(a.tail,a.head)
     new_a.syntactic_edges = a.syntactic_edges
   end
-  
+    
   -- Step 1: Decompose the graph into connected components, if necessary:
   local syntactic_components
   if algorithm_class.preconditions.tree or algorithm_class.preconditions.connected or layout_graph.options.componentwise then
@@ -191,6 +218,18 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
     -- Step 2.4: Precompute the underlying undirected graph
     local ugraph  = Direct.ugraphFromDigraph(digraph)
+
+    -- Step 2.4a: Run preprocessor
+    for _,class in ipairs(layout_graph.options.algorithm_phases["preprocessing stack"]) do
+      class.new{
+	digraph = digraph,
+	ugraph = ugraph,
+	scope = scope,
+	layout = layout,
+	layout_graph = layout_graph,
+	syntactic_component = syntactic_component,
+      }:run()  
+    end
     
     -- Step 2.5: Create an algorithm object
     local algorithm = algorithm_class.new{
@@ -228,6 +267,30 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
       end
     end
 
+    -- Step 2.9a: Run edge routers
+    for _,class in ipairs(layout_graph.options.algorithm_phases["edge routing stack"]) do
+      class.new{
+	digraph = digraph,
+	ugraph = ugraph,
+	scope = scope,
+	layout = layout,
+	layout_graph = layout_graph,
+	syntactic_component = syntactic_component,
+      }:run()  
+    end
+    
+    -- Step 2.9b: Run postprocessor
+    for _,class in ipairs(layout_graph.options.algorithm_phases["postprocessing stack"]) do
+      class.new{
+	digraph = digraph,
+	ugraph = ugraph,
+	scope = scope,
+	layout = layout,
+	layout_graph = layout_graph,
+	syntactic_component = syntactic_component,
+      }:run()  
+    end
+    
     -- Step 2.10: Sync the graphs
     digraph:sync()
     ugraph:sync()
@@ -241,6 +304,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
   -- Step 3: Packing:
   LayoutPipeline.packComponents(layout_graph, syntactic_components)
+  
 end
 
 

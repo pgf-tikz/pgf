@@ -13,6 +13,8 @@
 -- Imports
 local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
+local routing = require("pgf.gd.routing")
+
 -- The algorithm class
 local Tantau2012 = {}
 
@@ -33,14 +35,17 @@ declare {
 -- Imports
 
 local Coordinate = require "pgf.gd.model.Coordinate"
+local Hints      = require "pgf.gd.routing.Hints"
 
-local lib = require "pgf.gd.lib"
+local lib        = require "pgf.gd.lib"
+
+
 
 
 -- The implementation
 
 function Tantau2012:run()
-  local g = self.digraph
+  local g = self.ugraph
   local vertices = g.vertices
   local n = #vertices
   
@@ -75,6 +80,10 @@ function Tantau2012:run()
     vertex.pos.x = radius * math.cos(2 * math.pi * (positions[i] / length + 1/4))
     vertex.pos.y = -radius * math.sin(2 * math.pi * (positions[i] / length + 1/4))
   end
+
+  -- Add routing infos
+  local necklace = lib.icopy({g.vertices[1]}, lib.icopy(g.vertices))
+  Hints.addNecklaceCircleHint(g, necklace, nil, true)
 end
 
 

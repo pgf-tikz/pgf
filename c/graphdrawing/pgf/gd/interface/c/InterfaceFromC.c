@@ -10,6 +10,8 @@
 #include <string.h>
 
 
+// Remove once Lua Link Bug is fixed:
+//
 // The following is a hack to avoid a problem with the Lua lib being linked twice.
 // When this happens, two version of "dummynode" exist in Lua and we must ensure that
 // we never create a table using such a dummynode while using a second lib.
@@ -973,7 +975,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
   if (d && d->key) {
     int tos = lua_gettop(state);
 
-    lua_gc(state, LUA_GCSTOP, 0); // BUG: Remove once linking against dynamic Lua lib works!
+    lua_gc(state, LUA_GCSTOP, 0); // Remove once Lua Link Bug is fixed
     
     // Find declare function:
     lua_getglobal(state, "require");
@@ -1067,7 +1069,7 @@ void pgfgd_declare(struct lua_State* state, pgfgd_Declaration* d)
     // Cleanup:
     lua_settop(state, tos);
     
-    lua_gc(state, LUA_GCRESTART, 0);
+    lua_gc(state, LUA_GCRESTART, 0); // Remove once Lua Link Bug is fixed
   }
 }
 

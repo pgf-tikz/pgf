@@ -577,7 +577,7 @@ function InterfaceToDisplay.pushOption(key, value, height)
     assert (algorithm, "algorithm class not found")
     
     push_on_option_stack(phase_unique,
-			 { phase = key_record.phase, algorithm = algorithm },
+			 { phase = value or key_record.phase, algorithm = algorithm },
 			 height)
     
     if key_record.phase == "main" then
@@ -943,6 +943,15 @@ function get_current_options_table (height, table)
     local function handle (k, v)
       if k == phase_unique then
 	algorithm_phases[v.phase] = v.algorithm
+	local phase_stack = v.phase .. " stack"
+	local t = rawget(algorithm_phases, phase_stack)
+	if not t then
+	  t = algorithm_phases[phase_stack]
+	  assert(type(t) == "table", "unknown phase")
+	  t = lib.copy(t)
+	  algorithm_phases[phase_stack] = t
+	end
+	t[#t + 1] = v.algorithm	  
       elseif k == collections_unique then
 	LookupTable.addOne(collections, v)
       else

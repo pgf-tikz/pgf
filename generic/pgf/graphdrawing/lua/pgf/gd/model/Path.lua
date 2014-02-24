@@ -58,10 +58,12 @@ require("pgf.gd.model").Path = Path
 local Coordinate = require "pgf.gd.model.Coordinate"
 local Bezier     = require "pgf.gd.lib.Bezier"
 
+local lib        = require "pgf.gd.lib"
 
 
+-- Private function
 
-local function rigid (x)
+function Path.rigid (x)
   if type(x) == "function" then
     return x()
   else
@@ -69,6 +71,7 @@ local function rigid (x)
   end
 end
 
+local rigid = Path.rigid
 
 
 ---
@@ -346,7 +349,7 @@ end
 -- Appends a |curveto| to the path. There can be either three
 -- coordinates (or functions) as parameters (the two support points
 -- and the target) or six numbers, where two consecutive numbers form a
--- Coordinate. Which case is meant is detected by the presence of a
+-- |Coordinate|. Which case is meant is detected by the presence of a
 -- sixth non-nil parameter.
 
 function Path:appendCurveto(a,b,c,d,e,f)
@@ -361,6 +364,10 @@ function Path:appendCurveto(a,b,c,d,e,f)
     self[#self + 1] = c
   end    
 end
+
+
+
+
 
 
 ---
@@ -1183,7 +1190,53 @@ function Path:pad(padding)
 end
 
 
-  
+
+---
+-- Appends an arc (as in the sense of ``a part of the circumference of
+-- a circle'') to the path. You may optionally provide a
+-- transformation matrix, which will be applied to the arc. In detail,
+-- the following happens: We first invert the transformation
+-- and apply it to the start point. Then we compute the arc
+-- ``normally'', as if no transformation matrix were present. Then we
+-- apply the transformation matrix to all computed points.   
+--
+-- @function Path:appendArc(start_angle,end_angle,radius,trans)
+--
+-- @param start_angle The start angle of the arc. Must be specified in
+-- degrees. 
+-- @param end_angle the end angle of the arc.
+-- @param radius The radius of the circle on which this arc lies.
+-- @param trans A transformation matrix. If |nil|, the identity
+-- matrix will be assumed.
+
+Path.appendArc   = lib.ondemand("Path_arced", Path, "appendArc")
+
+
+
+---
+-- Appends a clockwise arc (as in the sense of ``a part of the circumference of
+-- a circle'') to the path such that it ends at a given point. If a
+-- transformation matrix is given, both start and end point are first
+-- transformed according to the inverted transformation, then the arc
+-- is computed and then transformed back.
+--
+-- @function Path:appendArcTo(target,radius_or_center,clockwise,trans)
+--
+-- @param target The point where the arc should end.
+-- @param radius_or_center If a number, it is the radius of the circle
+-- on which this arc lies. If it is a |Coordinate|, this is the center
+-- of the circle.
+-- @param clockwise If true, the arc will be clockwise. Otherwise (the
+-- default, if nothing or |nil| is given), the arc will be counter
+-- clockise. 
+-- @param trans A transformation matrix. If missing,
+-- the identity matrix is assumed.
+
+Path.appendArcTo = lib.ondemand("Path_arced", Path, "appendArcTo")
+
+
+
+
 --
 -- @return The Path as string.
 --
