@@ -157,7 +157,7 @@ function LayoutPipeline.run(scope)
   
   -- Step 4: Apply regardless transforms
   Sublayouts.regardless(scope.syntactic_digraph)
-
+  
   -- Step 5: Cut edges
   LayoutPipeline.cutEdges(scope.syntactic_digraph)
   
@@ -304,7 +304,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
 
   -- Step 3: Packing:
   LayoutPipeline.packComponents(layout_graph, syntactic_components)
-  
+
 end
 
 

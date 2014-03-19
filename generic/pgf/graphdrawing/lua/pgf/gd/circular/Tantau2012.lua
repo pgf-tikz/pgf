@@ -27,7 +27,7 @@ declare {
     upward_oriented = true
   },
 
-  documentation_in = "pgf.gd.doc.circular.Tantau2012"
+  documentation_in = "pgf.gd.circular.doc"
 }
 
 

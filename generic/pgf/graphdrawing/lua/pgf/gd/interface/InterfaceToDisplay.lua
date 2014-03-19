@@ -183,7 +183,7 @@ function InterfaceToDisplay.runGraphDrawingAlgorithm()
   
   -- End timing:
   local stop = os.clock()
-  
+
   return stop - start
 end
 
