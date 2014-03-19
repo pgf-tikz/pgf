@@ -8,7 +8,9 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 %
 
-\section{Evaluating Mathematical Expressions}
+\section{Mathematical Expressions}
+
+\label{pgfmath-syntax}
 
 The easiest way of using \pgfname's mathematical engine is to provide
 a mathematical expression given in familiar infix notation, for
@@ -31,11 +33,13 @@ expression are explained first, then the syntax for expression is
 explained.
 
 
-\subsection{Commands for Parsing Expressions}
+\subsection{Parsing Expressions}
 
 \label{pgfmath-registers}
 
 \label{pgfmath-parsing}
+
+\subsubsection{Commands}
 
 The basic command for invoking the parser of \pgfname's mathematical
 engine is the following:
@@ -49,36 +53,15 @@ engine is the following:
 
   In the following, the special properties of this command are
   explained. The exact syntax of mathematical expressions is explained
-  in Section~\ref{pgfmath-syntax}.
+  in Sections \ref{pgfmath-operators} and~\ref{pgfmath-functions}.
 
   \begin{itemize}
   \item
     The result stored in the macro |\pgfmathresult| is a decimal
     \emph{without units}. This is true regardless of whether the
     \meta{expression} contains any unit specification. All numbers
-    with units are converted to points first.
-    You can check whether an expression contained a unit using
-    the following \TeX-if.
-    {\let\ifpgfmathunitsdeclared\relax
-      \begin{command}{\ifpgfmathunitsdeclared}
-        After a call  of |\pgfmathparse| this if will be true exactly if
-        some unit was encountered in the expression. It is always set
-        globally in each call.
-      \end{command}
-    }
-    
-    A special kind of units are \TeX's ``math units'' (|mu|). It will
-    be treated as if |pt| had been used, but you can
-    check whether an expression contained a math unit using the
-    following: 
-    {\let\ifpgfmathmathunitsdeclared\relax
-      \begin{command}{\ifpgfmathmathunitsdeclared}
-        This \TeX-if is similar to |\ifpgfmathunitsdeclared|, but it
-        is only set when the unit |mu| is encountered at least
-        once. In this case, |\ifpgfmathunitsdeclared| will \emph{also}
-        be set to true.
-      \end{command}
-    }
+    with units are converted to points first. See
+    Section~\ref{pgfmath-units} for details on units.
   \item
     The parser will recognize \TeX{} registers and box dimensions,
     so |\mydimen|, |0.5\mydimen|, |\wd\mybox|, |0.5\dp\mybox|,
@@ -186,7 +169,7 @@ The effect of the following commands is always local to the current
   register and \meta{expression} be something like |+1pt plus 1fil|
   and the \meta{register} will be assigned the expected value.
 
-  Second, when the \meta{expected} does not start with |+|, it is
+  Second, when the \meta{expression} does not start with |+|, it is
   first parsed using |\pgfmathparse|, resulting in a (dimensionless)
   value |\pgfmathresult|. Now, if the parser encountered the unit |mu|
   somewhere in the expression, it assumes that \meta{register} is a
@@ -261,21 +244,105 @@ The effect of the following commands is always local to the current
 \end{command}
 
 
+\subsubsection{Considerations Concerning Units}
+\label{pgfmath-units}
 
-\section{Syntax for mathematical expressions}
+As was explained earlier, the parser commands like |\pgfmathparse|
+will always return a result without units in it and all dimensions
+that have a unit like |10pt| or |1in| will first be converted to \TeX\
+points (|pt|) and, then, the unit is dropped.
 
-\label{pgfmath-syntax}
+Sometimes it is useful, nevertheless, to find out whether an
+expression or not. For this, you can use the following commands:
 
-  The syntax for the expressions recognized by |\pgfmathparse| and
-  friends is straightforward, and the following sections describe the
-  operators and functions that are recognized by default.
+{\let\ifpgfmathunitsdeclared\relax
+  \begin{command}{\ifpgfmathunitsdeclared}
+    After a call  of |\pgfmathparse| this if will be true exactly if
+    some unit was encountered in the expression. It is always set
+    globally in each call.
+    
+    Note that \emph{any} ``mentioning'' of a unit inside an
+    expression will set this \TeX-if to true. In particular, even an
+    expressionlike |2pt/1pt|, which arguably should be considered
+    ``scalar'' or ``unit-free'' will still have this \TeX-if set to
+    true. However, see the |scalar| function for a way to change
+    this. 
+  \end{command}
+}
 
-\subsection{Operators}
+\begin{math-function}{scalar(\mvar{value})}
+  \mathcommand
+  
+  This function is the identity function on its input, but it will
+  reset the \TeX-if |\ifpgfmathunitsdeclared|. Thus, it can be used to
+  indicate that the given \meta{value} should be considered as a
+  ``scalar'' even when it contains units; but note that it will work
+  even when the \meta{value} is a string or something else. The only
+  effect of this function is to clear the unit declaration.
+
+\begin{codeexample}[]
+\pgfmathparse{scalar(1pt/2pt)} \pgfmathresult\
+\ifpgfmathunitsdeclared with \else without \fi unit
+\end{codeexample}
+
+  Note, however, that this command (currently) really just clears the
+  \TeX-if as the input is scanned from left-to-right. Thus, even if
+  there is a use of a unit before the |scalar| function is used, the
+  \TeX-if will be cleared:
+
+\begin{codeexample}[]
+\pgfmathparse{1pt+scalar(1pt)} \pgfmathresult\
+\ifpgfmathunitsdeclared with \else without \fi unit
+\end{codeexample}
+
+  The other way round, a use of a unit after the |scalar| function
+  will set the units once more.
+\begin{codeexample}[]
+\pgfmathparse{scalar(1pt)+1pt} \pgfmathresult\
+\ifpgfmathunitsdeclared with \else without \fi unit
+\end{codeexample}
+
+  For these reasons, you should use the function only on the outermost
+  level of an expression.
+  
+  A typical use of this function is the following:
+\begin{codeexample}[]  
+\tikz{
+  \coordinate["$A$"]       (A) at (2,2);%$
+  \coordinate["$B$" below] (B) at (0,0);
+  \coordinate["$C$" below] (C) at (3,0);
+  \draw (A) -- (B) -- (C) -- cycle;
+  \path
+    let \p1 =($(A)-(B)$), \p2 =($(A)-(C)$),
+        \n1 = {veclen(\x1,\y1)}, \n2 = {veclen(\x2,\y2)}
+    in  coordinate ["$D$" below] (D) at ($ (B)!scalar(\n1/(\n1+\n2))!(C) $);
+  \draw (A) -- (D);
+}
+\end{codeexample}
+\end{math-function}
+
+A special kind of units are \TeX's ``math units'' (|mu|). It will
+be treated as if |pt| had been used, but you can
+check whether an expression contained a math unit using the
+following: 
+{\let\ifpgfmathmathunitsdeclared\relax
+  \begin{command}{\ifpgfmathmathunitsdeclared}
+    This \TeX-if is similar to |\ifpgfmathunitsdeclared|, but it
+    is only set when the unit |mu| is encountered at least
+    once. In this case, |\ifpgfmathunitsdeclared| will \emph{also}
+    be set to true. The |scalar| function has no effect on this \TeX-if.
+  \end{command}
+}
+  
+\subsection{Syntax for Mathematical Expressions: Operators}
+
+The syntax for the expressions recognized by |\pgfmathparse| and
+friends is rather straightforward. Let us start with the operators.
 
 \label{pgfmath-operators}
 
-  The following operators (presented in the context in which they are used)
-  are recognized:
+The following operators (presented in the context in which they are used)
+are recognized:
 
 \begin{math-operator}{+}{infix}{add}
  Adds \mvar{x} to \mvar{y}.
@@ -454,7 +521,7 @@ calculations are unlikely to be possible with the result.
 
 
 
-\subsection{Functions}
+\subsection{Syntax for Mathematical Expressions: Functions}
 
 \label{pgfmath-functions}
 
@@ -470,11 +537,10 @@ The following functions are recognized:
  less,ln,log10,log2,max,min,mod,Mod,multiply,
  neg,not,notequal,notgreater,notless,
  oct,or,pi,pow,rad,rand,random,real,rnd,round,
- sec,sin,sinh,sqrt,subtract,tan,tanh,true, veclen,width}
+ scalar,sec,sin,sinh,sqrt,subtract,tan,tanh,true, veclen,width}
 \node [anchor=base west] at ({int(\i/12)*2.5cm},{-mod(\i,12)*1.1*\baselineskip}) {\mathlink{\f}};
 \end{tikzpicture}
 \bigskip
-
 
 Each function has a \pgfname{} command associated with it (which is
 also shown with the function below). In general, the command
