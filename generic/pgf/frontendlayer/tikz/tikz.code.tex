@@ -644,6 +644,7 @@
           \pgfextra{\let\tikz@save@last@node=\tikzlastnode\tikz@node@is@a@labelfalse}%
           node [every pin,
                 tikz@label@angle = #2,
+                anchor=@auto,
                 #1,
                 append after command = {%
                   (\tikz@save@last@node) 
@@ -673,6 +674,7 @@
         \pgfextra{\let\tikz@save@last@node=\tikzlastnode\tikz@node@is@a@labelfalse}%
         node [every pin,
               tikz@label@angle = #2,
+              anchor=@auto,
               #1,
               append after command = {%
                 (\tikz@save@last@node) 
@@ -745,7 +747,9 @@
         \pgf@yc=\pgf@y%
         \pgf@x=\pgf@yc%
         \pgf@y=-\pgf@xc%
-        \tikz@auto@anchor%
+        \ifx\tikz@anchor\tikz@auto@text%
+          \tikz@auto@anchor%
+        \fi%
       \fi%
     \fi%
   \fi}
@@ -800,6 +804,7 @@
           \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name\tikz@node@is@a@labelfalse}
           node [every label,
                 tikz@label@angle = #2,
+                anchor=@auto,
                 #1,
                 tikz@label@post = \tikz@label@distance] {\iftikz@handle@active@nodes\expandafter\scantokens\else\expandafter\pgfutil@firstofone\fi{#3}}
           \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
@@ -829,6 +834,7 @@
         \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name\tikz@node@is@a@labelfalse}
         node [every label, 
               tikz@label@angle = #2,
+              anchor=@auto,
               #1,
               tikz@label@post = \tikz@label@distance] {\iftikz@handle@active@nodes\expandafter\scantokens\else\expandafter\pgfutil@firstofone\fi{#3}}
         \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name}
@@ -844,6 +850,7 @@
 \expandafter\def\csname tikz@label@angle@is@below right\endcsname{\def\tikz@label@angle{315}}
 
 \def\tikz@compute@direction#1{%
+  \ifx\tikz@anchor\tikz@auto@text%
   \let\tikz@do@auto@anchor=\relax
   \pgfmathsetcount{\c@pgf@counta}{#1}%
   \ifnum\c@pgf@counta<0\relax
@@ -871,8 +878,9 @@
   \else%
     \def\tikz@anchor{west}%
   \fi\fi\fi\fi\fi\fi\fi\fi%
+  \fi%  
 }
-
+\def\tikz@auto@text{@auto}
 
 % General node options
 \tikzset{
@@ -936,7 +944,8 @@
 \tikzoption{below right}[]%
   {\def\tikz@anchor{north west}%
     \tikz@possibly@transform{x}{}{#1}\tikz@possibly@transform{y}{-}{#1}}
-
+\tikzset{centered/.code=\def\tikz@anchor{center}}
+  
 \tikzoption{node distance}{\def\tikz@node@distance{#1}}
 \def\tikz@node@distance{1cm}
 
@@ -2349,6 +2358,18 @@
 \let\tikz@lib@scope@check\pgfutil@empty% this is a hook for the scopes library
 \def\tikz@path@do@at@end{\tikz@lib@scope@check}
 
+\def\pgf@outer@auto@adjust@hook{%
+  {%
+    \tikz@mode@drawfalse%
+    \tikz@mode%
+    \expandafter%
+  }%
+  \iftikz@mode@draw\else%xxx
+    \pgfkeyslet{/pgf/outer xsep}\pgf@zero@text
+    \pgfkeyslet{/pgf/outer ysep}\pgf@zero@text
+  \fi%
+}
+
 % Extra actions
 
 \def\tikz@extra@preaction#1{%
@@ -3505,17 +3526,17 @@
 \def\tikz@do@arc#1#2#3#4{%
   \let\tikz@tangent\tikz@tangent@lookup%
   \edef\tikz@timer@start{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
-  \edef\tikz@timer@start@angle{#1}%
-  \edef\tikz@timer@end@angle{#2}%
+  \pgfmathsetmacro\tikz@timer@start@angle{#1}%
+  \pgfmathsetmacro\tikz@timer@end@angle{#2}%
   \pgfmathparse{#3}%
   \let\tikz@arc@x=\pgfmathresult%
   \ifpgfmathunitsdeclared%
     \pgfmathparse{#4}%
     \let\tikz@arc@y=\pgfmathresult%
     \ifpgfmathunitsdeclared%
-      \tikz@@@arcfinal{\pgfpatharc{#1}{#2}{\tikz@arc@x pt and \tikz@arc@y pt}}
-      {\pgfpointpolar{#1}{\tikz@arc@x pt and \tikz@arc@y pt}}
-      {\pgfpointpolar{#2}{\tikz@arc@x pt and \tikz@arc@y pt}}%
+      \tikz@@@arcfinal{\pgfpatharc{\tikz@timer@start@angle}{\tikz@timer@end@angle}{\tikz@arc@x pt and \tikz@arc@y pt}}
+      {\pgfpointpolar{\tikz@timer@start@angle}{\tikz@arc@x pt and \tikz@arc@y pt}}
+      {\pgfpointpolar{\tikz@timer@end@angle}{\tikz@arc@x pt and \tikz@arc@y pt}}%
       \edef\tikz@timer@zero@axis{\noexpand\pgfqpoint{\tikz@arc@x pt}{0pt}}  
       \edef\tikz@timer@ninety@axis{\noexpand\pgfqpoint{0pt}{\tikz@arc@y pt}}  
     \else%
@@ -3527,8 +3548,8 @@
     \ifpgfmathunitsdeclared%
       \tikzerror{You cannot mix dimensions and dimensionless values in an arc}%
     \else%
-      \tikz@@@arcfinal{\pgfpatharcaxes{#1}{#2}{\pgfpointxy{\tikz@arc@x}{0}}{\pgfpointxy{0}{\tikz@arc@y}}}
-      {\pgfpointpolarxy{#1}{\tikz@arc@x and \tikz@arc@y}}{\pgfpointpolarxy{#2}{\tikz@arc@x and \tikz@arc@y}}%
+      \tikz@@@arcfinal{\pgfpatharcaxes{\tikz@timer@start@angle}{\tikz@timer@end@angle}{\pgfpointxy{\tikz@arc@x}{0}}{\pgfpointxy{0}{\tikz@arc@y}}}
+      {\pgfpointpolarxy{\tikz@timer@start@angle}{\tikz@arc@x and \tikz@arc@y}}{\pgfpointpolarxy{\tikz@timer@end@angle}{\tikz@arc@x and \tikz@arc@y}}%
       \pgf@process{\pgfpointxy{\tikz@arc@x}{0}}
       \edef\tikz@timer@zero@axis{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}  
       \pgf@process{\pgfpointxy{0}{\tikz@arc@y}}

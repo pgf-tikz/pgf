@@ -1523,11 +1523,10 @@
   % has a value different from \relax, it will always be used instead
   % of the in attribute itself. This can be useful to temporarily
   % set a constant value to a key inside a mapping chain.
+  % 
+  % If the subkey /is min or max is set to "min" or "max", the mapping
+  % will always be done to the respective out min or out max values.
 
-%  \attribute clip;
-%  % The code for clipping the interval. Will set \pgf@dvcliptrue, if a
-%  % clip is necessary.
-  
   \attribute out;
   % The name of the output attribute.
   
@@ -1577,35 +1576,6 @@
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,map,map datapoint signal)
   }
 
-%   % Method
-%   \method set clip interval(#1,#2) {
-%     \def\pgfdvmin{#1}%
-%     \def\pgfdvmax{#2}%
-%     \ifx\pgfdvmin\pgfutil@empty%
-%     \else%
-%       \pgfdvmathenter{\pgf@dv@temp}{\pgfdvmin}%
-%       \pgfdvmathexitbyserializing{\pgfdvmin}{\pgf@dv@temp}%
-%     \fi
-%     \ifx\pgfdvmax\pgfutil@empty%
-%     \else%
-%       \pgfdvmathenter{\pgf@dv@temp}{\pgfdvmax}%
-%       \pgfdvmathexitbyserializing{\pgfdvmax}{\pgf@dv@temp}%
-%     \fi
-%     \pgfooeset{clip}{%
-%       \noexpand\pgf@dvclipfalse%
-%       \ifx\pgfdvmin\pgfutil@empty%
-%       \else%
-%         \noexpand\pgfdvmathenter{\noexpand\pgf@dv@temp}{\pgfdvmin}%
-%         \noexpand\pgfdvmathifless{\noexpand\pgfvalue}{\noexpand\pgf@dv@temp}{\noexpand\pgf@dvcliptrue}{}%
-%       \fi%
-%       \ifx\pgfdvmax\pgfutil@empty%
-%       \else%
-%         \noexpand\pgfdvmathenter{\noexpand\pgf@dv@temp}{\pgfdvmax}%
-%         \noexpand\pgfdvmathifless{\noexpand\pgf@dv@temp}{\noexpand\pgfvalue}{\noexpand\pgf@dvcliptrue}{}%
-%       \fi%
-%     }
-%   }
-
   % Method
   %
   % #1 = in interval minimum
@@ -1624,67 +1594,88 @@
       % Let's start with the output, it's easier...
       \pgfoolet{out min}{\pgf@out@interval@min}
       \pgfoolet{out max}{\pgf@out@interval@max}
-      \pgfdvmathsub{\pgf@out@diff}{\pgf@out@interval@max}{\pgf@out@interval@min}
-      \let\pgfvalue=\pgf@in@interval@min
-      \pgfoovalueof{trans}
-      \let\pgf@in@interval@min@transformed=\pgfvalue
-      \pgfoolet{trans in min}{\pgf@in@interval@min@transformed}%
-      \let\pgfvalue=\pgf@in@interval@max
-      \pgfoovalueof{trans}
-      \let\pgf@in@interval@max@transformed=\pgfvalue
-      \pgfdvmathsub{\pgf@diff@in@transformed}{\pgf@in@interval@max@transformed}{\pgf@in@interval@min@transformed}
-      % 
-      % Precompute the scaling
-      % 
-      \pgfdvmathdiv{\pgf@scale}{\pgf@out@diff}{\pgf@diff@in@transformed}%
-      \pgfoolet{scale}{\pgf@scale}%
+      \pgfdvmathifless{\pgf@in@interval@min}{\pgf@in@interval@max}{%
+        \pgfdvmathsub{\pgf@out@diff}{\pgf@out@interval@max}{\pgf@out@interval@min}
+        \let\pgfvalue=\pgf@in@interval@min
+        \pgfoovalueof{trans}
+        \let\pgf@in@interval@min@transformed=\pgfvalue
+        \pgfoolet{trans in min}{\pgf@in@interval@min@transformed}%
+        \let\pgfvalue=\pgf@in@interval@max
+        \pgfoovalueof{trans}
+        \let\pgf@in@interval@max@transformed=\pgfvalue
+        \pgfdvmathsub{\pgf@diff@in@transformed}{\pgf@in@interval@max@transformed}{\pgf@in@interval@min@transformed}
+        % 
+        % Precompute the scaling
+        % 
+        \pgfdvmathdiv{\pgf@scale}{\pgf@out@diff}{\pgf@diff@in@transformed}%
+        \pgfoolet{scale}{\pgf@scale}%
+      }{%
+        \pgfoolet{scale}\pgf@dv@no@scale%
+      }%
     }%
   } 
-
+  \def\pgf@dv@no@scale{noscale}
+  
   % Slot
   \method map() {
-    \pgfooget{scale}\pgf@temp
-    \ifx\pgf@temp\pgfutil@empty%
+    \pgfooget{scale}\pgf@dv@scale
+    \ifx\pgf@dv@scale\pgfutil@empty%
       % not yet setup
     \else%
-      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/const}\pgf@dv@external@value%
-      \ifx\pgf@dv@external@value\relax%
-        \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgf@dv@external@value%
-      \fi%
-      \ifx\pgf@dv@external@value\pgfutil@empty%
-        \pgf@dv@mapper@pos@check%
+      \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/is min or max}\pgf@dv@is%
+      \ifx\pgf@dv@is\pgf@min@text%
+        \pgf@dv@set@out@min%
       \else%
-        \ifx\pgf@dv@external@value\relax%
-          \pgf@dv@mapper@pos@check%
+        \ifx\pgf@dv@is\pgf@max@text%
+          \pgf@dv@set@out@max%
         \else%
-%          % Clip?
-          \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
-%          \pgfoovalueof{clip}%
-%          \ifpgf@dvclip%
-%            \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgfutil@empty%
-%          \else%
-            \pgf@dv@mapper@trans{}
-%          \fi%
+          \ifx\pgf@dv@scale\pgf@dv@no@scale%
+            \pgf@dv@mapper@goto@mid%
+          \else%
+            \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/const}\pgf@dv@external@value%
+            \ifx\pgf@dv@external@value\relax%
+              \pgfkeysgetvalue{/data point/\pgfoovalueof{in}}\pgf@dv@external@value%
+            \fi%
+            \ifx\pgf@dv@external@value\pgfutil@empty%
+              \pgf@dv@mapper@pos@check%
+            \else%
+              \ifx\pgf@dv@external@value\relax%
+                \pgf@dv@mapper@pos@check%
+              \else%
+                \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
+                \pgf@dv@mapper@trans
+              \fi%
+            \fi%
+          \fi%
         \fi%
       \fi%
-%       \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/min}\pgf@dv@external@value%
-%       \ifx\pgf@dv@external@value\relax\else%
-%         \ifx\pgf@dv@external@value\pgfutil@empty\else%
-%           \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
-%           \pgf@dv@mapper@trans{/min}
-%         \fi
-%       \fi
-%       \pgfkeysgetvalue{/data point/\pgfoovalueof{in}/max}\pgf@dv@external@value%
-%       \ifx\pgf@dv@external@value\relax\else%
-%         \ifx\pgf@dv@external@value\pgfutil@empty\else%
-%           \pgfdvmathenter{\pgfvalue}{\pgf@dv@external@value}%
-%           \pgf@dv@mapper@trans{/max}
-%         \fi
-%       \fi
     \fi%
   }
 
-  \def\pgf@dv@mapper@trans#1{
+  \def\pgf@dv@set@out@min{%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}/is min or max}\pgf@min@text%
+    \pgfooget{out min}{\pgf@minmax@temp}%
+    \pgf@dv@set@out@now%
+  }
+  \def\pgf@dv@set@out@max{%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}/is min or max}\pgf@max@text%
+    \pgfooget{out max}{\pgf@minmax@temp}%
+    \pgf@dv@set@out@now%
+  }
+  \def\pgf@dv@set@out@now{%
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{out}/offset}\pgf@dv@external@offset%
+    \ifx\pgf@dv@external@offset\relax\else%
+      \ifx\pgf@dv@external@offset\pgfutil@empty\else%
+        \pgfdvmathenter{\pgfvalue}{\pgf@minmax@temp}%
+        \pgfdvmathenter{\pgf@dv@offset}{\pgf@dv@external@offset}%
+        \pgfdvmathadd{\pgfvalue}{\pgfvalue}{\pgf@dv@offset}
+        \pgfdvmathexitbyserializing{\pgf@minmax@temp}{\pgfvalue}%
+      \fi
+    \fi
+    \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgf@minmax@temp%
+  }
+  
+  \def\pgf@dv@mapper@trans{
     \pgfooget{trans in min}{\pgf@dv@trans@in@min}%
     \pgfooget{scale}{\pgf@dv@scale}%
     \pgfooget{out min}{\pgf@dv@out@min}%
@@ -1692,7 +1683,7 @@
     \pgfdvmathsub{\pgfvalue}{\pgfvalue}{\pgf@dv@trans@in@min}%
     \pgfdvmathmul{\pgfvalue}{\pgfvalue}{\pgf@dv@scale}%
     \pgfdvmathadd{\pgfvalue}{\pgfvalue}{\pgf@dv@out@min}%
-    \pgfkeysgetvalue{/data point/\pgfoovalueof{out}#1/offset}\pgf@dv@external@offset%
+    \pgfkeysgetvalue{/data point/\pgfoovalueof{out}/offset}\pgf@dv@external@offset%
     \ifx\pgf@dv@external@offset\relax\else%
       \ifx\pgf@dv@external@offset\pgfutil@empty\else%
         \pgfdvmathenter{\pgf@dv@offset}{\pgf@dv@external@offset}%
@@ -1700,7 +1691,7 @@
       \fi
     \fi
     \pgfdvmathexitbyserializing{\pgf@temp}{\pgfvalue}%
-    \pgfkeyslet{/data point/\pgfoovalueof{out}#1}\pgf@temp%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgf@temp%
   }
 
   \def\pgf@dv@mapper@pos@check{%
@@ -1717,6 +1708,17 @@
       \pgfdvmathexitbyserializing{\pgf@temp}{\pgf@out@val}%
       \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgf@temp%
     \fi\fi%
+  }
+  
+  \def\pgf@dv@mapper@goto@mid{%
+    % Ok, compute transformed min position:
+    \pgfooget{out min}{\pgf@out@interval@min}
+    \pgfooget{out max}{\pgf@out@interval@max}
+    \pgfdvmathmulfixed{\pgf@out@interval@min}{\pgf@out@interval@min}{.5}
+    \pgfdvmathmulfixed{\pgf@out@interval@max}{\pgf@out@interval@max}{.5}
+    \pgfdvmathadd{\pgf@out@val}{\pgf@out@interval@min}{\pgf@out@interval@max}%
+    \pgfdvmathexitbyserializing{\pgf@temp}{\pgf@out@val}%
+    \pgfkeyslet{/data point/\pgfoovalueof{out}}\pgf@temp%
   }
 }
 
@@ -1826,18 +1828,6 @@
     \pgfkeysvalueof{/pgf/data visualization/obj}.connect(\pgf@dv@me,phase,phase signal)
   }
 
-
-%  % Method
-%  %
-%  % #1 = a min clip -- everything below this value will be clipped
-%  % #2 = a max value -- everything above this value will be clipped
-%  % 
-%  % Sets a clipping for the underlying interval mapper.
-%  %
-%  \method set clip interval(#1,#2) {
-%    \pgfoovalueof{interval mapper}.set clip interval({#1},{#2})%
-%  }
-
   % Getter
   %
   % Returns an interval object that stores the range of the in
@@ -1892,10 +1882,12 @@
     \ifx\pgf@temp\pgf@min@text
       \pgf@dv@lib@set@mm%
       \let\pgf@dv@value\pgfdvmin
+      \pgfkeyslet{/data point/\pgfoovalueof{in}/is min or max}\pgf@min@text%
     \else
       \ifx\pgf@temp\pgf@max@text
         \pgf@dv@lib@set@mm%
         \let\pgf@dv@value\pgfdvmax
+        \pgfkeyslet{/data point/\pgfoovalueof{in}/is min or max}\pgf@max@text%
       \else
         \pgfdvmathenter{\pgf@dv@value}{\pgf@temp}
       \fi
