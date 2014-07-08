@@ -25,10 +25,10 @@
     \pgfmath@parse@next}
 
 \def\pgfmath@catcodes{% Maybe unecessary.
-  \catcode`\==12%
-  \catcode`\,=12%
-  \catcode`\|=12%
-  \catcode`\&=12%
+  \catcode`\==12 %
+  \catcode`\,=12 %
+  \catcode`\|=12 %
+  \catcode`\&=12 %
 }
 
 \def\pgfmathqparse{%
@@ -38,6 +38,77 @@
     \pgfmathparse@}
   
 \def\pgfmathparse@#1{%
+    % No (math) units yet. 
+    \global\pgfmathunitsdeclaredfalse
+    \global\pgfmathmathunitsdeclaredfalse
+    % Expand expression so any reamining CSs are registers
+    % or box dimensions (i.e. |\wd|, |\ht|, |\dp|).
+    \edef\pgfmath@expression{#1}%
+	%
+	\expandafter\pgfmathparse@trynumber@loop\pgfmath@expression\pgfmath@parse@stop
+	%
+	% this here is the _real_ parser. it is invoked by
+	% \pgfmathparse@trynumber@loop if that says "this is no number"
+	%\pgfmathparse@@\pgfmath@parse@stop%
+}
+
+\def\pgfmath@parse@stop{\pgfmath@parse@stop}% equals only itsself
+
+\def\pgfmathparse@trynumber@token{numeric}
+\begingroup
+\def\\{\global\let\pgf@let@space@token= } \\ % now, \pgf@let@space@token is a space token
+\endgroup
+
+% This a "fast-lane": if the expressions consist merely of number
+% tokens, we can simply return the number as-is.
+%
+% This is significantly faster and should resemble the 80% use-case.
+%
+% #1 a single token
+\def\pgfmathparse@trynumber@loop{%
+	\futurelet\pgfmath@token@let\pgfmathparse@trynumber@loop@
+}%
+\def\pgfmathparse@trynumber@loop@#1{%
+	\ifx\pgfmath@token@let\pgf@let@space@token
+		% Hm. we found a white space... and we have no support for
+		% trimming. That means we have to assume that the white space
+		% occurred somewhere in the middle - and fall back to the
+		% expensive method.
+		\def\pgfmath@parse@next{\pgfmathparse@@#1}%
+	\else
+		\ifx\pgfmath@token@let\bgroup%
+			% oh! We found '{' #1.
+			% Well, these braces appear to be special; fall back to
+			% the complicated routine...
+			\let\pgfmath@parse@next=\pgfmathparse@@
+		\else
+			\ifx\pgfmath@token@let\pgfmath@parse@stop
+				% Ah: we have passed the check! The expression consists only
+				% of 0123456789. , so do not parse anything and return it
+				% as-is!
+				\let\pgfmath@parse@next=\pgfmathparse@expression@is@number
+			\else
+				\expandafter\ifx\csname pgfmath@token@\pgfmathparse@trynumber@token @\string#1\endcsname\relax%
+					% hm. It is none of 0123456789.
+					\let\pgfmath@parse@next=\pgfmathparse@@
+				\else
+					% continue... we only found one of 0123456789. so
+					% far...
+					\let\pgfmath@parse@next=\pgfmathparse@trynumber@loop
+				\fi
+			\fi
+		\fi
+	\fi
+	\pgfmath@parse@next
+}%
+
+\def\pgfmathparse@expression@is@number{%
+	\let\pgfmathresult=\pgfmath@expression
+    \pgfmath@smuggleone\pgfmathresult%
+  \endgroup
+  \ignorespaces
+}%
+\def\pgfmathparse@@#1\pgfmath@parse@stop{%
     % We are inside a group (opened in |\pgfmathparse| or
     % |\pgfmathqparse|). 
     % Stuff for calc compatiability.
@@ -50,12 +121,6 @@
     \let\depthof=\pgfmath@calc@depthof
     % Restore font (defined in pgfmathutil.code.tex)
     \pgfmath@selectfont
-    % Expand expression so any reamining CSs are registers
-    % or box dimensions (i.e. |\wd|, |\ht|, |\dp|).
-    \edef\pgfmath@expression{#1}%
-    % No (math) units yet. 
-    \global\pgfmathunitsdeclaredfalse
-    \global\pgfmathmathunitsdeclaredfalse
     % Set up stack.
     \pgfmath@stack@operation={{}{}{}}%
     \pgfmath@stack@operand={{}{}{}}%
