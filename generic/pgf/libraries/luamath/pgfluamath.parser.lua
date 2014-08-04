@@ -26,6 +26,7 @@ local match = lpeg.match
 local space_pattern = S(" \n\r\t")^0
 local tex_unit = 
         P('pt') + P('mm') + P('cm') + P('in') + 
+		-- while valid units, the font-depending ones need special attention... move them to the TeX side. For now.
         -- P('ex') + P('em') + 
 		P('bp') + P('pc') + 
         P('dd') + P('cc') + P('sp');
@@ -268,6 +269,17 @@ local function number_optional_units_eval(x, unit)
 	end
 end
 
+-- @param scale the number.
+-- @param controlsequence either nil in which case just the number must be returned or a control sequence
+-- @see controlsequence_eval
+local function scaled_controlsequence_eval(scale, controlsequence, intSuffix)
+	if controlsequence==nil then
+		return scale
+	else
+		return scale * controlsequence_eval(controlsequence, intSuffix)
+	end
+end
+
 -- Grammar
 --
 -- for me: 
@@ -291,7 +303,10 @@ local G = P{ "initialRule",
 	Postfix = Factor * (postfix_operator * space_pattern)^-1 / postfix_eval;
 	Factor = 
 		 (
-		number_pattern / number_optional_units_eval
+		number_pattern / number_optional_units_eval * 
+			-- this construction will evaluate number_pattern with 'number_optional_units_eval' FIRST.
+			-- also accept '0.5 \pgf@x' here:
+			space_pattern *controlsequence_pattern^-1 / scaled_controlsequence_eval
 		+ func
 		+ functionWithoutArg
 		+ openparen_pattern * Exp * closeparen_pattern
