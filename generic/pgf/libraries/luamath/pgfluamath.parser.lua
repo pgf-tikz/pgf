@@ -26,7 +26,8 @@ local match = lpeg.match
 local space_pattern = S(" \n\r\t")^0
 local tex_unit = 
         P('pt') + P('mm') + P('cm') + P('in') + 
-        P('ex') + P('em') + P('bp') + P('pc') + 
+        -- P('ex') + P('em') + 
+		P('bp') + P('pc') + 
         P('dd') + P('cc') + P('sp');
 
 local one_digit_pattern = R("09")
