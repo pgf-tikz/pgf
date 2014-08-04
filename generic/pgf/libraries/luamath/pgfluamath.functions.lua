@@ -12,6 +12,30 @@
 
 local pgfluamathfunctions = pgfluamathfunctions or {}
 
+-- Maps function names to their function.
+--
+-- Note that this allows to register functions which are not in pgfluamathfunctions. 
+--
+-- Note that the string keys are not necessarily the same as the function
+-- names. In particular, the math expression "not(1,1)" will execute notPGF(1,1) 
+--
+-- Note that each function which is added to pgfluamathfunctions will _automatically_ be inserted into this map, see __newindex.
+-- (I fear it will not be erased directly...)
+pgfluamathfunctions.stringToFunctionMap = {}
+
+local newFunctionAllocatedCallback = function(table,key,value)
+	local keyName = tostring(key):gsub("PGF","")
+	if not value then
+		stringToFunctionMap[keyName] = nil
+	elseif type(value) == 'function' then
+		-- remember it, and strip PGF suffix (i.e. remember 'not' instead of 'notPGF')
+		pgfluamathfunctions.stringToFunctionMap[keyName] = value
+	end
+	rawset(table,key,value)
+end
+
+setmetatable(pgfluamathfunctions, { __newindex = newFunctionAllocatedCallback })
+
 local mathabs, mathacos, mathasin = math.abs, math.acos, math.asin
 local mathatan, mathatan2, mathceil = math.atan, math.atan2, math.ceil
 local mathcos, mathcosh, mathdeg = math.cos, math.cosh, math.deg
@@ -53,7 +77,7 @@ function pgfluamathfunctions.factorial(x)
    if x == 0 then
       return 1
    else
-      return x * factorial(x-1)
+      return x * pgfluamathfunctions.factorial(x-1)
    end
 end
 
@@ -268,30 +292,37 @@ end
 function pgfluamathfunctions.Sin(x)
    return mathsin(mathrad(x))
 end
+pgfluamathfunctions.sin=pgfluamathfunctions.Sin
 
 function pgfluamathfunctions.Cos(x)
    return mathcos(mathrad(x))
 end
+pgfluamathfunctions.cos=pgfluamathfunctions.Cos
 
 function pgfluamathfunctions.Tan(x)
    return mathtan(mathrad(x))
 end
+pgfluamathfunctions.tan=pgfluamathfunctions.Tan
 
 function pgfluamathfunctions.aSin(x)
    return mathdeg(mathasin(x))
 end
+pgfluamathfunctions.asin=pgfluamathfunctions.aSin
 
 function pgfluamathfunctions.aCos(x)
    return mathdeg(mathacos(x))
 end
+pgfluamathfunctions.acos=pgfluamathfunctions.aCos
 
 function pgfluamathfunctions.aTan(x)
    return mathdeg(mathatan(x))
 end
+pgfluamathfunctions.atan=pgfluamathfunctions.aTan
 
 function pgfluamathfunctions.aTan2(y,x)
    return mathdeg(mathatan2(y,x))
 end
+pgfluamathfunctions.atan2=pgfluamathfunctions.aTan2
 
 function pgfluamathfunctions.pointnormalised (pgfx, pgfy)
    local pgfx_normalised, pgfy_normalised
@@ -308,6 +339,91 @@ function pgfluamathfunctions.pointnormalised (pgfx, pgfy)
       tex.dimen['pgf@y'] = tostring(pgfy_normalised) .. "pt"
    end
    return nil
+end
+
+local isnan = function(x)
+    return x ~= x
+end
+
+pgfluamathfunctions.isnan = isnan
+
+local infty = 1/0
+pgfluamathfunctions.infty = infty
+
+local nan = math.sqrt(-1)
+pgfluamathfunctions.nan = nan
+
+local stringlen = string.len
+local globaltonumber = tonumber
+local stringsub=string.sub
+local stringformat = string.format
+local stringsub = string.sub
+
+-- like tonumber(x), but it also accepts nan, inf, infty, and the TeX FPU format
+function pgfluamathfunctions.tonumber(x)
+    if type(x) == 'number' then return x end
+    if not x then return x end
+    
+    local len = stringlen(x)
+    local result = globaltonumber(x)
+    if not result then 
+        if len >2 and stringsub(x,2,2) == 'Y' and stringsub(x,len,len) == ']' then
+            -- Ah - some TeX FPU input of the form 1Y1.0e3] . OK. transform it
+            local flag = stringsub(x,1,1)
+            if flag == '0' then
+                -- ah, 0.0
+                result = 0.0
+            elseif flag == '1' then
+                result = globaltonumber(stringsub(x,3, len-1))
+            elseif flag == '2' then
+                result = globaltonumber("-" .. stringsub(x,3, len-1))
+            elseif flag == '3' then
+                result = nan
+            elseif flag == '4' then
+                result = infty
+            elseif flag == '5' then
+                result = -infty
+            end
+        else
+            local lower = x:lower()
+            if lower == 'nan' then 
+                result = nan
+            elseif lower == 'inf' or lower == 'infty' then 
+                result = infty
+            elseif lower == '-inf' or lower == '-infty' then 
+                result = -infty 
+            end
+        end
+    end    
+
+    return result
+end
+
+-- a helper function which has no catcode issues when communicating with TeX:
+function pgfluamathfunctions.tostringfixed(x)
+    return stringformat("%f", x)
+end
+
+-- converts an input number to a string which is accepted by the TeX FPU
+function pgfluamathfunctions.toTeXstring(x)
+    local result = ""
+    if x ~= nil then
+        if x == infty then result = "4Y0.0e0]"
+        elseif x == -infty then result = "5Y0.0e0]"
+        elseif isnan(x) then result = "3Y0.0e0]"
+        elseif x == 0 then result = "0Y0.0e0]"
+        else
+            -- FIXME : this is too long. But I do NOT want to loose digits!
+            -- -> get rid of trailing zeros...
+            result = stringformat("%.10e", x)
+            if x > 0 then
+                result = "1Y" .. result .. "]"
+            else
+                result = "2Y" .. stringsub(result,2) .. "]"
+            end
+        end
+    end
+    return result
 end
 
 return pgfluamathfunctions

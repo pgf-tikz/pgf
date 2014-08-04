@@ -38,10 +38,39 @@
   \def\pgfutil@luaescapestring#1{}
 \fi
 
+\pgfutil@directlua{%
+  pgfluamathfunctions = require("pgfluamath.functions")
+  pgfluamathparser = require("pgfluamath.parser")}
+
 % End of luatex stuff
 % *******************************************************************
 
 % Loading part: based on fpu library
+
+
+% if LUA failed to evaluate the expression, it will be evaluated in
+% TeX as fallback. This boolean defines if the error message shall be
+% shown or suppressed. The default is to suppress it and show any
+% resulting TeX errors.
+%
+% If LUA fails \pgfmathresult will be empty.
+\newif\ifpgfluamathshowerrormessage
+
+% Defines what happens if LUA failed to evaluate the expression: if
+% this is true, the TeX parser will be invoked as fallback.
+%
+% This happens
+% - for \chardef'ed boxes for which LUA lacks evaluation capabilities
+% - if the expression includes some function which is unavailable in
+%   LUA (defined only in TeX)
+% - some special cases which simply haven't been added to the LUA
+%   parser (yet).
+%   At the time of this writing, this includes 
+% -- arrays created via '{}' and indexed with '[]'
+% -- strings with "<str>"
+% -- 'scalar' function
+% -- hex/octal/binary input
+\newif\ifpgfluamathenableTeXfallback
 
 \newif\ifpgfluamathcomputationactive
 \newif\ifpgfluamathparseractive
@@ -97,7 +126,33 @@
   luamath/off/.code={%
     \pgfluamath@makecomputationinactive
     \pgfluamath@makeparserinactive},
-  luamath/.default=only computation}
+  luamath/.default=only computation,
+  %
+  % activates ONLY the parser. This is fast and does not replace the
+  % \pgfmath* functions.
+  % @see |parser and computation| which also allows to write
+  % \pgfmathadd{1}{2} to call LUA
+  luamath/parser/.code={%
+    \pgfutil@ifluatex
+      \pgfluamath@makeparseractive
+    \else
+      \pgfmath@error{Sorry, you need the luaTeX engine to use the
+        luamath library}%
+    \fi,
+  },
+	luamath/output format/.is choice,
+	luamath/output format/fixed/.code=	{\def\pgfluamath@outputformat@choice{0}},
+	% returns results for use in the FPU
+	luamath/output format/float/.code=	{\def\pgfluamath@outputformat@choice{1}},
+	luamath/output format/fixed,
+	% this is merely useful for debugging purposes, I guess.
+	luamath/show error message/.is if=pgfluamathshowerrormessage,
+	luamath/enable TeX fallback/.is choice,
+	luamath/enable TeX fallback/true/.code={\pgfluamathenableTeXfallbacktrue\pgfluamathshowerrormessagefalse},
+	luamath/enable TeX fallback/false/.code={\pgfluamathenableTeXfallbackfalse\pgfluamathshowerrormessagetrue},
+	luamath/enable TeX fallback/.default=true,
+	luamath/enable TeX fallback=true,
+}
 
 \def\pgfluamath@uninstall@appendcmd#1{%
   \expandafter\gdef\expandafter\pgfluamath@uninstall\expandafter{%
@@ -107,9 +162,6 @@
 % uninstall assemblation.
 \def\pgfluamath@checkuninstallcmd{%
   \pgfutil@ifundefined{pgfluamath@uninstall}{%
-    \pgfutil@directlua{%
-      pgfluamathfunctions = require("pgfluamath.functions")
-      pgfluamathparser = require("pgfluamath.parser")}
     \global\let\pgfluamath@uninstall=\pgfutil@empty
   }{%
     % We already HAVE an uninstall command (prepared globally).
@@ -334,38 +386,45 @@
 
 \newif\ifpgfluamathunitsdeclared
 
+% true if and only if LUA failed to evaluate the expression and the
+% expression was evaluated by means of the TeX parser as fallback.
+%
+% This happens
+% - for \chardef'ed boxes for which LUA lacks evaluation capabilities
+% - if the expression includes some function which is unavailable in
+%   LUA (defined only in TeX)
+% - some special cases which simply haven't been added to the LUA
+%   parser (yet).
+%   At the time of this writing, this includes 
+% -- arrays created via '{}' and indexed with '[]'
+% -- strings with "<str>"
+% -- 'scalar' function
+% -- hex/octal/binary input
+\newif\ifpgfluamathusedTeXfallback
+
+% Parses the math expression and defines \pgfmathresult and
+% \ifpgfmathunitsdeclared to contain the result.
+%
+% If \ifpgfluamathparseractive then the result is also assigned to
+% \pgfmathresult. Furthermore, if the expression cannot be evaluated (because LUA does not support
+% it), it will be evaluated by mean of TeX as fallback.
+%
+% @see \ifpgfluamathusedTeXfallback
+% @see \ifpgfluamathshowerrormessage
 \def\pgfluamathparse#1{%
-  \pgfluamathunitsdeclaredfalse
-  % The following "two passes" (TeX -> lua -> TeX -> lua -> TeX) is
-  % required for chadef'ed named boxes. The parser 
-  % adds \number in front of the box name (e.g. \mybox ->
-  % \number\mybox). Then this is expanded to the chardef'ed number via
-  % \edef expansion.
-  \edef\pgfluamath@temp{%
-    \pgfutil@directlua{%
-    % Double quotes " are needed here. On the lua side, single quotes
-    % ' are used. Take care to don't mix them.
-      pgfluamathparser.parse("\pgfutil@luaescapestring{#1}")
-      tex.sprint(parsed_expression)}}%
-  % We can now feed back the evaluator.
-  \edef\pgfluamathresult{%
-    \pgfutil@directlua{%
-      pgfluamathparser.eval('\pgfluamath@temp')
-      if pgfluamathparser.result == nil then
-        tex.print('nil')
-      else
-        tex.print(pgfluamathparser.result)
-      end}}%
-  \csname pgfluamathunitsdeclared\pgfutil@directlua{%
-    if pgfluamathparser.units_declared == true then
-      tex.print('true')
-    else
-      tex.print('false')
-    end}\endcsname
-  \ifpgfluamathparseractive
-    \let\pgfmathresult\pgfluamathresult
-    \let\ifpgfmathunitsdeclared=\ifpgfluamathunitsdeclared
-  \fi}
+  \pgfluamathusedTeXfallbackfalse
+  \pgfutil@directlua{pgfluamathparser.texCallParser(
+  	"\pgfutil@luaescapestring{#1}",
+	\pgfluamath@outputformat@choice, 
+	\ifpgfluamathshowerrormessage true\else false\fi)%
+  }%
+  \ifx\pgfmathresult\pgfutil@empty
+	  \ifpgfluamathenableTeXfallback
+	     \pgfluamathusedTeXfallbacktrue
+	     \pgfluamath@pgfmathparse{#1}%
+	  \fi
+  \fi
+}
 
 \endinput
 % NEW: CJ (06 March 2012) Work in progress
