@@ -9,6 +9,14 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more details.
 --
 -- $Id$	
+--
+-- usage:
+--
+-- pgfluamathparser = require("pgfluamath.parser")
+--
+-- local result = pgfluamathparser.pgfmathparse("1+ 2*4^2")
+--
+-- This LUA class has a direct backend in \pgfuselibrary{luamath}, see the documentation of that TeX package.
 
 local pgfluamathparser = pgfluamathparser or {}
 
@@ -315,7 +323,7 @@ local G = P{ "initialRule",
 	;
 }
 
--- This is the (only fully functional) math parser function in this module.
+-- This is the math parser function in this module.
 --
 -- @param str a string like "1+1" which is accepted by the PGF math language
 -- @return either nil if the string is illegal or the resulting number (or string)
