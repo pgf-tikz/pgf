@@ -15,6 +15,9 @@
 % Some luatex stuff. Should be put elsewhere (e.g. in
 % pgfutil-luatex-engine).
 
+\edef\pgfliblua@oldcatcodedoublequote{\the\catcode`\"}%
+\catcode`\"=12
+
 % We assume luatex version > 0.39:
 %   - \directlua <general text> will work
 %   - \directlua is the only luatex primitive that we can assume
@@ -41,6 +44,27 @@
 \pgfutil@directlua{%
   pgfluamathfunctions = require("pgfluamath.functions")
   pgfluamathparser = require("pgfluamath.parser")}
+
+
+% Patch some configuration macros such that the modifications are
+% available in LUA as well:
+\pgfkeys{
+	/pgf/trig format/deg/.add code={}{\directlua{pgfluamathfunctions.setTrigFormat("deg")}},
+	/pgf/trig format/rad/.add code={}{\directlua{pgfluamathfunctions.setTrigFormat("rad")}},
+}
+% ... and reactivate the key:
+\pgfmathiftrigonometricusesdeg{%
+	\pgfkeys{/pgf/trig format/deg}%
+}{%
+	\pgfkeys{/pgf/trig format/rad}%
+}%
+	
+
+\let\pgfmathsetseed@pgfbasic = \pgfmathsetseed
+\def\pgfmathsetseed#1{%
+	\pgfmathsetseed@pgfbasic{#1}%
+	\directlua{pgfluamathfunctions.setRandomSeed(pgfluamathfunctions.tonumber("\pgfmathresult"))}%
+}%
 
 % End of luatex stuff
 % *******************************************************************
@@ -429,133 +453,5 @@
   \fi
 }
 
+\catcode`\"=\pgfliblua@oldcatcodedoublequote
 \endinput
-% NEW: CJ (06 March 2012) Work in progress
-\documentclass{minimal}
-
-\usepackage{pgfmath}
-
-\makeatletter
-\let\pgfutil@directlua\directlua
-
-\directlua{dofile('pgfmathparser.lua')}
-
-\def\pgfluamathdeclarefunction#1#2#3{%
-  \pgfutil@directlua{%
-    pgfluamath.declare_new_function('#1',#2,#3)}}
-
-\pgfluamathdeclarefunction{add}{2}{%
-  function (a,b) return a + b end}
-
-\pgfluamathdeclarefunction{substract}{2}{%
-  function (a,b) return a - (b) end}
-
-\pgfluamathdeclarefunction{neg}{1}{%
-  function (a) return -(a) end}
-
-\pgfluamathdeclarefunction{multiply}{2}{%
-  function (a,b) return a * b end}
-
-\pgfluamathdeclarefunction{divide}{2}{%
-  function (a,b) return a / b end}
-
-\pgfluamathdeclarefunction{pow}{2}{%
-  function (a,b) return math.pow(a,b) end}
-
-\pgfluamathdeclarefunction{deg}{1}{%
-  function (a) return math.deg(a) end}
-
-\pgfluamathdeclarefunction{ifthenelse}{3}{%
-  function (a,b,c) if a == 1 then return b else return c end end}
-
-\pgfluamathdeclarefunction{equal}{2}{%
-  function (a,b) if a == b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{greater}{2}{%
-  function (a,b) if a > b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{less}{2}{%
-  function (a,b) if a < b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{notequal}{2}{%
-  function (a,b) if a < b or a > b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{notless}{2}{%
-  function (a,b) if a >= b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{notgreater}{2}{%
-  function (a,b) if a <= b then return 1 else return 0 end end}
-
-\pgfluamathdeclarefunction{andPGF}{2}{%
-  function (a,b) if (a < 0 or a > 0) and (b < 0 or b > 0) then return
-  1 else return 0 end end}
-
-\pgfluamathdeclarefunction{orPGF}{2}{%
-  function (a,b) if (a < 0 or a > 0) or (b < 0 or b > 0) then return 1
-  else return 0 end end}
-
-\pgfluamathdeclarefunction{modulo}{2}{%
-  % This is the definition of the lua % modulo operator
-  % The % operator cannot be used here (catcode issue)
-  function (a,b) return a - math.floor(a/b)*b end}
-
-\pgfluamathdeclarefunction{int}{1}{%
-  function (a) return a - pgfluamath.defined_functions.modulo.code(a,1) end}
-
-\pgfluamathdeclarefunction{frac}{1}{%
-  function (a) return pgfluamath.defined_functions.modulo.code(a,1) end}
-
-\pgfluamathdeclarefunction{factorial}{1}{%
-  function (a)
-    a = math.abs(pgfluamath.defined_functions.int.code(a))
-    if a == 1 then
-      return 1
-    else
-      return a * pgfluamath.defined_functions.factorial.code(a-1)
-    end
-  end}
-
-\pgfluamathdeclarefunction{sqrt}{1}{%
-  function (a) return math.sqrt(a) end}
-
-
-
-\def\pgfluamathparseandresult#1{%
-  \pgfutil@directlua{%
-    local s = pgfluamath.transform_math_expr('#1',pgfluamath.defined_functions_pattern)
-    texio.write_nl('pgfluamath: parsed expression "' .. s .. '"')
-    loadstring('tex.sprint(-1,' .. s .. ')')()}}
-
-\makeatother
-\begin{document}
-
-$\pgfluamathparseandresult{1+2} = 3$
-
-$\pgfluamathparseandresult{2*3} = 6$
-
-$\pgfluamathparseandresult{1--1} = 2$
-
-$\pgfluamathparseandresult{6/2} = 3$
-
-$\pgfluamathparseandresult{2^2} = 4$
-
-$\pgfluamathparseandresult{1>2} = 0$
-
-$\pgfluamathparseandresult{2>1} = 1$
-
-$\pgfluamathparseandresult{1!=1} = 0$
-
-$\pgfluamathparseandresult{1?2:3} = 2$
-
-$\pgfluamathparseandresult{1.0||0} = 1$
-
-$\pgfluamathparseandresult{1&&0} = 0$
-
-$\pgfluamathparseandresult{sqrt(2)} = \pgfmathparse{sqrt(2)}\pgfmathresult$
-
-%\pgfluamathparseandresult{{1,{2,3-7}[1],4}[1]^2}
-
-\end{document}
-% Local Variables:
-% TeX-engine: luatex
-% End:

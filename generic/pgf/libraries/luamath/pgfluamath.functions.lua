@@ -48,6 +48,33 @@ local mathrandomseed, mathsin = math.randomseed, math.sin
 local mathsinh, mathsqrt, mathtanh = math.sinh, math.sqrt, math.tanh
 local mathtan = math.tan
 
+local trigFormatToRadians = mathrad
+
+local radiansToTrigFormat = mathdeg
+
+pgfluamathfunctions.TrigFormat = { 'deg', 'rad' }
+pgfluamathfunctions.stringToFunctionMap["TrigFormat"] = nil
+
+-- choice is one of the valid choices in TrigFormat.
+function pgfluamathfunctions.setTrigFormat(choice)
+	if choice == 'deg' then
+		trigFormatToRadians = mathrad
+		radiansToTrigFormat = mathdeg
+	elseif choice == 'rad' then
+		local identity = function(x) return x end
+		trigFormatToRadians = identity
+		radiansToTrigFormat = identity
+	else
+		error("The argument '" .. tostring(choice) .. "' is no valid choice for setTrigFormat.")
+	end
+end
+pgfluamathfunctions.stringToFunctionMap["setTrigFormat"] = nil
+
+pgfluamathfunctions.setRandomSeed = mathrandomseed
+pgfluamathfunctions.stringToFunctionMap["setRandomSeed"] = nil
+
+-------------------------------------------
+
 function pgfluamathfunctions.add(x,y)
    return x+y
 end
@@ -79,10 +106,6 @@ function pgfluamathfunctions.factorial(x)
    else
       return x * pgfluamathfunctions.factorial(x-1)
    end
-end
-
-function pgfluamathfunctions.deg(x)
-   return mathdeg(x)
 end
 
 function pgfluamathfunctions.ifthenelse(x,y,z)
@@ -206,7 +229,17 @@ function pgfluamathfunctions.rnd()
 end
 
 function pgfluamathfunctions.rand()
-   return mathrandom(-1,1)
+   return -1 + mathrandom() *2
+end
+
+function pgfluamathfunctions.random(x,y)
+   if x == nil and y == nil then
+      return mathrandom()
+   elseif y == nil then
+      return mathrandom(x)
+   else
+      return mathrandom(x,y)
+   end
 end
 
 function pgfluamathfunctions.deg(x)
@@ -290,39 +323,50 @@ function pgfluamathfunctions.Mod(x,y)
 end
 
 function pgfluamathfunctions.Sin(x)
-   return mathsin(mathrad(x))
+   return mathsin(trigFormatToRadians(x))
 end
 pgfluamathfunctions.sin=pgfluamathfunctions.Sin
 
 function pgfluamathfunctions.Cos(x)
-   return mathcos(mathrad(x))
+   return mathcos(trigFormatToRadians(x))
 end
 pgfluamathfunctions.cos=pgfluamathfunctions.Cos
 
 function pgfluamathfunctions.Tan(x)
-   return mathtan(mathrad(x))
+   return mathtan(trigFormatToRadians(x))
 end
 pgfluamathfunctions.tan=pgfluamathfunctions.Tan
 
 function pgfluamathfunctions.aSin(x)
-   return mathdeg(mathasin(x))
+   return radiansToTrigFormat(mathasin(x))
 end
 pgfluamathfunctions.asin=pgfluamathfunctions.aSin
 
 function pgfluamathfunctions.aCos(x)
-   return mathdeg(mathacos(x))
+   return radiansToTrigFormat(mathacos(x))
 end
 pgfluamathfunctions.acos=pgfluamathfunctions.aCos
 
 function pgfluamathfunctions.aTan(x)
-   return mathdeg(mathatan(x))
+   return radiansToTrigFormat(mathatan(x))
 end
 pgfluamathfunctions.atan=pgfluamathfunctions.aTan
 
 function pgfluamathfunctions.aTan2(y,x)
-   return mathdeg(mathatan2(y,x))
+   return radiansToTrigFormat(mathatan2(y,x))
 end
 pgfluamathfunctions.atan2=pgfluamathfunctions.aTan2
+pgfluamathfunctions.atantwo=pgfluamathfunctions.aTan2
+
+function pgfluamathfunctions.cot(x)
+	return pgfluamathfunctions.cos(x) / pgfluamathfunctions.sin(x)
+end
+function pgfluamathfunctions.sec(x)
+	return 1 / pgfluamathfunctions.cos(x)
+end
+function pgfluamathfunctions.cosec(x)
+	return 1 / pgfluamathfunctions.sin(x)
+end
 
 function pgfluamathfunctions.pointnormalised (pgfx, pgfy)
    local pgfx_normalised, pgfy_normalised
