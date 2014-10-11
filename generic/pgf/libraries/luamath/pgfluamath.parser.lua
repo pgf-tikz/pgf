@@ -323,6 +323,16 @@ local G = P{ "initialRule",
 	;
 }
 
+-- does not reset units_declared.
+local function pgfmathparseinternal(str)
+	local result = match(G,str)
+	if result == nil then
+		error("The string '" .. str .. "' is no valid PGF math expression. Please check for syntax errors.")
+	end
+	return result
+end
+
+
 -- This is the math parser function in this module.
 --
 -- @param str a string like "1+1" which is accepted by the PGF math language
@@ -330,12 +340,7 @@ local G = P{ "initialRule",
 function pgfluamathparser.pgfmathparse(str)
 	pgfluamathparser.units_declared = false
 
-	return match(G,str)
-end
-
--- does not reset units_declared.
-local function pgfmathparseinternal(str)
-	return match(G,str)
+	return pgfmathparseinternal(str)
 end
 
 local pgfmathparse = pgfluamathparser.pgfmathparse
