@@ -336,7 +336,9 @@ end
 -- This is the math parser function in this module.
 --
 -- @param str a string like "1+1" which is accepted by the PGF math language
--- @return either nil if the string is illegal or the resulting number (or string)
+-- @return the result of the expression.
+-- 
+-- Throws an error if the string is no valid expression.
 function pgfluamathparser.pgfmathparse(str)
 	pgfluamathparser.units_declared = false
 
