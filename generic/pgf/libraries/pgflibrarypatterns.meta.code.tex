@@ -1,0 +1,319 @@
+% Copyright 2014 by Mark Wibrow
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+
+
+
+% Pattern keys
+\pgfkeys{/pgf/patterns/.cd,
+  name/.code=\edef\pgf@pat@name{#1},
+  type/.is choice,
+  type/uncolored/.code=\def\pgf@pat@type{0},
+  type/colored/.code=\def\pgf@pat@type{1},
+  parameters/.store in=\pgf@pat@parameters,
+  keys/.store in=\pgf@pat@keys,
+  bottom left/.store in=\pgf@pat@bottomleft,
+  top right/.store in=\pgf@pat@topright,
+  tiling size/.store in=\pgf@pat@tilesize,
+  tiling transformation/.store in=\pgf@pat@transformation,
+  code/.store in=\pgf@pat@code,
+  name=,
+  type=uncolored,
+  parameters=,
+  keys=,
+  bottom left=,
+  top right=,
+  tiling size=,
+  tiling transformation=,
+  code=,
+}
+
+
+\def\pgf@pat@processpoint#1{\pgf@process{#1}}
+\def\pgf@pat@processtransformations#1{#1}
+
+
+% New pattern definition command
+%
+% #1 is a list of keys.
+%
+% Example:
+%
+% \pgfdeclarepattern{%
+%   name=Lines,
+%   type=uncolored,
+%   parameters={\pgfpatternlinewidth,\pgfpatternangle,\pgfpatternlinesep},
+%   keys={
+%     width/.store length=\pgfpatternlinewidth, width=.4pt,
+%     angle/.set macro=\pgfpatternangle,        angle=0,
+%     sep/.store length=\pgfpatternlinesep,     sep=3pt,
+%   },
+%   bottom left={\pgfqpoint{0pt}{-\pgfpatternlinewidth}},
+%   top right={\pgfqpoint{100pt}{\pgfpatternlinewidth}},
+%   tiling size={\pgfpoint{99.9pt}{\pgfpatternlinesep-.1pt}},
+%   tiling transformation={\pgftransformrotate{\pgfpatternangle}},
+%   code={
+%     \pgfsetlinewidth{\pgfpatternlinewidth}
+%     \pgfpathmoveto{\pgfpointorigin}
+%     \pgfpathlineto{\pgfqpoint{100pt}{0pt}}
+%     \pgfusepath{stroke}
+%   }
+% }
+\def\pgfdeclarepattern#1{%
+  \begingroup%
+    \nullfont% <- For some reason necessary
+    \def\pgf@pat@opts{#1}%
+    \global\let\pgf@pat@keys@marshal=\pgfutil@empty%
+    \pgfkeys{/pgf/patterns/.cd,#1}%
+    \pgfutil@ifundefined{pgf@pattern@name\pgf@pat@name}{%
+      \ifx\pgf@pat@parameters\pgfutil@empty%
+        \expandafter\global\expandafter\let\csname pgf@pattern@name@\pgf@pat@name @parameters\endcsname=\pgfutil@empty%
+        \pgf@declarepattern%    
+      \else%
+        \expandafter\global\expandafter\let\csname pgf@pattern@name@\pgf@pat@name @parameters\endcsname=\pgf@pat@parameters%
+        \expandafter\global\expandafter\let\csname pgf@pattern@name@\pgf@pat@name\endcsname=\pgf@pat@opts%
+      \fi%
+      \ifx\pgf@pat@keys\pgfutil@empty%
+        \global\let\pgf@pat@keys@marshal=\pgfutil@empty%
+     \else%
+        \pgfutil@toks@\expandafter{\pgf@pat@keys}%
+        \xdef\pgf@pat@keys@marshal{\noexpand\pgfkeys{/pgf/pattern keys/.cd, \the\pgfutil@toks@}}%
+     \fi%
+    }{%
+       \pgferror{Pattern `\pgf@pat@name' already defined}%
+    }%
+  \endgroup%
+  \ifx\pgf@pat@keys@marshal\pgfutil@empty%
+  \else%
+    \pgf@pat@keys@marshal%
+  \fi%  
+}
+
+\let\pgf@pat@codebeforehook=\relax
+\let\pgf@pat@codeafterhook=\relax
+\let\pgf@pat@declarepre=\relax
+\let\pgf@pat@declarepost=\relax
+
+\let\pgf@pat@pre=\relax
+\let\pgf@pat@post=\relax
+
+\def\pgf@declarepattern{%
+   \pgfsysprotocol@getcurrentprotocol\pgf@pattern@temp%
+   {%
+     \pgfinterruptpath%
+       \pgfpicturetrue%
+       \pgf@relevantforpicturesizetrue%
+       \pgftransformreset%
+       \pgfsysprotocol@setcurrentprotocol\pgfutil@empty%
+       \pgfsysprotocol@bufferedtrue%
+       \pgfsys@beginscope%
+       \pgfinterruptboundingbox%
+       \pgfsetarrows{-}%
+       \pgf@pat@codebeforehook%
+       \pgf@pat@code%
+       \pgfsys@endscope%
+       \pgf@pat@codeafterhook%
+       \endpgfinterruptboundingbox%
+       \pgfsysprotocol@getcurrentprotocol\pgf@pattern@code%
+       \global\let\pgf@pattern@code=\pgf@pattern@code%
+     \endpgfinterruptpath%
+     \pgf@pat@declarepost%
+     \pgf@pat@processpoint{\pgf@pat@bottomleft}%
+     \pgf@xa=\pgf@x%
+     \pgf@ya=\pgf@y%
+     \pgf@pat@processpoint{\pgf@pat@topright}%
+     \pgf@xb=\pgf@x%
+     \pgf@yb=\pgf@y%
+     \pgf@pat@processpoint{\pgf@pat@tilesize}%
+     \pgf@xc=\pgf@x%
+     \pgf@yc=\pgf@y%
+     \begingroup%
+       \pgftransformreset%
+       \pgf@pat@processtransformations\pgf@pat@transformation%
+       \pgfgettransformentries\aa\ab\ba\bb\shiftx\shifty%
+       \global\edef\pgf@pattern@matrix{{\aa}{\ab}{\ba}{\bb}{\shiftx}{\shifty}}%
+     \endgroup% 
+     % Now, build a name for the pattern
+     \pgfutil@tempcnta=\pgf@pattern@number%
+     \advance\pgfutil@tempcnta by1\relax%
+     \xdef\pgf@pattern@number{\the\pgfutil@tempcnta}%
+     \expandafter\xdef\csname pgf@pattern@name@\pgf@pat@name\endcsname{\the\pgfutil@tempcnta}%
+     \expandafter\xdef\csname pgf@pattern@type@\pgf@pat@name\endcsname{\pgf@pat@type}%
+     \xdef\pgf@marshal{\noexpand\pgfsys@declarepattern@meta%
+       {\csname pgf@pattern@name@\pgf@pat@name\endcsname}%
+       {\the\pgf@xa}{\the\pgf@ya}{\the\pgf@xb}{\the\pgf@yb}{\the\pgf@xc}{\the\pgf@yc}\pgf@pattern@matrix{\pgf@pattern@code}{\pgf@pat@type}}%
+   }%
+   \pgf@marshal%
+   \pgfsysprotocol@setcurrentprotocol\pgf@pattern@temp%   
+ }
+
+
+% Move these.
+\def\pgfutil@g@namelet#1{\expandafter\pgfutil@g@@namelet\csname#1\endcsname}
+\def\pgfutil@g@@namelet#1#2{\expandafter\global\expandafter\let\expandafter#1\csname#2\endcsname}
+
+
+% Alias a pattern (with options, if required)
+% 
+% \pgfpatternalias{MyPattern}{Lines[width=2pt]}
+\def\pgfpatternalias#1#2{%
+  \begingroup%
+    \let\pgf@set@fillpattern=\pgf@patternalias%
+    \def\pgf@pat@aliasname{#1}%
+    \pgfsetfillpattern{#2}{black}%
+  \endgroup}
+
+\def\pgf@patternalias#1#2{%
+  \pgfutil@g@namelet{pgf@pattern@name@\pgf@pat@aliasname @parameters}{pgf@pattern@name@#1@parameters}%
+  \pgfutil@g@namelet{pgf@pattern@name@\pgf@pat@aliasname}{pgf@pattern@name@#1}%
+  \pgfutil@g@namelet{pgf@pattern@type@\pgf@pat@aliasname}{pgf@pattern@type@#1}%
+}
+
+
+\def\pgf@pat@checkname#1{%
+  \pgfutil@in@[{#1}%]
+  \ifpgfutil@in@%
+    \pgf@pat@@checkname#1\pgf@stop%
+  \else%
+    \pgf@pat@@checkname#1[]\pgf@stop%
+  \fi%
+}
+\def\pgf@pat@@checkname#1[#2]#3\pgf@stop{%
+   \def\pgf@pat@onlinename{#1}%
+   \def\pgf@pat@onlineopts{#2}%
+}
+
+
+
+% Set fill pattern.
+%
+% #1 - pattern name (with options, if required)
+% #2 - pattern color (for uncolored patterns)
+%
+% \pgfsetfillpattern{MyUncoloredPattern}{black}
+% \pgfsetfillpattern{MyColoredPattern}{}
+% \pgfsetfillpattern{MyColoredPattern[opt=value]}{}
+%
+\def\pgfsetfillpattern#1#2{%
+  \pgf@pat@checkname{#1}%
+  \pgfutil@ifundefined{pgf@pattern@name@\pgf@pat@onlinename}%
+  {%
+    \pgferror{Undefined pattern `\pgf@pat@onlinename'}%
+  }%
+  {%
+     % Patterns from old patterns library 
+     % won't have pgf@pattern@name@#1@parameters
+     \pgfutil@ifundefined{pgf@pattern@name@\pgf@pat@onlinename @parameters}{%
+        \expandafter\pgf@set@fillpattern\expandafter{\pgf@pat@onlinename}{#2}%
+     }{%
+     % Check for parameters...
+     \expandafter\ifx\csname pgf@pattern@name@\pgf@pat@onlinename @parameters\endcsname\pgfutil@empty%
+       % ...not mutable.
+       \expandafter\pgf@set@fillpattern\expandafter{\pgf@pat@onlinename}{#2}%
+     \else%
+       % ...OK, mutable. Lots to do:
+       % Set on-line options if required.
+       \ifx\pgf@pat@onlineopts\pgfutil@empty%
+       \else%
+         \pgfutil@toks@\expandafter{\pgf@pat@onlineopts}%
+         \edef\pgf@marshal{\noexpand\pgfkeys{/pgf/pattern keys/.cd,\the\pgfutil@toks@}}%
+         \pgf@marshal%
+       \fi%
+       % Get the current values of the parameters...
+       \edef\pgf@pat@currentparameters{\csname pgf@pattern@name@\pgf@pat@onlinename @parameters\endcsname}%
+       % ...and hence the new (mutable) name.
+       \edef\pgf@pat@mutablename{\pgf@pat@onlinename @\pgf@pat@currentparameters}%
+       % Define new pattern if necessary.
+       \pgfutil@ifundefined{pgf@pattern@name@\pgf@pat@mutablename}%
+       {%
+         \expandafter\expandafter\expandafter\pgfdeclarepattern\expandafter\expandafter\expandafter{\csname pgf@pattern@name@\pgf@pat@onlinename\endcsname,
+           name=\pgf@pat@mutablename,parameters=, keys=}%
+       }%
+       {}%
+       \expandafter\pgf@set@fillpattern\expandafter{\pgf@pat@mutablename}{#2}%
+     \fi%
+    }%
+  }%
+}
+
+\def\pgf@set@fillpattern#1#2{%
+  % Pattern types are 0 (uncolored) or 1 (colored)
+  \ifcase\csname pgf@pattern@type@#1\endcsname\relax%
+     \pgfutil@colorlet{pgf@tempcolor}{#2}%
+     \pgfutil@ifundefined{applycolormixins}{}{\applycolormixins{pgf@tempcolor}}%
+     \pgfutil@extractcolorspec{pgf@tempcolor}{\pgf@tempcolor}%
+     \expandafter\pgfutil@convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
+       \expandafter\pgf@set@fill@patternuncolored\pgf@rgbcolor\relax{#1}%
+  \or%
+    \expandafter\expandafter\expandafter\pgfsys@setpatterncolored\expandafter\expandafter{\csname pgf@pattern@name@#1\endcsname}%
+    \else%
+     % Hmm. Error?     
+    \fi%
+ }
+
+
+% Extra handlers.
+% 
+% Could move these to pgfkeys
+%
+\pgfkeys{handlers/.set length/.code={\pgfkeysdef{\pgfkeyscurrentpath}{\pgfmathsetlength{#1}{##1}}},
+handlers/.set count/.code={\pgfkeysdef{\pgfkeyscurrentpath}{\pgfmathsetcount{#1}{##1}}}, 
+handlers/.set macro/.code={\pgfkeysdef{\pgfkeyscurrentpath}{\pgfmathparse{##1}\let#1=\pgfmathresult}},
+handlers/.store length/.code={\pgfkeysdef{\pgfkeyscurrentpath}{\pgfmathsetlengthmacro{#1}{##1}}}, 
+}
+
+% Unravel key to get child key
+%
+\def\pgf@pat@unravel#1/{%
+  \pgfutil@ifnextchar\pgf@stop{\def\pgf@pat@unraveled{#1}}{\pgf@pat@unravel}}
+\pgfkeys{/handlers/.pattern/.code={%
+  \edef\pgf@tmp{\pgfkeyscurrentpath}%
+  \expandafter\pgf@pat@unravel\pgf@tmp/\pgf@stop%
+  \expandafter\pgfpatternalias\expandafter{pgf@pat@unraveled}{#1}%
+}}
+
+
+% Some meta patterns definitions
+%
+\pgfdeclarepattern{%
+  name=Lines,
+  type=uncolored,
+  parameters={\pgfpatternlinewidth,\pgfpatternangle,\pgfpatternlinesep},
+  keys={
+    width/.store length=\pgfpatternlinewidth, width=.4pt,
+    angle/.set macro=\pgfpatternangle,        angle=0,
+    sep/.store length=\pgfpatternlinesep,     sep=3pt,
+  },
+  bottom left={\pgfqpoint{0pt}{-\pgfpatternlinewidth}},
+  top right={\pgfqpoint{100pt}{\pgfpatternlinewidth}},
+  tiling size={\pgfpoint{99.9pt}{\pgfpatternlinesep-.1pt}},
+  tiling transformation={\pgftransformrotate{\pgfpatternangle}},
+  code={
+    \pgfsetlinewidth{\pgfpatternlinewidth}
+    \pgfpathmoveto{\pgfpointorigin}
+    \pgfpathlineto{\pgfqpoint{100pt}{0pt}}
+    \pgfusepath{stroke}
+  }
+}
+
+\pgfpatternalias{Horizontal Lines}{Lines[angle=0]}    
+\pgfpatternalias{Vertical Lines}{Lines[angle=90]}
+\pgfpatternalias{North West Lines}{Lines[angle=135]}
+\pgfpatternalias{North East Lines}{Lines[angle=45]}
+
+
+
+
+
+
+
+
+
+
