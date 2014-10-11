@@ -333,9 +333,96 @@ function pgfluamathparser.pgfmathparse(str)
 	return match(G,str)
 end
 
+-- does not reset units_declared.
+local function pgfmathparseinternal(str)
+	return match(G,str)
+end
+
 local pgfmathparse = pgfluamathparser.pgfmathparse
 local tostringfixed = pgfluamathfunctions.tostringfixed
 local tostringfpu = pgfluamathfunctions.toTeXstring
+
+local tmpFunctionArgumentPrefix = "tmpVar"
+local stackOfLocalFunctions = {}
+
+-- This is a backend for PGF's 'declare function'.
+--   \tikzset{declare function={mu(\x,\i)=\x^\i;}}
+-- will boil down to
+--   pgfluamathparser.declareExpressionFunction("mu", 2, "#1^#2")
+--
+-- The local function will be pushed on a stack of known local functions and is
+-- available until popLocalExpressionFunction() is called. TeX will call this using
+-- \aftergroup.
+--
+-- @param name the name of the new function
+-- @param numArgs the number of arguments
+-- @param expression an expression containing #1, ... #n where n is numArgs
+--
+-- ATTENTION: local functions behave DIFFERENTLY in LUA!
+-- In LUA, local variables are not expanded whereas TeX expands them.
+-- The difference is 
+--
+-- declare function={mu1(\x,\i)=\x^\i;}
+-- \pgfmathparse{mu1(-5,2)} --> -25
+-- \pgfluamathparse{mu1(-5,2)} --> 25
+--
+-- x = -5
+-- \pgfmathparse{mu1(x,2)} --> 25
+-- \pgfluamathparse{mu1(x,2)} --> 25
+--
+-- In an early prototype, I simulated TeX's expansion to fix the first case (successfully).
+-- BUT: that "simulated expansion" broke the second case because LUA will evaluate "x" and hand -5 to the local function.
+-- I decided to keep it as is. Perhaps we should fix PGF's expansion approach in TeX (which is ugly anyway)
+function pgfluamathparser.pushLocalExpressionFunction(name, numArgs, expression)
+	-- now we have "tmpVar1^tmpVar2" instead of "#1^#2"
+	local normalizedExpr = expression:gsub("#", tmpFunctionArgumentPrefix)
+	local restores = {}
+	local tmpVars = {}
+	for i=1,numArgs do
+		local tmpVar = tmpFunctionArgumentPrefix .. tostring(i)
+		tmpVars[i] = tmpVar
+	end
+
+	local newFunction = function(...)
+		local args = table.pack(...)
+		
+		-- define "tmpVar1" ... "tmpVarN" to return args[i].
+		-- Of course, we need to restore "tmpVar<i>" after we return!
+		for i=1,numArgs do
+			local tmpVar = tmpVars[i]
+			local value = args[i]
+			restores[i] = pgfStringToFunctionMap[tmpVar]
+			pgfStringToFunctionMap[tmpVar] = function () return value end
+		end
+
+		-- parse our expression.
+			
+		-- FIXME : this here is an attempt to mess around with "units_declared".
+		--   It would be better to call pgfmathparse and introduce some
+		--   semaphore to check if pgfmathparse is a nested call-- in this case, it should
+		--   not reset units_declared. But there is no "finally" block and pcall is crap (looses stack trace).
+		local success,result = pcall(pgfmathparseinternal, normalizedExpr)
+	
+		-- remove 'tmpVar1', ... from the function table:
+		for i=1,numArgs do
+			local tmpVar = tmpVars[i]
+			pgfStringToFunctionMap[tmpVar] = restores[i]
+		end
+		
+		if success==false then error(result) end
+		return result
+	end
+	table.insert(stackOfLocalFunctions, name)
+	pgfStringToFunctionMap[name] = newFunction
+end
+
+function pgfluamathparser.popLocalExpressionFunction()
+	local name = stackOfLocalFunctions[#stackOfLocalFunctions]
+	pgfStringToFunctionMap[name] = nil
+	-- this removes the last element:
+	table.remove(stackOfLocalFunctions)
+end
+
 
 -- A Utility function which simplifies the interaction with the TeX code
 -- @param expression the input expression (string)
