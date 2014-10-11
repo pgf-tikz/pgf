@@ -79,7 +79,7 @@ function pgfluamathfunctions.add(x,y)
    return x+y
 end
 
-function pgfluamathfunctions.substract(x,y)
+function pgfluamathfunctions.subtract(x,y)
    return x-y
 end
 
@@ -91,8 +91,16 @@ function pgfluamathfunctions.multiply(x,y)
    return x*y
 end
 
+function pgfluamathfunctions.veclen(x,y)
+   return mathsqrt(x*x+y*y)
+end
+
 function pgfluamathfunctions.divide(x,y)
    return x/y
+end
+
+function pgfluamathfunctions.div(x,y)
+   return mathfloor(x/y)
 end
 
 function pgfluamathfunctions.pow(x,y)
@@ -138,6 +146,14 @@ function pgfluamathfunctions.less(x,y)
    else
       return 0
    end
+end
+
+function pgfluamathfunctions.min(x,y)
+	return mathmin(x,y)
+end
+
+function pgfluamathfunctions.max(x,y)
+	return mathmax(x,y)
 end
 
 function pgfluamathfunctions.notequal(x,y)
@@ -212,16 +228,36 @@ function pgfluamathfunctions.exp(x)
    return mathexp(x)
 end
 
-function pgfluamathfunctions.log(x)
+function pgfluamathfunctions.ln(x)
    return mathlog(x)
 end
 
+local logOf10 = mathlog(10)
 function pgfluamathfunctions.log10(x)
-   return mathlog10(x)
+   return mathlog(x) / logOf10
+end
+
+local logOf2 = mathlog(2)
+function pgfluamathfunctions.log2(x)
+   return mathlog(x) / logOf2
 end
 
 function pgfluamathfunctions.sqrt(x)
    return mathsqrt(x)
+end
+
+function pgfluamathfunctions.sign(x)
+	if x < 0 then
+		return -1.0
+	elseif x == 0 then
+		return 0.0
+	else
+		return 1.0
+	end
+end
+function pgfluamathfunctions.real(x)
+   -- "ensure that x contains a decimal point" is kind of a no-op here, isn't it!?
+   return x
 end
 
 function pgfluamathfunctions.rnd()
@@ -262,7 +298,7 @@ function pgfluamathfunctions.gcd(a, b)
    if b == 0 then
       return a
    else
-      return gcd(b, a%b)
+      return pgfluamathfunctions.gcd(b, a%b)
    end
 end
 
@@ -276,7 +312,7 @@ function pgfluamathfunctions.isprime(a)
    else
       local i, imax = 2, mathceil(mathsqrt(a)) + 1
       while ifisprime and (i < imax) do
-	 if gcd(a,i) ~= 1 then
+	 if pgfluamathfunctions.gcd(a,i) ~= 1 then
 	    ifisprime = false
 	 end
 	 i = i + 1
@@ -310,6 +346,45 @@ function pgfluamathfunctions.split_braces_to_table(s)
    return t
 end
 
+function pgfluamathfunctions.mathtrue()
+	return 1.0
+end
+pgfluamathfunctions.stringToFunctionMap["true"] = pgfluamathfunctions.mathtrue
+
+function pgfluamathfunctions.mathfalse()
+	return 0.0
+end
+pgfluamathfunctions.stringToFunctionMap["false"] = pgfluamathfunctions.mathfalse
+
+function pgfluamathfunctions.frac(a)
+	-- should be positive, apparently
+	return mathabs(a - pgfluamathfunctions.int(a))
+end
+
+function pgfluamathfunctions.int(a)
+	if a < 0 then
+		return -mathfloor(mathabs(a))
+	else
+		return mathfloor(a)
+	end
+end
+
+function pgfluamathfunctions.iseven(a)
+	if (a % 2) == 0 then
+		return 1.0
+	else
+		return 0.0
+	end
+end
+
+function pgfluamathfunctions.isodd(a)
+	if (a % 2) == 0 then
+		return 0.0
+	else
+		return 1.0
+	end
+end
+
 function pgfluamathfunctions.mod(x,y)
    if x/y < 0 then
       return -(mathabs(x)%mathabs(y))
@@ -319,13 +394,28 @@ function pgfluamathfunctions.mod(x,y)
 end
 
 function pgfluamathfunctions.Mod(x,y)
-   return mathabs(x)%mathabs(y)
+	local tmp = pgfluamathfunctions.mod(x,y)
+	if tmp < 0 then
+		tmp = tmp + y
+	end
+	return tmp
 end
 
 function pgfluamathfunctions.Sin(x)
    return mathsin(trigFormatToRadians(x))
 end
 pgfluamathfunctions.sin=pgfluamathfunctions.Sin
+
+function pgfluamathfunctions.cosh(x)
+   return mathcosh(x)
+end
+function pgfluamathfunctions.sinh(x)
+   return mathsinh(x)
+end
+
+function pgfluamathfunctions.tanh(x)
+   return mathtanh(x)
+end
 
 function pgfluamathfunctions.Cos(x)
    return mathcos(trigFormatToRadians(x))
