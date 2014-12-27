@@ -288,9 +288,9 @@ end
 
 function pgfluamathfunctions.round(x)
    if x<0 then
-      return -mathceil(mathabs(x)) 
+      return -mathfloor(mathabs(x)+0.5) 
    else 
-      return mathceil(x) 
+      return mathfloor(x + 0.5) 
    end
 end
 

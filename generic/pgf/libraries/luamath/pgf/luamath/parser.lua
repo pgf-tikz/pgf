@@ -12,7 +12,7 @@
 --
 -- usage:
 --
--- pgfluamathparser = require("pgfluamath.parser")
+-- pgfluamathparser = require("pgf.luamath.parser")
 --
 -- local result = pgfluamathparser.pgfmathparse("1+ 2*4^2")
 --
@@ -20,7 +20,7 @@
 
 local pgfluamathparser = pgfluamathparser or {}
 
-pgfluamathfunctions = require("pgfluamath.functions")
+pgfluamathfunctions = require("pgf.luamath.functions")
 
 -- lpeg is always present in luatex
 local lpeg = require("lpeg")
