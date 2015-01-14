@@ -37,15 +37,14 @@ end
 setmetatable(pgfluamathfunctions, { __newindex = newFunctionAllocatedCallback })
 
 local mathabs, mathacos, mathasin = math.abs, math.acos, math.asin
-local mathatan, mathatan2, mathceil = math.atan, math.atan2, math.ceil
-local mathcos, mathcosh, mathdeg = math.cos, math.cosh, math.deg
+local mathatan, mathceil = math.atan, math.ceil
+local mathcos, mathdeg = math.cos, math.deg
 local mathexp, mathfloor, mathfmod = math.exp, math.floor, math.fmod
-local mathfrexp, mathhuge, mathldexp = math.frexp, math.huge, math.ldexp
-local mathlog, mathlog10, mathmax = math.log, math.log10, math.max
-local mathmin, mathmodf, mathpi = math.min, math.modf, math.pi
-local mathpow, mathrad, mathrandom = math.pow, math.rad, math.random
+local mathlog, mathmax = math.log, math.max
+local mathmin, mathpi = math.min, math.pi
+local mathrad, mathrandom = math.rad, math.random
 local mathrandomseed, mathsin = math.randomseed, math.sin
-local mathsinh, mathsqrt, mathtanh = math.sinh, math.sqrt, math.tanh
+local mathsqrt = math.sqrt
 local mathtan = math.tan
 
 local trigFormatToRadians = mathrad
@@ -104,7 +103,8 @@ function pgfluamathfunctions.div(x,y)
 end
 
 function pgfluamathfunctions.pow(x,y)
-   return mathpow(x,y)
+	-- do not use math.pow -- it is deprecated as of LUA 5.3
+   return x^y
 end
 
 function pgfluamathfunctions.factorial(x)
@@ -406,15 +406,21 @@ function pgfluamathfunctions.Sin(x)
 end
 pgfluamathfunctions.sin=pgfluamathfunctions.Sin
 
+
 function pgfluamathfunctions.cosh(x)
-   return mathcosh(x)
+	-- math.cosh is deprecated as of LUA 5.3 . reimplement it:
+   return 0.5* (mathexp(x) + mathexp(-x))
 end
 function pgfluamathfunctions.sinh(x)
-   return mathsinh(x)
+	-- math.sinh is deprecated as of LUA 5.3 . reimplement it:
+   return 0.5* (mathexp(x) - mathexp(-x))
 end
 
+local sinh = pgfluamathfunctions.sinh
+local cosh = pgfluamathfunctions.cosh
 function pgfluamathfunctions.tanh(x)
-   return mathtanh(x)
+	-- math.tanh is deprecated as of LUA 5.3 . reimplement it:
+   return sinh(x)/cosh(x)
 end
 
 function pgfluamathfunctions.Cos(x)
@@ -441,6 +447,14 @@ function pgfluamathfunctions.aTan(x)
    return radiansToTrigFormat(mathatan(x))
 end
 pgfluamathfunctions.atan=pgfluamathfunctions.aTan
+
+local mathatan2
+if math.atan2 == nil then
+	-- math.atan2 has been deprecated since LUA 5.3
+	mathatan2 = function (y,x) return mathatan(y,x) end
+else
+	mathatan2 = math.atan2
+end
 
 function pgfluamathfunctions.aTan2(y,x)
    return radiansToTrigFormat(mathatan2(y,x))
