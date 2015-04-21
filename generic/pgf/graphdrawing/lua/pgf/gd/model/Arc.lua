@@ -30,14 +30,21 @@
 -- |optionsXxxx| functions, that will search for options in all of the
 -- synactic edges that ``belong'' to an edge.
 --
--- Similarly, even though an arc has a |path| field, setting this
--- field does not immediately set the paths of the syntactic
--- edges. Indeed, you will normally want to setup and modify the
--- |path| field of an arc during your algorithm and only at the very
--- end, ``write it back'' to the multiple syntactic edges underlying
--- the graph. For this purpose, the method |sync| is used, which is
--- called automatically for the |ugraph| and |digraph| of a scope as
--- well as for spanning trees.
+-- In order to \emph{set} options of the edges, you can set the
+-- |generate_options| field of an arc (which is |nil| by default), see
+-- the |declare_parameter_sequence| function for the syntax. Similar
+-- to the |path| field below, the options set in this table are
+-- written back to the syntactic edges during a sync.
+--
+-- In detail, the following happens: Even though an arc has a |path|
+-- field and a |generated_options| field, setting these fields does
+-- not immediately set the paths of the syntactic edges nor does it
+-- generate options. Indeed, you will normally want to setup and
+-- modify the |path| field of an arc during your algorithm and only at
+-- the very end, ``write it back'' to the multiple syntactic edges
+-- underlying the graph. For this purpose, the method |sync| is used,
+-- which is called automatically for the |ugraph| and |digraph| of a
+-- scope as well as for spanning trees.
 --
 -- The bottom line concerning the |path| field is the following: If
 -- you just want a straight line along an arc, just leave the field as
@@ -56,9 +63,12 @@
 -- in case of a loop.
 -- @field path If non-nil, the path of the arc. See the description
 -- above.
--- @field syntactic_edges This field is an array containing syntactic
--- edges (``real'' edges in the syntactic digraph) that underly this
--- arc. 
+-- @field generated_options If non-nil, some options to be passed back
+-- to the original syntactic edges, see the description above.
+-- @field syntactic_edges In case this arc is an arc in the syntatic
+-- digraph (and only then), this field contains an array containing
+-- syntactic  edges (``real'' edges in the syntactic digraph) that
+-- underly this arc. Otherwise, the field will be empty or |nil|.
 --
 local Arc = {}
 Arc.__index = Arc
@@ -434,13 +444,14 @@ end
 
 
 ---
--- Sync an |Arc| with its syntactic edges. This causes the following:
+-- Sync an |Arc| with its syntactic edges with respect to the path and
+-- generated options. It causes the following to happen:
 -- If the |path| field of the arc is |nil|, nothing
--- happens. Otherwise, a copy of the |path| is created. However, for
--- every path element that is a function, this function is invoked
--- with the syntactic edge as its parameter. The result of this call
--- should now be a |Coordinate|, which will replace the function in
--- the |Path|.
+-- happens with respect to the path. Otherwise, a copy of the |path|
+-- is created. However, for every path element that is a function,
+-- this function is invoked with the syntactic edge as its
+-- parameter. The result of this call should now be a |Coordinate|,
+-- which will replace the function in the |Path|.
 --
 -- You use this method like this:
 --\begin{codeexample}[code only, tikz syntax=false]
@@ -450,6 +461,10 @@ end
 --...
 --arc:sync()
 --\end{codeexample}
+--
+-- Next, similar to the path, the field |generated_options| is
+-- considered. If it is not |nil|, then all options listed in this
+-- field are appended to all syntactic edges underlying the arc.
 --
 -- Note that this function will automatically be called for all arcs
 -- of the |ugraph|, the |digraph|, and the |spanning_tree| of an
@@ -492,6 +507,26 @@ function Arc:sync()
 	e.path = clone
        end
     end
+  end
+  if self.generated_options then
+    local head = self.head
+    local tail = self.tail
+    local a = self.syntactic_digraph:arc(tail,head)
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+         for _,o in ipairs(self.generated_options) do
+            e.generated_options[#e.generated_options+1] = o
+         end
+      end
+    end
+    local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+         for _,o in ipairs(self.generated_options) do
+            e.generated_options[#e.generated_options+1] = o
+         end
+       end
+    end  
   end
 end
 
