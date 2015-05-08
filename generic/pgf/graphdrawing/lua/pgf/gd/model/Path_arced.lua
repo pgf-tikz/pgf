@@ -152,13 +152,13 @@ local function arc (path, start, start_angle, end_angle, radius, trans, centerx,
     
     -- Ok, now create a series of arcs that are at most quarter-cycles:
     while start_angle < end_angle do
-      if start_angle + 115 < end_angle then
+      if start_angle + 179 < end_angle then
 	-- Add a quarter cycle:
 	startx, starty, start_angle = subarc(path, startx, starty, start_angle, 90, radius, trans, centerx, centery)
       elseif start_angle + 90 < end_angle then
 	-- Add 60 degrees to ensure that there are no small segments
 	-- at the end
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, 60, radius, trans, centerx, centery)
+	startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
       else
 	subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
 	break
@@ -178,13 +178,13 @@ local function arc (path, start, start_angle, end_angle, radius, trans, centerx,
     
     -- Ok, now create a series of arcs that are at most quarter-cycles:
     while start_angle > end_angle do
-      if start_angle - 115 > end_angle then
+      if start_angle - 179 > end_angle then
 	-- Add a quarter cycle:
 	startx, starty, start_angle = subarc(path, startx, starty, start_angle, -90, radius, trans, centerx, centery)
       elseif start_angle - 90 > end_angle then
 	-- Add 60 degrees to ensure that there are no small segments
 	-- at the end
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, -60, radius, trans, centerx, centery)
+	startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
       else
 	subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
 	break
