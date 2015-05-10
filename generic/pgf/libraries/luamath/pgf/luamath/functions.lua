@@ -536,6 +536,8 @@ function pgfluamathfunctions.tonumber(x)
             local lower = x:lower()
             if lower == 'nan' then 
                 result = nan
+			elseif lower == "-nan" then
+				result = nan
             elseif lower == 'inf' or lower == 'infty' then 
                 result = infty
             elseif lower == '-inf' or lower == '-infty' then 
