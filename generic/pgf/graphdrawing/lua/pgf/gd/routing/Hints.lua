@@ -15,7 +15,7 @@
 -- communicate certain possibilities concerning the routing of edges
 -- to edge routing algorithms. This partly decouples the choice of the
 -- vertex positioning algorithms from the choice of edge routing
--- algorithm. For instance, the a simple necklace routing, it is
+-- algorithm. For instance, for a simple necklace routing, it is
 -- unclear whether the edges on the necklace should be routing ``along
 -- the necklace'' or not. Thus, necklace routing algoirthms will
 -- ``hint'' that a necklace is present and only when the
