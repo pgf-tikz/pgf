@@ -6,7 +6,7 @@ TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 all: $(doc).pdf
 
 dist: FORCE
-	$(latex) --jobname=pgfmanual '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 \input{$(doc)}'
+	$(latex) -shell-escape --jobname=pgfmanual '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 \input{$(doc)}'
 	makeindex $(doc).idx
 	@echo "$(doc).pdf remade with auto-xref support. Check if auto-xrefs work and rerun make dist if not."
 
@@ -17,7 +17,7 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.pdf: $(doc).tex $(doc).ind 
-	TEXINPUTS="$(TEXINPUTS)" $(latex) '$(linkcode)' $(doc).tex
+	TEXINPUTS="$(TEXINPUTS)" $(latex) -shell-escape '$(linkcode)' $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	@echo "Use 'make dist' to generate auto-xrefs."
 
