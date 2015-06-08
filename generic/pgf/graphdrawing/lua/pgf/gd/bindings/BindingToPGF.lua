@@ -75,7 +75,7 @@ local table_in_pgf_syntax
 
 function BindingToPGF:resumeGraphDrawingCoroutine(text)
   tex.print(text)
-  tex.print("\\directlua{pgf.gd.interface.InterfaceToDisplay.resumeGraphDrawingCoroutine()}")
+  tex.print("\\pgfgdresumecoroutinetrue") 
 end
 
 
