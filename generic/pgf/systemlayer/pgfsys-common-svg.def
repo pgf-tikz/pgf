@@ -25,9 +25,7 @@
 }
 \def\pgf@sys@addtosvgpath#1{\pgfutil@g@addto@macro\pgf@sys@svgpath{#1\space}}
 \def\pgf@sys@flushsvgpath{\pgfsysprotocol@literal{\pgf@sys@svgpath}\global\let\pgf@sys@svgpath=\pgfutil@empty}
-\def\pgf@sys@svg@gs#1{%
-  {\pgfsysprotocol@literal{<g #1>\pgfsys@svg@newline }}\global\advance\pgf@sys@svg@scopecount by1\relax%
-}
+\def\pgf@sys@svg@gs#1{{\pgfsysprotocol@literal{<g #1>\pgfsys@svg@newline }}\global\advance\pgf@sys@svg@scopecount by1\relax}
 \newcount\pgf@sys@svg@objectcount
 
 {\catcode`\%=12
@@ -114,12 +112,14 @@
 
 % Scopes
 \newcount\pgf@sys@svg@scopecount
-\def\pgfsys@beginscope{%
+
+\def\pgfsys@beginscope{\pgf@sys@svg@beginscope{}}%
+\def\pgf@sys@svg@beginscope#1{%
   \edef\pgf@sys@svg@thescopecount{\the\pgf@sys@svg@scopecount}%
   \begingroup%
     \pgf@sys@svg@scopecount=1\relax%
-    \pgfsysprotocol@literal{<g>\pgfsys@svg@newline }%
-  }
+    \pgfsysprotocol@literal{<g#1>\pgfsys@svg@newline }%
+}
 \def\pgfsys@endscope{%
     \loop%
       \pgfsysprotocol@literal{</g>\pgfsys@svg@newline }%
@@ -129,6 +129,14 @@
   \endgroup%
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%  
 }
+\def\pgfsys@begin@animation@scope{%
+  \global\advance\pgf@sys@svg@anim@scope@id@count by1\relax%
+  \pgf@sys@svg@beginscope{ id="pgfg\the\pgf@sys@svg@anim@scope@id@count"}
+  \edef\pgf@sys@svg@current@anim@scope@id{pgfg\the\pgf@sys@svg@anim@scope@id@count}%
+}%
+
+\def\pgfsys@animationscope@id{\pgf@sys@svg@current@anim@scope@id}
+
 
 % Graphics state
 \def\pgfsys@setdash#1#2{%
@@ -433,6 +441,9 @@
 
 % Animation
 
+\newcount\pgf@sys@svg@anim@id@count
+\newcount\pgf@sys@svg@anim@scope@id@count
+
 \let\pgfsys@anim@val@dur\pgfutil@empty
 \let\pgfsys@anim@val@min\pgfutil@empty
 \let\pgfsys@anim@val@max\pgfutil@empty
@@ -454,6 +465,7 @@
 \let\pgfsys@anim@val@path\pgfutil@empty
 \let\pgfsys@anim@val@rotate\pgfutil@empty
 \let\pgfsys@anim@val@values\pgfutil@empty
+\expandafter\let\csname pgfsys@anim@val@xlink:href\endcsname\pgfutil@empty
 
 \def\pgf@sys@svg@key#1{%
   \expandafter\ifx\csname pgfsys@anim@val@#1\endcsname\pgfutil@empty\else%
@@ -483,14 +495,20 @@
   \pgf@sys@svg@key{by}%
   \pgf@sys@svg@key{path}%
   \pgf@sys@svg@key{rotate}
+  \pgf@sys@svg@key{xlink:href}
 }
 
 \def\pgf@sys@svg@anim#1{%
   {%
-    \edef\pgf@temp{{<#1\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
+    \edef\pgf@temp{{<#1 id="\pgfsys@next@animation@id"\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
+    \xdef\pgf@sys@svg@last@anim@id{\pgfsys@next@animation@id}%
+    \global\advance\pgf@sys@svg@anim@id@count by1\relax%
     \expandafter\pgfsysprotocol@literal\pgf@temp%    
   }%
 }
+
+\def\pgfsys@last@animation@id{\pgf@sys@svg@last@anim@id}
+\def\pgfsys@next@animation@id{pgfa\the\pgf@sys@svg@anim@id@count}
 
 \def\pgf@sys@svg@replace#1#2{%
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
@@ -546,6 +564,7 @@
 \def\pgfsys@animatemotion{\pgf@sys@svg@anim{animateMotion}}
 
 % The keys
+\def\pgfsys@animation@whom#1{\pgf@sys@svg@replace{xlink:href}{\##1}}
 \def\pgfsys@animation@dur#1{\pgf@sys@svg@replace{dur}{#1s}}
 \def\pgfsys@animation@min#1{\pgf@sys@svg@replace{min}{#1s}}
 \def\pgfsys@animation@max#1{\pgf@sys@svg@replace{max}{#1s}}

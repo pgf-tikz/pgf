@@ -10,6 +10,33 @@
 \ProvidesFileRCS $Header$
 
 
+% Begin and end an animation scope
+%
+% #1 = a scope name
+%
+% Description:
+%
+% The graphic objects created inside an animation scope can be the
+% target of an animation command (see the "whom" key). The scope name
+% can be reused and is set globally.
+
+\def\pgfanimationscope#1{%
+  \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
+  \pgfsys@begin@animation@scope%
+    \expandafter\xdef\csname pgf@anim@scope@name@#1\endcsname{\pgfsys@animationscope@id}%
+    \pgf@resetpathsizes%
+    \edef\pgfscope@linewidth{\the\pgflinewidth}%
+    \let\pgfscope@stroke@color=\pgf@strokecolor@global%
+    \let\pgfscope@fill@color=\pgf@fillcolor@global%
+    \begingroup}
+\def\endpgfanimationscope{%
+    \endgroup%
+    \global\pgflinewidth=\pgfscope@linewidth%
+    \global\let\pgf@strokecolor@global=\pgfscope@stroke@color%
+    \global\let\pgf@fillcolor@global=\pgfscope@fill@color%
+  \pgfsys@end@animation@scope%
+}
+
 
 % Animate an attribute over time
 %
@@ -119,13 +146,8 @@
 % 5) The infix operator ":" is redefined, so that it multiplies its
 %    first argument by 60 and adds the second. This implies that
 %    "1:20" equals "80" and "01:00:00" equals "3600".
-%    
-% In addition, before parsing #1, all occurrences of "08" and "09" get
-% replaced by "8" and "9", respectively. This is to allow things like
-% "01:08" for "68" since, otherwise, 08 is interpreted as an octal
-% number. This may lead to errors when these are used in, say,
-% strings. Do not rely one there errors, behaviour may change so that
-% 08 is no longer parsed as an octal inside times.
+% 6) The parsing of octal numbers is switched off to allow things like
+%    "01:08" for 68s.
 
 \def\pgfparsetime#1{%
   \begingroup%
@@ -135,39 +157,11 @@
     \pgfmathdeclareoperator{n}{@minutes}{1}{postfix}{600}
     \pgfmathdeclareoperator{h}{@hours}{1}{postfix}{600}
     \pgfmathdeclareoperator{:}{time@colon}{2}{infix}{50}
-    \let\pgf@time@parsed\pgfutil@empty%
-    \pgf@parse@time@strip@zeros#108\pgf@stop%
-    \let\pgf@time@parsed@\pgfutil@empty%
-    \expandafter\pgf@parse@time@strip@zeros@\pgf@time@parsed09\pgf@stop%
-    \expandafter\pgfmathparse\expandafter{\pgf@time@parsed@}%
+    \pgfmath@octalparsingfalse%
+    \pgfmathparse{#1}%
   \expandafter\endgroup%
   \expandafter\def\expandafter\pgftimeresult\expandafter{\pgfmathresult}  
 }
-
-\def\pgf@parse@time@strip@zeros#108#2\pgf@stop{%
-  \def\pgf@temp{#2}%
-  \ifx\pgf@temp\pgfutil@empty%
-    \expandafter\def\expandafter\pgf@time@parsed\expandafter{\pgf@time@parsed#1}%
-    \let\pgf@next\pgfutil@gobble%
-  \else%
-    \expandafter\def\expandafter\pgf@time@parsed\expandafter{\pgf@time@parsed#18}%
-    \let\pgf@next\pgf@parse@time@strip@zeros%
-  \fi%
-  \pgf@next#2\pgf@stop%
-}
-
-\def\pgf@parse@time@strip@zeros@#109#2\pgf@stop{%
-  \def\pgf@temp{#2}%
-  \ifx\pgf@temp\pgfutil@empty%
-    \expandafter\def\expandafter\pgf@time@parsed@\expandafter{\pgf@time@parsed@#1}%
-    \let\pgf@next\pgfutil@gobble%
-  \else%
-    \expandafter\def\expandafter\pgf@time@parsed@\expandafter{\pgf@time@parsed@#19}%
-    \let\pgf@next\pgf@parse@time@strip@zeros@%
-  \fi%
-  \pgf@next#2\pgf@stop%
-}
-
 
 \newif\ifpgfanim@m@encountered
 \newif\ifpgfanim@i@encountered
@@ -236,6 +230,58 @@
 % #1 = key-value pairs that are executed for the path /pgf/animation/
 
 \def\pgfanimationset{\pgfqkeys{/pgf/animation}}
+
+
+% Sets the target animation scope that should be animated.
+% 
+% #1 = A name previously passed to \pgfanimationscope
+%
+% Example:
+% 
+% \begin{pgfanimationscope}{some scope}
+%   \draw (0,0) -- (1,1);
+%   \draw (1,0) -- (2,1);
+% \end{pgfanimationscope}
+%
+% \pgfanimateattribute{fill opacity}{whom=some scope, duration=6s, to=0}
+
+\pgfanimationset{
+  whom/.code={%
+    \expandafter\let\expandafter\pgf@anim@temp\csname pgf@anim@scope@name@#1\endcsname%
+    \ifx\pgf@anim@temp\relax%
+      \pgferror{No animation scope named '#1'}
+    \else%
+      \pgfsys@animation@whom{\pgf@anim@temp},
+    \fi%
+  }
+}
+
+
+
+% Assigns a name to this animation so that it can be used as an event
+% id in another animation
+% 
+% #1 = A name
+% 
+% The name "previous" is special and always refers to the most recent
+% animation before the animation currently being constructed. 
+%
+% Example:
+% 
+% \pgfanimateattribute{fill opacity}{name=anim 1, duration=1s, from=1, to=0}
+% \pgfanimateattribute{fill opacity}{begin on={end,of=anim 1}, duration=1s, from=0, to=1}
+
+\pgfanimationset{
+  name/.code={%
+    {%
+      \expandafter\xdef\csname pgf@anim@anim@name@#1\endcsname{\pgfsys@next@animation@id}%
+    }%
+  }
+}
+
+\def\pgf@anim@anim@name@previous{\pgfsys@last@animation@id}
+
+
 
 
 % Sets the duration of an animation
@@ -454,7 +500,7 @@
 % \pgfanimateattribute{fill opacity}{begin=5s, begin on=click, duration=1s, to=0}
 % 
 % % Begin, when an object named "button" is clicked
-% \pgfanimateattribute{fill opacity}{begin on={click, of=button}, duration=1s, to=0}
+% \pgfanimateattribute{fill opacity}{begin on={click, of=button}, duration=1s, to=0, name=another animation}
 %
 % % Begin 1s after some other animation ends
 % \pgfanimateattribute{fill opacity}{begin on={end, of=another animation, delay=1s}, duration=1s, to=0}
@@ -471,18 +517,32 @@
   \let\pgfanim@event@repeat\pgfutil@empty%
   \let\pgfanim@event@delay\pgfutil@empty%
   \pgfkeys{/pgf/animation/events/.cd,#1}%
-  \ifx\pgfanim@event@key\pgfutil@empty\else%
-    \pgfsys@animation@accesskey{\pgfanim@event@key}{\pgfanim@event@delay}{#2}%
-  \else\ifx\pgfanim@event@repeat\pgfutil@empty\else%
-    \pgfsys@animation@repeat@event{\pgfanim@event@id}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
+  \ifx\pgfanim@event@key\pgfutil@empty%
+    \ifx\pgfanim@event@repeat\pgfutil@empty%
+      \ifx\pgfanim@event@event\pgfutil@empty%
+        \pgferror{No event specified}%
+      \else%
+        \pgfsys@animation@event{\pgfanim@event@id}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
+      \fi%
+    \else%
+      \pgfsys@animation@repeat@event{\pgfanim@event@id}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
+    \fi%
   \else%
-    \pgfsys@animation@event{\pgfanim@event@id}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
-  \fi\fi%
+    \pgfsys@animation@accesskey{\pgfanim@event@key}{\pgfanim@event@delay}{#2}%
+  \fi%
 }
 
 \pgfkeys{/pgf/animation/events/.cd,
   event/.store in=\pgfanim@event@event,
-  of/.store in=\pgfanim@event@id,
+  of/.code={%
+    \expandafter\let\expandafter\pgf@anim@temp\csname pgf@anim@anim@name@#1\endcsname%
+    \ifx\pgf@anim@temp\relax%
+      \pgferror{Unknown animation name '#1'.}%
+      \let\pgfanim@event@id\pgfutil@empty%
+    \else%
+      \edef\pgfanim@event@id{\pgf@anim@temp}%
+    \fi%
+  },
   key/.store in=\pgfanim@event@key,
   repeat/.code=\pgfmathparse{#1}\let\pgfanim@event@repeat\pgfmathresult,
   delay/.code=\pgfparsetime{#1}\let\pgfanim@event@delay\pgftimeresult,
@@ -498,6 +558,17 @@
   begin/.style={event=begin},
   end/.style={event=end}
 }  
+
+
+% Begins an animation after the most recent animation.
+% 
+% #1 = an optional dealy.
+% 
+% A shorthand for "begin on={of=most recent animation,delay=#1}"
+
+\pgfanimationset{
+  next/.style={begin on={end,of=previous, delay=#1}},
+}
 
 
 % Specifies the interpolation model.
