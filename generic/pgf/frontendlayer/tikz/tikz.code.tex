@@ -480,6 +480,11 @@
 \tikzset{pattern/.code=\tikzerror{You need to say \string\usetikzlibrary{patterns}},
          pattern color/.style=pattern}
 
+% Animation options
+\tikzset{animate/.code=\expandafter\def\expandafter\tikz@animate@options\expandafter{\tikz@animate@options\tikz@animate{#1}}}
+\def\tikz@animate#1{\tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}}
+\let\tikz@animate@options\pgfutil@empty
+
 % Path pictures
 \tikzset{path picture/.code=\tikz@addmode{\def\tikz@path@picture{#1}}}       
 
@@ -885,7 +890,7 @@
 
 % General node options
 \tikzset{
-  name/.code={\edef\tikz@fig@name{\tikz@pp@name{#1}}},%
+  name/.code={\edef\tikz@fig@name{\tikz@pp@name{#1}}\let\tikz@anim@group@name\tikz@fig@name},%
   name prefix/.initial=,%
   name suffix/.initial=%
 }
@@ -1703,6 +1708,7 @@
 \expandafter\let\csname tikz@protected@command\string\datavisualization\endcsname\pgfutil@empty
 \expandafter\let\csname tikz@protected@command\string\path\endcsname\pgfutil@empty
 \expandafter\let\csname tikz@protected@command\string\pic\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@protected@command\string\animate\endcsname\pgfutil@empty
 
 % Comment by TT: I hope I fixed the \tikz \foreach problem. The new
 % version will take a conservative approach and will only do fancy
@@ -1739,15 +1745,20 @@
   \let\tikz@atend@scope=\pgfutil@empty%
   \let\tikz@options=\pgfutil@empty%
   \let\tikz@mode=\pgfutil@empty%
+  \let\tikz@animate@options=\pgfutil@empty%
+  \let\tikz@anim@group@name=\pgfutil@empty%
   \tikz@transparency@groupfalse%
   \tikzset{every scope/.try,#1}%
   \tikz@options%
+  \tikz@animate@options%
   \iftikz@transparency@group\expandafter\pgftransparencygroup\expandafter[\tikz@transparency@group@options]\tikz@blend@group\fi%
+  \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
   \expandafter\tikz@atbegin@scope%
   \tikz@lib@scope@check%
 }
 \def\endtikz@scope@env{%
   \tikz@atend@scope%
+  \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
   \iftikz@transparency@group\endpgftransparencygroup\fi%
   \endgroup%
   \endpgfscope%
@@ -1822,6 +1833,7 @@
   \let\tikz@origuseasboundingbox=\useasboundingbox%
   \let\tikz@orignode=\node%
   \let\tikz@origpic=\pic%
+  \let\tikz@origanimate=\animate%
   \let\tikz@origcoordinate=\coordinate%
   \let\tikz@origmatrix=\matrix%
   \let\tikz@origcalendar=\calendar%
@@ -1835,6 +1847,7 @@
   \let\stopscope=\endscope%
   \let\path=\tikz@command@path%
   \let\againpath=\tikz@command@againpath%
+  \let\animate=\tikz@animate%
   %
   \def\draw{\path[draw]}
   \def\pattern{\path[pattern]}
@@ -1985,6 +1998,7 @@
     \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
     \let\tikz@path@do@at@end=\tikz@lib@scope@check%
     \let\tikz@options=\pgfutil@empty%
+    \let\tikz@animate@options=\pgfutil@empty%
     \let\tikz@mode=\pgfutil@empty%
     \let\tikz@moveto@waiting=\relax%
     \let\tikz@timer=\relax%
@@ -2068,7 +2082,7 @@
 % Continued...
 \def\tikz@handle@more{%
   \ifx\pgf@let@token a%
-    \let\@next=\tikz@arcA%
+    \let\@next=\tikz@a@char%
   \else%
     \ifx\pgf@let@token e%
       \let\@next=\tikz@e@char%
@@ -2153,6 +2167,8 @@
   \pgfutil@ifnextchar o{\tikz@coordinate}{\tikz@cosine}}
 \def\tikz@e@char{%
   \pgfutil@ifnextchar l{\tikz@ellipse}{\tikz@@e@char}}%
+\def\tikz@a@char{%
+  \pgfutil@ifnextchar r{\tikz@arcA}{\tikz@animate@on@path}}%
 \def\tikz@@e@char dge{%
   \pgfutil@ifnextchar f{\tikz@edgetoparent}{\tikz@edge@plain}}%
 
@@ -2238,7 +2254,7 @@
     \tikz@mode@fade@scopefalse%
   \fi%
   %
-  % Step 3: Setup options
+  % Step 5': Setup options
   % 
   \ifx\tikz@options\pgfutil@empty%
   \else%
@@ -2247,6 +2263,14 @@
       \let\pgfscope@fill@color=\pgf@fillcolor@global%
       \begingroup%
         \tikz@options%
+  \fi%
+  %
+  % Step 5'': Setup animations
+  % 
+  \ifx\tikz@animate@options\pgfutil@empty%
+  \else%
+    \pgfsys@beginscope%
+      \tikz@animate@options
   \fi%
   % 
   % Step 6: Do a fill if shade or a path picture follows.
@@ -2348,7 +2372,14 @@
   % Step 13: Add labels and nodes
   %
   \box\tikz@figbox%
+  % 
+  % Step 14: Close animation
   %
+  \ifx\tikz@animate@options\pgfutil@empty%
+  \else%
+    \pgfsys@endscope%
+  \fi%
+  % 
   % Step 14: Close option brace
   %
   \ifx\tikz@options\pgfutil@empty%
@@ -3471,13 +3502,10 @@
   \fi%
 }
 
-% Syntax 1 for arcs:
-% arc (start angle:end angle:radius)
-%
-% Syntax 2 for arcs:
-% arc (start angle:end angle:x-radius and y-radius)
-%
-% radius can be dimensionless, then the arc is in the xy-coordinate system
+% Syntax for arcs:
+% arc [options]
+% 
+% (The syntax with parentheses is deprecated.)
 \def\tikz@arcA rc{\tikz@flush@moveto\tikz@arc@cont}%
 \def\tikz@arc@cont{%
   \pgfutil@ifnextchar(%)
@@ -3648,6 +3676,8 @@
       \let\tikz@atend@scope=\pgfutil@empty%
       \let\tikz@do@after@node=\tikz@scan@next@command%
       \let\tikz@options=\pgfutil@empty%
+      \let\tikz@animate@options=\pgfutil@empty%
+      \let\tikz@anim@group@name=\pgfutil@empty%
       \let\tikz@after@path=\pgfutil@empty%
       \let\tikz@transform=\pgfutil@empty%
       \let\tikz@mode=\pgfutil@empty%
@@ -3786,6 +3816,9 @@
             \pgfscope%
               \ifx\tikz@time\pgfutil@empty\let\tikz@time\tikz@time@for@matrix\fi%
               \tikz@options%
+              \tikz@animate@options%
+              \let\tikz@animate@options\pgfutil@empty%
+              \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
               \setbox\tikz@figbox=\box\pgfutil@voidb@x%
               \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
               \let\tikzmatrixname=\tikz@fig@name%
@@ -3849,6 +3882,7 @@
 }
 \def\tikz@do@matrix@cont{%
               \tikz@atend@matrix%
+              \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
             \endpgfscope
           \endpgfinterruptpath%
       \egroup\egroup%
@@ -3903,6 +3937,9 @@
           \pgfinterruptpath%
             \pgfscope%
               \tikz@options%
+              \tikz@animate@options%
+              \let\tikz@animate@options\pgfutil@empty%
+              \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
               \setbox\tikz@figbox=\box\pgfutil@voidb@x%
               \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
               \pgfmultipartnode{\tikz@shape}{\tikz@anchor}{\tikz@fig@name}{%
@@ -3910,6 +3947,7 @@
                 {\begingroup\tikz@finish}%
                 \global\pgflinewidth=\pgfutil@tempdima%
               }%
+              \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
             \endpgfscope
           \endpgfinterruptpath%
       }}%
@@ -4525,6 +4563,16 @@
 %
 \def\tikz@let@command et#1in{%
   \tikzerror{You need to say \string\usetikzlibrary{calc} to use the let command}%
+  \tikz@scan@next@command%
+}
+
+
+% Syntax for animations:
+% animate [options] { special path }
+\def\tikz@animate@on@path nimate{\pgfutil@ifnextchar[\tikz@animate@on@path@opt{\tikz@animate@on@path@opt[]}}%
+\def\tikz@animate@on@path@opt[#1]#2{\tikz@animate@path{#1}{#2}\tikz@scan@next@command}
+\def\tikz@animate@path#1#2{
+  \tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}%
 }
 
 

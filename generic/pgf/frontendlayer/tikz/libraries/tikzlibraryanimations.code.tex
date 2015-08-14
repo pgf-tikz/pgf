@@ -1,0 +1,207 @@
+% Copyright 2015 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\ProvidesFileRCS[v\pgfversion] $Header$
+
+\usepgfmodule{animations}
+
+
+
+% 
+% The \animate command 
+%
+
+\def\tikz@animate#1{%
+  % First, go over the list and insert "animate=" before all entries
+  % surrounded by braces
+  {%
+    \toks0={}%
+    \tikz@anim@add@braces#1,\pgf@stop%
+    \expandafter}%
+  \expandafter\tikz@anim@do\expandafter{\the\toks0}%
+}
+\def\tikz@anim@add@braces{%
+  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
+    \pgfutil@ifnextchar\bgroup\tikz@anim@add@brace\tikz@anim@advace}}
+
+\def\tikz@anim@advace#1,{%
+  \toks0\expandafter{\the\toks0#1,}%
+  \tikz@anim@add@braces%
+}
+\def\tikz@anim@add@brace#1{%
+  \toks0\expandafter{\the\toks0animate={#1},}%
+  \pgfutil@ifnextchar,{\tikz@anim@add@braces@ok}{\tikzerror{Comma
+      expected in animate options}}%
+}
+\def\tikz@anim@add@braces@ok,{\tikz@anim@add@braces}
+
+
+\def\tikz@anim@do#1{%
+  {%
+    \pgfkeys{/tikz/animations/.cd,/tikz/every animate/.try,#1}%
+    \tikz@animate@what%
+  }%
+}
+
+\let\tikz@animate@whom\pgfutil@empty % A list of to-be-animated scopes
+\let\tikz@animate@what\pgfutil@empty % A list of to-be-animated attributes
+
+\pgfkeys{/tikz/animations/.cd,
+  whom/.store in=\tikz@animate@whom,
+  whom also/.code=\expandafter\def\expandafter\tikz@animate@whom\expandafter{\tikz@animate@whom,#1},
+  name/.forward to=/pgf/animation/name,
+  duration/.forward to=/pgf/animation/duration,
+  duration/.value required,
+  min duration/.forward to=/pgf/animation/min duration,
+  max duration/.forward to=/pgf/animation/max duration,
+  freeze at end/.forward to=/pgf/animation/freeze at end,
+  freeze/.style={freeze at end={#1}},
+  restart/.forward to=/pgf/animation/restart,
+  repeats/.forward to=/pgf/animation/repeats,
+  repeats/.default=,
+  add/.forward to=/pgf/animation/add,
+  begin/.forward to=/pgf/animation/begin,
+  end/.forward to=/pgf/animation/end,
+  begin on/.forward to=/pgf/animation/begin on,
+  end on/.forward to=/pgf/animation/end on,
+  next/.style={begin on={end,of=previous, delay=#1}},
+  interpolation/.forward to=/pgf/animation/interpolation,
+  key time/.forward to=/pgf/animation/key time,
+  key progress/.forward to=/pgf/animation/key progress,
+  key spline control/.forward to=/pgf/animation/key spline control,
+  along/.code=\pgferror{not yet implemented},
+  animate/.code=\tikz@animate{#1},
+}
+
+\def\tikz@anim@attr#1#2#3{%
+  \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@now{#1}{#2}{#3}}%
+}
+
+\pgfkeys{/tikz/animations/.cd,
+  fill opacity/.code=\tikz@anim@attr{fill opacity}{\tikz@anim@simple@parse}{#1},
+  fill opacity +/.style={fill opacity={change by #1}},
+  draw opacity/.code=\tikz@anim@attr{stroke opacity}{\tikz@anim@simple@parse}{#1},
+  draw opacity +/.style={fill opacity={change by #1}},
+  opacity/.style={fill opacity={#1},draw opacity={#1}},
+  opacity +/.style={fill opacity +={#1}, draw opacity +={#1}},
+  line width/.code=\tikz@anim@attr{line width}{\tikz@anim@simple@parse}{#1},
+  line width +/.style={line width={change by #1}},
+  scale/.code=\tikz@anim@attr{scale}{\tikz@anim@simple@parse}{#1},
+  scale +/.style={scale={change by #1}},
+  xskew/.code=\tikz@anim@attr{xskew}{\tikz@anim@simple@parse}{#1},
+  xskew +/.style={xskew={change by #1}},
+  skew x/.style={xskew={#1}},
+  skew x +/.style={xskew +={#1}},
+  yskew/.code=\tikz@anim@attr{yskew}{\tikz@anim@simple@parse}{#1},
+  yskew +/.style={yskew={change by #1}},
+  skew y/.style={yskew={#1}},
+  skew y +/.style={yskew +={#1}},
+  fill/.code=\tikz@anim@attr{fill}{\tikz@anim@simple@parse}{#1},
+  fill +/.style={fill={change by #1}},
+  draw/.code=\tikz@anim@attr{draw}{\tikz@anim@simple@parse}{#1},
+  draw +/.style={draw={change by #1}},
+  color/.style={fill={#1},draw={#1}},
+  color +/.style={fill +={#1}, draw +={#1}},
+  shift/.code=\pgferror{not yet implemented},
+  shift +/.code={shift={change by #1}},
+  translate/.style={shift={#1}},
+  translate +/.style={shift +={#1}},
+  rotate/.code=\tikz@anim@attr{rotate}{\tikz@anim@simple@parse}{#1},
+  rotate +/.code={rotate={change by #1}},
+  rotate around/.code=\pgferror{not yet implemented},
+  rotate aournd +/.code={rotate around={change by #1}},
+}
+
+\def\tikz@anim@simple@parse#1{\def\tikz@anim@result{#1}}
+
+% The main work function:
+
+\def\tikz@animate@now#1#2#3{%
+  {%
+    \let\tikz@anim@now@options\pgfutil@empty%
+    \let\tikz@anim@parser#2%
+    \c@pgf@counta=0\relax%
+    \tikz@anim@general@parse#3...\pgf@stop%
+    \def\tikz@myanim@temp{\pgfanimateattribute{#1}}%
+    \ifx\tikz@animate@whom\pgfutil@empty%
+      \expandafter\tikz@myanim@temp\expandafter{\tikz@anim@now@options}%
+    \else%
+      \foreach\tikz@animate@one@whom in\tikz@animate@whom{%
+        \ifx\tikz@animate@one@whom\pgfutil@empty\else%
+          \def\tikz@temp{,whom=\tikz@animate@one@whom}%
+          \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@now@one@options\expandafter\expandafter\expandafter{\expandafter\tikz@anim@now@options\tikz@temp}%
+          \expandafter\tikz@myanim@temp\expandafter{\tikz@anim@now@one@options}%
+        \fi%
+      }%
+    \fi%
+  }%
+}
+
+
+\def\tikz@anim@general@parse{\pgfutil@ifnextchar\pgf@stop\tikz@anim@general@done\tikz@anim@general@next}
+\def\tikz@anim@general@next#1...{%
+  \advance\c@pgf@counta by1\relax%
+  \expandafter\def\csname tikz@anim@vals@\the\c@pgf@counta\endcsname{#1}%
+  \tikz@anim@general@parse%
+}
+\def\tikz@anim@general@done\pgf@stop{%
+  \ifnum\c@pgf@counta=1\relax%
+    \expandafter\expandafter\expandafter\tikz@anim@handle@one\expandafter\expandafter\expandafter{\csname tikz@anim@vals@1\endcsname}%
+  \else%   
+    \ifnum\c@pgf@counta=2\relax%
+      \expandafter\ifx\csname tikz@anim@vals@1\endcsname\pgfutil@empty%
+        \tikz@anim@handle@two@special%
+      \else%
+        \tikz@anim@handle@many%
+      \fi%
+    \else%
+      \tikz@anim@handle@many%
+    \fi%
+  \fi%    
+}
+\def\tikz@anim@handle@many{%
+  \c@pgf@countb=0\relax%
+  \pgfutil@loop%
+  \ifnum\c@pgf@counta>\c@pgf@countb\relax%
+    \advance\c@pgf@countb by 1\relax
+    \edef\pgf@marshal{\noexpand\tikz@anim@parser{\csname tikz@anim@vals@\the\c@pgf@countb\endcsname}}%
+    \pgf@marshal%
+    \edef\tikz@anim@now@options{\tikz@anim@now@options,value=\tikz@anim@result}%
+  \pgfutil@repeat%
+}
+  
+\def\tikz@anim@handle@one#1{%
+  \pgfutil@in@{\pgf@stop change by}{\pgf@stop#1}%
+  \ifpgfutil@in@%
+    \tikz@anim@handle@one@by#1\pgf@stop%
+  \else%
+    \tikz@anim@parser{#1}
+    \edef\tikz@anim@now@options{\tikz@anim@now@options,to=\tikz@anim@result}%
+  \fi%
+}
+\def\tikz@anim@handle@one@by change by#1\pgf@stop{%
+  \tikz@anim@parser{#1}
+  \edef\tikz@anim@now@options{\tikz@anim@now@options,by=\tikz@anim@result}%  
+}
+
+\def\tikz@anim@handle@two@special{%
+  \expandafter\expandafter\expandafter\tikz@anim@parser\expandafter\expandafter\expandafter{\csname tikz@anim@vals@\the\c@pgf@countb\endcsname}%
+  \edef\tikz@anim@now@options{\tikz@anim@now@options,to=\tikz@anim@result}%
+}
+
+
+
+% 
+% The animate {...} path command 
+%
+
+\def\tikz@animate@path{\tikzerror{Not yet implemented.}}
+
+
+\endinput
