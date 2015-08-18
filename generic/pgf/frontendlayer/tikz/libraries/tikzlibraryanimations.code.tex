@@ -123,7 +123,7 @@
   rotate aournd +/.code={rotate around={change by #1}},
   move along/.code=\tikz@anim@along{#1}{},
   drive along/.code=\tikz@anim@along{#1}{rotate along=true},
-  view/.code=\tikz@anim@attr{view box}{\tikz@anim@view@parse}{#1},
+  view/.code=\tikz@anim@attr{view}{\tikz@anim@view@parse}{#1},
   view +/.code={view={change by #1}},
 }
 
@@ -315,11 +315,114 @@
 
 
 
-% 
 % The animate {...} path command 
-%
+% 
+% Syntax: animate [options] {%
+%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
+%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
+%   ...
+%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
+% }
 
-\def\tikz@animate@path{\tikzerror{Not yet implemented.}}
+\def\tikz@animate@path#1#2{%
+  \begingroup%
+    % Ok, setup options
+    \tikz@anim@path@steps0\relax%
+    \pgfkeys{/tikz/animations/.cd,/tikz/every animate/.try,#1}%
+    % Now, start construction of path values
+    \ifnum\tikz@anim@path@steps=0\relax%
+      % Ok, determine the number of steps, first
+      \tikz@anim@path@steps1\relax%
+      \tikz@anim@path@count#2values\pgf@stop%
+    \fi%
+    \tikz@anim@path@step0\relax%  
+    \edef\steps{\the\tikz@anim@path@steps}%
+    \pgfutil@loop%
+    \ifnum\tikz@anim@path@step<\tikz@anim@path@steps%
+      \advance\tikz@anim@path@step by1\relax%
+      \edef\step{\the\tikz@anim@path@step}%
+      \ifnum\tikz@anim@path@steps>1\relax
+        \pgfmathsetmacro\t{(\step-1)/(\steps-1)}%
+      \else%
+        \def\t{1.0}%
+      \fi%
+      \t@pgf@toka{}%
+      \tikz@anim@path@parser#2values\pgf@stop%
+      % \t@pgf@toka now contains a path, hopefully...
+      \pgfsys@animation@path{%
+        {%
+          \setbox0=\hbox{{% protext against side effects
+              \pgfinterruptpath%
+              \pgf@relevantforpicturesizefalse%
+              \pgftransformreset%
+              \expandafter\tikz@scan@next@command\the\t@pgf@toka\pgf@stop%
+              \pgfsyssoftpath@invokecurrentpath%
+              \endpgfinterruptpath%
+            }}%
+        }%
+      }{values}
+    \pgfutil@repeat%
+    \pgfsys@animatepath%  
+  \endgroup%
+}
 
+\pgfkeys{/tikz/animations/.cd,
+  steps/.code=\pgfmathsetcount\tikz@anim@path@steps{#1}
+}
+
+\newcount\tikz@anim@path@steps
+\newcount\tikz@anim@path@step
+
+
+\def\tikz@anim@path@count#1values{%
+  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
+    \pgfutil@ifnextchar\bgroup\tikz@anim@path@count@vals\tikz@anim@path@count}%
+}
+
+\def\tikz@anim@path@count@vals#1{%
+  \c@pgf@counta=1\relax%
+  \tikz@anim@path@count@vals@#1...\pgf@stop%
+}
+\def\tikz@anim@path@count@vals@#1...{%
+  \pgfutil@ifnextchar\pgf@stop\tikz@anim@path@count@vals@done{%
+    \advance\c@pgf@counta by1\relax%
+    \tikz@anim@path@count@vals@}%
+}%
+\def\tikz@anim@path@count@vals@done\pgf@stop{%
+  \ifnum\c@pgf@counta>\tikz@anim@path@steps\relax%
+    \tikz@anim@path@steps=\c@pgf@counta\relax%
+  \fi%
+}
+
+
+
+\def\tikz@anim@path@parser#1values{%
+  \pgfutil@ifnextchar\pgf@stop{%
+    \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+    \pgfutil@gobble%
+  }{%
+    \pgfutil@ifnextchar\bgroup{%
+      \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+      \tikz@anim@path@parse@vals%
+    }
+    {%
+      \t@pgf@toka\expandafter{\the\t@pgf@toka#1values}%
+      \tikz@anim@path@parser%
+    }%
+  }%
+}
+
+\def\tikz@anim@path@parse@vals#1{%
+  \c@pgf@counta=1\relax%
+  \tikz@anim@path@parse@vals@#1...\pgf@stop%
+  \tikz@anim@path@parser%
+}
+\def\tikz@anim@path@parse@vals@#1...{%
+  \ifnum\c@pgf@counta=\tikz@anim@path@step\relax%
+    \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+  \fi%
+  \advance\c@pgf@counta by1\relax%
+  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\tikz@anim@path@parse@vals@%
+}%
 
 \endinput
