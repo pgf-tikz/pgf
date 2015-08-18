@@ -487,6 +487,7 @@
 \def\tikz@animate@collect#1{\tikz@animate{#1}\pgfutil@ifnextchar;\pgfutil@gobble\relax}
 \def\tikz@animate#1{\tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}}
 \let\tikz@animate@options\pgfutil@empty
+\newif\iftikz@animate@in@path
 
 % Path pictures
 \tikzset{path picture/.code=\tikz@addmode{\def\tikz@path@picture{#1}}}       
@@ -893,7 +894,7 @@
 
 % General node options
 \tikzset{
-  name/.code={\edef\tikz@fig@name{\tikz@pp@name{#1}}\let\tikz@anim@group@name\tikz@fig@name},%
+  name/.code={\edef\tikz@fig@name{\tikz@pp@name{#1}}\let\tikz@id@name\tikz@fig@name},%
   name prefix/.initial=,%
   name suffix/.initial=%
 }
@@ -1749,19 +1750,22 @@
   \let\tikz@options=\pgfutil@empty%
   \let\tikz@mode=\pgfutil@empty%
   \let\tikz@animate@options=\pgfutil@empty%
-  \let\tikz@anim@group@name=\pgfutil@empty%
+  \let\tikz@id@name=\pgfutil@empty%
   \tikz@transparency@groupfalse%
   \tikzset{every scope/.try,#1}%
   \tikz@options%
   \tikz@animate@options%
   \iftikz@transparency@group\expandafter\pgftransparencygroup\expandafter[\tikz@transparency@group@options]\tikz@blend@group\fi%
-  \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
-  \expandafter\tikz@atbegin@scope%
-  \tikz@lib@scope@check%
+  \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{\tikz@id@name}\pgfuseid{\tikz@id@name}\pgfsys@beginscope\fi%
+  \begingroup%
+    \let\tikz@id@name\pgfutil@empty%
+    \expandafter\tikz@atbegin@scope%
+    \tikz@lib@scope@check%
 }
 \def\endtikz@scope@env{%
-  \tikz@atend@scope%
-  \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
+    \tikz@atend@scope%
+  \endgroup%
+  \ifx\tikz@id@name\pgfutil@empty\else\pgfsys@endscope\fi%
   \iftikz@transparency@group\endpgftransparencygroup\fi%
   \endgroup%
   \endpgfscope%
@@ -2172,7 +2176,7 @@
 \def\tikz@e@char{%
   \pgfutil@ifnextchar l{\tikz@ellipse}{\tikz@@e@char}}%
 \def\tikz@a@char{%
-  \pgfutil@ifnextchar r{\tikz@arcA}{\tikz@animate@on@path}}%
+  \pgfutil@ifnextchar r{\tikz@arcA}{\tikzerror{Arc expected}}}%
 \def\tikz@@e@char dge{%
   \pgfutil@ifnextchar f{\tikz@edgetoparent}{\tikz@edge@plain}}%
 
@@ -2271,10 +2275,14 @@
   %
   % Step 5'': Setup animations
   % 
+  \pgfnewid{g@path}%
+  \pgfaliasid{@path}{g@path}%
   \ifx\tikz@animate@options\pgfutil@empty%
   \else%
     \pgfsys@beginscope%
-      \tikz@animate@options
+      \tikz@animate@in@pathtrue%
+      \tikz@animate@options%
+      \tikz@animate@in@pathfalse%
   \fi%
   % 
   % Step 6: Do a fill if shade or a path picture follows.
@@ -2348,6 +2356,18 @@
           \tikz@double@setup%
     \fi%
   \fi%
+  %
+  % Step: Name if necessary
+  % 
+  \ifx\tikz@id@name\pgfutil@empty%
+    \ifx\tikz@animate@options\pgfutil@empty%
+    \else%
+      \pgfuseid{@path}%
+    \fi%
+  \else%
+    \pgfuseid{@path}\pgfgaliasid{\tikz@id@name}{@path}%
+  \fi%
+  \let\tikz@id@name\pgfutil@empty%
   % 
   % Step 10: Do stroke/fill/clip as needed
   %
@@ -3681,7 +3701,7 @@
       \let\tikz@do@after@node=\tikz@scan@next@command%
       \let\tikz@options=\pgfutil@empty%
       \let\tikz@animate@options=\pgfutil@empty%
-      \let\tikz@anim@group@name=\pgfutil@empty%
+      \let\tikz@id@name=\pgfutil@empty%
       \let\tikz@after@path=\pgfutil@empty%
       \let\tikz@transform=\pgfutil@empty%
       \let\tikz@mode=\pgfutil@empty%
@@ -3822,71 +3842,74 @@
               \tikz@options%
               \tikz@animate@options%
               \let\tikz@animate@options\pgfutil@empty%
-              \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
-              \setbox\tikz@figbox=\box\pgfutil@voidb@x%
-              \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
-              \let\tikzmatrixname=\tikz@fig@name%
-              \edef\tikz@m@anchor{\ifx\tikz@matrix@anchor\pgfutil@empty\tikz@anchor\else\tikz@matrix@anchor\fi}%
-              \expandafter\pgfutil@in@\expandafter{\expandafter.\expandafter}\expandafter{\tikz@m@anchor}%
-              \ifpgfutil@in@%
-                \expandafter\tikz@matrix@split\tikz@m@anchor\relax%
-              \else%
-                \def\tikz@matrix@shift{\pgfpointorigin}%  
-              \fi%
-              \let\tikz@transform=\relax%
-              \pgfmatrix%
-              {\tikz@shape}%
-              {\tikz@m@anchor}%
-              {\tikz@fig@name}%
-              {%
-                \pgfutil@tempdima=\pgflinewidth%
-                {\begingroup\tikz@finish}%
-                \global\pgflinewidth=\pgfutil@tempdima%
-              }%
-              {\tikz@matrix@shift}%
-              {%
-                \tikz@matrix@make@active@ampersand%
-                \def\pgfmatrixbegincode{%
-                  \pgfsys@beginscope%
-                  \tikz@common@matrix@code%
-                  \tikz@atbegin@cell%
+              \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{\tikz@id@name}\pgfuseid{\tikz@id@name}\pgfsys@beginscope\fi%
+              \begingroup%
+                \let\tikz@id@name\pgfutil@empty%
+                \setbox\tikz@figbox=\box\pgfutil@voidb@x%
+                \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
+                \let\tikzmatrixname=\tikz@fig@name%
+                \edef\tikz@m@anchor{\ifx\tikz@matrix@anchor\pgfutil@empty\tikz@anchor\else\tikz@matrix@anchor\fi}%
+                \expandafter\pgfutil@in@\expandafter{\expandafter.\expandafter}\expandafter{\tikz@m@anchor}%
+                \ifpgfutil@in@%
+                  \expandafter\tikz@matrix@split\tikz@m@anchor\relax%
+                \else%
+                  \def\tikz@matrix@shift{\pgfpointorigin}%  
+                \fi%
+                \let\tikz@transform=\relax%
+                \pgfmatrix%
+                {\tikz@shape}%
+                {\tikz@m@anchor}%
+                {\tikz@fig@name}%
+                {%
+                  \pgfutil@tempdima=\pgflinewidth%
+                  {\begingroup\tikz@finish}%
+                  \global\pgflinewidth=\pgfutil@tempdima%
                 }%
-                \def\tikz@common@matrix@code{%
-                  \let\tikz@options=\pgfutil@empty%
-                  \let\tikz@mode=\pgfutil@empty%
-                  \tikzset{every cell/.try={\the\pgfmatrixcurrentrow}{\the\pgfmatrixcurrentcolumn}}%
-                  \tikzset{column \the\pgfmatrixcurrentcolumn/.try}%
-                  \ifodd\pgfmatrixcurrentcolumn%
-                    \tikzset{every odd column/.try}%
-                  \else%
-                    \tikzset{every even column/.try}%
-                  \fi%
-                  \tikzset{row \the\pgfmatrixcurrentrow/.try}%
-                  \ifodd\pgfmatrixcurrentrow%
-                    \tikzset{every odd row/.try}%
-                  \else%
-                    \tikzset{every even row/.try}%
-                  \fi%
-                  \tikzset{row \the\pgfmatrixcurrentrow\space column \the\pgfmatrixcurrentcolumn/.try}%
-                  \tikz@options%
-                }%
-                \def\pgfmatrixendcode{%
-                  \tikz@atend@cell%
-                  \pgfsys@endscope%
-                }%
-                \def\pgfmatrixemptycode{%
-                  \pgfsys@beginscope%
-                  \tikz@common@matrix@code%
-                  \tikz@at@emptycell%
-                  \pgfsys@endscope%
-                }%
-                \tikz@atbegin@matrix%
-                \aftergroup\tikz@do@matrix@cont}%
-              \bgroup%
+                {\tikz@matrix@shift}%
+                {%
+                  \tikz@matrix@make@active@ampersand%
+                  \def\pgfmatrixbegincode{%
+                    \pgfsys@beginscope%
+                    \tikz@common@matrix@code%
+                    \tikz@atbegin@cell%
+                  }%
+                  \def\tikz@common@matrix@code{%
+                    \let\tikz@options=\pgfutil@empty%
+                    \let\tikz@mode=\pgfutil@empty%
+                    \tikzset{every cell/.try={\the\pgfmatrixcurrentrow}{\the\pgfmatrixcurrentcolumn}}%
+                    \tikzset{column \the\pgfmatrixcurrentcolumn/.try}%
+                    \ifodd\pgfmatrixcurrentcolumn%
+                      \tikzset{every odd column/.try}%
+                    \else%
+                      \tikzset{every even column/.try}%
+                    \fi%
+                    \tikzset{row \the\pgfmatrixcurrentrow/.try}%
+                    \ifodd\pgfmatrixcurrentrow%
+                      \tikzset{every odd row/.try}%
+                    \else%
+                      \tikzset{every even row/.try}%
+                    \fi%
+                    \tikzset{row \the\pgfmatrixcurrentrow\space column \the\pgfmatrixcurrentcolumn/.try}%
+                    \tikz@options%
+                  }%
+                  \def\pgfmatrixendcode{%
+                    \tikz@atend@cell%
+                    \pgfsys@endscope%
+                  }%
+                  \def\pgfmatrixemptycode{%
+                    \pgfsys@beginscope%
+                    \tikz@common@matrix@code%
+                    \tikz@at@emptycell%
+                    \pgfsys@endscope%
+                  }%
+                  \tikz@atbegin@matrix%
+                  \aftergroup\tikz@do@matrix@cont}%
+                \bgroup%
 }
 \def\tikz@do@matrix@cont{%
-              \tikz@atend@matrix%
-              \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
+                \tikz@atend@matrix%
+              \endgroup%  
+              \ifx\tikz@id@name\pgfutil@empty\else\pgfsys@endscope\fi%
             \endpgfscope
           \endpgfinterruptpath%
       \egroup\egroup%
@@ -3940,18 +3963,22 @@
       \hbox{{%
           \pgfinterruptpath%
             \pgfscope%
+              \pgfnewid{g@node}%
               \tikz@options%
               \tikz@animate@options%
               \let\tikz@animate@options\pgfutil@empty%
-              \ifx\tikz@anim@group@name\pgfutil@empty\else\pgfanimationscope{\tikz@anim@group@name}\fi%
-              \setbox\tikz@figbox=\box\pgfutil@voidb@x%
-              \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
-              \pgfmultipartnode{\tikz@shape}{\tikz@anchor}{\tikz@fig@name}{%
-                \pgfutil@tempdima=\pgflinewidth%
-                {\begingroup\tikz@finish}%
-                \global\pgflinewidth=\pgfutil@tempdima%
-              }%
-              \ifx\tikz@anim@group@name\pgfutil@empty\else\endpgfanimationscope\fi%
+              \ifx\tikz@id@name\pgfutil@empty\else\pgfgaliasid{\tikz@id@name}{g@node}\pgfuseid{g@node}\pgfsys@beginscope\fi%
+              \begingroup%
+                \let\tikz@id@name\pgfutil@empty%
+                \setbox\tikz@figbox=\box\pgfutil@voidb@x%
+                \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
+                \pgfmultipartnode{\tikz@shape}{\tikz@anchor}{\tikz@fig@name}{%
+                  \pgfutil@tempdima=\pgflinewidth%
+                  {\begingroup\tikz@finish}%
+                  \global\pgflinewidth=\pgfutil@tempdima%
+                }%
+              \endgroup%
+              \ifx\tikz@id@name\pgfutil@empty\else\pgfsys@endscope\fi%
             \endpgfscope
           \endpgfinterruptpath%
       }}%
@@ -4568,15 +4595,6 @@
 \def\tikz@let@command et#1in{%
   \tikzerror{You need to say \string\usetikzlibrary{calc} to use the let command}%
   \tikz@scan@next@command%
-}
-
-
-% Syntax for animations:
-% animate [options] { special path }
-\def\tikz@animate@on@path nimate{\pgfutil@ifnextchar[\tikz@animate@on@path@opt{\tikz@animate@on@path@opt[]}}%
-\def\tikz@animate@on@path@opt[#1]#2{\tikz@animate@path{#1}{#2}\tikz@scan@next@command}
-\def\tikz@animate@path#1#2{
-  \tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}%
 }
 
 

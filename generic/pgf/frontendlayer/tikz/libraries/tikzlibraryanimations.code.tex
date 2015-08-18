@@ -25,6 +25,8 @@
     \tikz@anim@add@braces#1,\pgf@stop%
     \expandafter}%
   \expandafter\tikz@anim@do\expandafter{\the\toks0}%
+  \pgfaliasid{previous}{g@animation}%
+  \pgfgaliasid{previous globally}{g@animation}%
 }
 \def\tikz@anim@add@braces{%
   \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
@@ -70,7 +72,7 @@
   end/.forward to=/pgf/animation/end,
   begin on/.forward to=/pgf/animation/begin on,
   end on/.forward to=/pgf/animation/end on,
-  next/.style={begin on={end,of=previous, delay=#1}},
+  next/.style={begin on={end,of=previous,delay=#1}},
   interpolation/.forward to=/pgf/animation/interpolation,
   key time/.forward to=/pgf/animation/key time,
   key progress/.forward to=/pgf/animation/key progress,
@@ -111,6 +113,8 @@
   draw +/.style={draw={change by #1}},
   text/.code=\pgferror{not yet implement},
   text +/.style={text={change by #1}},
+  view/.code=\tikz@anim@attr{view}{\tikz@anim@view@parse}{#1},
+  view +/.code={view={change by #1}},
   color/.style={fill={#1},draw={#1}},
   color +/.style={fill +={#1}, draw +={#1}},
   shift/.code=\tikz@anim@attr{translate}{\tikz@anim@shift@parse}{#1},
@@ -123,8 +127,7 @@
   rotate aournd +/.code={rotate around={change by #1}},
   move along/.code=\tikz@anim@along{#1}{},
   drive along/.code=\tikz@anim@along{#1}{rotate along=true},
-  view/.code=\tikz@anim@attr{view}{\tikz@anim@view@parse}{#1},
-  view +/.code={view={change by #1}},
+  path/.code=\tikz@anim@attr{softpath}{\tikz@anim@path@parse}{#1},
 }
 
 % The parsers:
@@ -146,8 +149,9 @@
 \def\tikz@anim@do@shift#1{\def\tikz@anim@result{#1}}
 
 
-\def\tikz@anim@view@parse#1{%
-  \tikz@scan@one@point\tikz@anim@view@parse@a#1%
+\def\tikz@anim@view@parse#1{\tikz@anim@view@parse@#1\pgf@stop}%
+\def\tikz@anim@view@parse@{%
+  \pgfutil@ifnextchar({\tikz@scan@one@point\tikz@anim@view@parse@a}{\tikz@anim@view@node}%
 }
 \def\tikz@anim@view@parse@a#1{%
   \def\tikz@anim@result{{#1}}%
@@ -156,8 +160,50 @@
 \def\tikz@anim@view@parsed@rec rectangle{\tikz@scan@one@point\tikz@anim@view@parse@b}%
 \def\tikz@anim@view@parse@b#1{%
   \expandafter\def\expandafter\tikz@anim@result\expandafter{\tikz@anim@result{#1}}%
+  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{\tikzerror{Wrong view syntax}}%
+}
+\def\tikz@anim@view@node#1\pgf@stop{%
+  \expandafter\ifx\csname pgf@sh@ns@#1\endcsname\relax%
+    \tikzerror{Undefined node '#1'}%
+  \else%
+    % Compute a bounding box for the node:
+    {%
+      \pgf@process{\pgfpointanchor{#1}{west}}%
+      \pgf@xa\pgf@x \pgf@ya\pgf@y
+      \pgf@xb\pgf@x \pgf@yb\pgf@y
+      \pgf@process{\pgfpointanchor{#1}{north}}%
+      \ifdim\pgf@x<\pgf@xa \pgf@xa=\pgf@x\fi%
+      \ifdim\pgf@x>\pgf@xb \pgf@xb=\pgf@x\fi%      
+      \ifdim\pgf@y<\pgf@ya \pgf@ya=\pgf@y\fi%
+      \ifdim\pgf@y>\pgf@yb \pgf@yb=\pgf@y\fi%      
+      \pgf@process{\pgfpointanchor{#1}{south}}%
+      \ifdim\pgf@x<\pgf@xa \pgf@xa=\pgf@x\fi%
+      \ifdim\pgf@x>\pgf@xb \pgf@xb=\pgf@x\fi%      
+      \ifdim\pgf@y<\pgf@ya \pgf@ya=\pgf@y\fi%
+      \ifdim\pgf@y>\pgf@yb \pgf@yb=\pgf@y\fi%      
+      \pgf@process{\pgfpointanchor{#1}{east}}%
+      \ifdim\pgf@x<\pgf@xa \pgf@xa=\pgf@x\fi%
+      \ifdim\pgf@x>\pgf@xb \pgf@xb=\pgf@x\fi%      
+      \ifdim\pgf@y<\pgf@ya \pgf@ya=\pgf@y\fi%
+      \ifdim\pgf@y>\pgf@yb \pgf@yb=\pgf@y\fi%
+      \xdef\tikz@anim@result{{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}{\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}}
+    }%
+  \fi%
 }
 
+\def\tikz@anim@path@parse#1{%
+  {%
+    \setbox0=\hbox{{% protext against side effects
+        \pgfinterruptpath%
+        \pgf@relevantforpicturesizefalse%
+        \pgftransformreset%
+        \expandafter\tikz@scan@next@command#1\pgf@stop%
+        \pgfsyssoftpath@getcurrentpath\tikz@anim@result%
+        \global\let\tikz@anim@result\tikz@anim@result%
+        \endpgfinterruptpath%
+      }}%
+  }%
+}
 
 % The main work function:
 
@@ -168,9 +214,18 @@
     \c@pgf@counta=0\relax%
     \tikz@anim@general@parse#3...\pgf@stop%
     \def\tikz@anim@caller{\pgfanimateattribute{#1}}%
+    \iftikz@animate@in@path%
+      \def\tikz@temp{#1}%
+      \ifx\tikz@temp\tikz@softpathtext%
+        \ifx\tikz@animate@whom\pgfutil@empty%
+           \def\tikz@animate@whom{g@path}%
+        \fi%
+      \fi%
+    \fi
     \tikz@animate@now@%
   }%
 }
+\def\tikz@softpathtext{softpath}
 \def\tikz@animate@now@{%
   \ifx\tikz@animate@whom\pgfutil@empty%
     \expandafter\tikz@anim@caller\expandafter{\tikz@anim@now@options}%
@@ -315,114 +370,105 @@
 
 
 
-% The animate {...} path command 
-% 
-% Syntax: animate [options] {%
-%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
-%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
-%   ...
-%   <path commands> values{<text> "..." <text> "..." ... "..." <text>}
+% \def\tikz@animate@path#1#2{%
+%   \begingroup%
+%     % Ok, setup options
+%     \tikz@anim@path@steps0\relax%
+%     \pgfkeys{/tikz/animations/.cd,/tikz/every animate/.try,#1}%
+%     % Now, start construction of path values
+%     \ifnum\tikz@anim@path@steps=0\relax%
+%       % Ok, determine the number of steps, first
+%       \tikz@anim@path@steps1\relax%
+%       \tikz@anim@path@count#2values\pgf@stop%
+%     \fi%
+%     \tikz@anim@path@step0\relax%  
+%     \edef\steps{\the\tikz@anim@path@steps}%
+%     \pgfutil@loop%
+%     \ifnum\tikz@anim@path@step<\tikz@anim@path@steps%
+%       \advance\tikz@anim@path@step by1\relax%
+%       \edef\step{\the\tikz@anim@path@step}%
+%       \ifnum\tikz@anim@path@steps>1\relax
+%         \pgfmathsetmacro\t{(\step-1)/(\steps-1)}%
+%       \else%
+%         \def\t{1.0}%
+%       \fi%
+%       \t@pgf@toka{}%
+%       \tikz@anim@path@parser#2values\pgf@stop%
+%       % \t@pgf@toka now contains a path, hopefully...
+%       \pgfsys@animation@path{%
+%         {%
+%           \setbox0=\hbox{{% protext against side effects
+%               \pgfinterruptpath%
+%               \pgf@relevantforpicturesizefalse%
+%               \pgftransformreset%
+%               \expandafter\tikz@scan@next@command\the\t@pgf@toka\pgf@stop%
+%               \pgfsyssoftpath@invokecurrentpath%
+%               \endpgfinterruptpath%
+%             }}%
+%         }%
+%       }{values}
+%     \pgfutil@repeat%
+%     \pgfsys@animatepath%  
+%   \endgroup%
 % }
 
-\def\tikz@animate@path#1#2{%
-  \begingroup%
-    % Ok, setup options
-    \tikz@anim@path@steps0\relax%
-    \pgfkeys{/tikz/animations/.cd,/tikz/every animate/.try,#1}%
-    % Now, start construction of path values
-    \ifnum\tikz@anim@path@steps=0\relax%
-      % Ok, determine the number of steps, first
-      \tikz@anim@path@steps1\relax%
-      \tikz@anim@path@count#2values\pgf@stop%
-    \fi%
-    \tikz@anim@path@step0\relax%  
-    \edef\steps{\the\tikz@anim@path@steps}%
-    \pgfutil@loop%
-    \ifnum\tikz@anim@path@step<\tikz@anim@path@steps%
-      \advance\tikz@anim@path@step by1\relax%
-      \edef\step{\the\tikz@anim@path@step}%
-      \ifnum\tikz@anim@path@steps>1\relax
-        \pgfmathsetmacro\t{(\step-1)/(\steps-1)}%
-      \else%
-        \def\t{1.0}%
-      \fi%
-      \t@pgf@toka{}%
-      \tikz@anim@path@parser#2values\pgf@stop%
-      % \t@pgf@toka now contains a path, hopefully...
-      \pgfsys@animation@path{%
-        {%
-          \setbox0=\hbox{{% protext against side effects
-              \pgfinterruptpath%
-              \pgf@relevantforpicturesizefalse%
-              \pgftransformreset%
-              \expandafter\tikz@scan@next@command\the\t@pgf@toka\pgf@stop%
-              \pgfsyssoftpath@invokecurrentpath%
-              \endpgfinterruptpath%
-            }}%
-        }%
-      }{values}
-    \pgfutil@repeat%
-    \pgfsys@animatepath%  
-  \endgroup%
-}
+% \pgfkeys{/tikz/animations/.cd,
+%   steps/.code=\pgfmathsetcount\tikz@anim@path@steps{#1}
+% }
 
-\pgfkeys{/tikz/animations/.cd,
-  steps/.code=\pgfmathsetcount\tikz@anim@path@steps{#1}
-}
-
-\newcount\tikz@anim@path@steps
-\newcount\tikz@anim@path@step
+% \newcount\tikz@anim@path@steps
+% \newcount\tikz@anim@path@step
 
 
-\def\tikz@anim@path@count#1values{%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
-    \pgfutil@ifnextchar\bgroup\tikz@anim@path@count@vals\tikz@anim@path@count}%
-}
+% \def\tikz@anim@path@count#1values{%
+%   \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
+%     \pgfutil@ifnextchar\bgroup\tikz@anim@path@count@vals\tikz@anim@path@count}%
+% }
 
-\def\tikz@anim@path@count@vals#1{%
-  \c@pgf@counta=1\relax%
-  \tikz@anim@path@count@vals@#1...\pgf@stop%
-}
-\def\tikz@anim@path@count@vals@#1...{%
-  \pgfutil@ifnextchar\pgf@stop\tikz@anim@path@count@vals@done{%
-    \advance\c@pgf@counta by1\relax%
-    \tikz@anim@path@count@vals@}%
-}%
-\def\tikz@anim@path@count@vals@done\pgf@stop{%
-  \ifnum\c@pgf@counta>\tikz@anim@path@steps\relax%
-    \tikz@anim@path@steps=\c@pgf@counta\relax%
-  \fi%
-}
+% \def\tikz@anim@path@count@vals#1{%
+%   \c@pgf@counta=1\relax%
+%   \tikz@anim@path@count@vals@#1...\pgf@stop%
+% }
+% \def\tikz@anim@path@count@vals@#1...{%
+%   \pgfutil@ifnextchar\pgf@stop\tikz@anim@path@count@vals@done{%
+%     \advance\c@pgf@counta by1\relax%
+%     \tikz@anim@path@count@vals@}%
+% }%
+% \def\tikz@anim@path@count@vals@done\pgf@stop{%
+%   \ifnum\c@pgf@counta>\tikz@anim@path@steps\relax%
+%     \tikz@anim@path@steps=\c@pgf@counta\relax%
+%   \fi%
+% }
 
 
 
-\def\tikz@anim@path@parser#1values{%
-  \pgfutil@ifnextchar\pgf@stop{%
-    \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-    \pgfutil@gobble%
-  }{%
-    \pgfutil@ifnextchar\bgroup{%
-      \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-      \tikz@anim@path@parse@vals%
-    }
-    {%
-      \t@pgf@toka\expandafter{\the\t@pgf@toka#1values}%
-      \tikz@anim@path@parser%
-    }%
-  }%
-}
+% \def\tikz@anim@path@parser#1values{%
+%   \pgfutil@ifnextchar\pgf@stop{%
+%     \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+%     \pgfutil@gobble%
+%   }{%
+%     \pgfutil@ifnextchar\bgroup{%
+%       \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+%       \tikz@anim@path@parse@vals%
+%     }
+%     {%
+%       \t@pgf@toka\expandafter{\the\t@pgf@toka#1values}%
+%       \tikz@anim@path@parser%
+%     }%
+%   }%
+% }
 
-\def\tikz@anim@path@parse@vals#1{%
-  \c@pgf@counta=1\relax%
-  \tikz@anim@path@parse@vals@#1...\pgf@stop%
-  \tikz@anim@path@parser%
-}
-\def\tikz@anim@path@parse@vals@#1...{%
-  \ifnum\c@pgf@counta=\tikz@anim@path@step\relax%
-    \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-  \fi%
-  \advance\c@pgf@counta by1\relax%
-  \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\tikz@anim@path@parse@vals@%
-}%
+% \def\tikz@anim@path@parse@vals#1{%
+%   \c@pgf@counta=1\relax%
+%   \tikz@anim@path@parse@vals@#1...\pgf@stop%
+%   \tikz@anim@path@parser%
+% }
+% \def\tikz@anim@path@parse@vals@#1...{%
+%   \ifnum\c@pgf@counta=\tikz@anim@path@step\relax%
+%     \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
+%   \fi%
+%   \advance\c@pgf@counta by1\relax%
+%   \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\tikz@anim@path@parse@vals@%
+% }%
 
 \endinput

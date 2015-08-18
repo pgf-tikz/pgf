@@ -53,24 +53,24 @@
 
 % Path usage:
 \newif\ifpgf@sys@svg@clipnext
-\let\pgf@sys@svg@path@extras\pgfutil@empty
-\def\pgf@sys@svg@extra@end{\ifx\pgf@sys@svg@path@extras\pgfutil@empty/>\else>\pgfsys@svg@newline\pgf@sys@svg@path@extras\pgfsys@svg@newline</path>\fi\pgfsys@svg@newline}
 \def\pgf@sys@svg@possiblyclippedpath#1{%
   \ifpgf@sys@svg@clipnext%
+    \ifx\pgf@sys@svg@id@key\pgfutil@empty%
+      \pgfsys@new@id%
+    \fi%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgfsysprotocol@literal{<clipPath id="pgfcp\the\pgf@sys@svg@objectcount">
-      <path id="pgfpath\the\pgf@sys@svg@objectcount" d="}%
+    \pgfsysprotocol@literal{<clipPath id="\pgf@sys@svg@current@id clip"> <path id="\pgf@sys@svg@current@id" d="}%
     \pgf@sys@flushsvgpath%
-    \pgfsysprotocol@literal{"\pgf@sys@svg@extra@end </clipPath>\pgfsys@svg@newline }
-    \pgfsysprotocol@literal{<use xlink:href="\#pgfpath\the\pgf@sys@svg@objectcount" #1/>\pgfsys@svg@newline }%
-    \pgf@sys@svg@gs{clip-path="url(\#pgfcp\the\pgf@sys@svg@objectcount)"}
+    \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
+    \pgfsysprotocol@literal{<use xlink:href="\#\pgf@sys@svg@current@id" #1/>\pgfsys@svg@newline }%
+    \pgf@sys@svg@gs{clip-path="url(\#\pgf@sys@svg@current@id clip)"}
     \pgf@sys@svg@clipnextfalse%
   \else%
-    \pgfsysprotocol@literal{<path d="}%
+    \pgfsysprotocol@literal{<path\pgf@sys@svg@id@key\space d="}%
     \pgf@sys@flushsvgpath%
-    \pgfsysprotocol@literal{" #1\pgf@sys@svg@extra@end }
+    \pgfsysprotocol@literal{" #1/> }
   \fi%
-  \global\let\pgf@sys@svg@path@extras\pgfutil@empty
+  \global\let\pgf@sys@svg@id@key\pgfutil@empty    
 }
 \def\pgfsys@stroke{\pgf@sys@svg@possiblyclippedpath{style="fill:none"}}
 \def\pgfsys@fill{\pgf@sys@svg@possiblyclippedpath{style="stroke:none"}}
@@ -80,14 +80,16 @@
   \ifpgf@sys@svg@clipnext%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
     \pgfsysprotocol@literal{<clipPath id="pgfcp\the\pgf@sys@svg@objectcount">
-      <path d="}%
+      <path\pgf@sys@svg@id@key\space d="}%
     \pgf@sys@flushsvgpath%
-    \pgfsysprotocol@literal{"\pgf@sys@svg@extra@end </clipPath>\pgfsys@svg@newline }
+    \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
     \pgf@sys@svg@gs{clip-path="url(\#pgfcp\the\pgf@sys@svg@objectcount)"}
     \pgf@sys@svg@clipnextfalse%
   \else%
     \global\let\pgf@sys@svgpath=\pgfutil@empty
-  \fi}
+  \fi%
+  \global\let\pgf@sys@svg@id@key\pgfutil@empty    
+}
 
 % Fill rules:
 \def\pgfsys@eoruletrue{\pgf@sys@svg@gs{fill-rule="evenodd"}}
@@ -147,12 +149,12 @@
 % Scopes
 \newcount\pgf@sys@svg@scopecount
 
-\def\pgfsys@beginscope{\pgf@sys@svg@beginscope{}}%
-\def\pgf@sys@svg@beginscope#1{%
+\def\pgfsys@beginscope{%
   \edef\pgf@sys@svg@thescopecount{\the\pgf@sys@svg@scopecount}%
   \begingroup%
     \pgf@sys@svg@scopecount=1\relax%
-    \pgfsysprotocol@literal{<g#1>\pgfsys@svg@newline }%
+    \pgfsysprotocol@literal{<g\pgf@sys@svg@id@key>\pgfsys@svg@newline }%
+    \global\let\pgf@sys@svg@id@key\pgfutil@empty    
 }
 \def\pgfsys@endscope{%
     \loop%
@@ -163,14 +165,6 @@
   \endgroup%
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%  
 }
-\def\pgfsys@begin@animation@scope{%
-  \global\advance\pgf@sys@svg@anim@scope@id@count by1\relax%
-  \pgf@sys@svg@beginscope{ id="pgfg\the\pgf@sys@svg@anim@scope@id@count"}
-  \edef\pgf@sys@svg@current@anim@scope@id{pgfg\the\pgf@sys@svg@anim@scope@id@count}%
-}%
-\let\pgfsys@end@animation@scope\pgfsys@endscope
-
-\def\pgfsys@animationscope@id{\pgf@sys@svg@current@anim@scope@id}
 
 
 % Graphics state
@@ -476,8 +470,7 @@
 
 % Animation
 
-\newcount\pgf@sys@svg@anim@id@count
-\newcount\pgf@sys@svg@anim@scope@id@count
+\newcount\pgf@sys@id@count
 
 \let\pgfsys@anim@val@dur\pgfutil@empty
 \let\pgfsys@anim@val@min\pgfutil@empty
@@ -535,15 +528,16 @@
 
 \def\pgf@sys@svg@anim#1{%
   {%
-    \edef\pgf@temp{{<#1 id="\pgfsys@next@animation@id"\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
-    \xdef\pgf@sys@svg@last@anim@id{\pgfsys@next@animation@id}%
-    \global\advance\pgf@sys@svg@anim@id@count by1\relax%
+    \edef\pgf@temp{{<#1\pgf@sys@svg@id@key\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
     \expandafter\pgfsysprotocol@literal\pgf@temp%    
+    \global\let\pgf@sys@svg@id@key\pgfutil@empty
   }%
 }
 
-\def\pgfsys@last@animation@id{\pgf@sys@svg@last@anim@id}
-\def\pgfsys@next@animation@id{pgfa\the\pgf@sys@svg@anim@id@count}
+\let\pgf@sys@svg@id@key\pgfutil@empty
+\def\pgfsys@new@id#1{\global\advance\pgf@sys@id@count by1\relax\xdef#1{pgfg\the\pgf@sys@id@count}}
+\def\pgfsys@use@id#1{\xdef\pgf@sys@svg@id@key{ id="#1"}\xdef\pgf@sys@svg@current@id{#1}}
+
 
 \def\pgf@sys@svg@replace#1#2{%
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
@@ -593,11 +587,7 @@
 \def\pgfsys@animatefillcolor{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="fill"}}
 \def\pgfsys@animatestrokecolor{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke"}}
 \def\pgfsys@animateviewbox{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="viewBox"}}
-\def\pgfsys@animatepath{%
-  \xdef\pgf@sys@svg@path@extras{\pgf@sys@svg@path@extras\space<\pgf@sys@svg@set@or@animate attributeName="d" id="\pgfsys@next@animation@id"\pgf@svg@anim@keys/>}%
-  \xdef\pgf@sys@svg@last@anim@id{\pgfsys@next@animation@id}%
-  \global\advance\pgf@sys@svg@anim@id@count by1\relax%  
-}
+\def\pgfsys@animatepath{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="d"}}
 \def\pgfsys@animatetranslate{\pgf@sys@svg@anim{animateTransform attributeName="transform" type="translate"}}
 \def\pgfsys@animatescale{\pgf@sys@svg@anim{animateTransform attributeName="transform" type="scale"}}
 \def\pgfsys@animaterotate{\pgf@sys@svg@anim{animateTransform attributeName="transform" type="rotate"}}

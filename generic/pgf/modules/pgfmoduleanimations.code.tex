@@ -69,8 +69,11 @@
 
 \def\pgfanimateattribute#1#2{%
   {%
+    \pgfnewid{g@animation}%
+    \pgfaliasid{@animation}{g@animation}% make local
     \pgfkeys{/pgf/@animation attributes/.cd,#1}%
     \pgfkeys{/pgf/animation/.cd,#2}%
+    \pgfuseid{@animation}%
     \pgf@do@animate%
   }%
 }
@@ -95,6 +98,7 @@
   skew x/.style=xskew,
   skew y/.style=yskew,
   path/.code=\pgf@animate@attr{path}{path},
+  softpath/.code=\pgf@animate@attr{path}{softpath},
   view/.code=\pgf@animate@attr{viewbox}{viewbox},
 }
 
@@ -221,16 +225,10 @@
 % \pgfanimateattribute{fill opacity}{whom=some scope, duration=6s, to=0}
 
 \pgfanimationset{
-  whom/.code={%
-    \expandafter\let\expandafter\pgf@anim@temp\csname pgf@anim@scope@name@#1\endcsname%
-    \ifx\pgf@anim@temp\relax%
-      \pgferror{No animation scope named '#1' known}
-    \else%
-      \pgfsys@animation@whom{\pgf@anim@temp},
-    \fi%
-  }
+  whom/.code=\pgfifid{#1}{\pgfsys@animation@whom{\pgfrefid{#1}}}{\pgferror{No animation scope named '#1' known}}
 }
 
+\def\pgf@relaxtext{\relax}
 
 
 % Assigns a name to this animation so that it can be used as an event
@@ -247,14 +245,8 @@
 % \pgfanimateattribute{fill opacity}{begin on={end,of=anim 1}, duration=1s, from=0, to=1}
 
 \pgfanimationset{
-  name/.code={%
-    {%
-      \expandafter\xdef\csname pgf@anim@anim@name@#1\endcsname{\pgfsys@next@animation@id}%
-    }%
-  }
+  name/.code=\pgfgaliasid{#1}{@animation}
 }
-
-\def\pgf@anim@anim@name@previous{\pgfsys@last@animation@id}
 
 
 
@@ -511,17 +503,7 @@
 
 \pgfkeys{/pgf/animation/events/.cd,
   event/.store in=\pgfanim@event@event,
-  of/.code={%
-    \expandafter\let\expandafter\pgf@anim@temp\csname pgf@anim@anim@name@#1\endcsname%
-    \ifx\pgf@anim@temp\relax%
-      \expandafter\let\expandafter\pgf@anim@temp\csname pgf@anim@scope@name@#1\endcsname%
-      \ifx\pgf@anim@temp\relax%
-        \pgferror{Unknown animation name '#1'.}%
-        \let\pgf@anim@temp\pgfutil@empty%
-      \fi%
-    \fi%
-    \edef\pgfanim@event@id{\pgf@anim@temp}%
-  },
+  of/.code=\pgfifid{#1}{\edef\pgfanim@event@id{\pgfrefid{#1}}}{\pgferror{Unknown animation name '#1'}},
   key/.store in=\pgfanim@event@key,
   repeat/.code=\pgfmathparse{#1}\let\pgfanim@event@repeat\pgfmathresult,
   delay/.code=\pgfparsetime{#1}\let\pgfanim@event@delay\pgftimeresult,
@@ -745,6 +727,17 @@
     \pgfsyssoftpath@setcurrentpath\pgfanim@save@path%
   }%
   \pgfsys@animation@path{\pgfanim@the@path}{#2}%
+}
+
+
+% Parse a softpath in "value=#1"
+% 
+% #1 is a sequence of pgf softpath token commands
+% 
+% value = \pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}
+
+\def\pgfanim@parse@type@softpath#1#2{%
+  \pgfsys@animation@path{#1}{#2}%
 }
 
 
