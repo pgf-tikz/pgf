@@ -73,7 +73,7 @@
     \pgfaliasid{@animation}{g@animation}% make local
     \pgfkeys{/pgf/@animation attributes/.cd,#1}%
     \pgfkeys{/pgf/animation/.cd,#2}%
-    \pgfuseid{@animation}%
+    \pgfuseid{@animation}{}%
     \pgf@do@animate%
   }%
 }
@@ -225,10 +225,23 @@
 % \pgfanimateattribute{fill opacity}{whom=some scope, duration=6s, to=0}
 
 \pgfanimationset{
-  whom/.code=\pgfifid{#1}{\pgfsys@animation@whom{\pgfrefid{#1}}}{\pgferror{No animation scope named '#1' known}}
+  whom/.code=\pgf@anim@decomp{#1}\pgfifid{\pgf@anim@id@name}{\pgfsys@animation@whom{\pgf@anim@id}{\pgf@anim@type}}{\pgferror{No animation scope named '\pgf@anim@id@name' known}}
 }
 
-\def\pgf@relaxtext{\relax}
+\def\pgf@anim@decomp#1{%
+  \edef\pgf@temp{#1}%
+  \expandafter\pgfutil@in@\expandafter.\expandafter{\pgf@temp}%
+  \ifpgfutil@in@%
+    \expandafter\pgf@anim@decomp@\pgf@temp\pgf@stop%
+  \else%
+    \expandafter\pgf@anim@decomp@\pgf@temp.\pgf@stop%
+  \fi%
+}
+\def\pgf@anim@decomp@#1.#2\pgf@stop{%
+  \def\pgf@anim@id@name{#1}%
+  \def\pgf@anim@id{\pgfrefid{#1}}%
+  \def\pgf@anim@type{\pgfreftype{#2}}%
+}
 
 
 % Assigns a name to this animation so that it can be used as an event
@@ -245,7 +258,7 @@
 % \pgfanimateattribute{fill opacity}{begin on={end,of=anim 1}, duration=1s, from=0, to=1}
 
 \pgfanimationset{
-  name/.code=\pgfgaliasid{#1}{@animation}
+  name/.code=\pgfgaliasid{#1}{@animation},
 }
 
 
@@ -441,7 +454,10 @@
 %                    standard. 
 % of=some name     : The event does not refer to the current group,
 %                    but to the object named "some name", which must
-%                    previously have been named using \pgfname
+%                    previously have been named \pgfuseid. If some
+%                    name contains a period, the part before the
+%                    period must be the name of the id, the part
+%                    following it the type of the id.
 % key=some key     : The trigger is some key being pressed
 % repeat=number    : The trigger is that an animation has been
 %                    repeated number times.
@@ -481,7 +497,8 @@
 
 \def\pgfanim@make@event#1#2{%
   \let\pgfanim@event@event\pgfutil@empty%
-  \let\pgfanim@event@id\pgfutil@empty%
+  \let\pgf@anim@id\pgfutil@empty%
+  \let\pgf@anim@type\pgfutil@empty%
   \let\pgfanim@event@key\pgfutil@empty%
   \let\pgfanim@event@repeat\pgfutil@empty%
   \let\pgfanim@event@delay\pgfutil@empty%
@@ -491,10 +508,10 @@
       \ifx\pgfanim@event@event\pgfutil@empty%
         \pgferror{No event specified}%
       \else%
-        \pgfsys@animation@event{\pgfanim@event@id}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
+        \pgfsys@animation@event{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
       \fi%
     \else%
-      \pgfsys@animation@repeat@event{\pgfanim@event@id}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
+      \pgfsys@animation@repeat@event{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
     \fi%
   \else%
     \pgfsys@animation@accesskey{\pgfanim@event@key}{\pgfanim@event@delay}{#2}%
@@ -503,7 +520,7 @@
 
 \pgfkeys{/pgf/animation/events/.cd,
   event/.store in=\pgfanim@event@event,
-  of/.code=\pgfifid{#1}{\edef\pgfanim@event@id{\pgfrefid{#1}}}{\pgferror{Unknown animation name '#1'}},
+  of/.code=\pgf@anim@decomp{#1}\pgfifid{\pgf@anim@id@name}{}{\pgferror{Unknown animation name '\pgf@anim@id@name'}},
   key/.store in=\pgfanim@event@key,
   repeat/.code=\pgfmathparse{#1}\let\pgfanim@event@repeat\pgfmathresult,
   delay/.code=\pgfparsetime{#1}\let\pgfanim@event@delay\pgftimeresult,
