@@ -55,22 +55,19 @@
 \newif\ifpgf@sys@svg@clipnext
 \def\pgf@sys@svg@possiblyclippedpath#1{%
   \ifpgf@sys@svg@clipnext%
-    \ifx\pgf@sys@svg@id@key\pgfutil@empty%
-      \pgfsys@new@id%
-    \fi%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgfsysprotocol@literal{<clipPath id="\pgf@sys@svg@current@id clip"> <path id="\pgf@sys@svg@current@id" d="}%
+    \pgfsysprotocol@literal{<clipPath id="\pgf@sys@svg@if@fresh@id{\pgf@sys@svg@id@key}{pgfcp\the\pgf@sys@svg@objectcount}clip"> <path id="\pgf@sys@svg@if@fresh@id{\pgf@sys@svg@id@key}{pgfcp\the\pgf@sys@svg@objectcount}" d="}%
     \pgf@sys@flushsvgpath%
     \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
-    \pgfsysprotocol@literal{<use xlink:href="\#\pgf@sys@svg@current@id" #1/>\pgfsys@svg@newline }%
-    \pgf@sys@svg@gs{clip-path="url(\#\pgf@sys@svg@current@id clip)"}
+    \pgfsysprotocol@literal{<use xlink:href="\#\pgf@sys@svg@if@fresh@id{\pgf@sys@svg@id@key}{pgfcp\the\pgf@sys@svg@objectcount}" #1/>\pgfsys@svg@newline }%
+    \pgf@sys@svg@gs{clip-path="url(\#\pgf@sys@svg@if@fresh@id{\pgf@sys@svg@id@key}{pgfcp\the\pgf@sys@svg@objectcount}clip)"}
     \pgf@sys@svg@clipnextfalse%
   \else%
-    \pgfsysprotocol@literal{<path\pgf@sys@svg@id@key\space d="}%
+    \pgfsysprotocol@literal{<path\pgf@sys@svg@if@fresh@id{ id="\pgf@sys@svg@id@key"}{} d="}%
     \pgf@sys@flushsvgpath%
-    \pgfsysprotocol@literal{" #1/> }
+    \pgfsysprotocol@literal{" #1/>\noexpand\pgfsys@svg@newline }
   \fi%
-  \global\let\pgf@sys@svg@id@key\pgfutil@empty    
+  \pgf@sys@svg@invalidate@id%
 }
 \def\pgfsys@stroke{\pgf@sys@svg@possiblyclippedpath{style="fill:none"}}
 \def\pgfsys@fill{\pgf@sys@svg@possiblyclippedpath{style="stroke:none"}}
@@ -79,8 +76,7 @@
 \def\pgfsys@discardpath{%
   \ifpgf@sys@svg@clipnext%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgfsysprotocol@literal{<clipPath id="pgfcp\the\pgf@sys@svg@objectcount">
-      <path\pgf@sys@svg@id@key\space d="}%
+    \pgfsysprotocol@literal{<clipPath id="pgfcp\the\pgf@sys@svg@objectcount"> <path\pgf@sys@svg@if@fresh@id{ id="\pgf@sys@svg@id@key"}{} d="}%
     \pgf@sys@flushsvgpath%
     \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
     \pgf@sys@svg@gs{clip-path="url(\#pgfcp\the\pgf@sys@svg@objectcount)"}
@@ -88,7 +84,7 @@
   \else%
     \global\let\pgf@sys@svgpath=\pgfutil@empty
   \fi%
-  \global\let\pgf@sys@svg@id@key\pgfutil@empty    
+  \pgf@sys@svg@invalidate@id%
 }
 
 % Fill rules:
@@ -149,12 +145,12 @@
 % Scopes
 \newcount\pgf@sys@svg@scopecount
 
-\def\pgfsys@beginscope{%
+\def\pgfsys@beginscope{\pgfsys@beginscope@{}}%
+\def\pgfsys@beginscope@#1{%
   \edef\pgf@sys@svg@thescopecount{\the\pgf@sys@svg@scopecount}%
   \begingroup%
     \pgf@sys@svg@scopecount=1\relax%
-    \pgfsysprotocol@literal{<g\pgf@sys@svg@id@key>\pgfsys@svg@newline }%
-    \global\let\pgf@sys@svg@id@key\pgfutil@empty    
+    \pgfsysprotocol@literal{<g#1>\pgfsys@svg@newline }%
 }
 \def\pgfsys@endscope{%
     \loop%
@@ -165,11 +161,36 @@
   \endgroup%
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%  
 }
+\def\pgfsys@begin@idscope{%
+  \begingroup%
+    \pgf@sys@svg@if@fresh@id{\pgfsys@beginscope@{ id="\pgf@sys@svg@id@key"}\let\pgf@sys@svg@end@id@scope\pgfsys@endscope}{\let\pgf@sys@svg@end@id@scope\relax}%
+    \pgf@sys@svg@invalidate@id%
+}
+\def\pgfsys@end@idscope{%
+    \pgf@sys@svg@end@id@scope%
+  \endgroup%
+}
+
+\def\pgf@sys@svg@if@fresh@id#1#2{%
+  \ifx\pgf@sys@svg@current@id\pgfutil@empty% empty id always counts as "has been used"
+    #2%
+  \else%
+    \expandafter\ifx\csname pgf@sys@svg@keylist@\pgf@sys@svg@current@id\pgf@sys@svg@ref@type{\pgf@sys@svg@current@type}\endcsname\pgfutil@empty%
+      % has already been used!
+      #2%
+    \else%
+      #1%
+    \fi%
+  \fi%
+}
+\def\pgf@sys@svg@invalidate@id{%
+  \expandafter\global\expandafter\let\csname pgf@sys@svg@keylist@\pgf@sys@svg@current@id\pgf@sys@svg@ref@type{\pgf@sys@svg@current@type}\endcsname\pgfutil@empty%
+}
+\let\pgf@sys@type@lookup@\pgfutil@empty%
 
 \newcount\pgf@sys@id@count
 \newcount\pgf@sys@subid@count
-\let\pgf@sys@svg@id@key\pgfutil@empty
-\def\pgfsys@new@id@type#1{%
+\def\pgf@sys@new@id@type#1{%
   \xdef#1{\ifcase\pgf@sys@subid@count a\or
     b\or c\or d\or e\or f\or g\or h\or i\or j\or k\or l\or m\or n\or
     o\or p\or q\or r\or s\or t\or u\or v\or w\or x\or  y\or z\or A\or
@@ -177,10 +198,46 @@
     O\or P\or Q\or R\or S\or T\or U\or V\or W\or X\or Y\or Z\else.\the\pgf@sys@subid@count\fi}%
   \global\advance\pgf@sys@subid@count by1\relax%
 }
-\def\pgfsys@new@id#1{\xdef#1{pgf\the\pgf@sys@id@count}\global\advance\pgf@sys@id@count by1\relax}
-\def\pgfsys@use@id#1#2{\xdef\pgf@sys@svg@id@key{ id="#1#2"}\xdef\pgf@sys@svg@current@id{#1#2}}
-\def\pgfsys@begin@idscope{\pgfsys@beginscope}
-\def\pgfsys@end@idscope{\pgfsys@endscope}
+\def\pgfsys@new@id#1{\edef#1{pgf\the\pgf@sys@id@count}\global\advance\pgf@sys@id@count by1\relax}
+\def\pgfsys@use@id#1{\edef\pgf@sys@svg@current@id{#1}\let\pgf@sys@svg@current@type\pgfutil@empty}
+\def\pgfsys@use@type#1{\edef\pgf@temp{#1}\expandafter\pgfutil@ifnextchar\expandafter.\expandafter\pgf@sys@svg@use@type@add\expandafter\pgf@sys@svg@use@type@replace\pgf@temp\pgf@stop}
+\def\pgf@sys@svg@use@type@replace#1\pgf@stop{%
+  \edef\pgf@sys@svg@current@type{#1}%
+  \pgf@sys@svg@make@type@valid{\pgf@sys@svg@current@type}%
+}
+\def\pgf@sys@svg@use@type@add.#1\pgf@stop{%
+  \ifx\pgf@sys@svg@current@type\pgfutil@empty%
+    \pgf@sys@svg@use@type@replace\pgf@sys@svg@current@type#1\pgf@stop%
+  \else%
+    \pgf@sys@svg@use@type@replace\pgf@sys@svg@current@type.#1\pgf@stop%
+  \fi%
+}
+\def\pgf@sys@svg@make@type@valid#1{%
+  \expandafter\ifx\csname pgf@sys@type@lookup@#1\endcsname\relax%
+    \let\pgf@sys@replaced\pgfutil@empty%
+    \edef\pgf@sys@temp{#1}%
+    \expandafter\pgf@sys@replace@dots\pgf@sys@temp.\pgf@stop%
+    \let\pgf@sys@temp\pgf@sys@replaced%
+    \let\pgf@sys@replaced\pgfutil@empty%
+    \expandafter\expandafter\expandafter\pgf@sys@replace@spaces\expandafter\pgf@sys@temp\space\pgf@stop%
+    \expandafter\global\expandafter\let\csname pgf@sys@type@lookup@#1\endcsname\pgf@sys@replaced%
+  \fi%
+}
+\def\pgf@sys@replace@dots#1.{%
+  \pgfutil@ifnextchar\pgf@stop{\expandafter\def\expandafter\pgf@sys@replaced\expandafter{\pgf@sys@replaced-#1}\pgfutil@gobble}%
+  {\expandafter\def\expandafter\pgf@sys@replaced\expandafter{\pgf@sys@replaced-#1}\pgf@sys@replace@dots}%
+}
+\def\pgf@sys@replace@spaces#1 {%
+  \pgfutil@ifnextchar\pgf@stop{\expandafter\def\expandafter\pgf@sys@replaced\expandafter{\pgf@sys@replaced#1}\pgfutil@gobble}%
+  {\expandafter\def\expandafter\pgf@sys@replaced\expandafter{\pgf@sys@replaced#1_}\pgf@sys@replace@spaces}%
+}
+\def\pgf@sys@svg@ref@type#1{\csname pgf@sys@type@lookup@#1\endcsname}
+
+\def\pgfsys@get@type#1{\let#1\pgf@sys@svg@current@type}
+\let\pgf@sys@svg@current@id\pgfutil@empty
+\let\pgf@sys@svg@current@type\pgfutil@empty
+
+\def\pgf@sys@svg@id@key{\pgf@sys@svg@current@id\csname pgf@sys@type@lookup@\pgf@sys@svg@current@type\endcsname}
 
 % Graphics state
 \def\pgfsys@setdash#1#2{%
@@ -542,9 +599,9 @@
 
 \def\pgf@sys@svg@anim#1{%
   {%
-    \edef\pgf@temp{{<#1\pgf@sys@svg@id@key\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
+    \edef\pgf@temp{{<#1\pgf@sys@svg@if@fresh@id{ id="\pgf@sys@svg@id@key"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
     \expandafter\pgfsysprotocol@literal\pgf@temp%    
-    \global\let\pgf@sys@svg@id@key\pgfutil@empty
+    \pgf@sys@svg@invalidate@id%
   }%
 }
 
@@ -590,6 +647,7 @@
 \def\pgf@sys@svg@set@or@animate{\ifpgf@sys@svg@dur@nonzero animate \else set \fi}
 
 % The animations
+\def\pgfsys@animateopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="opacity"}}
 \def\pgfsys@animatefillopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="fill-opacity"}}
 \def\pgfsys@animatestrokeopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke-opacity"}}
 \def\pgfsys@animatelinewidth{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke-width"}}
@@ -608,7 +666,7 @@
 \newif\ifpgf@sys@svg@dur@nonzero
 
 % The keys
-\def\pgfsys@animation@whom#1#2{\pgf@sys@svg@replace{xlink:href}{\##1#2}}
+\def\pgfsys@animation@whom#1#2{\pgf@sys@svg@make@type@valid{#2}\pgf@sys@svg@replace{xlink:href}{\##1\pgf@sys@svg@ref@type{#2}}}
 \def\pgfsys@animation@dur#1{\pgf@sys@svg@replace{dur}{#1s}\ifdim#1pt=0pt\relax\pgf@sys@svg@dur@nonzerofalse\else\pgf@sys@svg@dur@nonzerotrue\fi}
 \def\pgfsys@animation@min#1{\pgf@sys@svg@replace{min}{#1s}}
 \def\pgfsys@animation@max#1{\pgf@sys@svg@replace{max}{#1s}}
@@ -629,7 +687,8 @@
     \edef\pgf@temp{#1}%
     \ifx\pgf@temp\pgfutil@empty%
     \else%
-      \def\pgf@temp{#1#2.}%
+      \pgf@sys@svg@make@type@valid{#2}%
+      \def\pgf@temp{#1\pgf@sys@svg@ref@type{#2}.}%
     \fi%
     \edef\pgf@@temp{#4}%
     \ifx\pgf@@temp\pgfutil@empty%

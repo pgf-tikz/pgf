@@ -487,7 +487,6 @@
 \def\tikz@animate@collect#1{\tikz@animate{#1}\pgfutil@ifnextchar;\pgfutil@gobble\relax}
 \def\tikz@animate#1{\tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}}
 \let\tikz@animate@options\pgfutil@empty
-\newif\iftikz@animate@in@path
 
 % Path pictures
 \tikzset{path picture/.code=\tikz@addmode{\def\tikz@path@picture{#1}}}       
@@ -1738,6 +1737,10 @@
                                 % test! Who uses this?...
 }%
 
+\def\tikz@kind@token@scope{scope}
+\def\tikz@kind@token@node{node}
+\def\tikz@kind@token@path{path}
+
 %
 % Environment for scoping graphic state settings
 %
@@ -1755,17 +1758,19 @@
   \tikzset{every scope/.try,#1}%
   \tikz@options%
   \tikz@animate@options%
+  \let\tikz@animate@options=\pgfutil@empty%
   \iftikz@transparency@group\expandafter\pgftransparencygroup\expandafter[\tikz@transparency@group@options]\tikz@blend@group\fi%
-  \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{\tikz@id@name}\pgfuseid{\tikz@id@name}{}\pgfsys@begin@idscope\fi%
-  \begingroup%
-    \let\tikz@id@name\pgfutil@empty%
-    \expandafter\tikz@atbegin@scope%
-    \tikz@lib@scope@check%
+  \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{@scope}\pgfuseid{@scope}\pgfgaliasid{\tikz@id@name}{@scope}\pgfsetidkey{@scope}{k}{\tikz@kind@token@scope}\fi%
+  \pgfidscope%
+    \begingroup%
+      \let\tikz@id@name\pgfutil@empty%
+      \expandafter\tikz@atbegin@scope%
+      \tikz@lib@scope@check%
 }
 \def\endtikz@scope@env{%
-    \tikz@atend@scope%
-  \endgroup%
-  \ifx\tikz@id@name\pgfutil@empty\else\pgfsys@end@idscope\fi%
+      \tikz@atend@scope%
+    \endgroup%
+  \endpgfidscope%
   \iftikz@transparency@group\endpgftransparencygroup\fi%
   \endgroup%
   \endpgfscope%
@@ -2024,6 +2029,8 @@
     \tikz@lastxsaved=0pt%
     \tikz@lastysaved=0pt%
     \tikzset{every path/.try}%
+    \pgfnewid{@path}%
+    \pgfuseid{@path}%
     \tikz@scan@next@command%
 }
 \def\tikz@scan@next@command{%
@@ -2273,17 +2280,28 @@
         \tikz@options%
   \fi%
   %
+  % Step: Name if necessary
+  % 
+  \ifx\tikz@id@name\pgfutil@empty%
+    \ifx\tikz@animate@options\pgfutil@empty%
+      \ifx\pgfcurrentid\tikz@@pathtext%
+        \pgfuseid{}% no need for an id if it cannot be referenced
+      \else%
+        \pgfsetidkey{@path}{k}{\tikz@kind@token@path}
+      \fi%
+    \else%  
+      \pgfsetidkey{@path}{k}{\tikz@kind@token@path}
+    \fi%
+  \else%
+    \pgfgaliasid{\tikz@id@name}{@path}%
+    \pgfsetidkey{@path}{k}{\tikz@kind@token@path}
+  \fi%
+  \let\tikz@id@name\pgfutil@empty%
+  %
   % Step 5'': Setup animations
   % 
-  \pgfnewid{g@path}%
-  \pgfaliasid{@path}{g@path}%
-  \ifx\tikz@animate@options\pgfutil@empty%
-  \else%
-    \pgfsys@beginscope%
-      \tikz@animate@in@pathtrue%
-      \tikz@animate@options%
-      \tikz@animate@in@pathfalse%
-  \fi%
+  \iftikz@mode@clip\else\pgfidscope\fi% open an animation scope here, unless clipping is done
+  \tikz@animate@options%
   % 
   % Step 6: Do a fill if shade or a path picture follows.
   %
@@ -2293,7 +2311,10 @@
       \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
       \pgfsyssoftpath@setcurrentpath\tikz@temppath%
       \pgfsyssoftpath@invokecurrentpath%
+      \pgfsys@get@type\tikz@type@temp%
+      \pgfusetype{.path fill}%
       \pgfsys@fill%
+      \pgfusetype{\tikz@type@temp}%
       \tikz@mode@fillfalse% no more filling...
     \else%
       \ifx\tikz@path@picture\pgfutil@empty%
@@ -2302,7 +2323,10 @@
         \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
         \pgfsyssoftpath@setcurrentpath\tikz@temppath%
         \pgfsyssoftpath@invokecurrentpath%
+        \pgfsys@get@type\tikz@type@temp%
+        \pgfusetype{.path fill}%
         \pgfsys@fill%
+        \pgfusetype{\tikz@type@temp}%
         \tikz@mode@fillfalse% no more filling...
       \fi%
     \fi%
@@ -2314,7 +2338,10 @@
     \pgfsyssoftpath@getcurrentpath\tikz@temppath
     \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
     \pgfsyssoftpath@setcurrentpath\tikz@temppath%
+    \pgfsys@get@type\tikz@type@temp%
+    \pgfusetype{.path shade}%
     \pgfshadepath{\tikz@shading}{\tikz@shade@angle}%
+    \pgfusetype{\tikz@type@temp}%
     \tikz@mode@shadefalse% no more shading...
   \fi%
   % 
@@ -2323,6 +2350,8 @@
   \ifx\tikz@path@picture\pgfutil@empty%
   \else%
     \begingroup%
+      \pgfusetype{.path picture}%
+      \pgfidscope%
       \pgfsys@beginscope%
         \pgfsyssoftpath@getcurrentpath\tikz@temppath
         \pgfprocessround{\tikz@temppath}{\tikz@temppath}% change the path
@@ -2342,6 +2371,7 @@
           \tikz@path@picture%
         \endpgfinterruptpath%
       \pgfsys@endscope%
+      \endpgfidscope%
     \endgroup%
     \let\tikz@path@picture=\pgfutil@empty%  
   \fi%
@@ -2356,27 +2386,18 @@
           \tikz@double@setup%
     \fi%
   \fi%
-  %
-  % Step: Name if necessary
-  % 
-  \ifx\tikz@id@name\pgfutil@empty%
-    \ifx\tikz@animate@options\pgfutil@empty%
-    \else%
-      \pgfuseid{@path}{}%
-    \fi%
-  \else%
-    \pgfuseid{@path}{}\pgfgaliasid{\tikz@id@name}{@path}%
-  \fi%
-  \let\tikz@id@name\pgfutil@empty%
   % 
   % Step 10: Do stroke/fill/clip as needed
   %
+  \pgfsys@get@type\tikz@type@temp%
   \edef\tikz@temp{\noexpand\pgfusepath{%
     \iftikz@mode@fill fill,\fi%
     \iftikz@mode@draw draw,\fi%
     \iftikz@mode@clip clip\fi%
     }}%
+  \pgfusetype{.path}%
   \tikz@temp%
+  \pgfusetype{\tikz@type@temp}%
   \tikz@mode@fillfalse% no more filling
   % 
   % Step 11: Double stroke, if necessary
@@ -2397,12 +2418,9 @@
   %
   \box\tikz@figbox%
   % 
-  % Step 14: Close animation
+  % Step 14: Close animations
   %
-  \ifx\tikz@animate@options\pgfutil@empty%
-  \else%
-    \pgfsys@endscope%
-  \fi%
+  \iftikz@mode@clip\else\endpgfidscope\fi%
   % 
   % Step 14: Close option brace
   %
@@ -2428,6 +2446,7 @@
 }
 \let\tikz@lib@scope@check\pgfutil@empty% this is a hook for the scopes library
 \def\tikz@path@do@at@end{\tikz@lib@scope@check}
+\def\tikz@@pathtext{@path}
 
 \def\pgf@outer@auto@adjust@hook{%
   {%
@@ -2435,7 +2454,7 @@
     \tikz@mode%
     \expandafter%
   }%
-  \iftikz@mode@draw\else%xxx
+  \iftikz@mode@draw\else%
     \pgfkeyslet{/pgf/outer xsep}\pgf@zero@text
     \pgfkeyslet{/pgf/outer ysep}\pgf@zero@text
   \fi%
@@ -3842,7 +3861,8 @@
               \tikz@options%
               \tikz@animate@options%
               \let\tikz@animate@options\pgfutil@empty%
-              \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{\tikz@id@name}\pgfuseid{\tikz@id@name}{}\pgfsys@begin@idscope\fi%
+              \ifx\tikz@id@name\pgfutil@empty\else\pgfnewid{@matrix}\pgfuseid{@matrix}\pgfgaliasid{\tikz@id@name}{@matrix}\pgfsetidkey{@matrix}{k}{\tikz@kind@token@matrix}\fi%
+              \pgfidscope%
               \begingroup%
                 \let\tikz@id@name\pgfutil@empty%
                 \setbox\tikz@figbox=\box\pgfutil@voidb@x%
@@ -3909,7 +3929,7 @@
 \def\tikz@do@matrix@cont{%
                 \tikz@atend@matrix%
               \endgroup%  
-              \ifx\tikz@id@name\pgfutil@empty\else\pgfsys@end@idscope\fi%
+              \endpgfidscope%
             \endpgfscope
           \endpgfinterruptpath%
       \egroup\egroup%
@@ -3963,22 +3983,21 @@
       \hbox{{%
           \pgfinterruptpath%
             \pgfscope%
-              \pgfnewid{g@node}%
               \tikz@options%
-              \tikz@animate@options%
+              \pgfnewid{@node}%
+              \pgfuseid{@node}%
               \ifx\tikz@id@name\pgfutil@empty%
                 \ifx\tikz@animate@options\pgfutil@empty%
+                  \pgfuseid{}% no need for an id if it cannot be referenced
                 \else%
-                  \def\pgfnodeid{g@node}%
-                  \pgfuseid{g@node}{}%
-                  \pgfsys@begin@idscope%
+                  \pgfsetidkey{@node}{k}{\tikz@kind@token@node}%
                 \fi%
               \else%
-                \pgfgaliasid{\tikz@id@name}{g@node}%
-                \def\pgfnodeid{g@node}%
-                \pgfuseid{g@node}{}%
-                \pgfsys@begin@idscope%
+                \pgfgaliasid{\tikz@id@name}{@node}%
+                \pgfsetidkey{@node}{k}{\tikz@kind@token@node}%
               \fi%
+              \pgfidscope%
+              \tikz@animate@options%
               \begingroup%
                 \let\tikz@animate@options\pgfutil@empty%
                 \let\tikz@id@name\pgfutil@empty%
@@ -3990,15 +4009,8 @@
                   \global\pgflinewidth=\pgfutil@tempdima%
                 }%
               \endgroup%
-              \ifx\tikz@id@name\pgfutil@empty%
-                \ifx\tikz@animate@options\pgfutil@empty%
-                \else%
-                  \pgfsys@end@idscope%
-                \fi%
-              \else%
-                \pgfsys@end@idscope%
-              \fi%
-            \endpgfscope
+              \endpgfidscope%
+            \endpgfscope%
           \endpgfinterruptpath%
       }}%
     }%

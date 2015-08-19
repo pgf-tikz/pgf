@@ -81,20 +81,45 @@
 }
 
 \def\tikz@anim@attr#1#2#3{%
-  \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@now{#1}{#2}{#3}}%
+  \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@now{#1}{#1}{#2}{#3}}%
+}
+\def\tikz@anim@attr@alt#1#2#3#4{%
+  \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@now{#1}{#2}{#3}{#4}}%
 }
 
 \def\tikz@anim@along#1#2{%
   \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@along@now{#1}{#2}}%
 }
 
+
+
+\def\tikz@anim@default@type#1#2#3{\expandafter\def\csname tikz@default@type@#1@#2\endcsname{#3}}
+\def\tikz@anim@auto@whom#1#2{\expandafter\let\csname tikz@anim@auto@whom@#1@#2\endcsname\pgfutil@empty}
+
+\tikz@anim@auto@whom{softpath}{@path}
+
+\tikz@anim@auto@whom{fill}{@node}
+\tikz@anim@auto@whom{draw}{@node}
+\tikz@anim@auto@whom{text}{@node}
+
+\tikz@anim@default@type{softpath}{path}{.path}
+\tikz@anim@default@type{softpath}{node}{.background.path}
+
+\tikz@anim@default@type{fill}{node}{.background.path}
+\tikz@anim@default@type{draw}{node}{.background.path}
+\tikz@anim@default@type{text}{node}{.text}
+
+\tikz@anim@default@type{text opacity}{node}{.text}
+
 \pgfkeys{/tikz/animations/.cd,
+  opacity/.code=\tikz@anim@attr{opacity}{\tikz@anim@simple@parse}{#1},
+  opacity +/.style={opacity={change by #1}},
   fill opacity/.code=\tikz@anim@attr{fill opacity}{\tikz@anim@simple@parse}{#1},
   fill opacity +/.style={fill opacity={change by #1}},
   draw opacity/.code=\tikz@anim@attr{stroke opacity}{\tikz@anim@simple@parse}{#1},
-  draw opacity +/.style={fill opacity={change by #1}},
-  opacity/.style={fill opacity={#1},draw opacity={#1}},
-  opacity +/.style={fill opacity +={#1}, draw opacity +={#1}},
+  draw opacity +/.style={stroke opacity={change by #1}},
+  text opacity/.code=\tikz@anim@attr@alt{fill opacity}{text opacity}{\tikz@anim@simple@parse}{#1},
+  text opacity +/.style={text opacity={change by #1}},
   line width/.code=\tikz@anim@attr{line width}{\tikz@anim@simple@parse}{#1},
   line width +/.style={line width={change by #1}},
   scale/.code=\tikz@anim@attr{scale}{\tikz@anim@simple@parse}{#1},
@@ -111,12 +136,12 @@
   fill +/.style={fill={change by #1}},
   draw/.code=\tikz@anim@attr{draw}{\tikz@anim@simple@parse}{#1},
   draw +/.style={draw={change by #1}},
-  text/.code=\pgferror{not yet implement},
+  text/.code=\tikz@anim@attr@alt{fill}{text}{\tikz@anim@simple@parse}{#1},
   text +/.style={text={change by #1}},
   view/.code=\tikz@anim@attr{view}{\tikz@anim@view@parse}{#1},
   view +/.code={view={change by #1}},
-  color/.style={fill={#1},draw={#1}},
-  color +/.style={fill +={#1}, draw +={#1}},
+  color/.style={fill={#1},draw={#1},text={#1}},
+  color +/.style={fill +={#1}, draw +={#1}, text +={#1}},
   shift/.code=\tikz@anim@attr{translate}{\tikz@anim@shift@parse}{#1},
   shift +/.code={shift={change by #1}},
   translate/.style={shift={#1}},
@@ -205,22 +230,19 @@
   }%
 }
 
+
 % The main work function:
 
-\def\tikz@animate@now#1#2#3{%
+\def\tikz@animate@now#1#2#3#4{%
   {%
     \let\tikz@anim@now@options\pgfutil@empty%
-    \let\tikz@anim@parser#2%
+    \let\tikz@anim@parser#3%
     \c@pgf@counta=0\relax%
-    \tikz@anim@general@parse#3...\pgf@stop%
+    \tikz@anim@general@parse#4...\pgf@stop%
     \def\tikz@anim@caller{\pgfanimateattribute{#1}}%
-    \iftikz@animate@in@path%
-      \def\tikz@temp{#1}%
-      \ifx\tikz@temp\tikz@softpathtext%
-        \ifx\tikz@animate@whom\pgfutil@empty%
-           \def\tikz@animate@whom{g@path}%
-        \fi%
-      \fi%
+    \def\tikz@anim@attribute{#2}%
+    \expandafter\ifx\csname tikz@anim@auto@whom@#2@\pgfcurrentid\endcsname\relax\else%
+      \let\tikz@animate@whom\pgfcurrentid%
     \fi
     \tikz@animate@now@%
   }%
@@ -232,7 +254,21 @@
   \else%
     \foreach\tikz@animate@one@whom in\tikz@animate@whom{%
       \ifx\tikz@animate@one@whom\pgfutil@empty\else%
-        \def\tikz@temp{,whom=\tikz@animate@one@whom}%
+        \expandafter\pgfutil@in@\expandafter.\expandafter{\tikz@animate@one@whom}%
+        \ifpgfutil@in@%
+          \def\tikz@temp{,whom=\tikz@animate@one@whom}%
+        \else%
+          \pgfgetidkey\pgf@temp@kind\tikz@animate@one@whom{k}%
+          \let\tikz@temp@type\pgfutil@empty%
+          \ifx\pgf@temp@kind\relax%
+          \else
+            \expandafter\let\expandafter\tikz@temp@type\csname tikz@default@type@\tikz@anim@attribute @\pgf@temp@kind\endcsname%
+            \ifx\tikz@temp@type\relax%
+              \let\tikz@temp@type\pgfutil@empty%
+            \fi%
+          \fi%
+          \def\tikz@temp{,whom=\tikz@animate@one@whom\tikz@temp@type}%
+        \fi%
         \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@now@one@options\expandafter\expandafter\expandafter{\expandafter\tikz@anim@now@options\tikz@temp}%
         \expandafter\tikz@anim@caller\expandafter{\tikz@anim@now@one@options}%
       \fi%
@@ -351,7 +387,6 @@
     \def\tikz@anim@prefix{/tikz/animations/}%
     \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@prefix\expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter{\expandafter\tikz@anim@prefix\tikz@anim@key}}%
     \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@prefix\expandafter\expandafter\expandafter{\expandafter\tikz@anim@prefix\expandafter{\tikz@anim@value}}%
-    
     \pgfkeys{/errors/unknown key/.expand once=\tikz@anim@prefix}%
   \else%
     \pgfanimationset{duration/.expand once=\tikz@anim@key}%
