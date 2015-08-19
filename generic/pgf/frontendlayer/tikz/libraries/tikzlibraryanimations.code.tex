@@ -96,19 +96,26 @@
 \def\tikz@anim@default@type#1#2#3{\expandafter\def\csname tikz@default@type@#1@#2\endcsname{#3}}
 \def\tikz@anim@auto@whom#1#2{\expandafter\let\csname tikz@anim@auto@whom@#1@#2\endcsname\pgfutil@empty}
 
+% When the animate key is used on a path or a node without a whom key,
+% then in some cases we need to add the current path or node as the
+% whom key automatically (since, otherwise, the animation would be
+% added at a scope too far outside). The following commands configure
+% for which attributes and kinds of objects this should be done:
 \tikz@anim@auto@whom{softpath}{@path}
-
 \tikz@anim@auto@whom{fill}{@node}
 \tikz@anim@auto@whom{draw}{@node}
 \tikz@anim@auto@whom{text}{@node}
 
+% For some attributes for some kinds of objects, one normally needs to
+% add a specific type to the id. For instance, when you change the
+% "text opacity" of a node "foo", you actually wish to change the "fill
+% opacity" of "foo.text". The following mappings determine which kinds
+% of mappings must be done.
 \tikz@anim@default@type{softpath}{path}{.path}
 \tikz@anim@default@type{softpath}{node}{.background.path}
-
 \tikz@anim@default@type{fill}{node}{.background.path}
 \tikz@anim@default@type{draw}{node}{.background.path}
 \tikz@anim@default@type{text}{node}{.text}
-
 \tikz@anim@default@type{text opacity}{node}{.text}
 
 \pgfkeys{/tikz/animations/.cd,
@@ -238,7 +245,7 @@
     \let\tikz@anim@now@options\pgfutil@empty%
     \let\tikz@anim@parser#3%
     \c@pgf@counta=0\relax%
-    \tikz@anim@general@parse#4...\pgf@stop%
+    \pgfutil@ifnextchar\foreach\tikz@anim@foreach@parse\tikz@anim@general@parse#4...\pgf@stop%
     \def\tikz@anim@caller{\pgfanimateattribute{#1}}%
     \def\tikz@anim@attribute{#2}%
     \expandafter\ifx\csname tikz@anim@auto@whom@#2@\pgfcurrentid\endcsname\relax\else%
@@ -247,6 +254,7 @@
     \tikz@animate@now@%
   }%
 }
+
 \def\tikz@softpathtext{softpath}
 \def\tikz@animate@now@{%
   \ifx\tikz@animate@whom\pgfutil@empty%
@@ -302,6 +310,19 @@
 
 % The parser
 
+\def\tikz@anim@foreach@parse\foreach#1in{\pgfutil@ifnextchar\bgroup{\tikz@anim@foreach@parse@group{#1}}{\tikz@anim@foreach@parse@single{#1}}}
+\def\tikz@anim@foreach@parse@group#1#2{\pgfutil@ifnextchar x{\tikz@anim@foreach@parse@main{#1}{{#2}}}{\tikz@anim@foreach@parse@main{#1}{{#2}}}}
+\def\tikz@anim@foreach@parse@single#1#2{\pgfutil@ifnextchar x{\tikz@anim@foreach@parse@main{#1}{#2}}{\tikz@anim@foreach@parse@main{#1}{#2}}}
+\def\tikz@anim@foreach@parse@main#1#2#3...\pgf@stop{%
+  {%
+    \foreach#1in#2{%
+      \tikz@anim@parser{#3}%
+      \tikz@anim@add@to@now@options{value}%
+      \global\let\tikz@anim@now@options\tikz@anim@now@options%
+    }%
+  }%    
+}
+
 \def\tikz@anim@general@parse{\pgfutil@ifnextchar\pgf@stop\tikz@anim@general@done\tikz@anim@general@next}
 \def\tikz@anim@general@next#1...{%
   \advance\c@pgf@counta by1\relax%
@@ -328,8 +349,7 @@
   \pgfutil@loop%
   \ifnum\c@pgf@counta>\c@pgf@countb\relax%
     \advance\c@pgf@countb by 1\relax
-    \edef\pgf@marshal{\noexpand\tikz@anim@parser{\csname tikz@anim@vals@\the\c@pgf@countb\endcsname}}%
-    \pgf@marshal%
+    \expandafter\expandafter\expandafter\tikz@anim@parser\expandafter\expandafter\expandafter{\csname tikz@anim@vals@\the\c@pgf@countb\endcsname}%
     \tikz@anim@add@to@now@options{value}%
   \pgfutil@repeat%
 }
