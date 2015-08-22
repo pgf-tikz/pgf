@@ -129,11 +129,13 @@
     \pgfsysprotocol@literal{<svg
       overflow="visible"
       preserveAspectRatio="xMidYMid #1"
+      \pgf@sys@svg@if@fresh@id{ id="\pgf@sys@svg@id@key"}{}
       x="\pgf@sys@tonumber{\pgf@x}"
       y="\pgf@sys@tonumber{\pgf@y}"
       width="\pgf@sys@tonumber{\pgf@xa}"
       height="\pgf@sys@tonumber{\pgf@ya}"
       viewBox="\pgf@sys@tonumber{\pgf@xb} \pgf@sys@tonumber{\pgf@yb} \pgf@sys@tonumber{\pgf@xc} \pgf@sys@tonumber{\pgf@yc}">}%
+    \pgf@sys@svg@invalidate@id%
   }%
 }
 \def\pgfsys@endviewbox{\pgfsysprotocol@literal{</svg>}}
@@ -256,8 +258,6 @@
 \def\pgfsys@miterjoin{\pgf@sys@svg@gs{stroke-linejoin="miter"}}
 \def\pgfsys@roundjoin{\pgf@sys@svg@gs{stroke-linejoin="round"}}
 \def\pgfsys@beveljoin{\pgf@sys@svg@gs{stroke-linejoin="bevel"}}
-\def\pgfsys@begininvisible{\pgfsys@beginscope@{ visibility="hidden"}}
-\def\pgfsys@endinvisible{\pgfsys@endscope}
 
 %
 % Color management
@@ -323,30 +323,52 @@
   \ifpgfpicture\pgf@sys@svg@gs{#1}\fi%
 }
 
+\def\pgf@sys@svg@colorpop{\special{color pop}}
+
 \def\pgfsys@color@rgb@stroke#1#2#3{%
   \pgf@sys@svg@color@rgb#1,#2,#3\relax%
   \pgf@sys@svg@gs@color{stroke="\pgf@sys@svg@prepared"}}
 \def\pgfsys@color@rgb@fill#1#2#3{%
-  \pgf@sys@svg@color@rgb#1,#2,#3\relax%
-  \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}}
+  \ifpgfpicture%
+    \pgf@sys@svg@color@rgb#1,#2,#3\relax%
+    \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
+  \else%
+    \special{color push rgb #1 #2 #3}%
+    \aftergroup\pgf@sys@svg@colorpop%
+  \fi}
 \def\pgfsys@color@cmyk@stroke#1#2#3#4{%
   \pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax%
   \pgf@sys@svg@gs@color{stroke="\pgf@sys@svg@prepared"}}
 \def\pgfsys@color@cmyk@fill#1#2#3#4{%
-  \pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax%
-  \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}}
+  \ifpgfpicture%
+    \pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax%
+    \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
+  \else%
+    \special{color push cmyk #1 #2 #3}%
+    \aftergroup\pgf@sys@svg@colorpop%
+  \fi}
 \def\pgfsys@color@cmy@stroke#1#2#3{%
   \pgf@sys@svg@color@cmy#1,#2,#3\relax%
   \pgf@sys@svg@gs@color{stroke="\pgf@sys@svg@prepared"}}
 \def\pgfsys@color@cmy@fill#1#2#3{%
-  \pgf@sys@svg@color@cmy#1,#2,#3\relax%
-  \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}}
+  \ifpgfpicture%
+    \pgf@sys@svg@color@cmy#1,#2,#3\relax%
+    \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}
+  \else%
+    \special{color push cmyk #1 #2 #3 0}%
+    \aftergroup\pgf@sys@svg@colorpop%
+  \fi}
 \def\pgfsys@color@gray@stroke#1{%
   \pgf@sys@svg@color@gray#1\relax%
   \pgf@sys@svg@gs@color{stroke="\pgf@sys@svg@prepared"}}
 \def\pgfsys@color@gray@fill#1{%
-  \pgf@sys@svg@color@gray#1\relax%
-  \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}}
+  \ifpgfpicture%
+    \pgf@sys@svg@color@gray#1\relax%
+    \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
+  \else%
+    \special{color push gray #1}%
+    \aftergroup\pgf@sys@svg@colorpop%
+  \fi}
 
 
 % Shadings:
@@ -719,16 +741,18 @@
 \def\pgfsys@animation@accumulate{\pgf@sys@svg@replace{accumulate}{sum}}
 \def\pgfsys@animation@noaccumulate{\pgf@sys@svg@replace{accumulate}{}}
 \def\pgfsys@animation@discrete{\pgf@sys@svg@replace{calcMode}{discrete}}
-\def\pgfsys@animation@linear{\pgf@sys@svg@replace{calcMode}{discrete}}
-\def\pgfsys@animation@paced{\pgf@sys@svg@replace{calcMode}{discrete}}
-\def\pgfsys@animation@spline{\pgf@sys@svg@replace{calcMode}{discrete}}
+\def\pgfsys@animation@linear{\pgf@sys@svg@replace{calcMode}{linear}}
+\def\pgfsys@animation@paced{\pgf@sys@svg@replace{calcMode}{paced}}
+\def\pgfsys@animation@spline{\pgf@sys@svg@replace{calcMode}{spline}}
 \def\pgfsys@animation@rotatealong{\pgf@sys@svg@replace{rotate}{auto}}
 \def\pgfsys@animation@norotatealong{\pgf@sys@svg@replace{rotate}{}}
 \def\pgfsys@animation@movealong#1{%
   {%
     \let\pgf@sys@save@svgpath=\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath=\pgfutil@empty%
+    \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
     #1%
+    \pgfsyssoftpath@invokecurrentpath%
     \global\let\pgf@svg@anim@temp\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath\pgf@sys@save@svgpath%
   }%
@@ -751,7 +775,9 @@
   {%
     \let\pgf@sys@save@svgpath=\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath=\pgfutil@empty%
+    \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
     #1%
+    \pgfsyssoftpath@invokecurrentpath%
     \global\let\pgf@svg@anim@temp\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath\pgf@sys@save@svgpath%
   }%
