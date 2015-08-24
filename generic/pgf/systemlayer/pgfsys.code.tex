@@ -558,15 +558,50 @@
 \def\pgfsys@endscope{\pgf@sys@fail{scoping}}
 % Restores the last saved graphic state.
 
+\def\pgfsys@begin@idscope{%
+  \begingroup%
+    \csname pgf@sys@att@beg@\pgfsys@id@refcurrent\endcsname%
+    \expandafter\global\expandafter\let\csname pgf@sys@att@beg@\pgfsys@id@refcurrent\endcsname\relax%
+    \pgfsys@invalidate@currentid%
+      \begingroup%
+}
+% Starts an "id scope" where the current value of \pgfsys@use@id and
+% \pgfsys@use@type is used. If the combination has been used before,
+% nothing happens. Otherwise, depending of the driver, a graphic
+% scope may or may not be created. To ensure that a graphic scope is
+% created, use \pgfsys@beginscope additionally.
+
+\def\pgfsys@end@idscope{
+      \endgroup
+    \csname pgf@sys@att@end@\pgfsys@id@refcurrent\endcsname%
+    \expandafter\global\expandafter\let\csname pgf@sys@att@end@\pgfsys@id@refcurrent\endcsname\relax%
+  \endgroup
+}
+% Ends an id scope.
 
 
+
 %
 %
-% Id management
+% Id management (all of these commands have a default implementation
+% any typically need not be redefined by a driver)
 %
 %
 
-\def\pgfsys@use@id#1{}
+% The id count
+\newcount\pgf@sys@id@count
+
+\def\pgfsys@new@id#1{%
+  \edef#1{pgf\the\pgf@sys@id@count}%
+  \global\advance\pgf@sys@id@count by1\relax%
+}
+% Creates a new id and stores it in the macro #1.
+
+\def\pgfsys@use@id#1{%
+  \edef\pgf@sys@id@current@id{#1}%
+  \let\pgfsys@current@type\pgfutil@empty%
+}
+\let\pgf@sys@id@current@id\pgfutil@empty
 % Sets the id to be used for the next graphic object (group, box, or
 % path). The type is reset to be empty. #1 must be a macro name that
 % has previously been set using \pgfsys@new@id.
@@ -574,26 +609,107 @@
 % Each combination of id and type can be used only once, on a second
 % use nothing happens.
 
-\def\pgfsys@use@type#1{}
-% Sets the type to be used for the next graphic object. If it starts
-% with a period, #1 is appended to the current type, otherwise #1
-% replaces the current type.
+\def\pgfsys@use@type#1{%
+  \expandafter\let\expandafter\pgfsys@temp@type\csname pgf@sys@lookup@t@#1\endcsname%
+  \if\pgfsys@temp@type\relax%
+    \pgfsys@clean@type\pgfsys@temp@type{#1}%
+    \expandafter\global\expandafter\let\csname pgf@sys@lookup@t@#1\endcsname\pgfsys@temp@type%
+  \fi%
+  \let\pgfsys@current@type\pgfsys@temp@type%
+} 
+\let\pgf@sys@lookup@t@\pgfutil@empty
+\let\pgfsys@current@type\pgfutil@empty
+% Sets the type to be used for the next graphic object. 
 
-\def\pgfsys@get@type#1{}
-% Assigns the current type to the macro #1.
+\def\pgfsys@append@type#1{%
+  \ifx\pgfsys@current@type\pgfutil@empty%
+    \pgfsys@use@type{#1}%
+  \else%
+    \pgfsys@use@type{\pgfsys@current@type.#1}%
+  \fi%
+}
+% Appends something to the current type
 
-\def\pgfsys@new@id#1{\let#1\pgfutil@empty}
-% Creates a new id and stores it in the macro #1.
+\def\pgfsys@clean@type#1#2{\edef#1{#2}}
+% Since types may be shown in the output file, it may be necessary to
+% "clean" them like removing spaces or dots. This macro should store a
+% clean version of #2 in #1.
 
-\def\pgfsys@begin@idscope{\begingroup}
-% Starts an "id scope" where the current value of \pgfsys@use@id and
-% \pgfsys@use@type is used. If the combination has been used before,
-% nothing happens. Otherwise, depending of the driver, a graphic
-% scope may or may not be created. To ensure that a graphic scope is
-% created, use \pgfsys@beginscope additionally.
+\def\pgfsys@push@type{%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@sys@typestack%
+  \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfsys@current@type%
+    \expandafter\expandafter\expandafter{\expandafter\pgfsys@current@type\expandafter}%
+    \expandafter\def\expandafter\pgf@sys@typestack\expandafter{\pgf@sys@typestack}}%
+}
+\let\pgf@sys@typestack\pgfutil@empty
+% Pushes the current type onto a global stack. This is useful for
+% temporarily changing the type without creating \TeX scopes.
 
-\def\pgfsys@end@idscope{\endgroup}
-% Ends an id scope.
+\def\pgfsys@pop@type{\pgf@sys@typestack}
+% Pops the last id from the stack.
+
+\def\pgfsys@id@ref#1#2{#1#2}
+% Expands to a text that can be inserted as a reference. #1 must be a
+% reference created \pgfsys@new@id, #2 must be a type that has been
+% validated using \pgfsys@id@validate@type.
+
+\def\pgfsys@id@refcurrent{\pgfsys@id@ref{\pgf@sys@id@current@id}{\pgfsys@current@type}}
+% Expands to a text that can be inserted as a reference to the current
+% id-type pair in use.
+
+\def\pgfsys@invalidate@currentid{%
+  \expandafter\global\expandafter\let\csname pgf@sys@id@keylist@\pgfsys@id@refcurrent\endcsname\pgfutil@empty%
+}
+% Mark the current id-type pair as used.
+
+\def\pgfsys@attach@to@id#1#2#3#4{%
+  \expandafter\def\expandafter\pgf@sys@tempbeg\expandafter{\csname pgf@sys@att@beg@\pgfsys@id@ref{#1}{#2}\endcsname}%
+  \expandafter\def\expandafter\pgf@sys@tempend\expandafter{\csname pgf@sys@att@end@\pgfsys@id@ref{#1}{#2}\endcsname}%
+  \expandafter\ifx\pgf@sys@tempbeg\relax%
+    \expandafter\let\pgf@sys@tempbeg\pgfutil@empty%
+  \fi%
+  \expandafter\ifx\pgf@sys@tempend\relax%
+    \expandafter\let\pgf@sys@tempend\pgfutil@empty%
+  \fi%
+  \expandafter\let\expandafter\pgf@sys@tempbeg@cont\pgf@sys@tempbeg
+  \expandafter\let\expandafter\pgf@sys@tempend@cont\pgf@sys@tempend
+  \expandafter\expandafter\expandafter\gdef\expandafter\pgf@sys@tempbeg\expandafter{\pgf@sys@tempbeg@cont#3}%
+  \def\pgf@sys@temp{#4}%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\gdef\expandafter\expandafter\expandafter\pgf@sys@tempend\expandafter\expandafter\expandafter{\expandafter\pgf@sys@temp\pgf@sys@tempend@cont}%
+}
+% Attaches some code to an id-type pair so that when the id's scope
+% gets created, #3 is added at the beginning and #4 is added at the end. 
+
+\def\pgfsys@if@fresh@id#1#2#3#4{%
+  \edef\pgf@sys@temp{#1}%
+  \ifx\pgf@sys@temp\pgfutil@empty% empty id always counts as "has been used"
+    #4%
+  \else%
+    \expandafter\ifx\csname pgf@sys@id@keylist@\pgfsys@id@ref{#1}{#2}\endcsname\pgfutil@empty%
+      % has already been used!
+      #4%
+    \else%
+      #3%
+    \fi%
+  \fi%
+}
+% Checks whether a given id-type pair #1-#2 has not been used, yet. If
+% so, #3 is executed, otherwise #4. 
+
+\def\pgfsys@if@fresh@currentid#1#2{%
+  \ifx\pgf@sys@id@current@id\pgfutil@empty% empty id always counts as "has been used"
+    #2%
+  \else%
+    \expandafter\ifx\csname pgf@sys@id@keylist@\pgfsys@id@refcurrent\endcsname\pgfutil@empty%
+      % has already been used!
+      #2%
+    \else%
+      #1%
+    \fi%
+  \fi%
+}
+% Checks whether the current id-type pair in use has not been used,
+% yet. If so, #1 is executed, otherwise #2.
 
 
 
@@ -1011,6 +1127,10 @@
 % and similar path-construction commands. It should not call other
 % \pgfsys@ commands.
 
+\def\pgfsys@animation@origin#1#2{}
+% Defines an origin for transformations like rotate and scale and
+% skews. #1 and #2 must be given in pt.
+
 
 
 % Values
@@ -1047,10 +1167,6 @@
 
 \def\pgfsys@animation@scale#1#2#3{}
 % #1,#2 must be dimensionless, #3 is the key to which this is added
-
-\def\pgfsys@animation@rotate#1#2#3#4{}
-% #1 must be dimensionless, #2,#3 describe the origin of the rotation
-% and must be dimensions, #4 is the key to which this is added
 
 \def\pgfsys@animation@viewbox#1#2#3#4#5{}
 % #1,#2 describe the lower left, #3,#4 the upper right corner of the

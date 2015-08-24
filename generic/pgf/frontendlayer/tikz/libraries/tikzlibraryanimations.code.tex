@@ -57,6 +57,12 @@
 \pgfkeys{/tikz/animations/.cd,
   whom/.store in=\tikz@animate@whom,
   whom also/.code=\expandafter\def\expandafter\tikz@animate@whom\expandafter{\tikz@animate@whom,#1},
+  node/.style={whom=[node]#1},
+  node also/.style={whom also=[node]#1},
+  scope/.style={whom=[scope]#1},
+  scope also/.style={whom also=[scope]#1},
+  path/.style={whom=[path]#1},
+  path also/.style={whom also=[path]#1},
   name/.forward to=/pgf/animation/name,
   duration/.forward to=/pgf/animation/duration,
   duration/.value required,
@@ -78,7 +84,12 @@
   key progress/.forward to=/pgf/animation/key progress,
   key spline control/.forward to=/pgf/animation/key spline control,
   animate/.code=\tikz@animate{#1},
+  origin/.code=\tikz@anim@parse@origin{#1},
 }
+\def\tikz@anim@parse@origin#1{%
+  \tikz@scan@one@point\tikz@anim@parse@origin@#1\relax%
+}
+\def\tikz@anim@parse@origin@#1{\pgfkeys{/pgf/animation/origin={#1}}}
 
 \def\tikz@anim@attr#1#2#3{%
   \expandafter\def\expandafter\tikz@animate@what\expandafter{\tikz@animate@what\tikz@animate@now{#1}{#1}{#2}{#3}}%
@@ -94,17 +105,6 @@
 
 
 \def\tikz@anim@default@type#1#2#3{\expandafter\def\csname tikz@default@type@#1@#2\endcsname{#3}}
-\def\tikz@anim@auto@whom#1#2{\expandafter\let\csname tikz@anim@auto@whom@#1@#2\endcsname\pgfutil@empty}
-
-% When the animate key is used on a path or a node without a whom key,
-% then in some cases we need to add the current path or node as the
-% whom key automatically (since, otherwise, the animation would be
-% added at a scope too far outside). The following commands configure
-% for which attributes and kinds of objects this should be done:
-\tikz@anim@auto@whom{softpath}{@path}
-\tikz@anim@auto@whom{fill}{@node}
-\tikz@anim@auto@whom{draw}{@node}
-\tikz@anim@auto@whom{text}{@node}
 
 % For some attributes for some kinds of objects, one normally needs to
 % add a specific type to the id. For instance, when you change the
@@ -117,6 +117,7 @@
 \tikz@anim@default@type{draw}{node}{.background.path}
 \tikz@anim@default@type{text}{node}{.text}
 \tikz@anim@default@type{text opacity}{node}{.text}
+\tikz@anim@default@type{view}{scope}{.view}
 
 \pgfkeys{/tikz/animations/.cd,
   visible/.code=\tikz@anim@attr{visible}{\tikz@anim@simple@parse}{#1},
@@ -131,16 +132,6 @@
   text opacity +/.style={text opacity={change by #1}},
   line width/.code=\tikz@anim@attr{line width}{\tikz@anim@simple@parse}{#1},
   line width +/.style={line width={change by #1}},
-  scale/.code=\tikz@anim@attr{scale}{\tikz@anim@simple@parse}{#1},
-  scale +/.style={scale={change by #1}},
-  xskew/.code=\tikz@anim@attr{xskew}{\tikz@anim@simple@parse}{#1},
-  xskew +/.style={xskew={change by #1}},
-  skew x/.style={xskew={#1}},
-  skew x +/.style={xskew +={#1}},
-  yskew/.code=\tikz@anim@attr{yskew}{\tikz@anim@simple@parse}{#1},
-  yskew +/.style={yskew={change by #1}},
-  skew y/.style={yskew={#1}},
-  skew y +/.style={yskew +={#1}},
   fill/.code=\tikz@anim@attr{fill}{\tikz@anim@simple@parse}{#1},
   fill +/.style={fill={change by #1}},
   draw/.code=\tikz@anim@attr{draw}{\tikz@anim@simple@parse}{#1},
@@ -153,31 +144,25 @@
   color +/.style={fill +={#1}, draw +={#1}, text +={#1}},
   shift/.code=\tikz@anim@attr{translate}{\tikz@anim@shift@parse}{#1},
   shift +/.code={shift={change by #1}},
-  translate/.style={shift={#1}},
-  translate +/.style={shift +={#1}},
   rotate/.code=\tikz@anim@attr{rotate}{\tikz@anim@simple@parse}{#1},
   rotate +/.code={rotate={change by #1}},
-  rotate around/.code=\tikz@anim@attr{rotate}{\tikz@anim@rotate@parse}{#1},
-  rotate aournd +/.code={rotate around={change by #1}},
+  scale/.code=\tikz@anim@attr{scale}{\tikz@anim@simple@parse}{#1},
+  scale +/.style={scale={change by #1}},
+  xskew/.code=\tikz@anim@attr{xskew}{\tikz@anim@simple@parse}{#1},
+  xskew +/.style={xskew={change by #1}},
+  yskew/.code=\tikz@anim@attr{yskew}{\tikz@anim@simple@parse}{#1},
+  yskew +/.style={yskew={change by #1}},
+  xslant/.code=\tikz@anim@attr{xskew}{\tikz@anim@simple@parse}{atan(#1)},
+  xslant +/.style={xskew={change by #1}},
+  yslant/.code=\tikz@anim@attr{yskew}{\tikz@anim@simple@parse}{atan(#1)},
+  yslant +/.style={yskew={change by #1}},
   move along/.code=\tikz@anim@along{#1}{},
   drive along/.code=\tikz@anim@along{#1}{rotate along=true},
-  path/.code=\tikz@anim@attr{softpath}{\tikz@anim@path@parse}{#1},
+  morph/.code=\tikz@anim@attr{softpath}{\tikz@anim@path@parse}{#1},
 }
 
 % The parsers:
 \def\tikz@anim@simple@parse#1{\def\tikz@anim@result{#1}}
-
-\def\tikz@anim@rotate@parse#1{%
-  \edef\tikz@temp{#1}% get rid of active stuff
-  \expandafter\tikz@anim@doparseA\tikz@temp%
-}%
-\def\tikz@anim@doparseA#1:{%
-  \def\tikz@temp@rot{#1}%
-  \tikz@scan@one@point\tikz@anim@doparseB%
-}
-\def\tikz@anim@doparseB#1{%
-  \expandafter\def\expandafter\tikz@anim@result\expandafter{\tikz@temp@rot,#1}%
-}
 
 \def\tikz@anim@shift@parse#1{\tikz@scan@one@point\tikz@anim@do@shift#1}
 \def\tikz@anim@do@shift#1{\def\tikz@anim@result{#1}}
@@ -230,7 +215,6 @@
     \setbox0=\hbox{{% protext against side effects
         \pgfinterruptpath%
         \pgf@relevantforpicturesizefalse%
-        \pgftransformreset%
         \expandafter\tikz@scan@next@command#1\pgf@stop%
         \pgfsyssoftpath@getcurrentpath\tikz@anim@result%
         \global\let\tikz@anim@result\tikz@anim@result%
@@ -250,9 +234,6 @@
     \pgfutil@ifnextchar\foreach\tikz@anim@foreach@parse\tikz@anim@general@parse#4...\pgf@stop%
     \def\tikz@anim@caller{\pgfanimateattribute{#1}}%
     \def\tikz@anim@attribute{#2}%
-    \expandafter\ifx\csname tikz@anim@auto@whom@#2@\pgfcurrentid\endcsname\relax\else%
-      \let\tikz@animate@whom\pgfcurrentid%
-    \fi
     \tikz@animate@now@%
   }%
 }
@@ -260,38 +241,43 @@
 \def\tikz@softpathtext{softpath}
 \def\tikz@animate@now@{%
   \ifx\tikz@animate@whom\pgfutil@empty%
-    \expandafter\tikz@anim@caller\expandafter{\tikz@anim@now@options}%
+    \tikzerror{Animations must specify a ``whom''}%
   \else%
     \foreach\tikz@animate@one@whom in\tikz@animate@whom{%
       \ifx\tikz@animate@one@whom\pgfutil@empty\else%
-        \expandafter\pgfutil@in@\expandafter.\expandafter{\tikz@animate@one@whom}%
+        \expandafter\tikz@anim@decomp@whom\tikz@animate@one@whom\pgf@stop%
+        \expandafter\pgfutil@in@\expandafter.\expandafter{\tikz@anim@whom@obj}%
+        \let\tikz@temp@type\pgfutil@empty%
         \ifpgfutil@in@%
-          \def\tikz@temp{,whom=\tikz@animate@one@whom}%
         \else%
-          \pgfgetidkey\pgf@temp@kind\tikz@animate@one@whom{k}%
-          \let\tikz@temp@type\pgfutil@empty%
-          \ifx\pgf@temp@kind\relax%
-          \else
-            \expandafter\let\expandafter\tikz@temp@type\csname tikz@default@type@\tikz@anim@attribute @\pgf@temp@kind\endcsname%
-            \ifx\tikz@temp@type\relax%
-              \let\tikz@temp@type\pgfutil@empty%
-            \fi%
+          \expandafter\let\expandafter\tikz@temp@type\csname tikz@default@type@\tikz@anim@attribute @\tikz@anim@whom@kind\endcsname%
+          \ifx\tikz@temp@type\relax%
+            \let\tikz@temp@type\pgfutil@empty%
           \fi%
-          \def\tikz@temp{,whom=\tikz@animate@one@whom\tikz@temp@type}%
         \fi%
+        \def\tikz@temp{,whom=\tikz@anim@whom@obj\tikz@temp@type}%
         \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@now@one@options\expandafter\expandafter\expandafter{\expandafter\tikz@anim@now@options\tikz@temp}%
         \expandafter\tikz@anim@caller\expandafter{\tikz@anim@now@one@options}%
       \fi%
     }%
   \fi%
 }
+\def\tikz@anim@decomp@whom{\pgfutil@ifnextchar[\tikz@anim@decomp@whom@opt{\tikz@anim@decomp@whom@opt[]}}
+\def\tikz@anim@decomp@whom@opt[#1]{%
+  \def\tikz@anim@whom@kind{#1}%
+  \pgfutil@ifnextchar x\tikz@anim@whom@scan\tikz@anim@whom@scan}% get rid of spaces
+\def\tikz@anim@whom@scan#1\pgf@stop{%
+  \def\tikz@anim@whom@obj{#1}%
+}
 
-% The specical along parser
+
+% The specail along parser
 
 \def\tikz@animate@along@now#1#2{%
   {%
     \def\tikz@anim@now@options{#2,along softpath=}%
     \def\tikz@anim@caller{\pgfanimateattribute{motion}}%
+    \def\tikz@anim@attribute{motion}%
     % Parse the path...
     {%
       \setbox0=\hbox{{% protext against side effects
@@ -425,107 +411,5 @@
 \expandafter\let\csname tikz@anim@digit@8\endcsname\pgfutil@empty
 \expandafter\let\csname tikz@anim@digit@9\endcsname\pgfutil@empty
 
-
-
-% \def\tikz@animate@path#1#2{%
-%   \begingroup%
-%     % Ok, setup options
-%     \tikz@anim@path@steps0\relax%
-%     \pgfkeys{/tikz/animations/.cd,/tikz/every animate/.try,#1}%
-%     % Now, start construction of path values
-%     \ifnum\tikz@anim@path@steps=0\relax%
-%       % Ok, determine the number of steps, first
-%       \tikz@anim@path@steps1\relax%
-%       \tikz@anim@path@count#2values\pgf@stop%
-%     \fi%
-%     \tikz@anim@path@step0\relax%  
-%     \edef\steps{\the\tikz@anim@path@steps}%
-%     \pgfutil@loop%
-%     \ifnum\tikz@anim@path@step<\tikz@anim@path@steps%
-%       \advance\tikz@anim@path@step by1\relax%
-%       \edef\step{\the\tikz@anim@path@step}%
-%       \ifnum\tikz@anim@path@steps>1\relax
-%         \pgfmathsetmacro\t{(\step-1)/(\steps-1)}%
-%       \else%
-%         \def\t{1.0}%
-%       \fi%
-%       \t@pgf@toka{}%
-%       \tikz@anim@path@parser#2values\pgf@stop%
-%       % \t@pgf@toka now contains a path, hopefully...
-%       \pgfsys@animation@path{%
-%         {%
-%           \setbox0=\hbox{{% protext against side effects
-%               \pgfinterruptpath%
-%               \pgf@relevantforpicturesizefalse%
-%               \pgftransformreset%
-%               \expandafter\tikz@scan@next@command\the\t@pgf@toka\pgf@stop%
-%               \pgfsyssoftpath@invokecurrentpath%
-%               \endpgfinterruptpath%
-%             }}%
-%         }%
-%       }{values}
-%     \pgfutil@repeat%
-%     \pgfsys@animatepath%  
-%   \endgroup%
-% }
-
-% \pgfkeys{/tikz/animations/.cd,
-%   steps/.code=\pgfmathsetcount\tikz@anim@path@steps{#1}
-% }
-
-% \newcount\tikz@anim@path@steps
-% \newcount\tikz@anim@path@step
-
-
-% \def\tikz@anim@path@count#1values{%
-%   \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble{%
-%     \pgfutil@ifnextchar\bgroup\tikz@anim@path@count@vals\tikz@anim@path@count}%
-% }
-
-% \def\tikz@anim@path@count@vals#1{%
-%   \c@pgf@counta=1\relax%
-%   \tikz@anim@path@count@vals@#1...\pgf@stop%
-% }
-% \def\tikz@anim@path@count@vals@#1...{%
-%   \pgfutil@ifnextchar\pgf@stop\tikz@anim@path@count@vals@done{%
-%     \advance\c@pgf@counta by1\relax%
-%     \tikz@anim@path@count@vals@}%
-% }%
-% \def\tikz@anim@path@count@vals@done\pgf@stop{%
-%   \ifnum\c@pgf@counta>\tikz@anim@path@steps\relax%
-%     \tikz@anim@path@steps=\c@pgf@counta\relax%
-%   \fi%
-% }
-
-
-
-% \def\tikz@anim@path@parser#1values{%
-%   \pgfutil@ifnextchar\pgf@stop{%
-%     \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-%     \pgfutil@gobble%
-%   }{%
-%     \pgfutil@ifnextchar\bgroup{%
-%       \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-%       \tikz@anim@path@parse@vals%
-%     }
-%     {%
-%       \t@pgf@toka\expandafter{\the\t@pgf@toka#1values}%
-%       \tikz@anim@path@parser%
-%     }%
-%   }%
-% }
-
-% \def\tikz@anim@path@parse@vals#1{%
-%   \c@pgf@counta=1\relax%
-%   \tikz@anim@path@parse@vals@#1...\pgf@stop%
-%   \tikz@anim@path@parser%
-% }
-% \def\tikz@anim@path@parse@vals@#1...{%
-%   \ifnum\c@pgf@counta=\tikz@anim@path@step\relax%
-%     \t@pgf@toka\expandafter{\the\t@pgf@toka#1}%
-%   \fi%
-%   \advance\c@pgf@counta by1\relax%
-%   \pgfutil@ifnextchar\pgf@stop\pgfutil@gobble\tikz@anim@path@parse@vals@%
-% }%
 
 \endinput

@@ -541,53 +541,6 @@
 \let\stoppgfidscope\pgfendidscope
 
 
-% Creates a new id, which can later be assigned to a scope, a path, or
-% a text box.
-% 
-% #1 = a name by which the id can be referenced
-%
-% Description:
-%
-% Later #1 can be passed to \pgfuseid.  The name can be reused and is
-% set globally. 
-
-\def\pgfnewid#1{\expandafter\pgfsys@new@id\csname pgf@scope@name@#1\endcsname}
-
-
-% Sets a key with an id
-% 
-% #1 = a name referencing an id
-% #2 = a key
-% #3 = a macro storing a value
-%
-% Description:
-%
-% Stores a value with a key for an id.
-
-\def\pgfsetidkey#1#2#3{%
-  \expandafter\global\expandafter\let\csname pgf@id@@#2@\pgfrefid{#1}\endcsname#3%
-}
-
-
-% Read some text from an id
-%
-% #1 = a macro
-% #2 = a name referencing an id
-% #3 = a key
-%
-% Description:
-%
-% Reads the value stored for an id and a key.
-
-\def\pgfgetidkey#1#2#3{%
-  \expandafter\ifx\csname pgf@scope@name@#2\endcsname\relax%
-    \pgferror{Unknown id '#2'.}%
-    \let#1\relax%
-  \else%
-    \expandafter\let\expandafter#1\csname pgf@id@@#3@\pgfrefid{#2}\endcsname%
-  \fi%
-}
-
 
 
 % Use an id on the next graphic object
@@ -598,24 +551,106 @@
 % The next scope or path can be the target of an animation command or
 % a hyperlink.
 
-\def\pgfuseid#1{\pgfsys@use@id{\csname pgf@scope@name@#1\endcsname}\def\pgfcurrentid{#1}}
-\let\pgf@scope@name@\pgfutil@empty
+\def\pgfuseid#1{%
+  \edef\pgf@temp{#1}%
+  \ifx\pgf@temp\pgfutil@empty%
+  \else%
+    \pgf@lookup@id{#1}%
+    \pgfsys@use@id{\pgf@next@id}%
+    \expandafter\xdef\csname pgf@id@names@#1\endcsname{{\pgf@next@id}{}}%
+  \fi%
+}
+
+\def\pgf@lookup@id#1{%
+  \expandafter\let\expandafter\pgf@id@name\csname pgf@id@names@#1\endcsname%
+  \ifx\pgf@id@name\relax%
+    \let\pgf@prev@id\pgfutil@empty%
+    \let\pgf@next@id\pgfutil@empty%
+  \else%
+    \expandafter\pgf@id@parse\pgf@id@name%
+  \fi%
+  \ifx\pgf@next@id\pgfutil@empty%
+    \pgfsys@new@id\pgf@next@id%
+    \expandafter\xdef\csname pgf@id@names@#1\endcsname{{\pgf@prev@id}{\pgf@next@id}}%
+  \fi%
+}
+\def\pgf@id@parse#1#2{%
+  \def\pgf@prev@id{#1}%
+  \def\pgf@next@id{#2}%
+}
+
+
+% Get the id that will be given to a name upon the next use
+% 
+% #1 = a macro
+% #2 = a name
+% 
+% Description:
+% 
+% #1 will get the id that will be used by \pgfuseid next time for the
+% given name.
+
+\def\pgfidrefnextuse#1#2{%
+  \edef\pgf@temp{#2}\ifx\pgf@temp\pgfutil@empty\pgferror{Missing name reference for ``\string#1''}\fi%
+  \pgf@lookup@id{#2}%
+  \let#1\pgf@next@id%
+}
+
+
+% Get the id was last used
+% 
+% #1 = a macro
+% #2 = a name
+% 
+% Description:
+% 
+% #1 will get the id that was last used by \pgfuseid for #2 or, if #2
+% has not yet been used, the id that will be used next.
+
+\def\pgfidrefprevuseornext#1#2{%
+  \edef\pgf@temp{#2}\ifx\pgf@temp\pgfutil@empty\pgferror{Missing name reference for ``\string#1''}\fi%
+  \pgf@lookup@id{#2}%
+  \ifx\pgf@prev@id\pgfutil@empty%
+    \let#1\pgf@next@id%
+  \else%
+    \let#1\pgf@prev@id%
+  \fi%
+}
 
 
 % Use a type
 % 
-% #1 = an id type; when starting with a dot, it is added to the current id
-%     type.
+% #1 = an id type; when starting with a dot, it is added to the
+% current type. 
 % 
 % The next scope or path can be the target of an animation command or
 % a hyperlink.
 
-\def\pgfusetype#1{\pgfsys@use@type{#1}}
+\def\pgfusetype#1{%
+  \edef\pgf@temp{#1}%
+  \expandafter\pgfutil@ifnextchar\expandafter.\expandafter\pgf@id@use@type@add\expandafter\pgf@id@use@type@replace\pgf@temp\pgf@stop
+}
+\def\pgf@id@use@type@add.#1\pgf@stop{\pgfsys@append@type{#1}}
+\def\pgf@id@use@type@replace#1\pgf@stop{\pgfsys@use@type{#1}}
+
+% Push the current type on a global stack
+%
+% Description:
+% 
+% The current type is pushed onto a global type stack. It can be
+% restored using \pgfpoptype.
+
+\def\pgfpushtype{\pgfsys@push@type}
 
 
-% Expands to the current id in use
+% Pop a type from the type stack
+%
+% Description:
+% 
+% Restores the most current value from the type stack.
 
-\def\pgfcurrentid{}
+\def\pgfpoptype{\pgfsys@pop@type}
+
 
 
 
@@ -637,31 +672,30 @@
   \expandafter\global\expandafter\let\csname pgf@scope@name@#1\endcsname\pgf@temp%
 }
 
-% Reference an id
+
+% Check whether a name has been forward-referenced 
 % 
 % #1 = a name
-% 
-% Description:
-% 
-% Will expand to the id of a name.
-
-\def\pgfrefid#1{\csname pgf@scope@name@#1\endcsname}
-
-
-% Check whether an id is defined
-% 
-% #1 = a name
-% #2 = what to do, when the name is defined
+% #2 = what to do, when has been forward-referenced
 % #3 = what to do otherwise
 % 
 % Description:
 % 
-% Depening on whether #1 is a valid id, #2 or #3 will be executed.
+% Depening on whether #1 has been forward-referenced, #2 or #3 will be executed.
 
-\def\pgfifid#1#2#3{\expandafter\ifx\csname pgf@scope@name@#1\endcsname\relax#3\else#2\fi}
-
-
-
+\def\pgfifidreferenced#1#2#3{%
+  \expandafter\let\expandafter\pgf@id@name\csname pgf@id@names@#1\endcsname%
+  \ifx\pgf@id@name\relax%
+    #3%
+  \else
+    \expandafter\pgf@id@parse\pgf@id@name%
+    \ifx\pgf@next@id\pgfutil@empty%
+      #3%
+    \else%
+      #2%
+    \fi%
+  \fi%
+}
 
 
 % Interrupts a picture

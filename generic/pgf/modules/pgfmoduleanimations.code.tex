@@ -10,6 +10,10 @@
 \ProvidesFileRCS $Header$
 
 
+% We need the animation system abstraction:
+
+\input pgfsysanimations.code.tex
+
 
 % Animate an attribute over time
 %
@@ -45,9 +49,10 @@
 % fill                      color
 % stroke                    color
 % motion                    motion
-% translate                 translation
+% origin                    point
+% translate                 point
 % scale                     scaling
-% rotate                    rotation
+% rotate                    scalar
 % xskew                     scalar
 % yskew                     scalar
 % path                      path
@@ -71,10 +76,9 @@
 
 \def\pgfanimateattribute#1#2{%
   {%
-    \pgfnewid{@animation}%
+    \pgfuseid{@animation}%
     \pgfkeys{/pgf/@animation attributes/.cd,#1}%
     \pgfkeys{/pgf/animation/.cd,#2}%
-    \pgfuseid{@animation}%
     \pgf@do@animate%
   }%
 }
@@ -93,9 +97,10 @@
   draw/.code=\pgf@animate@attr{strokecolor}{color},
   stroke/.code=draw,
   motion/.code=\pgf@animate@attr{motion}{motion},
-  translate/.code=\pgf@animate@attr{translate}{translation},
+  origin/.code=\pgf@animate@attr{origin}{point},
+  translate/.code=\pgf@animate@attr{translate}{point},
   scale/.code=\pgf@animate@attr{scale}{scaling},
-  rotate/.code=\pgf@animate@attr{rotate}{rotation},
+  rotate/.code=\pgf@animate@attr{rotate}{scalar},
   xskew/.code=\pgf@animate@attr{skewx}{scalar},
   yskew/.code=\pgf@animate@attr{skewy}{scalar},
   skew x/.style=xskew,
@@ -106,7 +111,7 @@
 }
 
 \def\pgf@animate@attr#1#2{%
-  \expandafter\let\expandafter\pgf@do@animate\csname pgfsys@animate#1\endcsname%
+  \expandafter\let\expandafter\pgf@do@animate\csname pgfsysanimate#1\endcsname%
   \expandafter\let\expandafter\pgfanim@type@parser\csname pgfanim@parse@type@#2\endcsname%
 }
 
@@ -228,7 +233,11 @@
 % \pgfanimateattribute{fill opacity}{whom=some scope, duration=6s, to=0}
 
 \pgfanimationset{
-  whom/.code=\pgf@anim@decomp{#1}\pgfifid{\pgf@anim@id@name}{\pgfsys@animation@whom{\pgf@anim@id}{\pgf@anim@type}}{\pgferror{No animation scope named '\pgf@anim@id@name' known}}
+  whom/.code={%
+    \pgf@anim@decomp{#1}%
+    \pgfidrefnextuse\pgf@anim@id\pgf@anim@id@name%
+    \pgfsysanimkeywhom{\pgf@anim@id}{\pgf@anim@type}%
+  }
 }
 
 \def\pgf@anim@decomp#1{%
@@ -242,7 +251,6 @@
 }
 \def\pgf@anim@decomp@#1.#2\pgf@stop{%
   \def\pgf@anim@id@name{#1}%
-  \def\pgf@anim@id{\pgfrefid{#1}}%
   \def\pgf@anim@type{#2}%
 }
 
@@ -281,7 +289,7 @@
 % \pgfanimateattribute{fill opacity}{to=0, duration=5s}
 
 \pgfanimationset{
-  duration/.code=\pgfparsetime{#1}\pgfsys@animation@dur{\pgftimeresult},
+  duration/.code=\pgfparsetime{#1}\pgfsysanimkeyduration{\pgftimeresult},
   duration/.value required
 }
 
@@ -303,8 +311,8 @@
 % \pgfanimateattribute{fill opacity}{duration=6s, repeats, max duration=20s, to=0}
 
 \pgfanimationset{
-  min duration/.code=\pgfparsetime{#1}\pgfsys@animation@min{\pgftimeresult},
-  max duration/.code=\pgfparsetime{#1}\pgfsys@animation@max{\pgftimeresult}
+  min duration/.code=\pgfparsetime{#1}\pgfsysanimkeyminduration{\pgftimeresult},
+  max duration/.code=\pgfparsetime{#1}\pgfsysanimkeymaxduration{\pgftimeresult}
 }
 
 
@@ -322,8 +330,8 @@
 \pgfanimationset{
   freeze at end/.is choice,
   freeze at end/.default=true,
-  freeze at end/true/.code=\pgfsys@animation@freezeatend,
-  freeze at end/false/.code=\pgfsys@animation@removeatend,
+  freeze at end/true/.code=\pgfsysanimkeyfreezeatend,
+  freeze at end/false/.code=\pgfsysanimkeyremoveatend,
 }
 
 
@@ -344,9 +352,9 @@
 \pgfanimationset{
   restart/.is choice,
   restart/.default=true,
-  restart/true/.code=\pgfsys@animation@restart@always,
-  restart/false/.code=\pgfsys@animation@restart@never,
-  restart/when not active/.code=\pgfsys@animation@restart@whennotactive
+  restart/true/.code=\pgfsysanimkeyrestartalways,
+  restart/false/.code=\pgfsysanimkeyrestartnever,
+  restart/when not active/.code=\pgfsysanimkeyrestartwhennotactive
 }
 
 
@@ -378,10 +386,10 @@
   repeats/.code={%
     \pgfutil@in@{accumulating\pgf@stop}{#1\pgf@stop}%
     \ifpgfutil@in@%
-      \pgfsys@animation@accumulate%
+      \pgfsysanimkeyaccumulate%
       \pgfanim@parse@acc#1\pgf@stop%
     \else%
-      \pgfsys@animation@noaccumulate%
+      \pgfsysanimkeynoaccumulate%
       \pgfanim@parse@noacc{#1}%
     \fi%
   },
@@ -397,14 +405,14 @@
   \else%
     \def\pgf@temp{#1}%
     \ifx\pgf@temp\pgfutil@empty%
-      \pgfsys@animation@repeat@indefinite%
+      \pgfsysanimkeyrepeatindefinite%
     \else% 
       \pgfmathparse{#1}%
-      \pgfsys@animation@repeat{\pgfmathresult}%
+      \pgfsysanimkeyrepeat{\pgfmathresult}%
     \fi%
   \fi%
 }
-\def\pgfanim@parse@for for#1\pgf@stop{\pgfparsetime{#1}\pgfsys@animation@repeat@dur{\pgftimeresult}}
+\def\pgfanim@parse@for for#1\pgf@stop{\pgfparsetime{#1}\pgfsysanimkeyrepeatduration{\pgftimeresult}}
 
 
 
@@ -421,8 +429,8 @@
 \pgfanimationset{
   add/.is choice,
   add/.default=true,
-  add/true/.code=\pgfsys@animation@sum,
-  add/false/.code=\pgfsys@animation@replace
+  add/true/.code=\pgfsysanimkeysum,
+  add/false/.code=\pgfsysanimkeyreplace
 }
 
 
@@ -439,8 +447,8 @@
 % \pgfanimateattribute{fill opacity}{begin=2s, end=2.5s, duration=1s, to=0}
 
 \pgfanimationset{
-  begin/.code=\pgfparsetime{#1}\pgfsys@animation@offset{\pgftimeresult}{begin},
-  end/.code=\pgfparsetime{#1}\pgfsys@animation@offset{\pgftimeresult}{end},
+  begin/.code=\pgfparsetime{#1}\pgfsysanimkeyoffset{\pgftimeresult}{begin},
+  end/.code=\pgfparsetime{#1}\pgfsysanimkeyoffset{\pgftimeresult}{end},
 }
 
 
@@ -511,19 +519,22 @@
       \ifx\pgfanim@event@event\pgfutil@empty%
         \pgferror{No event specified}%
       \else%
-        \pgfsys@animation@event{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
+        \pgfsysanimkeyevent{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@event}{\pgfanim@event@delay}{#2}%
       \fi%
     \else%
-      \pgfsys@animation@repeat@event{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
+      \pgfsysanimkeyrepeatevent{\pgf@anim@id}{\pgf@anim@type}{\pgfanim@event@repeat}{\pgfanim@event@delay}{#2}%
     \fi%
   \else%
-    \pgfsys@animation@accesskey{\pgfanim@event@key}{\pgfanim@event@delay}{#2}%
+    \pgfsysanimkeyaccesskey{\pgfanim@event@key}{\pgfanim@event@delay}{#2}%
   \fi%
 }
 
 \pgfkeys{/pgf/animation/events/.cd,
   event/.store in=\pgfanim@event@event,
-  of/.code=\pgf@anim@decomp{#1}\pgfifid{\pgf@anim@id@name}{}{\pgferror{Unknown animation name '\pgf@anim@id@name'}},
+  of/.code={%
+    \pgf@anim@decomp{#1}%
+    \pgfidrefprevuseornext\pgf@anim@id\pgf@anim@id@name%
+  },
   key/.store in=\pgfanim@event@key,
   repeat/.code=\pgfmathparse{#1}\let\pgfanim@event@repeat\pgfmathresult,
   delay/.code=\pgfparsetime{#1}\let\pgfanim@event@delay\pgftimeresult,
@@ -551,10 +562,10 @@
 
 \pgfanimationset{
   interpolation/.is choice,
-  interpolation/discrete/.code=\pgfsys@animation@discrete,
-  interpolation/linear/.code=\pgfsys@animation@linear,
-  interpolation/paced/.code=\pgfsys@animation@paced,
-  interpolation/spline/.code=\pgfsys@animation@spline
+  interpolation/discrete/.code=\pgfsysanimkeydiscrete,
+  interpolation/linear/.code=\pgfsysanimkeylinear,
+  interpolation/paced/.code=\pgfsysanimkeypaced,
+  interpolation/spline/.code=\pgfsysanimkeyspline
 }
 
 
@@ -570,16 +581,32 @@
 % \pgfanimateattribute{fill opacity}{key time=0, key time=0.5, key time=1, duration=3s, value=0, value=0.25, value=1}
 
 \pgfanimationset{
-  key time/.code=\pgfmathparse{#1}\pgfsys@animation@keytime{\pgfmathresult},
-  key progress/.code=\pgfmathparse{#1}\pgfsys@animation@keyprogress{\pgfmathresult},
+  key time/.code=\pgfmathparse{#1}\pgfsysanimkeykeytime{\pgfmathresult},
+  key progress/.code=\pgfmathparse{#1}\pgfsysanimkeykeyprogress{\pgfmathresult},
   key spline control/.code n args={4}{%
     \pgfmathsetmacro\pgfanim@cont@a{#1}%
     \pgfmathsetmacro\pgfanim@cont@a{#2}%
     \pgfmathsetmacro\pgfanim@cont@a{#3}%
     \pgfmathsetmacro\pgfanim@cont@a{#4}%
-    \pgfsys@animation@keytime{\pgfanim@cont@a}{\pgfanim@cont@b}{\pgfanim@cont@c}{\pgfanim@cont@d}%
+    \pgfsysanimkeykeysplinecontrol{\pgfanim@cont@a}{\pgfanim@cont@b}{\pgfanim@cont@c}{\pgfanim@cont@d}%
   }
 }
+
+
+% Specifies the origin for tranforming animations
+% 
+% #1 = a pgf point
+%
+% Specifies the origin of transformations like a rotate or a scale. 
+%
+% Example:
+% 
+% \pgfanimateattribute{rotate}{duration=1s, from=0, to=90, origin=\pgfpoint{1cm}{1cm}}
+
+\pgfanimationset{
+  origin/.code= \pgf@process{#1}\pgfsysanimkeyorigin{\the\pgf@x}{\the\pgf@y}%
+}
+
 
 
 
@@ -603,7 +630,7 @@
     \global\let\pgfanim@the@path\pgfanim@the@path%
     \pgfsyssoftpath@setcurrentpath\pgfanim@save@path%
   }%
-  \pgfsys@animation@movealong{\pgfanim@the@path}%
+  \pgfsysanimkeymovealong{\pgfanim@the@path}%
 }
 
 
@@ -620,7 +647,7 @@
 %    along softpath=\pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}}
 
 \pgfanimationset{
-  along softpath/.code=\pgfsys@animation@movealong{#1}%
+  along softpath/.code=\pgfsysanimkeymovealong{#1}%
 }
 
 
@@ -634,8 +661,8 @@
 \pgfanimationset{
   rotate along/.is choice,
   rotate along/.default=true,
-  rotate along/true/.code=\pgfsys@animation@rotatealong,
-  rotate along/false/.code=\pgfsys@animation@norotatealong,
+  rotate along/true/.code=\pgfsysanimkeyrotatealong,
+  rotate along/false/.code=\pgfsysanimkeynorotatealong,
 }
 
 
@@ -688,7 +715,7 @@
 
 \def\pgfanim@parse@type@scalar#1#2{%
   \pgfmathparse{#1}%
-  \pgfsys@animation@scalar{\pgfmathresult}{#2}%
+  \pgfsysanimkeyscalar{\pgfmathresult}{#2}%
 }
 
 
@@ -702,7 +729,7 @@
 
 \def\pgfanim@parse@type@dimension#1#2{%
   \pgfmathparse{#1}%
-  \pgfsys@animation@scalar{\pgfmathresult}{#2}%
+  \pgfsysanimkeyscalar{\pgfmathresult}{#2}%
 }
 
 
@@ -725,7 +752,7 @@
       \let\pgf@temp\pgfutil@empty%
     \fi%
   \expandafter}%
-  \expandafter\pgfsys@animation@text\expandafter{\pgf@temp}{#2}%
+  \expandafter\pgfsysanimkeytext\expandafter{\pgf@temp}{#2}%
 }
 
 
@@ -737,20 +764,7 @@
 % value = blue!20
 
 \def\pgfanim@parse@type@color#1#2{%
-  \pgfutil@colorlet{pgf@anim@temp}{#1}%
-  \pgfutil@ifundefined{applycolormixins}{}{\applycolormixins{pgf@anim@temp}}%
-  \expandafter\let\expandafter\pgf@temp\csname\string\color@pgf@anim@temp\endcsname
-  % for arrow tips:
-  \expandafter\pgfanim@parse@type@color@\pgf@temp{#2}%
-}
-\def\pgfanim@parse@type@color@#1#2#3#4#5#6{%
-  \expandafter\ifx\csname pgfsys@animation@color@#4\endcsname\relax%
-    \pgferror{Unsupported color model `#4'. Sorry}%
-  \else%
-    \edef\pgf@colmarshal{\expandafter\noexpand\csname pgfsys@animation@color@#4\endcsname}%
-    \pgf@uncomma#5,,%
-    \pgf@colmarshal{#6}%
-  \fi%
+  \pgfsysanimkeycolor{#1}{#2}%
 }
 
 
@@ -769,7 +783,7 @@
     \global\let\pgfanim@the@path\pgfanim@the@path%
     \pgfsyssoftpath@setcurrentpath\pgfanim@save@path%
   }%
-  \pgfsys@animation@path{\pgfanim@the@path}{#2}%
+  \pgfsysanimkeypath{\pgfanim@the@path}{#2}%
 }
 
 
@@ -780,19 +794,19 @@
 % value = \pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}
 
 \def\pgfanim@parse@type@softpath#1#2{%
-  \pgfsys@animation@path{#1}{#2}%
+  \pgfsysanimkeypath{#1}{#2}%
 }
 
 
-% Parse a translation in "value=#1"
+% Parse a point in "value=#1"
 % 
 % #1 is a point
 % 
 % value = \pgfpoint{1cm}{2cm}
 
-\def\pgfanim@parse@type@translation#1#2{%
+\def\pgfanim@parse@type@point#1#2{%
   \pgf@process{#1}%
-  \pgfsys@animation@translate{\pgf@x}{\pgf@y}{#2}%
+  \pgfsysanimkeytranslate{\pgf@x}{\pgf@y}{#2}%
 }
 
 
@@ -810,39 +824,15 @@
     \pgfanim@unpack@comma#1\pgf@stop{#2}%
   \else%
     \pgfmathparse{#1}%
-    \pgfsys@animation@scale{\pgfmathresult}{}{#2}%
+    \pgfsysanimkeyscale{\pgfmathresult}{}{#2}%
   \fi%
 }
 \def\pgfanim@unpack@comma#1,#2\pgf@stop#3{%
   \pgfmathsetmacro{\pgf@anim@temp@x}{#1}%
   \pgfmathsetmacro{\pgf@anim@temp@y}{#2}%
-  \pgfsys@animation@scale{\pgf@anim@temp@x}{\pgf@anim@temp@y}{#3}%
+  \pgfsysanimkeyscale{\pgf@anim@temp@x}{\pgf@anim@temp@y}{#3}%
 }
 
-
-
-% Parse a rotation in "value=#1"
-% 
-% #1 = if #1 contains a comma, the first part is a number, the second
-% must be a point. Otherwise, #1 is just a number.
-% 
-% value = 90
-% value = {45, \pgfpoint{1cm}{1cm}}
-
-\def\pgfanim@parse@type@rotation#1#2{%
-  \pgfutil@in@{,}{#1}%
-  \ifpgfutil@in@%
-    \pgfanim@unpack@comma@rot#1\pgf@stop{#2}%
-  \else%
-    \pgfmathparse{#1}%
-    \pgfsys@animation@rotate{\pgfmathresult}{0pt}{0pt}{#2}%
-  \fi%
-}
-\def\pgfanim@unpack@comma@rot#1,#2\pgf@stop#3{%
-  \pgf@process{#2}%
-  \pgfmathparse{#1}%
-  \pgfsys@animation@rotate{\pgfmathresult}{\pgf@x}{\pgf@y}{#3}%
-}
 
 
 % Parse a viewbox in "value=#1"
@@ -854,15 +844,15 @@
 \def\pgfanim@parse@type@viewbox#1#2{%
   {%
     \pgfanim@unpack@viewbox#1%
-    \xdef\pgf@anim@caller{\noexpand\pgfsys@animation@viewbox{\the\pgf@x}{\the\pgf@y}{\the\pgf@xa}{\the\pgf@ya}{#2}}%
+    \xdef\pgf@anim@caller{\noexpand\pgfsysanimkeyviewbox{\the\pgf@x}{\the\pgf@y}{\the\pgf@xa}{\the\pgf@ya}{#2}}%
   }% 
   \pgf@anim@caller%
 }
 \def\pgfanim@unpack@viewbox#1#2{%
-  \pgf@process{#2}%
+  \pgfpointtransformed{#2}%
   \pgf@xa\pgf@x%
   \pgf@ya\pgf@y%
-  \pgf@process{#1}%
+  \pgfpointtransformed{#1}%
   \ifdim\pgf@xa<\pgf@x% swap needed
     \pgf@xb=\pgf@x%
     \pgf@x=\pgf@xa%
