@@ -138,7 +138,7 @@
 	mode/list only/.code		= {\def\tikzexternal@opmode{3}\tikzexternal@genfigurelisttrue},
 	mode/convert with system call/.code={%
 		\def\tikzexternal@opmode{4}%
-		\pgfkeysalso{/tikz/external/figure list=false,/pgf/images/aux in dpth=true}% ATTENTION: this *can't* work if \label{} contains pictures!
+		\pgfkeysalso{/tikz/external/figure list=false,/pgf/images/aux in dpth=true}%
 	},
 	mode/list and make/.code	= {%
 		\def\tikzexternal@opmode{5}%
@@ -147,6 +147,9 @@
 	mode=convert with system call,
 	force remake/.is if=tikzexternal@force@remake,
 	force remake/.default=true,
+	%
+	% DEPRECATED: this here will work out-of-the box (provided that
+	% 'aux in dpth' is active):
 	failed ref warnings for/.initial={\ref,\cite,\pageref},
 	export next/.is if=tikzexternalexportnext,
 	export/.is if=tikzexternal@export@enabled,
@@ -444,8 +447,7 @@
 				\tikzexternalauxlock@getlockvalue
 				\if1\tikzexternallocked
 					\pgfexternalreadmainauxfalse
-					% the main .aux file won't be read. Handle \ref commands:
-					\tikzexternalauxlock@handleref
+					% the main .aux file won't be read right now.
 				\else
 					\pgfexternalreadmainauxtrue
 				\fi
@@ -484,79 +486,10 @@
 }
 
 
-% Installs a special \ref{} command such that externalized pictures
-% can use \ref and the user gets a warning if something fails.
-%
-% The special \ref handling is installed for every reference command
-% in the list '/tikz/external/failed ref warnings for' which contains
-% '\ref,\pageref,\cite'.
-%
-% For use in the aux lock handling only.
-%
-% ATTENTION: this is used if and only if *all* references are broken
-% (because the .aux file is NOT read at all)!
-\def\tikzexternalauxlock@handleref{%
-	\let\pgf@external@grab@refundefinedtrue=\pgf@external@grab@refundefinedtrue@orig
-	%
-	\pgfkeysgetvalue{/tikz/external/failed ref warnings for}\tikzexternal@temp
-	\expandafter\tikzexternalauxlock@handleref@loop\tikzexternal@temp,\@EOI,%
-}
-\def\tikzexternalauxlock@handleref@loop#1,{%
-	\def\tikzexternal@temp{#1}%
-	\ifx\tikzexternal@temp\pgfutil@empty
-		\expandafter\tikzexternalauxlock@handleref@loop
-	\else
-		\ifx#1\@EOI
-		\else
-			{%
-				% strip the leading '\'
-				% this allows proper \protect ion when you write
-				% \caption{...\cite{..}} and #1=\cite
-				\escapechar=-1
-				\xdef\pgf@temp{\string#1}%
-			}%
-			\expandafter\let\csname tikzexternalauxlock@handleref@orig@\pgf@temp\endcsname=#1%
-			\edef#1{\noexpand\pgf@texdist@protect\noexpand\tikzexternalauxlock@handleref@repl{\pgf@temp}}%
-			\expandafter\expandafter\expandafter\tikzexternalauxlock@handleref@loop
-		\fi
-	\fi
+% this is a hook into pgfcoreexternal.code.tex:
+\def\pgf@external@grab@refundefinedtrue@code{%
+	\gdef\noexpand\tikzexternal@systemcall@reschedule@to@end@document{1}%
 }%
-\def\tikzexternalauxlock@handleref@repl#1{%
-	\pgfutil@ifnextchar[{\tikzexternalauxlock@handleref@gobble@opt{#1}}{\tikzexternalauxlock@handleref@repl@{#1}}%
-}%
-% silently discard the options. We merely need to generate a warning.
-\def\tikzexternalauxlock@handleref@gobble@opt#1[#2]{%
-	% there may be more than one set of options (biblatex's \cite):
-	\pgfutil@ifnextchar[{\tikzexternalauxlock@handleref@gobble@opt{#1}}{\tikzexternalauxlock@handleref@repl@{#1}}%
-}%
-\def\tikzexternalauxlock@handleref@repl@#1#2{%
-	\tikzifexternalizingcurrent{%
-		% note that '#1' is NO control sequence! it is a protected string
-		\csname tikzexternalauxlock@handleref@orig@#1\endcsname{#2}%
-		\begingroup
-		\def\n{\pgfexternal@hat\pgfexternal@hat J}%
-		\tikzexternal@assemble@systemcall{\pgfactualjobname}{\pgf@tempa}%
-		\def\space{\noexpand\space}%
-		\pgfexternalstorecommand{%
-			\noexpand\begingroup
-			\noexpand\toks0={\pgf@tempa}%
-			\noexpand\immediate\noexpand\write16{\tikzexternalauxlock@handleref@warning{#2}{\noexpand\the\noexpand\toks0}}%
-			\noexpand\G@refundefinedtrue
-			\noexpand\endgroup
-		}%
-		\endgroup
-	}{%
-		% ok. We are not externalizing this part of the document. 
-		% Throw the citation away without further notice.
-	}%
-}%
-\def\tikzexternalauxlock@handleref@warning#1#2{%
-	\n
-	LaTeX Warning: Reference `#1' in external picture `\pgfactualjobname' could not be resolved\noexpand\on@line.\n
-	This is because the \tikzexternal@realjob.aux file is not accessable in this context, you will need to issue the externalize command\n
-	\space\space\space#2\n
-	manually.\n%
-}
 
 % Expands to the default image extension (it is set by
 % \tikzexternalize).
@@ -1438,6 +1371,9 @@
 }%
 \long\def\tikzexternal@externalizefig@systemcall@@#1{%
 	\tikzexternal@externalizefig@systemcall@uptodatecheck{#1}%
+	\tikzexternal@assemble@systemcall{\tikzexternal@curfilename}{\pgf@tempa}%
+	\global\let\tikzexternal@cursyscall=\pgf@tempa
+	\gdef\tikzexternal@typeset@picture@on@failure{1}%
 	\iftikzexternal@file@isuptodate
 		\iftikzexternal@verboseio
 			\immediate\write16{===== Image '\tikzexternal@curfilename' is up-to-date. ======}%
@@ -1446,49 +1382,70 @@
 	\else
 		\begingroup
 		% no such image. Generate it!
-		\tikzexternal@assemble@systemcall{\tikzexternal@curfilename}{\pgf@tempa}%
-		\iftikzexternal@verboseio
-			\immediate\write16{===== 'mode=convert with system call': Invoking '\pgf@tempa' ========}%
-		\fi
 		%
 		\tikzexternalauxlock@setlock1%
-		\immediate\write18{\pgf@tempa}%
+		\tikzexternal@externalizefig@systemcall@call{\tikzexternal@cursyscall}%
 		\tikzexternalauxlock@setlock0%
-		\expandafter\tikzexternal@externalizefig@systemcall@assertsuccess\expandafter{\pgf@tempa}%
+		\expandafter\tikzexternal@externalizefig@systemcall@assertsuccess\expandafter{\tikzexternal@cursyscall}%
 		\pgfmath@smuggleone\pgf@filename
 		\endgroup
 	\fi
 	\ifx\pgf@filename\pgfutil@empty
-		% error recovery: something did not work! Try to load it
-		% anyway. Perhaps it was just that shell-escape wasn't
-		% enabled.
-		\begingroup
-		\toks0={%
-			\tikzexternaldisable
-			\pgfutil@ifundefined{scantokens}{\long\def\scantokens##1{##1}}{}%
-		}%
-		% FIXME : THIS WILL FAIL IF THERE IS '##' INSIDE OF '#1'!
-		% for example something like /.style={#1} in the picture environment *will* fail.
-		\toks1={%
-			\tikzpicture#1%
-		}%
-		\toks2={%
-			\tikzexternal@TEXDIALECT@endpicture
-			\tikzexternalenable
-		}%
-		\xdef\tikzexternal@externalizefig@systemcall@next{%
-			\the\toks0
-			%  try reading them again as if they were in the input file.
-			\noexpand\scantokens{\the\toks1 }%
-			\the\toks2
-		}%
-		\endgroup
+		\if1\tikzexternal@typeset@picture@on@failure
+			% error recovery: something did not work! Try to load it
+			% anyway. Perhaps it was just that shell-escape wasn't
+			% enabled.
+			\begingroup
+			\toks0={%
+				\tikzexternaldisable
+				\pgfutil@ifundefined{scantokens}{\long\def\scantokens##1{##1}}{}%
+			}%
+			% FIXME : THIS WILL FAIL IF THERE IS '##' INSIDE OF '#1'!
+			% for example something like /.style={#1} in the picture environment *will* fail.
+			\toks1={%
+				\tikzpicture
+				#1%
+			}%
+			\toks2={%
+				\tikzexternal@TEXDIALECT@endpicture
+				\tikzexternalenable
+			}%
+			\xdef\tikzexternal@externalizefig@systemcall@next{%
+				\the\toks0
+				%  try reading them again as if they were in the input file.
+				\noexpand\scantokens{\the\toks1 }%
+				\the\toks2
+			}%
+			\endgroup
+		\else
+			% Ah -- this picture failed, but the failure has already
+			% been handled somehow. Do not typeset it again!
+			%
+			% A use-case is that the picture has been rescheduled for
+			% \end{document}.
+			\gdef\tikzexternal@externalizefig@systemcall@next{\tikzexternal@closeenvironments}%
+		\fi
 	\else
 		% ok, take the image!
+		\gdef\tikzexternal@systemcall@reschedule@to@end@document{0}%
 		\expandafter\pgfincludeexternalgraphics\expandafter{\tikzexternal@curfilename}%
+		\if1\tikzexternal@systemcall@reschedule@to@end@document
+			\pgfutil@IfUndefined{AtVeryEndDocument}{%
+			}{%
+				\immediate\write16{===== The previous system call resulted in undefined references inside of the output file. Rescheduling it for \string\end{document}. ========}%
+				\expandafter\tikzexternal@externalizefig@systemcall@reschedule\expandafter{\tikzexternal@cursyscall}%
+			}%
+		\fi
 		\gdef\tikzexternal@externalizefig@systemcall@next{\tikzexternal@closeenvironments}%
 	\fi
 	\tikzexternal@externalizefig@systemcall@next
+}%
+
+\def\tikzexternal@externalizefig@systemcall@call#1{%
+	\iftikzexternal@verboseio
+		\immediate\write16{===== 'mode=convert with system call': Invoking '#1' ========}%
+	\fi
+	\immediate\write18{#1}%
 }%
 
 % Sets \iftikzexternal@file@isuptodate to false if one of the "force
@@ -1654,14 +1611,67 @@
 	\xdef\pgf@tempa{\noexpand\pgf@findfile\pgfsys@imagesuffixlist:+{\tikzexternal@curfilename}}%
 	\pgf@tempa
 	\ifx\pgf@filename\pgfutil@empty%
-		\tikzerror{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist). Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'. If you continue now, I'll try to typeset the picture}{}%
+		\tikzexternal@externalizefig@systemcall@handleexception{#1}%
 	\fi
 }%
+\def\tikzexternal@externalizefig@systemcall@handleexception@msg#1{%
+	\tikzerror{Sorry, the system call '#1' did NOT result in a usable output file '\tikzexternal@curfilename' (expected one of \pgfsys@imagesuffixlist). Please verify that you have enabled system calls. For pdflatex, this is 'pdflatex -shell-escape'. Sometimes it is also named 'write 18' or something like that. Or maybe the command simply failed? Error messages can be found in '\tikzexternal@curfilename.log'. If you continue now, I'll try to typeset the picture}{}%
+}
+\def\tikzexternal@externalizefig@systemcall@handleexception@retry@later#1{%
+	\gdef\tikzexternal@systemcall@reschedule@to@end@document{0}%
+	\expandafter\pgfexternalreaddpth\expandafter{\tikzexternal@curfilename}%
+	\if1\tikzexternal@systemcall@reschedule@to@end@document
+		\pgfutil@IfUndefined{AtVeryEndDocument}{%
+			\tikzexternal@externalizefig@systemcall@handleexception@msg{#1}%
+		}{%
+			\immediate\write16{===== The last system call resulted in an EMPTY output file. Maybe it is part of \string\ref. Rescheduling it for \string\end{document}. ========}%
+			\gdef\tikzexternal@typeset@picture@on@failure{0}%
+			\tikzexternal@externalizefig@systemcall@reschedule{#1}%
+		}%
+	\else
+		\tikzexternal@externalizefig@systemcall@handleexception@msg{#1}%
+	\fi
+}
+
+% reschedules the externalization of the current file to
+% \AtVeryEndDocument.
+%
+% This hook allows to execute code AFTER the main .aux file is
+% finished; it will even re-read the main aux file.
+\def\tikzexternal@externalizefig@systemcall@reschedule#1{%
+	\t@tikzexternal@tmpb={%
+		\global\let\tikzexternal@externalizefig@systemcall@handleexception=\tikzexternal@externalizefig@systemcall@handleexception@msg%
+		% ... no auxlocks!
+		\tikzexternal@externalizefig@systemcall@call{#1}%
+		\tikzexternal@externalizefig@systemcall@assertsuccess% ... we need to add {\tikzexternal@curfilename} now:
+	}%
+	\xdef\pgfutil@tempa{\the\t@tikzexternal@tmpb{\tikzexternal@curfilename}}%
+	\expandafter\AtVeryEndDocument\expandafter{\pgfutil@tempa}%
+	\gdef\tikzexternal@has@rescheduled@something{1}%
+}%
+\let\tikzexternal@externalizefig@systemcall@handleexception=\tikzexternal@externalizefig@systemcall@handleexception@retry@later%
+
+\def\tikzexternal@has@rescheduled@something{0}%
+\pgfutil@IfUndefined{AtVeryEndDocument}{}{%
+	\AtVeryEndDocument{%
+		\if1\tikzexternal@has@rescheduled@something
+			\immediate\write16{===== tikzexternal: \string\end{document} reached. Working on rescheduled images to resolve references... ========}%
+		\fi
+	}%
+}
 
 % Overwrite error message of pgf.
 % This happens if the generated image was empty, i.e. if there was no \shipout.
 \def\pgfexternal@error@no@shipout{%
 	\begingroup
+		\begingroup
+		% overwrite .dpth file in order to flag the file as "need to be scheduled
+		% for \AtVeryEndDocument" :
+		\immediate\openout\pgf@plotwrite=\pgfactualjobname.dpth
+		\let\w@pgfexternal@auxout=\pgf@plotwrite
+		\pgfexternalstorecommand@isexporting{\gdef\noexpand\tikzexternal@systemcall@reschedule@to@end@document{1}}%
+		\immediate\closeout\pgf@plotwrite
+		\endgroup
 	\tikzexternal@assemble@systemcall{\pgfactualjobname}{\pgf@tempa}%
 	\toks0=\expandafter{\pgf@tempa}%
 	\tikzerror{Sorry, image externalization failed: the resulting image was EMPTY. I tried to externalize '\pgfactualjobname', but it seems there is no such image in the document!?

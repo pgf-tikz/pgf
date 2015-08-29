@@ -12,8 +12,8 @@
 # Note that the index.php on sourceforge expects VERSION=_CVS .
 #
 
-VERSION=_3.0.1
-#VERSION=_CVS
+#VERSION=_3.0.1
+VERSION=_CVS
 
 USER=cfeuersaenger
 
@@ -84,7 +84,8 @@ $(ZIP): FORCE
 		rm -rf experiments; \
 		rm -rf scripts; \
 		mv tex/generic/pgf/testsuite source/generic/pgf; \
-		rm README; 
+		rm README; \
+		mv README-3.0.0 doc/generic/pgf;
 	# clean-up tests:
 	make -C /tmp/pgf/source/generic/pgf/testsuite/external clean
 	rm -f /tmp/pgf/source/generic/pgf/testsuite/mathtest/pgfmathtestsuite.pdf
@@ -101,14 +102,39 @@ ctanzip: $(CTANZIP)
 
 # code to satisfy http://www.ctan.org/upload ...
 $(CTANZIP): $(ZIP)
+	cd /tmp && zip -r $(abspath $@) pgf pgf.tds.zip
 	rm -fr /tmp/pgf /tmp/pgf.ctan.tmp $@
 	mkdir -p /tmp/pgf /tmp/pgf.ctan.tmp
 	cd /tmp/pgf.ctan.tmp && unzip $(abspath $(ZIP))
-	cp /tmp/pgf.ctan.tmp/doc/generic/pgf/pgfmanual.pdf /tmp/pgf
-	cp /tmp/pgf.ctan.tmp/doc/generic/pgf/ChangeLog /tmp/pgf
-	cp /tmp/pgf.ctan.tmp/README* /tmp/pgf
+	mv /tmp/pgf.ctan.tmp/doc/generic/pgf/README /tmp/pgf
+	mv /tmp/pgf.ctan.tmp/doc/generic/pgf /tmp/pgf/doc
 	cp $(ZIP) /tmp/pgf.tds.zip
-	echo "Please search for pgf.tds.zip and install that one into a local texmf branch (which is typically simpler). This release is intended to satisfy CTAN package browsing policies." > /tmp/pgf/INSTALL
+	mkdir /tmp/pgf/tex
+	mkdir /tmp/pgf/source
+	find /tmp/pgf.ctan.tmp/tex \( -type f ! -name '*.lua' \) -exec mv -i {} /tmp/pgf/tex \;
+	#
+	# try to make the .lua files "browsable" without throwing all in one dir...
+	mkdir -p /tmp/pgf/lua/graphdrawing /tmp/pgf/lua/luamath /tmp/pgf/lua/generic
+	cd /tmp/pgf.ctan.tmp/tex/generic/pgf/graphdrawing/lua && find -name '*.lua' | rsync -r --include-from - . /tmp/pgf/lua/graphdrawing
+	cd /tmp/pgf.ctan.tmp/tex/generic/pgf/libraries/luamath && find -name '*.lua' | rsync -r --include-from - . /tmp/pgf/lua/luamath
+	cd /tmp/pgf.ctan.tmp/tex/generic/pgf/lua && find -name '*.lua' | rsync -r --include-from - . /tmp/pgf/lua/generic
+	#
+	find /tmp/pgf.ctan.tmp/tex -name '*.lua' -delete
+	find /tmp/pgf.ctan.tmp/source \( -type f ! -name Makefile \) -exec mv -i {} /tmp/pgf/source \;
+	find /tmp/pgf.ctan.tmp/source -name 'Makefile' -delete
+	#
+	# I suppose this here is more or less empty anyway, but who cares:
+	find /tmp/pgf.ctan.tmp/doc -type f -exec mv -i {} /tmp/pgf/doc \;
+	# 
+	# CTAN wishes to not have empty directories (version-for-*/en/plots):
+	find /tmp/pgf/doc -type d -exec rmdir {} \; > /dev/null 2>&1 || true
+	#
+	@# for some reason, CVS checks out some of the math*.tex files as executable which confuses the CTAN file checker:
+	find /tmp/pgf/tex -type f -exec chmod 06444 {} \;
+	rm /tmp/pgf/doc/INSTALL
+	echo "Please search for pgf.tds.zip and install that one into a local texmf branch (which is typically simpler). This release is intended to satisfy CTAN package browsing policies." > /tmp/pgf/INSTALL_NOTES
+	@NUM_FILES=$$(find /tmp/pgf.ctan.tmp/ -type f |wc -l); \
+	if [ $$NUM_FILES -gt 0 ]; then echo "INTERNAL FAILURE: $$NUM_FILES FILES LEFT OVER IN /tmp/pgf.ctan.tmp! All must be included into $@. Left-overs:"; find /tmp/pgf.ctan.tmp/ -type f; exit 1; fi
 	cd /tmp && zip -r $(abspath $@) pgf pgf.tds.zip
 
 $(CHANGELOG): FORCE
