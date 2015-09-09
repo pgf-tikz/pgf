@@ -3,7 +3,9 @@ doc   = pgfmanual
 latex = lualatex --output-format=dvi
 TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
-all: $(doc).ps
+all: $(doc).svg
+
+test: pgfmanual-test.svg
 
 pgfmanual.idx: 
 	touch pgfmanual.idx
@@ -14,12 +16,12 @@ pgfmanual.ind: pgfmanual.idx
 pgfmanual.svg: $(doc).tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
-	dvisvgm --no-fonts --page=1- --bbox=a4 $(doc)
+	dvisvgm --no-merge --page=1- --bbox=a4 --linkmark=none $(doc)
 
 pgfmanual-test.svg: $(doc)-test.tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
-	dvisvgm --no-fonts --page=1- --bbox=a4 $(doc)-test
+	dvisvgm --no-merge --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
 clean:
 	rm -f  \

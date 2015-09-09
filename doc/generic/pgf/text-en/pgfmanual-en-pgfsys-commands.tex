@@ -970,7 +970,7 @@ before the above command is called:
 
 \subsubsection{Introduction to the Animation System Layer}
 
-In conjunction with the right output format (most noticably,
+In conjunction with the right output format (namely
 \textsc{svg}), you can specify that certain parts of you graphics can
 be animated. For this, there are a large number of commands that
 cover, currently, what \textsc{svg 1.1} can do regarding animations.
@@ -978,8 +978,8 @@ For a detailed introduction to animations, please see
 Section~\ref{section-animations}; the current section assumes that you
 are familiar with the concepts explained there.
 
-The system layer follows the philosophy of \textsc{svg}'s animation
-system: An animation always concerns an \emph{attribute} of a
+The system layer loosely follows the philosophy of \textsc{svg}'s
+animation system: An animation always concerns an \emph{attribute} of a
 \emph{graphic object} and is configured by \emph{keys}. For instance,
 you might animate the ``opacity'' attribute of a specific graphic
 scope or of a specific path or of a specific text; and the keys
@@ -993,8 +993,23 @@ specified in quite different ways:
   |\pgfsys@animate...|. For instance, the command |\pgfsys@animateopacity|
   animates the opacity attribute of some graphic object, the command
   |\pgfsys@animatelinewidth| animates the line width, and so on.
+
+  Animating the transformation matrix is a special case. The reason is
+  that from \pgfname's perspective a graphics object does not have a
+  single transformation matrix. Rather, each time you add an animation
+  of a transformation matrix this animation is added to the graphic
+  object. Thus, it is permissible to add a rotation that rotates a
+  node over one second and, then, to add a scaling over the same time
+  to the same node. In this case, the node will rotate and scale.
+
+  This behaviour for animations is different from the behaviour in
+  \textsc{svg} 1.1 where each object can have only a single animation
+  of its transformation matrix (but it can be simulated in
+  \textsc{svg} by adding nested graphic groups and animating their
+  transformation matrices, which is exactly when the driver for
+  \textsc{svg} output does). 
 \item The \emph{graphic object} whose attribute is to be animated is
-  always specified by naming the ID of the graphic object
+  \emph{always} specified by naming the ID of the graphic object
   \emph{before} this object is created, see
   Section~\ref{section-sys-id}. (However, in the context of
   \tikzname, it suffices that the animation is given in the object's
@@ -1040,16 +1055,26 @@ A typical example of how all of this works is the following:
 \end{codeexample}
 
 
+
 \subsubsection{Commands for Animating an Attribute: Color, Opacity, Visibility}
 
 The commands from this and the next sections specify that some
 attribute should be animated. We start with rather basic animation
 attributes for color, visibility, and opacity.
 
+Note that when several of these commands are used to animate the
+\emph{same} attribute of the \emph{same} target graphic object at the
+\emph{same} time, the last one ``wins.'' For instance, when you use
+|\pgfsys@animateopacity| to animate the opacity to |0.5| at a certain
+time for a path and then use the same command again to animate the
+opacity to |0.25| of the same path at the same moment, the opacity
+will be set to |0.25| (and not |0.5| and also not |0.125| as some sort
+of combined effect). Note that for animations of the transformation
+matrix the behaviour is different. 
+
 \begin{command}{\pgfsys@animateopacity}
-  Adds an animation of the opacity (either to the graphic scope or to
-  a target specified using |\string\pgfsys@animation@whom|, see the
-  description of that command). This is a bit different from animating
+  Adds an animation of the opacity to the graphic object specified
+  using |\pgfsys@animation@whom|. This is a bit different from animating
   the fill and stroke opacities  individually: Paths are treated as
   transparency groups for this key. Typically, ``this is what you
   want.''
@@ -1191,18 +1216,40 @@ The following attributes influence paths and how they are rendered.
 \subsubsection{Commands for Animating an Attribute: Transformations  and Views}
 
 The following commands specify animations of the canvas transformation
-matrix. The commands currently follow closely the \textsc{svg 1.1}
-specification, even though the specification is very poorly designed
-in this regard (firstly, there is no direct way of animating the six
-fields of the animation matrix directly and, secondly, one cannot
-animate sequences of transformations directly). Hopefully, it will be
-possible to extend this in a later version to something designed better.
+matrix. Applying several animations of the canvas transformation
+matrix to the same graphic object has a different effect from the
+attributes in the previous sections: If there are several animation of
+the canvas transformation of the \emph{same} graphic object at the
+\emph{same} time they \emph{nevertheless} all apply in sequence to the
+graph object. (This is different from \textsc{svg 1.1}, where only one
+animation is possible at a time, making it impossible to directly
+scale and rotate an object at the same time.)
+
+Note that the additional transformations are preformed in the
+\pgfname\ coordinate system that is in force when the graphic object
+is created. 
+
+\begin{codeexample}[]
+\tikz[fill=blue!25, draw=blue, ultra thick, rotate=30] {
+  \draw [help lines] (-1.5,-1.5) grid (1.5,1.5);
+  \pgfidrefnextuse{\nodeid}{node a} \pgfsys@animation@whom{\nodeid}{}
+  \pgfsys@animation@dur{2} \pgfsys@animation@event{}{}{click}{}{begin}
+  \pgfsys@animation@translate{0cm}{1cm}{to} 
+  \pgfsys@animatetranslate % Move node a "up"
+  \pgfidrefnextuse{\nodeid}{node b} \pgfsys@animation@whom{\nodeid}{}
+  \pgfsys@animatetranslate % Also move node b "up"
+  \node [circle, fill, draw, align=center] at (0,1)  (node a)
+    {Click \\ here}; 
+  \node [circle, fill, draw, align=center, transform shape] at (0,-1) (node b)
+    {Click \\ here}; }
+\end{codeexample}
+
 
 \begin{command}{\pgfsys@animatetranslate}
-  Adds a translate animation. Effectively, this causes the group to be
-  shifted to different positions.
+  Adds an (additional) translate animation. Effectively, this causes
+  the group to be shifted to different positions.
   
-  Specify values with |\pgfsys@animation@translate|.
+  Specify values with |\pgfsys@animation@translate|. 
 \begin{codeexample}[width=2cm]
 \tikz[fill=blue!25, draw=blue, ultra thick] {
   \pgfidrefnextuse{\nodeid}{node} \pgfsys@animation@whom{\nodeid}{}
@@ -1268,7 +1315,7 @@ possible to extend this in a later version to something designed better.
 \begin{command}{\pgfsys@animateskewx}
   Adds an animation of a skewing of the canvas along the
   $x$-axis. Unlike the |slant| options of \tikzname, the skew is given
-  in degrees.
+  in degrees. The origin of the skew is given by |\pgfsys@animation@origin|.
   
   Specify values with |\pgfsys@animation@scalar|.
 \begin{codeexample}[width=2cm]
@@ -1309,6 +1356,18 @@ possible to extend this in a later version to something designed better.
   \pgfsys@animatemotion 
   \node [circle, fill, draw, align=center] (node) {Click \\ here}; }
 \end{codeexample}
+\begin{codeexample}[width=2cm]
+\tikz[fill=blue!25, draw=blue, ultra thick] {
+  \pgfidrefnextuse{\nodeid}{node} \pgfsys@animation@whom{\nodeid}{}
+  \pgfsys@animation@dur{2} \pgfsys@animation@event{}{}{click}{}{begin}
+  \pgfsys@animation@rotatealong
+  \pgfsys@animation@movealong{%
+    \pgf@relevantforpicturesizefalse
+    \pgfpathmoveto{\pgfpointxy{0}{0}} \pgfpathlineto{\pgfpointxy{0}{1}}
+    \pgfpatharc{180}{90}{1cm}}
+  \pgfsys@animatemotion 
+  \node [circle, fill, draw, align=center] (node) {Click \\ here}; }
+\end{codeexample}
 \end{command}
 
 
@@ -1325,7 +1384,7 @@ possible to extend this in a later version to something designed better.
 \tikz[fill=blue!25, draw=blue] {
   \pgfidrefnextuse{\nodeid}{node} \pgfsys@animation@whom{\nodeid}{}
   \pgfsys@animation@dur{2} \pgfsys@animation@event{}{}{click}{}{begin}
-  \pgfidrefnextuse{\viewid}{my view} \pgfsys@animation@whom{\viewid}{-view}
+  \pgfidrefnextuse{\viewid}{my view} \pgfsys@animation@whom{\viewid}{view}
   \pgfsys@animation@viewbox{-5mm}{-5mm}{7mm}{8mm}{to}%
   \pgfsys@animateviewbox 
   \draw (-1,-1) rectangle (1,1);  
@@ -1339,14 +1398,15 @@ possible to extend this in a later version to something designed better.
 
 \subsubsection{Commands for Specifying the Target Object}
 
-\begin{command}{\pgfsys@animation@whom\marg{1}\marg{2}}
-  To be written\dots
-% % Sets the target of the animation. \marg{1} must be an id previously
-% % created using \pgfsys@new@id and \marg{2} must be empty or a type
-% % previously created using \pgfsys@new@id@type
+\begin{command}{\pgfsys@animation@whom\marg{id}\marg{type}}
+  Sets the target of the animation. The \marg{id} must previously have
+  been created using |\pgfsys@new@id|, \marg{type} must be a type (the
+  empty type is also allowed). See Section~\ref{section-sys-id} for
+  details on ids and types.
 \end{command}
 
-\subsubsection{Commands for Specifying Timing}
+
+\subsubsection{Commands for Specifying Timing: Duration and Repeats}
 
 \begin{command}{\pgfsys@animation@dur\marg{seconds}}
   Defines the duration of the animation in seconds.
@@ -1426,14 +1486,142 @@ possible to extend this in a later version to something designed better.
 \end{codeexample}
 \end{command}
 
-% \def\pgfsys@animation@repeat#1{}
-% % #1 must be a number 
 
-% \def\pgfsys@animation@repeat@indefinite{}
-% % Repeat till the end
+\begin{command}{\pgfsys@animation@repeat\marg{number of times}}
+  Specifies that the animation should repeat the specified
+  \meta{number of times}, which may be a fractional number.
+\begin{codeexample}[width=3.5cm]
+\tikz { \showclock
+        \showtick
+        \pgfidrefnextuse{\pathid}{path} \pgfsys@animation@whom{\pathid}{}
+        \pgfsys@animation@event{\clockid}{}{click}{}{begin}
+        \pgfsys@animation@dur{3}
+        \pgfsys@animation@repeat{2.5} % 3 x 2.5s = 7.5s in total
+        \pgfsys@animation@translate{0pt}{0pt}{from}
+        \pgfsys@animation@translate{15mm}{0pt}{to}
+        \pgfsys@animatetranslate 
+        \fill [name=path, red] circle[radius=0.75mm]; }
+\end{codeexample}
+\end{command}
 
-% \def\pgfsys@animation@repeat@dur#1{}
-% % #1 must be a clock value
+\begin{command}{\pgfsys@animation@repeat@indefinite}
+  Specifies that the animation should repeat indefinitely.
+\begin{codeexample}[width=3.5cm]
+\tikz { \showclock
+        \showtick
+        \pgfidrefnextuse{\pathid}{path} \pgfsys@animation@whom{\pathid}{}
+        \pgfsys@animation@event{\clockid}{}{click}{}{begin}
+        \pgfsys@animation@dur{3}
+        \pgfsys@animation@repeat@indefinite
+        \pgfsys@animation@translate{0pt}{0pt}{from}
+        \pgfsys@animation@translate{15mm}{0pt}{to}
+        \pgfsys@animatetranslate 
+        \fill [name=path, red] circle[radius=0.75mm]; }
+\end{codeexample}
+\end{command}
+
+\begin{command}{\pgfsys@animation@repeat@dur\meta{seconds}}
+  Specifies that the animation should repeat until \meta{seconds} have
+  elapsed. 
+\begin{codeexample}[width=3.5cm]
+\tikz { \showclock
+        \showtick
+        \pgfidrefnextuse{\pathid}{path} \pgfsys@animation@whom{\pathid}{}
+        \pgfsys@animation@event{\clockid}{}{click}{}{begin}
+        \pgfsys@animation@dur{3}
+        \pgfsys@animation@repeat@dur{7}
+        \pgfsys@animation@translate{0pt}{0pt}{from}
+        \pgfsys@animation@translate{15mm}{0pt}{to}
+        \pgfsys@animatetranslate 
+        \fill [name=path, red] circle[radius=0.75mm]; }
+\end{codeexample}
+\end{command}
+
+
+
+\subsubsection{Commands for Specifying Timing: Key Times and Time Splines}
+
+\begin{command}{\pgfsys@animation@keytime\marg{fraction}}
+  To be written\dots
+% % \marg{1} must be a number. The semantics is as in SVS's
+% % keyTimes. Accumulates. 
+% % 
+% % Example:
+% % \pgfsys@animation@keytime{0}
+% % \pgfsys@animation@keytime{0.1}
+% % \pgfsys@animation@keytime{0.5}
+% % \pgfsys@animation@keytime{1}
+\end{command}
+
+\begin{command}{\pgfsys@animation@keyprogress\marg{1}{}}
+  To be written\dots
+% % \marg{1} must be a numberd. The semantics is as in SVS's
+% % keyPoints. Accumulates. 
+% % 
+% % Example:
+% % \pgfsys@animation@keyprogress{0}
+% % \pgfsys@animation@keyprogress{0.1}
+% % \pgfsys@animation@keyprogress{0.5}
+% % \pgfsys@animation@keyprogress{1}
+\end{command}
+
+\begin{command}{\pgfsys@animation@keysplinecontrol\marg{1}\marg{2}\marg{3}\marg{4}{}}
+  To be written\dots
+% % The four control values of a spline. The semantics is as in SVS's
+% % keySplines. Accumulates.
+% % 
+% % Example:
+% %
+% % % control points between first and second key time
+% % \pgfsys@animation@keysplinecontrol{.5}{0}{.5}{1}
+% % % control points between second and thrid key time
+% % \pgfsys@animation@keysplinecontrol{.5}{1}{1}{.5}
+\end{command}
+
+
+
+\subsubsection{Commands for Specifying Timing: Beginning and Ending}
+
+
+\begin{command}{\pgfsys@animation@offset\marg{1}\marg{2}{}}
+  To be written\dots
+% % \marg{1} must be a value in seconds, \marg{2} is the target "begin" or "end" to
+% % which this offset is appended.
+\end{command}
+
+\begin{command}{\pgfsys@animation@syncbegin\marg{1}\marg{2}\marg{3}\marg{4}{}}
+  To be written\dots
+% % \marg{1} is the id of a sync base (obtained by
+% % \pgfsys@new@id), \marg{2} is the id type (or empty), \marg{3} is an optional
+% % offset, \marg{4} is the target.  
+\end{command}
+
+\begin{command}{\pgfsys@animation@syncend\marg{1}\marg{2}\marg{3}\marg{4}{}}
+  To be written\dots
+% % Like the previous command.
+\end{command}
+
+\begin{command}{\pgfsys@animation@event\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
+  To be written\dots
+% % \marg{1} is the optional id of another element (obtained by
+% % \pgfsys@new@id), \marg{2} is the optional type of the id, \marg{3} is an event
+% % name, \marg{4} is an optional offset, \marg{5} is the target.  
+\end{command}
+
+\begin{command}{\pgfsys@animation@repeat@event\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
+  To be written\dots
+% % \marg{1} is the optional id of another element, \marg{2} is the type, \marg{3} is a
+% % repeat count, and \marg{4} is an optional offset, \marg{5} is the target. 
+\end{command}
+
+\begin{command}{\pgfsys@animation@accesskey\marg{1}\marg{2}\marg{3}{}}
+  To be written\dots
+% % \marg{1} is a character, \marg{2} is an optional offset, \marg{3} is the target. 
+\end{command}
+
+
+
+\subsubsection{Commands for Specifying Timing: Restart Behaviour}
 
 \begin{command}{\pgfsys@animation@restart@always}
   Defines that the animation can be restarted at any time. This is the
@@ -1473,91 +1661,30 @@ possible to extend this in a later version to something designed better.
 \end{command}
 
 \begin{command}{\pgfsys@animation@freezeatend{}}
-  To be written\dots
-% % Specifies that the last value of the animation remains in force at
-% % the end
+  When an animation ends, the question is whether the ``effect'' of
+  the animation (like changing a color or translating the coordinate
+  system) should disappear or ``remain in force.'' Using this key, you
+  specify that at the end of the animation the last value of the
+  attributes stayes in effect.
+\begin{codeexample}[width=3.5cm]
+\tikz { \showclock
+        \showtick
+        \pgfidrefnextuse{\pathid}{path} \pgfsys@animation@whom{\pathid}{}
+        \pgfsys@animation@event{\clockid}{}{click}{}{begin}
+        \pgfsys@animation@dur{5}
+        \pgfsys@animation@freezeatend
+        \pgfsys@animation@translate{0pt}{0pt}{from}
+        \pgfsys@animation@translate{25mm}{0pt}{to}
+        \pgfsys@animatetranslate 
+        \fill [name=path, red] circle[radius=0.75mm]; }
+\end{codeexample}
 \end{command}
 
 \begin{command}{\pgfsys@animation@removeatend{}}
-  To be written\dots
-% % Specifies that the effect of the animation is removed at the end 
+  The opposite of |\pgfsys@animation@freezeatend|. This is the default.
 \end{command}
 
-\begin{command}{\pgfsys@animation@keytime\marg{1}{}}
-  To be written\dots
-% % \marg{1} must be a number. The semantics is as in SVS's
-% % keyTimes. Accumulates. 
-% % 
-% % Example:
-% % \pgfsys@animation@keytime{0}
-% % \pgfsys@animation@keytime{0.1}
-% % \pgfsys@animation@keytime{0.5}
-% % \pgfsys@animation@keytime{1}
-\end{command}
-
-\begin{command}{\pgfsys@animation@keyprogress\marg{1}{}}
-  To be written\dots
-% % \marg{1} must be a numberd. The semantics is as in SVS's
-% % keyPoints. Accumulates. 
-% % 
-% % Example:
-% % \pgfsys@animation@keyprogress{0}
-% % \pgfsys@animation@keyprogress{0.1}
-% % \pgfsys@animation@keyprogress{0.5}
-% % \pgfsys@animation@keyprogress{1}
-\end{command}
-
-\begin{command}{\pgfsys@animation@keysplinecontrol\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % The four control values of a spline. The semantics is as in SVS's
-% % keySplines. Accumulates.
-% % 
-% % Example:
-% %
-% % % control points between first and second key time
-% % \pgfsys@animation@keysplinecontrol{.5}{0}{.5}{1}
-% % % control points between second and thrid key time
-% % \pgfsys@animation@keysplinecontrol{.5}{1}{1}{.5}
-\end{command}
-
-\begin{command}{\pgfsys@animation@offset\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} must be a value in seconds, \marg{2} is the target "begin" or "end" to
-% % which this offset is appended.
-\end{command}
-
-\begin{command}{\pgfsys@animation@syncbegin\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % \marg{1} is the id of a sync base (obtained by
-% % \pgfsys@new@id), \marg{2} is the id type (or empty), \marg{3} is an optional
-% % offset, \marg{4} is the target.  
-\end{command}
-
-\begin{command}{\pgfsys@animation@syncend\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % Like the previous command.
-\end{command}
-
-\begin{command}{\pgfsys@animation@event\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
-  To be written\dots
-% % \marg{1} is the optional id of another element (obtained by
-% % \pgfsys@new@id), \marg{2} is the optional type of the id, \marg{3} is an event
-% % name, \marg{4} is an optional offset, \marg{5} is the target.  
-\end{command}
-
-\begin{command}{\pgfsys@animation@repeat@event\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
-  To be written\dots
-% % \marg{1} is the optional id of another element, \marg{2} is the type, \marg{3} is a
-% % repeat count, and \marg{4} is an optional offset, \marg{5} is the target. 
-\end{command}
-
-\begin{command}{\pgfsys@animation@accesskey\marg{1}\marg{2}\marg{3}{}}
-  To be written\dots
-% % \marg{1} is a character, \marg{2} is an optional offset, \marg{3} is the target. 
-\end{command}
-
-
-\subsubsection{Command for Specifying Values, Their Accumulation, and
+\subsubsection{Commands for Specifying Values, Their Accumulation, and
   Their Interpolation}
 \label{section-value-types}
 
@@ -1703,11 +1830,11 @@ possible to extend this in a later version to something designed better.
 \label{section-sys-id}
 
 The system layer provides commands for adding identification labels
-(IDs) to different objects in a graphic. These can be used for
+(ids) to different objects in a graphic. These can be used for
 hyperlinking, which is needed for instance in conjunction with
 animations.
 
-The following ``objects'' can get an ID assigned to them:
+The following ``objects'' can get an id assigned to them:
 \begin{enumerate}
 \item Graphic scopes (namely when |\pgfsys@begin@idscope| is called),
 \item view boxes (namely when |\pgfsys@viewboxmeet| or |\pgfsys@viewboxslice| are called),
@@ -1717,45 +1844,45 @@ The following ``objects'' can get an ID assigned to them:
 \end{enumerate}
 
 
-Creating and using IDs is a two-step process. First, you create the
-ID using |\pgfsys@new@id|, which stores a fresh ID in a macro. You can
-now pass this ID around and clone it. Then, at some point, you wish
-one of the above objects to actually get this ID. For this, you use
+Creating and using ids is a two-step process. First, you create the
+id using |\pgfsys@new@id|, which stores a fresh id in a macro. You can
+now pass this id around and clone it. Then, at some point, you wish
+one of the above objects to actually get this id. For this, you use
 |\pgfsys@use@id| just \emph{before} the object since this command
 always influences the \emph{next} object.
 
-The basic ID management gets more powerful when you use \emph{ID
+The basic id management gets more powerful when you use \emph{id
   types}. The idea is as follows: In reality, the objects from above
-do not get assigned only an ID, but rather a combination of an ID and
-a type -- and you can set the type independently of the ID. This is
+do not get assigned only an id, but rather a combination of an id and
+a type -- and you can set the type independently of the id. This is
 used, for instance, to allow easy access to the different parts of a
-node in animations: Each node has a single ID, but consists of several
+node in animations: Each node has a single id, but consists of several
 graphic objects (normally, at least a background path and a
-text). Each of these uses the same underlying ID of the node, but the
+text). Each of these uses the same underlying id of the node, but the
 path has the type |path| (actually |background.path|) while the text
-has the type |text|. The advantage is that for each node only one ID
+has the type |text|. The advantage is that for each node only one id
 must be stored instead of a great number of the many different
 possible parts of a node.
 
 \begin{command}{\pgfsys@new@id\marg{macro}}
-  Creates a new ID for later use and stores it in \meta{macro}. It is
+  Creates a new id for later use and stores it in \meta{macro}. It is
   an internal text created by the driver and may not be changed or
   modified. 
 \end{command}
 
-\begin{command}{\pgfsys@use@id\marg{ID}}
-  ``Uses'' an ID previously created using |\pgfsys@new@id|. This
-  causes the \emph{next} graphic object to get the \meta{ID} (not the
-  current one). Once used, the ID-type-pair becomes \emph{invalid} and
+\begin{command}{\pgfsys@use@id\marg{id}}
+  ``Uses'' an id previously created using |\pgfsys@new@id|. This
+  causes the \emph{next} graphic object to get the \meta{id} (not the
+  current one). Once used, the id-type-pair becomes \emph{invalid} and
   will not be attached to any other graphics objects. It is, however,
-  not an error to try this. If \meta{ID} is empty, no ID-type-pair is
+  not an error to try this. If \meta{id} is empty, no id-type-pair is
   attached to the next object.
 \end{command}
 
 \begin{command}{\pgfsys@use@type\marg{type}}
   Changes the type used with the next graphic object.
-  As mentioned earlier, the ID assigned to the next object is actually
-  a pair consisting of the currently used ID and the currently used
+  As mentioned earlier, the id assigned to the next object is actually
+  a pair consisting of the currently used id and the currently used
   type. 
 \end{command}
 
@@ -1776,9 +1903,9 @@ possible parts of a node.
 
 \begin{command}{\pgfsys@begin@idscope}
   Starts a (graphics) scope whose sole purpose is to assign it an
-  ID-type-pair so that it can be referenced later. Note that this
-  command does not always produce a graphics scope: If not ID is
-  currently in use or if the ID-type-pair has already been used,
+  id-type-pair so that it can be referenced later. Note that this
+  command does not always produce a graphics scope: If not id is
+  currently in use or if the id-type-pair has already been used,
   a graphic scope may or may not be created as defined by the driver
   (but always a \TeX\ scope). This allows drivers to minimize the
   number of graphic scopes created.
@@ -1787,7 +1914,7 @@ possible parts of a node.
   it using |\pgfsys@attach@to@id| gets executed, see that command.
 
   Note that |\pgfsys@beginscope| does not use the current
-  ID-type-pair. You need to call this command to attach an ID to a
+  id-type-pair. You need to call this command to attach an id to a
   group. 
 \end{command}
 
