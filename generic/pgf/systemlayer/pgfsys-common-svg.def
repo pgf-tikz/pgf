@@ -564,8 +564,7 @@
 \let\pgfsys@anim@val@path\pgfutil@empty
 \let\pgfsys@anim@val@rotate\pgfutil@empty
 \let\pgfsys@anim@val@values\pgfutil@empty
-\let\pgfsys@anim@val@origin@x\pgfutil@empty
-\let\pgfsys@anim@val@origin@y\pgfutil@empty
+\def\pgfsys@anim@val@canvas@trans{{}{}}
 \let\pgfsys@anim@val@@id\pgfutil@empty
 \let\pgfsys@anim@val@@type\pgfutil@empty
 \expandafter\let\csname pgfsys@anim@val@xlink:href\endcsname\pgfutil@empty
@@ -613,51 +612,69 @@
   \fi%
 }
 
-\newcount\pgf@sys@svg@trans@anim@count
-
 \def\pgf@sys@svg@anim@trans#1{%
   \ifx\pgfsys@anim@val@@id\pgfutil@empty%
     \pgferror{Animation misses ``whom''}%
   \else%
   {%
     % 
-    \global\advance\pgf@sys@svg@trans@anim@count by1\relax%
-    \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-\the\pgf@sys@svg@trans@anim@count}}%
+    \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}%
     \pgfsysprotocol@literal{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}%
     \pgfsys@invalidate@currentid%
-    \edef\pgf@marshal{\noexpand\pgf@sys@attacher{\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-\the\pgf@sys@svg@trans@anim@count}}{%
-        \ifx\pgfsys@anim@val@origin@x\pgfutil@empty0pt\else\pgfsys@anim@val@origin@x\fi}{%
-        \ifx\pgfsys@anim@val@origin@y\pgfutil@empty0pt\else\pgfsys@anim@val@origin@y\fi}{%
-      }}%
-    \pgf@marshal%
+    \edef\pgf@temp{{\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}}%
+    \expandafter\expandafter\expandafter\pgf@sys@attacher\expandafter\pgf@temp\pgfsys@anim@val@canvas@trans%
   }%
   \fi%
 }
 
+\newif\ifpgf@sys@svg@called
 \def\pgf@sys@attacher#1#2#3{%
-  \pgfsys@attach@to@id\pgfsys@anim@val@@id\pgfsys@anim@val@@type{%
+  \toks0{%
     {%
-      \pgftransformshift{\pgfqpoint{#2}{#3}}%
-      \pgfgettransform\pgf@sys@trans%
-      \expandafter\pgfsys@anim@transformcm\pgf@sys@trans%
+      \let\pgfsys@transformcm\pgfsys@anim@transformcm%
+      \global\pgf@sys@svg@calledfalse%
+      #2%
+      \ifpgf@sys@svg@called\else\pgfsysprotocol@literal{<g>}\fi%
       \pgfsysprotocol@literal{<g id="#1">}
       {%
-        \pgftransforminvert%
-        \pgfgettransform\pgf@sys@trans%
-        \expandafter\pgfsys@anim@transformcm\pgf@sys@trans%
+        \global\pgf@sys@svg@calledfalse%
+        #3%
+        \ifpgf@sys@svg@called\else\pgfsysprotocol@literal{<g>}\fi%
       }%
-      \pgfsysprotocol@literal{\pgfsys@svg@newline}
     }%
-  }{%
-    \pgfsysprotocol@literal{</g> </g> </g> \pgfsys@svg@newline}%
-  }
+  }%
+  \edef\pgf@sys@svg@beg{\expandafter\noexpand\csname pgf@sys@svg@once@beg@\pgfsys@anim@val@@id\pgfsys@anim@val@@type\endcsname}%
+  \edef\pgf@sys@svg@end{\expandafter\noexpand\csname pgf@sys@svg@once@end@\pgfsys@anim@val@@id\pgfsys@anim@val@@type\endcsname}%
+  \expandafter\xdef\pgf@sys@svg@beg{%
+    \global\let\expandafter\noexpand\pgf@sys@svg@beg\relax% once
+    \the\toks0%
+  }%
+  \expandafter\xdef\pgf@sys@svg@end{%
+    \global\let\expandafter\noexpand\pgf@sys@svg@end\relax% once
+    \noexpand\pgfsysprotocol@literal{</g> </g> </g> \noexpand\pgfsys@svg@newline}%
+  }%
+  \expandafter\expandafter\expandafter\pgfsys@attach@to@id%
+  \expandafter\expandafter\expandafter\pgfsys@anim@val@@id%
+  \expandafter\expandafter\expandafter\pgfsys@anim@val@@type%
+  \expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@beg\expandafter}\expandafter{\pgf@sys@svg@end}%
 }
 
 \def\pgfsys@anim@transformcm#1#2#3#4#5#6{%
-  {\pgf@x=#5\pgf@y=#6%
-    \pgfsysprotocol@literal{<g transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})">}}
+  \ifpgf@sys@svg@called%
+    \pgferror{Double transformation calls in animation}%
+  \else%
+    {%
+      \pgf@x=#5\pgf@y=#6%
+      \edef\pgf@temp{ transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \ifx\pgf@temp\pgf@sys@svg@idmat@text%
+        \let\pgf@temp\pgfutil@empty%
+      \fi%
+      \pgfsysprotocol@literal{<g\pgf@temp>\pgfsys@svg@newline}%
+    }%
+    \global\pgf@sys@svg@calledtrue%
+  \fi
 }
-
+\def\pgf@sys@svg@idmat@text{ transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
 
 \def\pgf@sys@svg@replace#1#2{%
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
@@ -745,7 +762,7 @@
 \def\pgfsys@animation@keytime#1{\pgf@sys@svg@append{keyTimes}{#1}}
 \def\pgfsys@animation@keyprogress#1{\pgf@sys@svg@append{keyPoints}{#1}}
 \def\pgfsys@animation@keysplinecontrol#1#2#3#4{\pgf@sys@svg@append{keySplines}{#1 #2 #3 #4}}
-\def\pgfsys@animation@origin#1#2{\pgf@sys@svg@replace{origin@x}{#1}\pgf@sys@svg@replace{origin@y}{#2}}
+\def\pgfsys@animation@canvas@transform#1#2{\def\pgfsys@anim@val@canvas@trans{{#1}{#2}}}
 \def\pgfsys@animation@offset#1#2{\pgf@sys@svg@append{#2}{#1s}}
 \def\pgfsys@animation@event#1#2#3#4#5{%
   {%
