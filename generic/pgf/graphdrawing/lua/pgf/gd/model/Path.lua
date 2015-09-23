@@ -543,6 +543,10 @@ function Path:intersectionsWith(path)
   
   local function intersect (i1, j1, i2, j2)
 
+    if i1 > j1 or i2 > j2 then
+      return
+    end
+    
     local bb1 = bb(i1, j1, memo1)
     local bb2 = bb(i2, j2, memo2)
     
