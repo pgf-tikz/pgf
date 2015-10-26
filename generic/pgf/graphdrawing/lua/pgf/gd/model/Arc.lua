@@ -31,13 +31,17 @@
 -- synactic edges that ``belong'' to an edge.
 --
 -- In order to \emph{set} options of the edges, you can set the
--- |generate_options| field of an arc (which is |nil| by default), see
+-- |generated_options| field of an arc (which is |nil| by default), see
 -- the |declare_parameter_sequence| function for the syntax. Similar
 -- to the |path| field below, the options set in this table are
 -- written back to the syntactic edges during a sync.
 --
--- In detail, the following happens: Even though an arc has a |path|
--- field and a |generated_options| field, setting these fields does
+-- Finally, there is also an |animations| field, which, similarly to
+-- the |generated_options|, gets written back during a sync when it is
+-- not |nil|.
+--
+-- In detail, the following happens: Even though an arc has a |path|,
+-- |generated_options|, and |animations| fields, setting these fields does
 -- not immediately set the paths of the syntactic edges nor does it
 -- generate options. Indeed, you will normally want to setup and
 -- modify the |path| field of an arc during your algorithm and only at
@@ -65,6 +69,9 @@
 -- above.
 -- @field generated_options If non-nil, some options to be passed back
 -- to the original syntactic edges, see the description above.
+-- @field animations If non-nil, some animations to be passed back
+-- to the original syntactic edges. See the description of the
+-- |animations| field for |Vertex| for details on the syntax.
 -- @field syntactic_edges In case this arc is an arc in the syntatic
 -- digraph (and only then), this field contains an array containing
 -- syntactic  edges (``real'' edges in the syntactic digraph) that
@@ -527,6 +534,26 @@ function Arc:sync()
          end
        end
     end  
+  end
+  if self.animations then
+    local head = self.head
+    local tail = self.tail
+    local a = self.syntactic_digraph:arc(tail,head)
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+         for _,o in ipairs(self.animations) do
+            e.animations[#e.animations+1] = o
+         end
+      end
+    end
+    local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
+    if a and #a.syntactic_edges>0 then
+      for _,e in ipairs(a.syntactic_edges) do
+         for _,o in ipairs(self.animations) do
+            e.animations[#e.animations+1] = o
+         end
+       end
+    end
   end
 end
 

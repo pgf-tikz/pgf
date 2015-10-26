@@ -67,6 +67,7 @@ local lib = require "pgf.gd.lib"
 
 -- Forward
 local table_in_pgf_syntax
+local animations_in_pgf_syntax
 
 
 
@@ -140,7 +141,7 @@ function BindingToPGF:renderVertex(v)
   local info = assert(self.storage[v], "thou shalt not modify the syntactic digraph")
   tex.print(
     string.format(
-      "\\pgfgdcallbackrendernode{%s}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%s}",
+      "\\pgfgdcallbackrendernode{%s}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%.12fpt}{%s}{%s}",
       'not yet positionedPGFINTERNAL' .. v.name,
       info.x_min,
       info.x_max,
@@ -148,7 +149,8 @@ function BindingToPGF:renderVertex(v)
       info.y_max,
       v.pos.x,
       v.pos.y,
-      info.box_count))
+      info.box_count,
+      animations_in_pgf_syntax(v.animations)))
 end
 
 function BindingToPGF:retrieveBox(index, box_num)
@@ -230,6 +232,7 @@ function BindingToPGF:renderEdge(e)
   end
 
   callback [#callback + 1] = '}'
+  callback [#callback + 1] = '{' .. animations_in_pgf_syntax(e.animations) .. '}'
   
   -- hand TikZ code over to TeX
   tex.print(table.concat(callback))
@@ -275,6 +278,36 @@ function table_in_pgf_syntax (t)
 	 end), ",")
 end
 
+
+function animations_in_pgf_syntax (a)
+  return
+    table.concat(
+      lib.imap(
+	a,
+	function(animation) 
+	  return "\\pgfanimateattribute{" .. animation.attribute .. "}{whom=pgf@gd," ..
+	    table.concat(
+	      lib.imap (
+		animation.entries,
+		function (entry)
+		  return "entry={" .. entry.t .. "s}{" .. entry.value .. "}"
+		end
+	      ), ",") ..
+	    "," ..
+	    table.concat(
+	      lib.imap(
+		animation.options or {},
+		function(table)
+		  if table.value then
+		    return table.key .. "={" .. tostring(table.value) .. "}"
+		  else
+		    return table.key
+		  end
+	      end), ",")
+	    .. "}"
+	end)
+    )
+end
 
 
 return BindingToPGF

@@ -91,6 +91,22 @@
 --
 -- @field options A table of options that contains user-defined options.
 --
+-- @field animations An array of attribute animations for the
+-- node. When an algorithm adds entries to this array, the display
+-- layer should try to render these. The syntax is as follows: Each
+-- element in the array is a table with a field |attribute|, which must
+-- be a string like |"opacity"| or |"translate"|, a field |entries|,
+-- which must be an array to be explained in a moment, and field
+-- |options|, which must be a table of the same syntax as the
+-- |options| field. For the |entries| array, each element must be
+-- table with two field: |t| must be set to a number, representing a
+-- time in secondds, and |value|, which must be set to a value that
+-- the |attribute| should have at the given time. The entries and the
+-- options will then be interpreted as described in \pgfname's basic
+-- layer animation system, except that where a |\pgfpoint| is expected
+-- you provide a |Coordinate| and a where a path is expected you
+-- provide a |Path|.
+--
 -- @field shape A string describing the shape of the node (like |rectangle|
 -- or |circle|). Note, however, that this is more ``informative''; the
 -- actual information that is used by the graph drawing system for
@@ -137,6 +153,7 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- \item[|path|] A |Path| object representing the vertex's hull. 
 -- \item[|anchors|] A table of anchors.
 -- \item[|options|] An options table for the vertex.
+-- \item[|animations|] An array of generated animation attributes.
 -- \item[|shape|] A string describing the shape. If not given, |"none"| is used.
 -- \item[|kind|] A kind like |"node"| or |"dummy"|. If not given, |"dummy"| is used.
 -- \end{description}
@@ -162,6 +179,7 @@ function Vertex.new(values)
   new.kind = new.kind or "dummy"
   new.pos = new.pos or Coordinate.new(0,0)
   new.anchors = new.anchors or { center = Coordinate.new(0,0) }
+  new.animations = new.animations or {}
   return setmetatable (new, Vertex)
 end
 
