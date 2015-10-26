@@ -894,7 +894,7 @@
 
 %
 %
-% Animation stuff
+% Animations
 %
 % 
 
@@ -986,20 +986,53 @@
 % Adds an animation of the path to the next path.
 % Type: path
 
+\def\pgfsys@animatesyncbase{\pgf@sys@fail{animations}}
+% Adds a sync base to the animation. A sync base does not animate
+% anything by itself, but other animations can begin and end relative
+% to it.
 
 
-% Animation timing : Calls to the following macros are passed as 
+% Pace modes
 
-\def\pgfsys@animation@dur#1{}
-% #1 must be a clock value in seconds, defining the duration of an
-% animation.
-% Example: \pgfsys@animation@timing@dur{1.5} % one and a half second
+\def\pgfsys@animation@default@pace{}
+% Specifies that the pacing of the animation should be whatever is the
+% default for the particular kind of animation (spline or paced).
 
-\def\pgfsys@animation@min#1{}
-% #1 must be a clock value, defining the minimum duration of an animation.
+\def\pgfsys@animation@paced{}
+% Specifies that the animation must be paced.
 
-\def\pgfsys@animation@max#1{}
-% #1 must be a clock value, defining the maximum duration of an animation.
+\def\pgfsys@animation@paced{}
+% Specifies that the animation must be splined.
+
+
+
+% Animation timing : 
+%
+% You specify an animation using a timeline. A timeline consists of a
+% sequence of times together with values for these times. The times
+% must be given in increasing order. You use the command
+% \pgfsys@animation@time to specify a time and
+% \pgfsys@animation@val@... to specify a value. The time must be
+% specfied first, the time--value is created when the value command is
+% used. 
+%
+% Times are given in seconds (so 0.01 is one hundreth of a second). 
+%
+% The animation's timeline will start with the first time mentioned
+% (not necessarily zero and not necessarily a positive value) and ends
+% with the last value. The duration is the difference between these
+% two values. 
+
+% \def\pgfsys@animation@dur#1{}
+% % #1 must be a clock value in seconds, defining the duration of an
+% % animation.
+% % Example: \pgfsys@animation@timing@dur{1.5} % one and a half second
+
+% \def\pgfsys@animation@min#1{}
+% % #1 must be a clock value, defining the minimum duration of an animation.
+
+% \def\pgfsys@animation@max#1{}
+% % #1 must be a clock value, defining the maximum duration of an animation.
 
 \def\pgfsys@animation@restart@always{}
 % Specifies that the animation can always restart
@@ -1014,7 +1047,7 @@
 % #1 must be a number 
 
 \def\pgfsys@animation@repeat@indefinite{}
-% Repeat till the end
+% Repeats forever
 
 \def\pgfsys@animation@repeat@dur#1{}
 % #1 must be a clock value
@@ -1026,36 +1059,31 @@
 \def\pgfsys@animation@removeatend{}
 % Specifies that the effect of the animation is removed at the end 
 
-\def\pgfsys@animation@keytime#1{}
-% #1 must be a number. The semantics is as in SVS's
-% keyTimes. Accumulates. 
-% 
-% Example:
-% \pgfsys@animation@keytime{0}
-% \pgfsys@animation@keytime{0.1}
-% \pgfsys@animation@keytime{0.5}
-% \pgfsys@animation@keytime{1}
-
-\def\pgfsys@animation@keyprogress#1{}
-% #1 must be a numberd. The semantics is as in SVS's
-% keyPoints. Accumulates. 
-% 
-% Example:
-% \pgfsys@animation@keyprogress{0}
-% \pgfsys@animation@keyprogress{0.1}
-% \pgfsys@animation@keyprogress{0.5}
-% \pgfsys@animation@keyprogress{1}
-
-\def\pgfsys@animation@keysplinecontrol#1#2#3#4{}
-% The four control values of a spline. The semantics is as in SVS's
-% keySplines. Accumulates.
-% 
-% Example:
+\def\pgfsys@animation@time#1#2#3#4#5{}
+% Specifies a time together with spline control points for the entry
+% and the exit to this time. The value #1 is a time in seconds (so 60
+% means 1 minute, 0.001 means one millisecond). The values #2 and #3
+% specify the control point of the spline *entering* the time point,
+% while the values #4 and #5 specify the control point of the spline
+% *leaving* the time point. They are all dimensionless values between
+% 0 and 1. For a linear animation, set the first two to 1 and the last
+% two to 0. 
 %
-% % control points between first and second key time
-% \pgfsys@animation@keysplinecontrol{.5}{0}{.5}{1}
-% % control points between second and thrid key time
-% \pgfsys@animation@keysplinecontrol{.5}{1}{1}{.5}
+% Example:
+% \pgfsys@animation@time{5}{1}{1}{0.25}{0.1}
+% \pgfsys@animation@val@scalar{80}
+% \pgfsys@animation@time{8}{.75}{1}{0}{0}
+% \pgfsys@animation@val@scalar{90}
+%
+% In SVG, this will create the following entries:
+% begin     = +5s
+% duration  = 3s
+% keyTimes  = 0;1
+% values    = 80;90
+% keySpline = 0.25 0.1 0.75 1
+%
+% For the key spline, note that the entry spline controls of the first
+% time and the exit spline controls of the last point are dropped.
 
 \def\pgfsys@animation@offset#1#2{}
 % #1 must be a value in seconds, #2 is the target "begin" or "end" to
@@ -1107,18 +1135,6 @@
 
 % Attribute definitions
 
-\def\pgfsys@animation@discrete{}
-% Corresponds to calcMode="discrete" in SVG
-
-\def\pgfsys@animation@linear{}
-% Corresponds to calcMode="linear" in SVG
-
-\def\pgfsys@animation@paced{}
-% Corresponds to calcMode="paced" in SVG
-
-\def\pgfsys@animation@spline{}
-% Corresponds to calcMode="spline" in SVG
-
 \def\pgfsys@animation@rotatealong{}
 % Applicable only to motion animations. Indicates that the
 % to-be-animated group should be rotated automatically so that it
@@ -1148,42 +1164,44 @@
 
 % Values
 
-\def\pgfsys@animation@text#1#2{}
-% #1 should be some text. #2 is the key to which this scalar value is
-% added (must be "to", "from", "by" or "values") 
+\def\pgfsys@animation@val@current{}
+% The current value of the attribute. At least with SVG, this can only
+% be used for the first value and, then, only if there is only one
+% other value.
 
-\def\pgfsys@animation@scalar#1#2{}
-% #1 should be a single value. #2 is the key to which this scalar
-% value is added (must be "to", "from", "by" or "values")
+\def\pgfsys@animation@val@text#1{}
+% #1 should be some text.
 
-\def\pgfsys@animation@dimension#1#2{}
-% #1 must be a dimension. #2 is the key to which this value is added.
+\def\pgfsys@animation@val@scalar#1{}
+% #1 should be a single value.
 
-\def\pgfsys@animation@color@rgb#1#2#3#4{}
-% #1,#2,#3 must be an rgb tuple, #4 is the key to which this is added
+\def\pgfsys@animation@val@dimension#1{}
+% #1 must be a dimension. 
 
-\def\pgfsys@animation@color@cmyk#1#2#3#4#5{}
-% #1,#2,#3,#4 must be an cmyk tuple, #5 is the key to which this is added
+\def\pgfsys@animation@val@color@rgb#1#2#3{}
+% #1,#2,#3 must be an rgb tuple
 
-\def\pgfsys@animation@color@cmy#1#2#3#4{}
-% #1,#2,#3 must be an cmy tuple, #4 is the key to which this is added
+\def\pgfsys@animation@val@color@cmyk#1#2#3#4{}
+% #1,#2,#3,#4 must be an cmyk tuple
 
-\def\pgfsys@animation@color@gray#1#2{}
-% #1 must be an rgb tuple, #2 is the key to which this is added
+\def\pgfsys@animation@val@color@cmy#1#2#3{}
+% #1,#2,#3 must be an cmy tuple
 
-\def\pgfsys@animation@path#1#2{}
-% #1 must consist of path-construction commands, #2 is the key to
-% which this is added 
+\def\pgfsys@animation@val@color@gray#1{}
+% #1 must be a gray value
 
-\def\pgfsys@animation@translate#1#2#3{}
-% #1,#2 must be dimensions, #3 is the key to which this is added
+\def\pgfsys@animation@val@path#1{}
+% #1 must consist of path-construction commands
 
-\def\pgfsys@animation@scale#1#2#3{}
-% #1,#2 must be dimensionless, #3 is the key to which this is added
+\def\pgfsys@animation@val@translate#1#2{}
+% #1,#2 must be dimensions
 
-\def\pgfsys@animation@viewbox#1#2#3#4#5{}
+\def\pgfsys@animation@val@scale#1#2{}
+% #1,#2 must be dimensionless
+
+\def\pgfsys@animation@val@viewbox#1#2#3#4{}
 % #1,#2 describe the lower left, #3,#4 the upper right corner of the
-% view box. #5 is the key to which this is added
+% view box. 
 
 
 

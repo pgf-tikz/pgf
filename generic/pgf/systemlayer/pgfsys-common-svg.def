@@ -599,33 +599,103 @@
   \pgf@sys@svg@key{accumulate}%
   \pgf@sys@svg@key{calcMode}%
   \pgf@sys@svg@key{values}%
-  \pgf@sys@svg@key{from}%
+%  \pgf@sys@svg@key{from}%
   \pgf@sys@svg@key{to}%
-  \pgf@sys@svg@key{by}%
+%  \pgf@sys@svg@key{by}%
   \pgf@sys@svg@key{path}%
   \pgf@sys@svg@key{rotate}%
   \pgf@sys@svg@key{xlink:href}%
 }
 
+\newif\ifpgf@sys@at@least@one@event
+\def\pgf@sys@svg@do@events#1{%
+  \pgf@sys@at@least@one@eventfalse%
+  \def\pgf@sys@event@target{#1}%
+  \expandafter\expandafter\expandafter\pgf@sys@svg@do@events@now\csname pgf@sys@event@list@#1\endcsname\relax%
+}
+\def\pgf@sys@svg@do@events@now{%
+  \pgfutil@ifnextchar\relax{}{\pgf@sys@svg@do@event}%
+}
+\def\pgf@sys@svg@do@event#1#2#3#4{%
+  \pgf@sys@at@least@one@eventtrue%
+  % 
+  {%
+    \edef\pgf@temp{#1}%
+    \ifx\pgf@temp\pgfutil@empty%
+    \else%
+      \def\pgf@temp{\pgfsys@id@ref{#1}{#2}.}%
+    \fi%
+    \edef\pgf@@temp{#4}%
+    \ifx\pgf@@temp\pgfutil@empty%
+      \pgf@x0pt%
+    \else%
+      \pgf@x#4pt%
+    \fi
+    \advance\pgf@x by\pgf@xa\relax%
+    \ifdim\pgf@x>0pt%
+      \edef\pgf@@temp{ +\pgf@sys@tonumber\pgf@x s}%
+    \else%
+      \ifdim\pgf@x<0pt%
+        \def\pgf@@temp{ \pgf@sys@tonumber\pgf@xs}%
+      \else%
+        \let\pgf@@temp\pgfutil@empty%
+      \fi%
+    \fi%
+    \xdef\pgf@svg@anim@temp{\pgf@temp#3\pgf@@temp}%
+  }%  
+  \pgf@sys@svg@append{\pgf@sys@event@target}{\pgf@svg@anim@temp}%
+  \global\let\pgf@svg@anim@temp\relax%
+  \pgf@sys@svg@do@events@now%
+}
+
+
+\newif\ifpgf@sys@svg@is@sync@base
 \def\pgf@sys@svg@anim#1{%
   \ifx\pgfsys@anim@val@@id\pgfutil@empty%
     \pgferror{Animation misses ``whom''}%
   \else%
   {%
-    \edef\pgf@temp{{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
+    \ifpgf@sys@svg@is@sync@base%
+      \pgf@xa=0pt% timeline begin
+      \pgf@sys@svg@do@events{begin}%
+      \pgf@sys@svg@do@events{end}%
+    \else%
+      \pgf@sys@svg@tl@eval%
+      \pgf@sys@svg@do@events{begin}%
+      \ifpgf@sys@at@least@one@event%
+      \else%
+        \pgf@sys@svg@append{begin}{\ifdim\pgf@xa>0pt+\fi\pgf@sys@tonumber\pgf@xa s}%
+      \fi%
+      \pgf@sys@svg@do@events{end}%
+    \fi%
+    \ifx\pgfsys@anim@val@calcMode\pgfutil@empty%
+      \let\pgfsys@anim@val@calcMode\pgfsys@anim@val@calcMode@default%
+    \fi%
+    \edef\pgf@temp{{<animate #1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
     \expandafter\pgfsysprotocol@literal\pgf@temp%    
     \pgfsys@invalidate@currentid%
   }%
   \fi%
 }
 
-\def\pgf@sys@svg@anim@trans#1{%
+\def\pgf@sys@svg@anim@trans#1#2{%
   \ifx\pgfsys@anim@val@@id\pgfutil@empty%
     \pgferror{Animation misses ``whom''}%
   \else%
   {%
     % 
+    \pgf@sys@svg@tl@eval%
+    \pgf@sys@svg@do@events{begin}%
+    \ifpgf@sys@at@least@one@event%
+    \else%
+      \pgf@sys@svg@append{begin}{\ifdim\pgf@xa>0pt+\fi\pgf@sys@tonumber\pgf@xa s}%
+    \fi%
+    \pgf@sys@svg@do@events{end}%
+    #2%
     \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}%
+    \ifx\pgfsys@anim@val@calcMode\pgfutil@empty%
+      \let\pgfsys@anim@val@calcMode\pgfsys@anim@val@calcMode@default%
+    \fi%
     \pgfsysprotocol@literal{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}%
     \pgfsys@invalidate@currentid%
     \edef\pgf@temp{{\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}}%
@@ -687,19 +757,6 @@
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
 }
 
-\def\pgf@sys@svg@replace@same#1#2{%
-  \expandafter\let\expandafter\pgf@svg@anim@temp@\csname pgfsys@anim@val@#1\endcsname%
-  \ifx\pgf@svg@anim@temp@\pgfutil@empty%
-    \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
-  \else%
-    \def\pgf@svg@anim@temp@@{#2}%
-    \ifx\pgf@svg@anim@temp@\pgf@svg@anim@temp@@%
-    \else%
-      \pgfutil@packageerror{pgfsys}{Type mix for animation values}{}%
-    \fi%
-  \fi%
-}
-
 \def\pgf@sys@svg@append#1#2{%
   \expandafter\let\expandafter\pgf@svg@anim@temp@\csname pgfsys@anim@val@#1\endcsname%
   \ifx\pgf@svg@anim@temp@\pgfutil@empty%
@@ -712,39 +769,28 @@
   \fi\fi%  
 }
 
-\def\pgf@sys@svg@append@or@replace#1#2{%
-  \def\pgfsys@anim@@temp{#1}%
-  \ifx\pgfsys@anim@@temp\pgf@values@text%
-    \pgf@sys@svg@append{values}{#2}%
-  \else%
-    \pgf@sys@svg@replace{#1}{#2}%
-  \fi%
-}
-\def\pgf@values@text{values}
-
-\def\pgf@sys@svg@set@or@animate{\ifpgf@sys@svg@dur@nonzero animate \else set \fi}
-
 % The non-transforming animations
-\def\pgfsys@animateopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="opacity"}}
-\def\pgfsys@animatefillopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="fill-opacity"}}
-\def\pgfsys@animatestrokeopacity{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke-opacity"}}
-\def\pgfsys@animatevisibility{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="visibility"}}
-\def\pgfsys@animatelinewidth{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke-width"}}
-\def\pgfsys@animatefillcolor{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="fill"}}
-\def\pgfsys@animatestrokecolor{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="stroke"}}
-\def\pgfsys@animateviewbox{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="viewBox"}}
-\def\pgfsys@animatepath{\pgf@sys@svg@anim{\pgf@sys@svg@set@or@animate attributeName="d"}}
+\def\pgfsys@animateopacity{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="opacity"}}
+\def\pgfsys@animatefillopacity{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="fill-opacity"}}
+\def\pgfsys@animatestrokeopacity{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="stroke-opacity"}}
+\def\pgfsys@animatevisibility{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="visibility"}}
+\def\pgfsys@animatelinewidth{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="stroke-width"}}
+\def\pgfsys@animatefillcolor{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="fill"}}
+\def\pgfsys@animatestrokecolor{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="stroke"}}
+\def\pgfsys@animateviewbox{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="viewBox"}}
+\def\pgfsys@animatepath{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim{attributeName="d"}}
+\def\pgfsys@animatesyncbase{{\pgf@sys@svg@is@sync@basetrue\let\pgfsys@anim@val@calcMode@default\pgfutil@empty\pgf@sys@svg@anim{}}}
 
 % The transforming animations
-\def\pgfsys@animatetranslate{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="translate"}}
-\def\pgfsys@animatescale{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="scale"}}
-\def\pgfsys@animaterotate{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="rotate"}}
-\def\pgfsys@animateskewx{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="skewX"}}
-\def\pgfsys@animateskewy{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="skewY"}}
-\def\pgfsys@animatemotion{\pgf@sys@svg@anim@trans{animateMotion}}
-
-% Special: duration
-\newif\ifpgf@sys@svg@dur@nonzero
+\def\pgfsys@animatetranslate{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="translate"}{}}
+\def\pgfsys@animatescale{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="scale"}{}}
+\def\pgfsys@animaterotate{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="rotate"}{}}
+\def\pgfsys@animateskewx{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="skewX"}{}}
+\def\pgfsys@animateskewy{\def\pgfsys@anim@val@calcMode@default{spline}\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="skewY"}{}}
+\def\pgfsys@animatemotion{\def\pgfsys@anim@val@calcMode@default{paced}\pgf@sys@svg@anim@trans{animateMotion}{%
+    \let\pgfsys@anim@val@keyPoints\pgfsys@anim@val@values%
+    \let\pgfsys@anim@val@values\relax%
+  }}
 
 % The keys
 \def\pgfsys@animation@whom#1#2{%
@@ -755,9 +801,6 @@
   \pgf@sys@svg@replace{@type}{\pgf@sys@svg@temp}%
   \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{#1}{\pgf@sys@svg@temp}}%
 }
-\def\pgfsys@animation@dur#1{\pgf@sys@svg@replace{dur}{#1s}\ifdim#1pt=0pt\relax\pgf@sys@svg@dur@nonzerofalse\else\pgf@sys@svg@dur@nonzerotrue\fi}
-\def\pgfsys@animation@min#1{\pgf@sys@svg@replace{min}{#1s}}
-\def\pgfsys@animation@max#1{\pgf@sys@svg@replace{max}{#1s}}
 \def\pgfsys@animation@restart@always{\pgf@sys@svg@replace{restart}{always}}
 \def\pgfsys@animation@restart@never{\pgf@sys@svg@replace{restart}{never}}
 \def\pgfsys@animation@restart@whennotactive{\pgf@sys@svg@replace{restart}{whenNotActive}}
@@ -766,35 +809,13 @@
 \def\pgfsys@animation@repeat@dur#1{\pgf@sys@svg@replace{repeatDur}{#1}}
 \def\pgfsys@animation@freezeatend{\pgf@sys@svg@replace{fill}{freeze}}
 \def\pgfsys@animation@removeatend{\pgf@sys@svg@replace{fill}{remove}}
-\def\pgfsys@animation@keytime#1{\pgf@sys@svg@append{keyTimes}{#1}}
-\def\pgfsys@animation@keyprogress#1{\pgf@sys@svg@append{keyPoints}{#1}}
-\def\pgfsys@animation@keysplinecontrol#1#2#3#4{\pgf@sys@svg@append{keySplines}{#1 #2 #3 #4}}
 \def\pgfsys@animation@canvas@transform#1#2{\def\pgfsys@anim@val@canvas@trans{{#1}{#2}}}
-\def\pgfsys@animation@offset#1#2{\pgf@sys@svg@append{#2}{#1s}}
+\def\pgfsys@animation@offset#1#2{\pgfsys@animation@event{}{}{}{#1}{#2}}
 \def\pgfsys@animation@event#1#2#3#4#5{%
-  {%
-    \edef\pgf@temp{#1}%
-    \ifx\pgf@temp\pgfutil@empty%
-    \else%
-      \def\pgf@temp{\pgfsys@id@ref{#1}{#2}.}%
-    \fi%
-    \edef\pgf@@temp{#4}%
-    \ifx\pgf@@temp\pgfutil@empty%
-    \else%
-      \ifdim#4pt>0pt%
-        \def\pgf@@temp{ +#4s}%
-      \else%
-        \ifdim#4pt<0pt%
-          \def\pgf@@temp{ #4s}%
-        \else%
-          \let\pgf@@temp\pgfutil@empty%
-        \fi%
-      \fi%
-    \fi%
-    \xdef\pgf@svg@anim@temp{\pgf@temp#3\pgf@@temp}%
-  }%  
-  \pgf@sys@svg@append{#5}{\pgf@svg@anim@temp}%
-}
+  \expandafter\edef\csname pgf@sys@event@list@#5\endcsname{\csname pgf@sys@event@list@#5\endcsname{#1}{#2}{#3}{#4}}%
+}%
+\def\pgf@sys@event@list@begin{}
+\def\pgf@sys@event@list@end{}
 \def\pgfsys@animation@syncbegin#1#2#3#4{\pgfsys@animation@event{#1}{#2}{begin}{#3}{#4}}
 \def\pgfsys@animation@syncend#1#2#3#4{\pgfsys@animation@event{#1}{#2}{end}{#3}{#4}}
 \def\pgfsys@animation@repeat@event#1#2#3#4#5{\pgfsys@animation@event{#1}{#2}{repeat(#3)}{#4}{#5}}
@@ -803,8 +824,7 @@
 \def\pgfsys@animation@replace{\pgf@sys@svg@replace{additive}{replace}}
 \def\pgfsys@animation@accumulate{\pgf@sys@svg@replace{accumulate}{sum}}
 \def\pgfsys@animation@noaccumulate{\pgf@sys@svg@replace{accumulate}{}}
-\def\pgfsys@animation@discrete{\pgf@sys@svg@replace{calcMode}{discrete}}
-\def\pgfsys@animation@linear{\pgf@sys@svg@replace{calcMode}{linear}}
+\def\pgfsys@animation@default@pace{\pgf@sys@svg@replace{calcMode}{}}
 \def\pgfsys@animation@paced{\pgf@sys@svg@replace{calcMode}{paced}}
 \def\pgfsys@animation@spline{\pgf@sys@svg@replace{calcMode}{spline}}
 \def\pgfsys@animation@rotatealong{\pgf@sys@svg@replace{rotate}{auto}}
@@ -823,20 +843,91 @@
   }%
   \pgf@sys@svg@replace{path}{\pgf@svg@anim@temp}%
 }
-\def\pgfsys@animation@text#1#2{\pgf@sys@svg@append@or@replace{#2}{#1}}
-\def\pgfsys@animation@scalar#1#2{\pgf@sys@svg@append@or@replace{#2}{#1}}
-\def\pgfsys@animation@dimension#1#2{%
+
+% Timelines
+\let\pgf@sys@svg@tl@entries\pgfutil@empty
+\let\pgf@sys@svg@tl@start\pgfutil@empty
+\let\pgf@sys@svg@tl@end\pgfutil@empty
+
+\def\pgfsys@animation@time#1#2#3#4#5{%
+  \def\pgf@sys@svg@t{#1}%
+  \let\pgf@sys@last@out@spline\pgf@sys@svg@out@spline%
+  \def\pgf@sys@svg@in@spline{{#2}{#3}}%
+  \def\pgf@sys@svg@out@spline{{#4}{#5}}%
+}
+
+\def\pgf@sys@svg@entry#1{%
+  \ifx\pgf@sys@svg@tl@start\pgfutil@empty%
+    % Ah, first.
+    \let\pgf@sys@svg@tl@start\pgf@sys@svg@t%
+    \let\pgf@sys@svg@tl@end\pgf@sys@svg@t%
+    \edef\pgf@sys@svg@tl@entries{%
+      \noexpand\pgf@sys@svg@add@time{\pgf@sys@svg@t}%
+      \noexpand\pgf@sys@svg@add@value{#1}%
+    }%
+  \else%
+    \let\pgf@sys@svg@tl@end\pgf@sys@svg@t%
+    \edef\pgf@sys@svg@temp{%
+      \noexpand\pgf@sys@svg@add@time{\pgf@sys@svg@t}%
+      \noexpand\pgf@sys@svg@add@spline\pgf@sys@last@out@spline\pgf@sys@svg@in@spline%
+      \noexpand\pgf@sys@svg@add@value{#1}%
+    }%
+    \expandafter\expandafter\expandafter\def%
+    \expandafter\expandafter\expandafter\pgf@sys@svg@tl@entries%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@tl@entries\pgf@sys@svg@temp}%
+  \fi%  
+}
+\def\pgf@sys@svg@tl@eval{%
+  % Ok, we need to compute the time interval
+  \ifx\pgf@sys@svg@tl@start\pgfutil@empty%
+    \pgferror{Animations misses times and values}%
+  \else%
+    \pgf@xa=\pgf@sys@svg@tl@start pt%
+    \pgf@xb=\pgf@sys@svg@tl@end pt%
+    \advance\pgf@xb by -\pgf@xa%
+    % Ok, \pgf@xb is now the duration.
+    \pgf@sys@svg@replace{dur}{\pgf@sys@tonumber\pgf@xb}
+    % Now, prepare factors
+    \pgf@xc=8192pt%
+    \divide\pgf@xc by\pgf@xb%
+    \multiply\pgf@xb by\pgf@xc%
+    \divide\pgf@xb by65536%
+    % Now, run!
+    \pgf@sys@svg@tl@entries%
+  \fi%
+}
+\def\pgf@sys@svg@add@time#1{%
+  % Compute fraction:
+  \pgf@yb=#1pt%
+  \advance\pgf@yb by-\pgf@xa%
+  \multiply\pgf@yb by\pgf@xc%
+  \divide\pgf@yb by\pgf@xb%
+  \pgf@sys@svg@append{keyTimes}{\pgf@sys@tonumber\pgf@yb}%
+}
+\def\pgf@sys@svg@add@spline#1#2#3#4{\pgf@sys@svg@append{keySplines}{#1 #2 #3 #4}}
+\def\pgf@sys@svg@add@value#1{%
+  \ifpgf@sys@svg@current@used%
+    \pgf@sys@svg@replace{to}{#1}%
+  \else%
+    \pgf@sys@svg@append{values}{#1}%
+  \fi%
+}
+\newif\ifpgf@sys@svg@current@used
+\def\pgfsys@animation@val@current{\pgf@sys@svg@current@usedtrue\pgf@sys@svg@entry{}}
+\def\pgfsys@animation@val@text#1{\pgf@sys@svg@entry{#1}}
+\def\pgfsys@animation@val@scalar#1{\pgf@sys@svg@entry{#1}}
+\def\pgfsys@animation@val@dimension#1{%
   {%
     \pgf@x=#1\relax%
     \xdef\pgf@svg@anim@temp{\expandafter\Pgf@geT\the\pgf@x}%
   }%
-  \pgf@sys@svg@append@or@replace{#2}{\pgf@svg@anim@temp}%
+  \pgf@sys@svg@entry{\pgf@svg@anim@temp}%
 }
-\def\pgfsys@animation@color@rgb#1#2#3#4{\pgf@sys@svg@color@rgb#1,#2,#3\relax\pgf@sys@svg@append@or@replace{#4}{\pgf@sys@svg@prepared}}
-\def\pgfsys@animation@color@cmyk#1#2#3#4#5{\pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax\pgf@sys@svg@append@or@replace{#5}{\pgf@sys@svg@prepared}}
-\def\pgfsys@animation@color@cmy#1#2#3#4{\pgf@sys@svg@color@cmy#1,#2,#3\relax\pgf@sys@svg@append@or@replace{#4}{\pgf@sys@svg@prepared}}
-\def\pgfsys@animation@color@gray#1#2{\pgf@sys@svg@color@gray#1\relax\pgf@sys@svg@append@or@replace{#2}{\pgf@sys@svg@prepared}}
-\def\pgfsys@animation@path#1#2{%
+\def\pgfsys@animation@val@color@rgb#1#2#3{\pgf@sys@svg@color@rgb#1,#2,#3\relax\pgf@sys@svg@entry{\pgf@sys@svg@prepared}}
+\def\pgfsys@animation@val@color@cmyk#1#2#3#4{\pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax\pgf@sys@svg@entry{\pgf@sys@svg@prepared}}
+\def\pgfsys@animation@val@color@cmy#1#2#3{\pgf@sys@svg@color@cmy#1,#2,#3\relax\pgf@sys@svg@entry{\pgf@sys@svg@prepared}}
+\def\pgfsys@animation@val@color@gray#1{\pgf@sys@svg@color@gray#1\relax\pgf@sys@svg@entry{\pgf@sys@svg@prepared}}
+\def\pgfsys@animation@val@path#1{%
   {%
     \let\pgf@sys@save@svgpath=\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath=\pgfutil@empty%
@@ -848,18 +939,18 @@
     \global\let\pgf@svg@anim@temp\pgf@sys@svgpath%
     \global\let\pgf@sys@svgpath\pgf@sys@save@svgpath%
   }%
-  \pgf@sys@svg@append@or@replace{#2}{\pgf@svg@anim@temp}%
+  \pgf@sys@svg@entry{\pgf@svg@anim@temp}%
 }
-\def\pgfsys@animation@translate#1#2#3{%
+\def\pgfsys@animation@val@translate#1#2{%
   {%
     \pgf@x=#1\relax%
     \pgf@y=#2\relax%
     \xdef\pgf@svg@anim@temp{\expandafter\Pgf@geT\the\pgf@x\space\expandafter\Pgf@geT\the\pgf@y}%
   }%
-  \pgf@sys@svg@append@or@replace{#3}{\pgf@svg@anim@temp}%
+  \pgf@sys@svg@entry{\pgf@svg@anim@temp}%
 }
-\def\pgfsys@animation@scale#1#2#3{\pgf@sys@svg@append@or@replace{#3}{#1 #2}}
-\def\pgfsys@animation@viewbox#1#2#3#4#5{%
+\def\pgfsys@animation@val@scale#1#2{\pgf@sys@svg@entry{#1 #2}}
+\def\pgfsys@animation@val@viewbox#1#2#3#4{%
   {%
     \pgf@x=#1\relax%
     \pgf@y=#2\relax%
@@ -869,7 +960,7 @@
     \advance\pgf@ya by-\pgf@y%
     \xdef\pgf@svg@anim@temp{\expandafter\Pgf@geT\the\pgf@x\space\expandafter\Pgf@geT\the\pgf@y\space\expandafter\Pgf@geT\the\pgf@xa\space\expandafter\Pgf@geT\the\pgf@ya}%
   }%
-  \pgf@sys@svg@append@or@replace{#5}{\pgf@svg@anim@temp}%
+  \pgf@sys@svg@entry{\pgf@svg@anim@temp}%
 }
 
 
