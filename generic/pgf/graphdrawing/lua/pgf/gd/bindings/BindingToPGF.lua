@@ -63,11 +63,16 @@ require("pgf.gd.bindings").BindingToPGF = BindingToPGF
 -- Imports
 local lib = require "pgf.gd.lib"
 
+local Coordinate = require "pgf.gd.model.Coordinate"
+local Path = require "pgf.gd.model.Path"
+
 -- The implementation
 
 -- Forward
 local table_in_pgf_syntax
 local animations_in_pgf_syntax
+local path_in_pgf_syntax
+local coordinate_in_pgf_syntax
 
 
 
@@ -290,7 +295,7 @@ function animations_in_pgf_syntax (a)
 	      lib.imap (
 		animation.entries,
 		function (entry)
-		  return "entry={" .. entry.t .. "s}{" .. entry.value .. "}"
+		  return "entry={" .. entry.t .. "s}{" .. to_pgf(entry.value) .. "}"
 		end
 	      ), ",") ..
 	    "," ..
@@ -299,7 +304,7 @@ function animations_in_pgf_syntax (a)
 		animation.options or {},
 		function(table)
 		  if table.value then
-		    return table.key .. "={" .. tostring(table.value) .. "}"
+		    return table.key .. "={" .. to_pgf(table.value) .. "}"
 		  else
 		    return table.key
 		  end
@@ -307,6 +312,62 @@ function animations_in_pgf_syntax (a)
 	    .. "}"
 	end)
     )
+end
+
+
+function to_pgf(x)
+  if type (x) == "table" then
+    if getmetatable(x) == Coordinate then
+      return coordinate_in_pgf_syntax(x)
+    elseif getmetatable(x) == Path then
+      return path_in_pgf_syntax(x)
+    else
+      error("illegal table in value of a key to be passed back to pgf")
+    end
+  else
+    return tostring(x)
+  end
+end
+
+function path_in_pgf_syntax (p)
+
+  local s = {}
+  
+  local i = 1
+  while i <= #p do
+    local c = p[i]
+    assert (type(c) == "string", "illegal path operand")
+    
+    if c == "lineto" then
+      i = i + 1
+      local d = rigid(p[i])
+      s [#s + 1] = '\\pgfpathlineto{\\pgfqpoint{' .. to_pt(d.x) .. '}{' .. to_pt(d.y) .. '}}'
+      i = i + 1
+    elseif c == "moveto" then
+      i = i + 1
+      local d = rigid(p[i])
+      s [#s + 1] = '\\pgfpathmoveto{\\pgfqpoint{' .. to_pt(d.x) .. '}{' .. to_pt(d.y) .. '}}'
+      i = i + 1
+    elseif c == "closepath" then
+      s [#s + 1] = '\\pgfpathclose'
+      i = i + 1
+    elseif c == "curveto" then
+      local d1, d2, d3 = rigid(p[i+1]), rigid(p[i+2]), rigid(p[i+3])
+      i = i + 3
+      s [#s + 1] = '\\pgfpathcurveto{\\pgfqpoint{' .. to_pt(d1.x) .. '}{' .. to_pt(d1.y) .. '}}{\\pgfqpoint{'
+	.. to_pt(d2.x) .. '}{' .. to_pt(d2.y) .. '}}{\\pgfqpoint{' 
+	.. to_pt(d3.x) .. '}{' .. to_pt(d3.y) .. '}}'
+      i = i + 1
+    else				     
+      error("illegal operation in edge path")
+    end
+  end
+
+  return table.concat(s)
+end
+
+function coordinate_in_pgf_syntax(c)
+  return '\\pgfqpoint{'..to_pt(c.x) .. '}{'.. to_pt(c.y) .. '}'
 end
 
 
