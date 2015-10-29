@@ -25,7 +25,7 @@
 
 \def\tikz@anim@do#1{%
   {%
-    \pgfkeys{/handlers/animates/.code=\expandafter\tikz@animates@handler\expandafter{\pgfkeyscurrentpath}{##1}}%
+    \pgfkeys{/handlers/set/.code=\expandafter\tikz@animates@handler\expandafter{\pgfkeyscurrentpath}{##1}}%
     \pgfkeys{/handlers/first char syntax=true}%
     \pgfkeyssetvalue{/handlers/first char syntax/the character <}{\tikz@anim@parse@time}%
     \def\tikz@anim@t{0}
@@ -42,22 +42,36 @@
 % Defines a new tikz animation
 % 
 
-\def\tikz@new@anim#1#2#3#4{%
+\def\tikz@renew@anim#1#2#3{%
   % #1 = the name
   % #2 = the attribute
   % #3 = the whom
   % #4 = the options
-  \expandafter\def\expandafter\tikz@anim@list\expandafter{\tikz@anim@list\tikz@anim@process{#1}{#2}{#3}{#4}}
+  \expandafter\expandafter\expandafter\ifx\csname tikz@anim@conf@attr@#1\endcsname\relax%
+    \expandafter\def\expandafter\tikz@anim@list\expandafter{\tikz@anim@list\tikz@anim@process{#1}}
+  \fi%
+  \expandafter\def\csname tikz@anim@conf@attr@#1\endcsname{#2}%
+  \expandafter\def\csname tikz@anim@conf@whom@#1\endcsname{#3}%
   \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\pgfutil@empty%
 }
 
+\def\tikzanimationsanimatesset{\pgfqkeys{/tikz/animations/animates}}
+
 
 \def\tikz@animates@handler#1#2{%
+  % Save the options
+  \expandafter\def\expandafter\tikz@anim@macro@name\expandafter{\csname tikz@anim@opt@#1\endcsname}%
+  \expandafter\ifx\tikz@anim@macro@name\relax%
+    \expandafter\let\tikz@anim@macro@name\pgfutil@empty%
+  \fi%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@temp\expandafter\expandafter\expandafter{\tikz@anim@macro@name,#2}%
+  \expandafter\let\tikz@anim@macro@name\tikz@temp%
+  % Options saved
   \let\tikz@animates@attribute\pgfutil@empty%
   \let\tikz@animates@whom\pgfutil@empty%
   \def\tikz@animates@parser{simple}%
   {%
-    \pgfkeys{/tikz/animations/animates/.cd,#2}%
+    \expandafter\expandafter\expandafter\tikzanimationsanimatesset\expandafter\expandafter\expandafter{\tikz@anim@macro@name}%
     % This will set the type key
     % Other keys are ignored here
     \global\let\tikz@animates@g@parser\tikz@animates@parser%
@@ -67,8 +81,8 @@
   \ifx\tikz@animates@g@parser\pgfutil@empty%
     \tikzerror{.../animates must pick a type}%
   \else%
-    \edef\tikz@temp{\noexpand\tikz@new@anim{#1}{\tikz@animates@g@attribute}{\tikz@animates@g@whom}}%
-    \tikz@temp{#2}%
+    \edef\tikz@temp{\noexpand\tikz@renew@anim{#1}{\tikz@animates@g@attribute}{\tikz@animates@g@whom}}%
+    \tikz@temp%
     \edef\pgf@marshal{\noexpand\pgfkeys{#1/.code=\noexpand\tikz@anim@parser{#1}{\tikz@animates@g@parser}{####1}}}%
     \pgf@marshal%
   \fi%
@@ -80,8 +94,8 @@
 
 \pgfkeys{
   /tikz/animations/animates/.cd,
-  attribute/.code=\def\tikz@animates@attribute{#1},
-  parser/.code=\def\tikz@animates@parser{#1},
+  @attribute/.code=\def\tikz@animates@attribute{#1},
+  @parser/.code=\def\tikz@animates@parser{#1},
   @type node/.initial=,
   @type scope/.initial=,
   @type path/.initial=,
@@ -104,54 +118,59 @@
   next/.style={begin on={end,of=local previous animation,delay=#1}},
   origin/.code=\tikz@anim@parse@origin{#1},
   %
-  visible/.style={attribute=visible},
-  opacity/.style={attribute=opacity},
-  fill opacity/.style={attribute=fill opacity},
-  draw opacity/.style={attribute=stroke opacity},
-  text opacity/.style={attribute=fill opacity, @type node=.text},
-  line width/.style={attribute=line width},
-  fill/.style={attribute=fill, @type node=.background.path},
-  draw/.style={attribute=stroke, @type node=.background.path},
-  text/.style={attribute=fill, @type node=.text},
-  view/.style={attribute=view, @type scope=.view},
-  shift/.style={attribute=translate, parser=shift},
-  rotate/.style={attribute=rotate},
-  scale/.style={attribute=scale},
-  xskew/.style={attribute=xskew},
-  yskew/.style={attribute=yskew},
-  xslant/.style={attribute=xskew, parser=slant},
-  yslant/.style={attribute=yskew, parser=slant},
-  move along/.style={attribute=motion, /utils/exec=\tikz@anim@along{#1}},
-  drive along/.style={attribute=motion, /utils/exec=\tikz@anim@along{#1}, /pgf/animation/rotate along=true},
-  morph/.style={attribute=softpath, parser=path, @type path=.path, @type node=.background.path},
+  visible/.style={@attribute=visible/},
+  opacity/.style={@attribute=opacity/},
+  fill opacity/.style={@attribute=fill opacity/},
+  draw opacity/.style={@attribute=stroke opacity/},
+  text opacity/.style={@attribute=fill opacity/{@type node=.text}},
+  line width/.style={@attribute=line width/},
+  fill/.style={@attribute=fill/{@type node=.background.path}},
+  draw/.style={@attribute=stroke/{@type node=.background.path}},
+  text/.style={@attribute=fill/{@type node=.text}},
+  color/.style={@attribute={fill/{@type node=.background.path},stroke/{@type node=.background.path},fill/{@type node=.text}}},
+  view/.style={@attribute=view/{@type scope=.view}},
+  shift/.style={@attribute=translate/,@parser=shift},
+  rotate/.style={@attribute=rotate/},
+  scale/.style={@attribute=scale/},
+  xskew/.style={@attribute=xskew/},
+  yskew/.style={@attribute=yskew/},
+  xslant/.style={@attribute=xskew/, @parser=slant},
+  yslant/.style={@attribute=yskew/, @parser=slant},
+  move along/.style={@attribute=motion/, /utils/exec=\tikz@anim@along{#1}},
+  drive along/.style={@attribute=motion/, /utils/exec=\tikz@anim@along{#1}, /pgf/animation/rotate along=true},
+  morph/.style={@attribute=softpath/{@type path=.path, @type node=.background.path}, @parser=path},
 }
 \let\tikz@anim@default@whom\pgfutil@empty
 
+
+\pgfkeys{
+  /tikz/animations/all/set/.code=\tikzanimationsanimatesset{#1}
+}
 
 % Default animates
 
 \pgfkeys{
   /tikz/animations/@default whom/.store in=\tikz@anim@default@whom,
   /tikz/animations/default animates/.style={
-    visible/animates={visible},
-    opacity/animates={opacity},
-    fill opacity/animates={fill opacity},
-    draw opacity/animates={draw opacity},
-    text opacity/animates={text opacity},
-    line width/animates={line width},
-    fill/animates={fill},
-    draw/animates={draw},
-    text/animates={text},
-    view/animates={view},
-    shift/animates={shift},
-    rotate/animates={rotate},
-    scale/animates={scale},
-    xskew/animates={xskew},
-    yskew/animates={yskew},
-    xslant/animates={xslant},
-    yslant/animates={yslant},
-    morph/animates={morph},
-    color/.style={fill={#1},draw={#1},text={#1}},
+    visible/set={visible},
+    opacity/set={opacity},
+    fill opacity/set={fill opacity},
+    draw opacity/set={draw opacity},
+    text opacity/set={text opacity},
+    line width/set={line width},
+    fill/set={fill},
+    draw/set={draw},
+    text/set={text},
+    view/set={view},
+    shift/set={shift},
+    rotate/set={rotate},
+    scale/set={scale},
+    xskew/set={xskew},
+    yskew/set={yskew},
+    xslant/set={xslant},
+    yslant/set={yslant},
+    morph/set={morph},
+    color/set={color}
   }
 }
 
@@ -174,32 +193,39 @@
 
 
 
-\def\tikz@anim@process#1#2#3#4{%
-  \expandafter\let\expandafter\tikz@anim@temp\csname tikz@anim@entries@#1\endcsname%
+\def\tikz@anim@process#1{%
+  \expandafter\let\expandafter\tikz@anim@the@entries\csname tikz@anim@entries@#1\endcsname%
   \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\relax%
-  \ifx\tikz@anim@temp\pgfutil@empty%
+  \ifx\tikz@anim@the@entries\pgfutil@empty%
   \else%
+    \ifx\tikz@anim@the@entries\relax%
+    \else%
     % Ok, do something
     {%
-      \def\tikz@whom@list{#3}%
+      \edef\tikz@whom@list{\csname tikz@anim@conf@whom@#1\endcsname}%
+      \edef\tikz@attr@list{\csname tikz@anim@conf@attr@#1\endcsname}%
       \ifx\tikz@whom@list\pgfutil@empty%
         \let\tikz@whom@list\tikz@anim@default@whom%
       \fi%
       \foreach\tikz@animate@whom@type/\tikz@animate@whom@obj in\tikz@whom@list{%
         \ifx\tikz@animate@whom@type\pgfutil@empty\else%
-          \pgfanimateattributecode{#2}{%
-            \pgfkeys{/tikz/animations/animates/.cd,#4}%
-            \tikz@anim@temp%
-            \expandafter\pgfutil@in@\expandafter.\expandafter{\tikz@animate@whom@obj}%
-            \ifpgfutil@in@%
-            \else%
-              \edef\tikz@animate@whom@obj{\tikz@animate@whom@obj\pgfkeysvalueof{/tikz/animations/animates/@type \tikz@animate@whom@type}}%
-            \fi%
-            \pgfanimationset{whom=\tikz@animate@whom@obj}%
+          \foreach\tikz@animate@attr/\tikz@animate@types in\tikz@attr@list{%
+            \expandafter\pgfanimateattributecode\expandafter{\tikz@animate@attr}{%
+              \expandafter\expandafter\expandafter\tikzanimationsanimatesset\expandafter\expandafter\expandafter{\csname tikz@anim@opt@#1\endcsname}%
+              \expandafter\tikzanimationsanimatesset\expandafter{\tikz@animate@types}%
+              \tikz@anim@the@entries%
+              \expandafter\pgfutil@in@\expandafter.\expandafter{\tikz@animate@whom@obj}%
+              \ifpgfutil@in@%
+              \else%
+                \edef\tikz@animate@whom@obj{\tikz@animate@whom@obj\pgfkeysvalueof{/tikz/animations/animates/@type \tikz@animate@whom@type}}%
+              \fi%
+              \pgfanimationset{whom=\tikz@animate@whom@obj}%
+            }%
           }%
         \fi%
       }%
     }%
+    \fi%
   \fi%
 }
 
