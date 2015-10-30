@@ -13,6 +13,10 @@
 
 
 
+\def\tikzanimationsset{\pgfqkeys{/tikz/animations}}
+\def\tikzanimationsanimatesset{\pgfqkeys{/tikz/animations/animates}}
+
+
 % 
 % The \animate command 
 %
@@ -25,12 +29,12 @@
 
 \def\tikz@anim@do#1{%
   {%
-    \pgfkeys{/handlers/set/.code=\expandafter\tikz@animates@handler\expandafter{\pgfkeyscurrentpath}{##1}}%
+    \pgfkeys{/handlers/set/.code=\expandafter\expandafter\expandafter\tikz@animates@handler\expandafter\expandafter\expandafter{\pgfkeyscurrentpath}{##1}}%
     \pgfkeys{/handlers/first char syntax=true}%
     \pgfkeyssetvalue{/handlers/first char syntax/the character <}{\tikz@anim@parse@time}%
     \def\tikz@anim@t{0}
     \gdef\tikz@anim@last@t{0}
-    \pgfkeys{/tikz/animations/.cd,default animates,/tikz/every animate/.try,#1}%
+    \tikzanimationsset{default animates,/tikz/every animate/.try,#1}%
     \tikz@anim@list%
   }%
 }
@@ -49,16 +53,15 @@
   % #4 = the options
   \expandafter\expandafter\expandafter\ifx\csname tikz@anim@conf@attr@#1\endcsname\relax%
     \expandafter\def\expandafter\tikz@anim@list\expandafter{\tikz@anim@list\tikz@anim@process{#1}}
+    \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\pgfutil@empty%
   \fi%
   \expandafter\def\csname tikz@anim@conf@attr@#1\endcsname{#2}%
   \expandafter\def\csname tikz@anim@conf@whom@#1\endcsname{#3}%
-  \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\pgfutil@empty%
 }
-
-\def\tikzanimationsanimatesset{\pgfqkeys{/tikz/animations/animates}}
 
 
 \def\tikz@animates@handler#1#2{%
+  \edef\tikz@anim@timeline@name{#1}%
   % Save the options
   \expandafter\def\expandafter\tikz@anim@macro@name\expandafter{\csname tikz@anim@opt@#1\endcsname}%
   \expandafter\ifx\tikz@anim@macro@name\relax%
@@ -81,6 +84,7 @@
   \ifx\tikz@animates@g@parser\pgfutil@empty%
     \tikzerror{.../animates must pick a type}%
   \else%
+    \edef\tikz@anim@timeline@name{#1}%
     \edef\tikz@temp{\noexpand\tikz@renew@anim{#1}{\tikz@animates@g@attribute}{\tikz@animates@g@whom}}%
     \tikz@temp%
     \edef\pgf@marshal{\noexpand\pgfkeys{#1/.code=\noexpand\tikz@anim@parser{#1}{\tikz@animates@g@parser}{####1}}}%
@@ -92,8 +96,8 @@
 }
 
 
-\pgfkeys{
-  /tikz/animations/animates/.cd,
+
+\tikzanimationsanimatesset{
   @attribute/.code=\def\tikz@animates@attribute{#1},
   @parser/.code=\def\tikz@animates@parser{#1},
   @type node/.initial=,
@@ -111,12 +115,17 @@
   repeats/.forward to=/pgf/animation/repeats,
   repeats/.default=,
   add/.forward to=/pgf/animation/add,
+  replace/.forward to=/pgf/animation/replace,
+  speed/.forward to=/pgf/animation/speed,
   begin/.forward to=/pgf/animation/begin,
   end/.forward to=/pgf/animation/end,
   begin on/.forward to=/pgf/animation/begin on,
   end on/.forward to=/pgf/animation/end on,
   next/.style={begin on={end,of=local previous animation,delay=#1}},
   origin/.code=\tikz@anim@parse@origin{#1},
+  paced/.forward to=/pgf/animation/paced,
+  duration/.forward to=/pgf/animation/paced,
+  unpaced/.forward to=/pgf/animation/unpaced,
   %
   visible/.style={@attribute=visible/},
   opacity/.style={@attribute=opacity/},
@@ -129,29 +138,33 @@
   text/.style={@attribute=fill/{@type node=.text}},
   color/.style={@attribute={fill/{@type node=.background.path},stroke/{@type node=.background.path},fill/{@type node=.text}}},
   view/.style={@attribute=view/{@type scope=.view}},
-  shift/.style={@attribute=translate/,@parser=shift},
-  rotate/.style={@attribute=rotate/},
-  scale/.style={@attribute=scale/},
-  xskew/.style={@attribute=xskew/},
-  yskew/.style={@attribute=yskew/},
-  xslant/.style={@attribute=xskew/, @parser=slant},
-  yslant/.style={@attribute=yskew/, @parser=slant},
-  move along/.style={@attribute=motion/, /utils/exec=\tikz@anim@along{#1}},
-  drive along/.style={@attribute=motion/, /utils/exec=\tikz@anim@along{#1}, /pgf/animation/rotate along=true},
+  shift/.style={@attribute=translate/,@parser=shift,add},
+  xshift/.style={@attribute=translate/,@parser=xshift,add},
+  yshift/.style={@attribute=translate/,@parser=yshift,add},
+  rotate/.style={@attribute=rotate/,add},
+  scale/.style={@attribute=scale/,add},
+  xskew/.style={@attribute=xskew/,add},
+  yskew/.style={@attribute=yskew/,add},
+  xslant/.style={@attribute=xskew/, @parser=slant,add},
+  yslant/.style={@attribute=yskew/, @parser=slant,add},
+  along/.style={@attribute=motion/, add},
+  drive/.style={@attribute=motion/, /pgf/animation/rotate along=true, add},
   morph/.style={@attribute=softpath/{@type path=.path, @type node=.background.path}, @parser=path},
+  % Along parser
+  path/.code=\tikz@anim@along{#1}{\tikz@anim@timeline@name}
 }
 \let\tikz@anim@default@whom\pgfutil@empty
 
 
-\pgfkeys{
-  /tikz/animations/all/set/.code=\tikzanimationsanimatesset{#1}
+\tikzanimationsset{
+  all/set/.code=\tikzanimationsanimatesset{#1}
 }
 
 % Default animates
 
-\pgfkeys{
-  /tikz/animations/@default whom/.store in=\tikz@anim@default@whom,
-  /tikz/animations/default animates/.style={
+\tikzanimationsset{
+  @default whom/.store in=\tikz@anim@default@whom,
+  default animates/.style={
     visible/set={visible},
     opacity/set={opacity},
     fill opacity/set={fill opacity},
@@ -163,6 +176,8 @@
     text/set={text},
     view/set={view},
     shift/set={shift},
+    xshift/set={xshift},
+    yshift/set={yshift},
     rotate/set={rotate},
     scale/set={scale},
     xskew/set={xskew},
@@ -170,9 +185,14 @@
     xslant/set={xslant},
     yslant/set={yslant},
     morph/set={morph},
-    color/set={color}
+    color/set={color},
+    drive/set={drive},
+    along/set={along},
   }
 }
+
+\let\tikz@animates@whom\pgfutil@empty
+
 
 
 % Timing keys
@@ -198,11 +218,56 @@
   ease out/.style={
     exit control={#1}{0},
   },
-  ease out/.default=0.5
+  ease out/.default=0.5,
+  .unknown/.code={%
+    \tikz@anim@time@unknown{\pgfkeyscurrentname}{#1}%
+  }
+}
+\def\tikz@anim@time@unknown#1#2{%
+  \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
+    % Test, whether #1 "looks like a time"
+    \expandafter\tikz@anim@time@test#1\pgf@stop%
+  \else%
+    \tikzerror{I do not know the timing key '#1' for which you said '#1=#2'}%
+  \fi%
+}
+\def\tikz@anim@time@test#1#2\pgf@stop{%
+  \edef\tikz@temp{\meaning#1}
+  \ifx\tikz@temp\tikz@anim@plus@text%
+    \tikz@anim@time@plusplus#2\pgf@stop%
+  \else%
+    \expandafter\ifx\csname tikz@anim@test@\tikz@temp\endcsname\relax%
+      \tikzerror{I do not know the timing key '#1#2'}%
+    \else%
+      \pgfparsetime{#1#2}\let\tikz@anim@t\pgftimeresult\global\let\tikz@anim@last@t\tikz@anim@t%
+    \fi%
+  \fi%
 }
 
+\edef\tikz@anim@plus@text{\meaning+}
 
-\let\tikz@animates@whom\pgfutil@empty
+\def\tikz@anim@time@plusplus{\pgfutil@ifnextchar+{\tikz@anim@time@plusplus@}{\tikz@anim@time@no@plus}}
+
+\def\tikz@anim@time@no@plus#1\pgf@stop{%
+  \pgfparsetime{#1}\let\tikz@anim@t\pgftimeresult\global\let\tikz@anim@last@t\tikz@anim@t%
+}
+
+\def\tikz@anim@time@plusplus@+#1\pgf@stop{%
+  \pgfparsetime{#1+\tikz@anim@last@t}\let\tikz@anim@t\pgftimeresult\global\let\tikz@anim@last@t\tikz@anim@t%
+}
+
+\expandafter\let\csname tikz@anim@test@the character 0\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 1\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 2\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 3\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 4\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 5\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 6\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 7\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 8\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character 9\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character -\endcsname\pgfutil@empty
+\expandafter\let\csname tikz@anim@test@the character .\endcsname\pgfutil@empty
 
 \def\tikz@anim@parse@origin#1{%
   \tikz@scan@one@point\tikz@anim@parse@origin@#1\relax%
@@ -216,8 +281,6 @@
   \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\relax%
   \ifx\tikz@anim@the@entries\pgfutil@empty%
   \else%
-    \ifx\tikz@anim@the@entries\relax%
-    \else%
     % Ok, do something
     {%
       \edef\tikz@whom@list{\csname tikz@anim@conf@whom@#1\endcsname}%
@@ -243,7 +306,6 @@
         \fi%
       }%
     }%
-    \fi%
   \fi%
 }
 
@@ -252,13 +314,43 @@
 % The parsers
 
 \def\tikz@anim@parser#1#2#3{%
-  \csname tikz@anim@#2@parse\endcsname{#3}%
+  \tikz@anim@parser@scan@start{#1}{#2}<>#3<\pgf@stop%
+}
+
+\def\tikz@anim@parser@scan@start#1#2<{%
+  \pgfutil@ifnextchar\pgf@stop{\pgfutil@gobble}{\begingroup\tikz@anim@parser@times{#1}{#2}}%
+}
+\def\tikz@anim@parser@scan@another#1#2<{%
+  \pgfutil@ifnextchar\pgf@stop{\endgroup\pgfutil@gobble}{\tikz@anim@parser@times{#1}{#2}}%
+}
+
+\def\tikz@anim@parser@times#1#2#3>{%
+  \pgfkeys{/tikz/animations/timing/.cd,#3}%
+  \pgfutil@ifnextchar<{\tikz@anim@parser@scan@another{#1}{#2}}{\tikz@anim@parser@scan@value{#1}{#2}}
+}
+  
+\def\tikz@anim@parser@scan@value#1#2#3<{%
+  \pgfkeys@spdef\tikz@anim@value{#3}%
+  \def\tikz@temp{\tikz@anim@parse@one{#1}{#2}}%
+  \expandafter\tikz@temp\expandafter{\tikz@anim@value}%
+  \endgroup%
+  \tikz@anim@parser@scan@start{#1}{#2}<%
+}
+
+\def\tikz@anim@parse@one#1#2#3{%
+  \def\tikz@temp{#3}%
+  \ifx\tikz@temp\pgf@special@current@text%
+    \let\tikz@anim@result\pgf@special@current@text%
+  \else%
+    \csname tikz@anim@#2@parse\endcsname{#3}%
+  \fi%
   \expandafter\let\expandafter\tikz@temp\csname tikz@anim@entries@#1\endcsname%
   \edef\tikz@@temp{%
     \def\noexpand\pgf@anim@entry@spline{\pgf@anim@entry@spline}%
     \def\noexpand\pgf@anim@exit@spline{\pgf@anim@exit@spline}%
-    \noexpand\pgf@anim@entry{\tikz@anim@t}{\tikz@anim@result}%
+    \noexpand\pgf@anim@entry{\tikz@anim@t}%
   }%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@@temp\expandafter\expandafter\expandafter{\expandafter\tikz@@temp\expandafter{\tikz@anim@result}}%
   \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@temp\expandafter\expandafter\expandafter{\expandafter\tikz@temp\tikz@@temp}%
   \expandafter\global\expandafter\let\csname tikz@anim@entries@#1\endcsname\tikz@temp%
 }
@@ -267,6 +359,9 @@
 \def\tikz@anim@simple@parse#1{\def\tikz@anim@result{#1}}
 
 \def\tikz@anim@slant@parse#1{\pgfmathsetmacro\tikz@anim@result{atan(#1)}}
+
+\def\tikz@anim@xshift@parse#1{\pgfmathparse{#1}\edef\tikz@anim@result{\noexpand\pgfqpoint{\pgfmathresult pt}{0pt}}}
+\def\tikz@anim@yshift@parse#1{\pgfmathparse{#1}\edef\tikz@anim@result{\noexpand\pgfqpoint{0pt}{\pgfmathresult pt}}}
 
 \def\tikz@anim@shift@parse#1{\tikz@scan@one@point\tikz@anim@do@shift#1}
 \def\tikz@anim@do@shift#1{\def\tikz@anim@result{#1}}
@@ -321,6 +416,7 @@
         \pgf@relevantforpicturesizefalse%
         \expandafter\tikz@scan@next@command#1\pgf@stop%
         \pgfsyssoftpath@getcurrentpath\tikz@anim@result%
+        \pgfprocessround{\tikz@anim@result}{\tikz@anim@result}%
         \global\let\tikz@anim@result\tikz@anim@result%
         \endpgfinterruptpath%
       }}%
@@ -331,7 +427,7 @@
 
 % The special along parser
 
-\def\tikz@anim@along#1{%
+\def\tikz@anim@along#1#2{%
   % Parse the path...
   {%
     \setbox0=\hbox{{% protext against side effects
@@ -339,11 +435,15 @@
         \pgf@relevantforpicturesizefalse%
         \tikz@scan@next@command#1\pgf@stop%
         \pgfsyssoftpath@getcurrentpath\tikz@anim@parsed@path%
+        \pgfprocessround{\tikz@anim@parsed@path}{\tikz@anim@parsed@path}%
         \global\let\tikz@anim@parsed@path\tikz@anim@parsed@path%
         \endpgfinterruptpath%
       }}%
   }%
-  \pgfanimationset{along softpath=\tikz@anim@parsed@path}
+  \pgfanimationset{along softpath=\tikz@anim@parsed@path}%
+  \expandafter\let\expandafter\tikz@temp\csname tikz@anim@entries@#2\endcsname%
+  \expandafter\def\expandafter\tikz@temp\expandafter{\tikz@temp\relax}%
+  \expandafter\global\expandafter\let\csname tikz@anim@entries@#2\endcsname\tikz@temp%
 }
 
 
