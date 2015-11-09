@@ -16,12 +16,12 @@ pgfmanual.ind: pgfmanual.idx
 pgfmanual.svg: $(doc).tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
-	dvisvgm --no-merge --page=1- --bbox=a4 --linkmark=none $(doc)
+	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
 pgfmanual-test.svg: $(doc)-test.tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
-	dvisvgm --no-merge --page=1- --bbox=a4 --linkmark=none $(doc)-test
+	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
 clean:
 	rm -f  \
