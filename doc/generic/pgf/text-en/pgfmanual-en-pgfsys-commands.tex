@@ -1057,41 +1057,53 @@ The commands from this and the next sections specify that some
 attribute should be animated. We start with rather basic animation
 attributes for color, visibility, and opacity.
 
-In the following examples, the below macro is used. It takes three
+In the following examples, two macros are used. Both take take three
 parameters: The \pgfname/\tikzname\ name of a to-be animated object, a
 type (relevant for objects that have subtypes or parts), and some code
 for triggering the actual animation. The animation will always start
-when the button is clicke.s 
+when the button is clicked. The second macro sets up things in such a
+way that the animation will last two seconds, while the first leaves
+the timing open.
 \begin{codeexample}[code only]
-\def\animationexample#1#2#3{ 
+\def\animationtimingexample#1#2#3{ 
   \tikz[fill=blue!25, draw=blue, ultra thick] {
     \pgfidrefnextuse{\objid}{#1}
     \pgfsys@animation@whom{\objid}{#2}
     \pgfidrefnextuse{\nodeid}{node}
     \pgfsys@animation@event{\nodeid}{}{click}{}{begin}
-    \pgfsys@animation@time{0}{1}{1}{0}{0}
-    \pgfsys@animation@val@current
-    \pgfsys@animation@time{2}{1}{1}{0}{0}
     #3
     \node [font=\scriptsize, circle, fill, draw, align=center]
       (node) {Click \\ here};
   }
-}  
+}
+\def\animationexample#1#2#3{
+  \animationtimingexample{#1}{#2}{
+    \pgfsys@animation@time{0}{1}{1}{0}{0}
+    \pgfsys@animation@val@current
+    \pgfsys@animation@time{2}{1}{1}{0}{0}
+    #3
+  }
+}
 \end{codeexample}
-\def\animationexample#1#2#3{ 
+\def\animationtimingexample#1#2#3{ 
   \tikz[fill=blue!25, draw=blue, ultra thick] {
     \pgfidrefnextuse{\objid}{#1}
     \pgfsys@animation@whom{\objid}{#2}
     \pgfidrefnextuse{\nodeid}{node}
     \pgfsys@animation@event{\nodeid}{}{click}{}{begin}
-    \pgfsys@animation@time{0}{1}{1}{0}{0}
-    \pgfsys@animation@val@current
-    \pgfsys@animation@time{2}{1}{1}{0}{0}
     #3
     \node [font=\scriptsize, circle, fill, draw, align=center]
       (node) {Click \\ here};
   }
-}  
+}
+\def\animationexample#1#2#3{
+  \animationtimingexample{#1}{#2}{
+    \pgfsys@animation@time{0}{1}{1}{0}{0}
+    \pgfsys@animation@val@current
+    \pgfsys@animation@time{2}{1}{1}{0}{0}
+    #3
+  }
+}
 
 
 \begin{command}{\pgfsys@animateopacity}
@@ -1395,14 +1407,15 @@ needs to be explained first.
   additional adaptive rotation transformation will be added so that
   the animated graphic scope ``points along'' the path.
 
-  You specify the path along which you wish the object to move along
+  You specify the path along which you wish to move objects along
   using |\pgfsys@animation@movealong|. You use the timeline to specify
   how far the object gets moved along this path using scalar values
   where |0| is the beginning of the path and |1| is the end. Thus,
   setting the timeline to the scalar value of |0| at time $t_0$ and to
   |1| at time $t_1$ will cause the object o move along the complete
   path between times $t_0$ and $t_1$.
-
+  
+  Specify values with |\pgfsys@animation@scalar|.
     
   \begin{command}{\pgfsys@animation@movealong\marg{path}}
     Defines the \meta{path} along which the motion will occur. It will
@@ -1481,99 +1494,173 @@ needs to be explained first.
 \end{command}
 
 
-\subsubsection{Commands for Specifying Timelines: Times and Values}
+
+
+\subsubsection{Commands for Specifying Timelines: Specifying Times}
+
+Animations are specified using \emph{timelines}, which are functions
+mapping times to values for these times. The functions are cubic
+splines, which are specified using time--value pairs plus control
+points.
+
+In order to specify a time--value pair, you first use the command
+|\pgfsys@animation@time| to specify a time. Next, you use
+|\pgfsys@animation@val@...| to specify a value, which adds the
+time--value pair to the timeline. Note that the times must be given in
+non-decreasing order. Between time--value pairs, the values are
+interpolated using a spline. 
+
+The first and last times of the timeline are a bit special: The
+timeline starts on the first time and the duration of the timeline is
+the difference between the first and last time. ``Starting'' on the
+start time actually means that any beginnings (see the commands for
+specifying beginnings and endings) get as offset the start time;
+similarly end times are offset by this value.
 
 \begin{command}{\pgfsys@animation@time\marg{time}\marg{entry spline
       control x}\marg{entry spline  control y}\marg{exit spline
       control x}\marg{exit spline control y}}
-  To be written\dots
-% % \marg{1} must be a number. The semantics is as in SVS's
-% % keyTimes. Accumulates. 
-% % 
-% % Example:
-% % \pgfsys@animation@keytime{0}
-% % \pgfsys@animation@keytime{0.1}
-% % \pgfsys@animation@keytime{0.5}
-% % \pgfsys@animation@keytime{1}
+  The \meta{time} is a number representing seconds (so |0.5| means
+  500\,ms).
+
+  The spline between a time--value pair and the next is specified
+  using the four parameters following the time. The first two of these
+  specify the second control point of the interval preceding the
+  time--value pair (called the ``entry'' control point), the last two
+  parameters specify the first control point of the interval following
+  the pair (called the ``exit'' control point). Consider for instance,
+  the following calls:
+\begin{codeexample}[code only]
+\pgfsys@animation@time{10}{0.1}{0.2}{0.3}{0.4}
+\pgfsys@animation@val@scalar{100}
+\pgfsys@animation@time{15}{0.5}{0.6}{0.7}{0.8}
+\pgfsys@animation@val@scalar{200}
+\end{codeexample}
+  This will create (at least) the time interval $[10\,\mathrm
+  s,15\,\mathrm s]$ and the control points for this interval will be
+  $(0.3,0.4)$ and $(0.5,0.6)$.
+
+  Control points are specified in a different ``coordinate'' system
+  from the time--value pairs themselves: While the time--value pairs
+  are specified using a number representing seconds and a value using
+  some special commands, the control points are specified as numbers
+  between $0$ and $1$, each time representing a fraction of the time
+  interval or the value interval. In the example, the time interval is $[10\,\mathrm
+  s,15\,\mathrm s]$ and the value interval is $[100,200]$. This means
+  that a control point of $(0.3,0.4)$ actually refers to the
+  time--value $(11.5\,\mathrm s,140)$. The ``time--value curve'' in
+  the interval thus ``\texttt{(10s,100) .. controls (11.5s,140) and
+    (12.5s,160) .. (15s,200)}''.
+
+  Note that by setting the control points always to $(1,1)$ and
+  $(0,0)$ you get a linear interpolation between time--value pairs.
+
+  \begin{command}{\pgfsys@animation@spline}
+    Specifies that the value of the to-be-animated attribute varies
+    according to the splines as described above. This is the default.
+\begin{codeexample}[width=2cm]
+\animationtimingexample{node}{}{
+  \pgfsys@animation@time{0}{1}{1}{0.5}{0}
+  \pgfsys@animation@val@translate{0pt}{0pt}
+  \pgfsys@animation@time{1}{1}{1}{0}{0}
+  \pgfsys@animation@val@translate{0cm}{-2cm}
+  \pgfsys@animation@time{2}{0.5}{1}{0}{0}
+  \pgfsys@animation@val@translate{2mm}{-2cm}
+  \pgfsys@animatetranslate }
+\end{codeexample}
+  \end{command}
+
+  \begin{command}{\pgfsys@animation@paced\marg{start time}\marg{end time}}
+    When set, the time--value curve is no longer controlled by the
+    provided times and splines (these are ignored). Instead, the
+    animation is ``paced'' so that the speed of the change of the
+    value is constant. This is mainly useful for motion animations.
+
+    You can use the \meta{start time} parameter to specify the start
+    time of the timeline explicitly, similarly for the \meta{end
+      time}. When omitted, the normal start and end times are used.
+\begin{codeexample}[width=2cm]
+\animationtimingexample{node}{}{
+  \pgfsys@animation@time{0}{1}{1}{0.5}{0}
+  \pgfsys@animation@val@translate{0pt}{0pt}
+  \pgfsys@animation@time{1}{1}{1}{0}{0}
+  \pgfsys@animation@val@translate{0cm}{-2cm}
+  \pgfsys@animation@time{2}{0.5}{1}{0}{0}
+  \pgfsys@animation@val@translate{2mm}{-2cm}
+  \pgfsys@animation@paced{}{}
+  \pgfsys@animatetranslate }
+\end{codeexample}
+  \end{command}
+ 
 \end{command}
 
 
-\begin{command}{\pgfsys@animation@paced{}}
-  To be written\dots
-% % Corresponds to calcMode="paced" in SVG
+\subsubsection{Commands for Specifying Timelines: Specifying Values}
+
+The following commands are used to specify the values of a
+timeline. Each use of one of the following commands adds one
+time--value pair to the timeline. Which of the commands must be used
+depends on the type of the to-be-animated attribute (see the different
+|\pgfsys@animate...| commands, they list the command that must be
+used). 
+
+
+\begin{command}{\pgfsys@animation@val@text\marg{text}}
+  Creates a time--value pairs where the value is some text. Which
+  texts are permissible depends on the to-be-animated attribute.
 \end{command}
 
-\begin{command}{\pgfsys@animation@spline{}}
-  To be written\dots
-% % Corresponds to calcMode="spline" in SVG
+\begin{command}{\pgfsys@animation@val@scalar\marg{number}}
+  Creates a time--value pairs where the value is a number like |0.5|
+  or |-2.25|.
 \end{command}
 
-
-
-% % Values
-\begin{command}{\pgfsys@animation@text\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} should be some text. \marg{2} is the key to which this scalar value is
-% % added (must be "to", "from", "by" or "values") 
+\begin{command}{\pgfsys@animation@val@dimension\marg{dimension}}
+  Creates a time--value pairs where the value is a \TeX\ dimension
+  like |0.5pt| or |-2in|.
 \end{command}
 
-\begin{command}{\pgfsys@animation@scalar\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} should be a single value. \marg{2} is the key to which this scalar
-% % value is added (must be "to", "from", "by" or "values")
+\begin{command}{\pgfsys@animation@val@color@rgb\marg{red}\marg{green}\marg{blue}}
+  Creates a time--value pairs where the value is color
+  specified by three fractional values between 0 and 1 for the red,
+  the green, and the blue part.
 \end{command}
 
-\begin{command}{\pgfsys@animation@dimension\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} must be a dimension. \marg{2} is the key to which this value is added.
+\begin{command}{\pgfsys@animation@val@color@cmyk\marg{cyan}\marg{magenta}\marg{yellow}\marg{black}}
+  Creates a time--value pairs where the value is color
+  specified by four fractional values between 0 and 1 for the cyan,
+  magenta, yellow, and black part.
 \end{command}
 
-\begin{command}{\pgfsys@animation@color@rgb\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % \marg{1},\marg{2},\marg{3} must be an rgb tuple, \marg{4} is the key to which this is added
+\begin{command}{\pgfsys@animation@val@color@cmy\marg{cyan}\marg{magenta}\marg{yellow}}
+  Like the |\pgfsys@animation@color@cmyk| only without the black part.
 \end{command}
 
-\begin{command}{\pgfsys@animation@color@cmyk\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
-  To be written\dots
-% % \marg{1},\marg{2},\marg{3},\marg{4} must be an cmyk tuple, \marg{5} is the key to which this is added
+\begin{command}{\pgfsys@animation@color@gray\marg{gray value}}
+  Creates a time--value pairs where the value is gray value (a
+  fraction between 0 and 1).
 \end{command}
 
-\begin{command}{\pgfsys@animation@color@cmy\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % \marg{1},\marg{2},\marg{3} must be an cmy tuple, \marg{4} is the key to which this is added
+\begin{command}{\pgfsys@animation@val@path\marg{code}}
+  Creates a time--value pairs where the value is path. The \meta{code}
+  should call path construction commands like |\pgfsys@lineto|. Note
+  that when you animate a path, each value (each path) should have the
+  same structure, only the numbers may differ.  
 \end{command}
 
-\begin{command}{\pgfsys@animation@color@gray\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} must be an rgb tuple, \marg{2} is the key to which this is added
+\begin{command}{\pgfsys@animation@val@translate\marg{x dimension}\marg{y dimension}}
+  Creates a time--value pairs where the value is a coordinate. The
+  dimensions must be \TeX\ dimensions.
 \end{command}
 
-\begin{command}{\pgfsys@animation@path\marg{1}\marg{2}{}}
-  To be written\dots
-% % \marg{1} must consist of path-construction commands, \marg{2} is the key to
-% % which this is added 
+\begin{command}{\pgfsys@animation@val@scale\marg{x scale}\marg{y scale}}
+  Creates a time--value pairs where the value is pair of scalar values.
 \end{command}
 
-\begin{command}{\pgfsys@animation@translate\marg{1}\marg{2}\marg{3}{}}
-  To be written\dots
-% % \marg{1},\marg{2} must be dimensions, \marg{3} is the key to which this is added
-\end{command}
-
-\begin{command}{\pgfsys@animation@scale\marg{1}\marg{2}\marg{3}{}}
-  To be written\dots
-% % \marg{1},\marg{2} must be dimensionless, \marg{3} is the key to which this is added
-\end{command}
-
-\begin{command}{\pgfsys@animation@rotate\marg{1}\marg{2}\marg{3}\marg{4}{}}
-  To be written\dots
-% % \marg{1} must be dimensionless, \marg{2},\marg{3} describe the origin of the rotation
-% % and must be dimensions, \marg{4} is the key to which this is added
-\end{command}
-
-\begin{command}{\pgfsys@animation@viewbox\marg{1}\marg{2}\marg{3}\marg{4}\marg{5}{}}
-  To be written\dots
-% % \marg{1},\marg{2} describe the lower left, \marg{3},\marg{4} the upper right corner of the
-% % view box. \marg{5} is the key to which this is added
+\begin{command}{\pgfsys@animation@val@viewbox\marg{$x_1$}\marg{$y_1$}\marg{$x_2$}\marg{$y_2$}}
+  Creates a time--value pairs where the value is view box. The lower
+  left corner is given by $(x_1,y_1)$, consisting of two \TeX\
+  dimensions, and the upper right corner is $(x_2,y_2)$.
 \end{command}
 
 
