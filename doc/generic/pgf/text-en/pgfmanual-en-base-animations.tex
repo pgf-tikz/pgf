@@ -1,0 +1,211 @@
+% Copyright 2015 by Till Tantau
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Free Documentation License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+
+\section{Animations}
+
+\label{section-base-animations}
+
+\begin{pgfmodule}{animations}
+  This module contains the basic layer support of animations, which is
+  documented in the following. 
+\end{pgfmodule}
+
+
+\subsection{Overview}
+
+An \emph{animation} changes the way some part of a graphic looks like
+over time. The archetypical animation is, of course, a \emph{movement}
+of node, but a change of, say, the opacity of a path is also an
+animation. \pgfname\ allows you to specify such animations using a set
+of commands and keys that are documented in the following.
+
+Unlike other packages, the animations created by \pgfname\ are not
+precomputed sequences of pictures that are displayed in rapid
+succession. Rather, an animation created by \pgfname\ consists mainly
+of an annotation in the output that a certain attribute of a certain
+object should change over time in some specific way when the object is
+displayed. It is the job of the document viewer application to
+actually compute and display the animation. Interestingly, this means
+that animations neither increase the size of the ouput files noticably
+nor does it put a special burden on \TeX. The hard and complicated
+calculations are done by the viewer application, not by \TeX\ and
+\pgfname. 
+
+Only few viewer applicaitons and formats are currently ``up to the
+job'' of displaying animations.  In particular, 
+the popular \textsc{pdf} format does \emph{not} allow one to specify
+animations in this way (one can partly ``fake'' animations at the
+high price of including a great number of precomputed pictures and
+using JavaScript in special viewers, but this is really not the same
+thing as what \pgfname\ does). Indeed, currently only the  \textsc{svg}
+format allows one to specify animations in a sensible way. Thus,
+\pgfname's animations will only be displayed when \textsc{svg} is used
+as output format.
+
+Creating an animation is done using the following command:
+
+\begin{command}{\pgfanimateattribute\marg{attribute}\marg{options}}
+  Adds an animation of the \meta{attribute} of a future \emph{object}
+  to the current graphic. Attributes are things like the ``fill
+  opacity'' or the transformation matrix or the line width.
+
+  The \meta{options} are keys that configure how the attribute changes
+  over time. Using the |entry| key multiple times you specify which
+  value the chosen attribute should have at different points in
+  time. Other keys, like |repeats|, allow you to specify how the
+  animation behaves ``as a whole''. These keys are documented later in
+  this section.
+
+\begin{codeexample}[]
+\tikz {
+  \pgfanimateattribute{opacity}{
+    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
+}
+\end{codeexample}
+
+  \medskip
+  \textbf{The Attributes}
+  
+  In detail, the |\pgfanimateattribute| command opens a \TeX-scope,
+  looks up the \emph{type} values of the specified \meta{attribute}
+  have (if you wish to animate the |opacity| of an object, the type is
+  ``scalar'' meaning that entries must be scalar numbers; when you
+  animate the |fill| atttribute, the type is ``color'' and values 
+  must be colors, and so on), and the executed the \meta{options} with
+  the path prefix |/pgf/animation|. Finally, an appropriate system
+  layer command |\pgfsysanimate...| is called to create the actual
+  animation.
+
+  The following \meta{attributes} are permissible:
+  
+  \begin{tabular}{ll}
+    \emph{Attribute} & \emph{Type} \\
+    |draw|, |fill|              & color \\
+    |line width|                & dimension \\
+    |motion|                    & scalar \\
+    |opacity|, |fill opacity|, |draw opacity|              & scalar \\
+    |path|                      & path \\
+    |rotate|                    & scalar \\
+    |scale|                     & scaling \\
+    |softpath|                  & softpath \\
+    |translate|                 & point \\
+    |view|                      & viewbox \\
+    |visible|                   & text \\
+    |xskew|, |yskew|            & scalar \\
+  \end{tabular}
+
+  These attributes are detailed in
+  Sections \ref{section-base-animation-painting}
+  to~\ref{section-base-animation-views}, but here is a quick overview:
+  \begin{itemize}
+  \item |draw| and |fill| refer to the color used to
+    draw (stroke) and fill paths in an object, respectively. Typical
+    values for this attribute are |red| or |black!10|.
+  \item |line width| is, of course, the line width used in an
+    object. Typical values are |0.4pt| or |1mm|. Note that you
+    (currently) cannot use keys like |thin| or |thick| here, but this
+    may change in the future.
+  \item |motion| is a slightly special attribute: It allows you to
+    specify a path along which the object should be moved (using the
+    |along| key). The values given to the |entry| key for this
+    attribute refer to a \emph{fraction of the distance along the
+      path}. See the |along| key for details.
+  \item |opacity| and the variants |fill opacity| and |draw opacity|
+    animate the opacity of an object. Allowed values range between 0
+    and 1.
+  \item |path| allows you to animate a graphs path (it will
+    morph). The ``values'' are now paths themselves. See
+    Section~\ref{section-base-animation-paths} for details.
+  \item |rotate| refers to a rotation of the object. Values for the
+    |entry| key are the rotation angles like |0| or |90|.
+  \item |scale| refers to the scaling of the object. Values are either
+    single scalars values (like |1| or  |1.5|) or two numbers
+    separated by a comma (lile |1,1.5| or |0.5,2|), referring to the
+    $x$-scaling and $y$-scaling.
+  \item |softpath| is a special case of the |path| attribute, see
+    Section~\ref{section-base-animation-paths} once more.
+  \item |translate| shifts the object by a certain vector. Values are
+    points like |\pgfpoint{1cm}{2cm}|.
+  \item |view| allows you to animate the view box of a view, see
+    Section~\ref{section-base-animation-views} for details.
+  \item |visible| refers to the visibility of an object. Allowed
+    values are |visible| and |hidden|.
+  \item |xskew| and |yskew| skew the object. Attributes are angles
+    like |0| or |45| or even |90|.
+  \end{itemize}
+
+  \medskip
+  \textbf{The Target Object}
+
+  As stated earlier, the \meta{options} are used to specify the object
+  whose attribute for which an animation should be added to the
+  picture. Indeed, you \emph{must} specify the object explicitly using
+  the |whom| key and you must do so \emph{before} the object is
+  created. Note that, in contrast, in \textsc{svg} you can specify an
+  animation more or less anywhere and then use hyper-references to
+  link the animation to the to-be-animated object; \pgfname\ insists
+  that you specify the animation before the object. This is a bit of a
+  bother in some situations, but it is the only way to ensure that
+  \pgfname\ has a fighting chance to attach some additional code to
+  the object (which is necessary for almost all animations of the
+  transformation matrix).
+
+  \begin{key}{/pgf/animation/whom=\meta{id}\opt{|.|\meta{type}}}
+    You \emph{must} use this key once which each call of the
+    |\pgfanimateattribute| command. The \meta{id} and the optional
+    \meta{type} (which is whatever follows the first dot) will be
+    passed to |\pgfidrefnextuse|, see that command for details. 
+  \end{key}
+
+  As explained in the introduction of this chapter, an ``animation''
+  is just a bit of special text in the output document asking a viewer
+  application to animate the object at some later time. The
+  |\pgfanimateattribute| command inserts this special text immediately,
+  even though it refers to an object created only later on. Normally,
+  this is not a problem, but the special text should be on the same
+  page as the to-be-animated object. To ensure this, it suffices to
+  call |\pgfanimateattribute| no earlier than the beginning of the
+  |pgfpicture| containing the object.
+\end{command}
+
+
+\subsubsection{Animating Color, Opacity, and Visibility}
+\label{section-base-animation-painting}
+
+
+
+\subsubsection{Animating Paths and their Rendering}
+\label{section-base-animation-paths}
+
+\subsubsection{Animating Transformations  and Views}
+\label{section-base-animation-views}
+
+
+\subsubsection{Commands for Specifying Timelines: Specifying Times}
+
+\subsubsection{Commands for Specifying Timelines: Specifying Values}
+
+\subsubsection{Commands for Specifying Timing: Repeats}
+
+\subsubsection{Commands for Specifying Timing: Beginning and Ending}
+
+\subsubsection{Commands for Specifying Timing: Restart Behaviour}
+
+\subsubsection{Commands for Specifying Accumulation}
+
+\endinput
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "pgfmanual"
+%%% End: 
