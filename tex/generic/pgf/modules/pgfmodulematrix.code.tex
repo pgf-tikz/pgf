@@ -109,7 +109,8 @@
 % Before each column except for the first, an extra space given by the
 % macro \pgfmatrixcolumnsep is added. Additionally, an extra space
 % given by the optional argument of the \pgfmatrixnextcell commands in
-% the first line are added, which may vary between columns. Between
+% the first line where the column occurs are added,
+% which may vary between columns. Between
 % rows, an extra space given by the macro \pgfmatrixrowsep is
 % added. You can also change this value for each row by using a \gdef.
 %
@@ -385,6 +386,14 @@
 
 \newif\ifpgf@matrix@empty@cell@
 
+% Append a fully expanded token list to a macro given by name.
+% Warning: does not work with # in argument.
+% The cx at the end is the signature in expl3 convention.
+\long\def\pgf@matrix@g@addto@macro@cx#1#2{%
+  \edef\pgfutil@temp{#2}%
+  \expandafter\pgfutil@g@addto@macro%
+    \csname#1\expandafter\endcsname%
+    \expandafter{\pgfutil@temp}}
 
 % End a  cell
 
@@ -404,8 +413,25 @@
       \pgf@matrix@addtolength{\pgf@x}{\pgfmatrixcolumnsep}%
       \pgf@matrix@addtolength{\pgf@x}{\pgf@matrix@last@nextcell@options}%
       \ifpgf@matrix@fixed%
-        \expandafter\pgfutil@g@addto@macro\csname pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn\endcsname%
-          {\global\pgf@picmaxx=0pt}%
+        % \pgf@matrix@maxxN is garbage if this is the first cell
+        % in the column:
+        \ifnum\pgfmatrixcurrentcolumn>\pgf@matrix@numberofcolumns%
+          \global\expandafter\def%
+            \csname%
+              pgf@matrix@maxx\the\pgfmatrixcurrentcolumn%
+            \endcsname%
+            {0pt}%
+        \fi
+        %
+        \pgf@xa \csname pgf@matrix@maxx\the\pgfmatrixcurrentcolumn%
+           \endcsname%
+        % Freeze this column at the minimal width it can still take.
+        % This is part of the column separation between origins.
+        \pgf@matrix@g@addto@macro@cx%
+          {pgf@matrix@column@finish@\the\pgfmatrixcurrentcolumn}%
+          {\global\pgf@picmaxx\the\pgf@xa}%
+        % Deduct from separation the part in the previous column.
+        \advance\pgf@x by -\pgf@xa%
       \fi%
       \advance\pgfmatrixcurrentcolumn by1\relax % only temporary for the following:
       \expandafter\xdef\csname pgf@matrix@column@sep@\the\pgfmatrixcurrentcolumn\endcsname{\the\pgf@x}%
