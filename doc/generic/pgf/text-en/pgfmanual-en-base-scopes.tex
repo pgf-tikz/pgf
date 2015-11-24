@@ -749,6 +749,205 @@ a shading into a |{pgfpicture}|.
 \end{command}
 
 
+
+
+\subsection{Object Identifiers}
+
+Graphical objects can have an \emph{identifier,} which allows you to
+reference the object later on. For instance, you could reference the
+object as the target of a hyperlink (although this capability is not
+necessarily implemented by drivers) or as the target of an animation;
+indeed, animations always need an object identifier to identify the
+to-be-animated object. 
+
+Attaching an identifier to an object is a two-step process:
+
+\begin{enumerate}
+\item You call |\pgfuseid{|\meta{id}|}| to choose an id, which is a
+  normal string.
+\item Next, you call one of several commands like |\pgfidscope| or
+  |\pgftext|, which create an object. This object will have then have
+  the id.  
+\end{enumerate}
+
+
+\subsubsection{Commands for Creating Graphic Objects}
+
+The following system level commands create an object with
+an id: 
+\begin{enumerate}
+\item |\pgfsys@begin@idscope|, which creates a graphic scope.
+\item |\pgfsys@viewboxmeet| or |\pgfsys@viewboxslice|, which create view boxes,
+\item |\pgfsys@fill|, |\pgfsys@stroke|, and all other path usage
+  command, 
+\item |\pgfsys@hbox| or |\pgfsys@hboxsynced|, which create text boxes,
+  and
+\item |\pgfsys@animate...|, which create animations.
+\end{enumerate}
+
+These system layer commands are, in turn, called by the following basic
+layer commands (and, also, by the commands that call them, in turn):
+\begin{itemize}
+\item |\pgfidscope|, which creates an id scope (see below).
+\item |\pgfviewboxscope|, which creates a view box.
+\item |\pgfusepath|, which creates a path.
+\item |\pgftext| and |\pgfnode| and |\pgfmultipartnode|, which create
+  text boxes and nodes, and
+\item |\pgfanimateattribute|, which creates an animation.
+\end{itemize}
+
+
+\begin{environment}{{pgfidscope}}
+  Creates a graphic scope that will have the id last used with
+  |\pgfuseid| attached to, provided such an id was set and was not
+  already used with another object. In the latter cases, no graphic
+  scope is created. Thus, if you wish to ensure that a graphic scope
+  is created, you must (additionally) call |\pgfscope| inside or
+  outside the id scope.
+\end{environment}
+
+The Plain\TeX\ and Con\TeX t versions of the environment are:
+\begin{plainenvironment}{{pgfidscope}}
+\end{plainenvironment}
+
+\begin{contextenvironment}{{pgfidscope}}
+\end{contextenvironment}
+
+
+\subsubsection{Settings and Querying Identifiers}
+
+In order to attach an identifier to an object, you first use the
+following command:
+
+\begin{command}{\pgfuseid\marg{name}}
+  The \meta{name} is a string by which the object will be
+  referenced (see |\pgfidrefnextuse|). The next time a graphic object
+  is created in the current \TeX\ scope, the name will be attached to
+  it (actually, it will get a system layer identifier attached to it that is
+  automatically created using |\pgfsys@new@id|, the \meta{name} is
+  bound to that identifier and it can be retrieved using
+  |\pgfidrefnextuse|). This holds true only for the next object: If a  
+  second object is created, it will not get the name attached to
+  it. This does not mean, however, that you cannot attach the same
+  name to different objects; you just need to call |\pgfuseid| again
+  before each object.
+
+  Besides the \meta{name} (or, more precisely, besides the system
+  layer identifier is refers to), the current \emph{identifier type}
+  is also important: Actually, a graphic object is not referenced by
+  a system layer identifier, but by the combination of the identifier
+  and a type. You can use the following commands for modifying the
+  type used for the creation of objects:
+
+  \begin{command}{\pgfusetype\marg{type}}
+    Sets the type used for the referencing of graphic objects for the
+    current scope to \meta{type} or, if \meta{type} starts with a dot,
+    appends \meta{type} to the current type.
+
+    You use this command with compound graphic objects: Before each
+    part of a graphic object, set the type to an appropriate
+    value. Now, if the object is named using |\pgfuseid|, you can
+    later on access all parts of the compound object using the
+    combination of the \meta{name} used with |\pgfuseid| and the type
+    of the part.
+
+    As an example, this system is used to give you access to the 
+    different parts of a node: When use say |\pgfuseid{mynode}| and
+    then create a node, you can use |mynode| with the empty type to
+    reference the graphics scope that encompasses the whole node, but
+    also |mynode| together with the type |background| to access the
+    background path of the node.
+
+    In detail, \pgfname\ uses this command to set the following
+    types:
+    \begin{itemize}
+    \item Inside the command |\pgfviewboxscope|, the type |.view| is
+      used for the view object.
+    \item Inside the command |\pgfmultipartnode|, the type
+      |.behind background| is used for the scope of drawings behind
+      the background. Similarly, |.before background| and
+      |.behind foreground| and finally |.before foreground| are used
+      with the respective parts of a node.
+    \item Also inside a node, |.background| and |.foreground| are used
+      as types of the background and foreground paths, respectively.
+    \item Finally, inside a node, for each text part, the text part's
+      name is used as a type (so |.text| is used for the main part).
+    \end{itemize}
+
+    In addition, \tikzname\ uses this command in the following
+    situations:
+    \begin{itemize}
+    \item The type |.path| is used with a named path (named using the
+      |name| key). This is the graphic object you need to reference
+      when you wish to morph a path.
+    \item The type |.path picture| is used with the scope of the
+      optional path picture.
+    \item The type |.path fill| is used with the path used for
+      filling. This is not the same as the normal path in case the
+      path is filled and patterened, for instance.
+    \item The type |.path shade| is used with the path used for
+      shading a path. 
+    \end{itemize}
+  \end{command}
+  
+  \begin{command}{\pgfpushtype}
+    Pushes the current type on an internal global stack. The idea is
+    to allow you to temporarily change the current type without having
+    to open a \TeX\ scope.
+  \end{command}
+  
+  \begin{command}{\pgfpoptype}
+    Restores the most recent type from the internal global stack of
+    types. 
+  \end{command}
+ 
+\end{command}
+
+\begin{command}{\pgfclearid}
+  Clears the current id (and type) for the local scope.  
+\end{command}
+
+\begin{command}{\pgfidrefnextuse\marg{macro}\marg{name}}
+  This command assigns a system layer identifier (the
+  identifier returned by |\pgfsys@new@id|) to the \meta{macro}, namely
+  the one that will be used the \emph{next} time |\pgfuseid| is used.
+  You use this command for ``forward referencing.''
+
+  A typical use case is the following: A key like |whom| for
+  animations uses this command to get the system identifier that will
+  be used for a future object. Then, this identifier can be passed to
+  system layer commands like |\pgfsys@animation@whom|.
+
+  Note that the ``next'' use need not be on the same page (or there
+  may not even be any use at all), in which case the reference will
+  not refer to any object.  
+\end{command}
+
+\begin{command}{\pgfidrefprevuse\marg{macro}\marg{name}}
+  Works like |\pgfidrefnextuse|, only it references the most recent
+  \emph{previous} use of the \meta{name}. As for |\pgfidrefnextuse|,
+  the most recent use need not be on the same page.
+\end{command}
+
+\begin{command}{\pgfaliasid\marg{alias}\marg{name}}
+  Creates an alias of a name inside the current \TeX\ scope. After
+  calling this command, you can use \meta{alias} anywhere where you
+  would normally use \meta{name}. Note that the binding between
+  \meta{alias} and \meta{name} is not kept when |\pgfuseid| is used on
+  the \meta{name} (or the \meta{alias}).
+\end{command}
+
+\begin{command}{\pgfgaliasid\marg{1}\marg{2}}
+  Like |\pgfaliasid|, only the alias is set globally.
+\end{command}
+
+\begin{command}{\pgfifidreferenced\marg{name}\marg{then
+      code}\marg{else code}}
+  If \meta{name} has been referenced, \meta{then code} is executed,
+  otherwise \meta{else code}. 
+\end{command}
+
+
 \subsection{Error Messages and Warnings}
 
 Sometimes, a command inside \pgfname\ may fail. In this case, two
