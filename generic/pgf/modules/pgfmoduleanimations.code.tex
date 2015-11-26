@@ -60,7 +60,10 @@
 % xskew                     scalar
 % yskew                     scalar
 % path                      path
+% softpath                  softpath
 % view                      viewbox
+% dash phase                dimension
+% dash pattern              dashpattern
 %
 % Example:
 %
@@ -95,7 +98,7 @@
 % The animation attributes
 
 \pgfkeys{/pgf/@animation attributes/.cd,
-  visible/.code=\pgf@animate@attr{visibility}{mapped}\def\tikz@anim@map@true{visible}\def\tikz@anim@map@false{hidden},
+  visible/.code=\pgf@animate@attr{visibility}{mapped}\def\pgf@anim@map@true{visible}\def\pgf@anim@map@false{hidden},
   opacity/.code=\pgf@animate@attr{opacity}{scalar},
   fill opacity/.code=\pgf@animate@attr{fillopacity}{scalar},
   draw opacity/.code=\pgf@animate@attr{strokeopacity}{scalar},
@@ -115,6 +118,8 @@
   path/.code=\pgf@animate@attr{path}{path},
   softpath/.code=\pgf@animate@attr{path}{softpath},
   view/.code=\pgf@animate@attr{viewbox}{viewbox},
+  dash phase/.code=\pgf@animate@attr{dashphase}{dimension},
+  dash pattern/.code=\pgf@animate@attr{dashpattern}{dashpattern},
 }
 
 \def\pgf@animate@attr#1#2{%
@@ -764,14 +769,13 @@
 
 % The parsers
 
-% Parse a scalar in "value=#1"
+% Parse a scalar
 % 
 % #1 is a number parsed using \pgfmathparse
 % 
 % Example:
 % 
-% value = 5+6
-% to = 9.5
+% entry = {0s}{5+6}
 
 \def\pgfanim@parse@type@scalar#1{%
   \pgfmathparse{#1}%
@@ -779,13 +783,13 @@
 }
 
 
-% Parse a dimension in "value=#1"
+% Parse a dimension 
 % 
 % #1 is a number parsed using \pgfmathparse
 % 
 % Example:
 % 
-% value = 5cm + 2pt
+% entry = {0s}{5cm + 2pt}
 
 \def\pgfanim@parse@type@dimension#1{%
   \pgfmathparse{#1}%
@@ -794,19 +798,18 @@
 
 
 
-% Parse a mapped text in "value=#1"
+% Parse a mapped text
 % 
-% #1 is a text. It is looked up in \tikz@anim@map@#1 and gets replaced
+% #1 is a text. It is looked up in \pgf@anim@map@#1 and gets replaced
 % by what this macro expands to.
 % 
 % Example:
 % 
-% value = true
-% to = false
+% entry = {0s}{true}
 
 \def\pgfanim@parse@type@mapped#1{%
   {%
-    \expandafter\let\expandafter\pgf@temp\csname tikz@anim@map@#1\endcsname\relax%
+    \expandafter\let\expandafter\pgf@temp\csname pgf@anim@map@#1\endcsname\relax%
     \ifx\pgf@temp\relax%
       \pgferror{Value '#1' not allowed for an animation for this attribute}%
       \let\pgf@temp\pgfutil@empty%
@@ -816,23 +819,22 @@
 }
 
 
-% Parse a color in "value=#1"
+% Parse a color 
 % 
 % #1 is a color
 % 
-% from = red
-% value = blue!20
+% entry = {0s}{blue!20}
 
 \def\pgfanim@parse@type@color#1{%
   \pgfsysanimvalcolor{#1}%
 }
 
 
-% Parse a path in "value=#1"
+% Parse a path
 % 
 % #1 is a sequence of pgf path construction commands
 % 
-% value = \pgfpathmoveto{\pgfpointorigin} \pgfpathlineto{\pgfpoint{1cm}{1cm}}
+% entry = {0s}{\pgfpathmoveto{\pgfpointorigin} \pgfpathlineto{\pgfpoint{1cm}{1cm}}}
 
 \def\pgfanim@parse@type@path#1{%
   {%
@@ -848,22 +850,22 @@
 }
 
 
-% Parse a softpath in "value=#1"
+% Parse a softpath
 % 
 % #1 is a sequence of pgf softpath token commands
 % 
-% value = \pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}
+% entry = {0s}{\pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}}
 
 \def\pgfanim@parse@type@softpath#1{%
   \pgfsysanimvalpath{#1}%
 }
 
 
-% Parse a point in "value=#1"
+% Parse a point 
 % 
 % #1 is a point
-% 
-% value = \pgfpoint{1cm}{2cm}
+%
+% entry = {0s}{\pgfpoint{1cm}{2cm}}
 
 \def\pgfanim@parse@type@point#1{%
   \pgf@process{#1}%
@@ -871,13 +873,13 @@
 }
 
 
-% Parse a scaling in "value=#1"
+% Parse a scaling 
 % 
 % #1 = if #1 contains a comma, the two parts are passed to
 % pgfmathparse, otherwise the whole thing is passed to pgfmathparse. 
-% 
-% value = 2
-% value = {2,1}
+%
+% entry = {0s}{2}
+% entry = {0s}{2,1}
 
 \def\pgfanim@parse@type@scaling#1{%
   \pgfutil@in@{,}{#1}%
@@ -896,11 +898,11 @@
 
 
 
-% Parse a viewbox in "value=#1"
+% Parse a viewbox 
 % 
 % #1 consists of two points, each in paranetheses
-% 
-% value = {\pgfpoint{1cm}{2cm}}{\pgfpoint{3cm}{4cm}}
+%
+% entry = {0s}{{\pgfpoint{1cm}{2cm}}{\pgfpoint{3cm}{4cm}}}
 
 \def\pgfanim@parse@type@viewbox#1{%
   {%
@@ -925,6 +927,23 @@
     \pgf@ya=\pgf@yb%
   \fi%
 }
+
+
+
+
+% Parse a dash pattern
+% 
+% #1 is a dash pattern as in \pgfsetdash
+%
+% entry = {0s}{{1pt}{2pt}{3pt}{1pt}}
+
+\def\pgfanim@parse@type@dashpattern#1{%
+  \def\pgf@temp{}%
+  \def\pgf@next{\pgf@strip}%
+  \pgf@strip#1{pgf@stop}%
+  \pgfsysanimvaldashpattern{\pgf@temp}%
+}
+
 
 
 \endinput
