@@ -2,7 +2,7 @@
 
 \makeatletter
 \usepackage{pgf}
-\usepgflibrary{luamath}
+\usepgflibrary{luamath,fpu}
 
 \begin{document}
 
@@ -38,9 +38,12 @@ X
 %\tracingmacros=2 \tracingcommands=2
 %
 \newif\ifcomparewithtex
+\newif\ifcomparewithfpu
 \pgfkeys{
 	/ut/compare with TeX/.is if=comparewithtex,
 	/ut/compare with TeX=true,
+	/ut/compare with fpu/.is if=comparewithfpu,
+	/ut/compare with fpu=true,
 	/ut/.search also={/pgf/luamath},
 	/pgf/luamath/show error message=true,
 	/pgf/luamath/enable TeX fallback=false,
@@ -63,6 +66,7 @@ X
 	\else
 		\def\actualunitsdeclared{0}%
 	\fi
+	%
 	\ifcomparewithtex
 		\ifpgfluamathusedTeXfallback
 			\let\expectedTeX=\actual
@@ -106,6 +110,7 @@ X
 	%
 	\if1\success
 		\ifcomparewithtex
+			% check against PGF's basic layer as reference:
 			\dimen0=\actual pt %
 			\dimen1=\expectedTeX pt %
 			\advance\dimen0 by-\dimen1
@@ -129,6 +134,32 @@ X
 				\message{WARNING for #2 : matches ALL expectations, but TeX's output does NOT match TeX expected units declared (TeX returns \actualTeXunitsdeclared, expectation = LUA is \actualunitsdeclared)^^J}%
 			\fi
 		\fi
+		%
+		\ifcomparewithfpu
+			% check that FPU works as well. This 
+			% * tests the FPU
+			% * tests that FPU values can be injected into the LUA backend:
+			\begingroup
+			\pgfkeys{/pgf/fpu,/pgf/fpu/output format=float}%
+			\pgfmathparse{#2}%
+			\xdef\actualfpu{\pgfmathresult}%
+			\ifpgfmathunitsdeclared
+				\xdef\actualfpuunitsdeclared{1}%
+			\else
+				\xdef\actualfpuunitsdeclared{0}%
+			\fi
+			\endgroup
+			%
+			\pgfkeys{/pgf/luamath/output format=fixed}%
+			\pgfluamathparse{abs(\actual - \actualfpu) > 0.004}%
+			\ifdim\pgfmathresult pt=1pt
+				\def\success{0}%
+				\pgfluamathparse{abs(\actual - \actualfpu)}%
+				\message{FAILURE for #2 : matches expectations, but does NOT match output of FPU (error \pgfmathresult). fpu=\actualfpu\space lua=\actual^^J}%
+				\global\advance\numErrors by1
+			\fi
+		\fi
+		%
 	\fi
 	%
 	\message{#2 = \actual\space (pgf=\expectedTeX) \if1\success OK\else FAILURE\fi^^J}%
@@ -249,24 +280,41 @@ end
 \parsertest{atan(1)}{45.0}{0}
 \parsertest{atan2(-4,3)}{-53.130102}{0}
 % \parsertest{bin(1)}{1.0}{0}
-\parsertest{ceil(0.1)}{1.0}{0}
 \parsertest{cos(60)}{0.5}{0}
 \parsertest{cosec(30)}{2.0}{0}
 \parsertest{cosh(0.5)}{1.127626}{0}
 \parsertest{cot(15)}{3.732051}{0}
 \parsertest{deg(2*pi)}{360.0}{0}
 % \parsertest{depth(1)}{1.0}{0}
-\parsertest{div(1,2)}{0.0}{0}
+\parsertest[compare with fpu=false]{div(1,2)}{0.0}{0}
 \parsertest{divide(1,2)}{0.5}{0}
 \parsertest{e}{2.718282}{0}
 \parsertest{equal(1,2)}{0.0}{0}
 \parsertest{factorial(3)}{6.0}{0}
 \parsertest{false}{0.0}{0}
+\parsertest{floor(0)}{0.0}{0}
 \parsertest{floor(0.6)}{0.0}{0}
+\parsertest{floor(1.6)}{1.0}{0}
+\parsertest{floor(1)}{1.0}{0}
+\parsertest{floor(100)}{100.0}{0}
+\parsertest{floor(-100)}{-100.0}{0}
 \parsertest{floor(-0.6)}{-1.0}{0}
-\parsertest{frac(1.1)}{0.1}{0}
-\parsertest{frac(-1.1)}{0.1}{0}
-\parsertest{gcd(42,56)}{14.0}{0}
+\parsertest{floor(-1.6)}{-2.0}{0}
+\parsertest{floor(-15000.6)}{-15001.0}{0}
+\parsertest{floor(15000.6)}{15000.0}{0}
+\parsertest{ceil(0)}{0.0}{0}
+\parsertest{ceil(0.6)}{1.0}{0}
+\parsertest{ceil(1.6)}{2.0}{0}
+\parsertest{ceil(-0.6)}{-0.0}{0}
+\parsertest{ceil(-1.6)}{-1.0}{0}
+\parsertest{ceil(1)}{1.0}{0}
+\parsertest{ceil(100)}{100.0}{0}
+\parsertest{ceil(-100)}{-100.0}{0}
+\parsertest{ceil(-15000.6)}{-15000.0}{0}
+\parsertest{ceil(15000.6)}{15001.0}{0}
+\parsertest[compare with fpu=false]{frac(1.1)}{0.1}{0}
+\parsertest[compare with fpu=false]{frac(-1.1)}{0.1}{0}
+\parsertest[compare with fpu=false]{gcd(42,56)}{14.0}{0}
 \parsertest{greater(1,0)}{1.0}{0}
 % \parsertest{height(1)}{1.0}{0}
 % \parsertest{hex(1)}{1.0}{0}
@@ -274,9 +322,9 @@ end
 \parsertest{int(1.2)}{1.0}{0}
 \parsertest{int(-1.2)}{-1.0}{0}
 \parsertest{ifthenelse(1,2,3)}{2.0}{0}
-\parsertest{iseven(2)}{1.0}{0}
+\parsertest[compare with fpu=false]{iseven(2)}{1.0}{0}
 \parsertest{isodd(1)}{1.0}{0}
-\parsertest{isprime(3)}{1.0}{0}
+\parsertest[compare with fpu=false]{isprime(3)}{1.0}{0}
 \parsertest{less(1,2)}{1.0}{0}
 \parsertest{ln(e)}{1.0}{0}
 \parsertest{log10(100)}{2.0}{0}
@@ -285,7 +333,7 @@ end
 \parsertest{min(1,2)}{1.0}{0}
 \parsertest{mod(20,6)}{2.0}{0}
 \parsertest{mod(-100,30)}{-10.0}{0}
-\parsertest{Mod(-100,30)}{20.0}{0}
+\parsertest[compare with fpu=false]{Mod(-100,30)}{20.0}{0}
 \parsertest{multiply(1,2)}{2.0}{0}
 \parsertest{neg(1)}{-1.0}{0}
 \parsertest{not(1)}{0.0}{0}
@@ -299,7 +347,7 @@ end
 \parsertest{rad(180)}{3.141593}{0}
 % done below \parsertest{rand(1)}{1.0}{0}
 % done below \parsertest{random(1)}{1.0}{0}
-\parsertest{real(1)}{1.0}{0}
+\parsertest[compare with fpu=false]{real(1)}{1.0}{0}
 % done below \parsertest{rnd(1)}{1.0}{0}
 \parsertest{round(1.5)}{2.0}{0}
 \parsertest{round(1.2)}{1.0}{0}
@@ -351,7 +399,7 @@ end
 
 \count1=43
 % this is actually UNSUPPORTED by TeX:
-\parsertest[compare with TeX=false]{\count1}{43.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{\count1}{43.0}{0}
 %
 \newdimen\luamathparse@dimen
 \luamathparse@dimen=42pt
@@ -363,7 +411,7 @@ end
 \parsertest{1*\luamathparse@count}{42.0}{0}
 
 % this is a BUG in TeX, but works in LUA...:
-\parsertest[compare with TeX=false]{0.5\luamathparse@count}{21.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{0.5\luamathparse@count}{21.0}{0}
 %
 \setbox0=\hbox{1233}
 \parsertest{\wd0}{20.000061}{1}
@@ -394,22 +442,22 @@ end
 
 \begingroup
 \pgfmathdeclarefunction{testfct}{0}{\def\pgfmathresult{42.42}}
-\parsertest[parser,compare with TeX=false,show error message=false]{testfct}{}{0}
+\parsertest[parser,compare with TeX=false,compare with fpu=false,show error message=false]{testfct}{}{0}
 \parsertest[parser,enable TeX fallback]{testfct}{42.42}{0}
 \endgroup
 
 % Check that setseed is communicated to LUA:
 \pgfmathsetseed{123}
-\parsertest[compare with TeX=false]{rnd}{0.788318}{0}
-\parsertest[compare with TeX=false]{rnd}{0.203068}{0}
-\parsertest[compare with TeX=false]{rand}{-0.302874}{0}
-\parsertest[compare with TeX=false]{rand}{-0.276781}{0}
-\parsertest[compare with TeX=false]{random}{0.134639}{0}
-\parsertest[compare with TeX=false]{random}{0.375968}{0}
-\parsertest[compare with TeX=false]{random(4)}{2.0}{0}
-\parsertest[compare with TeX=false]{random(4)}{1.0}{0}
-\parsertest[compare with TeX=false]{random(4,10)}{10.0}{0}
-\parsertest[compare with TeX=false]{random(4,10)}{8.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{rnd}{0.788318}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{rnd}{0.203068}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{rand}{-0.302874}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{rand}{-0.276781}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random}{0.134639}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random}{0.375968}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random(4)}{2.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random(4)}{1.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random(4,10)}{10.0}{0}
+\parsertest[compare with TeX=false,compare with fpu=false]{random(4,10)}{8.0}{0}
 
 \begingroup
 % Check that 'trig format' is property communicated to LUA and
@@ -450,13 +498,13 @@ end
 \parsertest{mu2}{42.0}{0}
 \endgroup
 % should have been clean up:
-\parsertest[show error message=false,compare with TeX=false]{mu2}{}{0}
+\parsertest[show error message=false,compare with TeX=false,compare with fpu=false]{mu2}{}{0}
 % ... but this should NOT have been cleaned up!
 \parsertest{mu1(5,2)}{25.0}{0}
 
 \endgroup
 % should have been clean up:
-\parsertest[show error message=false,compare with TeX=false]{mu1(-5,2)}{}{0}
+\parsertest[show error message=false,compare with TeX=false,compare with fpu=false]{mu1(-5,2)}{}{0}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 % NO MORE TEST CASES HERE!

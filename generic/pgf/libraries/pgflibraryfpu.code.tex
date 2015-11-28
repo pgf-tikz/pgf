@@ -261,10 +261,14 @@
 	\pgfmathfloat@install\pgfmathsinh@=\pgfmathfloatsinh@
 	\pgfmathfloat@install\pgfmathtanh@=\pgfmathfloattanh@
 	\expandafter\pgfmathfloat@install\csname pgfmathatan2@\endcsname=\pgfmathfloatatantwo@
+	\pgfmathfloat@install@unimplemented{isprime}%
+	\pgfmathfloat@install@unimplemented{iseven}%
+	\pgfmathfloat@install@unimplemented{gcd}%
 	\pgfmathfloat@install@unimplemented{frac}%
 	\pgfmathfloat@install@unimplemented{random}%
 	\pgfmathfloat@install@unimplemented{setseed}%
 	\pgfmathfloat@install@unimplemented{Mod}%
+	\pgfmathfloat@install@unimplemented{div}%
 	\pgfmathfloat@install@unimplemented{real}%
 %	\pgfmathfloat@install@unimplemented{height}%
 	%
@@ -387,6 +391,8 @@
 }%
 
 \pgfmathdeclarepseudoconstant{inf}{\def\pgfmathresult{inf}}
+\pgfmathdeclarepseudoconstant{INF}{\def\pgfmathresult{inf}}
+\pgfmathdeclarepseudoconstant{Inf}{\def\pgfmathresult{inf}}
 \pgfmathdeclarepseudoconstant{infty}{\def\pgfmathresult{inf}}
 \pgfmathdeclarepseudoconstant{nan}{\def\pgfmathresult{nan}}
 \pgfmathdeclarepseudoconstant{NaN}{\def\pgfmathresult{nan}}
@@ -1383,10 +1389,16 @@
 % works symbolly)
 %
 % @see \pgfmathfloattoint
+% POSTCONDITION: \pgfmathresult contains the result and 
+%	\pgfmathfloatintwasnoop=1 if there was nothing to do 
+%   \pgfmathfloatintwasnoop=0 if there where non-zero digits after the period
+%   \pgfmathfloatintwasnoop=2 if there where digits after the period. The digits will be stored in \pgfmathfloatintremainder in this case.
 \def\pgfmathfloatint@#1{%
 	\begingroup
-	\edef\pgfmathresult{#1}%
-	\expandafter\pgfmathfloat@decompose@tok\pgfmathresult\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\edef\pgfmathfloatint@input{#1}%
+	\expandafter\pgfmathfloat@decompose@tok\pgfmathfloatint@input\relax\pgfmathfloat@a@S\pgfmathfloat@a@Mtok\pgfmathfloat@a@E
+	\gdef\pgfmathfloatintwasnoop{1}%
+	\gdef\pgfmathfloatintremainder{}%
 	\ifcase\pgfmathfloat@a@S
 		% 0: nothing to do.
 	\or% +
@@ -1398,6 +1410,7 @@
 	\else
 		% nothing to do
 	\fi
+	%\message{ XXXXX int(\pgfmathfloatint@input) = \pgfmathresult -> was no op = \pgfmathfloatintwasnoop\space (remainder \pgfmathfloatintremainder)^^J}%
 	\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }%
@@ -1406,6 +1419,7 @@
 		\pgfmathfloat@a@S=0
 		\pgfmathfloat@a@Mtok={0.0}%
 		\pgfmathfloat@a@E=0
+		\gdef\pgfmathfloatintwasnoop{0}%
 		\expandafter\pgfmathfloatint@@loop@gobble
 	\else
 		\pgfmathfloat@a@Mtok={#1.}%
@@ -1416,10 +1430,11 @@
 \def\pgfmathfloatint@@loop#1{%
 	\def\pgfmathfloatint@@loop@{#1}%
 	\ifx\pgfmathfloatint@@loop@\pgfmathfloat@EOI
+		\gdef\pgfmathfloatintwasnoop{1}%
 		\let\pgfmathfloatint@@loop@next=\relax
 	\else
 		\ifnum\pgfmathfloat@b@E=0
-			\let\pgfmathfloatint@@loop@next=\pgfmathfloatint@@loop@gobble
+			\def\pgfmathfloatint@@loop@next{\pgfmathfloatint@@loop@gobble#1}%
 		\else
 			\pgfmathfloat@a@Mtok=\expandafter{\the\pgfmathfloat@a@Mtok#1}%
 			\advance\pgfmathfloat@b@E by-1
@@ -1428,29 +1443,73 @@
 	\fi
 	\pgfmathfloatint@@loop@next
 }%
-\def\pgfmathfloatint@@loop@gobble#1\pgfmathfloat@EOI{}%
+\def\pgfmathfloatint@@loop@gobble#1\pgfmathfloat@EOI{%
+	\if0\pgfmathfloatintwasnoop
+	\else
+		\gdef\pgfmathfloatintwasnoop{2}%
+		\gdef\pgfmathfloatintremainder{#1}%
+	\fi
+}%
 \let\pgfmathfloatint=\pgfmathfloatint@
 
 \def\pgfmathfloatfloor#1{%
-	\edef\pgfmathfloat@loc@TMPa{#1}%
-	\pgfmathfloatcreate{2}{5.0}{-1}% -0.5
-	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
-	\pgfmathfloatadd@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@loc@TMPb}%
-	\expandafter\pgfmathfloatround@\expandafter{\pgfmathresult}%
+	\edef\pgfmath@orig{#1}%
+	\pgfmathfloatint@{#1}%
+	\pgfmathfloatifflags{\pgfmath@orig}{2}{%
+		\let\pgfmath@trunc=\pgfmathresult
+		\ifcase\pgfmathfloatintwasnoop\relax
+			% ah - we stripped something! Round DOWN
+			\pgfmathfloatcreate{2}{1.0}{0}% -1
+			\expandafter\pgfmathfloatadd@\expandafter{\pgfmathresult}{\pgfmath@trunc}%
+		\or
+			% was no-op
+			\let\pgfmathresult=\pgfmath@trunc
+		\else
+			% ok, we have to inspect the remainder:
+			\pgfmathfloatparsenumber{0.\pgfmathfloatintremainder}%
+			\pgfmathfloatifflags{\pgfmathresult}{1}{%
+				% ah - we stripped a non-zero remainder! Round DOWN
+				\pgfmathfloatcreate{2}{1.0}{0}% -1
+				\expandafter\pgfmathfloatadd@\expandafter{\pgfmathresult}{\pgfmath@trunc}%
+			}{%
+				% was no-op
+				\let\pgfmathresult=\pgfmath@trunc
+			}%
+		\fi
+	}{}%
 }
 \let\pgfmathfloatfloor@=\pgfmathfloatfloor
 
 \def\pgfmathfloatceil#1{%
-	\edef\pgfmathfloat@loc@TMPa{#1}%
-	\pgfmathfloatcreate{1}{5.0}{-1}% +0.5
-	\let\pgfmathfloat@loc@TMPb=\pgfmathresult
-	\pgfmathfloatadd@{\pgfmathfloat@loc@TMPa}{\pgfmathfloat@loc@TMPb}%
-	\expandafter\pgfmathfloatround@\expandafter{\pgfmathresult}%
+	\edef\pgfmath@orig{#1}%
+	\pgfmathfloatint@{#1}%
+	\pgfmathfloatifflags{\pgfmath@orig}{1}{%
+		\let\pgfmath@trunc=\pgfmathresult
+		\ifcase\pgfmathfloatintwasnoop\relax
+			% ah - we stripped something! Round UP
+			\pgfmathfloatcreate{1}{1.0}{0}% +1
+			\expandafter\pgfmathfloatadd@\expandafter{\pgfmathresult}{\pgfmath@trunc}%
+		\or
+			% was no-op
+			\let\pgfmathresult=\pgfmath@trunc
+		\else
+			% ok, we have to inspect the remainder:
+			\pgfmathfloatparsenumber{0.\pgfmathfloatintremainder}%
+			\pgfmathfloatifflags{\pgfmathresult}{1}{%
+				% ah - we stripped a non-zero remainder! Round UP
+				\pgfmathfloatcreate{1}{1.0}{0}% +1
+				\expandafter\pgfmathfloatadd@\expandafter{\pgfmathresult}{\pgfmath@trunc}%
+			}{%
+				% was no-op
+				\let\pgfmathresult=\pgfmath@trunc
+			}%
+		\fi
+	}{}%
 }
 \let\pgfmathfloatceil@=\pgfmathfloatceil
 
 \def\pgfmathfloat@notimplemented#1{%
-	\pgfmath@error{Sorry, the operation '#1' has not yet been implemented in the floating point unit :-(}{}%
+	\pgfmath@error{Sorry, the operation '#1' has not yet been implemented in the floating point unit}{}%
 	\pgfmathfloatcreate{0}{0.0}{0}%
 }%
 
