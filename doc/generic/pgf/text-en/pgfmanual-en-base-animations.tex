@@ -26,7 +26,7 @@ of node, but a change of, say, the opacity of a path is also an
 animation. \pgfname\ allows you to specify such animations using a set
 of commands and keys that are documented in the following.
 
-Unlike other packages, the animations created by \pgfname\ are not
+Differently from other packages, the animations created by \pgfname\ are not
 precomputed sequences of pictures that are displayed in rapid
 succession. Rather, an animation created by \pgfname\ consists mainly
 of an annotation in the output that a certain attribute of a certain
@@ -79,10 +79,10 @@ Creating an animation is done using the following command:
   have (if you wish to animate the |opacity| of an object, the type is
   ``scalar'' meaning that entries must be scalar numbers; when you
   animate the |fill| atttribute, the type is ``color'' and values 
-  must be colors, and so on), and the executed the \meta{options} with
+  must be colors, and so on), and then executes the \meta{options} with
   the path prefix |/pgf/animation|. Finally, an appropriate system
   layer command |\pgfsysanimate...| is called to create the actual
-  animation.
+  animation and the scope is closed.
 
   The following \meta{attributes} are permissible:
   
@@ -98,7 +98,7 @@ Creating an animation is done using the following command:
     |softpath|                  & softpath \\
     |translate|                 & point \\
     |view|                      & viewbox \\
-    |visible|                   & text \\
+    |visible|                   & boolean \\
     |xskew|, |yskew|            & scalar \\
   \end{tabular}
 
@@ -175,6 +175,256 @@ Creating an animation is done using the following command:
   call |\pgfanimateattribute| no earlier than the beginning of the
   |pgfpicture| containing the object.
 \end{command}
+
+
+\begin{command}{\pgfanimateattributecode\marg{attribute}\marg{code}}
+  The command works like |\pgfanimateattribute|, only instead of
+  \meta{options} you specify some \meta{code} whose job is to setup
+  the options. 
+\end{command}
+
+
+\subsubsection{Specifying the Timeline}
+
+The core key for specifying how an attribute varies over time is the
+|entry| key:
+\begin{key}{/pgf/animation/entry=\marg{time}\marg{value}}
+  You use this key repeatedly to specify the different values that
+  the \meta{attribute} should have over time. At the \meta{time}
+  specified, the \meta{attribute} will have the value specified as
+  \meta{value}:
+  
+\begin{codeexample}[]
+\tikz {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click},
+    entry = {0s}{0}, entry = {1s}{90}, entry = {1.1s}{45}, entry = {2s}{90}
+  }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
+}
+\end{codeexample}
+
+  You need to call |entry| once for each time in the timeline for
+  which you want to specify a \meta{value} explicitly. Between these
+  times, the values get interpolated (see below for details). You need
+  to specify the \meta{time}s in non-decreasing order (it is
+  permissible and sometimes also necessary to specify the same time
+  twice, namely to create a ``jump'' of the value of some attribute).
+
+  The \meta{time} is parsed using the command |\pgfparsetime|
+  described later.
+
+  \medskip
+  \textbf{Start and end of the timeline.}
+
+  The first and last times of the timeline are a bit special: The
+  timeline starts on the first time and the duration of the timeline is
+  the difference between the first and last time. ``Starting'' on the
+  start time actually means that any beginnings (see the |begin| and
+  |end| keys) get offset by the start time; similarly end times are
+  offset by this value. 
+
+  \medskip
+  \textbf{Syntax of the values.}
+
+  The syntax of the \meta{value} varies according to the type of the
+  \meta{attribute}. In detail, these are:
+
+  \begin{tabular}{lp{12cm}}
+    \emph{Type} & \emph{Syntax} \\
+    color & Standard color syntax like |red| or |black!10| \\
+    scalar & A value parsed using |\pgfmathparse| \\
+    dimension & A dimension parsed using |\pgfmathparse| \\
+    path & A sequence of path construction commands \\
+    softpath & A sequence of soft path construction commands \\
+    scaling & A scalar value or a pair of scalar values separated by a
+              comma \\
+    point & A \pgfname-point like |\pgfpoint{1cm}{5mm}| \\
+    viewbox & Two \pgfname-points \\
+    boolean & |true| or |false| \\
+  \end{tabular}  
+
+  \medskip
+  \textbf{Interpolation between key times.}
+
+  You use the |entry| key repeatedly, namely once for each ``key
+  time,'' which is a time point for which you specify the value of the
+  attribute explicitly. Between these key times, the attribute's value
+  is interpolated.
+  
+  Suppose that an animation is supposed to interpolate a attribute's
+  value between the two values |50| and |100| over a time of
+  10\,s. The   simplest way of doing so is to do a linear
+  interpolation, where the value as, say, 1\,s is 55, at 2\,s it is
+  60, and so on. Unfortunately, the linear interpolation does not
+  ``look'' nice in many cases since the acceleration of a linear
+  interpolation is zero  during the animation, but infinite at the
+  beginning and at the end; which looks ``jerky.''
+
+  To avoid this, you can specify that the time--attribute curve should 
+  not be a straight line, but rather a curve. You specify this curve
+  using a spline. The most logical ``coordinate rectangle'' used for
+  this spline in our example would be |(0s,50)| and |(10s,100)| and we
+  would like to specify something like
+\begin{codeexample}[code only]
+  (0s,50) .. controls (5s,50) and (9s,100) .. (10s,100)
+\end{codeexample}
+  This would result in a time--attribute curve where
+  the attribute at |50| changes slowly at 0\,s and also arrives slowly
+  at |100| at 10\,s, but speeds up between these values.
+
+  We call the first control point |(5s,50)| the ``exit control'' and
+  call |(9s,100)| the ``entry control'': The first control dictates
+  how quickly or slowly a time point is left, the second dictates how
+  quickly or slowly we enter the next one.
+
+  The control points are, however, not specified in the coordinate
+  system indicated above. Rather, the rectangle |(0s,50)| to
+  |(10s, 100)| gets normalized to |(0,0)| to |(1,1)|. The control
+  point |(5s,50)| would thus become |(0.5,0)| and |(9s,100)| becomes
+  |(0.9,1)|. 
+  
+  \begin{key}{/pgf/animations/exit control=\marg{time
+        fraction}\marg{value fraction}}
+    Specifies an exit control using two values as above. The spline
+    from above would be specified as follows:
+
+\begin{codeexample}[code only]
+exit control={0.5}{0},
+entry control={0.9}{1},
+entry={0s}{50},
+entry={10s}{100}
+\end{codeexample}
+
+    Note that the curve specified using exit and entry controls must
+    be ``well-behaved'' in the sense that exactly one value must be
+    specified for each point in time in the time interval.
+
+    In the next three example, we first specify a ``smooth'' exit from
+    the start position, then a smooth arrival at the end position,
+    and, finally both.
+    
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    exit control={0.5}{0},
+    entry = {0s}{\pgfpointorigin},
+    linear, 
+    entry = {1s}{\pgfpoint{0cm}{-1cm}},
+    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin},
+    entry = {1s}{\pgfpoint{0cm}{-1cm}},
+    entry control={.5}{1},
+    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    exit control={0.5}{0},
+    entry = {0s}{\pgfpointorigin},
+    linear, % revert to default
+    entry = {1s}{\pgfpoint{0cm}{-1cm}},
+    entry control={.5}{1},
+    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+  \end{key}
+
+  \begin{key}{/pgf/animations/entry control=\marg{time
+        fraction}\marg{value fraction}}
+    Works like |exit control|.
+  \end{key}
+
+  \begin{key}{/pgf/animations/linear}
+    A shorthand for |exit control={0}{0}, entry control={1}{1}|. This
+    will (re)install a linear curve.
+  \end{key}
+
+  The opposite of having a smooth curve between two values, is to have
+  a ``jump'' from one value to the next. There are two keys for this:
+
+
+  \begin{key}{/pgf/animations/stay}
+    Specifies that inside the time interval the value ``stays put'' at
+    the first value till the end of the interval, where it will jump
+    to the second value. This is similar to an exit control where the
+    curve is ``infinitely flat.''
+    
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin},
+    stay,
+    entry = {1s}{\pgfpoint{0cm}{-1cm}},
+    linear,
+    entry = {2s}{\pgfpoint{0cm}{-2cm}},
+    entry = {3s}{\pgfpoint{0cm}{-3cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+  \end{key}
+  
+  \begin{key}{/pgf/animations/jump}
+    Works like the |stay| key, but will cause the value to ``jump to''
+    the new value right at the beginning of the time interval. It is
+    similar to an entry control specifying a ``flat'' curve.
+
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin},
+    jump,
+    entry = {1s}{\pgfpoint{0cm}{-1cm}},
+    linear,
+    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+  \end{key}
+ 
+\end{key}
+
+
+\begin{command}{\pgfparsetime\marg{time}}
+  This command works like |\pgfmathparse| (indeed, it calls is
+  internally), but returns the result in the macro |\pgftimeresult|
+  rather than |\pgfmathresult|. Furthermore, the following changes are
+  installed:
+
+  \begin{itemize}
+  \item 
+    The postfix operator |s| is added, which has no effect.
+  \item The postfix operator |ms| is added, which devides a number by
+    1.000, so |2ms| equals 0.002s.
+  \item
+    The postfix operator |min| is added, which multiplies a number by
+    60.
+  \item The postfix operator |h| is added, which multiplies a number by
+    3.600.
+  \item The infix operator |:| is redefined, so that it multiplies its
+    first argument by 60 and adds the second. This implies that
+    |1:20| equals 80s and |01:00:00| equals 3600s.
+  \item The parsing of octal numbers is switched off to allow things
+    like |01:08| for 68s.
+  \end{itemize}
+\end{command}
+
 
 
 \subsubsection{Animating Color, Opacity, and Visibility}
@@ -269,7 +519,8 @@ type instead of |text|).
 \end{codeexample}
 
 Similarly to the color, you can also set the opacity used for filling
-and for drawing:
+and for drawing. You specify the opacity using a number between 0
+(transparent) and 1 (opaque). 
 
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -304,7 +555,8 @@ object to which it is applied as a transparency group. In essence,
 The last attribute that concerns colors and visibility is the
 Boolean |visible| attribute. The difference to an opacity of |0| is
 that an invisible object cannot be clicked and does not need to be
-rendered. 
+rendered. The (only) two possible values for this attribute are
+|false| and |true|.
 
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -329,6 +581,8 @@ You can animate the appearance of a path in the following ways:
   \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
 }
 \end{codeexample}
+  The possible values passed to the |entry| key are, of course,
+  dimensions. 
 \item You can animate the dash phase:
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -337,6 +591,7 @@ You can animate the appearance of a path in the following ways:
   \node (node) [dashed, fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
+  Again, the possible values are dimensions.
 \item You can animate the dash pattern:
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -345,6 +600,18 @@ You can animate the appearance of a path in the following ways:
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
+  To specify the dash pattern, you specify a sequence of ``on and
+  off'' dimensions; see the second argument of |\pgfsetdash| for
+  details. Note that you \emph{must} specify the same number of
+  elements in all patterns of a timeline: You cannot specify that the
+  dash pattern for |1s| is |{1pt}{2pt}| and for |2s| is
+  |{1pt}{3pt}{2pt}| since the number of elements would differ. In
+  particular, you cannot (sensibly) use |current value| for the first
+  entry since this corresponds to an empty dash pattern (even when you
+  have specified a dash pattern for the target object: this pattern
+  will not be attached to the to-be-animated scope or object but to a
+  surrounding scope and, thus, the to-be-animated scope will not have
+  any dash pattern installed).
 \item Finally, you can animate the path itself:
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -355,14 +622,25 @@ You can animate the appearance of a path in the following ways:
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
+  The path is specified by giving path construction commands as in the
+  above example. They will be executed in a special protected scope to
+  ensure that they have only little side effects.
+
+  As for the dash pattern, you must ensure that all paths in the
+  timeline have the same structure (same sequence of path construction
+  commands); only the coordinates may differ. In particular, you
+  cannot say that the path at |1s| is a rectangle using
+  |\pgfpathrectangle| and at |2s| is a circle using
+  |\pgfpathcircle|. Instead, you would have to ensure that at both
+  times that path consists of appropriate Bézier curves.
+
+  Unlike the dash pattern, the to-be-animated object is, indeed, the
+  path itself and not some special scope. This means that you can use
+  the |current value| for the start path. However, this also means
+  that you really must pick \emph{the path object} as the target of
+  the animation. In conjunction with \tikzname, this will be an object
+  of type |path| as in the above example.
 \end{itemize}
-
-
-
-
-
-
-
 
 
 
@@ -370,13 +648,313 @@ You can animate the appearance of a path in the following ways:
 \label{section-base-animation-views}
 
 
-\subsubsection{Commands for Specifying Timelines: Specifying Times}
+In order to animate the canvas transformation matrix, you do not
+animate an attribute called ``|transform|'' (or something
+similar). Rather, there are several keys that all manipulate the
+canvas transformation matrix in 
+different ways. These keys, taken in appropriate combination, allow
+you to achieve any particular canvas transformation matrix.
 
-\subsubsection{Commands for Specifying Timelines: Specifying Values}
+Let us start with the basic keys that allow you to change the
+canvas transformation matrix directly:
+
+\begin{itemize}
+\item The |scale| attribute adds an animation of the scaling:
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{scale}{
+    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{1.5,2} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values passed to the |entry| key must either be single scalar
+  values or a pair of such numbers separated by a comma (which then
+  refer to the $x$- and $y$-scaling).
+\item The |rotate| key adds an animation of the rotation:
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, entry = {0s}{45}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are scalar values representing a rotation in degrees.
+\item The |xskew| and |yskew| keys (and also |skew x| and |skew y|,
+  which are aliases) add an animation of the skew (given
+  in degrees, not as a slant):
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{xskew}{
+    whom = node, begin on = {click}, entry = {0s}{0}, entry = {2s}{45} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are scalar values.
+\item The |translate| key adds an animation of the translation (shift):
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{1cm}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are \pgfname-points.
+\end{itemize}
+
+For all of these attributes, the following key is of importance:
+\begin{key}{/pgf/animation/origin=\meta{pgf point}}
+  An animation of the canvas transformation is added to all other
+  transformations from surrounding or interior scopes. This means
+  that, in particular, the origin of a canvas transformation is, by
+  default, the origin of the canvas of the scope surrounding the
+  transformation object.
+
+  For some canvas animations, like a rotation or a scaling, you will
+  typically wish to use a different origin (like the center of an
+  object that is to be rotated or scaled). You can achieve this effect
+  by surrounding the object by a scope that shifts the canvas to the
+  desired origin, followed by a scope whose transformation matrix you
+  animate, followed by a scope that shifts back the canvas.
+
+  The |origin| key simplifies this process by allowing you to specify
+  the origin of the transformation directly. Internally, however, all
+  this key does is to create the above-mentioned scopes with the
+  necessary shifts.
+  
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click},
+    origin = \pgfpoint{1cm}{1cm}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+\end{key}
+
+
+A second way of changing the canvas transformation matrix is to use
+the |motion| key:
+
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    along = \pgfpathcircle{\pgfpointorigin}{5mm},
+    entry = {0s}{0}, entry = {2s}{1} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+
+
+\begin{key}{/pgf/animation/along=\meta{path}}
+  This key (or |rotate along|) must be used with |motion| attribute to
+  specify a path along which the transformation matrix will be
+  ``moved'' (that is, a shift transformation will be added to the
+  different points on the path).
+
+  The values passed to the |entry| key specify fractions of the
+  distance along the \meta{path}. That means, when you provide a value
+  of |0|, you reference the start point of the path, a value of |1|
+  references the end of the path and |0.5| referenced the point
+  halfway along the path.
+
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    along = \pgfpathcircle{\pgfpointorigin}{5mm},
+    entry = {0s}{0}, entry = {1s}{0.5}, entry = {2s}{0.25}, entry={3s}{1} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+\end{key}
+
+  
+\begin{key}{/pgf/animation/rotate along=\meta{Boolean} (default true)}
+  When set to |true|, the |along| key additionally adds a rotation
+  that varies in such a way that a tangent to the path always points right. 
+
+\begin{codeexample}[width=2.3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    rotate along = true,
+    along = \pgfpathmoveto {\pgfpointorigin}
+            \pgfpathcurveto{\pgfpoint{1cm}{0cm}}{\pgfpoint{1cm}{0cm}}{\pgfpoint{1cm}{1cm}},
+    entry = {0s}{0}, entry = {2s}{1} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}  
+\end{key}
+
+The final method of changing the transformation matrix is to animate 
+a \emph{view.} A view is a canvas transformation that shifts and
+scales the canvas in such a way that a certain rectangle ``matches''
+another rectangle: The idea is that you ``look through'' a ``window''
+(the view) and ``see'' a certain area of the canvas. View animation do
+not allow you to do anything that cannot also be done using the
+|translate| and |scale| keys in combination, but it often much more
+natural to animate which area of a graphic you wish to see than to
+compute and animate a scaling and shift explicitly.
+
+In order to use a view, you first need to create a view, which is done
+using a |{pgfviewboxscope}|, see Section~\ref{section-base-view},
+which is used by the |view| library internally. You can then animate
+the view using the |view| attribute. The values passed to the |entry|
+key must be two \pgfname-points, each surrounded by parentheses.
+
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{view}{
+    whom = me.view, begin on = {click, of next=n1}, freeze at end,
+    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{5mm}{5mm}}{\pgfpoint{15mm}{20mm}}} }
+  \pgfanimateattribute{view}{
+    whom = me.view, begin on = {click, of next=n2}, freeze at end,
+    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{10mm}{10mm}}{\pgfpoint{15mm}{15mm}}} }
+  \node (n1) at (0,0) [fill = blue!20, draw = blue, circle] {Zoom blue}; 
+  \node (n2) at (2,0) [fill = blue!20, draw = blue, circle] {Zoom red};
+
+  \draw [green!50!black] (4,0) rectangle (6,2);
+  \begin{scope}[name = me, meet = {view (0,0) (2,2) at (4,0) (6,2)}]
+    \draw [blue] (5mm,5mm) rectangle (15mm,20mm);
+    \node at (5mm,5mm) [circle, fill=blue, text=white] {blue};
+    
+    \draw [red] (10mm,10mm) rectangle (15mm,15mm);
+    \node at (10mm,10mm) [circle, fill=red, text=white, font=\tiny] {red};
+  \end{scope}
+}
+\end{codeexample}  
+
+
+\subsubsection{Commands for Specifying Timing: Beginning and Ending}
+
+Using the |entry| key repeatedly, you specify a timeline: The
+\meta{time} used with the first use of the |entry| key in a timeline
+is the start time and the \meta{time} in the last |entry| key is the
+stop time. However, this leaves open then question of when the whole
+timeline is to be started: The moment the document is opened? When the
+page is displayed? When the user scrolls to the to-be-animated object?
+When some other object is clicked? The key |begin|, and also the key
+|end|, allow you to specify answers to these questions.
+
+\begin{key}{/pgf/animation/begin=\meta{time}}
+  This key specifies when the ``moment |0s|'' should be relative to
+  the moment when the current graphic is first displayed. You can use
+  this key multiple times, in this case the timeline is restarted for
+  each of the times specified (if it is already running, it will be
+  reset). If no |begin| key is given at all, the effect is the same as
+  if |begin=0s| had been specified.
+
+  It is permissible to set \meta{time} to a negative value.
+\end{key}
+
+\begin{key}{/pgf/animation/end=\meta{time}}
+  This key will truncate the timeline so that it ends \meta{time}
+  after the display of the graphic, provided the timeline begins
+  before the specified end time. For instance, if you specify a
+  timeline starting at 2\,s and ending at 5\,s and you set |begin| to
+  1\,s and |end| to 4\,s, the timeline will run, relative to the moment
+  when the graphic is displayed from 3\,s to 4\,s.
+  
+\begin{codeexample}[width=3cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin = 2s, end = 4s,
+    entry = {1s}{0}, entry = {2s}{90}, entry = {3s}{180}, entry = {4s}{270} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Turn after 3s!}; }
+\end{codeexample}
+\end{key}
+
+Instead of specifying the beginning of the timeline relative to the
+moment to to-be-animated graphic is displayed, you can also set the
+``moment |0s|'' to the moment a specific \emph{event} happens using
+the following key:
+
+\begin{key}{/pgf/animation/begin on=\meta{options}}
+  The \meta{options} will be executed with the path
+  |/pgf/animation/events| and will cause a new beginning to be added
+  to the list of possible beginnings for the timeline (so the uses of
+  this key accumulate). Each ``beginning'' is just another possible
+  ``moment |0s|'' for the timeline. For instance, when the
+  \meta{options} are set to |click|, then each time the graph is
+  clicked a moment |0s| starts for the timeline.
+
+  Most events are ``caused'' or ``happen to'' some object. For
+  instance, the |click| event happens when you click on a certain
+  object. In order to specify this object, use the following two keys
+  inside the \meta{options}: |of| and |of next|. If neither of these
+  keys are given, the to-be-animated object is used.
+  
+  \begin{key}{/pgf/animation/event/of=\meta{id}\opt{|.|\meta{type}}}
+    This specifies a graphic object id in the same way as the |whom|
+    key, also with an optional \meta{type}. This is the object that
+    ``causes'' the event to happen.
+
+    Unlike the |whom| key, which always refers to a not-yet-existing
+    object, this key always refers to an already existing
+    object, namely to the most recent use of the \meta{id}. In the
+    following example, the referenced object is the node with the
+    label |2| since it is the most recently referenced node with
+    \meta{id} |X|.
+\begin{codeexample}[width=3cm]
+\tikz [very thick] {
+  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
+  \node (X) at (1,0.4)  [fill = blue!20, draw = blue, circle] {2};
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click, of = X}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = red!20, draw = red, rectangle] {Anim}; 
+  \node (X) at (1,-0.4) [fill = blue!20, draw = blue, circle] {3};
+  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4};
+}
+\end{codeexample}
+  \end{key}
+  
+  \begin{key}{/pgf/animation/event/of next=\meta{id}\opt{|.|\meta{type}}}
+    This key works like the |of| key, only it refers to a future
+    (actually, the next) object with the given \meta{id}, not to a
+    previous one. This, in the next example, the referenced node is
+    the one with label |3|.
+\begin{codeexample}[width=3cm]
+\tikz [very thick] {
+  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
+  \node (X) at (1,0.4)  [fill = blue!20, draw = blue, circle] {2};
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click, of next = X}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = red!20, draw = red, rectangle] {Anim}; 
+  \node (X) at (1,-0.4) [fill = blue!20, draw = blue, circle] {3};
+  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4};
+}
+\end{codeexample}
+  \end{key}
+
+  The following key allows you to specify the event that should cause
+  the animation to start:
+  \begin{key}{/pgf/animation/event=\meta{event name}}
+    Specifies the name of the event whose occurrence should start the
+    timeline. Which events are supported depends on the device on
+    which the animation is displayed as well as the output format
+    (\textsc{svg} or some other format), but here is a list of events
+    supported by \textsc{svg}: |click|, |focusin|, |focusout|,
+    |mousedown|,  |mouseup|, |mouseover|, |mousemove|,
+    |mouseout|, |begin|, |end|. However, the following keys make using
+    these events simpler:
+    \begin{key}{/pgf/animate/event/click}
+      This is a shorthand for |event=click|. This event gets triggered
+      when the user clicks on the triggering object with a mouse (or
+      something equivalent).
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+  \end{key}
+\end{key}
 
 \subsubsection{Commands for Specifying Timing: Repeats}
 
-\subsubsection{Commands for Specifying Timing: Beginning and Ending}
+Normally, a timeline is displayed once and then ends.
+
 
 \subsubsection{Commands for Specifying Timing: Restart Behaviour}
 
