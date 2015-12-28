@@ -38,7 +38,7 @@ nor does it put a special burden on \TeX. The hard and complicated
 calculations are done by the viewer application, not by \TeX\ and
 \pgfname. 
 
-Only few viewer applicaitons and formats are currently ``up to the
+Only few viewer applications and formats are currently ``up to the
 job'' of displaying animations.  In particular, 
 the popular \textsc{pdf} format does \emph{not} allow one to specify
 animations in this way (one can partly ``fake'' animations at the
@@ -174,6 +174,31 @@ Creating an animation is done using the following command:
   page as the to-be-animated object. To ensure this, it suffices to
   call |\pgfanimateattribute| no earlier than the beginning of the
   |pgfpicture| containing the object.
+
+  \medskip
+  \textbf{Naming the Animation}
+
+  You can assign a name to an animation for later (or early)
+  reference. In particular, it is possible to begin \emph{another}
+  animation relative to the beginning or end of this animation and for
+  referencing this animation must be assigned a name. See the |of| and
+  |of next| keys for details.
+
+  \begin{key}{/pgf/animation/name=\meta{name}}
+    Assigns a name to the animation by which it can be referenced
+    using the |of| and |of next| keys in another animation.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {end, of next = my move animation, delay = 1s},
+    entry = {0s}{0}, entry = {2s}{90} }
+  \pgfanimateattribute{translate}{
+    name = my move animation, whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+  \end{key}
 \end{command}
 
 
@@ -216,7 +241,6 @@ The core key for specifying how an attribute varies over time is the
 
   \medskip
   \textbf{Start and end of the timeline.}
-
   The first and last times of the timeline are a bit special: The
   timeline starts on the first time and the duration of the timeline is
   the difference between the first and last time. ``Starting'' on the
@@ -226,7 +250,6 @@ The core key for specifying how an attribute varies over time is the
 
   \medskip
   \textbf{Syntax of the values.}
-
   The syntax of the \meta{value} varies according to the type of the
   \meta{attribute}. In detail, these are:
 
@@ -246,7 +269,6 @@ The core key for specifying how an attribute varies over time is the
 
   \medskip
   \textbf{Interpolation between key times.}
-
   You use the |entry| key repeatedly, namely once for each ``key
   time,'' which is a time point for which you specify the value of the
   attribute explicitly. Between these key times, the attribute's value
@@ -397,7 +419,68 @@ entry={10s}{100}
 }
 \end{codeexample}
   \end{key}
- 
+
+
+  \medskip
+  \textbf{Paced animations.}
+  Using the |entry| key you have detailed control over which value an
+  attribute should have at different times. However, you are sometimes
+  more interested in specifying the values and much less in specifying
+  the exact moment in time when these values should be attained: When
+  you specify the an object should move around between many different
+  points, you typically wish to specify something like ``the object
+  should be here at |0s| and there at |10s| and in between it should be
+  here, here, and here -- and I do not care when, just make the
+  movement evenly paced.'' In such cases the following key is useful:
+  \begin{key}{/pgf/animation/paced=\meta{optional timing}}
+    Requests that the times specified for the entries of the timeline
+    are ignored. Instead, the times are recomputed such that an object
+    moving between the specified values does so at a constant
+    speed. Note that this notion of ``moving between values at a
+    constant speed'' makes more sense for 
+    some attributes than for others: It makes lots of sense for a
+    canvas shift and a bit of sense for a rotation angle or a color
+    and no sense for something like |visibility|.
+
+    Even though the times of the entries are mostly ignored, you still
+    somehow have to specify the start and the end of the
+    timeline. This can be done in two ways:
+    \begin{enumerate}
+    \item You leave the \meta{optional timing} empty. In this case,
+      the first time in the timeline is used as the start and the last
+      time as the end (as usual), only the intermediate timing values
+      are ignored.
+    \item You explicitly set the \meta{optional timing} to either a
+      simple time (like |paced = 3s|) which makes the timeline start
+      at 0\,s and end after 3\,s or you use the syntax \meta{start
+        time}| to |\meta{end time} as in |paced = 1s to 3s|.
+    \end{enumerate}
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin},
+    entry = {2s}{\pgfpoint{0cm}{1cm}},
+    entry = {4s}{\pgfpoint{1mm}{1cm}}
+  }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; }
+\end{codeexample}
+\begin{codeexample}[width=2.3cm]
+\tikz {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click}, paced,
+    entry = {0s}{\pgfpointorigin},
+    entry = {2s}{\pgfpoint{0cm}{1cm}},
+    entry = {4s}{\pgfpoint{1mm}{1cm}}
+  }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; }
+\end{codeexample}
+  \end{key}
+  \begin{key}{/pgf/animation/unpaced}
+    The opposite of |paced| and the default. It restores the default
+    behavior of using splines to interpolate between values at the
+    given key times.
+  \end{key}
 \end{key}
 
 
@@ -824,7 +907,9 @@ key must be two \pgfname-points, each surrounded by parentheses.
 \end{codeexample}  
 
 
-\subsubsection{Commands for Specifying Timing: Beginning and Ending}
+\subsubsection{Commands for Specifying Timing: Beginnings  and
+  Endings}
+
 
 Using the |entry| key repeatedly, you specify a timeline: The
 \meta{time} used with the first use of the |entry| key in a timeline
@@ -863,6 +948,28 @@ When some other object is clicked? The key |begin|, and also the key
 \end{codeexample}
 \end{key}
 
+It is not immediately clear what should happen with the attribute of
+an object when an animation ends: Should it revert to its original
+value ``as if there had never been an animation'' or should it ``stay
+at the last value''? The following key governs what should happen:
+
+\begin{key}{/pgf/animation/freeze at end=\meta{true or false} (default
+  true, initially false)}
+  When set to |true|, whenever a timeline ends (either because the
+  last time of timeline has been reached or because an |end| or
+  |end of| key have ended it prematurely), the last value the
+  attribute had because of the animation ``stays put.'' When set to
+  |false|, which is the initial value, once an animation ends, its
+  effect will be removed ``as if it never happened.''
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{ 
+    whom = node, begin on = {click}, freeze at end,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
+\end{codeexample}
+\end{key}
+
 Instead of specifying the beginning of the timeline relative to the
 moment to to-be-animated graphic is displayed, you can also set the
 ``moment |0s|'' to the moment a specific \emph{event} happens using
@@ -883,7 +990,7 @@ the following key:
   inside the \meta{options}: |of| and |of next|. If neither of these
   keys are given, the to-be-animated object is used.
   
-  \begin{key}{/pgf/animation/event/of=\meta{id}\opt{|.|\meta{type}}}
+  \begin{key}{/pgf/animation/events/of=\meta{id}\opt{|.|\meta{type}}}
     This specifies a graphic object id in the same way as the |whom|
     key, also with an optional \meta{type}. This is the object that
     ``causes'' the event to happen.
@@ -907,7 +1014,7 @@ the following key:
 \end{codeexample}
   \end{key}
   
-  \begin{key}{/pgf/animation/event/of next=\meta{id}\opt{|.|\meta{type}}}
+  \begin{key}{/pgf/animation/events/of next=\meta{id}\opt{|.|\meta{type}}}
     This key works like the |of| key, only it refers to a future
     (actually, the next) object with the given \meta{id}, not to a
     previous one. This, in the next example, the referenced node is
@@ -927,16 +1034,16 @@ the following key:
 
   The following key allows you to specify the event that should cause
   the animation to start:
-  \begin{key}{/pgf/animation/event=\meta{event name}}
+  \begin{key}{/pgf/animation/events/event=\meta{event name}}
     Specifies the name of the event whose occurrence should start the
     timeline. Which events are supported depends on the device on
-    which the animation is displayed as well as the output format
-    (\textsc{svg} or some other format), but here is a list of events
-    supported by \textsc{svg}: |click|, |focusin|, |focusout|,
-    |mousedown|,  |mouseup|, |mouseover|, |mousemove|,
-    |mouseout|, |begin|, |end|. However, the following keys make using
-    these events simpler:
-    \begin{key}{/pgf/animate/event/click}
+    which the animation is displayed, the output format
+    (\textsc{svg} or some other format), and the setup of scripts, but
+    here is a list of events supported by ``plain \textsc{svg}'':
+    |click|, |focusin|, |focusout|, |mousedown|,  |mouseup|,
+    |mouseover|, |mousemove|, |mouseout|, |begin|, |end|. However, the
+    following keys make using these events simpler:
+    \begin{key}{/pgf/animate/events/click}
       This is a shorthand for |event=click|. This event gets triggered
       when the user clicks on the triggering object with a mouse (or
       something equivalent).
@@ -948,17 +1055,300 @@ the following key:
 }
 \end{codeexample}
     \end{key}
+    \begin{key}{/pgf/animation/events/mouse down}
+      Shorthand for |event=mousedown|. The event gets
+      triggered when the user presses a mouse button down on the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse down}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse up}
+      Shorthand for |event=mouseup| and gets triggered, of course,
+      when a pressed button is released on the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse up}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse over}
+      Shorthand for |event=mouseover|. The event gets triggered the
+      moment the mouse cursor moves over the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse over}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse move}
+      Shorthand for |event=mousemove|. The event gets triggered lots
+      of times, namely each time the mouse moves while being ``over''
+      the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse move}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse out}
+      Shorthand for |event=mouseout|. The opposite of |mouse over|:
+      triggered when the mouse leaves the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse out}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/begin}
+      Shorthand for |event=begin|. The ``begin'' refers to the
+      beginning of another animation, namely the one referenced by
+      |of| or |of whom|. This means that the current animation will
+      begin when some other animation begins.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {begin, of next = my move animation, delay = 1s},
+    entry = {0s}{0}, entry = {2s}{90}, add }
+  \pgfanimateattribute{translate}{
+    name = my move animation, whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/end}
+      Shorthand for |event=end|. Again, the ``end'' refers to the
+      end of another animation, namely the one referenced by
+      |of| or |of whom|. This means that the current animation will
+      \emph{begin} when some other animation \emph{ends.}
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {end, of next = my move animation, delay = 1s},
+    entry = {0s}{0}, entry = {2s}{90} }
+  \pgfanimateattribute{translate}{
+    name = my move animation, whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/focus in}
+      This is a shorthand for |event=focusin|. This event gets
+      triggered when the graphic object gets the focus (this usually
+      makes sense only for text input fields).
+    \end{key}
+    \begin{key}{/pgf/animation/events/focus out}
+      This is a shorthand for |event=focusout|.
+    \end{key}
   \end{key}
+
+  In addition to the events specified using the generic |event| key,
+  there are two further events that take a parameter:
+  \begin{key}{/pgf/animation/events/repeat=\meta{number}}
+    The event is triggered when a repeating animation has been
+    repeated \meta{number} times.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {repeat = 2, of next = my move animation},
+    entry = {0s}{0}, entry = {2s}{90} }
+  \pgfanimateattribute{translate}{
+    name = my move animation, whom = node, begin on = {click}, repeats = 4,
+    entry = {0s}{\pgfpointorigin}, entry = {1s}{\pgfpoint{0cm}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+  \end{key}
+  
+  \begin{key}{/pgf/animation/events/key=\meta{key}}
+    The event is triggered when the keyboard key \meta{key} has been
+    pressed. For security reasons, a viewer may suppress this.
+  \end{key}
+  
+  Having specified the event, you can also specify a delay relative to
+  this event:
+
+  \begin{key}{/pgf/animation/events/delay=\meta{time}}
+    Specifies that the timeline should not start with the event, but,
+    rather, be delayed by \meta{time}.
+  \end{key}
+  
 \end{key}
+
+When you use |begin on| to start an animation when a certain event is
+triggered, it is not clear what should happen when the event is
+triggered \emph{again}. Should this be ignored completely? Should it
+only be ignored while the animation is running? The following key
+allows you to specify when should happen:
+
+\begin{key}{/pgf/animation/restart=\meta{choice} (default true)}
+  You can set \meta{choice} to one of the following:
+  \begin{itemize}
+  \item |true| means that the animation will restart each time the
+    event is triggered. If the animation is already running, it will
+    be reset to its beginning.
+  \item |false| means that once the animation has started once, it
+    will never be restarted.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{ 
+    whom = node, begin on = {click}, restart = false,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
+\end{codeexample}  
+  \item |never| means the same as |false|.
+  \item |when not active| means that the animation will restart when
+    the event is triggered, but \emph{not} while the animation is
+    running.     
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{ 
+    whom = node, begin on = {click}, restart = when not active,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
+\end{codeexample}  
+  \end{itemize}
+\end{key}
+
+Just like |begin on| specifies when a timeline begins relative to some
+event, the |end on| allows you to stop is early when some event
+happens:
+
+\begin{key}{/pgf/animation/end on=\meta{options}}
+  Works exactly like |begin on|, one possible end of the timeline is
+  specified using the \meta{options}.
+\end{key}
+
 
 \subsubsection{Commands for Specifying Timing: Repeats}
 
-Normally, a timeline is displayed once and then ends.
+Normally, a timeline is displayed once and then ends. You can,
+however, request that the timeline should be repeated a certain number
+of times or indefinitely. 
+
+\begin{key}{/pgf/animation/repeats=\meta{specification}}
+  Use this key to specify that the timeline animation should repeat at
+  the end. The \meta{specification} must consist of two parts, each of
+  which may be empty. The first part is one of the following:
+  \begin{itemize}
+  \item Empty, in which case the timeline repeats forever.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, repeats,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+  \item A \meta{number} (like |2| or |3.25|), in which case the
+    timeline repeats \meta{number} times.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, repeats = 2.5,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+  \item The text ``|for| \meta{time}'' (like |for 2s| or |for 300ms|),
+    in which case the timeline repeats however often necessary so that
+    it  stops exactly after \meta{time}.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, repeats = for 3s,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+  \end{itemize}
+  The second part of the specification must be one of the following:
+  \begin{itemize}
+  \item Empty, in which case each time the timeline is restarted, the
+    attribute's value undergoes the same series of values it did
+    previously.
+  \item The text |accumulating|. This has the effect that each time
+    the timeline is restarted, the attribute values specified by the
+    timeline are \emph{added} to the value from the previous
+    iteration(s). A typical example is an animation that shifts a
+    scope by, say, 1\,cm over a time of 1\,s. Now, if you repeat this
+    five times, normally the scope will shift 1\,cm for 1\,s then
+    ``jump back,'' shift again, jump back, and so on for five
+    times. In contrast, when the repeats are accumulating, the scope
+    will move by 5\,cm over 5\,s in total.    
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, repeats = accumulating,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click}, repeats = 5 accumulating,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+  \end{itemize}
+\end{key}
+
+\begin{key}{/pgf/animation/repeat=\meta{specification}}
+  This is an alias for |repeats|.  
+\end{key}
 
 
-\subsubsection{Commands for Specifying Timing: Restart Behaviour}
 
 \subsubsection{Commands for Specifying Accumulation}
+
+A timeline specifies a value for an attribute of an object for each
+moment in time. Normally, the value specified in this way will replace
+the value attribute had originally, but in many situations it is
+desirable that the timeline's values are only \emph{added} to the
+original value. This is particularly important for canvas
+transformations since, there, you may wish to specify that there is a
+shift \emph{and} a rotation, both of which should happen at the same
+time. However, adding values also makes sense for other attributes.
+
+\begin{key}{/pgf/animation/add}
+  This key causes the values specified in a timeline to be added to
+  the value an attribute has. In particular, when two animations are
+  in effect at the same time, the second one would normally ``win,''
+  but the |add| key ensures that this animation is also in effect.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{translate}{ whom = node, begin on = {click}, 
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
+  \pgfanimateattribute{rotate}{ whom = node, begin on = {click}, replace,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}  
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{translate}{ whom = node, begin on = {click}, 
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
+  \pgfanimateattribute{rotate}{ whom = node, begin on = {click}, add,
+    entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}  
+\end{key}
+
+\begin{key}{/pgf/animation/replace}
+  Causes an animation's value to replace the attribute's value. If
+  there are several animations for the same value, only the ``last one
+  wins''. This is the default behavior.
+\end{key}
+
 
 \endinput
 
