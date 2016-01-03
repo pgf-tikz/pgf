@@ -9,45 +9,113 @@
 
 
 \section{Animations}
-
-\label{section-base-animations}
-
-\begin{pgfmodule}{animations}
-  This module contains the basic layer support of animations, which is
-  documented in the following. 
-\end{pgfmodule}
+\label{section-tikz-animations}
 
 
-\subsection{Overview}
+\begin{tikzlibrary}{animations}
+  This library must be loaded in order to use animations with \tikzname.
+\end{tikzlibrary}
 
-An \emph{animation} changes the way some part of a graphic looks like
-over time. The archetypical animation is, of course, a \emph{movement}
-of node, but a change of, say, the opacity of a path is also an
-animation. \pgfname\ allows you to specify such animations using a set
-of commands and keys that are documented in the following.
 
-Differently from other packages, the animations created by \pgfname\ are not
-precomputed sequences of pictures that are displayed in rapid
-succession. Rather, an animation created by \pgfname\ consists mainly
-of an annotation in the output that a certain attribute of a certain
-object should change over time in some specific way when the object is
-displayed. It is the job of the document viewer application to
-actually compute and display the animation. Interestingly, this means
-that animations neither increase the size of the ouput files noticably
-nor does it put a special burden on \TeX. The hard and complicated
-calculations are done by the viewer application, not by \TeX\ and
-\pgfname. 
+\subsection{Introduction}
 
-Only few viewer applications and formats are currently ``up to the
-job'' of displaying animations.  In particular, 
-the popular \textsc{pdf} format does \emph{not} allow one to specify
-animations in this way (one can partly ``fake'' animations at the
-high price of including a great number of precomputed pictures and
-using JavaScript in special viewers, but this is really not the same
-thing as what \pgfname\ does). Indeed, currently only the  \textsc{svg}
-format allows one to specify animations in a sensible way. Thus,
-\pgfname's animations will only be displayed when \textsc{svg} is used
-as output format.
+An \emph{animation} changes the appearance of some part of a graphic
+over time. The archetypical animation is, of course, a \emph{movement} 
+of some part of a picture, but a change of, say, the opacity of a path
+is also an animation. \tikzname\ allows you to specify such animations
+using special keys and notations.
+
+\begin{codeexample}[width=8.5cm]
+\tikz{
+  \useasboundingbox (-4,-4) (4,4);
+  \node [fill, circle,
+         animate = {
+           fill = [repeats]
+             < 0s> yellow
+             <10s> red
+             <20s> yellow}]
+    {Sun};
+  \scoped [animate = {
+      drive = {
+        [ repeats,
+          along = {(0,0) circle [radius=-2.5cm]}]
+        <0s> 0 <36.5s> 1}}] {
+    \node {Earth};
+    \node [animate = {
+      drive = {
+        [ repeats,
+          along = {(0,0) circle [radius=-1cm]}]
+        <0s> 0 <2.8s> 1}}]
+      {Moon};
+  }
+}
+\end{codeexample}
+
+Before we plunge into the details, it is important to understand what
+\tikzname\ actually does when creating an animation: It does
+\emph{not} (as most animation packages do) precompute a sequence of
+pictures that are later somehow displayed in rapid succession. Rather, a
+\tikzname\ animation is just an ``annotation'' in the output that a
+certain attribute of a certain object should change over time in some
+specific way when the object is displayed. It is the job of the
+document viewer application to actually compute and display the
+animation. The big advantage of this approach is that animations neither
+increase the ouput file sizes noticably nor does it slow down
+\TeX: The hard and complicated calculations are done by the viewer
+application. The disadvantage is that a document viewer application
+must understand the annotations and actually compute and display the
+animations. The \textsc{svg} format is a format for which this is
+possible, the popular \textsc{pdf} format is not. Thus, animations
+currently work only with \textsc{svg} output.
+
+Adding an animation to a \tikzname\ picture is done as follows:
+
+\begin{enumerate}
+\item \emph{Before} or \emph{in the options of} the to-be-animated
+  object you use the |animate| key or the |\animate| command. 
+\item You select one or more \emph{attributes} that you wish to
+  animate. Attributes are things like the fill color or the line width
+  or the position of the object.
+\item You specify \emph{when} this attribute should have \emph{which}
+  values using a so-called \emph{timeline}. This is just a curve that
+  specifies for each point in time which value the attribute should
+  have.
+\item You can additionally use further options to configure
+  the animation, for instance you can specify that the animation
+  should repeat or that it should only start when a certain object is
+  clicked. 
+\end{enumerate}
+
+As a simple example, let us move a circle within ten seconds by one
+centimeter to the left:
+
+\begin{codeexample}[]
+\tikz {
+  \draw [animate = {xshift = <0s> 0cm <10s> 1cm}] (0,0) circle (5mm);
+}
+\end{codeexample}
+
+As can be seen, a special syntax is used for specifying the times (the
+times are given in pointed brackets, which is a syntax I borrowed from
+my \textsc{beamer} package). This syntax will be explained in more
+detail later on. 
+
+
+\subsubsection{Concepts: (Graphic) Objects}
+
+During an animation an attribute of a certain ``object''
+changes over time. The term ``object'' has deliberately been chosen to
+be somewhat vague since, in practice, 
+
+
+\subsubsection{Concepts: Timelines}
+
+A \emph{timeline} specifies 
+
+
+
+\endinput
+
 
 Creating an animation is done using the following command:
 
@@ -99,7 +167,6 @@ Creating an animation is done using the following command:
     |translate|                 & point \\
     |view|                      & viewbox \\
     |visible|                   & boolean \\
-    |stage|                     & none \\
     |xskew|, |yskew|            & scalar \\
   \end{tabular}
 
@@ -139,8 +206,6 @@ Creating an animation is done using the following command:
     Section~\ref{section-base-animation-views} for details.
   \item |visible| refers to the visibility of an object. Allowed
     values are |visible| and |hidden|.
-  \item |stage| is similar to |visible|, but when the object is not
-    animated, it will be hidden by default.
   \item |xskew| and |yskew| skew the object. Attributes are angles
     like |0| or |45| or even |90|.
   \end{itemize}
@@ -435,29 +500,15 @@ entry={10s}{100}
   should be here at |0s| and there at |10s| and in between it should be
   here, here, and here -- and I do not care when, just make the
   movement evenly paced.'' In such cases the following key is useful:
-  \begin{key}{/pgf/animation/paced=\meta{optional timing}}
+  \begin{key}{/pgf/animation/paced}
     Requests that the times specified for the entries of the timeline
-    are ignored. Instead, the times are recomputed such that an object
-    moving between the specified values does so at a constant
-    speed. Note that this notion of ``moving between values at a
-    constant speed'' makes more sense for 
+    are ignored, except for the first and last one. Instead, the times
+    are recomputed such that an object moving between the specified
+    values does so at a constant speed. Note that this notion of
+    ``moving between values at a constant speed'' makes more sense for
     some attributes than for others: It makes lots of sense for a
     canvas shift and a bit of sense for a rotation angle or a color
-    and no sense for something like |visibility|.
-
-    Even though the times of the entries are mostly ignored, you still
-    somehow have to specify the start and the end of the
-    timeline. This can be done in two ways:
-    \begin{enumerate}
-    \item You leave the \meta{optional timing} empty. In this case,
-      the first time in the timeline is used as the start and the last
-      time as the end (as usual), only the intermediate timing values
-      are ignored.
-    \item You explicitly set the \meta{optional timing} to either a
-      simple time (like |paced = 3s|) which makes the timeline start
-      at 0\,s and end after 3\,s or you use the syntax \meta{start
-        time}| to |\meta{end time} as in |paced = 1s to 3s|.
-    \end{enumerate}
+    and no sense for something like |visibility|.    
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{translate}{
@@ -513,14 +564,13 @@ entry={10s}{100}
 
 
 
-\subsubsection{Animating Color, Opacity, Visibility, and Staging}
+\subsubsection{Animating Color, Opacity, and Visibility}
 \label{section-base-animation-painting}
 
-\begin{animateattribute}{fill}
-  You can animate the color of the target object of an animation using
-  the attributes |fill| or |draw|, which animate the fill color and the
-  drawing (stroking) color, respectively. To animate both the fill and
-  draw color, you need to create two animations, one for each.
+You can animate the color of the target object of an animation using
+the attributes |fill| or |draw|, which animate the fill color and the
+drawing (stroking) color, respectively. To animate both the fill and
+draw color, you need to create two animations, one for each.
 
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -529,9 +579,7 @@ entry={10s}{100}
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
 
-\begin{animateattribute}{draw}
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{draw}{
@@ -539,7 +587,6 @@ entry={10s}{100}
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
 
 When the target of a color animation is a scope, you animate
 the color ``used in this scope'' for filling or stroking. However,
@@ -612,7 +659,6 @@ Similarly to the color, you can also set the opacity used for filling
 and for drawing. You specify the opacity using a number between 0
 (transparent) and 1 (opaque). 
 
-\begin{animateattribute}{fill opacity}
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{fill opacity}{
@@ -620,9 +666,7 @@ and for drawing. You specify the opacity using a number between 0
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
 
-\begin{animateattribute}{draw opacity}
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{draw opacity}{
@@ -630,14 +674,13 @@ and for drawing. You specify the opacity using a number between 0
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
 
-\begin{animateattribute}{opacity}
-  Unlike colors, where there is no joint attribute for filling and
-  stroking, there is a single |opacity| attribute in addition to the above
-  two attributes. If supported by the driver, it treats the graphic
-  object to which it is applied as a transparency group. In essence,
-  ``this attribute does what you want'' at least in most situations.
+Unlike colors, where there is no joint attribute for filling and
+stroking, there is a single |opacity| attribute in addition to the above
+two attributes. If supported by the driver, it treats the graphic
+object to which it is applied as a transparency group. In essence,
+``this attribute does what you want'' at least in most situations.
+
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{opacity}{
@@ -645,13 +688,12 @@ and for drawing. You specify the opacity using a number between 0
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
 
-\begin{animateattribute}{visible}
-  The difference between the |visible| attribute and an opacity of |0| is
-  that an invisible object cannot be clicked and does not need to be
-  rendered. The (only) two possible values for this attribute are
-  |false| and |true|.
+The last attribute that concerns colors and visibility is the
+Boolean |visible| attribute. The difference to an opacity of |0| is
+that an invisible object cannot be clicked and does not need to be
+rendered. The (only) two possible values for this attribute are
+|false| and |true|.
 
 \begin{codeexample}[width=2.3cm]
 \tikz {
@@ -660,33 +702,6 @@ and for drawing. You specify the opacity using a number between 0
   \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
 }
 \end{codeexample}
-\end{animateattribute}
-
-
-\begin{animateattribute}{stage}
-  ``Staging'' is used for objects that are \emph{only} visible during
-  an animation. Think of the canvas as a ``stage'' on which objects
-  are shown. Sometimes, an object should only be visible during the
-  animation. For such objects, you wisht the visibility of the object
-  to be set to |false| by default. This is exactly what happens for a
-  staged object: For all objects for which a |stage| animation is
-  attached, the default visiblity is set to |false|.
-
-  The |stage| attribute does not take any values; instead, as long as
-  the animation of the stage is running, the visibility will be set to
-  |true|. You |visible| if you need more fine-grained control over
-  when the animation is visible or not. 
-
-\begin{codeexample}[width=4cm]
-\tikz {
-  \pgfanimateattribute{stage}{
-    whom = rect, begin on = {click, of next = node},
-    entry = {0s}{}, entry = {2s}{} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
-  \node (rect) [fill = red, text = white] at (2,0) {visible};
-}
-\end{codeexample}
-\end{animateattribute}
 
 
 \subsubsection{Animating Paths and their Rendering}
@@ -694,7 +709,8 @@ and for drawing. You specify the opacity using a number between 0
 
 You can animate the appearance of a path in the following ways:
 
-\begin{animateattribute}{line width}
+\begin{itemize}
+\item You can animate the line width:
 \begin{codeexample}[width=2.3cm]
 \tikz [very thick] {
   \pgfanimateattribute{line width}{
@@ -704,9 +720,7 @@ You can animate the appearance of a path in the following ways:
 \end{codeexample}
   The possible values passed to the |entry| key are, of course,
   dimensions. 
-\end{animateattribute}
-
-\begin{animateattribute}{dash phase}
+\item You can animate the dash phase:
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{dash phase}{
@@ -715,9 +729,7 @@ You can animate the appearance of a path in the following ways:
 }
 \end{codeexample}
   Again, the possible values are dimensions.
-\end{animateattribute}
-
-\begin{animateattribute}{dash pattern}
+\item You can animate the dash pattern:
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{dash pattern}{
@@ -737,10 +749,7 @@ You can animate the appearance of a path in the following ways:
   will not be attached to the to-be-animated scope or object but to a
   surrounding scope and, thus, the to-be-animated scope will not have
   any dash pattern installed).
-\end{animateattribute}
-
-\begin{animateattribute}{path}
-  Finally, you can animate the path itself:
+\item Finally, you can animate the path itself:
 \begin{codeexample}[width=2.3cm]
 \tikz {
   \pgfanimateattribute{path}{
@@ -768,7 +777,7 @@ You can animate the appearance of a path in the following ways:
   that you really must pick \emph{the path object} as the target of
   the animation. In conjunction with \tikzname, this will be an object
   of type |path| as in the above example.
-\end{animateattribute}
+\end{itemize}
 
 
 
@@ -779,21 +788,15 @@ You can animate the appearance of a path in the following ways:
 In order to animate the canvas transformation matrix, you do not
 animate an attribute called ``|transform|'' (or something
 similar). Rather, there are several keys that all manipulate the
-canvas transformation matrix in different ways. These keys, taken in
-appropriate combination, allow you to achieve any particular canvas
-transformation matrix. Note, however, that all of these keys do modify
-the same underlying attribute (namely the transformation matrix),
-which is why if you add a |scale| animation to an object and, then,
-additionally, a |translate| animation, the translate animation will
-replace the scaling animation while it is active unless you use the
-|add| options. (\tikzname\ does this automatically, so you do not need
-to worry there.)
+canvas transformation matrix in 
+different ways. These keys, taken in appropriate combination, allow
+you to achieve any particular canvas transformation matrix.
 
 Let us start with the basic keys that allow you to change the
 canvas transformation matrix directly:
 
-\begin{animateattribute}{scale}
-  The |scale| attribute adds an animation of the scaling:
+\begin{itemize}
+\item The |scale| attribute adds an animation of the scaling:
 \begin{codeexample}[width=2.3cm]
 \tikz [very thick] {
   \pgfanimateattribute{scale}{
@@ -804,10 +807,7 @@ canvas transformation matrix directly:
   The values passed to the |entry| key must either be single scalar
   values or a pair of such numbers separated by a comma (which then
   refer to the $x$- and $y$-scaling).
-\end{animateattribute}
-
-\begin{animateattribute}{rotate}
-  The |rotate| key adds an animation of the rotation:
+\item The |rotate| key adds an animation of the rotation:
 \begin{codeexample}[width=2.3cm]
 \tikz [very thick] {
   \pgfanimateattribute{rotate}{
@@ -816,11 +816,7 @@ canvas transformation matrix directly:
 }
 \end{codeexample}
   The values are scalar values representing a rotation in degrees.
-\end{animateattribute}
-
-
-\begin{animateattribute}{xskew}
-  The |xskew| and |yskew| keys (and also |skew x| and |skew y|,
+\item The |xskew| and |yskew| keys (and also |skew x| and |skew y|,
   which are aliases) add an animation of the skew (given
   in degrees, not as a slant):
 \begin{codeexample}[width=2.3cm]
@@ -831,23 +827,7 @@ canvas transformation matrix directly:
 }
 \end{codeexample}
   The values are scalar values.
-\end{animateattribute}
-
-\begin{animateattribute}{yskew}
-  See |xskew|.
-\end{animateattribute}
-
-\begin{animateattribute}{skew x}
-  An alias of |xskew|.
-\end{animateattribute}
-
-\begin{animateattribute}{skew y}
-  An alias of |yskew|.
-\end{animateattribute}
-
-
-\begin{animateattribute}{translate}
-  The |translate| key adds an animation of the translation (shift):
+\item The |translate| key adds an animation of the translation (shift):
 \begin{codeexample}[width=2.3cm]
 \tikz [very thick] {
   \pgfanimateattribute{translate}{
@@ -857,7 +837,7 @@ canvas transformation matrix directly:
 }
 \end{codeexample}
   The values are \pgfname-points.
-\end{animateattribute}
+\end{itemize}
 
 For all of these attributes, the following key is of importance:
 \begin{key}{/pgf/animation/origin=\meta{pgf point}}
@@ -890,9 +870,9 @@ For all of these attributes, the following key is of importance:
 \end{key}
 
 
-\begin{animateattribute}{motion}
-  A second way of changing the canvas transformation matrix is to use
-  the |motion| attribute:
+A second way of changing the canvas transformation matrix is to use
+the |motion| key:
+
 \begin{codeexample}[width=2.3cm]
 \tikz [very thick] {
   \pgfanimateattribute{motion}{
@@ -941,27 +921,23 @@ For all of these attributes, the following key is of importance:
   \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
 \end{codeexample}  
 \end{key}
-\end{animateattribute}
 
 The final method of changing the transformation matrix is to animate 
-a \emph{view.}
+a \emph{view.} A view is a canvas transformation that shifts and
+scales the canvas in such a way that a certain rectangle ``matches''
+another rectangle: The idea is that you ``look through'' a ``window''
+(the view) and ``see'' a certain area of the canvas. View animation do
+not allow you to do anything that cannot also be done using the
+|translate| and |scale| keys in combination, but it often much more
+natural to animate which area of a graphic you wish to see than to
+compute and animate a scaling and shift explicitly.
 
-\begin{animateattribute}{view}
-  A view is a canvas transformation that shifts and
-  scales the canvas in such a way that a certain rectangle ``matches''
-  another rectangle: The idea is that you ``look through'' a ``window''
-  (the view) and ``see'' a certain area of the canvas. View animation do
-  not allow you to do anything that cannot also be done using the
-  |translate| and |scale| keys in combination, but it often much more
-  natural to animate which area of a graphic you wish to see than to
-  compute and animate a scaling and shift explicitly.
-  
-  In order to use a view, you first need to create a view, which is done
-  using a |{pgfviewboxscope}|, see Section~\ref{section-base-view},
-  which is used by the |view| library internally. You can then animate
-  the view using the |view| attribute. The values passed to the |entry|
-  key must be two \pgfname-points, each surrounded by parentheses.
-  
+In order to use a view, you first need to create a view, which is done
+using a |{pgfviewboxscope}|, see Section~\ref{section-base-view},
+which is used by the |view| library internally. You can then animate
+the view using the |view| attribute. The values passed to the |entry|
+key must be two \pgfname-points, each surrounded by parentheses.
+
 \begin{codeexample}[width=2cm]
 \tikz [very thick] {
   \pgfanimateattribute{view}{
@@ -974,7 +950,7 @@ a \emph{view.}
   \node (n2) at (2,0) [fill = blue!20, draw = blue, circle] {Zoom red};
 
   \draw [green!50!black] (4,0) rectangle (6,2);
-  \begin{scope}[name = me, view = {(0,0) (2,2) at (4,0) (6,2)}]
+  \begin{scope}[name = me, meet = {view (0,0) (2,2) at (4,0) (6,2)}]
     \draw [blue] (5mm,5mm) rectangle (15mm,20mm);
     \node at (5mm,5mm) [circle, fill=blue, text=white] {blue};
     
@@ -983,7 +959,6 @@ a \emph{view.}
   \end{scope}
 }
 \end{codeexample}  
-\end{animateattribute}
 
 
 \subsubsection{Commands for Specifying Timing: Beginnings  and
