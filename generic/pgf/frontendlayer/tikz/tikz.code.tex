@@ -480,15 +480,6 @@
 \tikzset{pattern/.code=\tikzerror{You need to say \string\usetikzlibrary{patterns}},
          pattern color/.style=pattern}
 
-% Animation options
-\tikzset{every animate/.style=}
-\tikzset{/tikz/animations/@default whom/.code=}
-\tikzset{animations/.style={every animate/.append style={#1}}}
-\tikzset{animate/.code=\expandafter\def\expandafter\tikz@animate@options\expandafter{\tikz@animate@options\tikz@animate{#1}}}
-\def\tikz@animate@collect#1{\tikz@animate{#1}\pgfutil@ifnextchar;\pgfutil@gobble\relax}
-\def\tikz@animate#1{\tikzerror{You need to say \string\usetikzlibrary{animations} to use the animate command}}
-\let\tikz@animate@options\pgfutil@empty
-
 % Path pictures
 \tikzset{path picture/.code=\tikz@addmode{\def\tikz@path@picture{#1}}}       
 
@@ -1570,6 +1561,12 @@
 
 
 
+% Animation callbacks
+\let\tikz@animation@callback\relax
+\let\tikz@animation@node@callback\relax
+\def\tikz@animation@syntax@check#1#2{#2}
+
+
 %
 % Setting keys
 %
@@ -1602,9 +1599,11 @@
         \else%
           % Ok, third chance: A shape!
           \expandafter\ifx\csname pgf@sh@s@\tikz@key\endcsname\relax%
-            \pgfkeys{/errors/unknown key/.expand
-            once=\expandafter{\expandafter/\expandafter t\expandafter
-            i\expandafter k\expandafter z\expandafter/\tikz@key}{#1}}%
+            % Forth chance: An animation
+            \tikz@animation@syntax@check{#1}{%
+              \pgfkeys{/errors/unknown key/.expand
+                once=\expandafter{\expandafter/\expandafter t\expandafter i\expandafter k\expandafter z\expandafter/\tikz@key}{#1}}%
+            }%
           \else%
             \edef\tikz@shape{\tikz@key}%
           \fi%
@@ -1712,7 +1711,6 @@
 \expandafter\let\csname tikz@protected@command\string\datavisualization\endcsname\pgfutil@empty
 \expandafter\let\csname tikz@protected@command\string\path\endcsname\pgfutil@empty
 \expandafter\let\csname tikz@protected@command\string\pic\endcsname\pgfutil@empty
-\expandafter\let\csname tikz@protected@command\string\animate\endcsname\pgfutil@empty
 
 % Comment by TT: I hope I fixed the \tikz \foreach problem. The new
 % version will take a conservative approach and will only do fancy
@@ -1739,23 +1737,6 @@
 }%
 
 
-% Animation support
-\def\tikz@kind@token@scope{scope }
-\def\tikz@kind@token@node{node }
-\def\tikz@kind@token@path{path }
-\def\tikz@auto@id{@auto}
-\def\tikz@do@animation@option#1{%
-  \ifx\tikz@id@name\pgfutil@empty%
-    \let\tikz@id@name\tikz@auto@id%
-  \fi%
-  \edef\tikz@whom{\tikz@id@name}%
-  {%
-    \pgfkeys{/tikz/animations/@default whom/.expanded={#1}/{\tikz@whom}}%
-    \tikz@animate@options%
-  }%
-  \let\tikz@animate@options=\pgfutil@empty%
-}
-\def\tikz@use@id@name{\pgfifidreferenced{\tikz@id@name}{}{\ifx\tikz@id@name\tikz@auto@id\let\tikz@id@name\pgfutil@empty\fi}\pgfuseid{\tikz@id@name}\pgfgaliasid{\tikz@id@name}{\tikz@id@name}}
 
 %
 % Environment for scoping graphic state settings
@@ -1768,15 +1749,12 @@
   \let\tikz@atend@scope=\pgfutil@empty%
   \let\tikz@options=\pgfutil@empty%
   \let\tikz@mode=\pgfutil@empty%
-  \let\tikz@animate@options=\pgfutil@empty%
   \let\tikz@id@name=\pgfutil@empty%
   \tikz@transparency@groupfalse%
-  \let\tikz@gs@objectkind\tikz@kind@token@scope%
   \tikzset{every scope/.try,#1}%
   \tikz@options%
-  \tikz@do@animation@option{scope}%
   \iftikz@transparency@group\expandafter\pgftransparencygroup\expandafter[\tikz@transparency@group@options]\tikz@blend@group\fi%
-  \tikz@use@id@name%
+  \tikz@animation@callback%
   \pgfidscope%
     \begingroup%
       \let\tikz@id@name\pgfutil@empty%
@@ -1862,7 +1840,6 @@
   \let\tikz@origuseasboundingbox=\useasboundingbox%
   \let\tikz@orignode=\node%
   \let\tikz@origpic=\pic%
-  \let\tikz@origanimate=\animate%
   \let\tikz@origcoordinate=\coordinate%
   \let\tikz@origmatrix=\matrix%
   \let\tikz@origcalendar=\calendar%
@@ -1876,7 +1853,6 @@
   \let\stopscope=\endscope%
   \let\path=\tikz@command@path%
   \let\againpath=\tikz@command@againpath%
-  \let\animate=\tikz@animate@collect%
   %
   \def\draw{\path[draw]}
   \def\pattern{\path[pattern]}
@@ -2027,7 +2003,6 @@
     \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
     \let\tikz@path@do@at@end=\tikz@lib@scope@check%
     \let\tikz@options=\pgfutil@empty%
-    \let\tikz@animate@options=\pgfutil@empty%
     \let\tikz@mode=\pgfutil@empty%
     \let\tikz@moveto@waiting=\relax%
     \let\tikz@timer=\relax%
@@ -2297,8 +2272,7 @@
   %
   % Step 5'': Setup animations
   % 
-  \tikz@do@animation@option{path}%
-  \tikz@use@id@name%
+  \tikz@animation@callback%
   \iftikz@mode@clip\else\pgfidscope\fi% open an animation scope here, unless clipping is done
   % 
   % Step 6: Do a fill if shade or a path picture follows.
@@ -3719,7 +3693,6 @@
       \let\tikz@atend@scope=\pgfutil@empty%
       \let\tikz@do@after@node=\tikz@scan@next@command%
       \let\tikz@options=\pgfutil@empty%
-      \let\tikz@animate@options=\pgfutil@empty%
       \let\tikz@id@name=\pgfutil@empty%
       \let\tikz@after@path=\pgfutil@empty%
       \let\tikz@transform=\pgfutil@empty%
@@ -3859,8 +3832,7 @@
             \pgfscope%
               \ifx\tikz@time\pgfutil@empty\let\tikz@time\tikz@time@for@matrix\fi%
               \tikz@options%
-              \tikz@do@animation@option{scope}%
-              \tikz@use@id@name%
+              \tikz@animation@callback%
               \pgfidscope%
               \begingroup%
                 \let\tikz@id@name\pgfutil@empty%
@@ -3984,11 +3956,9 @@
           \pgfinterruptpath%
             \pgfscope%
               \tikz@options%
-              \tikz@do@animation@option{node}%
-              \tikz@use@id@name%
+              \tikz@animation@node@callback%
               \pgfidscope%
               \begingroup%
-                \let\tikz@animate@options\pgfutil@empty%
                 \let\tikz@id@name\pgfutil@empty%
                 \setbox\tikz@figbox=\box\pgfutil@voidb@x%
                 \setbox\tikz@figbox@bg=\box\pgfutil@voidb@x%
