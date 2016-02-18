@@ -22,6 +22,7 @@
   .code={
     \def\tikz@anim@t{0}%
     \def\tikz@anim@t@base{0}%
+    \def\tikz@anim@last{0}%
     \tikzanimateset{with={}do{#1}}
   },
   with/.code={\tikz@animation@with#1\pgf@stop\tikz@anim@time@scope},
@@ -31,9 +32,14 @@
   attribute/.code=\tikz@anim@set@attr{#1},
   id/.code=\tikz@anim@set@id{#1},
   now/.code={\tikz@animation@with{0later}do{#1}\pgf@stop\tikz@anim@time@scope},
+  fork/.style={now={#1}},
   @/.code=\def\tikz@animation@time{#1},
-  remember/.code=\pgfmathparse{\tikz@anim@t+(\tikz@anim@t@base)}\expandafter\global\expandafter\let\csname tikz@anim@rem@#1\endcsname\pgfmathresult,
-  resume/.code={\pgfmathsetmacro\tikz@anim@t{\csname tikz@anim@rem@#1\endcsname-(\tikz@anim@t@base)}\tikz@animation@with{}do{}\pgf@stop\tikz@anim@time@scope},
+  remember/.code=\pgfmathparse{\tikz@anim@t+(\tikz@anim@t@base)}\global\let#1\pgfmathresult,
+  resume/.code={\pgfmathsetmacro\tikz@anim@t{#1-(\tikz@anim@t@base)}\tikz@animation@with{}do{}\pgf@stop\tikz@anim@time@scope},
+  join/.code=\tikz@animation@with{}do{%
+    /utils/exec=\let\tikz@anim@save@last\tikz@anim@last\pgfmathparse{\tikz@anim@t+\tikz@anim@t@base}\global\let\tikz@anim@last\pgfmathresult,%
+    #1,%
+    /utils/exec=\let\tikz@anim@sync\tikz@anim@last\global\let\tikz@anim@last\tikz@anim@save@last}\pgf@stop\tikz@anim@time@scope%
 }
 
 
@@ -48,7 +54,7 @@
     \pgfkeys@spdef\tikz@anim@head{#1}%
     \pgfkeys@spdef\tikz@anim@tail{#2}%
     \let\tikz@anim@t@saved\tikz@anim@t%
-    \let\tikz@anim@t@new@base\tikz@anim@t@base%
+    \pgfmathsetmacro\tikz@anim@t@new@base{\tikz@anim@t@base}%
     \expandafter\expandafter\expandafter\def%
     \expandafter\expandafter\expandafter\tikz@anim@tl@options\expandafter\expandafter\expandafter{\expandafter\tikz@anim@tl@options\expandafter,\tikz@anim@head}%
     #3%
@@ -56,11 +62,17 @@
     \let\tikz@anim@t@local\tikz@anim@t@saved%
     \ifx\tikz@anim@tail\pgfkeysnovalue@text\else%
       \begingroup%
+        \pgfmathsetmacro\tikz@anim@t{\tikz@anim@t-\tikz@anim@t@base+\tikz@anim@t@new@base}%
         \let\tikz@anim@t@base\tikz@anim@t@new@base%
-        \def\tikz@anim@t{0}%
         \let\tikz@anim@options\tikz@anim@options@record%
+        \let\tikz@anim@sync\pgfutil@empty%
         \expandafter\tikzanimateset\expandafter{\tikz@anim@tail}%
-      \endgroup%
+      \expandafter\endgroup%
+      \expandafter\def\expandafter\tikz@anim@sync\expandafter{\tikz@anim@sync}%
+      \ifx\tikz@anim@sync\pgfutil@empty%
+      \else%
+        \pgfmathsetmacro\tikz@anim@t@local{\tikz@anim@sync-\tikz@anim@t@base}%
+      \fi%
     \fi%
   \expandafter\endgroup%
   \expandafter\def\expandafter\tikz@anim@t\expandafter{\tikz@anim@t@local}%
@@ -112,7 +124,8 @@
       \tikz@anim@parse@under#2_\pgf@stop%
     \fi%
     \expandafter\tikz@animation@with\expandafter{\expandafter}\expandafter d\expandafter o\expandafter{\tikz@animation@rest}\pgf@stop{}%
-  \endgroup%
+  \expandafter\endgroup%
+  \expandafter\def\expandafter\tikz@anim@t\expandafter{\tikz@anim@t}%
 }
 
 \def\tikz@anim@parse@under#1_#2\pgf@stop{%
@@ -415,6 +428,13 @@
   \else%
     \pgfparsetime{#1}\let\tikz@anim@t\pgftimeresult%
   \fi%
+  {%
+    \pgf@x\tikz@anim@t pt%
+    \advance\pgf@x by\tikz@anim@t@base pt%
+    \ifdim\pgf@x>\tikz@anim@last pt%
+      \xdef\tikz@anim@last{\pgf@sys@tonumber\pgf@x}%
+    \fi%
+  }%
 }
 \def\tikz@anim@parse@later#1later\pgf@stop{%
   \pgfparsetime{#1+\tikz@anim@t}\let\tikz@anim@t\pgftimeresult%
