@@ -131,13 +131,150 @@ object.
 
 \subsubsection{Concepts: Attributes}
 
-Once an object has been selected (using a syntax that will be
-explained later), ...
+In addition to the to-be-animated object, you must also choose an
+\emph{attribute} that you wish to animate. Attributes are things like
+the color of an object, the position, but also things like the line
+width. The syntax for choosing attributes and the list of attributes
+will be explained in detail later on.
+
+Most attributes correspond directly to attributes that are directly
+supported by the backend driver (\textsc{svg}), but this is not always
+the case. For instance, for a node, \tikzname\ differentiates between
+the fill color, the draw (stroke) color, and the text color, while
+\textsc{svg} treats the text color are a special case of the fill
+color. \tikzname\ will do some internal mappings to ensure that you
+can animate the ``\tikzname\ attributes'' even when they are not
+directly supported.
+
 
 
 \subsubsection{Concepts: Timelines}
 
-A \emph{timeline} specifies 
+Once an object and an attribute have been chosen, a \emph{timeline}
+needs to be established. This is, essentially, a curve that specifies
+for each ``moment in time'' which value the attribute should have.
+
+A timeline has a \emph{start} and an \emph{end,} but the start need
+not be the ``moment zero'' (we will come to that) and may even be
+negative, while the end may be at infinity. You specify the timeline
+by specifying for certain points in time what the value is at that
+moment; for all other moments the value is then interpolated. For
+instance, if you specify that the attribute |:xshift| (the
+``horizontal position'' of the object) is 0\,mm at time 5\,s and 10\,mm
+at time 10\,s, then at 7.5\,s it will be 5\,mm and at 9\,s it will
+be 8\,mm (assuming a linear interpolation). The resulting optical
+effect will be that the object \emph{smoothly moves} by one centimeter
+to the right over a period of five seconds, starting five seconds
+after ``moment zero''.
+
+Now, what is the ``moment zero,'' the ``beginning of an animation''? If
+nothing else is specified, an animation starts immediately when the
+graphic is shown and this is the moment zero relative to which the
+timeline is measured. However, it is also possible to change this. In
+particular, you can specify that the moment zero is when a particular
+\emph{event} occurs such as the user clicking on another object or
+another animation ending or starting.
+
+The interpolation of values is not always a straightforward affair.
+Firstly, for certain kinds of values is not clear how an interpolation
+should be computed. How does one interpolate between two paths?
+Between the colors red and green? Between the values |"visible"| and
+|"hidden"|? In these cases, one must define carefully what the
+interpolation should be. Secondly, you may wish to use a non-linear
+interpolation, which is useful for ``easing'' motions: The visual
+effect of the movement 
+specified above is that the object sits still from moment $0$ for five
+seconds, then there is an ``infinte acceleration'' causing the object
+to suddenly move at the speed of 2\,mm per second, then there is no
+acceleration at all for five seconds, causing the obejct to move for
+one centimeter, followed by an ``infinite negative acceleration'' that
+makes the object come to a full stop. As a viewer you experience these
+infinite accelerations as ``unrealistic,'' spoiling the effect of
+watching a (virtual) physical process. Non-linear interpolations allow
+you to avoid this effect. 
+
+Just as for specifying objects and attributes, there is also a special
+syntax for specifying times and values.
+
+
+\subsection{Syntax: Specifying Objects, Attributes, Times, and Values}
+
+A special syntax is used for specifying animations. This syntax is
+only available inside the following key:
+
+\begin{key}{/tikz/animate=\meta{animation specification}}
+  You must place all specifications of animations inside uses of
+  |animate|. You can, and usually should, place the complete animation
+  inside a single use of this key since it will reset the time and the
+  time base (to be explained later), but you can, in principle, also
+  split an animation over several uses of this command.
+
+  The key can be used at all places where a \tikzname\ key is used;
+  typically you will use it with a |{scope}| environment, inside the
+  options of a node, or directly with the |\tikz| command:
+
+\begin{codeexample}[width=2cm]
+\tikz \node [fill, text = white, animate = {myself:fill = {0s = "red", 10s = "blue"}}] {Text};
+\end{codeexample}
+\begin{codeexample}[width=2cm]
+\tikz [animate = {a node:fill = {0s = "red", 10s = "blue"}}]
+  \node (a node) [fill, text = white] {Text};
+\end{codeexample}
+
+  The details of what, exactly, happens in the \meta{animation
+    specification} will be described in the rest of the
+  section. However, basically, an \meta{animation specification} is
+  just a sequence of normal \tikzname\ key--value pairs that get
+  executed with the path prefix |/tikz/animate| and with some special
+  handlers installed. In particular, you can define styles for this
+  key path and use them. For instance, we can define a |shake|
+  animation like this:
+\begin{codeexample}[width=3.2cm]
+\tikzset{
+  animate/shake/.style = {:xshift = { #1,
+      0s = "0mm", 50ms = "1mm", 150ms = "-1mm", 250ms = "1mm", 300ms = "0mm" }}}
+\tikz \node [fill = blue!20, draw=blue, very thick, circle,
+  animate me = {shake = {begin on=click}}] {Click me};
+\end{codeexample}
+
+  Note that, as stressed earlier, you can only use the |animate| key
+  to specify animations for objects that do not yet exist. The node
+  and object names mentioned in a specification always refer to
+  ``upcoming'' object; already existing objects of the same name are
+  not influenced.
+\end{key}
+
+\begin{key}{/tikz/animate me=\meta{animation specification}}
+  This key has almost the same effect as |animate|, only the object
+  slot (to be explained in a moment) is preset to |myself:|. This
+  means that |animate me=|\meta{foo} is just a shorthand for
+  |animate={myself:| |=| |{|\meta{foo}|}| |}|.
+
+  You typically use this key when you specify an animation locally
+  inside the options of the to-be-animated object.
+\end{key}
+
+
+
+\subsubsection{Specifying Objects and Attributes}
+
+Inside \meta{animation specification} (or, more generally, for all
+keys executed with the path prefix |/tikz/animate|), you can specify
+an object and an attribute of this object using the following syntax:
+\begin{quote}
+  \normalfont
+  \opt{\meta{object name(s)}}|:|\opt{\meta{attribute(s)}} |={|\meta{options}|}|
+\end{quote}
+That is, in the place to the left of an equal sign where you would
+normally use a key, you can instead place an object name and an
+attribute separated by a colon. What happens is that the
+\meta{options} now get executed in a local scope and if they specify a
+timeline (we will see in a moment how that works), the object and the
+attribute to which they apply will the one you selected here.
+
+
+
+
 
 
 
