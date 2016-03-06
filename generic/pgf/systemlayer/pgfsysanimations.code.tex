@@ -17,6 +17,10 @@
 \fi
 
 
+% We need some support:
+\ifx\pgfmathloaded\pgfutil@undefined
+  \input pgfmath.code.tex
+\fi
 
 
 % Animation abstraction layer
@@ -28,55 +32,426 @@
 % especially useful for printing. For these snapshots, instead of
 % adding an animation property to a scope, the property is actually
 % set to a certain value computed by \TeX.
+%
+%
+% For each \pgfsys@animation@... command there is a corresponding
+% \pgfsysanim command.
 
 
-% Right now, these commands simply map to the normal system commands.
+% Set the current time to a snapshot time
+%
+% #1 = a global snapshot time (a dimensionless number, measured in
+%      seconds). 
+% #2 = must be + or -, which means that the time meant is #1+eps or
+%      #1-eps (this is relevant when multiple values are specified for
+%      the same time; in this case, #1-eps refers to the first of
+%      them, #1+eps to the last of them)
+% #3 = a sequence of tuples of the form {object}{type}{event}{event options}{time}
+%      that specifies when the specified events have occurred.
+%
+% Description:
+%
+% When this command is used in a scope, instead of creating an
+% animation, pgf will insert appropriate commands that show the state
+% of the animation at the given time.
+%
+% The value #1 can be thought of as the "global time", which is the
+% time that elapsed since the "onload" event. The sequence in #3 can
+% be used to specify which events have occurred: Some animations only
+% start when certain events have occurred; in this case the sequence
+% in #3 tells us when these happend relative to the global time. The
+% "event options" are relevant only for the accesskey event and the
+% repeats event, where they specify the key or the number of repeats.
+%
+% The following commands and effect for animations are ignored / not
+% implemented for snapshots (meaning that even if the "real" animation
+% would look in a certain way because of one of the following commands
+% or effects, the snapshot will not reflect this):
+%
+% - All events whose target is "end". Thus, snapshots ignore the end
+%   of animation (however, this may change in the future, so it is
+%   best not to use snapshots in conjunction with "end" targets.
+% - All restart settings. Snapshots currently always assume the
+%   "never" is the restart setting. Again, this may change in the
+%   future and should not be taken for granted.
+% - The "current value" as starting value (pgf has no real chance of
+%   determining the correct value of this). Using this with a snapshot
+%   will raise an errer.
+% - The "paced" speed in "exotic" situations such as colors or
+%   scalars. Using this with a snapshot will raise an error.
+% - The "sum" versus "replace" properties. In a snapshot, if there are
+%   several animations for an attribute, they are treated as if they
+%   were separate animations of the attribute on nested scopes. This
+%   means that for attributes like a color the "replace" is used in
+%   effect, while for transformations the "sum" is used.
+%
+% Example:
+%
+% {
+%   \pgfsyssnapshot{2}{+}{}%
+%   \pgfsysanimkeytime{0}{1}{1}{0}{0}
+%   \pgfsysanimvalscalar{1}
+%   \pgfsysanimkeytime{5}{1}{1}{0}{0}
+%   \pgfsysanimvalscalar{0}
+%   \pgfsysanimkeywhom{\someid}{}
+%   \pgfsysanimate{fillopacity}%
+%   % Will set the opacity of \someid to 0.6
+% }
+
+\def\pgfsyssnapshot#1#2#3{%
+  \def\pgfsysanim@snaptime{#1}%
+  \def\pgfsysanim@snapevents{#3}%
+  \ifx#2\pgfsysanim@plus@text%
+    \pgfsysanim@snap@firstfalse%
+  \else%
+    \pgfsysanim@snap@firsttrue%
+  \fi
+  \pgfsysanim@is@snaptrue%
+}
+\newif\ifpgfsysanim@is@snap
+\newif\ifpgfsysanim@snap@first
+\def\pgfsysanim@plus@text{+}
 
 
-\def\pgfsysanimate{\pgfsys@animate}
+
+% Companion for \pgfsys@animate
+%
+% #1 = attribute
+%
+% Description:
+%
+% If not snapshot is set, \pgfsys@animate is simply called. Otherwise,
+% appropriate code is generated that sets the specified attribute of
+% the whom object to the value it would have during the animation at
+% the moment of the snapshot.
+
+\def\pgfsysanimate#1{%
+  \ifpgfsysanim@is@snap%
+    \expandafter\ifx\csname pgfsysanim@prep@attr@#1\endcsname\pgfutil@undefined%
+    \else%
+      \csname pgfsysanim@prep@attr@#1\endcsname%
+      \expandafter\pgfsys@attach@to@id\expandafter{\expandafter\pgfsysanim@whom@id\expandafter}%
+      \expandafter{\expandafter\pgfsysanim@whom@type\expandafter}\expandafter{\pgfsys@anim@code}{}{}%
+    \fi%
+  \else%
+    \pgfsys@animate{#1}%
+  \fi%
+}
+
+
+% Companions for \pgfsys@animation@restart@...
+%
+% Description:
+%
+% These commands just call \pgfsys@animation@restart@... and they are
+% *ignored* when it comes to snapshots.
+
 \def\pgfsysanimkeyrestartalways{\pgfsys@animation@restart@always}
 \def\pgfsysanimkeyrestartnever{\pgfsys@animation@restart@never}
 \def\pgfsysanimkeyrestartwhennotactive{\pgfsys@animation@restart@whennotactive}
-\def\pgfsysanimkeyrepeat{\pgfsys@animation@repeat}
-\def\pgfsysanimkeyrepeatindefinite{\pgfsys@animation@repeat@indefinite}
-\def\pgfsysanimkeyrepeatduration{\pgfsys@animation@repeat@dur}
-\def\pgfsysanimkeyfreezeatend{\pgfsys@animation@freezeatend}
-\def\pgfsysanimkeyremoveatend{\pgfsys@animation@removeatend}
-\def\pgfsysanimkeytime{\pgfsys@animation@time}
+
+
+
+% Companions for \pgfsys@animation@repeat...
+%
+% Description:
+%
+% These commands call \pgfsys@animation@repeat... and, if there is a
+% snapshot installed, the passed values are taken into consideration.
+
+\def\pgfsysanimkeyrepeat#1{%
+  \pgfsys@animation@repeat{#1}%
+  % Snapshot
+  \let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@normal%
+  \def\pgfsysanim@snap@repeat@arg{#1}%
+}
+\def\pgfsysanimkeyrepeatindefinite{%
+  \pgfsys@animation@repeat@indefinite%
+  % Snapshot
+  \let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@indefinite%
+  \let\pgfsysanim@snap@repeat@arg\pgfutil@empty%
+}
+\def\pgfsysanimkeyrepeatduration#1{%
+  \pgfsys@animation@repeat@dur{#1}%
+  % Snapshot
+  \let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@dur%
+  \def\pgfsysanim@snap@repeat@arg{#1}%
+}
+\def\pgfsysanim@snap@repeat@none{n}%
+\def\pgfsysanim@snap@repeat@normal{m}%
+\def\pgfsysanim@snap@repeat@indefinite{i}%
+\def\pgfsysanim@snap@repeat@dur{d}%
+\let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@none
+\let\pgfsysanim@snap@repeat@arg\pgfutil@empty
+
+
+
+% Companions for \pgfsys@animation@freezeatend and
+% \pgfsys@animation@removeatend 
+%
+% Description:
+%
+% These commands call the two system commands and, if there is a
+% snapshot installed, the settings are taken into consideration.
+
+\def\pgfsysanimkeyfreezeatend{\pgfsys@animation@freezeatend\pgfsysanim@freezeatendtrue}
+\def\pgfsysanimkeyremoveatend{\pgfsys@animation@removeatend\pgfsysanim@freezeatendfalse}
+\newif\ifpgfsysanim@freezeatend
+
+
+
+% Companion for \pgfsys@animation@time
+%
+% #1 to #5 = as in \pgfsys@animation@time
+%
+% Description:
+%
+% Calls \pgfsys@animation@time. Furthermore, the specified times are
+% recorded so that they can later be analysed for the computation
+% needed for a snapshot.
+
+\def\pgfsysanimkeytime#1#2#3#4#5{%
+  % Setup animation
+  \pgfsys@animation@time{#1}{#2}{#3}{#4}{#5}%
+  % and rember for snapshots
+  \def\pgfsysanim@snap@time{{#1}{#2}{#3}{#4}{#5}}%
+}
+
+
+
+% Companion for \pgfsys@animation@offset
+%
+% #1, #2 = as in \pgfsys@animation@offset
+%
+% Description:
+%
+% Calls \pgfsys@animation@offset. Furthermore, if #2 is "begin", the
+% specified offset is recorded so that it can later be analysed for
+% the computation needed for a snapshot.
+
 \def\pgfsysanimkeyoffset{\pgfsys@animation@offset}
 \def\pgfsysanimkeysyncbegin{\pgfsys@animation@syncbegin}
 \def\pgfsysanimkeysyncend{\pgfsys@animation@syncend}
 \def\pgfsysanimkeyevent{\pgfsys@animation@event}
 \def\pgfsysanimkeyrepeatevent{\pgfsys@animation@repeat@event}
 \def\pgfsysanimkeyaccesskey{\pgfsys@animation@accesskey}
+% not yet implemented for snapshots
+
+
+
+% Companions for \pgfsys@animation@sum and \pgfsys@animation@replace
+%
+% Description:
+%
+% Calls \pgfsys@animation@sum or \pgfsys@animation@replace. Note that
+% these commands are *ignored* for snapshots: In a snapshot, all
+% attribute animations have the effect of being added to a new scope.
+
 \def\pgfsysanimkeysum{\pgfsys@animation@sum}
 \def\pgfsysanimkeyreplace{\pgfsys@animation@replace}
-\def\pgfsysanimkeyaccumulate{\pgfsys@animation@accumulate}
-\def\pgfsysanimkeynoaccumulate{\pgfsys@animation@noaccumulate}
-\def\pgfsysanimkeywhom{\pgfsys@animation@whom}
-\def\pgfsysanimkeypaced{\pgfsys@animation@paced}
-\def\pgfsysanimkeyspline{\pgfsys@animation@spline}
+
+
+% Companions for \pgfsys@animation@(no)accumulate
+%
+% Description:
+%
+% Calls \pgfsys@animaion@(no)accumulate and records the setting for
+% snapshots. 
+
+\def\pgfsysanimkeyaccumulate{\pgfsys@animation@accumulate\pgfsysanim@accumulatetrue}
+\def\pgfsysanimkeynoaccumulate{\pgfsys@animation@noaccumulate\pgfsysanim@accumulatefalse}
+\newif\ifpgfsysanim@accumulate
+
+
+
+
+% Companion for \pgfsys@animation@whom
+%
+% #1 and #2 = as for \pgfsys@animation@whom
+%
+% Description:
+%
+% Calls \pgfsys@animation@whom and records the setting for snapshots. 
+
+\def\pgfsysanimkeywhom#1#2{%
+  \pgfsys@animation@whom{#1}{#2}%
+  % Snapshots
+  \def\pgfsysanim@whom@id{#1}%
+  \def\pgfsysanim@whom@type{#2}%
+}
+
+
+
+
+% Companion for \pgfsys@animation@paced
+%
+% #1 and #2 = as for \pgfsys@animation@paced
+%
+% Description:
+%
+% Calls the system layer command and records the setting for
+% snapshots. Note that a paced setting is not possible for all
+% attributes. 
+
+\def\pgfsysanimkeypaced#1#2{%
+  \pgfsys@animation@paced{#1}{#2}%
+  % Snapshot
+  \pgfsysanim@pacedtrue%
+  \def\pgfsysanim@snap@paced{{#1}{#2}}%
+}
+
+
+% Companion for \pgfsys@animation@spline
+%
+% Description:
+%
+% Calls the system layer command and records the setting for
+% snapshots. 
+
+\def\pgfsysanimkeyspline{\pgfsys@animation@spline\pgfsysanim@pacedfalse}
+\newif\ifpgfsysanim@paced
+
+
+
+% Companions for \pgfsys@animation@rotatealong and
+% \pgfsys@animation@norotatealong 
+%
+% Description:
+%
+% Calls the system layer command and records the setting for
+% snapshots. 
+
 \def\pgfsysanimkeyrotatealong{\pgfsys@animation@rotatealong}
 \def\pgfsysanimkeynorotatealong{\pgfsys@animation@norotatealong}
-\def\pgfsysanimkeymovealong{\pgfsys@animation@movealong}
-\def\pgfsysanimkeycanvastransform{\pgfsys@animation@canvas@transform}
-\def\pgfsysanimvalcurrent{\pgfsys@animation@val@current}
-\def\pgfsysanimvaltext{\pgfsys@animation@val@text}
-\def\pgfsysanimvalscalar{\pgfsys@animation@val@scalar}
-\def\pgfsysanimvaldimension{\pgfsys@animation@val@dimension}
-\def\pgfsysanimvalcolor#1#2{%
+
+
+
+% Companion for \pgfsys@animation@movealong
+%
+% #1 = the path
+%
+% Description:
+%
+% Calls the system layer command and records the setting for
+% snapshots.
+
+\def\pgfsysanimkeymovealong#1{%
+  \pgfsys@animation@movealong{#1}%
+  % Snapshot
+  \def\pgfsysanim@snap@movealong{#1}%
+}
+
+
+% Companion for \pgfsys@animation@canvas@transform
+%
+% Description:
+%
+% Calls the system layer command and records the setting for
+% snapshots.
+
+\def\pgfsysanimkeycanvastransform#1#2{%
+  \pgfsys@animation@canvas@transform{#1}{#2}%
+  % Snapshot
+  \def\pgfsysanim@snap@canvas@transform{{#1}{#2}}%
+}
+
+
+
+
+
+% Companion for \pgfsys@animation@val@current
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% an error results.
+
+\def\pgfsysanimvalcurrent{%
+  \pgfsys@animation@val@current%
+  \ifpgfsysanim@is@snap%
+    \pgferror{You may not use "current value" with an animation snapshot}%
+  \fi%
+}
+
+
+
+% Companion for \pgfsys@animation@val@text
+%
+% #1 = as for \pgfsys@animation@val@text
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvaltext#1{%
+  \pgfsys@animation@val@text{#1}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{#1}%
+  \fi%
+}
+
+
+
+
+% Companion for \pgfsys@animation@val@scalar
+%
+% #1 = as for \pgfsys@animation@val@scalar
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalscalar#1{%
+  \pgfsys@animation@val@scalar{#1}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{#1}%
+  \fi%
+}
+
+
+
+% Companion for \pgfsys@animation@val@dimension
+%
+% #1 = as for \pgfsys@animation@val@dimension
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvaldimension#1{%
+  \pgfsys@animation@val@dimension{#1}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{#1}%
+  \fi%
+}
+
+
+
+% Dispatcher for different color values
+%
+% #1 = a color value (like "red" or "black!20")
+%
+% Description:
+%
+% This macro transforms #1 into its correct color model and, then,
+% calls the correct \pgfsysanimcolorXXX macro.
+
+\def\pgfsysanimvalcolor#1{%
   \pgfutil@colorlet{pgf@anim@temp}{#1}%
   \pgfutil@ifundefined{applycolormixins}{}{\applycolormixins{pgf@anim@temp}}%
   \expandafter\let\expandafter\pgf@sys@temp\csname\string\color@pgf@anim@temp\endcsname
-  \expandafter\pgfanim@parse@type@color@\pgf@sys@temp{#2}%
+  \expandafter\pgfanim@parse@type@color@\pgf@sys@temp%
 }
-\def\pgfanim@parse@type@color@#1#2#3#4#5#6{%
-  \expandafter\ifx\csname pgfsys@animation@val@color@#4\endcsname\relax%
+\def\pgfanim@parse@type@color@#1#2#3#4#5{%
+  \expandafter\ifx\csname pgfsysanimvalcolor#4\endcsname\relax%
     \pgferror{Unsupported color model `#4'}%
   \else%
-    \edef\pgf@sys@colmarshal{\expandafter\noexpand\csname pgfsys@animation@val@color@#4\endcsname}%
+    \edef\pgf@sys@colmarshal{\expandafter\noexpand\csname pgfsysanimvalcolor#4\endcsname}%
     \pgf@sys@uncomma#5,,%
-    \pgf@sys@colmarshal{#6}%
+    \pgf@sys@colmarshal%
   \fi%
 }
 
@@ -88,14 +463,373 @@
     \expandafter\pgf@sys@uncomma%
   \fi%
 }
-\def\pgfsysanimvalcolorcmyk{\pgfsys@animation@val@color@cmyk}
-\def\pgfsysanimvalcolorcmy{\pgfsys@animation@val@color@cmy}
-\def\pgfsysanimvalcolorgray{\pgfsys@animation@val@color@gray}
-\def\pgfsysanimvalpath{\pgfsys@animation@val@path}
-\def\pgfsysanimvaltranslate{\pgfsys@animation@val@translate}
-\def\pgfsysanimvalscale{\pgfsys@animation@val@scale}
-\def\pgfsysanimvalviewbox{\pgfsys@animation@val@viewbox}
+
+
+
+
+% Companion for \pgfsys@animation@val@color@rgb
+%
+% #1, #2, #3 = as for \pgfsys@animation@val@color@rgb
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalcolorrgb#1#2#3{%
+  \pgfsys@animation@val@color@rgb{#1}{#2}{#3}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#2}{#3}}%
+  \fi%  
+}
+
+
+
+% Companion for \pgfsys@animation@val@color@cmyk
+%
+% #1, #2, #3, #4 = as for \pgfsys@animation@val@color@cmyk
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalcolorcmyk#1#2#3#4{%
+  \pgfsys@animation@val@color@cmyk{#1}{#2}{#3}{#4}%
+  \ifpgfsysanim@is@snap%
+    \pgferror{not yet implemented}% must call
+                                % \pgfsysanim@snap@record{{coverted rgb values}}
+  \fi%  
+}
+
+
+% Companion for \pgfsys@animation@val@color@cmy
+%
+% #1, #2, #3 = as for \pgfsys@animation@val@color@cmy
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalcolorcmy#1#2#3{%
+  \pgfsys@animation@val@color@cmy{#1}{#2}{#3}%
+  \ifpgfsysanim@is@snap%
+    \pgferror{not yet implemented}% must call
+                                % \pgfsysanim@snap@record{{coverted rgb values}}
+  \fi%  
+}
+
+
+
+% Companion for \pgfsys@animation@val@color@gray
+%
+% #1 = as for \pgfsys@animation@val@color@gray
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalcolorgray#1{%
+  \pgfsys@animation@val@color@gray{#1}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#1}{#1}}%
+  \fi%  
+}
+
+
+
+% Companion for \pgfsys@animation@val@path
+%
+% #1 = as for \pgfsys@animation@val@path
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalpath#1{
+  \pgfsys@animation@val@path{#1}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{#1}%
+  \fi%  
+}
+
+
+% Companion for \pgfsys@animation@val@translate
+%
+% #1, #2 = as for \pgfsys@animation@val@translate
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvaltranslate#1#2{
+  \pgfsys@animation@val@translate{#1}{#2}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#2}}%
+  \fi%  
+}
+
+
+
+% Companion for \pgfsys@animation@val@scale
+%
+% #1, #2 = as for \pgfsys@animation@val@scale
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalscale#1#2{
+  \pgfsys@animation@val@scale{#1}{#2}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#2}}%
+  \fi%  
+}
+
+
+
+% Companion for \pgfsys@animation@val@viewbox
+%
+% #1, #2, #3, #4 = as for \pgfsys@animation@val@viewbox
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvalviewbox#1#2#3#4{
+  \pgfsys@animation@val@viewbox{#1}{#2}{#3}{#4}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#2}{#3}{#4}}%
+  \fi%  
+}
+
+
+
+
+% Companion for \pgfsys@animation@val@dash
+%
+% #1, #2 = as for \pgfsys@animation@val@dash
+%
+% Description:
+%
+% Calls the system layer command. If a snapshot is currently active,
+% the value is recorded in the timeline.
+
+\def\pgfsysanimvaldash#1#2{
+  \pgfsys@animation@val@dash{#1}{#2}%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@snap@record{{#1}{#2}}%
+  \fi%  
+}
+
+
+% To be removed!
+
+\def\pgfsysanimvaldashphase{\pgfsys@animation@val@dashphase}
 \def\pgfsysanimvaldashpattern{\pgfsys@animation@val@dashpattern}
+
+
+
+
+
+
+
+% To be implemented later...
+
+\def\pgfsysanim@test@time#1{%
+  \ifdim\pgfsysanim@time pt<\pgfsysanim@snaptime pt%
+    % snap time not yet reached. Update previous:
+    \def\pgfsysanim@prev@val{#1}%
+    \let\pgfsysanim@prev@time\pgfsysanim@time%
+    \let\pgfsysanim@next@val\relax%
+    \let\pgfsysanim@next@time\relax%
+  \else%
+    \ifdim\pgfsysanim@time pt=\pgfsysanim@snaptime pt%
+      \ifpgfsysanim@snap@first%
+        \ifx\pgfsysanim@next@val\relax%
+          % first? Save!
+          \def\pgfsysanim@prev@val{#1}%
+          \let\pgfsysanim@prev@time\pgfsysanim@time%
+          \let\pgfsysanim@next@val\pgfsysanim@prev@val%
+          \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+        % else, do nothing
+        \fi
+      \else%
+        % always overwrite:  
+        \def\pgfsysanim@prev@val{#1}%
+        \let\pgfsysanim@prev@time\pgfsysanim@time%
+        \let\pgfsysanim@next@val\pgfsysanim@prev@val%
+        \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+      \fi%
+    \else%
+      % we passed the time!
+      \ifx\pgfsysanim@next@val\relax%
+        % first? Then save!
+        \def\pgfsysanim@next@val{#1}%
+        \let\pgfsysanim@next@time\pgfsysanim@time%
+      % else: ignore later times!
+      \fi%
+    \fi%
+  \fi%  
+}
+
+\let\pgfsysanim@prev@val\relax%
+\let\pgfsysanim@prev@time\relax%
+\let\pgfsysanim@next@val\relax%
+\let\pgfsysanim@next@time\relax%
+
+
+% The code for the different attributes
+
+\def\pgfsysanim@prep@attr@opacity{%
+  \pgfsysanim@comp@scalar%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@opacity{\pgfsysanim@x@val}}%
+}
+
+\def\pgfsysanim@prep@attr@fillopacity{%
+  \pgfsysanim@comp@scalar%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@fill@opacity{\pgfsysanim@x@val}}%
+}
+
+\def\pgfsysanim@prep@attr@strokeopacity{%
+  \pgfsysanim@comp@scalar%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@stroke@opacity{\pgfsysanim@x@val}}%
+}
+
+\def\pgfsysanim@prep@attr@visibility{%
+  \pgfsysanim@comp@text%
+  \pgferror{snapshot of visibility not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@staged{%
+  \pgfsysanim@comp@text%
+  \pgferror{snapshot of visibility not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@linewidth{%
+  \pgfsysanim@comp@dimension%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@setlinewidth{\pgfsysanim@x@val pt}}%
+}
+
+\def\pgfsysanim@prep@attr@dashphase{%
+  \pgfsysanim@comp@dimension%
+  \pgferror{snapshot of dash not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@dashpattern{%
+  \pgfsysanim@comp@dasharray%
+  \pgferror{snapshot of dash not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@translate{%
+  \pgfsysanim@comp@translate%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@transformshift{\pgfsysanim@x@val pt}{\pgfsysanim@y@val pt}}%
+}
+
+\def\pgfsysanim@prep@attr@scale{%
+  \pgfsysanim@comp@scale%
+  \edef\pgfsys@anim@code{\noexpand\pgfsys@transformxyscale{\pgfsysanim@x@val}{\pgfsysanim@y@val}}%
+}
+
+\def\pgfsysanim@prep@attr@rotate{%
+  \pgfsysanim@comp@scalar%
+  {%
+    \pgfmathsin@{\pgfsysanim@x@val}%
+    \let\pgftransform@sin=\pgfmathresult%
+    \pgfmathcos@{\pgfsysanim@x@val}%
+    \let\pgftransform@cos=\pgfmathresult%
+    \pgf@x=\pgftransform@sin pt%
+    \pgf@xa=-\pgf@x%
+    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{\pgftransform@cos}{\pgftransform@sin}{\pgf@sys@tonumber{\pgf@xa}}{\pgftransform@cos}{0pt}{0pt}}%
+  \expandafter}%
+  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+}
+
+\def\pgfsysanim@prep@attr@skewx{%
+  \pgfsysanim@comp@scalar%
+  {%
+    \pgfmathatan@{\pgfsysanim@x@val}%
+    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{1}{0}{\pgfmathresult}{1}{0pt}{0pt}}%
+  \expandafter}%
+  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+}
+
+\def\pgfsysanim@prep@attr@skewy{%
+  \pgfsysanim@comp@scalar%
+  {%
+    \pgfmathatan@{\pgfsysanim@x@val}%
+    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{1}{\pgfmathresult}{0}{1}{0pt}{0pt}}%
+  \expandafter}%
+  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+}
+
+\def\pgfsysanim@prep@attr@motion{%
+  \pgfsysanim@comp@motion%
+  \pgferror{snapshot of motion not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@strokecolor{%
+  \pgfsysanim@comp@color%
+  \pgferror{snapshot of colors not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@fillcolor{%
+  \pgfsysanim@comp@color%
+  \pgferror{snapshot of colors not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@viewbox{%
+  \pgfsysanim@comp@viewbox%
+  \pgferror{snapshot of viewbox not yet implemented}%
+}
+
+\def\pgfsysanim@prep@attr@path{%
+  \pgfsysanim@comp@path%
+  \pgferror{snapshot of path not yet implemented}%
+}
+
+
+\def\pgfsysanim@comp@scalar{%
+  \pgfsysanim@compute@fractions%
+  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@a*\pgfsysanim@prev@val+\pgfsysanim@frac@b*\pgfsysanim@next@val}%
+}
+\def\pgfsysanim@comp@scale{\pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@snaptime}\def\pgfsysanim@y@val{1}}
+\def\pgfsysanim@comp@dimension{%
+  \pgfsysanim@compute@fractions%
+  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@b*\pgfsysanim@prev@val+\pgfsysanim@frac@a*\pgfsysanim@next@val}%
+}
+\def\pgfsysanim@comp@dasharray{\pgferror{not yet implemented}}
+\def\pgfsysanim@comp@color{\pgferror{not yet implemented}}
+\def\pgfsysanim@comp@viewbox{\pgferror{not yet implemented}}
+\def\pgfsysanim@comp@path{\pgferror{not yet implemented}}
+\def\pgfsysanim@comp@translate{
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@translate@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
+}
+\def\pgfsysanim@comp@translate@#1#2#3#4{%
+  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@b*#1+\pgfsysanim@frac@a*#3}%
+  \pgfmathsetmacro\pgfsysanim@y@val{\pgfsysanim@frac@b*#2+\pgfsysanim@frac@a*#4}%  
+}
+\def\pgfsysanim@comp@motion{\pgferror{not yet implemented}}
+\def\pgfsysanim@comp@text{\pgferror{not yet implemented}}
+
+\def\pgfsysanim@compute@fractions{%
+  % This must be redone and made numerically stable!
+  \ifdim\pgfsysanim@snaptime pt=\pgfsysanim@prev@time pt%
+    \def\pgfsysanim@frac@a{1}%
+    \def\pgfsysanim@frac@b{0}%
+  \else%
+    \pgfmathsetmacro{\pgfsysanim@frac@a}{(\pgfsysanim@snaptime-\pgfsysanim@prev@time)/(\pgfsysanim@next@time-\pgfsysanim@prev@time)}%
+    \pgfmathsetmacro{\pgfsysanim@frac@b}{1-\pgfsysanim@frac@a}%
+  \fi%
+}
+
 
 
 \endinput
