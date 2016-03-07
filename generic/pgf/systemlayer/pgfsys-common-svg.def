@@ -590,7 +590,6 @@
 \def\pgfsys@anim@val@calcMode{spline}
 \let\pgfsys@anim@val@from\pgfutil@empty
 \let\pgfsys@anim@val@to\pgfutil@empty
-\let\pgfsys@anim@val@by\pgfutil@empty
 \let\pgfsys@anim@val@path\pgfutil@empty
 \let\pgfsys@anim@val@rotate\pgfutil@empty
 \let\pgfsys@anim@val@values\pgfutil@empty
@@ -681,12 +680,13 @@
     \fi%
     \pgf@sys@svg@do@events{end}%
     #2%
-    \edef\pgf@temp{{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
+    \edef\pgf@temp{{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys\pgf@svg@anim@keys@extra/>\pgfsys@svg@newline}}%
     \expandafter\pgfsysprotocol@literal\pgf@temp%    
     \pgfsys@invalidate@currentid%
   }%
   \fi%
 }
+\let\pgf@svg@anim@keys@extra\pgfutil@empty
 
 \def\pgf@sys@svg@anim@trans#1#2{%
   \ifx\pgfsys@anim@val@@id\pgfutil@empty%
@@ -803,9 +803,19 @@
 \def\pgfsys@svg@animatestrokecolor{\pgf@sys@svg@anim{animate attributeName="stroke"}{}}
 \def\pgfsys@svg@animateviewbox{\pgf@sys@svg@anim{animate attributeName="viewBox"}{}}
 \def\pgfsys@svg@animatepath{\pgf@sys@svg@anim{animate attributeName="d"}{}}
-\def\pgfsys@svg@animatedashphase{\pgf@sys@svg@anim{animate attributeName="stroke-dashoffset"}{}}
-\def\pgfsys@svg@animatedashpattern{\pgf@sys@svg@anim{animate attributeName="stroke-dasharray"}{}}
+%\def\pgfsys@svg@animatedashphase{\pgf@sys@svg@anim{animate attributeName="stroke-dashoffset"}{}}
+%\def\pgfsys@svg@animatedashpattern{\pgf@sys@svg@anim{animate attributeName="stroke-dasharray"}{}}
 \def\pgfsys@svg@animatesyncbase{{\pgf@sys@svg@is@sync@basetrue\pgf@sys@svg@anim{animate}{}}}
+\def\pgfsys@svg@animatedash{%
+  \pgf@sys@svg@anim{animate attributeName="stroke-dasharray"}{%
+    \pgf@svg@anim@prep@dash{from}{\pgfsys@anim@val@from}\let\pgfsys@anim@val@from\pgfutil@empty%
+    \pgf@svg@anim@prep@dash{to}{\pgfsys@anim@val@to}\let\pgfsys@anim@val@to\pgfutil@empty%
+    \pgf@svg@anim@prep@dash{values}{\pgfsys@anim@val@values}\let\pgfsys@anim@val@values\pgfutil@empty%
+    \let\pgf@svg@anim@keys@extra\pgf@svg@anim@dash@array%
+    \edef\pgf@temp{{<animate attributeName="stroke-dashoffset" \pgf@svg@anim@keys\pgf@svg@anim@dash@offset/>\pgfsys@svg@newline}}%
+    \expandafter\pgfsysprotocol@literal\pgf@temp% 
+  }%
+}
 
 % The transforming animations
 \def\pgfsys@svg@animatetranslate{\pgf@sys@svg@anim@trans{animateTransform attributeName="transform" type="translate"}{}}
@@ -1071,15 +1081,51 @@
   }%
   \pgf@sys@svg@entry{\pgf@svg@anim@temp}%
 }
-\def\pgfsys@animation@val@dashpattern#1{%
+\def\pgfsys@animation@val@dash#1#2{%
   \edef\pgf@test@dashpattern{#1}%
   \let\pgf@sys@svg@parsed@dash\pgfutil@empty%
   \expandafter\pgf@sys@svg@parse@dash\pgf@test@dashpattern,\relax%
-  \pgf@sys@svg@entry{\pgf@sys@svg@parsed@dash}%
+  {%
+    \pgf@x=#2\relax%
+    \xdef\pgf@svg@anim@temp{\expandafter\Pgf@geT\the\pgf@x}%
+  }%
+  \pgf@sys@svg@entry{{\pgf@sys@svg@parsed@dash}{\pgf@svg@anim@temp}}%
 }
 
 
+\let\pgf@svg@anim@dash@array\pgfutil@empty
+\let\pgf@svg@anim@dash@offset\pgfutil@empty
+
+\def\pgf@svg@anim@prep@dash#1#2{%
+  % #1 = from or to or values
+  % #2 = \pgfsys@anim@val@from or \pgfsys@anim@val@to or \pgfsys@anim@val@values
+  \ifx#2\pgfutil@empty%
+  \else%
+    \def\pgf@svg@anim@where{#1}%
+    \edef\pgf@svg@anim@dash@array{\pgf@svg@anim@dash@array\space #1="}% 
+    \edef\pgf@svg@anim@dash@offset{\pgf@svg@anim@dash@offset\space #1="}% 
+    \expandafter\pgf@svg@anim@prep@dash@parse#2\pgf@stop%
+    \edef\pgf@svg@anim@dash@array{\pgf@svg@anim@dash@array"}% 
+    \edef\pgf@svg@anim@dash@offset{\pgf@svg@anim@dash@offset"}% 
+  \fi%
+}
+
+\def\pgf@svg@anim@prep@dash@parse#1#2{%
+  \expandafter\def\expandafter\pgf@svg@anim@dash@array\expandafter{\pgf@svg@anim@dash@array#1}%
+  \expandafter\def\expandafter\pgf@svg@anim@dash@offset\expandafter{\pgf@svg@anim@dash@offset#2}%
+  \pgfutil@ifnextchar;{%
+    \expandafter\def\expandafter\pgf@svg@anim@dash@array\expandafter{\pgf@svg@anim@dash@array;}%
+    \expandafter\def\expandafter\pgf@svg@anim@dash@offset\expandafter{\pgf@svg@anim@dash@offset;}%
+    \expandafter\pgf@svg@anim@prep@dash@parse\pgfutil@gobble%
+  }{%
+    \pgfutil@gobble% done, gobble \pgf@stop
+  }%
+}
+
+
+%
 % RDF
+%
 
 \def\pgf@svg@rdf@init{%
   \ifx\pgfsys@svg@rdf\pgfutil@empty%
