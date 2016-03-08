@@ -18,9 +18,7 @@
 
 
 % We need some support:
-\ifx\pgfmathloaded\pgfutil@undefined
-  \input pgfmath.code.tex
-\fi
+\usepgfmodule{decorations}
 
 
 % Animation abstraction layer
@@ -32,7 +30,6 @@
 % especially useful for printing. For these snapshots, instead of
 % adding an animation property to a scope, the property is actually
 % set to a certain value computed by \TeX.
-%
 %
 % For each \pgfsys@animation@... command there is a corresponding
 % \pgfsysanim command.
@@ -100,8 +97,9 @@
 
 \def\pgfsyssnapshot#1#2#3{%
   \def\pgfsysanim@snaptime{#1}%
+  \def\pgfsysanim@temp{#2}%
   \def\pgfsysanim@snapevents{#3}%
-  \ifx#2\pgfsysanim@plus@text%
+  \ifx\pgfsysanim@temp\pgfsysanim@plus@text%
     \pgfsysanim@snap@firstfalse%
   \else%
     \pgfsysanim@snap@firsttrue%
@@ -127,16 +125,30 @@
 
 \def\pgfsysanimate#1{%
   \ifpgfsysanim@is@snap%
-    \expandafter\ifx\csname pgfsysanim@prep@attr@#1\endcsname\pgfutil@undefined%
-    \else%
-      \csname pgfsysanim@prep@attr@#1\endcsname%
-      \expandafter\pgfsys@attach@to@id\expandafter{\expandafter\pgfsysanim@whom@id\expandafter}%
-      \expandafter{\expandafter\pgfsysanim@whom@type\expandafter}\expandafter{\pgfsys@anim@code}{}{}%
-    \fi%
+    \pgfsysanim@do@snap{#1}%
   \else%
     \pgfsys@animate{#1}%
   \fi%
 }
+
+\def\pgfsysanim@do@snap#1{%
+  {%
+    \expandafter\ifx\csname pgfsysanim@prep@attr@#1\endcsname\pgfutil@undefined%
+    \else%
+      % First, compute time frame:
+      \pgfsysanim@compute@interval%
+      % Second, compute code:
+      \let\pgfsysanim@code@begin\relax%
+      \csname pgfsysanim@prep@attr@#1\endcsname%
+      \ifx\pgfsysanim@code@begin\relax%
+      \else%
+        % Attach to object:
+        \expandafter\pgfsysanim@call@attacher\expandafter{\pgfsysanim@code@begin}{}{}%
+      \fi%
+    \fi%
+  }%
+}
+\def\pgfsysanim@call@attacher{\pgfsys@attach@to@id{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}}
 
 
 % Companions for \pgfsys@animation@restart@...
@@ -214,7 +226,7 @@
   % Setup animation
   \pgfsys@animation@time{#1}{#2}{#3}{#4}{#5}%
   % and rember for snapshots
-  \def\pgfsysanim@snap@time{{#1}{#2}{#3}{#4}{#5}}%
+  \def\pgfsysanim@time{{#1}{#2}{#3}{#4}{#5}}%
 }
 
 
@@ -229,13 +241,111 @@
 % specified offset is recorded so that it can later be analysed for
 % the computation needed for a snapshot.
 
-\def\pgfsysanimkeyoffset{\pgfsys@animation@offset}
-\def\pgfsysanimkeysyncbegin{\pgfsys@animation@syncbegin}
-\def\pgfsysanimkeysyncend{\pgfsys@animation@syncend}
-\def\pgfsysanimkeyevent{\pgfsys@animation@event}
-\def\pgfsysanimkeyrepeatevent{\pgfsys@animation@repeat@event}
-\def\pgfsysanimkeyaccesskey{\pgfsys@animation@accesskey}
-% not yet implemented for snapshots
+\def\pgfsysanimkeyoffset#1#2{%
+  \pgfsys@animation@offset{#1}{#2}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#2}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{begin offset not yet implemented}%
+    \fi%
+  \fi%
+}
+
+
+% Companion for \pgfsys@animation@sync(begin|end)
+%
+% #1 to #4 = as in \pgfsys@animation@sync(begin|end)
+%
+% Description:
+%
+% Calls \pgfsys@animation@sync(begin|end) Furthermore, if #4 is
+% "begin" (for both syncbegin and syncend), the specified sync is
+% recorded so that it can later be analysed for the computation needed
+% for a snapshot. 
+
+\def\pgfsysanimkeysyncbegin#1#2#3#4{%
+  \pgfsys@animation@syncbegin{#1}{#2}{#3}{#4}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#4}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{sync begin not yet implemented}%
+    \fi%
+  \fi%
+}
+
+\def\pgfsysanimkeysyncend#1#2#3#4{%
+  \pgfsys@animation@syncend{#1}{#2}{#3}{#4}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#4}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{sync end not yet implemented}%
+    \fi%
+  \fi%
+}
+
+
+% Companion for \pgfsys@animation@event
+%
+% #1 to #5 = as in \pgfsys@animation@event
+%
+% Description:
+%
+% Calls \pgfsys@animation@event and, if #5 is "begin", the specified
+% event is recorded so that it can later be analysed for the
+% computation needed for a snapshot. 
+
+\def\pgfsysanimkeyevent#1#2#3#4#5{%
+  \pgfsys@animation@event{#1}{#2}{#3}{#4}{#5}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#5}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{event not yet implemented}%
+    \fi%
+  \fi%
+}
+
+
+% Companion for \pgfsys@animation@repeat@event
+%
+% #1 to #5 = as in \pgfsys@animation@repeat@event
+%
+% Description:
+%
+% Calls \pgfsys@animation@repeat@event and, if #5 is "begin", the specified
+% event is recorded so that it can later be analysed for the
+% computation needed for a snapshot. 
+
+\def\pgfsysanimkeyrepeatevent#1#2#3#4#5{%
+  \pgfsys@animation@repeat@event{#1}{#2}{#3}{#4}{#5}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#5}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{repeat event not yet implemented}%
+    \fi%
+  \fi%
+}
+
+
+
+% Companion for \pgfsys@animation@accesskey
+%
+% #1 to #3 = as in \pgfsys@animation@accesskey
+%
+% Description:
+%
+% Calls \pgfsys@animation@accesskey and, if #3 is "begin", the
+% specified event is recorded so that it can later be analysed for the 
+% computation needed for a snapshot. 
+
+\def\pgfsysanimkeyaccesskey#1#2#3{%
+  \pgfsys@animation@repeat@event{#1}{#2}{#3}%
+  \ifpgfsysanim@is@snap%
+    \def\pgfsys@temp{#3}%
+    \ifx\pgfsys@temp\pgf@sys@begin@text%
+      \pgferror{access key not yet implemented}%
+    \fi%
+  \fi%
+}
 
 
 
@@ -321,9 +431,9 @@
 % Calls the system layer command and records the setting for
 % snapshots. 
 
-\def\pgfsysanimkeyrotatealong{\pgfsys@animation@rotatealong}
-\def\pgfsysanimkeynorotatealong{\pgfsys@animation@norotatealong}
-
+\def\pgfsysanimkeyrotatealong{\pgfsys@animation@rotatealong\pgfsysanim@rotatealongtrue}
+\def\pgfsysanimkeynorotatealong{\pgfsys@animation@norotatealong\pgfsysanim@rotatealongfalse}
+\newif\ifpgfsysanim@rotatealong
 
 
 % Companion for \pgfsys@animation@movealong
@@ -352,10 +462,11 @@
 \def\pgfsysanimkeycanvastransform#1#2{%
   \pgfsys@animation@canvas@transform{#1}{#2}%
   % Snapshot
-  \def\pgfsysanim@snap@canvas@transform{{#1}{#2}}%
+  \def\pgfsysanim@snap@canvas@transform@pre{#1}%
+  \def\pgfsysanim@snap@canvas@transform@post{#2}%
 }
-
-
+\let\pgfsysanim@snap@canvas@transform@pre\relax
+\let\pgfsysanim@snap@canvas@transform@post\relax
 
 
 
@@ -437,7 +548,7 @@
 % Description:
 %
 % This macro transforms #1 into its correct color model and, then,
-% calls the correct \pgfsysanimcolorXXX macro.
+% calls the correct \pgfsysanimcolor... macro.
 
 \def\pgfsysanimvalcolor#1{%
   \pgfutil@colorlet{pgf@anim@temp}{#1}%
@@ -497,7 +608,7 @@
 \def\pgfsysanimvalcolorcmyk#1#2#3#4{%
   \pgfsys@animation@val@color@cmyk{#1}{#2}{#3}{#4}%
   \ifpgfsysanim@is@snap%
-    \pgferror{not yet implemented}% must call
+    \pgferror{color cmyk not yet implemented}% must call
                                 % \pgfsysanim@snap@record{{coverted rgb values}}
   \fi%  
 }
@@ -515,7 +626,7 @@
 \def\pgfsysanimvalcolorcmy#1#2#3{%
   \pgfsys@animation@val@color@cmy{#1}{#2}{#3}%
   \ifpgfsysanim@is@snap%
-    \pgferror{not yet implemented}% must call
+    \pgferror{color cmy not yet implemented}% must call
                                 % \pgfsysanim@snap@record{{coverted rgb values}}
   \fi%  
 }
@@ -629,51 +740,149 @@
 }
 
 
-% % To be removed!
-
-% \def\pgfsysanimvaldashphase{\pgfsys@animation@val@dashphase}
-% \def\pgfsysanimvaldashpattern{\pgfsys@animation@val@dashpattern}
 
 
 
+%
+% Recording mechanism: We record entries in an array.
+%
+
+\def\pgfsysanim@snap@record#1{% records a new entry for the timeline
+  \advance\pgfsysanim@snap@count by1\relax%
+  \expandafter\edef\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname{\pgfsysanim@time{#1}}%
+}
+\newcount\pgfsysanim@snap@count
 
 
 
-
-% To be implemented later...
-
-\def\pgfsysanim@test@time#1{%
-  \ifdim\pgfsysanim@time pt<\pgfsysanim@snaptime pt%
-    % snap time not yet reached. Update previous:
-    \def\pgfsysanim@prev@val{#1}%
-    \let\pgfsysanim@prev@time\pgfsysanim@time%
+% Compute the time-value interval of the snapshot: Based on the value of \pgfsysanim@snaptime,
+% computes the interval containing the specified time. This interval
+% will start at \pgfsysanim@prev@time and end at
+% \pgfsysanim@next@time. The values will be \pgfsysanim@prev@val and
+% \pgfsysanim@next@val.
+%
+\def\pgfsysanim@compute@interval{%
+  \pgfsysanim@adjust@time%
+  \pgfsysanim@valid@snapshot@timefalse%
+  \ifx\pgfsysanim@snap@time\pgfutil@empty%
+    % No events met, so no animation
+  \else%
+    % Ok, let us iterate over all points of time.
+    \let\pgfsysanim@prev@val\relax%
+    \let\pgfsysanim@prev@time\relax%
+    \let\pgfsysanim@prev@spline\relax%
     \let\pgfsysanim@next@val\relax%
     \let\pgfsysanim@next@time\relax%
+    \let\pgfsysanim@next@spline\relax%
+    \let\pgfsysanim@first@time\relax%
+    \let\pgfsysanim@last@time\relax%
+    \pgfutil@tempcnta=1\relax%
+    \pgfsysanim@conttrue%
+    \pgfutil@loop%
+      \ifnum\pgfutil@tempcnta>\pgfsysanim@snap@count%
+        \pgfsysanim@contfalse%
+      \else%
+        \expandafter\let\expandafter\pgfsys@temp\csname pgfsysanim@snap@\the\pgfutil@tempcnta\endcsname%
+        \expandafter\pgfsysanim@test@time\pgfsys@temp%
+      \fi%
+    \ifpgfsysanim@cont%
+      \advance\pgfutil@tempcnta by1\relax%  
+    \pgfutil@repeat%
+    \ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@none%
+    \else%
+      \pgferror{repeats not yet implement for snapshots}%
+    \fi%
+    \ifpgfsysanim@freezeatend%
+      \ifx\pgfsysanim@next@time\relax%
+        % past end -> use last value
+        \let\pgfsysanim@next@val\pgfsysanim@prev@val%
+        \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+        \let\pgfsysanim@next@spline\pgfsysanim@prev@spline%
+      \fi%
+    \else%
+      \ifpgfsysanim@snap@first%
+      \else%
+        \ifx\pgfsysanim@prev@time\relax%
+        \else
+          \ifdim\pgfsysanim@last@time pt=\pgfsysanim@snaptime pt%
+            \let\pgfsysanim@prev@val\relax%
+            \let\pgfsysanim@prev@time\relax%
+            \let\pgfsysanim@prev@spline\relax%
+            \let\pgfsysanim@next@val\relax%
+            \let\pgfsysanim@next@time\relax%
+            \let\pgfsysanim@next@spline\relax%
+          \fi%
+        \fi%
+      \fi%
+    \fi%
+    % Test whether a valid interval has been found:
+    \ifx\pgfsysanim@prev@time\relax%
+    \else\ifx\pgfsysanim@next@time\relax%
+    \else\pgfsysanim@valid@snapshot@timetrue%
+    \fi\fi%
+  \fi%
+}
+\newif\ifpgfsysanim@cont%
+\newif\ifpgfsysanim@valid@snapshot@time
+
+
+
+% "Adjust" the snap time: In case one or more events are met, the snap time is
+% shifted forward by the first event that is met. May also set the
+% snap time "" in case event is met.
+\def\pgfsysanim@adjust@time{%
+  % Not yet implemented: Must iterate over all trigged events and
+  % cross-reference them with the snapshot's events.
+}
+
+
+
+\def\pgfsysanim@test@time#1#2#3#4#5#6{%
+  \ifx\pgfsysanim@first@time\relax%
+    \def\pgfsysanim@first@time{#1}%
+  \fi%
+  \def\pgfsysanim@last@time{#1}%  
+  % #1 = time in seconds
+  % #2 to #5 = spline controls
+  % #6 = value
+  \ifdim#1pt<\pgfsysanim@snaptime pt%
+    % snap time not yet reached. Update previous:
+    \def\pgfsysanim@prev@val{#6}%
+    \def\pgfsysanim@prev@time{#1}%
+    \def\pgfsysanim@prev@spline{{#2}{#3}{#4}{#5}}%
   \else%
-    \ifdim\pgfsysanim@time pt=\pgfsysanim@snaptime pt%
+    \ifdim#1pt=\pgfsysanim@snaptime pt%
       \ifpgfsysanim@snap@first%
         \ifx\pgfsysanim@next@val\relax%
           % first? Save!
-          \def\pgfsysanim@prev@val{#1}%
-          \let\pgfsysanim@prev@time\pgfsysanim@time%
+          \def\pgfsysanim@prev@val{#6}%
+          \def\pgfsysanim@prev@time{#1}%
+          \def\pgfsysanim@prev@spline{{#2}{#3}{#4}{#5}}%
           \let\pgfsysanim@next@val\pgfsysanim@prev@val%
           \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+          \let\pgfsysanim@next@spline\pgfsysanim@prev@spline%
+          \pgfsysanim@contfalse%
         % else, do nothing
         \fi
       \else%
         % always overwrite:  
-        \def\pgfsysanim@prev@val{#1}%
-        \let\pgfsysanim@prev@time\pgfsysanim@time%
+        \def\pgfsysanim@prev@val{#6}%
+        \def\pgfsysanim@prev@time{#1}%
+        \def\pgfsysanim@prev@spline{{#2}{#3}{#4}{#5}}%
         \let\pgfsysanim@next@val\pgfsysanim@prev@val%
         \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+        \let\pgfsysanim@next@spline\pgfsysanim@prev@spline%
       \fi%
     \else%
       % we passed the time!
       \ifx\pgfsysanim@next@val\relax%
         % first? Then save!
-        \def\pgfsysanim@next@val{#1}%
-        \let\pgfsysanim@next@time\pgfsysanim@time%
-      % else: ignore later times!
+        \def\pgfsysanim@next@val{#6}%
+        \def\pgfsysanim@next@time{#1}%
+        \def\pgfsysanim@next@spline{{#2}{#3}{#4}{#5}}%
+      \else%
+        % ignore later times!
+        \pgfsysanim@contfalse%
       \fi%
     \fi%
   \fi%  
@@ -688,145 +897,301 @@
 % The code for the different attributes
 
 \def\pgfsysanim@prep@attr@opacity{%
-  \pgfsysanim@comp@scalar%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@opacity{\pgfsysanim@x@val}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@opacity{\pgfsysanim@x@val}}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@fillopacity{%
-  \pgfsysanim@comp@scalar%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@fill@opacity{\pgfsysanim@x@val}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@fill@opacity{\pgfsysanim@x@val}}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@strokeopacity{%
-  \pgfsysanim@comp@scalar%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@stroke@opacity{\pgfsysanim@x@val}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@stroke@opacity{\pgfsysanim@x@val}}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@visibility{%
-  \pgfsysanim@comp@text%
-  \pgferror{snapshot of visibility not yet implemented}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@text%
+    \ifx\pgfsysanim@text@val\pgf@hidden@text%
+      \let\pgfsysanim@code@begin\pgfsysanim@hider%
+    \fi%
+  \fi%
 }
+\def\pgf@hidden@text{hidden}
+\def\pgfsysanim@hider{{\pgfsys@discardpath\pgfsys@clipnext\pgfsys@discardpath}}
 
-\def\pgfsysanim@prep@attr@staged{%
-  \pgfsysanim@comp@text%
-  \pgferror{snapshot of visibility not yet implemented}%
+\def\pgfsysanim@prep@attr@stage{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@text%
+    \ifx\pgfsysanim@text@val\pgf@hidden@text%
+      \let\pgfsysanim@code@begin\pgfsysanim@hider%
+    \fi%
+  \else%
+    % switch to invisible
+    \let\pgfsysanim@code@begin\pgfsysanim@hider%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@linewidth{%
-  \pgfsysanim@comp@dimension%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@setlinewidth{\pgfsysanim@x@val pt}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@dimension%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@setlinewidth{\pgfsysanim@x@val pt}}%
+  \fi%
 }
 
-\def\pgfsysanim@prep@attr@dashphase{%
-  \pgfsysanim@comp@dimension%
-  \pgferror{snapshot of dash not yet implemented}%
-}
-
-\def\pgfsysanim@prep@attr@dashpattern{%
-  \pgfsysanim@comp@dasharray%
-  \pgferror{snapshot of dash not yet implemented}%
+\def\pgfsysanim@prep@attr@dash{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@dash%
+    \pgferror{snapshot of dash not yet implemented}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@translate{%
-  \pgfsysanim@comp@translate%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@transformshift{\pgfsysanim@x@val pt}{\pgfsysanim@y@val pt}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@translate%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformshift{\pgfsysanim@x@val pt}{\pgfsysanim@y@val pt}}%
+  \fi%
+  \pgfsysanim@add@trans%
+}
+\def\pgfsysanim@add@trans{%
+  \ifx\pgfsysanim@snap@canvas@transform@pre\relax%
+  \else%
+    \ifx\pgfsysanim@code@begin\relax%
+      \let\pgfsysanim@code@begin\pgfutil@empty%
+    \fi%
+    \expandafter\expandafter\expandafter\pgfsysanim@add@trans@\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@snap@canvas@transform@pre\expandafter}\expandafter{\pgfsysanim@snap@canvas@transform@post}%
+  \fi%
+}  
+\def\pgfsysanim@add@trans@#1#2{%
+  \let\pgfsysanim@temp\pgfsysanim@code@begin%
+  \expandafter\def\expandafter\pgfsysanim@code@pre\expandafter{\csname pgfsysanim@pre@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type\endcsname}%
+  \expandafter\def\expandafter\pgfsysanim@code@main\expandafter{\csname pgfsysanim@main@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type\endcsname}%
+  \expandafter\def\expandafter\pgfsysanim@code@post\expandafter{\csname pgfsysanim@post@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type\endcsname}%
+  \expandafter\ifx\pgfsysanim@code@main\relax%
+    \edef\pgfsysanim@code@begin{%
+      {%
+        \expandafter\noexpand\pgfsysanim@code@pre%
+        \expandafter\noexpand\pgfsysanim@code@main%
+        \expandafter\noexpand\pgfsysanim@code@post%
+        \global\let\expandafter\noexpand\pgfsysanim@code@pre\relax%
+        \global\let\expandafter\noexpand\pgfsysanim@code@main\relax%
+        \global\let\expandafter\noexpand\pgfsysanim@code@post\relax%
+      }%
+    }%
+    \expandafter\global\expandafter\let\pgfsysanim@code@pre\relax%
+    \expandafter\global\expandafter\let\pgfsysanim@code@main\pgfutil@empty%
+    \expandafter\global\expandafter\let\pgfsysanim@code@post\relax%
+  \else%
+    \let\pgfsysanim@code@begin\relax%  
+  \fi%
+  \expandafter\global\expandafter\let\pgfsysanim@code@pre\pgfsysanim@snap@canvas@transform@pre%
+  \expandafter\global\expandafter\let\pgfsysanim@code@post\pgfsysanim@snap@canvas@transform@post%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\pgfsysanim@temp%
+  \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@code@main\pgfsysanim@temp}%
+  \expandafter\global\expandafter\let\pgfsysanim@code@main\pgfsysanim@temp%
 }
 
 \def\pgfsysanim@prep@attr@scale{%
-  \pgfsysanim@comp@scale%
-  \edef\pgfsys@anim@code{\noexpand\pgfsys@transformxyscale{\pgfsysanim@x@val}{\pgfsysanim@y@val}}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scale%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformxyscale{\pgfsysanim@x@val}{\pgfsysanim@y@val}}%
+  \fi%
+  \pgfsysanim@add@trans%
 }
 
 \def\pgfsysanim@prep@attr@rotate{%
-  \pgfsysanim@comp@scalar%
-  {%
-    \pgfmathsin@{\pgfsysanim@x@val}%
-    \let\pgftransform@sin=\pgfmathresult%
-    \pgfmathcos@{\pgfsysanim@x@val}%
-    \let\pgftransform@cos=\pgfmathresult%
-    \pgf@x=\pgftransform@sin pt%
-    \pgf@xa=-\pgf@x%
-    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{\pgftransform@cos}{\pgftransform@sin}{\pgf@sys@tonumber{\pgf@xa}}{\pgftransform@cos}{0pt}{0pt}}%
-  \expandafter}%
-  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    {%
+      \pgfmathsin@{\pgfsysanim@x@val}%
+      \let\pgftransform@sin=\pgfmathresult%
+      \pgfmathcos@{\pgfsysanim@x@val}%
+      \let\pgftransform@cos=\pgfmathresult%
+      \pgf@x=\pgftransform@sin pt%
+      \pgf@xa=-\pgf@x%
+      \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformcm{\pgftransform@cos}{\pgftransform@sin}{\pgf@sys@tonumber{\pgf@xa}}{\pgftransform@cos}{0pt}{0pt}}%
+      \expandafter}%
+    \expandafter\def\expandafter\pgfsysanim@code@begin\expandafter{\pgfsysanim@code@begin}%
+  \fi%
+  \pgfsysanim@add@trans%
 }
 
 \def\pgfsysanim@prep@attr@skewx{%
-  \pgfsysanim@comp@scalar%
-  {%
-    \pgfmathatan@{\pgfsysanim@x@val}%
-    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{1}{0}{\pgfmathresult}{1}{0pt}{0pt}}%
-  \expandafter}%
-  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    {%
+      \pgfmathatan@{\pgfsysanim@x@val}%
+      \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformcm{1}{0}{\pgfmathresult}{1}{0pt}{0pt}}%
+      \expandafter}%
+    \expandafter\def\expandafter\pgfsysanim@code@begin\expandafter{\pgfsysanim@code@begin}%
+  \fi%
+  \pgfsysanim@add@trans%
 }
 
 \def\pgfsysanim@prep@attr@skewy{%
-  \pgfsysanim@comp@scalar%
-  {%
-    \pgfmathatan@{\pgfsysanim@x@val}%
-    \edef\pgfsys@anim@code{\noexpand\pgfsys@transformcm{1}{\pgfmathresult}{0}{1}{0pt}{0pt}}%
-  \expandafter}%
-  \expandafter\def\expandafter\pgfsys@anim@code\expandafter{\pgfsys@anim@code}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    {%
+      \pgfmathatan@{\pgfsysanim@x@val}%
+      \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformcm{1}{\pgfmathresult}{0}{1}{0pt}{0pt}}%
+      \expandafter}%
+    \expandafter\def\expandafter\pgfsysanim@code@begin\expandafter{\pgfsysanim@code@begin}%
+  \fi%
+  \pgfsysanim@add@trans%
 }
 
 \def\pgfsysanim@prep@attr@motion{%
-  \pgfsysanim@comp@motion%
-  \pgferror{snapshot of motion not yet implemented}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@motion%
+    \expandafter\pgfsysanim@prep@attr@motion@\pgfsysanim@motion@trans%
+  \fi%
+  \pgfsysanim@add@trans%
 }
+\def\pgfsysanim@prep@attr@motion@#1#2#3#4#5#6{%
+  \ifpgfsysanim@rotatealong%
+    \def\pgfsysanim@code@begin{\pgfsys@transformcm{#1}{#2}{#3}{#4}{#5}{#6}}%
+  \else%
+    \def\pgfsysanim@code@begin{\pgfsys@transformshift{#5}{#6}}%
+  \fi%
+}
+
 
 \def\pgfsysanim@prep@attr@strokecolor{%
-  \pgfsysanim@comp@color%
-  \pgferror{snapshot of colors not yet implemented}%
-}
-
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@color%
+    \pgferror{snapshot of colors not yet implemented}%
+  \fi%
+}  
+  
 \def\pgfsysanim@prep@attr@fillcolor{%
-  \pgfsysanim@comp@color%
-  \pgferror{snapshot of colors not yet implemented}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@color%
+    \pgferror{snapshot of colors not yet implemented}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@viewbox{%
-  \pgfsysanim@comp@viewbox%
-  \pgferror{snapshot of viewbox not yet implemented}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@viewbox%
+    \pgferror{snapshot of viewbox not yet implemented}%
+  \fi%
 }
 
 \def\pgfsysanim@prep@attr@path{%
-  \pgfsysanim@comp@path%
-  \pgferror{snapshot of path not yet implemented}%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@path%
+    \pgferror{snapshot of path not yet implemented}%
+  \fi%
+}
+
+\def\pgfsysanim@comp@dash{\pgferror{dash animation not yet implemented}}
+\def\pgfsysanim@comp@color{\pgferror{color animation not yet implemented}}
+\def\pgfsysanim@comp@viewbox{\pgferror{view animation not yet implemented}}
+\def\pgfsysanim@comp@path{\pgferror{path animation not yet implemented}}
+\def\pgfsysanim@comp@motion{%
+  \pgfsysanim@compute@fractions%
+  \pgf@x\pgfsysanim@prev@val pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y\pgfsysanim@next@val pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
+  \ifdim\pgfsysanim@x@val pt=1pt%
+    \def\pgfsysanim@x@val{0.9999}% because of rounding problems in decorations
+  \fi%
+  \pgfdecoratepath{pgfsysanim@motion}{%
+    \pgfsyssoftpath@setcurrentpath\pgfsysanim@snap@movealong%
+  }%
+}
+\pgfdeclaredecoration{pgfsysanim@motion}{s}{%
+  \state{s}[width=\pgfsysanim@x@val\pgfdecoratedremainingdistance,next state=final]{}%
+  \state{final}{\pgfgettransform\pgfsysanim@motion@trans\global\let\pgfsysanim@motion@trans\pgfsysanim@motion@trans}%
 }
 
 
 \def\pgfsysanim@comp@scalar{%
   \pgfsysanim@compute@fractions%
-  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@a*\pgfsysanim@prev@val+\pgfsysanim@frac@b*\pgfsysanim@next@val}%
+  \pgf@x\pgfsysanim@prev@val pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y\pgfsysanim@next@val pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
 }
-\def\pgfsysanim@comp@scale{\pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@snaptime}\def\pgfsysanim@y@val{1}}
+
+\def\pgfsysanim@comp@scale{
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@scale@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
+}
+\def\pgfsysanim@comp@scale@#1#2#3#4{%
+  \pgf@x#1pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#3pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
+  \pgf@x#2pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#4pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@y@val{\pgf@sys@tonumber\pgf@x}%
+}
+
 \def\pgfsysanim@comp@dimension{%
   \pgfsysanim@compute@fractions%
-  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@b*\pgfsysanim@prev@val+\pgfsysanim@frac@a*\pgfsysanim@next@val}%
+  \pgf@x\pgfsysanim@prev@val%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y\pgfsysanim@next@val%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
 }
-\def\pgfsysanim@comp@dasharray{\pgferror{not yet implemented}}
-\def\pgfsysanim@comp@color{\pgferror{not yet implemented}}
-\def\pgfsysanim@comp@viewbox{\pgferror{not yet implemented}}
-\def\pgfsysanim@comp@path{\pgferror{not yet implemented}}
+
 \def\pgfsysanim@comp@translate{
   \pgfsysanim@compute@fractions%
   \expandafter\expandafter\expandafter\pgfsysanim@comp@translate@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
 }
 \def\pgfsysanim@comp@translate@#1#2#3#4{%
-  \pgfmathsetmacro\pgfsysanim@x@val{\pgfsysanim@frac@b*#1+\pgfsysanim@frac@a*#3}%
-  \pgfmathsetmacro\pgfsysanim@y@val{\pgfsysanim@frac@b*#2+\pgfsysanim@frac@a*#4}%  
+  \pgf@x#1%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#3%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
+  \pgf@x#2%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#4%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@y@val{\pgf@sys@tonumber\pgf@x}%
 }
-\def\pgfsysanim@comp@motion{\pgferror{not yet implemented}}
-\def\pgfsysanim@comp@text{\pgferror{not yet implemented}}
+
+\def\pgfsysanim@comp@text{%
+  \let\pgfsysanim@text@val\pgfsysanim@prev@val%
+}
+
+
 
 \def\pgfsysanim@compute@fractions{%
-  % This must be redone and made numerically stable!
   \ifdim\pgfsysanim@snaptime pt=\pgfsysanim@prev@time pt%
-    \def\pgfsysanim@frac@a{1}%
-    \def\pgfsysanim@frac@b{0}%
+    \def\pgfsysanim@frac@a{0}%
+    \def\pgfsysanim@frac@b{1}%
   \else%
-    \pgfmathsetmacro{\pgfsysanim@frac@a}{(\pgfsysanim@snaptime-\pgfsysanim@prev@time)/(\pgfsysanim@next@time-\pgfsysanim@prev@time)}%
-    \pgfmathsetmacro{\pgfsysanim@frac@b}{1-\pgfsysanim@frac@a}%
+    \pgfmathsubtract@{\pgfsysanim@next@time}{\pgfsysanim@prev@time}%
+    \ifdim\pgfmathresult pt<0.01pt%
+      \def\pgfsysanim@frac@a{0}%
+      \def\pgfsysanim@frac@b{1}%
+    \else%
+      \let\pgfsysanim@divby\pgfmathresult%
+      \pgfmathsubtract@{\pgfsysanim@snaptime}{\pgfsysanim@prev@time}%
+      \pgfmathdivide@{\pgfmathresult}{\pgfsysanim@divby}%
+      \let\pgfsysanim@frac@a\pgfmathresult%
+      \pgfmathsubtract@{1}{\pgfmathresult}%
+      \let\pgfsysanim@frac@b\pgfmathresult%
+    \fi%
   \fi%
 }
 
