@@ -74,8 +74,6 @@
 % - The "current value" as starting value (pgf has no real chance of
 %   determining the correct value of this). Using this with a snapshot
 %   will raise an errer.
-% - The "paced" speed in "exotic" situations such as colors or
-%   scalars. Using this with a snapshot will raise an error.
 % - The "sum" versus "replace" properties. In a snapshot, if there are
 %   several animations for an attribute, they are treated as if they
 %   were separate animations of the attribute on nested scopes. This
@@ -350,17 +348,6 @@
 
 
 
-% Companions for \pgfsys@animation@sum and \pgfsys@animation@replace
-%
-% Description:
-%
-% Calls \pgfsys@animation@sum or \pgfsys@animation@replace. Note that
-% these commands are *ignored* for snapshots: In a snapshot, all
-% attribute animations have the effect of being added to a new scope.
-
-\def\pgfsysanimkeysum{\pgfsys@animation@sum}
-\def\pgfsysanimkeyreplace{\pgfsys@animation@replace}
-
 
 % Companions for \pgfsys@animation@(no)accumulate
 %
@@ -392,39 +379,6 @@
 }
 
 
-
-
-% Companion for \pgfsys@animation@paced
-%
-% Description:
-%
-% Calls the system layer command and records the setting for
-% snapshots. Note that a paced setting is not possible for all
-% attributes. 
-
-\def\pgfsysanimkeypaced{%
-  \pgfsys@animation@paced%
-  % Snapshot
-  \pgfsysanim@pacedtrue%
-  \ifpgfsysanim@is@snap%
-    \pgferror{paced mode not implemented for snapshots}%
-  \fi%
-}
-\newif\ifpgfsysanim@paced
-
-
-% Companion for \pgfsys@animation@spline
-%
-% Description:
-%
-% Calls the system layer command and records the setting for
-% snapshots. 
-
-\def\pgfsysanimkeyspline{%
-  \pgfsys@animation@spline%
-  % Snapshot
-  \pgfsysanim@pacedfalse%
-}
 
 
 
@@ -921,87 +875,34 @@
 \let\pgfsysanim@next@time\relax%
 
 
-% The code for the different attributes
-
-\def\pgfsysanim@prep@attr@opacity{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@scalar%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@opacity{\pgfsysanim@x@val}}%
-  \fi%
-}
-
-\def\pgfsysanim@prep@attr@fillopacity{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@scalar%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@fill@opacity{\pgfsysanim@x@val}}%
-  \fi%
-}
-
-\def\pgfsysanim@prep@attr@strokeopacity{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@scalar%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@stroke@opacity{\pgfsysanim@x@val}}%
-  \fi%
-}
-
-\def\pgfsysanim@prep@attr@visibility{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@text%
-    \ifx\pgfsysanim@text@val\pgf@hidden@text%
-      \let\pgfsysanim@code@begin\pgfsysanim@hider@begin%
-      \let\pgfsysanim@code@end\pgfsysanim@hider@end%
-    \fi%
-  \fi%
-}
-\def\pgf@hidden@text{hidden}
-\def\pgfsysanim@hider@begin{\pgfsys@begininvisiblescope}
-\def\pgfsysanim@hider@end{\pgfsys@endinvisiblescope}
-
-\def\pgfsysanim@prep@attr@stage{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@text%
-    \ifx\pgfsysanim@text@val\pgf@hidden@text%
-      \let\pgfsysanim@code@begin\pgfsysanim@hider@begin%
-      \let\pgfsysanim@code@end\pgfsysanim@hider@end%
-    \fi%
+% Help function
+\def\pgfsysanim@attach#1#2#3{%
+  \expandafter\def\expandafter\pgfsysanim@code@main\expandafter{\csname pgfsysanim@main@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type @#1\endcsname}%
+  \expandafter\ifx\pgfsysanim@code@main\relax%
+    \edef\pgfsysanim@code@begin{%
+      \let\noexpand\pgfsysanim@closer\noexpand\pgfutil@empty%
+      \expandafter\noexpand\pgfsysanim@code@main%
+      \global\let\expandafter\noexpand\pgfsysanim@code@main\relax%
+    }%
+    \let\pgfsysanim@code@end\pgfsysanim@code@closer%
+    \expandafter\global\expandafter\let\pgfsysanim@code@main\pgfutil@empty%
   \else%
-    % switch to invisible
-    \let\pgfsysanim@code@begin\pgfsysanim@hider@begin%
-    \let\pgfsysanim@code@end\pgfsysanim@hider@end%
+    \let\pgfsysanim@code@begin\relax%  
   \fi%
+  \expandafter\xdef\pgfsysanim@code@main{#2\def\noexpand\pgfsysanim@closer{#3}}%
 }
+\def\pgfsysanim@code@closer{\pgfsysanim@closer}
 
-\def\pgfsysanim@prep@attr@linewidth{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@dimension%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@setlinewidth{\pgfsysanim@x@val pt}}%
-  \fi%
-}
-
-\def\pgfsysanim@prep@attr@dash{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@dash%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@setdash{\pgfsysanim@dash@vals}{\pgfsysanim@x@val pt}}%
-  \fi%
-}
-
-\def\pgfsysanim@prep@attr@translate{%
-  \ifpgfsysanim@valid@snapshot@time%
-    \pgfsysanim@comp@translate%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformshift{\pgfsysanim@x@val pt}{\pgfsysanim@y@val pt}}%
-  \fi%
-  \pgfsysanim@add@trans%
-}
 \def\pgfsysanim@add@trans{%
   \ifx\pgfsysanim@snap@canvas@transform@pre\relax%
   \else%
     \ifx\pgfsysanim@code@begin\relax%
       \let\pgfsysanim@code@begin\pgfutil@empty%
     \fi%
-    \expandafter\expandafter\expandafter\pgfsysanim@add@trans@\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@snap@canvas@transform@pre\expandafter}\expandafter{\pgfsysanim@snap@canvas@transform@post}%
+    \pgfsysanim@add@trans@%
   \fi%
 }  
-\def\pgfsysanim@add@trans@#1#2{%
+\def\pgfsysanim@add@trans@{%
   \let\pgfsysanim@temp\pgfsysanim@code@begin%
   \expandafter\def\expandafter\pgfsysanim@code@pre\expandafter{\csname pgfsysanim@pre@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type\endcsname}%
   \expandafter\def\expandafter\pgfsysanim@code@main\expandafter{\csname pgfsysanim@main@of@\pgfsysanim@whom@id @\pgfsysanim@whom@type\endcsname}%
@@ -1030,6 +931,79 @@
   \expandafter\expandafter\expandafter\expandafter\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@code@main\pgfsysanim@temp}%
   \expandafter\global\expandafter\let\pgfsysanim@code@main\pgfsysanim@temp%
 }
+
+
+% The code for the different attributes
+
+\def\pgfsysanim@prep@attr@opacity{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \pgfsysanim@attach{opacity}{\noexpand\pgfsys@opacity{\pgfsysanim@x@val}}{}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@fillopacity{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \pgfsysanim@attach{fillopacity}{\noexpand\pgfsys@fill@opacity{\pgfsysanim@x@val}}{}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@strokeopacity{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@scalar%
+    \pgfsysanim@attach{strokeopacity}{\noexpand\pgfsys@stroke@opacity{\pgfsysanim@x@val}}{}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@visibility{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@text%
+    \ifx\pgfsysanim@text@val\pgf@hidden@text%
+      \pgfsysanim@attach{visibility}{\noexpand\pgfsys@begininvisiblescope}{\noexpand\pgfsys@endinvisiblescope}%
+    \else%
+      \pgfsysanim@attach{visibility}{}{}%
+    \fi%
+  \fi%
+}
+\def\pgf@hidden@text{hidden}
+
+\def\pgfsysanim@prep@attr@stage{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@text%
+    \ifx\pgfsysanim@text@val\pgf@hidden@text%
+      \pgfsysanim@attach{visibility}{\noexpand\pgfsys@begininvisiblescope}{\noexpand\pgfsys@endinvisiblescope}%
+    \else%
+      \pgfsysanim@attach{visibility}{}{}%
+    \fi%
+  \else%
+    % switch to invisible
+    \pgfsysanim@attach{visibility}{\noexpand\pgfsys@begininvisiblescope}{\noexpand\pgfsys@endinvisiblescope}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@linewidth{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@dimension%
+    \pgfsysanim@attach{linewidth}{\noexpand\pgfsys@setlinewidth{\pgfsysanim@x@val pt}}{}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@dash{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@dash%
+    \pgfsysanim@attach{dash}{\noexpand\pgfsys@setdash{\pgfsysanim@dash@vals}{\pgfsysanim@x@val pt}}{}%
+  \fi%
+}
+
+\def\pgfsysanim@prep@attr@translate{%
+  \ifpgfsysanim@valid@snapshot@time%
+    \pgfsysanim@comp@translate%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@transformshift{\pgfsysanim@x@val pt}{\pgfsysanim@y@val pt}}%
+  \fi%
+  \pgfsysanim@add@trans%
+}
+
 
 \def\pgfsysanim@prep@attr@scale{%
   \ifpgfsysanim@valid@snapshot@time%
@@ -1099,21 +1073,21 @@
 \def\pgfsysanim@prep@attr@strokecolor{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@color%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@color@rgb@stroke{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}%
+    \pgfsysanim@attach{strokecolor}{\noexpand\pgfsys@color@rgb@stroke{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}{}%
   \fi%
 }  
   
 \def\pgfsysanim@prep@attr@fillcolor{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@color%
-    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@color@rgb@fill{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}%
+    \pgfsysanim@attach{fillcolor}{\noexpand\pgfsys@color@rgb@fill{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}{}%
   \fi%
 }
 
 \def\pgfsysanim@prep@attr@viewbox{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@viewbox%
-    \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{
+    \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{%
       \ifx\pgfsys@viewboxmeet\pgfsysanim@hooked@viewboxmeet%
       \else%
         % Hook into viewbox systems layer commands
@@ -1123,7 +1097,8 @@
         \let\pgfsys@viewboxslice\pgfsysanim@hooked@viewboxslice%
       \fi%
     }{}{}%
-    \expandafter\xdef\csname pgfsysanim@hook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname{{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}{\pgfsysanim@w@val}}%
+    \expandafter\xdef\csname pgfsysanim@hook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname%
+    {{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}{\pgfsysanim@w@val}}%
   \fi%
 }
 \def\pgfsysanim@hooked@viewboxmeet#1#2#3#4#5#6#7#8{%
