@@ -395,20 +395,21 @@
 
 % Companion for \pgfsys@animation@paced
 %
-% #1 and #2 = as for \pgfsys@animation@paced
-%
 % Description:
 %
 % Calls the system layer command and records the setting for
 % snapshots. Note that a paced setting is not possible for all
 % attributes. 
 
-\def\pgfsysanimkeypaced#1#2{%
-  \pgfsys@animation@paced{#1}{#2}%
+\def\pgfsysanimkeypaced{%
+  \pgfsys@animation@paced%
   % Snapshot
   \pgfsysanim@pacedtrue%
-  \def\pgfsysanim@snap@paced{{#1}{#2}}%
+  \ifpgfsysanim@is@snap%
+    \pgferror{paced mode not implemented for snapshots}%
+  \fi%
 }
+\newif\ifpgfsysanim@paced
 
 
 % Companion for \pgfsys@animation@spline
@@ -418,8 +419,11 @@
 % Calls the system layer command and records the setting for
 % snapshots. 
 
-\def\pgfsysanimkeyspline{\pgfsys@animation@spline\pgfsysanim@pacedfalse}
-\newif\ifpgfsysanim@paced
+\def\pgfsysanimkeyspline{%
+  \pgfsys@animation@spline%
+  % Snapshot
+  \pgfsysanim@pacedfalse%
+}
 
 
 
@@ -608,8 +612,22 @@
 \def\pgfsysanimvalcolorcmyk#1#2#3#4{%
   \pgfsys@animation@val@color@cmyk{#1}{#2}{#3}{#4}%
   \ifpgfsysanim@is@snap%
-    \pgferror{color cmyk not yet implemented}% must call
-                                % \pgfsysanim@snap@record{{coverted rgb values}}
+    {%
+      \pgf@xa=1pt%
+      \advance\pgf@xa by-#1pt%
+      \advance\pgf@xa by-#4pt\relax%
+      \ifdim\pgf@xa<0pt\pgf@xa0pt\fi%
+      \pgf@xb=1pt%
+      \advance\pgf@xb by-#1pt%
+      \advance\pgf@xb by-#4pt\relax%
+      \ifdim\pgf@xb<0pt\pgf@xb0pt\fi%
+      \pgf@xc=1pt%
+      \advance\pgf@xc by-#1pt%
+      \advance\pgf@xc by-#4pt\relax%
+      \ifdim\pgf@xc<0pt\pgf@xc0pt\fi%
+      \edef\pgfsys@temp{{\pgf@sys@tonumber\pgf@xa}{\pgf@sys@tonumber\pgf@xb}{\pgf@sys@tonumber\pgf@xc}}%
+    \expandafter}%
+    \expandafter\pgfsysanim@snap@record\expandafter{\pgfsys@temp}%
   \fi%  
 }
 
@@ -626,8 +644,16 @@
 \def\pgfsysanimvalcolorcmy#1#2#3{%
   \pgfsys@animation@val@color@cmy{#1}{#2}{#3}%
   \ifpgfsysanim@is@snap%
-    \pgferror{color cmy not yet implemented}% must call
-                                % \pgfsysanim@snap@record{{coverted rgb values}}
+    {%
+      \pgf@xa=1pt%
+      \advance\pgf@xa by-#1pt%
+      \pgf@xb=1pt%
+      \advance\pgf@xb by-#1pt%
+      \pgf@xc=1pt%
+      \advance\pgf@xc by-#1pt%
+      \edef\pgfsys@temp{{\pgf@sys@tonumber\pgf@xa}{\pgf@sys@tonumber\pgf@xb}{\pgf@sys@tonumber\pgf@xc}}%
+    \expandafter}%
+    \expandafter\pgfsysanim@snap@record\expandafter{\pgfsys@temp}%
   \fi%  
 }
 
@@ -950,7 +976,7 @@
 \def\pgfsysanim@prep@attr@dash{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@dash%
-    \pgferror{snapshot of dash not yet implemented}%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@setdash{\pgfsysanim@dash@vals}{\pgfsysanim@x@val pt}}%
   \fi%
 }
 
@@ -1068,23 +1094,56 @@
 \def\pgfsysanim@prep@attr@strokecolor{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@color%
-    \pgferror{snapshot of colors not yet implemented}%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@color@rgb@stroke{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}%
   \fi%
 }  
   
 \def\pgfsysanim@prep@attr@fillcolor{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@color%
-    \pgferror{snapshot of colors not yet implemented}%
+    \edef\pgfsysanim@code@begin{\noexpand\pgfsys@color@rgb@fill{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}}%
   \fi%
 }
 
 \def\pgfsysanim@prep@attr@viewbox{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@viewbox%
-    \pgferror{snapshot of viewbox not yet implemented}%
+    \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{
+      \ifx\pgfsys@viewboxmeet\pgfsysanim@hooked@viewboxmeet%
+      \else%
+        % Hook into viewbox systems layer commands
+        \let\pgfsys@viewboxmeet@orig\pgfsys@viewboxmeet%
+        \let\pgfsys@viewboxmeet\pgfsysanim@hooked@viewboxmeet%
+        \let\pgfsys@viewboxslice@orig\pgfsys@viewboxslice%
+        \let\pgfsys@viewboxslice\pgfsysanim@hooked@viewboxslice%
+      \fi%
+    }{}{}%
+    \expandafter\xdef\csname pgfsysanim@hook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname{{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}{\pgfsysanim@w@val}}%
   \fi%
 }
+\def\pgfsysanim@hooked@viewboxmeet#1#2#3#4#5#6#7#8{%
+  \expandafter\ifx\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
+    \pgfsys@viewboxmeet@orig{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
+  \else%
+    \expandafter\expandafter\expandafter\pgfsysanim@hooked@viewboxmeet@\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname{#1}{#2}{#3}{#4}%
+    \expandafter\global\expandafter\let\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
+  \fi%
+}
+\def\pgfsysanim@hooked@viewboxmeet@#1#2#3#4#5#6#7#8{%
+  \pgfsys@viewboxmeet@orig{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+}
+\def\pgfsysanim@hooked@viewboxslice#1#2#3#4#5#6#7#8{%
+  \expandafter\ifx\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
+    \pgfsys@viewboxslice@orig{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
+  \else%
+    \expandafter\expandafter\expandafter\pgfsysanim@hooked@viewboxslice@\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname{#1}{#2}{#3}{#4}%
+    \expandafter\global\expandafter\let\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
+  \fi%
+}
+\def\pgfsysanim@hooked@viewboxslice@#1#2#3#4#5#6#7#8{%
+  \pgfsys@viewboxslice@orig{#5}{#6}{#7}{#8}{#1}{#2}{#3}{#4}%
+}
+
 
 \def\pgfsysanim@prep@attr@path{%
   \ifpgfsysanim@valid@snapshot@time%
@@ -1093,10 +1152,90 @@
   \fi%
 }
 
-\def\pgfsysanim@comp@dash{\pgferror{dash animation not yet implemented}}
-\def\pgfsysanim@comp@color{\pgferror{color animation not yet implemented}}
-\def\pgfsysanim@comp@viewbox{\pgferror{view animation not yet implemented}}
+
+
+
+\def\pgfsysanim@comp@dash{
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@dash@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
+}
+\def\pgfsysanim@comp@dash@#1#2#3#4{%
+  \pgf@x#2\relax%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#4\relax%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
+  \let\pgfsysanim@dash@vals\pgfutil@empty%
+  \pgfsysanim@parse@dash#1,\pgf@stop#3,\pgf@stop%
+}
+\def\pgfsysanim@parse@dash{\pgfutil@ifnextchar\pgf@stop\pgfsysanim@parse@dash@done\pgfsysanim@parse@dash@first}
+\def\pgfsysanim@parse@dash@done\pgf@stop\pgf@stop{}%
+\def\pgfsysanim@parse@dash@first#1,#2\pgf@stop#3\pgf@stop{%
+  \pgf@x#1\relax%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgfsysanim@parse@dash@second#3\pgf@stop{#2}%
+}
+\def\pgfsysanim@parse@dash@second#1,#2\pgf@stop#3{%
+  \pgf@y#1\relax%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \def\pgfsys@temp{#2}%
+  \edef\pgfsysanim@dash@vals{\pgfsysanim@dash@vals\the\pgf@x\ifx\pgfsys@temp\pgfutil@empty\else,\fi}%
+  \pgfsysanim@parse@dash#3\pgf@stop#2\pgf@stop%
+}
+
+\def\pgfsysanim@comp@viewbox{
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@viewbox@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
+}
+\def\pgfsysanim@comp@viewbox@#1#2#3#4#5#6#7#8{%
+  \pgf@x#1%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#5%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\the\pgf@x}%
+  \pgf@x#2%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#6%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@y@val{\the\pgf@x}%
+  \pgf@x#3%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#7%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@z@val{\the\pgf@x}%
+  \pgf@x#4%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#8%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@w@val{\the\pgf@x}%
+}
+
+
 \def\pgfsysanim@comp@path{\pgferror{path animation not yet implemented}}
+
+\def\pgfsysanim@comp@color{
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@color@\expandafter\pgfsysanim@prev@val\pgfsysanim@next@val%
+}
+\def\pgfsysanim@comp@color@#1#2#3#4#5#6{%
+  \pgf@x#1pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#4pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@x@val{\pgf@sys@tonumber\pgf@x}%
+  \pgf@x#2pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#5pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@y@val{\pgf@sys@tonumber\pgf@x}%
+  \pgf@x#3pt%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#6pt%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \edef\pgfsysanim@z@val{\pgf@sys@tonumber\pgf@x}%
+}
+
+
 \def\pgfsysanim@comp@motion{%
   \pgfsysanim@compute@fractions%
   \pgf@x\pgfsysanim@prev@val pt%
@@ -1188,6 +1327,8 @@
       \let\pgfsysanim@divby\pgfmathresult%
       \pgfmathsubtract@{\pgfsysanim@snaptime}{\pgfsysanim@prev@time}%
       \pgfmathdivide@{\pgfmathresult}{\pgfsysanim@divby}%
+      \ifdim\pgfmathresult pt<0pt\def\pgfmathresult{0}\fi%
+      \ifdim\pgfmathresult pt>1pt\def\pgfmathresult{1}\fi%
       \let\pgfsysanim@frac@a\pgfmathresult%
       \pgfmathsubtract@{1}{\pgfmathresult}%
       \let\pgfsysanim@frac@b\pgfmathresult%

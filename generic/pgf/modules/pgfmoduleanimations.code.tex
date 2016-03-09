@@ -94,6 +94,40 @@
 
 
 
+% Create a time snapshot
+%
+% #1 = a time
+% #2 = event settings
+%
+% Description:
+%
+% This command should be called in a scope prior to all calls of
+% animation commands in that scope. When called, all animations will
+% be "intercepted" and, instead of creating the animation code, normal
+% code will be generated that shows the state of the animation at the
+% specified "moment" #1. Since no animation code is involved, this
+% works with all drivers.
+%
+% The command \pgfsnapshotafter works the same way as \pgfsnapshot,
+% only the timing is slightly different: Conceptually, #1 is
+% interpreted as "#1+epsilon". For instance, if there are two values
+% specified for the time #1, then \pgfsnapshot will use the first
+% while \pgfsnapshotafter will use the second. Likewise, when an
+% animation ends at time #1, \pgfsnapshot will still us the
+% animation's value, while \pgfsnapshotafter will not.
+%
+% Example:
+%
+% {
+%   \pgfsnapshot{1.2s}{}
+%   \pgfanimateattribute{fill opacity}{entry={0s}{1}, entry={2s}{0}}
+%   \fill (0,0) rectangle (1,1);
+% }
+
+\def\pgfsnapshot#1#2{\pgfsyssnapshot{#1}{-}{#2}}
+\def\pgfsnapshotafter#1#2{\pgfsyssnapshot{#1}{+}{#2}}
+
+
 % The animation attributes
 
 \pgfkeys{/pgf/@animation attributes/.cd,
@@ -385,13 +419,7 @@
 % Specifies that animation speed is "paced", meaning that it should
 % have a uniform speed over time.
 %
-% #1 = If #1 is empty, the animation will start and end at the times
-%      specified by the entries, but will have a uniform speed;
-%      intermediate times and speeds are ignored.
-%      Otherwise, #1 must be of the form "[<start> to] <end>", where
-%      <start> and <end> are times. The animation will then start at
-%      time <start> (or 0s, if not specified) and end at time
-%      <end>. All times given for the entries are ignored.
+% Description:
 %
 % The opposite of a paced animation, is an "unpaced" animation (this
 % is the default) where the speed is adjusted so the the attribute has
@@ -403,41 +431,14 @@
 %   entry={0s}{\pgfpoint{0pt}{0pt}},
 %   entry={1s}{\pgfpoint{3cm}{0pt}}, 
 %   entry={2s}{\pgfpoint{3.5cm}{0pt}}, 
-%   paced
-% }
-%
-% \pgfanimateattribute{translate}{
-%   entry={0s}{\pgfpoint{0pt}{0pt}},
-%   entry={0s}{\pgfpoint{3cm}{0pt}}, 
-%   entry={0s}{\pgfpoint{3.5cm}{0pt}}, 
-%   paced = 1s to 3s
+%   paced = true
 % }
 
 \pgfanimationset{
-  paced/.code={%
-    \def\pgf@temp{#1}%
-    \ifx\pgf@temp\pgfutil@empty%
-      \pgfsysanimkeypaced{}{}%
-    \else%
-      \pgfutil@in@{to}{#1}%
-      \ifpgfutil@in@%
-        \pgf@anim@pace@parse#1\pgf@stop%
-      \else%
-        \pgf@anim@pace@parse0sto#1\pgf@stop%
-      \fi%
-    \fi%
-  },
-  paced/.default=,
-  unpaced/.code=\pgfsysanimkeyspline
-}
-
-\def\pgf@anim@pace@parse#1to#2\pgf@stop{%
-  \pgfparsetime{#1}%
-  \let\pgf@tempa\pgftimeresult%
-  \pgfparsetime{#2}%
-  \let\pgf@tempb\pgftimeresult%
-  \edef\pgf@call{\noexpand\pgfsysanimkeypaced{\pgf@tempa}{\pgf@tempb}}%
-  \pgf@call%
+  paced/.is choice,
+  paced/true/.code=\pgfsysanimkeypaced,
+  paced/false/.code=\pgfsysanimkeyspline,
+  paced/.default=true
 }
 
 
