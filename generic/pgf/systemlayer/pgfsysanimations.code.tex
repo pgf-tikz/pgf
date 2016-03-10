@@ -39,12 +39,6 @@
 %
 % #1 = a global snapshot time (a dimensionless number, measured in
 %      seconds). 
-% #2 = must be + or -, which means that the time meant is #1+eps or
-%      #1-eps (this is relevant when multiple values are specified for
-%      the same time; in this case, #1-eps refers to the first of
-%      them, #1+eps to the last of them)
-% #3 = a sequence of tuples of the form {object}{type}{event}{event options}{time}
-%      that specifies when the specified events have occurred.
 %
 % Description:
 %
@@ -52,38 +46,34 @@
 % animation, pgf will insert appropriate commands that show the state
 % of the animation at the given time.
 %
-% The value #1 can be thought of as the "global time", which is the
-% time that elapsed since the "onload" event. The sequence in #3 can
-% be used to specify which events have occurred: Some animations only
-% start when certain events have occurred; in this case the sequence
-% in #3 tells us when these happend relative to the global time. The
-% "event options" are relevant only for the accesskey event and the
-% repeats event, where they specify the key or the number of repeats.
+% The value #1 can be thought of as the "global time", which can be
+% thought of as the time that elapsed since the "onload" event. 
+%
+% The command \pgfsysanimsnapshotafter works the same way as
+% pgfsysanimsnapshot, only the time #1 is interpreted as "global time
+% #1 + epsilon". This means that when two or mroe values are specified
+% for time #1, the last of them is used rather than the
+% first. Likewise, when a non-freezing timeline ends at time #1,
+% \pgfsysanimsnapshot will set the value to the last value in the
+% timeline, while \pgfsysanimsnapshotafter removes the animation.
 %
 % The following commands and effect for animations are ignored / not
 % implemented for snapshots (meaning that even if the "real" animation
 % would look in a certain way because of one of the following commands
 % or effects, the snapshot will not reflect this):
 %
-% - All events whose target is "end". Thus, snapshots ignore the end
-%   of animation (however, this may change in the future, so it is
-%   best not to use snapshots in conjunction with "end" targets.
-% - All restart settings. Snapshots currently always assume the
-%   "never" is the restart setting. Again, this may change in the
-%   future and should not be taken for granted.
+% - Events and restarts are ignored. For the snapshot, all animations
+%   start at global time 0, except if the command
+%   \pgfsysanimkeysnapshotstart is used to specify a different
+%   start for a specific animation. 
 % - The "current value" as starting value (pgf has no real chance of
 %   determining the correct value of this). Using this with a snapshot
 %   will raise an errer.
-% - The "sum" versus "replace" properties. In a snapshot, if there are
-%   several animations for an attribute, they are treated as if they
-%   were separate animations of the attribute on nested scopes. This
-%   means that for attributes like a color the "replace" is used in
-%   effect, while for transformations the "sum" is used.
 %
 % Example:
 %
 % {
-%   \pgfsyssnapshot{2}{+}{}%
+%   \pgfsyssnapshot{2}%
 %   \pgfsysanimkeytime{0}{1}{1}{0}{0}
 %   \pgfsysanimvalscalar{1}
 %   \pgfsysanimkeytime{5}{1}{1}{0}{0}
@@ -93,15 +83,14 @@
 %   % Will set the opacity of \someid to 0.6
 % }
 
-\def\pgfsyssnapshot#1#2#3{%
+\def\pgfsysanimsnapshot#1{%
   \def\pgfsysanim@snaptime{#1}%
-  \def\pgfsysanim@temp{#2}%
-  \def\pgfsysanim@snapevents{#3}%
-  \ifx\pgfsysanim@temp\pgfsysanim@plus@text%
-    \pgfsysanim@snap@firstfalse%
-  \else%
-    \pgfsysanim@snap@firsttrue%
-  \fi
+  \pgfsysanim@snap@firsttrue%
+  \pgfsysanim@is@snaptrue%
+}
+\def\pgfsysanimsnapshotafter#1{%
+  \def\pgfsysanim@snaptime{#1}%
+  \pgfsysanim@snap@firstfalse%
   \pgfsysanim@is@snaptrue%
 }
 \newif\ifpgfsysanim@is@snap
@@ -142,7 +131,8 @@
       \ifx\pgfsysanim@code@begin\relax%
       \else%
         % Attach to object:
-        \expandafter\expandafter\expandafter\pgfsysanim@call@attacher\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@code@begin\expandafter}\expandafter{\pgfsysanim@code@end}{}%
+        \expandafter\expandafter\expandafter\pgfsysanim@call@attacher%
+        \expandafter\expandafter\expandafter{\expandafter\pgfsysanim@code@begin\expandafter}\expandafter{\pgfsysanim@code@end}{}%
       \fi%
     \fi%
   }%
@@ -174,7 +164,10 @@
   \pgfsys@animation@repeat{#1}%
   % Snapshot
   \let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@normal%
-  \def\pgfsysanim@snap@repeat@arg{#1}%
+  {%
+    \pgf@x#1pt\relax%
+  \expandafter}%
+  \expandafter\def\expandafter\pgfsysanim@snap@repeat@arg\expandafter{\the\pgf@x}%
 }
 \def\pgfsysanimkeyrepeatindefinite{%
   \pgfsys@animation@repeat@indefinite%
@@ -186,7 +179,10 @@
   \pgfsys@animation@repeat@dur{#1}%
   % Snapshot
   \let\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@dur%
-  \def\pgfsysanim@snap@repeat@arg{#1}%
+  {%
+    \pgf@x#1pt\relax%
+  \expandafter}%
+  \expandafter\def\expandafter\pgfsysanim@snap@repeat@arg\expandafter{\the\pgf@x}%
 }
 \def\pgfsysanim@snap@repeat@none{n}%
 \def\pgfsysanim@snap@repeat@normal{m}%
@@ -230,24 +226,33 @@
 
 
 
+% Sets the beginning of the timeline for snapshots
+%
+% #1 = a time (a scalar)
+%
+% Description:
+%
+% Sets the start of current animation to #1 for snapshots. For
+% instance, if #1 is 5 (=five seconds), and you say
+% \pgfsysanimsnapshot{6}, the attribute will be set to whatever the
+% animation specifies after one second.
+
+\def\pgfsysanimkeysnapshotstart#1{%
+  \def\pgfsysanim@snapshotstart{#1}%
+}
+\def\pgfsysanim@snapshotstart{0}
+
+
 % Companion for \pgfsys@animation@offset
 %
 % #1, #2 = as in \pgfsys@animation@offset
 %
 % Description:
 %
-% Calls \pgfsys@animation@offset. Furthermore, if #2 is "begin", the
-% specified offset is recorded so that it can later be analysed for
-% the computation needed for a snapshot.
+% Calls \pgfsys@animation@offset. 
 
 \def\pgfsysanimkeyoffset#1#2{%
   \pgfsys@animation@offset{#1}{#2}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#2}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{begin offset not yet implemented}%
-    \fi%
-  \fi%
 }
 
 
@@ -257,29 +262,14 @@
 %
 % Description:
 %
-% Calls \pgfsys@animation@sync(begin|end) Furthermore, if #4 is
-% "begin" (for both syncbegin and syncend), the specified sync is
-% recorded so that it can later be analysed for the computation needed
-% for a snapshot. 
+% Calls \pgfsys@animation@sync(begin|end).
 
 \def\pgfsysanimkeysyncbegin#1#2#3#4{%
   \pgfsys@animation@syncbegin{#1}{#2}{#3}{#4}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#4}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{sync begin not yet implemented}%
-    \fi%
-  \fi%
 }
 
 \def\pgfsysanimkeysyncend#1#2#3#4{%
   \pgfsys@animation@syncend{#1}{#2}{#3}{#4}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#4}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{sync end not yet implemented}%
-    \fi%
-  \fi%
 }
 
 
@@ -289,18 +279,10 @@
 %
 % Description:
 %
-% Calls \pgfsys@animation@event and, if #5 is "begin", the specified
-% event is recorded so that it can later be analysed for the
-% computation needed for a snapshot. 
+% Calls \pgfsys@animation@event.
 
 \def\pgfsysanimkeyevent#1#2#3#4#5{%
   \pgfsys@animation@event{#1}{#2}{#3}{#4}{#5}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#5}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{event not yet implemented}%
-    \fi%
-  \fi%
 }
 
 
@@ -310,18 +292,10 @@
 %
 % Description:
 %
-% Calls \pgfsys@animation@repeat@event and, if #5 is "begin", the specified
-% event is recorded so that it can later be analysed for the
-% computation needed for a snapshot. 
+% Calls \pgfsys@animation@repeat@event.
 
 \def\pgfsysanimkeyrepeatevent#1#2#3#4#5{%
   \pgfsys@animation@repeat@event{#1}{#2}{#3}{#4}{#5}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#5}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{repeat event not yet implemented}%
-    \fi%
-  \fi%
 }
 
 
@@ -332,18 +306,10 @@
 %
 % Description:
 %
-% Calls \pgfsys@animation@accesskey and, if #3 is "begin", the
-% specified event is recorded so that it can later be analysed for the 
-% computation needed for a snapshot. 
+% Calls \pgfsys@animation@accesskey.
 
 \def\pgfsysanimkeyaccesskey#1#2#3{%
   \pgfsys@animation@repeat@event{#1}{#2}{#3}%
-  \ifpgfsysanim@is@snap%
-    \def\pgfsys@temp{#3}%
-    \ifx\pgfsys@temp\pgf@sys@begin@text%
-      \pgferror{access key not yet implemented}%
-    \fi%
-  \fi%
 }
 
 
@@ -748,96 +714,255 @@
 % \pgfsysanim@next@val.
 %
 \def\pgfsysanim@compute@interval{%
-  \pgfsysanim@adjust@time%
-  \pgfsysanim@valid@snapshot@timefalse%
-  \ifx\pgfsysanim@snap@time\pgfutil@empty%
-    % No events met, so no animation
-  \else%
-    % Ok, let us iterate over all points of time.
-    \let\pgfsysanim@prev@val\relax%
-    \let\pgfsysanim@prev@time\relax%
-    \let\pgfsysanim@prev@spline\relax%
-    \let\pgfsysanim@next@val\relax%
-    \let\pgfsysanim@next@time\relax%
-    \let\pgfsysanim@next@spline\relax%
-    \let\pgfsysanim@first@time\relax%
-    \let\pgfsysanim@last@time\relax%
-    \pgfutil@tempcnta=1\relax%
-    \pgfsysanim@conttrue%
-    \pgfutil@loop%
-      \ifnum\pgfutil@tempcnta>\pgfsysanim@snap@count%
-        \pgfsysanim@contfalse%
-      \else%
-        \expandafter\let\expandafter\pgfsys@temp\csname pgfsysanim@snap@\the\pgfutil@tempcnta\endcsname%
-        \expandafter\pgfsysanim@test@time\pgfsys@temp%
-      \fi%
-    \ifpgfsysanim@cont%
-      \advance\pgfutil@tempcnta by1\relax%  
-    \pgfutil@repeat%
-    \ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@none%
-    \else%
-      \pgferror{repeats not yet implement for snapshots}%
-    \fi%
-    \ifpgfsysanim@freezeatend%
-      \ifx\pgfsysanim@next@time\relax%
-        % past end -> use last value
-        \let\pgfsysanim@next@val\pgfsysanim@prev@val%
-        \let\pgfsysanim@next@time\pgfsysanim@prev@time%
-        \let\pgfsysanim@next@spline\pgfsysanim@prev@spline%
-      \fi%
-    \else%
-      \ifpgfsysanim@snap@first%
-      \else%
-        \ifx\pgfsysanim@prev@time\relax%
-        \else
-          \ifdim\pgfsysanim@last@time pt=\pgfsysanim@snaptime pt%
-            \let\pgfsysanim@prev@val\relax%
-            \let\pgfsysanim@prev@time\relax%
-            \let\pgfsysanim@prev@spline\relax%
-            \let\pgfsysanim@next@val\relax%
-            \let\pgfsysanim@next@time\relax%
-            \let\pgfsysanim@next@spline\relax%
-          \fi%
-        \fi%
-      \fi%
-    \fi%
-    % Test whether a valid interval has been found:
-    \ifx\pgfsysanim@prev@time\relax%
-    \else\ifx\pgfsysanim@next@time\relax%
-    \else\pgfsysanim@valid@snapshot@timetrue%
-    \fi\fi%
+  \let\pgfsysanim@prev@val\relax%
+  \let\pgfsysanim@prev@time\relax%
+  \let\pgfsysanim@prev@spline\pgfsysanim@default@spline%
+  \let\pgfsysanim@next@val\relax%
+  \let\pgfsysanim@next@time\relax%
+  \let\pgfsysanim@next@spline\pgfsysanim@default@spline%
+  \let\pgfsysanim@first@time\relax%
+  \let\pgfsysanim@last@time\relax%
+  \let\pgfsysanim@last@val\relax%
+  \ifnum\pgfsysanim@snap@count>0\relax%
+    \pgf@xc\pgfsysanim@snaptime pt\relax%
+    \pgf@x\pgfsysanim@snapshotstart pt\relax%
+    \advance\pgf@xc-\pgf@x\relax%
+    % Compute the start and end times:
+    \pgfsysanim@compute@start@end%
+    \pgfsysanim@compute@value%
   \fi%
+  % Test whether a valid interval has been found:
+  \pgfsysanim@valid@snapshot@timefalse%
+  \ifx\pgfsysanim@prev@time\relax%
+  \else\ifx\pgfsysanim@next@time\relax%
+  \else\pgfsysanim@valid@snapshot@timetrue%
+  \fi\fi%
 }
 \newif\ifpgfsysanim@cont%
 \newif\ifpgfsysanim@valid@snapshot@time
+\def\pgfsysanim@default@spline{{0}{0}{1}{1}}
+
+\def\pgfsysanim@compute@start@end{%
+  \expandafter\expandafter\expandafter\pgfsysanim@compute@start\csname pgfsysanim@snap@1\endcsname%
+  \expandafter\expandafter\expandafter\pgfsysanim@compute@end\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname%
+}
+\def\pgfsysanim@compute@start#1#2#3#4#5#6{%
+  \def\pgfsysanim@first@time{#1}%
+}
+\def\pgfsysanim@compute@end#1#2#3#4#5#6{%
+  \def\pgfsysanim@last@time{#1}%
+  \def\pgfsysanim@last@val{#6}%
+}
 
 
+\def\pgfsysanim@compute@value{%
+  % First, are we before start?
+  \ifdim\pgf@xc<\pgfsysanim@first@time pt\relax%
+    % snapshot time (xc) is before start of animation. So, nothing happens:
+  \else%
+    \ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@none%
+      \pgfsysanim@handle@repeat@none%
+    \else\ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@normal%
+      \pgfsysanim@handle@repeat@normal%
+    \else\ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@indefinite%
+      \pgfsysanim@handle@repeat@indefinite%
+    \else\ifx\pgfsysanim@snap@repeat@kind\pgfsysanim@snap@repeat@dur%
+      \pgfsysanim@handle@repeat@dur%
+    \fi\fi\fi\fi%
+  \fi%
+}
 
-% "Adjust" the snap time: In case one or more events are met, the snap time is
-% shifted forward by the first event that is met. May also set the
-% snap time "" in case event is met.
-\def\pgfsysanim@adjust@time{%
-  % Not yet implemented: Must iterate over all trigged events and
-  % cross-reference them with the snapshot's events.
+\def\pgfsysanim@handle@repeat@none{%
+  \ifdim\pgf@xc<\pgfsysanim@last@time pt\relax%
+    \pgfsysanim@compute@time%
+  \else%
+    \ifdim\pgf@xc=\pgfsysanim@last@time pt\relax%
+      % A bit tricky:
+      \ifpgfsysanim@snap@first%
+        \pgfsysanim@compute@time%
+      \else%
+        \ifpgfsysanim@freezeatend%
+          \let\pgfsysanim@prev@val\pgfsysanim@last@val%
+          \let\pgfsysanim@prev@time\pgfsysanim@last@time%
+          \let\pgfsysanim@next@val\pgfsysanim@last@val%
+          \let\pgfsysanim@next@time\pgfsysanim@last@time%
+        \fi%
+      \fi%
+    \else%
+      % Called when we are past the end.
+      \ifpgfsysanim@freezeatend%
+        \let\pgfsysanim@prev@val\pgfsysanim@last@val%
+        \let\pgfsysanim@prev@time\pgfsysanim@last@time%
+        \let\pgfsysanim@next@val\pgfsysanim@last@val%
+        \let\pgfsysanim@next@time\pgfsysanim@last@time%
+      \fi%
+    \fi%
+  \fi%
+}
+
+
+\def\pgfsysanim@handle@repeat@indefinite{%
+  \ifdim\pgf@xc<\pgfsysanim@last@time pt\relax%
+    \pgfsysanim@compute@time%
+  \else%
+    % Compute interval length
+    \pgf@xa=\pgfsysanim@last@time pt%
+    \pgf@xb=\pgfsysanim@first@time pt%
+    \advance\pgf@xa by-\pgf@xb%
+    % Compute repeat count and fraction:
+    \pgf@ya\pgf@xc%
+    \advance\pgf@ya by-\pgf@xb%
+    \ifdim\pgf@xa<0.01pt\relax%
+      % Interval too small: Goto end of interval
+      \def\pgfmathresult{1.0}%
+    \else%
+      \pgfmathdivide@{\pgf@ya}{\pgf@xa}%
+    \fi%
+    \pgf@x\pgfmathresult pt%
+    \expandafter\pgfsysanim@splitter\the\pgf@x%
+    \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+    \advance\pgf@xc by\pgf@xb%
+    \pgfsysanim@compute@time%
+  \fi%
+}
+{\catcode`\p=12\catcode`\t=12\gdef\Pgfsysanim@sPliTTer#1.#2pt{\Pgfsysanim@seTTer{#1}{#2}}}
+\let\pgfsysanim@splitter\Pgfsysanim@sPliTTer
+\def\Pgfsysanim@seTTer#1#2{%
+  \def\pgfsysanim@repeat@decimal{#1}%
+  \def\pgfsysanim@repeat@frac{.#2}%
+}
+\let\pgfsysanim@repeat@decimal\relax%
+
+
+\def\pgfsysanim@handle@repeat@normal{%
+  % Compute interval length
+  \pgf@xa=\pgfsysanim@last@time pt%
+  \pgf@xb=\pgfsysanim@first@time pt%
+  \advance\pgf@xa by-\pgf@xb%
+  % Compute repeat count and fraction:
+  \pgf@ya\pgf@xc%
+  \advance\pgf@ya by-\pgf@xb%
+  \ifdim\pgf@xa<0.01pt\relax%
+    % Interval too small: Goto end of interval
+    \def\pgfmathresult{1.0}%
+  \else%
+    \pgfmathdivide@{\pgf@ya}{\pgf@xa}%
+  \fi%
+  \pgf@x\pgfmathresult pt\relax%
+  \expandafter\pgfsysanim@splitter\the\pgf@x%
+  % Cases:
+  \ifdim\pgfmathresult pt<\pgfsysanim@snap@repeat@arg\relax%
+    % Ok! Compute!
+    \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+    \advance\pgf@xc by\pgf@xb%
+    \pgfsysanim@compute@time%
+  \else%
+    % Hmm. Freeze?
+    \ifpgfsysanim@freezeatend%
+      \expandafter\pgfsysanim@splitter\pgfsysanim@snap@repeat@arg%
+      \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+      \advance\pgf@xc by\pgf@xb%
+      \pgfsysanim@compute@time%
+    \else%
+      \ifdim\pgfmathresult pt=\pgfsysanim@snap@repeat@arg\relax%
+        \ifpgfsysanim@snap@first%
+          \expandafter\pgfsysanim@splitter\pgfsysanim@snap@repeat@arg%
+          \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+          \advance\pgf@xc by\pgf@xb%
+          \pgfsysanim@compute@time%
+        \fi%
+      % else: nothing!
+      \fi%
+    \fi%
+  \fi%
+}
+
+\def\pgfsysanim@handle@repeat@dur{%
+  \pgf@yb=\pgfsysanim@first@time pt%
+  \advance\pgf@yb by\pgfsysanim@snap@repeat@arg\relax%
+  \ifdim\pgf@xc<\pgf@yb% inside interval
+    \pgf@xa=\pgfsysanim@last@time pt%
+    \pgf@xb=\pgfsysanim@first@time pt%
+    \advance\pgf@xa by-\pgf@xb%
+    % Compute repeat count and fraction:
+    \pgf@ya\pgf@xc%
+    \advance\pgf@ya by-\pgf@xb%
+    \ifdim\pgf@xa<0.01pt\relax%
+      % Interval too small: Goto end of interval
+      \def\pgfmathresult{1.0}%
+    \else%
+      \pgfmathdivide@{\pgf@ya}{\pgf@xa}%
+    \fi%
+    \pgf@x\pgfmathresult pt\relax%
+    \expandafter\pgfsysanim@splitter\the\pgf@x%
+    %
+    \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+    \advance\pgf@xc by\pgf@xb%
+    \pgfsysanim@compute@time%
+  \else%
+    \ifpgfsysanim@freezeatend%
+      \pgfsysanim@handle@repeat@dur@freeze%
+    \else%
+      \ifdim\pgf@xc=\pgf@yb%
+        \ifpgfsysanim@snap@first%
+          \pgfsysanim@handle@repeat@dur@freeze%
+        \fi%
+      \fi%
+    \fi%
+  \fi%
+}
+
+\def\pgfsysanim@handle@repeat@dur@freeze{%
+  \pgf@xa=\pgfsysanim@last@time pt%
+  \pgf@xb=\pgfsysanim@first@time pt%
+  \advance\pgf@xa by-\pgf@xb%
+  % Compute repeat count and fraction:
+  \ifdim\pgf@xa<0.01pt\relax%
+    % Interval too small: Goto end of interval
+    \def\pgfmathresult{1.0}%
+  \else%
+    \pgfmathdivide@{\pgfsysanim@snap@repeat@arg}{\pgf@xa}%
+  \fi%
+  \pgf@x\pgfmathresult pt\relax%
+  \expandafter\pgfsysanim@splitter\the\pgf@x%
+  % 
+  \pgf@xc=\pgfsysanim@repeat@frac\pgf@xa%
+  \advance\pgf@xc by\pgf@xb%
+  \pgfsysanim@compute@time%
 }
 
 
 
+
+
+\def\pgfsysanim@compute@time{%
+  % Ok, let us iterate over all points of time.
+  \pgfutil@tempcnta=1\relax%
+  \pgfsysanim@conttrue%
+  \pgfutil@loop%
+    \ifnum\pgfutil@tempcnta>\pgfsysanim@snap@count%
+      \pgfsysanim@contfalse%
+    \else%
+      \expandafter\let\expandafter\pgfsys@temp\csname pgfsysanim@snap@\the\pgfutil@tempcnta\endcsname%
+      \expandafter\pgfsysanim@test@time\pgfsys@temp%
+    \fi%
+  \ifpgfsysanim@cont%
+    \advance\pgfutil@tempcnta by1\relax%  
+  \pgfutil@repeat%
+}
+
+
 \def\pgfsysanim@test@time#1#2#3#4#5#6{%
-  \ifx\pgfsysanim@first@time\relax%
-    \def\pgfsysanim@first@time{#1}%
-  \fi%
-  \def\pgfsysanim@last@time{#1}%  
   % #1 = time in seconds
   % #2 to #5 = spline controls
   % #6 = value
-  \ifdim#1pt<\pgfsysanim@snaptime pt%
+  \ifdim#1pt<\pgf@xc%
     % snap time not yet reached. Update previous:
     \def\pgfsysanim@prev@val{#6}%
     \def\pgfsysanim@prev@time{#1}%
     \def\pgfsysanim@prev@spline{{#2}{#3}{#4}{#5}}%
   \else%
-    \ifdim#1pt=\pgfsysanim@snaptime pt%
+    \ifdim#1pt=\pgf@xc%
       \ifpgfsysanim@snap@first%
         \ifx\pgfsysanim@next@val\relax%
           % first? Save!
@@ -1356,7 +1481,7 @@
 
 
 \def\pgfsysanim@compute@fractions{%
-  \ifdim\pgfsysanim@snaptime pt=\pgfsysanim@prev@time pt%
+  \ifdim\pgf@xc=\pgfsysanim@prev@time pt%
     \def\pgfsysanim@frac@a{0}%
     \def\pgfsysanim@frac@b{1}%
   \else%
@@ -1366,7 +1491,7 @@
       \def\pgfsysanim@frac@b{1}%
     \else%
       \let\pgfsysanim@divby\pgfmathresult%
-      \pgfmathsubtract@{\pgfsysanim@snaptime}{\pgfsysanim@prev@time}%
+      \pgfmathsubtract@{\pgf@xc}{\pgfsysanim@prev@time}%
       \pgfmathdivide@{\pgfmathresult}{\pgfsysanim@divby}%
       \ifdim\pgfmathresult pt<0pt\def\pgfmathresult{0}\fi%
       \ifdim\pgfmathresult pt>1pt\def\pgfmathresult{1}\fi%
