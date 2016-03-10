@@ -457,7 +457,7 @@
 \def\pgfsysanimvaltext#1{%
   \pgfsys@animation@val@text{#1}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{#1}%
+    \pgfsysanim@esnap@record{#1}%
   \fi%
 }
 
@@ -476,7 +476,7 @@
 \def\pgfsysanimvalscalar#1{%
   \pgfsys@animation@val@scalar{#1}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{#1}%
+    \pgfsysanim@esnap@record{#1}%
   \fi%
 }
 
@@ -494,7 +494,7 @@
 \def\pgfsysanimvaldimension#1{%
   \pgfsys@animation@val@dimension{#1}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{#1}%
+    \pgfsysanim@esnap@record{#1}%
   \fi%
 }
 
@@ -549,7 +549,7 @@
 \def\pgfsysanimvalcolorrgb#1#2#3{%
   \pgfsys@animation@val@color@rgb{#1}{#2}{#3}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#2}{#3}}%
+    \pgfsysanim@esnap@record{{#1}{#2}{#3}}%
   \fi%  
 }
 
@@ -582,7 +582,7 @@
       \ifdim\pgf@xc<0pt\pgf@xc0pt\fi%
       \edef\pgfsys@temp{{\pgf@sys@tonumber\pgf@xa}{\pgf@sys@tonumber\pgf@xb}{\pgf@sys@tonumber\pgf@xc}}%
     \expandafter}%
-    \expandafter\pgfsysanim@snap@record\expandafter{\pgfsys@temp}%
+    \expandafter\pgfsysanim@esnap@record\expandafter{\pgfsys@temp}%
   \fi%  
 }
 
@@ -608,7 +608,7 @@
       \advance\pgf@xc by-#1pt%
       \edef\pgfsys@temp{{\pgf@sys@tonumber\pgf@xa}{\pgf@sys@tonumber\pgf@xb}{\pgf@sys@tonumber\pgf@xc}}%
     \expandafter}%
-    \expandafter\pgfsysanim@snap@record\expandafter{\pgfsys@temp}%
+    \expandafter\pgfsysanim@esnap@record\expandafter{\pgfsys@temp}%
   \fi%  
 }
 
@@ -626,7 +626,7 @@
 \def\pgfsysanimvalcolorgray#1{%
   \pgfsys@animation@val@color@gray{#1}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#1}{#1}}%
+    \pgfsysanim@esnap@record{{#1}{#1}{#1}}%
   \fi%  
 }
 
@@ -661,7 +661,7 @@
 \def\pgfsysanimvaltranslate#1#2{%
   \pgfsys@animation@val@translate{#1}{#2}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#2}}%
+    \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
 
@@ -679,7 +679,7 @@
 \def\pgfsysanimvalscale#1#2{%
   \pgfsys@animation@val@scale{#1}{#2}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#2}}%
+    \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
 
@@ -697,7 +697,7 @@
 \def\pgfsysanimvalviewbox#1#2#3#4{%
   \pgfsys@animation@val@viewbox{#1}{#2}{#3}{#4}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#2}{#3}{#4}}%
+    \pgfsysanim@esnap@record{{#1}{#2}{#3}{#4}}%
   \fi%  
 }
 
@@ -716,7 +716,7 @@
 \def\pgfsysanimvaldash#1#2{%
   \pgfsys@animation@val@dash{#1}{#2}%
   \ifpgfsysanim@is@snap%
-    \pgfsysanim@snap@record{{#1}{#2}}%
+    \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
 
@@ -728,9 +728,14 @@
 % Recording mechanism: We record entries in an array.
 %
 
+\def\pgfsysanim@esnap@record#1{% records a new entry for the timeline
+  \edef\pgfsysanim@temp{#1}%
+  \expandafter\pgfsysanim@snap@record\expandafter{\pgfsysanim@temp}%
+}
 \def\pgfsysanim@snap@record#1{% records a new entry for the timeline
   \advance\pgfsysanim@snap@count by1\relax%
-  \expandafter\edef\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname{\pgfsysanim@time{#1}}%
+  \expandafter\def\expandafter\pgfsysanim@temp\expandafter{\pgfsysanim@time{#1}}%
+  \expandafter\let\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname\pgfsysanim@temp%
 }
 \newcount\pgfsysanim@snap@count
 
@@ -1128,10 +1133,42 @@
 \def\pgfsysanim@prep@attr@path{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@path%
-    \pgferror{snapshot of path not yet implemented}%
+    \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{%
+      \ifx\pgfsys@discardpath@orig\pgfsys@discardpath%
+      \else%
+        % Hook into path systems layer commands
+        \let\pgfsys@discardpath@orig\pgfsys@discardpath%
+        \let\pgfsys@stroke@orig\pgfsys@stroke%
+        \let\pgfsys@fill@orig\pgfsys@fill%
+        \let\pgfsys@fillstroke@orig\pgfsys@fillstroke%
+        \let\pgfsys@closestroke@orig\pgfsys@closestroke%
+        \let\pgfsys@discardpath\pgfsys@discardpath@hook%
+        \let\pgfsys@stroke\pgfsys@stroke@hook%
+        \let\pgfsys@fill\pgfsys@fill@hook%
+        \let\pgfsys@fillstroke\pgfsys@fillstroke@hook%
+        \let\pgfsys@closestroke\pgfsys@closestroke@hook%
+      \fi%
+    }{}{}%
+    \expandafter\def\expandafter\pgfsysanim@temp\expandafter{\csname pgfsysanim@phook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname}
+    \expandafter\expandafter\expandafter\gdef\expandafter\pgfsysanim@temp\expandafter{\pgfsysanim@path@val}%
   \fi%
 }
+\def\pgfsys@stroke@hook{\pgfsysanim@path@hooks\pgfsys@stroke@orig}
+\def\pgfsys@fill@hook{\pgfsysanim@path@hooks\pgfsys@fill@orig}
+\def\pgfsys@fillstroke@hook{\pgfsysanim@path@hooks\pgfsys@fillstroke@orig}
+\def\pgfsys@closestroke@hook{\pgfsysanim@path@hooks\pgfsys@closestroke@orig}
+\def\pgfsys@discardpath@hook{\pgfsysanim@path@hooks\pgfsys@discardpath@orig}
 
+\def\pgfsysanim@path@hooks#1{%
+  \expandafter\ifx\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
+    #1%
+  \else%
+    \pgfsys@discardpath@orig%
+    \csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname%
+    #1%
+    \expandafter\global\expandafter\let\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
+  \fi%
+}
 
 
 
@@ -1191,7 +1228,31 @@
 }
 
 
-\def\pgfsysanim@comp@path{\pgferror{path animation not yet implemented}}
+\def\pgfsysanim@comp@path{%
+  \pgfsysanim@compute@fractions%
+  \expandafter\expandafter\expandafter\pgfsysanim@comp@path@\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@prev@val\expandafter}\expandafter{\pgfsysanim@next@val}%
+}
+\def\pgfsysanim@comp@path@#1#2{%
+  \let\pgfsysanim@path@val\pgfutil@empty%
+  \pgfsysanim@parse@path#1\pgf@stop\relax#2\pgf@stop\relax%
+}
+\def\pgfsysanim@parse@path{\pgfutil@ifnextchar\pgf@stop\pgfsysanim@parse@path@done\pgfsysanim@parse@path@first}
+\def\pgfsysanim@parse@path@done\pgf@stop\relax\pgf@stop\relax{}%
+\def\pgfsysanim@parse@path@first{\pgfutil@ifnextchar\bgroup\pgfsysanim@parse@path@first@num\pgfsysanim@parse@path@token}
+\def\pgfsysanim@parse@path@token#1#2\relax#3#4\relax{%
+  \expandafter\def\expandafter\pgfsysanim@path@val\expandafter{\pgfsysanim@path@val#1}%
+  \pgfsysanim@parse@path#2\relax#4\relax%
+}
+\def\pgfsysanim@parse@path@first@num#1#2\relax#3#4\relax{%
+  \pgf@x#1%
+  \pgf@x\pgfsysanim@frac@b\pgf@x%
+  \pgf@y#3%
+  \advance\pgf@x by\pgfsysanim@frac@a\pgf@y%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfsysanim@path@val\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@path@val\expandafter{\the\pgf@x}}%
+  \pgfsysanim@parse@path#2\relax#4\relax%
+}
+
+
 
 \def\pgfsysanim@comp@color{
   \pgfsysanim@compute@fractions%
