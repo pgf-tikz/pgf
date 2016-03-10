@@ -122,9 +122,17 @@
 % Transformation:
 \def\pgfsys@transformcm#1#2#3#4#5#6{%
   {\pgf@x=#5\pgf@y=#6%
-  \pgf@sys@svg@gs{transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}}}
-
-% View boxes
+    \edef\pgf@temp{transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+    \ifx\pgf@temp\pgf@sys@svg@idmat@text%
+      \let\pgf@temp\pgfutil@empty%
+    \fi%
+    \pgf@sys@svg@gs{\pgf@temp}}}
+\def\pgfsys@transformshift#1#2{%
+  {\pgf@x=#1\pgf@y=#2%
+  \pgf@sys@svg@gs{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}}}
+\def\pgfsys@transformxyscale#1#2{%
+  {\pgf@x=#1pt\pgf@y=#2pt%
+  \pgf@sys@svg@gs{transform="scale(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}}}
 \def\pgfsys@viewboxmeet{\pgf@sys@svg@viewbox{meet}}
 \def\pgfsys@viewboxslice{\pgf@sys@svg@viewbox{slice}}
 \def\pgf@sys@svg@viewbox#1#2#3#4#5#6#7#8#9{%
@@ -690,12 +698,14 @@
 }
 \let\pgf@svg@anim@keys@extra\pgfutil@empty
 
+\newcount\pgf@sys@svg@canvascount
 \def\pgf@sys@svg@anim@trans#1#2{%
-  \ifx\pgfsys@anim@val@@id\pgfutil@empty%
+ \ifx\pgfsys@anim@val@@id\pgfutil@empty%
     \pgferror{Animation misses ``whom''}%
   \else%
   {%
-    % 
+    %
+    \global\advance\pgf@sys@svg@canvascount by1\relax%
     \pgf@sys@svg@tl@eval%
     \pgf@sys@svg@do@events{begin}%
     \ifpgf@sys@at@least@one@event%
@@ -704,10 +714,10 @@
     \fi%
     \pgf@sys@svg@do@events{end}%
     #2%
-    \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}%
+    \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas-\the\pgf@sys@svg@canvascount}}%
     \pgfsysprotocol@literal{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}%
     \pgfsys@invalidate@currentid%
-    \edef\pgf@temp{{\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas}}}%
+    \edef\pgf@temp{{\pgfsys@id@ref{\pgfsys@anim@val@@id}{\pgfsys@anim@val@@type-canvas-\the\pgf@sys@svg@canvascount}}}%
     \expandafter\expandafter\expandafter\pgf@sys@attacher\expandafter\pgf@temp\pgfsys@anim@val@canvas@trans%
   }%
   \fi%
@@ -729,21 +739,14 @@
       }%
     }%
   }%
-  \edef\pgf@sys@svg@beg{\expandafter\noexpand\csname pgf@sys@svg@once@beg@\pgfsys@anim@val@@id\pgfsys@anim@val@@type\endcsname}%
-  \edef\pgf@sys@svg@end{\expandafter\noexpand\csname pgf@sys@svg@once@end@\pgfsys@anim@val@@id\pgfsys@anim@val@@type\endcsname}%
-  \expandafter\xdef\pgf@sys@svg@beg{%
-    \global\let\expandafter\noexpand\pgf@sys@svg@beg\relax% once
-    \the\toks0%
-  }%
-  \expandafter\xdef\pgf@sys@svg@end{%
-    \global\let\expandafter\noexpand\pgf@sys@svg@end\relax% once
-    \noexpand\pgfsysprotocol@literal{</g> </g> </g> \noexpand\pgfsys@svg@newline}%
-  }%
+  \edef\pgf@sys@svg@beg{\the\toks0}%
+  \def\pgf@sys@svg@end{\pgfsysprotocol@literal{</g></g></g>\noexpand\pgfsys@svg@newline}}%
   \expandafter\expandafter\expandafter\pgfsys@attach@to@id%
   \expandafter\expandafter\expandafter\pgfsys@anim@val@@id%
   \expandafter\expandafter\expandafter\pgfsys@anim@val@@type%
   \expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@beg\expandafter}\expandafter{\pgf@sys@svg@end}{}%
 }
+
 
 \newif\ifpgf@sys@svg@staged
 
@@ -754,15 +757,16 @@
     {%
       \pgf@x=#5\pgf@y=#6%
       \edef\pgf@temp{ transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
-      \ifx\pgf@temp\pgf@sys@svg@idmat@text%
+      \ifx\pgf@temp\pgf@sys@svg@idmat@stext%
         \let\pgf@temp\pgfutil@empty%
       \fi%
-      \pgfsysprotocol@literal{<g\pgf@temp>\pgfsys@svg@newline}%
+      \pgfsysprotocol@literal{<g\pgf@temp>}%
     }%
     \global\pgf@sys@svg@calledtrue%
   \fi%
 }
-\def\pgf@sys@svg@idmat@text{ transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
+\def\pgf@sys@svg@idmat@text{transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
+\def\pgf@sys@svg@idmat@stext{ transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
 
 \def\pgf@sys@svg@replace#1#2{%
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
