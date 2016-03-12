@@ -87,12 +87,15 @@
   \def\pgfsysanim@snaptime{#1}%
   \pgfsysanim@snap@firsttrue%
   \pgfsysanim@is@snaptrue%
+  \pgfsysanim@is@snap@or@basetrue%
 }
 \def\pgfsysanimsnapshotafter#1{%
   \def\pgfsysanim@snaptime{#1}%
   \pgfsysanim@snap@firstfalse%
+  \pgfsysanim@is@snap@or@basetrue%
   \pgfsysanim@is@snaptrue%
 }
+\newif\ifpgfsysanim@is@snap@or@base
 \newif\ifpgfsysanim@is@snap
 \newif\ifpgfsysanim@snap@first
 
@@ -110,6 +113,10 @@
 % the moment of the snapshot.
 
 \def\pgfsysanimate#1{%
+  \ifx\pgfsysanim@base@value\relax%
+  \else%
+    \pgfsysanim@install@base{#1}%
+  \fi%
   \ifpgfsysanim@is@snap%
     \pgfsysanim@do@snap{#1}%
   \else%
@@ -138,6 +145,36 @@
 }
 \def\pgfsysanim@call@attacher{\pgfsys@attach@to@id{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}}
 
+\def\pgfsysanim@install@base#1{%
+  {%
+    \expandafter\ifx\csname pgfsysanim@prep@attr@#1\endcsname\pgfutil@undefined%
+    \else%
+      % First, compute time frame:
+      \let\pgfsysanim@prev@val\pgfsysanim@base@value%
+      \def\pgfsysanim@prev@time{0}%
+      \let\pgfsysanim@prev@spline\pgfsysanim@default@spline%
+      \let\pgfsysanim@next@val\pgfsysanim@base@value%
+      \let\pgfsysanim@next@time\pgfsysanim@prev@time%
+      \let\pgfsysanim@next@spline\pgfsysanim@default@spline%
+      \let\pgfsysanim@first@time\pgfsysanim@prev@time%
+      \let\pgfsysanim@last@time\pgfsysanim@prev@time%
+      \let\pgfsysanim@last@val\pgfsysanim@base@value%
+      \def\pgfsysanim@frac@a{1}%
+      \def\pgfsysanim@frac@b{0}%
+      \pgfsysanim@valid@snapshot@timetrue%
+      % Second, compute code:
+      \let\pgfsysanim@code@begin\relax%
+      \let\pgfsysanim@code@end\pgfutil@empty%
+      \csname pgfsysanim@prep@attr@#1\endcsname%
+      \ifx\pgfsysanim@code@begin\relax%
+      \else%
+        % Attach to object:
+        \expandafter\expandafter\expandafter\pgfsysanim@call@attacher%
+        \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter}\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@code@end\expandafter}\expandafter{\pgfsysanim@code@begin}%
+      \fi%
+    \fi%
+  }%
+}
 
 % Companions for \pgfsys@animation@restart@...
 %
@@ -221,8 +258,27 @@
   \pgfsys@animation@time{#1}{#2}{#3}{#4}{#5}%
   % and rember for snapshots
   \def\pgfsysanim@time{{#1}{#2}{#3}{#4}{#5}}%
+  \pgfsysanim@base@nextfalse%
+  \ifpgfsysanim@is@snap%
+    \pgfsysanim@is@snap@or@basetrue%
+  \else%
+    \pgfsysanim@is@snap@or@basefalse%
+  \fi%
 }
 
+
+% Sets the base value
+%
+% Description:
+%
+% This will set the "base" value for an animation, which is installed
+% prior to any animation of the attribute.
+
+\def\pgfsysanimkeybase{%
+  \pgfsysanim@base@nexttrue%
+  \pgfsysanim@is@snap@or@basetrue%
+}
+\newif\ifpgfsysanim@base@next
 
 
 % Sets the beginning of the timeline for snapshots
@@ -402,8 +458,11 @@
 % an error results.
 
 \def\pgfsysanimvalcurrent{%
-  \pgfsys@animation@val@current%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@current%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgferror{You may not use "current value" with an animation snapshot}%
   \fi%
 }
@@ -420,8 +479,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvaltext#1{%
-  \pgfsys@animation@val@text{#1}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@text{#1}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{#1}%
   \fi%
 }
@@ -439,8 +501,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalscalar#1{%
-  \pgfsys@animation@val@scalar{#1}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@scalar{#1}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{#1}%
   \fi%
 }
@@ -457,8 +522,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvaldimension#1{%
-  \pgfsys@animation@val@dimension{#1}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@dimension{#1}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{#1}%
   \fi%
 }
@@ -512,8 +580,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalcolorrgb#1#2#3{%
-  \pgfsys@animation@val@color@rgb{#1}{#2}{#3}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@color@rgb{#1}{#2}{#3}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#2}{#3}}%
   \fi%  
 }
@@ -530,8 +601,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalcolorcmyk#1#2#3#4{%
-  \pgfsys@animation@val@color@cmyk{#1}{#2}{#3}{#4}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@color@cmyk{#1}{#2}{#3}{#4}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     {%
       \pgf@xa=1pt%
       \advance\pgf@xa by-#1pt%
@@ -562,8 +636,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalcolorcmy#1#2#3{%
-  \pgfsys@animation@val@color@cmy{#1}{#2}{#3}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@color@cmy{#1}{#2}{#3}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     {%
       \pgf@xa=1pt%
       \advance\pgf@xa by-#1pt%
@@ -589,8 +666,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalcolorgray#1{%
-  \pgfsys@animation@val@color@gray{#1}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@color@gray{#1}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#1}{#1}}%
   \fi%  
 }
@@ -607,8 +687,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalpath#1{%
-  \pgfsys@animation@val@path{#1}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@path{#1}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@snap@record{#1}%
   \fi%  
 }
@@ -624,8 +707,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvaltranslate#1#2{%
-  \pgfsys@animation@val@translate{#1}{#2}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@translate{#1}{#2}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
@@ -642,8 +728,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalscale#1#2{%
-  \pgfsys@animation@val@scale{#1}{#2}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@scale{#1}{#2}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
@@ -660,8 +749,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvalviewbox#1#2#3#4{%
-  \pgfsys@animation@val@viewbox{#1}{#2}{#3}{#4}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@viewbox{#1}{#2}{#3}{#4}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#2}{#3}{#4}}%
   \fi%  
 }
@@ -679,8 +771,11 @@
 % the value is recorded in the timeline.
 
 \def\pgfsysanimvaldash#1#2{%
-  \pgfsys@animation@val@dash{#1}{#2}%
-  \ifpgfsysanim@is@snap%
+  \ifpgfsysanim@base@next%
+  \else%
+    \pgfsys@animation@val@dash{#1}{#2}%
+  \fi%
+  \ifpgfsysanim@is@snap@or@base%
     \pgfsysanim@esnap@record{{#1}{#2}}%
   \fi%  
 }
@@ -698,12 +793,16 @@
   \expandafter\pgfsysanim@snap@record\expandafter{\pgfsysanim@temp}%
 }
 \def\pgfsysanim@snap@record#1{% records a new entry for the timeline
-  \advance\pgfsysanim@snap@count by1\relax%
-  \expandafter\def\expandafter\pgfsysanim@temp\expandafter{\pgfsysanim@time{#1}}%
-  \expandafter\let\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname\pgfsysanim@temp%
+  \ifpgfsysanim@base@next%
+    \def\pgfsysanim@base@value{#1}%
+  \else%
+    \advance\pgfsysanim@snap@count by1\relax%
+    \expandafter\def\expandafter\pgfsysanim@temp\expandafter{\pgfsysanim@time{#1}}%
+    \expandafter\let\csname pgfsysanim@snap@\the\pgfsysanim@snap@count\endcsname\pgfsysanim@temp%
+  \fi%
 }
 \newcount\pgfsysanim@snap@count
-
+\let\pgfsysanim@base@value\relax%
 
 
 % Compute the time-value interval of the snapshot: Based on the value of \pgfsysanim@snaptime,
@@ -1600,8 +1699,178 @@
       \let\pgfsysanim@frac@b\pgfmathresult%
     \fi%
   \fi%
+  \ifdim\pgfsysanim@frac@a pt=0pt%
+  \else\ifdim\pgfsysanim@frac@b pt=0pt%
+  \else%
+    \expandafter\expandafter\expandafter\pgfsysanim@apply@spline\expandafter\pgfsysanim@prev@spline\pgfsysanim@next@spline%
+  \fi\fi%
 }
 
+
+\def\pgfsysanim@apply@spline#1#2#3#4#5#6#7#8{%
+  \edef\pgfsys@temp{#3,#5,#4,#6}%
+  \ifx\pgfsys@temp\pgfsysanim@id@spline%
+  \else%
+    \def\pgfsysanim@prev@out@time{{#3}{#4}}%
+    \def\pgfsysanim@next@in@time{{#5}{#6}}%
+    \ifx\pgfsysanim@prev@out@time\pgfsys@stay@text%
+      \pgfsysanim@jump@splines%
+    \else\ifx\pgfsysanim@next@in@time\pgfsys@jump@text%
+      \pgfsysanim@jump@splines%
+    \else%
+      \pgf@xa#3pt%
+      \pgf@xb#5pt%
+      % #4 is val supoort a
+      % #6 is val support b
+      % our first approximation
+      \let\pgfsysanim@t\pgfsysanim@frac@a% 
+      \let\pgfsysanim@s\pgfsysanim@frac@b% 
+      \pgfsysanim@eval@spline%
+      \edef\pgfsysanim@ft{\the\pgf@x}%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by256sp%
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      \pgfsysanim@eval@spline%
+      % Ok, now do Newton one step
+      \advance\pgf@x by-\pgfsysanim@ft%
+      \pgf@x256\pgf@x%
+      % \pgf@x is f'(t) 
+      % must compute t - (f(t)-frac@a)/f'(t)
+      \pgf@ya\pgfsysanim@ft%
+      \advance\pgf@ya by-\pgfsysanim@frac@a pt%
+      \pgf@yb\pgf@x
+      \pgfmathreciprocal@{\pgf@yb}%
+      \ifdim\pgfmathresult pt>2.5pt%
+        \def\pgfmathresult{2.5}%
+      \fi%
+      \ifdim\pgfmathresult pt<-2.5pt%
+        \def\pgfmathresult{-2.5}%
+      \fi%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by-\pgfmathresult\pgf@ya%
+      % \pgf@x is new t:
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      \pgfsysanim@eval@spline%
+      \edef\pgfsysanim@ft{\the\pgf@x}%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by256sp%
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      \pgfsysanim@eval@spline%
+      % Ok, now do Newton one step2
+      \advance\pgf@x by-\pgfsysanim@ft%
+      \pgf@x256\pgf@x%
+      % \pgf@x is f'(t) 
+      % must compute t - (f(t)-frac@a)/f'(t)
+      \pgf@ya\pgfsysanim@ft%
+      \advance\pgf@ya by-\pgfsysanim@frac@a pt%
+      \pgf@yb\pgf@x
+      \pgfmathreciprocal@{\pgf@yb}%
+      \ifdim\pgfmathresult pt>2.5pt%
+        \def\pgfmathresult{2.5}%
+      \fi%
+      \ifdim\pgfmathresult pt<-2.5pt%
+        \def\pgfmathresult{-2.5}%
+      \fi%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by-\pgfmathresult\pgf@ya%
+      % \pgf@x is new t:
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      % Third newton:
+      \pgfsysanim@eval@spline%
+      \edef\pgfsysanim@ft{\the\pgf@x}%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by256sp%
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      \pgfsysanim@eval@spline%
+      % Ok, now do Newton one step2
+      \advance\pgf@x by-\pgfsysanim@ft%
+      \pgf@x256\pgf@x%
+      % \pgf@x is f'(t) 
+      % must compute t - (f(t)-frac@a)/f'(t)
+      \pgf@ya\pgfsysanim@ft%
+      \advance\pgf@ya by-\pgfsysanim@frac@a pt%
+      \pgf@yb\pgf@x
+      \pgfmathreciprocal@{\pgf@yb}%
+      \ifdim\pgfmathresult pt>2.5pt%
+        \def\pgfmathresult{2.5}%
+      \fi%
+      \ifdim\pgfmathresult pt<-2.5pt%
+        \def\pgfmathresult{-2.5}%
+      \fi%
+      \pgf@x\pgfsysanim@t pt%
+      \advance\pgf@x by-\pgfmathresult\pgf@ya%
+      % \pgf@x is new t:
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@t{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@s{\pgf@sys@tonumber\pgf@y}%
+      % now, evaluate target:
+      \pgf@xa#4pt%
+      \pgf@xb#6pt%
+      \pgfsysanim@eval@spline%
+      % \pgf@x is result:
+      \pgf@y1pt%
+      \advance\pgf@y by-\pgf@x%
+      \edef\pgfsysanim@frac@a{\pgf@sys@tonumber\pgf@x}%
+      \edef\pgfsysanim@frac@b{\pgf@sys@tonumber\pgf@y}%
+      \fi\fi%
+  \fi%
+}
+\def\pgfsysanim@id@spline{0,1,0,1}
+
+\def\pgfsysanim@eval@spline{%
+  % Iteration one: (0,#1,#2,1) reduced to (ya,yb,yc)
+  \pgf@ya\pgfsysanim@t\pgf@xa%
+  \pgf@yb\pgfsysanim@t\pgf@xb%
+  \advance\pgf@yb by\pgfsysanim@s\pgf@xa%
+  \pgf@yc\pgfsysanim@t pt%
+  \advance\pgf@yc by\pgfsysanim@s\pgf@xb%
+  % Iteration two: (ya,yb,yc) recuded to (y,xc)
+  \pgf@y\pgfsysanim@t\pgf@yb%
+  \advance\pgf@y by\pgfsysanim@s\pgf@ya%
+  \pgf@xc\pgfsysanim@t\pgf@yc%
+  \advance\pgf@xc by\pgfsysanim@s\pgf@yb%
+  % Iteration three: (y,xc) recuded to (x)
+  \pgf@x\pgfsysanim@t\pgf@xc%
+  \advance\pgf@x by\pgfsysanim@s\pgf@y%
+}
+
+\def\pgfsysanim@jump@splines{%
+  \ifx\pgfsysanim@prev@out@time\pgfsys@stay@text%
+    \ifx\pgfsysanim@next@in@time\pgfsys@jump@text%
+      \ifdim\pgfsysanim@frac@a pt<0.5pt%
+        \def\pgfsysanim@frac@a{0}%
+        \def\pgfsysanim@frac@b{1}%
+      \else%
+        \def\pgfsysanim@frac@a{1}%
+        \def\pgfsysanim@frac@b{0}%
+      \fi%
+    \else%
+      % Only stay, so go to begin
+      \def\pgfsysanim@frac@a{0}%
+      \def\pgfsysanim@frac@b{1}%
+    \fi%
+  \else
+    % Only jump, so go to end
+    \def\pgfsysanim@frac@a{1}%
+    \def\pgfsysanim@frac@b{0}%
+  \fi%
+}
 
 
 \endinput
