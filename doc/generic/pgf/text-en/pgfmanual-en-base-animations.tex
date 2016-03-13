@@ -17,7 +17,6 @@
   documented in the following. 
 \end{pgfmodule}
 
-
 \subsection{Overview}
 
 An \emph{animation} changes the way some part of a graphic looks like
@@ -25,6 +24,14 @@ over time. The archetypical animation is, of course, a \emph{movement}
 of node, but a change of, say, the opacity of a path is also an
 animation. \pgfname\ allows you to specify such animations using a set
 of commands and keys that are documented in the following.
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \pgfanimateattribute{opacity}{
+    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
+}
+\end{codeexample}
 
 Differently from other packages, the animations created by \pgfname\ are not
 precomputed sequences of pictures that are displayed in rapid
@@ -49,7 +56,31 @@ format allows one to specify animations in a sensible way. Thus,
 \pgfname's animations will only be displayed when \textsc{svg} is used
 as output format.
 
-Creating an animation is done using the following command:
+Because of the shortcomings of the other formats and, also, for
+purposes of printing and depicting animations in a sequential mannter,
+\pgfname\ also allows you to create ``snapshots'' of animations. As an
+example, the following code shows how the same drawing is shown at
+different ``time snapshots'':
+
+\begin{codeexample}[width=3.9cm]
+\tikz [make snapshot of=0.5s, animate me = { :rotate = { 0s = "0", 2s = "90" } }]
+  { \node [draw=blue, very thick] {\pgfname}; }
+\tikz [make snapshot of=1s, animate me = { :rotate = { 0s = "0", 2s = "90" } }]
+  { \node [draw=blue, very thick] {\pgfname}; }
+\tikz [make snapshot of=1.5s, animate me = { :rotate = { 0s = "0", 2s = "90" } }]
+  { \node [draw=blue, very thick] {\pgfname}; }
+\tikz [make snapshot of=2s, animate me = { :rotate = { 0s = "0", 2s = "90" } }]
+  { \node [draw=blue, very thick] {\pgfname}; }
+\end{codeexample}
+
+
+\subsection{Animating an Attribute}
+
+\subsubsection{The Main Command}
+
+Creating an animation is done using the command
+|\pgfanimateattribute|, which takes a to-be-animated attribute and
+options specifying the timeline:
 
 \begin{command}{\pgfanimateattribute\marg{attribute}\marg{options}}
   Adds an animation of the \meta{attribute} of a future \emph{object}
@@ -57,13 +88,12 @@ Creating an animation is done using the following command:
   opacity'' or the transformation matrix or the line width.
 
   The \meta{options} are keys that configure how the attribute changes
-  over time. Using the |entry| key multiple times you specify which
+  over time. Using the |entry| key multiple times, you specify which
   value the chosen attribute should have at different points in
-  time. Other keys, like |repeats|, allow you to specify how the
-  animation behaves ``as a whole''. These keys are documented later in
-  this section.
+  time. Unless special keys are used, ``outside'' the specified
+  timeline the animation has no effect:
 
-\begin{codeexample}[animation list={.5,1,1.5,2}]
+\begin{codeexample}[animation list={0.5,1,1.5,2,2.5}]
 \tikz {
   \pgfanimateattribute{opacity}{
     whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
@@ -71,6 +101,10 @@ Creating an animation is done using the following command:
 }
 \end{codeexample}
 
+  Other keys, like |repeats|, allow you to specify how the
+  animation behaves ``as a whole''. These keys are documented later in
+  this section.
+  
   \medskip
   \textbf{The Attributes}
   
@@ -210,6 +244,7 @@ Creating an animation is done using the following command:
   \meta{options} you specify some \meta{code} whose job is to setup
   the options. 
 \end{command}
+
 
 
 \subsubsection{Specifying the Timeline}
@@ -431,6 +466,52 @@ entry={10s}{100}
 \end{key}
 
 
+When the time of an animation lies outside the timeline specified by
+the |entry| keys, no animation is present. This means that the
+value of the attribute is the object's scope is used instad. Using the
+following key, you can set this value directly:
+
+\begin{key}{/tikz/animations/base=\meta{value}}
+  The syntax of the \meta{value} is the same as for the |entry|
+  key. The \meta{value} is installed as the value of the object's
+  attribute whenever the timeline is not active. This makes it easy to
+  specify the value of an attribute when the animation is ``not
+  running.'' 
+
+\begin{codeexample}[animation list={-1,0,1,2,3}]
+\tikz {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click},
+    entry = {0s}{90}, entry = {2s}{180},
+    base  = 45
+  }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
+}
+\end{codeexample}
+\end{key}
+
+
+It may happen that there is more than one timeline active that is
+``trying to modify'' a given attribute. In this case, the following
+rules are used to determine, which timeline ``wins'':
+
+\begin{enumerate}
+\item If no animation is active at the current time (all animation
+  either have not yet started or they have already ended), then the
+  base value given in the animation encountered last in the code is
+  used. (If there are no base values, the attribute is taken from the
+  surrounding scope.)
+\item If there are several active animations, the one that has started
+  last is used and the its value is used.
+\item If there are several active animations that have started at the
+  same time, the one that comes last in the code is used.
+\end{enumerate}
+
+Note that these rules do not apply to transformations of the canvas
+since these are always additive (or, phrased differently, they are
+always all active and the effects accumulate).
+
+
 \begin{command}{\pgfparsetime\marg{time}}
   This command works like |\pgfmathparse| (indeed, it calls is
   internally), but returns the result in the macro |\pgftimeresult|
@@ -457,7 +538,120 @@ entry={10s}{100}
 
 
 
-\subsubsection{Animating Color, Opacity, Visibility, and Staging}
+
+\subsubsection{``Anti-Animations'': Snapshots}
+
+There are a number of sitations in which you want the ``opposite'' of
+an animation to happen: You want to create a ``still image.'' For
+instance, when you want to print an animation you will typically wish
+to show one or more ``temporal snapshots'' of the animation. Also, you
+may wish to specify a value for an object when it is \emph{not} being
+animated.
+
+Let us start with creating a snapshot:
+
+\begin{command}{\pgfsnapshot\marg{time}}
+  When this command is used inside a \TeX\ scope, the behaviour of
+  |\pgfanimateattribute| changes: Instead of adding an animation to
+  the object and the attribute, the object's attribute is set to value
+  it would have during the animation at time \meta{time}.
+  Note that when this command is used in a \TeX\ scope, no animation
+  is created and no support by the driver is needed (so, 
+  it works with \textsc{pdf}).
+
+\begin{codeexample}[]
+\tikz [make snapshot of=1s,
+       animate me = {
+         :rotate = { 0s = "0", 2s = "90" },
+         :color  = { 0s = "red", 2s = "green" },
+         :line width = { 0s = "0mm", 4s = "4mm" }
+       }]
+  \node [fill=black!20, draw] { Node };
+\end{codeexample}
+
+  \medskip\textbf{Timing and Events.}
+  The timeline of an animation normally starts at a ```moment |0s|''
+  and the \meta{time} is considered relative to this time. For
+  instance, if a timeline contains, say, the settings |entry={2s}{0}|
+  and |entry={3s}{10}| and \marg{time} is set to |2.5s|, then the
+  value the attribute will get is 5.
+
+  It is, however, also possible to specify that animations begin and
+  end at certain times relative to events like a |click|
+  event. \emph{These events are not relevant with respect to
+    snapshots.} However, there is one key that allows you to specify
+  the beginning of the snapshot timeline:
+  \begin{key}{/tikz/animations/begin snapshot=\meta{begin time}}
+    When this key is used inside the options of
+    |\pgfanimateattribute|, with respect to snapshots, the timeline
+    begins at \meta{begin time}. This means that, if the snapshot time
+    is set to \meta{time} and the beginning of the snapshot's timeline
+    is set to \meta{begin time}, the attribute is set to the value of
+    the timeline at time $\meta{time} - \meta{begin time}$.
+
+    The idea is that when you make a snapshot of several animations
+    and all of them have started at different times because of
+    different events, you use |begin snapshot| with each object and
+    attribute to directly specify when these different events have
+    happened. 
+  \end{key}
+
+  Note that the |end| keys have no effect with snapshots, that is,
+  with a snapshot all animations always run till the end of the
+  timeline (which may or may not be ``forever'').
+  
+  \medskip\textbf{Limitations.}
+  For snapshots, the value an animation has at time \meta{time} must
+  be computed by \TeX. While in many cases this is easy to achieve, in
+  some cases this is not trivial such as a timeline for a path with
+  repeats plus smoothing via splines. An additional complication is
+  the fact that an animation may be specified at a place far removed
+  from the actual to-be-animated object. For these reasons, certain
+  limitations apply to snapshots:
+  \begin{itemize}
+  \item The |begin| and |begin on| keys have no effect (but
+    |begin snapshot| has one.
+  \item The |end| and |end on| keys have no effect.
+  \item The |current value| may not be used in a timeline (since
+    \pgfname\ cannot really determine this value).
+  \item The |accumulating| specification may not be used with paths,
+    views, or motions.
+  \item Since the timing computations are done using \TeX\ code, they
+    are not necessarily stable. For instance, when a time interval is
+    very small and there are many repeats or when a spline is very
+    complicated, the calculated values may not be fully accurate. 
+  \end{itemize}
+\end{command}
+
+
+\begin{command}{\pgfsnapshotafter\marg{time}}
+  This command works exactly like |\pgfsnapshot| only the ``moment''
+  that \meta{time} refers to is conceptually $\meta{time} +
+  \epsilon$: When timeline specifies several values for \meta{time},
+  this comman will select the last value at \meta{time}, while
+  |\pgfsnapshot| will select the first value at
+  \meta{time}. Similarly, when a timeline ends at \meta{time},
+  |\pgfsnapshot| will select the last value of the timeline while
+  |\pgfsnapshotafter| will not apply the animation any more:
+  
+\begin{codeexample}[]
+\foreach \t in {0,1,2,3,4} {
+  \pgfsnapshot{\t}
+  \tikz [animate me = {
+      :rotate = { 0s = "0", 2s = "90", 2s = "180", 4s = "270" } }]
+    \node [draw=blue, very thick] {f}; }
+\end{codeexample}
+\begin{codeexample}[]
+\foreach \t in {0,1,2,3,4} {
+  \pgfsnapshotafter{\t}
+  \tikz [animate me = {
+      :rotate = { 0s = "0", 2s = "90", 2s = "180", 4s = "270" } }]
+    \node [draw=blue, very thick] {f}; }
+\end{codeexample}
+\end{command}
+
+
+\subsection{Animating Color, Opacity, Visibility, and Staging}
 \label{section-base-animation-painting}
 
 \begin{animateattribute}{fill}
@@ -633,7 +827,7 @@ and for drawing. You specify the opacity using a number between 0
 % \end{animateattribute}
 
 
-\subsubsection{Animating Paths and their Rendering}
+\subsection{Animating Paths and their Rendering}
 \label{section-base-animation-paths}
 
 You can animate the appearance of a path in the following ways:
@@ -717,7 +911,7 @@ You can animate the appearance of a path in the following ways:
 
 
 
-\subsubsection{Animating Transformations  and Views}
+\subsection{Animating Transformations  and Views}
 \label{section-base-animation-views}
 
 
@@ -947,7 +1141,7 @@ a \emph{view.}
 \end{animateattribute}
 
 
-\subsubsection{Commands for Specifying Timing: Beginnings  and
+\subsection{Commands for Specifying Timing: Beginnings  and
   Endings}
 
 
@@ -1286,7 +1480,7 @@ happens:
 \end{key}
 
 
-\subsubsection{Commands for Specifying Timing: Repeats}
+\subsection{Commands for Specifying Timing: Repeats}
 
 Normally, a timeline is displayed once and then ends. You can,
 however, request that the timeline should be repeated a certain number

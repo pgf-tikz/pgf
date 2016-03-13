@@ -20,7 +20,6 @@ pgfmanual.svg: $(doc).tex $(doc).ind
 
 pgfmanual-test.svg: $(doc)-test.tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
-	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
 	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
 pgfmanual-test-no-font.svg: $(doc)-test.tex $(doc).ind 
