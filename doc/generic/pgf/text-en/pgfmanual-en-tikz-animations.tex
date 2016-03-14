@@ -91,7 +91,8 @@ more detail later on.
 
 \subsubsection{Concepts: Animations and Snapshots}
 
-Before we plunge into the details, it is important to understand what
+Before we plunge into the details of how animations are specified, it
+is important to understand what 
 \tikzname\ actually does when creating an animation: It does
 \emph{not} (as all other animation packages do) precompute a sequence of
 pictures that are later somehow displayed in rapid succession. Neither
@@ -128,6 +129,122 @@ sequence of pictures that depict the animation at different points in
 time and which can then be inserted alongside each other into the
 printed document. This approach has been used with the examples of
 animations in this manual.
+
+\begin{codeexample}[]
+\foreach \t in {0.5, 1, 1.5, 2}
+  \tikz [make snapshot of = \t]
+    \fill [animate me = { :fill = { 0s = "black", 2s = "red" }}]
+      (0,0) circle [radius = 5mm];
+\end{codeexample}
+
+Creating snapshots is done using the following key:
+
+\begin{key}{/tikz/make snapshot of=\meta{time}}
+  When this key is used in a \TeX\ scope, animation commands given in
+  the scope do not add animation code to the output. Instead,
+  \pgfname\ computes the values the attributes of the animation would
+  have at the specified \meta{time} and inserts the necessary system
+  layer command to set the attribute to the computed values.
+  
+\begin{codeexample}[]
+\tikz [make snapshot of = 1s] {
+  \fill [animate me = { :fill = { 0s = "black", 2s = "white" } }]
+    (0,0) rectangle ++(1,1);
+  \fill [animate me = { :fill = { 1s = "black", 3s = "white" } }]
+    (2,0) rectangle ++(1,1);
+}
+\end{codeexample}
+
+  The moment \meta{time} is best thought of as \meta{time} seconds
+  after the ``moment zero'' where all timelines start by default. Now,
+  ``real'' animation may start at different time through user
+  interaction, which clearly makes no sense for
+  snapshots. Nevertheless, you will sometimes wish to have more
+  control over when a timeline starts for the purposes of taking
+  snapshots. You can use the following key for this:
+
+  \begin{key}{/tikz/animations/option/begin snapshot=\meta{start time}}
+    Use this key on a timeline to specify that, only for purposes of
+    taking snapshots, the timeline starts at \meta{start time} rather
+    than at ``moment zero.'' In practice this means that for the
+    timeline the \meta{start time} is subtracted from the snapshot's
+    \meta{time} when the value needs to be determined:
+\begin{codeexample}[]
+\tikz [make snapshot of = 1s] {
+  \fill [animate me = { :fill = { 0s = "black", 2s = "white",
+                                  begin snapshot = 1s } }]
+    (0,0) rectangle ++(1,1);
+  \fill [animate me = { :fill = { 1s = "black", 3s = "white" } }]
+    (2,0) rectangle ++(1,1);
+}
+\end{codeexample}
+  \end{key}
+
+  The computations of the values the animation ``would have'' are done
+  entirely by \tikzname, which has advantages, but also some
+  disadvantages. A big advantage is that no support from the viewer
+  application or the output format is needed -- snapshots work with
+  all output formats, not just with \textsc{svg}. However,
+  computations done by \tikzname\ are not always very precise and can
+  be slow because of \TeX's limitations. In addition, there are some
+  further limitations when it comes to \tikzname's computation of
+  snapshot values:
+
+  \begin{itemize}
+  \item As mentioned above, except for |begin snapshot|, other
+    commands for specifying the beginning or end of a timeline based
+    on user interaction make no sense for timelines: The keys |begin|,
+    |begin on|, |end|, and |end on| are silently ignored.
+  \item The value |current value| for a value is forbidden since this
+    value is almost impossible to compute by \tikzname.
+  \item Accumulating repeats of a motion are currently not supported. 
+  \end{itemize}
+  
+  When \meta{time} is empty, ``snapshot taking'' is switched off and
+  animation commands are inserted once more.
+\end{key}
+
+
+\begin{key}{/tikz/make snapshot after=\meta{time}}
+  Works exactly like |make snapshot of|, only the \meta{time} is
+  interpreted as $\meta{time} + \epsilon$. This only makes a
+  difference at the end of a timeline and when there are two or more
+  values specified for the same time: When there are several values
+  specified for time $t$, a normal snapshot for time~$t$ uses the
+  first value given for the attribute. In contrast, this command would
+  use the last one given. Similarly, when an animation timeline ends
+  at time $t$, a normal snapshot of time $t$ would use the last
+  value of the timeline, while this key would not apply the animation
+  at all (it has already ended at time $t + \epsilon$.
+  
+\begin{codeexample}[]
+\tikz [make snapshot of = 2s] 
+  \fill [animate me = { :fill = { 0s = "green", 2s = "red" } }]
+    (0,0) rectangle ++(1,1);
+\tikz [make snapshot after = 2s] 
+  \fill [animate me = { :fill = { 0s = "green", 2s = "red" } }]
+    (0,0) rectangle ++(1,1);
+\end{codeexample}
+\end{key}
+
+
+\begin{key}{/tikz/make snapshot if necessary=\meta{time} (default 0s)}
+  This key makes a snapshot of \meta{time} only when the output format
+  does not provide support for animations; if the output format
+  supports animations (\textsc{svg}), then the command has
+  no effect and animations are created normally.
+
+  This manual is typeset with the following being set once are for all
+  in preamble:
+\begin{codeexample}[code only]
+\tikzset{make snapshot if necessary}    
+\end{codeexample}
+
+  Because of this setting, in the \textsc{pdf} version of this
+  document, all animations are shown at the value they would have at
+  moment~$0s$. In contrast, in the \textsc{svg} version, the
+  animations are created normally.
+\end{key}
 
 
 \subsubsection{Concepts: (Graphic) Objects}
@@ -631,7 +748,8 @@ will see later on why this can be useful.
   the attribute. For instance, for an attribute like |opacity| the
   \meta{value} must be an expression that can be evaluated to a number
   between 0 and 1; for the attribute |color| the \meta{value} must,
-  instead, be a color; and so on.
+  instead, be a color; and so on.  Take care that when a value
+  contains a comma, you must surround it by braces as in |"{(1,1)}"|.  
 
   The allowed texts for the \meta{value} is always the same as the
   one you would pass to the \tikzname\ option of the same 
@@ -641,8 +759,30 @@ will see later on why this can be useful.
   system calls the standard \tikzname\ parsing routines). The same is
   true of dimensions, scalar values, colors, and so on.
 
-  Take care that when a value contains a comma, you must surround it
-  by braces as in |"{(1,1)}"|.  
+  In addition to the values normally use for setting the attribute,
+  you can also (sometimes) use the special text |current value| as
+  \meta{value}. This means that the value of the point in the timeline
+  should be whatever the value the attribute has at the beginning of
+  the timeline. For instance, when you write
+\begin{codeexample}[]
+animate = { obj:color = { 0s = "current value", 2s = "white" } }     
+\end{codeexample}
+  the color of |obj| will change from whatever color it currently has
+  to white in two seconds. This is especially useful when several
+  animations are triggered by user events and the current color of
+  |obj| cannot be determined beforehand.
+
+  There are several limitations on the use of the text
+  |current value|, which had to be imposed partly because of the limited
+  support of this feature in \textsc{svg}:
+  \begin{itemize}
+  \item You can use |current value| only with the first time in a
+    timeline.
+  \item You can only have two times in a timeline that starts with
+    |current value|.
+  \item You cannot use |current value| for timelines of which you wish
+    to take a snapshot.
+  \end{itemize}
 \end{key}
 
 
@@ -673,10 +813,10 @@ then used inside a local scope.
 All of these uses are special cases (and, internally, they all map to)
 the following key:
 
-\begin{key}{/tikz/animate/with=|{|\meta{options}|}do{|\meta{forked options}|}|}
+\begin{key}{/tikz/animate/with=\marg{setup} do \marg{options}}
   This key first creates a local \TeX\ scope and first executes the
-  \meta{options}, then opens another local \TeX\ scope, and then
-  executes the \meta{forked options}. The only difference between the
+  \meta{setup}, then opens another local \TeX\ scope, and then
+  executes the \meta{options}. The only difference between the
   two is the way timing and forking is interpreted, this is explained
   in detail in Section~\ref{section-anim-fork}; for our purposes here
   just think of all of these options being executed in a local scope.
@@ -724,7 +864,7 @@ animate = { % two "with" statements, each creating an entry, but no scoping at a
 }
 \end{codeexample}
 
-  It turns out the the |with| key can \emph{also} adds something to the
+  It turns out the the |with| key can \emph{also} add something to the
   timeline when neither the |time| nor the |value| key are set (but
   the |object| and  |attribute| keys are): Several \emph{timeline
     options} can be set using keys with the path prefix
