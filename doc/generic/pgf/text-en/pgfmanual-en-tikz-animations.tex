@@ -25,42 +25,39 @@ of some part of a picture, but a change of, say, the opacity of a path
 is also an animation. \tikzname\ allows you to specify such animations
 using special keys and notations.
 
-\begin{codeexample}[width=8cm]
-\tikz{
+\begin{codeexample}[width=8cm,animation list={0.7,1.4,2.1,2.8},animation scale=.25]
+\begin{tikzpicture}
   \useasboundingbox (-3.8,-3.8) (3.8,3.8);
-  \node [ animate me = {
-           :text = { 0s = "yellow!80!black",
-                      10s = "red",
-                      20s = "yellow!80!black",
-                      repeats } } ] {Sun};
-  \begin{scope}[ animate me = { :drive = {
-           along = {(0,0) circle [radius=2.5cm]},
-           along in = 36.5s, repeats }}] 
-    \node {Earth};
-    \node [animate me = { :drive = {
-             along = {(0,0) circle [radius=1cm]},
-             along in = 2.8s, repeats }}] {Moon};
-  \end{scope}
-}
-\end{codeexample}
 
-Before we plunge into the details, it is important to understand what
-\tikzname\ actually does when creating an animation: It does
-\emph{not} (as all other animation packages do) precompute a sequence of
-pictures that are later somehow displayed in rapid succession. Neither
-does it insert an external video into the document. Rather, a
-\tikzname\ animation is just an ``annotation'' in the output that a
-certain attribute of a certain object should change over time in some
-specific way when the object is displayed. It is the job of the
-document viewer application to actually compute and display the
-animation. The big advantage of this approach is that animations neither
-increase the ouput file sizes noticably nor do they really slow down
-\TeX: The hard and complicated calculations are done by the viewer
-application. The disadvantage is, of course, that a document viewer
-application must understand the annotations and actually compute and
-display the animations. The \textsc{svg} format is a format for which
-this is possible, the popular \textsc{pdf} format is not. Thus,
-animations currently work only with \textsc{svg} output.
+  \node [
+    animate me = {
+      :color = {
+        0s = "orange",
+        2s = "red",
+        4s = "orange",
+        repeats
+      }
+    } ] {Sun};
+
+  \begin{scope}[
+    animate me = {
+      :drive = {
+        along = {(0,0) circle [radius=2.5cm]},
+        along in = 36.5s,
+        repeats
+      }}]
+    
+    \node {Earth};
+    \node [
+      animate me = {
+        :drive = {
+          along = {(0,0) circle [radius=1cm]},
+          along in = 2.8s,
+          repeats }}] {Moon};
+  \end{scope}
+
+\end{tikzpicture}
+\end{codeexample}
 
 Adding an animation to a \tikzname\ picture is done as follows:
 
@@ -90,6 +87,47 @@ As can be seen, a special syntax is used in several places: Entries
 with a colon such as |:xshift| specify an attribute, values
 are specified in quotation marks. This syntax will be explained in 
 more detail later on. 
+
+
+\subsubsection{Concepts: Animations and Snapshots}
+
+Before we plunge into the details, it is important to understand what
+\tikzname\ actually does when creating an animation: It does
+\emph{not} (as all other animation packages do) precompute a sequence of
+pictures that are later somehow displayed in rapid succession. Neither
+does it insert an external video into the document. Rather, a
+\tikzname\ animation is just an ``annotation'' in the output that a
+certain attribute of a certain object should change over time in some
+specific way when the object is displayed. It is the job of the
+document viewer application to actually compute and display the
+animation. The big advantage of this approach is that animations neither
+increase the ouput file sizes noticably nor do they really slow down
+\TeX: The hard and complicated calculations are done by the viewer
+application. The disadvantage is, of course, that a document viewer
+application must understand the annotations and actually compute and
+display the animations. The \textsc{svg} format is a format for which
+this is possible, the popular \textsc{pdf} format is not. Thus,
+animations currently work only with \textsc{svg} output.
+
+It is, however, possible to create ``snapshots'' of an animation and
+insert these into \textsc{pdf} files (or, for that matter, Postscript
+files or files in any other format, including \textsc{svg}): You
+specify a time like |2s| and then \tikzname\ will compute what the
+animation ``would like like after 2s'' and insert the necessary
+graphics command for rendering the graphic objects in the correct
+way. Since this computation is done by \tikzname\ and since only
+``normal'' graphics command are inserted into the output, snapshots
+work with all output formats.
+
+Apart from providing a fallback for \textsc{pdf}, snapshots are very
+useful by themselves: They make it easy to ``show'' how an animation
+unfolds on paper. For this, you simply typeset the same picture with
+the same animation several times (using a simple |\foreach| loop), but
+each time you set a different snapshot time. This will result in a
+sequence of pictures that depict the animation at different points in
+time and which can then be inserted alongside each other into the
+printed document. This approach has been used with the examples of
+animations in this manual.
 
 
 \subsubsection{Concepts: (Graphic) Objects}
@@ -128,6 +166,59 @@ that you must \emph{always} specify the animation \emph{before} the
 object is created; it is not possible to animate an already created
 object.
 
+There is a special syntax for choosing the object of an animation, see
+Section~\ref{section-anim-syntax-obj}, but you can also use the
+following key directly: 
+
+\begin{key}{/tikz/animate/object=\meta{list of objects}}
+  The \meta{list of objects} is a comma-separated list of strings of
+  the form \meta{object}\opt{|.|\meta{type}}. All of the objects in
+  the list are selected as to-be-animate object inside the |animate| key
+  (see Section~\ref{section-anim-syntax-animate}). Each object referred
+  to by \meta{object} will be the \emph{next} object with the |name|
+  key set to \meta{object}. You can apply the |name| key to nodes
+  (where you can also use the special parentheses-syntax and put the
+  name in parentheses, it has the same effect), but also to scopes and
+  paths. (The |name path| key is not the same as |name|; it is an
+  older key from the intersections package and not related.)
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = { object = b, :fill = {0s = "red", 2s = "blue",
+                                        begin on = click }}] {
+  \node (a) [fill, text = white, minimum width=1.5cm] at (0,1cm) {a};
+  \node (b) [fill, text = white, minimum width=1.5cm] at (0,5mm) {b};
+  \node (c) [fill, text = white, minimum width=1.5cm] at (0,0mm) {c}; }
+\end{codeexample}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = { object = b, :fill = {0s = "red", 2s = "blue",
+                                        begin on = click },
+                   object = c, :fill = {0s = "green", 2s = "blue",
+                                        begin on = click } }] {
+  \scoped [name = a, yshift=1cm] \fill (0,0) rectangle (1.5cm,2mm);
+  \scoped [name = b, yshift=5mm] \fill (0,0) rectangle (1.5cm,2mm);
+  \scoped [name = c, yshift=0mm] \fill (0,0) rectangle (1.5cm,2mm); }
+\end{codeexample}
+
+  If the \meta{object} name is never used later in the file, no
+  animation is created. 
+
+  The \meta{object} may also be the special text |myself|. In this
+  case, the referenced object is the scope or object to which the
+  |animate| key is given. If an object is named |myself| (as in
+  |\node (myself) ...|), you cannot reference this node using the
+  |object| key, |myself| \emph{always} refers to the object where the
+  |animate| key is given (of course, you can animate the node named
+  |myself| by placing the |animate| key inside the options of this
+  node; you only cannot ``remotely'' add an animation to it).
+
+  The \meta{object} may be followed by a dot and a \emph{type}. This
+  is need in rare cases where you want to animate only a special
+  ``part'' of an object that is not accessible in other
+  ways. Normally, \tikzname\ takes care of choosing these types
+  automatically, you only need to set these ``if you know what you are
+  doing.''
+\end{key}
+
 
 \subsubsection{Concepts: Attributes}
 
@@ -146,6 +237,25 @@ color. \tikzname\ will do some internal mappings to ensure that you
 can animate the ``\tikzname\ attributes'' even when they are not
 directly supported.
 
+The same syntax that is used for specifying object is also used to
+specify attributes, see Section~\ref{section-anim-syntax-obj}, but you
+could also set them directly:
+
+\begin{key}{/tikz/animate/attribute=\meta{list of attributes}}
+  The list of attributes must be a comma-separated list of attribute
+  names. The timelines specified later will apply to all of these
+  attributes (and to all objects previously selected using
+  |object|). Possible attributes include colors, positions, line
+  width, but even the paths themselves. The exact list of possible
+  attributes is documented in Section~\ref{section-anim-attrs}.
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = {object = n, attribute = fill, 0s = "red", 2s = "blue",
+                                                begin on = click }] 
+  \node (n) [fill, text = white] {The node}; 
+\end{codeexample}
+
+\end{key}
 
 
 \subsubsection{Concepts: Timelines}
@@ -178,15 +288,15 @@ another animation ending or starting.
 The interpolation of values is not always a straightforward affair.
 Firstly, for certain kinds of values is not clear how an interpolation
 should be computed. How does one interpolate between two paths?
-Between the colors red and green? Between the values |"visible"| and
-|"hidden"|? In these cases, one must define carefully what the
+Between the colors red and green? Between the values |"true"| and
+|"false"|? In these cases, one must define carefully what the
 interpolation should be. Secondly, you may wish to use a non-linear
 interpolation, which is useful for ``easing'' motions: The visual
 effect of the movement 
 specified above is that the object sits still from moment $0$ for five
 seconds, then there is an ``infinte acceleration'' causing the object
 to suddenly move at the speed of 2\,mm per second, then there is no
-acceleration at all for five seconds, causing the obejct to move for
+acceleration at all for five seconds, causing the object to move for
 one centimeter, followed by an ``infinite negative acceleration'' that
 makes the object come to a full stop. As a viewer you experience these
 infinite accelerations as ``unrealistic,'' spoiling the effect of
@@ -199,6 +309,8 @@ syntax for specifying times and values.
 
 \subsection{Syntax: Specifying Objects, Attributes, Times, and Values}
 
+\label{section-anim-syntax-animate}
+
 A special syntax is used for specifying animations. This syntax is
 only available inside the following key:
 
@@ -206,23 +318,25 @@ only available inside the following key:
   You must place all specifications of animations inside uses of
   |animate|. You can, and usually should, place the complete animation
   inside a single use of this key since it will reset the time and the
-  time base (to be explained later), but you can, in principle, also
-  split an animation over several uses of this command.
+  time base (to be explained later), but you can, in principle, use
+  this key several times.
 
   The key can be used at all places where a \tikzname\ key is used;
   typically you will use it with a |{scope}| environment, inside the
   options of a node, or directly with the |\tikz| command:
 
-\begin{codeexample}[width=2cm]
-\tikz \node [fill, text = white, animate = {myself:fill = {0s = "red", 10s = "blue"}}] {Text};
+\begin{codeexample}[animation list = {0.5,1,1.5,2}]
+\tikz \node [fill, text = white, animate = {
+  myself:fill = {0s = "red", 2s = "blue", begin on = click }}] {Some Text};
 \end{codeexample}
-\begin{codeexample}[width=2cm]
-\tikz [animate = {a node:fill = {0s = "red", 10s = "blue"}}]
-  \node (a node) [fill, text = white] {Text};
+\begin{codeexample}[animation list = {0.5,1,1.5,2}]
+\tikz [animate = {a node:fill = {0s = "red", 2s = "blue",
+                                 begin on = click}}]
+  \node (a node) [fill, text = white] {Some Text};
 \end{codeexample}
 
   The details of what, exactly, happens in the \meta{animation
-    specification} will be described in the rest of the
+    specification} will be described in the rest of this
   section. However, basically, an \meta{animation specification} is
   just a sequence of normal \tikzname\ key--value pairs that get
   executed with the path prefix |/tikz/animate| and with some special
@@ -231,17 +345,24 @@ only available inside the following key:
   animation like this:
 \begin{codeexample}[width=3.2cm]
 \tikzset{
-  animate/shake/.style = {:xshift = { #1,
-      0s = "0mm", 50ms = "1mm", 150ms = "-1mm", 250ms = "1mm", 300ms = "0mm" }}}
+  animate/shake/.style = {:xshift = { begin on=click,
+      0s = "0mm", 50ms = "#1", 150ms = "-#1", 250ms = "#1", 300ms = "0mm" }}}
 \tikz \node [fill = blue!20, draw=blue, very thick, circle,
-  animate me = {shake = {begin on=click}}] {Click me};
+  animate me = {shake = 1mm}] {Shake};
+\tikz \node [fill = blue!20, draw=blue, very thick, circle,
+  animate me = {shake = 2mm}] {SHAKE};
 \end{codeexample}
 
   Note that, as stressed earlier, you can only use the |animate| key
   to specify animations for objects that do not yet exist. The node
   and object names mentioned in a specification always refer to
-  ``upcoming'' object; already existing objects of the same name are
+  ``upcoming'' objects; already existing objects of the same name are
   not influenced.
+
+  You can use the |name| key inside |animate| to ``name'' the
+  animation. Once named, you can later reference the animation in
+  other animations; for instance, you can say that another animation
+  should start when the present animation has ended.
 \end{key}
 
 \begin{key}{/tikz/animate me=\meta{animation specification}}
@@ -258,7 +379,9 @@ only available inside the following key:
 
 \subsubsection{Specifying Objects and Attributes}
 
-Inside \meta{animation specification} (or, more generally, for all
+\label{section-anim-syntax-obj}
+
+Inside an \meta{animation specification} (or, more generally, for all
 keys executed with the path prefix |/tikz/animate|), you can specify
 an object and an attribute of this object using the following syntax,
 whose use is detected by the presence of a colon inside a key:
@@ -277,7 +400,7 @@ In the place to the left of an equal sign, where you would
 normally use a key, you can instead place an object name and an
 attribute separated by a colon. Additionally, the attribute may be
 followed by an underscore and an \meta{id}, which identifies the
-timeline (see Section~\ref{section-anim-timeline} for details).
+timeline (see Section~\ref{section-anim-timeline} for details). 
 
 Each of these values may be missing, in which case it is not changed
 from its previous value.
@@ -289,6 +412,13 @@ left of the equal sign. Inside the \meta{options}, you can use the
 same syntax once more and any new values given for the object
 and\,/\,or the attribute will override any values given in the outer
 scope.
+
+(``Formally,''
+\meta{objects}|:|\meta{attributes}|_|\meta{id}|={|\meta{options}|}| is
+transformed to |with| |=| |{object =| \meta{objects} |,| |attribute|
+|=| \meta{attributes} |,| |id| |=| \meta{id} |}| |do|
+|{|\meta{options}|}|, with the |object=|, |attribute=|, and |id=|
+missing if they are not specified. See the |with| key for details.)
 
 Let us now have a look at some examples. First, we set the
 \meta{object name} to |mynode| and |othernode| and the
@@ -339,12 +469,12 @@ animate = {
 \end{codeexample}
 
 As mentioned earlier, all references to objects will be interpreted to
-future objects, never to objects already created. Furthermore,
-\tikzname\ allows you to specify |myself| as \meta{object}. This will
-be interpreted as the scope or node where the |animate| is
-given (you cannot animate a node or scope name |myself|, this special
-name always refers to the current node). In order to have all
-attributes refer to the current object, you write:
+future objects, never to objects already created. Furthermore, also as
+mentioned earlier, \tikzname\ allows you to specify |myself| as
+\meta{object}, which is interpreted as the scope or node where the
+|animate| is given (you cannot animate a node or scope named |myself|,
+this special name always refers to the current node). In order to have
+all attributes refer to the current object, you write:
 \begin{codeexample}[code only]
 \begin{scope} [animate = {
                  myself: = { % Animate the attribute of the scope
@@ -355,7 +485,7 @@ attributes refer to the current object, you write:
   ...
 \end{scope}
 \end{codeexample}
-The |animate me| key is a shorthand for |animate = { myself: = {|. 
+The |animate me| key is a shorthand for |animate = { myself: = {...}}|. 
 
 The list of permissible attributes is given in
 Section~\ref{section-anim-attrs}. 
@@ -365,17 +495,98 @@ Section~\ref{section-anim-attrs}.
 
 \label{section-anim-timeline}
 
-    
+For each object--attribute pair you must specify the \emph{timeline}
+of the attribute. This is a curve that specifies for each ``moment in
+time'' which value the attribute should have. In the simplest case,
+you specify such a time--value pair as follows:
+\begin{quote}
+  \normalfont
+  \meta{time} |="|\meta{value}|"|    
+\end{quote}
+
+This is, however, just a special case of a far more general
+situation. Let us start with the times. The general syntax for
+specifying times is as follows:
+
+\begin{quote}
+  \normalfont
+  \meta{time} |=| \meta{options}
+\end{quote}
+
+Here, \meta{time} is a text that ``looks like a time,'' which means
+that:
+\begin{enumerate}
+\item It is not a key and does not contain a colon and does not start
+  with a quotation mark.
+\item It starts with a digit, a plus or minus sing, a dot, or a
+  parenthesis. 
+\end{enumerate}
+
+If these two things are the case, a local scope is created and at the
+beginning of this scope the key |time=|\meta{time} is executed and
+then the \meta{options} are executed inside this scope.
+
+\begin{key}{/tikz/animate/time=\meta{time}\opt{|later|}}
+  The \meta{time} is parsed using the command |\pgfparsetime|, which is
+  essentially the same as the usual math parser of \tikzname, and the
+  result is interpreted as a time in seconds. Thus, a \meta{time} of |2+3|
+  means ``5 seconds'' and a \meta{time} of |2*(2.1)| means ``4.2
+  seconds.'' (You could even specify silly times like |1in|, which
+  results in the time ``72.27 seconds.'' Please do not do that.)
+  The ``essentially''  refers to the fact that some extras are installed
+  when the time parser is running:
+  
+  \begin{itemize}
+  \item 
+    The postfix operator |s| is added, which has no effect. Thus, when
+    you write |5s| you get the same results as |5|, which is exactly 5
+    seconds as desired.
+  \item The postfix operator |ms| is added, which devides a number by
+    1.000, so |2ms| equals 0.002s.
+  \item
+    The postfix operator |min| is added, which multiplies a number by
+    60.
+  \item The postfix operator |h| is added, which multiplies a number by
+    3.600.
+  \item The infix operator |:| is redefined, so that it multiplies its
+    first argument by 60 and adds the second. This implies that
+    |1:20| equals 80s and |01:00:00| equals 3600s. 
+  \item The parsing of octal numbers is switched off to allow things
+    like |01:08| for 68s. 
+  \end{itemize}
+
+  Note that you cannot use the colon syntax for times in things like
+  |01:20 = "0"| would (falsely) be interpreted as ``for the object named
+  |01| and its attribute named |20|, do something.'' You can, however,
+  use |01:20| in arguments to the |time| key, meaning that you would
+  have to write instead:
+  \begin{quote}
+    \normalfont
+    |with = {time=01:20} do "0"|
+  \end{quote}
+
+  You can suffix a |time| key with ``|later|''. In this case, the time
+  refers to 
+\end{key}
+
+
+
+
+
+
 \subsubsection{The With Key}
+  
 
 
 
 \subsection{The Semantics: Attributes That Can Be Animated}
 
-\label{section-anim-attr}
+\label{section-anim-attrs}
 
 
 \subsection{Controlling the Timeline}
+
+\label{section-anim-timeline}
 
 
 
