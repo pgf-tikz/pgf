@@ -400,7 +400,7 @@ In the place to the left of an equal sign, where you would
 normally use a key, you can instead place an object name and an
 attribute separated by a colon. Additionally, the attribute may be
 followed by an underscore and an \meta{id}, which identifies the
-timeline (see Section~\ref{section-anim-timeline} for details). 
+timeline (see Section~\ref{section-anim-ids} for details). 
 
 Each of these values may be missing, in which case it is not changed
 from its previous value.
@@ -411,14 +411,14 @@ there) the object and attribute will be set to the values given to the
 left of the equal sign. Inside the \meta{options}, you can use the
 same syntax once more and any new values given for the object
 and\,/\,or the attribute will override any values given in the outer
-scope.
-
-(``Formally,''
-\meta{objects}|:|\meta{attributes}|_|\meta{id}|={|\meta{options}|}| is
-transformed to |with| |=| |{object =| \meta{objects} |,| |attribute|
-|=| \meta{attributes} |,| |id| |=| \meta{id} |}| |do|
-|{|\meta{options}|}|, with the |object=|, |attribute=|, and |id=|
-missing if they are not specified. See the |with| key for details.)
+scope. ``Formally,'' the
+following key is executed whenever the above syntax is encountered,
+see the |with| key for details::
+\begin{quote}
+  \normalfont
+  |with = {object = |\meta{objects}|, attribute = |\meta{attributes}%
+    |, id = |\meta{id}|} do {|\meta{options}|}|
+\end{quote}
 
 Let us now have a look at some examples. First, we set the
 \meta{object name} to |mynode| and |othernode| and the
@@ -491,7 +491,7 @@ The list of permissible attributes is given in
 Section~\ref{section-anim-attrs}. 
 
     
-\subsubsection{Specifying Timelines}
+\subsubsection{Specifying Timelines: Syntax for Times}
 
 \label{section-anim-timeline}
 
@@ -504,13 +504,21 @@ you specify such a time--value pair as follows:
   \meta{time} |="|\meta{value}|"|    
 \end{quote}
 
-This is, however, just a special case of a far more general
+When you specify time--value pairs, you must specify the times in
+chronological order (so earlier times come first), but you may specify
+the same time several times (this is useful in situations where you
+have a ``jump'' from one value to another at a certain moment in
+time: you first specify the value ``from which the attribute jumps''
+and then you specify the value ``to which the attribute jumps'' for
+the same moment).  
+
+The above syntax is just a special case of a more general
 situation. Let us start with the times. The general syntax for
 specifying times is as follows:
 
 \begin{quote}
   \normalfont
-  \meta{time} |=| \meta{options}
+  \meta{time} \opt{|=| \meta{options}}
 \end{quote}
 
 Here, \meta{time} is a text that ``looks like a time,'' which means
@@ -524,9 +532,16 @@ that:
 
 If these two things are the case, a local scope is created and at the
 beginning of this scope the key |time=|\meta{time} is executed and
-then the \meta{options} are executed inside this scope.
+then the \meta{options} are executed inside this scope. Formally, the
+following key is executed whenever the above syntax is encountered:
+\begin{quote}
+  \normalfont
+  |with = {time = |\meta{time}|} do {|\meta{options}|}|
+\end{quote}
 
 \begin{key}{/tikz/animate/time=\meta{time}\opt{|later|}}
+  Sets the time for the next time--value pair to \meta{time} (the text
+  |later| is optional). 
   The \meta{time} is parsed using the command |\pgfparsetime|, which is
   essentially the same as the usual math parser of \tikzname, and the
   result is interpreted as a time in seconds. Thus, a \meta{time} of |2+3|
@@ -565,17 +580,257 @@ then the \meta{options} are executed inside this scope.
     |with = {time=01:20} do "0"|
   \end{quote}
 
-  You can suffix a |time| key with ``|later|''. In this case, the time
-  refers to 
+  You can suffix a |time| key with ``|later|''. In this case, the
+  \meta{time} is interpreted as an offset to the time in the previous
+  use of the time key (the details are bit more involved, see
+  Section~\ref{section-anim-timeline} for more details).
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz \node [animate me = {:fill = { begin on = click,
+    0s = "white",
+    500ms later = "red",
+    500ms later = "green",  % same as 1s   = "-5mm"
+    500ms later = "blue"}}, % same as 1.5s = "-2.5mm"
+  fill=blue!20, draw=blue, very thick, circle] {Click me};
+\end{codeexample}
+\end{key}
+
+
+\subsubsection{Specifying Timelines: Syntax for Values}
+
+Let us now look at the syntax for values. We saw already in several
+examples that values are put in quotation marks (similar to
+the way this is done in \textsc{xml}). The syntax is as follows:
+
+\begin{quote}
+  \normalfont
+  |"|\meta{value}|"| \opt{|=| \meta{options}}
+\end{quote}
+
+This syntax is triggered whenever a key starts with a quotation
+mark\footnote{Of catcode 12 for those knowledgeable of such
+  things.}. Then, a local scope is created in which the \meta{value}
+is passed to the |value| key, described below, and, then, the
+\meta{options} are executed in this scope. Note that when the
+\meta{value} contains a comma, you have to surround it by curly braces
+\emph{inside} the quotation marks as in |"{(1,1)}"|.
+
+Often, there will be no
+options, but internally the key is just converted to
+\begin{quote}
+  \normalfont
+  |with = {value = |\meta{value}|} do {|\meta{options}|}|
+\end{quote}
+
+As a result, instead of |1s="red"| you can also write |"red"=1s|. We
+will see later on why this can be useful.
+
+\begin{key}{/tikz/animate/value=\meta{value}}
+  Sets the value of the current time--value pair to \meta{value}. The
+  syntax of the \meta{value} is not fixed, it depends on the type of
+  the attribute. For instance, for an attribute like |opacity| the
+  \meta{value} must be an expression that can be evaluated to a number
+  between 0 and 1; for the attribute |color| the \meta{value} must,
+  instead, be a color; and so on.
+
+  The allowed texts for the \meta{value} is always the same as the
+  one you would pass to the \tikzname\ option of the same 
+  name. For instance, since the \tikzname\ option |shift| expects a
+  coordinate, you use coordinates as \meta{value} with the usual
+  \tikzname\ syntax (including all sorts of extensions, the animation
+  system calls the standard \tikzname\ parsing routines). The same is
+  true of dimensions, scalar values, colors, and so on.
+
+  Take care that when a value contains a comma, you must surround it
+  by braces as in |"{(1,1)}"|.  
+\end{key}
+
+
+
+\subsubsection{The With Key}
+
+In order to uniquely identify a time--value pair of an animation
+timeline, the current values of five keys are relevant:
+\begin{itemize}
+\item |object| for selecting the object,
+\item |attribute| for selecting the attribute,
+\item |id| for selecting the timeline id (explained in
+  Section~\ref{section-anim-ids}),
+\item |time| for selecting a time, and
+\item |value| for selecting a value.
+\end{itemize}
+
+When you specify animations, many time--value pairs will share the
+same settings for several of the above keys. We saw already that there
+is a general syntax for setting one of these values for a whole scope:
+When you write |node:color = {...}| the options in |...| will be
+executed and, in this local scope, the object will be |node| and the
+attribute will be |color| (and the |id| will be empty). Similarly,
+|1s={...}| and even |"red"={...}| all create local scopes in which a
+the |time| key or the |value| key is set to a certain value and is
+then used inside a local scope.
+
+All of these uses are special cases (and, internally, they all map to)
+the following key:
+
+\begin{key}{/tikz/animate/with=|{|\meta{options}|}do{|\meta{forked options}|}|}
+  This key first creates a local \TeX\ scope and first executes the
+  \meta{options}, then opens another local \TeX\ scope, and then
+  executes the \meta{forked options}. The only difference between the
+  two is the way timing and forking is interpreted, this is explained
+  in detail in Section~\ref{section-anim-fork}; for our purposes here
+  just think of all of these options being executed in a local scope.
+
+  More importantly for our purposes is the fact that at the end
+  of this local scope of the |with| key, a ``timeline
+  entry'' gets created provided all five keys |object|, |attribute|,
+  |id|, |time|, and |value| are set at the end of the scope (the |id|
+  key has a default value, so you usually do not need to worry about
+  it). This means that for all objects in the list passed to the
+  |object| key and all attributes passed to the |attribute| key, a
+  time--value pair is added to the object's timeline for this
+  attribute.
+
+  As an example, the following are all equivalent ways of creating a
+  timeline for the object |obj| and its attribute |color| with two
+  time--value pairs: One for 0s and the color red, and one for 2s with
+  the color blue:
+\begin{codeexample}[code only]
+animate = { % two "with" statements, each creating an entry:
+  with = {} do { object = obj, attribute = color, time = 0s, value = red },
+  with = {} do { object = obj, attribute = color, time = 2s, value = blue }
+}
+\end{codeexample}
+\begin{codeexample}[code only]
+animate = { % two "with" statements, each creating an entry, but some keys set for both
+  object = obj, attribute = color,
+  with = {} do { time = 0s, value = red },
+  with = {} do { time = 2s, value = red }
+}
+\end{codeexample}
+\begin{codeexample}[code only]
+animate = { % three "with" statements, but only two create an entry
+  with = {object = obj, attribute = color} do {
+    with = {} do { time = 0s, value = red },
+    with = {} do { time = 2s, value = red }
+  } % outer with has no effect since, here, the time key is not specified
+}
+\end{codeexample}
+\begin{codeexample}[code only]
+animate = { % two "with" statements, each creating an entry, but no scoping at all 
+  object = obj, attribute = color,
+  time = 0s, value = red, with = {} do {},
+  time = 2s, value = blue, with = {} do {},
+}
+\end{codeexample}
+
+  It turns out the the |with| key can \emph{also} adds something to the
+  timeline when neither the |time| nor the |value| key are set (but
+  the |object| and  |attribute| keys are): Several \emph{timeline
+    options} can be set using keys with the path prefix
+  |/tikz/animate/options| and, if at least one such option has been
+  set in the local scope of the |with| command (or in a surrounding
+  scope), these timeline options will be set for the timeline at the
+  end of the local scope. See Section~\ref{section-anim-timeline} for
+  details on the possible options.
 \end{key}
 
 
 
 
+\subsubsection{Timesheets}
+
+Using the |with| key or using the three different syntactic constructs
+introduced earlier (the color syntax, the time syntax, the value
+syntax), you can organize the specification of an animation in
+different ways. Basically, the two most useful ways are the following:
+
+\begin{enumerate}
+\item You first select an object and an attribute for which you wish
+  to establish a timeline and then provide the time--value pairs in a
+  sequence:
+\begin{codeexample}[code only]
+animate = {    
+  obj:color = {
+    0s = "red",
+    2s = "blue",
+    1s later = "green",
+    1s later = "green!50!black",
+    10s = "black"
+  }
+}
+\end{codeexample}
+  When you specify timelines for several attributes of the same
+  object, you can group these together:
+\begin{codeexample}[code only]
+animate = {    
+  obj: = {
+    :color = { 0s = "red", 2s = "green" },
+    :opacity = { 0s = "1", 2s = "0" }
+  }
+}
+\end{codeexample}
+  In this way of specifying animations the ``object comes first.''
+\item
+  Alternatively, you can also group the animation by time and, for
+  each ``moment'' you specify which values the attributes of the
+  object(s) have:
+\begin{codeexample}[code only]
+animate = {    
+  0s = {
+    obj:color = "red",
+    obj:opacity = "1"
+  },
+  2s = {
+    obj:color = "green",
+    obj:opacity = "0" 
+  }
+}
+\end{codeexample}
+  Naturally, in this case it would have been better to ``move the
+  object outside'': 
+\begin{codeexample}[code only]
+animate = {
+  obj: = {
+    0s = {
+      :color = "red",
+      :opacity = "1"
+    },
+    2s = {
+      :color = "green",
+      :opacity = "0" 
+    }
+  }
+}
+\end{codeexample}
+  When there are several objects involved, we can mix all of these
+  approaches: 
+\begin{codeexample}[code only]
+animate = {    
+  0s = {
+    obj: = {
+      :color = "red",
+      :opacity = "1"
+    },
+    main node: = {
+      :color = "black"
+    }
+  },
+  2s = {
+    obj: = {
+      :color = "green",
+      :opacity = "0"
+    },
+    main node: = {
+      :color = "white"
+    }
+  }
+}
+\end{codeexample}
+\end{enumerate}
 
 
-\subsubsection{The With Key}
-  
+
 
 
 
@@ -587,6 +842,21 @@ then the \meta{options} are executed inside this scope.
 \subsection{Controlling the Timeline}
 
 \label{section-anim-timeline}
+
+\subsubsection{Multiple Timelines for an Attribute}
+
+\label{section-anim-ids}
+
+\subsubsection{Forking and Joining Timelines}
+
+\label{section-anim-fork}
+
+
+\subsubsection{Beginning and Ending Timelines}
+
+\subsubsection{Repeating Timelines and Accumulation}
+
+\subsubsection{Smoothing Timelines}
 
 
 
