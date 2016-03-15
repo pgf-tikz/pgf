@@ -89,7 +89,7 @@ are specified in quotation marks. This syntax will be explained in
 more detail later on. 
 
 
-\subsubsection{The Nature of Animations}
+\subsubsection{Animations Change Attributes}
 
 Before we plunge into the details of how animations are specified, it
 is important to understand what 
@@ -117,6 +117,31 @@ details. Snapshots are also useful for creating ``printed versions''
 of animations and all of the small sequences of pictures in the manual
 that are used for showing what an animation key does have been
 creating using snapshots.
+
+Two basic limitations of the whole animation system should be pointed
+out right here, at the beginning:
+\begin{enumerate}
+\item 
+  It is
+  extremely difficult to animate ``lines between moving nodes''
+  correctly. Consider code like |\draw(a)--(b);| where |a| and |b| are
+  nodes. It is easy to move around |a| or |b| with a minimal amount of
+  code, and it is also easy to move the connecting line along when both
+  nodes move simultaneously. However, when only |a| moves, you would
+  like the connecting line between |a| and |b| to ``follow,'' but
+  achieving this involves a huge amount of code if it is possible at
+  all.
+\item
+  Related to the first points, but also a general problem is the fact
+  that it is also next to impossible to animate \emph{arrow tips}
+  correctly. When you animate a path (that is, when you let a path
+  change over time) you would expect the arrow tips to ``follow'' the
+  path and to always point in the right direction. Unfortunately, due
+  to the way arrow tips are currently implemented, this does not
+  happen. (This problem only happens when you animate the path's
+  control points; when you move or rotate the whole path using |shift|
+  or |rotate|, the arrow tips will follow correctly.)
+\end{enumerate}
 
 
 \subsubsection{Concepts: (Graphic) Objects}
@@ -308,30 +333,101 @@ used for creating these timelines.
 
 \subsubsection{Timeline Entries}
 
-The options passed to the |animate| key
-
-In order to uniquely identify a time--value pair of an animation
-timeline, the current values of five keys are relevant:
+The ``job'' of the options passed to the |animate| key is to specify
+the timelines of the animation of (a part of) a picture. For each
+object and each attribute there may or may not be a timeline and, if
+present, the timeline consist of sequences of pairs of times and
+values. Thus, the most basic entity of an animation specification is a
+tuple consisting of five parts, which are selected by five different
+keys: 
 \begin{itemize}
 \item |object| for selecting the object,
 \item |attribute| for selecting the attribute,
 \item |id| for selecting the timeline id (explained in
-  Section~\ref{section-anim-ids}),
+  Section~\ref{section-anim-def-ids}),
 \item |time| for selecting a time, and
 \item |value| for selecting a value.
 \end{itemize}
+When all of these parts have been set up (using the above keys, which
+will be explained in more detail in a moment), you can use the
+following key to create an entry:
+
+\begin{key}{/tikz/animate/entry}
+  Each time this key is used in the options of |animate|, \tikzname\
+  checks whether the five keys |object|, |attribute|, |id|, |time|,
+  and |value| are set. If one of them is not set, nothing
+  happens. (The |id| key is set to the value |default| by default, all
+  other keys must be set explicitly.)
+
+  If all of these keys are set, a \emph{time--value} pair is created
+  and added to the timeline of attribute of the object. Additionally,
+  special options that influence the timeline (like |begin on|) are
+  also to the timeline of the  object--attribute pair, but see
+  Section~\ref{section-anim-options} for details.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = {
+  object = node, attribute = fill, time = 0s, value = red, entry,
+  object = node, attribute = fill, time = 2s, value = blue, entry,
+  object = node, attribute = fill, begin on = click, entry}]
+  \node (node) [fill, text=white] { Click me };
+\end{codeexample}
+  In the above example, it would not have been necessary the specify
+  the object and the attribute in each line, they retain their values
+  unless ther are overwritten. Thus, we could also have written:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = {
+  object = node, attribute = fill, time = 0s, value = red, entry,
+                                   time = 2s, value = blue, entry,
+                                   begin on = click, entry}]
+  \node (node) [fill, text=white] { Click me };
+\end{codeexample}
+  Note, however, that in both example we actually add the time--value
+  pair $(2\mathrm s, \mathrm{blue})$ twice since the |time| and
+  |value| keys also retain their settings and, thus, for the third
+  |entry| they have the same values as before and a new pair is
+  added. While this superfluous pair is not a problem in the example
+  (it has no visual effect), we will see later on how such pairs can
+  be avoided by using the |scope| key.
+
+  A sequence of calls of |entry| can freely switch between objects and
+  attributes (that is, between timelines), but the times for any given
+  timeline must be given in non-decreasing order:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = {
+  object = node,  attribute = fill, time = 0s, value = red, entry,
+  object = node2, attribute = draw, entry,
+  object = node,  attribute = fill, time = 2s, value = blue, entry,
+  object = node2, attribute = draw, entry,
+  object = node,  attribute = fill, begin on = click, entry,
+  object = node2, attribute = draw, begin on = click, entry}] {
+  \node (node)  [fill, text=white]            { Node 1 };
+  \node (node2) [draw, ultra thick] at (0,-1) { Node 2 };
+}
+\end{codeexample}
+  In the above example, we could not have exchanged the first two
+  lines of the |animate| options with the third and fourth line since
+  the values for time |0s| must come before the values for time |2s|.
+\end{key}
 
 
+In the following, we have a closer look at the five keys the influence
+the |entry| key and then have a look at ways of grouping keys more
+easily. 
 
-\subsubsection{Objects}
+
+\subsubsection{Specifying Objects}
 \label{section-anim-def-obj}
+
+You use the |object| key to select the object(s) to which the next use
+of |entry| applies. There is also a special syntax for this, which is
+explained in Section~\ref{section-anim-syntax-obj}.
 
 \begin{key}{/tikz/animate/object=\meta{list of objects}}
   The \meta{list of objects} is a comma-separated list of strings of
   the form \meta{object}\opt{|.|\meta{type}}. All of the objects in
-  the list are selected as to-be-animate object inside the |animate| key
-  (see Section~\ref{section-anim-syntax-animate}). Each object referred
-  to by \meta{object} will be the \emph{next} object with the |name|
+  the list are selected as to-be-animate object for the next use of
+  the |entry| key. The objects referred to by \meta{object} will be
+  the \emph{next} objects with the |name| 
   key set to \meta{object}. You can apply the |name| key to nodes
   (where you can also use the special parentheses-syntax and put the
   name in parentheses, it has the same effect), but also to scopes and
@@ -376,7 +472,7 @@ timeline, the current values of five keys are relevant:
 \end{key}
 
 
-\subsubsection{Attributes}
+\subsubsection{Specifying Attributes}
 \label{section-anim-def-attr}
 
 \begin{key}{/tikz/animate/attribute=\meta{list of attributes}}
@@ -392,17 +488,54 @@ timeline, the current values of five keys are relevant:
                                            begin on = click } }] 
   \node (n) [fill, text = white] {The node}; 
 \end{codeexample}
-
 \end{key}
 
 
-\subsubsection{Times}
+
+\subsubsection{Specifying IDs}
+
+\label{section-anim-def-id}
+
+\begin{key}{/tikz/animate/id=\meta{id} (initally default)}
+  Timelines are use to defined how the values of an attribute of an
+  object change over time. In many cases, you will have at most one
+  timeline for each object--attribute pair, but, sometimes, you may
+  wish to have more than one timeline for the same object and the same
+  attribute. For instance, you might have a timeline that specifies
+  a changing |shift| of a node in some direction and, at the same
+  time, another timeline that specifies an additional |shift| in some
+  other direction(s). The problem is that there is only one |shift|
+  attribute and it would be difficult to compute the joint effect of
+  the two timelines.
+
+  For this purpose, timelines are actually identified not only by the
+  object--attribute pair but, in reality, by the triple consisting of
+  the object, the attribute, and the value of this key. We can now
+  specify two separate timelines:
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate = {
+  id = 1, n:shift = { 0s = "{(0,0)}", 2s = "{(0,5mm)}", begin on = click },
+  id = 2, n:shift = { 0s = "{(0,0)}", 2s = "{(5mm,0)}", begin on = click }
+}] 
+  \node (n) [fill = blue!20, draw=blue, very thick] {The node}; 
+\end{codeexample}
+
+  The default value of |id| is |default|. 
+\end{key}
+
+
+\subsubsection{Specifying Times}
 \label{section-anim-def-times}
 
 
 \begin{key}{/tikz/animate/time=\meta{time}\opt{|later|}}
-  Sets the time for the next time--value pair to \meta{time} (the text
-  |later| is optional). 
+  Sets the time for the next time--value pair in a call of |entry| to
+  \meta{time} plus the current fork time. The text |later|
+  is optional. Both ``fork times'' and the optional |later| will be
+  explained in a moment.
+
+  \medskip\textbf{Time Parsing.}
   The \meta{time} is parsed using the command |\pgfparsetime|, which is
   essentially the same as the usual math parser of \tikzname, and the
   result is interpreted as a time in seconds. Thus, a \meta{time} of |2+3|
@@ -435,16 +568,13 @@ timeline, the current values of five keys are relevant:
   |01:20 = "0"| would (falsely) be interpreted as ``for the object named
   |01| and its attribute named |20|, do something.'' You can, however,
   use |01:20| in arguments to the |time| key, meaning that you would
-  have to write instead:
-  \begin{quote}
-    \normalfont
-    |with = {time=01:20} do "0"|
-  \end{quote}
+  have to write instead: |time = 1:20, "0"|, possibly surround by a
+  |scope|. 
 
+  \medskip\textbf{Relative Times.}
   You can suffix a |time| key with ``|later|''. In this case, the
   \meta{time} is interpreted as an offset to the time in the previous
-  use of the time key (the details are bit more involved, see
-  Section~\ref{section-anim-timeline} for more details).
+  use of the time key:
 
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
 \tikz \node [animate me = {:fill = { begin on = click,
@@ -454,6 +584,113 @@ timeline, the current values of five keys are relevant:
     500ms later = "blue"}}, % same as 1.5s = "-2.5mm"
   fill=blue!20, draw=blue, very thick, circle] {Click me};
 \end{codeexample}
+
+  In reality, the offset is not taken to just any previous use of the
+  |time| key, but to the most recent use of this key or of the
+  |resume| key in the current local \TeX\ scope. Here is an example:
+\begin{codeexample}[code only]
+time = 2s,
+time = 1s later,    % same as time = 3s
+time = 500ms later, % same as time = 3.5s
+time = 4s,
+time = 1s later,    % same as time = 5s
+scope = {           % opens a local scope
+  time = 1s later,  % same as time = 6s
+  time = 10s
+  time = 1s later   % same as time = 11s
+},                  % closes the scope, most recent time is 5s once more
+time = 2s later     % same as time = 7s
+\end{codeexample}
+
+  \medskip\textbf{Fork Times.}
+  The time meant by the value \meta{time} passed to the |time| key is
+  not used directly. Rather, \tikzname\ adds the current \emph{fork
+    time} to it, which is |0s| by default. You can change the fork
+  time using the following key:
+  \begin{key}{/tikz/animate/fork=\meta{t} (default 0s later)}
+    Sets the fork time for the local scope to \meta{t} and sets the
+    current time to |0s|. In this scope, when you use ``absolute''
+    times like |0s| or |2s|, you actually refer to later times that
+    have started as \meta{t}. 
+
+    One application of forks is in the definition of keys that add a
+    certain part to a longer animation. Consider for instance the
+    definition of a |hilight| key:
+\begin{codeexample}[animation list={1.05,1.1,1.15,1.2,2.05,2.1,2.15,2.2}]
+\tikz [animate/highlight/.style = {
+    scope = { fork = #1,
+              :fill = { 0s = "black", 0.1s = "white", 0.2s = "black"} }
+  }]
+  \node [animate me = { :fill = { 0s = "black", begin on = click },
+                        highlight = 1s, highlight = 2s },
+         fill = blue, text=white, very thick, circle] { Click me };
+\end{codeexample}
+    In the above example, we could also have written |0.1s later|
+    instead of |0.2s| and, indeed, the whole style could have been
+    defined using only times with |later|, eliminating the need for
+    the |fork| key. However, using forks you can specify absolute
+    times for things happening in a conceptual ``subprocess'' and also
+    relative times. The name |fork| for the key is also borrowed from
+    operating system theory, where a ``fork'' is the spawning of an
+    independent process. 
+  \end{key}
+
+  \medskip\textbf{Remembering and Resuming Times.}
+  When you have a complicated animation with a long timeline, you will
+  sometimes wish to start some animation when some other animation has
+  reached a certain moment; but this moment is only reached through
+  heavy use of |later| times and/or forks. In such situations, the
+  following keys are useful:
+  \begin{key}{/tikz/animate/remember=\meta{macroname}}
+    This key stores the current time (the time of the last use of the
+    |time| key) globally in the macro \meta{macroname}. This time will include
+    the offset of the fork time:
+\begin{codeexample}[code only]
+time = 2s,
+fork = 2s later,    % fork time is now 4s
+time = 1s,          % local time is 1s, absolute time is 5s (1s + fork time)
+time = 1s later,    % local time is 2s, absolute time is 6s (2s + fork time)
+remember = \mytime  % \mytime is now 6s
+\end{codeexample}
+  \end{key}
+  \begin{key}{/tikz/animate/resume=\meta{absolute time}}
+    The \meta{absolute time} is evaluated using |\pgfparsetime| and,
+    then, the current time is set to the resulting time minus the fork
+    time. When the \meta{absolute time} is a macro previously set
+    using |remember|, the net effect of this is that we return to the
+    exact ``moment'' in the global time line when |remember| was used.
+\begin{codeexample}[code only]
+fork = 4s,
+time = 1s,
+remember = \mytime  % \mytime is now 5s
+fork = 2s,          % fork time is now 2s, local time is 0s
+resume   = \mytime  % fork time is still 2s, local time is 3s
+\end{codeexample}
+    Using resume you can easily implement a ``join'' operation for
+    forked times. You simply remember the times at the ends of the
+    forks and then resume the maximum time of these remembered times:
+\begin{codeexample}[code only]
+scope = {
+  fork,
+  time = 1s later,
+  ...
+  remember = \forka
+},
+scope = {
+  fork,
+  time = 5s later,
+  ...
+  remember = \forkb
+},
+scope = {
+  fork,
+  time = 2s later,
+  ...
+  remember = \forkc
+},
+resume = {max(\forka,\forkb,\forkc)} % "join" the three forks
+\end{codeexample}
+  \end{key}
 \end{key}
 
 
@@ -461,96 +698,93 @@ timeline, the current values of five keys are relevant:
 \subsubsection{Values}
 \label{section-anim-def-values}
 
+
+\begin{key}{/tikz/animate/value=\meta{value}}
+  This key sets the value of the next time--value pair created by
+  |entry| to \meta{value}. The syntax of the \meta{value} is not
+  fixed, it depends on the type of 
+  the attribute. For instance, for an attribute like |opacity| the
+  \meta{value} must be an expression that can be evaluated to a number
+  between 0 and 1; for the attribute |color| the \meta{value} must,
+  instead, be a color; and so on.  Take care that when a value
+  contains a comma, you must surround it by braces as in |"{(1,1)}"|.  
+
+  The allowed texts for the \meta{value} is always the same as the
+  one you would pass to the \tikzname\ option of the same 
+  name. For instance, since the \tikzname\ option |shift| expects a
+  coordinate, you use coordinates as \meta{value} with the usual
+  \tikzname\ syntax (including all sorts of extensions, the animation
+  system calls the standard \tikzname\ parsing routines). The same is
+  true of dimensions, scalar values, colors, and so on.
+
+  In addition to the values normally use for setting the attribute,
+  you can also (sometimes) use the special text |current value| as
+  \meta{value}. This means that the value of the point in the timeline
+  should be whatever the value the attribute has at the beginning of
+  the timeline. For instance, when you write
+\begin{codeexample}[code only]
+animate = { obj:color = { 0s = "current value", 2s = "white" } }     
+\end{codeexample}
+  the color of |obj| will change from whatever color it currently has
+  to white in two seconds. This is especially useful when several
+  animations are triggered by user events and the current color of
+  |obj| cannot be determined beforehand.
+
+  There are several limitations on the use of the text
+  |current value|, which had to be imposed partly because of the limited
+  support of this feature in \textsc{svg}:
+  \begin{itemize}
+  \item You can use |current value| only with the first time in a
+    timeline.
+  \item You can only have two times in a timeline that starts with
+    |current value|.
+  \item You cannot use |current value| for timelines of which you wish
+    to take a snapshot.
+  \end{itemize}
+\end{key}
+
+
+
 \subsubsection{Scopes}
 \label{section-anim-scopes}
 
+When you specify multiple timelines at the same time, it is often
+useful and sometimes even necessary to have keys be set only
+locally. The following key makes this easy:
 
-In order to uniquely identify a time--value pair of an animation
-timeline, the current values of five keys are relevant:
-\begin{itemize}
-\item |object| for selecting the object,
-\item |attribute| for selecting the attribute,
-\item |id| for selecting the timeline id (explained in
-  Section~\ref{section-anim-ids}),
-\item |time| for selecting a time, and
-\item |value| for selecting a value.
-\end{itemize}
+\begin{key}{/tikz/animate/scope=\meta{options}}
+  Executed the \meta{options} inside a \TeX\ scope. In particular, all
+  settings made inside the scope have no effect after the end of the
+  |scope|.  
 
-When you specify animations, many time--value pairs will share the
-same settings for several of the above keys. We saw already that there
-is a general syntax for setting one of these values for a whole scope:
-When you write |node:color = {...}| the options in |...| will be
-executed and, in this local scope, the object will be |node| and the
-attribute will be |color| (and the |id| will be empty). Similarly,
-|1s={...}| and even |"red"={...}| all create local scopes in which a
-the |time| key or the |value| key is set to a certain value and is
-then used inside a local scope.
-
-All of these uses are special cases (and, internally, they all map to)
-the following key:
-
-\begin{key}{/tikz/animate/with=\marg{setup} do \marg{options}}
-  This key first creates a local \TeX\ scope and first executes the
-  \meta{setup}, then opens another local \TeX\ scope, and then
-  executes the \meta{options}. The only difference between the
-  two is the way timing and forking is interpreted, this is explained
-  in detail in Section~\ref{section-anim-fork}; for our purposes here
-  just think of all of these options being executed in a local scope.
-
-  More importantly for our purposes is the fact that at the end
-  of this local scope of the |with| key, a ``timeline
-  entry'' gets created provided all five keys |object|, |attribute|,
-  |id|, |time|, and |value| are set at the end of the scope (the |id|
-  key has a default value, so you usually do not need to worry about
-  it). This means that for all objects in the list passed to the
-  |object| key and all attributes passed to the |attribute| key, a
-  time--value pair is added to the object's timeline for this
-  attribute.
-
-  As an example, the following are all equivalent ways of creating a
-  timeline for the object |obj| and its attribute |color| with two
-  time--value pairs: One for 0s and the color red, and one for 2s with
-  the color blue:
-\begin{codeexample}[code only]
-animate = { % two "with" statements, each creating an entry:
-  with = {} do { object = obj, attribute = color, time = 0s, value = red },
-  with = {} do { object = obj, attribute = color, time = 2s, value = blue }
-}
-\end{codeexample}
-\begin{codeexample}[code only]
-animate = { % two "with" statements, each creating an entry, but some keys set for both
-  object = obj, attribute = color,
-  with = {} do { time = 0s, value = red },
-  with = {} do { time = 2s, value = red }
-}
-\end{codeexample}
-\begin{codeexample}[code only]
-animate = { % three "with" statements, but only two create an entry
-  with = {object = obj, attribute = color} do {
-    with = {} do { time = 0s, value = red },
-    with = {} do { time = 2s, value = red }
-  } % outer with has no effect since, here, the time key is not specified
-}
-\end{codeexample}
-\begin{codeexample}[code only]
-animate = { % two "with" statements, each creating an entry, but no scoping at all 
-  object = obj, attribute = color,
-  time = 0s, value = red, with = {} do {},
-  time = 2s, value = blue, with = {} do {},
-}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz \node [animate me = { begin on = click,
+    scope = { attribute = fill, repeats = 3, 0s = "red", 2s = "red!50" },
+    scope = { attribute = draw,              0s = "red", 2s = "red!50" }
+  },
+  fill=blue!20, draw=blue, very thick, circle] {Click me};
 \end{codeexample}
 
-  It turns out the the |with| key can \emph{also} add something to the
-  timeline when neither the |time| nor the |value| key are set (but
-  the |object| and  |attribute| keys are): Several \emph{timeline
-    options} can be set using keys with the path prefix
-  |/tikz/animate/options| and, if at least one such option has been
-  set in the local scope of the |with| command (or in a surrounding
-  scope), these timeline options will be set for the timeline at the
-  end of the local scope. See Section~\ref{section-anim-timeline} for
-  details on the possible options.
+  Without the use the the |scope| key, the |repeats| key would also
+  affect the draw attribute. 
 \end{key}
 
+While the |scope| key is useful for structuring timeline code, it also
+keeps the current time local to the scope, that is, if you use
+something like |1s later| after the scope, this will refer to one
+second after the last use of |time| \emph{before} the scope. The times
+set inside the |scope| do not matter. While this is desirable effect
+for forks, you may also sometimes wish to synchronize the local time
+after the scope with the last time reached in the scope. The following
+key makes this easy:
+
+\begin{key}{/tikz/animate/sync=\meta{options}}
+  A shorthand for |scope={| \meta{options}
+    |, remember=\temp},resume=\temp| where |\temp| is actually an
+  internal name. The effect is that after a |sync| the local time just
+  continues as if the scope where not present -- but regarding
+  everything else the effects are local to the |sync| scope.
+\end{key}
 
 
 
@@ -571,10 +805,10 @@ syntax, and the quote syntax.
 
 \label{section-anim-syntax-obj}
 
-Inside an \meta{animation specification} (or, more generally, for all
-keys executed with the path prefix |/tikz/animate|), you can specify
-an object and an attribute of this object using the following syntax,
-whose use is detected by the presence of a colon inside a key:
+Inside the \meta{animation specification} passed to the |animate| key,
+you can specify an object and an attribute of this object using the
+following syntax, whose use is detected by the presence of a colon
+inside a key: 
 \begin{quote}
   \normalfont
   \opt{\meta{object name(s)}}|:|\opt{\meta{attribute(s)}}
@@ -590,25 +824,23 @@ In the place to the left of an equal sign, where you would
 normally use a key, you can instead place an object name and an
 attribute separated by a colon. Additionally, the attribute may be
 followed by an underscore and an \meta{id}, which identifies the
-timeline (see Section~\ref{section-anim-ids} for details). 
+timeline (see Section~\ref{section-anim-ids}). 
 
 Each of these values may be missing, in which case it is not changed
 from its previous value.
 
-The \meta{options} are now executed, still with the path prefix
-|/tikz/animate| inside a local scope. Inside this scope (and only
-there) the object and attribute will be set to the values given to the
-left of the equal sign. Inside the \meta{options}, you can use the
-same syntax once more and any new values given for the object
-and\,/\,or the attribute will override any values given in the outer
-scope. ``Formally,'' the
-following key is executed whenever the above syntax is encountered,
-see the |with| key for details::
+The effect of the above code is the same as:
 \begin{quote}
   \normalfont
-  |with = {object = |\meta{objects}|, attribute = |\meta{attributes}%
-    |, id = |\meta{id}|} do {|\meta{options}|}|
+  |sync = { object = |\meta{objects}|, attribute = |\meta{attribute}|, id = |\meta{id}|, |\meta{options}|, entry }|
 \end{quote}
+although when the object, the attribute, or the id is left empty in
+the colon syntax, the corresponding setting will be missing in the
+above call of |sync|. Note that because of the |sync| the last time
+used inside the \meta{options} will be available afterwards as the
+last time. Also note that an |entry| is added at the end, so any
+settings of keys like |begin| or |repeats| inside the \meta{options}
+will get added to the timeline.
 
 Let us now have a look at some examples. First, we set the
 \meta{object name} to |mynode| and |othernode| and the
@@ -720,20 +952,19 @@ that:
   parenthesis. 
 \end{enumerate}
 
-If these two things are the case, a local scope is created and at the
-beginning of this scope the key |time=|\meta{time} is executed and
-then the \meta{options} are executed inside this scope. Formally, the
-following key is executed whenever the above syntax is encountered:
+If these two things are the case, the above code is transformed to the
+following call:
 \begin{quote}
   \normalfont
-  |with = {time = |\meta{time}|} do {|\meta{options}|}|
+  |sync = {time = |\meta{time}|, |\meta{options}|, entry}|
 \end{quote}
+
 
 \subsubsection{The Quote Syntax: Specifying Values}
 
-Let us now look at the syntax for values. We saw already in several
-examples that values are put in quotation marks (similar to
-the way this is done in \textsc{xml}). The syntax is as follows:
+We saw already in several examples that values are put in quotation
+marks (similar to the way this is done in \textsc{xml}). This quote
+syntax is as follows: 
 
 \begin{quote}
   \normalfont
@@ -742,71 +973,31 @@ the way this is done in \textsc{xml}). The syntax is as follows:
 
 This syntax is triggered whenever a key starts with a quotation
 mark\footnote{Of catcode 12 for those knowledgeable of such
-  things.}. Then, a local scope is created in which the \meta{value}
-is passed to the |value| key, described below, and, then, the
-\meta{options} are executed in this scope. Note that when the
-\meta{value} contains a comma, you have to surround it by curly braces
-\emph{inside} the quotation marks as in |"{(1,1)}"|.
-
-Often, there will be no
-options, but internally the key is just converted to
+  things.} (and note that when the \meta{value} contains a comma, you have to surround
+it by curly braces \emph{inside} the quotation marks as in
+|"{(1,1)}"|). Then, the following code is executed:
 \begin{quote}
   \normalfont
-  |with = {value = |\meta{value}|} do {|\meta{options}|}|
+  |sync = {value = |\meta{value}|, |\meta{options}|, entry}|
 \end{quote}
 
-As a result, instead of |1s="red"| you can also write |"red"=1s|. We
-will see later on why this can be useful.
-
-\begin{key}{/tikz/animate/value=\meta{value}}
-  Sets the value of the current time--value pair to \meta{value}. The
-  syntax of the \meta{value} is not fixed, it depends on the type of
-  the attribute. For instance, for an attribute like |opacity| the
-  \meta{value} must be an expression that can be evaluated to a number
-  between 0 and 1; for the attribute |color| the \meta{value} must,
-  instead, be a color; and so on.  Take care that when a value
-  contains a comma, you must surround it by braces as in |"{(1,1)}"|.  
-
-  The allowed texts for the \meta{value} is always the same as the
-  one you would pass to the \tikzname\ option of the same 
-  name. For instance, since the \tikzname\ option |shift| expects a
-  coordinate, you use coordinates as \meta{value} with the usual
-  \tikzname\ syntax (including all sorts of extensions, the animation
-  system calls the standard \tikzname\ parsing routines). The same is
-  true of dimensions, scalar values, colors, and so on.
-
-  In addition to the values normally use for setting the attribute,
-  you can also (sometimes) use the special text |current value| as
-  \meta{value}. This means that the value of the point in the timeline
-  should be whatever the value the attribute has at the beginning of
-  the timeline. For instance, when you write
+This means that when you write |1s = "red"|, what actually happens is
+that \tikzname\ executes the following:
 \begin{codeexample}[code only]
-animate = { obj:color = { 0s = "current value", 2s = "white" } }     
+sync = { time = 1s, sync = { value = red, entry }, entry }
 \end{codeexample}
-  the color of |obj| will change from whatever color it currently has
-  to white in two seconds. This is especially useful when several
-  animations are triggered by user events and the current color of
-  |obj| cannot be determined beforehand.
+Note that the second entry has no effect since no value is specified
+and the |entry| key only ``takes action'' when both a time and a value
+have been specified. Thus, only the innermost |entry| does, indeed,
+create a time--value pair as desired.
 
-  There are several limitations on the use of the text
-  |current value|, which had to be imposed partly because of the limited
-  support of this feature in \textsc{svg}:
-  \begin{itemize}
-  \item You can use |current value| only with the first time in a
-    timeline.
-  \item You can only have two times in a timeline that starts with
-    |current value|.
-  \item You cannot use |current value| for timelines of which you wish
-    to take a snapshot.
-  \end{itemize}
-\end{key}
-
-
+Interestinly, instead of |1s="red"| you can also write |"red"=1s|. Let
+us now have a look at situations where this can be useful.
 
 
 \subsubsection{Timesheets}
 
-Using the |with| key or using the three different syntactic constructs
+Using the |sync| key or using the three different syntactic constructs
 introduced earlier (the color syntax, the time syntax, the value
 syntax), you can organize the specification of an animation in
 different ways. Basically, the two most useful ways are the following:
@@ -898,30 +1089,566 @@ animate = {
 
 
 
-
-
-\subsection{The Semantics: Attributes That Can Be Animated}
+\subsection{The Attributes That Can Be Animated}
 
 \label{section-anim-attrs}
+
+
+The following \meta{attributes} are permissible:
+
+\begin{tabular}{ll}
+  \emph{Attribute} & \emph{Type} \\
+  |dash offset|              & dimension \\
+  |dash pattern|              & dash pattern \\
+  |dash|                      & dash pattern and offset\\
+  |draw opacity| & scalar \\
+  |draw| & color \\
+  |drive|                     & scalar \\
+  |fill opacity| & scalar \\
+  |fill| & color \\
+  |line width|                & dimension \\
+  |motion|                    & scalar \\
+  |opacity| & scalar \\
+  |path|                      & path \\
+  |rotate|                    & scalar \\
+  |scale|                     & scaling \\
+  |stage|                     & boolean \\
+  |text opacity| & scalar \\
+  |text| & color \\
+  |translate|                 & coordinate \\
+  |view|                      & view \\
+  |visible|                   & boolean \\
+  |xshift|, |yshift|          & dimension \\
+  |xskew|, |yskew|            & scalar \\
+  |xslant|, |yslant|          & scalar \\
+\end{tabular}
+
+These attributes are detailed in the following sections, but here is a
+quick overview of those that do not have a \tikzname\ key of the same
+name (and which just animate the attribute set using this key): 
+\begin{itemize}
+\item |motion| allows you to specify a path along which the object
+  should be moved (using the |along| key). The values given to the
+  |entry| key for this attribute refer to a \emph{fraction of the
+    distance along the path}. See the |along| key for details.
+\item |path| allows you to animate a path (it will
+  morph). The ``values'' are now paths themselves. 
+\item |view| allows you to animate the view box of a view.
+\item |visible| decides whether  an object is visible at all. 
+\item |stage| is identical to |visible|, but when the object is not
+  animated, it will be hidden by default.
+\end{itemize}
+
+
+
+\subsubsection{Animating Color, Opacity, and Visibility}
+\label{section-animation-painting}
+
+\begin{tikzanimateattribute}{fill}
+  You can animate the color of the target object of an animation using
+  the attributes |fill|, |draw|, and |text|. When the target of a color
+  animation is a scope, you animate the color ``used in this scope'' for
+  filling or stroking. However, when an object inside the scope has its
+  color set explicitly, this color overrules the color of the scope.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate me = {:fill = {0s = "red", 2s = "blue",
+                              begin on = click}},
+       text = white, fill = orange ] {
+  \node [fill]                   at (0mm,0) {A};
+  \node [fill]                   at (5mm,0) {B};
+  \node [fill = green!50!black ] at (1cm,0) {C};
+}
+\end{codeexample}
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{draw}
+  See |:fill|.
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{text}
+  The |text| attribute only applies to nodes and you need to directly
+  animate the |text| attribute of each node individually.
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [my anim/.style={
+         animate me = {
+           :text = {0s = "red", 2s = "blue", begin on = click}}},
+       text = white, fill = orange ] {
+  \node [fill, my anim] at (0,0) {A};
+  \node [fill, my anim] at (1,0) {B};
+}
+\end{codeexample}
+  Unlike the |fill| and |draw| colors, you cannot animate the |text|
+  color for scopes: 
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [animate me = {:text = {0s = "red", 2s = "blue",
+                              begin on = click}},
+       text = white, fill = orange ] {
+  \node [fill] at (0,0) {A};
+  \node [fill] at (1,0) {B};
+}
+\end{codeexample}
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{color}
+  The |color| attribute is not really an attribute. Rather, it is a
+  shorthand for |{draw,fill,text}|. This means that |color| does not
+  start a separate timeline, but continues the |draw| timeline, the
+  |fill| timeline, and the |text| timeline.
+\end{tikzanimateattribute}
+
+
+\begin{tikzanimateattribute}{fill opacity}
+  Similarly to the color, you can also set the opacity used for filling
+  and for drawing using the attributes |fill opacity| and
+  |draw opacity|, which are exactly the same as the usual \tikzname\
+  keys of the same names.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz \node [
+    animate me = { :fill opacity = { 0s="1", 2s="0", begin on=click}},
+    fill = blue!20, draw = blue, ultra thick, circle
+  ] {Click me!}; 
+\end{codeexample}
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{draw opacity}
+  See |:fill opacity|.
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{opacity}
+  Unlike colors, where there is no joint attribute for filling and
+  stroking, there is a single |opacity| attribute in addition to the above
+  two attributes. If supported by the driver, it treats the graphic
+  object to which it is applied as a transparency group. In essence,
+  ``this attribute does what you want'' at least in most situations.
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz \node [
+    animate me = { :opacity = { 0s="1", 2s="0", begin on=click}},
+    fill = blue!20, draw = blue, ultra thick, circle
+  ] {Click me!}; 
+\end{codeexample}
+\end{tikzanimateattribute}
+
+
+\begin{tikzanimateattribute}{visible}
+  The difference between the |visible| attribute and an opacity of |0| is
+  that an invisible object cannot be clicked and does not need to be
+  rendered. The (only) two possible values for this attribute are
+  |false| and |true|.
+
+\begin{codeexample}[animation list={1,2,3,4}]
+\tikz [animate me = { :visible = { begin on=click, 0s="false", 2s="false"}}]
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+\end{codeexample}
+\end{tikzanimateattribute}
+
+\begin{tikzanimateattribute}{stage}
+  This attribute is the same as the |visible| attribute, only
+  |base=false| is set by default. This means that the object is
+  \emph{only} visible when you explicitly during the time the entries
+  are set to |true|. The idea behind the name ``stage'' is that the
+  object is normally ``off stage'' and when you explicitly set the
+  ``stage attribute'' to |true| the obejct ``enters'' the stage and
+  ``leaves'' once more when it is no longer ``on stage.''
+  
+\begin{codeexample}[animation list={-1,0,1,2,3},animation bb={(1.3,-0.7) rectangle (2.7,0.7)}]
+\tikz [animate = {example:stage = {
+                   begin on = {click, of next=node},
+                   0s="true", 2s="true" }}] {
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+  \node at (2,0) (example) [fill = blue!20, circle] {Effect}; 
+}
+\end{codeexample}
+\end{tikzanimateattribute}
+
+
+
+
+\subsection{Animating Paths and their Rendering}
+\label{section-animation-paths}
+
+You can animate the appearance of a path in the following ways:
+
+\begin{animateattribute}{line width}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{line width}{
+    whom = node, begin on = {click}, entry = {0s}{1pt}, entry = {2s}{5mm} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The possible values passed to the |entry| key are, of course,
+  dimensions. 
+\end{animateattribute}
+
+
+\begin{animateattribute}{dash}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \pgfanimateattribute{dash}{
+    whom = node, begin on = {click}, entry = {0s}{{{10pt}{1pt}}{0pt}},
+                                     entry = {2s}{{{1pt}{10pt}}{0pt}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \pgfanimateattribute{dash}{
+    whom = node, begin on = {click}, entry = {0s}{{{1cm}{1pt}}{0pt}},
+                                     entry = {2s}{{{1cm}{1pt}}{1cm}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+  To specify the dash pattern, you specify a sequence of ``on and
+  off'' dimensions; see |\pgfsetdash| for details. Note that you
+  \emph{must} specify the same number of 
+  elements in all patterns of a timeline: You cannot specify that the
+  dash pattern for |1s| is |{1pt}{2pt}| and for |2s| is
+  |{1pt}{3pt}{2pt}| since the number of elements would differ. In
+  particular, you cannot (sensibly) use |current value| for the first
+  entry since this corresponds to an empty dash pattern (even when you
+  have specified a dash pattern for the target object: this pattern
+  will not be attached to the to-be-animated scope or object but to a
+  surrounding scope and, thus, the to-be-animated scope will not have
+  any dash pattern installed).
+\end{animateattribute}
+
+\begin{animateattribute}{path}
+  Finally, you can animate the path itself:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \pgfanimateattribute{path}{
+    whom = node.background.path, begin on = {click, of next=node},
+    entry = {0s}{\pgfpathellipse{\pgfpointorigin}
+                  {\pgfpointxy{1}{0}}{\pgfpointxy{0}{1.5}}},
+    entry = {2s}{\pgfpathellipse{\pgfpointxy{.5}{0}}
+                  {\pgfpointxy{.5}{.5}}{\pgfpointxy{0.25}{.25}}}}
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+  The path is specified by giving path construction commands as in the
+  above example. They will be executed in a special protected scope to
+  ensure that they have only little side effects.
+
+  As for the dash pattern, you must ensure that all paths in the
+  timeline have the same structure (same sequence of path construction
+  commands); only the coordinates may differ. In particular, you
+  cannot say that the path at |1s| is a rectangle using
+  |\pgfpathrectangle| and at |2s| is a circle using
+  |\pgfpathcircle|. Instead, you would have to ensure that at both
+  times that path consists of appropriate Bézier curves.
+
+  Unlike the dash pattern, the to-be-animated object is, indeed, the
+  path itself and not some special scope. This means that you can use
+  the |current value| for the start path. However, this also means
+  that you really must pick \emph{the path object} as the target of
+  the animation. In conjunction with \tikzname, this will be an object
+  of type |path| as in the above example.
+\end{animateattribute}
+
+
+
+\subsection{Animating Transformations  and Views}
+\label{section-animation-views}
+
+
+In order to animate the canvas transformation matrix, you do not
+animate an attribute called ``|transform|'' (or something
+similar). Rather, there are several keys that all manipulate the
+canvas transformation matrix in different ways. These keys, taken in
+appropriate combination, allow you to achieve any particular canvas
+transformation matrix. All keys that animate the transformation matrix
+\emph{always} accumulate.
+
+Let us start with the basic keys that allow you to change the
+canvas transformation matrix directly:
+
+\begin{animateattribute}{scale}
+  The |scale| attribute adds an animation of the scaling:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{scale}{
+    whom = node, begin on = {click},
+    entry = {0s}{0.5}, entry = {2s}{0.75,1.5} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values passed to the |entry| key must either be single scalar
+  values or a pair of such numbers separated by a comma (which then
+  refer to the $x$- and $y$-scaling).
+\end{animateattribute}
+
+\begin{animateattribute}{rotate}
+  The |rotate| key adds an animation of the rotation:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click},
+    entry = {0s}{45}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are scalar values representing a rotation in degrees.
+\end{animateattribute}
+
+
+\begin{animateattribute}{xskew}
+  The |xskew| and |yskew| keys (and also |skew x| and |skew y|,
+  which are aliases) add an animation of the skew (given
+  in degrees, not as a slant):
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{xskew}{
+    whom = node, begin on = {click}, entry = {0s}{0}, entry = {2s}{45} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are scalar values.
+\end{animateattribute}
+
+\begin{animateattribute}{yskew}
+  See |xskew|.
+\end{animateattribute}
+
+\begin{animateattribute}{skew x}
+  An alias of |xskew|.
+\end{animateattribute}
+
+\begin{animateattribute}{skew y}
+  An alias of |yskew|.
+\end{animateattribute}
+
+
+\begin{animateattribute}{translate}
+  The |translate| key adds an animation of the translation (shift):
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{translate}{
+    whom = node, begin on = {click},
+    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{5mm}{-5mm}} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+  The values are \pgfname-points.
+\end{animateattribute}
+
+For all of these attributes, the following key is of importance:
+\begin{key}{/pgf/animation/origin=\meta{pgf point}}
+  An animation of the canvas transformation is added to all other
+  transformations from surrounding or interior scopes. This means
+  that, in particular, the origin of a canvas transformation is, by
+  default, the origin of the canvas of the scope surrounding the
+  transformation object.
+
+  For some canvas animations, like a rotation or a scaling, you will
+  typically wish to use a different origin (like the center of an
+  object that is to be rotated or scaled). You can achieve this effect
+  by surrounding the object by a scope that shifts the canvas to the
+  desired origin, followed by a scope whose transformation matrix you
+  animate, followed by a scope that shifts back the canvas.
+
+  The |origin| key simplifies this process by allowing you to specify
+  the origin of the transformation directly. Internally, however, all
+  this key does is to create the above-mentioned scopes with the
+  necessary shifts.
+  
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {click},
+    origin = \pgfpoint{-5mm}{0mm}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
+}
+\end{codeexample}
+\end{key}
+
+
+\begin{animateattribute}{motion}
+  A second way of changing the canvas transformation matrix is to use
+  the |motion| attribute:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    along = \pgfpathcircle{\pgfpointorigin}{5mm},
+    entry = {0s}{.25}, entry = {2s}{.5} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+
+
+\begin{key}{/pgf/animation/along=\meta{path}}
+  This key (or |rotate along|) must be used with |motion| attribute to
+  specify a path along which the transformation matrix will be
+  ``moved'' (that is, a shift transformation will be added to the
+  different points on the path).
+
+  The values passed to the |entry| key specify fractions of the
+  distance along the \meta{path}. That means, when you provide a value
+  of |0|, you reference the start point of the path, a value of |1|
+  references the end of the path and |0.5| referenced the point
+  halfway along the path.
+
+\begin{codeexample}[animation list={0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5}]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    along = \pgfpathmoveto{\pgfpointorigin}
+            \pgfpathlineto{\pgfpoint{0mm}{5mm}},
+    entry = {0s}{0}, entry = {1s}{0.5}, entry = {2s}{0.25}, entry={3s}{1} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}
+\end{key}
+
+  
+\begin{key}{/pgf/animation/rotate along=\meta{Boolean} (default true)}
+  When set to |true|, the |along| key additionally adds a rotation
+  that varies in such a way that a tangent to the path always points right. 
+
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz [very thick] {
+  \pgfanimateattribute{motion}{
+    whom = node, begin on = {click},
+    rotate along = true,
+    along = \pgfpathmoveto {\pgfpointorigin}
+            \pgfpathcurveto{\pgfpoint{5mm}{0cm}}{\pgfpoint{5mm}{0cm}}
+                           {\pgfpoint{5mm}{5mm}},
+    entry = {0s}{0}, entry = {2s}{1} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
+\end{codeexample}  
+\end{key}
+\end{animateattribute}
+
+The final method of changing the transformation matrix is to animate 
+a \emph{view.}
+
+\begin{animateattribute}{view}
+  A view is a canvas transformation that shifts and
+  scales the canvas in such a way that a certain rectangle ``matches''
+  another rectangle: The idea is that you ``look through'' a ``window''
+  (the view) and ``see'' a certain area of the canvas. View animation do
+  not allow you to do anything that cannot also be done using the
+  |translate| and |scale| keys in combination, but it often much more
+  natural to animate which area of a graphic you wish to see than to
+  compute and animate a scaling and shift explicitly.
+  
+  In order to use a view, you first need to create a view, which is done
+  using a |{pgfviewboxscope}|, see Section~\ref{section-base-view},
+  which is used by the |view| library internally. You can then animate
+  the view using the |view| attribute. The values passed to the |entry|
+  key must be two \pgfname-points, each surrounded by parentheses.
+
+  
+\begin{codeexample}[animation list={0.5,1,1.5,2},animation bb={(1.1,-0.9) rectangle (2.9,0.9)}]
+\tikz [very thick] {
+  \pgfanimateattribute{view}{
+    whom = me.view, begin on = {click, of next=node}, freeze at end,
+    entry = {0s}{{\pgfpoint{0mm}{0mm}}{\pgfpoint{20mm}{20mm}}},
+    entry = {2s}{{\pgfpoint{10mm}{10mm}}{\pgfpoint{15mm}{15mm}}} }
+  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+
+  \draw [green!50!black] (1.2,-0.8) rectangle (2.7,0.8);
+  \begin{scope}[name = me, view = {(0,0) (2,2) at (1.2,-0.8) (2.7,0.8)}]
+    \draw [red] (10mm,10mm) rectangle (15mm,15mm);
+    \node at (10mm,10mm) [circle, fill=red, text=white, font=\tiny] {red};
+  \end{scope}
+}
+\end{codeexample}
+
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{view}{
+    whom = me.view, begin on = {click, of next=n1}, freeze at end,
+    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{5mm}{5mm}}{\pgfpoint{15mm}{20mm}}} }
+  \pgfanimateattribute{view}{
+    whom = me.view, begin on = {click, of next=n2}, freeze at end,
+    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{10mm}{10mm}}{\pgfpoint{15mm}{15mm}}} }
+  \node (n1) at (0,0) [fill = blue!20, draw = blue, circle] {Zoom blue}; 
+  \node (n2) at (2,0) [fill = blue!20, draw = blue, circle] {Zoom red};
+
+  \draw [green!50!black] (4,0) rectangle (6,2);
+  \begin{scope}[name = me, view = {(0,0) (2,2) at (4,0) (6,2)}]
+    \draw [blue] (5mm,5mm) rectangle (15mm,20mm);
+    \node at (5mm,5mm) [circle, fill=blue, text=white] {blue};
+    
+    \draw [red] (10mm,10mm) rectangle (15mm,15mm);
+    \node at (10mm,10mm) [circle, fill=red, text=white, font=\tiny] {red};
+  \end{scope}
+}
+\end{codeexample}  
+\end{animateattribute}
+
 
 
 \subsection{Controlling the Timeline}
 
 \label{section-anim-timeline}
 
-\subsubsection{Multiple Timelines for an Attribute}
-
-\label{section-anim-ids}
-
-\subsubsection{Forking and Joining Timelines}
-
-\label{section-anim-fork}
-
 \subsubsection{Beginning and Ending Timelines}
+
+\begin{key}{/tikz/animate/options/restart}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/options/begin}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/options/end}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/options/begin on}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/options/end on}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/base}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/forever}
+  To be written
+\end{key}
 
 \subsubsection{Repeating Timelines and Accumulation}
 
-\subsubsection{Smoothing Timelines}
+\begin{key}{/tikz/animate/repeats}
+  To be written
+\end{key}
+
+\subsubsection{Smoothing and Jumping Timelines}
+
+\begin{key}{/tikz/animate/jump}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/stay}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/ease}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/ease in}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/ease out}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/entry control}
+  To be written
+\end{key}
+
+\begin{key}{/tikz/animate/exit control}
+  To be written
+\end{key}
 
 
 \subsection{Snapshots}
@@ -1089,226 +1816,20 @@ Creating snapshots is done using the following key:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 \endinput
 
-
-Creating an animation is done using the following command:
-
-\begin{command}{\pgfanimateattribute\marg{attribute}\marg{options}}
-  Adds an animation of the \meta{attribute} of a future \emph{object}
-  to the current graphic. Attributes are things like the ``fill
-  opacity'' or the transformation matrix or the line width.
-
-  The \meta{options} are keys that configure how the attribute changes
-  over time. Using the |entry| key multiple times you specify which
-  value the chosen attribute should have at different points in
-  time. Other keys, like |repeats|, allow you to specify how the
-  animation behaves ``as a whole''. These keys are documented later in
-  this section.
-
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{opacity}{
-    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
-}
-\end{codeexample}
-
-  \medskip
-  \textbf{The Attributes}
-  
-  In detail, the |\pgfanimateattribute| command opens a \TeX-scope,
-  looks up the \emph{type} values of the specified \meta{attribute}
-  have (if you wish to animate the |opacity| of an object, the type is
-  ``scalar'' meaning that entries must be scalar numbers; when you
-  animate the |fill| atttribute, the type is ``color'' and values 
-  must be colors, and so on), and then executes the \meta{options} with
-  the path prefix |/pgf/animation|. Finally, an appropriate system
-  layer command |\pgfsysanimate...| is called to create the actual
-  animation and the scope is closed.
-
-  The following \meta{attributes} are permissible:
-  
-  \begin{tabular}{ll}
-    \emph{Attribute} & \emph{Type} \\
-    |draw|, |fill|              & color \\
-    |line width|                & dimension \\
-    |motion|                    & scalar \\
-    |opacity|, |fill opacity|, |draw opacity|              & scalar \\
-    |path|                      & path \\
-    |rotate|                    & scalar \\
-    |scale|                     & scaling \\
-    |softpath|                  & softpath \\
-    |translate|                 & point \\
-    |view|                      & viewbox \\
-    |visible|                   & boolean \\
-    |xskew|, |yskew|            & scalar \\
-  \end{tabular}
-
-  These attributes are detailed in
-  Sections \ref{section-base-animation-painting}
-  to~\ref{section-base-animation-views}, but here is a quick overview:
-  \begin{itemize}
-  \item |draw| and |fill| refer to the color used to
-    draw (stroke) and fill paths in an object, respectively. Typical
-    values for this attribute are |red| or |black!10|.
-  \item |line width| is, of course, the line width used in an
-    object. Typical values are |0.4pt| or |1mm|. Note that you
-    (currently) cannot use keys like |thin| or |thick| here, but this
-    may change in the future.
-  \item |motion| is a slightly special attribute: It allows you to
-    specify a path along which the object should be moved (using the
-    |along| key). The values given to the |entry| key for this
-    attribute refer to a \emph{fraction of the distance along the
-      path}. See the |along| key for details.
-  \item |opacity| and the variants |fill opacity| and |draw opacity|
-    animate the opacity of an object. Allowed values range between 0
-    and 1.
-  \item |path| allows you to animate a graphs path (it will
-    morph). The ``values'' are now paths themselves. See
-    Section~\ref{section-base-animation-paths} for details.
-  \item |rotate| refers to a rotation of the object. Values for the
-    |entry| key are the rotation angles like |0| or |90|.
-  \item |scale| refers to the scaling of the object. Values are either
-    single scalars values (like |1| or  |1.5|) or two numbers
-    separated by a comma (lile |1,1.5| or |0.5,2|), referring to the
-    $x$-scaling and $y$-scaling.
-  \item |softpath| is a special case of the |path| attribute, see
-    Section~\ref{section-base-animation-paths} once more.
-  \item |translate| shifts the object by a certain vector. Values are
-    points like |\pgfpoint{1cm}{2cm}|.
-  \item |view| allows you to animate the view box of a view, see
-    Section~\ref{section-base-animation-views} for details.
-  \item |visible| refers to the visibility of an object. Allowed
-    values are |visible| and |hidden|.
-  \item |xskew| and |yskew| skew the object. Attributes are angles
-    like |0| or |45| or even |90|.
-  \end{itemize}
-
-  \medskip
-  \textbf{The Target Object}
-
-  As stated earlier, the \meta{options} are used to specify the object
-  whose attribute for which an animation should be added to the
-  picture. Indeed, you \emph{must} specify the object explicitly using
-  the |whom| key and you must do so \emph{before} the object is
-  created. Note that, in contrast, in \textsc{svg} you can specify an
-  animation more or less anywhere and then use hyper-references to
-  link the animation to the to-be-animated object; \pgfname\ insists
-  that you specify the animation before the object. This is a bit of a
-  bother in some situations, but it is the only way to ensure that
-  \pgfname\ has a fighting chance to attach some additional code to
-  the object (which is necessary for almost all animations of the
-  transformation matrix).
-
-  \begin{key}{/pgf/animation/whom=\meta{id}\opt{|.|\meta{type}}}
-    You \emph{must} use this key once which each call of the
-    |\pgfanimateattribute| command. The \meta{id} and the optional
-    \meta{type} (which is whatever follows the first dot) will be
-    passed to |\pgfidrefnextuse|, see that command for details. 
-  \end{key}
-
-  As explained in the introduction of this chapter, an ``animation''
-  is just a bit of special text in the output document asking a viewer
-  application to animate the object at some later time. The
-  |\pgfanimateattribute| command inserts this special text immediately,
-  even though it refers to an object created only later on. Normally,
-  this is not a problem, but the special text should be on the same
-  page as the to-be-animated object. To ensure this, it suffices to
-  call |\pgfanimateattribute| no earlier than the beginning of the
-  |pgfpicture| containing the object.
-
-  \medskip
-  \textbf{Naming the Animation}
-
-  You can assign a name to an animation for later (or early)
-  reference. In particular, it is possible to begin \emph{another}
-  animation relative to the beginning or end of this animation and for
-  referencing this animation must be assigned a name. See the |of| and
-  |of next| keys for details.
-
-  \begin{key}{/pgf/animation/name=\meta{name}}
-    Assigns a name to the animation by which it can be referenced
-    using the |of| and |of next| keys in another animation.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {end, of next = my move animation, delay = 1s},
-    entry = {0s}{0}, entry = {2s}{90} }
-  \pgfanimateattribute{translate}{
-    name = my move animation, whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-  \end{key}
-\end{command}
-
-
-\begin{command}{\pgfanimateattributecode\marg{attribute}\marg{code}}
-  The command works like |\pgfanimateattribute|, only instead of
-  \meta{options} you specify some \meta{code} whose job is to setup
-  the options. 
-\end{command}
-
-
-\subsubsection{Specifying the Timeline}
-
-The core key for specifying how an attribute varies over time is the
-|entry| key:
-\begin{key}{/pgf/animation/entry=\marg{time}\marg{value}}
-  You use this key repeatedly to specify the different values that
-  the \meta{attribute} should have over time. At the \meta{time}
-  specified, the \meta{attribute} will have the value specified as
-  \meta{value}:
-  
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click},
-    entry = {0s}{0}, entry = {1s}{90}, entry = {1.1s}{45}, entry = {2s}{90}
-  }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!};
-}
-\end{codeexample}
-
-  You need to call |entry| once for each time in the timeline for
-  which you want to specify a \meta{value} explicitly. Between these
-  times, the values get interpolated (see below for details). You need
-  to specify the \meta{time}s in non-decreasing order (it is
-  permissible and sometimes also necessary to specify the same time
-  twice, namely to create a ``jump'' of the value of some attribute).
-
-  The \meta{time} is parsed using the command |\pgfparsetime|
-  described later.
-
-  \medskip
-  \textbf{Start and end of the timeline.}
-  The first and last times of the timeline are a bit special: The
-  timeline starts on the first time and the duration of the timeline is
-  the difference between the first and last time. ``Starting'' on the
-  start time actually means that any beginnings (see the |begin| and
-  |end| keys) get offset by the start time; similarly end times are
-  offset by this value. 
-
-  \medskip
-  \textbf{Syntax of the values.}
-  The syntax of the \meta{value} varies according to the type of the
-  \meta{attribute}. In detail, these are:
-
-  \begin{tabular}{lp{12cm}}
-    \emph{Type} & \emph{Syntax} \\
-    color & Standard color syntax like |red| or |black!10| \\
-    scalar & A value parsed using |\pgfmathparse| \\
-    dimension & A dimension parsed using |\pgfmathparse| \\
-    path & A sequence of path construction commands \\
-    softpath & A sequence of soft path construction commands \\
-    scaling & A scalar value or a pair of scalar values separated by a
-              comma \\
-    point & A \pgfname-point like |\pgfpoint{1cm}{5mm}| \\
-    viewbox & Two \pgfname-points \\
-    boolean & |true| or |false| \\
-  \end{tabular}  
 
   \medskip
   \textbf{Interpolation between key times.}
