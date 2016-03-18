@@ -28,9 +28,10 @@ using special keys and notations.
 \begin{codeexample}[width=8cm,animation list={0.7,1.4,2.1,2.8},animation scale=.25]
 \begin{tikzpicture}[
     orbit/.style 2 args = { animate me = {
-      :drive = { along = {(0,0) circle [radius=#1]},
-                 along in = #2/10,
-                 repeats }}} ]
+        :shift = { along = {
+                     (0,0) circle [radius=#1]
+                   } sloped in #2s/10,
+                   repeats }}} ]
 
   \node [animate me = { :color = { 0s = "orange",
                                    2s = "red",
@@ -115,23 +116,29 @@ of animations and all of the small sequences of pictures in the manual
 that are used for showing what an animation key does have been
 creating using snapshots.
 
-Two basic limitations of the whole animation system should be pointed
-out right here, at the beginning:
+
+\subsubsection{Limitations of the Animation System}
+
+There are a certain limitations of the animation system that you
+should keep in mind when considering how and when to use it:
 \begin{enumerate}
-\item 
-  It is
-  extremely difficult to animate ``lines between moving nodes''
-  correctly. Consider code like |\draw(a)--(b);| where |a| and |b| are
-  nodes. It is easy to move around |a| or |b| with a minimal amount of
-  code, and it is also easy to move the connecting line along when both
-  nodes move simultaneously. However, when only |a| moves, you would
-  like the connecting line between |a| and |b| to ``follow,'' but
-  achieving this involves a huge amount of code if it is possible at
-  all.
 \item
-  Related to the first points, but also a general problem is the fact
-  that it is current also next to impossible to animate \emph{arrow
-    tips}  correctly. When you animate a path (that is, when you let a
+  As pointed out earlier, animations require a specific output format
+  (currently only \textsc{svg} is supported).
+\item 
+  It is extremely difficult to animate ``lines between moving nodes''
+  correctly. Consider code like |\draw(a)--(b);| where |a| and |b| are
+  nodes. Now, when you animate the position of~|(a)|, the line
+  connecting |(a)| and |(b)| will, unfortunately, not ``move along''
+  automatically (but it is easy to move the whole group of |(a)|,
+  |(b)|, and the connecting ling as whole). One can try to ``cheat''
+  and do some fancy computations to compute the exact positions of the
+  line over time, but this involves a huge amount of code if it is
+  possible at all.
+\item
+  Related to the first point, but also begin an independent problem, is the
+  fact that it is currently next to impossible to animate \emph{arrow
+    tips} correctly. When you animate a path (that is, when you let a
   path change over time) you would expect the arrow tips to ``follow''
   the path and to always point in the right direction. Unfortunately,
   due to the way arrow tips are currently implemented, this does not 
@@ -279,12 +286,12 @@ used for creating these timelines.
 
 \begin{codeexample}[animation list = {0.5,1,1.5,2}]
 \tikz \node [fill, text = white, animate = {
-  myself:fill = {0s = "red", 2s = "blue", begin on = click }}] {Some Text};
+  myself:fill = {0s = "red", 2s = "blue", begin on = click }}] {Click me};
 \end{codeexample}
 \begin{codeexample}[animation list = {0.5,1,1.5,2}]
 \tikz [animate = {a node:fill = {0s = "red", 2s = "blue",
                                  begin on = click}}]
-  \node (a node) [fill, text = white] {Some Text};
+  \node (a node) [fill, text = white] {Click me};
 \end{codeexample}
 
   The details of what, exactly, happens in the \meta{animation
@@ -378,7 +385,7 @@ following key to create an entry:
                                    begin on = click, entry}]
   \node (node) [fill, text=white] { Click me };
 \end{codeexample}
-  Note, however, that in both example we actually add the time--value
+  Note, however, that in both examples we actually add the time--value
   pair $(2\mathrm s, \mathrm{blue})$ twice since the |time| and
   |value| keys also retain their settings and, thus, for the third
   |entry| they have the same values as before and a new pair is
@@ -520,6 +527,28 @@ explained in Section~\ref{section-anim-syntax-obj}.
 
   The default value of |id| is |default|. 
 \end{key}
+
+Because of the possibility of creating multiple timelines for the same
+attribute, it may happen that there is more than one timeline active
+that is ``trying to modify'' a given attribute. In this case, the
+following rules are used to determine, which timeline ``wins'': 
+
+\begin{enumerate}
+\item If no animation is active at the current time (all animation
+  either have not yet started or they have already ended), then the
+  |base| value given in the animation encountered last in the code is
+  used. (If there are no base values, the attribute is taken from the
+  surrounding scope and the animations have ``no effect''.)
+\item If there are several active animations, the one that has started
+  last is used and its value is used.
+\item If there are several active animations that have started at the
+  same time, the one that comes last in the code is used.
+\end{enumerate}
+
+Note that these rules do not apply to transformations of the canvas
+since these are always additive (or, phrased differently, they are
+always all active and the effects accumulate).
+
 
 
 \subsubsection{Specifying Times}
@@ -1027,8 +1056,8 @@ animate = {
   In this way of specifying animations the ``object comes first.''
 \item
   Alternatively, you can also group the animation by time and, for
-  each ``moment'' you specify which values the attributes of the
-  object(s) have:
+  each ``moment'' (known as \emph{keyframes}) you specify which values
+  the attributes of the object(s) have:
 \begin{codeexample}[code only]
 animate = {    
   0s = {
@@ -1101,12 +1130,11 @@ always be used with the colon syntax, it makes it easier to identify them):
 \item |:dash|
 \item |:draw opacity|
 \item |:draw|
-\item |:drive|
 \item |:fill opacity|
 \item |:fill|
 \item |:line width|
-\item |:motion|
 \item |:opacity|
+\item |:position|
 \item |:path|
 \item |:rotate|
 \item |:scale|
@@ -1131,10 +1159,13 @@ quick overview of those that do not have a \tikzname\ key of the same
 name (and which thus do not just animate the attribute set using this
 key):  
 \begin{itemize}
-\item |:motion| allows you to specify a path along which the object
-  should be moved (using the |along| key). The values given to the
-  |entry| key for this attribute refer to a \emph{fraction of the
-    distance along the path}. See the |along| key for details.
+\item |:shift| allows you to add an animated shifting of the
+  canvas, just like \tikzname's |shift| key. However, in conjunction
+  with the |along| key, you can also specify the shifting along a path
+  rather than via a timeline of coordinates.
+\item |:position| works similar to |:shift|, only the coordinates are
+  not relative movements (no ``shifts''), but refer to ``absolute
+  positions'' in the picture.
 \item |:path| allows you to animate a path (it will
   morph). The ``values'' are now paths themselves. 
 \item |:view| allows you to animate the view box of a view.
@@ -1362,17 +1393,15 @@ can, however, also animate the path itself:
 
 
 
-\subsubsection{Animating Transformations  and Views}
-\label{section-animation-views}
-
+\subsubsection{Animating Transformations: Relative Transformations}
 
 In order to animate the canvas transformation matrix, you do not
 animate an attribute called ``|:transform|''. Rather, there are
 several attributes that all manipulate the canvas transformation
 matrix in different ways. These keys, taken in appropriate
 combination, allow you to achieve any particular canvas transformation
-matrix. (All keys that animate the transformation matrix \emph{always}
-accumulate.)
+matrix. All keys that animate the transformation matrix always
+accumulate.
 
 Let us start with the ``standard'' attributes that are also available
 as keys in \tikzname: 
@@ -1399,7 +1428,7 @@ as keys in \tikzname:
 \end{tikzanimateattribute}
 
 
-\begin{animateattribute}{xskew, yskew, xslant, yslant}
+\begin{tikzanimateattribute}{xskew, yskew, xslant, yslant}
   The keys add an animation of the skew (given in degrees) or slant
   (given as in the |xslant| and |yslant| key):
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
@@ -1414,10 +1443,9 @@ as keys in \tikzname:
     fill = blue!20, draw = blue, ultra thick, circle
   ] {Click me!}; 
 \end{codeexample}
-\end{animateattribute}
+\end{tikzanimateattribute}
 
-
-\begin{animateattribute}{shift, xshift, yshift}
+\begin{tikzanimateattribute}{xshift, yshift}
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
 \tikz \node [
     animate me = { :shift = { 0s="{(0,0)}", 2s="{(5mm,-5mm)}",
@@ -1431,58 +1459,236 @@ as keys in \tikzname:
     fill = blue!20, draw = blue, ultra thick, circle
   ] {Click me!}; 
 \end{codeexample}
-\end{animateattribute}
+\end{tikzanimateattribute}
 
-Next, there are two attributes that allow you to specify a movement
-differently: 
-
-\begin{tikzanimateattribute}{motion, drive}
-  The |:motion| attribute lets you move the object ``along a path.'' That
-  means that you use the |along| key, explained in a moment, to
-  specify a path and the animation will smoothly move the object along
-  this path. Note that the path is \emph{not} a value (and no morphing
-  occurs); rather, the values are fractions of the distance along the
-  path. A value of |"0"| refers to the beginning of the path and |"1"|
-  refers to the end:
+\begin{tikzanimateattribute}{shift}
+  This |:shift| attribute can be animated in two ways. First, you can
+  simply specify a sequence of coordinates in the same way as you
+  would use the |shift| key in \tikzname:
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
 \tikz \node [
-    animate me = { :motion = {
-        along = { (0,0) circle [radius=5mm] },
-        0s="0", 2s="1", begin on=click} },
+    animate me = { :shift = { 0s="{(0,0)}", 2s="{(5mm,-5mm)}",
+                              begin on=click}},
     fill = blue!20, draw = blue, ultra thick, circle
   ] {Click me!}; 
 \end{codeexample}
 
-  The path along which you move the object is specified using the
-  following key:
-  \begin{key}{/tikz/animate/options/along=\meta{path}}
-    This key must be used with both the |:motion| and the |:drive|
-    attributes to 
-    specify a path along which the transformation matrix will be
-    ``moved'' (that is, a shift transformation will be added to the
-    different points on the path).
-  \end{key}
-
-  In most motion animations, you will set the value for |0s| to |"0"|
-  and the value for some specific time to |"1"|. The following key
-  makes this a bit more convenient:
-  \begin{key}{/tikz/animate/options/along in=\meta{time}}
-    This is a shorthand for |scope={0s="0", |\meta{time}|="1"}|.    
-  \end{key}
-
-  The |:drive| attribute works exactly the same way as the |:motion|
-  attribute, only there is an additional rotation that varies in such
-  a way that a tangent to the path always points right.  
-
+  However, you can also specify the sequence of positions along which
+  the shift should occur in a different way, namely by
+  \emph{specifying a path along which the object should be moved.}
+  This is often not only more natural to do, but also allows you to
+  specify movements along curves. 
+  
+  \begin{key}{/tikz/animate/options/along=\marg{path}\meta{|sloped| or
+      |upright|}\opt{| in|\meta{time}}}
+    Use this key with a |:shift| (or a |:position|) to make \tikzname\
+    shift the object by the coordinates along the \meta{path}. When
+    this key is used, the values are may no longer be 
+    coordinates, but must be fractions of the distance along the 
+    path. A value of |"0"| refers to the beginning of the path and |"1"|
+    refers to the end:
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
-\tikz \node [
-    animate me = { :drive = {
-        along = { (0,0) circle [radius=5mm] },
-        0s="0", 2s="1", begin on=click} },
-    fill = blue!20, draw = blue, ultra thick, circle
-  ] {Click me!}; 
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,1.2);
+  \draw (1,.5) circle [radius=1mm];
+  \node [animate me = {:shift = {
+            along = {(0,0) circle[radius=5mm]} upright,
+            0s="0", 2s=".25", begin on=click}}]
+    at (1,.5) [fill = blue, opacity=.5, circle] {Click};
+}
+\end{codeexample}
+  \end{key}
+
+  Following the \meta{path}, which must be put in braces, you must
+  either specify |upright| or |sloped|. In the first case, the
+  to-be-animated object is moved along the path normally (and stays
+  ``upright''), whereas when you use |sloped|, the object will be
+  continuously rotated so that it always points along the path.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,1.2);
+  \draw (1,.5) circle [radius=1mm];
+  \node [animate me = {:shift = {
+            along = {(0,0) circle[radius=5mm]} sloped,
+            0s="0", 2s=".25", begin on=click}}]
+    at (1,.5) [fill = blue, opacity=.5, circle] {Click};
+}
+\end{codeexample}
+  
+  In most motion animations that use |along|, you will set the value
+  for |0s| to |"0"| and the value for some specific \meta{time} to
+  |"1"|. Because of this, you can add |in| \meta{time} after the path,
+  to achieve exactly this effect.
+\end{tikzanimateattribute}
+
+
+For the above attributes, it is not immediately clear which coordinate
+system should be used for the animation. That is, when you move an
+object 1cm ``to the right,'' where is ``the right''? 
+By default, movements and transformations like |:shift| or |:scale|
+are relative to the \emph{animation coordinate system,} which defaults
+to the local coordinate system of the to-be-animated object. Consider
+the following example:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,2.2);
+  \node [animate me = { :rotate = { 0s="0", 2s="45", begin on=click} }]
+    at (1,1) [fill = blue!20, draw = blue, ultra thick] {Click me};
+}
+\end{codeexample}
+Note how the node rotates around its center even though this center is
+at position |(1,1)| in the picture's coordinate system. This is
+because |at (1,1)| actually only does a shift of the coordinate system
+and the node is then drawn at the origin of this shifted coordinate
+system. Since this shifted coordainte system becomes the animation
+coordinate system, the rotation ``around the origin'' is actually a
+rotation around the origin of the animation coordinate system, which
+is at |(1,1)| in the picture's coordinate system.
+
+Let us, by comparison, do a rotation of a scope surrounding the node
+where the origin is not (yet) shifted:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,2.2);
+  \scoped [animate me = {:rotate = { 0s="0", 2s="45",
+                                     begin on={click, of next=n}}}]
+    \node (n) at (1,1) [fill = blue!20, draw = blue, ultra thick] {Click me};
+}
+\end{codeexample}
+Now the rotation is really around the origin of the picture.
+
+Most of the time the animation coordinate system will be setup in the
+way ``you expect'', but you can modify it using the following keys:
+
+\begin{key}{/tikz/animate/options/origin=\meta{coordinate}}
+  Shifts the animation coordinate system by \meta{coordinate}. This
+  has the effect the the ``origin'' for scalings and rotations gets
+  shifted by this amount. In the following example, the point around
+  which the rotation is done is the right border at |(2,1)| since the
+  origin of the animation is at |(1,1)| relative to the picture's
+  origin and the |origin| key shifts it one centimeter to the right.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,2.2);
+  \node [animate me = { :rotate = { 0s="0", 2s="45", begin on=click,
+                                    origin = {(1,0)}} }]
+    at (1,1) [fill = blue!20, draw = blue, ultra thick] {Click me};
+}
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/animate/options/transform=\meta{transformation keys}}
+  While the |origin| key does only a shift, the |transform| key allows
+  you to add an arbitrary transformation to the animation coordinate
+  system using keys like |shift|, |rotate| or even |reset cm| and
+  |cm|. In particular, |origin=|\meta{c} has the same effect as
+  |transform| |=| |{shift=|\meta{c}|}|. Note that the transformation
+  only influences the animation, not the object itself.
+
+  As an example, when you say |transform={scale=2}|, an |:xshift| with
+  a value of |"1cm"| will actually shift the object by 2cm. Similarly,
+  after you say |transform={rotate=90,scale=2}|, the same |:xshift| of
+  |"1cm"| will actually shift the object by 2cm upwards.
+
+  Note that, internally, \tikzname\ has to invert the transformation
+  matrix resulting from the \meta{transformation keys} (plus the
+  original animation transformation matrix), which can by numerically
+  instable when you use ill-conditioned transformations.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,2.2);
+  \node [animate me = { :xshift = { 0s="0cm", 2s="5mm", begin on=click,
+                                    transform = {rotate=-90}} }]
+    at (1,1) [fill = blue!20, draw = blue, ultra thick] {Click me};
+}
+\end{codeexample}
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,2.2);
+  \node [animate me = { :xshift = { 0s="0cm", 2s="5mm", begin on=click,
+                                    transform = {rotate=-45, scale=2}} }]
+    at (1,1) [fill = blue!20, draw = blue, ultra thick] {Click me};
+}
+\end{codeexample}
+\end{key}
+
+
+
+\subsubsection{Animating Transformations: Positioning}
+
+The attributes for specifying transformation and, in particular, the
+|:shift| attribute are always expressed in the local animation
+coordinate system. This makes it easy to ``shift around a node a
+little bit,'' but makes it hard to move a node ``from one position to
+another'' since coordinates need to be expressed relative to the node's
+coordinate system, which leads to all sorts of problems: Suppose you
+wish to have a node move from $(1,1)$ to $(2,1)$ and then to
+$(2,0)$. Now, if the node has already been placed at $(1,1)$ in the
+usual manner using |at|, then from the ``node's point of view'' you
+need to move the node to $(0,0)$, $(1,0)$, and $(1,-1)$. To make
+matters worse, when you use named coordinates as in
+\begin{codeexample}[code only]
+\coordinate(A) at (1,1);
+\coordinate(B) at (2,1);
+\coordinate(C) at (2,0);
+\end{codeexample}
+and then say that the movement should be from |(A)| to |(B)| to |(C)|,
+what should you expect? On the one hand, |(A)| and |(1,1)| should
+normally be interchangeable; on the other hand, |(A)| is a specific
+point in the plane, no matter from which coordinate system we look at
+it. It turns out that \tikzname\ will stick to the second
+interpretation and actually turn |(A)| into |(0,0)| when it is parsed
+in the local coordinate system of a node starting at |(A)| -- while
+|(1,1)| will stay the same.
+
+Because of all these confusing effects, there is another attribute
+|:position|, which is similar to a |:shift|, but the coordinates are
+not interpreted in the local coordinate system of the node, but in the
+coordinate system that is in force when the |animate| key is used. For
+a node, this is \emph{prior} to the setup of the node's coordinate
+system and, thus, usually the picture's coordinate system.  
+
+\begin{tikzanimateattribute}{position}
+  Compare the two animations, one with |:position|, one with |:shift|.
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,1.2);
+  \draw (1,.5) circle [radius=1mm] (1.5,0) circle [radius=1mm];
+  \node [animate me = {:position = { 0s="{(1,.5)}", 2s="{(1.5,0)}",
+                                     begin on=click}}]
+    at (1,.5) [fill = blue, opacity=.5, circle] {Click};
+}
+\end{codeexample}
+  Compare this to a shift:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,1.2);
+  \draw (1,.5) circle [radius=1mm] (1.5,0) circle [radius=1mm];
+  \node [animate me = {:shift = { 0s="{(1,.5)}", 2s="{(1.5,0)}",
+                                  begin on=click}}]
+    at (1,.5) [fill = blue, opacity=.5, circle] {Click};
+}
+\end{codeexample}
+  You can use the |along| key with |:position| in the same way as with
+  |:shift|, which is especially useful for specifying that a node
+  ``travels'' between positions of the canvas:
+\begin{codeexample}[animation list={0.5,1,1.5,2}]
+\tikz {
+  \draw [help lines] (-0.2,-0.2) grid (2.2,1.2);
+  \draw (1,1) circle [radius=1mm] (1.5,0) circle [radius=1mm];
+  \node [animate me = {:position = {
+             along = {(1,1) to[bend left] (1.5,0)} sloped in 2s,
+             begin on = click}}]
+         at (1,1) [fill = blue, opacity=.5, circle] {Click};
+}
 \end{codeexample}
 \end{tikzanimateattribute}
+
+
+
+\subsubsection{Animating Transformations: Views}
+
+\label{section-animation-views}
 
 The final method of changing the transformation matrix is to animate 
 a \emph{view.}
@@ -1522,158 +1728,592 @@ a \emph{view.}
 \end{tikzanimateattribute}
 
 
-\subsubsection{Setting Up the Animation Transformation Coordinate System}
-
-For the above animations that install an additional canvas
-transformation, it is not immediately clear, which coordinate system
-should be used for this animation. That is, when you move an object
-1cm ``to the right,'' where is ``the right''?
-
-The coordinate system used for determining where the origin of a
-rotation is or in which direction a movement ``to the right'' will
-actually be is the coordinate system installed for the to-be-animated
-object. This is the reason why in the following example the red box
-gets rotated its center, whereas the blue box gets rotate around its
-lower left corner:
-
-\begin{codeexample}[animation list={0.5,1,1.5,2}]
-\tikz [animate me = { :rotate = { 0s="0", 2s="90", begin on=click} }]
-  \fill [fill = blue!20, draw = blue, ultra thick] (0,0) rectangle (1.5,1);
-\end{codeexample}
-\begin{codeexample}[animation list={0.5,1,1.5,2}]
-\tikz [shift = {(7.5mm,5mm)}]
-  \scoped [animate me = { :rotate = { 0s="0", 2s="90", begin on=click}}]
-    \scoped [shift = {(-7.5mm,-5mm)}]
-      \fill [fill = red!20, draw = red, ultra thick] (0,0) rectangle (1.5,1);
-\end{codeexample}
-
-
-
-The above sequence of first shifting, then animating, and then
-shifting back is often needed
-
-An animation of the canvas transformation is added to all other
-transformations from surrounding or interior scopes. This means
-that, in particular, the origin of a canvas transformation is, by
-default, the origin of the canvas of the scope surrounding the
-transformation object.
-
-For some canvas animations, like a rotation or a scaling, you will
-typically wish to use a different origin (like the center of an
-object that is to be rotated or scaled). You can achieve this effect
-by surrounding the object by a scope that shifts the canvas to the
-desired origin, followed by a scope whose transformation matrix you
-animate, followed by a scope that shifts back the canvas.
-
-
-\begin{key}{/tikz/animate/options/origin=\meta{coordinate}}
-  The |origin| key simplifies this process by allowing you to specify
-  the origin of the transformation directly. Internally, however, all
-  this key does is to create the above-mentioned scopes with the
-  necessary shifts.
-
-\begin{codeexample}[animation list={0.5,1,1.5,2}]
-\tikz \node [
-    animate me = { :rotate = { 0s="45", 2s="90",
-                               origin={(0mm,-5mm)}, begin on=click}},
-    fill = blue!20, draw = blue, ultra thick, circle
-  ] {Click me!}; 
-\end{codeexample}
-\end{key}
-
-
 
 \subsection{Controlling the Timeline}
 
 \label{section-anim-timeline}
 
+We can already specify timelines by giving a sequence of times in
+non-decreasing order along with corresponding values. In this section
+we have a look at further options that allow us to extend or control
+the timeline.
 
-It may happen that there is more than one timeline active that is
-``trying to modify'' a given attribute. In this case, the following
-rules are used to determine, which timeline ``wins'':
 
-\begin{enumerate}
-\item If no animation is active at the current time (all animation
-  either have not yet started or they have already ended), then the
-  base value given in the animation encountered last in the code is
-  used. (If there are no base values, the attribute is taken from the
-  surrounding scope.)
-\item If there are several active animations, the one that has started
-  last is used and the its value is used.
-\item If there are several active animations that have started at the
-  same time, the one that comes last in the code is used.
-\end{enumerate}
 
-Note that these rules do not apply to transformations of the canvas
-since these are always additive (or, phrased differently, they are
-always all active and the effects accumulate).
+\subsubsection{Before and After the Timeline: Value Filling}
+
+When you specify the timeline, you specify it for a certain interval
+$[t_1,t_2]$. By default, outside this interval the animation has no
+effect on the to-be-animated attribute. The following keys allows you
+to change this:
+
+\begin{key}{/tikz/animate/base=\meta{options}}
+  A ``base'' value is a value that is used for the attribute whenever
+  the timeline is \emph{not} active:
+\begin{codeexample}[animation list = {0.5,1,1.5,2,2.5}]
+\tikz \node [fill = green, text = white, animate me = { :fill =
+    { 1s = "red", 2s = "blue", base = "orange", begin on = click } } ]
+  {Click me};
+\end{codeexample}
+
+  Syntactically, the |base| key works much like special time syntax:
+  It sets up a local |sync| scope and executes the \meta{options} in
+  it and creates an |entry|. However, instead of setting the |time|
+  attribute to a time, it sets it to a special value that tells
+  \tikzname\ thet when the entry is created, the current \meta{value}
+  should be used as the |base| value.
+
+  This means that you can write |base = "orange"| as in the above
+  example to set the base. However, you can also use the |base| key in
+  other ways; most noticeably, you can use it \emph{after} some value:
+\begin{codeexample}[animation list = {0.5,1,1.5,2,2.5}]
+\tikz \node [fill = green, text = white, animate me = { :fill =
+    { 1s = {"red" = base}, 2s = "blue", begin on = click } } ]
+  {Click me};
+\end{codeexample}
+\end{key}
+
+\begin{key}{/tikz/animate/options/forever}
+  This key causes the timeline to continue ``forever'' after the last
+  time with the last value. You can also think of this as having the
+  animation ``freeze'' at the end.
+\begin{codeexample}[animation list = {0.5,1,1.5,2,2.5}]
+\tikz \node [fill = green!50!black, text = white, animate me = { :fill =
+    { 1s = "red", 2s = "blue", forever, begin on = click } } ]
+  {Click me};
+\end{codeexample}
+\begin{codeexample}[animation list = {0.5,1,1.5,2,2.5}]
+\tikz \node [fill = green!50!black, text = white, animate me = { :fill =
+    { 1s = "red", 2s = "blue", begin on = click } } ]
+  {Click me};
+\end{codeexample}
+\end{key}
 
 
 \subsubsection{Beginning and Ending Timelines}
 
-\begin{key}{/tikz/animate/base}
-  To be written
+\label{section-anim-begin-end}
+
+The \meta{time} used with the first use of the |entry| key in a
+timeline is the start time and the \meta{time} in the last |entry| key
+is the stop time. However, this leaves open then question of when the whole
+timeline is to be started: The moment the document is opened? When the
+page is displayed? When the user scrolls to the to-be-animated object?
+When some other object is clicked? The key |begin|, and also the key
+|end|, allow you to specify answers to these questions.
+
+\begin{key}{/tikz/animate/options/begin=\meta{time}}
+  This key specifies when the ``moment |0s|'' should be relative to
+  the moment when the current graphic is first displayed. You can use
+  this key multiple times, in this case the timeline is restarted for
+  each of the times specified (if it is already running, it will be
+  reset). If no |begin| key is given at all, the effect is the same as
+  if |begin=0s| had been specified.
+
+  It is permissible to set \meta{time} to a negative value.
+
+  Note that this key has no effect for snapshots.
 \end{key}
 
-\begin{key}{/tikz/animate/forever}
-  To be written
+\begin{key}{/tikz/animate/options/end=\meta{time}}
+  This key will truncate the timeline so that it ends \meta{time}
+  after the display of the graphic, provided the timeline begins
+  before the specified end time. For instance, if you specify a
+  timeline starting at 2\,s and ending at 5\,s and you set |begin| to
+  1\,s and |end| to 4\,s, the timeline will run, relative to the moment
+  when the graphic is displayed from 3\,s to 4\,s.
+
+\begin{codeexample}[]
+\tikz \node [fill = green!50!black, text = white, animate me = {
+    :rotate = { 1s = "0", 5s = "90", begin = 2s, end = 4s } } ]
+  {Click me};
+\end{codeexample}
 \end{key}
 
-\begin{key}{/tikz/animate/options/restart}
-  To be written
+Instead of specifying the beginning of the timeline relative to the
+moment to to-be-animated graphic is displayed, you can also set the
+``moment |0s|'' to the moment a specific \emph{event} happens using
+the following key:
+
+\begin{key}{/tikz/animate/options/begin on=\meta{options}}
+  The \meta{options} will be executed with the path
+  |/pgf/animation/events| and will cause a new beginning to be added
+  to the list of possible beginnings for the timeline (so the uses of
+  this key accumulate). Each ``beginning'' is just another possible
+  ``moment |0s|'' for the timeline. For instance, when the
+  \meta{options} are set to |click|, then each time the graph is
+  clicked a moment |0s| starts for the timeline.
+
+  Most events are ``caused'' or ``happen to'' some object. For
+  instance, the |click| event happens when you click on a certain
+  object. In order to specify this object, use the following two keys
+  inside the \meta{options}: |of| and |of next|. If neither of these
+  keys are given, the to-be-animated object is used.
+  
+  \begin{key}{/pgf/animation/events/of=\meta{id}\opt{|.|\meta{type}}}
+    This specifies a graphic object id in the same way as the |whom|
+    key, also with an optional \meta{type}. This is the object that
+    ``causes'' the event to happen.
+
+    Unlike the |whom| key, which always refers to a not-yet-existing
+    object, this key always refers to an already existing
+    object, namely to the most recent use of the \meta{id}. In the
+    following example, the referenced object is the node with the
+    label |2| since it is the most recently referenced node with
+    \meta{id} |X|.
+\begin{codeexample}[width=3cm]
+\tikz [very thick] {
+  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
+  \node (X) at (1,0.4)  [fill = orange!20, draw = orange, circle] {2};
+  \node (node) [animate me = {:rotate = {0s="0", 2s="90",
+                                         begin on = {click, of = X}}},
+                fill = red!20, draw = red, rectangle] {Anim}; 
+  \node (X) at (1,-0.4) [fill = blue!20, draw = blue, circle] {3};
+  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4}; }
+\end{codeexample}
+  \end{key}
+  
+  \begin{key}{/pgf/animation/events/of next=\meta{id}\opt{|.|\meta{type}}}
+    This key works like the |of| key, only it refers to a future
+    (actually, the next) object with the given \meta{id}, not to a
+    previous one. This, in the next example, the referenced node is
+    the one with label |3|.
+\begin{codeexample}[width=3cm]
+\tikz [very thick] {
+  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
+  \node (X) at (1,0.4)  [fill = blue!20, draw = blue, circle] {2};
+  \node (node) [animate me = {:rotate = {0s="0", 2s="90",
+                                         begin on = {click, of next = X}}},
+                fill = red!20, draw = red, rectangle] {Anim}; 
+  \node (X) at (1,-0.4) [fill = orange!20, draw = orange, circle] {3};
+  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4}; }
+\end{codeexample}
+  \end{key}
+
+  The following key allows you to specify the event that should cause
+  the animation to start:
+  \begin{key}{/pgf/animation/events/event=\meta{event name}}
+    Specifies the name of the event whose occurrence should start the
+    timeline. Which events are supported depends on the device on
+    which the animation is displayed, the output format
+    (\textsc{svg} or some other format), and the setup of scripts, but
+    here is a list of events supported by ``plain \textsc{svg}'':
+    |click|, |focusin|, |focusout|, |mousedown|,  |mouseup|,
+    |mouseover|, |mousemove|, |mouseout|, |begin|, |end|. However, the
+    following keys make using these events simpler:
+    \begin{key}{/pgf/animate/events/click}
+      This is a shorthand for |event=click|. This event gets triggered
+      when the user clicks on the triggering object with a mouse (or
+      something equivalent).
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    begin on = {click} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse down}
+      Shorthand for |event=mousedown|. The event gets
+      triggered when the user presses a mouse button down on the object.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    begin on = {mouse down} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse up}
+      Shorthand for |event=mouseup| and gets triggered, of course,
+      when a pressed button is released on the object.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    begin on = {mouse up} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse over}
+      Shorthand for |event=mouseover|. The event gets triggered the
+      moment the mouse cursor moves over the object.
+\begin{codeexample}[width=2cm]
+\tikz [very thick] {
+  \pgfanimateattribute{rotate}{
+    whom = node, begin on = {mouse over}, entry = {0s}{0}, entry = {2s}{90} }
+  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
+}
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse move}
+      Shorthand for |event=mousemove|. The event gets triggered lots
+      of times, namely each time the mouse moves while being ``over''
+      the object.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    begin on = {mouse move} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/mouse out}
+      Shorthand for |event=mouseout|. The opposite of |mouse over|:
+      triggered when the mouse leaves the object.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    begin on = {mouse out} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/begin}
+      Shorthand for |event=begin|. The ``begin'' refers to the
+      beginning of another animation, namely the one referenced by
+      |of| or |of whom|. This means that the current animation will
+      begin when some other animation begins.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = {
+    :rotate = { 0s="0", 2s="90", begin on = {begin, of next = anim } },
+    :xshift = { 0s="0mm", 2s="5mm", begin on = {click}, name = anim } },
+    fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/end}
+      Shorthand for |event=end|. Again, the ``end'' refers to the
+      end of another animation, namely the one referenced by
+      |of| or |of whom|. This means that the current animation will
+      \emph{begin} when some other animation \emph{ends.}
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = {
+    :rotate = { 0s="0", 2s="90", begin on = {end, of next = anim } },
+    :xshift = { 0s="0mm", 2s="5mm", begin on = {click}, name = anim } },
+    fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+    \end{key}
+    \begin{key}{/pgf/animation/events/focus in}
+      This is a shorthand for |event=focusin|. This event gets
+      triggered when the graphic object gets the focus (this usually
+      makes sense only for text input fields).
+    \end{key}
+    \begin{key}{/pgf/animation/events/focus out}
+      This is a shorthand for |event=focusout|.
+    \end{key}
+  \end{key}
+
+  In addition to the events specified using the generic |event| key,
+  there are two further events that take a parameter:
+  \begin{key}{/pgf/animation/events/repeat=\meta{number}}
+    The event is triggered when a repeating animation has been
+    repeated \meta{number} times.
+\begin{codeexample}[
+  animation list={
+    0.333/\frac{1}{3},0.666/\frac{2}{3},1,
+    1.333/1\frac{1}{3},1.666/1\frac{2}{3},2,
+    2.333/2\frac{1}{3},2.666/2\frac{2}{3},3,
+    3.333/2\frac{1}{3},3.666/2\frac{2}{3},4}]
+\tikz 
+  \node [animate me = {
+    :rotate = { 0s="0", 2s="90", begin on = {repeat = 2, of next = anim },
+                begin snapshot = 2 },
+    :xshift = { 0s="0mm", 2s="5mm", begin on=click, name=anim, repeats=4 }},
+    fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}
+  \end{key}
+  
+  \begin{key}{/pgf/animation/events/key=\meta{key}}
+    The event is triggered when the keyboard key \meta{key} has been
+    pressed. For security reasons, a viewer may suppress this.
+  \end{key}
+  
+  Having specified the event, you can also specify a delay relative to
+  this event:
+
+  \begin{key}{/pgf/animation/events/delay=\meta{time}}
+    Specifies that the timeline should not start with the event, but,
+    rather, be delayed by \meta{time}.
+  \end{key}
+  
 \end{key}
 
-\begin{key}{/tikz/animate/options/begin}
-  To be written
+When you use |begin on| to start an animation when a certain event is
+triggered, it is not clear what should happen when the event is
+triggered \emph{again}. Should this be ignored completely? Should it
+only be ignored while the animation is running? The following key
+allows you to specify when should happen:
+
+\begin{key}{/tikz/animate/options/restart=\meta{choice} (default true)}
+  You can set \meta{choice} to one of the following:
+  \begin{itemize}
+  \item |true| means that the animation will restart each time the
+    event is triggered. If the animation is already running, it will
+    be reset to its beginning.
+  \item |false| means that once the animation has started once, it
+    will never be restarted.
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90", restart = false,
+                                    begin on = {click} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}  
+  \item |never| means the same as |false|.
+  \item |when not active| means that the animation will restart when
+    the event is triggered, but \emph{not} while the animation is
+    running.     
+\begin{codeexample}[width=2cm]
+\tikz 
+  \node [animate me = { :rotate = { 0s="0", 2s="90",
+                                    restart = when not active,
+                                    begin on = {click} }},
+         fill = blue!20, draw = blue, circle, ultra thick] {Here!}; 
+\end{codeexample}  
+  \end{itemize}
 \end{key}
 
-\begin{key}{/tikz/animate/options/end}
-  To be written
+Just like |begin on| specifies when a timeline begins relative to some
+event, the |end on| allows you to stop is early when some event
+happens:
+
+\begin{key}{/tikz/animate/options/end on=\meta{options}}
+  Works exactly like |begin on|, one possible end of the timeline is
+  specified using the \meta{options}.
 \end{key}
 
-\begin{key}{/tikz/animate/options/begin on}
-  To be written
-\end{key}
-
-\begin{key}{/tikz/animate/options/end on}
-  To be written
-\end{key}
 
 \subsubsection{Repeating Timelines and Accumulation}
 
-\begin{key}{/tikz/animate/repeats}
-  To be written
+\begin{key}{/tikz/animate/options/repeats=\meta{specification}}
+  Use this key to specify that the timeline animation should repeat at
+  the end. The \meta{specification} must consist of two parts, each of
+  which may be empty. The first part is one of the following:
+  \begin{itemize}
+  \item Empty, in which case the timeline repeats forever.
+\begin{codeexample}[animation list={1,2,3,4,5}]
+\tikz 
+  \node [animate me = { :rotate = { 0s = "0", 2s = "90",
+                                    repeats, begin on = click }}]
+    [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
+\end{codeexample}
+  \item A \meta{number} (like |2| or |3.25|), in which case the
+    timeline repeats \meta{number} times.
+\begin{codeexample}[animation list={1,2,3,4,5}]
+\tikz 
+  \node [animate me = { :rotate = { 0s = "0", 2s = "90",
+                                    repeats = 1.75, begin on = click }}]
+    [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
+\end{codeexample}
+  \item The text ``|for| \meta{time}'' (like |for 2s| or |for 300ms|),
+    in which case the timeline repeats however often necessary so that
+    it  stops exactly after \meta{time}.
+\begin{codeexample}[animation list={1,2,3,4,5}]
+\tikz 
+  \node [animate me = { :rotate = { 0s = "0", 2s = "90",
+                                    repeats = for 3.5s, begin on = click }}]
+    [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
+\end{codeexample}
+  \end{itemize}
+  The second part of the specification must be one of the following:
+  \begin{itemize}
+  \item Empty, in which case each time the timeline is restarted, the
+    attribute's value undergoes the same series of values it did
+    previously.
+  \item The text |accumulating|. This has the effect that each time
+    the timeline is restarted, the last values specified by the
+    timeline is \emph{added} to the value from the previous
+    iteration(s). A typical example is an animation that shifts a
+    scope by, say, 1\,cm over a time of 1\,s. Now, if you repeat this
+    five times, normally the scope will shift 1\,cm for 1\,s then
+    ``jump back,'' shift again, jump back, and so on for five
+    times. In contrast, when the repeats are accumulating, the scope
+    will move by 5\,cm over 5\,s in total.    
+\begin{codeexample}[animation list={1,2,3,4,5}]
+\tikz 
+  \node [animate me = { :rotate = { 0s = "0", 2s = "90", begin on = click,
+                                    repeats = accumulating }}]
+    [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
+\end{codeexample}
+\begin{codeexample}[animation list={1,2,3,4,5}]
+\tikz 
+  \node [animate me = { :rotate = { 0s = "0", 2s = "90", begin on = click,
+                                    repeats = for 4s accumulating }}]
+    [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
+\end{codeexample}
+  \end{itemize}
 \end{key}
+
+\begin{key}{/tikz/animate/options/repeat=\meta{specification}}
+  An alias for |repeats|.
+\end{key}
+
 
 \subsubsection{Smoothing and Jumping Timelines}
 
-\begin{key}{/tikz/animate/jump}
-  To be written
+\label{section-anim-smooth}
+
+Your specification of the timeline will consist of a sequence of
+times along with values that the attribute should have at these ``key
+times.'' Between these key times, the attribute's value needs to be
+interpolated. 
+  
+Suppose that an animation is supposed to interpolate a attribute's
+value between the two values |50| and |100| over a time of
+10\,s. The simplest way of doing so is to do a linear
+interpolation, where the value as, say, 1\,s is 55, at 2\,s it is
+60, and so on. Unfortunately, the linear interpolation does not
+``look'' nice in many cases since the acceleration of a linear
+interpolation is zero  during the animation, but infinite at the
+beginning and at the end; which looks ``jerky.''
+
+To avoid this, you can specify that the time--attribute curve should 
+not be a straight line, but rather a curve. You specify this curve
+using a spline. The most logical ``coordinate rectangle'' used for
+this spline in our example would be |(0s,50)| and |(10s,100)| and we
+would like to specify something like
+\begin{codeexample}[code only]
+  (0s,50) .. controls (5s,50) and (9s,100) .. (10s,100)
+\end{codeexample}
+This would result in a time--attribute curve where
+the attribute at |50| changes slowly at 0\,s and also arrives slowly
+at |100| at 10\,s, but speeds up between these values.
+
+We call the first control point |(5s,50)| the ``exit control'' and
+call |(9s,100)| the ``entry control'': The first control dictates
+how quickly or slowly a time point is left, the second dictates how
+quickly or slowly we enter the next one.
+
+The control points are, however, not specified in the coordinate
+system indicated above. Rather, the rectangle |(0s,50)| to
+|(10s, 100)| gets normalized to |(0,0)| to |(1,1)|. The control
+point |(5s,50)| would thus become |(0.5,0)| and |(9s,100)| becomes
+|(0.9,1)|. 
+  
+\begin{key}{/tikz/animate/options/exit control=\marg{time
+      fraction}\marg{value fraction}}
+  Specifies an exit control using two values as above. The spline
+  from above would be specified as follows:
+
+\begin{codeexample}[code only]
+exit control={0.5}{0},
+entry control={0.9}{1},
+0s = "50",
+10s = "100"
+\end{codeexample}
+
+  Note that the curve specified using exit and entry controls must
+  be ``well-behaved'' in the sense that exactly one value must be
+  specified for each point in time in the time interval.
+
+  In the next three example, we first specify a ``smooth'' exit from
+  the start position, then a smooth arrival at the end position,
+  and, finally both.
+    
+\begin{codeexample}[animation list={0.333/\frac{1}{3},0.666/\frac{2}{3},1,1.333/1\frac{1}{3},1.666/1\frac{2}{3}}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = {
+           :yshift = { begin on = click,
+                       0s = { exit control = {1}{0}, "0cm" },
+                       1s = "-5mm",
+                       2s = "-10mm" } },
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+
+\begin{codeexample}[animation list={0.333/\frac{1}{3},0.666/\frac{2}{3},1,1.333/1\frac{1}{3},1.666/1\frac{2}{3}}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = {
+           :yshift = { begin on = click,
+                       0s = "0cm",
+                       1s = "-5mm",
+                       2s = { entry control = {0}{1}, "-10mm" } }},
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+
+\begin{codeexample}[animation list={0.333/\frac{1}{3},0.666/\frac{2}{3},1,1.333/1\frac{1}{3},1.666/1\frac{2}{3}}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = {
+           :yshift = { begin on = click,
+                       0s = { exit control = {1}{0}, "0cm" },
+                       1s = "-5mm",
+                       2s = { entry control = {0}{1}, "-10mm" } }},
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
 \end{key}
 
-\begin{key}{/tikz/animate/stay}
-  To be written
+\begin{key}{/tikz/animate/options/entry control=\marg{time
+      fraction}\marg{value fraction}}
+  Works like |exit control|.
+\end{key}
+  
+\begin{key}{/tikz/animate/options/ease ine=\marg{fraction} (default 0.5)}
+  A shorthand for |entry control={1-|\meta{fraction}|}{1}|.
 \end{key}
 
-\begin{key}{/tikz/animate/ease}
-  To be written
+\begin{key}{/tikz/animate/options/ease oute=\marg{fraction} (default 0.5)}
+  A shorthand for |exit control={|\meta{fraction}|}{1}|.
 \end{key}
 
-\begin{key}{/tikz/animate/ease in}
-  To be written
+\begin{key}{/tikz/animate/options/ease=\marg{fraction} (default 0.5)}
+  A shorthand for |ease in=|\meta{fraction}|, ease out=|\meta{fraction}.
+
+  Note that since for the first time the entry control is ignored and,
+  similarly, for the last time the exit control is ignored, using the
+  |ease| key with an animation having only two times is particularly
+  easy, since we only need to set |ease| once:
+
+\begin{codeexample}[animation list={0.333/\frac{1}{3},0.666/\frac{2}{3},1,1.333/1\frac{1}{3},1.666/1\frac{2}{3}}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = { :yshift = { begin on = click, ease,
+                                    0s = "0cm", 2s = "-10mm" } },
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
 \end{key}
 
-\begin{key}{/tikz/animate/ease out}
-  To be written
+
+The opposite of having a smooth curve between two values, is to have
+a ``jump'' from one value to the next. There are two keys for this:
+
+
+\begin{key}{/tikz/animate/options/stay}
+  Specifies that inside the time interval the value ``stays put'' at
+  the first value till the end of the interval, where it will jump
+  to the second value. This is similar to an exit control where the
+  curve is ``infinitely flat.''
+    
+\begin{codeexample}[animation list={0.5,1,1.5,2,2.5}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = { :yshift = { begin on = click,
+                                    0s = "0cm",
+                                    1s = {stay, "-5mm"},
+                                    2s = "-10mm" } },
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
+\end{key}
+  
+\begin{key}{/tikz/animate/options/jump}
+  Works like the |stay| key, but will cause the value to ``jump to''
+  the new value right at the beginning of the time interval. It is
+  similar to an entry control specifying a ``flat'' curve.
+
+\begin{codeexample}[animation list={0.5,1,1.5,2,2.5}]
+\tikz {
+  \foreach \i in {0,0.1,...,1} \draw (-0.9,.9-\i) -- ++(1.8,0);
+  \node [animate me = { :yshift = { begin on = click,
+                                    0s = "0cm",
+                                    1s = {jump, "-5mm"},
+                                    2s = "-10mm" } },
+         fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+}
+\end{codeexample}
 \end{key}
 
-\begin{key}{/tikz/animate/entry control}
-  To be written
-\end{key}
-
-\begin{key}{/tikz/animate/exit control}
-  To be written
-\end{key}
 
 
 \subsection{Snapshots}
@@ -1829,1103 +2469,8 @@ Creating snapshots is done using the following key:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 \endinput
 
-
-  \medskip
-  \textbf{Interpolation between key times.}
-  You use the |entry| key repeatedly, namely once for each ``key
-  time,'' which is a time point for which you specify the value of the
-  attribute explicitly. Between these key times, the attribute's value
-  is interpolated.
-  
-  Suppose that an animation is supposed to interpolate a attribute's
-  value between the two values |50| and |100| over a time of
-  10\,s. The   simplest way of doing so is to do a linear
-  interpolation, where the value as, say, 1\,s is 55, at 2\,s it is
-  60, and so on. Unfortunately, the linear interpolation does not
-  ``look'' nice in many cases since the acceleration of a linear
-  interpolation is zero  during the animation, but infinite at the
-  beginning and at the end; which looks ``jerky.''
-
-  To avoid this, you can specify that the time--attribute curve should 
-  not be a straight line, but rather a curve. You specify this curve
-  using a spline. The most logical ``coordinate rectangle'' used for
-  this spline in our example would be |(0s,50)| and |(10s,100)| and we
-  would like to specify something like
-\begin{codeexample}[code only]
-  (0s,50) .. controls (5s,50) and (9s,100) .. (10s,100)
-\end{codeexample}
-  This would result in a time--attribute curve where
-  the attribute at |50| changes slowly at 0\,s and also arrives slowly
-  at |100| at 10\,s, but speeds up between these values.
-
-  We call the first control point |(5s,50)| the ``exit control'' and
-  call |(9s,100)| the ``entry control'': The first control dictates
-  how quickly or slowly a time point is left, the second dictates how
-  quickly or slowly we enter the next one.
-
-  The control points are, however, not specified in the coordinate
-  system indicated above. Rather, the rectangle |(0s,50)| to
-  |(10s, 100)| gets normalized to |(0,0)| to |(1,1)|. The control
-  point |(5s,50)| would thus become |(0.5,0)| and |(9s,100)| becomes
-  |(0.9,1)|. 
-  
-  \begin{key}{/pgf/animations/exit control=\marg{time
-        fraction}\marg{value fraction}}
-    Specifies an exit control using two values as above. The spline
-    from above would be specified as follows:
-
-\begin{codeexample}[code only]
-exit control={0.5}{0},
-entry control={0.9}{1},
-entry={0s}{50},
-entry={10s}{100}
-\end{codeexample}
-
-    Note that the curve specified using exit and entry controls must
-    be ``well-behaved'' in the sense that exactly one value must be
-    specified for each point in time in the time interval.
-
-    In the next three example, we first specify a ``smooth'' exit from
-    the start position, then a smooth arrival at the end position,
-    and, finally both.
-    
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    exit control={0.5}{0},
-    entry = {0s}{\pgfpointorigin},
-    linear, 
-    entry = {1s}{\pgfpoint{0cm}{-1cm}},
-    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin},
-    entry = {1s}{\pgfpoint{0cm}{-1cm}},
-    entry control={.5}{1},
-    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    exit control={0.5}{0},
-    entry = {0s}{\pgfpointorigin},
-    linear, % revert to default
-    entry = {1s}{\pgfpoint{0cm}{-1cm}},
-    entry control={.5}{1},
-    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  \end{key}
-
-  \begin{key}{/pgf/animations/entry control=\marg{time
-        fraction}\marg{value fraction}}
-    Works like |exit control|.
-  \end{key}
-
-  \begin{key}{/pgf/animations/linear}
-    A shorthand for |exit control={0}{0}, entry control={1}{1}|. This
-    will (re)install a linear curve.
-  \end{key}
-
-  The opposite of having a smooth curve between two values, is to have
-  a ``jump'' from one value to the next. There are two keys for this:
-
-
-  \begin{key}{/pgf/animations/stay}
-    Specifies that inside the time interval the value ``stays put'' at
-    the first value till the end of the interval, where it will jump
-    to the second value. This is similar to an exit control where the
-    curve is ``infinitely flat.''
-    
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin},
-    stay,
-    entry = {1s}{\pgfpoint{0cm}{-1cm}},
-    linear,
-    entry = {2s}{\pgfpoint{0cm}{-2cm}},
-    entry = {3s}{\pgfpoint{0cm}{-3cm}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  \end{key}
-  
-  \begin{key}{/pgf/animations/jump}
-    Works like the |stay| key, but will cause the value to ``jump to''
-    the new value right at the beginning of the time interval. It is
-    similar to an entry control specifying a ``flat'' curve.
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin},
-    jump,
-    entry = {1s}{\pgfpoint{0cm}{-1cm}},
-    linear,
-    entry = {2s}{\pgfpoint{0cm}{-2cm}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  \end{key}
-
-
-  \medskip
-  \textbf{Paced animations.}
-  Using the |entry| key you have detailed control over which value an
-  attribute should have at different times. However, you are sometimes
-  more interested in specifying the values and much less in specifying
-  the exact moment in time when these values should be attained: When
-  you specify the an object should move around between many different
-  points, you typically wish to specify something like ``the object
-  should be here at |0s| and there at |10s| and in between it should be
-  here, here, and here -- and I do not care when, just make the
-  movement evenly paced.'' In such cases the following key is useful:
-  \begin{key}{/pgf/animation/paced}
-    Requests that the times specified for the entries of the timeline
-    are ignored, except for the first and last one. Instead, the times
-    are recomputed such that an object moving between the specified
-    values does so at a constant speed. Note that this notion of
-    ``moving between values at a constant speed'' makes more sense for
-    some attributes than for others: It makes lots of sense for a
-    canvas shift and a bit of sense for a rotation angle or a color
-    and no sense for something like |visibility|.    
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin},
-    entry = {2s}{\pgfpoint{0cm}{1cm}},
-    entry = {4s}{\pgfpoint{1mm}{1cm}}
-  }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; }
-\end{codeexample}
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click}, paced,
-    entry = {0s}{\pgfpointorigin},
-    entry = {2s}{\pgfpoint{0cm}{1cm}},
-    entry = {4s}{\pgfpoint{1mm}{1cm}}
-  }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; }
-\end{codeexample}
-  \end{key}
-  \begin{key}{/pgf/animation/unpaced}
-    The opposite of |paced| and the default. It restores the default
-    behavior of using splines to interpolate between values at the
-    given key times.
-  \end{key}
-\end{key}
-
-
-\begin{command}{\pgfparsetime\marg{time}}
-  This command works like |\pgfmathparse| (indeed, it calls is
-  internally), but returns the result in the macro |\pgftimeresult|
-  rather than |\pgfmathresult|. Furthermore, the following changes are
-  installed:
-
-  \begin{itemize}
-  \item 
-    The postfix operator |s| is added, which has no effect.
-  \item The postfix operator |ms| is added, which devides a number by
-    1.000, so |2ms| equals 0.002s.
-  \item
-    The postfix operator |min| is added, which multiplies a number by
-    60.
-  \item The postfix operator |h| is added, which multiplies a number by
-    3.600.
-  \item The infix operator |:| is redefined, so that it multiplies its
-    first argument by 60 and adds the second. This implies that
-    |1:20| equals 80s and |01:00:00| equals 3600s.
-  \item The parsing of octal numbers is switched off to allow things
-    like |01:08| for 68s.
-  \end{itemize}
-\end{command}
-
-
-
-\subsubsection{Animating Color, Opacity, and Visibility}
-\label{section-base-animation-painting}
-
-You can animate the color of the target object of an animation using
-the attributes |fill| or |draw|, which animate the fill color and the
-drawing (stroking) color, respectively. To animate both the fill and
-draw color, you need to create two animations, one for each.
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{fill}{
-    whom = node.background, begin on = {click}, entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{draw}{
-    whom = node.background, begin on = {click}, entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-When the target of a color animation is a scope, you animate
-the color ``used in this scope'' for filling or stroking. However,
-when an object inside the scope has its color set explicitly, this
-color overrules the color of the scope:
-
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{fill}{
-    whom = example, begin on = {click, of next=node},
-    entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-  \begin{scope}[name = example]
-    \fill (1.1,0) rectangle ++ (1,1);
-    \fill [blue] (1.5,0.5) rectangle ++ (1,1);
-  \end{scope}
-}
-\end{codeexample}
-
-Note that in certain cases, a graphic scope may contain graphic
-objects with their colors set explicitly ``in places where you do not
-expect it'': In particular, a node normally consists at least of a
-background path and a text. For both the text and for the background
-path, colors will be set for the text and also for the path
-explicitly. This means that when you pick the fill attribute of a node
-as the target of an animation, you will \emph{not} animate the color
-of the background path in case this color has been set
-explicitly. Instead, you must choose the background path of the node
-as the target of the animation. Fortunately, this is easy to achieve
-since when the background path of a node is created, the identifier
-type is set to |background|, which in turn allows you to access it as
-\meta{node}|.background| through the |whom| key.
-
-The text of a node also gets it color set explicitly, which means that
-a change of the node's scope's color has no effect on the text
-color. Instead, you must choose \meta{name}|.text| as the target (or,
-if the node has more parts, use the name of the part as the identifier
-type instead of |text|).
-
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{fill}{
-    whom = example, begin on = {click, of next=node},
-    entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-  \node at (2,0) (example) [fill = blue!20, circle] {No effect}; }
-\end{codeexample}
-
-
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{fill}{
-    whom = example.background, begin on = {click, of next=node},
-    entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-  \node at (2,0) (example) [fill = blue!20, circle] {Effect}; }
-\end{codeexample}
-
-
-\begin{codeexample}[]
-\tikz {
-  \pgfanimateattribute{fill}{
-    whom = example.text, begin on = {click, of next=node},
-    entry = {0s}{white}, entry = {2s}{red} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-  \node at (2,0) (example) [fill = blue!20, circle, font=\huge] {Text}; }
-\end{codeexample}
-
-Similarly to the color, you can also set the opacity used for filling
-and for drawing. You specify the opacity using a number between 0
-(transparent) and 1 (opaque). 
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{fill opacity}{
-    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{draw opacity}{
-    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-Unlike colors, where there is no joint attribute for filling and
-stroking, there is a single |opacity| attribute in addition to the above
-two attributes. If supported by the driver, it treats the graphic
-object to which it is applied as a transparency group. In essence,
-``this attribute does what you want'' at least in most situations.
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{opacity}{
-    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{0} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-The last attribute that concerns colors and visibility is the
-Boolean |visible| attribute. The difference to an opacity of |0| is
-that an invisible object cannot be clicked and does not need to be
-rendered. The (only) two possible values for this attribute are
-|false| and |true|.
-
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{visible}{
-    whom = node, begin on = {click}, entry = {0s}{false}, entry = {2s}{false} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-
-
-\subsubsection{Animating Paths and their Rendering}
-\label{section-base-animation-paths}
-
-You can animate the appearance of a path in the following ways:
-
-\begin{itemize}
-\item You can animate the line width:
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{line width}{
-    whom = node, begin on = {click}, entry = {0s}{1pt}, entry = {2s}{5mm} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-  The possible values passed to the |entry| key are, of course,
-  dimensions. 
-\item You can animate the dash phase:
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{dash phase}{
-    whom = node.background, begin on = {click}, entry = {0s}{0pt}, entry = {2s}{10pt} }
-  \node (node) [dashed, fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  Again, the possible values are dimensions.
-\item You can animate the dash pattern:
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{dash pattern}{
-    whom = node, begin on = {click}, entry = {0s}{{10pt}{1pt}}, entry = {2s}{{1pt}{10pt}} }
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  To specify the dash pattern, you specify a sequence of ``on and
-  off'' dimensions; see the second argument of |\pgfsetdash| for
-  details. Note that you \emph{must} specify the same number of
-  elements in all patterns of a timeline: You cannot specify that the
-  dash pattern for |1s| is |{1pt}{2pt}| and for |2s| is
-  |{1pt}{3pt}{2pt}| since the number of elements would differ. In
-  particular, you cannot (sensibly) use |current value| for the first
-  entry since this corresponds to an empty dash pattern (even when you
-  have specified a dash pattern for the target object: this pattern
-  will not be attached to the to-be-animated scope or object but to a
-  surrounding scope and, thus, the to-be-animated scope will not have
-  any dash pattern installed).
-\item Finally, you can animate the path itself:
-\begin{codeexample}[width=2.3cm]
-\tikz {
-  \pgfanimateattribute{path}{
-    whom = node.background.path, begin on = {click, of next=node},
-    entry = {0s}{\pgfpathellipse{\pgfpointorigin}{\pgfpointxy{2}{0}}{\pgfpointxy{0}{1}}},
-    entry = {2s}{\pgfpathellipse{\pgfpointxy{1}{0}}{\pgfpointxy{1}{1}}{\pgfpointxy{0.25}{.75}}}}
-  \node (node) [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
-}
-\end{codeexample}
-  The path is specified by giving path construction commands as in the
-  above example. They will be executed in a special protected scope to
-  ensure that they have only little side effects.
-
-  As for the dash pattern, you must ensure that all paths in the
-  timeline have the same structure (same sequence of path construction
-  commands); only the coordinates may differ. In particular, you
-  cannot say that the path at |1s| is a rectangle using
-  |\pgfpathrectangle| and at |2s| is a circle using
-  |\pgfpathcircle|. Instead, you would have to ensure that at both
-  times that path consists of appropriate Bézier curves.
-
-  Unlike the dash pattern, the to-be-animated object is, indeed, the
-  path itself and not some special scope. This means that you can use
-  the |current value| for the start path. However, this also means
-  that you really must pick \emph{the path object} as the target of
-  the animation. In conjunction with \tikzname, this will be an object
-  of type |path| as in the above example.
-\end{itemize}
-
-
-
-\subsubsection{Animating Transformations  and Views}
-\label{section-base-animation-views}
-
-
-In order to animate the canvas transformation matrix, you do not
-animate an attribute called ``|transform|'' (or something
-similar). Rather, there are several keys that all manipulate the
-canvas transformation matrix in 
-different ways. These keys, taken in appropriate combination, allow
-you to achieve any particular canvas transformation matrix.
-
-Let us start with the basic keys that allow you to change the
-canvas transformation matrix directly:
-
-\begin{itemize}
-\item The |scale| attribute adds an animation of the scaling:
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{scale}{
-    whom = node, begin on = {click}, entry = {0s}{1}, entry = {2s}{1.5,2} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-  The values passed to the |entry| key must either be single scalar
-  values or a pair of such numbers separated by a comma (which then
-  refer to the $x$- and $y$-scaling).
-\item The |rotate| key adds an animation of the rotation:
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, entry = {0s}{45}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-  The values are scalar values representing a rotation in degrees.
-\item The |xskew| and |yskew| keys (and also |skew x| and |skew y|,
-  which are aliases) add an animation of the skew (given
-  in degrees, not as a slant):
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{xskew}{
-    whom = node, begin on = {click}, entry = {0s}{0}, entry = {2s}{45} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-  The values are scalar values.
-\item The |translate| key adds an animation of the translation (shift):
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{translate}{
-    whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{1cm}{1cm}} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-  The values are \pgfname-points.
-\end{itemize}
-
-For all of these attributes, the following key is of importance:
-\begin{key}{/pgf/animation/origin=\meta{pgf point}}
-  An animation of the canvas transformation is added to all other
-  transformations from surrounding or interior scopes. This means
-  that, in particular, the origin of a canvas transformation is, by
-  default, the origin of the canvas of the scope surrounding the
-  transformation object.
-
-  For some canvas animations, like a rotation or a scaling, you will
-  typically wish to use a different origin (like the center of an
-  object that is to be rotated or scaled). You can achieve this effect
-  by surrounding the object by a scope that shifts the canvas to the
-  desired origin, followed by a scope whose transformation matrix you
-  animate, followed by a scope that shifts back the canvas.
-
-  The |origin| key simplifies this process by allowing you to specify
-  the origin of the transformation directly. Internally, however, all
-  this key does is to create the above-mentioned scopes with the
-  necessary shifts.
-  
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click},
-    origin = \pgfpoint{1cm}{1cm}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; 
-}
-\end{codeexample}
-\end{key}
-
-
-A second way of changing the canvas transformation matrix is to use
-the |motion| key:
-
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{motion}{
-    whom = node, begin on = {click},
-    along = \pgfpathcircle{\pgfpointorigin}{5mm},
-    entry = {0s}{0}, entry = {2s}{1} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-
-
-\begin{key}{/pgf/animation/along=\meta{path}}
-  This key (or |rotate along|) must be used with |motion| attribute to
-  specify a path along which the transformation matrix will be
-  ``moved'' (that is, a shift transformation will be added to the
-  different points on the path).
-
-  The values passed to the |entry| key specify fractions of the
-  distance along the \meta{path}. That means, when you provide a value
-  of |0|, you reference the start point of the path, a value of |1|
-  references the end of the path and |0.5| referenced the point
-  halfway along the path.
-
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{motion}{
-    whom = node, begin on = {click},
-    along = \pgfpathcircle{\pgfpointorigin}{5mm},
-    entry = {0s}{0}, entry = {1s}{0.5}, entry = {2s}{0.25}, entry={3s}{1} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-\end{key}
-
-  
-\begin{key}{/pgf/animation/rotate along=\meta{Boolean} (default true)}
-  When set to |true|, the |along| key additionally adds a rotation
-  that varies in such a way that a tangent to the path always points right. 
-
-\begin{codeexample}[width=2.3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{motion}{
-    whom = node, begin on = {click},
-    rotate along = true,
-    along = \pgfpathmoveto {\pgfpointorigin}
-            \pgfpathcurveto{\pgfpoint{1cm}{0cm}}{\pgfpoint{1cm}{0cm}}{\pgfpoint{1cm}{1cm}},
-    entry = {0s}{0}, entry = {2s}{1} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}  
-\end{key}
-
-The final method of changing the transformation matrix is to animate 
-a \emph{view.} A view is a canvas transformation that shifts and
-scales the canvas in such a way that a certain rectangle ``matches''
-another rectangle: The idea is that you ``look through'' a ``window''
-(the view) and ``see'' a certain area of the canvas. View animation do
-not allow you to do anything that cannot also be done using the
-|translate| and |scale| keys in combination, but it often much more
-natural to animate which area of a graphic you wish to see than to
-compute and animate a scaling and shift explicitly.
-
-In order to use a view, you first need to create a view, which is done
-using a |{pgfviewboxscope}|, see Section~\ref{section-base-view},
-which is used by the |view| library internally. You can then animate
-the view using the |view| attribute. The values passed to the |entry|
-key must be two \pgfname-points, each surrounded by parentheses.
-
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{view}{
-    whom = me.view, begin on = {click, of next=n1}, freeze at end,
-    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{5mm}{5mm}}{\pgfpoint{15mm}{20mm}}} }
-  \pgfanimateattribute{view}{
-    whom = me.view, begin on = {click, of next=n2}, freeze at end,
-    entry = {0s}{current value}, entry = {2s}{{\pgfpoint{10mm}{10mm}}{\pgfpoint{15mm}{15mm}}} }
-  \node (n1) at (0,0) [fill = blue!20, draw = blue, circle] {Zoom blue}; 
-  \node (n2) at (2,0) [fill = blue!20, draw = blue, circle] {Zoom red};
-
-  \draw [green!50!black] (4,0) rectangle (6,2);
-  \begin{scope}[name = me, meet = {view (0,0) (2,2) at (4,0) (6,2)}]
-    \draw [blue] (5mm,5mm) rectangle (15mm,20mm);
-    \node at (5mm,5mm) [circle, fill=blue, text=white] {blue};
-    
-    \draw [red] (10mm,10mm) rectangle (15mm,15mm);
-    \node at (10mm,10mm) [circle, fill=red, text=white, font=\tiny] {red};
-  \end{scope}
-}
-\end{codeexample}  
-
-
-\subsubsection{Commands for Specifying Timing: Beginnings  and
-  Endings}
-
-
-Using the |entry| key repeatedly, you specify a timeline: The
-\meta{time} used with the first use of the |entry| key in a timeline
-is the start time and the \meta{time} in the last |entry| key is the
-stop time. However, this leaves open then question of when the whole
-timeline is to be started: The moment the document is opened? When the
-page is displayed? When the user scrolls to the to-be-animated object?
-When some other object is clicked? The key |begin|, and also the key
-|end|, allow you to specify answers to these questions.
-
-\begin{key}{/pgf/animation/begin=\meta{time}}
-  This key specifies when the ``moment |0s|'' should be relative to
-  the moment when the current graphic is first displayed. You can use
-  this key multiple times, in this case the timeline is restarted for
-  each of the times specified (if it is already running, it will be
-  reset). If no |begin| key is given at all, the effect is the same as
-  if |begin=0s| had been specified.
-
-  It is permissible to set \meta{time} to a negative value.
-\end{key}
-
-\begin{key}{/pgf/animation/end=\meta{time}}
-  This key will truncate the timeline so that it ends \meta{time}
-  after the display of the graphic, provided the timeline begins
-  before the specified end time. For instance, if you specify a
-  timeline starting at 2\,s and ending at 5\,s and you set |begin| to
-  1\,s and |end| to 4\,s, the timeline will run, relative to the moment
-  when the graphic is displayed from 3\,s to 4\,s.
-  
-\begin{codeexample}[width=3cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin = 2s, end = 4s,
-    entry = {1s}{0}, entry = {2s}{90}, entry = {3s}{180}, entry = {4s}{270} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Turn after 3s!}; }
-\end{codeexample}
-\end{key}
-
-It is not immediately clear what should happen with the attribute of
-an object when an animation ends: Should it revert to its original
-value ``as if there had never been an animation'' or should it ``stay
-at the last value''? The following key governs what should happen:
-
-\begin{key}{/pgf/animation/freeze at end=\meta{true or false} (default
-  true, initially false)}
-  When set to |true|, whenever a timeline ends (either because the
-  last time of timeline has been reached or because an |end| or
-  |end of| key have ended it prematurely), the last value the
-  attribute had because of the animation ``stays put.'' When set to
-  |false|, which is the initial value, once an animation ends, its
-  effect will be removed ``as if it never happened.''
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{ 
-    whom = node, begin on = {click}, freeze at end,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
-\end{codeexample}
-\end{key}
-
-Instead of specifying the beginning of the timeline relative to the
-moment to to-be-animated graphic is displayed, you can also set the
-``moment |0s|'' to the moment a specific \emph{event} happens using
-the following key:
-
-\begin{key}{/pgf/animation/begin on=\meta{options}}
-  The \meta{options} will be executed with the path
-  |/pgf/animation/events| and will cause a new beginning to be added
-  to the list of possible beginnings for the timeline (so the uses of
-  this key accumulate). Each ``beginning'' is just another possible
-  ``moment |0s|'' for the timeline. For instance, when the
-  \meta{options} are set to |click|, then each time the graph is
-  clicked a moment |0s| starts for the timeline.
-
-  Most events are ``caused'' or ``happen to'' some object. For
-  instance, the |click| event happens when you click on a certain
-  object. In order to specify this object, use the following two keys
-  inside the \meta{options}: |of| and |of next|. If neither of these
-  keys are given, the to-be-animated object is used.
-  
-  \begin{key}{/pgf/animation/events/of=\meta{id}\opt{|.|\meta{type}}}
-    This specifies a graphic object id in the same way as the |whom|
-    key, also with an optional \meta{type}. This is the object that
-    ``causes'' the event to happen.
-
-    Unlike the |whom| key, which always refers to a not-yet-existing
-    object, this key always refers to an already existing
-    object, namely to the most recent use of the \meta{id}. In the
-    following example, the referenced object is the node with the
-    label |2| since it is the most recently referenced node with
-    \meta{id} |X|.
-\begin{codeexample}[width=3cm]
-\tikz [very thick] {
-  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
-  \node (X) at (1,0.4)  [fill = blue!20, draw = blue, circle] {2};
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click, of = X}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = red!20, draw = red, rectangle] {Anim}; 
-  \node (X) at (1,-0.4) [fill = blue!20, draw = blue, circle] {3};
-  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4};
-}
-\end{codeexample}
-  \end{key}
-  
-  \begin{key}{/pgf/animation/events/of next=\meta{id}\opt{|.|\meta{type}}}
-    This key works like the |of| key, only it refers to a future
-    (actually, the next) object with the given \meta{id}, not to a
-    previous one. This, in the next example, the referenced node is
-    the one with label |3|.
-\begin{codeexample}[width=3cm]
-\tikz [very thick] {
-  \node (X) at (1,1.2)  [fill = blue!20, draw = blue, circle] {1};
-  \node (X) at (1,0.4)  [fill = blue!20, draw = blue, circle] {2};
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click, of next = X}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = red!20, draw = red, rectangle] {Anim}; 
-  \node (X) at (1,-0.4) [fill = blue!20, draw = blue, circle] {3};
-  \node (X) at (1,-1.2) [fill = blue!20, draw = blue, circle] {4};
-}
-\end{codeexample}
-  \end{key}
-
-  The following key allows you to specify the event that should cause
-  the animation to start:
-  \begin{key}{/pgf/animation/events/event=\meta{event name}}
-    Specifies the name of the event whose occurrence should start the
-    timeline. Which events are supported depends on the device on
-    which the animation is displayed, the output format
-    (\textsc{svg} or some other format), and the setup of scripts, but
-    here is a list of events supported by ``plain \textsc{svg}'':
-    |click|, |focusin|, |focusout|, |mousedown|,  |mouseup|,
-    |mouseover|, |mousemove|, |mouseout|, |begin|, |end|. However, the
-    following keys make using these events simpler:
-    \begin{key}{/pgf/animate/events/click}
-      This is a shorthand for |event=click|. This event gets triggered
-      when the user clicks on the triggering object with a mouse (or
-      something equivalent).
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/mouse down}
-      Shorthand for |event=mousedown|. The event gets
-      triggered when the user presses a mouse button down on the object.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {mouse down}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/mouse up}
-      Shorthand for |event=mouseup| and gets triggered, of course,
-      when a pressed button is released on the object.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {mouse up}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/mouse over}
-      Shorthand for |event=mouseover|. The event gets triggered the
-      moment the mouse cursor moves over the object.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {mouse over}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/mouse move}
-      Shorthand for |event=mousemove|. The event gets triggered lots
-      of times, namely each time the mouse moves while being ``over''
-      the object.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {mouse move}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/mouse out}
-      Shorthand for |event=mouseout|. The opposite of |mouse over|:
-      triggered when the mouse leaves the object.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {mouse out}, entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/begin}
-      Shorthand for |event=begin|. The ``begin'' refers to the
-      beginning of another animation, namely the one referenced by
-      |of| or |of whom|. This means that the current animation will
-      begin when some other animation begins.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {begin, of next = my move animation, delay = 1s},
-    entry = {0s}{0}, entry = {2s}{90}, add }
-  \pgfanimateattribute{translate}{
-    name = my move animation, whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/end}
-      Shorthand for |event=end|. Again, the ``end'' refers to the
-      end of another animation, namely the one referenced by
-      |of| or |of whom|. This means that the current animation will
-      \emph{begin} when some other animation \emph{ends.}
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {end, of next = my move animation, delay = 1s},
-    entry = {0s}{0}, entry = {2s}{90} }
-  \pgfanimateattribute{translate}{
-    name = my move animation, whom = node, begin on = {click},
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-    \end{key}
-    \begin{key}{/pgf/animation/events/focus in}
-      This is a shorthand for |event=focusin|. This event gets
-      triggered when the graphic object gets the focus (this usually
-      makes sense only for text input fields).
-    \end{key}
-    \begin{key}{/pgf/animation/events/focus out}
-      This is a shorthand for |event=focusout|.
-    \end{key}
-  \end{key}
-
-  In addition to the events specified using the generic |event| key,
-  there are two further events that take a parameter:
-  \begin{key}{/pgf/animation/events/repeat=\meta{number}}
-    The event is triggered when a repeating animation has been
-    repeated \meta{number} times.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {repeat = 2, of next = my move animation},
-    entry = {0s}{0}, entry = {2s}{90} }
-  \pgfanimateattribute{translate}{
-    name = my move animation, whom = node, begin on = {click}, repeats = 4,
-    entry = {0s}{\pgfpointorigin}, entry = {1s}{\pgfpoint{0cm}{1cm}} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; 
-}
-\end{codeexample}
-  \end{key}
-  
-  \begin{key}{/pgf/animation/events/key=\meta{key}}
-    The event is triggered when the keyboard key \meta{key} has been
-    pressed. For security reasons, a viewer may suppress this.
-  \end{key}
-  
-  Having specified the event, you can also specify a delay relative to
-  this event:
-
-  \begin{key}{/pgf/animation/events/delay=\meta{time}}
-    Specifies that the timeline should not start with the event, but,
-    rather, be delayed by \meta{time}.
-  \end{key}
-  
-\end{key}
-
-When you use |begin on| to start an animation when a certain event is
-triggered, it is not clear what should happen when the event is
-triggered \emph{again}. Should this be ignored completely? Should it
-only be ignored while the animation is running? The following key
-allows you to specify when should happen:
-
-\begin{key}{/pgf/animation/restart=\meta{choice} (default true)}
-  You can set \meta{choice} to one of the following:
-  \begin{itemize}
-  \item |true| means that the animation will restart each time the
-    event is triggered. If the animation is already running, it will
-    be reset to its beginning.
-  \item |false| means that once the animation has started once, it
-    will never be restarted.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{ 
-    whom = node, begin on = {click}, restart = false,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
-\end{codeexample}  
-  \item |never| means the same as |false|.
-  \item |when not active| means that the animation will restart when
-    the event is triggered, but \emph{not} while the animation is
-    running.     
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{ 
-    whom = node, begin on = {click}, restart = when not active,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Here!}; }
-\end{codeexample}  
-  \end{itemize}
-\end{key}
-
-Just like |begin on| specifies when a timeline begins relative to some
-event, the |end on| allows you to stop is early when some event
-happens:
-
-\begin{key}{/pgf/animation/end on=\meta{options}}
-  Works exactly like |begin on|, one possible end of the timeline is
-  specified using the \meta{options}.
-\end{key}
-
-
-\subsubsection{Commands for Specifying Timing: Repeats}
-
-Normally, a timeline is displayed once and then ends. You can,
-however, request that the timeline should be repeated a certain number
-of times or indefinitely. 
-
-\begin{key}{/pgf/animation/repeats=\meta{specification}}
-  Use this key to specify that the timeline animation should repeat at
-  the end. The \meta{specification} must consist of two parts, each of
-  which may be empty. The first part is one of the following:
-  \begin{itemize}
-  \item Empty, in which case the timeline repeats forever.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, repeats,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-  \item A \meta{number} (like |2| or |3.25|), in which case the
-    timeline repeats \meta{number} times.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, repeats = 2.5,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-  \item The text ``|for| \meta{time}'' (like |for 2s| or |for 300ms|),
-    in which case the timeline repeats however often necessary so that
-    it  stops exactly after \meta{time}.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, repeats = for 3s,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-  \end{itemize}
-  The second part of the specification must be one of the following:
-  \begin{itemize}
-  \item Empty, in which case each time the timeline is restarted, the
-    attribute's value undergoes the same series of values it did
-    previously.
-  \item The text |accumulating|. This has the effect that each time
-    the timeline is restarted, the attribute values specified by the
-    timeline are \emph{added} to the value from the previous
-    iteration(s). A typical example is an animation that shifts a
-    scope by, say, 1\,cm over a time of 1\,s. Now, if you repeat this
-    five times, normally the scope will shift 1\,cm for 1\,s then
-    ``jump back,'' shift again, jump back, and so on for five
-    times. In contrast, when the repeats are accumulating, the scope
-    will move by 5\,cm over 5\,s in total.    
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, repeats = accumulating,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{rotate}{
-    whom = node, begin on = {click}, repeats = 5 accumulating,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}
-  \end{itemize}
-\end{key}
-
-\begin{key}{/pgf/animation/repeat=\meta{specification}}
-  This is an alias for |repeats|.  
-\end{key}
-
-
-
-\subsubsection{Commands for Specifying Accumulation}
-
-A timeline specifies a value for an attribute of an object for each
-moment in time. Normally, the value specified in this way will replace
-the value attribute had originally, but in many situations it is
-desirable that the timeline's values are only \emph{added} to the
-original value. This is particularly important for canvas
-transformations since, there, you may wish to specify that there is a
-shift \emph{and} a rotation, both of which should happen at the same
-time. However, adding values also makes sense for other attributes.
-
-\begin{key}{/pgf/animation/add}
-  This key causes the values specified in a timeline to be added to
-  the value an attribute has. In particular, when two animations are
-  in effect at the same time, the second one would normally ``win,''
-  but the |add| key ensures that this animation is also in effect.
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{translate}{ whom = node, begin on = {click}, 
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
-  \pgfanimateattribute{rotate}{ whom = node, begin on = {click}, replace,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}  
-\begin{codeexample}[width=2cm]
-\tikz [very thick] {
-  \pgfanimateattribute{translate}{ whom = node, begin on = {click}, 
-    entry = {0s}{\pgfpointorigin}, entry = {2s}{\pgfpoint{0cm}{1cm}} }
-  \pgfanimateattribute{rotate}{ whom = node, begin on = {click}, add,
-    entry = {0s}{0}, entry = {2s}{90} }
-  \node (node) [fill = blue!20, draw = blue, circle] {Click me!}; }
-\end{codeexample}  
-\end{key}
-
-\begin{key}{/pgf/animation/replace}
-  Causes an animation's value to replace the attribute's value. If
-  there are several animations for the same value, only the ``last one
-  wins''. This is the default behavior.
-\end{key}
-
-
-\endinput
 
 
 
