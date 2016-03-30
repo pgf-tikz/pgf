@@ -7,6 +7,8 @@ all: $(doc).svg
 
 test: pgfmanual-test.svg
 
+test-no-fonts: pgfmanual-test-no-font.svg
+
 pgfmanual.idx: 
 	touch pgfmanual.idx
 
@@ -18,13 +20,17 @@ pgfmanual.svg: $(doc).tex $(doc).ind
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
+pgfmanual-no-font.svg: $(doc).tex $(doc).ind 
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
+	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
+	dvisvgm --no-fonts --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
+
 pgfmanual-test.svg: $(doc)-test.tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
 pgfmanual-test-no-font.svg: $(doc)-test.tex $(doc).ind 
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
-	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
 	dvisvgm --no-fonts --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
 
