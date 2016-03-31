@@ -645,14 +645,9 @@
 % Clears the current id, so nothing can be referenced.
 
 \def\pgfsys@use@type#1{%
-  \expandafter\let\expandafter\pgfsys@temp@type\csname pgf@sys@lookup@t@#1\endcsname%
-  \if\pgfsys@temp@type\relax%
-    \pgfsys@clean@type\pgfsys@temp@type{#1}%
-    \expandafter\global\expandafter\let\csname pgf@sys@lookup@t@#1\endcsname\pgfsys@temp@type%
-  \fi%
-  \let\pgfsys@current@type\pgfsys@temp@type%
-} 
-\let\pgf@sys@lookup@t@\pgfutil@empty
+  \edef\pgfsys@current@type{#1}%
+  \pgfsys@register@type{#1}%
+}
 \let\pgfsys@current@type\pgfutil@empty
 % Sets the type to be used for the next graphic object. 
 
@@ -665,10 +660,25 @@
 }
 % Appends something to the current type
 
-\def\pgfsys@clean@type#1#2{\edef#1{#2}}
-% Since types may be shown in the output file, it may be necessary to
-% "clean" them like removing spaces or dots. This macro should store a
-% clean version of #2 in #1.
+\def\pgfsys@register@type#1{%
+  \expandafter\let\expandafter\pgf@sys@temp\csname pgf@sys@reg@type@#1\endcsname%
+  \if\pgf@sys@temp\relax%
+    {%
+      \c@pgf@counta\pgf@sys@type@count\relax%
+      \global\advance\c@pgf@counta by1\relax%
+      \edef\pgf@sys@type@count{\the\c@pgf@counta}%
+      \expandafter\xdef\csname pgf@sys@reg@type@#1\endcsname{y\the\c@pgf@counta}%
+    }%
+  \fi%
+}
+% Registers a type with the system. Must be called before any use of
+% the type
+\def\pgf@sys@reg@type@{}
+\def\pgf@sys@reg@type@background{b}
+\def\pgf@sys@reg@type@path{p}
+\def\pgf@sys@reg@type@text{t}
+\expandafter\def\csname pgf@sys@reg@type@background.path\endcsname{bp}
+\def\pgf@sys@type@count{0}
 
 \def\pgfsys@push@type{%
   \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@sys@typestack%
@@ -683,10 +693,10 @@
 \def\pgfsys@pop@type{\pgf@sys@typestack}
 % Pops the last id from the stack.
 
-\def\pgfsys@id@ref#1#2{#1#2}
+\def\pgfsys@id@ref#1#2{#1\csname pgf@sys@reg@type@#2\endcsname}
 % Expands to a text that can be inserted as a reference. #1 must be a
 % reference created \pgfsys@new@id, #2 must be a type that has been
-% validated using \pgfsys@id@validate@type.
+% registered using \pgfsys@id@register@type.
 
 \def\pgfsys@id@refcurrent{\pgfsys@id@ref{\pgf@sys@id@current@id}{\pgfsys@current@type}}
 % Expands to a text that can be inserted as a reference to the current
@@ -698,6 +708,7 @@
 % Mark the current id-type pair as used.
 
 \def\pgfsys@attach@to@id#1#2#3#4{%
+  \pgfsys@register@type{#2}%
   \expandafter\def\expandafter\pgf@sys@tempbeg\expandafter{\csname pgf@sys@att@beg@\pgfsys@id@ref{#1}{#2}\endcsname}%
   \expandafter\def\expandafter\pgf@sys@tempend\expandafter{\csname pgf@sys@att@end@\pgfsys@id@ref{#1}{#2}\endcsname}%
   \expandafter\ifx\pgf@sys@tempbeg\relax%
@@ -721,6 +732,7 @@
   \ifx\pgf@sys@temp\pgfutil@empty% empty id always counts as "has been used"
     #4%
   \else%
+    \pgfsys@register@type{#2}%
     \expandafter\ifx\csname pgf@sys@id@keylist@\pgfsys@id@ref{#1}{#2}\endcsname\pgfutil@empty%
       % has already been used!
       #4%
