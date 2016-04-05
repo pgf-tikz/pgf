@@ -587,3 +587,190 @@ the |/.default| handler:
 
 For more details on using and setting styles, see also
 Section~\ref{section-keys}.
+
+
+
+\subsection{Resource Description Framework Annotations (RDFa)}
+
+\label{section-tikz-rdf}
+
+This section is an advanced section relevant only to readers who wish
+to augment their outputs by machine-readable semantic
+information. Most readers will wish to skip it.
+
+With certain output formats (in particular, with \textsc{svg}),
+\tikzname\ can add \emph{semantic annotations} to an output
+file. Consider as an example the drawing of a finite automaton. In your
+\TeX\ code, you might have a nice description of the automaton like
+the following:
+\begin{codeexample}[code only]
+\tikz[automaton] \graph { a[state, initial] -> b [state] -> c[state, final] };
+\end{codeexample}
+This description of the automaton carries a lot of ``semantic
+information'' like the information that the node |a| is not just some
+node, but actually the initial state of the automaton, while |c| is a
+final state. Unfortunately, in the output produced \tikzname, this
+information is normally ``lost'': In the output, |a| is only a short
+text, possibly with a circle drawn around it; but there is no
+information that \emph{this} text and \emph{this} circle together form
+the state of an automaton.
+
+As a human (more precisely, as a computer scientist), you might
+``see'' that the text and the circle form a state, but most software
+will have a very hard retrieving this semantic information from the
+output. In particular, it is more or less impossible to design a
+search engine that you can query to find, say, ``all automata with
+three states'' in a document.
+
+This is the point were \emph{semantic annotations} come in. These are
+small labels or ``hints'' in the \emph{output} that tell you (and,
+more importantly, a program) that the text and the circle together
+form a state of an automaton. There is a standard for specifying such
+annotations (``resource description framework annotations,''
+abbreviated \textsc{rdf}a) and \tikzname\ provides an easy way of
+adding such annotations to an output file using the |rdf| key,
+explained in a moment. Note, however, that the output format must
+support such annotations; currently \tikzname\ only supports
+\textsc{svg}.
+
+\begin{key}{/tikz/rdf=\meta{rdf keys}}
+  By default, this key does nothing and just ``throws away'' the
+  \meta{annotation keys}. The idea is that you can use this key (a
+  lot) in your macros, but no annotations are added by default to the
+  output. Instead, users have to load the following library:
+  \begin{tikzlibrary}{rdf}
+  \end{tikzlibrary}
+
+  Once this library is loaded, the |rdf| key becomes ``active.'' Now,
+  each time it is used, if the driver supports it, the keys mentioned
+  in the \meta{rdf keys} cause annotations to be added to the
+  output.
+
+  \medskip
+  \noindent\textbf{Basic Usage of the Key.}
+  Once the |rdf| library has been loaded, the \meta{rdf
+    keys} are simply executed with the path prefix |/tikz/rdf|. For
+  instance, there is a key called |/tikz/rdf/property| and it can be
+  used by saying
+\begin{codeexample}[code only]
+\scoped [rdf = { property = ..., property = ..., resource = /fruits/apple } ]
+\end{codeexample}
+  The above will add an \textsc{rdf} annotation to the scope
+  specifying that the scope is a resource called ``/fruits/apple'' and
+  it has two properties. 
+
+  The |rdf| key should be used only with scopes (created by |{scope}|
+  or |\scoped| and by |\tikz|) or nodes (which create scopes
+  internally). It will add the annotations to the scope with which it
+  is used.
+
+  You can use the |rdf| key several times with a scope and it makes no
+  difference whether you use the above code or 
+\begin{codeexample}[code only]
+\scoped [rdf = { property = ... },
+         rdf = { property = ... },
+         rdf = { resource = /fruits/apple } } ]
+\end{codeexample}
+  However, you should not say |rdf/property = ...| since this will
+  work only when the |rdf| library is loaded.
+
+  \medskip
+  \noindent\textbf{Accumulating versus Non-Accumulating Keys.}
+  Most \textsc{rdf} keys, like |resource|, can be set only once for a scope (a
+  scope can only be single resource, you need to create another, possibly
+  nested, scope for the next resource). When the |resource| key is
+  used twice with a scope, the value passed the second time overwrites
+  the first. In contrast, the keys |property|, |rel|, |rev|, and
+  |typeof| can be used several times with a scope and the values
+  passed to the accumulate. Thus, you can specify that a scope has two
+  or more properties simply by using the |property| several times.
+
+  \medskip
+  \noindent\textbf{Use of the Key in Styles.}
+  Most \textsc{rdf} annotations are rather ``lengthy'' and users will
+  rarely wish to use the |rdf| key directly. For instance, users just
+  want to write |\node [state]| and not
+\begin{codeexample}[code only]
+\node [state, rdf = { property = {http://some.schema.org/math/automaton} }]
+\end{codeexample}
+  In order to achieve this, the idea is to add the |rdf| key in the
+  definition of a style like |state|. Thus, you write an |automata|
+  library as follows:
+\begin{codeexample}[code only]
+\tikzset{
+  automaton/.style = {
+    semithick,
+    rdf = { property = {http://some.schema.org/math/automaton} }
+  },
+  state/.style = {
+    circle, draw, minimum size = 2.5em,
+    rdf = { property = {http://some.schema.org/math/state} }
+  },
+  final/.style = {
+    double,
+    rdf = { property = {http://some.schema.org/math/final} }    
+  }
+}
+\end{codeexample}
+  In other words, \emph{inside} the keys used to produce an automaton,
+  the library uses the |rdf| key in order to add semantic information
+  to the output whenever the keys are used. When a user writes
+  |\node [state, final]|, the semantic information that this node is a
+  final state in some automaton will be added automatically to the
+  output -- when the |rdf| library is loaded; and if it is not loaded,
+  the |rdf| key simply has no effect.
+
+  The bottom line is that you should add the |rdf| key to library
+  keys, but will use them only rarely inside user code.
+
+  \medskip
+  \noindent\textbf{The Different Possible Annotations.}
+  You can use the following keys with the |rdf| key:
+
+  
+  \begin{key}{/tikz/rdf/about=\marg{text}}
+    Adds the \textsc{rdf} attribute |about="|\meta{text}|"| to the
+    scope with which the |rdf| key is used. Pplease see the
+    \textsc{rdf}a specification for details on the semantics of
+    |about| in the context of the resource description framework). 
+  \end{key}
+
+  The following keys work the same way.
+
+  \begin{key}{/tikz/rdf/content=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/datatype=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/href=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/inlist}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/prefix=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/property=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/rel=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/resource=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/rev=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/src=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/typeof=\marg{text}}
+  \end{key}
+
+  \begin{key}{/tikz/rdf/vocab=\marg{text}}
+  \end{key}
+\end{key}
+
