@@ -13,6 +13,32 @@
 
 
 
+% Scope syntax extension:
+
+\def\tikz@collect@scope@anims#1{%
+  \let\tikz@scope@anims\pgfutil@empty%
+  \let\tikz@collect@command#1%
+  \tikz@collect@scope@anims@parse%
+}
+\def\tikz@collect@scope@anims@parse{%
+  \pgfutil@ifnextchar[{\tikz@collect@scope@anims@opt}{%
+    \pgfutil@ifnextchar:{\tikz@collect@scope@anims@go}{%
+      \tikz@collect@scope@anims@done}}%]
+}
+\def\tikz@collect@scope@anims@done{%
+  \expandafter\tikz@collect@command\expandafter[\tikz@scope@anims]%
+}
+\def\tikz@collect@scope@anims@opt[{%]
+  \expandafter\tikz@collect@command\expandafter[\tikz@scope@anims%]
+}
+\def\tikz@collect@scope@anims@go:#1=#2{%
+  \expandafter\def\expandafter\tikz@scope@anims\expandafter{\tikz@scope@anims animate={myself:={:{#1}={#2}}},}%
+  \tikz@collect@scope@anims@parse%
+}
+
+
+
+
 %
 % The main keys:
 %
@@ -40,7 +66,6 @@
   fork/.code={\tikz@anim@parse@time{#1}\pgfmathadd@\tikz@anim@t\tikz@anim@t@base\let\tikz@anim@t@base\pgfmathresult\def\tikz@anim@t{0}},
   fork/.default = 0later,
   base/.style={scope={/utils/exec=\let\tikz@animation@time\tikz@anim@base@text,#1,entry}},
-%  along in/.style={scope={time=0,value=0,entry,time=#1,value=1,entry}}
 }
 
 \tikzset{
@@ -589,12 +614,13 @@
 
 \pgfkeys{/tikz/animate/@attrdef/.cd,
   pgf attribute name/.code=\expandafter\def\csname tikz@anim@def@pgf@attr@\tikz@anim@attr\endcsname{#1},
+  pgf attribute name scope/.code=\expandafter\def\csname tikz@anim@def@pgf@attr@@scope@\tikz@anim@attr\endcsname{#1},
+  pgf attribute name node/.code=\expandafter\def\csname tikz@anim@def@pgf@attr@@node@\tikz@anim@attr\endcsname{#1},
   scope type/.code=\expandafter\def\csname tikz@anim@def@no@node@\tikz@anim@attr\endcsname{#1},
   node type/.code=\expandafter\def\csname tikz@anim@def@is@node@\tikz@anim@attr\endcsname{#1},
   code/.code=\expandafter\def\csname tikz@anim@def@code@\tikz@anim@attr\endcsname{#1},
   setup/.code=\expandafter\def\csname tikz@anim@def@setup@\tikz@anim@attr\endcsname{#1},
   parser/.code=\expandafter\def\csname tikz@anim@def@parser@\tikz@anim@attr\endcsname{#1},
-%  parser/.code=\expandafter\edef\csname tikz@anim@def@parser@\tikz@anim@attr\endcsname{\expandafter\noexpand\csname tikz@anim@#1@parse\endcsname},
 }
 
 
@@ -640,8 +666,8 @@
   parser=\iftikz@anim@along simple\else shift\fi
 }
 \tikzanimationdefineattribute{stage}{}
-\tikzanimationdefineattribute{text opacity}{pgf attribute name=fill opacity, node type=.text}
-\tikzanimationdefineattribute{text}{pgf attribute name=fill, node type=.text}
+\tikzanimationdefineattribute{text opacity}{pgf attribute name=fill opacity, node type=.text, pgf attribute name scope=none}
+\tikzanimationdefineattribute{text}{pgf attribute name=fill, node type=.text, pgf attribute name scope=none}
 \tikzanimationdefineattribute{view}{scope type=.view, parser=view}
 \tikzanimationdefineattribute{visible}{}
 \tikzanimationdefineattribute{xshift}{pgf attribute name=translate, parser=xshift}
@@ -675,16 +701,7 @@
 % The callbacks called by tikz.code.tex whenever an object is
 % created. These callbacks will add the accumulated animation code. 
 
-\def\tikz@animation@callback{%
-  \tikz@anim@is@nodefalse%
-  \tikz@animation@@callback%
-}
-\def\tikz@animation@node@callback{%
-  \tikz@anim@is@nodetrue%
-  \tikz@animation@@callback%
-}
-
-\def\tikz@animation@@callback{%
+\def\tikz@anim@id@hook{%
   \expandafter\ifx\csname tikz@anim@att@\tikz@id@name\endcsname\relax%
     % No named animation:
     % Now, check for auto animation:
@@ -707,11 +724,10 @@
     \expandafter\global\expandafter\let\csname tikz@anim@att@\tikz@id@name\endcsname\relax%
     \expandafter\global\expandafter\let\csname tikz@anim@att@\tikz@auto@id\endcsname\relax%
   \fi%
-  \pgfuseid{\tikz@id@name}%
 }
 
-\newif\iftikz@anim@is@node
-
+% Add hook:
+\expandafter\def\expandafter\tikz@id@hook\expandafter{\tikz@id@hook\tikz@anim@id@hook}
 
 
 
@@ -722,7 +738,7 @@
 % #2 = Animation code. When this code is executed, the following
 %      things will be setup:
 % 
-%      \iftikz@anim@is@node will be set to true or false
+%      \iftikz@is@node will be set to true or false
 %      depending on whether the name references a node.
 %
 %      \tikz@id@name will be set to the name of the object,
@@ -831,9 +847,16 @@
 
 \def\tikz@anim@create#1#2#3{%
   \csname tikz@a@conf@#1@#2@#3\endcsname%
-  \edef\tikz@temp{\csname tikz@anim@def@pgf@attr@#2\endcsname}%
+  \iftikz@is@node%
+    \expandafter\let\expandafter\tikz@temp\csname tikz@anim@def@pgf@attr@@node@#2\endcsname%
+  \else%
+    \expandafter\let\expandafter\tikz@temp\csname tikz@anim@def@pgf@attr@@scope@#2\endcsname%
+  \fi%
+  \ifx\tikz@temp\relax%
+    \expandafter\let\expandafter\tikz@temp\csname tikz@anim@def@pgf@attr@#2\endcsname%
+  \fi%
   \expandafter\pgfanimateattributecode\expandafter{\tikz@temp}{%
-    \iftikz@anim@is@node%
+    \iftikz@is@node%
       \edef\tikz@anim@whom{\tikz@id@name\csname tikz@anim@def@is@node@#2\endcsname}%
     \else%
       \edef\tikz@anim@whom{\tikz@id@name\csname tikz@anim@def@no@node@#2\endcsname}%

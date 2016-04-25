@@ -10,24 +10,134 @@
 \ProvidesFileRCS[v\pgfversion] $Header$
 
 
+\newif\iftikz@rdf@on
+
 \tikzset{
+  rdf engine/.is if=tikz@rdf@on,
+  rdf subject scope/.code=,
+  rdf object scope/.code=,
+  rdf statement/.code=\pgfqkeys{/tikz/rdf statement}{#1}\tikz@make@rdf@statement,
+  rdf statement/.cd,
+  subject/.code=\tikzrdf@parse@id#1\relax\tikzrdf@subject,
+  predicate/.code=,
+  object/.code=\tikzrdf@parse@id#1\relax\tikzrdf@object,
+  content/.code=,
+}
+
+
+\endinput
+
+
   rdf/.cd,
   .code=\pgfqkeys{/tikz/rdf}{#1},
-  about/.code=\pgfrdfabout{#1},
-  content/.code=\pgfrdfcontent{#1},
-  datatype/.code=\pgfrdfdatatype{#1},
-  href/.code=\pgfrdfhref{#1},
-  inlist/.code=\pgfrdfinlist,
+  about/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfabout},
+  about/.default=(),
+  content/.code=\tikz@rdf@add{\pgfrdfcontent{#1}},
+  datatype/.code=\tikz@rdf@add{\pgfrdfdatatype{#1}},
+  href/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfhref},
+  inlist/.code=\tikz@rdf@add{\pgfrdfinlist},
   inlist/.value forbidden,
-  prefix/.code=\pgfrdfprefix{#1},
-  property/.code=\pgfrdfproperty{#1},
-  rel/.code=\pgfrdfrel{#1},
-  resource/.code=\pgfrdfresource{#1},
-  rev/.code=\pgfrdfrev{#1},
-  src/.code=\pgfrdfsrc{#1},
-  typeof/.code=\pgfrdftypeof{#1},
-  vocab/.code=\pgfrdfvocab{#1},
+  prefix/.code=\tikz@rdf@add{\pgfrdfprefix{#1}},
+  property/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfproperty},
+  rel/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfrel},
+  resource/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfresource},
+  rev/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfrev},
+  src/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdfsrc},
+  typeof/.code=\tikz@rdf@add{\tikz@rdf@parse@id#1\relax\pgfrdftypeof},
+  vocab/.code=\tikz@rdf@add{\pgfrdfvocab{#1}},
+  on/.code=\let\tikz@rdf@invoke\tikz@do@rdf,
+  off/.code=\let\tikz@rdf@invoke\relax,
+  child/.code={%
+    \tikz@rdf@add{%
+      \expandafter\def\expandafter\tikz@id@hook@begin\expandafter{\tikz@id@hook@begin%
+        {%
+          \let\tikz@rdf@id@name\tikz@rdf@id@base@name%
+          \let\tikz@rdf@invoke@code\pgfutil@empty%
+          \pgfqkeys{/tikz/rdf}{#1}%
+          \tikz@rdf@invoke@code%
+          \let\tikz@rdf@invoke@code\relax%
+          \pgfidscope\endpgfidscope%
+        }%
+      }%
+    }
+  },
+  nest/.code={%
+    \tikz@rdf@add{%
+      \expandafter\def\expandafter\tikz@id@hook@begin\expandafter{\tikz@id@hook@begin%
+        \begingroup%
+          \let\tikz@rdf@id@name\tikz@rdf@id@base@name%
+          \let\tikz@rdf@invoke@code\pgfutil@empty%
+          \pgfqkeys{/tikz/rdf}{#1}%
+          \tikz@rdf@invoke@code%
+          \let\tikz@rdf@invoke@code\relax%
+          \pgfidscope%
+      }%
+      \expandafter\def\expandafter\tikz@id@hook@end\expandafter{%
+        \expandafter\tikz@id@nest@end\tikz@id@hook@end}%
+    }
+  },
+  triple/.style n args={3}{
+    child={about={#1},property={#2},resource={#3}}
+  }
 }
+
+\def\tikz@id@nest@end{%
+  \endpgfidscope\endgroup%
+}
+
+\def\tikz@rdf@parse@id{%
+  \pgfutil@ifnextchar(\tikz@rdf@parse@name\tikz@rdf@parse@literal%)
+}
+\def\tikz@rdf@parse@literal#1\relax#2{#2{#1}}
+\def\tikz@rdf@parse@name(#1)\relax{%
+  \edef\tikz@rdf@name{#1}%
+  \ifx\tikz@rdf@name\pgfutil@empty%
+    \let\tikz@rdf@name\tikz@rdf@id@name%
+  \fi%
+  \expandafter\tikz@rdf@parse@name@\tikz@rdf@name\relax%
+}
+\def\tikz@rdf@parse@name@{%
+  \pgfutil@ifnextchar>\tikz@rdf@parse@name@next\tikz@rdf@parse@name@prev%
+}
+\def\tikz@rdf@parse@name@next>#1\relax#2{%
+  \pgfidrefnextuse\tikz@rdf@the@id{#1}%
+  \expandafter#2\expandafter{\expandafter\tikzrdfhashmark\tikz@rdf@the@id}%
+}
+\def\tikz@rdf@parse@name@prev#1\relax#2{%
+  \pgfidrefprevuse\tikz@rdf@the@id{#1}%
+  \expandafter#2\expandafter{\expandafter\tikzrdfhashmark\tikz@rdf@the@id}%
+}
+
+
+{
+  \catcode`\#=11
+  \gdef\tikzrdfhashmark{#}
+}
+
+\def\tikz@rdf@add#1{%
+  \ifx\tikz@rdf@invoke@code\relax%
+    \def\tikz@rdf@invoke@code{%
+      \ifx\tikz@id@name\pgfutil@empty%
+        \def\tikz@id@name{@rdf}%
+      \fi%
+      \let\tikz@rdf@id@base@name\tikz@id@name%
+      \edef\tikz@rdf@id@name{>\tikz@id@name}%
+      #1%
+    }
+  \else%
+    \expandafter\def\expandafter\tikz@rdf@invoke@code\expandafter{\tikz@rdf@invoke@code#1}%
+  \fi%
+}
+
+\let\tikz@rdf@invoke@code\relax
+
+\def\tikz@rdf@id@hook{%
+  \tikz@rdf@invoke@code%
+  \let\tikz@rdf@invoke@code\relax%
+}
+
+% Add hook:
+\expandafter\def\expandafter\tikz@id@hook\expandafter{\tikz@id@hook\tikz@rdf@id@hook}
 
 
 \endinput
