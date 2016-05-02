@@ -146,9 +146,9 @@ In a ``mathematical'' graph, each edge has a ``tail'' and a
 description framework these notions are called differently: As
 mentioned before, an edge is called a \emph{statement}, the tail of
 this edge is called the \emph{subject}, the head is called the
-\emph{object,} and the label is called the \emph{predicate}. Thus, a
-statement is -- quite fittingly -- a triple ``subject predicate
-object.''
+\emph{object} (in the linguistic sense), and the label is called the
+\emph{predicate}. Thus, a statement is -- quite fittingly -- a triple
+``subject predicate object.''
 
 Note that in the \textsc{rdf} framework \emph{all} semantic
 information must be encoded using statements of this fixed kind. Many
@@ -459,7 +459,7 @@ However, the above code is error-prone and does not integrate well
 with styles and libraries. For this reason, \tikzname\ offers some
 styles that may help in creating containers:
 
-\begin{key}{/tikz/rdf engine/statements/is container}
+\begin{key}{/tikz/rdf engine/statements/is a container}
   Add this key to a statement in order to tell \tikzname\ that it
   should setup a special counter for the subject of the statement that
   keeps track of the container's children.   
@@ -468,7 +468,7 @@ styles that may help in creating containers:
 \begin{key}{/tikz/rdf engine/statements/has as member}
   This key may only be added to statements whose subject was
   previously used as a subject in a statement containing the
-  |is container| key. In this case, the internal counter will be
+  |is a container| key. In this case, the internal counter will be
   increased and the predicate will be set to |rdf:_|\meta{count}. This
   means that we can write the above code as:
 \begin{codeexample}[code only]
@@ -478,7 +478,7 @@ styles that may help in creating containers:
     statement = {
       subject   = (safe),
       has type  = rdf:Seq,
-      is container,
+      is a container,
     },
     statement = {
       subject   = (safe),
@@ -495,7 +495,7 @@ styles that may help in creating containers:
 \end{key}
 
 \begin{key}{/tikz/rdf engine/statements/is a sequence}
-  This is a shorthand for |predicate = rdf:Seq, is container|. In the
+  This is a shorthand for |predicate = rdf:Seq, is a container|. In the
   above example we could say:
 \begin{codeexample}[code only]
 \tikz { ...
@@ -511,16 +511,18 @@ styles that may help in creating containers:
 
 
 \begin{key}{/tikz/rdf engine/statements/is a bag}
-  This is a shorthand for |predicate = rdf:Bag, is container|.
-\end{key}
+  This is a shorthand for |predicate = rdf:Bag, is a container|.
+\end{key} 
 
 
 \begin{key}{/tikz/rdf engine/statements/is an alternative}
-  This is a shorthand for |predicate = rdf:Alt, is container|.
+  This is a shorthand for |predicate = rdf:Alt, is a container|.
 \end{key}
 
 
 \subsection{Creating Semantic Information Inside Styles and Libraries}
+
+\begingroup
 
 The \textsc{rdf} library was designed in such a way that normal
 document authors do not need to use the keys of the library
@@ -531,6 +533,9 @@ automatically included in the output. Furthermore, if the author does
 not ``switch on'' the generation of \textsc{rdf} information, all uses
 of |rdf engine| will simply be ignored silently and neither the speed
 of compilation nor the size of the generated files is impacted.
+
+
+\subsubsection{An Example Library for Drawing Finite Automata}
 
 In the following, we have a look at how a library might be augemented
 by \textsc{rdf} generation keys. The library we augment is a
@@ -553,20 +558,500 @@ the following styles:
 Here are some possible definitions of these keys that do not (yet)
 generate \textsc{rdf} information:
 
-\begin{codeexample}[code only]
+\begin{codeexample}[code only, setup code]
 \tikzset {
   dfa/.style        = { semithick, > = To [sep] },
   nfa/.style        = { semithick, > = To [sep] },
   state/.style      = { circle, draw, minimum size = 1cm },
   final/.style      = { double },
-  initial/.style    = { draw = red },
-  transition/.style = { edge label = {#1} } }  
+  initial/.style    = { draw = red }, % to keep things simple
+  transition/.style = { edge label = {$#1$} } }  
+\end{codeexample}
+
+The library could be used as follows:
+
+\begin{codeexample}[width=5cm]
+\tikz [dfa]
+  \graph [math nodes, grow right = 1.5cm] {
+    q_0 [state, initial] -> [transition = a]
+    q_1 [state]          -> [transition = b, loop above]
+    q_1                  -> [transition = a]
+    q_2 [state, final]
+  };
 \end{codeexample}
 
 
 
+\subsubsection{Adding Semantic Information About the Automata as a Whole}
+
+Let us change the different keys so that they add \textsc{rdf}
+information to the output. For this, we first need an ontology that
+defines notions like ``state'' or ``deterministic finite automaton.''
+For the purposes of this example, we just assume that such an ontology
+exists at |http://www.tcs.uni-luebeck.de/ontologies/automata/|. The new
+definition of the |dfa| key might start as follows (we will extend
+these later on):
+
+\begin{codeexample}[code only]
+dfa/.style = {
+  semithick, > = To [sep], % as before,
+  rdf engine = {
+    %
+    % Setup prefix:
+    prefix = { automata: http://www.tcs.uni-luebeck.de/ontologies/automata/ },
+    %
+    % Get the curie of the automaton and store it in a macro for later use:
+    get scope curie = \mylibAutomatonCurie,
+    %
+    % Make a statement that the resource is, indeed, an automaton:
+    statement = {
+      subject     = \mylibAutomatonCurie,
+      has type    = automata:types/automaton },
+    %
+    % Make a statement that the automaton is deterministic:
+    statement = {
+      subject     = \mylibAutomatonCurie,
+      predicate   = automata:properties/deterministic,
+      object      = "yes" } } }
+\end{codeexample}
+
+The definition of the style |nfa| would be exactly the same as for
+|dfa|, except, of course, that the last statement would have |"no"| as
+object. Note that the original styles |dfa| and |nfa| has identical
+definitions since, indeed, there is no ``visual'' difference between
+the two. In contrast, the \textsc{rdf} information stores this
+information in the output.
 
 
+\subsubsection{Adding Semantic Information About the States}
+
+We next augment the styles for creating states and marking them as
+final or initial. We could do the following (note that we do not setup
+the prefix since this has been done by the surrounding |dfa| or |nfa|
+key): 
+
+\begin{codeexample}[code only]
+state/.style = {
+  circle, draw, minimum size = 1cm, % as before,
+  rdf engine = {
+    get scope curie = \mylibStateCurie,
+    statement = {
+      subject     = \mylibStateCurie,
+      has type    = automata:types/state },
+    statement = {
+      subject     = \mylibStateCurie,
+      predicate   = rdf:value,
+      object      = scope content } } } 
+\end{codeexample}
+
+The first statement tells us that the circle with its contents is a
+state (and not just ``any'' fancy circle). The second statement tells
+us that the ``value'' of this state is the content. One might argue
+that, instead, only the number itself (like ``$q_0$'' or perhaps only
+``$0$'') should be the ``value'' or, perhaps, a different property
+should actually be used (like |automata:stateNumber| or something like
+that). However, these are questions of ontological modeling, not of 
+the use of the \textsc{rdf} engine.
+
+What is definitely missing from the above definition is a link between
+the automaton resource and the state resource. Note that the state's
+rendering code will be inside the scope of the automaton, so, in a
+sense, the state is ``inside'' the automaton in the output. However,
+the nesting of scopes is \emph{not} part of the \textsc{rdf} graph;
+we must make these relationships explicit using statements.
+One way to achieve this would be to add the following to the |state|
+style:
+
+\begin{codeexample}[code only]
+    statement = {
+      subject     = \mylibAutomatonCurie,
+      predicate   = automata:hasAsAState,
+      object      = \mylibStateCurie }
+\end{codeexample}
+
+Note that we can access the macro |\mylibAutomatonCurie| here since
+this will have been setup by the surrounding |dfa| or |nfa| key. While
+the above is possible and legitimate, we will see a better solution
+using containers in a moment (``better'' in the sense that the
+ontological model is easier to process by software).
+
+The two styles |final| and |initial| are easy to augment:
+
+\begin{codeexample}[code only]
+final/.style = {
+  double, % as before,
+  rdf engine = {
+    get scope curie = \mylibStateCurie,
+    statement = {
+      subject     = \mylibStateCurie,
+      has type    = automata:properties/final } } }
+\end{codeexample}
+
+Note that when we write |node [state, final] ...| the state now
+has two types: It has type |automata:types/state| and also
+|automata:properties/final|. This is perfectly legitimate. Also note
+that I added |get scope curie| to the above definition, which may seem
+superfluous since the |state| style already executes this key to get a
+curie for the state resource. However, users should be free to write
+|node [final, state] ...| and, now, the |final| key will be executed
+first.
+
+The style for |initial| is the same as for |final| only with a
+different type.
+
+
+
+\subsubsection{Adding Semantic Information About the Transitions}
+
+A transition is, essentially, a labeled edge from a state to another
+state. It may seem tempting to model them as a statement with the
+first state as its subject and the second state as the object and the
+transition's symbol as the label (turned into a curie in some
+appropriate way). However, closer inspection shows that this is not a
+good way of modeling transitions: In essence, it is just coincidence
+that the \textsc{rdf} graph happens to be a directed graph and, at the
+same time, the thing we describe by it (the automaton) can also be
+viewed as a directed graph. If, for instance, we consider alternating
+automata where a transition can involve more than two states, the
+simple model breaks down.
+
+The ``right'' way of modeling a transition is to treat the transition
+as a resource of its own and then make statements like ``the
+transition has this state as its old state.'' This turns out to be
+relatively easy to achieve:
+
+\begin{codeexample}[code only]
+transition/.style = {
+  edge label = {#1}, % as before,
+  rdf engine = {
+    get scope curie = \mylibTransitionCurie,
+    statement = {
+      subject     = \mylibTransitionCurie,
+      has type    = automata:types/transition },
+    statement = {
+      subject     = \mylibTransitionCurie,
+      predicate   = automata:properties/symbolReadFromTape,
+      object      = "#1" },
+    statement = {
+      subject     = \mylibTransitionCurie,
+      predicate   = automata:relations/oldState,
+      object      = (\tikztostart) },
+    statement = {
+      subject     = \mylibTransitionCurie,
+      predicate   = automata:relations/newState,
+      object      = (\tikztotarget) } } } 
+\end{codeexample}
+
+
+
+\subsubsection{Using Containers}
+
+As a last step we wish to organize the states and transitions using
+containers. As explained earlier, we can easily add statements linking
+our automaton to the states and to the transitions, but the
+\textsc{rdf} standard has standard way of specifying that a set of
+resources form a logical sequence: containers.
+
+In case automata contained \emph{only} states, we could setup the
+automaton itself to be the container and the states to be its
+elements. However, the automaton has states and transitions and in
+this example I would like to keep these in separate containers. Thus,
+we must create two containers and then make statements that the
+automaton contains these two containers. Since these containers do not
+have any accompanying visual representation, we use the
+|get new resource curie| key to create new resources that are purely
+for descriptive purposes inside the \textsc{rdf} graph:
+
+
+\begin{codeexample}[code only]
+dfa/.style = {
+  semithick, > = To [sep], % as before,
+  rdf engine = {
+    prefix = { automata: http://www.tcs.uni-luebeck.de/ontologies/automata/ },
+    get scope curie = \mylibAutomatonCurie,
+    statement = { ... as before that automaton has type automata:types/automaton ... },
+    statement = { ... as before that automaton is deterministic ... },
+    get new resource curie = \mylibStateContainerCurie,
+    statement = {
+      subject    = \mylibStateContainerCurie,
+      is a sequence },
+    statement = {
+      subject    = \mylibAutomatonCurie,
+      predicate  = automata:relations/hasAsStateContainer,
+      object     = \mylibStateContainerCurie },
+    get new resource curie = \mylibTransitionContainerCurie,
+    statement = {
+      subject    = \mylibTransitionContainerCurie,
+      is a sequence },
+    statement = {
+      subject    = \mylibAutomatonCurie,
+      predicate  = automata:relations/hasAsTransitionContainer,
+      object     = \mylibTransitionContainerCurie } } }
+\end{codeexample}
+
+We can now modify the |state| style as follows:
+
+\begin{codeexample}[code only]
+state/.style = {
+  circle, draw, minimum size = 1cm, % as before,
+  rdf engine = {
+    get scope curie = \mylibStateCurie,
+    statement = { ... as before ... },
+    statement = { ... as before ... },
+    statement = {
+      subject     = \mylibStateContainerCurie,
+      has as member,
+      object      = \mylibStateCurie } } }
+\end{codeexample}
+
+The modification for the |transition| style is similar:
+
+
+\begin{codeexample}[code only]
+transition/.style = {
+  edge label = {#1}, % as before,
+  rdf engine = {
+    get scope curie = \mylibTransitionCurie,
+    statement = { ... as before ... },
+    statement = { ... as before ... },
+    statement = { ... as before ... },
+    statement = { ... as before ... },
+    statement = {
+      subject     = \mylibTransitionContainerCurie,
+      has as member,
+      object      = \mylibTransitionCurie } } }
+\end{codeexample}
+
+
+\subsubsection{The Resulting RDF Graph}
+
+Putting it all together, we now get the following library code:
+
+\begin{codeexample}[setup code, multipage]
+\tikzset {
+  dfa/.style = {
+    semithick, > = To [sep], % as before,
+    rdf engine = {
+      prefix = { automata: http://www.tcs.uni-luebeck.de/ontologies/automata/ },
+      get scope curie = \mylibAutomatonCurie,
+      statement = {
+        subject     = \mylibAutomatonCurie,
+        has type    = automata:types/automaton },
+      statement = {
+        subject     = \mylibAutomatonCurie,
+        predicate   = automata:properties/deterministic,
+        object      = "yes" },
+      get new resource curie = \mylibStateContainerCurie,
+      statement = {
+        subject    = \mylibStateContainerCurie,
+        is a sequence },
+      statement = {
+        subject    = \mylibAutomatonCurie,
+        predicate  = automata:relations/hasAsStateContainer,
+        object     = \mylibStateContainerCurie },
+      get new resource curie = \mylibTransitionContainerCurie,
+      statement = {
+        subject    = \mylibTransitionContainerCurie,
+        is a sequence },
+      statement = {
+        subject    = \mylibAutomatonCurie,
+        predicate  = automata:relations/hasAsTransitionContainer,
+        object     = \mylibTransitionContainerCurie } } },
+  state/.style = {
+    circle, draw, minimum size = 1cm, % as before,
+    rdf engine = {
+      get scope curie = \mylibStateCurie,
+      statement = {
+        subject     = \mylibStateCurie,
+        has type    = automata:types/state },
+      statement = {
+        subject     = \mylibStateCurie,
+        predicate   = rdf:value,
+        object      = scope content },
+      statement = {
+        subject     = \mylibStateContainerCurie,
+        has as member,
+        object      = \mylibStateCurie } } },
+  initial/.style = {
+    draw = red, % as before,
+    rdf engine = {
+      get scope curie = \mylibStateCurie,
+      statement = {
+        subject     = \mylibStateCurie,
+        has type    = automata:properties/initial } } },
+  final/.style = {
+    double, % as before,
+    rdf engine = {
+      get scope curie = \mylibStateCurie,
+      statement = {
+        subject     = \mylibStateCurie,
+        has type    = automata:properties/final } } },
+  transition/.style = {
+    edge label = {$#1$}, % as before,
+    rdf engine = {
+      get scope curie = \mylibTransitionCurie,
+      statement = {
+        subject     = \mylibTransitionCurie,
+        has type    = automata:types/transition },
+      statement = {
+        subject     = \mylibTransitionCurie,
+        predicate   = automata:properties/symbolReadFromTape,
+        object      = "#1" },
+      statement = {
+        subject     = \mylibTransitionCurie,
+        predicate   = automata:relations/oldState,
+        object      = (\tikztostart) },
+      statement = {
+        subject     = \mylibTransitionCurie,
+        predicate   = automata:relations/newState,
+        object      = (\tikztotarget) },
+    statement = {
+      subject     = \mylibTransitionContainerCurie,
+      has as member,
+      object      = \mylibTransitionCurie } } }
+}
+\end{codeexample}
+
+\emph{Using} this code is still ``as easy as before,'' indeed, the
+code for creating the automaton is perfectly unchanged:
+
+\begin{codeexample}[width=5cm]
+\tikzset { rdf engine on }
+\tikz [dfa]
+  \graph [math nodes, grow right = 1.5cm] {
+    q_0 [state, initial] -> [transition = a]
+    q_1 [state]          -> [transition = b, loop above]
+    q_1                  -> [transition = a]
+    q_2 [state, final]
+  };
+\end{codeexample}
+
+Let us now have a look at the result. If the above is processed using
+\TeX\ and transformed to \textsc{svg} code, the following results
+(reformatted and slightly simplified):
+
+\begin{codeexample}[multipage]
+<g id="pgf3"  prefix=" automata: http://www.tcs.uni-luebeck.de/ontologies/automata/ ">
+  <!-- The automaton -->
+  <g about="#pgf3" property="rdf:type" resource="automata:types/automaton" />
+  <g about="#pgf3" property="automata:properties/deterministic" content="yes" />
+  <g about="#pgf4" property="rdf:type" resource="rdf:Seq" />
+  <g about="#pgf3" property="automata:relations/hasAsStateContainer" resource="#pgf4" />
+  <g about="#pgf5" property="rdf:type" resource="rdf:Seq" />
+  <g about="#pgf3" property="automata:relations/hasAsTransitionContainer" resource="#pgf5" />
+  <g id="pgf6"  about="#pgf6" property="rdf:value">
+    <!-- State $q_0$ -->
+    <g about="#pgf6" property="rdf:type" resource="automata:types/state" />
+    <g about="#pgf4" property="rdf:_1" resource="#pgf6" />
+    <g about="#pgf6" property="rdf:type" resource="automata:properties/initial" />
+    <g stroke="#f00">    <!-- Red Line -->
+      <path id="pgf6bp" d="M 14.22636 0.0 C 14.22636 7.8571 7.8571 14.22636 0.0 14.22636 ..." />
+      ...
+    </g>
+  </g>
+  <g id="pgf7"  about="#pgf7" property="rdf:value">
+    <!-- State $q_1$ -->
+    <g about="#pgf7" property="rdf:type" resource="automata:types/state" /> 
+    <g about="#pgf4" property="rdf:_2" resource="#pgf7" />
+    <path id="pgf7bp" d="M 56.90549 0.0 C 56.90549 7.8571 50.53622 14.22636 42.67912 14.22636 ..." />
+    ...
+  </g>
+  <g id="pgf8" >
+    <!-- Transition from $q_0$ to $q_1$ -->
+    <g about="#pgf8" property="rdf:type" resource="automata:types/transition" />
+    <g about="#pgf8" property="automata:properties/symbolReadFromTape" content="a" />
+    <g about="#pgf8" property="automata:relations/oldState" resource="#pgf6" />
+    <g about="#pgf8" property="automata:relations/newState" resource="#pgf7" />
+    <g about="#pgf5" property="rdf:_1" resource="#pgf8" />
+    <path id="pgf8p" d="M 14.52637 0.0 L 26.49275 0.0"/>
+    ...
+  </g>
+  <g id="pgf11" >
+    <!-- Transition loop at $q_1$ -->
+    <g about="#pgf11" property="rdf:type" resource="automata:types/transition" />
+    <g about="#pgf11" property="automata:properties/symbolReadFromTape" content="b" />
+    <g about="#pgf11" property="automata:relations/oldState" resource="#pgf7" />
+    <g about="#pgf11" property="automata:relations/newState" resource="#pgf7" />
+    <g about="#pgf5" property="rdf:_2" resource="#pgf11" />
+    <path id="pgf11p" d="M 38.91211 14.05888 C 33.07051 35.8591 51.00113 36.72765 47.05392 16.66444"/>
+    ...
+  </g>
+  <g id="pgf12"  about="#pgf12" property="rdf:value">
+    <!-- State $q_2$ -->
+    <g about="#pgf12" property="rdf:type" resource="automata:types/state" />
+    <g about="#pgf4" property="rdf:_3" resource="#pgf12" />
+    <g about="#pgf12" property="rdf:type" resource="automata:properties/final" />
+    <g stroke-width="1.80002">     <!-- Double Line -->
+      <path id="pgf12bp" d="M 99.58461 0.0 C 99.58461 7.8571 93.21535 14.22636 85.35825 14.22636 ..." />
+      ...
+    </g>
+  </g>
+  <g id="pgf13" >
+    <!-- Transition from $q_1$ to $q_2$ -->
+    <g about="#pgf13" property="rdf:type" resource="automata:types/transition" />
+    <g about="#pgf13" property="automata:properties/symbolReadFromTape" content="a" />
+    <g about="#pgf13" property="automata:relations/oldState" resource="#pgf7" />
+    <g about="#pgf13" property="automata:relations/newState" resource="#pgf12" />
+    <g about="#pgf5" property="rdf:_3" resource="#pgf13" />
+    <path id="pgf13p" d="M 57.20549 0.0 L 69.17188 0.0"/>
+    ...
+  </g>
+</g>
+\end{codeexample}
+
+When this code is processed by some \textsc{rdf}a tool, the following
+graph will result where the blue nodes represent resources:
+
+{
+  \newbox\myboxa
+  \setbox\myboxa=\hbox{\tiny {\tikz\node[circle, draw=red, fill=white] {$q_0$};}}
+  \newbox\myboxb
+  \setbox\myboxb=\hbox{\tiny {\tikz\node[circle, draw,fill=white] {$q_1$};}}
+  \newbox\myboxc
+  \setbox\myboxc=\hbox{\tiny {\tikz\node[circle, draw,fill=white, double] {$q_2$};}}
+  \catcode`\_=11
+  \begin{tikzpicture}[font=\tiny\ttfamily, > = {Stealth [round, sep]}]
+  \graph [layered layout, sibling sep=1mm, sibling distance=0pt,
+  resource/.style = {align=left,font=\footnotesize\ttfamily, draw = blue, thick, fill=blue!20, rounded corners},
+  predicate/.style = {align=right,font=\scriptsize\ttfamily,fill=black!5,rotate=90,anchor=mid east, rounded corners},
+  tail anchor=south, head anchor=north] {
+    pgf3/\#pgf3[resource]   -- /"rdf:type"[predicate] -> automaton[as={automata:\\types/\\automaton},resource];
+    pgf3/\#pgf3[resource]   -- /"automata:\\properties/deterministic"[predicate] -> /{"yes"}[resource];
+    pgf4/\#pgf4[resource]   -- /"rdf:type"[predicate] -> rdf:Seq[resource];
+    pgf3/\#pgf3[resource]   -- /"automata:\\relations/\\hasAsStateContainer"[predicate] -> pgf4[resource];
+    pgf5/\#pgf5[resource]   -- /"rdf:type"[predicate] -> rdf:Seq[resource];
+    pgf3/\#pgf3[resource]   -- /"atuomata:\\relations/\\hasAsTransitionContainer"[predicate] -> pgf5[resource];
+    pgf6/\#pgf6[resource]   -- /"rdf:value"[predicate] -> /[as={\box\myboxa},resource];
+    pgf6/\#pgf6[resource]   -- /"rdf:type"[predicate] -> state/"automata:\\types/state"[resource];
+    pgf4/\#pgf4[resource]   -- /"rdf:_1"[predicate] -> pgf6[resource];
+    pgf6/\#pgf6[resource]   -- /"rdf:type"[predicate] -> initial/"automata:\\properties/\\initial"[resource];
+    pgf7/\#pgf7[resource]   -- /"rdf:value"[predicate] ->  /[as={\box\myboxb},resource];
+    pgf7/\#pgf7[resource]   -- /"rdf:type"[predicate] -> state/"automata:\\types/state"[resource];
+    pgf4/\#pgf4[resource]   -- /"rdf:_2"[predicate] -> pgf7[resource];
+    pgf12/\#pgf12[resource] -- /"rdf:value"[predicate] -> /[as={\box\myboxc},resource];
+    pgf12/\#pgf12[resource] -- /"rdf:type"[predicate] -> state/"automata:\\types/state"[resource];
+    pgf4/\#pgf4[resource]   -- /"rdf:_3"[predicate] -> pgf12[resource];
+    pgf12/\#pgf12[resource] -- /"rdf:type"[predicate] -> final/"automata:\\properties/\\final"[resource];
+    pgf8/\#pgf8[resource]   -- /"rdf:type"[predicate] -> transition/"automata:\\types/\\transition"[resource];
+    pgf8/\#pgf8[resource]   -- /"automata:\\properties/\\symbolReadFromTape"[predicate] -> /{"a"}[resource];
+    pgf8/\#pgf8[resource]   -- /"automata:\\relations/oldState"[predicate] -> pgf6[resource];
+    pgf8/\#pgf8[resource]   -- /"automata:\\relations/newState"[predicate] -> pgf7[resource];
+    pgf5/\#pgf5[resource]   -- /"rdf:_1"[predicate] -> pgf8[resource];
+    pgf11/\#pgf11[resource] -- /"rdf:type"[predicate] -> transition/"automata:\\types/\\transition"[resource];
+    pgf11/\#pgf11[resource] -- /"automata:\\properties/\\symbolReadFromTape"[predicate] -> /{"b"}[resource];
+    pgf11/\#pgf11[resource] -- /"automata:\\relations/oldState"[predicate] -> pgf7[resource];
+    pgf11/\#pgf11[resource] -- /"automata:\\relations/newState"[predicate] -> pgf7[resource];
+    pgf5/\#pgf5[resource]   -- /"rdf:_2"[predicate] -> pgf11[resource];
+    pgf13/\#pgf13[resource] -- /"rdf:type"[predicate] -> transition/"automata:\\types/\\transition"[resource];
+    pgf13/\#pgf13[resource] -- /"automata:\\properties/\\symbolReadFromTape"[predicate] -> /{"a"}[resource];
+    pgf13/\#pgf13[resource] -- /"automata:\\relations/oldState"[predicate] -> pgf7[resource];
+    pgf13/\#pgf13[resource] -- /"automata:\\relations/newState"[predicate] -> pgf12[resource];
+    pgf5/\#pgf5[resource]   -- /"rdf:_3"[predicate] -> pgf13[resource];
+  };
+\end{tikzpicture}
+}
+
+\endgroup
 
 \endinput
 

@@ -1590,6 +1590,8 @@
   code/.code=  {\colorlet{codebackground}{#1}},
   execute code/.is if=code@execute,
   code only/.code=  {\code@executefalse},
+  setup code/.code=  {\pgfmanual@setup@codetrue\code@executefalse},
+  multipage/.code=  {\code@executefalse\pgfmanual@multipage@codetrue},
   pre/.store in=\code@pre,
   post/.store in=\code@post,
   % #1 is the *complete* environment contents as it shall be
@@ -1655,11 +1657,15 @@
 \let\code@render\pgfutil@empty
 \def\code@catcode@hook{}
 
+\newif\ifpgfmanual@multipage@code
+\newif\ifpgfmanual@setup@code
 \newif\ifcodeexamplefromfile
 \newdimen\codeexamplewidth
 \newif\ifcode@execute
 \newbox\codeexamplebox
 \def\codeexample[#1]{%
+  \global\let\pgfmanual@do@this\relax%
+  \aftergroup\pgfmanual@do@this%
   \begingroup%
   \code@executetrue
   \pgfqkeys{/codeexample}{every codeexample,#1}%
@@ -1686,6 +1692,19 @@
   \fi}
 \def\endofcodeexample#1{%
   \endgroup%
+  \ifpgfmanual@setup@code%
+    \gdef\pgfmanual@do@this{%
+      {%
+        \returntospace%
+        \commenthandler%
+        \xdef\code@temp{#1}% removes returns and comments
+      }%
+      \edef\pgfmanualmcatcode{\the\catcode`\^^M}%
+      \catcode`\^^M=9\relax%
+      \expandafter\scantokens\expandafter{\code@temp}%
+      \catcode`\^^M=\pgfmanualmcatcode%
+    }%
+  \fi%
   \ifcode@execute%
     \setbox\codeexamplebox=\hbox{%
       \ifx\code@render\pgfutil@empty%
@@ -1763,10 +1782,29 @@
     \def\code@width{\linewidth-6pt}
     \def\code@end{}
   \fi%
-  \code@mid%  
-  \colorbox{codebackground}{%
-    \pgfkeysvalueof{/codeexample/prettyprint/base color}%
-    \begin{minipage}[t]{\code@width}%
+  \code@mid%
+  \ifpgfmanual@multipage@code%
+    {%
+      \pgfkeysvalueof{/codeexample/prettyprint/base color}%
+      \pgfmanualdolisting{#1}%
+    }%
+  \else%
+    \colorbox{codebackground}{%
+      \pgfkeysvalueof{/codeexample/prettyprint/base color}%
+      \begin{minipage}[t]{\code@width}%
+        \pgfmanualdolisting{#1}%
+      \end{minipage}}%
+  \fi%
+  \code@end%
+  \par%
+  \medskip
+  \endcodeexample\endgroup%
+}
+
+\def\endcodeexample{\endgroup}
+\newbox\codeexampleboxanim
+
+\def\pgfmanualdolisting#1{%
       {%
         \let\do\@makeother
         \dospecials
@@ -1785,16 +1823,9 @@
         \obeylines
         \everypar \expandafter{\the\everypar \unpenalty}%
         \pgfkeysvalueof{/codeexample/typeset listing/.@cmd}{#1}\pgfeov
-      }
-    \end{minipage}}%
-  \code@end%
-  \par%
-  \medskip
-  \endcodeexample\endgroup
+      }%
 }
 
-\def\endcodeexample{\endgroup}
-\newbox\codeexampleboxanim
 
 \makeatother
 
