@@ -283,6 +283,8 @@ end
 -- a dimension like |cm| attached to it). It is the job of the display
 -- layer to map this to a number in ``\TeX\ points,'' that is, to a
 -- multiple of $1/72.27$th of an inch.
+-- \item |time| A ``time'' in the sense of |\pgfparsetime|. Examples
+-- are |6s| or |0.1min| or |6000ms|, all of which will map to |6|. 
 -- \item |string| Some text. Will be mapped to a Lua |string|.
 -- \item |canvas coordinate| A position on the canvas. Will be mapped
 -- to a |model.Coordinate|.

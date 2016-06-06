@@ -120,6 +120,13 @@
 -- @field event The |Event| when this vertex was created (may be |nil|
 -- if the vertex is not part of the syntactic digraph).
 --
+-- @field incomings A table indexed by |Digraph| objects. For each
+-- digraph, the table entry is an array of all vertices from which
+-- there is an |Arc| to this vertex. This field is internal and may
+-- not only be accessed by the |Digraph| class.
+--
+-- @field outgoings Like |incomings|, but for outgoing arcs.
+--
 local Vertex = {}
 Vertex.__index = Vertex
 
@@ -157,12 +164,6 @@ local Storage      = require "pgf.gd.lib.Storage"
 -- \item[|shape|] A string describing the shape. If not given, |"none"| is used.
 -- \item[|kind|] A kind like |"node"| or |"dummy"|. If not given, |"dummy"| is used.
 -- \end{description}
---
--- @field incomings A table indexed by |Digraph| objects. For each
--- digraph, the table entry is an array of all vertices from which
--- there is an |Arc| to this vertex. This field is internal and may
--- not only be accessed by the |Digraph| class.
--- @field outgoings Like |incomings|, but for outgoing arcs.
 --
 -- @return A newly allocated node.
 --

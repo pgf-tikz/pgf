@@ -117,6 +117,13 @@ local factors = {
   [""]=1,
 }
 
+local time_factors = {
+  s=1,
+  ms=0.001,
+  min=60,
+  h=3600
+}
+
 local directions = {
   down = -90,
   up = 90,
@@ -157,6 +164,9 @@ function InterfaceCore.convert(s,t)
   elseif t == "length" then
     local num, dim = string.match(s, "([%d.]+)(.*)")
     return tonumber(num) * assert(factors[dim], "unknown unit")
+  elseif t == "time" then
+    local num, dim = string.match(s, "([%d.]+)(.*)")
+    return tonumber(num) * assert(time_factors[dim], "unknown time unit")
   elseif t == "string" then
     return s
   elseif t == "canvas coordinate" or t == "coordinate" then
