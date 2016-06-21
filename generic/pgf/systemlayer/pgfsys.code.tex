@@ -566,8 +566,9 @@
 
 \def\pgfsys@begin@idscope{%
   \begingroup%
-    \expandafter\let\expandafter\pgfsys@beg@save\csname pgf@sys@att@beg@\pgfsys@id@refcurrent\endcsname%
-    \expandafter\let\expandafter\pgfsys@end@save\csname pgf@sys@att@end@\pgfsys@id@refcurrent\endcsname%
+    \edef\pgf@sys@cacheref{\pgfsys@id@refcurrent}%
+    \expandafter\let\expandafter\pgfsys@beg@save\csname pgf@sys@att@beg@\pgf@sys@cacheref\endcsname%
+    \expandafter\let\expandafter\pgfsys@end@save\csname pgf@sys@att@end@\pgf@sys@cacheref\endcsname%
     \ifx\pgfsys@beg@save\relax%
       \ifx\pgfsys@end@save\relax%
       \else%
@@ -1024,7 +1025,8 @@
 % "viewbox" adds an animation of the view box.
 % Type: view box
 %
-% "path" adds an animation of the path to the next path.
+% "path" adds an animation of the path to the path specified by
+% \pgfsys@animation@whom 
 % Type: path
 %
 % "syncbase" adds a sync base to the animation. A sync base does not animate
@@ -1192,6 +1194,12 @@
 % Applicable only to motion animations. #1 is a softpath along which
 % the movement will be done. 
 
+\def\pgfsys@animation@tip@markers#1#2{}
+% Applicable only to path animations. #1 and #2 are markers (declared
+% using \pgfsys@marker@declare) that store marker symbols to be added
+% at the start and at the end of the to-be-animated path. If empty, no
+% markers are added.
+
 \def\pgfsys@animation@canvas@transform#1#2{}
 % #1 is some code that may call \pgfsys@transformcm at most once. It
 % will be executed when a canvas transformation animation is 
@@ -1249,6 +1257,62 @@
 
 \def\pgfsys@animation@val@dash#1#2{}
 % #1,#2 have the syntax of \pgfsys@setdash.
+
+
+
+%
+%
+% Markers
+%
+%
+
+\def\pgfsys@marker@declare#1#2#3{%
+  {%
+    \pgfsysprotocol@getcurrentprotocol\pgfsys@marker@temp%
+    \pgfsysprotocol@setcurrentprotocol\pgfutil@empty%
+    \pgfsysprotocol@bufferedtrue%
+    #2%
+    \xdef#1{\the\pgf@sys@id@count}%
+    \expandafter\expandafter\expandafter\global\expandafter\pgfsysprotocol@getcurrentprotocol\csname pgf@sys@marker@prot@#1\endcsname%
+    \expandafter\xdef\csname pgf@sys@marker@shorten@#1\endcsname{#3}%
+    \pgfsys@marker@declare@% curtesy hook  
+    \pgfsysprotocol@setcurrentprotocol\pgfsys@marker@temp%
+    \global\advance\pgf@sys@id@count by1\relax%
+  }%
+}
+\let\pgfsys@marker@declare@\relax
+% Declares a new marker symbol whose code is in #2 and whose
+% "protrusion" is in #3 (this is the distance by which a path should
+% be shortened when the marker is added to it at the end or
+% beginning). #1 should be a macro name, which will be set to a unique
+% value by which the marker can be referenced later on. #2 should be
+% code that, when executed, produces recordable code. 
+
+\def\pgfsys@marker@get@shorten#1#2{%
+  \expandafter\let\expandafter#2\csname pgf@sys@marker@shorten@#1\endcsname%
+}
+% #1 should be the id of a marker previously declared using the above
+% command, #2 is a macro. It will be set to the shortening
+% ("protrusion") value stored for #1.
+
+\def\pgfsys@marker@at@begin@usedpath#1{\pgf@sys@fail{markers}}
+% When called, the marker #1 should be at beginning of the paths
+% that are used using commands like \pgfsys@stroke. The effect should
+% be local to the current \TeX\ group. When the command is used twice,
+% the last use wins.
+%
+% The semantics should follow the SVG-specification for markers.
+
+\def\pgfsys@marker@at@end@usedpath#1{\pgf@sys@fail{markers}}
+% Works like \pgfsys@marker@at@begin@usedpath, only for the end of a
+% path. 
+
+\def\pgfsys@marker@use#1{%
+  \pgfsysprotocol@literal{\csname pgf@sys@marker@prot@#1\endcsname}%
+}
+% Draws the marker symbol not at the end of a path, put simply with
+% the current transformation matrix 
+
 
 
 
