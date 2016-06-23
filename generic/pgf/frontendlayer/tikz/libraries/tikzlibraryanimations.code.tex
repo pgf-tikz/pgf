@@ -369,10 +369,16 @@
 \def\tikz@anim@tl@objects{}
 \def\tikz@anim@tl@attributes{}
 \def\tikz@anim@tl@id{default}
-\def\tikz@anim@tl@options{}
 
-\def\tikz@anim@tl@exec@options{}
+\let\tikz@anim@tl@exec@options\pgfutil@empty
+\let\tikz@anim@tl@early@options\pgfutil@empty
 
+\def\tikz@anim@add@early#1{\expandafter\def\expandafter\tikz@anim@tl@early@options\expandafter{\tikz@anim@tl@early@options#1}}
+\def\tikz@anim@add@once@early#1{%
+  \global\advance\tikz@anim@once@count by1\relax%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@anim@tl@early@options%
+  \expandafter\expandafter\expandafter{\expandafter\tikz@anim@tl@early@options\expandafter\tikz@anim@exec@once\expandafter{\the\tikz@anim@once@count}{#1}}%
+}
 \def\tikz@anim@add#1{\expandafter\def\expandafter\tikz@anim@tl@exec@options\expandafter{\tikz@anim@tl@exec@options#1}}
 \def\tikz@anim@add@once#1{%
   \global\advance\tikz@anim@once@count by1\relax%
@@ -388,14 +394,18 @@
   \fi%
 }
 
+\newif\iftikz@anim@do@entry
+
 \def\tikz@anim@make@entry{%
-  \ifx\tikz@anim@tl@objects\pgfutil@empty%
-  \else\ifx\tikz@anim@tl@attributes\pgfutil@empty%
-  \else\ifx\tikz@anim@tl@exec@options\pgfutil@empty%
-  \else\foreach\tikz@anim@tl@object in\tikz@anim@tl@objects{%
-    \expandafter\tikzanimationattributesset\expandafter{\tikz@anim@tl@attributes}%
-  }%
-  \fi\fi\fi%
+  \tikz@anim@do@entrytrue%
+  \ifx\tikz@anim@tl@objects\pgfutil@empty\tikz@anim@do@entryfalse\fi%
+  \ifx\tikz@anim@tl@attributes\pgfutil@empty\tikz@anim@do@entryfalse\fi%
+  \ifx\tikz@anim@tl@exec@options\pgfutil@empty\ifx\tikz@anim@tl@early@options\pgfutil@empty\tikz@anim@do@entryfalse\fi\fi%
+  \iftikz@anim@do@entry%
+    \foreach\tikz@anim@tl@object in\tikz@anim@tl@objects{%
+      \expandafter\tikzanimationattributesset\expandafter{\tikz@anim@tl@attributes}%
+    }%
+  \fi%
 }
 
 \def\tikzanimationattributesset#1{\pgfqkeys{/tikz/animate/attributes}{#1}}
@@ -409,6 +419,7 @@
     \else%
       \expandafter\tikz@timeline@config\expandafter\tikz@anim@tl@object\expandafter\tikz@anim@attribute@name\expandafter\tikz@anim@tl@id\expandafter{\tikz@anim@configs}%
       \edef\pgf@marshal{\noexpand\tikz@timeline@entry{\tikz@anim@tl@object}{\tikz@anim@attribute@name}{\tikz@anim@tl@id}}%
+      \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@marshal\expandafter\expandafter\expandafter{\expandafter\pgf@marshal\expandafter{\tikz@anim@tl@early@options}}%
       \expandafter\expandafter\expandafter\pgf@marshal\expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter\tikz@anim@entry\expandafter\expandafter\expandafter{\expandafter\tikz@anim@tl@exec@options\expandafter\def\expandafter\tikz@animation@time\expandafter{\tikz@animation@time}}}%
     \fi%
   }
@@ -489,6 +500,9 @@
     exit control={#1}{0},
   },
   ease out/.default=0.5,
+  arrows/.code=\tikz@anim@add@early{\pgfanimationset{arrows={#1}}},
+  shorten >/.code=\tikz@anim@add@early{\pgfanimationset{shorten >={#1}}},
+  shorten </.code=\tikz@anim@add@early{\pgfanimationset{snorten <={#1}}},
 }
 \newif\iftikz@anim@along
 
@@ -800,18 +814,19 @@
 % #1 = The object (may be "myself")
 % #2 = The attribute (see pgfanimateattribute)
 % #3 = Timeline sequence identifier
-% #4 = code
+% #4 = early code
+% #5 = later code
 %
 % Description:
 %
 % This command stores an option with a timeline of an object. For each
 % object--attribute--identifier tuple a timeline can be created, for
-% which the values of #4 are collected. Later on, \pgfanimateattribute
+% which the values of #4 and #5 are collected. Later on, \pgfanimateattribute
 % will be called for the pgf attribute associated with tikz attribute,
 % the type associcated with it and initial code, followed by the
-% accumulated values of #4.
+% accumulated values of #4 and then the accumulated values of #5.
 
-\def\tikz@timeline@entry#1#2#3#4{%
+\def\tikz@timeline@entry#1#2#3#4#5{%
   % First, does the object have an animation already attached?
   \expandafter\ifx\csname tikz@a@tlo@#1\endcsname\relax%
     % No, first entry!
@@ -823,10 +838,12 @@
   % Second, does the timeline exist?
   \expandafter\ifx\csname tikz@a@tlc@#1@#2@#3\endcsname\relax%
     % No, first entry!
-    \def\tikz@anim@initial@options{#4}%
+    \def\tikz@anim@initial@early@options{#4}%
+    \def\tikz@anim@initial@options{#5}%
     \csname tikz@anim@def@setup@#2\endcsname%
     % Create timeline...
     \expandafter\global\expandafter\let\csname tikz@a@tlc@#1@#2@#3\endcsname\tikz@anim@initial@options%
+    \expandafter\global\expandafter\let\csname tikz@a@tld@#1@#2@#3\endcsname\tikz@anim@initial@early@options%
     % ...and add to calls
     \expandafter\let\expandafter\pgf@temp\csname tikz@a@tlo@#1\endcsname%
     \expandafter\def\expandafter\pgf@temp@name\expandafter{\tikz@anim@create{#1}{#2}{#3}}%    
@@ -834,8 +851,11 @@
     \expandafter\global\expandafter\let\csname tikz@a@tlo@#1\endcsname\pgf@temp%
   \else%
     % Add to timeline:
-    \expandafter\let\expandafter\pgf@temp\csname tikz@a@tlc@#1@#2@#3\endcsname%
+    \expandafter\let\expandafter\pgf@temp\csname tikz@a@tld@#1@#2@#3\endcsname%
     \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#4}%
+    \expandafter\global\expandafter\let\csname tikz@a@tld@#1@#2@#3\endcsname\pgf@temp%  
+    \expandafter\let\expandafter\pgf@temp\csname tikz@a@tlc@#1@#2@#3\endcsname%
+    \expandafter\def\expandafter\pgf@temp\expandafter{\pgf@temp#5}%
     \expandafter\global\expandafter\let\csname tikz@a@tlc@#1@#2@#3\endcsname\pgf@temp%  
   \fi%
 }
@@ -864,9 +884,11 @@
     \pgfanimationset{whom=\tikz@anim@whom}%
     \expandafter\let\expandafter\tikz@animation@parser\csname tikz@anim@\csname tikz@anim@def@parser@#2\endcsname @parse\endcsname%
     \csname tikz@anim@def@code@#2\endcsname%
+    \csname tikz@a@tld@#1@#2@#3\endcsname%
     \csname tikz@a@tlc@#1@#2@#3\endcsname%
   }%
   \expandafter\global\expandafter\let\csname tikz@a@tlc@#1@#2@#3\endcsname\relax%
+  \expandafter\global\expandafter\let\csname tikz@a@tld@#1@#2@#3\endcsname\relax%
 }
 
 

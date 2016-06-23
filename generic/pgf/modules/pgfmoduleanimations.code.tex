@@ -655,6 +655,7 @@
 
 \pgfanimationset{entry/.code 2 args=\pgf@anim@entry{#1}{#2}}
 \def\pgf@anim@entry#1#2{%
+  \pgf@anim@entry@giventrue%
   \pgfparsetime{#1}%  
   \edef\pgf@marshal{\noexpand\pgfsysanimkeytime{\pgftimeresult}\pgf@anim@entry@spline\pgf@anim@exit@spline}%
   \pgf@marshal%
@@ -666,7 +667,7 @@
   \fi%
 }                            
 \def\pgf@special@current@text{current value}
-
+\newif\ifpgf@anim@entry@given
 
 
 % Specifies a base value
@@ -777,6 +778,173 @@
 
 
 
+% Specifies how much arrow tips should be shortened (as in
+% \pgfsetshortenstart)
+%
+% #1 = an additional shortening distance the path start.
+%
+% Description:
+%
+% Works like \pgfsetshortenstart, only for animated paths.
+
+\pgfanimationset{
+  shorten </.code={%
+    \ifpgf@anim@entry@given%
+      \pgferror{You must specify shorten < prior to the path entries}%
+    \else%
+      \pgfmathsetmacro\pgf@anim@marker@extra@shorten@start{#1}%
+    \fi%
+  },
+  shorten >/.code={%
+    \ifpgf@anim@entry@given%
+      \pgferror{You must specify shorten < prior to the path entries}%
+    \else%
+      \pgfmathsetmacro\pgf@anim@marker@extra@shorten@end{#1}%
+    \fi%
+  }
+}
+\def\pgf@anim@marker@extra@shorten@start{0pt}%
+\def\pgf@anim@marker@extra@shorten@end{0pt}%
+\def\pgf@anim@marker@shorten@start{0pt}%
+\def\pgf@anim@marker@shorten@end{0pt}%
+
+% Specifies the arrow tips used for path animations
+%
+% #1 = an arrow specification of the form <start>-<end> as for the
+%      command \pgfsetarrows
+%
+% Description:
+%
+% Specifies arrow tips that are used in a path animation. Note that in
+% order to set the arrow tips of a path that is animated, you always
+% have to use this command. In particular, you should *not* set arrow
+% tips for the to-be-animated path, but use this key and the base key
+% to install a base path with arrow tips.
+
+\pgfanimationset{
+  arrows/.code={%
+    \ifpgf@anim@entry@given%
+      \pgferror{You must specify animation arrows prior to the path entries}%
+    \else%
+      \pgf@anim@parser@arrows#1\pgf@stop%
+    \fi%
+  }
+}
+
+\def\pgf@anim@parser@arrows#1-#2\pgf@stop{%
+  \pgf@anim@prepare@arrow@start{#1}%
+  \pgf@anim@prepare@arrow@end{#2}%
+  \expandafter\expandafter\expandafter\pgfsysanimkeytipmarkers\expandafter\expandafter\expandafter{\expandafter\pgf@anim@marker@id@start\expandafter}\expandafter{\pgf@anim@marker@id@end}%
+}
+
+\def\pgf@anim@prepare@arrow@start#1{%
+  \def\pgf@anim@temp{#1}%
+  \ifx\pgf@anim@temp\pgfutil@empty%
+    \let\pgf@anim@marker@id@start\pgfutil@empty%
+    \def\pgf@anim@marker@shorten@start{0pt}%
+  \else%
+    {%
+      \pgfsetarrowsstart{#1}%
+      \pgf@anim@prep@marker@arrow\pgf@start@tip@sequence\pgf@anim@marker@id\pgf@anim@marker@shorten%
+      \global\let\pgf@anim@marker@id@start\pgf@anim@marker@id%
+      \global\let\pgf@anim@temp\pgf@anim@marker@shorten%
+    }%
+    \let\pgf@anim@marker@shorten@start\pgf@anim@temp%
+  \fi%
+}
+
+\def\pgf@anim@prepare@arrow@end#1{%
+  \def\pgf@anim@temp{#1}%
+  \ifx\pgf@anim@temp\pgfutil@empty%
+    \let\pgf@anim@marker@id@end\pgfutil@empty%
+    \def\pgf@anim@marker@shorten@end{0pt}%
+  \else%
+    {%
+      \pgfsetarrowsend{#1}%
+      \pgf@anim@prep@marker@arrow\pgf@end@tip@sequence\pgf@anim@marker@id\pgf@anim@marker@shorten%
+      \global\let\pgf@anim@marker@id@end\pgf@anim@marker@id%
+    }%
+    \let\pgf@anim@marker@shorten@end\pgf@anim@marker@shorten%
+  \fi%
+}
+
+
+% Draw an arrow using markers
+
+\def\pgf@anim@prep@marker@arrow#1#2#3{%
+  % #1 = tip sequence
+  % #2 = macro for storing marker code
+  % #3 = macro for storing shortening length
+  %
+  % First, compute id's:
+  {%
+    \let\pgf@arrow@handle\pgf@anim@marker@id@test%
+    \let\pgf@arrow@handle@dot\relax%?
+    \global\let\pgf@anim@marker@id@list\pgfutil@empty%
+    #1%
+  }%
+  \expandafter\let\expandafter#2\csname pgfanim@marker@cache@\pgf@anim@marker@id@list\endcsname%
+  \expandafter\let\expandafter#3\csname pgfanim@marker@cache@l\pgf@anim@marker@id@list\endcsname%
+  \ifx#2\relax% ok, have to create it!
+    \pgf@relevantforpicturesizefalse%
+    \pgfinterruptpath%
+      \pgf@arrow@compute@shortening#1%
+      \xdef#3{\the\pgf@xa}%
+      {%
+        \let\pgf@arrow@handle\pgf@anim@drawer@marker
+        \let\pgf@arrow@handle@dot\relax%
+        \pgfsys@marker@declare#2{%
+          \pgftransformxshift{-\pgf@xb}%
+          \pgftransformxshift{\pgf@xa}%
+          #1%
+        }%
+      }%
+    \endpgfinterruptpath%
+    \expandafter\global\expandafter\let\csname pgfanim@marker@cache@\pgf@anim@marker@id@list\endcsname#2%
+    \expandafter\global\expandafter\let\csname pgfanim@marker@cachel@\pgf@anim@marker@id@list\endcsname#3%
+  \fi%
+}
+
+\def\pgf@anim@marker@id@test#1#2{%
+  \pgfarrows@getid{#1}{#2}%
+  \expandafter\expandafter\expandafter\pgf@arrow@drawer@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
+  \xdef\pgf@anim@marker@id@list{\pgf@anim@marker@id@list:\pgf@arrow@id\ifpgfarrowswap s\else n\fi\pgfarrows@slant w\the\pgf@xc}%
+}
+
+\def\pgf@anim@drawer@marker#1#2{%
+  % Prepare:
+  {%
+    \pgfarrows@getid{#1}{#2}%
+    % Do shift:
+    \expandafter\expandafter\expandafter\pgf@arrow@drawer@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
+    % Do slant:  
+    \ifdim\pgfarrows@slant pt=0pt%
+    \else%
+      \pgftransformxslant{\pgfarrows@slant}%
+    \fi%
+    % do swap:
+    \ifpgfarrowswap%
+      \pgftransformyscale{-1}%
+    \fi%
+    {%
+      \csname pgf@ar@saves@\pgf@arrow@id\endcsname%
+      \pgfsys@beginscope%
+        \pgf@arrows@color@setup%
+        \pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname%
+      \pgfsys@endscope%
+    }%  
+  \expandafter}%
+  % Transform to next tip:
+  \expandafter\pgftransformxshift\expandafter{\the\pgf@xc}%
+}
+
+
+
+
+
+
+
+
 
 % The parsers
 
@@ -869,7 +1037,7 @@
     \global\let\pgfanim@the@path\pgfanim@the@path%
     \pgfsyssoftpath@setcurrentpath\pgfanim@save@path%
   }%
-  \expandafter\pgfsysanimvalpath\expandafter{\pgfanim@the@path}%
+  \expandafter\pgfanim@parse@type@softpath\expandafter{\pgfanim@the@path}%
 }
 
 
@@ -880,8 +1048,66 @@
 % entry = {0s}{\pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}}
 
 \def\pgfanim@parse@type@softpath#1{%
-  \pgfsysanimvalpath{#1}%
+  {%
+    \def\pgf@anim@path{#1}%
+    % Shorten?
+    \pgf@worryfalse%
+    \pgf@xb=\pgf@anim@marker@extra@shorten@start%
+    \advance\pgf@xb by\pgf@anim@marker@shorten@start%
+    \pgf@xc=\pgf@anim@marker@extra@shorten@end%
+    \advance\pgf@xc by\pgf@anim@marker@shorten@end%
+    \ifdim\pgf@xb=0pt\else\pgf@worrytrue\fi%
+    \ifdim\pgf@xc=0pt\else\pgf@worrytrue\fi%
+    \ifpgf@worry%
+      \edef\pgf@path@shortening@distance@end{\the\pgf@xc}%
+      \edef\pgf@path@shortening@distance@start{\the\pgf@xb}%
+      % Yes! Need to shorten.
+      \pgf@anim@shorten@path%
+    \fi%
+  \expandafter}%
+  \expandafter\pgfsysanimvalpath\expandafter{\pgf@anim@path}%
 }
+
+
+\def\pgf@anim@shorten@path{%
+  \pgf@precise@shorteningfalse%
+  \let\pgf@path@shortening@distance\pgf@path@shortening@distance@end%
+  % 
+  % Step 1: Split
+  % 
+  \pgfprocesssplitpath{\pgf@anim@path}%
+  \pgfprocesssplitsubpath{\pgfprocessresultpathsuffix}%
+  % 
+  % Step 2: extract
+  % 
+  \expandafter\pgf@parse@end\pgfprocessresultsubpathsuffix\pgf@stop\pgf@stop\pgf@stop%
+  % 
+  % Step 3: prep end
+  % 
+  \pgf@prep@end%
+  % 
+  % Step 4: shorten end
+  % 
+  \ifdim\pgf@path@shortening@distance=0pt\else\pgf@do@shorten@end\fi%
+  %
+  \let\pgf@path@shortening@distance\pgf@path@shortening@distance@start%
+  % 
+  % Step 5: extract
+  % 
+  \expandafter\pgf@parse@start\pgfprocessresultpathsuffix\pgf@stop\pgf@stop\pgf@stop%
+  % 
+  % Step 6: prep start
+  % 
+  \pgf@prep@start%
+  % 
+  % Step 7: shorten start
+  % 
+  \ifdim\pgf@path@shortening@distance=0pt\else\pgf@do@shorten@start\fi%
+  \expandafter\expandafter\expandafter\def%
+  \expandafter\expandafter\expandafter\pgf@anim@path%
+  \expandafter\expandafter\expandafter{\expandafter\pgfprocessresultpathprefix\pgfprocessresultpathsuffix}%
+}
+
 
 
 % Parse a point 
@@ -973,134 +1199,6 @@
 
 
 
-
-%
-%
-% TODO: Work on this!
-% 
-%
-
-\def\pgfarrow@marker@setup@end{%
-  \ifx\pgf@arrowpath\pgfutil@empty\else%
-    \ifx\pgf@end@tip@sequence\pgfutil@empty\else%
-      % Ok, need to draw something
-      \ifx\pgf@do@draw@end\pgf@do@draw@straightend%
-        {%
-          \pgftransformreset%
-          \pgf@arrow@prep@marker@arrow\pgf@end@tip@sequence\pgf@arrow@tip@total@length\pgf@temp%
-        \expandafter}%
-        \expandafter\pgfsys@marker@at@end@usedpath\expandafter{\pgf@temp}%
-        {%
-          \pgftransformreset%
-          \pgftransformarrow{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfqpoint{\pgf@xb}{\pgf@yb}}%
-          \pgf@arrow@rigid@arrow\pgf@end@tip@sequence\pgf@arrow@tip@total@length%
-        }%
-      \else%
-        \pgferror{Cannot draw bend and flex arrow tips as markers}%
-      \fi%
-    \fi%    
-  \fi%
-}
-
-\def\pgfarrow@marker@setup@begin{%
-  \ifx\pgf@arrowpath\pgfutil@empty\else%
-    \ifx\pgf@start@tip@sequence\pgfutil@empty\else%
-      % Ok, need to draw something
-      \ifx\pgf@do@draw@start\pgf@do@draw@straightstart%
-        {%
-          \pgftransformreset%
-          \pgf@arrow@prep@marker@arrow\pgf@start@tip@sequence\pgf@arrow@tip@total@length\pgf@temp%
-        \expandafter}%
-        \expandafter\pgfsys@marker@at@begin@usedpath\expandafter{\pgf@temp}%
-        {%
-          \pgftransformreset%
-          \pgftransformarrow{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfqpoint{\pgf@xb}{\pgf@yb}}%
-          \pgf@arrow@rigid@arrow\pgf@start@tip@sequence\pgf@arrow@tip@total@length%
-        }%
-      \else%
-        \pgferror{Cannot draw bend and flex arrow tips as markers}%
-      \fi%
-    \fi%    
-  \fi%
-}
-
-
-% Draw an arrow using markers
-
-\def\pgf@arrow@prep@marker@arrow#1#2#3{%
-  % #1 = tip sequence
-  % #2 = pgf@arrow@tip@total@length
-  % #3 = macro for storing marker code
-  %
-  % First, compute id's:
-  {%
-    \let\pgf@arrow@handle\pgfarrow@marker@id@test%
-    \let\pgf@arrow@handle@dot\relax%?
-    \global\let\pgfarrow@marker@id@list\pgfutil@empty%
-    #1%
-  }%
-  \expandafter\let\expandafter#3\csname pgfsys@marker@@cache@\pgfarrow@marker@id@list\endcsname%
-  \ifx#3\relax% ok, have to create it!
-    {%
-      \let\pgf@arrow@handle\pgf@arrow@drawer@marker
-      \let\pgf@arrow@handle@dot\relax%
-      \pgfsys@marker@declare#3{%
-        \pgf@xb=#2%
-        \pgftransformxshift{-\pgf@xb}%
-        \pgftransformxshift{\pgf@path@shortening@distance}%
-        #1%
-      }%
-    }%
-  \fi%
-}
-
-\def\pgfarrow@marker@id@test#1#2{%
-  \pgfarrows@getid{#1}{#2}%
-  \expandafter\expandafter\expandafter\pgf@arrow@drawer@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
-  \xdef\pgfarrow@marker@id@list{\pgfarrow@marker@id@list:\pgf@arrow@id\ifpgfarrowswap s\else n\fi\pgfarrows@slant w\the\pgf@xc}%
-}
-
-\def\pgf@arrow@drawer@marker#1#2{%
-  % Prepare:
-  {%
-    \pgfarrows@getid{#1}{#2}%
-    % Do shift:
-    \expandafter\expandafter\expandafter\pgf@arrow@drawer@shift\csname pgf@ar@ends@\pgf@arrow@id\endcsname%
-    % Do slant:  
-    \ifdim\pgfarrows@slant pt=0pt%
-    \else%
-      \pgftransformxslant{\pgfarrows@slant}%
-    \fi%
-    % do swap:
-    \ifpgfarrowswap%
-      \pgftransformyscale{-1}%
-    \fi%
-    {%
-      \csname pgf@ar@saves@\pgf@arrow@id\endcsname%
-      \pgfsys@beginscope%
-        \pgf@arrows@color@setup%
-        \pgflowlevelsynccm\csname pgf@ar@cache@\pgf@arrow@id\endcsname%
-      \pgfsys@endscope%
-    }%  
-  \expandafter}%
-  % Transform to next tip:
-  \expandafter\pgftransformxshift\expandafter{\the\pgf@xc}%
-}
-
-
-
-%
-%
-% Marker stuff
-%
-%
-
-\newif\ifpgfarrow@marker
-% When set to true and when a driver supports markers, pgf will use
-% markers (see the SVG spec) for arrow heads rather than "explicit"
-% code. This saves space and works well with animations.
-
-\pgfkeys{/pgf/draw arrows using markers/.is if=pgfarrow@marker}
 
 
 
