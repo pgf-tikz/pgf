@@ -1074,7 +1074,6 @@
 \let\pgfsysanim@next@val\relax%
 \let\pgfsysanim@next@time\relax%
 
-
 % Help function
 \def\pgfsysanim@attach#1#2#3{%
   \expandafter\pgfsysanim@prep@beg\expandafter{\pgfsysanim@first@time}{#2}{#3}%
@@ -1112,7 +1111,33 @@
     \noexpand\fi%
   }
 }
-  
+
+\def\pgfsysanim@prep@beg@special#1#2{%
+  \def\pgfsysanim@add@main{%
+    \ifdim\pgfsysanim@lasttime>#1pt%
+    % ignore!
+    \else%
+      \pgfsysanim@lasttime#1pt%
+      \def\pgfsysanim@c@begin{#2}%
+    \fi%
+  }
+}
+
+
+
+\def\pgfsysanim@attach@special#1#2{%
+  \expandafter\expandafter\expandafter\pgfsysanim@prep@beg@special\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@first@time\expandafter}\expandafter{#2}%
+  \ifx#1\relax%
+    \def#1{%
+      \pgfsysanim@lasttime-16383pt\relax%
+      \let\pgfsysanim@c@begin\pgfutil@empty%
+    }%
+  \fi%
+  \expandafter\expandafter\expandafter\gdef\expandafter\expandafter\expandafter#1\expandafter\expandafter\expandafter{\expandafter#1\pgfsysanim@add@main}%
+}
+
+
+
 \newdimen\pgfsysanim@lasttime
 
 
@@ -1284,29 +1309,36 @@
   \fi%
 }
 
+\newif\ifpgfsys@animation@view@hooked
+
 \def\pgfsysanim@prep@attr@viewbox{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@viewbox%
     \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{%
-      \ifx\pgfsys@viewboxmeet\pgfsysanim@hooked@viewboxmeet%
+      \ifpgfsys@animation@view@hooked%
       \else%
         % Hook into viewbox systems layer commands
         \let\pgfsys@viewboxmeet@orig\pgfsys@viewboxmeet%
         \let\pgfsys@viewboxmeet\pgfsysanim@hooked@viewboxmeet%
         \let\pgfsys@viewboxslice@orig\pgfsys@viewboxslice%
         \let\pgfsys@viewboxslice\pgfsysanim@hooked@viewboxslice%
+        \pgfsys@animation@view@hookedtrue%
       \fi%
     }{}{}%
-%    \pgfsys@clean@type\pgfsysanim@type@temp\pgfsysanim@whom@type%
-    \expandafter\xdef\csname pgfsysanim@hook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname%
-    {{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}{\pgfsysanim@w@val}}%
+    \edef\pgfsysanim@temp{{\pgfsysanim@x@val}{\pgfsysanim@y@val}{\pgfsysanim@z@val}{\pgfsysanim@w@val}}%
+    \expandafter\pgfsysanim@attach@special\csname pgfsysanim@hook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname\pgfsysanim@temp%
   \fi%
 }
 \def\pgfsysanim@hooked@viewboxmeet#1#2#3#4#5#6#7#8{%
   \expandafter\ifx\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
     \pgfsys@viewboxmeet@orig{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
   \else%
-    \expandafter\expandafter\expandafter\pgfsysanim@hooked@viewboxmeet@\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname{#1}{#2}{#3}{#4}%
+    \csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname%
+    \ifx\pgfsysanim@c@begin\pgfutil@empty%
+      % should not happen, but, then, ignore
+    \else%
+      \expandafter\pgfsysanim@hooked@viewboxmeet@\pgfsysanim@c@begin{#1}{#2}{#3}{#4}%
+    \fi%
     \expandafter\global\expandafter\let\csname pgfsysanim@hook@for@\pgfsys@id@refcurrent\endcsname\relax%
   \fi%
 }
@@ -1326,11 +1358,13 @@
 }
 
 
+\newif\ifpgfsys@animation@path@hooked
+
 \def\pgfsysanim@prep@attr@path{%
   \ifpgfsysanim@valid@snapshot@time%
     \pgfsysanim@comp@path%
     \pgfsys@attach@to@id{\pgfsysanim@whom@id}{}{%
-      \ifx\pgfsys@discardpath@orig\pgfsys@discardpath%
+      \ifpgfsys@animation@path@hooked%
       \else%
         % Hook into path systems layer commands
         \let\pgfsys@discardpath@orig\pgfsys@discardpath%
@@ -1343,11 +1377,10 @@
         \let\pgfsys@fill\pgfsys@fill@hook%
         \let\pgfsys@fillstroke\pgfsys@fillstroke@hook%
         \let\pgfsys@closestroke\pgfsys@closestroke@hook%
+        \pgfsys@animation@path@hookedtrue%
       \fi%
     }{}{}%
-%    \pgfsys@clean@type\pgfsysanim@type@temp\pgfsysanim@whom@type%
-    \expandafter\def\expandafter\pgfsysanim@temp\expandafter{\csname pgfsysanim@phook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname}
-    \expandafter\expandafter\expandafter\gdef\expandafter\pgfsysanim@temp\expandafter{\pgfsysanim@path@val}%
+    \expandafter\pgfsysanim@attach@special\csname pgfsysanim@phook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname\pgfsysanim@path@val%
   \fi%
 }
 \def\pgfsys@stroke@hook{\pgfsysanim@path@hooks\pgfsys@stroke@orig}
@@ -1362,11 +1395,11 @@
   \else%
     \pgfsys@discardpath@orig%
     \csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname%
+    \pgfsysanim@c@begin%
     #1%
     \expandafter\global\expandafter\let\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
   \fi%
 }
-
 
 
 
