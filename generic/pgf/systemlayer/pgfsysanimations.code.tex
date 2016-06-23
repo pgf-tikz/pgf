@@ -1380,27 +1380,115 @@
         \pgfsys@animation@path@hookedtrue%
       \fi%
     }{}{}%
-    \expandafter\pgfsysanim@attach@special\csname pgfsysanim@phook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname\pgfsysanim@path@val%
+    \expandafter\pgfsysanim@attach@special\csname pgfsysanim@phook@for@\pgfsys@id@ref{\pgfsysanim@whom@id}{\pgfsysanim@whom@type}\endcsname\pgfsysanim@path@all%
   \fi%
 }
-\def\pgfsys@stroke@hook{\pgfsysanim@path@hooks\pgfsys@stroke@orig}
-\def\pgfsys@fill@hook{\pgfsysanim@path@hooks\pgfsys@fill@orig}
-\def\pgfsys@fillstroke@hook{\pgfsysanim@path@hooks\pgfsys@fillstroke@orig}
-\def\pgfsys@closestroke@hook{\pgfsysanim@path@hooks\pgfsys@closestroke@orig}
-\def\pgfsys@discardpath@hook{\pgfsysanim@path@hooks\pgfsys@discardpath@orig}
+\def\pgfsys@stroke@hook{\pgfsysanim@with@tipstrue\pgfsysanim@path@hooks\pgfsys@stroke@orig}
+\def\pgfsys@fill@hook{\pgfsysanim@with@tipsfalse\pgfsysanim@path@hooks\pgfsys@fill@orig}
+\def\pgfsys@fillstroke@hook{\pgfsysanim@with@tipstrue\pgfsysanim@path@hooks\pgfsys@fillstroke@orig}
+\def\pgfsys@closestroke@hook{\pgfsysanim@with@tipsfalse\pgfsysanim@path@hooks\pgfsys@closestroke@orig}
+\def\pgfsys@discardpath@hook{\pgfsysanim@with@tipsfalse\pgfsysanim@path@hooks\pgfsys@discardpath@orig}
+
+\newif\ifpgfsysanim@with@tips
 
 \def\pgfsysanim@path@hooks#1{%
-  \expandafter\ifx\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
-    #1%
-  \else%
-    \pgfsys@discardpath@orig%
-    \csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname%
-    \pgfsysanim@c@begin%
-    #1%
-    \expandafter\global\expandafter\let\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
+  {%
+    \expandafter\ifx\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
+      #1%
+    \else%
+      \pgfsys@discardpath@orig%
+      \csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname%
+      \pgfsysanim@c@begin%
+      \pgfsysanim@path@val%
+      #1%
+      \ifpgfsysanim@with@tips%
+        \ifx\pgfsysanim@path@val\pgfutil@empty\else%
+          \pgfsysanim@prepare@end@of@path%
+          \begingroup%
+            \pgfsysanim@prepare@start@of@path%
+            \pgfsysanim@add@marker@at@start%
+          \endgroup%
+          \pgfsysanim@add@marker@at@end%
+        \fi%
+      \fi%
+      \expandafter\global\expandafter\let\csname pgfsysanim@phook@for@\pgfsys@id@refcurrent\endcsname\relax%
+    \fi%
+  }%
+}
+
+
+\def\pgfsysanim@prepare@start@of@path{%
+  \ifx\pgfsysanim@snap@tip@start\pgfutil@empty\else
+    % 
+    % Step 1: Split
+    % 
+    \ifx\pgfprocessresultpathsuffix\relax%
+      % Ok, still need to compute the split:
+      \pgfprocesssplitpath{\pgf@arrowpath}%
+    \fi%
+    % 
+    % Step 2: extract
+    % 
+    \expandafter\pgf@parse@start\pgfprocessresultpathsuffix\pgf@stop\pgf@stop\pgf@stop%
+    % 
+    % Step 3: prep
+    % 
+    \pgf@prep@start%
+  \fi%
+}
+\def\pgfsysanim@add@marker@at@start{%
+  \ifx\pgfsysanim@snap@tip@start\pgfutil@empty\else
+    % 
+    % Step 4: draw
+    %
+    {%
+      \pgftransformreset%
+      \pgftransformarrow{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfqpoint{\pgf@xb}{\pgf@yb}}%
+      \pgfsys@beginscope%
+        \pgflowlevelsynccm%
+        \pgfsys@marker@use{\pgfsysanim@snap@tip@start}%
+      \pgfsys@endscope%
+    }%
   \fi%
 }
 
+
+\def\pgfsysanim@prepare@end@of@path{%
+  \let\pgfprocessresultpathsuffix\relax% flag that nothing has happened...
+  \let\pgfprocessresultsubpathsuffix\relax%
+  \pgf@precise@shorteningfalse%
+  \edef\pgf@path@shortening@distance{0pt}%
+  \ifx\pgfsysanim@snap@tip@end\pgfutil@empty\else
+    % 
+    % Step 1: Split
+    % 
+    \pgfprocesssplitpath{\pgfsysanim@path@val}%
+    \pgfprocesssplitsubpath{\pgfprocessresultpathsuffix}%
+    % 
+    % Step 2: extract
+    % 
+    \expandafter\pgf@parse@end\pgfprocessresultsubpathsuffix\pgf@stop\pgf@stop\pgf@stop%
+    % 
+    % Step 3: prep 
+    % 
+    \pgf@prep@end%
+  \fi%
+}
+\def\pgfsysanim@add@marker@at@end{%
+  \ifx\pgfsysanim@snap@tip@end\pgfutil@empty\else
+    % 
+    % Step 4: draw
+    %
+    {%
+      \pgftransformreset%
+      \pgftransformarrow{\pgfqpoint{\pgf@xc}{\pgf@yc}}{\pgfqpoint{\pgf@xb}{\pgf@yb}}%
+      \pgfsys@beginscope%
+        \pgflowlevelsynccm%
+        \pgfsys@marker@use{\pgfsysanim@snap@tip@end}%
+      \pgfsys@endscope%
+    }%
+  \fi%
+}
 
 
 
@@ -1642,8 +1730,13 @@
 
 \def\pgfsysanim@comp@path{%
   \pgfsysanim@compute@fractions%
+  \edef\pgfsysanim@path@tips{%
+    \def\noexpand\pgfsysanim@snap@tip@start{\pgfsysanim@snap@tip@start}%
+    \def\noexpand\pgfsysanim@snap@tip@end{\pgfsysanim@snap@tip@end}%
+  }%
   \let\pgfsysanim@path@val\pgfutil@empty%
   \expandafter\expandafter\expandafter\pgfsysanim@parse@path\expandafter\pgfsysanim@prev@val\expandafter\pgf@stop\expandafter\relax\pgfsysanim@next@val\pgf@stop\relax%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfsysanim@path@all\expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgfsysanim@path@val\expandafter\expandafter\expandafter{\expandafter\pgfsysanim@path@val\expandafter}\pgfsysanim@path@tips}%
   \ifpgfsysanim@accumulate%
     \pgferror{path animations cannot accumulate / add}%
   \fi%
