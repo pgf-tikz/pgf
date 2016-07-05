@@ -376,6 +376,119 @@ The following attributes influence paths and how they are rendered.
   \filldraw [ultra thick,draw=blue,fill=blue!20, name=my path]
     (1,0) -- (1,1) -- (2,0); }
 \end{codeexample}
+
+  You can attach arrow tips to paths that are animated and these arrow
+  tips will correctly ``rotate and move along'' with the path's end
+  points \emph{if} you take the following points into considerations:
+  \begin{itemize}
+  \item
+    Arrow tips that ``rotate and move along'' with a path must be
+    specified using a special animation command, see below. The
+    normal arrow tips added to a path would \emph{not} be animated
+    automatically and, indeed, if you add arrow tips to a path using 
+    |\pgfsetarrows| and then animate the path, you will get an error
+    message. 
+  \item
+    Internally, the arrow tips that ``rotate and move along'' are
+    drawn using so-called \emph{markers.} These are little graphic
+    objects that can be added to the start and end of paths and that
+    are automatically rotated and move along with the path.
+
+    In principle, the rendering rules used by \textsc{svg} for markers
+    are the same as for normal arrow tips: The markers are rotated and
+    moved so that the 
+    point along a tangent of the path at the start or end of the
+    path. However, when it comes to special cases such as a path with
+    multiple segements, a path with degenerate segments, a closed
+    path, and so on, the rules used by for instance \textsc{svg} may
+    differ from the placement that \pgfname\ will compute.
+
+    Thus, it is best to add arrow tips only to ``normal'' paths
+    consisting of a single open path segment whose ends can be
+    shortened a bit without causing degeneration.
+  \item
+    When an arrow tip is added to a path, the path must typically be
+    shortened a bit so that the \emph{tip} of the arrow ends where the
+    path would usually end. This shortening is not done by the system
+    layer for to-be-animated paths; you must compute and then animate
+    these shortened paths yourself. (However, the basic layer
+    animation module will do this for you, so you only have to worry
+    about this when you use the system layer directly.)
+  \end{itemize}
+
+  Let us now have a look at how we add arrow tip markers:
+  \begin{command}{\pgfsysanimkeytipmarkers\marg{start marker}\marg{end marker}}
+  \end{command}
+  \begin{command}{\pgfsys@animation@tip@markers\marg{start marker}\marg{end marker}}
+    This command specifies that during a path animation the two
+    markers provided as parameters should be added (and rotated and
+    moved along with the path) at the start and end. The \meta{start
+      marker} must either be empty (in which case no marker is added
+    at the start) or it must be a macro storing a value returned by
+    the command |\pgfsys@marker@declare|. In this case, the marker
+    declared symbol will be added to the start during the
+    animation. The same situation applies to the end of the path.
+
+    As pointed out earlier, only arrow tips / markers added to paths
+    using this command will be animated along with the path. In
+    particular, you should \emph{not} add arrow tips to to-be-animated
+    paths using  |\pgfsetarrow|. However, when you use a base value
+    (|\pgfsys@animation@base|) to set a path, the arrow tips will also
+    be added to this base path.
+
+    To sum up, the ``correct'' way of adding arrow tips to a path that
+    is animated is to proceed as follows:
+    \begin{enumerate}
+    \item You specify arrow tips for a path using this command.
+    \item You specify times and values of the to-be-animated path,
+      shortened as necessary to accommodate the length of the arrow
+      tips.
+    \item You specify the first (or, possibly, some other) value in
+      the time--value sequence as a base value.
+    \item You create a path animation that applies to a future path.
+    \item You create this future path as an empty path without arrow
+      tips and draw it. Because of the setting of the base value,
+      instead of the empty path the base path will be used as the
+      ``real'' path and the animation's arrow tips will be added as
+      arrow tips. 
+    \end{enumerate}
+
+    When you have more than one animation for a given path, these
+    different animations may use different arrow tips / markers. This
+    allows you to animate (change) which arrow tip is used on a path
+    over time.
+\begin{codeexample}[animation list={0.5,1,1.5,2},animation bb={(0.7,-0.3)rectangle(2.3,1.3)}]
+% Declare a marker:
+\pgfsys@marker@declare\mymarker{%
+  \pgfscope%
+    \pgfsetcolor{red!75}%
+    \pgfpathmoveto{\pgfpoint{0pt}{5pt}}\pgfpathlineto{\pgfpoint{8pt}{0pt}}%
+    \pgfpathlineto{\pgfpoint{0pt}{0pt}}\pgfpathclose%
+    \pgfusepathqfill%
+  \endpgfscope%
+  \pgfpathmoveto{\pgfpoint{0pt}{5pt}}\pgfpathlineto{\pgfpoint{8pt}{0pt}}%
+  \pgfpathlineto{\pgfpoint{0pt}{-5pt}}\pgfpathclose%
+  \pgfusepathqstroke%
+}%
+\animationexample{my path}{path}{
+  \pgfsysanimkeytipmarkers{\mymarker}{\mymarker}
+  \pgfsysanimkeybase
+  \pgfsysanimvalpath{\pgfsys@moveto{1cm}{0cm}%
+                     \pgfsys@lineto{1cm}{1cm}%
+                     \pgfsys@lineto{2cm}{0cm}}
+  \pgfsysanimkeytime{0}{1}{1}{0}{0}
+  \pgfsysanimvalpath{\pgfsys@moveto{1cm}{0cm}%
+                     \pgfsys@lineto{1cm}{1cm}%
+                     \pgfsys@lineto{2cm}{0cm}}
+  \pgfsysanimkeytime{2}{1}{1}{0}{0}
+  \pgfsysanimvalpath{\pgfsys@moveto{1cm}{1cm}%
+                     \pgfsys@lineto{2cm}{1cm}%
+                     \pgfsys@lineto{1cm}{0cm}}
+  \pgfsysanimate{path}
+  \filldraw [ultra thick,draw=blue,fill=blue!20, name=my path];
+  \path (1,0) (2,1);}
+\end{codeexample}
+  \end{command}
 \end{sysanimateattribute}
 
 \begin{sysanimateattribute}{linewidth}
