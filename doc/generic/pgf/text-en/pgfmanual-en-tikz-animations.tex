@@ -136,16 +136,6 @@ should keep in mind when considering how and when to use it:
   and do some fancy computations to compute the exact positions of the
   line over time, but this involves a huge amount of code if it is
   possible at all.
-\item
-  Related to the first point, but also begin an independent problem, is the
-  fact that it is currently next to impossible to animate \emph{arrow
-    tips} correctly. When you animate a path (that is, when you let a
-  path change over time) you would expect the arrow tips to ``follow''
-  the path and to always point in the right direction. Unfortunately,
-  due to the way arrow tips are currently implemented, this does not 
-  happen. (This problem only happens when you animate the path's
-  control points; when you move or rotate the whole path using |shift|
-  or |rotate|, the arrow tips will follow correctly.)
 \end{enumerate}
 
 
@@ -1358,10 +1348,11 @@ color set explicitly, this color overrules the color of the scope.
 \label{section-animation-paths}
 
 The attributes of the appearance of a path that you can animate
-include the line width and the dash pattern, but also the path
-itself. Animating the line width and the dash pattern is easy since
-the animation attributes simply have that same names as the properties
-that they animate and the syntax for setting is also the same:
+include the line width and the dash pattern, the path itself, as well
+as the arrow tips attached to the paths. Animating the line width and
+the dash pattern is easy since the animation attributes simply have
+that same names as the properties that they animate and the syntax for
+setting is also the same: 
 
 \begin{tikzanimateattribute}{line width}
 \begin{codeexample}[animation list={0.5,1,1.5,2}]
@@ -1417,7 +1408,7 @@ can, however, also animate the path itself:
   \begin{itemize}
   \item The path ``values'' are parsed and executed in an especially
     protected scope to ensure that they have only little side effects,
-    but you should be do ``fancy things'' on these paths.
+    but you should not do ``fancy things'' on these paths.
   \item 
     As for the dash pattern, you must ensure that all paths in the
     timeline have the same structure (same sequence of path construction
@@ -1441,10 +1432,79 @@ can, however, also animate the path itself:
   [fill = blue!20, draw = blue, ultra thick, circle] {Click me!}; 
 \end{codeexample}
   \item
-    Arrow tips do not ``follow'' the path as it moves. (This
-    restriction may be removed in the future, but it is unlikely.)
+    You must specify arrow tips for an animated path in a special way,
+    namely using the |arrows| key for \emph{animations}, not the
+    normal |arrows| key (see below). 
   \end{itemize}
 \end{tikzanimateattribute}
+
+
+\begin{key}{/tikz/animate/arrows=\meta{arrow spec}}
+  This key only has an effect on |:path| animations. It causes the
+  arrow tips specified in \meta{arrow spec} to be added to the path
+  during the animation (the syntax is the same as for the normal
+  |arrows| key). If you have several different animations for a paths,
+  these may contain different arrow tips, but each animation must
+  stick to one kind of arrow tips.
+
+  What happens internally when this key is used is the following: The
+  specified arrow tips are rendered internally as so-called
+  \emph{markers,} which are small graphics that can be placed at the
+  beginning and ends of paths and which ``rotate along'' as a path
+  changes. Note that these markers are used \emph{only} in the context
+  of animated paths, the arrow tips of normal, ``static'' paths are
+  drawn without the use of markers. Normally, there is no visual
+  difference between an arrow tip drawn 
+  using markers or those drawn for static paths, but in rare cases
+  there may be differences. You should only add arrows to open
+  path consisting of a single segment with sufficiently long first and
+  last segments (so that \tikzname\ can shorten these segments
+  correctly when necessary).
+
+  As pointed out earlier, the only way to add arrow tips to a path
+  that is animated is using this key, you can \emph{not} say something
+  like
+\begin{codeexample}[code only]
+\draw :path = { 1s = "{(0,0) -- (1,0)}", 2s = "{(0,1) -- (1,0)}" }
+  [->] (0,0) -- (1,0);  
+\end{codeexample}    
+  This will raise an error since you try to animate a path
+  (|:path = ...|) that has normal arrow tips attached (|[->]|).
+
+  Instead, you must specify the arrow tips inside the animation
+  command: 
+\begin{codeexample}[code only]
+\draw :path = { 1s = "{(0,0) -- (1,0)}", 2s = "{(0,1) -- (1,0)}", arrows = -> }
+  (0,0) -- (1,0);  
+\end{codeexample}    
+
+  However, the above code now has a big shortcoming: While the
+  animation is \emph{not} running, \emph{no} arrow tip is shown (the
+  |arrows| key only applies to the animation.
+
+  The trick is to use the |base| key. It allows you to install a path
+  as the ``base'' path that is used when no animation is running and
+  the arrows specified for the animation will also be used for the
+  base. All told, the ``correct'' way to specify the animation is the
+  following (note that no static path is specified, any specified path
+  would be overruled by the |base| path anyway): 
+\begin{codeexample}[code only]
+\draw :path = { 1s = "{(0,0) -- (1,0)}" base, 2s = "{(0,1) -- (1,0)}", arrows = -> };
+\end{codeexample}    
+
+  Here is an example:
+
+\begin{codeexample}[animation list={0.5,1,1.5,2},animation bb={(-0.1,-0.1) rectangle (1.1,1.1)}]
+\tikz [very thick] {
+  \node (node) at (-2,0)
+    [fill = blue!20, draw = blue, very thick, circle] {Click me!}; 
+  \draw :path = {
+    0s = "{(0,0) to[out=90, in=180] (.5,1) to[out=0, in=90] (.5,.5)}" base,
+    2s = "{(1,0) to[out=180, in=180] (.25,.5) to[out=0, in=180] (1,.5)}",
+    arrows = <.<->, begin on = {click, of=node} }; }
+\end{codeexample}
+
+\end{key}
 
 
 
@@ -1524,7 +1584,7 @@ as keys in \tikzname:
       |upright|}\opt{| in|\meta{time}}}
     Use this key with a |:shift| (or a |:position|) to make \tikzname\
     shift the object by the coordinates along the \meta{path}. When
-    this key is used, the values are may no longer be 
+    this key is used, the values may no longer be 
     coordinates, but must be fractions of the distance along the 
     path. A value of |"0"| refers to the beginning of the path and |"1"|
     refers to the end:
@@ -1602,7 +1662,7 @@ way ``you expect'', but you can modify it using the following keys:
 
 \begin{key}{/tikz/animate/options/origin=\meta{coordinate}}
   Shifts the animation coordinate system by \meta{coordinate}. This
-  has the effect the the ``origin'' for scalings and rotations gets
+  has the effect that the ``origin'' for scalings and rotations gets
   shifted by this amount. In the following example, the point around
   which the rotation is done is the right border at |(2,1)| since the
   origin of the animation is at |(1,1)| relative to the picture's
@@ -1656,7 +1716,7 @@ way ``you expect'', but you can modify it using the following keys:
 
 \subsubsection{Animating Transformations: Positioning}
 
-The attributes for specifying transformation and, in particular, the
+The attributes for specifying transformations and, in particular, the
 |:shift| attribute are always expressed in the local animation
 coordinate system. This makes it easy to ``shift around a node a
 little bit,'' but makes it hard to move a node ``from one position to
