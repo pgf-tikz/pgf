@@ -53,7 +53,6 @@
 % fill                      color
 % stroke                    color
 % motion                    motion
-% origin                    point
 % translate                 point
 % scale                     scaling
 % rotate                    scalar
@@ -89,6 +88,7 @@
   {%
     \pgfkeys{/pgf/@animation attributes/.cd,#1}%
     #2%
+    \csname pgf@animation@check@\pgf@animation@attribute\endcsname%
     \pgfsysanimate{\pgf@animation@attribute}%
   }%
 }
@@ -282,6 +282,8 @@
     \pgf@anim@decomp{#1}%
     \pgfidrefnextuse\pgf@anim@id\pgf@anim@id@name%
     \expandafter\expandafter\expandafter\pgfsysanimkeywhom\expandafter\expandafter\expandafter{\expandafter\pgf@anim@id\expandafter}\expandafter{\pgf@anim@type}%
+    \let\pgf@anim@whom@id\pgf@anim@id%
+    \let\pgf@anim@whom@type\pgf@anim@type%
   }
 }
 
@@ -566,12 +568,33 @@
       \noexpand\pgfsysanimkeycanvastransform%
       {\noexpand\pgftransformshift{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}{\noexpand\pgflowlevelsynccm}}%
       {\noexpand\pgftransforminvert\noexpand\pgflowlevelsynccm}%
+      \noexpand\pgf@anim@save@transform{\noexpand\pgftransformshift{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}}%
     }%
     \pgf@marshal%
   }
 }
 
 \pgfsysanimkeycanvastransform{{\pgflowlevelsynccm}}{\pgftransforminvert\pgflowlevelsynccm}%
+
+
+
+% Specifies the tranforming for the animation coordinate system
+% 
+% #1 = code that changes the pgf coordinate system
+%
+% Specifies an additional transformation of the coordinate system for
+% animations. 
+%
+% Example:
+% 
+% \pgfanimateattribute{shift}{entry={0s}{\pgfpointorigin}, entry={1s}{\pgfpoint{1cm}{0cm}}, transform=\pgftransformrotate{30}}
+
+\pgfanimationset{
+  transform/.code={%
+    \pgfsysanimkeycanvastransform{#1{\pgflowlevelsynccm}}{\pgftransforminvert\pgflowlevelsynccm}%
+    \pgf@anim@save@transform{#1}%
+  }
+}
 
 
 
@@ -599,6 +622,7 @@
     \global\let\pgfanim@the@path\pgfanim@the@path%
     \pgfsyssoftpath@setcurrentpath\pgfanim@save@path%
   }%
+  \expandafter\pgf@anim@protocol@path@size\pgfanim@the@path\pgf@stop%
   \expandafter\pgfsysanimkeymovealong\expandafter{\pgfanim@the@path}%
 }
 
@@ -616,9 +640,19 @@
 %    along softpath=\pgfsyssoftpath@movetotoken {0pt}{0pt}\pgfsyssoftpath@linetotoken {10pt}{10pt}}
 
 \pgfanimationset{
-  along softpath/.code=\pgfsysanimkeymovealong{#1}%
+  along softpath/.code=%
+  \pgf@anim@protocol@path@size#1\pgf@stop%
+  \pgfsysanimkeymovealong{#1}%
 }
 
+
+\def\pgf@anim@protocol@path@size{%
+  \pgfutil@ifnextchar\pgf@stop\relax\pgf@anim@protocol@path@size@%
+}
+\def\pgf@anim@protocol@path@size@#1#2#3{%
+  \pgf@protocolanimsizes@direct{#2}{#3}%
+  \pgf@anim@protocol@path@size%
+}
 
 
 % Configures whether the motion is rotated along the path.
@@ -1120,6 +1154,7 @@
 
 \def\pgfanim@parse@type@point#1{%
   \pgf@process{#1}%
+  \pgf@protocolanimsizes\pgf@x\pgf@y%
   \expandafter\expandafter\expandafter\pgfsysanimvaltranslate\expandafter\expandafter\expandafter{\expandafter\the\expandafter\pgf@x\expandafter}\expandafter{\the\pgf@y}%
 }
 
@@ -1200,8 +1235,79 @@
 
 
 
+% 
+%
+% Bounding box adjustments in animations.
+%
+%
 
+\def\pgf@protocolanimsizes#1#2{%
+  \edef\pgf@temp{\noexpand\pgf@anim@handle@point{\the#1}{\the#2}}%
+  \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@protocolanim@list\expandafter\expandafter\expandafter{\expandafter\pgf@protocolanim@list\pgf@temp}%
+}
+\def\pgf@protocolanimsizes@direct#1#2{%
+  \expandafter\def\expandafter\pgf@protocolanim@list\expandafter{\pgf@protocolanim@list\pgf@anim@handle@point{#1}{#2}}%
+}
+\let\pgf@protocolanim@list\pgfutil@empty
 
+\def\pgf@animation@check@translate{%
+  \ifx\pgf@protocolanim@list\pgfutil@empty%
+  \else%
+    \expandafter\expandafter\expandafter\pgf@animation@check@translate@\expandafter\expandafter\expandafter{\expandafter\pgf@protocolanim@list\expandafter}\expandafter{\pgf@anim@saved@transform}%
+  \fi%
+}
+\let\pgf@animation@check@motion\pgf@animation@check@translate
 
+\def\pgf@animation@check@translate@#1#2{%
+  \pgfsys@attach@to@id\pgf@anim@whom@id\pgf@anim@whom@type{%
+    \pgf@size@hookedtrue%
+    {%
+      % Compute bounding box in local coordinate system
+      #2%
+      \pgf@pt@x0pt%
+      \pgf@pt@y0pt%
+      \pgf@picmaxx=-16000pt\relax%
+      \pgf@picminx=16000pt\relax%
+      \pgf@picmaxy=-16000pt\relax%
+      \pgf@picminy=16000pt\relax%
+      #1%
+      \edef\pgf@temp{{\the\pgf@picminx}{\the\pgf@picminy}{\the\pgf@picmaxx}{\the\pgf@picmaxy}}%
+      \expandafter%
+    }\expandafter%
+    \def\expandafter\pgf@temp\expandafter{\pgf@temp}%
+    \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@path@size@hook\expandafter\expandafter\expandafter{%
+      \expandafter\pgf@path@size@hook\expandafter\pgf@anim@bb\pgf@temp}%
+  }{}%
+}
+\def\pgf@anim@handle@point#1#2{%
+  \pgf@x#1\pgf@y#2%
+  \pgf@pos@transform\pgf@x\pgf@y%
+  \ifdim\pgf@x<\pgf@picminx\pgf@picminx\pgf@x\fi%
+  \ifdim\pgf@x>\pgf@picmaxx\pgf@picmaxx\pgf@x\fi%
+  \ifdim\pgf@y<\pgf@picminy\pgf@picminy\pgf@y\fi%
+  \ifdim\pgf@y>\pgf@picmaxy\pgf@picmaxy\pgf@y\fi%
+}
+    
+\newdimen\pgf@anim@dim
+
+\def\pgf@anim@bb#1#2#3#4{% (#1,#2) lower left, (#3, #4) upper right
+  \pgf@anim@dim\pgf@size@hook@x%
+  \advance\pgf@anim@dim by#1\relax%
+  \ifdim\pgf@anim@dim<\pgf@picminx\global\pgf@picminx\pgf@anim@dim\fi%
+  \pgf@anim@dim\pgf@size@hook@x%
+  \advance\pgf@anim@dim by#3\relax%
+  \ifdim\pgf@anim@dim>\pgf@picmaxx\global\pgf@picmaxx\pgf@anim@dim\fi%
+  \pgf@anim@dim\pgf@size@hook@y%
+  \advance\pgf@anim@dim by#2\relax%
+  \ifdim\pgf@anim@dim<\pgf@picminy\global\pgf@picminy\pgf@anim@dim\fi%
+  \pgf@anim@dim\pgf@size@hook@y%
+  \advance\pgf@anim@dim by#4\relax%
+  \ifdim\pgf@anim@dim>\pgf@picmaxy\global\pgf@picmaxy\pgf@anim@dim\fi%
+}
+
+\def\pgf@anim@save@transform#1{%
+  \def\pgf@anim@saved@transform{#1}%
+}
+\let\pgf@anim@saved@transform\pgfutil@empty%
 
 \endinput
