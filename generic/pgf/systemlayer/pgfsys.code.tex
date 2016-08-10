@@ -17,7 +17,7 @@
 \pgfkeys{/pgf/.is family}
 \def\pgfset{\pgfqkeys{/pgf}}
 
-% This is if is needed *very* early
+% This if is needed *very* early
 \newif\ifpgfpicture
 
 
@@ -93,12 +93,6 @@
 
 
 
-% The following \if decides, whether even-odd filling and clipping is
-% to be used or normal the non-zero winding number rule. See the
-% pdf-documentation for details on what these rules are.
-
-\newif\ifpgfsys@eorule
-
 
 
 % In the following dummy definitions of the pgf system commands are
@@ -128,6 +122,10 @@
 
 
 
+%
+% Invocation commands
+%
+
 \def\pgfsys@invoke{\pgf@sys@fail{invoking specials}}
 % This command is used whenever some literal text needs to be inserted
 % into the resulting .pdf, .ps, or .dvi file. Note that most
@@ -140,7 +138,6 @@
 % This command should only be called when \pgfsys@beginpicture has
 % been called previously and when the picture has not been suspended
 % using \pgfsys@beginhbox.
-
 
 \def\pgfsys@outerinvoke{\pgfsys@invoke}
 % This command can be used to insert protocolled graphic commands
@@ -322,6 +319,11 @@
 \def\pgfsys@closestroke{\pgfsys@closepath\pgfsys@stroke}
 % This command should have the same effect as first closing the path
 % and then stroking it.
+
+\newif\ifpgfsys@eorule
+% Decides, whether even-odd filling and clipping is
+% to be used or normal the non-zero winding number rule. See the
+% pdf-documentation for details on what these rules are.
 
 
 
@@ -563,6 +565,14 @@
 \def\pgfsys@endscope{\pgf@sys@fail{scoping}}
 % Restores the last saved graphic state.
 
+\def\pgfsys@begin@guardscope{}
+% For some drivers (most noticably, for SVG) each graphic state change
+% must be placed in a scope begin. These must then closed
+% appropriately. For these drivers, guard scopes can be added.
+
+\def\pgfsys@end@guardscope{}
+% Closes a guard scope.
+
 \def\pgfsys@begin@idscope{%
   \begingroup%
     \edef\pgf@sys@cacheref{\pgfsys@id@refcurrent}%
@@ -586,7 +596,7 @@
 % created, use \pgfsys@beginscope additionally.
 
 \def\pgfsys@call@save{%
-  \pgfsys@beginscope%
+  \pgfsys@begin@guardscope%
   \pgfsys@beg@save%
   \expandafter\global\expandafter\let\csname pgf@sys@att@beg@\pgfsys@id@refcurrent\endcsname\relax%
   \expandafter\global\expandafter\let\csname pgf@sys@att@end@\pgfsys@id@refcurrent\endcsname\relax%
@@ -608,8 +618,24 @@
 
 \def\pgfsys@call@end{%
   \pgfsys@end@save%
-  \pgfsys@endscope%
+  \pgfsys@end@guardscope%
 }
+
+
+\def\pgfsys@begin@text{}
+% Inside a text box you should not use graphics command. However, TikZ
+% needs to insert some color commands at the beginnings of text
+% boxes. For most drivers, this is not a problem; except for SVG,
+% where every change of the graphics state opens a scope and needs a
+% closing scope. This command should be used at the beginning of text
+% boxes containing such color commands and the matching
+% \pgfsys@end@text at the end. If the box does not contain commands
+% that change the graphics state, this command is not needed.
+
+\def\pgfsys@end@text{}
+% Closes a \pgfsys@begin@text.
+
+
 
 %
 %
@@ -662,7 +688,7 @@
 
 \def\pgfsys@register@type#1{%
   \expandafter\let\expandafter\pgf@sys@temp\csname pgf@sys@reg@type@#1\endcsname%
-  \if\pgf@sys@temp\relax%
+  \ifx\pgf@sys@temp\relax%
     {%
       \c@pgf@counta\pgf@sys@type@count\relax%
       \global\advance\c@pgf@counta by1\relax%
@@ -1492,8 +1518,6 @@
 % typically have been low-level translated somewhere else.)
 %
 % This command has a default implementation.
-
-
 
 
 \def\pgfsys@hbox#1{%

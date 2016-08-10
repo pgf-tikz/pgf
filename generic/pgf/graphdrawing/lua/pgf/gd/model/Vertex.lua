@@ -22,7 +22,7 @@
 -- be modified directly.
 --
 -- Note that a |Vertex| is an abstraction of \tikzname\ nodes; indeed
--- that objective is to ensure that, in principle, we can use them
+-- the objective is to ensure that, in principle, we can use them
 -- independently of \TeX. For this reason, you will not find any
 -- references to |tex| inside a |Vertex|; this information is only
 -- available in the syntactic digraph.

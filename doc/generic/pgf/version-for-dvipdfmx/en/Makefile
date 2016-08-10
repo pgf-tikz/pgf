@@ -17,6 +17,12 @@ pgfmanual.pdf: $(doc).tex $(doc).ind
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	dvipdfmx -p a4 $(doc)
 
+test: $(doc)-test.tex $(doc).ind 
+	mkdir -p plots
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
+	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
+	dvipdfmx -p a4 $(doc)-test
+
 clean:
 	rm -f  \
 		plots/* \
