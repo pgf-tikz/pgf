@@ -24,7 +24,6 @@ local Storage                 = require "pgf.gd.lib.Storage"
 local PriorityQueue           = require "pgf.gd.lib.PriorityQueue"
 
 local Supergraph              = require "pgf.gd.experimental.evolving.Supergraph"
---local Borders                 = require "pgf.gd.experimental.evolving.Borders"
 
 local LayoutPipeline          = require "pgf.gd.control.LayoutPipeline"
 local Direct                  = require "pgf.gd.lib.Direct"
@@ -270,6 +269,126 @@ local function precompute_childgroups(supergraph, tree, node, childgroups, snaps
   end
 end
 
+--
+-- Use this function to compute the horizontal positions of all
+-- vertices in a tree by accumulation of the relative shifts on the
+-- path from the root to the vertex recursively.
+--
+-- @param tree the tree in which the vertice's position should be
+--   computed.
+--
+-- @param vertex the next vertex that gets its absolute coordinate.
+--
+-- @param shifts a Storage, which stores for each node the relative
+--   shift between the vertex and its parent.
+--
+-- @param abs_shift the sum of all relative shifts on the path from
+--   the root to the vertex.
+--
+local function accumulate_hpos(tree, vertex, shifts, abs_shift)
+  local new_shift = abs_shift + shifts[vertex]
+  local test = vertex.pos.x
+  vertex.pos.x = new_shift
+--  if vertex.pos.x - test > 0.0001 then texio.write("X")end
+  local outgoings = tree:outgoing(vertex)
+  for _, e in ipairs(outgoings) do
+    accumulate_hpos(tree, e.head, shifts, new_shift)
+  end
+end
+
+
+local function get_next(border_pair, next)
+  local nl = next.left[border_pair.left]
+  local nr = next.right[border_pair.right]
+  assert ((nl and nr) or (not nl and not nr))
+  return {left = nl,  right = nr,
+	 }
+end
+
+local function add_shift(abs_shift, border_pair, next)
+  abs_shift.left  = abs_shift.left  + next.left_shift[border_pair.left]
+  abs_shift.right = abs_shift.right + next.right_shift[border_pair.right]
+end
+
+--
+-- Given a tree, computes the required distance between the i-th and the (i+1)-th subtree
+-- of the vertex |snapshot_vertex|.
+--
+-- @param shifts a Storage, which contains for each vertex the relative horizontal shift
+--   to its parent vertex.
+--
+function Skambath2016:computeRequiredDistance(tree, vertex, i, shifts, next)
+  local outgoings = tree:outgoing(vertex)
+--  texio.write("\n::"..vertex.name.. " "..i.."|"..(i+1))
+  if #outgoings > 0 then
+    local clumb  = {left = outgoings[1].head,right = outgoings[i].head}
+    if clumb.right.kind=="dummy" then shifts[clumb.right] = 0 end
+    local v0     = outgoings[i].head
+    local v1     = outgoings[i+1].head
+    local shift = layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, v0, v1) + shifts[clumb.right]   
+    local last0 = {left = clumb.left, right = clumb.right}
+    local last1 = {left = v1, right = v1}	
+    local next0 = get_next(last0, next)
+    local next1 = get_next(last1, next)
+    local abs_shift0 = {left = shifts[clumb.left], right = shifts[clumb.right]}
+    local abs_shift1 = {left = 0, right = 0} 
+
+    while (next0.left and next1.left) do
+      add_shift(abs_shift0, last0, next)
+      add_shift(abs_shift1, last1, next)
+
+      shift = math.max(shift,
+		       layered.ideal_sibling_distance(self.adjusted_bb,
+						      self.ugraph,
+						      next0.right,
+						      next1.left)
+		       + abs_shift0.right - abs_shift1.left)
+--      texio.write("\n   | "..(next0.right.name or "dummy").."<->"..(next1.left.name or "dummy").." :\t"..shift)      
+      last0, last1 = next0, next1
+      next0  = get_next(next0, next)
+      next1  = get_next(next1, next)
+    end
+    return shift, {l0 = last0, l1 = last1, n0 = next0, n1 = next1,abs_shift1 = abs_shift1,abs_shift0=abs_shift0}
+    -- end
+  else
+    return 0
+  end
+end
+
+local function apply_shift(tree, vertex, i, shifts, next, border_ptr, shift)
+  local outgoings = tree:outgoing(vertex)
+--  texio.write("\n" .. (vertex.name or "dummy")..": ".. shift )
+  if #outgoings >= (i+1) then
+    assert(border_ptr, "unexpected error")
+    local last0 = border_ptr.l0
+    local last1 = border_ptr.l1
+    local next0 = border_ptr.n0
+    local next1 = border_ptr.n1
+    local abs0  = border_ptr.abs_shift0
+    local abs1  = border_ptr.abs_shift1
+    local vbase  = outgoings[1].head -- before centering the 1st vertex is at x=0
+    local v0     = outgoings[i].head
+    local v1     = outgoings[i+1].head
+    if v0.kind=="dummy" then shifts[v0] = 0 end
+    shifts[v1] = shifts[vbase] + shift
+    if next0.left then
+      assert(next0.right and next0.left, "failA")
+      -- pointer from T_i to T_{i+0}
+      next.right[last1.right]       = next0.right
+      next.right_shift[last1.right] = - shift - abs1.right + (abs0.right + next.right_shift[last0.right])
+    elseif  next1.right then
+      assert(next1.right and next1.left, "")
+      -- pointer from T_{i+0} to T_i
+  --    texio.write(last0.left .." -> " ..next1.left)
+      next.left[last0.left] = next1.left
+--      pgf.debug{last0,abs0,abs1,last1}
+      next.left_shift[last0.left]  =   shift - abs0.left + (abs1.left + next.left_shift[last1.left] )
+      
+    else
+      -- both trees have the same height
+    end
+  end
+end
 
 -- Implementation
 
@@ -305,12 +424,15 @@ function Skambath2016:run()
     supergraph     = self.supergraph,
     digraph        = self.digraph,
   }:run()
-  
+
+
+
   self:precomputeDescendants(layers, descendants)
   self:precomputeChildgroups(childgroups)
+
   self:computeHorizontalLayout(childgroups, descendants)
-  
-  
+--  self:computeHorizontalLayoutFast()
+    
   -- vertical positions  
   tlayered.arrange_layers_by_baselines(layers,
 				       self.adjusted_bb,
@@ -324,7 +446,7 @@ function Skambath2016:run()
     supergraph     = supergraph_original,
     digraph        = self.digraph,
     ugraph         = self.ugraph
-  }:run()
+	       }:run()
 end
 
 --
@@ -542,6 +664,149 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
   end
 end
 
+--
+-- The main algorithm: This method computes the layout for each vertex.
+-- For this all supervertices are visited in a topological order to their dependency.
+-- If a . This requires the supergraph to be acyclic. If this is not the case
+-- the calling process has to remove all cycles otherwise the x-coordinate will
+-- not be computed for every vertex.
+--
+function Skambath2016:computeHorizontalLayoutFast()
+  local all_trees = Storage.new()
+  local dep_counter = {}
+  local visited   = {}
+  local queue     = PriorityQueue.new()
+  local dependency_graph    = Digraph.new()
+  local shifts = Storage.new()
+  local next   = Storage.new()
+  for _, vertex in ipairs(self.supergraph.vertices) do
+    dep_counter[vertex] = 0
+    dependency_graph:add {vertex}
+  end
+
+  
+  -- I. Initialize Dependencies (Build Dependency Graph)
+  for _, snapshot in ipairs(self.supergraph.snapshots) do
+    for _, spanning_tree in ipairs(snapshot.spanning_trees) do
+      table.insert(all_trees, spanning_tree)
+      shifts[spanning_tree] = Storage.new()
+      next[spanning_tree] = {left= Storage.new(),
+			     right= Storage.new(),
+			     left_shift = Storage.new(),
+			     right_shift = Storage.new()
+      }
+      
+      for _, arc in ipairs(spanning_tree.arcs) do
+	local head = self.supergraph:getSupervertex(arc.head)
+	local tail = self.supergraph:getSupervertex(arc.tail)
+
+	if(head and tail) then
+	  if not dependency_graph:arc(tail, head) then
+	    dependency_graph:connect(tail, head)
+	    dep_counter[tail] = dep_counter[tail] + 1
+	  end
+	end
+      end
+    end
+  end
+
+  -- II. Visit vertices in topological ordering
+  -- Find independent vertices
+  for _, vertex in ipairs(dependency_graph.vertices) do
+    local outgoings = dependency_graph:outgoing(vertex)
+    if #outgoings == 0 then
+      queue:enqueue(vertex, 1)
+    end
+  end
+   
+  while not queue:isEmpty() do
+    -- Next node in topological order
+    local vertex = queue:dequeue()
+--    texio.write("\n\n --- "..vertex.name .. " ---")
+    --pgf.debug{next}
+    local vertex_snapshots = self.supergraph:getSnapshots(vertex)
+      
+    -- a. Resolve dependencies on this vertex:
+    local incomings = dependency_graph:incoming(vertex)
+    for _, e in ipairs(incomings) do     
+      dep_counter[e.tail] = dep_counter[e.tail] - 1
+      if dep_counter[e.tail] == 0 then
+	queue:enqueue(e.tail, 1)
+      end   
+    end
+
+    -- b. Compute maximum number of children over time:
+    local num_children = 0
+    for _, s in ipairs(vertex_snapshots) do
+      local v = self.supergraph:getSnapshotVertex(vertex, s)
+      local tree = s.spanning_trees[1]
+      num_children = math.max(num_children, #(tree:outgoing(v)))
+      shifts[tree][v] = 0
+    end
+    
+    -- c. Shift all subtrees in all snapshots:
+    local hlp_ptr = Storage.new()
+    local max_shift = 0
+    for i = 1, (num_children - 1) do
+      -- i)    Compute the necessary shift between the i-th and (i+1)-th subtrees (per snapshot):
+      local min_shift = 0
+      for t, s in ipairs(vertex_snapshots) do
+	local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
+	local tree = s.spanning_trees[1]
+	local req_shift, hptr
+	req_shift, hptr = self:computeRequiredDistance(tree,
+						       snapshot_vertex,
+						       i,
+						       shifts[tree],
+						       next[tree]
+						      )
+	hlp_ptr[t] = hptr
+--	texio.write(" -> \t"..req_shift)
+	min_shift = math.max(min_shift, req_shift)
+      end
+
+--      texio.write("\n \t\t".. min_shift )
+      
+      -- ii)   Synchronize distance between neigbored subtrees and apply shifts
+      for t, s in ipairs(vertex_snapshots) do
+	local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
+	local tree = s.spanning_trees[1]
+	apply_shift(tree, snapshot_vertex, i, shifts[tree], next[tree], hlp_ptr[t], min_shift)
+      end
+
+      max_shift = min_shift
+    end
+
+    for t, s in ipairs(vertex_snapshots) do
+      local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
+      local tree = s.spanning_trees[1]
+      local outgoings = tree:outgoing(snapshot_vertex)
+      
+--      next[tree].left[snapshot_vertex] = outgoings[1].head
+
+
+      for i = 1,#outgoings do
+	if i==1 then
+	  next[tree].left_shift[snapshot_vertex] = - max_shift / 2
+	  next[tree].left[snapshot_vertex]= outgoings[i].head	  
+	end
+	shifts[tree][outgoings[i].head] = shifts[tree][outgoings[i].head] - max_shift / 2
+	next[tree].right[snapshot_vertex] = outgoings[i].head
+	next[tree].right_shift[snapshot_vertex] =  shifts[tree][outgoings[i].head]
+      end
+	
+    end
+    
+  end -- end while (all vertices have been processed)
+
+  -- III. Accumulate absolute horizontal coordinates
+  for _, tree in ipairs(all_trees) do
+    accumulate_hpos(tree, tree.root, shifts[tree], 0)
+  end
+end
+
+
+
 
 function Skambath2016:precomputeTreeDescendants(tree, node, depth, layers, descendants)
   local my_descendants = { node }
@@ -578,8 +843,9 @@ function Skambath2016:precomputeChildgroups(childgroups)
 end
 
 --
--- Compute a spanning tree for each snapshotgraph and appends
--- the result for a snapshot s to s.spanning_tree.
+-- Compute a for each connected component of each
+-- snapshot and appends the result for a snapshot s to
+-- the array s.spanning_trees.
 --
 function Skambath2016:precomputeSpanningTrees()
   local events = assert(self.scope.events,
@@ -598,11 +864,6 @@ function Skambath2016:precomputeSpanningTrees()
     for i, syntactic_component in ipairs (syntactic_components) do
       local tree = SpanningTreeComputation.computeSpanningTree(syntactic_component, true, events)
       s.spanning_trees[i] = tree
---      texio.write("\n"..i .. " |")
---      pgf.debug{syntactic_component}
---      if i == 1 then
---	s.spanning_tree = tree
---      end
     end
   end
 end
