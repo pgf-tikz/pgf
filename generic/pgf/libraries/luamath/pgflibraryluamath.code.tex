@@ -107,10 +107,31 @@
 \let\pgfmathnotifynewdeclarefunction@orig=\pgfmathnotifynewdeclarefunction
 \def\pgfmathnotifynewdeclarefunction#1#2#3{%
 	\pgfmathnotifynewdeclarefunction@orig{#1}{#2}{#3}%
-	\directlua{pgfluamathparser.pushLocalExpressionFunction(%
-		"\pgfutil@luaescapestring{#1}",%
-		#2,%
-		"\pgfutil@luaescapestring{#3}")}%
+	%
+	% we have to check if '#3' contains control sequences.
+	% this is highly tricky as it may contain '#1'...
+	\begingroup
+		\toks0={#3}%
+		\xdef\pgf@marshal@glob{\the\toks0 }%
+	\endgroup
+	\pgfutil@command@to@string\pgf@marshal@glob\pgf@marshal
+	\expandafter\pgfutilifcontainsmacro\expandafter{\pgf@marshal}{%
+		\def\pgf@temp{1}%
+	}{%
+		\def\pgf@temp{0}%
+	}%
+	\if1\pgf@temp
+		% let lua produce an error when evaluating this function -- we cannot possibly expand the macro to its current state:
+		\directlua{pgfluamathparser.pushLocalExpressionFunction(%
+			"\pgfutil@luaescapestring{#1}",%
+			#2,%
+			"functionMustBeEvaluatedInTeX")}%
+	\else
+		\directlua{pgfluamathparser.pushLocalExpressionFunction(%
+			"\pgfutil@luaescapestring{#1}",%
+			#2,%
+			"\pgfutil@luaescapestring{#3}")}%
+	\fi
 	%
 	% ensure that the local function is removed at the end of the
 	% scope. To this end, we maintain a stack on the LUA side.
