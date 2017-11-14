@@ -352,8 +352,7 @@
 	\pgf@iflinesintersect{#1}{#2}{#3}{#4}%
 	{%
 		\pgfextract@process\pgf@intersect@solution@candidate{%
-			\pgfpointintersectionoflines{\pgfpoint@intersect@start@a}{\pgfpoint@intersect@end@a}%
-				{\pgfpoint@intersect@start@b}{\pgfpoint@intersect@end@b}%
+			% pgf@x and pgf@y are already assigned by \pgf@iflinesintersect
 		}%
 		\pgf@ifsolution@duplicate{\pgf@intersect@solution@candidate}{%
 			% ah - we a duplicate. Apparently, we have a hit on an
@@ -388,7 +387,8 @@
 			\pgf@intersection@store@properties{pgfpoint@g@intersect@solution@\the\pgf@intersect@solutions}%
 		}%
 		%
-	}{}%		
+	}{%
+	}%		
 }
 
 % Test if two lines L1 and L2 intersect.
@@ -429,95 +429,199 @@
 	\endgroup%
 }
 
+% queried by pgfplots. Do not delete, only increase.
+\def\pgf@intersections@version{2}%
+
+% #1,#2: line 1
+% #3,#4: line 2
 \def\pgf@iflinesintersect#1#2#3#4{%
-	#4\relax%
-	\pgf@xc=\pgf@x%
-	\pgf@yc=\pgf@y%
-	#3\relax%
-	\advance\pgf@xc by-\pgf@x%
-	\advance\pgf@yc by-\pgf@y%
-	\pgf@xb=\pgf@x%
-	\pgf@yb=\pgf@y%
-	#2\relax%
+	% first: check bounding boxes -- but somewhat increased such that we do not
+	% exclude "visible" hits due to rounding issues (i.e. use an upper bound):
+	\pgf@intersect@boundingbox@reset%
+	\pgf@intersect@boundingbox@update{#1}%
+	\pgf@intersect@boundingbox@update{#2}%
+	\pgf@intersect@boundingbox@assign@b%
+	%
+	\pgf@intersect@boundingbox@reset%
+	\pgf@intersect@boundingbox@update{#3}%
+	\pgf@intersect@boundingbox@update{#4}%
+	\pgf@intersect@boundingbox@assign@a%
+	%
+	\pgf@intersect@boundingbox@a%
+	\pgf@intersect@boundingbox@b%
+	%
+	\pgf@intersect@boundingbox@ifoverlap@upperbound{%
+		\pgf@iflinesintersect@{#1}{#2}{#3}{#4}%
+	}{%
+		\let\pgf@intersect@next=\pgfutil@secondoftwo%
+	}%
+	\pgf@intersect@next%
+}%
+
+% a helper routine which simply defines \pgf@intersect@next.
+% 
+% In principle, this routine is capable of computing the entire intersection... but we only invoke it after checking for bounding box overlaps. This has two reasons:
+%   1. robustness. almost-parallel lines could cause "dimension too large" when solving the linear equation system
+% 		XXX : I still needed to replace the linear solver by one using the FPU. Perhaps I do not need the BB check anymore?
+%   2. performance. I hope it is faster to first check for BB (but this is not sure in TeX)
+%
+% #1,#2: line 1
+% #3,#4: line 2
+\def\pgf@iflinesintersect@#1#2#3#4{%
+	% we have two lines of sorts
+	% l_1(s) := #1 + s * (#2 - #1),  0<= s <= 1
+	% and
+	% l_2(t) := #3 + t * (#4 - #3),  0<= t <= 1
+	% ->
+	% set up LGS
+	% ( #2 - #1 ) *s + (#3-#4) * t = #3-#1
+	% we have a hit if 0<= s,t <= 1 .
+	#1\relax%
 	\pgf@xa=\pgf@x%
 	\pgf@ya=\pgf@y%
-	#1\relax%
-	\advance\pgf@xa by-\pgf@x%
-	\advance\pgf@ya by-\pgf@y%
-	\advance\pgf@xb by-\pgf@x%
-	\advance\pgf@yb by-\pgf@y%
+	#2\relax%
+	\pgf@xb=\pgf@x%
+	\pgf@yb=\pgf@y%
+	#3\relax%
+	\pgf@xc=\pgf@x%
+	\pgf@yc=\pgf@y%
+	#4\relax%
 	%
-	% xc = x4-x3; yc=y4-y3;
-	% xb = x3-x1; yb=y3-y1;
-	% xa = x2-x1; ya=y2-y1;
+	% will be overwritten, remember it:
+	\edef\pgf@intersect@A{%
+		\pgf@xa=\the\pgf@xa\space
+		\pgf@ya=\the\pgf@ya\space
+	}%
 	%
+	% B := (2-1)
+	\advance\pgf@xb by-\pgf@xa
+	\advance\pgf@yb by-\pgf@ya
 	%
-	% Normalise a little. 16384 may not be a robust choice.
+	% A := (3-1)
+	\advance\pgf@xa by-\pgf@xc
+	\advance\pgf@ya by-\pgf@yc
+	\pgf@xa=-\pgf@xa
+	\pgf@ya=-\pgf@ya
 	%
-	\c@pgf@counta=\pgf@xa\divide\c@pgf@counta by16384\relax% 
-	\c@pgf@countb=\pgf@xb\divide\c@pgf@countb by16384\relax%
-	\c@pgf@countc=\pgf@ya\divide\c@pgf@countc by16384\relax%
-	\c@pgf@countd=\pgf@yb\divide\c@pgf@countd by16384\relax%
-	\multiply\c@pgf@counta by\c@pgf@countd%
-	\multiply\c@pgf@countc by\c@pgf@countb%
-	\advance\c@pgf@counta by-\c@pgf@countc%
-	\pgfutil@tempcnta=\c@pgf@counta%
+	% C := (3-4)
+	\advance\pgf@xc by-\pgf@x
+	\advance\pgf@yc by-\pgf@y
 	%
-	\c@pgf@counta=\pgf@xc\divide\c@pgf@counta by16384\relax%
-	\c@pgf@countc=\pgf@yc\divide\c@pgf@countc by16384\relax%
-	\multiply\c@pgf@countd by\c@pgf@counta%
-	\multiply\c@pgf@countb by\c@pgf@countc%
-	\advance\c@pgf@countd by-\c@pgf@countb%
-	\pgfutil@tempcntb=\c@pgf@countd%
+	\begingroup
+	% compute the |.|_1 norm of each of lines. We need to compute
+	% tolerance factors in order to decide if we have an intersection.
+	% line 1: compute |#2 - #1|_1 :
+	\ifdim\pgf@xb<0sp \pgf@xb=-\pgf@xb\fi
+	\ifdim\pgf@yb<0sp \pgf@yb=-\pgf@yb\fi
+	\advance\pgf@xb by\pgf@yb
+	\xdef\pgf@intersect@len@a{\pgf@sys@tonumber\pgf@xb}%
 	%
-	\c@pgf@countb=\pgf@xa\divide\c@pgf@countb by16384\relax%
-	\c@pgf@countd=\pgf@ya\divide\c@pgf@countd by16384\relax%
-	\multiply\c@pgf@counta by\c@pgf@countd%
-	\multiply\c@pgf@countc by\c@pgf@countb%
-	\advance\c@pgf@counta by-\c@pgf@countc%
+	% line 2: compute |#3 - #4|_1 :
+	\ifdim\pgf@xc<0sp \pgf@xc=-\pgf@xc\fi
+	\ifdim\pgf@yc<0sp \pgf@yc=-\pgf@yc\fi
+	\advance\pgf@xc by\pgf@yc
+	\xdef\pgf@intersect@len@b{\pgf@sys@tonumber\pgf@xc}%
+	\endgroup
 	%
-	\pgf@sfalse%
-	\pgf@tfalse%
-	\ifnum\c@pgf@counta=0\relax%
-	\else%
-		\ifnum\pgfutil@tempcnta=0\relax%
-			\pgf@strue%
-		\else%
-			\ifnum\pgfutil@tempcnta>0\relax%
-				\ifnum\c@pgf@counta<\pgfutil@tempcnta%
-				\else%
-					\pgf@strue%
-				\fi%
-			\else%
-				\ifnum\c@pgf@counta>\pgfutil@tempcnta%
-				\else%
-					\pgf@strue%
-				\fi%
-			\fi%
-		\fi%
-		\ifnum\pgfutil@tempcntb=0\relax%
-			\pgf@ttrue%
-		\else%
-			\ifnum\pgfutil@tempcntb>0\relax%
-				\ifnum\c@pgf@counta<\pgfutil@tempcntb%
-				\else%
-					\pgf@ttrue%
-				\fi%
-			\else%
-				\ifnum\c@pgf@counta>\pgfutil@tempcntb%
-				\else%
-					\pgf@ttrue%
-				\fi%
-			\fi%
-		\fi%
-	\fi%
+	\edef\pgf@marshal{%
+		\noexpand\pgfutilsolvetwotwoleqfloat{%
+			{\pgf@sys@tonumber\pgf@xb}{\pgf@sys@tonumber\pgf@xc}%
+			{\pgf@sys@tonumber\pgf@yb}{\pgf@sys@tonumber\pgf@yc}%
+		}{%
+			{\pgf@sys@tonumber\pgf@xa}%
+			{\pgf@sys@tonumber\pgf@ya}%
+		}%
+	}%
+	\pgf@marshal
+	%
 	\let\pgf@intersect@next=\pgfutil@secondoftwo%
-	\ifpgf@s%
-		\ifpgf@t%
+	\ifx\pgfmathresult\pgfutil@empty
+		% matrix was singular.
+	\else
+		\def\pgf@marshal##1##2{%
+			\global\pgf@x=##1pt %
+			\global\pgf@y=##2pt %
+		}%
+		\expandafter\pgf@marshal\pgfmathresult
+		%
+		\def\pgf@marshal{XXXX}% this should never be read
+		% FIRST: check line 1:
+		\ifdim\pgf@x<0sp
+			% let it count as hit if
+			%  || l_1(s) - l_1(0) || < eps
+			% <=>  |s| * ||#2 - #1|| < eps
+			% and, since s< 0  here:
+			% <=>  -s * ||#2 - #1|| < eps
+			\pgf@xa=-\pgf@intersect@len@a\pgf@x
+			\ifdim\pgf@xa<\pgfintersectiontolerance\relax
+				% close enough to first endpoint of line 1:
+				\def\pgf@marshal{1}%
+			\else
+				\def\pgf@marshal{0}%
+			\fi
+		\else
+			\ifdim\pgf@x>1pt
+				% let it count as hit if
+				%  || l_1(s) - l_1(1) || < eps
+				% <=>  |s-1| * ||#2 - #1|| < eps
+				% and, since s > 1  here:
+				% <=>  s * ||#2 - #1|| - ||#2 - #1|| < eps
+				\pgf@xa=\pgf@intersect@len@a\pgf@x
+				\advance\pgf@xa by-\pgf@intersect@len@a pt %
+				\ifdim\pgf@xa<\pgfintersectiontolerance\relax
+					% close enough to second endpoint of line 1:
+					\def\pgf@marshal{1}%
+				\else
+					\def\pgf@marshal{0}%
+				\fi
+			\else
+				% 0<= s <= 1: we have an intersection within line 1.
+				\def\pgf@marshal{1}%
+			\fi
+		\fi
+		%
+		% SECOND: check line 2:
+		\if1\pgf@marshal
+			\ifdim\pgf@y<0sp
+				% see remarks for line 1. same applies here.
+				\pgf@xa=-\pgf@intersect@len@b\pgf@y
+				\ifdim\pgf@xa<\pgfintersectiontolerance\relax
+					% close enough to first endpoint of line 2:
+					\def\pgf@marshal{1}%
+				\else
+					\def\pgf@marshal{0}%
+				\fi
+			\else
+				\ifdim\pgf@y>1pt
+					% see remarks for line 1. same applies here.
+					\pgf@xa=\pgf@intersect@len@b\pgf@y
+					\advance\pgf@xa by-\pgf@intersect@len@b pt %
+					\ifdim\pgf@xa<\pgfintersectiontolerance\relax
+						% close enough to second endpoint of line 2:
+						\def\pgf@marshal{1}%
+					\else
+						\def\pgf@marshal{0}%
+					\fi
+				\else
+					% 0<= t <= 1: we have an intersection within line 2.
+					\def\pgf@marshal{1}%
+				\fi
+			\fi
+		\fi
+		%
+		\if1\pgf@marshal
+			% Ok, compute the intersection point and return it:
+			% we use (x,y) = A + s * (B-A)
+			% keep in mind that (s,t) == (\pgf@x,\pgf@y)
+			\pgf@intersect@A
+			\pgf@yc=\pgf@x
+			\global\pgf@x=\pgf@sys@tonumber\pgf@xb\pgf@yc
+			\global\pgf@y=\pgf@sys@tonumber\pgf@yb\pgf@yc
+			\global\advance\pgf@x by \pgf@xa
+			\global\advance\pgf@y by \pgf@ya
 			\let\pgf@intersect@next=\pgfutil@firstoftwo%
-		\fi%
-	\fi%
-	\pgf@intersect@next%
+		\fi
+	\fi
 }
 
 
@@ -576,6 +680,7 @@
 
 
 \def\pgfintersectiontolerance{0.1pt}
+\def\pgfintersectiontoleranceupperbound{1pt}
 \def\pgfintersectiontolerancefactor{0.1}
 
 
@@ -652,34 +757,31 @@
 	\endgroup%
 }
 
-\def\pgf@@intersectionofcurves#1#2#3#4#5#6#7#8{%
-	\pgf@intersect@boundingbox@reset%
-	\pgf@intersect@boundingbox@update{#1}%
-	\pgf@intersect@boundingbox@update{#2}%
-	\pgf@intersect@boundingbox@update{#3}%
-	\pgf@intersect@boundingbox@update{#4}%
-	% (\pgf@xa, \pgf@ya) is lower-left
-	% (\pgf@xb, \pgf@yb) is upper-right
-	\edef\pgf@intersect@boundingbox@b{%
-		\noexpand\pgf@x=\the\pgf@xa% 
-		\noexpand\pgf@y=\the\pgf@ya%
-		\noexpand\pgf@xa=\the\pgf@xb%
-		\noexpand\pgf@ya=\the\pgf@yb%
-	}%
-	\pgf@intersect@boundingbox@reset%
-	\pgf@intersect@boundingbox@update{#5}%
-	\pgf@intersect@boundingbox@update{#6}%
-	\pgf@intersect@boundingbox@update{#7}%
-	\pgf@intersect@boundingbox@update{#8}%
+\def\pgf@intersect@boundingbox@assign@a{%
 	\edef\pgf@intersect@boundingbox@a{%
-		\noexpand\pgf@xb=\the\pgf@xa%
-		\noexpand\pgf@yb=\the\pgf@ya%
-		\noexpand\pgf@xc=\the\pgf@xb%
-		\noexpand\pgf@yc=\the\pgf@yb%
+		% lower left:
+		\noexpand\pgf@xb=\the\pgf@xa\space%
+		\noexpand\pgf@yb=\the\pgf@ya\space%
+		% upper right:
+		\noexpand\pgf@xc=\the\pgf@xb\space%
+		\noexpand\pgf@yc=\the\pgf@yb\space%
 	}%	
-	\pgf@intersect@boundingbox@a%
-	\pgf@intersect@boundingbox@b%
-	% check if the two bounding boxes overlap:
+}
+\def\pgf@intersect@boundingbox@assign@b{%
+	\edef\pgf@intersect@boundingbox@b{%
+		% lower left:
+		\noexpand\global\noexpand\pgf@x=\the\pgf@xa\space% 
+		\noexpand\global\noexpand\pgf@y=\the\pgf@ya\space%
+		% upper right:
+		\noexpand\pgf@xa=\the\pgf@xb\space%
+		\noexpand\pgf@ya=\the\pgf@yb\space%
+	}%
+}
+
+% see \pgf@intersect@boundingbox@assign@a and \pgf@intersect@boundingbox@assign@b for the naming conventions
+\def\pgf@intersect@boundingbox@ifoverlap{%
+	\def\pgf@intersect@next{\pgfutil@secondoftwo}%
+	%
 	\ifdim\pgf@xa<\pgf@xb%
 	\else%
 		\ifdim\pgf@x>\pgf@xc%
@@ -688,6 +790,81 @@
 			\else%
 				\ifdim\pgf@y>\pgf@yc%
 				\else%
+					\def\pgf@intersect@next{\pgfutil@firstoftwo}%
+				\fi
+			\fi
+		\fi
+	\fi
+	\pgf@intersect@next
+}%
+\def\pgf@intersect@boundingbox@ifoverlap@upperbound{%
+	\begingroup
+	\def\pgf@intersect@next{\pgfutil@secondoftwo}%
+	%
+	\advance\pgf@xa by+\pgfintersectiontolerance\relax
+	\ifdim\pgf@xa<\pgf@xb%
+	\else%
+		\global\advance\pgf@x by-\pgfintersectiontolerance\relax
+		\ifdim\pgf@x>\pgf@xc%
+		\else%
+			\advance\pgf@ya by\pgfintersectiontolerance\relax
+			\ifdim\pgf@ya<\pgf@yb%
+			\else%
+				\global\advance\pgf@y by-\pgfintersectiontolerance\relax
+				\ifdim\pgf@y>\pgf@yc%
+				\else%
+					\def\pgf@intersect@next{\pgfutil@firstoftwo}%
+				\fi
+			\fi
+		\fi
+	\fi
+	\expandafter
+	\endgroup
+	\pgf@intersect@next
+}%
+\def\pgf@intersect@boundingbox@ifoverlap@UNUSED{%
+	\let\pgf@intersect@next=\pgfutil@secondoftwo%
+	\ifdim\pgf@xa<\pgf@xb%
+	\else%
+		\ifdim\pgf@x>\pgf@xc%
+		\else%
+			\ifdim\pgf@ya<\pgf@yb%
+			\else%
+				\ifdim\pgf@y>\pgf@yc%
+				\else%
+					\let\pgf@intersect@next=\pgfutil@firstoftwo%
+				\fi
+			\fi
+		\fi
+	\fi
+	\pgf@intersect@next
+}%
+\def\pgf@@intersectionofcurves#1#2#3#4#5#6#7#8{%
+	\pgf@intersect@boundingbox@reset%
+	\pgf@intersect@boundingbox@update{#1}%
+	\pgf@intersect@boundingbox@update{#2}%
+	\pgf@intersect@boundingbox@update{#3}%
+	\pgf@intersect@boundingbox@update{#4}%
+	\pgf@intersect@boundingbox@assign@b%
+	%
+	\pgf@intersect@boundingbox@reset%
+	\pgf@intersect@boundingbox@update{#5}%
+	\pgf@intersect@boundingbox@update{#6}%
+	\pgf@intersect@boundingbox@update{#7}%
+	\pgf@intersect@boundingbox@update{#8}%
+	\pgf@intersect@boundingbox@assign@a%
+	%
+	\pgf@intersect@boundingbox@a%
+	\pgf@intersect@boundingbox@b%
+	%
+	\pgf@intersect@boundingbox@ifoverlap{%
+		\pgf@@@intersectionofcurves{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
+	}{%
+		% no overlap -- no intersection.
+	}%
+}
+
+\def\pgf@@@intersectionofcurves#1#2#3#4#5#6#7#8{%
 					% compute DIFFERENCE vectors:
 					\advance\pgf@xc by-\pgf@xb%
 					\advance\pgf@yc by-\pgf@yb%
@@ -749,10 +926,6 @@
 					\else%
 						\pgf@intersect@subdivide@curve{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}%
 					\fi%
-				\fi%
-			\fi%
-		\fi%
-	\fi%
 }
 
 \def\pgf@intersect@subdivide@curve@b#1#2#3#4#5#6#7#8{%

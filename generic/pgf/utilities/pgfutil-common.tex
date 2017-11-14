@@ -451,6 +451,8 @@
 % -> yields \pgfmathresult={−18.55618}{−2.54642}
 %
 % The algorithm employs column pivotisation.
+%
+% If the matrix is singular, the routine will return {}.
 \def\pgfutilsolvetwotwoleq#1#2{%
 	\begingroup
 		\dimendef\aa=0
@@ -476,43 +478,58 @@
 			\def\Pb{a}%
 		}%
 		% \pivot := 1/aa
-		\pgfmathreciprocal@
-			{\csname m\Pa a\endcsname}%
-		\let\pivot=\pgfmathresult
-		%
-		% \factor := 1/aa * ba 
-		\csname \Pb a\endcsname=\pivot\csname \Pb a\endcsname
-		\edef\factor{\expandafter\pgf@sys@tonumber\csname \Pb a\endcsname}%
-		%
-		% bb -= ba/aa * ab
-		\tmpa=-\factor\csname \Pa b\endcsname
-		\advance\csname \Pb b\endcsname by\tmpa
-		%
-		% rb -= ba/aa * ra
-		\tmpa=-\factor\csname r\Pa\endcsname
-		\advance\csname r\Pb\endcsname by\tmpa
-		%
-		% xb := rb / bb (the modified rb and modified bb!)
-		\pgfmathdivide@
-			{\expandafter\pgf@sys@tonumber\csname r\Pb\endcsname}
-			{\expandafter\pgf@sys@tonumber\csname \Pb b\endcsname}%
-		\expandafter\let\csname pgfmathresult\Pb\endcsname=\pgfmathresult
-		%
-		% ra -= xb * ab
-		\tmpa=\csname pgfmathresult\Pb\endcsname\csname \Pa b\endcsname
-		\advance\csname r\Pa\endcsname by-\tmpa
-		%
-		% xa := 1/aa * ra  (the modified ra!)
-		\tmpa=\pivot\csname r\Pa\endcsname
-		\expandafter\edef\csname pgfmathresult\Pa\endcsname{\pgf@sys@tonumber\tmpa}%
-		%
-		\edef\pgfmathresult{%
-			{\csname pgfmathresult\Pa\endcsname}%
-			{\csname pgfmathresult\Pb\endcsname}%
-		}%
+		\tmpa=\csname m\Pa a\endcsname pt %
+		\ifdim\tmpa<0pt \tmpa=-\tmpa\fi
+		\ifdim\tmpa<0.0001pt
+			% singular matrix!
+			\let\pgfmathresult=\pgfutil@empty
+		\else
+			\pgfmathreciprocal@
+				{\csname m\Pa a\endcsname}%
+			\let\pivot=\pgfmathresult
+			%
+			% \factor := 1/aa * ba 
+			\csname \Pb a\endcsname=\pivot\csname \Pb a\endcsname
+			\edef\factor{\expandafter\pgf@sys@tonumber\csname \Pb a\endcsname}%
+			%
+			% bb -= ba/aa * ab
+			\tmpa=-\factor\csname \Pa b\endcsname
+			\advance\csname \Pb b\endcsname by\tmpa
+			%
+			% rb -= ba/aa * ra
+			\tmpa=-\factor\csname r\Pa\endcsname
+			\advance\csname r\Pb\endcsname by\tmpa
+			%
+			\tmpa=\csname \Pb b\endcsname%
+			\ifdim\tmpa<0pt \tmpa=-\tmpa\fi
+			\ifdim\tmpa<0.0001pt
+				% singular matrix!
+				\let\pgfmathresult=\pgfutil@empty
+			\else
+				% xb := rb / bb (the modified rb and modified bb!)
+				\pgfmathdivide@
+					{\expandafter\pgf@sys@tonumber\csname r\Pb\endcsname}
+					{\expandafter\pgf@sys@tonumber\csname \Pb b\endcsname}%
+				\expandafter\let\csname pgfmathresult\Pb\endcsname=\pgfmathresult
+				%
+				% ra := ra - xb * ab
+				\tmpa=\csname pgfmathresult\Pb\endcsname\csname \Pa b\endcsname
+				\advance\csname r\Pa\endcsname by-\tmpa
+				%
+				% xa := 1/aa * ra  (the modified ra!)
+				\tmpa=\pivot\csname r\Pa\endcsname
+				\expandafter\edef\csname pgfmathresult\Pa\endcsname{\pgf@sys@tonumber\tmpa}%
+				%
+				\edef\pgfmathresult{%
+					{\csname pgfmathresult\Pa\endcsname}%
+					{\csname pgfmathresult\Pb\endcsname}%
+				}%
+			\fi
+		\fi
 		\pgfmath@smuggleone\pgfmathresult
 	\endgroup
 }%
+
 \def\pgfutilsolvetwotwoleq@ifislarger#1#2#3#4{%
 	\tmpa=#1
 	\ifdim\tmpa<0pt
@@ -528,6 +545,17 @@
 		#4%
 	\fi
 }%
+
+\def\pgfutilsolvetwotwoleqfloat@ifislarger#1#2#3#4{%
+	\pgfmathfloatabs@{#1}\let\tmpa=\pgfmathresult
+	\pgfmathfloatabs@{#2}\let\tmpb=\pgfmathresult
+	\pgfmathfloatlessthan@{\tmpb}{\tmpa}%
+	\ifpgfmathfloatcomparison
+		#3%
+	\else
+		#4%
+	\fi
+}%
 \def\pgfutilsolvetwotwoleq@A#1#2#3#4{%
 	\def\maa{#1}\def\mab{#2}%
 	\def\mba{#3}\def\mbb{#3}%
@@ -536,6 +564,126 @@
 }
 \def\pgfutilsolvetwotwoleq@r#1#2{%
 	\ra=#1pt \rb=#2pt
+}%
+\def\pgfutilsolvetwotwoleqfloat@A#1#2#3#4{%
+	\pgfmathfloatparsenumber{#1}\let\maa=\pgfmathresult
+	\pgfmathfloatparsenumber{#2}\let\mab=\pgfmathresult
+	\pgfmathfloatparsenumber{#3}\let\mba=\pgfmathresult
+	\pgfmathfloatparsenumber{#4}\let\mbb=\pgfmathresult
+}
+\def\pgfutilsolvetwotwoleqfloat@r#1#2{%
+	\pgfmathfloatparsenumber{#1}\let\ra=\pgfmathresult
+	\pgfmathfloatparsenumber{#2}\let\rb=\pgfmathresult
+}%
+
+% Same as \pgfutilsolvetwotwoleq, but using floating point
+% arithmetics. The return value is still in fixed point.
+\def\pgfutilsolvetwotwoleqfloat#1#2{%
+	\begingroup
+		\pgfmathfloatcreate{1}{1.0}{-4}% FIXME : use a smaller threshold for FPU?
+		\let\thresh=\pgfmathresult
+		%
+		\edef\pgf@temp{#1}%
+		\expandafter\pgfutilsolvetwotwoleqfloat@A\pgf@temp
+		\edef\pgf@temp{#2}%
+		\expandafter\pgfutilsolvetwotwoleqfloat@r\pgf@temp
+		%
+		\pgfutilsolvetwotwoleqfloat@ifislarger\maa\mba{%
+			% identity "permutation":
+			\def\Pa{a}%
+			\def\Pb{b}%
+		}{%
+			% permutation matrix: switch rows!
+			\def\Pa{b}%
+			\def\Pb{a}%
+		}%
+		% \pivot := 1/aa
+		\expandafter\pgfmathfloatabs@\expandafter{\csname m\Pa a\endcsname}%
+		\let\tmpa=\pgfmathresult
+		\pgfmathfloatlessthan@{\tmpa}{\thresh}%
+		\ifpgfmathfloatcomparison
+			% singular matrix!
+			\let\pgfmathresult=\pgfutil@empty
+		\else
+			\expandafter\pgfmathfloatreciprocal@\expandafter{\csname m\Pa a\endcsname}%
+			\let\pivot=\pgfmathresult
+			%
+			% \factor := 1/aa * ba 
+			\expandafter\pgfmathfloatmultiply@\expandafter{\csname m\Pb a\endcsname}{\pivot}%
+			\let\factor=\pgfmathresult
+			\expandafter\let\csname m\Pb a\endcsname=\factor
+			%
+			% bb -= ba/aa * ab
+			\expandafter\pgfmathfloatmultiply@\expandafter{\csname m\Pa b\endcsname}{\factor}%
+			\let\tmpa=\pgfmathresult
+			\expandafter\pgfmathfloatsubtract@\expandafter{\csname m\Pb b\endcsname}{\tmpa}%
+			\expandafter\let\csname m\Pb b\endcsname=\pgfmathresult
+			%
+			% rb -= ba/aa * ra
+			\expandafter\pgfmathfloatmultiply@\expandafter{\csname r\Pa\endcsname}{\factor}%
+			\let\tmpa=\pgfmathresult
+			\expandafter\pgfmathfloatsubtract@\expandafter{\csname r\Pb\endcsname}{\tmpa}%
+			\expandafter\let\csname r\Pb\endcsname=\pgfmathresult
+			%
+			\expandafter\pgfmathfloatabs@\expandafter{\csname m\Pb b\endcsname}%
+			\let\tmpa=\pgfmathresult
+			\pgfmathfloatlessthan@{\tmpa}{\thresh}%
+			\ifpgfmathfloatcomparison
+				% singular matrix!
+				\let\pgfmathresult=\pgfutil@empty
+			\else
+				% xb := rb / bb (the modified rb and modified bb!)
+				\edef\pgf@marshal{
+					\noexpand\pgfmathfloatdivide@
+						{\csname r\Pb\endcsname}
+						{\csname m\Pb b\endcsname}%
+				}%
+				\pgf@marshal
+				\expandafter\let\csname pgfmathresult\Pb\endcsname=\pgfmathresult
+				\let\tmpa=\pgfmathresult
+				%
+				% ra := ra - xb * ab
+				\expandafter\pgfmathfloatmultiply@\expandafter{\csname m\Pa b\endcsname}{\tmpa}%
+				\let\tmpa=\pgfmathresult
+				\expandafter\pgfmathfloatsubtract@\expandafter{\csname r\Pa\endcsname}{\tmpa}%
+				\expandafter\let\csname r\Pa\endcsname=\pgfmathresult
+				%
+				% xa := 1/aa * ra  (the modified ra!)
+				\expandafter\pgfmathfloatmultiply@\expandafter{\csname r\Pa\endcsname}{\pivot}%
+				\expandafter\let\csname pgfmathresult\Pa\endcsname=\pgfmathresult
+				%
+				\edef\pgfmathresult{%
+					{\csname pgfmathresult\Pa\endcsname}%
+					{\csname pgfmathresult\Pb\endcsname}%
+				}%
+				\expandafter\pgfutilsolvetwotwoleqfloat@to@pgf@range\pgfmathresult
+			\fi
+		\fi
+		\pgfmath@smuggleone\pgfmathresult
+	\endgroup
+}%
+
+
+\def\pgfutilsolvetwotwoleqfloat@to@pgf@range#1#2{%
+	\pgfmathfloatcreate{1}{1.6}{4}\let\pgfutilsolvetwotwoleqfloat@to@pgf@range@max=\pgfmathresult
+	\pgfmathfloatabs@{#1}%
+	\expandafter\pgfmathfloatlessthan@\expandafter{\pgfmathresult}{\pgfutilsolvetwotwoleqfloat@to@pgf@range@max}%
+	\ifpgfmathfloatcomparison
+		\pgfmathfloatabs@{#2}%
+		\expandafter\pgfmathfloatlessthan@\expandafter{\pgfmathresult}{\pgfutilsolvetwotwoleqfloat@to@pgf@range@max}%
+		\ifpgfmathfloatcomparison
+			% ok.
+			\pgfmathfloattofixed{#1}\let\tmpa=\pgfmathresult
+			\pgfmathfloattofixed{#2}%
+			\edef\pgfmathresult{{\tmpa}{\pgfmathresult}}%
+		\else
+			% singular (because PGF cannot represent its result
+			\let\pgfmathresult=\pgfutil@empty
+		\fi
+	\else
+		% singular (because PGF cannot represent its result
+		\let\pgfmathresult=\pgfutil@empty
+	\fi
 }%
 
 % there are funny programs which overwrite \read and \write (like
