@@ -70,9 +70,18 @@
 	% process. If 'scale results' is active, 'fixed' is assumed
 	% automatically.
 	fpu/output format/.is choice,
-	fpu/output format/float/.code=	{\let\pgfmathfloatparse@output=\relax},
-	fpu/output format/sci/.code=	{\def\pgfmathfloatparse@output{\pgfmathfloattosci@{\pgfmathresult}}},
-	fpu/output format/fixed/.code=	{\def\pgfmathfloatparse@output{\pgfmathfloattofixed@{\pgfmathresult}}},
+	fpu/output format/float/.code=	{%
+		\def\pgfmathfloatparse@output@choice{Y}%
+		\let\pgfmathfloatparse@output=\relax
+	},
+	fpu/output format/sci/.code=	{%
+		\def\pgfmathfloatparse@output@choice{S}%
+		\def\pgfmathfloatparse@output{\pgfmathfloattosci@{\pgfmathresult}}%
+	},
+	fpu/output format/fixed/.code=	{%
+		\def\pgfmathfloatparse@output@choice{F}%
+		\def\pgfmathfloatparse@output{\pgfmathfloattofixed@{\pgfmathresult}}%
+	},
 	fpu/output format/float,
 	fpu/rel thresh/.code={%
 		\pgfmathfloatparsenumber{#1}%
@@ -82,6 +91,8 @@
 }
 
 \pgfmathfloatcreate{1}{1.0}{0}\let\pgfmathfloatscale=\pgfmathresult
+
+\let\pgfmathfloatone=\pgfmathresult
 
 % This is the replacement parser invocation.
 % It does two things which are different to \pgfmathparse:
@@ -260,6 +271,7 @@
 	\pgfmathfloat@install\pgfmathcosh@=\pgfmathfloatcosh@
 	\pgfmathfloat@install\pgfmathsinh@=\pgfmathfloatsinh@
 	\pgfmathfloat@install\pgfmathtanh@=\pgfmathfloattanh@
+	\pgfmathfloat@install\pgfmath@iftrue=\pgfmathfloat@iftrue
 	\expandafter\pgfmathfloat@install\csname pgfmathatan2@\endcsname=\pgfmathfloatatantwo@
 	\pgfmathfloat@install@unimplemented{isprime}%
 	\pgfmathfloat@install@unimplemented{iseven}%
@@ -276,6 +288,38 @@
 	%
 	\pgfmathfloat@install\pgfmathscientific=\pgfmathfloatscientific%
 }
+
+\def\pgfmathfloat@iftrue{%
+	\if Y\pgfmathfloatparse@output@choice
+		\let\pgfmathfloat@@iftrue@v=\pgfmathfloatone
+		\let\pgfmathfloat@@iftrue@next=\pgfmathfloat@iftrue@
+	\else
+		\if S\pgfmathfloatparse@output@choice
+			\def\pgfmathfloat@@iftrue@v{1.0e0}%
+			\let\pgfmathfloat@@iftrue@next=\pgfmathfloat@iftrue@
+		\else
+			\def\pgfmath@next{\pgfutilifstartswith{1.0}}%
+			\expandafter\pgfmath@next\expandafter{\pgfmathresult}{%
+				\ifdim\pgfmathresult pt=1.0pt %
+					\let\pgfmathfloat@@iftrue@next=\pgfutil@firstoftwo
+				\else
+					\let\pgfmathfloat@@iftrue@next=\pgfutil@secondoftwo
+				\fi
+			}{%
+				\let\pgfmathfloat@@iftrue@next=\pgfutil@secondoftwo
+			}%
+		\fi
+	\fi
+	\pgfmathfloat@@iftrue@next
+}%
+\def\pgfmathfloat@iftrue@{%
+	\ifx\pgfmathresult\pgfmathfloat@@iftrue@v
+		\let\pgfmath@next=\pgfutil@firstoftwo
+	\else
+		\let\pgfmath@next=\pgfutil@secondoftwo
+	\fi
+	\pgfmath@next
+}%
 
 \def\pgfmathfloat@parser@install{%
 	\pgfmathfloat@plots@checkuninstallcmd
