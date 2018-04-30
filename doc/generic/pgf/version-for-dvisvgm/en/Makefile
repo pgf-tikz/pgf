@@ -15,26 +15,28 @@ pgfmanual.idx:
 pgfmanual.ind: pgfmanual.idx 
 	makeindex $(doc).idx
 
-pgfmanual.svg: $(doc).tex $(doc).ind 
+pgfmanual.svg: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
-pgfmanual-no-font.svg: $(doc).tex $(doc).ind 
+pgfmanual-no-font.svg: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	dvisvgm --no-fonts --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
-pgfmanual-test.svg: $(doc)-test.tex $(doc).ind 
+pgfmanual-test.svg: $(doc)-test.tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
-pgfmanual-test-merged.svg: $(doc)-test.tex $(doc).ind 
+pgfmanual-test-merged.svg: $(doc)-test.tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	dvisvgm --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
-pgfmanual-test-no-font.svg: $(doc)-test.tex $(doc).ind 
+pgfmanual-test-no-font.svg: $(doc)-test.tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	dvisvgm --no-fonts --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)-test
 
+revisionfile:
+	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh
 
 clean:
 	rm -f  \

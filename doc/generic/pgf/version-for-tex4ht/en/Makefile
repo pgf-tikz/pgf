@@ -9,8 +9,11 @@ pgfmanual.idx:
 pgfmanual.ind: pgfmanual.idx 
 	makeindex $(doc).idx
 
-pgfmanual.html: $(doc).tex $(doc).ind 
+pgfmanual.html: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" htlatex $(doc).tex
+
+revisionfile:
+	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh
 
 clean:
 	rm -f  \

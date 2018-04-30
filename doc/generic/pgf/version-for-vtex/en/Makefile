@@ -11,9 +11,12 @@ pgfmanual.idx:
 pgfmanual.ind: pgfmanual.idx 
 	makeindex $(doc).idx
 
-pgfmanual.ps: $(doc).tex $(doc).ind 
+pgfmanual.ps: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
+
+revisionfile:
+	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh
 
 clean:
 	rm -f  \
