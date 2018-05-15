@@ -8,233 +8,210 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-
 \section{The Soft Path Subsystem}
-
 \label{section-soft-paths}
 
 \makeatletter
 
+This section describes a set of commands for creating \emph{soft paths} as
+opposed to the commands of the previous section, which created \emph{hard
+paths}. A soft path is a path that can still be ``changed'' or ``molded''. Once
+you (or the \pgfname\ system) is satisfied with a soft path, it is turned into
+a hard path, which can be inserted into the resulting |.pdf| or |.ps| file.
 
-This section describes a set of commands for creating \emph{soft
-  paths} as opposed to the commands of the previous section, which
-created \emph{hard paths}. A soft path is a path that can still be
-``changed'' or ``molded.'' Once you (or the \pgfname\ system) is
-satisfied with a soft path, it is turned into a hard path, which can
-be inserted into the resulting |.pdf| or |.ps| file.
-
-Note that the commands described in this section are ``high-level'' in
-the sense that they are not implemented in driver files, but rather
-directly by the \pgfname-system layer. For this reason, the commands for
-creating soft paths do not start with |\pgfsys@|, but rather with
-|\pgfsyssoftpath@|. On the other hand, as a user you will never use
-these commands directly, they are described as part of the
-low-level interface. 
-
+Note that the commands described in this section are ``high-level'' in the
+sense that they are not implemented in driver files, but rather directly by the
+\pgfname-system layer. For this reason, the commands for creating soft paths do
+not start with |\pgfsys@|, but rather with |\pgfsyssoftpath@|. On the other
+hand, as a user you will never use these commands directly, they are described
+as part of the low-level interface.
 
 
 \subsection{Path Creation Process}
 
-When the user writes a command like |\draw (0bp,0bp) -- (10bp,0bp);|
-quite a lot happens behind the scenes:
+When the user writes a command like |\draw (0bp,0bp) -- (10bp,0bp);| quite a
+lot happens behind the scenes:
+%
 \begin{enumerate}
-\item
-  The frontend command is translated by \tikzname\ into commands
-  of the basic layer. In essence, the command is translated to
-  something like
+    \item The frontend command is translated by \tikzname\ into commands of the
+        basic layer. In essence, the command is translated to something like
+        %
 \begin{codeexample}[code only]
 \pgfpathmoveto{\pgfpoint{0bp}{0bp}}
 \pgfpathlineto{\pgfpoint{10bp}{0bp}}
 \pgfusepath{stroke}
 \end{codeexample}
-\item
-  The |\pgfpathxxxx| commands do \emph{not} directly call ``hard''
-  commands like |\pgfsys@xxxx|. Instead, the command |\pgfpathmoveto|
-  invokes a special command called |\pgfsyssoftpath@moveto| and
-  |\pgfpathlineto| invokes |\pgfsyssoftpath@lineto|. 
+        %
+    \item The |\pgfpathxxxx| commands do \emph{not} directly call ``hard''
+        commands like |\pgfsys@xxxx|. Instead, the command |\pgfpathmoveto|
+        invokes a special command called |\pgfsyssoftpath@moveto| and
+        |\pgfpathlineto| invokes |\pgfsyssoftpath@lineto|.
 
-  The |\pgfsyssoftpath@xxxx| commands, which are described below,
-  construct a soft path. Each time such a command is used, special
-  tokens are added to the end of an internal macro that stores the
-  soft path currently being constructed. 
-\item
-  When the |\pgfusepath| is encountered, the soft path stored in
-  the internal macro is ``invoked.'' Only now does a special macro
-  iterate over the soft path. For each line-to or move-to
-  operation on this path it calls an appropriate |\pgfsys@moveto| or
-  |\pgfsys@lineto| in order to, finally, create the desired hard path,
-  namely, the string of literals in the |.pdf| or |.ps| file.
-\item
-  After the path has been invoked, |\pgfsys@stroke| is called to
-  insert the literal for stroking the path.
+        The |\pgfsyssoftpath@xxxx| commands, which are described below,
+        construct a soft path. Each time such a command is used, special tokens
+        are added to the end of an internal macro that stores the soft path
+        currently being constructed.
+    \item When the |\pgfusepath| is encountered, the soft path stored in the
+        internal macro is ``invoked.'' Only now does a special macro iterate
+        over the soft path. For each line-to or move-to operation on this path
+        it calls an appropriate |\pgfsys@moveto| or |\pgfsys@lineto| in order
+        to, finally, create the desired hard path, namely, the string of
+        literals in the |.pdf| or |.ps| file.
+    \item After the path has been invoked, |\pgfsys@stroke| is called to insert
+        the literal for stroking the path.
 \end{enumerate}
 
-Why such a complicated process? Why not have |\pgfpathlineto| directly
-call |\pgfsys@lineto| and be done with it? There are two reasons:
+Why such a complicated process? Why not have |\pgfpathlineto| directly call
+|\pgfsys@lineto| and be done with it? There are two reasons:
+%
 \begin{enumerate}
-\item
-  The \pdf\ specification requires that a path is not interrupted by
-  any non-path-construction commands. Thus, the following code will
-  result in a corrupted |.pdf|:
+    \item The \pdf\ specification requires that a path is not interrupted by
+        any non-path-construction commands. Thus, the following code will
+        result in a corrupted |.pdf|:
+        %
 \begin{codeexample}[code only]
 \pgfsys@moveto{0}{0}
 \pgfsys@setlinewidth{1}
 \pgfsys@lineto{10}{0}
 \pgfsys@stroke
 \end{codeexample}
-  Such corrupt code is \emph{tolerated} by most viewers, but not
-  always. It is much better to create only (reasonably) legal code.
-\item
-  A soft path can still be changed, while a hard path is fixed. For
-  example, one can still change the starting and end points of a soft
-  path or do optimizations on it. Such transformations are not possible
-  on hard paths.
+        %
+        Such corrupt code is \emph{tolerated} by most viewers, but not always.
+        It is much better to create only (reasonably) legal code.
+    \item A soft path can still be changed, while a hard path is fixed. For
+        example, one can still change the starting and end points of a soft
+        path or do optimizations on it. Such transformations are not possible
+        on hard paths.
 \end{enumerate}
 
 
 \subsection{Starting and Ending a Soft Path}
 
-No special action must be taken in order to start the creation of a
-soft path. Rather, each time a command like |\pgfsyssoftpath@lineto|
-is called, a special token is added to the (global) current soft path
-being constructed.
+No special action must be taken in order to start the creation of a soft path.
+Rather, each time a command like |\pgfsyssoftpath@lineto| is called, a special
+token is added to the (global) current soft path being constructed.
 
-However, you can access and change the current soft path. In this way,
-it is possible to store a soft path, to manipulate it, or to invoke
-it.
+However, you can access and change the current soft path. In this way, it is
+possible to store a soft path, to manipulate it, or to invoke it.
 
 \begin{command}{\pgfsyssoftpath@getcurrentpath\marg{macro name}}
-  This command will store the current soft path in \meta{macro name}.
+    This command will store the current soft path in \meta{macro name}.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@setcurrentpath\marg{macro name}}
-  This command will set the current soft path to be the path stored in
-  \meta{macro name}. This macro should store a path that has
-  previously been extracted using the |\pgfsyssoftpath@getcurrentpath|
-  command and has possibly been modified subsequently.
+    This command will set the current soft path to be the path stored in
+    \meta{macro name}. This macro should store a path that has previously been
+    extracted using the |\pgfsyssoftpath@getcurrentpath| command and has
+    possibly been modified subsequently.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@invokecurrentpath}
-  This command will turn the current soft path in a ``hard'' path. To
-  do so, it iterates over the soft path and calls an appropriate
-  |\pgfsys@xxxx| command for each element of the path. Note that the
-  current soft path is \emph{not changed} by this command. Thus, in
-  order to start a new soft path after the old one has been invoked
-  and is no longer needed, you need to set the current soft path to be
-  empty. This may seem strange, but it is often useful to immediately
-  use the last soft path again.
+    This command will turn the current soft path in a ``hard'' path. To do so,
+    it iterates over the soft path and calls an appropriate |\pgfsys@xxxx|
+    command for each element of the path. Note that the current soft path is
+    \emph{not changed} by this command. Thus, in order to start a new soft path
+    after the old one has been invoked and is no longer needed, you need to set
+    the current soft path to be empty. This may seem strange, but it is often
+    useful to immediately use the last soft path again.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@flushcurrentpath}
-  This command will invoke the current soft path and then set it to be
-  empty. 
+    This command will invoke the current soft path and then set it to be empty.
 \end{command}
-
 
 
 \subsection{Soft Path Creation Commands}
 
 \begin{command}{\pgfsyssoftpath@moveto\marg{x}\marg{y}}
-  This command appends a ``move-to'' segment to the current soft
-  path. The coordinates \meta{x} and \meta{y} are given as normal
-  \TeX\ dimensions.
+    This command appends a ``move-to'' segment to the current soft path. The
+    coordinates \meta{x} and \meta{y} are given as normal \TeX\ dimensions.
 
-  \example One way to draw a line:
+    \example One way to draw a line:
+    %
 \begin{codeexample}[code only]
 \pgfsyssoftpath@moveto{0pt}{0pt}
 \pgfsyssoftpath@lineto{10pt}{10pt}
 \pgfsyssoftpath@flushcurrentpath
 \pgfsys@stroke
 \end{codeexample}
+    %
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@lineto\marg{x}\marg{y}}
-  Appends a ``line-to'' segment to the current soft path. 
+    Appends a ``line-to'' segment to the current soft path.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@curveto\marg{a}\marg{b}\marg{c}\marg{d}\marg{x}\marg{y}}
-  Appends a ``curve-to'' segment to the current soft path with controls
-  $(a,b)$ and $(c,d)$.
+    Appends a ``curve-to'' segment to the current soft path with controls
+    $(a,b)$ and $(c,d)$.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@rect\marg{lower left x}\marg{lower left y}\marg{width}\marg{height}}
-  Appends a rectangle segment to the current soft path. 
+    Appends a rectangle segment to the current soft path.
 \end{command}
 
 \begin{command}{\pgfsyssoftpath@closepath}
-  Appends a ``close-path'' segment to the current soft path. 
+    Appends a ``close-path'' segment to the current soft path.
 \end{command}
-
-
 
 
 \subsection{The Soft Path Data Structure}
 
-A soft path is stored in a standardized way, which makes it possible to
-modify it before it becomes ``hard.'' Basically, a soft path is a long
-sequence of triples. Each triple starts with a \emph{token} that
-identifies what is going on. This token is followed by two dimensions in
-braces. For example, the following is a soft path that means ``the
-path starts at $(0\mathrm{bp}, 0\mathrm{bp})$ and then
-continues in a straight line to $(10\mathrm{bp},
-0\mathrm{bp})$.''
-
+A soft path is stored in a standardized way, which makes it possible to modify
+it before it becomes ``hard''. Basically, a soft path is a long sequence of
+triples. Each triple starts with a \emph{token} that identifies what is going
+on. This token is followed by two dimensions in braces. For example, the
+following is a soft path that means ``the path starts at $(0\mathrm{bp},
+0\mathrm{bp})$ and then continues in a straight line to $(10\mathrm{bp},
+0\mathrm{bp})$''.
+%
 \begin{codeexample}[code only]
 \pgfsyssoftpath@movetotoken{0bp}{0bp}\pgfsyssoftpath@linetotoken{10bp}{0bp}
 \end{codeexample}
 
-A curve-to is hard to express in this way since we need six numbers to
-express it, not two. For this reasons, a curve-to is expressed using
-three triples as follows: The command
+A curve-to is hard to express in this way since we need six numbers to express
+it, not two. For this reasons, a curve-to is expressed using three triples as
+follows: The command
+%
 \begin{codeexample}[code only]
 \pgfsyssoftpath@curveto{1bp}{2bp}{3bp}{4bp}{5bp}{6bp}
 \end{codeexample}
-\noindent
-results in the following three triples:
+%
+\noindent results in the following three triples:
+%
 \begin{codeexample}[code only]
 \pgfsyssoftpath@curvetosupportatoken{1bp}{2bp}
 \pgfsyssoftpath@curvetosupportbtoken{3bp}{4bp}
 \pgfsyssoftpath@curvetotoken{5bp}{6bp}
 \end{codeexample}
 
-These three triples must always ``remain together.'' Thus, a lonely
+These three triples must always ``remain together''. Thus, a lonely
 |supportbtoken| is forbidden.
 
 In details, the following tokens exist:
+%
 \begin{itemize}
-\item
-  \declare{|\pgfsyssoftpath@movetotoken|} indicates a move-to
-  operation. The two following numbers indicate the position to which
-  the current point should be moved.
-\item
-  \declare{|\pgfsyssoftpath@linetotoken|} indicates a line-to
-  operation. 
-\item
-  \declare{|\pgfsyssoftpath@curvetosupportatoken|} indicates the first
-  control point of a curve-to operation. The triple must be followed
-  by a |\pgfsyssoftpath@curvetosupportbtoken|.
-\item
-  \declare{|\pgfsyssoftpath@curvetosupportbtoken|} indicates the second
-  control point of a curve-to operation. The triple must be followed
-  by a |\pgfsyssoftpath@curvetotoken|.
-\item
-  \declare{|\pgfsyssoftpath@curvetotoken|} indicates the target
-  of a curve-to operation.
-\item
-  \declare{|\pgfsyssoftpath@rectcornertoken|} indicates the corner of
-  a rectangle on the soft path. The triple must be followed
-  by a |\pgfsyssoftpath@rectsizetoken|.
-\item
-  \declare{|\pgfsyssoftpath@rectsizetoken|} indicates the size of
-  a rectangle on the soft path.
-\item
-  \declare{|\pgfsyssoftpath@closepath|} indicates that the subpath
-  begun with the last move-to operation should be closed. The parameter
-  numbers are currently not important, but if set to anything
-  different from |{0pt}{0pt}|, they should be set to the coordinate of
-  the original move-to operation to which the path ``returns'' now.
+    \item \declare{|\pgfsyssoftpath@movetotoken|} indicates a move-to
+        operation. The two following numbers indicate the position to which the
+        current point should be moved.
+    \item \declare{|\pgfsyssoftpath@linetotoken|} indicates a line-to
+        operation.
+    \item \declare{|\pgfsyssoftpath@curvetosupportatoken|} indicates the first
+        control point of a curve-to operation. The triple must be followed by a
+        |\pgfsyssoftpath@curvetosupportbtoken|.
+    \item \declare{|\pgfsyssoftpath@curvetosupportbtoken|} indicates the second
+        control point of a curve-to operation. The triple must be followed by a
+        |\pgfsyssoftpath@curvetotoken|.
+    \item \declare{|\pgfsyssoftpath@curvetotoken|} indicates the target of a
+        curve-to operation.
+    \item \declare{|\pgfsyssoftpath@rectcornertoken|} indicates the corner of a
+        rectangle on the soft path. The triple must be followed by a
+        |\pgfsyssoftpath@rectsizetoken|.
+    \item \declare{|\pgfsyssoftpath@rectsizetoken|} indicates the size of a
+        rectangle on the soft path.
+    \item \declare{|\pgfsyssoftpath@closepath|} indicates that the subpath
+        begun with the last move-to operation should be closed. The parameter
+        numbers are currently not important, but if set to anything different
+        from |{0pt}{0pt}|, they should be set to the coordinate of the original
+        move-to operation to which the path ``returns'' now.
 \end{itemize}
-
-
-
-
