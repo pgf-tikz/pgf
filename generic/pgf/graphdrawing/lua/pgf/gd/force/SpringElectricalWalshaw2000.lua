@@ -226,7 +226,7 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
 
     -- use the random positioning technique
     local function positioning_func(n)
-      local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      local radius = math.floor(3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
       return math.random(-radius, radius)
     end
 

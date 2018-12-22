@@ -171,7 +171,7 @@ function SpringElectricalHu2006:run()
 
     -- set the spring length to the average edge length of the initial layout
     spring_length = 0
-    for _,e in ipairs(coarse_graph.graph.edges) do
+    for _,edge in ipairs(coarse_graph.graph.edges) do
       spring_length = spring_length + edge.nodes[1].pos:minus(edge.nodes[2].pos):norm()
     end
     spring_length = spring_length / #coarse_graph.graph.edges
@@ -184,6 +184,9 @@ end
 
 
 function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
+  -- Fix for Lua 5.3 integers
+  spring_length = math.floor(spring_length)
+
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -217,7 +220,7 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
 
     -- use a random positioning technique
     local function positioning_func(n) 
-      local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      local radius = math.floor(3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
       return math.random(-radius, radius)
     end
 
