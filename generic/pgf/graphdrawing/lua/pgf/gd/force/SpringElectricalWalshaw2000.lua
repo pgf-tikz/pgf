@@ -127,7 +127,11 @@ function SpringElectricalWalshaw2000:run()
 
   -- initialize node weights
   for _,node in ipairs(self.graph.nodes) do
-    node.weight = node:getOption('electric charge')
+    if node:getOption('electric charge') ~= nil then
+      node.weight = node:getOption('electric charge')
+    else
+      node.weight = 1
+    end
 
     -- a node is charged if its weight derives from the default setting 
     -- of 1 (where it has no influence on the forces)

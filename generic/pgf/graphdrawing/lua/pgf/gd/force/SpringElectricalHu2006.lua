@@ -97,7 +97,11 @@ function SpringElectricalHu2006:run()
 
   -- initialize node weights
   for _,node in ipairs(self.graph.nodes) do
-    node.weight = node:getOption('electric charge')
+    if node:getOption('electric charge') ~= nil then
+      node.weight = node:getOption('electric charge')
+    else
+      node.weight = 1
+    end
   end
   
   -- initialize edge weights
