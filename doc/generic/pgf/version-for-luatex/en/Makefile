@@ -5,13 +5,10 @@ TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 
 all: $(doc).pdf
 
-dist: FORCE revisionfile
-	$(latex) -shell-escape --jobname=pgfmanual '\def\pgfautoxrefs{1}\pdfminorversion=5 \pdfobjcompresslevel=2 \input{$(doc)}'
-	makeindex $(doc).idx
-	@echo "$(doc).pdf remade with auto-xref support. Check if auto-xrefs work and rerun make dist if not."
-
 pgfmanual.idx: 
 	touch pgfmanual.idx
+
+dist: all
 
 pgfmanual.ind: pgfmanual.idx 
 	makeindex $(doc).idx

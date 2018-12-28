@@ -21,67 +21,78 @@
 }%
 
 \pgfqkeys{/pgf}{
-    % enable the FPU parser if it is not yet active
-    %
-    % It will be deactivated after the current TeX group
-    fpu/.is choice,
-    fpu/true/.code={%
-        \ifpgfmathfloatparseactive
-        \else
-            \pgfutil@ifundefined{pgfmathdeclarefunction}{%
-                % Ohoh - we are running on a TeX distribution with
-                % PGF 2.00 which doesn't have the new math engine.
-                % I can provide special treatment here, provided that
-                % all float commands are still able to run (that means
-                % more information needs to be copied from the pgf cvs
-                % to pgf 2.00 - for example pgfmathfloat.code.tex).
-                %
-                % I employ this to work with pgfplots and pgf 2.00
-                % using all new features.
-                \pgfmathfloat@parser@install@pgf@two@null@null%
-            }{%
-                \pgfmathfloat@parser@install%
-            }%
-            \pgfmathfloatparseactivetrue
-            % improve compatibility with Marks FP library:
-            \pgfkeysalso{/pgf/fixed point arithmetic/.prefix style={/pgf/fpu=false}}%
-        \fi
-    },%
-    fpu/false/.code={%
-        \ifpgfmathfloatparseactive
-            \pgfmathfloat@uninstall%
-            \pgfmathfloatparseactivefalse
-        \fi
-    },%
-    fpu/.default=true,
-    % Use this to introduce a result scaling.
-    % Every expression in which the prefix '*' occurs
-    % will be multiplied with the result and converted to fixed point
-    % representation.
-    fpu/scale results/.code={%
-        \ifpgfmathfloatparseactive
-            \pgfmathparse{#1}%
-        \else
-            \pgfmathfloatparsenumber{#1}%
-        \fi
-        \let\pgfmathfloatscale=\pgfmathresult%
-    },%
-    % determines the output format of each complete expression parsing
-    % process. If 'scale results' is active, 'fixed' is assumed
-    % automatically.
-    fpu/output format/.is choice,
-    fpu/output format/float/.code=    {\let\pgfmathfloatparse@output=\relax},
-    fpu/output format/sci/.code=    {\def\pgfmathfloatparse@output{\pgfmathfloattosci@{\pgfmathresult}}},
-    fpu/output format/fixed/.code=    {\def\pgfmathfloatparse@output{\pgfmathfloattofixed@{\pgfmathresult}}},
-    fpu/output format/float,
-    fpu/rel thresh/.code={%
-        \pgfmathfloatparsenumber{#1}%
-        \let\pgfmathfloat@relthresh=\pgfmathresult
-    },
-    fpu/rel thresh=1e-4,
-}%
+	% enable the FPU parser if it is not yet active
+	%
+	% It will be deactivated after the current TeX group
+	fpu/.is choice,
+	fpu/true/.code={%
+		\ifpgfmathfloatparseactive
+		\else
+			\pgfutil@ifundefined{pgfmathdeclarefunction}{%
+				% Ohoh - we are running on a TeX distribution with 
+				% PGF 2.00 which doesn't have the new math engine.
+				% I can provide special treatment here, provided that
+				% all float commands are still able to run (that means
+				% more information needs to be copied from the pgf cvs
+				% to pgf 2.00 - for example pgfmathfloat.code.tex).
+				% 
+				% I employ this to work with pgfplots and pgf 2.00
+				% using all new features.
+				\pgfmathfloat@parser@install@pgf@two@null@null%
+			}{%
+				\pgfmathfloat@parser@install%
+			}%
+			\pgfmathfloatparseactivetrue
+			% improve compatibility with Marks FP library:
+			\pgfkeysalso{/pgf/fixed point arithmetic/.prefix style={/pgf/fpu=false}}%
+		\fi
+	},%
+	fpu/false/.code={%
+		\ifpgfmathfloatparseactive
+			\pgfmathfloat@uninstall%
+			\pgfmathfloatparseactivefalse
+		\fi
+	},%
+	fpu/.default=true,
+	% Use this to introduce a result scaling.
+	% Every expression in which the prefix '*' occurs
+	% will be multiplied with the result and converted to fixed point
+	% representation.
+	fpu/scale results/.code={%
+		\ifpgfmathfloatparseactive
+			\pgfmathparse{#1}%
+		\else
+			\pgfmathfloatparsenumber{#1}%
+		\fi
+		\let\pgfmathfloatscale=\pgfmathresult%
+	},%		
+	% determines the output format of each complete expression parsing
+	% process. If 'scale results' is active, 'fixed' is assumed
+	% automatically.
+	fpu/output format/.is choice,
+	fpu/output format/float/.code=	{%
+		\def\pgfmathfloatparse@output@choice{Y}%
+		\let\pgfmathfloatparse@output=\relax
+	},
+	fpu/output format/sci/.code=	{%
+		\def\pgfmathfloatparse@output@choice{S}%
+		\def\pgfmathfloatparse@output{\pgfmathfloattosci@{\pgfmathresult}}%
+	},
+	fpu/output format/fixed/.code=	{%
+		\def\pgfmathfloatparse@output@choice{F}%
+		\def\pgfmathfloatparse@output{\pgfmathfloattofixed@{\pgfmathresult}}%
+	},
+	fpu/output format/float,
+	fpu/rel thresh/.code={%
+		\pgfmathfloatparsenumber{#1}%
+		\let\pgfmathfloat@relthresh=\pgfmathresult
+	},
+	fpu/rel thresh=1e-4,
+}
 
 \pgfmathfloatcreate{1}{1.0}{0}\let\pgfmathfloatscale=\pgfmathresult
+
+\let\pgfmathfloatone=\pgfmathresult
 
 % This is the replacement parser invocation.
 % It does two things which are different to \pgfmathparse:
@@ -194,87 +205,120 @@
 
 %
 \def\pgfmathfloat@parser@install@functions{%
-    % Install float commands...
-    %
-    \pgfmathfloat@install\pgfmathadd@=\pgfmathfloatadd@%
-    \pgfmathfloat@install\pgfmathsubtract@=\pgfmathfloatsubtract@%
-    \pgfmathfloat@install\pgfmathneg@=\pgfmathfloatneg@%
-    \pgfmathfloat@install\pgfmathmultiply@=\pgfmathfloatmultiply@%
-    \pgfmathfloat@install\pgfmathdivide@=\pgfmathfloatdivide@%
-    \pgfmathfloat@install\pgfmathabs@=\pgfmathfloatabs@%
-    \pgfmathfloat@install\pgfmathsign@=\pgfmathfloatsign@%
-    \pgfmathfloat@install\pgfmathround@=\pgfmathfloatround@%
-    \pgfmathfloat@install\pgfmathfloor@=\pgfmathfloatfloor@%
-    \pgfmathfloat@install\pgfmathceil@=\pgfmathfloatceil@
-    \pgfmathfloat@install\pgfmathint@=\pgfmathfloatint@
-    \pgfmathfloat@install\pgfmathmod@=\pgfmathfloatmod@%
-    \pgfmathfloat@install\pgfmathmax@=\pgfmathfloatmax@%
-    \pgfmathfloat@install\pgfmathmin@=\pgfmathfloatmin@%
-    \pgfmathfloat@install\pgfmathsin@=\pgfmathfloatsin@%
-    \pgfmathfloat@install\pgfmathcos@=\pgfmathfloatcos@%
-    \pgfmathfloat@install\pgfmathtan@=\pgfmathfloattan@%
-    \pgfmathfloat@install\pgfmathdeg@=\pgfmathfloatdeg@%
-    \pgfmathfloat@install\pgfmathrad@=\pgfmathfloatrad@%
-    \pgfmathfloat@install\pgfmathatan@=\pgfmathfloatatan@%
-    \pgfmathfloat@install\pgfmathasin@=\pgfmathfloatasin@%
-    \pgfmathfloat@install\pgfmathacos@=\pgfmathfloatacos@%
-    \pgfmathfloat@install\pgfmathcot@=\pgfmathfloatcot@%
-    \pgfmathfloat@install\pgfmathsec@=\pgfmathfloatsec@%
-    \pgfmathfloat@install\pgfmathcosec@=\pgfmathfloatcosec@%
-    \pgfmathfloat@install\pgfmathexp@=\pgfmathfloatexp@%
-    \pgfmathfloat@install\pgfmathln@=\pgfmathfloatln@%
-    \pgfmathfloat@install@csname{pgfmathlog10@}{pgfmathfloatlog10@}%
-    \pgfmathfloat@install@csname{pgfmathlog2@}{pgfmathfloatlog2@}%
-    \pgfmathfloat@install\pgfmathsqrt@=\pgfmathfloatsqrt@%
-    \pgfmathfloat@install\pgfmath@pi=\pgfmathfloatpi@%
-    \pgfmathfloat@install\pgfmathpi=\pgfmathfloatpi@%
-    \pgfmathfloat@install\pgfmathe@=\pgfmathfloate@%
-    \pgfmathfloat@install\pgfmathe=\pgfmathfloate@%
-    \pgfmathfloat@install\pgfmathlessthan@=\pgfmathfloatlessthan@%
-    \pgfmathfloat@install\pgfmathnotless@=\pgfmathfloatnotless@%
-    \pgfmathfloat@install\pgfmathnotgreater@=\pgfmathfloatnotgreater@%
-    \pgfmathfloat@install\pgfmathless@=\pgfmathfloatlessthan@%
-    \pgfmathfloat@install\pgfmathgreaterthan@=\pgfmathfloatgreaterthan@%
-    \pgfmathfloat@install\pgfmathgreater@=\pgfmathfloatgreaterthan@%
-    \pgfmathfloat@install\pgfmathifthenelse@=\pgfmathfloatifthenelse@%
-    \pgfmathfloat@install\pgfmathequal@=\pgfmathfloatequal@%
-    \pgfmathfloat@install\pgfmathequalto@=\pgfmathfloatequal@%
-    \pgfmathfloat@install\pgfmathnotequal@=\pgfmathfloatnotequal@%
-    \pgfmathfloat@install\pgfmathnotequalto@=\pgfmathfloatnotequal@%
-    \pgfmathfloat@install\pgfmathpow@=\pgfmathfloatpow@
-    \pgfmathfloat@install\pgfmathrand@=\pgfmathfloatrand@
-    \pgfmathfloat@install\pgfmathrand=\pgfmathfloatrand@
-    \pgfmathfloat@install\pgfmathrnd@=\pgfmathfloatrnd@
-    \pgfmathfloat@install\pgfmathrnd=\pgfmathfloatrnd@
-    \pgfmathfloat@install\pgfmathtrue@=\pgfmathfloattrue@
-    \pgfmathfloat@install\pgfmathfalse@=\pgfmathfloatfalse@
-    \pgfmathfloat@install\pgfmathnot@=\pgfmathfloatnot@
-    \pgfmathfloat@install\pgfmathhex@=\pgfmathfloathex@
-    \pgfmathfloat@install\pgfmathHex@=\pgfmathfloatHex@
-    \pgfmathfloat@install\pgfmathoct@=\pgfmathfloatoct@
-    \pgfmathfloat@install\pgfmathbin@=\pgfmathfloatbin@
-    \pgfmathfloat@install\pgfmathand@=\pgfmathfloatand@
-    \pgfmathfloat@install\pgfmathor@=\pgfmathfloator@
-    \pgfmathfloat@install\pgfmathfactorial@=\pgfmathfloatfactorial@
-    \pgfmathfloat@install\pgfmathveclen@=\pgfmathfloatveclen@
-    \pgfmathfloat@install\pgfmathcosh@=\pgfmathfloatcosh@
-    \pgfmathfloat@install\pgfmathsinh@=\pgfmathfloatsinh@
-    \pgfmathfloat@install\pgfmathtanh@=\pgfmathfloattanh@
-    \expandafter\pgfmathfloat@install\csname pgfmathatan2@\endcsname=\pgfmathfloatatantwo@
-    \pgfmathfloat@install@unimplemented{isprime}%
-    \pgfmathfloat@install@unimplemented{iseven}%
-    \pgfmathfloat@install@unimplemented{isodd}%
-    \pgfmathfloat@install@unimplemented{gcd}%
-    \pgfmathfloat@install@unimplemented{frac}%
-    \pgfmathfloat@install@unimplemented{random}%
-    \pgfmathfloat@install@unimplemented{setseed}%
-    \pgfmathfloat@install@unimplemented{Mod}%
-    \pgfmathfloat@install@unimplemented{div}%
-    \pgfmathfloat@install@unimplemented{real}%
-%    \pgfmathfloat@install@unimplemented{height}%
-    %
-    %
-    \pgfmathfloat@install\pgfmathscientific=\pgfmathfloatscientific%
+	% Install float commands...
+	%
+	\pgfmathfloat@install\pgfmathadd@=\pgfmathfloatadd@%
+	\pgfmathfloat@install\pgfmathsubtract@=\pgfmathfloatsubtract@%
+	\pgfmathfloat@install\pgfmathneg@=\pgfmathfloatneg@%
+	\pgfmathfloat@install\pgfmathmultiply@=\pgfmathfloatmultiply@%
+	\pgfmathfloat@install\pgfmathdivide@=\pgfmathfloatdivide@%
+	\pgfmathfloat@install\pgfmathabs@=\pgfmathfloatabs@%
+	\pgfmathfloat@install\pgfmathsign@=\pgfmathfloatsign@%
+	\pgfmathfloat@install\pgfmathround@=\pgfmathfloatround@%
+	\pgfmathfloat@install\pgfmathfloor@=\pgfmathfloatfloor@%
+	\pgfmathfloat@install\pgfmathceil@=\pgfmathfloatceil@
+	\pgfmathfloat@install\pgfmathint@=\pgfmathfloatint@
+	\pgfmathfloat@install\pgfmathmod@=\pgfmathfloatmod@%
+	\pgfmathfloat@install\pgfmathmax@=\pgfmathfloatmax@%
+	\pgfmathfloat@install\pgfmathmin@=\pgfmathfloatmin@%
+	\pgfmathfloat@install\pgfmathsin@=\pgfmathfloatsin@%
+	\pgfmathfloat@install\pgfmathcos@=\pgfmathfloatcos@%
+	\pgfmathfloat@install\pgfmathtan@=\pgfmathfloattan@%
+	\pgfmathfloat@install\pgfmathdeg@=\pgfmathfloatdeg@%
+	\pgfmathfloat@install\pgfmathrad@=\pgfmathfloatrad@%
+	\pgfmathfloat@install\pgfmathatan@=\pgfmathfloatatan@%
+	\pgfmathfloat@install\pgfmathasin@=\pgfmathfloatasin@%
+	\pgfmathfloat@install\pgfmathacos@=\pgfmathfloatacos@%
+	\pgfmathfloat@install\pgfmathcot@=\pgfmathfloatcot@%
+	\pgfmathfloat@install\pgfmathsec@=\pgfmathfloatsec@%
+	\pgfmathfloat@install\pgfmathcosec@=\pgfmathfloatcosec@%
+	\pgfmathfloat@install\pgfmathexp@=\pgfmathfloatexp@%
+	\pgfmathfloat@install\pgfmathln@=\pgfmathfloatln@%
+	\pgfmathfloat@install@csname{pgfmathlog10@}{pgfmathfloatlog10@}%
+	\pgfmathfloat@install@csname{pgfmathlog2@}{pgfmathfloatlog2@}%
+	\pgfmathfloat@install\pgfmathsqrt@=\pgfmathfloatsqrt@%
+	\pgfmathfloat@install\pgfmath@pi=\pgfmathfloatpi@%
+	\pgfmathfloat@install\pgfmathpi=\pgfmathfloatpi@%
+	\pgfmathfloat@install\pgfmathe@=\pgfmathfloate@%
+	\pgfmathfloat@install\pgfmathe=\pgfmathfloate@%
+	\pgfmathfloat@install\pgfmathlessthan@=\pgfmathfloatlessthan@%
+	\pgfmathfloat@install\pgfmathnotless@=\pgfmathfloatnotless@%
+	\pgfmathfloat@install\pgfmathnotgreater@=\pgfmathfloatnotgreater@%
+	\pgfmathfloat@install\pgfmathless@=\pgfmathfloatlessthan@%
+	\pgfmathfloat@install\pgfmathgreaterthan@=\pgfmathfloatgreaterthan@%
+	\pgfmathfloat@install\pgfmathgreater@=\pgfmathfloatgreaterthan@%
+	\pgfmathfloat@install\pgfmathifthenelse@=\pgfmathfloatifthenelse@%
+	\pgfmathfloat@install\pgfmathequal@=\pgfmathfloatequal@%
+	\pgfmathfloat@install\pgfmathequalto@=\pgfmathfloatequal@%
+	\pgfmathfloat@install\pgfmathnotequal@=\pgfmathfloatnotequal@%
+	\pgfmathfloat@install\pgfmathnotequalto@=\pgfmathfloatnotequal@%
+	\pgfmathfloat@install\pgfmathpow@=\pgfmathfloatpow@
+	\pgfmathfloat@install\pgfmathrand@=\pgfmathfloatrand@
+	\pgfmathfloat@install\pgfmathrand=\pgfmathfloatrand@
+	\pgfmathfloat@install\pgfmathrnd@=\pgfmathfloatrnd@
+	\pgfmathfloat@install\pgfmathrnd=\pgfmathfloatrnd@
+	\pgfmathfloat@install\pgfmathtrue@=\pgfmathfloattrue@
+	\pgfmathfloat@install\pgfmathfalse@=\pgfmathfloatfalse@
+	\pgfmathfloat@install\pgfmathnot@=\pgfmathfloatnot@
+	\pgfmathfloat@install\pgfmathhex@=\pgfmathfloathex@
+	\pgfmathfloat@install\pgfmathHex@=\pgfmathfloatHex@
+	\pgfmathfloat@install\pgfmathoct@=\pgfmathfloatoct@
+	\pgfmathfloat@install\pgfmathbin@=\pgfmathfloatbin@
+	\pgfmathfloat@install\pgfmathand@=\pgfmathfloatand@
+	\pgfmathfloat@install\pgfmathor@=\pgfmathfloator@
+	\pgfmathfloat@install\pgfmathfactorial@=\pgfmathfloatfactorial@
+	\pgfmathfloat@install\pgfmathveclen@=\pgfmathfloatveclen@
+	\pgfmathfloat@install\pgfmathcosh@=\pgfmathfloatcosh@
+	\pgfmathfloat@install\pgfmathsinh@=\pgfmathfloatsinh@
+	\pgfmathfloat@install\pgfmathtanh@=\pgfmathfloattanh@
+	\pgfmathfloat@install\pgfmath@iftrue=\pgfmathfloat@iftrue
+	\expandafter\pgfmathfloat@install\csname pgfmathatan2@\endcsname=\pgfmathfloatatantwo@
+	\pgfmathfloat@install@unimplemented{isprime}%
+	\pgfmathfloat@install@unimplemented{iseven}%
+	\pgfmathfloat@install@unimplemented{isodd}%
+	\pgfmathfloat@install@unimplemented{gcd}%
+	\pgfmathfloat@install@unimplemented{frac}%
+	\pgfmathfloat@install@unimplemented{random}%
+	\pgfmathfloat@install@unimplemented{setseed}%
+	\pgfmathfloat@install@unimplemented{Mod}%
+	\pgfmathfloat@install@unimplemented{div}%
+	\pgfmathfloat@install@unimplemented{real}%
+%	\pgfmathfloat@install@unimplemented{height}%
+	%
+	%
+	\pgfmathfloat@install\pgfmathscientific=\pgfmathfloatscientific%
+}
+
+\def\pgfmathfloat@iftrue{%
+	\if Y\pgfmathfloatparse@output@choice
+		\let\pgfmathfloat@@iftrue@v=\pgfmathfloatone
+		\let\pgfmathfloat@@iftrue@next=\pgfmathfloat@iftrue@
+	\else
+		\if S\pgfmathfloatparse@output@choice
+			\def\pgfmathfloat@@iftrue@v{1.0e0}%
+			\let\pgfmathfloat@@iftrue@next=\pgfmathfloat@iftrue@
+		\else
+			\def\pgfmath@next{\pgfutilifstartswith{1.0}}%
+			\expandafter\pgfmath@next\expandafter{\pgfmathresult}{%
+				\ifdim\pgfmathresult pt=1.0pt %
+					\let\pgfmathfloat@@iftrue@next=\pgfutil@firstoftwo
+				\else
+					\let\pgfmathfloat@@iftrue@next=\pgfutil@secondoftwo
+				\fi
+			}{%
+				\let\pgfmathfloat@@iftrue@next=\pgfutil@secondoftwo
+			}%
+		\fi
+	\fi
+	\pgfmathfloat@@iftrue@next
+}%
+\def\pgfmathfloat@iftrue@{%
+	\ifx\pgfmathresult\pgfmathfloat@@iftrue@v
+		\let\pgfmath@next=\pgfutil@firstoftwo
+	\else
+		\let\pgfmath@next=\pgfutil@secondoftwo
+	\fi
+	\pgfmath@next
 }%
 
 \def\pgfmathfloat@parser@install{%
