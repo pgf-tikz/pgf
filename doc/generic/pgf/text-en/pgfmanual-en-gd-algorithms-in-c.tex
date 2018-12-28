@@ -8,137 +8,129 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-
 \section{Writing Graph Drawing Algorithms in C}
 \label{section-algorithms-in-c}
 
 \noindent{\emph{by Till Tantau}}
 \bigskip
-\ifluatex\else This section of the manual can only be typeset using Lua\TeX.\expandafter\endinput\fi
+\ifluatex
+\else
+    This section of the manual can only be typeset using Lua\TeX.
+    \expandafter\endinput
+\fi
 
 In the present section we have a look at how graph drawing
 algorithms written in the C programming language (or in C++) can be
 used in the graph drawing framework.
 
 \begin{quote}
-  \emph{Warning:} Graph drawing algorithms written in C can be
-  incredibly fast if you use the facilities of C
-  correctly. \emph{However,} C code is much less portable than Lua 
-  code in the sense that it has to be compiled for the specific
-  platform used by the user and that it has to be linked dynamically
-  during a run of the \TeX\ program. All of this in possible (and
-  works, as demonstrated by the linking of the \textsc{ogdf}
-  framework), but it is \emph{much} harder to get right than writing
-  Lua code.
+    \emph{Warning:} Graph drawing algorithms written in C can be incredibly
+    fast if you use the facilities of C correctly. \emph{However,} C code is
+    much less portable than Lua code in the sense that it has to be compiled
+    for the specific platform used by the user and that it has to be linked
+    dynamically during a run of the \TeX\ program. All of this in possible (and
+    works, as demonstrated by the linking of the \textsc{ogdf} framework), but
+    it is \emph{much} harder to get right than writing Lua code.
 
-  Bottom line, \emph{you really should be using this method
-  only if it is really necessary (namely, when Lua code is simply not
-  fast enough).}
+    Bottom line, \emph{you really should be using this method only if it is
+    really necessary (namely, when Lua code is simply not fast enough).}
 \end{quote}
 
-In the following, I first explain how the link between \TeX\ and C
-code works, in general. Then, in the subsequent sections, we go over
-the different kinds of programming languages and frameworks for which
-there is direct support for such a link.
+In the following, I first explain how the link between \TeX\ and C code works,
+in general. Then, in the subsequent sections, we go over the different kinds of
+programming languages and frameworks for which there is direct support for such
+a link.
 
 
 \subsection{How C and \TeX\ Communicate}
 
-In order to use C code for graph drawing algorithms during a run of
-the \TeX\ program, there is no need to build a new version of
-\TeX. Rather, it is possible that C code is linked into the \TeX\
-executable at runtime. This is made possible by the fact that Lua
-(which part of Lua\TeX$\dots$) is able to link C libraries at runtime --
-provided a strict regime of rules is adhered to:
-
+In order to use C code for graph drawing algorithms during a run of the \TeX\
+program, there is no need to build a new version of \TeX. Rather, it is
+possible that C code is linked into the \TeX\ executable at runtime. This is
+made possible by the fact that Lua (which part of Lua\TeX$\dots$) is able to
+link C libraries at runtime -- provided a strict regime of rules is adhered to:
+%
 \begin{enumerate}
-\item When you say |require| in Lua, it will normally look for a
-  |.lua| file; but it will also try to find a |.so| file (a shared C
-  library) as a fallback.
-\item If it finds such a shared library, Lua(\TeX) will try to link
-  this library dynamically at runtime.
-\item Inside the library, there must be a function (called an entry
-  point) with a special name (it must start with |luaopen_| and it
-  must otherwise be the path and name of the library with slashes replaced by
-  underscores).
-\item This function gets called by Lua, once. Its job is to setup the
-  library so that it can be used by Lua. Mainly, this means that
-  certain C functions get registered in such a way that Lua can call
-  them.
-\item At this point, control returns to Lua and, now, certain
-  functions have become available on the Lua layer that, when called,
-  actually invoke the C code of our linked library.
+    \item When you say |require| in Lua, it will normally look for a |.lua|
+        file; but it will also try to find a |.so| file (a shared C library) as
+        a fallback.
+    \item If it finds such a shared library, Lua(\TeX) will try to link this
+        library dynamically at runtime.
+    \item Inside the library, there must be a function (called an entry point)
+        with a special name (it must start with |luaopen_| and it must
+        otherwise be the path and name of the library with slashes replaced by
+        underscores).
+    \item This function gets called by Lua, once. Its job is to setup the
+        library so that it can be used by Lua. Mainly, this means that certain
+        C functions get registered in such a way that Lua can call them.
+    \item At this point, control returns to Lua and, now, certain functions
+        have become available on the Lua layer that, when called, actually
+        invoke the C code of our linked library.
 \end{enumerate}
 
 For each of the above points, there are some bells and whistles:
-
+%
 \begin{enumerate}
-\item Lua\TeX\ looks at slightly inconvenient places for shared
-  libraries: By default, (currently, 2013) it looks in a |lib|
-  subdirectory of the directory containing the Lua\TeX\
-  executable. The logic behind is that the shared libraries depend on
-  the specific architecture of the executable. Thus, unlike normal Lua
-  files, the library needs to be installed ``far away'' from the actual
-  package of which it is part.
-\item Certain vesions of Lua\TeX\ have a broken handling of filenames
-  of libraries written in C. The TL2013 version of Lua\TeX, for
-  instance, crashes when the filename of a shared library does not
-  contain the complete path (while this works for normal
-  file). Hopefully, this, too, will be fixed in future versions.
-\item On certain platforms, the support for dynamic linking against
-  Lua\TeX\ is broken since the symbol table of the Lua library has been
-  stripped away. Hopefully, this will be fixed soon; in the meantime, a
-  highly fragile workaround is to link in another copy of the Lua
-  library.
-\item The entry point that is called by Lua requires a certain
-  signature (it takes a Lua state as its only parameter) and must
-  return the number of objects it returns on the Lua stack.
-\item The registration process of C functions is somewhat tricky and
-  changes from Lua version to Lua version.
-\item C functions that get called by Lua must follow all sorts of
-  tricky rules in order to communicate with Lua correctly.
+    \item Lua\TeX\ looks at slightly inconvenient places for shared libraries:
+        By default, (currently, 2013) it looks in a |lib| subdirectory of the
+        directory containing the Lua\TeX\ executable. The logic behind is that
+        the shared libraries depend on the specific architecture of the
+        executable. Thus, unlike normal Lua files, the library needs to be
+        installed ``far away'' from the actual package of which it is part.
+    \item Certain versions of Lua\TeX\ have a broken handling of filenames of
+        libraries written in C. The TL2013 version of Lua\TeX, for instance,
+        crashes when the filename of a shared library does not contain the
+        complete path (while this works for normal file). Hopefully, this, too,
+        will be fixed in future versions.
+    \item On certain platforms, the support for dynamic linking against
+        Lua\TeX\ is broken since the symbol table of the Lua library has been
+        stripped away. Hopefully, this will be fixed soon; in the meantime, a
+        highly fragile workaround is to link in another copy of the Lua
+        library.
+    \item The entry point that is called by Lua requires a certain signature
+        (it takes a Lua state as its only parameter) and must return the number
+        of objects it returns on the Lua stack.
+    \item The registration process of C functions is somewhat tricky and
+        changes from Lua version to Lua version.
+    \item C functions that get called by Lua must follow all sorts of tricky
+        rules in order to communicate with Lua correctly.
 \end{enumerate}
 
-Despite the above obstacles, one can use graph drawing algorithms
-written in C inside Lua, in principle, as follows: One loads an
-appropriately prepared and located C library using |require| and this
-library uses commands like |declare| to register its own functions
-into the graph drawing system so that when the |run| method is called,
-a C functions gets called instead.
+Despite the above obstacles, one can use graph drawing algorithms written in C
+inside Lua, in principle, as follows: One loads an appropriately prepared and
+located C library using |require| and this library uses commands like |declare|
+to register its own functions into the graph drawing system so that when the
+|run| method is called, a C functions gets called instead.
 
-Unfortunately, the above approach is extremely tedious and error-prone
-and it is ``no fun'' to access Lua data structures (such as the
-syntactic digraph) from C. For this reason, I have written some
-libraries that encapsulate (as much as possible) of this communication
-between C and Lua. Indeed, when you use these libraries, you can focus
-entirely on the graph drawing issues and you will not even notice that
-your code ``is talking to Lua.'' (Except for the name of the entry
-point, which is fixed to start with |luaopen_| and it is impossible to
-change this without disrupting a lot inside Lua's module system).
+Unfortunately, the above approach is extremely tedious and error-prone and it
+is ``no fun'' to access Lua data structures (such as the syntactic digraph)
+from C. For this reason, I have written some libraries that encapsulate (as
+much as possible) of this communication between C and Lua. Indeed, when you use
+these libraries, you can focus entirely on the graph drawing issues and you
+will not even notice that your code ``is talking to Lua''. (Except for the name
+of the entry point, which is fixed to start with |luaopen_| and it is
+impossible to change this without disrupting a lot inside Lua's module system).
 
-There are libraries available for simplifying the communication
-between the graph drawing system and graph drawing algorithms written
-in
-
+There are libraries available for simplifying the communication between the
+graph drawing system and graph drawing algorithms written in
+%
 \begin{itemize}
-\item C, see Section~\ref{section-gd-c},
-\item C++, see Section~\ref{section-gd-c++},
-\item Open Graph Drawing Framework, see Section~\ref{section-gd-ogdf-interface}.
+    \item C, see Section~\ref{section-gd-c},
+    \item C++, see Section~\ref{section-gd-c++},
+    \item Open Graph Drawing Framework, see
+        Section~\ref{section-gd-ogdf-interface}.
 \end{itemize}
 
 
-
 \subsection{Writing Graph Drawing Algorithms in C}
-
 \label{section-gd-c}
 
 \subsubsection{The Hello World of Graph Drawing in C}
 
-As our first example, as always, the ``hello world'' of graph drawing
-simply places nodes on a circle. For this, we implement a
-function |fast_hello_world| in a file |SimpleDemoC.c|. It starts as
-follows:
-
+As our first example, as always, the ``hello world'' of graph drawing simply
+places nodes on a circle. For this, we implement a function |fast_hello_world|
+in a file |SimpleDemoC.c|. It starts as follows:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 #include <pgf/gd/interface/c/InterfaceFromC.h>
 #include <math.h>
@@ -148,31 +140,28 @@ static void fast_hello_world (pgfgd_SyntacticDigraph* graph) {
 }
 \end{codeexample}
 
-As we can see, we first include a special header file of a rather small
-library that does all the hard work of translating between Lua and C
-for us (|InterfaceFromC|). These header files reside in the |c|
-subdirectory of the |pgf| package. Note that we do \emph{not} have to
-include the headers of the Lua library; indeed, you do not need access
-to the source of Lua to use the interface headers. As a side effect,
-we will, however, have to write |struct lua_State| instead of the more common
-|lua_State| once in our code, namely in the declaration of the entry
-point; but that is the only downside. 
+As we can see, we first include a special header file of a rather small library
+that does all the hard work of translating between Lua and C for us
+(|InterfaceFromC|). These header files reside in the |c| subdirectory of the
+|pgf| package. Note that we do \emph{not} have to include the headers of the
+Lua library; indeed, you do not need access to the source of Lua to use the
+interface headers. As a side effect, we will, however, have to write
+|struct lua_State| instead of the more common |lua_State| once in our code,
+namely in the declaration of the entry point; but that is the only downside.
 
-The library |InterfaceFromC| declares the type
-|pgfgd_SyntacticDigraph|. In a moment, we will 
-see that we can setup a key |fast simple demo layout| such that when
-this key is used on the display layer, the function
-|fast_hello_world| gets called. When it is called, the |graph|
-parameter will be a full representation of the to-be-laid-out
-graph. We can access the fields of the graph and even directly modify
-some of its fields (in particular, we can modify the |pos| fields of
-the vertices). Here is the complete code of the algorithm:
-
+The library |InterfaceFromC| declares the type |pgfgd_SyntacticDigraph|. In a
+moment, we will see that we can setup a key |fast simple demo layout| such that
+when this key is used on the display layer, the function |fast_hello_world|
+gets called. When it is called, the |graph| parameter will be a full
+representation of the to-be-laid-out graph. We can access the fields of the
+graph and even directly modify some of its fields (in particular, we can modify
+the |pos| fields of the vertices). Here is the complete code of the algorithm:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 static void fast_hello_world (pgfgd_SyntacticDigraph* graph) {
   double angle  = 6.28318530718 / graph->vertices.length;
   double radius = pgfgd_tonumber(graph->options, "fast simple demo radius");
-  
+
   int i;
   for (i = 0; i < graph->vertices.length; i++) {
     pgfgd_Vertex* v = graph->vertices.array[i];
@@ -182,16 +171,16 @@ static void fast_hello_world (pgfgd_SyntacticDigraph* graph) {
 }
 \end{codeexample}
 
-That is all that is needed; the C library will take care of both
-creating the |graph| object as all well as of deleting it and of
-copying back the computed values of the |pos| fields of the vertices.
+That is all that is needed; the C library will take care of both creating the
+|graph| object as all well as of deleting it and of copying back the computed
+values of the |pos| fields of the vertices.
 
-Our next task is to setup the key |fast simple demo layout|. We can
-(and must) also do this from C, using the following code:
-
+Our next task is to setup the key |fast simple demo layout|. We can (and must)
+also do this from C, using the following code:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 int luaopen_pgf_gd_examples_c_SimpleDemoC (struct lua_State *state) {
-  
+
   pgfgd_Declaration* d = pgfgd_new_key ("fast simple demo layout");
   pgfgd_key_summary          (d, "The C version of the hello world of graph drawing");
   pgfgd_key_algorithm        (d, fast_hello_world);
@@ -201,15 +190,15 @@ int luaopen_pgf_gd_examples_c_SimpleDemoC (struct lua_State *state) {
   pgfgd_free_key             (d);
 \end{codeexample}
 
-The function |luaopen_pgf_gd_examples_c_SimpleDemoC| is the
-function that will be called by Lua (we will come to that). More
-important for us, at the moment, is the declaration of the key: We use
-|pgfgd_new_key| to create a declaration record and then fill the
-different fields using appropriate function calls. In particular, the
-call |pgfgd_key_algorithm| allows us to link the key with a particular
-C function. The |pgfgd_declare| will then pass the whole declaration
-back to Lua, so the effect of the above is essentially the same as if
-you had written in Lua:
+The function |luaopen_pgf_gd_examples_c_SimpleDemoC| is the function that will
+be called by Lua (we will come to that). More important for us, at the moment,
+is the declaration of the key: We use |pgfgd_new_key| to create a declaration
+record and then fill the different fields using appropriate function calls. In
+particular, the call |pgfgd_key_algorithm| allows us to link the key with a
+particular C function. The |pgfgd_declare| will then pass the whole declaration
+back to Lua, so the effect of the above is essentially the same as if you had
+written in Lua:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 declare {
   key = "fast simple demo layout",
@@ -225,9 +214,9 @@ declare {
 \end{codeexample}
 
 In our algorithm, in addition to the above key, we also use the
-|fast simple demo radius| key, which is a simple length key. This key, too, can be
-declared on the C layer:
-
+|fast simple demo radius| key, which is a simple length key. This key, too, can
+be declared on the C layer:
+%
 \begin{codeexample}[code only, tikz syntax=false]
   d = pgfgd_new_key ("fast simple demo radius");
   pgfgd_key_summary (d, "A radius value for the hello world of graph drawing");
@@ -235,95 +224,100 @@ declared on the C layer:
   pgfgd_key_initial (d, "1cm");
   pgfgd_declare     (state, d);
   pgfgd_free_key    (d);
-  
+
   return 0;
 }
 \end{codeexample}
 
 We simply add this code to the startup function above.
 
-Now it is time to compile and link the code. For this, you must, well,
-compile it, link it against the library |InterfaceFromC|, and build a
-shared library out of it. Also, you must place it somewhere where
-Lua\TeX\ will find it. You will find a Makefile that should be able to
-achieve all of this in the directory |pgf/c/graphdrawing/pgf/gd/examples/c|,
-where you  will also find the code of the above example.
+Now it is time to compile and link the code. For this, you must, well, compile
+it, link it against the library |InterfaceFromC|, and build a shared library
+out of it. Also, you must place it somewhere where Lua\TeX\ will find it. You
+will find a Makefile that should be able to achieve all of this in the
+directory |pgf/c/graphdrawing/pgf/gd/examples/c|, where you  will also find the
+code of the above example.
 
-Now, all you need to do to use it is to write in Lua (after you have
-loaded the |pgf.gd| library, of course), would normally be the call
-
+Now, all you need to do to use it is to write in Lua (after you have loaded the
+|pgf.gd| library, of course), would normally be the call
+%
 \begin{codeexample}[code only, tikz syntax=false]
-require 'pgf.gd.examples.c.SimpleDemoC'  
+require 'pgf.gd.examples.c.SimpleDemoC'
 \end{codeexample}
+%
 or in \tikzname
+%
 \begin{codeexample}[code only]
 \usegdlibrary {examples.c.SimpleDemoC}
 \end{codeexample}
 
-This should cause Lua\TeX\ to find the shared library, load it, and then
-call the function in that library with the lengthy name (the name is
-always |luaopen_| followed by the path and filename with slashes
-replaced by underscores). 
+This should cause Lua\TeX\ to find the shared library, load it, and then call
+the function in that library with the lengthy name (the name is always
+|luaopen_| followed by the path and filename with slashes replaced by
+underscores).
 
-\emph{Remark:} Unfortunately, the above does not work with the \TeX
-Live 2013 versions of Lua\TeX\ due to a bugs that causes the ``replace
-dots by slashes'' to fail. For this reason, we currently need to
-rename our sharded library file to
+\emph{Remark:} Unfortunately, the above does not work with the \TeX Live 2013
+versions of Lua\TeX\ due to a bugs that causes the ``replace dots by slashes''
+to fail. For this reason, we currently need to rename our shared library file
+to
+%
 \begin{codeexample}[code only, tikz syntax=false]
 pgf_gd_examples_c_SimpleDemoC.so
 \end{codeexample}
+%
 and then say
+%
 \begin{codeexample}[code only, tikz syntax=false]
-require 'pgf_gd_examples_c_SimpleDemoC'  
+require 'pgf_gd_examples_c_SimpleDemoC'
 \end{codeexample}
+%
 or in \tikzname
+%
 \begin{codeexample}[code only]
 \usegdlibrary {pgf_gd_examples_c_SimpleDemoC}
 \end{codeexample}
 
-In future versions of Lua\TeX, things should be ``back to normal'' in
-this regard. Also, the bug only concerns shared libraries; you can
-still create a normal Lua file with a nice name and place at a nice
-location and the only contents of this file is then the above
-|require| command.
+In future versions of Lua\TeX, things should be ``back to normal'' in this
+regard. Also, the bug only concerns shared libraries; you can still create a
+normal Lua file with a nice name and place at a nice location and the only
+contents of this file is then the above |require| command.
 
 Anyway, once we have loaded the shared library we can say:
-
+%
 \begin{codeexample}[code only]
 \tikz \graph [fast simple demo layout, fast simple demo radius=1.25cm]
 { a -> b -> c -> d -> e -> a };
 \end{codeexample}
 
+
 \subsubsection{Documenting Algorithms Written in C}
 \label{section-gd-documenting-c-algos}
 
-In our above example, we included a summary with the keys in the C
-code. It would be even better if we added a longer documentation and
-some examples that show how the key works; but this is a bit
-impracticable in C since multi-line strings are hard to write down
-in~C. The trick is to use the |documentation_in| field of a key: It
-allows us to specify the name of a Lua file that should be loaded
-(using |require|) to install the missing documentation fields. As
-explained in Section~\ref{section-gd-documentation-in}, this Lua file
-may make good use the |pgf.gd.doc| package. Note, also, that for keys
-documented in this way the documentation can easily be included in
-this manual through the use of the |\includedocumentationof| command.
+In our above example, we included a summary with the keys in the C code. It
+would be even better if we added a longer documentation and some examples that
+show how the key works; but this is a bit impracticable in C since multi-line
+strings are hard to write down in~C. The trick is to use the |documentation_in|
+field of a key: It allows us to specify the name of a Lua file that should be
+loaded (using |require|) to install the missing documentation fields. As
+explained in Section~\ref{section-gd-documentation-in}, this Lua file may make
+good use the |pgf.gd.doc| package. Note, also, that for keys documented in this
+way the documentation can easily be included in this manual through the use of
+the |\includedocumentationof| command.
 
-In our example, we would first add the following line twice in the
-C code (once for each key), assuming that the documentation resides in
-the file |pgf/gd/doc/examples/SimpleDemoC.lua|:
-
+In our example, we would first add the following line twice in the C code (once
+for each key), assuming that the documentation resides in the file
+|pgf/gd/doc/examples/SimpleDemoC.lua|:
+%
 \begin{codeexample}[code only, tikz syntax=false]
   pgfgd_key_documentation_in (d, "pgf.gd.doc.examples.SimpleDemoC");
 \end{codeexample}
 
-Note that since the documentation is a normal Lua file, it will be
-searched in the usual places Lua files are located (in the texmf
-trees) and not, like the C shared library, in the special |lib|
-subdirectory of the Lua\TeX\ binary.
+Note that since the documentation is a normal Lua file, it will be searched in
+the usual places Lua files are located (in the texmf trees) and not, like the C
+shared library, in the special |lib| subdirectory of the Lua\TeX\ binary.
 
 Here are typical contents of the documentation file:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 -- File pgf/gd/doc/examples/SimpleDemoC.lua
 local key           = require 'pgf.gd.doc'.key
@@ -332,7 +326,7 @@ local summary       = require 'pgf.gd.doc'.summary
 local example       = require 'pgf.gd.doc'.example
 
 key           "fast simple demo layout"
-documentation 
+documentation
 [[
 This layout is used...
 ]]
@@ -343,7 +337,7 @@ example
 ]]
 
 key           "fast simple demo radius"
-documentation 
+documentation
 [[
 The radius parameter is used to ...
 ]]
@@ -355,42 +349,35 @@ example
 \end{codeexample}
 
 
-
 \subsubsection{The Interface From C}
 
-In the above example, we already saw some of the functions from the
-library |InterfaceFromC| that translated from Lua to C for us. For a
-complete list of all functions available, currently please see
-|graphdrawing/c/pgf/gd/interface/c/InterfaceFromC.h| directly. 
+In the above example, we already saw some of the functions from the library
+|InterfaceFromC| that translated from Lua to C for us. For a complete list of
+all functions available, currently please see
+|graphdrawing/c/pgf/gd/interface/c/InterfaceFromC.h| directly.
 
-Currently, the library provides C functions to directly access all
-aspects of the syntactic digraph and also of the graphs computed by
-the preprocessing of the layout pipeline. What is missing, however, is
-access to the tree of (sub)layouts and to collections. Hopefully, these will
-be added in the future. 
-
-
+Currently, the library provides C functions to directly access all aspects of
+the syntactic digraph and also of the graphs computed by the preprocessing of
+the layout pipeline. What is missing, however, is access to the tree of
+(sub)layouts and to collections. Hopefully, these will be added in the future.
 
 
 \subsection{Writing Graph Drawing Algorithms in C++}
-
 \label{section-gd-c++}
 
-Built on top of the C interface presented in the previous section,
-there is also a C++ interface available. It encapsulates as much of
-the C functions as possible in C++ classes. Thus, this interface is
-mostly there for convenience, it does not offer fundamentally new
-functionality.
+Built on top of the C interface presented in the previous section, there is
+also a C++ interface available. It encapsulates as much of the C functions as
+possible in C++ classes. Thus, this interface is mostly there for convenience,
+it does not offer fundamentally new functionality.
 
 
 \subsubsection{The Hello World of Graph Drawing in C++}
 
-Let us have a look at how our beloved hello world of graph drawing
-looks in C++. Although it is still possible to put graph drawing
-algorithms inside functions, it is more natural in C++ to turn them
-into methods of a class. Thus, we start the code of
-|SimpleDemoCPlusPlus.c++| as follows:
-
+Let us have a look at how our beloved hello world of graph drawing looks in
+C++. Although it is still possible to put graph drawing algorithms inside
+functions, it is more natural in C++ to turn them into methods of a class.
+Thus, we start the code of |SimpleDemoCPlusPlus.c++| as follows:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 #include <pgf/gd/interface/c/InterfaceFromC++.h>
 #include <pgf/gd/interface/c/InterfaceFromC.h>
@@ -402,31 +389,30 @@ struct FastLayout : scripting::declarations, scripting::runner {
 }
 \end{codeexample}
 
-As can be seen, we do not only include the interface from C++, but
-also that from C (since, currently, not all functionality of the C
-library is encapsulated in C++).
+As can be seen, we do not only include the interface from C++, but also that
+from C (since, currently, not all functionality of the C library is
+encapsulated in C++).
 
 The interesting part is the |struct FastLayout|, which will contain our
-algorithm (you could just as well have used a |class| instead of a
-|struct|). It is derived from two classes: First, from a
-|declarations| class and, secondly, from a |runner| class. Both of
-them, just like everything else from the interface, reside in the
-namespace |scripting|. This name was chosen since the main purpose of
-the interface is to provide ``scripting facilities'' to C code through
-the use of Lua.
+algorithm (you could just as well have used a |class| instead of a |struct|).
+It is derived from two classes: First, from a |declarations| class and,
+secondly, from a |runner| class. Both of them, just like everything else from
+the interface, reside in the namespace |scripting|. This name was chosen since
+the main purpose of the interface is to provide ``scripting facilities'' to C
+code through the use of Lua.
 
-We are currently interested in the class |runner|. This class has a
-virtual function |run| that gets called when, on the Lua side, someone
-has selected the algorithm represented by the class. Thus, we place
-our algorithm in this method:
-
+We are currently interested in the class |runner|. This class has a virtual
+function |run| that gets called when, on the Lua side, someone has selected the
+algorithm represented by the class. Thus, we place our algorithm in this
+method:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 void run () {
   pgfgd_SyntacticDigraph* graph = parameters->syntactic_digraph;
-    
+
   double angle  = 6.28318530718 / graph->vertices.length;
   double radius = parameters->option<double>("fast simple demo radius c++");
-  
+
   for (int i = 0; i < graph->vertices.length; i++) {
     pgfgd_Vertex* v = graph->vertices.array[i];
     v->pos.x = cos(angle*i) * radius;
@@ -435,24 +421,22 @@ void run () {
 }
 \end{codeexample}
 
-The |run| method has access to the member variable |parameters|, which
-contains all sorts of information concerning the to-be-drawn graph. In
-particular, the |syntactic_digraph| field gives us access to the
-syntactic digraph structure that was already available in the
-interface from plain~C. However, we can also see that a template
-function like |option| allows us to access the graph's option table in
-a simple way.
+The |run| method has access to the member variable |parameters|, which contains
+all sorts of information concerning the to-be-drawn graph. In particular, the
+|syntactic_digraph| field gives us access to the syntactic digraph structure
+that was already available in the interface from plain~C. However, we can also
+see that a template function like |option| allows us to access the graph's
+option table in a simple way.
 
 As for C code, our next task is to setup a key that, when used on the
-\tikzname\ layer, will run our algorithm. For this, we can use an
-object derived from a |declarations|. In our example, the |FastLayout|
-is both derived from a |runner| (since it contains an algorithm) and
-also from |declarations| (since it also contains the code necessary for
-declaring this algorithm). If you prefer, you can split this into two
-classes. A |declarations| object must override the |declare|
-method. This method gets a |script| object as input, which is the
-``representation'' of Lua inside the C++ code:
-
+\tikzname\ layer, will run our algorithm. For this, we can use an object
+derived from a |declarations|. In our example, the |FastLayout| is both derived
+from a |runner| (since it contains an algorithm) and also from |declarations|
+(since it also contains the code necessary for declaring this algorithm). If
+you prefer, you can split this into two classes. A |declarations| object must
+override the |declare| method. This method gets a |script| object as input,
+which is the ``representation'' of Lua inside the C++ code:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 void declare(scripting::script s) {
   using namespace scripting;
@@ -462,7 +446,7 @@ void declare(scripting::script s) {
             .precondition ("connected")
             .precondition ("tree")
             .algorithm (this));
-    
+
   s.declare(key ("fast simple demo radius c++")
             .summary ("A radius value for the hello world of graph drawing")
             .type ("length")
@@ -470,17 +454,16 @@ void declare(scripting::script s) {
 }
 \end{codeexample}
 
-For each key that we wish to declare, we call the script's |declare|
-method once. This method takes a |key| object as input, which can be
-configured through a sequence of calls to different member functions
-(like |summary| or |algorithm|). Most of these member functions are
-rather self-explaining; only |algorithm| is a bit trickier: It does
-not take a function as input, but rather an object of type |runner|
-and it will call the |run| method of this object whenever the
-algorithm is run.
+For each key that we wish to declare, we call the script's |declare| method
+once. This method takes a |key| object as input, which can be configured
+through a sequence of calls to different member functions (like |summary| or
+|algorithm|). Most of these member functions are rather self-explaining; only
+|algorithm| is a bit trickier: It does not take a function as input, but rather
+an object of type |runner| and it will call the |run| method of this object
+whenever the algorithm is run.
 
 Lastly, we also need to write the entry point:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoCPlusPlus (struct lua_State *state) {
   scripting::script s (state);
@@ -490,25 +473,30 @@ extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoCPlusPlus (struct lua_State *
 \end{codeexample}
 
 Note that it is the job of the interface classes to free the passed
-|declarations| object. For this reason, you really need to call |new|
-and cannot pass the address of a temporary object.
+|declarations| object. For this reason, you really need to call |new| and
+cannot pass the address of a temporary object.
 
-As before, because of the bug in some Lua\TeX\ versions, to actually
-load the library at runtime, we need to rename it to
+As before, because of the bug in some Lua\TeX\ versions, to actually load the
+library at runtime, we need to rename it to
+%
 \begin{codeexample}[code only, tikz syntax=false]
 pgf_gd_examples_c_SimpleDemoCPlusPlus.so
 \end{codeexample}
+%
 and then say
+%
 \begin{codeexample}[code only, tikz syntax=false]
-require 'pgf_gd_examples_c_SimpleDemoCPlusPlus'  
+require 'pgf_gd_examples_c_SimpleDemoCPlusPlus'
 \end{codeexample}
+%
 or in \tikzname
+%
 \begin{codeexample}[code only]
 \usegdlibrary {pgf_gd_examples_c_SimpleDemoCPlusPlus}
 \end{codeexample}
 
 We can now use it:
-
+%
 \begin{codeexample}[code only]
 \tikz \graph [fast simple demo layout c++, fast simple demo radius c++=1.25cm]
 { a -> b -> c -> d -> e -> a };
@@ -517,103 +505,101 @@ We can now use it:
 
 \subsubsection{The Interface From C++}
 
-The header |graphdrawing/c/pgf/gd/interface/c/InterfaceFromC++.h|
-contains, as the name suggest, the interface from C++. A complete
-documentation is still missing, but let us go over the main ideas:
+The header |graphdrawing/c/pgf/gd/interface/c/InterfaceFromC++.h| contains, as
+the name suggest, the interface from C++. A complete documentation is still
+missing, but let us go over the main ideas:
+
 
 \medskip
 \noindent\textbf{Runners.}
-Algorithms are represented by objects of type |runner|. An
-algorithm will overwrite the |run| method, as we saw in the
-example, and it should modify the |parameters| of the runner
-object. 
+Algorithms are represented by objects of type |runner|. An algorithm will
+overwrite the |run| method, as we saw in the example, and it should modify the
+|parameters| of the runner object.
 
-In addition to the |run| method, there are also two more virtual
-methods, called |bridge| and |unbrigde|. The first is called before
-the |run| method is called and the second afterwards. The idea is that
-another framework, such as \textsc{ogdf}, can implement a new class
-|ogdf_runner| that overrides these two methods in order to transform
-the Lua/C representation of the input graph into an \textsc{ogdf}
-representation prior to the |run| method being called. The |run|
-method can then access additional member variables that store the
-graph representations in \textsc{ogdf} form (or another form,
-depending on the framework). The |unbridge| method allows the
-framework to translate back.
+In addition to the |run| method, there are also two more virtual methods,
+called |bridge| and |unbrigde|. The first is called before the |run| method is
+called and the second afterwards. The idea is that another framework, such as
+\textsc{ogdf}, can implement a new class |ogdf_runner| that overrides these two
+methods in order to transform the Lua/C representation of the input graph into
+an \textsc{ogdf} representation prior to the |run| method being called. The
+|run| method can then access additional member variables that store the graph
+representations in \textsc{ogdf} form (or another form, depending on the
+framework). The |unbridge| method allows the framework to translate back.
 
-Although a |runner| object must be created for every algorithm, an
-algorithm can also reside in a function. The class |function_runner|
-is a simple wrapper that turns a function into such an object.
+Although a |runner| object must be created for every algorithm, an algorithm
+can also reside in a function. The class |function_runner| is a simple wrapper
+that turns a function into such an object.
 
 
 \medskip
 \noindent\textbf{Keys.}
-A key object is a temporary object that is passed to the |declare|
-method of a script. It represents the table that is passed to the Lua
-function |declare|. In order to make setting its field easy, for each
-field name there is a corresponding function (like |summary|) that
-takes the string that should be set to this field and returns the key
-object once more, so that we can chain calls.
+A key object is a temporary object that is passed to the |declare| method of a
+script. It represents the table that is passed to the Lua function |declare|.
+In order to make setting its field easy, for each field name there is a
+corresponding function (like |summary|) that takes the string that should be
+set to this field and returns the key object once more, so that we can chain
+calls.
 
-The |algorithm| method gets a runner object as parameter and will
-store a pointer to this object inside Lua. Each time the algorithm is
-used, this object will be used to ``run'' the algorithm, that is, the
-methods |prepare|, |bridge|, |run|, and |unbridge| will be called in
-that order. Since the object is reused each time, only one object is
-needed; but this object may not be freed prematurely. Indeed, you will
-normally create the object using |new| once and will then never delete
-it.
+The |algorithm| method gets a runner object as parameter and will store a
+pointer to this object inside Lua. Each time the algorithm is used, this object
+will be used to ``run'' the algorithm, that is, the methods |prepare|,
+|bridge|, |run|, and |unbridge| will be called in that order. Since the object
+is reused each time, only one object is needed; but this object may not be
+freed prematurely. Indeed, you will normally create the object using |new| once
+and will then never delete it.
 
 A typical idiom you may find in the code is
+%
 \begin{codeexample}[code only, tikz syntax=false]
 s.declare (key (...)
            .algorithm(this)
-           ...);  
+           ...);
 \end{codeexample}
+%
 This code is seen inside the |declare| method of objects that are both
-declarations and runners. They register ``themselves'' via the above
-code. Note, however, that this requires that the |this| pointer is not
-a temporary object. (The typing rules of C++ make it hard for this
-situation to happen, but it can be achieved.)
+declarations and runners. They register ``themselves'' via the above code.
+Note, however, that this requires that the |this| pointer is not a temporary
+object. (The typing rules of C++ make it hard for this situation to happen, but
+it can be achieved.)
 
 
 \medskip
-\noindent\textbf{Reading options.}
-Once options have been declared, your C++ algorithms will wish to read
-them back. For this, the |parameters| field of a runner object
-provides a number of templated methods:
+\noindent\textbf{Reading options.} Once options have been declared, your C++
+algorithms will wish to read them back. For this, the |parameters| field of a
+runner object provides a number of templated methods:
+%
 \begin{itemize}
-\item The |option_is_set| method returns |true| if the passed option
-  has been set \emph{and} can be cast to the type of the template. So,
-  |option_is_set<double>("node distance")| will return true if the
-  |node distance| key has been set for the graph as a whole
-  (currently, there is no way to read the options of a vertex or an
-  edge from C++, use the C methods instead).
-\item The |option| function comes in two flavours: First, it takes a
-  single option name and just returns the option's value. If, however,
-  the option has not been set or has another type, some sort of null
-  value is returned. So, |option<double>("node distance")| will return
-  the configured node distance as a double. When an option has an
-  initial value, this call will always return a sensible value.
+    \item The |option_is_set| method returns |true| if the passed option has
+        been set \emph{and} can be cast to the type of the template. So,
+        |option_is_set<double>("node distance")| will return true if the
+        |node distance| key has been set for the graph as a whole (currently,
+        there is no way to read the options of a vertex or an edge from C++,
+        use the C methods instead).
+    \item The |option| function comes in two flavours: First, it takes a single
+        option name and just returns the option's value. If, however, the
+        option has not been set or has another type, some sort of null value is
+        returned. So, |option<double>("node distance")| will return the
+        configured node distance as a double. When an option has an initial
+        value, this call will always return a sensible value.
 
-  The second flavour of |option| allows you to pass a reference to an
-  object in which the option's value should be stored and the function
-  will return true if the option is set (and, thus, something was
-  written into the reference). This is the ``safest'' way to access
-  an option:
+        The second flavour of |option| allows you to pass a reference to an
+        object in which the option's value should be stored and the function
+        will return true if the option is set (and, thus, something was written
+        into the reference). This is the ``safest'' way to access an option:
+        %
 \begin{codeexample}[code only, tikz syntax=false]
 double dist;
 if (parameters->option ("node distance", dist))
   ...
-\end{codeexample}  
-  
-  Caution must be taken for |char*| options: The returned string must
-  be explicitly freed; it will be a copy of the string stored in the
-  Lua table.
-\item
-  The |configure_option| method is used to set a member of an object
-  based on the value of a certain option. For this, you must pass a
-  pointer to a member function that sets the member. Here is an
-  example:
+\end{codeexample}
+
+        Caution must be taken for |char*| options: The returned string must be
+        explicitly freed; it will be a copy of the string stored in the Lua
+        table.
+    \item The |configure_option| method is used to set a member of an object
+        based on the value of a certain option. For this, you must pass a
+        pointer to a member function that sets the member. Here is an example:
+        %
 \begin{codeexample}[code only, tikz syntax=false]
 class MyClass {
 public:
@@ -625,64 +611,59 @@ public:
 MyClass m;
 parameters->configure_option("node distance", &MyClass::setMyDistance, m);
 \end{codeexample}
-  If the option has not been set or does not have the correct type,
-  the member function is not called.
+        %
+        If the option has not been set or does not have the correct type, the
+        member function is not called.
 \end{itemize}
 
 
 \medskip
 \noindent\textbf{Factories and modules.}
-A Lua key is normally either a Boolean, a double, or a
-string. However, in C++, we may also sometimes wish Lua users to
-configure which C function is used to achieve something. One could do
-this using strings or numbers and then use search algorithms or a long
-|switch|, but this would neither be flexible nor elegant.
+A Lua key is normally either a Boolean, a double, or a string. However, in C++,
+we may also sometimes wish Lua users to configure which C function is used to
+achieve something. One could do this using strings or numbers and then use
+search algorithms or a long |switch|, but this would neither be flexible nor
+elegant.
 
-Instead, it is possible to store \emph{factories} in Lua keys. A
-factory is a class derived from |factory| that implements the virtual
-function |make|. This function will return a new object of a template
-type. You can store such a factory in a key.
+Instead, it is possible to store \emph{factories} in Lua keys. A factory is a
+class derived from |factory| that implements the virtual function |make|. This
+function will return a new object of a template type. You can store such a
+factory in a key.
 
-The |make| method of a parameters object allows you to invoke the
-factory stored in a key. (If no factory is stored in it, |null| is
-returned). 
+The |make| method of a parameters object allows you to invoke the factory
+stored in a key. (If no factory is stored in it, |null| is returned).
 
-The |configure_module| method is akin to |configure_option|, only 
-the result of applying the factory is passed to the member function of
-the class.
-
+The |configure_module| method is akin to |configure_option|, only the result of
+applying the factory is passed to the member function of the class.
 
 
 \medskip
 \noindent\textbf{Scripts.}
-A ``script'' is the abstraction of the communication between Lua and
-C++. From C++'s point of view, the script object offers different
-|declare| methods that allow us to ``make objects and function
-scriptable'' in the sense that they can then be called and configured
-from Lua. The script must be initialized with a Lua state and will be
-bound to that state (basically, the script only stores this single
-pointer).
+A ``script'' is the abstraction of the communication between Lua and C++. From
+C++'s point of view, the script object offers different |declare| methods that
+allow us to ``make objects and function scriptable'' in the sense that they can
+then be called and configured from Lua. The script must be initialized with a
+Lua state and will be bound to that state (basically, the script only stores
+this single pointer).
 
-When you call |declare|, you either pass a single key object (which is
-then declared on the Lua layer) or you pass a |declarations| object,
-whose virtual |declare| method is then called. The |declarations|
-objects are used to bundle several declarations into a single one.
-
+When you call |declare|, you either pass a single key object (which is then
+declared on the Lua layer) or you pass a |declarations| object, whose virtual
+|declare| method is then called. The |declarations| objects are used to bundle
+several declarations into a single one.
 
 
 \subsection{Writing Graph Drawing Algorithms Using OGDF}
-
 \label{section-gd-ogdf-interface}
 
-Built on top of the C++ interface, a small interface allows you to
-easily link algorithms written for the \textsc{ogdf} (Open Graph
-Drawing Framework) with graph drawing in Lua. 
+Built on top of the C++ interface, a small interface allows you to easily link
+algorithms written for the \textsc{ogdf} (Open Graph Drawing Framework) with
+graph drawing in Lua.
 
 
 \subsubsection{The Hello World of Graph Drawing in OGDF -- From Scratch}
 
 We start with some startup code:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 #include <pgf/gd/ogdf/c/InterfaceFromOGDF.h>
 #include <math.h>
@@ -691,61 +672,60 @@ using namespace ogdf;
 using namespace scripting;
 \end{codeexample}
 
-Note that the interface from \textsc{ogdf} resides in the |ogdf|
-folder, not in the |interface| folder.
+Note that the interface from \textsc{ogdf} resides in the |ogdf| folder, not in
+the |interface| folder.
 
-Like in the plain C++ interface, we must now subclass the |runner|
-class and the |declarations| class. Also like the plain C++ interface,
-we can use multiple inheritance. The difference lies in the fact that
-we do not directly subclass form |runner|, but rather from
-|ogdf_runner|. This class implements the complicated ``bridging'' or
-``translation'' process between the world of |InterfaceFromC++| and
-\textsc{ogdf}:
-
+Like in the plain C++ interface, we must now subclass the |runner| class and
+the |declarations| class. Also like the plain C++ interface, we can use
+multiple inheritance. The difference lies in the fact that we do not directly
+subclass form |runner|, but rather from |ogdf_runner|. This class implements
+the complicated ``bridging'' or ``translation'' process between the world of
+|InterfaceFromC++| and \textsc{ogdf}:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 struct FastLayoutOGDF : declarations, ogdf_runner {
-  
+
   void run () {
     double angle  = 6.28318530718 / graph.numberOfNodes();
     double radius = parameters->option<double>("my radius ogdf");
-    
+
     int i = 0;
     for (node v = graph.firstNode(); v; v=v->succ(), i++) {
       graph_attributes.x(v) = cos(angle*i) * radius;
       graph_attributes.y(v) = sin(angle*i) * radius;
     }
   }
-\end{codeexample}  
+\end{codeexample}
 
-As can be seen, in a subclass of |ogdf_runner|, the |run| method will
-have access to a member called |graph| and to another member called
-|graph_attributes|. These will have been setup with the graph from the
-Lua layer and, after the algorithm has run, the information stored in
-the |x| and |y| fields of the graph attributes and also the bend
-information of the edges will be written back automatically.
+As can be seen, in a subclass of |ogdf_runner|, the |run| method will have
+access to a member called |graph| and to another member called
+|graph_attributes|. These will have been setup with the graph from the Lua
+layer and, after the algorithm has run, the information stored in the |x| and
+|y| fields of the graph attributes and also the bend information of the edges
+will be written back automatically.
 
 Next, we need to declare the algorithm. This is done as in the plain
 C++ interface:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
   void declare(script s) {
     using namespace scripting;
 
     s.declare(key ("fast simple demo layout ogdf")
-	      .summary ("The OGDF version of the hello world of graph drawing")
-	      .precondition ("connected")
-	      .algorithm (this));
-    
+          .summary ("The OGDF version of the hello world of graph drawing")
+          .precondition ("connected")
+          .algorithm (this));
+
     s.declare(key ("my radius ogdf")
-	      .summary ("A radius value for the hello world of graph drawing")
-	      .type ("length")
-	      .initial ("1cm"));
+          .summary ("A radius value for the hello world of graph drawing")
+          .type ("length")
+          .initial ("1cm"));
   }
 };
 \end{codeexample}
 
 Finally, we need the entry point, which is also ``as usual'':
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoOGDF (struct lua_State *state) {
   script (state).declare (new FastLayoutOGDF);
@@ -755,34 +735,33 @@ extern "C" int luaopen_pgf_gd_examples_c_SimpleDemoOGDF (struct lua_State *state
 
 Yet again, we need to rename the resulting shared library and then say
 |require| on it. We can now use it:
-
+%
 \begin{codeexample}[code only]
 \tikz \graph [fast simple demo layout ogdf, my radius ogdf=1cm]
 { a -> b -> c -> d -> e -> a };
 \end{codeexample}
 
 
-
 \subsubsection{The Hello World of Graph Drawing in OGDF -- Adapting Existing Classes}
 
 In the previous example we implemented a graph drawing algorithm using
-\textsc{ogdf} for use with Lua ``from scratch.'' In particular, the
-whole algorithm was contained in the |run| method of our main
-class. In practice, however, graph drawing algorithms are typically
-placed in classes that ``know nothing about scripting.'' For instance,
-our hello world of graph drawing might actually be implemented like this:
-
+\textsc{ogdf} for use with Lua ``from scratch''. In particular, the whole
+algorithm was contained in the |run| method of our main class. In practice,
+however, graph drawing algorithms are typically placed in classes that ``know
+nothing about scripting''. For instance, our hello world of graph drawing might
+actually be implemented like this:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 // File HelloWorldLayout.h
 #include <ogdf/module/LayoutModule.h>
 
 class HelloWorldLayout : puplic ogdf::LayoutModule {
 public:
-  
+
   virtual void call(ogdf::GraphAttributes &GA)
   {
     using namespace ogdf;
-    
+
     const Graph &graph = GA.constGraph();
     double angle  = 6.28318530718 / graph.numberOfNodes();
     int i = 0;
@@ -791,21 +770,19 @@ public:
       GA.y(v) = sin(angle*i) * radius;
     }
   }
-  
+
   void setRadius (double r) { radius = r; }
-  
+
 private:
 
   double radius;
 };
 \end{codeexample}
 
-Now, what we actually want to do is to ``make this class
-scriptable''. For this, we setup a new class whose |run| method will
-produce a new |HelloWorldLayout|, configure it, and then run it. Here
-is this run method:
-
-
+Now, what we actually want to do is to ``make this class scriptable''. For
+this, we setup a new class whose |run| method will produce a new
+|HelloWorldLayout|, configure it, and then run it. Here is this run method:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 void run ()
 {
@@ -817,7 +794,7 @@ void run ()
 
 Next, we need to write the declarations code. This is very similar to the
 ``from scratch'' version:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 void declare(script s) {
   using namespace scripting;
@@ -826,7 +803,7 @@ void declare(script s) {
             .summary ("The OGDF version of the hello world of graph drawing")
             .precondition ("connected")
             .algorithm (this));
-    
+
   s.declare(key ("HelloWorldLayout.radius")
             .summary ("A radius value for the hello world of graph drawing")
             .type ("length")
@@ -834,17 +811,16 @@ void declare(script s) {
 }
 \end{codeexample}
 
-Two remarks are in order: First, it is customary to name the keys for
-the display system the same way as the classes. Second, the different
-configuration options of the algorithm are named with the class name
-followed by the option name. This makes it clear who, exactly, is
-being configured. However, these keys should then also get an |alias|
-field set, which will cause an automatic forwarding of the key to
-something more ``user friendly'' like just |radius|. 
+Two remarks are in order: First, it is customary to name the keys for the
+display system the same way as the classes. Second, the different configuration
+options of the algorithm are named with the class name followed by the option
+name. This makes it clear who, exactly, is being configured. However, these
+keys should then also get an |alias| field set, which will cause an automatic
+forwarding of the key to something more ``user friendly'' like just |radius|.
 
-It remains to put the above methods in a ``script'' file. It is this
-file that, when compiled, must be linked at runtime against Lua\TeX.
-
+It remains to put the above methods in a ``script'' file. It is this file that,
+when compiled, must be linked at runtime against Lua\TeX.
+%
 \begin{codeexample}[code only, tikz syntax=false]
 // File HelloWorldLayout_script.c++
 
@@ -868,23 +844,21 @@ extern "C" int luaopen_my_path_HelloWorldLayout_script (struct lua_State *state)
 
 \subsubsection{Documenting OGDF Algorithms}
 
-As explained in Section~\ref{section-gd-documenting-c-algos}, we can
-add external documentation to algorithms written in C and, using the
-|documentation_in| method of the |key| class, we can use the exact
-same method to document \textsc{ogdf} algorithms.
+As explained in Section~\ref{section-gd-documenting-c-algos}, we can add
+external documentation to algorithms written in C and, using the
+|documentation_in| method of the |key| class, we can use the exact same method
+to document \textsc{ogdf} algorithms.
 
 I strongly recommend making use of this feature since, currently, the
-documentation of many \textsc{ogdf} classes is sketchy at best and
-using \tikzname\ examples seems to be a good way of explaining the
-effect of the different parameters algorithms offer.
-
+documentation of many \textsc{ogdf} classes is sketchy at best and using
+\tikzname\ examples seems to be a good way of explaining the effect of the
+different parameters algorithms offer.
 
 
 \subsubsection{The Interface From OGDF}
 
-The support for \textsc{ogdf} offered inside |InterfaceFromOGDF.h| is
-just the class |ogdf_runner| we saw already 
-in the example. In addition, there is also a wrapper class
-|ogdf_function_runner| that allows you to wrap an algorithm
-implemented in a function that uses \textsc{ogdf}, but I expect this
-to be the case only rarely.
+The support for \textsc{ogdf} offered inside |InterfaceFromOGDF.h| is just the
+class |ogdf_runner| we saw already in the example. In addition, there is also a
+wrapper class |ogdf_function_runner| that allows you to wrap an algorithm
+implemented in a function that uses \textsc{ogdf}, but I expect this to be the
+case only rarely.

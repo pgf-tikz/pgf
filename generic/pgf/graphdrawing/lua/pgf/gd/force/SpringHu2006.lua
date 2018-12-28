@@ -193,6 +193,7 @@ end
 
 
 function SpringHu2006:computeInitialLayout(graph, spring_length)
+  spring_length = math.floor(spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -225,7 +226,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
   else
     -- use a random positioning technique
     local function positioning_func(n) 
-      local radius = 2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      local radius = math.floor(2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
       return math.random(-radius, radius)
     end
 

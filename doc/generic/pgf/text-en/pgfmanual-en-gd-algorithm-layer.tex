@@ -11,126 +11,119 @@
 
 
 \section{The Algorithm Layer}
-
 \label{section-gd-algorithm-layer}
 
 \noindent{\emph{by Till Tantau}}
 
-\ifluatex\else This section of the manual can only be typeset using Lua\TeX.\expandafter\endinput\fi
+\ifluatex
+\else
+    This section of the manual can only be typeset using Lua\TeX.
+    \expandafter\endinput
+\fi
+
 
 \subsection{Overview}
 
-The present section is addressed at readers interested in implementing
-new graph drawing algorithms for the graph drawing system. Obviously,
-in order to do so, you need to have an algorithm in mind and also some
-programming skills; but fortunately only in the Lua programming
-language: Even though the graph drawing system was originally
-developed as an extension of \tikzname, is has been restructured so
-that the ``algorithm layer'' where you define algorithms is
-scrupulously separated from \tikzname. In particular, an algorithm
-declared and implemented on this layer can be used in with every ``display
-layers,'' see Section~\ref{section-gd-display-layer}, without change. Nevertheless, in
-the following we will use the \tikzname\ display layer and syntax in
-our examples.
+The present section is addressed at readers interested in implementing new
+graph drawing algorithms for the graph drawing system. Obviously, in order to
+do so, you need to have an algorithm in mind and also some programming skills;
+but fortunately only in the Lua programming language: Even though the graph
+drawing system was originally developed as an extension of \tikzname, is has
+been restructured so that the ``algorithm layer'' where you define algorithms
+is scrupulously separated from \tikzname. In particular, an algorithm declared
+and implemented on this layer can be used in with every ``display layers'', see
+Section~\ref{section-gd-display-layer}, without change. Nevertheless, in the
+following we will use the \tikzname\ display layer and syntax in our examples.
 
-Normally, new graph drawing algorithms can and must be implemented in
-the Lua programming language, which is a small, easy-to-learn (and
-quite beautiful) language integrated into current versions of
-\TeX. However, as explained in Section~\ref{section-algorithms-in-c},
-you can also implement algorithms in C or C++ (and, possibly, in the
-future also in other languages), but this comes at a great cost
-concerning portability. In the present section, I assume that you are
-only interested in writing an algorithm using Lua.
+Normally, new graph drawing algorithms can and must be implemented in the Lua
+programming language, which is a small, easy-to-learn (and quite beautiful)
+language integrated into current versions of \TeX. However, as explained in
+Section~\ref{section-algorithms-in-c}, you can also implement algorithms in C
+or C++ (and, possibly, in the future also in other languages), but this comes
+at a great cost concerning portability. In the present section, I assume that
+you are only interested in writing an algorithm using Lua.
 
-In the following, after a small ``hello world'' example of graph
-drawing and a discussion of technical details like
-how to name files so that \TeX\ will find them, we have a look at the
-main parts of the algorithm layer:
-
+In the following, after a small ``hello world'' example of graph drawing and a
+discussion of technical details like how to name files so that \TeX\ will find
+them, we have a look at the main parts of the algorithm layer:
+%
 \begin{itemize}
-\item Section~\ref{section-gd-namespaces} gives and overview of the
-  available namespaces and also of naming conventions used in the
-  graph drawing system.
-\item Section~\ref{section-gd-gd-scope} explores what graph
-  drawing scopes ``look like on the algorithm layer.'' As the graph
-  of a graph drawing scope is being parsed on the display layer, a lot
-  of information is gathered: The nodes and edges of the graph are
-  identified and the 
-  object-oriented model is built, but other information is also
-  collected. For instance, a sequence of \emph{events} is created
-  during the parsing process. As another example, numerous kinds of
-  \emph{collections} may be identified by the parser. The parsed graph
-  together with the event sequence and the collections are all
-  gathered in a single table, called the \emph{scope table} of the
-  current graph drawing scope. Algorithms can access this table to
-  retrieve information that goes beyond the ``pure'' graph model.
+    \item Section~\ref{section-gd-namespaces} gives and overview of the
+        available namespaces and also of naming conventions used in the graph
+        drawing system.
+    \item Section~\ref{section-gd-gd-scope} explores what graph drawing scopes
+        ``look like on the algorithm layer''. As the graph of a graph drawing
+        scope is being parsed on the display layer, a lot of information is
+        gathered: The nodes and edges of the graph are identified and the
+        object-oriented model is built, but other information is also
+        collected. For instance, a sequence of \emph{events} is created during
+        the parsing process. As another example, numerous kinds of
+        \emph{collections} may be identified by the parser. The parsed graph
+        together with the event sequence and the collections are all gathered
+        in a single table, called the \emph{scope table} of the current graph
+        drawing scope. Algorithms can access this table to retrieve information
+        that goes beyond the ``pure'' graph model.
 
-  One entry in this table is of particular importance: The
-  \emph{syntactic digraph.} While most graph drawing 
-  algorithms are not really interested in the ``details'' of how a
-  graph was specified, for some algorithms it makes a big difference
-  whether you write |a -> b| or |b <- a| in your specification of the
-  graph. These algorithms can access the ``fine details'' of how the
-  input graph was specified through the syntactic digraph; all other
-  algorithms can access their |digraph| or |ugraph| fields and do not
-  have to worry about the difference between |a -> b| and |b <- a|.
-\item Section~\ref{section-gd-models} explains the object-oriented
-  model of graphs used throughout the graph drawing system. Graph
-  drawing algorithms do not get the ``raw'' specification used by the
-  user to specify a graph (like |{a -> {b,c}}| in the |graph|
-  syntax). Instead, what a graph drawing algorithm sees is ``just'' a
-  graph object that provides methods for accessing the vertices and
-  arcs.
-\item Section~\ref{section-gd-transformations} explains how the
-  information in the graph drawing scope is processed. One might
-  expect that we simply run the algorithm selected by the user;
-  however, things are more involved in practice. When the layout of a
-  graph needs to be computed, only very few algorithms will actually
-  be able to compute positions for the nodes of \emph{every}
-  graph. For instance, most algorithms implicitly assume that the
-  input graph is connected; algorithms for computing layouts for trees
-  assume that the input is, well, a tree; and so on. For this reason,
-  graph drawing algorithms will not actually need the original input
-  graph as their input, but some \emph{transformed} version of
-  it. Indeed, \emph{all} graph drawing algorithms are treated as graph 
-  transformations by the graph drawing engine.
+        One entry in this table is of particular importance: The
+        \emph{syntactic digraph.} While most graph drawing algorithms are not
+        really interested in the ``details'' of how a graph was specified, for
+        some algorithms it makes a big difference whether you write |a -> b| or
+        |b <- a| in your specification of the graph. These algorithms can
+        access the ``fine details'' of how the input graph was specified
+        through the syntactic digraph; all other algorithms can access their
+        |digraph| or |ugraph| fields and do not have to worry about the
+        difference between |a -> b| and |b <- a|.
+    \item Section~\ref{section-gd-models} explains the object-oriented model of
+        graphs used throughout the graph drawing system. Graph drawing
+        algorithms do not get the ``raw'' specification used by the user to
+        specify a graph (like |{a -> {b,c}}| in the |graph| syntax). Instead,
+        what a graph drawing algorithm sees is ``just'' a graph object that
+        provides methods for accessing the vertices and arcs.
+    \item Section~\ref{section-gd-transformations} explains how the information
+        in the graph drawing scope is processed. One might expect that we
+        simply run the algorithm selected by the user; however, things are more
+        involved in practice. When the layout of a graph needs to be computed,
+        only very few algorithms will actually be able to compute positions for
+        the nodes of \emph{every} graph. For instance, most algorithms
+        implicitly assume that the input graph is connected; algorithms for
+        computing layouts for trees assume that the input is, well, a tree; and
+        so on. For this reason, graph drawing algorithms will not actually need
+        the original input graph as their input, but some \emph{transformed}
+        version of it. Indeed, \emph{all} graph drawing algorithms are treated
+        as graph transformations by the graph drawing engine.
 
-  This section explains how transformations are chosen and which
-  transformations are applied by default.
-\item Section~\ref{section-gd-interface-to-algorithms} documents the
-  interface-to-algorithm class. This interface encapsulates all that
-  an algorithm ``sees'' of the graph drawing system (apart from the
-  classes in |model| and |lib|).
-\item Section~\ref{section-gd-examples} provides a number of complete
-  examples that show how graph drawing algorithms can, actually, be
-  implemented. 
-\item Section~\ref{section-gd-libs} documents the different
-  libraries functions that come with the graph drawing engine. For
-  instance, there are library functions for computing the (path)
-  distance of nodes in a graph; a parameter that is needed by some
-  algorithms.
+        This section explains how transformations are chosen and which
+        transformations are applied by default.
+    \item Section~\ref{section-gd-interface-to-algorithms} documents the
+        interface-to-algorithm class. This interface encapsulates all that an
+        algorithm ``sees'' of the graph drawing system (apart from the classes
+        in |model| and |lib|).
+    \item Section~\ref{section-gd-examples} provides a number of complete
+        examples that show how graph drawing algorithms can, actually, be
+        implemented.
+    \item Section~\ref{section-gd-libs} documents the different libraries
+        functions that come with the graph drawing engine. For instance, there
+        are library functions for computing the (path) distance of nodes in a
+        graph; a parameter that is needed by some algorithms.
 \end{itemize}
-
 
 
 \subsection{Getting Started}
 
-In this section, a ``hello world'' example of a graph
-drawing algorithm  is given, followed by an overview of the
-organization of the whole engine.
+In this section, a ``hello world'' example of a graph drawing algorithm  is
+given, followed by an overview of the organization of the whole engine.
 
 
 \subsubsection{The Hello World of Graph Drawing}
 
-Let us start our tour of the algorithm layer with a ``hello world''
-version of graph drawing: An algorithm that simply places all nodes of
-a graph in a circle of a fixed radius. Naturally, this is not a
-particularly impressive or intelligent graph drawing algorithm; but
-neither is the classical ``hello world''$\dots$\ Here is a minimal
-version of the needed code (this is not the typical way of formulating
-the code, but it is the shortest; we will have a look at the more
-standard and verbose way in a moment):
-
+Let us start our tour of the algorithm layer with a ``hello world'' version of
+graph drawing: An algorithm that simply places all nodes of a graph in a circle
+of a fixed radius. Naturally, this is not a particularly impressive or
+intelligent graph drawing algorithm; but neither is the classical ``hello
+world''$\dots$\ Here is a minimal version of the needed code (this is not the
+typical way of formulating the code, but it is the shortest; we will have a
+look at the more standard and verbose way in a moment):
+%
 \begin{codeexample}[code only, tikz syntax=false]
 pgf.gd.interface.InterfaceToAlgorithms.declare {
   key = "very simple demo layout",
@@ -162,38 +155,36 @@ pgf.gd.interface.InterfaceToAlgorithms.declare {
 }
 }
 
-This code \emph {declares} a new algorithm (|very simple demo layout|)
-and includes an implementation of the algorithm (through the |run|
-field of the |algorithm| field). When the |run| method is called, the
-|self| parameter will contain the to-be-drawn graph in its |ugraph|
-field. It is now the job of the code to modify the positions of the
-vertices in this graph (in the example, this is done by assigning
-values to |vertex.pos.x| and |vertex.pos.y|).
+This code \emph {declares} a new algorithm (|very simple demo layout|) and
+includes an implementation of the algorithm (through the |run| field of the
+|algorithm| field). When the |run| method is called, the |self| parameter will
+contain the to-be-drawn graph in its |ugraph| field. It is now the job of the
+code to modify the positions of the vertices in this graph (in the example,
+this is done by assigning values to |vertex.pos.x| and |vertex.pos.y|).
 
-In order to actually \emph{use} the algorithm, the above code first
-needs to be executed somehow. For \tikzname, one can just call
-|\directlua| on it or put it in a file and then use |\directlua| plus
-|require| (a better alternative) or you put it in a file like
-|simpledemo.lua| and use |\usegdlibrary{simpledemo}| (undoubtedly the
-``best'' way). For another display layer, like a graphical editor, the
-code could also be executed through the use of |require|.
+In order to actually \emph{use} the algorithm, the above code first needs to be
+executed somehow. For \tikzname, one can just call |\directlua| on it or put it
+in a file and then use |\directlua| plus |require| (a better alternative) or
+you put it in a file like |simpledemo.lua| and use |\usegdlibrary{simpledemo}|
+(undoubtedly the ``best'' way). For another display layer, like a graphical
+editor, the code could also be executed through the use of |require|.
 
-Executing the code ``just'' declares the algorithm, this is what the
-|declare| function does. Inside some internal tables, the algorithm
-layer will store the fact that a  |very simple demo layout| is now
-available. The algorithm layer will also communicate with the display
-layer through the binding layer to advertise this fact to the
-``user.'' In the case of \tikzname, this means that the option key
-|very simple demo layout| becomes available at this point and we can
-use it like this:
-
+Executing the code ``just'' declares the algorithm, this is what the |declare|
+function does. Inside some internal tables, the algorithm layer will store the
+fact that a  |very simple demo layout| is now available. The algorithm layer
+will also communicate with the display layer through the binding layer to
+advertise this fact to the ``user''. In the case of \tikzname, this means that
+the option key |very simple demo layout| becomes available at this point and we
+can use it like this:
+%
 \begin{codeexample}[]
 \tikz [very simple demo layout]
   \graph { f -> c -> e -> a -> {b -> {c, d, f}, e -> b}};
 \end{codeexample}
 
-It turns out, that our little algorithm is already more powerful than
-one might expect. Consider the following example:
+It turns out, that our little algorithm is already more powerful than one might
+expect. Consider the following example:
+%
 \begin{codeexample}[]
 \tikz [very simple demo layout, componentwise]
   \graph {
@@ -202,53 +193,51 @@ one might expect. Consider the following example:
   };
 \end{codeexample}
 
-Note that, in our algorithm, we ``just'' put all nodes on a circle
-around the origin. Nevertheless, the graph gets decomposed into two
-connected components, the components are rotated so that the edge from
-node |2| to node |3| goes from left to right and the edge from |b| to
-|c| goes up at an angle of $45^\circ$, and the components are placed
-next to each other so that some spacing is achieved.
+Note that, in our algorithm, we ``just'' put all nodes on a circle around the
+origin. Nevertheless, the graph gets decomposed into two connected components,
+the components are rotated so that the edge from node |2| to node |3| goes from
+left to right and the edge from |b| to |c| goes up at an angle of $45^\circ$,
+and the components are placed next to each other so that some spacing is
+achieved.
 
-The ``magic'' that achieves all this behind the scenes is called 
-``graph transformations.'' They will heavily pre- and postprocess the
-input and output of graph drawing algorithms to achieve the above
-results. 
+The ``magic'' that achieves all this behind the scenes is called ``graph
+transformations''. They will heavily pre- and postprocess the input and output
+of graph drawing algorithms to achieve the above results.
 
-Naturally, some algorithms may not wish their inputs and/or
-outputs to be ``tampered'' with. An algorithm can easily configure
-which transformations should be applied, by passing appropriate options
-to |declare|.
+Naturally, some algorithms may not wish their inputs and/or outputs to be
+``tampered'' with. An algorithm can easily configure which transformations
+should be applied, by passing appropriate options to |declare|.
 
 
 \subsubsection{Declaring an Algorithm}
 
-Let us now have a look at how one would ``really'' implement the
-example algorithm. First of all, we place our algorithm in a
-separate file called, say, |ExampleLayout.lua|. This way, by putting
-it in a separate file, all display layers can easily install the
-algorithm at runtime by saying |require "ExampleLayout"|.
+Let us now have a look at how one would ``really'' implement the example
+algorithm. First of all, we place our algorithm in a separate file called, say,
+|ExampleLayout.lua|. This way, by putting it in a separate file, all display
+layers can easily install the algorithm at runtime by saying
+|require "ExampleLayout"|.
 
-Next, the |declare| function is needed quite often, so it makes sense
-to create a short local name for it:
-
+Next, the |declare| function is needed quite often, so it makes sense to create
+a short local name for it:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 -- This is the file ExampleLayout.lua
-local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare  
+local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 \end{codeexample}
 
-The |declare| function is the work-horse of the algorithm layer. It
-takes a table that contains at least a |key| field, which must be a
-unique string, and some other fields that specify in more detail what
-kind of key is declared. Once declared through a call of |declare|,
-the ``key'' can be used on the display layer.
+The |declare| function is the work-horse of the algorithm layer. It takes a
+table that contains at least a |key| field, which must be a unique string, and
+some other fields that specify in more detail what kind of key is declared.
+Once declared through a call of |declare|, the ``key'' can be used on the
+display layer.
 
-For declaring an algorithm, the table passed to |declare| must contain
-a field |algorithm|. This field, in turn, must (normally) be set to a
-table that will become the algorithm class. In the above example, our
-algorithm was so simple that we could place the whole definition of
-the class inside the call of |declare|, but normally the class is
-defined in more detail after the call to |declare|:
-
+For declaring an algorithm, the table passed to |declare| must contain a field
+|algorithm|. This field, in turn, must (normally) be set to a table that will
+become the algorithm class. In the above example, our algorithm was so simple
+that we could place the whole definition of the class inside the call of
+|declare|, but normally the class is defined in more detail after the call to
+|declare|:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 local ExampleClass = {}  -- A local variable holding the class table
 
@@ -263,89 +252,84 @@ function ExampleClass:run ()
 end
 \end{codeexample}
 
-The effect of the |declare| will be that the table stored in
-|ExampleClass| is setup to form a class in the sense of
-object-oriented programming. In particular,  a static |new| function
-is installed.
+The effect of the |declare| will be that the table stored in |ExampleClass| is
+setup to form a class in the sense of object-oriented programming. In
+particular, a static |new| function is installed.
 
-Now, whenever the user uses the key |very simple demo layout| on a
-graph, at some point the graph drawing engine will create a new
-instance of the |ExampleClass| using |new| and will then call the
-|run| method of this class. The class can have any number of other
-methods, but |new| and |run| are the only ones directly called by the
-graph drawing system.
+Now, whenever the user uses the key |very simple demo layout| on a graph, at
+some point the graph drawing engine will create a new instance of the
+|ExampleClass| using |new| and will then call the |run| method of this class.
+The class can have any number of other methods, but |new| and |run| are the
+only ones directly called by the graph drawing system.
 
 
 \subsubsection{The Run Method}
 
-The |run| method of an algorithm classes lies at the heart of any
-graph drawing algorithm. This method will be called whenever a graph
-needs to be laid out. Upon this call, the |self| object will have
-some important fields set:
+The |run| method of an algorithm classes lies at the heart of any graph drawing
+algorithm. This method will be called whenever a graph needs to be laid out.
+Upon this call, the |self| object will have some important fields set:
+%
 \begin{itemize}
-\item |ugraph| This stands for ``undirected graph'' and is the
-  ``undirected'' version of the to-be-laid out graph. In this graph,
-  whenever there is an arc between $u$ and $v$, there is also an arc
-  between $v$ and $u$. It is obtained by considering the syntactic
-  digraph and then ``forgetting'' about the actual direction of the
-  edges.
+    \item |ugraph| This stands for ``undirected graph'' and is the
+        ``undirected'' version of the to-be-laid out graph. In this graph,
+        whenever there is an arc between $u$ and $v$, there is also an arc
+        between $v$ and $u$. It is obtained by considering the syntactic
+        digraph and then ``forgetting'' about the actual direction of the
+        edges.
 
-  When you have set certain |preconditions| in your algorithm class,
-  like |connected=true|, the |ugraph| will satisfy these
-  conditions. In particular, the |ugraph| typically will not be the
-  underlying undirected graph of the complete syntactic digraph, but
-  rather of some part of it. The use of (sub)layouts will also modify
-  the syntactic digraph is fancy ways.
+        When you have set certain |preconditions| in your algorithm class, like
+        |connected=true|, the |ugraph| will satisfy these conditions. In
+        particular, the |ugraph| typically will not be the underlying
+        undirected graph of the complete syntactic digraph, but rather of some
+        part of it. The use of (sub)layouts will also modify the syntactic
+        digraph is fancy ways.
 
-  Refer to this graph whenever your algorithm is ``most comfortable''
-  with an undirected graph, as is the case for instance for most
-  force-base algorithms.
-\item |digraph| This stands for ``directed graph'' and is the
-  ``semantically directed'' version of the to-be-laid out
-  graph. Basically, when happens is that reverse edges in the
-  syntactic digraph (an edge like |b <- a|) will yield an |Arc| from
-  |a| to |b| in the |digraph| while they yield a |b| to |a| arc and
-  edge in the syntactic digraph. Also, undirected edges like |a -- b|
-  are replaced by directed edges in both directions between the
-  vertices.
-\item |scope| The graph drawing scope.
-\item |layout| The layout object for this graph. This is a collection
-  of kind |layout|. 
+        Refer to this graph whenever your algorithm is ``most comfortable''
+        with an undirected graph, as is the case for instance for most
+        force-base algorithms.
+    \item |digraph| This stands for ``directed graph'' and is the
+        ``semantically directed'' version of the to-be-laid out graph.
+        Basically, when happens is that reverse edges in the syntactic digraph
+        (an edge like |b <- a|) will yield an |Arc| from |a| to |b| in the
+        |digraph| while they yield a |b| to |a| arc and edge in the syntactic
+        digraph. Also, undirected edges like |a -- b| are replaced by directed
+        edges in both directions between the vertices.
+    \item |scope| The graph drawing scope.
+    \item |layout| The layout object for this graph. This is a collection of
+        kind |layout|.
 \end{itemize}
 
 
 \subsubsection{Loading Algorithms on Demand}
 
-In order to use the |very simple demo layout| on the display layer,
-|declare| must have been called for this key. However, we just saw
-that the |declare| function takes the actual class table as parameter
-and, thus, whenever an algorithm is declared, it is also completely
-loaded and compiled at this point.
+In order to use the |very simple demo layout| on the display layer, |declare|
+must have been called for this key. However, we just saw that the |declare|
+function takes the actual class table as parameter and, thus, whenever an
+algorithm is declared, it is also completely loaded and compiled at this point.
 
-This is not always desirable. A user may wish to include a number of
-libraries in order to declare a large number of potentially useful
-algorithms, but will not actually use all of them. Indeed, at least
-for large, complex algorithms, it is preferable that the algorithm's
-code is loaded only when the algorithm is used for the first time.
+This is not always desirable. A user may wish to include a number of libraries
+in order to declare a large number of potentially useful algorithms, but will
+not actually use all of them. Indeed, at least for large, complex algorithms,
+it is preferable that the algorithm's code is loaded only when the algorithm is
+used for the first time.
 
-Such a ``loading of algorithms on demand'' is supported through the
-option of setting the |algorithm| field in a |declare| to a
-string. This string must now be the file name of a Lua file that
-contains the code of the actual algorithm. When the key is actually
-used for the first time, this file will be loaded. It must return a
-table that will be plugged into the |algorithm| field; so subsequent
-usages of the key will not load the file again.
+Such a ``loading of algorithms on demand'' is supported through the option of
+setting the |algorithm| field in a |declare| to a string. This string must now
+be the file name of a Lua file that contains the code of the actual algorithm.
+When the key is actually used for the first time, this file will be loaded. It
+must return a table that will be plugged into the |algorithm| field; so
+subsequent usages of the key will not load the file again.
 
-The net effect of all this is that you can place implementations of
-algorithms in files separate from interface files that just contain
-the |declare| commands for these algorithms. You will typically do
-this only for rather large algorithms.
+The net effect of all this is that you can place implementations of algorithms
+in files separate from interface files that just contain the |declare| commands
+for these algorithms. You will typically do this only for rather large
+algorithms.
 
 For our example, the code would look like this:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 -- File ExampleLayout.lua
-local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare  
+local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 declare {
   key = "very simple demo layout",
   algorithm = "ExampleLayoutImplementation"
@@ -365,17 +349,16 @@ return ExampleClass
 
 \subsubsection{Declaring Options}
 
-Let us now make our example algorithm a bit more ``configurable''. For
-this, we use |declare| once more, but instead of the |algorithm|
-field, we use a |type| field. This tells the display layer that the
-key is not used to select an algorithm, but to configure ``something''
-about the graph or about nodes or edges.
+Let us now make our example algorithm a bit more ``configurable''. For this, we
+use |declare| once more, but instead of the |algorithm| field, we use a |type|
+field. This tells the display layer that the key is not used to select an
+algorithm, but to configure ``something'' about the graph or about nodes or
+edges.
 
-In our example, we may wish to configure the radius of the graph. So,
-we introduce a |radius| key (actually, this key already exists, so we
-would not need to declare it, but let us do so anyway for example
-purposes):
-
+In our example, we may wish to configure the radius of the graph. So, we
+introduce a |radius| key (actually, this key already exists, so we would not
+need to declare it, but let us do so anyway for example purposes):
+%
 \begin{codeexample}[code only, tikz syntax=false]
 declare {
   key = "radius",
@@ -384,52 +367,48 @@ declare {
 }
 \end{codeexample}
 
-This tells the display layer that there is now an option called
-|radius|, that users set it to some ``length'', and that if it is not
-set at all, then the 25pt should be used.
+This tells the display layer that there is now an option called |radius|, that
+users set it to some ``length'', and that if it is not set at all, then the
+25pt should be used.
 
-To access what the user has specified for this key, an algorithm can
-access the |options| field of a graph, vertex, or arc at the
-key's name:
-
+To access what the user has specified for this key, an algorithm can access the
+|options| field of a graph, vertex, or arc at the key's name:
+%
 \begin{codeexample}[code only, tikz syntax=false]
           vertex.pos.x = math.cos(i * alpha) * vertex.options.radius
           vertex.pos.y = math.sin(i * alpha) * vertex.options.radius
 \end{codeexample}
 
 
-
 \subsubsection{Adding Inline Documentation}
 
-You should always document the keys you |declare|. For this, the
-|declare| function allows you to add three fields to its argument
-table:
+You should always document the keys you |declare|. For this, the |declare|
+function allows you to add three fields to its argument table:
+%
 \begin{itemize}
-\item |summary| This should be a string that succinctly summarizes the
-  effect this key has. The idea is that this text will be shown as a
-  ``tooltip'' in a graphical editor or will be printed out by a
-  command line tool when a user requests help about the key.
-  You can profit from using Lua's |[[| and |]]| syntax for specifying
-  multi-line strings.
-  
-  Also, when the file containing the key is parsed for
-  this manual, this text will be shown.
-\item |documentation| When present, this field contains a more
-  extensive documentation of the key. It will also be shown in this
-  manual, but typically not as a tool tip.
-\item |examples| This should either be a single string or an array of
-  strings. Each string should be an example demonstrating how the key
-  is used in \tikzname. They will all be included in the manual, each
-  surrounded by a |codeexample| environment.
+    \item |summary| This should be a string that succinctly summarizes the
+        effect this key has. The idea is that this text will be shown as a
+        ``tooltip'' in a graphical editor or will be printed out by a command
+        line tool when a user requests help about the key. You can profit from
+        using Lua's |[[| and |]]| syntax for specifying multi-line strings.
+
+        Also, when the file containing the key is parsed for this manual, this
+        text will be shown.
+    \item |documentation| When present, this field contains a more extensive
+        documentation of the key. It will also be shown in this manual, but
+        typically not as a tool tip.
+    \item |examples| This should either be a single string or an array of
+        strings. Each string should be an example demonstrating how the key is
+        used in \tikzname. They will all be included in the manual, each
+        surrounded by a |codeexample| environment.
 \end{itemize}
 
-Let us augment our |radius| key with some documentation. The three
-dashes before the |declare| are only needed when the declaration is
-part of this manual and they will trigger an inclusion of the key in
-the manual.
-
+Let us augment our |radius| key with some documentation. The three dashes
+before the |declare| are only needed when the declaration is part of this
+manual and they will trigger an inclusion of the key in the manual.
+%
 \begin{codeexample}[code only, tikz syntax=false]
---- 
+---
 declare {
   key = "radius",
   type = "length",
@@ -447,13 +426,11 @@ declare {
 }
 \end{codeexample}
 
-As a courtesy, all of the strings given in the documentation can start
-and end with quotation marks, which will be removed. (This helps
-syntax highlighting with editors that do not recognize the |[[| to |]]|
-syntax.) Also, the indentation of the strings is removed (we compute
-the minimum number of leading spaces on any line and remove this many
-spaces from all lines).
-
+As a courtesy, all of the strings given in the documentation can start and end
+with quotation marks, which will be removed. (This helps syntax highlighting
+with editors that do not recognize the |[[| to |]]| syntax.) Also, the
+indentation of the strings is removed (we compute the minimum number of leading
+spaces on any line and remove this many spaces from all lines).
 
 
 \subsubsection{Adding External Documentation}
@@ -461,30 +438,28 @@ spaces from all lines).
 
 As an alternative to inlining documentation, you can also store the
 documentation of keys in a separate file that is loaded only when the
-documentation is actually accessed. Since this happens only rarely
-(for instance, not at all, when \tikzname\ is run, except for this
-manual), this will save time and space. Also, for C code, it is
-impractical to store multi-line documentation strings directly in the C
-file.
+documentation is actually accessed. Since this happens only rarely (for
+instance, not at all, when \tikzname\ is run, except for this manual), this
+will save time and space. Also, for C code, it is impractical to store
+multi-line documentation strings directly in the C file.
 
 In order to store documentation externally, instead of the |summary|,
-|documentation|, and |examples| keys, you provide the key
-|documentation_in|. The |documentation_in| key must be set
-to a string that is input using |require|.
+|documentation|, and |examples| keys, you provide the key |documentation_in|.
+The |documentation_in| key must be set to a string that is input using
+|require|.
 
 In detail, when someone tries to access the |summary|, |documentation|, or
-|examples| field of a key and these keys are not (yet) defined, the
-system checks whether the |documentation_in| key is set. If so, we
-apply |require| to the string stored in this field. The file loaded in
-this way can now setup the missing fields of the current key and,
-typically, also of all other keys defined in the same file as the
-current key. For this purpose, it is advisable to use the |pgf.gd.doc|
-class:
+|examples| field of a key and these keys are not (yet) defined, the system
+checks whether the |documentation_in| key is set. If so, we apply |require| to
+the string stored in this field. The file loaded in this way can now setup the
+missing fields of the current key and, typically, also of all other keys
+defined in the same file as the current key. For this purpose, it is advisable
+to use the |pgf.gd.doc| class:
 
 \includeluadocumentationof{pgf.gd.doc}
 
 As a longer example, consider the following declarations:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 ---
 declare {
@@ -493,7 +468,7 @@ declare {
   documentation_in  = "documentation_file"
 }
 
---- 
+---
 declare {
   key               = "radius",
   type              = "length",
@@ -503,7 +478,7 @@ declare {
 \end{codeexample}
 
 The file |documentation_file.lua| would look like this:
-
+%
 \begin{codeexample}[code only, tikz syntax=false]
 -- File documentation_file.lua
 local key           = require 'pgf.gd.doc'.key
@@ -529,251 +504,250 @@ example
 \end{codeexample}
 
 
-
-
 \subsection{Namespaces and File Names}
-
 \label{section-gd-namespaces}
 
 \subsubsection{Namespaces}
 
 All parts of the graph drawing library reside in the Lua ``namespace''
 |pgf.gd|, which is itself a ``sub-namespace'' of |pgf|. For your own
-algorithms, you are free to place them in whatever namespace you like;
-only for the official distribution of \pgfname\ everything has been
-put into the correct namespace.
+algorithms, you are free to place them in whatever namespace you like; only for
+the official distribution of \pgfname\ everything has been put into the correct
+namespace.
 
-Let us now have a more detailed look at these namespaces. A namespace
-is just a Lua table, and sub-namespaces are just subtables of
-namespace tables. Following the Java convention, namespaces are in
-lowercase letters. The following namespaces are part of the core of
-the graph drawing engine:
+Let us now have a more detailed look at these namespaces. A namespace is just a
+Lua table, and sub-namespaces are just subtables of namespace tables. Following
+the Java convention, namespaces are in lowercase letters. The following
+namespaces are part of the core of the graph drawing engine:
+%
 \begin{itemize}
-\item |pgf| This namespace is the main namespace of \pgfname. Other
-  parts of \pgfname\ and \tikzname\ that also employ Lua should put an
-  entry into this table. Since, currently, only the graph drawing
-  engine adheres to this rule, this namespace is declared inside the
-  graph drawing directory, but this will change.
+    \item |pgf| This namespace is the main namespace of \pgfname. Other parts
+        of \pgfname\ and \tikzname\ that also employ Lua should put an entry
+        into this table. Since, currently, only the graph drawing engine
+        adheres to this rule, this namespace is declared inside the graph
+        drawing directory, but this will change.
 
-  The |pgf| table is the \emph{only} entry into the global table of
-  Lua generated by the graph drawing engine (or, \pgfname, for that
-  matter). If you intend to extend the graph drawing engine, do not
-  even \emph{think} of polluting the global namespace. You will be
-  fined.
-\item |pgf.gd| This namespace is the main namespace of the graph drawing
-  engine, including the object-oriented models of graphs and the
-  layout pipeline. Algorithms that are part of the
-  distribution are also inside this namespace, but if you write your
-  own algorithms you do not need place them inside this
-  namespace. (Indeed, you probably should not before they are made
-  part of the official distribution.)
-\item |pgf.gd.interface| This namespace handles, on the one hand, the
-  communication between the algorithm layer and the binding layer and,
-  on the other hand, the communication between the display layer
-  (\tikzname) and the binding layer.
-\item |pgf.gd.binding| So-called ``bindings'' between display layers
-  and the graph drawing system reside in this namespace.
-\item |pgf.gd.lib| Numerous useful classes that ``make an algorithm's
-  your life easier'' are collected in this namespace. Examples are a
-  class for decomposing a graph into connected components or a class
-  for computing the ideal distance between two sibling nodes in a
-  tree, taking all sorts of rotations and separation parameters into
-  account. 
-\item |pgf.gd.model| This namespace contains all Lua classes that are
-  part of the object-oriented model of graphs employed
-  throughout the graph drawing engine. For readers familiar with the
-  model--view--controller pattern: This is the namespace containing
-  the model-part of this pattern.
-\item |pgf.gd.control| This namespace contains the ``control logic''
-  of the graph drawing system. It will transform graphs according to
-  rules, disassemble layouts and sublayouts and will call the
-  appropriate algorithms. For readers still familiar with the
-  model--view--controller pattern: This is the namespace containing
-  the control-part of this pattern. 
-\item |pgf.gd.trees| This namespace contains classes that are useful
-  for dealing with graphs that are trees. In particular, it contains a
-  class for computing a spanning tree of an arbitrary connected graph;
-  an operation that is an important preprocessing step for many
-  algorithms.
+        The |pgf| table is the \emph{only} entry into the global table of Lua
+        generated by the graph drawing engine (or, \pgfname, for that matter).
+        If you intend to extend the graph drawing engine, do not even
+        \emph{think} of polluting the global namespace. You will be fined.
+    \item |pgf.gd| This namespace is the main namespace of the graph drawing
+        engine, including the object-oriented models of graphs and the layout
+        pipeline. Algorithms that are part of the distribution are also inside
+        this namespace, but if you write your own algorithms you do not need
+        place them inside this namespace. (Indeed, you probably should not
+        before they are made part of the official distribution.)
+    \item |pgf.gd.interface| This namespace handles, on the one hand, the
+        communication between the algorithm layer and the binding layer and, on
+        the other hand, the communication between the display layer (\tikzname)
+        and the binding layer.
+    \item |pgf.gd.binding| So-called ``bindings'' between display layers and
+        the graph drawing system reside in this namespace.
+    \item |pgf.gd.lib| Numerous useful classes that ``make an algorithm's your
+        life easier'' are collected in this namespace. Examples are a class for
+        decomposing a graph into connected components or a class for computing
+        the ideal distance between two sibling nodes in a tree, taking all
+        sorts of rotations and separation parameters into account.
+    \item |pgf.gd.model| This namespace contains all Lua classes that are part
+        of the object-oriented model of graphs employed throughout the graph
+        drawing engine. For readers familiar with the model--view--controller
+        pattern: This is the namespace containing the model-part of this
+        pattern.
+    \item |pgf.gd.control| This namespace contains the ``control logic'' of the
+        graph drawing system. It will transform graphs according to rules,
+        disassemble layouts and sublayouts and will call the appropriate
+        algorithms. For readers still familiar with the model--view--controller
+        pattern: This is the namespace containing the control-part of this
+        pattern.
+    \item |pgf.gd.trees| This namespace contains classes that are useful for
+        dealing with graphs that are trees. In particular, it contains a class
+        for computing a spanning tree of an arbitrary connected graph; an
+        operation that is an important preprocessing step for many algorithms.
 
-  In addition to providing ``utility functions for trees,'' the
-  namespace \emph{also} includes actual algorithms for computing graph
-  layouts like |pgf.gd.trees.ReingoldTilford1981|. It may seem to be a
-  bit of an ``impurity'' that a namespace mixes utility classes and
-  ``real'' algorithms, but experience has shown that it is better to
-  keep things together in this way.
+        In addition to providing ``utility functions for trees'', the namespace
+        \emph{also} includes actual algorithms for computing graph layouts like
+        |pgf.gd.trees.ReingoldTilford1981|. It may seem to be a bit of an
+        ``impurity'' that a namespace mixes utility classes and ``real''
+        algorithms, but experience has shown that it is better to keep things
+        together in this way.
 
-  Concluding the analogy to the model--view--controller pattern, a
-  graph drawing algorithm is, in a loose sense, the ``view'' part of
-  the pattern.
-\item |pgf.gd.layered| This namespace provides classes and functions
-  for ``layered'' layouts; the Sugiyama layout method being the most
-  well-known one. Again, the namespace contains both algorithms to be
-  used by a user and utility functions.
-\item |pgf.gd.force| Collects force-based algorithms and, again, also
-  utility functions and classes.
-\item |pgf.gd.examples| Contains some example algorithms. They are
-  \emph{not} intended to be used directly, rather they should serve as
-  inspirations for readers wishing to implement their own algorithms.
+        Concluding the analogy to the model--view--controller pattern, a graph
+        drawing algorithm is, in a loose sense, the ``view'' part of the
+        pattern.
+    \item |pgf.gd.layered| This namespace provides classes and functions for
+        ``layered'' layouts; the Sugiyama layout method being the most
+        well-known one. Again, the namespace contains both algorithms to be
+        used by a user and utility functions.
+    \item |pgf.gd.force| Collects force-based algorithms and, again, also
+        utility functions and classes.
+    \item |pgf.gd.examples| Contains some example algorithms. They are
+        \emph{not} intended to be used directly, rather they should serve as
+        inspirations for readers wishing to implement their own algorithms.
 \end{itemize}
 
-There are further namespaces that also reside in the |pgf.gd|
-namespace, these namespaces are used to organize different graph
-drawing algorithms into categories.
+There are further namespaces that also reside in the |pgf.gd| namespace, these
+namespaces are used to organize different graph drawing algorithms into
+categories.
 
-In Lua, similarly to Java, when a class |SomeClass| is part of, say,
-the namespace |pgf.gd.example|, it is customary to put the class's
-code in a file |SomeClass.lua| and then put this class in a directory
-|example|, that is a subdirectory of a directory |gd|, which is in
-turn a subdirectory of a directory |pgf|. When you write
-\texttt{require "pgf.gd.example.SomeClass"} the so-called
-\emph{loader} will turn this into a request for the file
+In Lua, similarly to Java, when a class |SomeClass| is part of, say, the
+namespace |pgf.gd.example|, it is customary to put the class's code in a file
+|SomeClass.lua| and then put this class in a directory |example|, that is a
+subdirectory of a directory |gd|, which is in turn a subdirectory of a
+directory |pgf|. When you write \texttt{require "pgf.gd.example.SomeClass"} the
+so-called \emph{loader} will turn this into a request for the file
 \texttt{pgf/gd/example/SomeClass.lua} (for Unix systems).
-
 
 
 \subsubsection{Defining and Using Namespaces and Classes}
 
-There are a number of rules concerning the structure and naming of
-namespaces as well as the naming of files. Let us start with the
-rules for naming namespaces, classes, and functions. They follow the
-``Java convention'':
-
+There are a number of rules concerning the structure and naming of namespaces
+as well as the naming of files. Let us start with the rules for naming
+namespaces, classes, and functions. They follow the ``Java convention'':
+%
 \begin{enumerate}
-\item A namespace is a short lowercase |word|.
-\item A function in a namespace is in |lowercase_with_underscores_between_words|.
-\item A class name is in |CamelCaseWithAnUppercaseFirstLetter|.
-\item A class method name is in |camelCaseWithALowercaseFirstLetter|.
+    \item A namespace is a short lowercase |word|.
+    \item A function in a namespace is in
+        |lowercase_with_underscores_between_words|.
+    \item A class name is in |CamelCaseWithAnUppercaseFirstLetter|.
+    \item A class method name is in |camelCaseWithALowercaseFirstLetter|.
 \end{enumerate}
 
-From Lua's point of view, every namespace and every class is just a
-table. However, since these tables will be loaded using Lua's
-|require| function, each namespace and each class must be placed
-inside a separate file (unless you modify the |package.loaded| table,
-but, then, you know what you are doing anyway). Inside such a file, you
-should first declare a local variable whose name is the name of the
-namespace or class that you intend to define and then assign a
-(possibly empty) table to this variable:
+From Lua's point of view, every namespace and every class is just a table.
+However, since these tables will be loaded using Lua's |require| function, each
+namespace and each class must be placed inside a separate file (unless you
+modify the |package.loaded| table, but, then, you know what you are doing
+anyway). Inside such a file, you should first declare a local variable whose
+name is the name of the namespace or class that you intend to define and then
+assign a (possibly empty) table to this variable:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 -- File pgf.gd.example.SomeClass.lua:
 local SomeClass = {}
 \end{codeexample}
-Next, you should add your class to the encompassing namespace. This is
-achieved as follows:
+%
+Next, you should add your class to the encompassing namespace. This is achieved
+as follows:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 require("pgf.gd.example").SomeClass = SomeClass
 \end{codeexample}
-The reason this works is that the |require| will return the table that
-is the namespace |pgf.gd.example|. So, inside this namespace, the
-|SomeClass| field will be filled with the table stored in the local
-variable of the same name -- which happens to be the table
-representing the class.
+%
+The reason this works is that the |require| will return the table that is the
+namespace |pgf.gd.example|. So, inside this namespace, the |SomeClass| field
+will be filled with the table stored in the local variable of the same name --
+which happens to be the table representing the class.
 
 At the end of the file, you must write
+%
 \begin{codeexample}[code only, tikz syntax=false]
-return SomeClass  
+return SomeClass
 \end{codeexample}
-This ensures that the table that is defined in this file gets stored
-by Lua in the right places. Note that you need and should not use
-Lua's |module| command. The reason is that this command has
-disappeared in the new version of Lua and that it is not really
-needed. 
+%
+This ensures that the table that is defined in this file gets stored by Lua in
+the right places. Note that you need and should not use Lua's |module| command.
+The reason is that this command has disappeared in the new version of Lua and
+that it is not really needed.
 
 Users of your class can import and use your class by writing:
+%
 \begin{codeexample}[code only, tikz syntax=false]
 ...
 local SomeClass = require "pgf.gd.examples.SomeClass"
-...  
+...
 \end{codeexample}
 
 
-
-
 \subsection{The Graph Drawing Scope}
-
 \label{section-gd-gd-scope}
 
 \includeluadocumentationof{pgf.gd.interface.Scope}
 
 
-
 \subsection{The Model Classes}
-
 \label{section-gd-models}
 
-All that a graph drawing algorithm will ``see'' of the graph specified
-by the user is a ``graph object.'' Such an object is an
-object-oriented model of the user's graph that no longer encodes the
-specific way in which the user specified the graph; it only encodes
-which nodes and edges are present. For instance, the \tikzname\ graph
-specification 
+All that a graph drawing algorithm will ``see'' of the graph specified by the
+user is a ``graph object''. Such an object is an object-oriented model of the
+user's graph that no longer encodes the specific way in which the user
+specified the graph; it only encodes which nodes and edges are present. For
+instance, the \tikzname\ graph specification
+%
 \begin{codeexample}[code only]
 graph { a -- {b, c} }
 \end{codeexample}
+%
 \noindent and the graph specification
+%
 \begin{codeexample}[code only]
 node (a) { a }
 child { node (b) {b} }
 child { node (c) {c} }
 \end{codeexample}
+%
 will generate exactly the same graph object.
 
 \begin{luanamespace}{pgf.gd.}{model}
-  This namespace contains the classes modeling graphs,
-  nodes, and edges. Also, the |Coordinate| class is found here, since
-  coordinates are also part of the modeling.  
+    This namespace contains the classes modeling graphs, nodes, and edges.
+    Also, the |Coordinate| class is found here, since coordinates are also part
+    of the modeling.
 \end{luanamespace}
 
 
 \subsubsection{Directed Graphs (Digraphs)}
 
-Inside the graph drawing engine, the only model of a graph that is 
-available treats graphs as
+Inside the graph drawing engine, the only model of a graph that is available
+treats graphs as
+%
 \begin{enumerate}
-\item directed (all edges have a designated head and a designated
-  tail) and
-\item simple (there can be at most one edge between any pair of
-  nodes). 
+    \item directed (all edges have a designated head and a designated tail) and
+    \item simple (there can be at most one edge between any pair of nodes).
 \end{enumerate}
-These two properties may appear to be somewhat at odds with what users
-can specify as graphs and with what some graph drawing algorithms
-might expect as input. For instance, suppose a user writes
+%
+These two properties may appear to be somewhat at odds with what users can
+specify as graphs and with what some graph drawing algorithms might expect as
+input. For instance, suppose a user writes
+%
 \begin{codeexample}[code only]
 graph { a -- b --[red] c, b --[green, bend right] c }
 \end{codeexample}
-In this case, it seems that the input graph for a graph drawing
-algorithm should actually be an \emph{undirected} graph in which there
-are \emph{multiple} edges (namely $2$) between |b| and~|c|.
-Nevertheless, the graph drawing engine will turn the user's input a
-directed simple graph in ways described later. You do not need to
-worry that information gets lost during this process: The
-\emph{syntactic digraph,} which is available to graph drawing
-algorithms on request, stores all the information about which edges
-are present in the original input graph.
+%
+In this case, it seems that the input graph for a graph drawing algorithm
+should actually be an \emph{undirected} graph in which there are
+\emph{multiple} edges (namely $2$) between |b| and~|c|. Nevertheless, the graph
+drawing engine will turn the user's input a directed simple graph in ways
+described later. You do not need to worry that information gets lost during
+this process: The \emph{syntactic digraph,} which is available to graph drawing
+algorithms on request, stores all the information about which edges are present
+in the original input graph.
 
-The main reasons for only considering directed, simple graphs are speed
-and simplicity: The implementation of these graphs has been optimized so
-that all operations on these graphs have a guaranteed running time
-that is small in practice. 
+The main reasons for only considering directed, simple graphs are speed and
+simplicity: The implementation of these graphs has been optimized so that all
+operations on these graphs have a guaranteed running time that is small in
+practice.
 
 \includeluadocumentationof{pgf.gd.model.Digraph}
+
 
 \subsubsection{Vertices}
 
 \includeluadocumentationof{pgf.gd.model.Vertex}
+
 
 \subsubsection{Arcs}
 \label{section-gd-arc-model}
 
 \includeluadocumentationof{pgf.gd.model.Arc}
 
+
 \subsubsection{Edges}
 
 \includeluadocumentationof{pgf.gd.model.Edge}
 
+
 \subsubsection{Collections}
 
 \includeluadocumentationof{pgf.gd.model.Collection}
+
 
 \subsubsection{Coordinates, Paths, and Transformations}
 
@@ -781,32 +755,32 @@ that is small in practice.
 \includeluadocumentationof{pgf.gd.model.Path}
 \includeluadocumentationof{pgf.gd.lib.Transform}
 
+
 \subsubsection{Options and Data Storages for Vertices, Arcs, and Digraphs}
 
-Many objects in the graph drawing system have an |options| table
-attached to them. These tables will contain the different kinds
-options specified by the user for the object. For efficiency reasons,
-many objects may share the same options table (since, more often than
-not, almost all objects have exactly the same |options| table). For
-this reason, you cannot store anything in an options table, indeed,
-you should never attemp to write anything into an options
+Many objects in the graph drawing system have an |options| table attached to
+them. These tables will contain the different kinds options specified by the
+user for the object. For efficiency reasons, many objects may share the same
+options table (since, more often than not, almost all objects have exactly the
+same |options| table). For this reason, you cannot store anything in an options
+table, indeed, you should never attempt to write anything into an options
 table. Instead, you should use a |Storage|.
 
 \includeluadocumentationof{pgf.gd.lib.Storage}
+
 
 \subsubsection{Events}
 
 \includeluadocumentationof{pgf.gd.lib.Event}
 
 
-
 \subsection{Graph Transformations}
-
 \label{section-gd-transformations}
 
 \subsubsection{The Layout Pipeline}
 
 \includeluadocumentationof{pgf.gd.control.LayoutPipeline}
+
 
 \subsubsection{Hints For Edge Routing}
 
@@ -814,13 +788,9 @@ table. Instead, you should use a |Storage|.
 
 
 \subsection{The Interface To Algorithms}
-
 \label{section-gd-interface-to-algorithms}
 
 \includeluadocumentationof{pgf.gd.interface.InterfaceToAlgorithms}
-
-
-
 
 
 \subsection{Examples of Implementations of Graph Drawing Algorithms}
@@ -832,14 +802,11 @@ table. Instead, you should use a |Storage|.
 \includeluadocumentationof{pgf.gd.examples.SimpleHuffman}
 
 
-
-
 \subsection{Support Libraries}
-
 \label{section-gd-libs}
 
-The present section lists a number of general-purpose libraries that
-are used by different algorithms.
+The present section lists a number of general-purpose libraries that are used
+by different algorithms.
 
 \subsubsection{Basic Functions}
 
@@ -847,9 +814,11 @@ are used by different algorithms.
 
 \includeluadocumentationof{pgf.gd.lib}
 
+
 \subsubsection{Lookup Tables}
 
 \includeluadocumentationof{pgf.gd.lib.LookupTable}
+
 
 \subsubsection{Computing Distances in Graphs}
 
@@ -857,9 +826,7 @@ are used by different algorithms.
 
 %\includeluadocumentationof{pgf.gd.lib.PathLengths}
 
+
 \subsubsection{Priority Queues}
 
 \includeluadocumentationof{pgf.gd.lib.PriorityQueue}
-
-
-

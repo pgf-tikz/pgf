@@ -109,7 +109,7 @@
 local force -- Library name
 
 -- Load declarations from:
-require "pgf.gd.force.Control"
+require "pgf.gd.force.ControlDeclare"
 require "pgf.gd.force.ControlStart"
 require "pgf.gd.force.ControlIteration"
 require "pgf.gd.force.ControlSprings"
