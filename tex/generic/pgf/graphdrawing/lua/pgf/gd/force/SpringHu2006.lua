@@ -64,7 +64,6 @@ local lib = require("pgf.gd.lib")
 
 
 
-
 function SpringHu2006:run()
   
   -- Setup some parameters
@@ -193,7 +192,6 @@ end
 
 
 function SpringHu2006:computeInitialLayout(graph, spring_length)
-  spring_length = math.floor(spring_length)
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -215,7 +213,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector.new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local direction = Vector.new{x = lib.random(1, spring_length), y = lib.random(1, spring_length)}
       local distance = 1.8 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
@@ -226,8 +224,8 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
   else
     -- use a random positioning technique
     local function positioning_func(n) 
-      local radius = math.floor(2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
-      return math.random(-radius, radius)
+      local radius = 2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      return lib.random(-radius, radius)
     end
 
     -- compute initial layout based on the random positioning technique

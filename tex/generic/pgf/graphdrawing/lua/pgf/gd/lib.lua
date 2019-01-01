@@ -209,7 +209,7 @@ function lib.random_permutation(n)
     p[i] = i
   end
   for i=1,n-1 do
-    local j = math.random(i,n)
+    local j = lib.random(i,n)
     p[i], p[j] = p[i], p[j]
   end
   return p
@@ -393,6 +393,28 @@ function lib.ondemand(filename, table, name)
 	 end
 end
 
+
+
+---
+-- This implements the legacy random number generator of Lua 5.2 in
+-- pure Lua.  This is needed for Lua 5.3 compatibility to obtain
+-- consitent results.
+--
+-- @param l Lower bound
+-- @param u Upper bound
+-- @return A random number
+function lib.random(l,u)
+  local r = math.random()
+  if l and u then
+    assert(l <= u)
+    return math.floor(r*(u-l+1)) + l
+  elseif l then
+    assert(1.0 <= l)
+    return math.floor(r*l) + 1.0
+  else
+    return r
+  end
+end
 
 -- Done
 

@@ -216,7 +216,7 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector.new{x = math.random(1, 2), y = math.random(1, 2)}
+      local direction = Vector.new{x = lib.random(1, 2), y = lib.random(1, 2)}
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
@@ -230,8 +230,8 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
 
     -- use the random positioning technique
     local function positioning_func(n)
-      local radius = math.floor(3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
-      return math.random(-radius, radius)
+      local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      return lib.random(-radius, radius)
     end
 
     -- compute initial layout based on the random positioning technique

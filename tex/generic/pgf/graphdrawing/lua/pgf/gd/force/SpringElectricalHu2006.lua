@@ -188,9 +188,6 @@ end
 
 
 function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
-  -- Fix for Lua 5.3 integers
-  spring_length = math.floor(spring_length)
-
   -- TODO how can supernodes and fixed nodes go hand in hand? 
   -- maybe fix the supernode if at least one of its subnodes is 
   -- fixated?
@@ -212,7 +209,7 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
 
       -- position the loose node relative to the fixed node, with
       -- the displacement (random direction) matching the spring length
-      local direction = Vector.new{x = math.random(1, spring_length), y = math.random(1, spring_length)}
+      local direction = Vector.new{x = lib.random(1, spring_length), y = lib.random(1, spring_length)}
       local distance = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       local displacement = direction:normalized():timesScalar(distance)
 
@@ -224,8 +221,8 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
 
     -- use a random positioning technique
     local function positioning_func(n) 
-      local radius = math.floor(3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2)
-      return math.random(-radius, radius)
+      local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
+      return lib.random(-radius, radius)
     end
 
     -- compute initial layout based on the random positioning technique
