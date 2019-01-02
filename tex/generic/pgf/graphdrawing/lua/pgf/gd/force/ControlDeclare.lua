@@ -23,6 +23,19 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- specific options that apply only to individual algorithms are
 -- explained along with these algorithms.
 --
+-- The vertices are initially laid out in a random configuration.
+-- Then the configuration is annealed to find a configuration of
+-- minimal energy.  To avoid getting stuck in a local minimum or at a
+-- saddle point, random forces are added.  All of this makes the final
+-- layout extremely susceptible to changes in the random numbers.  To
+-- achieve a certain stability of the results, you should fix the
+-- random seed.  However, in the recent past Lua has switched its
+-- random number generator, which means that you won't get the same
+-- sequence of random numbers as in a previous version, even for
+-- identical seed.  If you rely on the long-term stability of vertex
+-- placement, you should consider using a different layout.  With the
+-- spring layout you have to assume that the layout will be random.
+--
 -- @end
 
 
