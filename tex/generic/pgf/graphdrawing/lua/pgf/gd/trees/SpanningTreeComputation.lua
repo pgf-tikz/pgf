@@ -85,7 +85,7 @@ declare {
   algorithm = { 
     run =
       function (self)
-	return SpanningTreeComputation.computeSpanningTree(self.ugraph, false, self.events)
+        return SpanningTreeComputation.computeSpanningTree(self.ugraph, false, self.events)
       end
   },
   phase = "spanning tree computation",
@@ -155,7 +155,7 @@ declare {
   algorithm = { 
     run =
       function (self)
-	return SpanningTreeComputation.computeSpanningTree(self.ugraph, true, self.events)
+        return SpanningTreeComputation.computeSpanningTree(self.ugraph, true, self.events)
       end
   },
   phase = "spanning tree computation",
@@ -479,14 +479,14 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
     
     for _,stack in ipairs(stacks) do
       if stack_is_non_empty(stack) then
-	-- Pop
-	parent = stack[stack.top].parent
-	node = stack[stack.top].node
-	
-	stack[stack.top] = nil
-	stack.top = stack.top - 1
-
-	break
+        -- Pop
+        parent = stack[stack.top].parent
+        node = stack[stack.top].node
+        
+        stack[stack.top] = nil
+        stack.top = stack.top - 1
+    
+        break
       end
     end
     
@@ -496,26 +496,26 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
       marked[node] = true
       
       if parent then
-	tree:connect(parent,node)
+        tree:connect(parent,node)
       end
       
       local arcs = ugraph:outgoing(node)
       
       for j=1,#arcs do
-	local arc = arcs[dfs and j or #arcs - j + 1]
-	local head = arc.head
-
-	if not marked[head] then
-	  local priority = arc:spanPriority()
-	  local stack = assert(stacks[priority], "illegal edge priority")
-	  if dfs then
-	    stack.top = stack.top + 1
-	    stack[stack.top] = { parent = node, node = head}
-	  else
-	    stack.bottom = stack.bottom - 1
-	    stack[stack.bottom] = { parent = node, node = head}
-	  end	  
-	end
+        local arc = arcs[dfs and j or #arcs - j + 1]
+        local head = arc.head
+    
+        if not marked[head] then
+          local priority = arc:spanPriority()
+          local stack = assert(stacks[priority], "illegal edge priority")
+          if dfs then
+            stack.top = stack.top + 1
+            stack[stack.top] = { parent = node, node = head}
+          else
+            stack.bottom = stack.bottom - 1
+            stack[stack.bottom] = { parent = node, node = head}
+          end      
+        end
       end
     end
   end
@@ -547,80 +547,80 @@ function SpanningTreeComputation.computeSpanningTree (ugraph, dfs, events)
       local stop = events[i].end_index
       local j = i+1
       while j <= stop do
-	if events[j].kind == "node" then
-	  children[#children+1] = events[j].parameters
-	elseif events[j].kind == "begin" and events[j].parameters == "descendants" then
-	  j = events[j].end_index
-	end
-	j = j + 1
+        if events[j].kind == "node" then
+          children[#children+1] = events[j].parameters
+        elseif events[j].kind == "begin" and events[j].parameters == "descendants" then
+          j = events[j].end_index
+        end
+        j = j + 1
       end
 
       -- Test, whether outgoings and children contain the same nodes:
       local function same_elements()
-	local hash = {}
-	for v,c in ipairs(outgoings) do
-	  hash[c.head] = true
-	end
-	local count = 0
-	for _,c in pairs(children) do
-	  if c ~= "" then
-	    count = count + 1
-	    if not hash[c] or count > #outgoings then
-	      return false
-	    end
-	  end
-	end
-	return count == #outgoings
+        local hash = {}
+        for v,c in ipairs(outgoings) do
+          hash[c.head] = true
+        end
+        local count = 0
+        for _,c in pairs(children) do
+          if c ~= "" then
+            count = count + 1
+            if not hash[c] or count > #outgoings then
+              return false
+            end
+          end
+        end
+        return count == #outgoings
       end
 
       if same_elements() and #outgoings > 0 then
-	
-	-- increase number of children, if necessary
-	local needed = math.max(#children, lib.lookup_option('minimum number of children', v, ugraph))
-	for i=1,#children do
-	  if children[i] ~= "" then
-	    local d = children[i].options['desired child index']
-	    needed = d and math.max(needed, d) or needed
-	  end
-	end
-
-	local new_children = {}
-	for i=1,#children do
-	  if children[i] ~= "" then
-	    local d = children[i].options['desired child index']
-	    if d then
-	      local target = d
-	      
-	      while new_children[target] do
-		target = 1 + (target % #children)
-	      end
-	      new_children[target] = children[i]
-	    end
-	  end
-	end
-	for i=1,#children do
-	  if children[i] ~= "" then
-	    local d = children[i].options['desired child index']
-	    if not d then
-	      local target = i
-
-	      while new_children[target] do
-		target = 1 + (target % #children)
-	      end
-	      new_children[target] = children[i]
-	    end
-	  end
-	end
-	for i=1,needed do
-	  if not new_children[i] then
-	    local new_child = Vertex.new{ kind = "dummy" }
-	    new_children[i] = new_child
-	    tree:add {new_child}
-	    tree:connect(v,new_child)
-	  end
-	end
-
-	tree:orderOutgoing(v,new_children)
+        
+        -- increase number of children, if necessary
+        local needed = math.max(#children, lib.lookup_option('minimum number of children', v, ugraph))
+        for i=1,#children do
+          if children[i] ~= "" then
+            local d = children[i].options['desired child index']
+            needed = d and math.max(needed, d) or needed
+          end
+        end
+    
+        local new_children = {}
+        for i=1,#children do
+          if children[i] ~= "" then
+            local d = children[i].options['desired child index']
+            if d then
+              local target = d
+              
+              while new_children[target] do
+                target = 1 + (target % #children)
+              end
+              new_children[target] = children[i]
+            end
+          end
+        end
+        for i=1,#children do
+          if children[i] ~= "" then
+            local d = children[i].options['desired child index']
+            if not d then
+              local target = i
+    
+              while new_children[target] do
+                target = 1 + (target % #children)
+              end
+              new_children[target] = children[i]
+            end
+          end
+        end
+        for i=1,needed do
+          if not new_children[i] then
+            local new_child = Vertex.new{ kind = "dummy" }
+            new_children[i] = new_child
+            tree:add {new_child}
+            tree:connect(v,new_child)
+          end
+        end
+    
+        tree:orderOutgoing(v,new_children)
       end
     end
   end

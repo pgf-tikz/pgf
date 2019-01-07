@@ -175,7 +175,7 @@ function InterfaceToDisplay.runGraphDrawingAlgorithm()
     
     LayoutPipeline.run(scope)
   end
-	 
+     
   scope.coroutine = coroutine.create(run)
 
   -- Run it:
@@ -577,8 +577,8 @@ function InterfaceToDisplay.pushOption(key, value, height)
     assert (algorithm, "algorithm class not found")
     
     push_on_option_stack(phase_unique,
-			 { phase = value or key_record.phase, algorithm = algorithm },
-			 height)
+            { phase = value or key_record.phase, algorithm = algorithm },
+            height)
     
     if key_record.phase == "main" then
       main_phase_set = true
@@ -626,10 +626,10 @@ function InterfaceToDisplay.pushOption(key, value, height)
       local use_k = u.key
       local use_v = u.value
       if type(use_k) == "function" then
-	use_k = use_k(value)
+        use_k = use_k(value)
       end
       if type(use_v) == "function" then
-	use_v = use_v(value)
+        use_v = use_v(value)
       end
       height, flag = InterfaceToDisplay.pushOption(use_k, use_v, height+1)
       main_phase_set = main_phase_set or flag
@@ -822,7 +822,7 @@ function render_collections(collections)
     if layer ~= 0 then
       binding:renderCollectionStartKind(kind, layer)
       for _,c in ipairs(collections[kind] or {}) do
-	binding:renderCollection(c)
+        binding:renderCollection(c)
       end
       binding:renderCollectionStopKind(kind, layer)
     end
@@ -881,10 +881,10 @@ local option_metatable = {
     function (t, key)
       local k = aliases[key]
       if k then
-	local v = (type(k) == "string" and t[k]) or (type(k) == "function" and k(t)) or nil
-	if v ~= nil then
-	  return v
-	end
+        local v = (type(k) == "string" and t[k]) or (type(k) == "function" and k(t)) or nil
+        if v ~= nil then
+          return v
+        end
       end
       return option_initial[key]
     end
@@ -926,10 +926,10 @@ function get_current_options_table (height, table)
     local cache
     if not table then
       cache = setmetatable(
-	{
-	  algorithm_phases = setmetatable({}, InterfaceCore.option_initial.algorithm_phases),
-	  collections = {}
-	}, option_metatable)
+        {
+          algorithm_phases = setmetatable({}, InterfaceCore.option_initial.algorithm_phases),
+          collections = {}
+        }, option_metatable)
     else
       cache = lib.copy(table)
       cache.algorithm_phases = lib.copy(cache.algorithm_phases)
@@ -942,20 +942,20 @@ function get_current_options_table (height, table)
     
     local function handle (k, v)
       if k == phase_unique then
-	algorithm_phases[v.phase] = v.algorithm
-	local phase_stack = v.phase .. " stack"
-	local t = rawget(algorithm_phases, phase_stack)
-	if not t then
-	  t = algorithm_phases[phase_stack]
-	  assert(type(t) == "table", "unknown phase")
-	  t = lib.copy(t)
-	  algorithm_phases[phase_stack] = t
-	end
-	t[#t + 1] = v.algorithm	  
+        algorithm_phases[v.phase] = v.algorithm
+        local phase_stack = v.phase .. " stack"
+        local t = rawget(algorithm_phases, phase_stack)
+        if not t then
+          t = algorithm_phases[phase_stack]
+          assert(type(t) == "table", "unknown phase")
+          t = lib.copy(t)
+          algorithm_phases[phase_stack] = t
+        end
+        t[#t + 1] = v.algorithm      
       elseif k == collections_unique then
-	LookupTable.addOne(collections, v)
+        LookupTable.addOne(collections, v)
       else
-	cache[k] = v
+        cache[k] = v
       end
     end
     
@@ -981,7 +981,7 @@ function push_on_option_stack(key, value, height)
   local stack = InterfaceCore.option_stack
   
   assert (type(height) == "number" and height > 0 and height <= #stack + 1, 
-	  "height value out of bounds")
+      "height value out of bounds")
   
   -- Clear superfluous part of stack
   for i=#stack,height+1,-1 do

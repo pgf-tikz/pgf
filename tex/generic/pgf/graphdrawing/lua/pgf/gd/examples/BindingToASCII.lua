@@ -22,10 +22,10 @@ function BindingToASCII:renderStop()
     for x=-30,30 do
       local s = canvas[x][y]
       for i=1,#s do
-	pos = x+30+i-math.floor(#s/2)
-	if not t[pos] or t[pos] == " " or t[pos] == "." then
-	  t[pos] = string.sub(s,i,i)
-	end
+        pos = x+30+i-math.floor(#s/2)
+        if not t[pos] or t[pos] == " " or t[pos] == "." then
+          t[pos] = string.sub(s,i,i)
+        end
       end
     end
     print(table.concat(t))
@@ -53,20 +53,20 @@ function BindingToASCII:renderEdge(e)
     if math.abs(delta_x) > math.abs(delta_y) then
       local slope = delta_y/delta_x
       for i=x1,x2 do
-	local x,y = i, math.floor(y1 + (i-x1)*slope + 0.5)
-
-	if canvas[x][y] == " " then
-	  canvas[x][y] = '.'
-	end
+        local x,y = i, math.floor(y1 + (i-x1)*slope + 0.5)
+    
+        if canvas[x][y] == " " then
+          canvas[x][y] = '.'
+        end
       end
     elseif math.abs(delta_y) > 0 then
       local slope = delta_x/delta_y
       for i=y1,y2,(y1<y2 and 1) or -1 do
-	local x,y = math.floor(x1 + (i-y1)*slope + 0.5), i
-
-	if canvas[x][y] == " " then
-	  canvas[x][y] = '.'
-	end
+        local x,y = math.floor(x1 + (i-y1)*slope + 0.5), i
+    
+        if canvas[x][y] == " " then
+          canvas[x][y] = '.'
+        end
       end
     end
   end

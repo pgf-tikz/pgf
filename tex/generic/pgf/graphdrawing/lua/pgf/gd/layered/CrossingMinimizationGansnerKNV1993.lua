@@ -58,7 +58,7 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
 
     local function init(search)
       for i=#self.graph.nodes,1,-1 do
-	local node = self.graph.nodes[i]
+        local node = self.graph.nodes[i]
         if direction == 'down' then
           if node:getInDegree() == 0 then
             search:push(node)
@@ -81,7 +81,7 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
       self.ranking:setRankPosition(node, pos)
 
       if direction == 'down' then
-	local out = node:getOutgoingEdges()
+        local out = node:getOutgoingEdges()
         for i=#out,1,-1 do
           local neighbour = out[i]:getNeighbour(node)
           if not search:getDiscovered(neighbour) then
@@ -90,9 +90,9 @@ function CrossingMinimizationGansnerKNV1993:computeInitialRankOrdering()
           end
         end
       else
-	local into = node:getIncomingEdges()
+        local into = node:getIncomingEdges()
         for i=#into,1,-1 do 
-	    local neighbour = into[i]:getNeighbour(node)
+          local neighbour = into[i]:getNeighbour(node)
           if not search:getDiscovered(neighbour) then
             search:push(neighbour)
             search:setDiscovered(neighbour)
@@ -188,18 +188,18 @@ function CrossingMinimizationGansnerKNV1993:countNodeCrossings(ranking, left_nod
       local left_neighbour = left_edge:getNeighbour(left_node)
       
       for _,right_edge in ipairs(right_edges) do
-	if right_neighbour_on_other_rank(right_edge) then
-	  local right_neighbour = right_edge:getNeighbour(right_node)
-	  
-	  local left_position = ranking:getRankPosition(left_neighbour)
-	  local right_position = ranking:getRankPosition(right_neighbour)
-	  
-	  local neighbour_diff = right_position - left_position
-	  
-	  if neighbour_diff < 0 then
-	    crossings = crossings + 1
-	  end
-	end
+        if right_neighbour_on_other_rank(right_edge) then
+          local right_neighbour = right_edge:getNeighbour(right_node)
+          
+          local left_position = ranking:getRankPosition(left_neighbour)
+          local right_position = ranking:getRankPosition(right_neighbour)
+          
+          local neighbour_diff = right_position - left_position
+          
+          if neighbour_diff < 0 then
+            crossings = crossings + 1
+          end
+        end
       end
     end
   end
@@ -252,7 +252,7 @@ function CrossingMinimizationGansnerKNV1993:computeMedianPosition(node, prev_ran
     function (edge)
       local n = edge:getNeighbour(node)
       if self.ranking:getRank(n) == prev_rank then
-	return self.ranking:getRankPosition(n)
+        return self.ranking:getRankPosition(n)
       end
     end)
 

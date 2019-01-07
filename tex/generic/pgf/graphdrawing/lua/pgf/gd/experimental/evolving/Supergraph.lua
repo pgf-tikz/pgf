@@ -365,10 +365,10 @@ function Supergraph:sharePositions(ugraph, ignore)
       vertex.pos.y = self.supervertices[vertex].pos.y
     else
       if not ignore.x then
-	vertex.pos.x = self.supervertices[vertex].pos.x
+        vertex.pos.x = self.supervertices[vertex].pos.x
       end
       if not ignore.y then
-	vertex.pos.y = self.supervertices[vertex].pos.y
+        vertex.pos.y = self.supervertices[vertex].pos.y
       end
     end
     
@@ -437,42 +437,42 @@ function Supergraph:splitSupervertex(supervertex, snapshots)
       local s = self.snapshots[j]
       local vertex = self:getSnapshotVertex(supervertex, s)
       if vertex then
-	self.supervertices[vertex] = pseudovertex
-	self:addSnapshotVertex(pseudovertex, s, vertex)
-	self:removeSnapshotVertex(supervertex, s)
-	
-	if not has_subvertices then
-	  has_subvertices = true
-	  self:add{pseudovertex}
-	end
-
-	-- update edges:
-	local incoming = self.digraph:incoming(vertex)
-	local outgoing = self.digraph:outgoing(vertex)
-	
-	for _, arc in ipairs(incoming) do
-	  local tail = self.supervertices[arc.tail]
-	  local head = self.supervertices[arc.head]
-	  self:assignToSuperarc(tail, pseudovertex, s)
-	  
-	  local super_arc = self:arc(tail, supervertex)
-	  if not rem_arcs[super_arc] then
-	    table.insert(rem_arcs, {arc = super_arc, snapshot = s})
-	    rem_arcs[super_arc] = true
-	  end
-	end
-	
-	for _, arc in ipairs(outgoing) do
- 	  local tail = self.supervertices[arc.tail]
-	  local head = self.supervertices[arc.head]
-	  self:assignToSuperarc(pseudovertex, head, s)
-
-	  local super_arc = self:arc(supervertex, head)
-	  if not rem_arcs[super_arc] then
-	    table.insert(rem_arcs, {arc = super_arc, snapshot = s})
-	    rem_arcs[super_arc] = true
-	  end
-	end
+        self.supervertices[vertex] = pseudovertex
+        self:addSnapshotVertex(pseudovertex, s, vertex)
+        self:removeSnapshotVertex(supervertex, s)
+        
+        if not has_subvertices then
+          has_subvertices = true
+          self:add{pseudovertex}
+        end
+    
+        -- update edges:
+        local incoming = self.digraph:incoming(vertex)
+        local outgoing = self.digraph:outgoing(vertex)
+        
+        for _, arc in ipairs(incoming) do
+          local tail = self.supervertices[arc.tail]
+          local head = self.supervertices[arc.head]
+          self:assignToSuperarc(tail, pseudovertex, s)
+          
+          local super_arc = self:arc(tail, supervertex)
+          if not rem_arcs[super_arc] then
+            table.insert(rem_arcs, {arc = super_arc, snapshot = s})
+            rem_arcs[super_arc] = true
+          end
+        end
+        
+        for _, arc in ipairs(outgoing) do
+          local tail = self.supervertices[arc.tail]
+          local head = self.supervertices[arc.head]
+          self:assignToSuperarc(pseudovertex, head, s)
+    
+          local super_arc = self:arc(supervertex, head)
+          if not rem_arcs[super_arc] then
+            table.insert(rem_arcs, {arc = super_arc, snapshot = s})
+            rem_arcs[super_arc] = true
+          end
+        end
       end
     end
   end
@@ -481,14 +481,14 @@ function Supergraph:splitSupervertex(supervertex, snapshots)
     for _, removed_arc in ipairs(rem_arcs) do
       local snapshots = self.arc_snapshots[removed_arc.arc]
       for i=#snapshots,1,-1 do
-	local s = snapshots[i]
-	if s.timestamp >= removed_arc.snapshot.timestamp then
-	  table.remove(snapshots, i)
-	end
+        local s = snapshots[i]
+        if s.timestamp >= removed_arc.snapshot.timestamp then
+          table.remove(snapshots, i)
+        end
       end
 
       if #snapshots==0 then
-	self:disconnect(removed_arc.arc.tail, removed_arc.arc.head)
+        self:disconnect(removed_arc.arc.tail, removed_arc.arc.head)
       end
     end
   end
@@ -553,7 +553,7 @@ end
 --
 function Supergraph:assignToSuperarc(super_tail, super_head, snapshot)
   assert(self:contains(super_tail) and self:contains(super_head),
-	 "tried to connect supernodes not in the supergraph")
+      "tried to connect supernodes not in the supergraph")
   
   local super_arc = self:arc(super_tail, super_head)
   if not super_arc then

@@ -136,7 +136,7 @@ function Borders.copyBordersAtSnapshot(source, target, snapshot)
     level_border_left  = target.left[i]  or {}
     level_border_right = target.right[i] or {}
     assert(not level_border_left[snapshot] and not level_border_right[snapshot],
-	   "border for a given snapshat already defined")
+       "border for a given snapshat already defined")
     level_border_left[snapshot]  = source.left[i][snapshot]
     level_border_right[snapshot] = source.right[i][snapshot]
     target.left[i]  = level_border_left
@@ -164,20 +164,20 @@ local function adapt_borders(borders, group_borders, snapshots, ignore_dummies)
     local r = borders.right[level] or {}
     for _, s in pairs(snapshots) do
       if ignore_dummies then
-	local gls,grs = group_borders.left[level][s], group_borders.right[level][s]
-	if gls~=nil then
-	  if gls.kind~="dummy" then
-	    l[s] = l[s] or gls 
-	  end
-	end
-	if grs~=nil then
-	  if grs.kind~="dummy" then
-	    r[s] = grs or r[s]
-	  end
-	end
+        local gls,grs = group_borders.left[level][s], group_borders.right[level][s]
+        if gls~=nil then
+          if gls.kind~="dummy" then
+            l[s] = l[s] or gls 
+          end
+        end
+        if grs~=nil then
+          if grs.kind~="dummy" then
+            r[s] = grs or r[s]
+          end
+        end
       else
-	l[s] = l[s] or group_borders.left[level][s]
-	r[s] = group_borders.right[level][s] or r[s]
+        l[s] = l[s] or group_borders.left[level][s]
+        r[s] = group_borders.right[level][s] or r[s]
       end
       
     end
@@ -211,7 +211,7 @@ end
 local function shift_group(shift, group, snapshots, descendants)
   assert(group,"no group passed")
   assert(shift~=math.huge and shift ~=-math.huge,
-	 "shift must be a valid finit length")
+      "shift must be a valid finit length")
   local shifted = {} -- remember which vertex was shifted during this run
   local anchor = -math.huge
   for _, s in ipairs(snapshots) do
@@ -302,7 +302,7 @@ local function get_next(border_pair, next)
   local nr = next.right[border_pair.right]
   assert ((nl and nr) or (not nl and not nr))
   return {left = nl,  right = nr,
-	 }
+  }
 end
 
 local function add_shift(abs_shift, border_pair, next)
@@ -327,7 +327,7 @@ function Skambath2016:computeRequiredDistance(tree, vertex, i, shifts, next)
     local v1     = outgoings[i+1].head
     local shift = layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, v0, v1) + shifts[clumb.right]   
     local last0 = {left = clumb.left, right = clumb.right}
-    local last1 = {left = v1, right = v1}	
+    local last1 = {left = v1, right = v1}    
     local next0 = get_next(last0, next)
     local next1 = get_next(last1, next)
     local abs_shift0 = {left = shifts[clumb.left], right = shifts[clumb.right]}
@@ -338,11 +338,11 @@ function Skambath2016:computeRequiredDistance(tree, vertex, i, shifts, next)
       add_shift(abs_shift1, last1, next)
 
       shift = math.max(shift,
-		       layered.ideal_sibling_distance(self.adjusted_bb,
-						      self.ugraph,
-						      next0.right,
-						      next1.left)
-		       + abs_shift0.right - abs_shift1.left)
+               layered.ideal_sibling_distance(self.adjusted_bb,
+                              self.ugraph,
+                              next0.right,
+                              next1.left)
+               + abs_shift0.right - abs_shift1.left)
 --      texio.write("\n   | "..(next0.right.name or "dummy").."<->"..(next1.left.name or "dummy").." :\t"..shift)      
       last0, last1 = next0, next1
       next0  = get_next(next0, next)
@@ -435,10 +435,10 @@ function Skambath2016:run()
     
   -- vertical positions  
   tlayered.arrange_layers_by_baselines(layers,
-				       self.adjusted_bb,
-				       self.ugraph,
-				       self.supergraph.snapshots,
-				       self.supergraph.vertex_snapshots)
+                       self.adjusted_bb,
+                       self.ugraph,
+                       self.supergraph.snapshots,
+                       self.supergraph.vertex_snapshots)
 
   -- animate graph
   ga_class.new {
@@ -446,7 +446,7 @@ function Skambath2016:run()
     supergraph     = supergraph_original,
     digraph        = self.digraph,
     ugraph         = self.ugraph
-	       }:run()
+           }:run()
 end
 
 --
@@ -525,16 +525,16 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
   for _, snapshot in ipairs(self.supergraph.snapshots) do
     for _, spanning_tree in ipairs(snapshot.spanning_trees) do
       for _, arc in ipairs(spanning_tree.arcs) do
-	
-	local head = self.supergraph:getSupervertex(arc.head)
-	local tail = self.supergraph:getSupervertex(arc.tail)
+    
+    local head = self.supergraph:getSupervertex(arc.head)
+    local tail = self.supergraph:getSupervertex(arc.tail)
 
-	if(head and tail) then
-	  if not dependency_graph:arc(tail, head) then
-	    dependency_graph:connect(tail, head)
-	    dep_counter[tail] = dep_counter[tail] + 1
-	  end
-	end
+    if(head and tail) then
+      if not dependency_graph:arc(tail, head) then
+        dependency_graph:connect(tail, head)
+        dep_counter[tail] = dep_counter[tail] + 1
+      end
+    end
       end
     end
   end
@@ -557,7 +557,7 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
     for _, e in ipairs(incomings) do     
       dep_counter[e.tail] = dep_counter[e.tail] - 1
       if dep_counter[e.tail] == 0 then
-	queue:enqueue(e.tail, 1)
+        queue:enqueue(e.tail, 1)
       end   
     end
 
@@ -576,24 +576,24 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
       -- c. Compute borders of groups:
       local all_group_borders = {}
       for i, group in ipairs(vertex_groups) do
-	local group_boders = Borders.new()
-	for _,s in ipairs(vertex_snapshots) do
-	  local child = group[s]
-	  if child then
-	    local child_borders
-	    if not (child.kind == "dummy") then
-	      local superchild = self.supergraph:getSupervertex(child)
-	      child_borders = subtree_borders[superchild] or Borders.new()
-	    else
-	      child_borders = Borders.new()
-	      child_borders:addBoth(1, s, child)
-	    end
-	    assert(child.pos~=math.huge, "invalid child pos")
-	    shift_group(-child.pos.x,{[s]=child},{[1]=s}, descendants)
-	    Borders.copyBordersAtSnapshot(child_borders, group_boders, s)
-	  end
-	end
-	all_group_borders[i] = group_boders
+        local group_boders = Borders.new()
+        for _,s in ipairs(vertex_snapshots) do
+          local child = group[s]
+          if child then
+            local child_borders
+            if not (child.kind == "dummy") then
+              local superchild = self.supergraph:getSupervertex(child)
+              child_borders = subtree_borders[superchild] or Borders.new()
+            else
+              child_borders = Borders.new()
+              child_borders:addBoth(1, s, child)
+            end
+            assert(child.pos~=math.huge, "invalid child pos")
+            shift_group(-child.pos.x,{[s]=child},{[1]=s}, descendants)
+            Borders.copyBordersAtSnapshot(child_borders, group_boders, s)
+          end
+        end
+        all_group_borders[i] = group_boders
       end
       
       -- d. Place groups and merge borders of groups:
@@ -602,30 +602,30 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
       local merged_borders = Borders.new()
       local final_borders  = Borders.new()
       for i, group in ipairs(vertex_groups) do
-	local group_borders = all_group_borders[i]
-	if  last_group_borders then
-	  -- i.   compute minimal shift
-
-	  local shift
-	  shift = self:computeMinShift(merged_borders.right, group_borders.left)
-
-	  
-	  assert(shift ~= math.huge and shift~=-math.huge, "invalid shift")
-
-	  -- ii.  shift group
-	  local anchor = shift_group(shift, group,vertex_snapshots, descendants)
-	  last_pos_x = anchor
-	end
-	last_group_borders = group_borders
-	
-	-- iii. adapt borders
-	adapt_borders(merged_borders,
-                      group_borders,
-                      self.supergraph.snapshots)
-	adapt_borders(final_borders,
-		      group_borders,
-                      self.supergraph.snapshots,
-                      not self.extended_version)
+        local group_borders = all_group_borders[i]
+        if  last_group_borders then
+          -- i.   compute minimal shift
+    
+          local shift
+          shift = self:computeMinShift(merged_borders.right, group_borders.left)
+    
+          
+          assert(shift ~= math.huge and shift~=-math.huge, "invalid shift")
+    
+          -- ii.  shift group
+          local anchor = shift_group(shift, group,vertex_snapshots, descendants)
+          last_pos_x = anchor
+        end
+        last_group_borders = group_borders
+        
+        -- iii. adapt borders
+        adapt_borders(merged_borders,
+                          group_borders,
+                          self.supergraph.snapshots)
+        adapt_borders(final_borders,
+                  group_borders,
+                  self.supergraph.snapshots,
+                  not self.extended_version)
       end -- for (group)
       vertex_borders:appendBelow(1, final_borders)
     end
@@ -650,11 +650,11 @@ function Skambath2016:computeHorizontalLayout(groups, descendants)
       local rootborders = subtree_borders[self.supergraph:getSupervertex(root)]
       shift_group(-root.pos.x,{[s]=root},{[1]=s}, descendants)
       if i>1 then
-	local l = subtree_borders[self.supergraph:getSupervertex(lastroot)]
-	local r = rootborders
-	shift = math.max(self:computeMinShift(l.right, r.left, {[1]=s}),
-			 self:computeMinShift(rborder.right,r.left, {[1]=s}))
-	shift_group(shift,{[s]=root},{[1]=s}, descendants)
+        local l = subtree_borders[self.supergraph:getSupervertex(lastroot)]
+        local r = rootborders
+        shift = math.max(self:computeMinShift(l.right, r.left, {[1]=s}),
+                 self:computeMinShift(rborder.right,r.left, {[1]=s}))
+        shift_group(shift,{[s]=root},{[1]=s}, descendants)
       else
         rborder = Borders.new()
       end
@@ -691,21 +691,21 @@ function Skambath2016:computeHorizontalLayoutFast()
       table.insert(all_trees, spanning_tree)
       shifts[spanning_tree] = Storage.new()
       next[spanning_tree] = {left= Storage.new(),
-			     right= Storage.new(),
-			     left_shift = Storage.new(),
-			     right_shift = Storage.new()
+                 right= Storage.new(),
+                 left_shift = Storage.new(),
+                 right_shift = Storage.new()
       }
       
       for _, arc in ipairs(spanning_tree.arcs) do
-	local head = self.supergraph:getSupervertex(arc.head)
-	local tail = self.supergraph:getSupervertex(arc.tail)
-
-	if(head and tail) then
-	  if not dependency_graph:arc(tail, head) then
-	    dependency_graph:connect(tail, head)
-	    dep_counter[tail] = dep_counter[tail] + 1
-	  end
-	end
+        local head = self.supergraph:getSupervertex(arc.head)
+        local tail = self.supergraph:getSupervertex(arc.tail)
+    
+        if(head and tail) then
+          if not dependency_graph:arc(tail, head) then
+            dependency_graph:connect(tail, head)
+            dep_counter[tail] = dep_counter[tail] + 1
+          end
+        end
       end
     end
   end
@@ -731,7 +731,7 @@ function Skambath2016:computeHorizontalLayoutFast()
     for _, e in ipairs(incomings) do     
       dep_counter[e.tail] = dep_counter[e.tail] - 1
       if dep_counter[e.tail] == 0 then
-	queue:enqueue(e.tail, 1)
+        queue:enqueue(e.tail, 1)
       end   
     end
 
@@ -751,27 +751,27 @@ function Skambath2016:computeHorizontalLayoutFast()
       -- i)    Compute the necessary shift between the i-th and (i+1)-th subtrees (per snapshot):
       local min_shift = 0
       for t, s in ipairs(vertex_snapshots) do
-	local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
-	local tree = s.spanning_trees[1]
-	local req_shift, hptr
-	req_shift, hptr = self:computeRequiredDistance(tree,
-						       snapshot_vertex,
-						       i,
-						       shifts[tree],
-						       next[tree]
-						      )
-	hlp_ptr[t] = hptr
---	texio.write(" -> \t"..req_shift)
-	min_shift = math.max(min_shift, req_shift)
+    local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
+    local tree = s.spanning_trees[1]
+    local req_shift, hptr
+    req_shift, hptr = self:computeRequiredDistance(tree,
+                               snapshot_vertex,
+                               i,
+                               shifts[tree],
+                               next[tree]
+                              )
+    hlp_ptr[t] = hptr
+--    texio.write(" -> \t"..req_shift)
+    min_shift = math.max(min_shift, req_shift)
       end
 
 --      texio.write("\n \t\t".. min_shift )
       
       -- ii)   Synchronize distance between neigbored subtrees and apply shifts
       for t, s in ipairs(vertex_snapshots) do
-	local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
-	local tree = s.spanning_trees[1]
-	apply_shift(tree, snapshot_vertex, i, shifts[tree], next[tree], hlp_ptr[t], min_shift)
+        local snapshot_vertex = self.supergraph:getSnapshotVertex(vertex, s)
+        local tree = s.spanning_trees[1]
+        apply_shift(tree, snapshot_vertex, i, shifts[tree], next[tree], hlp_ptr[t], min_shift)
       end
 
       max_shift = min_shift
@@ -786,15 +786,15 @@ function Skambath2016:computeHorizontalLayoutFast()
 
 
       for i = 1,#outgoings do
-	if i==1 then
-	  next[tree].left_shift[snapshot_vertex] = - max_shift / 2
-	  next[tree].left[snapshot_vertex]= outgoings[i].head	  
-	end
-	shifts[tree][outgoings[i].head] = shifts[tree][outgoings[i].head] - max_shift / 2
-	next[tree].right[snapshot_vertex] = outgoings[i].head
-	next[tree].right_shift[snapshot_vertex] =  shifts[tree][outgoings[i].head]
+        if i==1 then
+          next[tree].left_shift[snapshot_vertex] = - max_shift / 2
+          next[tree].left[snapshot_vertex]= outgoings[i].head      
+        end
+        shifts[tree][outgoings[i].head] = shifts[tree][outgoings[i].head] - max_shift / 2
+        next[tree].right[snapshot_vertex] = outgoings[i].head
+        next[tree].right_shift[snapshot_vertex] =  shifts[tree][outgoings[i].head]
       end
-	
+    
     end
     
   end -- end while (all vertices have been processed)
@@ -849,7 +849,7 @@ end
 --
 function Skambath2016:precomputeSpanningTrees()
   local events = assert(self.scope.events,
-			"no events found for the spanning tree computation")
+            "no events found for the spanning tree computation")
   
   for i, s in ipairs(self.supergraph.snapshots) do
     -- The involved snapshot graph:

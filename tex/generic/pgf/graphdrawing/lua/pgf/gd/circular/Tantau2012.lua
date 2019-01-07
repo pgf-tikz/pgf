@@ -98,11 +98,11 @@ function Tantau2012:computeNodeDistances()
 
   local missing_length = self.digraph.options['radius'] * 2 * math.pi - sum_length
   if missing_length > 0 then
-     -- Ok, the sib_dists to not add up to the desired minimum value. 
-     -- What should we do? Hmm... We increase all by the missing amount:
-     for i=1,#vertices do
-	sib_dists[i] = sib_dists[i] + missing_length/#vertices
-     end
+    -- Ok, the sib_dists to not add up to the desired minimum value. 
+    -- What should we do? Hmm... We increase all by the missing amount:
+    for i=1,#vertices do
+      sib_dists[i] = sib_dists[i] + missing_length/#vertices
+    end
   end
 
   sib_dists.total = math.max(self.digraph.options['radius'] * 2 * math.pi, sum_length)

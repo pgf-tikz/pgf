@@ -317,9 +317,9 @@ function ForceController:run()
       elseif i < start_coarsening or i > end_coarsening then
         if not vertices_initalized then
           initial_positioning_class.new {
-	    vertices = coarse_graph.ugraph.vertices,
-	    options = options,
-	    desired_vertices = desired_vertices }:run()
+            vertices = coarse_graph.ugraph.vertices,
+            options = options,
+            desired_vertices = desired_vertices }:run()
           vertices_initalized = true
         end
         preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
@@ -330,9 +330,9 @@ function ForceController:run()
       if i < start_coarsening or i > end_coarsening then
         if not vertices_initalized then
           initial_positioning_class.new {
-	    vertices = vertices,
-	    options = options,
-	    desired_vertices = desired_vertices }:run()
+            vertices = vertices,
+            options = options,
+            desired_vertices = desired_vertices }:run()
           vertices_initalized = true
         end
         preprocessing(vertices, arcs, e, ugraph)
@@ -429,7 +429,7 @@ function move_vertices(vertices, epoch, g)
     if not find_equilibrium or sum_up(net_forces)*d_t > epsilon then
       local cool_down_dt = d_t
       if cool_down_dt > 1 then
-	cool_down_dt = 1 + 1/d_t
+        cool_down_dt = 1 + 1/d_t
       end
       for _, v in ipairs(vertices) do
         local factor = 1/(v.mass or 1)

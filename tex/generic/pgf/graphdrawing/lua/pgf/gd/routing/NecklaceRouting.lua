@@ -44,12 +44,12 @@ declare {
       ``follow the necklace path.'' In the example case, this will
       cause all edges that connect adjacent nodes to become arcs on
       of the circle on which the nodes lie.
-	
+    
       Note that local edge routing options for an edge may overrule
       the edge routing computed by the algorithm as in the edge from 6
-      to 7 in the example.	
+      to 7 in the example.    
   "]],
-	
+    
   examples = [["
       \tikz \graph [simple necklace layout, node distance=1.5cm,
                     necklace routing,
@@ -71,13 +71,13 @@ function NecklaceRouting:run()
     local prev
     for _,vertex in ipairs(entry.necklace) do
       if prev then
-	local a = ugraph:arc(prev, vertex)
-	if a then
-	  local p = Path.new()
-	  p:appendMoveto(a.tail.pos:clone())
-	  p:appendArcTo(a.head.pos:clone(), entry.center, entry.clockwise)
-	  a.path = p
-	end
+        local a = ugraph:arc(prev, vertex)
+        if a then
+          local p = Path.new()
+          p:appendMoveto(a.tail.pos:clone())
+          p:appendArcTo(a.head.pos:clone(), entry.center, entry.clockwise)
+          a.path = p
+        end
       end
       prev = vertex
     end

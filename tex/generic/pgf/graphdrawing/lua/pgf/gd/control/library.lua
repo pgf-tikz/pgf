@@ -173,12 +173,12 @@ declare {
   algorithm = {
     run =
       function (self)
-	for _,v in ipairs(self.digraph.vertices) do
-	  if v.options['desired at'] then
-	    v.pos.x = v.options['desired at'].x
-	    v.pos.y = v.options['desired at'].y
-	  end
-	end
+        for _,v in ipairs(self.digraph.vertices) do
+          if v.options['desired at'] then
+            v.pos.x = v.options['desired at'].x
+            v.pos.y = v.options['desired at'].y
+          end
+        end
       end },
   summary = "This layout does nothing.",
 }

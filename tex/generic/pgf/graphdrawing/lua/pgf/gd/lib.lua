@@ -265,7 +265,7 @@ function lib.lookup_option(name, ...)
     if o then 
       local v = rawget(o, name)
       if v then
-	return v
+        return v
       end
     end
   end
@@ -331,12 +331,12 @@ function lib.class(t)
       -- Create new object
       local obj = {}
       for k,v in pairs(initial or {}) do
-	obj[k] = v
+        obj[k] = v
       end
       setmetatable(obj, t)
 
       if obj.constructor then
-	obj:constructor()
+        obj:constructor()
       end
       
       return obj
@@ -388,9 +388,9 @@ end
 
 function lib.ondemand(filename, table, name)
   return function(...)
-	   require (filename)
-	   return table[name] (...)
-	 end
+       require (filename)
+       return table[name] (...)
+     end
 end
 
 

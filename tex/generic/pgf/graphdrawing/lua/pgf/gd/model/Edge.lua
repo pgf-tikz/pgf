@@ -147,12 +147,12 @@ end
 
 function Edge:tailAnchorForEdgePath()
   return function ()
-	   local a = self.options['tail anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.tail:anchor(a) + self.tail.pos
-	 end
+    local a = self.options['tail anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.tail:anchor(a) + self.tail.pos
+  end
 end
 
 ---
@@ -160,12 +160,12 @@ end
 
 function Edge:headAnchorForEdgePath()
   return function ()
-	   local a = self.options['head anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.head:anchor(a) + self.head.pos
-	 end
+    local a = self.options['head anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.head:anchor(a) + self.head.pos
+  end
 end
 
 

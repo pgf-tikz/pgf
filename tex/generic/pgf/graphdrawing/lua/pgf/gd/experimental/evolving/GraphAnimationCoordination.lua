@@ -170,16 +170,16 @@ local function append_move_animation(object, c_from, c_to, t_start, t_end)
     local t1 = (7*t_start + 5*t_end)/12
     local t2 = (5*t_start + 7*t_end)/12
     table.insert(animations, {
-		   attribute = "translate",
-		   entries = {
-		     { t = t_start, value = c_from},
---		     { t = t1,      value = c1 },
---		     { t = t2,      value = c2 },
-		     { t = t_end,   value = c_to }
-		   },
-		   options = { { key = "freeze at end",   },
---		     {key = "entry control", value="0}{1",}
-		   }
+           attribute = "translate",
+           entries = {
+             { t = t_start, value = c_from},
+--             { t = t1,      value = c1 },
+--             { t = t2,      value = c2 },
+             { t = t_end,   value = c_to }
+           },
+           options = { { key = "freeze at end",   },
+--             {key = "entry control", value="0}{1",}
+           }
     })
     object.animations = animations
   end
@@ -190,23 +190,23 @@ local function append_fade_animation(object, v_start, v_end, t_start, t_end)
   
   if v_start == 0 then
     table.insert(animations, {
-		   attribute = "stage",
-		   entries = { { t = t_start, value = "true"}, },
-		   options = { { key = "freeze at end" } }
+           attribute = "stage",
+           entries = { { t = t_start, value = "true"}, },
+           options = { { key = "freeze at end" } }
     })
   elseif v_end == 0 and nil  then
     table.insert(animations, {
-		   attribute = "stage",
-		   entries = { { t = t_end, value = "false"}, },
-		   options = { --{ key = "freeze at end" }
-		   }
+           attribute = "stage",
+           entries = { { t = t_end, value = "false"}, },
+           options = { --{ key = "freeze at end" }
+           }
     })    
   end
 
   table.insert(animations, {
     attribute = "opacity",
     entries = {
-      {	t = t_start, value = v_start },
+      {    t = t_start, value = v_start },
       { t = t_end,   value = v_end } },
     options = { { key = "freeze at end" } }
   })
@@ -272,25 +272,25 @@ function GraphAnimationCoordination:generateNodeMotions(node_types)
       local vertex = supergraph:getSnapshotVertex(supervertex, s)
 
       if lj == j-1 and vertex and last_v then
-	local mrt1 = last_v.options["minimum rest time"]/2
-	local mrt2 = vertex.options["minimum rest time"]/2
-	
+    local mrt1 = last_v.options["minimum rest time"]/2
+    local mrt2 = vertex.options["minimum rest time"]/2
+    
         local s1 = Coordinate.new(0,0)
-	local e1 = Coordinate.new(vertex.pos.x-last_v.pos.x,-vertex.pos.y+last_v.pos.y)
+    local e1 = Coordinate.new(vertex.pos.x-last_v.pos.x,-vertex.pos.y+last_v.pos.y)
 
-	local s2 = Coordinate.new(-vertex.pos.x+last_v.pos.x,vertex.pos.y-last_v.pos.y)
-	local e2 = Coordinate.new(0,0)
-	
-	local t_end   = s.timestamp - math.max(0, mrt2)
-	local t_start = last_time + math.max(0,mrt1)
+    local s2 = Coordinate.new(-vertex.pos.x+last_v.pos.x,vertex.pos.y-last_v.pos.y)
+    local e2 = Coordinate.new(0,0)
+    
+    local t_end   = s.timestamp - math.max(0, mrt2)
+    local t_start = last_time + math.max(0,mrt1)
 
-	local representative =  self.visible_objects[supervertex][s]
-	if representative == vertex then
-	  append_move_animation(vertex,  s2, e2, t_start, t_end)
-	  append_move_animation(last_v, s1, e1, t_start, t_end)
-	else
-	  append_move_animation(representative,s1,e1,t_start,t_end)
-	end
+    local representative =  self.visible_objects[supervertex][s]
+    if representative == vertex then
+      append_move_animation(vertex,  s2, e2, t_start, t_end)
+      append_move_animation(last_v, s1, e1, t_start, t_end)
+    else
+      append_move_animation(representative,s1,e1,t_start,t_end)
+    end
       end
       last_time = s.timestamp
       lj = j
@@ -300,7 +300,7 @@ function GraphAnimationCoordination:generateNodeMotions(node_types)
 end
 
 
-	
+    
 
 
 function GraphAnimationCoordination:generateEdgeMotions()
@@ -321,38 +321,38 @@ function GraphAnimationCoordination:generateEdgeMotions()
       local w = supergraph:getSnapshotVertex(head,s)
 
       if v and w then
-	local this_arc = graph:arc(v,w) --or graph:arc(w,v)
+    local this_arc = graph:arc(v,w) --or graph:arc(w,v)
         if this_arc then
-	  if this_arc and last_arc then
-	    local mrt1 = last_v.options["minimum rest time"]/2
-	    local mrt2 = v.options["minimum rest time"]/2
-	    
-	    local s1 = Coordinate.new(0,0)--lv.pos
-	    local e1 = Coordinate.new(v.pos.x-last_v.pos.x,-v.pos.y+last_v.pos.y)  
+      if this_arc and last_arc then
+        local mrt1 = last_v.options["minimum rest time"]/2
+        local mrt2 = v.options["minimum rest time"]/2
+        
+        local s1 = Coordinate.new(0,0)--lv.pos
+        local e1 = Coordinate.new(v.pos.x-last_v.pos.x,-v.pos.y+last_v.pos.y)  
 
-	    local s2 = Coordinate.new(-v.pos.x+last_v.pos.x,v.pos.y-last_v.pos.y)
-	    local e2 = Coordinate.new(0,0)
+        local s2 = Coordinate.new(-v.pos.x+last_v.pos.x,v.pos.y-last_v.pos.y)
+        local e2 = Coordinate.new(0,0)
 
-	    local t_end     = s.timestamp - math.max(0,mrt2)
-	    local t_start   = last_time   + math.max(0,mrt1)
-	    
-	    local representative = self.visible_objects[arc][s]
-	    if representative == this_arc then
-	      append_move_animation(last_arc, s1, e1, t_start,t_end)
-	      append_move_animation(this_arc, s2, e2, t_start,t_end)
-	    else
-	      append_move_animation(representative,s1,e1,t_start,t_end)
-	    end
-	    this_arc = representative
-	  end
-	  last_arc = this_arc
-	  last_v = v
-	  last_time = s.timestamp
-	else
-	  last_arc = nil
-	end
+        local t_end     = s.timestamp - math.max(0,mrt2)
+        local t_start   = last_time   + math.max(0,mrt1)
+        
+        local representative = self.visible_objects[arc][s]
+        if representative == this_arc then
+          append_move_animation(last_arc, s1, e1, t_start,t_end)
+          append_move_animation(this_arc, s2, e2, t_start,t_end)
+        else
+          append_move_animation(representative,s1,e1,t_start,t_end)
+        end
+        this_arc = representative
+      end
+      last_arc = this_arc
+      last_v = v
+      last_time = s.timestamp
+    else
+      last_arc = nil
+    end
       else
-	last_arc = nil
+    last_arc = nil
       end
     end
   end
@@ -422,9 +422,9 @@ function GraphAnimationCoordination:animateNodeAppearing()
 
     if representative~= vertex then
       table.insert(vertex.animations,{
-		     attribute = "stage",
-		     entries = { { t = 0, value = "false"}, },
-		     options = {}
+             attribute = "stage",
+             entries = { { t = 0, value = "false"}, },
+             options = {}
       })
     end
     
@@ -453,7 +453,7 @@ function GraphAnimationCoordination:animateEdgeAppearing()
       local representative = self.visible_objects[superarc][snapshot] or edge
 
       local minimum_rest_time = math.max(0,edge.head.options["minimum rest time"]/2,
-					 edge.tail.options["minimum rest time"]/2)
+                     edge.tail.options["minimum rest time"]/2)
       
       local appears    = math.max(int.from, int.from)
       local disappears = math.min(int.to,   int.to)
@@ -465,28 +465,28 @@ function GraphAnimationCoordination:animateEdgeAppearing()
       local allow_overlapping = (edge.tail.options["overlapping transition"] and edge.head.options["overlapping transition"])
 
       if self.is_first[edge] and not self.move_on_enter[edge] and not self.move_on_enter[edge.head] then
-	fadein_duration = self.ugraph.options["fadein time"]
-	overlapping_in = false or allow_overlapping
+    fadein_duration = self.ugraph.options["fadein time"]
+    overlapping_in = false or allow_overlapping
       end
       
       if self.is_last[edge] and not self.move_on_leave[edge]  then
-	fadeout_duration = self.ugraph.options["fadeout time"]
-	overlapping_out = false or allow_overlapping
+        fadeout_duration = self.ugraph.options["fadeout time"]
+        overlapping_out = false or allow_overlapping
       end
       
 
       if self.is_first[edge]
-	  and (self.move_on_enter[edge.head]
-	  or self.move_on_enter[edge.tail] )
+      and (self.move_on_enter[edge.head]
+      or self.move_on_enter[edge.tail] )
         then
-	  appears = snapshot.timestamp - minimum_rest_time
+      appears = snapshot.timestamp - minimum_rest_time
       end
       if self.is_last[edge] and
-	  (self.move_on_leave[edge.head]
-	     or self.move_on_leave[edge.tail]
-	) then
-	  disappears = snapshot.timestamp + minimum_rest_time
-	end
+      (self.move_on_leave[edge.head]
+         or self.move_on_leave[edge.tail]
+    ) then
+      disappears = snapshot.timestamp + minimum_rest_time
+    end
 
       local fin = compute_fade_times(appears, fadein_duration, overlapping_in,false)
       local fout = compute_fade_times(disappears,fadeout_duration,overlapping_out,true)
@@ -494,20 +494,20 @@ function GraphAnimationCoordination:animateEdgeAppearing()
       edge.animations = edge.animations or {}
 
       if representative~=edge then
-	table.insert(edge.animations,{
-		       attribute = "stage",
-		       entries = { { t = 0, value = "false"}, },
-		       options = {}})
+    table.insert(edge.animations,{
+               attribute = "stage",
+               entries = { { t = 0, value = "false"}, },
+               options = {}})
       end
       
       -- Fade in:
       if appears > -math.huge and (edge == representative or self.is_first[edge]) then
-	append_fade_animation(representative, 0, 1, fin.t_start, fin.t_end )
+    append_fade_animation(representative, 0, 1, fin.t_start, fin.t_end )
       end
       
       -- Fade out:
       if disappears < math.huge and (self.is_last[edge] or self.last_rep[edge])then
-	append_fade_animation(representative, 1, 0, fout.t_start,fout.t_end )
+    append_fade_animation(representative, 1, 0, fout.t_start,fout.t_end )
       end
       
     end
@@ -530,38 +530,38 @@ function GraphAnimationCoordination:precomputeNodes()
       local node = supergraph:getSnapshotVertex(supernode, s)   
 
       if node then
-	-- assume the node is the last node
-	self.is_last[node] = true
-	
-	if node.options["modified"] then
-	  -- modified
-	  vis_nodes[s] = node
-	  previous_representant = node
-	  if any_previous_node then
-	    self.last_rep[any_previous_node] = true
-	  end
-	else
-	  -- unmodified
-	  previous_representant = previous_representant or node
-	  vis_nodes[s] = previous_representant
-	end
-	any_previous_node = node
-	
-	if node_before then
-	  self.is_last[node_before] = false
-	  self.previous_node[node]     = node_before
-	  self.next_node[node_before]  = node
-	  
-	  local do_move = (( node.pos.x ~= node_before.pos.x )
-	                or (node.pos.y ~= node_before.pos.y))
-	  self.move_on_enter[node]        = do_move
-	  self.move_on_leave[node_before] = do_move
-	else
-	  self.is_first[node] = true
-	end
-	node_before = node
+    -- assume the node is the last node
+    self.is_last[node] = true
+    
+    if node.options["modified"] then
+      -- modified
+      vis_nodes[s] = node
+      previous_representant = node
+      if any_previous_node then
+        self.last_rep[any_previous_node] = true
+      end
+    else
+      -- unmodified
+      previous_representant = previous_representant or node
+      vis_nodes[s] = previous_representant
+    end
+    any_previous_node = node
+    
+    if node_before then
+      self.is_last[node_before] = false
+      self.previous_node[node]     = node_before
+      self.next_node[node_before]  = node
+      
+      local do_move = (( node.pos.x ~= node_before.pos.x )
+                    or (node.pos.y ~= node_before.pos.y))
+      self.move_on_enter[node]        = do_move
+      self.move_on_leave[node_before] = do_move
+    else
+      self.is_first[node] = true
+    end
+    node_before = node
       else
-	node_before = nil 
+    node_before = nil 
       end
     end
   end
@@ -574,8 +574,8 @@ function GraphAnimationCoordination:precomputeEdges()
     local tail = arc.tail
     if not ( self.is_first[head] or self.is_first[tail]) then
       if not self.digraph:arc(self.previous_node[tail], self.previous_node[head]) then
-	-- new arc connects existing nodes
-	self.is_first[arc] = true
+    -- new arc connects existing nodes
+    self.is_first[arc] = true
       end
     else
       -- arc and at least one node is new.
@@ -583,8 +583,8 @@ function GraphAnimationCoordination:precomputeEdges()
     end
     if not ( self.is_last[head] or self.is_last[tail]) then
       if not self.digraph:arc(self.next_node[tail],self.next_node[head]) then
-	-- arc disappears while nodes are still in the next snapshot
-	self.is_last[arc] = true
+        -- arc disappears while nodes are still in the next snapshot
+        self.is_last[arc] = true
       end
     else
       -- arc and at least one node disappears in the next snapshot
@@ -605,32 +605,32 @@ function GraphAnimationCoordination:precomputeEdges()
     local previous_representant
     
     for _, s in ipairs(supergraph.arc_snapshots[superarc]) do
-       local head = supergraph:getSnapshotVertex(superarc.head, s)
-       local tail = supergraph:getSnapshotVertex(superarc.tail,  s)
-       -- use the digraph because the snapshot arc is not syncted
-       local arc = self.digraph:arc(tail, head)
+      local head = supergraph:getSnapshotVertex(superarc.head, s)
+      local tail = supergraph:getSnapshotVertex(superarc.tail,  s)
+      -- use the digraph because the snapshot arc is not syncted
+      local arc = self.digraph:arc(tail, head)
        
-       local modified = false
-       local opt_array = arc:optionsArray('modified')
-       for i = 1,#opt_array.aligned do
-	 modified = modified or opt_array[i]	 
-       end
+      local modified = false
+      local opt_array = arc:optionsArray('modified')
+      for i = 1,#opt_array.aligned do
+        modified = modified or opt_array[i]     
+      end
  
-       if modified  or
-       not eq_arc(arc, previous_arc) or self.is_first[arc] then
-	 --modified
-	 previous_representant = arc
-	 vis_objects[s] = arc
-	 if previous_arc then
-	   self.last_rep[previous_arc] = true
-	 end
+      if modified  or
+      not eq_arc(arc, previous_arc) or self.is_first[arc] then
+        --modified
+        previous_representant = arc
+        vis_objects[s] = arc
+        if previous_arc then
+          self.last_rep[previous_arc] = true
+        end
        else
-	 -- unmodified
-	 previous_representant = previous_representant or arc
-	 vis_objects[s] = previous_representant
-       end
-       previous_arc = arc
-     end
+        -- unmodified
+        previous_representant = previous_representant or arc
+        vis_objects[s] = previous_representant
+      end
+      previous_arc = arc
+    end
   end
 end
 -- Done

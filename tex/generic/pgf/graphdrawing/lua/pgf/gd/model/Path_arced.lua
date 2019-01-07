@@ -153,15 +153,15 @@ local function arc (path, start, start_angle, end_angle, radius, trans, centerx,
     -- Ok, now create a series of arcs that are at most quarter-cycles:
     while start_angle < end_angle do
       if start_angle + 179 < end_angle then
-	-- Add a quarter cycle:
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, 90, radius, trans, centerx, centery)
+        -- Add a quarter cycle:
+        startx, starty, start_angle = subarc(path, startx, starty, start_angle, 90, radius, trans, centerx, centery)
       elseif start_angle + 90 < end_angle then
-	-- Add 60 degrees to ensure that there are no small segments
-	-- at the end
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
+        -- Add 60 degrees to ensure that there are no small segments
+        -- at the end
+        startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
       else
-	subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
-	break
+        subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
+        break
       end
     end
     
@@ -179,15 +179,15 @@ local function arc (path, start, start_angle, end_angle, radius, trans, centerx,
     -- Ok, now create a series of arcs that are at most quarter-cycles:
     while start_angle > end_angle do
       if start_angle - 179 > end_angle then
-	-- Add a quarter cycle:
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, -90, radius, trans, centerx, centery)
+        -- Add a quarter cycle:
+        startx, starty, start_angle = subarc(path, startx, starty, start_angle, -90, radius, trans, centerx, centery)
       elseif start_angle - 90 > end_angle then
-	-- Add 60 degrees to ensure that there are no small segments
-	-- at the end
-	startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
+        -- Add 60 degrees to ensure that there are no small segments
+        -- at the end
+        startx, starty, start_angle = subarc(path, startx, starty, start_angle, (end_angle-start_angle)/2, radius, trans, centerx, centery)
       else
-	subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
-	break
+        subarc(path, startx, starty, start_angle, end_angle - start_angle, radius, trans, centerx, centery)
+        break
       end
     end
     
@@ -249,28 +249,28 @@ function Path:appendArcTo (target, radius_or_center, clockwise, trans)
 
     if abs(dx) == abs(dy) and abs(dx) == radius then
       if (dx < 0 and dy < 0) or (dx > 0 and dy > 0) then
-	centerx = start.x
-	centery = trans_target.y
+        centerx = start.x
+        centery = trans_target.y
       else
-	centerx = trans_target.x
-	centery = start.y
+        centerx = trans_target.x
+        centery = start.y
       end
     else
       local l_sq = dx*dx + dy*dy
       if l_sq >= radius*radius*4*0.999999 then
-	centerx = (start.x+trans_target.x) / 2
-	centery = (start.y+trans_target.y) / 2
-	assert(l_sq <= radius*radius*4/0.999999, "radius too small for arc")
+        centerx = (start.x+trans_target.x) / 2
+        centery = (start.y+trans_target.y) / 2
+        assert(l_sq <= radius*radius*4/0.999999, "radius too small for arc")
       else
         -- Normalize
-	local l = sqrt(l_sq)
-	local nx = dx / l
-	local ny = dy / l
-	
-	local e = sqrt(radius*radius - 0.25*l_sq) 
-	
-	centerx = start.x + 0.5*dx - ny*e
-	centery = start.y + 0.5*dy + nx*e
+        local l = sqrt(l_sq)
+        local nx = dx / l
+        local ny = dy / l
+        
+        local e = sqrt(radius*radius - 0.25*l_sq) 
+        
+        centerx = start.x + 0.5*dx - ny*e
+        centery = start.y + 0.5*dy + nx*e
       end
     end
   end

@@ -108,7 +108,7 @@ end
 
 function BindingToPGF:renderCollection(collection)
   tex.print("\\pgfgdcallbackrendercollection{".. collection.kind .. "}{"
-	    .. table_in_pgf_syntax(collection.generated_options) .. "}")
+        .. table_in_pgf_syntax(collection.generated_options) .. "}")
 end
 
 function BindingToPGF:renderCollectionStartKind(kind, layer)
@@ -231,7 +231,7 @@ function BindingToPGF:renderEdge(e)
                                                .. to_pt(d2.x) .. ',' .. to_pt(d2.y) .. ')..'
       callback [#callback + 1] = '(' .. to_pt(d3.x) .. ',' .. to_pt(d3.y) .. ')'
       i = i + 1
-    else				     
+    else                     
       error("illegal operation in edge path")
     end
   end
@@ -275,12 +275,12 @@ function table_in_pgf_syntax (t)
   local prefix = "/graph drawing/"
   local suffix = "/.try"
   return table.concat( lib.imap( t, function(table)
-	   if table.value then
-	     return prefix .. table.key .. suffix .. "={" .. tostring(table.value) .. "}"
-	   else
-	     return prefix .. table.key .. suffix
-	   end
-	 end), ",")
+       if table.value then
+         return prefix .. table.key .. suffix .. "={" .. tostring(table.value) .. "}"
+       else
+         return prefix .. table.key .. suffix
+       end
+     end), ",")
 end
 
 
@@ -288,29 +288,29 @@ function animations_in_pgf_syntax (a)
   return
     table.concat(
       lib.imap(
-	a,
-	function(animation) 
-	  return "\\pgfanimateattribute{" .. animation.attribute .. "}{whom=pgf@gd," ..
-	    table.concat(
-	      lib.imap (
-		animation.entries,
-		function (entry)
-		  return "entry={" .. entry.t .. "s}{" .. to_pgf(entry.value) .. "}"
-		end
-	      ), ",") ..
-	    "," ..
-	    table.concat(
-	      lib.imap(
-		animation.options or {},
-		function(table)
-		  if table.value then
-		    return table.key .. "={" .. to_pgf(table.value) .. "}"
-		  else
-		    return table.key
-		  end
-	      end), ",")
-	    .. "}"
-	end)
+    a,
+    function(animation) 
+      return "\\pgfanimateattribute{" .. animation.attribute .. "}{whom=pgf@gd," ..
+        table.concat(
+          lib.imap (
+        animation.entries,
+        function (entry)
+          return "entry={" .. entry.t .. "s}{" .. to_pgf(entry.value) .. "}"
+        end
+          ), ",") ..
+        "," ..
+        table.concat(
+          lib.imap(
+        animation.options or {},
+        function(table)
+          if table.value then
+            return table.key .. "={" .. to_pgf(table.value) .. "}"
+          else
+            return table.key
+          end
+          end), ",")
+        .. "}"
+    end)
     )
 end
 
@@ -355,10 +355,10 @@ function path_in_pgf_syntax (p)
       local d1, d2, d3 = rigid(p[i+1]), rigid(p[i+2]), rigid(p[i+3])
       i = i + 3
       s [#s + 1] = '\\pgfpathcurveto{\\pgfqpoint{' .. to_pt(d1.x) .. '}{' .. to_pt(d1.y) .. '}}{\\pgfqpoint{'
-	.. to_pt(d2.x) .. '}{' .. to_pt(d2.y) .. '}}{\\pgfqpoint{' 
-	.. to_pt(d3.x) .. '}{' .. to_pt(d3.y) .. '}}'
+        .. to_pt(d2.x) .. '}{' .. to_pt(d2.y) .. '}}{\\pgfqpoint{' 
+        .. to_pt(d3.x) .. '}{' .. to_pt(d3.y) .. '}}'
       i = i + 1
-    else				     
+    else                     
       error("illegal operation in edge path")
     end
   end

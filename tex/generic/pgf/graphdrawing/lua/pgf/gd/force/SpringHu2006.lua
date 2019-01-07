@@ -210,7 +210,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
       if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
         -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
         graph.nodes[1].pos.x = 0
-	graph.nodes[1].pos.y = 0
+        graph.nodes[1].pos.y = 0
       end
 
       -- position the loose node relative to the fixed node, with
@@ -233,8 +233,8 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
     -- compute initial layout based on the random positioning technique
     for _,node in ipairs(graph.nodes) do
       if not node.fixed then 
-	node.pos.x = positioning_func(1)
-	node.pos.y = positioning_func(2)
+        node.pos.x = positioning_func(1)
+        node.pos.y = positioning_func(2)
       end
     end
   end
@@ -275,39 +275,39 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
-	-- vector for the displacement of v
-	local d = Vector.new(2)
-	
-	for _,u in ipairs(graph.nodes) do
-	  if v ~= u then
-	    -- compute the distance between u and v
-	    local delta = u.pos:minus(v.pos)
-	    
-	    -- enforce a small virtual distance if the nodes are
-	    -- located at (almost) the same position
-	    if delta:norm() < 0.1 then
-	      delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
-	    end
-	    
-	    local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
-	    
-	    -- compute the repulsive force vector
-	    local force = repulsive_force(delta:norm(), graph_distance, v.weight)
-	    local force = delta:normalized():timesScalar(force)
-	    
-	    -- move the node v accordingly
-	    d = d:plus(force)
-	  end
-	end
-	
-	-- really move the node now
-	-- TODO note how all nodes are moved by the same amount  (step_length)
-	-- while Walshaw multiplies the normalized force with min(step_length, 
-	-- d:norm()). could that improve this algorithm even further?
-	v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
-	
-	-- update the energy function
-	energy = energy + math.pow(d:norm(), 2)
+        -- vector for the displacement of v
+        local d = Vector.new(2)
+        
+        for _,u in ipairs(graph.nodes) do
+          if v ~= u then
+            -- compute the distance between u and v
+            local delta = u.pos:minus(v.pos)
+            
+            -- enforce a small virtual distance if the nodes are
+            -- located at (almost) the same position
+            if delta:norm() < 0.1 then
+              delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+            end
+            
+            local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
+            
+            -- compute the repulsive force vector
+            local force = repulsive_force(delta:norm(), graph_distance, v.weight)
+            local force = delta:normalized():timesScalar(force)
+            
+            -- move the node v accordingly
+            d = d:plus(force)
+          end
+        end
+        
+        -- really move the node now
+        -- TODO note how all nodes are moved by the same amount  (step_length)
+        -- while Walshaw multiplies the normalized force with min(step_length, 
+        -- d:norm()). could that improve this algorithm even further?
+        v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
+        
+        -- update the energy function
+        energy = energy + math.pow(d:norm(), 2)
       end
     end
 

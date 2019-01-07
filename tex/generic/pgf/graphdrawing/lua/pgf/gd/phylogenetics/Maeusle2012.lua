@@ -39,9 +39,9 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root = self:getRoot()
-	    self:setPosForRectangularLayout(root)
-	  end
+      local root = self:getRoot()
+      self:setPosForRectangularLayout(root)
+    end
   },
   phase = "phylogenetic tree layout",
   phase_default = true,
@@ -54,8 +54,8 @@ declare {
   "]],
   examples = [["
       \tikz \graph [phylogenetic tree layout,
-	            rooted rectangular phylogram,
-	            balanced minimum evolution,
+                    rooted rectangular phylogram,
+                    balanced minimum evolution,
                     distance matrix={
                       0 4 9 9 9 9 9
                       4 0 9 9 9 9 9
@@ -81,10 +81,10 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root = self:getRoot()
-	    self:setXPos(root)
-	    self:setYPosForStraightLayout(root)
-	  end
+        local root = self:getRoot()
+        self:setXPos(root)
+        self:setYPosForStraightLayout(root)
+      end
   },
   phase = "phylogenetic tree layout",
 
@@ -96,8 +96,8 @@ declare {
   "]],
   examples = [["
       \tikz \graph [phylogenetic tree layout,
-	            rooted straight phylogram,
-	            balanced minimum evolution, grow=right,
+                    rooted straight phylogram,
+                    balanced minimum evolution, grow=right,
                     distance matrix={
                       0 4 9 9 9 9 9
                       4 0 9 9 9 9 9
@@ -122,9 +122,9 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root1, root2 = self:getRoot()
-	    self:setPosForUnrootedRectangular(root2, root1)
-	  end
+        local root1, root2 = self:getRoot()
+        self:setPosForUnrootedRectangular(root2, root1)
+      end
   },
   phase = "phylogenetic tree layout",
 
@@ -136,8 +136,8 @@ declare {
   "]],
   examples = [["
       \tikz \graph [phylogenetic tree layout,
-	            unrooted rectangular phylogram,
-	            balanced minimum evolution, grow=right,
+                    unrooted rectangular phylogram,
+                    balanced minimum evolution, grow=right,
                     distance matrix={
                       0 4 9 9 9 9 9
                       4 0 9 9 9 9 9
@@ -156,9 +156,9 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root1, root2 = self:getRoot()
-	    self:setPosForUnrootedStraight(root2, root1)
-	  end
+        local root1, root2 = self:getRoot()
+        self:setPosForUnrootedStraight(root2, root1)
+      end
   },
   phase = "phylogenetic tree layout",
 
@@ -170,8 +170,8 @@ declare {
   "]],
   examples = [["
       \tikz \graph [phylogenetic tree layout,
-	            unrooted straight phylogram,
-	            balanced minimum evolution, grow=right,
+                    unrooted straight phylogram,
+                    balanced minimum evolution, grow=right,
                     distance matrix={
                       0 4 9 9 9 9 9
                       4 0 9 9 9 9 9

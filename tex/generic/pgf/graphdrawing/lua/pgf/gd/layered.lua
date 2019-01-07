@@ -57,7 +57,7 @@ function layered.ideal_sibling_distance (paddings, graph, n1, n2)
   end
   
   return math.max(ideal_distance, sep + 
-		  ((n1_is_node and paddings[n1].sibling_post) or 0) -
+          ((n1_is_node and paddings[n1].sibling_post) or 0) -
                   ((n2_is_node and paddings[n2].sibling_pre) or 0))
 end
 
@@ -145,7 +145,7 @@ function layered.arrange_layers_by_baselines (layers, paddings, graph)
       height = height + layered.baseline_distance(paddings, graph, layer_vertices[i-1], layer_vertices[i])
 
       for _,v in ipairs(layer_vertices[i]) do
-	v.pos.y = height 
+        v.pos.y = height 
       end
     end
   end

@@ -28,15 +28,15 @@ function CycleRemovalBergerS1990b:run()
     -- get all outgoing edges that have not been removed yet
     -- get all outgoing edges that have not been removed yet
     local out_edges = lib.imap(node:getOutgoingEdges(),
-			       function (edge)
-				 if not removed[edge] then return edge end
-			       end)
+      function (edge)
+        if not removed[edge] then return edge end
+      end)
 
     -- get all incoming edges that have not been removed yet
     local in_edges = lib.imap(node:getIncomingEdges(),
-			      function (edge)
-				if not removed[edge] then return edge end
-			      end)
+      function (edge)
+        if not removed[edge] then return edge end
+      end)
 
     if #out_edges >= #in_edges then
       -- we have more outgoing than incoming edges, reverse all incoming 

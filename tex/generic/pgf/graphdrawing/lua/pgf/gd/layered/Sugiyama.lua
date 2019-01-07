@@ -75,12 +75,12 @@ declare {
     [["
        \tikz \graph [layered layout, sibling distance=7mm]
        {
-	 a -> {
-	   b,
-	   c -> { d, e, f }
-	 } ->
-	 h ->
-	 a
+         a -> {
+           b,
+           c -> { d, e, f }
+         } ->
+         h ->
+         a
        };    
     "]],
     [["
@@ -138,31 +138,31 @@ declare {
        };
   "]],[["
        \tikz [rounded corners] \graph [layered layout] {
-	 1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
+         1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
         
-	 { [same layer] 1972, Thompson };
-	 { [same layer] 1976, Mashey, Bourne },
-	 { [same layer] 1978, Formshell, csh },
-	 { [same layer] 1980, esh, vsh },
-	 { [same layer] 1982, ksh, "System-V" },
-	 { [same layer] 1984, v9sh, tcsh },
-	 { [same layer] 1986, "ksh-i" },
-	 { [same layer] 1988, KornShell ,Perl, rc },
-	 { [same layer] 1990, tcl, Bash },
-	 { [same layer] "future", POSIX, "ksh-POSIX" },
-	 
-	 Thompson -> { Mashey, Bourne, csh -> tcsh},
-	 Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
-	 { "ksh-i", KornShell } -> Bash,
-	 { esh, vsh, Formshell, csh } -> ksh,
-	 { KornShell, "System-V" } -> POSIX,
-	 ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
-	 Bourne -> Formshell,
-	 
-	 { [edge={draw=none}]
-	   Bash -> tcl,
-	   KornShell -> Perl
-	 }
+         { [same layer] 1972, Thompson };
+         { [same layer] 1976, Mashey, Bourne },
+         { [same layer] 1978, Formshell, csh },
+         { [same layer] 1980, esh, vsh },
+         { [same layer] 1982, ksh, "System-V" },
+         { [same layer] 1984, v9sh, tcsh },
+         { [same layer] 1986, "ksh-i" },
+         { [same layer] 1988, KornShell ,Perl, rc },
+         { [same layer] 1990, tcl, Bash },
+         { [same layer] "future", POSIX, "ksh-POSIX" },
+         
+         Thompson -> { Mashey, Bourne, csh -> tcsh},
+         Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
+         { "ksh-i", KornShell } -> Bash,
+         { esh, vsh, Formshell, csh } -> ksh,
+         { KornShell, "System-V" } -> POSIX,
+         ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
+         Bourne -> Formshell,
+         
+         { [edge={draw=none}]
+           Bash -> tcl,
+           KornShell -> Perl
+         }
        };
    "]]
   }     
@@ -281,14 +281,14 @@ function Sugiyama:insertDummyNodes()
           local dummy = Node.new{
             pos = Vector.new(),
             name = 'dummy@' .. neighbour.name .. '@to@' .. node.name .. '@at@' .. rank,
-	    kind = "dummy",
-	    orig_vertex = pgf.gd.model.Vertex.new{}
+            kind = "dummy",
+            orig_vertex = pgf.gd.model.Vertex.new{}
           }
 
           dummy_id = dummy_id + 1
 
           self.graph:addNode(dummy)
-	  self.ugraph:add {dummy.orig_vertex}
+          self.ugraph:add {dummy.orig_vertex}
 
           self.ranking:setRank(dummy, rank)
 
@@ -354,8 +354,8 @@ function Sugiyama:removeDummyNodes()
     if edge.reversed then
       local bp = edge.bend_points
       for i=1,#bp/2 do
-	local j = #bp + 1 - i
-	bp[i], bp[j] = bp[j], bp[i]
+        local j = #bp + 1 - i
+        bp[i], bp[j] = bp[j], bp[i]
       end
     end
 

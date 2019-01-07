@@ -108,18 +108,18 @@ function SocialClass:run()
  social_gravity:addForce{
     force_type = ForceCanvasDistance,
     fun_u      = function (data) return data.k/(data.d*data.d) end,
-	epoch     = {"after expand", "during expand"}
+    epoch      = {"after expand", "during expand"}
   }
   social_gravity:addForce{
     force_type = ForceCanvasPosition,
     fun_u      = function (data) return  data.attributes[data.u].mass*data.attributes.options.gravity end,
-	epoch     = {"after expand", "during expand"}
+    epoch      = {"after expand", "during expand"}
   }
   social_gravity:addForce{
     force_type = ForceGraphDistance,
     fun_u      = function (data) return -data.d/(data.k*data.k) end,
     n          = 1,
-	epoch     = {"after expand", "during expand"}
+    epoch      = {"after expand", "during expand"}
   }
 
   social_gravity:run()

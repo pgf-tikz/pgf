@@ -185,7 +185,7 @@ function Arc:optionsArray(option)
   if arc then
     for _,m in ipairs(arc.syntactic_edges) do
       if m.options[option] ~= nil then
-	aligned[#aligned + 1] = m
+        aligned[#aligned + 1] = m
       end
     end
     table.sort(aligned, function (a,b) return a.event.index < b.event.index end)
@@ -196,7 +196,7 @@ function Arc:optionsArray(option)
   if arc then
     for _,m in ipairs(arc.syntactic_edges) do
       if m.options[option] ~= nil then
-	anti_aligned[#anti_aligned + 1] = m
+        anti_aligned[#anti_aligned + 1] = m
       end
     end
     table.sort(anti_aligned, function (a,b) return a.event.index < b.event.index end)
@@ -277,7 +277,7 @@ function Arc:optionsAccumulated(option, accumulator, only_aligned)
     if v == nil then
       v = opt[1]
       for i=2,#aligned do
-	v = accumulator(v, opt[i])
+        v = accumulator(v, opt[i])
       end
       align[accumulator] = v
     end
@@ -287,7 +287,7 @@ function Arc:optionsAccumulated(option, accumulator, only_aligned)
     if v == nil then
       v = opt[1]
       for i=2,#opt do
-	v = accumulator(v, opt[i])
+        v = accumulator(v, opt[i])
       end
       opt[accumulator] = v
     end
@@ -338,9 +338,9 @@ function Arc:pointCloud ()
   if a then
     for _,e in ipairs(a.syntactic_edges) do
       for _,p in ipairs(e.path) do
-	if type(p) == "table" then
-	  cloud[#cloud + 1] = p
-	end
+        if type(p) == "table" then
+          cloud[#cloud + 1] = p
+        end
       end
     end
   end
@@ -422,8 +422,8 @@ function Arc:spanPriority()
   if a then
     for _,m in ipairs(a.syntactic_edges) do
       local p =
-	m.options["span priority"] or
-	lib.lookup_option("span priority " .. m.direction, m, g)
+        m.options["span priority"] or
+        lib.lookup_option("span priority " .. m.direction, m, g)
 
       min = math.min(p or 5, min or math.huge)
     end
@@ -433,8 +433,8 @@ function Arc:spanPriority()
   if a then
     for _,m in ipairs(a.syntactic_edges) do
       local p =
-	m.options["span priority"] or
-	lib.lookup_option("span priority reversed " .. m.direction, m, g)
+        m.options["span priority"] or
+        lib.lookup_option("span priority reversed " .. m.direction, m, g)
       
       min = math.min(p or 5, min or math.huge)
     end
@@ -485,34 +485,34 @@ function Arc:sync()
     local a = self.syntactic_digraph:arc(tail,head)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-	local clone = path:clone()
-	for i=1,#clone do
-	  local p = clone[i]
-	  if type(p) == "function" then
-	    clone[i] = p(e)
-	    if type(clone[i]) == "table" then
-	      clone[i] = clone[i]:clone()
-	    end
-	  end
-	end
-	e.path = clone
+        local clone = path:clone()
+        for i=1,#clone do
+          local p = clone[i]
+          if type(p) == "function" then
+            clone[i] = p(e)
+            if type(clone[i]) == "table" then
+              clone[i] = clone[i]:clone()
+            end
+          end
+        end
+        e.path = clone
       end
     end
     local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-	local clone = path:reversed()
-	for i=1,#clone do
-	  local p = clone[i]
-	  if type(p) == "function" then
-	    clone[i] = p(e)
-	    if type(clone[i]) == "table" then
-	      clone[i] = clone[i]:clone()
-	    end
-	  end
-	end
-	e.path = clone
-       end
+        local clone = path:reversed()
+        for i=1,#clone do
+          local p = clone[i]
+          if type(p) == "function" then
+            clone[i] = p(e)
+            if type(clone[i]) == "table" then
+              clone[i] = clone[i]:clone()
+            end
+          end
+        end
+        e.path = clone
+      end
     end
   end
   if self.generated_options then
@@ -521,17 +521,17 @@ function Arc:sync()
     local a = self.syntactic_digraph:arc(tail,head)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-         for _,o in ipairs(self.generated_options) do
-            e.generated_options[#e.generated_options+1] = o
-         end
+        for _,o in ipairs(self.generated_options) do
+          e.generated_options[#e.generated_options+1] = o
+        end
       end
     end
     local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-         for _,o in ipairs(self.generated_options) do
-            e.generated_options[#e.generated_options+1] = o
-         end
+        for _,o in ipairs(self.generated_options) do
+          e.generated_options[#e.generated_options+1] = o
+        end
        end
     end  
   end
@@ -541,17 +541,17 @@ function Arc:sync()
     local a = self.syntactic_digraph:arc(tail,head)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-         for _,o in ipairs(self.animations) do
-            e.animations[#e.animations+1] = o
-         end
+        for _,o in ipairs(self.animations) do
+          e.animations[#e.animations+1] = o
+        end
       end
     end
     local a = head ~= tail and self.syntactic_digraph:arc(head,tail)
     if a and #a.syntactic_edges>0 then
       for _,e in ipairs(a.syntactic_edges) do
-         for _,o in ipairs(self.animations) do
-            e.animations[#e.animations+1] = o
-         end
+        for _,o in ipairs(self.animations) do
+          e.animations[#e.animations+1] = o
+        end
        end
     end
   end
@@ -592,12 +592,12 @@ end
 
 function Arc:tailAnchorForArcPath()
   return function (edge)
-	   local a = edge.options['tail anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.tail:anchor(a) + self.tail.pos
-	 end
+    local a = edge.options['tail anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.tail:anchor(a) + self.tail.pos
+  end
 end
 
 ---
@@ -605,12 +605,12 @@ end
 
 function Arc:headAnchorForArcPath()
   return function (edge)
-	   local a = edge.options['head anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.head:anchor(a) + self.head.pos
-	 end
+    local a = edge.options['head anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.head:anchor(a) + self.head.pos
+  end
 end
 
 

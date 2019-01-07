@@ -90,32 +90,32 @@ for _,k in ipairs(keys) do
     if target == library then    
       -- First, gather the includes:
       if type(k.includes) == "string" then
-	if not includes[k.includes] then
-	  includes[#includes + 1] = k.includes
-	  includes[k.includes]    = true
-	end
+        if not includes[k.includes] then
+          includes[#includes + 1] = k.includes
+          includes[k.includes]    = true
+        end
       elseif type(k.includes) == "table" then
-	for _,i in ipairs(k.includes) do
-	  if not includes[i] then
-	    includes[#includes + 1] = i
-	    includes[i] = true
-	  end
-	end
+        for _,i in ipairs(k.includes) do
+          if not includes[i] then
+            includes[#includes + 1] = i
+            includes[i] = true
+          end
+        end
       end
       
       -- Second, create a code block:
       functions[#functions+1] = functions_dec:gsub("%$([%w_]-)%b{}",
-					   {
-					     function_name = fun_name,
-					     function_body = k.code
-					   })
+        {
+          function_name = fun_name,
+          function_body = k.code
+        })
       
       -- Third, create functions_registry entry
       functions_registry[#functions_registry + 1] = functions_reg_dec:gsub("%$([%w_]-)%b{}",
-						       {
-							 function_name = fun_name,
-							 function_body = k.code
-						       })
+        {
+          function_name = fun_name,
+          function_body = k.code
+        })
     end
   end
 
@@ -125,15 +125,15 @@ for _,k in ipairs(keys) do
     -- First, gather the includes:
     if type(k.includes) == "string" then
       if not includes[k.includes] then
-	includes[#includes + 1] = k.includes
-	includes[k.includes]    = true
+        includes[#includes + 1] = k.includes
+        includes[k.includes]    = true
       end
     elseif type(k.includes) == "table" then
       for _,i in ipairs(k.includes) do
-	if not includes[i] then
-	  includes[#includes + 1] = i
-	  includes[i] = true
-	end
+        if not includes[i] then
+          includes[#includes + 1] = i
+          includes[i] = true
+        end
       end
     end
     
@@ -141,20 +141,20 @@ for _,k in ipairs(keys) do
     factories[#factories+1] = factories_dec:gsub(
       "%$([%w_]-)%b{}",
       {
-	factory_class = k.module_class,
-	factory_code  = k.code,
-	factory_base  = k.module_base,
-	factory_name  = k.module_class .. '_factory'
+        factory_class = k.module_class,
+        factory_code  = k.code,
+        factory_base  = k.module_base,
+        factory_name  = k.module_class .. '_factory'
       })
     
     -- Third, create factories_registry entry
     factories_reg[#factories_reg + 1] = factories_reg_dec:gsub(
       "%$([%w_]-)%b{}",
       {
-	factory_class = k.module_class,
-	factory_code  = k.code,
-	factory_base  = k.module_base,
-	factory_name  = k.module_class .. '_factory'
+        factory_class = k.module_class,
+        factory_code  = k.code,
+        factory_base  = k.module_base,
+        factory_name  = k.module_class .. '_factory'
       })
   end
 end
@@ -180,4 +180,4 @@ file:write ((template:gsub(
   })))
 file:close()
 
-	   
+       

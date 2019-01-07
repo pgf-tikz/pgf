@@ -77,13 +77,13 @@ local Digraph = require "pgf.gd.model.Digraph"
 
 function Scope.new(initial)
   return setmetatable(lib.copy(initial,
-			       {
-				  syntactic_digraph = Digraph.new{},
-				  events            = {},
-				  node_names        = {},
-				  coroutine         = nil,
-				  collections       = {},
-				}), Scope)
+    {
+      syntactic_digraph = Digraph.new{},
+      events            = {},
+      node_names        = {},
+      coroutine         = nil,
+      collections       = {},
+    }), Scope)
 end
 
 

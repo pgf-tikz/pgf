@@ -97,7 +97,7 @@ local function new_heap()
     while heap[left_child] do 
       local largest_child = left_child
       if heap[right_child] and heap[left_child].value < heap[right_child].value then
-	largest_child = right_child
+        largest_child = right_child
       end
 
       if heap[largest_child].value > heap[i].value then

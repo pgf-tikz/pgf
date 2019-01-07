@@ -148,9 +148,9 @@ function LayoutPipeline.run(scope)
   
   scope.syntactic_digraph =
     Sublayouts.layoutRecursively (scope,
-				  root_layout,
-				  LayoutPipeline.runOnLayout,
-				  { root_layout })
+                  root_layout,
+                  LayoutPipeline.runOnLayout,
+                  { root_layout })
   
   -- Step 3: Anchor the graph
   LayoutPipeline.anchor(scope.syntactic_digraph, scope)
@@ -212,7 +212,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     -- Step 2.3: If requested, remove loops
     if algorithm_class.preconditions.loop_free then
       for _,v in ipairs(digraph.vertices) do
-	digraph:disconnect(v,v)
+        digraph:disconnect(v,v)
       end
     end
 
@@ -222,12 +222,12 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     -- Step 2.4a: Run preprocessor
     for _,class in ipairs(layout_graph.options.algorithm_phases["preprocessing stack"]) do
       class.new{
-	digraph = digraph,
-	ugraph = ugraph,
-	scope = scope,
-	layout = layout,
-	layout_graph = layout_graph,
-	syntactic_component = syntactic_component,
+        digraph = digraph,
+        ugraph = ugraph,
+        scope = scope,
+        layout = layout,
+        layout_graph = layout_graph,
+        syntactic_component = syntactic_component,
       }:run()  
     end
     
@@ -245,9 +245,9 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     if algorithm_class.preconditions.tree then
       local spanning_algorithm_class = syntactic_component.options.algorithm_phases["spanning tree computation"]
       algorithm.spanning_tree =
-	spanning_algorithm_class.new{
-	  ugraph = ugraph,
-  	  events = scope.events
+        spanning_algorithm_class.new{
+          ugraph = ugraph,
+          events = scope.events
         }:run()
     end
 
@@ -261,33 +261,33 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
                              or algorithm_class.preconditions.at_least_two_nodes == false then
       -- Main run of the algorithm:
       if algorithm_class.old_graph_model then
-	LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algorithm)
+        LayoutPipeline.runOldGraphModel(scope, digraph, algorithm_class, algorithm)
       else
-	algorithm:run ()
+        algorithm:run ()
       end
     end
 
     -- Step 2.9a: Run edge routers
     for _,class in ipairs(layout_graph.options.algorithm_phases["edge routing stack"]) do
       class.new{
-	digraph = digraph,
-	ugraph = ugraph,
-	scope = scope,
-	layout = layout,
-	layout_graph = layout_graph,
-	syntactic_component = syntactic_component,
+        digraph = digraph,
+        ugraph = ugraph,
+        scope = scope,
+        layout = layout,
+        layout_graph = layout_graph,
+        syntactic_component = syntactic_component,
       }:run()  
     end
     
     -- Step 2.9b: Run postprocessor
     for _,class in ipairs(layout_graph.options.algorithm_phases["postprocessing stack"]) do
       class.new{
-	digraph = digraph,
-	ugraph = ugraph,
-	scope = scope,
-	layout = layout,
-	layout_graph = layout_graph,
-	syntactic_component = syntactic_component,
+        digraph = digraph,
+        ugraph = ugraph,
+        scope = scope,
+        layout = layout,
+        layout_graph = layout_graph,
+        syntactic_component = syntactic_component,
       }:run()  
     end
     
@@ -416,9 +416,9 @@ function LayoutPipeline.prepareRotateAround(postconditions, graph)
     local other = lib.find_min(
       graph:outgoing(v),
       function (a)
-	if a.head ~= v and a:eventIndex() then
-	  return a, a:eventIndex()
-	end
+        if a.head ~= v and a:eventIndex() then
+          return a, a:eventIndex()
+        end
       end)
     info.to_node = (other and other.head) or
       (graph.vertices[1] == v and graph.vertices[2] or graph.vertices[1])
@@ -567,7 +567,7 @@ function LayoutPipeline.orientTwoNodes(graph, first_node, second_node, target_an
     
     local angle = math.atan2(y,x)
     LayoutPipeline.rotateGraphAround(graph, first_node.pos.x,
-			   first_node.pos.y, angle, target_angle, swap)
+               first_node.pos.y, angle, target_angle, swap)
   end
 end
 
@@ -593,8 +593,8 @@ function LayoutPipeline.orient(rotation_info, postconditions, graph, scope)
       local n1 = scope.node_names[tail]
       local n2 = scope.node_names[head]
       if graph:contains(n1) and graph:contains(n2) then
-	LayoutPipeline.orientTwoNodes(graph, n1, n2, orient/360*2*math.pi, flag)
-	return true
+        LayoutPipeline.orientTwoNodes(graph, n1, n2, orient/360*2*math.pi, flag)
+        return true
       end
     end
   end
@@ -617,17 +617,17 @@ function LayoutPipeline.orient(rotation_info, postconditions, graph, scope)
       local tail   = v.options["orient tail"]
       
       if orient and head then
-	local n2 = scope.node_names[head]
-	if graph:contains(n2) then
-	  LayoutPipeline.orientTwoNodes(graph, v, n2, orient/360*2*math.pi, flag)
-	  return true
-	end
-      elseif orient and tail then
-	local n1 = scope.node_names[tail]
-	if graph:contains(n1) then
-	  LayoutPipeline.orientTwoNodes(graph, n1, v, orient/360*2*math.pi, flag)
-	  return true
-	end
+        local n2 = scope.node_names[head]
+        if graph:contains(n2) then
+          LayoutPipeline.orientTwoNodes(graph, v, n2, orient/360*2*math.pi, flag)
+          return true
+        end
+          elseif orient and tail then
+        local n1 = scope.node_names[tail]
+        if graph:contains(n1) then
+          LayoutPipeline.orientTwoNodes(graph, n1, v, orient/360*2*math.pi, flag)
+          return true
+        end
       end
     end
     if f("orient", false) then return end
@@ -650,14 +650,14 @@ function LayoutPipeline.orient(rotation_info, postconditions, graph, scope)
   for _, v in ipairs(graph.vertices) do
     if v.options['desired at'] then
       if first then
-	if second then
-	  third = v
-	  break
-	else
-	  second = v
-	end
-      else
-	first = v
+        if second then
+          third = v
+          break
+        else
+          second = v
+        end
+          else
+        first = v
       end
     end
   end
@@ -704,34 +704,34 @@ function LayoutPipeline.decompose (digraph)
       -- Start a depth-first-search of the graph, starting at node n:
       local stack = { v }
       local component = Digraph.new {
-	syntactic_digraph = digraph.syntactic_digraph,
-	options = digraph.options
+        syntactic_digraph = digraph.syntactic_digraph,
+        options = digraph.options
       }
       
       while #stack >= 1 do
-	local tos = stack[#stack]
-	stack[#stack] = nil -- pop
-	
-	if not visited[tos] then
-	  
-	  -- Visit pos:
-	  component:add { tos }
-	  visited[tos] = true
-
-	  -- Push all unvisited neighbors:
-	  for _,a in ipairs(digraph:incoming(tos)) do
-	    local neighbor = a.tail
-	    if not visited[neighbor] then
-	      stack[#stack+1] = neighbor -- push
-	    end
-	  end
-	  for _,a in ipairs(digraph:outgoing(tos)) do
-	    local neighbor = a.head
-	    if not visited[neighbor] then
-	      stack[#stack+1] = neighbor -- push
-	    end
-	  end
-	end
+        local tos = stack[#stack]
+        stack[#stack] = nil -- pop
+        
+        if not visited[tos] then
+          
+          -- Visit pos:
+          component:add { tos }
+          visited[tos] = true
+    
+          -- Push all unvisited neighbors:
+          for _,a in ipairs(digraph:incoming(tos)) do
+            local neighbor = a.tail
+            if not visited[neighbor] then
+              stack[#stack+1] = neighbor -- push
+            end
+          end
+          for _,a in ipairs(digraph:outgoing(tos)) do
+            local neighbor = a.head
+            if not visited[neighbor] then
+              stack[#stack+1] = neighbor -- push
+            end
+          end
+        end
       end
       
       -- Ok, vertices will now contain all vertices reachable from n.
@@ -747,12 +747,12 @@ function LayoutPipeline.decompose (digraph)
     table.sort (c.vertices, function (u,v) return u.event.index < v.event.index end)
     for _,v in ipairs(c.vertices) do
       for _,a in ipairs(digraph:outgoing(v)) do
-	local new_a = c:connect(a.tail, a.head)
-	new_a.syntactic_edges = a.syntactic_edges
+        local new_a = c:connect(a.tail, a.head)
+        new_a.syntactic_edges = a.syntactic_edges
       end
       for _,a in ipairs(digraph:incoming(v)) do
-	local new_a = c:connect(a.tail, a.head)
-	new_a.syntactic_edges = a.syntactic_edges
+        local new_a = c:connect(a.tail, a.head)
+        new_a.syntactic_edges = a.syntactic_edges
       end
     end
   end
@@ -790,17 +790,17 @@ LayoutPipeline.component_ordering_functions = {
   ["increasing node number"] = 
     function (g,h) 
       if #g.vertices == #h.vertices then
-	return g.vertices[1].event.index < h.vertices[1].event.index
+        return g.vertices[1].event.index < h.vertices[1].event.index
       else
-	return #g.vertices < #h.vertices 
+        return #g.vertices < #h.vertices 
       end
     end,
   ["decreasing node number"] = 
     function (g,h) 
       if #g.vertices == #h.vertices then
-	return g.vertices[1].event.index < h.vertices[1].event.index
+        return g.vertices[1].event.index < h.vertices[1].event.index
       else
-	return #g.vertices > #h.vertices 
+        return #g.vertices > #h.vertices 
       end
     end,
   ["by first specified node"] = nil,
@@ -821,16 +821,16 @@ local function compute_rotated_bb(vertices, angle, sep, bb)
     local max_x = -math.huge
     local min_y = math.huge
     local max_y = -math.huge
-	
+    
     for _,e in ipairs(v.path) do
       if type(e) == "table" then
-	local c = e:clone()
-	c:apply(t)
-      
-	min_x = math.min (min_x, c.x)
-	max_x = math.max (max_x, c.x)
-	min_y = math.min (min_y, c.y)
-	max_y = math.max (max_y, c.y)
+        local c = e:clone()
+        c:apply(t)
+          
+        min_x = math.min (min_x, c.x)
+        max_x = math.max (max_x, c.x)
+        min_y = math.min (min_y, c.y)
+        max_y = math.max (max_y, c.y)
       end
     end
 
@@ -882,7 +882,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
 
     for _,a in ipairs(c.arcs) do
       for _,p in ipairs(a:pointCloud()) do
-	vs [#vs + 1] = Vertex.new { pos = p }
+        vs [#vs + 1] = Vertex.new { pos = p }
       end
     end
     vertices[c] = vs
@@ -928,8 +928,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     -- Overruled?
     for _,v in ipairs(c.vertices) do
       if v.options['align here'] then
-	line = bb[v].c_y
-	break
+        line = bb[v].c_y
+        break
       end
     end
 
@@ -977,8 +977,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
       local border = info.max_x
       
       for i=y_ranks[info.min_y],y_ranks[info.max_y] do
-	touched[i] = true
-	right_face[i] = math.max(right_face[i], border)
+        touched[i] = true
+        right_face[i] = math.max(right_face[i], border)
       end
     end
     
@@ -986,21 +986,21 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     local right_max = -math.huge
     for i=1,#y_values do
       if not touched[i] then
-	-- Search for next and previous touched
-	local interpolate = -math.huge
-	for j=i+1,#y_values do
-	  if touched[j] then
-	    interpolate = math.max(interpolate,right_face[j] - (y_values[j] - y_values[i]))
-	    break
-	  end
-	end
-	for j=i-1,1,-1 do
-	  if touched[j] then
-	    interpolate = math.max(interpolate,right_face[j] - (y_values[i] - y_values[j]))
-	    break
-	  end
-	end
-	right_face[i] = math.max(interpolate,right_face[i])
+        -- Search for next and previous touched
+        local interpolate = -math.huge
+        for j=i+1,#y_values do
+          if touched[j] then
+            interpolate = math.max(interpolate,right_face[j] - (y_values[j] - y_values[i]))
+            break
+          end
+        end
+        for j=i-1,1,-1 do
+          if touched[j] then
+            interpolate = math.max(interpolate,right_face[j] - (y_values[i] - y_values[j]))
+            break
+          end
+        end
+        right_face[i] = math.max(interpolate,right_face[i])
       end
       right_max = math.max(right_max, right_face[i])
     end
@@ -1016,8 +1016,8 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
       local border = info.min_x
 
       for i=y_ranks[info.min_y],y_ranks[info.max_y] do
-	touched[i] = true
-	left_face[i] = math.min(left_face[i], border)
+        touched[i] = true
+        left_face[i] = math.min(left_face[i], border)
       end
     end
     
@@ -1025,21 +1025,21 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
     local left_min = math.huge
     for i=1,#y_values do
       if not touched[i] then
-	-- Search for next and previous touched
-	local interpolate = math.huge
-	for j=i+1,#y_values do
-	  if touched[j] then
-	    interpolate = math.min(interpolate,left_face[j] + (y_values[j] - y_values[i]))
-	    break
-	  end
-	end
-	for j=i-1,1,-1 do
-	  if touched[j] then
-	    interpolate = math.min(interpolate,left_face[j] + (y_values[i] - y_values[j]))
-	    break
-	  end
-	end
-	left_face[i] = interpolate
+        -- Search for next and previous touched
+        local interpolate = math.huge
+        for j=i+1,#y_values do
+          if touched[j] then
+            interpolate = math.min(interpolate,left_face[j] + (y_values[j] - y_values[i]))
+            break
+          end
+        end
+        for j=i-1,1,-1 do
+          if touched[j] then
+            interpolate = math.min(interpolate,left_face[j] + (y_values[i] - y_values[j]))
+            break
+          end
+        end
+        left_face[i] = interpolate
       end
       left_min = math.min(left_min, left_face[i])
     end
@@ -1051,7 +1051,7 @@ function LayoutPipeline.packComponents(syntactic_digraph, components)
       shift = right_max - left_min
     else
       for i=1,#y_values do
-	shift = math.max(shift, right_face[i] - left_face[i])
+        shift = math.max(shift, right_face[i] - left_face[i])
       end
     end
     
@@ -1094,13 +1094,13 @@ prepare_events =
 
     for i=1,#events do
       if events[i].kind == "begin" then
-	stack[#stack + 1] = i
+        stack[#stack + 1] = i
       elseif events[i].kind == "end" then
-	local tos = stack[#stack]
-	stack[#stack] = nil -- pop
-	
-	events[tos].end_index = i
-	events[i].begin_index = tos
+        local tos = stack[#stack]
+        stack[#stack] = nil -- pop
+        
+        events[tos].end_index = i
+        events[i].begin_index = tos
       end
     end
   end
@@ -1126,46 +1126,46 @@ function LayoutPipeline.cutEdges(graph)
       local orig = p:clone()
       
       if e.options['tail cut'] and e.tail.options['cut policy'] == "as edge requests" 
-	or e.tail.options['cut policy'] == "all" then
-
-	local vpath = e.tail.path:clone()
-	vpath:shiftByCoordinate(e.tail.pos)
-	
-	local x = p:intersectionsWith (vpath)
-	
-	if #x > 0 then
-	  p:cutAtBeginning(x[1].index, x[1].time)
-	end
+        or e.tail.options['cut policy'] == "all" then
+    
+        local vpath = e.tail.path:clone()
+        vpath:shiftByCoordinate(e.tail.pos)
+        
+        local x = p:intersectionsWith (vpath)
+        
+        if #x > 0 then
+          p:cutAtBeginning(x[1].index, x[1].time)
+        end
       end
       
       if e.options['head cut'] and e.head.options['cut policy'] == "as edge requests" 
-	or e.head.options['cut policy'] == "all" then
-	
-	local vpath = e.head.path:clone()
-	vpath:shiftByCoordinate(e.head.pos)
-	x = p:intersectionsWith (vpath)
-	if #x > 0 then
-	  p:cutAtEnd(x[#x].index, x[#x].time)
-	else
-	  -- Check whether there was an intersection with the original
-	  --path:
-	  local x2 = orig:intersectionsWith (vpath)
-	  if #x2 > 0 then
-	    -- Ok, after cutting the tail vertex, there is no longer
-	    -- an intersection with the head vertex, but there used to
-	    -- be one. This means that the vertices overlap and the
-	    -- path should be ``inside'' them. Hmm...
-	    if e.options['allow inside edges'] and #p > 1 then
-	      local from = p[2]
-	      local to = x2[1].point
-	      p:clear()
-	      p:appendMoveto(from)
-	      p:appendLineto(to)
-	    else
-	      p:clear()
-	    end
-	  end
-	end
+        or e.head.options['cut policy'] == "all" then
+        
+        local vpath = e.head.path:clone()
+        vpath:shiftByCoordinate(e.head.pos)
+        x = p:intersectionsWith (vpath)
+        if #x > 0 then
+          p:cutAtEnd(x[#x].index, x[#x].time)
+        else
+          -- Check whether there was an intersection with the original
+          --path:
+          local x2 = orig:intersectionsWith (vpath)
+          if #x2 > 0 then
+            -- Ok, after cutting the tail vertex, there is no longer
+            -- an intersection with the head vertex, but there used to
+            -- be one. This means that the vertices overlap and the
+            -- path should be ``inside'' them. Hmm...
+            if e.options['allow inside edges'] and #p > 1 then
+              local from = p[2]
+              local to = x2[1].point
+              p:clear()
+              p:appendMoveto(from)
+              p:appendLineto(to)
+            else
+              p:clear()
+            end
+          end
+        end
       end
     end
   end
@@ -1212,12 +1212,12 @@ local function compatibility_digraph_to_graph(scope, g)
     local node = Node.new{
       name = v.name,
       tex = {
-	tex_node = v.tex and v.tex.stored_tex_box_number,
-	shape = v.shape,
-	minX = minX, 
-	maxX = maxX, 
-	minY = minY, 
-	maxY = maxY, 
+        tex_node = v.tex and v.tex.stored_tex_box_number,
+        shape = v.shape,
+        minX = minX, 
+        maxX = maxX, 
+        minY = minY, 
+        maxY = maxY, 
       }, 
       options = v.options,
       event_index = v.event.index,
@@ -1234,29 +1234,29 @@ local function compatibility_digraph_to_graph(scope, g)
     local da = g.syntactic_digraph:arc(a.tail, a.head)
     if da then
       for _,m in ipairs(da.syntactic_edges) do
-	if not mark[m] then
-	  mark[m] = true
-	  local from_node = graph:findNode(da.tail.name)
-	  local to_node = graph:findNode(da.head.name)
-	  local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)
-	  edge.event_index = m.event.index
-	  edge.orig_m = m
-	  graph.events[m.event.index] = { kind = 'edge', parameters = edge }
-	end
+        if not mark[m] then
+          mark[m] = true
+          local from_node = graph:findNode(da.tail.name)
+          local to_node = graph:findNode(da.head.name)
+          local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)
+          edge.event_index = m.event.index
+          edge.orig_m = m
+          graph.events[m.event.index] = { kind = 'edge', parameters = edge }
+        end
       end
     end
     local da = g.syntactic_digraph:arc(a.head, a.tail)
     if da then 
       for _,m in ipairs(da.syntactic_edges) do
-	if not mark[m] then
-	  mark[m] = true
-	  local from_node = graph:findNode(da.tail.name)
-	  local to_node = graph:findNode(da.head.name)
-	  local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)
-	  edge.event_index = m.event.index
-	  edge.orig_m = m
-	  graph.events[m.event.index] = { kind = 'edge', parameters = edge }
-	end
+        if not mark[m] then
+          mark[m] = true
+          local from_node = graph:findNode(da.tail.name)
+          local to_node = graph:findNode(da.head.name)
+          local edge = graph:createEdge(from_node, to_node, m.direction, nil, m.options, nil)
+          edge.event_index = m.event.index
+          edge.orig_m = m
+          graph.events[m.event.index] = { kind = 'edge', parameters = edge }
+        end
       end
     end
   end
@@ -1274,7 +1274,7 @@ local function compatibility_digraph_to_graph(scope, g)
     graph:addCluster(cluster)
     for _,v in ipairs(c.vertices) do
       if g:contains(v) then
-	cluster:addNode(graph:findNode(v.name))
+        cluster:addNode(graph:findNode(v.name))
       end
     end
   end
@@ -1292,7 +1292,7 @@ local function compatibility_graph_to_digraph(graph)
     if #e.bend_points > 0 then
       local c = {}
       for _,x in ipairs(e.bend_points) do
-	c[#c+1] = Coordinate.new (x.x, x.y)
+        c[#c+1] = Coordinate.new (x.x, x.y)
       end
       e.orig_m:setPolylinePath(c)
     end

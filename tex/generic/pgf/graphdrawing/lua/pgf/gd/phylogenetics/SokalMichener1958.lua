@@ -39,8 +39,8 @@ declare {
       The UPGMA (Unweighted Pair Group Method using arithmetic
       Averages) algorithm of Sokal and Michener, 1958. It generates a
       graph on the basis of such a distance matrix by generating nodes
-	and computing the edge lengths.
-      "]],
+      and computing the edge lengths.
+  "]],
   documentation = [["
       This algorithm uses a distance matrix, ideally an ultrametric
       one, to compute the graph.
@@ -252,7 +252,7 @@ function SokalMichener1958:createFinalEdges()
     InterfaceToAlgorithms.createEdge(
       self.main_algorithm, arc.tail, arc.head,
       { generated_options = {
-	  { key = "phylogenetic edge", value = tostring(self.lengths[arc.tail][arc.head]) }
+      { key = "phylogenetic edge", value = tostring(self.lengths[arc.tail][arc.head]) }
       }})
   end
 end

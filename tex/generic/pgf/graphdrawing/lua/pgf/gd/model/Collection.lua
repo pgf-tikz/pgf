@@ -150,9 +150,9 @@ function Collection:childrenOfKind(kind)
   local function rec (c, a)
     for _,d in ipairs(c.child_collections) do
       if d.kind == kind then 
-	a[#a + 1] = d
+        a[#a + 1] = d
       else
-	rec (d, a)
+        rec (d, a)
       end
     end
     return a
@@ -192,7 +192,7 @@ function Collection:descendantsOfKind(kind)
   local function rec (c, a)
     for _,d in ipairs(c.child_collections) do
       if d.kind == kind then 
-	a[#a + 1] = d
+        a[#a + 1] = d
       end
       rec (d, a)
     end

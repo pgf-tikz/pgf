@@ -49,12 +49,12 @@ function Direct.digraphFromSyntacticDigraph(syntactic_digraph)
     for _,m in ipairs(a.syntactic_edges) do
       local direction = m.direction
       if direction == "->" then
-	digraph:connect(a.tail, a.head)
+        digraph:connect(a.tail, a.head)
       elseif direction == "<-" then
-	digraph:connect(a.head, a.tail)
+        digraph:connect(a.head, a.tail)
       elseif direction == "--" or direction == "<->" then
-	digraph:connect(a.tail, a.head)
-	digraph:connect(a.head, a.tail)
+        digraph:connect(a.tail, a.head)
+        digraph:connect(a.head, a.tail)
       end
       -- Case -!-: No edges...
     end

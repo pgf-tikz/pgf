@@ -114,14 +114,14 @@ end
 
 
 local function pairs_by_sorted_keys (t, f)
-   local a = {}
-   for n in pairs(t) do a[#a + 1] = n end
-   table.sort (a, f)
-   local i = 0
-   return function ()
-	     i = i + 1
-	     return a[i], t[a[i]]
-	  end
+  local a = {}
+  for n in pairs(t) do a[#a + 1] = n end
+  table.sort (a, f)
+  local i = 0
+  return function ()
+    i = i + 1
+    return a[i], t[a[i]]
+  end
 end
 
 
@@ -163,9 +163,9 @@ function CoarseGraph:coarsen()
 
       -- compute a list of neighbours u and v have in common
       local common_neighbours = lib.map(u_neighbours,
-					function (edge,node)
-					  if v_neighbours[node] ~= nil then return edge,node end
-					end)
+        function (edge,node)
+        if v_neighbours[node] ~= nil then return edge,node end
+      end)
 
       -- create a node -> edges mapping for common neighbours
       common_neighbours = lib.map(common_neighbours, function (edge, node)
@@ -211,9 +211,9 @@ function CoarseGraph:coarsen()
       -- sums of the of the weights of the edges to the common neighbours
       for neighbour, edges in pairs_by_sorted_keys(common_neighbours, function (n,m) return n.index < m.index end) do
         local weights = 0
-	for _,e in ipairs(edges) do
-	  weights = weights + edge.weight
-	end
+        for _,e in ipairs(edges) do
+          weights = weights + edge.weight
+        end
 
         local superedge = Edge.new{
           direction = Edge.UNDIRECTED,
@@ -398,9 +398,9 @@ function CoarseGraph:findMaximalMatching()
 
       -- filter out edges adjacent to neighbours already matched
       local edges = lib.imap(node.edges,
-			     function (edge)
-			       if not matched_nodes[edge:getNeighbour(node)] then return edge end
-			     end)
+        function (edge)
+          if not matched_nodes[edge:getNeighbour(node)] then return edge end
+        end)
 
       -- FIXME TODO We use a light-vertex matching here. This is
       -- different from the algorithm proposed by Hu which collapses

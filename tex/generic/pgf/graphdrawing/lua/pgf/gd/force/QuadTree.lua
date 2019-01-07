@@ -210,7 +210,7 @@ function QuadTree.Cell:updateMass()
     for _,particle in ipairs(self.particles) do
       self.mass = self.mass + particle.mass
       for _,subparticle in ipairs(particle.subparticles) do
-	self.mass = self.mass + subparticle.mass
+        self.mass = self.mass + subparticle.mass
       end
     end
   else
@@ -233,7 +233,7 @@ function QuadTree.Cell:updateCenterOfMass()
     self.center_of_mass = Vector.new (2)
     for _,p in ipairs(self.particles) do
       for _,sp in ipairs(p.subparticles) do
-	self.center_of_mass = self.center_of_mass:plus(sp.pos:timesScalar(sp.mass))
+        self.center_of_mass = self.center_of_mass:plus(sp.pos:timesScalar(sp.mass))
       end
       self.center_of_mass = self.center_of_mass:plus(p.pos:timesScalar(p.mass))
     end
@@ -244,9 +244,9 @@ function QuadTree.Cell:updateCenterOfMass()
     self.center_of_mass = Vector.new(2)
     for _,sc in ipairs(self.subcells) do
       if sc.center_of_mass then
-	self.center_of_mass = self.center_of_mass:plus(sc.center_of_mass:timesScalar(sc.mass))
+        self.center_of_mass = self.center_of_mass:plus(sc.center_of_mass:timesScalar(sc.mass))
       else
-	assert(sc.mass == 0)
+        assert(sc.mass == 0)
       end
     end
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)

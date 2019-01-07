@@ -545,17 +545,17 @@ function Digraph:disconnect(v, t)
       -- Remove:
       s_outgoings[t] = nil
       for i=1,#s_outgoings do
-	if s_outgoings[i].head == t then
-	  table.remove (s_outgoings, i)
-	  break
-	end
+        if s_outgoings[i].head == t then
+          table.remove (s_outgoings, i)
+          break
+        end
       end
       t_incomings[v] = nil
       for i=1,#t_incomings do
-	if t_incomings[i].tail == v then
-	  table.remove (t_incomings, i)
-	  break
-	end
+        if t_incomings[i].tail == v then
+          table.remove (t_incomings, i)
+          break
+        end
       end
       self.arcs = nil -- invalidate arcs field
     end
@@ -569,15 +569,15 @@ function Digraph:disconnect(v, t)
     for i=1,#incomings do
       local s = incomings[i].tail
       if s ~= v and vertices[s] then -- skip self-loop and to-be-deleted nodes
-	-- Remove this arc from s:
-	local s_outgoings = s.outgoings[self]
-	s_outgoings[v] = nil
-	for i=1,#s_outgoings do
-	  if s_outgoings[i].head == v then
-	    table.remove (s_outgoings, i)
-	    break
-	  end
-	end
+        -- Remove this arc from s:
+        local s_outgoings = s.outgoings[self]
+        s_outgoings[v] = nil
+        for i=1,#s_outgoings do
+          if s_outgoings[i].head == v then
+            table.remove (s_outgoings, i)
+            break
+          end
+        end
       end
     end
 
@@ -586,14 +586,14 @@ function Digraph:disconnect(v, t)
     for i=1,#outgoings do
       local t = outgoings[i].head
       if t ~= v and vertices[t] then
-	local t_incomings = t.incomings[self]
-	t_incomings[v] = nil
-	for i=1,#t_incomings do
-	  if t_incomings[i].tail == v then
-	    table.remove (t_incomings, i)
-	    break
-	  end
-	end
+        local t_incomings = t.incomings[self]
+        t_incomings[v] = nil
+        for i=1,#t_incomings do
+          if t_incomings[i].tail == v then
+            table.remove (t_incomings, i)
+            break
+          end
+        end
       end
     end
 
@@ -646,7 +646,7 @@ function Digraph:reconnect(arc, tail, head)
     
     for k,v in pairs(arc) do
       if k ~= "head" and k ~= "tail" then
-	new_arc[k] = v
+        new_arc[k] = v
       end
     end
 
@@ -727,13 +727,13 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
     end
     for _,a in ipairs(v.outgoings[self]) do
       if cvs[a.head] ~= true then
-	arc_fun (self:connect(collapse_vertex, a.head), a)
-	collapsed_arcs[#collapsed_arcs + 1] = a
+        arc_fun (self:connect(collapse_vertex, a.head), a)
+        collapsed_arcs[#collapsed_arcs + 1] = a
       end
     end
     for _,a in ipairs(v.incomings[self]) do
       if cvs[a.tail] ~= true then
-	arc_fun (self:connect(a.tail, collapse_vertex), a)
+        arc_fun (self:connect(a.tail, collapse_vertex), a)
       end
       collapsed_arcs[#collapsed_arcs + 1] = a
     end
@@ -782,7 +782,7 @@ function Digraph:expand(vertex, vertex_fun, arc_fun)
     
     for k,v in pairs(arc) do
       if k ~= "head" and k ~= "tail" then
-	new_arc[k] = v
+        new_arc[k] = v
       end
     end
     
@@ -825,7 +825,7 @@ function Digraph:__tostring()
     if #out_arcs > 0 then
       local t = {}
       for j,a in ipairs(out_arcs) do
-	t[j] = tostring(a.head) 
+        t[j] = tostring(a.head) 
       end
       astrings[#astrings + 1] = "  " .. tostring(v) .. " -> { " .. table.concat(t,", ") .. " }"
     end

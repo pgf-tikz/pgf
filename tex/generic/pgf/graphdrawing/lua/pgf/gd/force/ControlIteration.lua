@@ -103,8 +103,8 @@ declare {
   "]],
   examples = {
     [["
-	\tikz \graph [spring layout, cooling factor=0.1]
-	{ a -> b -> c -> a };
+       \tikz \graph [spring layout, cooling factor=0.1]
+       { a -> b -> c -> a };
     "]],
     [["
        \tikz \graph [spring layout, cooling factor=0.5]

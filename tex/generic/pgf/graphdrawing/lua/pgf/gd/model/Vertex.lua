@@ -207,29 +207,29 @@ local anchor_cache = Storage.new ()
 
 local directions = {
   north = function(min_x, min_y, max_x, max_y)
-	    return (min_x+max_x)/2, max_y
-	  end,
+      return (min_x+max_x)/2, max_y
+    end,
   south = function(min_x, min_y, max_x, max_y)
-	    return (min_x+max_x)/2, min_y
-	  end,
+      return (min_x+max_x)/2, min_y
+    end,
   east  = function(min_x, min_y, max_x, max_y)
-	    return max_x, (min_y+max_y)/2
-	  end,
+      return max_x, (min_y+max_y)/2
+    end,
   west  = function(min_x, min_y, max_x, max_y)
-	    return min_x, (min_y+max_y)/2
-	  end,
+      return min_x, (min_y+max_y)/2
+    end,
   ["north west"] = function(min_x, min_y, max_x, max_y)
-		     return min_x, max_y
-		   end,
+      return min_x, max_y
+    end,
   ["north east"] = function(min_x, min_y, max_x, max_y)
-		     return max_x, max_y
-		   end,
+        return max_x, max_y
+      end,
   ["south west"] = function(min_x, min_y, max_x, max_y)
-		     return min_x, min_y
-		   end,
+        return min_x, min_y
+      end,
   ["south east"] = function(min_x, min_y, max_x, max_y)
-		     return max_x, min_y
-		   end,
+        return max_x, min_y
+      end,
 }
 
 ---
@@ -260,10 +260,10 @@ function Vertex:anchor(anchor)
     else
       local n = tonumber(anchor)
       if n then
-	local x1, y1, x2, y2 = self:boundingBox()
-	local r = math.max(x2-x1, y2-y1)
-	b = Coordinate.new(r*math.cos(n/180*math.pi),r*math.sin(n/180*math.pi))
-	b:shiftByCoordinate(self.anchors.center)
+        local x1, y1, x2, y2 = self:boundingBox()
+        local r = math.max(x2-x1, y2-y1)
+        b = Coordinate.new(r*math.cos(n/180*math.pi),r*math.sin(n/180*math.pi))
+        b:shiftByCoordinate(self.anchors.center)
       end
     end
     if not b then

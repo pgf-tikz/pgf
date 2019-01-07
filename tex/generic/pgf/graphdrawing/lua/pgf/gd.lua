@@ -56,7 +56,7 @@ function gd.new_algorithm_class (class)
       -- Create new object
       local obj = {}
       for k,v in pairs(initial) do
-	obj[k] = v
+    obj[k] = v
       end
       setmetatable(obj, class)
 

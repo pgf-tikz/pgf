@@ -176,9 +176,9 @@ end
 --
 function Node:getIncomingEdges(ignore_reversed)
   return lib.imap(self.edges,
-		  function (edge) 
-		    if edge:isHead(self, ignore_reversed) then return edge end
-		  end)
+          function (edge) 
+            if edge:isHead(self, ignore_reversed) then return edge end
+          end)
 end
 
 
@@ -193,9 +193,9 @@ end
 --
 function Node:getOutgoingEdges(ignore_reversed)
   return lib.imap(self.edges,
-		  function (edge) 
-		    if edge:isTail(self, ignore_reversed) then return edge end
-		  end)
+          function (edge) 
+            if edge:isTail(self, ignore_reversed) then return edge end
+          end)
 end
 
 

@@ -178,9 +178,9 @@ local function to_index(s, indices)
     else
       local num = tonumber(s)
       if not num then
-	return indices[InterfaceToAlgorithms.findVertexByName(s)]
+        return indices[InterfaceToAlgorithms.findVertexByName(s)]
       else
-	return num
+        return num
       end
     end
   end
@@ -200,17 +200,17 @@ local function compute_indices(vertex_string, vertices)
     while pos <= #vertex_string do
       local start = vertex_string:sub(pos,pos)
       if not start:find("[%s,]") then
-	local _, vertex 
-	if start == '"' then
-	  _, pos, vertex = vertex_string:find('"(.-)"', pos)
-	elseif start == "'" then
-	  _, pos, vertex = vertex_string:find("'(.-)'", pos)
-	else
-	  _, pos, vertex = vertex_string:find("([^,%s'\"]*)", pos)
-	end
-	local v = assert(InterfaceToAlgorithms.findVertexByName(vertex), "unknown vertex name '" .. vertex .. "'")
-	indices [#indices + 1] = v
-	indices [v]            = #indices
+        local _, vertex 
+        if start == '"' then
+          _, pos, vertex = vertex_string:find('"(.-)"', pos)
+        elseif start == "'" then
+          _, pos, vertex = vertex_string:find("'(.-)'", pos)
+        else
+          _, pos, vertex = vertex_string:find("([^,%s'\"]*)", pos)
+        end
+        local v = assert(InterfaceToAlgorithms.findVertexByName(vertex), "unknown vertex name '" .. vertex .. "'")
+        indices [#indices + 1] = v
+        indices [v]            = #indices
       end
       pos = pos + 1
     end
@@ -255,29 +255,29 @@ function DistanceMatrix.computeDistanceMatrix(matrix_string, vertex_string, vert
     local start = matrix_string:sub(pos,pos)
     if not start:find("[%s,]") then
       if start == '>' then
-	local _, parse
-	_, pos, parse = matrix_string:find(">([^%s>;]*)", pos)
-	local a, b
-	if parse:find(",") then
-	  _,_,a,b = parse:find("(.*),(.*)")
-	else
-	  a = parse
-	end
-	x = to_index(a, indices) or x
-	y = to_index(b, indices) or y
+        local _, parse
+        _, pos, parse = matrix_string:find(">([^%s>;]*)", pos)
+        local a, b
+        if parse:find(",") then
+          _,_,a,b = parse:find("(.*),(.*)")
+        else
+          a = parse
+        end
+        x = to_index(a, indices) or x
+        y = to_index(b, indices) or y
       elseif start == ';' then
-	x = 1
-	y = y + 1
+        x = 1
+        y = y + 1
       elseif start == ',' then
-	x = x + 1
+        x = x + 1
       else
-	local _, n
-	_, pos, n = matrix_string:find("([^,;%s>]*)", pos)
-	local num = assert(tonumber(n), "number expected in distance matrix")
-	m[x][y] = num
-	x = x + 1
-	-- Skip everything up to first comma:
-	_, pos = matrix_string:find("(%s*,?)", pos+1)
+        local _, n
+        _, pos, n = matrix_string:find("([^,;%s>]*)", pos)
+        local num = assert(tonumber(n), "number expected in distance matrix")
+        m[x][y] = num
+        x = x + 1
+        -- Skip everything up to first comma:
+        _, pos = matrix_string:find("(%s*,?)", pos+1)
       end
     end
     pos = pos + 1
@@ -294,7 +294,7 @@ function DistanceMatrix.computeDistanceMatrix(matrix_string, vertex_string, vert
   for x=1,n do
     for y=1,n do
       if not m[x][y] then
-	m[x][y] = m[y][x] or 0
+        m[x][y] = m[y][x] or 0
       end
     end
   end
@@ -341,19 +341,19 @@ function DistanceMatrix.computeDistanceVector(vector_string, vertex_string, vert
     local start = vector_string:sub(pos,pos)
     if not start:find("[%s,]") then
       if start == '>' then
-	local _, parse
-	_, pos, parse = vector_string:find(">([^%s>;]*)", pos)
-	x = to_index(parse, indices) or x
+        local _, parse
+        _, pos, parse = vector_string:find(">([^%s>;]*)", pos)
+        x = to_index(parse, indices) or x
       elseif start == ',' then
-	x = x + 1
+        x = x + 1
       else
-	local _, n
-	_, pos, n = vector_string:find("([^,;%s>]*)", pos)
-	local num = assert(tonumber(n), "number expected in distance matrix")
-	m[x] = num
-	x = x + 1
-	-- Skip everything up to first comma:
-	_, pos = vector_string:find("(%s*,?)", pos+1)
+        local _, n
+        _, pos, n = vector_string:find("([^,;%s>]*)", pos)
+        local num = assert(tonumber(n), "number expected in distance matrix")
+        m[x] = num
+        x = x + 1
+        -- Skip everything up to first comma:
+        _, pos = vector_string:find("(%s*,?)", pos+1)
       end
     end
     pos = pos + 1
@@ -406,7 +406,7 @@ function DistanceMatrix.graphDistanceMatrix(digraph)
 
     for x=1,#vers do
       for y=1,#vers do
-	m[vers[x]][vers[y]] = sub[x][y]
+        m[vers[x]][vers[y]] = sub[x][y]
       end
     end
   end
@@ -414,13 +414,13 @@ function DistanceMatrix.graphDistanceMatrix(digraph)
   for i,v in ipairs(vertices) do
     if v.options['distances'] then
       local sub, vers = DistanceMatrix.computeDistanceVector(
-	v.options['distances'],
-	v.options['distance matrix vertices'],
-	vertices
+        v.options['distances'],
+        v.options['distance matrix vertices'],
+        vertices
       )
       
       for x=1,#vers do
-	m[vers[x]][v] = sub[x]
+        m[vers[x]][v] = sub[x]
       end
     end
   end

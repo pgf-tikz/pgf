@@ -49,24 +49,24 @@ local lib = require "pgf.gd.lib"
 function InterfaceToC.declare_algorithm_written_in_c (t)
   t.algorithm = {
     run = function (self)
-	    local back_table = lib.icopy(self.ugraph.vertices)
-	    for i,v in ipairs(self.ugraph.vertices) do
-	      back_table[v] = i
-	    end
-	    local edges = {}
-	    for _,a in ipairs(self.ugraph.arcs) do
-	      local b = self.layout_graph:arc(a.tail,a.head)
-	      if b then
-		lib.icopy(b.syntactic_edges, edges)
-	      end
-	    end
-	    for i=1,#edges do
-	      edges[edges[i]] = i
-	    end
-	    collectgarbage("stop") -- Remove once Lua Link Bug is fixed
-	    t.algorithm_written_in_c (self.digraph, back_table, edges, self)
-	    collectgarbage("restart") -- Remove once Lua Link Bug is fixed
-	  end
+      local back_table = lib.icopy(self.ugraph.vertices)
+      for i,v in ipairs(self.ugraph.vertices) do
+        back_table[v] = i
+      end
+      local edges = {}
+      for _,a in ipairs(self.ugraph.arcs) do
+        local b = self.layout_graph:arc(a.tail,a.head)
+        if b then
+          lib.icopy(b.syntactic_edges, edges)
+        end
+      end
+      for i=1,#edges do
+        edges[edges[i]] = i
+      end
+      collectgarbage("stop") -- Remove once Lua Link Bug is fixed
+      t.algorithm_written_in_c (self.digraph, back_table, edges, self)
+      collectgarbage("restart") -- Remove once Lua Link Bug is fixed
+    end
   }  
 end
 

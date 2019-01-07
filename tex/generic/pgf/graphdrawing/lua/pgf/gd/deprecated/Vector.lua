@@ -74,7 +74,7 @@ function Vector.new(n, fill_function)
     -- fill vector elements with values
     if not fill_function then
       for i = 1,n do
-	rawset(vector,i,0)
+        rawset(vector,i,0)
       end
     else
       for i = 1,n do

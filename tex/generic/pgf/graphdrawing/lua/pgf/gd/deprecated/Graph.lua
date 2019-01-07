@@ -127,7 +127,7 @@ function Graph:addNode(node)
    if not self:findNode(node.name) then
       -- Does the node have an index, yet?
       if not node.index then
-	 node.index = #self.nodes + 1
+        node.index = #self.nodes + 1
       end
       
       table.insert(self.nodes, node)

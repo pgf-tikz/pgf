@@ -162,7 +162,7 @@ declare {
        \end{tikzpicture}
   "]]
 }
-	   
+
 ---
 declare {   
   key = "layer distance",

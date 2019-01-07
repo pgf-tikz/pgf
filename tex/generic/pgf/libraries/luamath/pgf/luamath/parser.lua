@@ -8,7 +8,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more details.
 --
--- $Id$	
+-- $Id$    
 --
 -- usage:
 --
@@ -34,9 +34,9 @@ local match = lpeg.match
 local space_pattern = S(" \n\r\t")^0
 local tex_unit = 
         P('pt') + P('mm') + P('cm') + P('in') + 
-		-- while valid units, the font-depending ones need special attention... move them to the TeX side. For now.
+        -- while valid units, the font-depending ones need special attention... move them to the TeX side. For now.
         -- P('ex') + P('em') + 
-		P('bp') + P('pc') + 
+        P('bp') + P('pc') + 
         P('dd') + P('cc') + P('sp');
 
 local one_digit_pattern = R("09")
@@ -94,18 +94,18 @@ local function eval (v1, op, v2)
   elseif (op == "*") then return v1 * v2
   elseif (op == "/") then return v1 / v2
   else
-	error("This function must not be invoked for operator "..op)
+    error("This function must not be invoked for operator "..op)
   end
 end
 
 local pgfStringToFunctionMap = pgfluamathfunctions.stringToFunctionMap
 local function function_eval(name, ... )
-	local f = pgfStringToFunctionMap[name]
-	if not f then
-		error("Function '" .. name .. "' is undefined (did not find pgfluamathfunctions."..name .." (looked into pgfluamathfunctions.stringToFunctionMap))")
-	end
-	-- FIXME: validate signature
-	return f(...)
+    local f = pgfStringToFunctionMap[name]
+    if not f then
+        error("Function '" .. name .. "' is undefined (did not find pgfluamathfunctions."..name .." (looked into pgfluamathfunctions.stringToFunctionMap))")
+    end
+    -- FIXME: validate signature
+    return f(...)
 end
 
 
@@ -117,22 +117,22 @@ local functionWithoutArg = identifier_pattern / function_eval
 -- this is what can occur as exponent after '^'.
 -- I have the impression that the priorities could be implemented in a better way than this... but it seems to work.
 local pow_exponent = 
-				-- allows 2^-4,  2^1e4, 2^2
-				-- FIXME : why not 2^1e2 ?
-				Cg(C(integer_or_decimal_pattern) 
-				-- 2^pi, 2^multiply(2,2)
-				+ Cg(func+functionWithoutArg) 
-				-- 2^(2+2)
-				+ openparen_pattern * Exp * closeparen_pattern )
+                -- allows 2^-4,  2^1e4, 2^2
+                -- FIXME : why not 2^1e2 ?
+                Cg(C(integer_or_decimal_pattern) 
+                -- 2^pi, 2^multiply(2,2)
+                + Cg(func+functionWithoutArg) 
+                -- 2^(2+2)
+                + openparen_pattern * Exp * closeparen_pattern )
 
 local function prefix_eval(op, x)
-	if op == "-" then
-		return pgfluamathfunctions.neg(x)
-	elseif op == "!" then
-		return pgfluamathfunctions.notPGF(x)
-	else
-		error("This function must not be invoked for operator "..op)
-	end
+    if op == "-" then
+        return pgfluamathfunctions.neg(x)
+    elseif op == "!" then
+        return pgfluamathfunctions.notPGF(x)
+    else
+        error("This function must not be invoked for operator "..op)
+    end
 end
 
 
@@ -143,7 +143,7 @@ local prefix_operator_pattern = (prefix_operator * space_pattern * Cg(Prefix) ) 
 local postfix_operator = C( S"r!" - P"!=" )  + C(P"^") * space_pattern * pow_exponent
 
 pgfluamathfunctions.functionMustBeEvaluatedInTeX = function()
-	error("The function in this context cannot be evaluated by LUA because it depends on TeX macros.")
+    error("The function in this context cannot be evaluated by LUA because it depends on TeX macros.")
 end
 
 local ternary_eval = pgfluamathfunctions.ifthenelse
@@ -156,86 +156,86 @@ local pow_eval = pgfluamathfunctions.pow
 -- @param op either nil or the postfix operator
 -- @param arg either nil or the (mandatory) argument for 'op'
 local function postfix_eval(prefix, op, arg)
-	local result
-	if op == nil then
-		result = prefix
-	elseif op == "r" then
-		if arg then error("parser setup error: expected nil argument") end
-		result = deg(prefix)
-	elseif op == "!" then
-		if arg then error("parser setup error: expected nil argument") end
-		result = factorial_eval(prefix)
-	elseif op == "^" then
-		if not arg then error("parser setup error: ^ with its argument") end
-		result = pow_eval(prefix, arg)
-	else
-		error("Parser setup error: " .. tostring(op) .. " unexpected in this context")
-	end
-	return result
+    local result
+    if op == nil then
+        result = prefix
+    elseif op == "r" then
+        if arg then error("parser setup error: expected nil argument") end
+        result = deg(prefix)
+    elseif op == "!" then
+        if arg then error("parser setup error: expected nil argument") end
+        result = factorial_eval(prefix)
+    elseif op == "^" then
+        if not arg then error("parser setup error: ^ with its argument") end
+        result = pow_eval(prefix, arg)
+    else
+        error("Parser setup error: " .. tostring(op) .. " unexpected in this context")
+    end
+    return result
 end
 
 local function equality_eval(v1, op, v2)
-	local fct
-	if (op == "==") then fct = pgfluamathfunctions.equal
-	elseif (op == "!=") then fct = pgfluamathfunctions.notequal
-	else
-		error("This function must not be invoked for operator "..op)
-	end
-	return fct(v1,v2)
+    local fct
+    if (op == "==") then fct = pgfluamathfunctions.equal
+    elseif (op == "!=") then fct = pgfluamathfunctions.notequal
+    else
+        error("This function must not be invoked for operator "..op)
+    end
+    return fct(v1,v2)
 end
 local function relational_eval(v1, op, v2)
-	local fct
-	if (op == "<") then fct = pgfluamathfunctions.less
-	elseif (op == ">") then fct = pgfluamathfunctions.greater
-	elseif (op == ">=") then fct = pgfluamathfunctions.notless
-	elseif (op == "<=") then fct = pgfluamathfunctions.notgreater
-	else
-		error("This function must not be invoked for operator "..op)
-	end
-	return fct(v1,v2)
+    local fct
+    if (op == "<") then fct = pgfluamathfunctions.less
+    elseif (op == ">") then fct = pgfluamathfunctions.greater
+    elseif (op == ">=") then fct = pgfluamathfunctions.notless
+    elseif (op == "<=") then fct = pgfluamathfunctions.notgreater
+    else
+        error("This function must not be invoked for operator "..op)
+    end
+    return fct(v1,v2)
 end
 
 -- @return either the box property or nil
 -- @param cs "wd", "ht", or "dp"
 -- @param intSuffix some integer
 local function get_tex_box(cs, intSuffix)
-	-- assume get_tex_box is only called when a dimension is required.
-	local result
-	pgfluamathparser.units_declared = true
-	local box =tex.box[tonumber(intSuffix)]
-	if not box then error("There is no box " .. intSuffix) end
-	if cs == "wd" then
-		result = box.width / 65536
-	elseif cs == "ht" then
-		result = box.height / 65536
-	elseif cs == "dp" then
-		result = box.depth / 65536
-	else	
-		result = nil
-	end
-	return result
+    -- assume get_tex_box is only called when a dimension is required.
+    local result
+    pgfluamathparser.units_declared = true
+    local box =tex.box[tonumber(intSuffix)]
+    if not box then error("There is no box " .. intSuffix) end
+    if cs == "wd" then
+        result = box.width / 65536
+    elseif cs == "ht" then
+        result = box.height / 65536
+    elseif cs == "dp" then
+        result = box.depth / 65536
+    else    
+        result = nil
+    end
+    return result
 end
 
 
 local function controlsequence_eval(cs, intSuffix)
-	local result
-	if intSuffix and #intSuffix >0 then
-		if cs == "count" then
-			result= pgfluamathparser.get_tex_count(intSuffix)
-		elseif cs == "dimen" then
-			result= pgfluamathparser.get_tex_dimen(intSuffix)
-		else
-			result = get_tex_box(cs,intSuffix)
-			if not result then
-				-- this can happen - we cannot expand \chardef'ed boxes here.
-				-- this will be done by the TeX part
-				error('I do not know/support the TeX register "\\' .. cs .. '"')
-			end
-		end
-	else
-		result = pgfluamathparser.get_tex_register(cs)
-	end
-	return result
+    local result
+    if intSuffix and #intSuffix >0 then
+        if cs == "count" then
+            result= pgfluamathparser.get_tex_count(intSuffix)
+        elseif cs == "dimen" then
+            result= pgfluamathparser.get_tex_dimen(intSuffix)
+        else
+            result = get_tex_box(cs,intSuffix)
+            if not result then
+                -- this can happen - we cannot expand \chardef'ed boxes here.
+                -- this will be done by the TeX part
+                error('I do not know/support the TeX register "\\' .. cs .. '"')
+            end
+        end
+    else
+        result = pgfluamathparser.get_tex_register(cs)
+    end
+    return result
 end
 
 pgfluamathparser.units_declared = false
@@ -282,22 +282,22 @@ local LogicalAnd = V"LogicalAnd"
 local pgftonumber = pgfluamathfunctions.tonumber
 local tonumber_withunit = pgfluamathparser.get_tex_sp
 local function number_optional_units_eval(x, unit)
-	if not unit then
-		return pgftonumber(x)
-	else
-		return tonumber_withunit(x)
-	end
+    if not unit then
+        return pgftonumber(x)
+    else
+        return tonumber_withunit(x)
+    end
 end
 
 -- @param scale the number.
 -- @param controlsequence either nil in which case just the number must be returned or a control sequence
 -- @see controlsequence_eval
 local function scaled_controlsequence_eval(scale, controlsequence, intSuffix)
-	if controlsequence==nil then
-		return scale
-	else
-		return scale * controlsequence_eval(controlsequence, intSuffix)
-	end
+    if controlsequence==nil then
+        return scale
+    else
+        return scale * controlsequence_eval(controlsequence, intSuffix)
+    end
 end
 
 -- Grammar
@@ -308,40 +308,40 @@ end
 --
 -- see unittest_luamathparser.tex for tons of examples
 local G = P{ "initialRule",
-	initialRule = space_pattern* Exp * -1;
-	-- ternary operator (or chained ternary operators):
-	-- FIXME : is this chaining a good idea!?
-	Exp = Cf( LogicalOr * Cg(P"?" * space_pattern * LogicalOr * P":" *space_pattern * LogicalOr )^0, ternary_eval) ;
-	LogicalOr = Cf(LogicalAnd * (P"||" * space_pattern * LogicalAnd)^0, pgfluamathfunctions.orPGF);
-	LogicalAnd = Cf(Equality * (P"&&" * space_pattern * Equality)^0, pgfluamathfunctions.andPGF);
-	Equality = Cf(Relational * Cg(EqualityOp * Relational)^0, equality_eval);
-	Relational = Cf(Summand * Cg(RelationalOp * Summand)^0, relational_eval);
-	Summand = Cf(Term * Cg(TermOp * Term)^0, eval) ;
-	Term = Cf(Prefix * Cg(FactorOp * Prefix)^0, eval);
-	Prefix = prefix_operator_pattern + Postfix;
-	-- this calls 'postfix_eval' with nil arguments if it is no postfix operation.. but that does not hurt (right?)
-	Postfix = Factor * (postfix_operator * space_pattern)^-1 / postfix_eval;
-	Factor = 
-		 (
-		number_pattern / number_optional_units_eval * 
-			-- this construction will evaluate number_pattern with 'number_optional_units_eval' FIRST.
-			-- also accept '0.5 \pgf@x' here:
-			space_pattern *controlsequence_pattern^-1 / scaled_controlsequence_eval
-		+ func
-		+ functionWithoutArg
-		+ openparen_pattern * Exp * closeparen_pattern
-		+ controlsequence_pattern / controlsequence_eval
-		) *space_pattern
-	;
+    initialRule = space_pattern* Exp * -1;
+    -- ternary operator (or chained ternary operators):
+    -- FIXME : is this chaining a good idea!?
+    Exp = Cf( LogicalOr * Cg(P"?" * space_pattern * LogicalOr * P":" *space_pattern * LogicalOr )^0, ternary_eval) ;
+    LogicalOr = Cf(LogicalAnd * (P"||" * space_pattern * LogicalAnd)^0, pgfluamathfunctions.orPGF);
+    LogicalAnd = Cf(Equality * (P"&&" * space_pattern * Equality)^0, pgfluamathfunctions.andPGF);
+    Equality = Cf(Relational * Cg(EqualityOp * Relational)^0, equality_eval);
+    Relational = Cf(Summand * Cg(RelationalOp * Summand)^0, relational_eval);
+    Summand = Cf(Term * Cg(TermOp * Term)^0, eval) ;
+    Term = Cf(Prefix * Cg(FactorOp * Prefix)^0, eval);
+    Prefix = prefix_operator_pattern + Postfix;
+    -- this calls 'postfix_eval' with nil arguments if it is no postfix operation.. but that does not hurt (right?)
+    Postfix = Factor * (postfix_operator * space_pattern)^-1 / postfix_eval;
+    Factor = 
+         (
+        number_pattern / number_optional_units_eval * 
+            -- this construction will evaluate number_pattern with 'number_optional_units_eval' FIRST.
+            -- also accept '0.5 \pgf@x' here:
+            space_pattern *controlsequence_pattern^-1 / scaled_controlsequence_eval
+        + func
+        + functionWithoutArg
+        + openparen_pattern * Exp * closeparen_pattern
+        + controlsequence_pattern / controlsequence_eval
+        ) *space_pattern
+    ;
 }
 
 -- does not reset units_declared.
 local function pgfmathparseinternal(str)
-	local result = match(G,str)
-	if result == nil then
-		error("The string '" .. str .. "' is no valid PGF math expression. Please check for syntax errors.")
-	end
-	return result
+    local result = match(G,str)
+    if result == nil then
+        error("The string '" .. str .. "' is no valid PGF math expression. Please check for syntax errors.")
+    end
+    return result
 end
 
 
@@ -352,9 +352,9 @@ end
 -- 
 -- Throws an error if the string is no valid expression.
 function pgfluamathparser.pgfmathparse(str)
-	pgfluamathparser.units_declared = false
+    pgfluamathparser.units_declared = false
 
-	return pgfmathparseinternal(str)
+    return pgfmathparseinternal(str)
 end
 
 local pgfmathparse = pgfluamathparser.pgfmathparse
@@ -393,53 +393,53 @@ local stackOfLocalFunctions = {}
 -- BUT: that "simulated expansion" broke the second case because LUA will evaluate "x" and hand -5 to the local function.
 -- I decided to keep it as is. Perhaps we should fix PGF's expansion approach in TeX (which is ugly anyway)
 function pgfluamathparser.pushLocalExpressionFunction(name, numArgs, expression)
-	-- now we have "tmpVar1^tmpVar2" instead of "#1^#2"
-	local normalizedExpr = expression:gsub("#", tmpFunctionArgumentPrefix)
-	local restores = {}
-	local tmpVars = {}
-	for i=1,numArgs do
-		local tmpVar = tmpFunctionArgumentPrefix .. tostring(i)
-		tmpVars[i] = tmpVar
-	end
+    -- now we have "tmpVar1^tmpVar2" instead of "#1^#2"
+    local normalizedExpr = expression:gsub("#", tmpFunctionArgumentPrefix)
+    local restores = {}
+    local tmpVars = {}
+    for i=1,numArgs do
+        local tmpVar = tmpFunctionArgumentPrefix .. tostring(i)
+        tmpVars[i] = tmpVar
+    end
 
-	local newFunction = function(...)
-		local args = table.pack(...)
-		
-		-- define "tmpVar1" ... "tmpVarN" to return args[i].
-		-- Of course, we need to restore "tmpVar<i>" after we return!
-		for i=1,numArgs do
-			local tmpVar = tmpVars[i]
-			local value = args[i]
-			restores[i] = pgfStringToFunctionMap[tmpVar]
-			pgfStringToFunctionMap[tmpVar] = function () return value end
-		end
+    local newFunction = function(...)
+        local args = table.pack(...)
+        
+        -- define "tmpVar1" ... "tmpVarN" to return args[i].
+        -- Of course, we need to restore "tmpVar<i>" after we return!
+        for i=1,numArgs do
+            local tmpVar = tmpVars[i]
+            local value = args[i]
+            restores[i] = pgfStringToFunctionMap[tmpVar]
+            pgfStringToFunctionMap[tmpVar] = function () return value end
+        end
 
-		-- parse our expression.
-			
-		-- FIXME : this here is an attempt to mess around with "units_declared".
-		--   It would be better to call pgfmathparse and introduce some
-		--   semaphore to check if pgfmathparse is a nested call-- in this case, it should
-		--   not reset units_declared. But there is no "finally" block and pcall is crap (looses stack trace).
-		local success,result = pcall(pgfmathparseinternal, normalizedExpr)
-	
-		-- remove 'tmpVar1', ... from the function table:
-		for i=1,numArgs do
-			local tmpVar = tmpVars[i]
-			pgfStringToFunctionMap[tmpVar] = restores[i]
-		end
-		
-		if success==false then error(result) end
-		return result
-	end
-	table.insert(stackOfLocalFunctions, name)
-	pgfStringToFunctionMap[name] = newFunction
+        -- parse our expression.
+            
+        -- FIXME : this here is an attempt to mess around with "units_declared".
+        --   It would be better to call pgfmathparse and introduce some
+        --   semaphore to check if pgfmathparse is a nested call-- in this case, it should
+        --   not reset units_declared. But there is no "finally" block and pcall is crap (looses stack trace).
+        local success,result = pcall(pgfmathparseinternal, normalizedExpr)
+    
+        -- remove 'tmpVar1', ... from the function table:
+        for i=1,numArgs do
+            local tmpVar = tmpVars[i]
+            pgfStringToFunctionMap[tmpVar] = restores[i]
+        end
+        
+        if success==false then error(result) end
+        return result
+    end
+    table.insert(stackOfLocalFunctions, name)
+    pgfStringToFunctionMap[name] = newFunction
 end
 
 function pgfluamathparser.popLocalExpressionFunction()
-	local name = stackOfLocalFunctions[#stackOfLocalFunctions]
-	pgfStringToFunctionMap[name] = nil
-	-- this removes the last element:
-	table.remove(stackOfLocalFunctions)
+    local name = stackOfLocalFunctions[#stackOfLocalFunctions]
+    pgfStringToFunctionMap[name] = nil
+    -- this removes the last element:
+    table.remove(stackOfLocalFunctions)
 end
 
 
@@ -450,33 +450,33 @@ end
 -- 
 -- it defines \pgfmathresult and \ifpgfmathunitsdeclared
 function pgfluamathparser.texCallParser(expression, outputFormatChoice, showErrorMessage)
-	local success, result 
-	if showErrorMessage then
-		result = pgfmathparse(expression)
-		success = true
-	else
-		success, result = pcall(pgfmathparse, expression)
-	end
+    local success, result 
+    if showErrorMessage then
+        result = pgfmathparse(expression)
+        success = true
+    else
+        success, result = pcall(pgfmathparse, expression)
+    end
 
-	if success and result then 
-		local result_str
-		if outputFormatChoice == 0 then
-			-- luamath/output format=fixed
-			result_str = tostringfixed(result)
-		else
-			-- luamath/output format=fixed
-			result_str = tostringfpu(result)
-		end
-		tex.sprint("\\def\\pgfmathresult{" .. result_str .. "}")
-		if pgfluamathparser.units_declared then
-			tex.sprint("\\pgfmathunitsdeclaredtrue")
-		else
-			tex.sprint("\\pgfmathunitsdeclaredfalse")
-		end
-	else
-		tex.sprint("\\def\\pgfmathresult{}")
-		tex.sprint("\\pgfmathunitsdeclaredfalse")
-	end
+    if success and result then 
+        local result_str
+        if outputFormatChoice == 0 then
+            -- luamath/output format=fixed
+            result_str = tostringfixed(result)
+        else
+            -- luamath/output format=fixed
+            result_str = tostringfpu(result)
+        end
+        tex.sprint("\\def\\pgfmathresult{" .. result_str .. "}")
+        if pgfluamathparser.units_declared then
+            tex.sprint("\\pgfmathunitsdeclaredtrue")
+        else
+            tex.sprint("\\pgfmathunitsdeclaredfalse")
+        end
+    else
+        tex.sprint("\\def\\pgfmathresult{}")
+        tex.sprint("\\pgfmathunitsdeclaredfalse")
+    end
 end
 
 return pgfluamathparser

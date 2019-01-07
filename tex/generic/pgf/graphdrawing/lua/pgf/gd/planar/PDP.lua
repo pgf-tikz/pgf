@@ -11,13 +11,13 @@ local Path = require "pgf.gd.model.Path"
 PDP.__index = PDP
 
 function PDP.new(ugraph, embedding,
-		delta, gamma, coolingfactor,
-		expiterations,
-		startrepexp, endrepexp,
-		startattexp, endattexp,
-		appthreshold, stretchthreshold,
-		stresscounterthreshold,
-		numdivisions)
+        delta, gamma, coolingfactor,
+        expiterations,
+        startrepexp, endrepexp,
+        startattexp, endattexp,
+        appthreshold, stretchthreshold,
+        stresscounterthreshold,
+        numdivisions)
 	local t = {
 		ugraph = ugraph,
 		embedding = embedding,

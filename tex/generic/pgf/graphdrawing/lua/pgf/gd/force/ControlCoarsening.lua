@@ -97,7 +97,7 @@ declare {
  "]],
   examples = [["
       \tikz \graph [spring layout, iterations=0,
-	            minimum coarsening size=2] 
+                    minimum coarsening size=2] 
         { subgraph C_n [n=8] };
       
       \tikz \graph [spring layout, iterations=0,

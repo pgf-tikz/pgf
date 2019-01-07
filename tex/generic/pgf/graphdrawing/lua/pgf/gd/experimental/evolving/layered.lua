@@ -64,36 +64,36 @@ function temporallayered.arrange_layers_by_baselines (layers, paddings, graph, s
     for _, s in ipairs(snapshots) do
       local layer_vertices = snapshots_layers[s]
       if #layer_vertices > 0 then -- sanity check
-	for _,v in ipairs(layer_vertices[1]) do
-	  v.pos.y = 0
-	end
+        for _,v in ipairs(layer_vertices[1]) do
+          v.pos.y = 0
+        end
       end
     end
     
     for i=2, count_layers do
       local distance = 0
       for _, s in ipairs(snapshots) do
-	local layer_vertices = snapshots_layers[s]
-	if #layer_vertices >= i then
-	  distance = math.max(
-	    distance,
-	    layered.baseline_distance(
-	      paddings,
-	      s,
-	      layer_vertices[i-1],
-	      layer_vertices[i]))
-	end
+        local layer_vertices = snapshots_layers[s]
+        if #layer_vertices >= i then
+          distance = math.max(
+            distance,
+            layered.baseline_distance(
+              paddings,
+              s,
+              layer_vertices[i-1],
+              layer_vertices[i]))
+        end
       end
       
       height = height + distance
       
       for _, s in ipairs(snapshots) do
-	local layer_vertices = snapshots_layers[s]
-	if #layer_vertices >= i then
-	  for _,v in ipairs(layer_vertices[i]) do
-	    v.pos.y = height 
-	  end
-	end
+        local layer_vertices = snapshots_layers[s]
+        if #layer_vertices >= i then
+          for _,v in ipairs(layer_vertices[i]) do
+            v.pos.y = height 
+          end
+        end
       end
     end
   end  

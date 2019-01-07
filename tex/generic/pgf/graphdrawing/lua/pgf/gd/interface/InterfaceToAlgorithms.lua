@@ -219,7 +219,7 @@ function InterfaceToAlgorithms.declare (t)
   for _,h in ipairs (declare_handlers) do
     if h.test(t) then
       if h.handler(t) then
-	break
+        break
       end
     end
   end
@@ -411,14 +411,14 @@ local function declare_parameter (t)
     local count = 0
     t.alias = load (
       function ()
- 	count = count + 1
- 	if count == 1 then
- 	  return "return "
- 	elseif count == 2 then
- 	  return t.alias_function_string
- 	else
- 	  return nil
- 	end
+        count = count + 1
+        if count == 1 then
+          return "return "
+        elseif count == 2 then
+          return t.alias_function_string
+        else
+          return nil
+        end
       end)()
   end
 
@@ -611,9 +611,9 @@ local function declare_algorithm (t)
   
   if t.phase_default then
     assert (not InterfaceCore.option_initial.algorithm_phases[t.phase],
-	    "default algorithm for phase already set")
+        "default algorithm for phase already set")
     assert (type(store_me) == "table",
-	    "default algorithms must be loaded immediately")
+        "default algorithms must be loaded immediately")
     InterfaceCore.option_initial.algorithm_phases[t.phase] = store_me
     InterfaceCore.option_initial.algorithm_phases[t.phase .. " stack"] = { store_me }
   else
@@ -902,8 +902,8 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   local syntactic_component = algorithm.syntactic_component
   
   assert (syntactic_digraph:contains(tail) and
-	  syntactic_digraph:contains(head),
-	  "attempting to create edge between nodes that are not in the syntactic digraph")
+      syntactic_digraph:contains(head),
+      "attempting to create edge between nodes that are not in the syntactic digraph")
   
   local arc = syntactic_digraph:connect(tail, head)
   
