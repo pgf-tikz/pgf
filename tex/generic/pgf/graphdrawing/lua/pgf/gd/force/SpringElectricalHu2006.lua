@@ -316,7 +316,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 		  -- enforce a small virtual distance if the node and the cell's 
 		  -- center of mass are located at (almost) the same position
 		  if delta:norm() < 0.1 then
-		    delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+		    delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
 		  end
 		  
 		  -- compute the repulsive force vector
@@ -334,7 +334,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	      -- enforce a small virtual distance if the node and the cell's 
 	      -- center of mass are located at (almost) the same position
 	      if delta:norm() < 0.1 then
-		delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+		delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
 	      end
 	      
 	      -- compute the repulsive force vector
@@ -354,7 +354,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	      -- enforce a small virtual distance if the nodes are
 	      -- located at (almost) the same position
 	      if delta:norm() < 0.1 then
-		delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+		delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
 	      end
 	      
 	      -- compute the repulsive force vector
@@ -377,7 +377,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 	  -- enforce a small virtual distance if the nodes are
 	  -- located at (almost) the same position
 	  if delta:norm() < 0.1 then
-	    delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	    delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
 	  end
 	  
 	  -- compute the spring force vector between u and v
@@ -472,7 +472,7 @@ function SpringElectricalHu2006:buildQuadtree(graph)
   -- larger than the minimum position
   if min_pos:equals(max_pos) then
     max_pos = max_pos:plus(Vector.new(2, function (n)
-      return 0.1 + math.random() * 0.1
+      return 0.1 + lib.random() * 0.1
     end))
   end
 

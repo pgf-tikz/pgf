@@ -408,8 +408,8 @@ function move_vertices(vertices, epoch, g)
   local max_time = options["maximum time ".. epoch] or options["maximum time"]
   local d_t = max_time/iterations
   local t_now = 0
-  local random = math.random
-  local randomseed = math.randomseed
+  local random = lib.random
+  local randomseed = lib.randomseed
   
   for j = 1 , iterations do
     t_now = t_now + d_t
