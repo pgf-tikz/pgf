@@ -28,7 +28,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
 --};
 --\end{codeexample}
- %
+-- %
 --\begin{codeexample}[]
 --\tikz \graph [random seed=11, spring layout] {
 --  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
