@@ -20,7 +20,7 @@ local Storage = require "pgf.gd.lib.Storage"
 -- drawing system to the \pgfname\ display system by overriding (that
 -- is, implementing) the methods of the |Binding| class. As a typical
 -- example, consider the implementation of the function |renderVertex|:
--- $
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --function BindingToPGF:renderVertex(v)
 --  local info = assert(self.infos[v], "thou shalt not modify the syntactic digraph")

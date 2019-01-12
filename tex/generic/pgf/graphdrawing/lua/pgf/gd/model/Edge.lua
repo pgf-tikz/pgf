@@ -83,7 +83,7 @@ local Path         = require "pgf.gd.model.Path"
 -- Create a new edge. The |initial| parameter allows you to setup
 -- some initial values.
 --
--- @usage
+-- @usage 
 --\begin{codeexample}[code only, tikz syntax=false]
 --local v = Edge.new { tail = v1, head = v2 }
 --\end{codeexample}
@@ -128,7 +128,7 @@ end
 -- routed differently.
 --
 -- Here is the code you would use to create the above mentioned path:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local a = g:connect(tail,head)
 --local e = a.syntactic_edges[1]
@@ -140,7 +140,7 @@ end
 --\end{codeexample}
 --
 -- As for the |Arc| class, you can also setup a polyline more easily:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --e:setPolylinePath { Coordinate.new (10, 10) }
 --\end{codeexample}

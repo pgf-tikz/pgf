@@ -654,7 +654,9 @@ end
 --\begin{codeexample}[code only, tikz syntax=false]
 --declare { key = "hyper", layer = 1 }
 --\end{codeexample}
+-- %
 -- you can say on the \tikzname\ layer
+-- %
 --\begin{codeexample}[code only]
 -- \graph {
 --   a, b, c, d;
