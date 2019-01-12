@@ -29,9 +29,9 @@ local declare = InterfaceToAlgorithms.declare
 declare {
   key = "mate",
   type = "boolean",
-  
-  summary = [["  
-      Edges of type |mate| join mates.
+
+  summary = [["
+    Edges of type |mate| join mates.
   "]],
 }
 
@@ -41,50 +41,51 @@ declare {
   key = "child",
   type = "boolean",
 
-  summary = [["  
-      Edges of type |child| join a parent to a child. The parent is the tail of the edge, the child is the head.
+  summary = [["
+    Edges of type |child| join a parent to a child. The parent is the tail
+    of the edge, the child is the head.
   "]],
 }
-    
+
 ---
 declare {
   key = "sibling",
   type = "boolean",
 
-  summary = [["  
-      Edges of type |sibling| join a siblings (persons with identical parents).
+  summary = [["
+    Edges of type |sibling| join a siblings (persons with identical parents).
   "]],
 }
-    
+
 
 ---
 declare {
   key = "simple pedigree layout",
   algorithm = Koerner2015,
-  
+
   postconditions = {
     upward_oriented = true
   },
 
-  summary = [["  
-      A simple algorithm for drawing a pedigree.
+  summary = [["
+    A simple algorithm for drawing a pedigree.
   "]],
   documentation = [["
       ...
   "]],
   examples = [["
-      \tikz \graph [simple pedigree layout, default edge operator=complete bipartite]
-      {
-        Eve -- [mate] Felix;
-        { Eve, Felix } -> [child] { George, Hank };
-        
-        Alice -- [mate] Bob;
-        { Alice, Bob } -> [child] { Charly, Dave, Eve };
-      };
+    \tikz \graph [simple pedigree layout, default edge operator=complete bipartite]
+    {
+      Eve -- [mate] Felix;
+      { Eve, Felix } -> [child] { George, Hank };
+
+      Alice -- [mate] Bob;
+      { Alice, Bob } -> [child] { Charly, Dave, Eve };
+    };
   "]]
 }
-    
-    
+
+
 function Koerner2015:run()
 
   local g = self.digraph
@@ -93,9 +94,9 @@ function Koerner2015:run()
 
   local visited = {}
   local ranks = {}
-  
+
   local queue = { { g.vertices[1], 1 } }
-  
+
   local queue_start = 1
   local queue_end   = 1
 
@@ -110,13 +111,13 @@ function Koerner2015:run()
     queue_start = queue_start + 1
     return v,r
   end
-  
+
   while queue_start <= queue_end do
 
     -- Pop
     local v, rank = get()
     ranks[v] = rank
-    
+
     visited [v] = true
 
     -- Follow mates:
@@ -149,12 +150,12 @@ function Koerner2015:run()
       end
     end
   end
-  
+
   for i,v in ipairs(g.vertices) do
     v.pos.x = i*50
     v.pos.y = ranks[v] * 50
   end
-  
+
 end
 
 return Koerner2015

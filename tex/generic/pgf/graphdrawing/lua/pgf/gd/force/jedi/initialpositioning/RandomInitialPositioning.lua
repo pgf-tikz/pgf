@@ -7,8 +7,8 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- This class implements an inital position algorithm for graph drawing, placing the vertices at 
--- random positions.
+--- This class implements an initial position algorithm for graph drawing,
+-- placing the vertices at random positions.
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local InitialTemplate = require "pgf.gd.force.jedi.base.InitialTemplate"
 local lib = require "pgf.gd.lib"
@@ -39,7 +39,7 @@ function RandomInitialPositioning:run()
   for _, vertex in ipairs(vertices) do
     -- place all other vertices with respect to the one already placed
     if placed[vertex] == nil then
-      p = vertex.pos 
+      p = vertex.pos
       p.x = 100 * random() + centroid_x
       p.y = 100 * random() + centroid_y
     end

@@ -35,33 +35,33 @@ declare {
   algorithm = SokalMichener1958,
   phase = "phylogenetic tree generation",
 
-  summary = [["  
-      The UPGMA (Unweighted Pair Group Method using arithmetic
-      Averages) algorithm of Sokal and Michener, 1958. It generates a
-      graph on the basis of such a distance matrix by generating nodes
-      and computing the edge lengths.
+  summary = [["
+    The UPGMA (Unweighted Pair Group Method using arithmetic
+    Averages) algorithm of Sokal and Michener, 1958. It generates a
+    graph on the basis of such a distance matrix by generating nodes
+    and computing the edge lengths.
   "]],
   documentation = [["
-      This algorithm uses a distance matrix, ideally an ultrametric
-      one, to compute the graph.
+    This algorithm uses a distance matrix, ideally an ultrametric
+    one, to compute the graph.
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout, sibling distance=0pt, sibling sep=2pt,
-                    unweighted pair group method using arithmetic averages,
-                    distance matrix={
-                      0 4 9 9 9 9 9
-                      4 0 9 9 9 9 9
-                      9 9 0 2 7 7 7
-                      9 9 2 0 7 7 7
-                      9 9 7 7 0 3 5
-                      9 9 7 7 3 0 5
-                      9 9 7 7 5 5 0}]
-        { a, b, c, d, e, f, g };
+    \tikz \graph [phylogenetic tree layout, sibling distance=0pt, sibling sep=2pt,
+                  unweighted pair group method using arithmetic averages,
+                  distance matrix={
+                    0 4 9 9 9 9 9
+                    4 0 9 9 9 9 9
+                    9 9 0 2 7 7 7
+                    9 9 2 0 7 7 7
+                    9 9 7 7 0 3 5
+                    9 9 7 7 3 0 5
+                    9 9 7 7 5 5 0}]
+      { a, b, c, d, e, f, g };
   "]]
 }
-    
-    
----    
+
+
+---
 declare {
   key = "upgma",
   use = { { key = "unweighted pair group method using arithmetic averages" } },
@@ -79,14 +79,14 @@ declare {
 -- field must be a |Storage| object that will get filled with the
 -- distances computed by this algorithm. The |lengths| field must also
 -- be a |Storage| for the computed distances.
--- 
+--
 
 function SokalMichener1958:run()
   self.distances = Storage.newTableStorage()
-  
+
   self.tree = Digraph.new(self.main_algorithm.digraph)
-  
-  -- store the phylogentic tree object, containing all user-specified
+
+  -- store the phylogenetic tree object, containing all user-specified
   -- graph information
   self:runUPGMA()
   self:createFinalEdges()
@@ -109,19 +109,19 @@ function SokalMichener1958:runUPGMA()
 
   local g = self.tree
   local clusters = {}
-  
+
   -- create the clusters
   for _,v in ipairs(g.vertices) do
     clusters[#clusters+1] = self:newCluster(v)
   end
 
-  -- Iniitialise the distances of these clusters:
+  -- Initialize the distances of these clusters:
   for _,cx in ipairs(clusters) do
     for _,cy in ipairs(clusters) do
       cx.distances[cy] = matrix[cx.root][cy.root]
     end
   end
-    
+
   -- search for clusters with smallest distance and merge them
   while #clusters > 1 do
     local minimum_distance = math.huge
@@ -153,7 +153,7 @@ function SokalMichener1958:newCluster(vertex)
     distances = {}, -- cached cluster distances to all other clusters
     cluster_height = 0 -- this value is equivalent to half the distance of the last two clusters
     -- that have been merged to form the current cluster;
-    -- necessary for determining the distances of newly generated nodes to their children.  
+    -- necessary for determining the distances of newly generated nodes to their children.
   }
 end
 
@@ -184,7 +184,7 @@ end
 -- @param distance The distance between the two clusters
 
 function SokalMichener1958:mergeClusters(clusters, index_of_first_cluster, index_of_second_cluster, distance)
-  
+
   local g = self.tree
   local cluster1 = clusters[index_of_first_cluster]
   local cluster2 = clusters[index_of_second_cluster]
@@ -199,7 +199,7 @@ function SokalMichener1958:mergeClusters(clusters, index_of_first_cluster, index
       cluster.distances[cluster1] = dist
     end
   end
-  
+
   -- delete cluster2
   table.remove(clusters, index_of_second_cluster)
 
@@ -218,8 +218,8 @@ function SokalMichener1958:mergeClusters(clusters, index_of_first_cluster, index
   local distance1 = distance/2-cluster1.cluster_height
   self.distances[new_node][cluster1.root] = distance1
   local distance2 = distance/2-cluster2.cluster_height
-  self.distances[new_node][cluster2.root] = distance2 
- 
+  self.distances[new_node][cluster2.root] = distance2
+
   -- these distances are also the final edge lengths, thus:
   self.lengths[new_node][cluster1.root] = distance1
   self.lengths[cluster1.root][new_node] = distance1
@@ -229,7 +229,7 @@ function SokalMichener1958:mergeClusters(clusters, index_of_first_cluster, index
 
   g:connect(new_node, cluster1.root)
   g:connect(new_node, cluster2.root)
-  
+
   cluster1.root = new_node
   cluster1.size = cluster1.size + cluster2.size
   cluster1.cluster_height = distance/2 -- set new height of the cluster

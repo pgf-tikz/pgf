@@ -24,29 +24,31 @@ documentation
 [[
 This class implements a hierarchy layout algorithm, that is, it
 layouts hierarchies with a given order of nodes on each
-layer. It is used as a third phase of the Sugiyama algorithm. 
+layer. It is used as a third phase of the Sugiyama algorithm.
 
 The algorithm runs in three phases:
+%
 \begin{enumerate}
-\item Alignment (4x)
-\item Horizontal Compactation (4x)
-\item Balancing
+  \item Alignment (4x)
+  \item Horizontal Compactation (4x)
+  \item Balancing
 \end{enumerate}
+%
 The alignment and horizontal compactification phases are calculated
 downward, upward, left-to-right and right-to-left. The four
-resulting layouts are combined in a balancing step. 
+resulting layouts are combined in a balancing step.
 
 Warning: The implementation is known to not always produce a
 correct layout. Therefore this Algorithm is for testing purpose
-only. 
+only.
 
 The implementation is based on:
-
+%
 \begin{itemize}
-\item 
-  Ulrik Brandes, Boris Köpf: Fast and Simple Horizontal
-  Coordinate Assignment. \emph{LNCS} 2002, Volume 2265/2002,
-  pp. 33--36  
+  \item
+    Ulrik Brandes, Boris Köpf: Fast and Simple Horizontal
+    Coordinate Assignment. \emph{LNCS} 2002, Volume 2265/2002,
+    pp. 33--36
 \end{itemize}
 ]]
 
@@ -62,7 +64,7 @@ example
 
 --------------------------------------------------------------------
 key           "FastSimpleHierarchyLayout.layerDistance"
-summary       "Distance between the cetners of nodes of two consecutive layers."
+summary       "Distance between the centers of nodes of two consecutive layers."
 
 documentation
 [[
@@ -80,7 +82,7 @@ example
 
 --------------------------------------------------------------------
 key           "FastSimpleHierarchyLayout.siblingDistance"
-summary       "Distance between the cetners of nodes of sibling nodes."
+summary       "Distance between the centers of nodes of sibling nodes."
 
 documentation
 [[

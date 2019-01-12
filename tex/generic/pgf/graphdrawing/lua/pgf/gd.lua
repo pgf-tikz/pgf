@@ -38,7 +38,7 @@ require("pgf").gd = gd
 -- this table is present, it will be used as the default table. Second,
 -- it can have a graph_parameters table. This table will be used in the
 -- constructor to preload graph parameters from the pgf layer. For
--- this, each entry of the table should be of the form 
+-- this, each entry of the table should be of the form
 --
 --   key = 'string'
 --
@@ -50,8 +50,8 @@ require("pgf").gd = gd
 
 function gd.new_algorithm_class (class)
   class.__index = class
-  class.new = 
-    function (initial) 
+  class.new =
+    function (initial)
 
       -- Create new object
       local obj = {}

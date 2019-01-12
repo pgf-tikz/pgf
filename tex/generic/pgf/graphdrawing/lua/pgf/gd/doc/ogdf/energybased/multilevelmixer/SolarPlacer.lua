@@ -18,10 +18,10 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "SolarPlacer"
-summary       "?"                    
+summary       "?"
 --------------------------------------------------------------------------------
 
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

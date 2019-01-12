@@ -9,12 +9,12 @@
 
 
 --- A class for creating and handling "coarse" versions of a graph. Such versions contain
--- less nodes and edges than the original graph while retaining the overall 
--- structure. This class offers functions to create coarse graphs and to expand them 
--- to regain their original size. 
+-- less nodes and edges than the original graph while retaining the overall
+-- structure. This class offers functions to create coarse graphs and to expand them
+-- to regain their original size.
 
 -- Imports
-local Digraph = require "pgf.gd.model.Digraph" 
+local Digraph = require "pgf.gd.model.Digraph"
 local Vertex = require "pgf.gd.model.Vertex"
 local Arc = require "pgf.gd.model.Arc"
 
@@ -25,26 +25,26 @@ CoarseGraph.__index = CoarseGraph
 
 --- Creates a new coarse graph derived from an existing graph.
 --
--- Generates a coarse graph for the input |Digraph|. 
+-- Generates a coarse graph for the input |Digraph|.
 --
--- Coarsening describes the process of reducing the amount of vertices in a graph 
--- by merging vertices into pseudo-vertices. There are different strategies, 
--- to decide which vertices should be merged, like merging vertices that belong to edges in a 
--- maximal independent edge set or by creating pseudo-verties based on a maximal 
--- independent node set. Those strategies are called 
--- schemes. 
+-- Coarsening describes the process of reducing the amount of vertices in a graph
+-- by merging vertices into pseudo-vertices. There are different strategies,
+-- to decide which vertices should be merged, like merging vertices that belong to edges in a
+-- maximal independent edge set or by creating pseudo-vertices based on a maximal
+-- independent node set. Those strategies are called
+-- schemes.
 --
 -- Coarsening is not performed automatically. The function |CoarseGraph:coarsen|
 -- can be used to further coarsen the graph, or the function |CoarseGraph:uncoarsen|
 -- can be used to restore the previous state.
 --
 -- Note, however, that the input \meta{graph} is always modified in-place, so
--- if the original version of \meta{graph} is needed in parallel to its 
--- coarse representations, a deep copy of \meta{grpah} needs to be passed over
+-- if the original version of \meta{graph} is needed in parallel to its
+-- coarse representations, a deep copy of \meta{graph} needs to be passed over
 -- to |CoarseGraph.new|.
 --
 -- @param graph  An existing graph that needs to be coarsened.
--- @param fw_attributes The user defined attributes, possibly attached to vertices. 
+-- @param fw_attributes The user defined attributes, possibly attached to vertices.
 
 function CoarseGraph.new(ugraph, fw_attributes)
   local coarse_graph = {
@@ -62,10 +62,10 @@ end
 -- locals for performance
 local find_maximal_matching, arc_function
 
--- This function performs one coarsening step: It finds all independent vertex 
--- set according to |scheme|, coarsens them and adds the newly created 
--- vertices to the collapsed_vertices table, associating them with the current 
--- level.  
+-- This function performs one coarsening step: It finds all independent vertex
+-- set according to |scheme|, coarsens them and adds the newly created
+-- vertices to the collapsed_vertices table, associating them with the current
+-- level.
 function CoarseGraph:coarsen()
   -- update the level
   self.level = self.level + 1
@@ -87,32 +87,32 @@ function CoarseGraph:coarsen()
       local collapse_vertices = {a_h, a_t}
       collapse_vertex = Vertex.new {weight = 0, mass = 0}
 
-      ugraph:collapse(collapse_vertices, 
-                            collapse_vertex,  
-                            function (a,b) 
-                              a.weight = a.weight + b.weight
-                              a.mass = a.mass + b.mass
-                              if fw_attributes then
-                                for key,value in pairs(fw_attributes[b]) do
-                                  if fw_attributes.functions[key] then
-                                    fw_attributes.functions[key](a,b)
-                                  elseif type(value) == "number" then
-                                    local tmp = fw_attributes[a]
-                                    if not tmp[key] then
-                                      tmp[key] = 0
-                                    end
-                                    tmp[key] = tmp[key] + value
-                                  end
-                                end
-                              end 
-                            end,
-                            function (a,b) 
-                              if a.weight == nil then 
-                                a.weight = b.weight
-                              else 
-                                a.weight = a.weight + b.weight 
+      ugraph:collapse(collapse_vertices,
+                      collapse_vertex,
+                      function (a,b)
+                        a.weight = a.weight + b.weight
+                        a.mass = a.mass + b.mass
+                        if fw_attributes then
+                          for key,value in pairs(fw_attributes[b]) do
+                            if fw_attributes.functions[key] then
+                              fw_attributes.functions[key](a,b)
+                            elseif type(value) == "number" then
+                              local tmp = fw_attributes[a]
+                              if not tmp[key] then
+                                tmp[key] = 0
                               end
-                            end)
+                              tmp[key] = tmp[key] + value
+                            end
+                          end
+                        end
+                      end,
+                      function (a,b)
+                        if a.weight == nil then
+                          a.weight = b.weight
+                        else
+                          a.weight = a.weight + b.weight
+                        end
+                      end)
 
       local c_v_p = collapse_vertex.pos
       local a_h_p = a_h.pos
@@ -133,7 +133,7 @@ function CoarseGraph:coarsen()
   self.ratio = #vertices / old_graph_size
 end
 
--- This function expands all vertices assoicated with the current level, then 
+-- This function expands all vertices associated with the current level, then
 -- updates the level.
 function CoarseGraph:uncoarsen()
   local a = self.collapsed_vertices[self.level]
@@ -145,7 +145,7 @@ function CoarseGraph:uncoarsen()
     randomseed(42)
     local to_expand = a[j]
 
-    ugraph:expand(to_expand, function(a,b) 
+    ugraph:expand(to_expand, function(a,b)
       b.pos.x = a.pos.x + random()*10
       b.pos.y = a.pos.y + random()*10
       end)
@@ -176,13 +176,13 @@ function CoarseGraph:getGraph()
   return self.ugraph
 end
 
--- Private helper function to determine whether the second vertex in the 
+-- Private helper function to determine whether the second vertex in the
 -- current arc has been matched already
 --
 -- @param arc The arc in question
 -- @param vertex One of the arc's endpoints, either head or tail
 -- @param matched_vertices The table holding all matched vertices
--- 
+--
 -- @return The arc if the other endpoint has not been matched yet
 function arc_function (arc, vertex, matched_vertices)
   local x
@@ -191,22 +191,22 @@ function arc_function (arc, vertex, matched_vertices)
   else
     x = arc.tail
   end
-  if not matched_vertices[x] then 
-    return arc 
+  if not matched_vertices[x] then
+    return arc
   end
 end
 
--- The function finding a maximum matching of independent arcs. 
+-- The function finding a maximum matching of independent arcs.
 --
 -- @param ugraph The current graph
 --
--- @return A table of arcs wich are in the matching
+-- @return A table of arcs which are in the matching
 function find_matching(ugraph)
   local matching = {}
   local matched_vertices = {}
   local unmatched_vertices = {}
   local vertices = ugraph.vertices
-  
+
   -- iterate over nodes in random order
   for _,j in ipairs(lib.random_permutation(#vertices)) do
     local vertex = vertices[j]
@@ -240,7 +240,7 @@ function find_matching(ugraph)
           return x.weight < y.weight
         end)
 
-        -- match the node against the neighbour with minimum weight
+        -- match the node against the neighbor with minimum weight
         matched_vertices[arcs[1].head] = true
         matched_vertices[arcs[1].tail] = true
         table.insert(matching, arcs[1])

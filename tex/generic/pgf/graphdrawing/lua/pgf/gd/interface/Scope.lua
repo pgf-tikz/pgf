@@ -25,8 +25,8 @@
 -- inform an algorithm about the input.
 --
 -- For each graph drawing scope, a new |Scope| object is
--- created. Graph drawing scopes are kepts track of using a stack, but
--- only the top of this stack is available to the interface classes. 
+-- created. Graph drawing scopes are kept track of using a stack, but
+-- only the top of this stack is available to the interface classes.
 --
 -- @field syntactic_digraph The syntactic digraph is a digraph that
 -- faithfully encodes the way the input graph is represented
@@ -87,6 +87,6 @@ function Scope.new(initial)
 end
 
 
--- Done 
+-- Done
 
 return Scope

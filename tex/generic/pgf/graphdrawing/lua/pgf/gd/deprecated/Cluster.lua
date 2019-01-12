@@ -12,7 +12,7 @@
 
 
 
---- The Cluser class defines a model of a cluster inside a graph.
+--- The Cluster class defines a model of a cluster inside a graph.
 --
 --
 

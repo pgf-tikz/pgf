@@ -20,7 +20,7 @@ local example       = require 'pgf.gd.doc'.example
 key           "FMMMLayout"
 summary       "The fast multipole multilevel layout algorithm."
 
-documentation 
+documentation
 [[
 |FMMMLayout| implements a force-directed graph drawing
 method suited also for very large graphs. It is based on a
@@ -29,12 +29,12 @@ approximating the repulsive forces in the system by rapidly
 evaluating potential fields.
 
 The implementation is based on the following publication:
-
+%
 \begin{itemize}
-\item Stefan Hachul, Michael J\"unger: Drawing Large Graphs with
-  a Potential-Field-Based Multilevel Algorithm. \emph{12th
-    International Symposium on Graph Drawing 1998 (GD '04)}, New York, LNCS 3383,
-  pp. 285--295, 2004.
+  \item Stefan Hachul, Michael J\"unger: Drawing Large Graphs with
+    a Potential-Field-Based Multilevel Algorithm. \emph{12th
+      International Symposium on Graph Drawing 1998 (GD '04)},
+      New York, LNCS 3383, pp. 285--295, 2004.
 \end{itemize}
 ]]
 
@@ -44,7 +44,7 @@ example
 ]]
 
 
-example     
+example
 [[
 \tikz [nodes={text height=.7em, text depth=.2em,
               draw=black!20, thick, fill=white, font=\footnotesize},
@@ -65,7 +65,7 @@ example
     { "USG 2.0" -> "USG 3.0", "PWB 2.0", "Unix/TS 1.0" } -> "Unix/TS 3.0";
     { "Unix/TS++", "CB Unix 3", "Unix/TS 3.0" } ->
       "TS 4.0" -> "System V.0" -> "System V.2" -> "System V.3";
-  };  
+  };
 ]]
 --------------------------------------------------------------------------------
 
@@ -74,7 +74,7 @@ example
 --------------------------------------------------------------------------------
 key           "FMMMLayout.randSeed"
 summary       "Sets the random seed for the |FMMMLayout|."
-documentation 
+documentation
 [[
 By changing this number, you can vary the appearance of the generated
 graph drawing. This key is an alias for |random seed|, which in turn
@@ -117,7 +117,7 @@ example
 [[
 \tikz {
   \graph [FMMMLayout, node sep=5mm] { subgraph C_n[n=6]; };
-  
+
   \draw [red, ultra thick, |-|] (1.south) -- ++(down:5mm);
 }
 ]]

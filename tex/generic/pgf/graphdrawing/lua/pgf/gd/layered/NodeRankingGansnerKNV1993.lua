@@ -142,7 +142,7 @@ function NodeRankingGansnerKNV1993:expandClusters()
     end
     self.graph:addEdge(edge)
   end
-  
+
   for _,node in ipairs(self.cluster_nodes) do
     self.ranking:setRank(node, nil)
     self.graph:deleteNode(node)

@@ -21,10 +21,10 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- step. This makes sense if all nodes have the same size and
 -- shape. In practical scenarios, however, this assumption often does
 -- not hold. In these cases, advanced techniques may have to be
--- applied in order to avoid overlaps of nodes and edges. 
+-- applied in order to avoid overlaps of nodes and edges.
 --
--- For more details, please see Section 4.1.5 of Pohlmann's Diploma
--- thesis. 
+-- For more details, please see Section~4.1.5 of Pohlmann's Diploma
+-- thesis.
 --
 -- @end
 
@@ -38,13 +38,12 @@ declare {
   phase = "layer edge routing",
   phase_default = true,
 
-  summary = [["  
-       This edge routing algorithm uses polygonal lines to connect nodes. 
+  summary = [["
+    This edge routing algorithm uses polygonal lines to connect nodes.
   "]],
-  documentation = [["            
-       For more details, please see Section 4.1.5 of Pohlmann's Diploma
-       thesis. 
-      
-       This is the default algorithm for edge routing.
-   "]]
- }
+  documentation = [["
+    For more details, please see Section~4.1.5 of Pohlmann's Diploma thesis.
+
+    This is the default algorithm for edge routing.
+  "]]
+}

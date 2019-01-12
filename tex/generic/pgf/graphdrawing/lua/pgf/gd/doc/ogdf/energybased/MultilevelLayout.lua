@@ -18,7 +18,7 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "MultilevelLayout"
-summary       "A wrapper for the multilevel layout computation using the modular multi-level mixer."                    
+summary       "A wrapper for the multilevel layout computation using the modular multi-level mixer."
 
 example [[
 \tikz \graph [MultilevelLayout] {
@@ -30,4 +30,4 @@ example [[
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

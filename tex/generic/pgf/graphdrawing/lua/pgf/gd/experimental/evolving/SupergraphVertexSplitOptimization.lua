@@ -59,19 +59,19 @@ declare {
   algorithm = SupergraphVertexSplitOptimization,
   phase     = "supergraph optimization",
   phase_default = true,
-  summary = [["  
-       Use this key if you want to disable animations. 
-       Instead of producing animations the evolving graph animation phasephase animates all vertices including movements and 
-       fade in or fade out animations.
+  summary = [["
+    Use this key if you want to disable animations.
+    Instead of producing animations the evolving graph animation phasephase animates all vertices including movements and
+    fade in or fade out animations.
   "]],
-  documentation = [["      
-       See ToDo
+  documentation = [["
+    See ToDo
   "]]
 }
 
 
 
--- Helpfunctions
+-- Help functions
 
 
 -- Implementation
@@ -84,12 +84,12 @@ function SupergraphVertexSplitOptimization:run()
   local split_on_no_common_child    = self.digraph.options["split on disjoint children"]
   local split_on_no_common_parent   = self.digraph.options["split on disjoint parents"]
   local split_all                   = self.digraph.options["split all supervertices"]
-  
+
   for _, supernode in ipairs(supergraph.vertices) do
     -- follow trace of the supernode
     local snapshots      = supergraph:getSnapshots(supernode)
     local splitsnapshots = {}
-    
+
     for i=2, #snapshots do
       local s = snapshots[i]
       local s_prev = snapshots[i - 1]
@@ -101,10 +101,10 @@ function SupergraphVertexSplitOptimization:run()
         local is_child1 = {}
         local is_parent1   = {}
         local is_neighbor1  = {}
-        
+
         local incoming1 = s_prev:incoming(v1)
         local outgoing1 = s_prev:outgoing(v1)
-        
+
         for _,e in ipairs(incoming1) do
           local p = supergraph:getSupervertex(e.tail)
           if p then
@@ -112,7 +112,7 @@ function SupergraphVertexSplitOptimization:run()
             is_neighbor1[p] = true
           end
         end
-    
+
         for _,e in ipairs(outgoing1) do
           local p = supergraph:getSupervertex(e.head)
           if p then
@@ -120,10 +120,10 @@ function SupergraphVertexSplitOptimization:run()
             is_neighbor1[p] = true
           end
         end
-        
+
         local incoming2 = s:incoming(v2)
         local outgoing2 = s:outgoing(v2)
-    
+
         no_common_parent   = true
         no_common_child    = true
         no_common_neighbor = true
@@ -141,7 +141,7 @@ function SupergraphVertexSplitOptimization:run()
             end
           end
         end
-    
+
         for _,e in ipairs(outgoing2) do
           local p = supergraph:getSupervertex(e.head)
           if p then
@@ -156,9 +156,9 @@ function SupergraphVertexSplitOptimization:run()
             end
           end
         end
-    
-        
-        
+
+
+
         if no_common_neighbor and split_on_no_common_neighbor then
           can_split = true
           --texio.write("[N@".. s.timestamp .."]")

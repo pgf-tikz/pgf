@@ -28,20 +28,20 @@ declare {
   type = "canvas coordinate",
 
   summary = [["
-      This option allows you to slightly ``nudge'' (move) nodes after
-      they have been positioned by the given offset. The idea is that
-      this nudging is done after the position of the node has been
-      computed, so nudging  has no influence on the actual graph
-      drawing algorithms. This, in turn, means that you can use
-      nudging to ``correct'' or ``optimize''  the positioning of nodes
-      after the algorithm has computed something. 
+    This option allows you to slightly ``nudge'' (move) nodes after
+    they have been positioned by the given offset. The idea is that
+    this nudging is done after the position of the node has been
+    computed, so nudging  has no influence on the actual graph
+    drawing algorithms. This, in turn, means that you can use
+    nudging to ``correct'' or ``optimize'' the positioning of nodes
+    after the algorithm has computed something.
   "]],
 
   examples = [["
-      \tikz \graph [edges=rounded corners, nodes=draw,
-                    layered layout, sibling distance=0] {
-        a -- {b, c, d[nudge=(up:2mm)]} -- e -- a;
-       };
+    \tikz \graph [edges=rounded corners, nodes=draw,
+                  layered layout, sibling distance=0] {
+      a -- {b, c, d[nudge=(up:2mm)]} -- e -- a;
+     };
   "]]
 }
 
@@ -58,10 +58,10 @@ declare {
 
   summary = "A shorthand for nudging a node upwards.",
   examples = [["
-      \tikz \graph [edges=rounded corners, nodes=draw,
-                    layered layout, sibling distance=0] {
-        a -- {b, c, d[nudge up=2mm]} -- e -- a;
-      };
+    \tikz \graph [edges=rounded corners, nodes=draw,
+                  layered layout, sibling distance=0] {
+      a -- {b, c, d[nudge up=2mm]} -- e -- a;
+    };
   "]]
 }
 
@@ -91,10 +91,10 @@ declare {
 
   summary = "Like |nudge up|, but left.",
   examples = [["
-      \tikz \graph [edges=rounded corners, nodes=draw,
-                    layered layout, sibling distance=0] {
-        a -- {b, c, d[nudge left=2mm]} -- e -- a;
-      };
+    \tikz \graph [edges=rounded corners, nodes=draw,
+                  layered layout, sibling distance=0] {
+      a -- {b, c, d[nudge left=2mm]} -- e -- a;
+    };
   "]]
 }
 
@@ -118,18 +118,18 @@ declare {
   type = "canvas coordinate",
 
   summary = [["
-      Using this option you can provide a position for a node to wish
-      it will be forced after the graph algorithms have run. So, the node
-      is positioned normally and the graph drawing algorithm does not know
-      about the position specified using |regardless at|. However,
-      afterwards, the node is placed there, regardless of what the
-      algorithm has computed (all other nodes are unaffected).
+    Using this option you can provide a position for a node to wish
+    it will be forced after the graph algorithms have run. So, the node
+    is positioned normally and the graph drawing algorithm does not know
+    about the position specified using |regardless at|. However,
+    afterwards, the node is placed there, regardless of what the
+    algorithm has computed (all other nodes are unaffected).
   "]],
   examples = [["
-      \tikz \graph [edges=rounded corners, nodes=draw,
-                    layered layout, sibling distance=0] {
-        a -- {b,c,d[regardless at={(1,0)}]} -- e -- a;
-      };
+    \tikz \graph [edges=rounded corners, nodes=draw,
+                  layered layout, sibling distance=0] {
+      a -- {b,c,d[regardless at={(1,0)}]} -- e -- a;
+    };
   "]]
 }
 
@@ -148,17 +148,17 @@ declare {
   },
 
   summary = [["
-      This option combines |desired at| and |regardless at|. Thus, the
-      algorithm is ``told'' about the desired position. If it fails to place
-      the node at the desired position, it will be put there
-      regardless. The name of the key is intended to remind one of a node
-      being ``nailed'' to the canvas.
+    This option combines |desired at| and |regardless at|. Thus, the
+    algorithm is ``told'' about the desired position. If it fails to place
+    the node at the desired position, it will be put there
+    regardless. The name of the key is intended to remind one of a node
+    being ``nailed'' to the canvas.
   "]],
   examples = [["
-      \tikz \graph [edges=rounded corners, nodes=draw,
-                    layered layout, sibling distance=0] {
-        a -- {b,c,d[nail at={(1,0)}]} -- e[nail at={(1.5,-1)}] -- a;
-      };
+    \tikz \graph [edges=rounded corners, nodes=draw,
+                  layered layout, sibling distance=0] {
+      a -- {b,c,d[nail at={(1,0)}]} -- e[nail at={(1.5,-1)}] -- a;
+    };
   "]]
 }
 

@@ -17,7 +17,7 @@
 -- algorithm implemented in C and wish to invoke it from Lua, you need
 -- a wrapper that manages the translation between Lua and C. This
 -- program is intended to make it (reasonably) easy to produce such a
--- wraper.
+-- wrapper.
 
 
 
@@ -29,7 +29,7 @@ Usage: make_gd_wrap library1 library2 ... libraryn template library_name target_
 
 This program will read all of the graph drawing library files using
 Lua's require. Then, it will iterate over all declared algorithm keys
-(declared using declare { algorithm_written_in_c = ... }) and will 
+(declared using declare { algorithm_written_in_c = ... }) and will
 produce the code for library for the required target C files based on
 the template.
 "]])
@@ -82,12 +82,12 @@ local factories = {}
 local factories_reg = {}
 
 for _,k in ipairs(keys) do
-  
+
   if k.algorithm_written_in_c and k.code then
 
     local library, fun_name = k.algorithm_written_in_c:match("(.*)%.(.*)")
-    
-    if target == library then    
+
+    if target == library then
       -- First, gather the includes:
       if type(k.includes) == "string" then
         if not includes[k.includes] then
@@ -102,14 +102,14 @@ for _,k in ipairs(keys) do
           end
         end
       end
-      
+
       -- Second, create a code block:
       functions[#functions+1] = functions_dec:gsub("%$([%w_]-)%b{}",
         {
           function_name = fun_name,
           function_body = k.code
         })
-      
+
       -- Third, create functions_registry entry
       functions_registry[#functions_registry + 1] = functions_reg_dec:gsub("%$([%w_]-)%b{}",
         {
@@ -119,9 +119,9 @@ for _,k in ipairs(keys) do
     end
   end
 
-  
+
   if k.module_class then
-    
+
     -- First, gather the includes:
     if type(k.includes) == "string" then
       if not includes[k.includes] then
@@ -136,7 +136,7 @@ for _,k in ipairs(keys) do
         end
       end
     end
-    
+
     -- Second, create a code block:
     factories[#factories+1] = factories_dec:gsub(
       "%$([%w_]-)%b{}",
@@ -146,7 +146,7 @@ for _,k in ipairs(keys) do
         factory_base  = k.module_base,
         factory_name  = k.module_class .. '_factory'
       })
-    
+
     -- Third, create factories_registry entry
     factories_reg[#factories_reg + 1] = factories_reg_dec:gsub(
       "%$([%w_]-)%b{}",
@@ -180,4 +180,4 @@ file:write ((template:gsub(
   })))
 file:close()
 
-       
+

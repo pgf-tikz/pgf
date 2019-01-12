@@ -21,7 +21,7 @@ key          "GreedyCycleRemoval"
 summary      "Greedy algorithm for computing a maximal acyclic subgraph."
 documentation
 [[
-The algorithm applies a greedy heuristic to compute a maximal
-acyclic subgraph and works in linear-time. 
+  The algorithm applies a greedy heuristic to compute a maximal
+  acyclic subgraph and works in linear-time.
 ]]
 --------------------------------------------------------------------

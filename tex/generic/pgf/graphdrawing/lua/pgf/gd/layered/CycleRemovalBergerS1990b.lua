@@ -39,9 +39,9 @@ function CycleRemovalBergerS1990b:run()
       end)
 
     if #out_edges >= #in_edges then
-      -- we have more outgoing than incoming edges, reverse all incoming 
+      -- we have more outgoing than incoming edges, reverse all incoming
       -- edges and mark all incident edges as removed
-      
+
       for _,edge in ipairs(out_edges) do
         removed[edge] = true
       end

@@ -39,12 +39,12 @@
 -- path lives in a special ``local'' coordinate system, that is, all
 -- coordinates of this path should actually be considered relative to
 -- the vertex' |pos| field. Note that the path is typically, but not
--- alwyas, ``centered'' on the origin. A graph drawing algorithm
+-- always, ``centered'' on the origin. A graph drawing algorithm
 -- should arrange the vertices in such a way that the origins in the
 -- path coordinate systems are aligned.
 --
 -- To illustrate the difference between the origin and the vertex
--- center, conside a tree drawing algorithm in which a node |root| has
+-- center, consider a tree drawing algorithm in which a node |root| has
 -- three children |a|, |b|, and |g|. Now, if we were to simply center
 -- these three letters vertically and arrange them in a line, the
 -- letters would appear to ``jump up and down'' since the height of
@@ -100,7 +100,7 @@
 -- |options|, which must be a table of the same syntax as the
 -- |options| field. For the |entries| array, each element must be
 -- table with two field: |t| must be set to a number, representing a
--- time in secondds, and |value|, which must be set to a value that
+-- time in seconds, and |value|, which must be set to a value that
 -- the |attribute| should have at the given time. The entries and the
 -- options will then be interpreted as described in \pgfname's basic
 -- layer animation system, except that where a |\pgfpoint| is expected

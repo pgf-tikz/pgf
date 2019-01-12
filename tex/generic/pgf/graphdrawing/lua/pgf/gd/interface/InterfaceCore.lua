@@ -18,7 +18,7 @@
 -- |InterfaceToDisplay| use, in particular, the data structures
 -- provided by this class.
 --
--- @field binding This field stores the ``binding.'' The graph drawing
+-- @field binding This field stores the ``binding''. The graph drawing
 -- system is ``bound'' to the display layer through such a binding (a
 -- subclass of |Binding|). Such a binding can be thought of as a
 -- ``driver'' in operating systems terminology: It is a small set of
@@ -28,7 +28,7 @@
 -- completely new Lua instance.
 --
 -- @field scopes This is a stack of graph drawing scopes. All
--- interface methods refer to the top of this stack. 
+-- interface methods refer to the top of this stack.
 --
 -- @field collection_kinds This table stores which collection kinds
 -- have been defined together with their properties.
@@ -59,7 +59,7 @@ local InterfaceCore = {
 
   -- The phase kinds
   phase_kinds         = {},
-  
+
   -- Internals for handling the options stack
   option_stack        = {},
   option_cache_height = nil,
@@ -186,6 +186,6 @@ function InterfaceCore.convert(s,t)
 end
 
 
--- Done 
+-- Done
 
 return InterfaceCore

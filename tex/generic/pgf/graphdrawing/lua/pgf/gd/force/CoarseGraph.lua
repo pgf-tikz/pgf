@@ -12,7 +12,7 @@
 
 
 --- A class for handling "coarse" versions of a graph. Such versions contain
--- less nodes and edges than the original graph while retaining the overall 
+-- less nodes and edges than the original graph while retaining the overall
 -- structure.
 
 local Graph = require "pgf.gd.deprecated.Graph"   -- we subclass from here
@@ -43,12 +43,12 @@ CoarseGraph.COARSEN_HYBRID = 2
 
 --- Creates a new coarse graph derived from an existing graph.
 --
--- Generates a coarse graph for the input |Graph|. 
+-- Generates a coarse graph for the input |Graph|.
 --
--- Coarsening describes the process of reducing the amount of nodes in a graph 
--- by merging nodes into supernodes. There are different strategies, called 
--- schemes, that can be applied, like merging nodes that belong to edges in a 
--- maximal independent edge set or by creating supernodes based on a maximal 
+-- Coarsening describes the process of reducing the amount of nodes in a graph
+-- by merging nodes into supernodes. There are different strategies, called
+-- schemes, that can be applied, like merging nodes that belong to edges in a
+-- maximal independent edge set or by creating supernodes based on a maximal
 -- independent node set.
 --
 -- Coarsening is not performed automatically. The functions |CoarseGraph:coarsen|
@@ -57,28 +57,28 @@ CoarseGraph.COARSEN_HYBRID = 2
 -- the coarser version of the graph).
 --
 -- Note, however, that the input \meta{graph} is always modified in-place, so
--- if the original version of \meta{graph} is needed in parallel to its 
--- coarse representations, a deep copy of \meta{grpah} needs to be passed over
+-- if the original version of \meta{graph} is needed in parallel to its
+-- coarse representations, a deep copy of \meta{graph} needs to be passed over
 -- to |CoarseGraph.new|.
 --
 -- @param graph  An existing graph that needs to be coarsened.
 -- @param scheme Coarsening scheme to use. Possible values are:\par
---               |CoarseGraph.COARSEN_INDEPENDENT_EDGES|: 
+--               |CoarseGraph.COARSEN_INDEPENDENT_EDGES|:
 --                 Coarsen the input graph by computing a maximal independent edge set
 --                 and collapsing edges from this set. The resulting coarse graph has
 --                 at least 50% of the nodes of the input graph. This coarsening scheme
---                 gives slightly better results than 
+--                 gives slightly better results than
 --                 |CoarseGraph.COARSEN_INDEPENDENT_NODES| because it is less aggressive.
 --                 However, this comes at higher computational cost.\par
 --               |CoarseGraph.COARSEN_INDEPENDENT_NODES|:
 --                 Coarsen the input graph by computing a maximal independent node set,
 --                 making nodes from this set supernodes in the coarse graph, merging
---                 adjacent nodes into the supernodes and connecting the supernodes 
---                 if their grpah distance is no greater than three. This scheme gives
+--                 adjacent nodes into the supernodes and connecting the supernodes
+--                 if their graph distance is no greater than three. This scheme gives
 --                 slightly worse results than |CoarseGraph.COARSEN_INDEPENDENT_EDGES|
 --                 but is computationally more efficient.\par
 --               |CoarseGraph.COARSEN_HYBRID|: Combines the other schemes by starting
---                 with |CoarseGraph.COARSEN_INDEPENDENT_EDGES| and switching to 
+--                 with |CoarseGraph.COARSEN_INDEPENDENT_EDGES| and switching to
 --                 |CoarseGraph.COARSEN_INDEPENDENT_NODES| as soon as the first scheme
 --                 does not reduce the amount of nodes by a factor of 25%.
 --
@@ -153,33 +153,33 @@ function CoarseGraph:coarsen()
       -- add the supernode to the graph
       self.graph:addNode(supernode)
 
-      -- collact all neighbours of the nodes to merge, create a node -> edge mapping
+      -- collect all neighbors of the nodes to merge, create a node -> edge mapping
       local u_neighbours = lib.map(u.edges, function(edge) return edge, edge:getNeighbour(u) end)
       local v_neighbours = lib.map(v.edges, function(edge) return edge, edge:getNeighbour(v) end)
 
-      -- remove the two nodes themselves from the neighbour lists
+      -- remove the two nodes themselves from the neighbor lists
       u_neighbours = lib.map(u_neighbours, function (edge,node) if node ~= v then return edge,node end end)
       v_neighbours = lib.map(v_neighbours, function (edge,node) if node ~= u then return edge,node end end)
 
-      -- compute a list of neighbours u and v have in common
+      -- compute a list of neighbors u and v have in common
       local common_neighbours = lib.map(u_neighbours,
         function (edge,node)
         if v_neighbours[node] ~= nil then return edge,node end
       end)
 
-      -- create a node -> edges mapping for common neighbours
+      -- create a node -> edges mapping for common neighbors
       common_neighbours = lib.map(common_neighbours, function (edge, node)
         return { edge, v_neighbours[node] }, node
       end)
 
-      -- drop common edges from the neighbour mappings
+      -- drop common edges from the neighbor mappings
       u_neighbours = lib.map(u_neighbours, function (val,node) if not common_neighbours[node] then return val,node end end)
       v_neighbours = lib.map(v_neighbours, function (val,node) if not common_neighbours[node] then return val,node end end)
 
-      -- merge neighbour lists
+      -- merge neighbor lists
       local disjoint_neighbours = custom_merge(u_neighbours, v_neighbours)
 
-      -- create edges between the supernode and the neighbours of the merged nodes
+      -- create edges between the supernode and the neighbors of the merged nodes
       for neighbour, edge in pairs_by_sorted_keys(disjoint_neighbours, function (n,m) return n.index < m.index end) do
 
         -- create a superedge to replace the existing one
@@ -190,11 +190,11 @@ function CoarseGraph:coarsen()
           level = self.level,
         }
 
-        -- add the supernode and the neighbour to the edge
+        -- add the supernode and the neighbor to the edge
         if u_neighbours[neighbour] then
           superedge:addNode(neighbour)
           superedge:addNode(supernode)
-          
+
         else
           superedge:addNode(supernode)
           superedge:addNode(neighbour)
@@ -206,9 +206,9 @@ function CoarseGraph:coarsen()
         self.graph:deleteEdge(edge)
       end
 
-      -- do the same for all neighbours that the merged nodes have
+      -- do the same for all neighbors that the merged nodes have
       -- in common, except that the weights of the new edges are the
-      -- sums of the of the weights of the edges to the common neighbours
+      -- sums of the of the weights of the edges to the common neighbors
       for neighbour, edges in pairs_by_sorted_keys(common_neighbours, function (n,m) return n.index < m.index end) do
         local weights = 0
         for _,e in ipairs(edges) do
@@ -222,7 +222,7 @@ function CoarseGraph:coarsen()
           level = self.level,
         }
 
-        -- add the supernode and the neighbour to the edge
+        -- add the supernode and the neighbor to the edge
         superedge:addNode(supernode)
         superedge:addNode(neighbour)
 
@@ -253,7 +253,7 @@ function CoarseGraph:revertSuperedge(superedge)
   -- TODO we can probably skip adding edges that have one or more
   -- subedges with the same level. But that needs more testing.
 
-  -- TODO we might have to pass the corresponding supernode to 
+  -- TODO we might have to pass the corresponding supernode to
   -- this method so that we can move subnodes to the same
   -- position, right? Interpolating seems to work fine without
   -- though...
@@ -345,14 +345,14 @@ function CoarseGraph:interpolate()
       self.graph:deleteNode(supernode)
     end
   end
-  
+
   -- Make sure that the nodes and edges are in the correct order:
   table.sort (self.graph.nodes, function (a, b) return a.index < b.index end)
   table.sort (self.graph.edges, function (a, b) return a.index < b.index end)
   for _, n in pairs(self.graph.nodes) do
      table.sort (n.edges,  function (a, b) return a.index < b.index end)
   end
-  
+
   -- update the level
   self.level = self.level - 1
 end
@@ -396,7 +396,7 @@ function CoarseGraph:findMaximalMatching()
       -- mark the node as matched
       matched_nodes[node] = true
 
-      -- filter out edges adjacent to neighbours already matched
+      -- filter out edges adjacent to neighbors already matched
       local edges = lib.imap(node.edges,
         function (edge)
           if not matched_nodes[edge:getNeighbour(node)] then return edge end
@@ -406,12 +406,12 @@ function CoarseGraph:findMaximalMatching()
       -- different from the algorithm proposed by Hu which collapses
       -- edges based on a heavy-edge matching...
       if #edges > 0 then
-        -- sort edges by the weights of the node's neighbours
+        -- sort edges by the weights of the node's neighbors
         table.sort(edges, function (a, b)
           return a:getNeighbour(node).weight < b:getNeighbour(node).weight
         end)
 
-        -- match the node against the neighbour with minimum weight
+        -- match the node against the neighbor with minimum weight
         matched_nodes[edges[1]:getNeighbour(node)] = true
         table.insert(matching, edges[1])
       end

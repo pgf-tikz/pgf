@@ -29,7 +29,7 @@ declare {
       function (self)
         local g = self.digraph
         local alpha = (2 * math.pi) / #g.vertices
-        
+
         for i,vertex in ipairs(g.vertices) do
           local radius = vertex.options['radius'] or g.options['radius']
           vertex.pos.x = radius * math.cos(i * alpha)
@@ -39,19 +39,19 @@ declare {
   },
 
   summary = [["
-      This algorithm is the ``Hello World'' of graph drawing.
+    This algorithm is the ``Hello World'' of graph drawing.
   "]],
-  documentation = [=["  
-      The algorithm 
-      arranges nodes in a circle (without paying heed to the sizes of the
-      nodes or to the edges). In order to ``really'' layout nodes in a
-      circle, use |simple necklace layout|; the present layout is only intended
-      to demonstrate how much (or little) is needed to implement a graph
-      drawing algorithm.
+  documentation = [=["
+    The algorithm arranges nodes in a circle (without paying heed to the
+    sizes of the nodes or to the edges). In order to ``really'' layout
+    nodes in a circle, use |simple necklace layout|; the present layout
+    is only intended to demonstrate how much (or little) is needed to
+    implement a graph drawing algorithm.
+    %
 \begin{codeexample}[code only, tikz syntax=false]
 -- File pgf.gd.examples.SimpleDemo
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
-      
+
 declare {
   key = "simple demo layout",
   algorithm = {
@@ -59,7 +59,7 @@ declare {
       function (self)
         local g = self.digraph
         local alpha = (2 * math.pi) / #g.vertices
-        
+
         for i,vertex in ipairs(g.vertices) do
           local radius = vertex.options['radius'] or g.options['radius']
           vertex.pos.x = radius * math.cos(i * alpha)
@@ -73,10 +73,10 @@ declare {
   "]]
 }
 \end{codeexample}
-      
-       On the display layer (\tikzname, that is) the algorithm can now
-       immediately be employed; you just need to say
-       |\usegdlibrary{examples.SimpleDemo}| at the beginning
-       somewhere.   
+
+    On the display layer (\tikzname, that is) the algorithm can now
+    immediately be employed; you just need to say
+    |\usegdlibrary{examples.SimpleDemo}| at the beginning
+    somewhere.
   "]=]
 }

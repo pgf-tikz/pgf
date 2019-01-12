@@ -27,11 +27,11 @@ local PriorityQueue = require "pgf.gd.lib.PriorityQueue"
 
 
 ---
--- Performs the Dijkstra algorithm to solve the single-source shortes path problem.
+-- Performs the Dijkstra algorithm to solve the single-source shortest path problem.
 --
--- The algorithm computes the shortest paths from |source| to all nodes 
--- in the graph. It also generates a table with distance level sets, each of 
--- which contain all nodes that have the same corresponding distance to 
+-- The algorithm computes the shortest paths from |source| to all nodes
+-- in the graph. It also generates a table with distance level sets, each of
+-- which contain all nodes that have the same corresponding distance to
 -- |source|. Finally, a mapping of nodes to their parents along the
 -- shortest paths is generated to allow the reconstruction of the paths
 -- that were chosen by the Dijkstra algorithm.
@@ -39,7 +39,7 @@ local PriorityQueue = require "pgf.gd.lib.PriorityQueue"
 -- @param graph  The graph to compute the shortest paths for.
 -- @param source The node to compute the distances to.
 --
--- @return A mapping of nodes to their distance to |source|. 
+-- @return A mapping of nodes to their distance to |source|.
 -- @return An array of distance level sets. The set at index |i| contains
 --         all nodes that have a distance of |i| to |source|.
 -- @return A mapping of nodes to their parents to allow the reconstruction
@@ -95,7 +95,7 @@ end
 
 
 ---
--- Performs the Floyd-Warshall algorithm to solve the all-source shortes path problem. 
+-- Performs the Floyd-Warshall algorithm to solve the all-source shortest path problem.
 --
 -- @param graph  The graph to compute the shortest paths for.
 --

@@ -19,7 +19,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --
 -- All force-based algorithms are based on
 -- a general pattern which we detail in the following. Numerous options
--- can be used to influence the behaviour of this general pattern; more
+-- can be used to influence the behavior of this general pattern; more
 -- specific options that apply only to individual algorithms are
 -- explained along with these algorithms.
 --

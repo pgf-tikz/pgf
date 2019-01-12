@@ -8,10 +8,10 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This file holds functions to create lists of vertex pairs. All 
--- functions return a Graph object containing the vertices of the 
--- original graph and an edge between the vertices forming a pair 
--- under the specified conditions. The lists can be precomouted to 
+--- This file holds functions to create lists of vertex pairs. All
+-- functions return a Graph object containing the vertices of the
+-- original graph and an edge between the vertices forming a pair
+-- under the specified conditions. The lists can be precomputed to
 -- enhance performance.
 
 local PreprocessClass = {}
@@ -21,7 +21,7 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local Digraph = require "pgf.gd.model.Digraph"
 
 
--- Creates a graph object with an arc between all pairwise disjoint vertex 
+-- Creates a graph object with an arc between all pairwise disjoint vertex
 -- pairs and returns the arc table
 --
 -- @param vertices The vertices of the original graph
@@ -36,7 +36,7 @@ function PreprocessClass.allPairs(vertices)
                 if not aP:contains(vertex) then
                     aP:add {vertex}
                 end
-                if not aP:contains(vertex2) then 
+                if not aP:contains(vertex2) then
                     aP:add {vertex2}
                 end
                 if not aP:arc(vertex, vertex2) and not aP:arc(vertex2, vertex) then
@@ -49,13 +49,13 @@ function PreprocessClass.allPairs(vertices)
 end
 
 
--- Creates a graph object with an arc between all pairwise disjoint vertex 
--- pairs that are connected by a shortest path of length n in the original 
+-- Creates a graph object with an arc between all pairwise disjoint vertex
+-- pairs that are connected by a shortest path of length n in the original
 -- graph and returns the arc table
 --
 -- @param vertices The vertices of the original graph
 -- @param arcs The arcs of the original graph
--- @param n The length of the shortest path we are looking for  
+-- @param n The length of the shortest path we are looking for
 --
 -- @return An arc table
 
@@ -72,19 +72,19 @@ function PreprocessClass.overExactlyNPairs(vertices, arcs, n)
 end
 
 
--- Creates a graph object with an arc between all pairwise disjoint vertex 
--- pairs that are connected by a shortest path of length n or shorter in the 
+-- Creates a graph object with an arc between all pairwise disjoint vertex
+-- pairs that are connected by a shortest path of length n or shorter in the
 -- original graph and returns the arc table
--- 
+--
 -- @param vertices The vertices of the original graph
 -- @param arcs The arcs of the original graph
--- @param n The length of the shortest path we are looking for  
+-- @param n The length of the shortest path we are looking for
 --
 -- @return An arc table
 
 function PreprocessClass.overMaxNPairs(vertices, arcs, n)
     assert(n >= 0, 'n (value: ' .. n.. ') needs to be greater or equal 0')
-    local p = Digraph.new{}    
+    local p = Digraph.new{}
     local oneHop = Digraph.new{}
     if n> 0 then
         for _, arc in ipairs(arcs) do
@@ -94,7 +94,7 @@ function PreprocessClass.overMaxNPairs(vertices, arcs, n)
                 p:add {vertex}
                 oneHop:add {vertex}
             end
-            if not p:contains(vertex2) then 
+            if not p:contains(vertex2) then
                 p:add {vertex2}
                 oneHop:add {vertex2}
             end
@@ -113,7 +113,7 @@ function PreprocessClass.overMaxNPairs(vertices, arcs, n)
                     p:connect(paar.head, vertex)
                 end
             end
-        end 
+        end
         n = n-1
     end
     return p.arcs, p

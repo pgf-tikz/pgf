@@ -32,16 +32,17 @@ local lib = require "pgf.gd.lib"
 -- |algorithm| field is set to an algorithm class object whose |run|
 -- method calls the function passed via the
 -- |algorithm_written_in_c| field. It will be called with the
--- following parameters (in that order):   
+-- following parameters (in that order):
+-- %
 -- \begin{enumerate}
--- \item The to-be-laid out digraph. This will not be the whole layout
--- graph (syntactic digraph) if preprocessing like decomposition into
--- connected components is used.
--- \item An array of the digraph's vertices, but with the table part
--- hashing vertex objects to their indices in the array part.
--- \item An array of the syntactic edges of the digraph. Like the
--- array, the table part will hash back the indices of the edge objects.
--- \item The algorithm object.
+--   \item The to-be-laid out digraph. This will not be the whole layout
+--     graph (syntactic digraph) if preprocessing like decomposition into
+--     connected components is used.
+--   \item An array of the digraph's vertices, but with the table part
+--     hashing vertex objects to their indices in the array part.
+--   \item An array of the syntactic edges of the digraph. Like the
+--     array, the table part will hash back the indices of the edge objects.
+--   \item The algorithm object.
 -- \end{enumerate}
 --
 -- @param t The table originally passed to |declare|.
@@ -67,7 +68,7 @@ function InterfaceToC.declare_algorithm_written_in_c (t)
       t.algorithm_written_in_c (self.digraph, back_table, edges, self)
       collectgarbage("restart") -- Remove once Lua Link Bug is fixed
     end
-  }  
+  }
 end
 
 

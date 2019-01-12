@@ -16,7 +16,7 @@
 -- graph drawing engine can be used. In particular, the algorithms of
 -- this package are not really meant to be used to layout graphs
 -- (although they can be used, in principle); rather you are invited
--- to have a look at their implementation and to adapt them to your needs. 
+-- to have a look at their implementation and to adapt them to your needs.
 --
 -- @library
 

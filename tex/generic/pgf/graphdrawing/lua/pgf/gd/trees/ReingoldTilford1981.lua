@@ -27,7 +27,7 @@ local Storage = require "pgf.gd.lib.Storage"
 declare {
   key       = "tree layout",
   algorithm = ReingoldTilford1981,
-  
+
   preconditions = {
     connected = true,
     tree      = true
@@ -69,7 +69,7 @@ declare {
   },
   documentation_in = "pgf.gd.trees.doc"
 }
-    
+
 ---
 declare {
   key = "extended binary tree layout",
@@ -86,16 +86,16 @@ declare {
 
 
 -- Now comes the implementation:
-  
+
 function ReingoldTilford1981:run()
 
   local root = self.spanning_tree.root
 
   local layers = Storage.new()
   local descendants = Storage.new()
-  
+
   self.extended_version = self.digraph.options['missing nodes get space']
-  
+
   self:precomputeDescendants(root, 1, layers, descendants)
   self:computeHorizontalPosition(root, layers, descendants)
   layered.arrange_layers_by_baselines(layers, self.adjusted_bb, self.ugraph)
@@ -113,7 +113,7 @@ function ReingoldTilford1981:precomputeDescendants(node, depth, layers, descenda
       my_descendants[#my_descendants + 1] = d
     end
   end
-  
+
   layers[node] = depth
   descendants[node] = my_descendants
 end
@@ -121,7 +121,7 @@ end
 
 
 function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants)
-  
+
   local children = self.spanning_tree:outgoing(node)
 
   node.pos.x = 0
@@ -133,19 +133,19 @@ function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants
     for i=1,#children do
       self:computeHorizontalPosition(children[i].head, layers, descendants)
     end
-    
+
     -- Now, compute minimum distances and shift them
     local right_borders = {}
 
     for i=1,#children-1 do
-      
+
       local local_right_borders = {}
-      
+
       -- Advance "right border" of the subtree rooted at
       -- the i-th child
       for _,d in ipairs(descendants[children[i].head]) do
         local layer = layers[d]
-        local x     = d.pos.x          
+        local x     = d.pos.x
         if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
           if not right_borders[layer] or right_borders[layer].pos.x < x then
             right_borders[layer] = d
@@ -160,7 +160,7 @@ function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants
       -- Now left for i+1 st child
       for _,d in ipairs(descendants[children[i+1].head]) do
         local layer = layers[d]
-        local x     = d.pos.x          
+        local x     = d.pos.x
         if self.extended_version or not (layer > child_depth and d.kind == "dummy") then
           if not left_borders[layer] or left_borders[layer].pos.x > x then
             left_borders[layer] = d
@@ -179,13 +179,13 @@ function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants
         local n1 = right_borders[layer]
         if n1 then
           shift = math.max(
-            shift, 
+            shift,
             layered.ideal_sibling_distance(self.adjusted_bb, self.ugraph, n1, n2) + n1.pos.x - n2.pos.x
           )
         end
         if local_right_borders[layer] then
           if layer > child_depth and
-            (left_borders[layer].pos.x - local_right_borders[layer].pos.x <= first_dist) then 
+            (left_borders[layer].pos.x - local_right_borders[layer].pos.x <= first_dist) then
             is_significant = true
           end
         end
@@ -200,7 +200,7 @@ function ReingoldTilford1981:computeHorizontalPosition(node, layers, descendants
         d.pos.x = d.pos.x + shift
       end
     end
-    
+
     -- Finally, position root in the middle:
     node.pos.x = (children[1].head.pos.x + children[#children].head.pos.x) / 2
   end

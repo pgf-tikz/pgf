@@ -7,9 +7,9 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- This is a helper class providing different functions that deal with graph 
--- distances. This class can be used by engineers and implementers if they 
--- need to calculate anything regarding graph distances. 
+--- This is a helper class providing different functions that deal with graph
+-- distances. This class can be used by engineers and implementers if they
+-- need to calculate anything regarding graph distances.
 
 local PathLengths = {}
 
@@ -17,12 +17,12 @@ local PathLengths = {}
 local PriorityQueue = require "pgf.gd.lib.PriorityQueue"
 local Preprocessing = require "pgf.gd.force.jedi.base.Preprocessing"
 
--- This algorithm conducts a breadth first search on the graph it is given. 
--- 
+-- This algorithm conducts a breadth first search on the graph it is given.
+--
 -- @param ugraph The graph on which the search should be conducted
 --
--- @return A table holding every vertex $v$ as key and a table as value. The 
---         value table holds all other vertices $u$ as keys and their shortest 
+-- @return A table holding every vertex $v$ as key and a table as value. The
+--         value table holds all other vertices $u$ as keys and their shortest
 --         distance to $v$ as value
 
 function PathLengths:breadthFirstSearch(ugraph)
@@ -57,12 +57,12 @@ end
 -- @param ugraph The graph where the paths should be found
 -- @param source The source vertex
 --
--- @return |distance| A table holding every vertex $v$ as key and a table as 
---                    value. The value table holds all other vertices $u$ as 
+-- @return |distance| A table holding every vertex $v$ as key and a table as
+--                    value. The value table holds all other vertices $u$ as
 --                    keys and their shortest distance to $v$ as value
--- @return |levels| A table holding the levels of the graph as keys and a 
+-- @return |levels| A table holding the levels of the graph as keys and a
 --                  table holding the vertices found on that level as values
--- @return |parent| A tbale holding each vertex as key and it's parent vertex 
+-- @return |parent| A table holding each vertex as key and it's parent vertex
 --                  as value
 
 function PathLengths:dijkstra(ugraph, source)
@@ -113,13 +113,13 @@ function PathLengths:dijkstra(ugraph, source)
   return distance, levels, parent
 end
 
--- This function finds the pseudo diameter of the graph, which is the longest 
--- shortest path in the graph 
+-- This function finds the pseudo diameter of the graph, which is the longest
+-- shortest path in the graph
 --
 -- @param ugraph The graph who's pseudo diameter is wanted
 --
 -- @ return |diameter| The pseudo diameter of the graph
--- @ return |start_node| The start node of the longest shortest path in the 
+-- @ return |start_node| The start node of the longest shortest path in the
 --                       graph
 -- @ return |end_node| The end node of the longest shortest path in the graph
 

@@ -21,15 +21,17 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- length'', which can be configured using the general-purpose
 -- |node distance| parameter. It is the ``equilibrium length'' of a
 -- spring between two nodes in the graph. When an edge has this
--- lenght, no forces will ``push'' or ``pull'' along the edge.
+-- length, no forces will ``push'' or ``pull'' along the edge.
 --
 -- The following examples shows how a simple graph can be scaled by
 -- changing the |node distance|:
+-- %
 -- \begin{codeexample}[]
 -- \tikz \graph [spring layout, node distance=7mm] { subgraph C_n[n=3] };
 -- \tikz \graph [spring layout]                    { subgraph C_n[n=3] };
 -- \tikz \graph [spring layout, node distance=15mm]{ subgraph C_n[n=3] };
 -- \end{codeexample}
+-- %
 -- \begin{codeexample}[]
 -- \tikz \graph [spring electrical layout, node distance=0.7cm] { subgraph C_n[n=3] };
 -- \tikz \graph [spring electrical layout]                      { subgraph C_n[n=3] };
@@ -47,12 +49,12 @@ declare {
   type = "number",
   initial = "0.01",
 
-  summary = [["  
-       The ``spring constant'' is a factor from Hooke's law describing the
-       ``stiffness'' of a spring. This factor is used inside spring-based
-       algorithms to determine how strongly edges ``pull'' and ``push'' at
-       the nodes they connect.
-   "]]
- }
+  summary = [["
+    The ``spring constant'' is a factor from Hooke's law describing the
+    ``stiffness'' of a spring. This factor is used inside spring-based
+    algorithms to determine how strongly edges ``pull'' and ``push'' at
+    the nodes they connect.
+  "]]
+}
 
 

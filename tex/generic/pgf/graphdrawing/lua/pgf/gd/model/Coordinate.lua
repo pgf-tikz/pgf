@@ -10,17 +10,17 @@
 -- @release $Header$
 
 
---- 
+---
 -- A Coordinate models a position on the drawing canvas.
 --
 -- It has an |x| field and a |y| field, which are numbers that will be
 -- interpreted as \TeX\ points (1/72.27th of an inch). The $x$-axis goes
 -- right and the $y$-axis goes up.
 --
--- @field x 
+-- @field x
 -- @field y
 --
--- There is also a static field called |origin| that is always equal to the origin. 
+-- There is also a static field called |origin| that is always equal to the origin.
 
 local Coordinate = {}
 Coordinate.__index = Coordinate
@@ -61,7 +61,7 @@ end
 --- Apply a transformation matrix to a coordinate,
 -- see |pgf.gd.lib.Transform| for details.
 --
--- @param t A tansformation.
+-- @param t A transformation.
 
 function Coordinate:apply(t)
   local x = self.x
@@ -74,7 +74,7 @@ end
 --- Shift a coordinate
 --
 -- @param a An $x$ offset
--- @param b A $y$ offset 
+-- @param b A $y$ offset
 
 function Coordinate:shift(a,b)
   self.x = self.x + a
@@ -87,7 +87,7 @@ end
 -- inversed coordinate; only faster).
 --
 -- @param a An $x$ offset
--- @param b A $y$ offset 
+-- @param b A $y$ offset
 
 function Coordinate:unshift(a,b)
   self.x = self.x - a
@@ -110,7 +110,7 @@ end
 ---
 -- Like |unshift|, only for coordinate parameters.
 --
--- @param c Another coordinate. 
+-- @param c Another coordinate.
 
 function Coordinate:unshiftByCoordinate(c)
   self.x = self.x - c.x
@@ -119,7 +119,7 @@ end
 
 
 ---
--- Moves the coordinate a fraction of |f| along a straight line to |c|. 
+-- Moves the coordinate a fraction of |f| along a straight line to |c|.
 --
 -- @param c Another coordinate
 -- @param f A fraction
@@ -268,13 +268,13 @@ end
 -- @return |max_x|
 -- @return |max_y|
 -- @return |center_x| The center of the bounding box
--- @return |center_y| 
+-- @return |center_y|
 
 function Coordinate.boundingBox(array)
   if #array > 0 then
     local min_x, min_y = math.huge, math.huge
     local max_x, max_y = -math.huge, -math.huge
-    
+
     for i=1,#array do
       local c = array[i]
       local x = c.x
@@ -284,7 +284,7 @@ function Coordinate.boundingBox(array)
       if x > max_x then max_x = x end
       if y > max_y then max_y = y end
     end
-    
+
     return min_x, min_y, max_x, max_y, (min_x+max_x) / 2, (min_y+max_y) / 2
   end
 end

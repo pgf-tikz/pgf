@@ -20,7 +20,7 @@ local Storage = require "pgf.gd.lib.Storage"
 -- drawing system to the \pgfname\ display system by overriding (that
 -- is, implementing) the methods of the |Binding| class. As a typical
 -- example, consider the implementation of the function |renderVertex|:
---
+-- $
 --\begin{codeexample}[code only, tikz syntax=false]
 --function BindingToPGF:renderVertex(v)
 --  local info = assert(self.infos[v], "thou shalt not modify the syntactic digraph")
@@ -44,7 +44,7 @@ local Storage = require "pgf.gd.lib.Storage"
 -- (new) position for the node. For almost all methods of the
 -- |Binding| class there is a corresponding ``callback'' macro on the
 -- \TeX\ layer, all of which are implemented in the \pgfname\ library
--- |graphdrawing|. For details on these callbacks, 
+-- |graphdrawing|. For details on these callbacks,
 -- please consult the code of that file and of the class
 -- |BindingToPGF| (they are not documented here since they are local
 -- to the binding and should not be called by anyone other than the
@@ -81,7 +81,7 @@ local coordinate_in_pgf_syntax
 
 function BindingToPGF:resumeGraphDrawingCoroutine(text)
   tex.print(text)
-  tex.print("\\pgfgdresumecoroutinetrue") 
+  tex.print("\\pgfgdresumecoroutinetrue")
 end
 
 
@@ -133,11 +133,11 @@ local box_count = 0
 
 function BindingToPGF:everyVertexCreation(v)
   local info = self.storage[v]
-  
+
   -- Save the box!
   box_count = box_count + 1
   boxes[box_count] = node.copy_list(tex.box[info.tex_box_number])
-  
+
   -- Special tex stuff, should not be considered by gd algorithm
   info.box_count = box_count
 end
@@ -180,12 +180,12 @@ local function rigid(x)
   end
 end
 
-  
+
 -- Managing edges
 
 function BindingToPGF:renderEdge(e)
   local info = assert(self.storage[e], "thou shalt not modify the syntactic digraph")
-  
+
   local function get_anchor(e, anchor)
     local a = e.options[anchor]
     if a and a ~= "" then
@@ -194,7 +194,7 @@ function BindingToPGF:renderEdge(e)
       return ""
     end
   end
-  
+
   local callback = {
     '\\pgfgdcallbackedge',
     '{', e.tail.name .. get_anchor(e, "tail anchor"), '}',
@@ -205,12 +205,12 @@ function BindingToPGF:renderEdge(e)
     '{', table_in_pgf_syntax(e.generated_options), '}',
     '{'
   }
-  
+
   local i = 1
   while i <= #e.path do
     local c = e.path[i]
     assert (type(c) == "string", "illegal path operand")
-    
+
     if c == "lineto" then
       i = i + 1
       local d = rigid(e.path[i])
@@ -231,19 +231,19 @@ function BindingToPGF:renderEdge(e)
                                                .. to_pt(d2.x) .. ',' .. to_pt(d2.y) .. ')..'
       callback [#callback + 1] = '(' .. to_pt(d3.x) .. ',' .. to_pt(d3.y) .. ')'
       i = i + 1
-    else                     
+    else
       error("illegal operation in edge path")
     end
   end
 
   callback [#callback + 1] = '}'
   callback [#callback + 1] = '{' .. animations_in_pgf_syntax(e.animations) .. '}'
-  
+
   -- hand TikZ code over to TeX
   tex.print(table.concat(callback))
 end
-      
-      
+
+
 function BindingToPGF:renderEdgesStart()
   tex.print("\\pgfgdcallbackbeginedgeshipout")
 end
@@ -289,7 +289,7 @@ function animations_in_pgf_syntax (a)
     table.concat(
       lib.imap(
     a,
-    function(animation) 
+    function(animation)
       return "\\pgfanimateattribute{" .. animation.attribute .. "}{whom=pgf@gd," ..
         table.concat(
           lib.imap (
@@ -332,12 +332,12 @@ end
 function path_in_pgf_syntax (p)
 
   local s = {}
-  
+
   local i = 1
   while i <= #p do
     local c = p[i]
     assert (type(c) == "string", "illegal path operand")
-    
+
     if c == "lineto" then
       i = i + 1
       local d = rigid(p[i])
@@ -355,10 +355,10 @@ function path_in_pgf_syntax (p)
       local d1, d2, d3 = rigid(p[i+1]), rigid(p[i+2]), rigid(p[i+3])
       i = i + 3
       s [#s + 1] = '\\pgfpathcurveto{\\pgfqpoint{' .. to_pt(d1.x) .. '}{' .. to_pt(d1.y) .. '}}{\\pgfqpoint{'
-        .. to_pt(d2.x) .. '}{' .. to_pt(d2.y) .. '}}{\\pgfqpoint{' 
+        .. to_pt(d2.x) .. '}{' .. to_pt(d2.y) .. '}}{\\pgfqpoint{'
         .. to_pt(d3.x) .. '}{' .. to_pt(d3.y) .. '}}'
       i = i + 1
-    else                     
+    else
       error("illegal operation in edge path")
     end
   end

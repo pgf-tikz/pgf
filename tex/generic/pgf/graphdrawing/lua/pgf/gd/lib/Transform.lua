@@ -42,7 +42,7 @@ function Transform.new(a,b,c,d,x,y)
 end
 
 
---- Creates a new transformation object that represents a shift. 
+--- Creates a new transformation object that represents a shift.
 --
 -- @param x An x-shift
 -- @param y A y-shift
@@ -54,7 +54,7 @@ function Transform.new_shift(x,y)
 end
 
 
---- Creates a new transformation object that represents a rotation. 
+--- Creates a new transformation object that represents a rotation.
 --
 -- @param angle An angle
 --
@@ -67,7 +67,7 @@ function Transform.new_rotation(angle)
 end
 
 
---- Creates a new transformation object that represents a scaling. 
+--- Creates a new transformation object that represents a scaling.
 --
 -- @param x The horizontal scaling
 -- @param y The vertical scaling (if missing, the horizontal scaling is used)

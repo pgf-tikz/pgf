@@ -25,10 +25,10 @@ summary       "The sifting heuristic for 2-layer crossing minimization."
 
 --------------------------------------------------------------------
 key           "SiftingHeuristic.strategy"
-summary       "Sets a so-called ``sifting strategy.''"
+summary       "Sets a so-called ``sifting strategy''."
 documentation
 [[
-The following values are permissible: |left_to_right|, |desc_degree|,
-and |random|.       
+  The following values are permissible: |left_to_right|, |desc_degree|,
+  and |random|.
 ]]
 --------------------------------------------------------------------

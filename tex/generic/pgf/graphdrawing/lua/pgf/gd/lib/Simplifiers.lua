@@ -12,7 +12,7 @@
 
 
 --- The Simplifiers class is a singleton object.
--- Its methods allow implement methods for simplifing graphs, for instance 
+-- Its methods allow implement methods for simplifying graphs, for instance 
 -- for removing loops or multiedges or computing spanning trees.
 
 local Simplifiers = {}

@@ -30,12 +30,12 @@ local Digraph = require "pgf.gd.model.Digraph"
 -- arrows. For instance, while "a <- b" will cause an arc from a to be
 -- to be added to the syntactic digraph, calling this function will
 -- return a digraph in which there is an arc from b to a rather than
--- the other way round. In detail, "a <- b" is tranlated as just
+-- the other way round. In detail, "a <- b" is translated as just
 -- described, "a -> b" yields an arc from a to b as expected, "a <-> b"
 -- and "a -- b" yield arcs in both directions and, finally, "a -!- b"
 -- yields no arc at all.
 --
--- @param syntactic_digraph A syntacitic digraph, usually the "input"
+-- @param syntactic_digraph A syntactic digraph, usually the "input"
 -- graph as specified syntactically be the user.
 --
 -- @return A new "semantic" digraph object.

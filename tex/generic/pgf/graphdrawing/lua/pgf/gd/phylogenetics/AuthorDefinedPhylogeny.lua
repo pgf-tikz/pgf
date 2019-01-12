@@ -34,22 +34,22 @@ declare {
   phase_default = true,
 
   summary = [["  
-      When this key is used, the phylogenetic tree must be specified
-      by the author (rather than being generated algorithmically).
+    When this key is used, the phylogenetic tree must be specified
+    by the author (rather than being generated algorithmically).
   "]],
   documentation = [["
-      A spanning tree of the input graph will be computed first (it
-      must be connected, otherwise errors will result).
-      The evolutionary length of the edges must be specified through
-      the use of the |length| key for each edge.
+    A spanning tree of the input graph will be computed first (it
+    must be connected, otherwise errors will result).
+    The evolutionary length of the edges must be specified through
+    the use of the |length| key for each edge.
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout] {
-        a -- {
-          b [>length=2] --[length=1] { c, d },
-          e [>length=3]
-        }
-      };
+    \tikz \graph [phylogenetic tree layout] {
+      a -- {
+        b [>length=2] --[length=1] { c, d },
+        e [>length=3]
+      }
+    };
   "]]
 }
     

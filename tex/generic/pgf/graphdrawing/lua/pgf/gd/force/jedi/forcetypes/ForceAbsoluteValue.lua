@@ -7,9 +7,9 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- This is a subclass of ForceTemplate, which is used to implement forces 
--- that work on individual vertices. Forces of this kind simply add an 
--- absolute value set in the force data to each vertex' $x$ and $y$ coodinate
+--- This is a subclass of ForceTemplate, which is used to implement forces
+-- that work on individual vertices. Forces of this kind simply add an
+-- absolute value set in the force data to each vertex' $x$ and $y$ coordinate
 
 -- Imports
 local ForceTemplate = require "pgf.gd.force.jedi.base.ForceTemplate"
@@ -31,11 +31,11 @@ function ForceAbsoluteValue:constructor ()
 end
 
 
--- This force class works on a vertex array that is part of the force data 
--- defined when adding the force. This array is copied into p. All vertices of 
--- the graph are saved in the local variable |ver|.  
+-- This force class works on a vertex array that is part of the force data
+-- defined when adding the force. This array is copied into p. All vertices of
+-- the graph are saved in the local variable |ver|.
 --
--- @param v The vertices of the graph we are trying to find a layout for. 
+-- @param v The vertices of the graph we are trying to find a layout for.
 
 function ForceAbsoluteValue:preprocess(v)
   self.ver = v
@@ -43,12 +43,12 @@ function ForceAbsoluteValue:preprocess(v)
 end
 
 
--- Applying the force to the vertices and adding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
---              forces
+--
+-- @param data The parameters needed to apply the force: The options table,
+--             the current time stamp, an array containing the summed up net
+--             forces
 
 function ForceAbsoluteValue:applyTo(data)
   -- locals for speed
@@ -61,13 +61,13 @@ function ForceAbsoluteValue:applyTo(data)
   local time_fun = self.force.time_fun
 
   -- Evaluate time function
-  local time_factor = time_fun(t_max, t_now) 
+  local time_factor = time_fun(t_max, t_now)
   if time_factor == 0 then
     return
   end
 
   for _,v in ipairs(self.ver) do
-    for _, i in ipairs (self.p) do 
+    for _, i in ipairs (self.p) do
       -- Is the vertex in the list?
       if v.name == i then
 

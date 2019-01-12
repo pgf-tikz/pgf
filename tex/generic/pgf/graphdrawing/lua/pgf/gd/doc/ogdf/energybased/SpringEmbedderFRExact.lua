@@ -18,33 +18,33 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact"
-summary       "Declaration of Spring-Embedder (Fruchterman,Reingold) algorithm with exact force computations."                    
+summary       "Declaration of Spring-Embedder (Fruchterman,Reingold) algorithm with exact force computations."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact.iterations"
 summary       "Sets the number of iterations."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact.noise"
 summary       "Sets the parameter noise."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact.coolingFunction"
 summary       "Sets the parameter coolingFunction to |factor| or to |logarithmic|."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact.idealEdgeLength"
 summary       "Sets the ideal edge length to a length."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFRExact.convTolerance"
@@ -54,4 +54,4 @@ summary       ""
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

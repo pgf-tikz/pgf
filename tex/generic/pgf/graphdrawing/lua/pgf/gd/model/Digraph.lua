@@ -12,12 +12,12 @@
 
 
 
---- 
+---
 -- Each |Digraph| instance models a \emph{directed, simple}
 -- graph. ``Directed'' means that all edges ``point'' from a head node
 -- to a tail node. ``Simple'' means that between any nodes there can be
 -- (at most) one edge. Since these properties are a bit at odds with
--- the normal behaviour of ``nodes'' and ``edges'' in \tikzname,
+-- the normal behavior of ``nodes'' and ``edges'' in \tikzname,
 -- different names are used for them inside the |model| namespace:
 -- The class modeling  ``edges'' is actually called |Arc| to stress
 -- that an arc has a specific ``start'' (the tail) and a specific
@@ -31,14 +31,17 @@
 -- Since digraphs are constantly created and modified inside the graph
 -- drawing engine, some care was taken to ensure that all operations
 -- work as quickly as possible. In particular:
+-- %
 -- \begin{itemize}
--- \item Adding an array of $k$ vertices using the |add| method needs
---   time $O(k)$.
--- \item Adding an arc between two vertices needs time $O(1)$.
--- \item Accessing both the |vertices| and the |arcs| fields takes time
---   $O(1)$, provided only the above operations are used.
+--   \item Adding an array of $k$ vertices using the |add| method needs
+--     time $O(k)$.
+--   \item Adding an arc between two vertices needs time $O(1)$.
+--   \item Accessing both the |vertices| and the |arcs| fields takes time
+--     $O(1)$, provided only the above operations are used.
 -- \end{itemize}
+-- %
 -- Deleting vertices and arcs takes more time:
+-- %
 -- \begin{itemize}
 -- \item Deleting the vertices given in an array of $k$ vertices from a
 --   graph with $n$ vertices takes time $O(\max\{n,c\})$ where $c$ is the
@@ -50,12 +53,12 @@
 --   number of outgoing arcs at the arc's tail and $h_i$ is the number
 --   of incoming arcs at the arc's head. After a call to |disconnect|,
 --   the next use of the |arcs| field will take time $O(|V| + |E|)$,
---   while subsequent accesses take time $O(1)$ -- till the  
+--   while subsequent accesses take time $O(1)$ -- till the
 --   next use of |disconnect|. This means that once you start deleting
 --   arcs using |disconnect|, you should perform as many additional
 --   |disconnect|s as possible before accessing |arcs| one more.
 -- \end{itemize}
---  
+--
 -- \medskip
 -- \noindent\emph{Stability.} The |vertices| field and the array
 -- returned by |Digraph:incoming| and |Digraph:outgoing| are
@@ -63,7 +66,7 @@
 -- when you use |ipairs| on the will be the ordering in which the
 -- vertices or arcs were added to the graph. Even when you remove a
 -- vertex or an arc, the ordering of the remaining elements stays the
--- same. 
+-- same.
 --
 -- @field vertices This array contains the vertices that are part of
 -- the digraph. Internally, this array
@@ -103,15 +106,19 @@
 -- given vertex |v|, you cannot say something like |v.outgoings| or
 -- perhaps |v:getOutgoings()|. Rather, you have to say |g:outgoing(v)|
 -- to get this list:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
---for _,a in ipairs(g:outgoing(v)) do  -- g is a Digraph object.    
+--for _,a in ipairs(g:outgoing(v)) do  -- g is a Digraph object.
 --  pgf.debug ("There is an arc leaving " .. tostring(v) ..
 --             " heading to " .. tostring(a.head))
 --end
+--%
 --\end{codeexample}
---   Naturally, there is also a method |g:incoming()|.
---  
---   To iterate over all arcs of a graph you can say:
+-- %
+-- Naturally, there is also a method |g:incoming()|.
+--
+-- To iterate over all arcs of a graph you can say:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --for _,v in ipairs(g.vertices) do
 --  for _,a in ipairs(g:outgoing(v)) do
@@ -122,7 +129,7 @@
 --
 -- However, it will often be more convenient and, in case the there
 -- are far less arcs than vertices, also faster to write
--- 
+--
 --\begin{codeexample}[code only, tikz syntax=false]
 --for _,a in ipairs(g.arcs) do
 --  ...
@@ -130,7 +137,7 @@
 --\end{codeexample}
 --
 -- @field arcs For any two vertices |t| and |h| of a graph, there may
---   or may not be 
+--   or may not be
 --   an arc from |t| to |h|. If this is the case, there is an |Arc|
 --   object that represents this arc. Note that, since |Digraph|s are
 --   always simple graphs, there can be at most one such object for every
@@ -138,7 +145,7 @@
 --   an |Arc| through a |Storage|, see the |Storage| class for
 --   details. Each |Arc| for an edge of the syntactic digraph stores
 --   an array called |syntactic_edges| of all the multiple edges that
---   are present in the user's input. 
+--   are present in the user's input.
 --
 --   Unlike vertices, the arc objects of a graph are always local to a
 --   graph; an |Arc| object can never be part of two digraphs at the same
@@ -164,7 +171,7 @@
 --   point, the |arcs| array is reconstructed by adding all arcs of all
 --   nodes to it.
 --
---   The bottom line of the behaviour of the |arcs| field is that (a) the
+--   The bottom line of the behavior of the |arcs| field is that (a) the
 --   ordering of the elements may change abruptly whenever you remove an
 --   arc from a graph and (b) performing $k$ |disconnect| operations in
 --   sequence takes time $O(k)$, provided you do not access the |arcs|
@@ -188,12 +195,12 @@ local function recalc_arcs (digraph)
     end
   end
   digraph.arcs = arcs
-  return arcs    
+  return arcs
 end
 
-Digraph.__index = 
+Digraph.__index =
   function (t, k)
-    if k == "arcs" then 
+    if k == "arcs" then
       return recalc_arcs(t)
     else
       return rawget(Digraph,k)
@@ -223,7 +230,7 @@ local Vertex      = require "pgf.gd.model.Vertex"
 -- created graphs always have an empty arcs set. This means that
 -- writing |Digraph.new(g)| where |g| is a graph creates a new graph
 -- whose vertex set is the same as |g|'s, but where there are no edges:
---  
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local g = Digraph.new {}
 --g:add { v1, v2, v3 }
@@ -239,8 +246,8 @@ local Vertex      = require "pgf.gd.model.Vertex"
 --local h = Digraph.new (g)
 --for _,a in ipairs(g.arcs) do h:connect(a.tail, a.head) end
 --\end{codeexample}
---                
--- This operation takes time $O(1)$. 
+--
+-- This operation takes time $O(1)$.
 --
 -- @param initial A table of initial values. It is permissible that
 --                this array contains a |vertices| field. In this
@@ -268,7 +275,7 @@ function Digraph.new(initial)
   digraph.vertices = {}
   digraph.arcs = {}
 
-  if vertices then 
+  if vertices then
     digraph:add(vertices)
   end
   return digraph
@@ -309,25 +316,25 @@ end
 --
 function Digraph:remove(array)
   local vertices = self.vertices
-  
+
   -- Mark all to-be-deleted nodes
   for i=1,#array do
     local v = array[i]
     assert(vertices[v], "to-be-deleted node is not in graph")
     vertices[v] = false
   end
-  
+
   -- Disconnect them
   for i=1,#array do
     self:disconnect(array[i])
   end
-  
+
   LookupTable.remove(self.vertices, array)
 end
 
 
 
---- Test, whether a graph contains a given vertex. 
+--- Test, whether a graph contains a given vertex.
 --
 -- This operation takes time $O(1)$.
 --
@@ -342,7 +349,7 @@ end
 
 ---
 -- Returns the arc between two nodes, provided it exists. Otherwise,
--- |nil| is retured.
+-- |nil| is returned.
 --
 -- This operation takes time $O(1)$.
 --
@@ -360,7 +367,7 @@ end
 
 
 
---- 
+---
 -- Returns an array containing the outgoing arcs of a vertex. You may
 -- only iterate over his array using ipairs, not using pairs.
 --
@@ -415,7 +422,7 @@ function Digraph:orderOutgoing(v, vertices)
   -- Compute ordering of the arcs
   local reordered = {}
   for _,arc in ipairs(outgoing) do
-    reordered [lookup[arc.head]] = arc 
+    reordered [lookup[arc.head]] = arc
   end
 
   -- Copy back
@@ -457,7 +464,7 @@ function Digraph:orderIncoming(v, vertices)
   -- Compute ordering of the arcs
   local reordered = {}
   for _,arc in ipairs(incoming) do
-    reordered [lookup[arc.head]] = arc 
+    reordered [lookup[arc.head]] = arc
   end
 
   -- Copy back
@@ -470,9 +477,9 @@ end
 
 
 
---- 
+---
 -- Connects two nodes by an arc and returns the newly created arc
--- object. If they are already connected, the existing arc is returned. 
+-- object. If they are already connected, the existing arc is returned.
 --
 -- This operation takes time $O(1)$.
 --
@@ -522,10 +529,10 @@ end
 
 
 
---- 
+---
 -- Disconnect either a single vertex |v| from all its neighbors (remove all
 -- incoming and outgoing arcs of this vertex) or, in case two nodes
--- are given as parameter, remove the arc between them, if it exsits. 
+-- are given as parameter, remove the arc between them, if it exists.
 --
 -- This operation takes time $O(|I_v| + |I_t|)$, where $I_x$ is the set
 -- of vertices incident to $x$, to remove the single arc between $v$ and
@@ -561,7 +568,7 @@ function Digraph:disconnect(v, t)
     end
   else
     -- Case 1: Remove all arcs incident to v:
-    
+
     -- Step 1: Delete all incomings arcs:
     local incomings = assert(v.incomings[self], "node not in graph")
     local vertices = self.vertices
@@ -610,12 +617,12 @@ end
 
 
 
---- 
+---
 -- An arc is changed so that instead of connecting |self.tail|
 -- and |self.head|, it now connects a new |head| and |tail|. The
 -- difference to first disconnecting and then reconnecting is that all
 -- fields of the arc (other than |head| and |tail|, of course), will
--- be ``moved along.'' Reconnecting an arc in the same way as before has no
+-- be ``moved along''. Reconnecting an arc in the same way as before has no
 -- effect.
 --
 -- If there is already an arc at the new position, fields of the
@@ -637,13 +644,13 @@ end
 --
 function Digraph:reconnect(arc, tail, head)
   assert (arc and tail and head, "connect with nil parameters")
-  
+
   if arc.head == head and arc.tail == tail then
     -- Nothing to be done
     return arc
   else
     local new_arc = self:connect(tail, head)
-    
+
     for k,v in pairs(arc) do
       if k ~= "head" and k ~= "tail" then
         new_arc[k] = v
@@ -682,11 +689,11 @@ end
 -- A collapse vertex will store the collapsed vertices so that you can
 -- call |expand| later on to ``restore'' the vertices and arcs that
 -- were saved during a collapse. This storage is \emph{not} local to
--- the graph in which the collapse occured. 
+-- the graph in which the collapse occurred.
 --
 -- @param collapse_vertices An array of to-be-collapsed vertices
 -- @param collapse_vertex The vertex that represents the collapse. If
--- missing, a vertex will be created automatically and added to the graph. 
+-- missing, a vertex will be created automatically and added to the graph.
 -- @param vertex_fun This function is called for each to-be-collapsed
 -- vertex. The parameters are the collapse vertex and the
 -- to-be-collapsed vertex. May be |nil|.
@@ -694,7 +701,7 @@ end
 -- between |rep| and some other vertex. The arguments are the new arc
 -- and the original arc. May be |nil|.
 --
--- @return The new vertex that represents the collapsed vertices. 
+-- @return The new vertex that represents the collapsed vertices.
 
 function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fun)
 
@@ -704,7 +711,7 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
     collapse_vertex = Vertex.new {}
   end
   self:add {collapse_vertex}
-  
+
   -- Copy the collapse_vertices and create lookup
   local cvs = {}
   for i=1,#collapse_vertices do
@@ -716,11 +723,11 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
 
   -- Connected collapse_vertex appropriately
   local collapsed_arcs = {}
-  
+
   if not arc_fun then
     arc_fun = function () end
   end
-  
+
   for _,v in ipairs(cvs) do
     if vertex_fun then
       vertex_fun (collapse_vertex, v)
@@ -738,7 +745,7 @@ function Digraph:collapse(collapse_vertices, collapse_vertex, vertex_fun, arc_fu
       collapsed_arcs[#collapsed_arcs + 1] = a
     end
   end
-  
+
   -- Remember the old vertices.
   collapse_vertex.collapsed_vertices = cvs
   collapse_vertex.collapsed_arcs     = collapsed_arcs
@@ -770,7 +777,7 @@ function Digraph:expand(vertex, vertex_fun, arc_fun)
 
   -- Add all vertices:
   self:add(cvs)
-  if vertex_fun then 
+  if vertex_fun then
     for _,v in ipairs(cvs) do
       vertex_fun(vertex, v)
     end
@@ -779,13 +786,13 @@ function Digraph:expand(vertex, vertex_fun, arc_fun)
   -- Add all arcs:
   for _,arc in ipairs(vertex.collapsed_arcs) do
     local new_arc = self:connect(arc.tail, arc.head)
-    
+
     for k,v in pairs(arc) do
       if k ~= "head" and k ~= "tail" then
         new_arc[k] = v
       end
     end
-    
+
     if arc_fun then
       arc_fun(new_arc, vertex)
     end
@@ -809,7 +816,7 @@ end
 
 
 
---- 
+---
 -- Computes a string representation of this graph including all nodes
 -- and edges. The syntax of this representation is such that it can be
 -- used directly in \tikzname's |graph| syntax.
@@ -825,13 +832,13 @@ function Digraph:__tostring()
     if #out_arcs > 0 then
       local t = {}
       for j,a in ipairs(out_arcs) do
-        t[j] = tostring(a.head) 
+        t[j] = tostring(a.head)
       end
       astrings[#astrings + 1] = "  " .. tostring(v) .. " -> { " .. table.concat(t,", ") .. " }"
     end
   end
   return "graph [id=" .. tostring(self.vertices) .. "] {\n  {\n" ..
-    table.concat(vstrings, ",\n") .. "\n  }; \n" .. 
+    table.concat(vstrings, ",\n") .. "\n  }; \n" ..
     table.concat(astrings, ";\n") .. "\n}";
 end
 

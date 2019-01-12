@@ -14,12 +14,12 @@
 --- An implementation of a quad trees.
 --
 -- The class QuadTree provides methods form handling quadtrees.
--- 
+--
 
 local QuadTree = {
-  -- Subclases
+  -- Subclasses
   Particle = {},
-  Cell = {} 
+  Cell = {}
 }
 QuadTree.__index = QuadTree
 
@@ -45,7 +45,7 @@ end
 
 
 
---- Inserts a particle 
+--- Inserts a particle
 --
 -- @param param A particle of type QuadTree.Particle
 --
@@ -76,7 +76,7 @@ end
 
 
 
---- Partical subclass
+--- Particle subclass
 QuadTree.Particle.__index = QuadTree.Particle
 
 
@@ -176,7 +176,7 @@ function QuadTree.Cell:insert(particle)
       if #self.subcells == 0 then
         self:createSubcells()
       end
-        
+
       -- move particles to the new subcells
       for _,existing in ipairs(self.particles) do
         local cell = self:findSubcell(existing)
@@ -226,7 +226,7 @@ end
 function QuadTree.Cell:updateCenterOfMass()
   -- reset center of mass, assuming the cell is empty
   self.center_of_mass = nil
-  
+
   if #self.subcells == 0 then
     -- the center of mass is the average position of the particles
     -- weighted by their masses
@@ -239,7 +239,7 @@ function QuadTree.Cell:updateCenterOfMass()
     end
     self.center_of_mass = self.center_of_mass:dividedByScalar(self.mass)
   else
-    -- the center of mass is the average of the weighted centers of mass 
+    -- the center of mass is the average of the weighted centers of mass
     -- of the subcells
     self.center_of_mass = Vector.new(2)
     for _,sc in ipairs(self.subcells) do
@@ -268,7 +268,7 @@ end
 
 function QuadTree.Cell:__tostring()
   return '((' .. self.x .. ', ' .. self.y .. ') '
-      .. 'to (' .. self.x + self.width .. ', ' .. self.y + self.height .. '))' 
+      .. 'to (' .. self.x + self.width .. ', ' .. self.y + self.height .. '))'
       .. (self.particle and ' => ' .. self.particle.name or '')
       .. (self.center_of_mass and ' mass ' .. self.mass .. ' at ' .. tostring(self.center_of_mass) or '')
 end

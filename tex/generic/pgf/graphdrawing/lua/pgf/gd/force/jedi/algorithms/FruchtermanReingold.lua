@@ -20,33 +20,39 @@ local Storage = require "pgf.gd.lib.Storage"
 declare {
   key = "spring electric no coarsen layout",
   algorithm = SpringElectricNoCoarsenClass,
-  preconditions = { connected = true }, 
+  preconditions = { connected = true },
   postconditions = {fixed = true},
 
-  summary = [[This layout uses the algorithm proposed by Fruchterman and Reingold to draw graphs."]], 
+  summary = [[
+    This layout uses the algorithm proposed by Fruchterman and Reingold to draw graphs."
+   ]],
 
-  documentation =
-  [[The Fruchterman-Reingold algorithm is one if the oldest methods 
-  for force-based graph drawing. It is described in:
-  \begin{itemize}
-    \item 
-    Thomas M.~J.~ Fruchterman and Edward M.~ Reingold,
-    \newblock Graph Drawing by Force-directed Placement,
-    \newblock \emph{Software -- practice and experience,}
-    21(1 1), 1129-1164, 1991.
-  \end{itemize}
-  Fruchterman and Reingold had to principles in graph drawing:
-  \begin{enumerate} 
-  \item Vertices connected by an edge should be drawn close toa another and
-  \item in general, vertices should not be drawn too close to each other.
-  \end{itemize}
-  The spring electric no coarsen layout uses spring forces as attractive 
-  forces influecing vertex pairs connected by an edge and electric forces 
-  as repulsive forces between all vertex pairs. The original algorithm 
-  also contained a frame that stopped the vertices from drifting too far 
-  apart, but this concept was not implemented. This algorithm will not be affected 
-  by coarsening. This layout was implemented 
-  by using the Jedi framework.
+  documentation = [[
+    The Fruchterman-Reingold algorithm is one if the oldest methods
+    for force-based graph drawing. It is described in:
+    %
+    \begin{itemize}
+      \item
+        Thomas M.~J.~ Fruchterman and Edward M.~ Reingold,
+        \newblock Graph Drawing by Force-directed Placement,
+        \newblock \emph{Software -- practice and experience,}
+        21(1 1), 1129-1164, 1991.
+    \end{itemize}
+    %
+    Fruchterman and Reingold had to principles in graph drawing:
+    %
+    \begin{enumerate}
+      \item Vertices connected by an edge should be drawn close to another and
+      \item in general, vertices should not be drawn too close to each other.
+    \end{itemize}
+    %
+    The spring electric no coarsen layout uses spring forces as attractive
+    forces influencing vertex pairs connected by an edge and electric forces
+    as repulsive forces between all vertex pairs. The original algorithm
+    also contained a frame that stopped the vertices from drifting too far
+    apart, but this concept was not implemented. This algorithm will not be
+    affected by coarsening. This layout was implemented by using the Jedi
+    framework.
   ]],
 
   example =
@@ -62,14 +68,14 @@ declare {
       g -- {h, i, j},
       h -- {i, j},
       i -- j
-    }; 
+    };
   ]],
 
   example =
   [[
   \graph[spring electric no coarsen layout, speed = 0.25, node distance = 0.25cm, horizontal = c to l, nodes={as=,circle, draw, inner sep=3pt,outer sep=0pt}, coarsen = false, maximum step = 1]{
       a -> b -> c -> {d1 -> e  -> f -> g -> h -> i -> {j1 -> e, j2 -> l}, d2 -> l -> m}, m -> a
-    }; 
+    };
   ]]
 }
 
@@ -80,7 +86,7 @@ declare {
 
 --define a local time function
 local time_fun_1
-function time_fun_1 (t_total, t_now) 
+function time_fun_1 (t_total, t_now)
   if t_now/t_total <= 0.5 then
     return 0.5
   else
@@ -112,7 +118,7 @@ function SpringElectricNoCoarsenClass:run()
   }
 
   -- run algorithm
-  spring_electric_no_coarsen:run()  
+  spring_electric_no_coarsen:run()
 end
 
 return SpringElectricNoCoarsenClass

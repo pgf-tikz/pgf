@@ -18,15 +18,15 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --
 -- Algorithms for producing layered drawings place nodes on discrete
 -- layers from top to bottom. Layer assignment is the problem of
--- finding a partition so that for all edges $e = (u,v) \in E(G)$ the 
+-- finding a partition so that for all edges $e = (u,v) \in E(G)$ the
 -- equation $\mathit{layer}(u) < \mathit{layer}(v)$ holds. Such a
 -- partition is called a \emph{layering}. This definition can be extended by
 -- introducing edge weights or priorities and minimum length
 -- constraints which has practical applications and allows users to
 -- fine-tune the results.
 --
--- For more details, please see Section 4.1.2 of Pohlmann's Diploma
--- thesis. 
+-- For more details, please see Section~4.1.2 of Pohlmann's Diploma
+-- thesis.
 --
 -- @end
 
@@ -40,17 +40,17 @@ declare {
   phase = "node ranking",
   phase_default = true,
 
-  summary = [["  
-       This layer assigment method, due to Gasner et al., is based on a
-       linear optimization problem.
+  summary = [["
+    This layer assignment method, due to Gasner et al., is based on a
+    linear optimization problem.
   "]],
-  documentation = [["      
-       For more details, please see Section 4.1.2 of Pohlmann's Diploma
-       thesis. 
-      
-       This is the default algorithm for layer assignments.
-   "]]
- }
+  documentation = [["
+    For more details, please see Section~4.1.2 of Pohlmann's Diploma
+    thesis.
+
+    This is the default algorithm for layer assignments.
+  "]]
+}
 
 
 
@@ -61,14 +61,12 @@ declare {
   algorithm = "pgf.gd.layered.NodeRankingMinimumHeight",
   phase = "node ranking",
 
-  summary = [["  
-       This layer assigment method minimizes the height of the resulting
-       graph. 
+  summary = [["
+    This layer assignment method minimizes the height of the resulting graph.
   "]],
-  documentation = [["      
-       For more details, please see Section 4.1.3 of Pohlmann's Diploma
-       thesis. 
-   "]]
- }
+  documentation = [["
+    For more details, please see Section~4.1.3 of Pohlmann's Diploma thesis.
+  "]]
+}
 
 

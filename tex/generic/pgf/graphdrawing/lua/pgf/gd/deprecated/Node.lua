@@ -48,12 +48,12 @@ function Node.new(values)
   local new = {
     class = Node,
     name = nil,
-    tex = { 
+    tex = {
       -- texNode = nil,
       -- maxX = nil,
       -- minX = nil,
       -- maxY = nil,
-      -- minY = nil 
+      -- minY = nil
     },
     edges = {},
     -- pos = nil,
@@ -69,8 +69,8 @@ function Node.new(values)
       new [k] = v
     end
   end
-  if not new.pos then 
-    new.pos = Vector.new(2) 
+  if not new.pos then
+    new.pos = Vector.new(2)
   end
   return new
 end
@@ -91,8 +91,8 @@ end
 --- Returns the value of the node option \meta{name}.
 --
 -- @param name Name of the node option.
--- @param graph If this optional argument is given, 
---        in case the option is not set as a node parameter, 
+-- @param graph If this optional argument is given,
+--        in case the option is not set as a node parameter,
 --        we try to look it up as a graph parameter.
 --
 -- @return The value of the node option \meta{name} or |nil|.
@@ -113,7 +113,7 @@ end
 
 
 
---- Computes the heigth of the node.
+--- Computes the height of the node.
 --
 -- @return Height of the node.
 --
@@ -155,7 +155,7 @@ end
 
 --- Returns all edges of the node.
 --
--- Instead of calling |node:getEdges()| the edges can alternatively be 
+-- Instead of calling |node:getEdges()| the edges can alternatively be
 -- accessed directly with |node.edges|.
 --
 -- @return All edges of the node.
@@ -168,7 +168,7 @@ end
 
 --- Returns the incoming edges of the node. Undefined result for hyperedges.
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
+-- @param ignore_reversed Optional parameter to consider reversed edges not
 --                        reversed for this method call. Defaults to |false|.
 --
 -- @return Incoming edges of the node. This includes undirected edges
@@ -176,7 +176,7 @@ end
 --
 function Node:getIncomingEdges(ignore_reversed)
   return lib.imap(self.edges,
-          function (edge) 
+          function (edge)
             if edge:isHead(self, ignore_reversed) then return edge end
           end)
 end
@@ -185,7 +185,7 @@ end
 
 --- Returns the outgoing edges of the node. Undefined result for hyperedges.
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
+-- @param ignore_reversed Optional parameter to consider reversed edges not
 --                        reversed for this method call. Defaults to |false|.
 --
 -- @return Outgoing edges of the node. This includes undirected edges
@@ -193,7 +193,7 @@ end
 --
 function Node:getOutgoingEdges(ignore_reversed)
   return lib.imap(self.edges,
-          function (edge) 
+          function (edge)
             if edge:isTail(self, ignore_reversed) then return edge end
           end)
 end
@@ -204,7 +204,7 @@ end
 --
 -- @see Node:getIncomingEdges(reversed)
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
+-- @param ignore_reversed Optional parameter to consider reversed edges not
 --                        reversed for this method call. Defaults to |false|.
 --
 -- @return The number of incoming edges of the node.
@@ -219,7 +219,7 @@ end
 --
 -- @see Node:getOutgoingEdges()
 --
--- @param ignore_reversed Optional parameter to consider reversed edges not 
+-- @param ignore_reversed Optional parameter to consider reversed edges not
 --                        reversed for this method call. Defaults to |false|.
 --
 -- @return The number of outgoing edges of the node.
@@ -230,7 +230,7 @@ end
 
 
 
---- Creates a shallow copy of the node. 
+--- Creates a shallow copy of the node.
 --
 -- Most notably, the edges adjacent are not preserved in the copy.
 --
@@ -262,7 +262,7 @@ end
 --
 -- @ignore This should not appear in the documentation.
 --
--- @return String represenation of the node.
+-- @return String representation of the node.
 --
 function Node:__tostring()
   local tmp = Node.__tostring

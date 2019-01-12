@@ -28,7 +28,7 @@ lib.Vector = Vector
 -- Class setup
 Vector.__index =
   function (t, k)
-    if k == "x" then 
+    if k == "x" then
       return rawget(t,1)
     elseif k == "y" then
       return rawget(t,2)
@@ -37,8 +37,8 @@ Vector.__index =
     end
   end
 Vector.__newindex =
-  function (t, k, v) 
-    if k == "x" then 
+  function (t, k, v)
+    if k == "x" then
       rawset(t,1,v)
     elseif k == "y" then
       rawset(t,2,v)
@@ -52,9 +52,9 @@ Vector.__newindex =
 --- Creates a new vector with \meta{n} values using an optional \meta{fill\_function}.
 --
 -- @param n             The number of elements of the vector. (If omitted, then 2.)
--- @param fill_function Optional function that takes a number between 1 and \meta{n} 
+-- @param fill_function Optional function that takes a number between 1 and \meta{n}
 --                      and is expected to return a value for the corresponding element
---                      of the vector. If omitted, all elements of the vector will 
+--                      of the vector. If omitted, all elements of the vector will
 --                      be initialized with 0.
 --
 -- @return A newly-allocated vector with \meta{n} elements.
@@ -65,7 +65,7 @@ function Vector.new(n, fill_function)
   setmetatable(vector, Vector)
 
   local n = n or 2
-  
+
   if type(n) == 'table' then
     for k,v in pairs(n) do
       vector[k] = v
@@ -91,7 +91,7 @@ end
 --- Creates a copy of the vector that holds the same elements as the original.
 --
 -- @return A newly-allocated copy of the vector holding exactly the same elements.
--- 
+--
 function Vector:copy()
   return Vector.new(#self, function (n) return self[n] end)
 end
@@ -100,7 +100,7 @@ end
 
 --- Performs a vector addition and returns the result in a new vector.
 --
--- @param other The vector to add. 
+-- @param other The vector to add.
 --
 -- @return A new vector with the result of the addition.
 --
@@ -114,7 +114,7 @@ end
 
 --- Subtracts two vectors and returns the result in a new vector.
 --
--- @param other Vector to subtract. 
+-- @param other Vector to subtract.
 --
 -- @return A new vector with the result of the subtraction.
 --
@@ -196,7 +196,7 @@ end
 --- Updates the values of the vector in-place.
 --
 -- @param update_function A function that is called for each element of the
---                        vector. The elements are replaced by the values 
+--                        vector. The elements are replaced by the values
 --                        returned from this function.
 --
 function Vector:update(update_function)

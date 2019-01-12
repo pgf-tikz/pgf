@@ -42,7 +42,7 @@ local Vector      = require "pgf.gd.deprecated.Vector"
 declare {
   key       = "layered layout",
   algorithm = Sugiyama,
-  
+
   preconditions = {
     connected = true,
     loop_free = true,
@@ -54,46 +54,44 @@ declare {
 
   old_graph_model = true,
 
-  summary = [["  
-       The |layered layout| is the key used to select the modular Sugiyama
-       layout algorithm. 
+  summary = [["
+    The |layered layout| is the key used to select the modular Sugiyama
+    layout algorithm.
   "]],
   documentation = [["
-       This algorithm consists of five consecutive steps, each of which can be
-       configured independently of the other ones (how this is done is
-       explained later in this section). Naturally, the ``best'' heuristics
-       are selected by default, so there is typically no need to change the
-       settings, but what is the ``best'' method for one graph need not be
-       the best one for another graph.
-        
-       As can be seen in the first example, the algorithm will not only
-       position the nodes of a graph, but will also perform an edge
-       routing. This will look visually quite pleasing if you add the
-       |rounded corners| option:
+    This algorithm consists of five consecutive steps, each of which can be
+    configured independently of the other ones (how this is done is
+    explained later in this section). Naturally, the ``best'' heuristics
+    are selected by default, so there is typically no need to change the
+    settings, but what is the ``best'' method for one graph need not be
+    the best one for another graph.
+
+    As can be seen in the first example, the algorithm will not only
+    position the nodes of a graph, but will also perform an edge
+    routing. This will look visually quite pleasing if you add the
+    |rounded corners| option:
   "]],
-  examples = {
-    [["
-       \tikz \graph [layered layout, sibling distance=7mm]
-       {
-         a -> {
-           b,
-           c -> { d, e, f }
-         } ->
-         h ->
-         a
-       };    
-    "]],
-    [["
-       \tikz [rounded corners] \graph [layered layout, sibling distance=7mm]
-       {
-         a -> {
-           b,
-           c -> { d, e, f }
-         } ->
-         h -> 
-         a
-       };    
-   "]]
+  examples = {[["
+    \tikz \graph [layered layout, sibling distance=7mm]
+    {
+      a -> {
+        b,
+        c -> { d, e, f }
+      } ->
+      h ->
+      a
+    };
+  "]],[["
+    \tikz [rounded corners] \graph [layered layout, sibling distance=7mm]
+    {
+      a -> {
+        b,
+        c -> { d, e, f }
+      } ->
+      h ->
+      a
+    };
+  "]]
   }
 }
 
@@ -104,16 +102,16 @@ declare {
   type = "number",
   initial = "1",
 
-  summary = [["  
-       The minimum number of levels that an edge must span. It is a bit of
-       the opposite of the |weight| parameter: While a large |weight|
-       causes an edge to become shorter, a larger |minimum layers| value
-       causes an edge to be longer.
+  summary = [["
+    The minimum number of levels that an edge must span. It is a bit of
+    the opposite of the |weight| parameter: While a large |weight|
+    causes an edge to become shorter, a larger |minimum layers| value
+    causes an edge to be longer.
   "]],
   examples = [["
-      \tikz \graph [layered layout] {
-        a -- {b [> minimum layers=3], c, d} -- e -- a;
-      };
+    \tikz \graph [layered layout] {
+      a -- {b [> minimum layers=3], c, d} -- e -- a;
+    };
   "]]
 }
 
@@ -124,48 +122,48 @@ declare {
   key = "same layer",
   layer = 0,
 
-  summary = [["  
-       The |same layer| collection allows you to enforce that several nodes
-       a on the same layer of a layered layout (this option is also known
-       as |same rank|). You use it like this:
+  summary = [["
+    The |same layer| collection allows you to enforce that several nodes
+    a on the same layer of a layered layout (this option is also known
+    as |same rank|). You use it like this:
   "]],
   examples = {[["
-       \tikz \graph [layered layout] {
-         a -- b -- c -- d -- e;
-      
-         { [same layer] a, b };
-         { [same layer] d, e };
-       };
+    \tikz \graph [layered layout] {
+      a -- b -- c -- d -- e;
+
+      { [same layer] a, b };
+      { [same layer] d, e };
+    };
   "]],[["
-       \tikz [rounded corners] \graph [layered layout] {
-         1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
-        
-         { [same layer] 1972, Thompson };
-         { [same layer] 1976, Mashey, Bourne },
-         { [same layer] 1978, Formshell, csh },
-         { [same layer] 1980, esh, vsh },
-         { [same layer] 1982, ksh, "System-V" },
-         { [same layer] 1984, v9sh, tcsh },
-         { [same layer] 1986, "ksh-i" },
-         { [same layer] 1988, KornShell ,Perl, rc },
-         { [same layer] 1990, tcl, Bash },
-         { [same layer] "future", POSIX, "ksh-POSIX" },
-         
-         Thompson -> { Mashey, Bourne, csh -> tcsh},
-         Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
-         { "ksh-i", KornShell } -> Bash,
-         { esh, vsh, Formshell, csh } -> ksh,
-         { KornShell, "System-V" } -> POSIX,
-         ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
-         Bourne -> Formshell,
-         
-         { [edge={draw=none}]
-           Bash -> tcl,
-           KornShell -> Perl
-         }
-       };
-   "]]
-  }     
+      \tikz [rounded corners] \graph [layered layout] {
+        1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;
+
+        { [same layer] 1972, Thompson };
+        { [same layer] 1976, Mashey, Bourne },
+        { [same layer] 1978, Formshell, csh },
+        { [same layer] 1980, esh, vsh },
+        { [same layer] 1982, ksh, "System-V" },
+        { [same layer] 1984, v9sh, tcsh },
+        { [same layer] 1986, "ksh-i" },
+        { [same layer] 1988, KornShell ,Perl, rc },
+        { [same layer] 1990, tcl, Bash },
+        { [same layer] "future", POSIX, "ksh-POSIX" },
+
+        Thompson -> { Mashey, Bourne, csh -> tcsh},
+        Bourne -> { ksh, esh, vsh, "System-V", v9sh -> rc, Bash},
+        { "ksh-i", KornShell } -> Bash,
+        { esh, vsh, Formshell, csh } -> ksh,
+        { KornShell, "System-V" } -> POSIX,
+        ksh -> "ksh-i" -> KornShell -> "ksh-POSIX",
+        Bourne -> Formshell,
+
+        { [edge={draw=none}]
+          Bash -> tcl,
+          KornShell -> Perl
+        }
+      };
+  "]]
+  }
 }
 
 
@@ -176,15 +174,15 @@ function Sugiyama:run()
   if #self.graph.nodes <= 1 then
      return
   end
-    
+
   local options = self.digraph.options
-  
-  local cycle_removal_algorithm_class         = options.algorithm_phases['cycle removal'] 
+
+  local cycle_removal_algorithm_class         = options.algorithm_phases['cycle removal']
   local node_ranking_algorithm_class          = options.algorithm_phases['node ranking']
   local crossing_minimization_algorithm_class = options.algorithm_phases['crossing minimization']
   local node_positioning_algorithm_class      = options.algorithm_phases['node positioning']
   local edge_routing_algorithm_class          = options.algorithm_phases['layer edge routing']
-  
+
   self:preprocess()
 
   -- Helper function for collapsing multiedges
@@ -197,14 +195,14 @@ function Sugiyama:run()
 
   -- Create a subalgorithm object. Needed so that removed loops
   -- are not stored on top of removed loops from main call.
-  local cluster_subalgorithm = { graph = self.graph } 
+  local cluster_subalgorithm = { graph = self.graph }
   self.graph:registerAlgorithm(cluster_subalgorithm)
 
   self:mergeClusters()
 
   Simplifiers:removeLoopsOldModel(cluster_subalgorithm)
   Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
-  
+
   cycle_removal_algorithm_class.new { main_algorithm = self, graph = self.graph }:run()
   self.ranking = node_ranking_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:restoreCycles()
@@ -213,12 +211,12 @@ function Sugiyama:run()
   Simplifiers:restoreLoopsOldModel(cluster_subalgorithm)
 
   self:expandClusters()
-  
+
   -- Now do actual computation
   Simplifiers:collapseMultiedgesOldModel(cluster_subalgorithm, collapse)
   cycle_removal_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:insertDummyNodes()
-  
+
   -- Main algorithm
   crossing_minimization_algorithm_class.new{
     main_algorithm = self,
@@ -230,13 +228,13 @@ function Sugiyama:run()
     graph = self.graph,
     ranking = self.ranking
   }:run()
-  
+
   -- Cleanup
   self:removeDummyNodes()
   Simplifiers:expandMultiedgesOldModel(cluster_subalgorithm)
   edge_routing_algorithm_class.new{ main_algorithm = self, graph = self.graph }:run()
   self:restoreCycles()
-  
+
 end
 
 
@@ -306,7 +304,7 @@ function Sugiyama:insertDummyNodes()
           local target = dummies[i]
 
           local dummy_edge = Edge.new{
-            direction = Edge.RIGHT, 
+            direction = Edge.RIGHT,
             reversed = false,
             weight = edge.weight, -- TODO or should we divide the weight of the original edge by the number of virtual edges?
           }
@@ -375,7 +373,7 @@ function Sugiyama:mergeClusters()
   self.original_nodes = {}
 
   for _,cluster in ipairs(self.graph.clusters) do
-    
+
     local cluster_node = cluster.nodes[1]
     table.insert(self.cluster_nodes, cluster_node)
 

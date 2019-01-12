@@ -22,12 +22,13 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- Currently, the start configuration for force-based algorithms is a
 -- random distribution of the vertices. You can influence it by
 -- changing the |random seed|:
---
+-- %
 --\begin{codeexample}[]
 --\tikz \graph [random seed=10, spring layout] {
 --  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
 --};
 --\end{codeexample}
+ %
 --\begin{codeexample}[]
 --\tikz \graph [random seed=11, spring layout] {
 --  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
@@ -35,6 +36,6 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --\end{codeexample}
 --
 -- Other methods, like a planar preembedding, are not implemented
--- currently. 
+-- currently.
 --
 -- @end

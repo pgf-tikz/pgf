@@ -73,10 +73,10 @@ local option_cache       = nil -- The option cache
 
 
 ---
--- Initiliaze the binding. This function is called once by the display
+-- Initialize the binding. This function is called once by the display
 -- layer at the very beginning. For instance, \tikzname\ does the
 -- following call:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --InterfaceToDisplay.bind(require "pgf.gd.bindings.BindingToPGF")
 --\end{codeexample}
@@ -90,10 +90,10 @@ local option_cache       = nil -- The option cache
 
 function InterfaceToDisplay.bind(class)
   assert (not InterfaceCore.binding, "binding already initialized")
-  
+
   -- Create a new object
   InterfaceCore.binding = setmetatable({}, class)
-  
+
   -- Load these libraries, which contain many standard declarations:
   require "pgf.gd.model.library"
   require "pgf.gd.control.library"
@@ -113,7 +113,7 @@ end
 -- once more.
 --
 -- Each graph drawing scope comes with a syntactic digraph that is
--- build using methods like |addVertex| or |addEdge|. 
+-- build using methods like |addVertex| or |addEdge|.
 --
 -- @param height The to-be-used height of the options stack. All
 -- options above this height will be popped prior to attacking the
@@ -123,14 +123,14 @@ function InterfaceToDisplay.beginGraphDrawingScope(height)
 
   -- Create a new scope table
   local scope = Scope.new {}
-  
+
   -- Setup syntactic digraph:
   local g = scope.syntactic_digraph
-  
+
   g.options = get_current_options_table(height)
   g.syntactic_digraph = g
   g.scope = scope
-  
+
   -- Push scope:
   InterfaceCore.scopes[#InterfaceCore.scopes + 1] = scope
 end
@@ -138,7 +138,7 @@ end
 
 
 ---
--- Arranges the current graph using the specified algorithm and options. 
+-- Arranges the current graph using the specified algorithm and options.
 --
 -- This function should be called after the graph drawing scope has
 -- been opened and the syntactic digraph has been completely
@@ -165,22 +165,22 @@ function InterfaceToDisplay.runGraphDrawingAlgorithm()
   -- Setup
   local scope = InterfaceCore.topScope()
   assert(not scope.coroutine, "coroutine already created for current gd scope")
-  
+
   -- The actual drawing function
   local function run ()
     if #scope.syntactic_digraph.vertices == 0 then
       -- Nothing needs to be done
       return
     end
-    
+
     LayoutPipeline.run(scope)
   end
-     
+
   scope.coroutine = coroutine.create(run)
 
   -- Run it:
-  InterfaceToDisplay.resumeGraphDrawingCoroutine()  
-  
+  InterfaceToDisplay.resumeGraphDrawingCoroutine()
+
   -- End timing:
   local stop = os.clock()
 
@@ -204,10 +204,10 @@ function InterfaceToDisplay.resumeGraphDrawingCoroutine()
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  
+
   -- Asserts
   assert(scope.coroutine, "coroutine not created for current gd scope")
-  
+
   -- Run
   local ok, text = coroutine.resume(scope.coroutine)
   assert(ok, text)
@@ -258,7 +258,7 @@ end
 -- to the current |Binding|.
 --
 -- @param anchors A table of anchors (mapping anchor positions to
--- |Coordinates|). 
+-- |Coordinates|).
 
 
 function InterfaceToDisplay.createVertex(name, shape, path, height, binding_infos, anchors)
@@ -266,7 +266,7 @@ function InterfaceToDisplay.createVertex(name, shape, path, height, binding_info
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  
+
   -- Does vertex already exist?
   local v = scope.node_names[name]
   assert (not v or not v.created_on_display_layer, "node already created")
@@ -304,18 +304,18 @@ function vertex_created(v,scope)
   -- Create Event
   local e = InterfaceToDisplay.createEvent ("node", v)
   v.event = e
-  
+
   -- Create name lookup
   scope.node_names[v.name] = v
-  
+
   -- Add vertex to graph
   scope.syntactic_digraph:add {v}
-  
+
   -- Add to collections
   for _,c in ipairs(v.options.collections) do
     LookupTable.addOne(c.vertices, v)
   end
-  
+
 end
 
 
@@ -326,9 +326,9 @@ end
 -- ``surrounds'' the vertices of a subgraph. The special property of a
 -- subgraph node opposed to a normal node is that it is created only
 -- after the subgraph has been laid out. However, the difference to a
--- collection like |hyper| is that the node is availble immediately as
+-- collection like |hyper| is that the node is available immediately as
 -- a normal node in the sense that you can connect edges to it.
--- 
+--
 -- What happens internally is that subgraph nodes get ``registered''
 -- immediately both on the display level and on the algorithm level,
 -- but the actual node is only created inside the layout pipeline
@@ -339,7 +339,7 @@ end
 -- contains all vertices (and edges) being part of the subgraph. For
 -- this reason, this method is a |push...| method, since it pushes
 -- something on the options stack.
--- 
+--
 -- The |init| parameter will be used during the creation of the node,
 -- see |Binding:createVertex| for details on the fields. Note that
 -- |init.text| is often not displayed for such ``vast'' nodes as those
@@ -350,34 +350,34 @@ end
 --
 -- The |init.generated_options| will be augmented by additional
 -- key--value pairs when the vertex is created:
---
+-- %
 -- \begin{itemize}
--- \item The key |subgraph point cloud| will have as its value a
--- string that is be a list of points (without
--- separating commas) like |"(10pt,20pt)(0pt,0pt)(30pt,40pt)"|, always in
--- this syntax. The list will contain all points inside the
--- subgraph. In particular, a bounding box around these points will
--- encompass all nodes and bend points of the subgraph.
--- The bounding box of this point cloud is guaranteed to be centered on
--- the origin.
--- \item The key |subgraph bounding box width| will have as its value
--- the width of a bounding box (in \TeX\ points, as a string with the
--- suffix |"pt"|). 
--- \item The key |subgraph bounding box height| stores the height of a
--- bounding box.
--- \end{itemize} 
--- 
+--   \item The key |subgraph point cloud| will have as its value a
+--     string that is be a list of points (without separating commas)
+--     like |"(10pt,20pt)(0pt,0pt)(30pt,40pt)"|, always in
+--     this syntax. The list will contain all points inside the
+--     subgraph. In particular, a bounding box around these points will
+--     encompass all nodes and bend points of the subgraph.
+--     The bounding box of this point cloud is guaranteed to be centered on
+--     the origin.
+--   \item The key |subgraph bounding box width| will have as its value
+--     the width of a bounding box (in \TeX\ points, as a string with the
+--     suffix |"pt"|).
+--   \item The key |subgraph bounding box height| stores the height of a
+--     bounding box.
+-- \end{itemize}
+--
 -- @param name The name of the node.
 -- @param height Height of the options stack. Note that this method
 -- pushes something (namely a collection) on the options stack.
 -- @param info A table passed to |Binding:createVertex|, see that function.
 --
 function InterfaceToDisplay.pushSubgraphVertex(name, height, info)
-  
+
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  
+
   -- Does vertex already exist?
   assert (not scope.node_names[name], "node already created")
 
@@ -387,7 +387,7 @@ function InterfaceToDisplay.pushSubgraphVertex(name, height, info)
     kind    = "subgraph node",
     options = get_current_options_table(height-1)
   }
-  
+
   vertex_created(v,scope)
 
   -- Store info
@@ -429,12 +429,12 @@ function InterfaceToDisplay.addToVertexOptions(name, height)
 
   -- Setup
   local scope = InterfaceCore.topScope()
-  
+
   -- Does vertex already exist?
   local v = assert (scope.node_names[name], "node is missing, cannot add options")
-  
+
   v.options = get_current_options_table(height, v.options)
-  
+
   -- Add to collections
   for _,c in ipairs(v.options.collections) do
     LookupTable.addOne(c.vertices, v)
@@ -464,8 +464,8 @@ end
 --
 -- @param tail           Name of the node the edge begins at.
 -- @param head           Name of the node the edge ends at.
--- @param direction      Direction of the edge (e.g. |--| for an undirected edge 
---                       or |->| for a directed edge from the first to the second 
+-- @param direction      Direction of the edge (e.g. |--| for an undirected edge
+--                       or |->| for a directed edge from the first to the second
 --                       node).
 -- @param height         The option stack height, see for instance |createVertex|.
 --
@@ -477,12 +477,12 @@ function InterfaceToDisplay.createEdge(tail, head, direction, height, binding_in
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-  
+
   -- Does vertex already exist?
   local h = scope.node_names[head]
   local t = scope.node_names[tail]
   assert (h and t, "attempting to create edge between nodes that are not in the graph")
-  
+
   -- Create Arc object
   local arc = scope.syntactic_digraph:connect(t, h)
 
@@ -493,14 +493,14 @@ function InterfaceToDisplay.createEdge(tail, head, direction, height, binding_in
     direction = direction,
     options = get_current_options_table(height)
   }
-  
-  -- Add to arc    
+
+  -- Add to arc
   arc.syntactic_edges[#arc.syntactic_edges+1] = edge
-  
+
   -- Create Event
   local e = InterfaceToDisplay.createEvent ("edge", { arc, #arc.syntactic_edges })
   edge.event = e
-  
+
   -- Make part of collections
   for _,c in ipairs(edge.options.collections) do
     LookupTable.addOne(c.edges, edge)
@@ -509,15 +509,15 @@ function InterfaceToDisplay.createEdge(tail, head, direction, height, binding_in
   -- Call binding
   binding.storage[edge] = binding_infos
   binding:everyEdgeCreation(edge)
-  
+
 end
-  
+
 
 
 
 
 ---
--- Push an option to the stack of options. 
+-- Push an option to the stack of options.
 --
 -- As a graph is parsed, a stack of ``current options''
 -- is created. To add something to this table, the display layers may
@@ -533,7 +533,7 @@ end
 -- resulting stack height.
 --
 -- In addition to this stack height, this function returns a Boolean
--- value indicating whether a ``main algorithm phase was set.'' This
+-- value indicating whether a ``main algorithm phase was set''. This
 -- happens whenever a key is executed (directly or indirectly through
 -- the |use| field) that selects an algorithm for the ``main''
 -- algorithm phase. This information may help the caller to setup the
@@ -546,7 +546,7 @@ end
 -- above this height will be removed.
 --
 -- @return A new stack height
--- @return A Boolean that is |true| iff the main algorithm phase was
+-- @return A Boolean that is |true| if the main algorithm phase was
 -- set by the option or one option |use|d by it.
 -- @return The newly created entry on the stack. If more entries are
 -- created through the use of the |use| field, the original entry is
@@ -555,65 +555,65 @@ end
 
 function InterfaceToDisplay.pushOption(key, value, height)
   assert(type(key) == "string", "illegal key")
-  
+
   local key_record = assert(InterfaceCore.keys[key], "unknown key")
   local main_phase_set = false
-  
+
   if value == nil and key_record.default then
     value = key_record.default
   end
-  
+
   -- Find out what kind of key we are pushing:
-  
+
   if key_record.algorithm then
     -- Push a phase
     if type(InterfaceCore.algorithm_classes[key]) == "function" then
-      -- Call the constructor function 
+      -- Call the constructor function
       InterfaceCore.algorithm_classes[key] = InterfaceCore.algorithm_classes[key]()
     end
 
     local algorithm = InterfaceCore.algorithm_classes[key]
-    
+
     assert (algorithm, "algorithm class not found")
-    
+
     push_on_option_stack(phase_unique,
             { phase = value or key_record.phase, algorithm = algorithm },
             height)
-    
+
     if key_record.phase == "main" then
       main_phase_set = true
     end
-    
+
   elseif key_record.layer then
     -- Push a collection
     local stack = InterfaceCore.option_stack
     local scope = InterfaceCore.topScope()
-    
+
     -- Get the stack above "height":
     local options = get_current_options_table(height-1)
-    
+
     -- Create the collection event
     local event = InterfaceToDisplay.createEvent ("collection", key)
-    
+
     -- Create collection object:
     local collection = Collection.new { kind = key, options = options, event = event }
-    
+
     -- Store in collections table of current scope:
     local collections = scope.collections[key] or {}
     collections[#collections + 1] = collection
     scope.collections[key] = collections
-    
+
     -- Build collection tree
     collection:registerAsChildOf(options.collections[#options.collections])
-    
+
     -- Push on stack
     push_on_option_stack(collections_unique, collection, height)
-    
+
   else
-    
+
     -- A normal key
     push_on_option_stack(key, InterfaceCore.convert(value, InterfaceCore.keys[key].type), height)
-    
+
   end
 
   local newly_created = InterfaceCore.option_stack[#InterfaceCore.option_stack]
@@ -655,7 +655,7 @@ end
 
 
 ---
--- Creates an event and adds it to the event string of the current scope. 
+-- Creates an event and adds it to the event string of the current scope.
 --
 -- @param kind         Name/kind of the event.
 -- @param parameters   Parameters of the event.
@@ -679,7 +679,7 @@ end
 -- keys's names. In particular, you can then iterate over it using
 -- |ipairs| and you can  check whether a key is defined by accessing
 -- the table at the key's name. Each entry of the table is the
--- original table passed to |InterfaceToAlgorithms.declare|. 
+-- original table passed to |InterfaceToAlgorithms.declare|.
 --
 -- @return A lookup table of all declared keys.
 
@@ -699,7 +699,7 @@ end
 -- whole graph.
 --
 -- In detail, this function calls:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local binding = InterfaceCore.binding
 --
@@ -719,14 +719,14 @@ end
 function InterfaceToDisplay.renderGraph()
   local scope = InterfaceCore.topScope()
   local syntactic_digraph = scope.syntactic_digraph
-  
+
   local binding = InterfaceCore.binding
-  
+
   binding:renderStart()
   render_vertices(syntactic_digraph.vertices)
   render_edges(syntactic_digraph.arcs)
   render_collections(scope.collections)
-  binding:renderStop()  
+  binding:renderStop()
 end
 
 
@@ -743,15 +743,16 @@ end
 -- binding layer.
 --
 -- Consider the following code:
---\begin{codeexample}[code only] 
+-- %
+--\begin{codeexample}[code only]
 --\graph [... layout] {
 --  a -- b -- c -- d;
 --};
 --\end{codeexample}
---  
+--
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local binding = InterfaceCore.binding
 --
@@ -779,24 +780,25 @@ end
 -- function is called to render the different collection kinds.
 --
 -- Collection kinds rendered in the order provided by the |layer|
--- field passed to |declare| during the declaration of the colleciton
+-- field passed to |declare| during the declaration of the collection
 -- kind, see also |declare_collection|. If several collection kinds
 -- have the same layer, they are rendered in lexicographical ordering
 -- (to ensure that they are always rendered in the same order).
 --
 -- Consider the following code:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --declare { key = "hyper", layer = 1 }
 --\end{codeexample}
 -- you can say on the \tikzname\ layer
---\begin{codeexample}[code only] 
+--\begin{codeexample}[code only]
 --\graph {
 --  a, b, c, d;
 --  { [hyper] a, b, c }
 --  { [hyper] b, c, d }
 --};
 --\end{codeexample}
---  
+--
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
 --
@@ -809,12 +811,12 @@ end
 --binding:renderCollectionStopKind("hyper", 1)
 --\end{codeexample}
 --
--- @param collections The |collections| table of the current scope. 
+-- @param collections The |collections| table of the current scope.
 
 function render_collections(collections)
   local kinds = InterfaceCore.collection_kinds
   local binding = InterfaceCore.binding
-  
+
   for i=1,#kinds do
     local kind = kinds[i].kind
     local layer = kinds[i].layer
@@ -837,19 +839,20 @@ end
 --
 -- When the graph drawing algorithm is done, the interface will first
 -- rendering the vertices using |render_vertices|, followed by calling
--- this function, which in turn calls appropriate callbacks to the 
+-- this function, which in turn calls appropriate callbacks to the
 -- binding layer.
 --
 -- Consider the following code:
---\begin{codeexample}[code only] 
+-- %
+--\begin{codeexample}[code only]
 -- \graph [... layout] {
 --   a -- b -- c -- d;
 -- };
 --\end{codeexample}
---  
+--
 -- In this case, after the graph drawing algorithm has run, the
 -- present function will call:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- local binding = InterfaceCore.binding
 --
@@ -877,7 +880,7 @@ local aliases = InterfaceCore.option_aliases
 local option_initial = InterfaceCore.option_initial
 
 local option_metatable = {
-  __index = 
+  __index =
     function (t, key)
       local k = aliases[key]
       if k then
@@ -901,19 +904,19 @@ local option_metatable = {
 -- with object.)
 --
 -- (This function is local and internal and included only for documentation
--- purposes.) 
+-- purposes.)
 --
 -- @param height The stack height for which the option table is
 -- required.
 -- @param table If non |nil|, the options will be added to this
--- table. 
+-- table.
 --
 -- @return The option table as described above.
 
 function get_current_options_table (height, table)
   local stack = InterfaceCore.option_stack
   assert (height >= 0 and height <= #stack, "height value out of bounds")
-  
+
   if height == InterfaceCore.option_cache_height and not table then
     return option_cache
   else
@@ -935,11 +938,11 @@ function get_current_options_table (height, table)
       cache.algorithm_phases = lib.copy(cache.algorithm_phases)
       cache.collections = lib.copy(cache.collections)
     end
-      
+
     local algorithm_phases = cache.algorithm_phases
     local collections = cache.collections
     local keys = InterfaceCore.keys
-    
+
     local function handle (k, v)
       if k == phase_unique then
         algorithm_phases[v.phase] = v.algorithm
@@ -951,24 +954,24 @@ function get_current_options_table (height, table)
           t = lib.copy(t)
           algorithm_phases[phase_stack] = t
         end
-        t[#t + 1] = v.algorithm      
+        t[#t + 1] = v.algorithm
       elseif k == collections_unique then
         LookupTable.addOne(collections, v)
       else
         cache[k] = v
       end
     end
-    
+
     for _,s in ipairs(stack) do
       handle (s.key, s.value)
     end
-    
+
     -- Cache it, if this was not added:
     if not table then
       InterfaceCore.option_cache_height = height
       option_cache                      = cache
     end
-    
+
     return cache
   end
 end
@@ -979,21 +982,21 @@ end
 
 function push_on_option_stack(key, value, height)
   local stack = InterfaceCore.option_stack
-  
-  assert (type(height) == "number" and height > 0 and height <= #stack + 1, 
+
+  assert (type(height) == "number" and height > 0 and height <= #stack + 1,
       "height value out of bounds")
-  
+
   -- Clear superfluous part of stack
   for i=#stack,height+1,-1 do
     stack[i] = nil
   end
 
   stack[height] = { key = key, value = value }
-  InterfaceCore.option_cache_height = nil   -- invalidate cache  
+  InterfaceCore.option_cache_height = nil   -- invalidate cache
 end
 
 
 
--- Done 
+-- Done
 
 return InterfaceToDisplay

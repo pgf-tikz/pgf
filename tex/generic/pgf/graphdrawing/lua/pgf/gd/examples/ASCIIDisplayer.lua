@@ -5,7 +5,7 @@ require "pgf.gd.layered.library"
 require "pgf.gd.force.library"
 
 local algorithm = io.read():match("%s*graph%s*%[(.-)%]")
-  
+
 InterfaceToDisplay.pushPhase(algorithm, "main", 1)
 InterfaceToDisplay.pushOption("level distance", 6, 2)
 InterfaceToDisplay.pushOption("sibling distance", 8, 3)
@@ -27,6 +27,6 @@ end
 InterfaceToDisplay.runGraphDrawingAlgorithm()
 InterfaceToDisplay.renderGraph()
 InterfaceToDisplay.endGraphDrawingScope()
-      
+
 
 

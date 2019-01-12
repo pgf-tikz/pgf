@@ -23,7 +23,7 @@ local lib = require "pgf.gd.lib"
 local Storage = require "pgf.gd.lib.Storage"
 local layered = require "pgf.gd.layered"
 
--- 
+--
 -- This file defines some basic functions to compute and/or set the
 -- ideal distances between nodes of any kind of layered drawing of a
 -- graph.
@@ -35,7 +35,7 @@ local layered = require "pgf.gd.layered"
 --
 -- @param layers A |Storage| object assigning layers to vertices.
 -- @param paddings A |Storage| object storing the computed distances
--- (paddings). 
+-- (paddings).
 -- @param graph The graph in which the nodes reside
 -- @param snapshots The list of snapshots over which the overlaying evolving
 --                  graph exists
@@ -56,11 +56,11 @@ function temporallayered.arrange_layers_by_baselines (layers, paddings, graph, s
   end
 
   if count_layers > 0 then
-    
-    
+
+
     -- Now compute ideal distances and store
     local height = 0
-    
+
     for _, s in ipairs(snapshots) do
       local layer_vertices = snapshots_layers[s]
       if #layer_vertices > 0 then -- sanity check
@@ -69,7 +69,7 @@ function temporallayered.arrange_layers_by_baselines (layers, paddings, graph, s
         end
       end
     end
-    
+
     for i=2, count_layers do
       local distance = 0
       for _, s in ipairs(snapshots) do
@@ -84,19 +84,19 @@ function temporallayered.arrange_layers_by_baselines (layers, paddings, graph, s
               layer_vertices[i]))
         end
       end
-      
+
       height = height + distance
-      
+
       for _, s in ipairs(snapshots) do
         local layer_vertices = snapshots_layers[s]
         if #layer_vertices >= i then
           for _,v in ipairs(layer_vertices[i]) do
-            v.pos.y = height 
+            v.pos.y = height
           end
         end
       end
     end
-  end  
+  end
 end
 
 
