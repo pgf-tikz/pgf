@@ -112,7 +112,6 @@
 --  pgf.debug ("There is an arc leaving " .. tostring(v) ..
 --             " heading to " .. tostring(a.head))
 --end
---%
 --\end{codeexample}
 -- %
 -- Naturally, there is also a method |g:incoming()|.

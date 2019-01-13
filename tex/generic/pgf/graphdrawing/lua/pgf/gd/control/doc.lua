@@ -39,8 +39,8 @@ always be fulfill:
     a [desired at={(1,2)}] -- b -- c -- a;
   };
 \end{tikzpicture}
-%
 \end{codeexample}
+%
 \begin{codeexample}[]
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);

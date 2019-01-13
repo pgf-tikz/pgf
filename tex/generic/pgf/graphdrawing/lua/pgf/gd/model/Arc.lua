@@ -571,7 +571,7 @@ end
 -- method to get a function that will, later on, compute the correct
 -- position of the anchor as needed.
 --
--- Here is the code you would use to create the above mentioned path:
+-- Here is the code you would use to create the above-mentioned path:
 -- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local a = g:connect(tail,head)

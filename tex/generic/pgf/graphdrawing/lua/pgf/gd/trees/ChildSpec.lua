@@ -207,7 +207,7 @@ declare {
 
   summary = [["
     A shorthand for setting the desired child number to |3|.
-  ]]
+  "]]
  }
 
 
@@ -223,4 +223,3 @@ declare {
     A shorthand for setting the desired child number to |4|.
   "]]
  }
-
