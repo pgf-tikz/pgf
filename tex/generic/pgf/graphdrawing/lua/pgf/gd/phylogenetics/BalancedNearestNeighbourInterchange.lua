@@ -28,7 +28,7 @@ local declare = InterfaceToAlgorithms.declare
 
 ---
 declare {
-  key = "balanced nearest neighbor interchange",
+  key = "balanced nearest neighbour interchange",
   algorithm = BalancedNearestNeighbourInterchange,
   phase = "phylogenetic tree optimization",
   phase_default = true,
