@@ -138,8 +138,8 @@ end
 function CoarseGraph:uncoarsen()
   local a = self.collapsed_vertices[self.level]
   local ugraph = self.ugraph
-  local random = math.random
-  local randomseed = math.randomseed
+  local random = lib.random
+  local randomseed = lib.randomseed
 
   for j=#a,1,-1 do
     randomseed(42)

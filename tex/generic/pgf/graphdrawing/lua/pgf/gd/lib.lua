@@ -396,15 +396,16 @@ end
 
 
 ---
--- This implements the legacy random number generator of Lua 5.2 in
--- pure Lua.  This is needed for Lua 5.3 compatibility to obtain
--- consitent results.
+-- This implements the a random number generator similar to the one
+-- provided by Lua, but based on the tex.uniformdeviate primitive to
+-- avoid differences in random numbers due to platform specifics.
 --
 -- @param l Lower bound
 -- @param u Upper bound
 -- @return A random number
 function lib.random(l,u)
-  local r = math.random()
+  local fraction_one = 268435456
+  local r = tex.uniform_rand(fraction_one)/fraction_one
   if l and u then
     assert(l <= u)
     return math.floor(r*(u-l+1)) + l
@@ -414,6 +415,14 @@ function lib.random(l,u)
   else
     return r
   end
+end
+
+---
+-- Provide the seed for the random number generator
+--
+-- @param seed random seed
+function lib.randomseed(seed)
+  tex.init_rand(seed)
 end
 
 -- Done

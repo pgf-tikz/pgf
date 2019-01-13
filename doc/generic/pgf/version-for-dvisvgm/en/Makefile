@@ -17,7 +17,7 @@ pgfmanual.ind: pgfmanual.idx
 
 pgfmanual.svg: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
-	dvisvgm --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
+	dvisvgm --font-format=woff --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
 pgfmanual-no-font.svg: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex

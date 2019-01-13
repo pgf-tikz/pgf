@@ -30,7 +30,7 @@ end
 
 function RandomInitialPositioning:run()
   -- locals for speed
-  local random = math.random
+  local random = lib.random
   local vertices = self.vertices
   local desired_vertices = self.desired_vertices
   -- place vertices where the |desired at | option has been set first

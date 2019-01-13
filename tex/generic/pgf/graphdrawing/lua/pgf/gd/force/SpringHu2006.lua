@@ -284,7 +284,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 	    -- enforce a small virtual distance if the nodes are
 	    -- located at (almost) the same position
 	    if delta:norm() < 0.1 then
-	      delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+	      delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
 	    end
 	    
 	    local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1

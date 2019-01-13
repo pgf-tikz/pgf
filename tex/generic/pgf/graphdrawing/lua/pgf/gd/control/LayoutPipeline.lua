@@ -205,7 +205,7 @@ function LayoutPipeline.runOnLayout(scope, algorithm_class, layout_graph, layout
     
     -- Step 2.1: Reset random number generator to make sure that the
     -- same graph is always typeset in  the same way.
-    math.randomseed(layout_graph.options['random seed'])
+    lib.randomseed(layout_graph.options['random seed'])
     
     local digraph  = Direct.digraphFromSyntacticDigraph(syntactic_component)
 
