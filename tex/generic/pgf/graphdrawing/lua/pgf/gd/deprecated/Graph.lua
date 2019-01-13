@@ -127,9 +127,9 @@ function Graph:addNode(node)
    if not self:findNode(node.name) then
       -- Does the node have an index, yet?
       if not node.index then
-	 node.index = #self.nodes + 1
+        node.index = #self.nodes + 1
       end
-      
+
       table.insert(self.nodes, node)
    end
 end
@@ -143,8 +143,8 @@ end
 -- @return The removed node or |nil| if it was not found in the graph.
 --
 function Graph:removeNode(node)
-  local _, index = lib.find(self.nodes, function (other) 
-    return other.name == node.name 
+  local _, index = lib.find(self.nodes, function (other)
+    return other.name == node.name
   end)
   if index then
     table.remove(self.nodes, index)
@@ -170,7 +170,7 @@ end
 
 --- Looks up the first node for which the function \meta{test} returns |true|.
 --
--- @param test A function that takes one parameter (a |Node|) and returns 
+-- @param test A function that takes one parameter (a |Node|) and returns
 --             |true| or |false|.
 --
 -- @return The first node for which \meta{test} returns |true|.
@@ -183,7 +183,7 @@ end
 
 --- Like removeNode, but also deletes all adjacent edges of the removed node.
 --
--- This function also removes the deleted adjacent edges from all neighbours
+-- This function also removes the deleted adjacent edges from all neighbors
 -- of the removed node.
 --
 -- @param node The node to be deleted together with its adjacent edges.
@@ -293,7 +293,7 @@ end
 
 
 
---- Creates and adds a new edge to the graph. 
+--- Creates and adds a new edge to the graph.
 --
 -- @param first_node   The first node of the new edge.
 -- @param second_node  The second node of the new edge.
@@ -305,7 +305,7 @@ end
 --                     \item |Edge.BOTH| and
 --                     \item |Edge.NONE| (for invisible edges).
 --                     \end{itemize}
--- @param edge_nodes   A string of \tikzname\ edge nodes that needs to be passed 
+-- @param edge_nodes   A string of \tikzname\ edge nodes that needs to be passed
 --                     back to the \TeX layer unmodified.
 -- @param options      The options of the new edge.
 -- @param tikz_options A table of \tikzname\ options to be used by graph drawing
@@ -315,9 +315,9 @@ end
 --
 function Graph:createEdge(first_node, second_node, direction, edge_nodes, options, tikz_options)
   local edge = Edge.new{
-    direction = direction, 
+    direction = direction,
     edge_nodes = edge_nodes,
-    options = options, 
+    options = options,
     tikz_options = tikz_options
   }
   edge:addNode(first_node)

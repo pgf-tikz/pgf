@@ -12,7 +12,7 @@
 
 
 ---
--- A phylogenetic tree (or network) depicts the evolutionary histroy
+-- A phylogenetic tree (or network) depicts the evolutionary history
 -- of species or, more generally, so called taxa. The present library
 -- includes a number of algorithms for drawing phylogenetic trees.
 --

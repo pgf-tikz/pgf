@@ -15,13 +15,13 @@
 -- This class provides the interface between the graph drawing system
 -- and algorithms. Another class, |InterfaceToDisplay|, binds the
 -- display layers (like \tikzname\ or a graph drawing editor) to the
--- graph drawing system ``from the other side''. 
+-- graph drawing system ``from the other side''.
 --
 -- The functions declared here can be used by algorithms to
 -- communicate with the graph drawing system, which will usually
 -- forward the ``requests'' of the algorithms to the display layers in
 -- some way. For instance, when you declare a new parameter, this
--- parameter will become available on the display layer. 
+-- parameter will become available on the display layer.
 
 local InterfaceToAlgorithms = {}
 
@@ -58,7 +58,7 @@ local declare_handlers
 -- registered handler, we call the |test| function. If it returns
 -- neither |nil| nor |false|, the |handler| field of this handler is
 -- called. If it returns |true|, the handler immediately
--- finishes. Otherwise, the next handler is tried. 
+-- finishes. Otherwise, the next handler is tried.
 
 function InterfaceToAlgorithms.addHandler(test, handler)
   table.insert(declare_handlers, 1, { test = test, handler = handler })
@@ -76,7 +76,7 @@ local key_metatable = {}
 -- for use on the display layer. There is just one function for
 -- handling all declarations in order to make the declarations
 -- easy-to-use since you just need to import a single function:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --\end{codeexample}
@@ -84,11 +84,11 @@ local key_metatable = {}
 -- You can now use |declare| it as follows: You pass it a table
 -- containing information about the to-be-declared key. The table
 -- \emph{must} have a field |key| whose value is unique and must be a
--- string. If the value of |key| is, say, |"foo"|, the 
--- parameter can be set on the display layer such as, say, the 
+-- string. If the value of |key| is, say, |"foo"|, the
+-- parameter can be set on the display layer such as, say, the
 -- \tikzname\ layer, using |/graph drawing/foo|. Here is a typical
--- example of how a declaration is done: 
---
+-- example of how a declaration is done:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
@@ -126,7 +126,7 @@ local key_metatable = {}
 -- faster to read (both for humans and for computers). Second, for C
 -- code, it is quite inconvenient to have long strings inside a C
 -- file. In such cases, you can use the |documentation_in| field:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
@@ -138,7 +138,7 @@ local key_metatable = {}
 --\end{codeexample}
 --
 -- The |some_filename| must be the name of a Lua file that will be
--- read ``on demand,'' that is, whenever someone tries to access the
+-- read ``on demand'', that is, whenever someone tries to access the
 -- documentation, summary, or examples field of the key, this file
 -- will be loaded using |require|. The file should then use
 -- |pgf.gd.doc| to install the missing information in the keys.
@@ -146,14 +146,15 @@ local key_metatable = {}
 -- \medskip\noindent\textbf{The Use Field.}
 -- When you declare a key, you can provide a |use| field. If present,
 -- you must set it to an array of small tables which have two fields:
+-- %
 -- \begin{itemize}
--- \item |key| This is the name of another key or a function.
--- \item |value| This is either a value (like a string or a number) or
---   a function or |nil|.
+--   \item |key| This is the name of another key or a function.
+--   \item |value| This is either a value (like a string or a number) or
+--     a function or |nil|.
 -- \end{itemize}
 --
 -- Here is an example:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
@@ -176,8 +177,8 @@ local key_metatable = {}
 -- the array had been set explicitly to the value given by the |value|
 -- field. If the |value| is a function, we pass a different value to
 -- the key, namely the result of applying the function to the value
--- originally passed to the original key. Here is a typical example: 
---
+-- originally passed to the original key. Here is a typical example:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
@@ -193,7 +194,7 @@ local key_metatable = {}
 --
 -- Just like the value, the key itself can also be a function. In this
 -- case, the to-be-used key is also computed by applying the function
--- to the value passed to the original key. 
+-- to the value passed to the original key.
 --
 -- As mentioned at the beginning, |declare| is a work-horse that will call
 -- different internal functions depending on whether you declare a
@@ -209,7 +210,7 @@ local key_metatable = {}
 
 function InterfaceToAlgorithms.declare (t)
   local keys = InterfaceCore.keys
-  
+
   -- Sanity check:
   assert (type(t.key) == "string" and t.key ~= "", "parameter key may not be the empty string")
   if keys[t.key] or t.keys == "algorithm_phases" then
@@ -219,14 +220,14 @@ function InterfaceToAlgorithms.declare (t)
   for _,h in ipairs (declare_handlers) do
     if h.test(t) then
       if h.handler(t) then
-	break
+        break
       end
     end
   end
 
   -- Attach metatable:
   setmetatable (t, key_metatable)
-    
+
   -- Set!
   keys[t.key]     = t
   keys[#keys + 1] = t
@@ -246,10 +247,10 @@ end
 
 
 ---
--- This function is called by |declare| for ``normal parameter keys,''
+-- This function is called by |declare| for ``normal parameter keys'',
 -- which are all keys for which no special field like |algorithm| or
 -- |layer| is declared. You write
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
@@ -266,6 +267,7 @@ end
 -- When an author writes |my node[electrical charge=5-3]| in the
 -- description of her graph, the object |vertex| corresponding to the
 -- node |my node| will have a field |options| attached to it with
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --vertex.options["electrical charge"] == 2
 --\end{codeexample}
@@ -273,40 +275,40 @@ end
 -- The |type| field does not refer to Lua types. Rather, these types are
 -- sensible types for graph drawing and they are mapped by the higher
 -- layers to Lua types. In detail, the following types are available:
---
+-- %
 -- \begin{itemize}
--- \item |number| A dimensionless number. Will be mapped to a normal
--- Lua |number|. So, when the author writes |foo=5*2|, the |foo| key
--- of the |options| field of the corresponding object will be set to
--- |10.0|.
--- \item |length| A ``dimension'' in the sense of \TeX\ (a number with
--- a dimension like |cm| attached to it). It is the job of the display
--- layer to map this to a number in ``\TeX\ points,'' that is, to a
--- multiple of $1/72.27$th of an inch.
--- \item |time| A ``time'' in the sense of |\pgfparsetime|. Examples
--- are |6s| or |0.1min| or |6000ms|, all of which will map to |6|. 
--- \item |string| Some text. Will be mapped to a Lua |string|.
--- \item |canvas coordinate| A position on the canvas. Will be mapped
--- to a |model.Coordinate|.
--- \item |boolean| A Boolean value.
--- \item |raw| Some to-be-executed Lua text.
--- \item |direction| Normally, an angle; however,
--- the special values of |down|, |up|, |left|, |right| as well as the
--- directions |north|, |north west|, and so on are also legal on the
--- display layer. All of them will be mapped to a number. Furthermore,
--- a vertical bar (\verb!|!) will be mapped to |-90| and a minus sign
--- (|-|) will be mapped to |0|.
--- \item |hidden| A key of this type ``cannot be set,'' that is,
--- users cannot set this key at all. However algorithms can still read
--- this key and, through the use of |alias|, can use the key as a
--- handle to another key.
--- \item |user value| The key stores a Lua user value (userdata). Such
--- keys can only be set from C since user values cannot be created in
--- Lua (let alone in \tikzname).
+--   \item |number| A dimensionless number. Will be mapped to a normal
+--     Lua |number|. So, when the author writes |foo=5*2|, the |foo| key
+--     of the |options| field of the corresponding object will be set to
+--     |10.0|.
+--   \item |length| A ``dimension'' in the sense of \TeX\ (a number with
+--     a dimension like |cm| attached to it). It is the job of the display
+--     layer to map this to a number in ``\TeX\ points'', that is, to a
+--     multiple of $1/72.27$th of an inch.
+--   \item |time| A ``time'' in the sense of |\pgfparsetime|. Examples
+--     are |6s| or |0.1min| or |6000ms|, all of which will map to |6|.
+--   \item |string| Some text. Will be mapped to a Lua |string|.
+--   \item |canvas coordinate| A position on the canvas. Will be mapped
+--     to a |model.Coordinate|.
+--   \item |boolean| A Boolean value.
+--   \item |raw| Some to-be-executed Lua text.
+--   \item |direction| Normally, an angle; however,
+--     the special values of |down|, |up|, |left|, |right| as well as the
+--     directions |north|, |north west|, and so on are also legal on the
+--     display layer. All of them will be mapped to a number. Furthermore,
+--     a vertical bar (\verb!|!) will be mapped to |-90| and a minus sign
+--     (|-|) will be mapped to |0|.
+--   \item |hidden| A key of this type ``cannot be set'', that is,
+--     users cannot set this key at all. However algorithms can still read
+--     this key and, through the use of |alias|, can use the key as a
+--     handle to another key.
+--   \item |user value| The key stores a Lua user value (userdata). Such
+--     keys can only be set from C since user values cannot be created in
+--     Lua (let alone in \tikzname).
 -- \end{itemize}
 --
 -- If the |type| field is missing, it is automatically set to
--- |"string"|. 
+-- |"string"|.
 --
 -- A parameter can have an |initial| value. This value will be used
 -- whenever the parameter has not been set explicitly for an object.
@@ -316,7 +318,7 @@ end
 -- no value is provided. For a key of type |"boolean"|, if no
 -- |default| is provided, |"true"| will be used automatically.
 --
--- A parameter can habe an |alias| field. This field must be set to
+-- A parameter can have an |alias| field. This field must be set to
 -- the name of another key or to a function. Whenever you access the
 -- current key and this key is not set, the |alias| key is tried
 -- instead. If it is  set, its value will be returned (if the |alias|
@@ -324,7 +326,7 @@ end
 -- alias is not set either and neither does it have an initial value,
 -- the |initial| value is used. Note that in case the alias has its
 -- |initial| field set, the |initial| value of the current key will
--- never be used. 
+-- never be used.
 --
 -- The main purpose of the current key is to allow algorithms to
 -- introduce their own terminology for keys while still having access
@@ -332,7 +334,7 @@ end
 -- class uses the name |layerDistance| for what would be called
 -- |level distance| in the rest of the graph drawing system. In this
 -- case, we can declare the |layerDistance| key as follows:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
@@ -349,7 +351,7 @@ end
 --
 -- Note that there is a difference between |alias| and the |use|
 -- field: Suppose we write
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
@@ -366,7 +368,7 @@ end
 --
 -- If the alias is a function, it will be called with the option table
 -- as its parameter. You can thus say things like
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- declare {
 --   key     = "layerDistance",
@@ -377,9 +379,9 @@ end
 -- }
 --\end{codeexample}
 --
--- As a special curtesy to C code, you can also set the key
+-- As a special courtesy to C code, you can also set the key
 -- |alias_function_string|, which allows you to put the function into
--- a string that is read using |loadstring|. 
+-- a string that is read using |loadstring|.
 --
 -- (You cannot call this function directly, it is included for
 -- documentation purposes only.)
@@ -389,36 +391,36 @@ end
 local function declare_parameter (t)
 
   t.type = t.type or "string"
-  
+
   if t.type == "boolean" and t.default == nil then
     t.default = true
   end
-  
+
   -- Normal key
   assert (type(t.type) == "string", "key type must be a string")
-  
+
   -- Declare via the hub:
-  if t.type ~= "hidden" then 
+  if t.type ~= "hidden" then
     InterfaceCore.binding:declareCallback(t)
-  
+
     -- Handle initials:
     if t.initial then
       InterfaceCore.option_initial[t.key] = InterfaceCore.convert(t.initial, t.type)
     end
   end
-  
+
   if t.alias_function_string and not t.alias then
     local count = 0
     t.alias = load (
       function ()
- 	count = count + 1
- 	if count == 1 then
- 	  return "return "
- 	elseif count == 2 then
- 	  return t.alias_function_string
- 	else
- 	  return nil
- 	end
+        count = count + 1
+        if count == 1 then
+          return "return "
+        elseif count == 2 then
+          return t.alias_function_string
+        else
+          return nil
+        end
       end)()
   end
 
@@ -435,16 +437,17 @@ end
 
 ---
 -- This function is called by |declare| for ``algorithm
--- keys.'' These keys are normally used without a value as in just
+-- keys''. These keys are normally used without a value as in just
 -- |\graph[tree layout]|, but you can optionally pass a value to
 -- them. In this case, this value must be the name of a \emph{phase}
 -- and the algorithm of this phase will be set (and not the
 -- default phase of the key), see the description of phases below for
--- details. 
+-- details.
 --
 -- Algorithm keys are detected by the presence of the field |algorithm|
 -- in the table |t| passed to |declare|. Here is an example of how it
 -- is used:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- local ReingoldTilford1981 = {}
 --
@@ -497,7 +500,7 @@ end
 -- drawing engine which ``phase'' of the graph drawing process your
 -- option applies to. Each time you select an algorithm later on
 -- through use of the algorithm's key, the algorithm for this phase
--- will be set; algorithms of other phases will not be changed. 
+-- will be set; algorithms of other phases will not be changed.
 -- For instance, when an algorithm is part of the spanning tree
 -- computation, its phase will be |"spanning tree computation"| and
 -- using its key does not change the main algorithm, but only the
@@ -505,7 +508,7 @@ end
 -- current graph (in case this is needed by the main algorithm). In
 -- case the |phase| field is missing, the phase |main| is used. Thus,
 -- when no phase field is given, the key will change the main
--- algorithm used to draw the graph. 
+-- algorithm used to draw the graph.
 --
 -- Later on, the algorithm set for the current phase can be accessed
 -- through the special |algorithm_phases| field of |options|
@@ -519,12 +522,12 @@ end
 --
 -- The following example shows the declaration of an algorithm that is
 -- the default for the phase |"spanning tree computation"|:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- ---
 -- declare {
 --   key = "breadth first spanning tree",
---   algorithm = { 
+--   algorithm = {
 --     run =
 --       function (self)
 --         return SpanningTreeComputation.computeSpanningTree(self.ugraph, false, self.events)
@@ -538,7 +541,7 @@ end
 --
 -- The algorithm is called as follows during a run of the main
 -- algorithms:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 -- local graph = ... -- the graph object
 -- local spanning_algorithm_class = graph.options.algorithm_phases["spanning tree computation"]
@@ -567,7 +570,7 @@ end
 local function declare_algorithm (t)
   -- Algorithm declaration!
   assert(type(t.algorithm) == "table" or type(t.algorithm) == "string")
-  
+
   t.phase = t.phase or "main"
 
   local function make_class ()
@@ -578,7 +581,7 @@ local function declare_algorithm (t)
     else
       class = lib.class(require(t.algorithm))
     end
-      
+
     -- Now, save pre- and postconditions
     class.preconditions  = t.preconditions or {}
     class.postconditions = t.postconditions or {}
@@ -602,26 +605,26 @@ local function declare_algorithm (t)
 
   -- Save in the algorithm_classes table:
   InterfaceCore.algorithm_classes[t.key] = store_me
-  
+
   assert(t.type == nil, "type may not be set for an algorithm key")
   t.type = "string"
-  
+
   -- Install!
   InterfaceCore.binding:declareCallback(t)
-  
+
   if t.phase_default then
     assert (not InterfaceCore.option_initial.algorithm_phases[t.phase],
-	    "default algorithm for phase already set")
+        "default algorithm for phase already set")
     assert (type(store_me) == "table",
-	    "default algorithms must be loaded immediately")
+        "default algorithms must be loaded immediately")
     InterfaceCore.option_initial.algorithm_phases[t.phase] = store_me
     InterfaceCore.option_initial.algorithm_phases[t.phase .. " stack"] = { store_me }
   else
     InterfaceCore.option_initial.algorithm_phases[t.phase .. " stack"] = {
       dummy = true -- Remove once Lua Link Bug is fixed
-    } 
-  end 
-  
+    }
+  end
+
   return true
 end
 
@@ -629,42 +632,44 @@ end
 
 
 ---
--- This function is called by |declare| for ``collection kinds.'' They
--- are detected by the presence of the field |layer| 
+-- This function is called by |declare| for ``collection kinds''. They
+-- are detected by the presence of the field |layer|
 -- in the table |t| passed to |declare|. See the class |Collection|
 -- for details on what a collection and a collection kind is.
 --
 -- The |key| field of the table |t| passed to this function is both
 -- the name of the to-be-declared collection kind as well as the key
 -- that is used on the display layer to indicate that a node or edge
--- belongs to a collection. 
+-- belongs to a collection.
 --
 -- \medskip
 -- \noindent\textbf{The Display Layer.}
--- Let us first have a look at what happens on the display layer: 
+-- Let us first have a look at what happens on the display layer:
 -- A key |t.key| is setup on the display layer that, when used inside
 -- a graph drawing scope, starts a new collection of the specified
 -- kind. ``Starts'' means that all nodes and edges mentioned in the
 -- rest of the current option scope will belong to a new collection
--- of kind |t.key|. 
--- 
+-- of kind |t.key|.
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --declare { key = "hyper", layer = 1 }
 --\end{codeexample}
+-- %
 -- you can say on the \tikzname\ layer
---\begin{codeexample}[code only] 
+-- %
+--\begin{codeexample}[code only]
 -- \graph {
 --   a, b, c, d;
 --   { [hyper] a, b, c }
 --   { [hyper] b, c, d }
 -- };
 --\end{codeexample}
--- 
+--
 -- In this case, the nodes |a|, |b|, |c| will belong to a collection of
 -- kind |hyper|. The nodes |b|, |c|, and |d| will (also) belong to
 -- another collection of the same kind |hyper|. You can nest
 -- collections; in this case, nodes will belong to several
--- collections. 
+-- collections.
 --
 -- The effect of declaring a collection kind on the algorithm layer
 -- it, first of all, that |scope.collections| will have a field named
@@ -674,37 +679,37 @@ end
 -- hyperedges, each of which is a table with the following fields: The
 -- |vertices| and |edges| fields each contain arrays of all objects
 -- being part of the collection. The |sub| field is an array of
--- ``subcollections,'' that is, all collections that were started
+-- ``subcollections'', that is, all collections that were started
 -- inside another collection. (For the collection kinds |hyper| and
 -- |same layer| this makes no sense, but subgraphs could, for instance,
 -- be nested.)
--- 
+--
 -- \medskip
 -- \noindent\textbf{Rendering of Collections.}
 -- For some kinds of collections, it makes sense to \emph{render} them,
 -- but only after the graph drawing algorithm has run. For this
 -- purpose, the binding layer will use a callback for each collection
--- kind and each collection, see the |Binding| class for details. 
+-- kind and each collection, see the |Binding| class for details.
 -- Suppose, for instance, you would
 -- like hyperedges to be rendered. In this case, a graph drawing
 -- algorithm should iterate over all collections of type |hyper| and
 -- compute some hints on how to render the hyperedge and store this
 -- information in the |generated_options| table of the hyperedge. Then,
--- the binding layer will ask the dislay layer to run some some code
--- that is able to read key--value pairs passed to 
+-- the binding layer will ask the display layer to run some some code
+-- that is able to read key--value pairs passed to
 -- it (which are the key--value pairs of the |generated_options| table)
 -- and use this information to nicely draw the hyperedge.
 --
 -- The number |t.layer| determines in which order the different
 -- collection kinds are rendered.
--- 
+--
 -- The last parameter, the layer number, is used to specify the order
 -- in which the different collection kinds are rendered. The higher the
 -- number, the later the collection will be rendered. Thus, if there is
 -- a collection kind with layer number 10 and another with layer number
 -- 20, all collections of the first kind will be rendered first,
 -- followed by all collections of the second kind.
--- 
+--
 -- Collections whose layer kinds are non-negative get rendered
 -- \emph{after} the nodes and edges have already been rendered. In
 -- contrast, collections with a negative layer number get shown
@@ -712,7 +717,7 @@ end
 --
 -- (You cannot call this function directly, it is included for
 -- documentation purposes only.)
--- 
+--
 -- @param t The table originally passed to |declare|.
 
 local function declare_collection_kind (t)
@@ -722,11 +727,11 @@ local function declare_collection_kind (t)
   local kind  = t.key
   local kinds = InterfaceCore.collection_kinds
   local new_entry = { kind = kind, layer = layer }
-  
+
   -- Insert into table part:
   kinds[kind] = new_entry
 
-  -- Insert into array part:  
+  -- Insert into array part:
   local found
   for i=1,#kinds do
     if kinds[i].layer > layer or (kinds[i].layer == layer and kinds[i].kind > kind) then
@@ -736,7 +741,7 @@ local function declare_collection_kind (t)
   end
 
   kinds[#kinds+1] = new_entry
-  
+
   -- Bind
   InterfaceCore.binding:declareCallback(t)
 
@@ -808,22 +813,22 @@ local unique_count = 1
 --
 -- For these reasons, the following happens, when a new vertex is
 -- created using the function:
---
+-- %
 -- \begin{enumerate}
--- \item The vertex is added to the syntactic digraph.
--- \item It is added to all layouts on the current layout stack. When
--- a graph drawing algorithm is run, it is not necessarily run on the
--- original syntactic digraph. Rather, a sequence / stack of nested
--- layouts may currently 
--- be processed and the vertex is added to all of them.
--- \item The vertex is added to both the |digraph| and the |ugraph| of
--- the current algorithm.
+--   \item The vertex is added to the syntactic digraph.
+--   \item It is added to all layouts on the current layout stack. When
+--     a graph drawing algorithm is run, it is not necessarily run on the
+--     original syntactic digraph. Rather, a sequence / stack of nested
+--     layouts may currently
+--     be processed and the vertex is added to all of them.
+--   \item The vertex is added to both the |digraph| and the |ugraph| of
+--    the current algorithm.
 -- \end{enumerate}
 --
 -- @param algorithm An algorithm for whose syntactic digraph the node
--- should be added  
+-- should be added
 -- @param init  A table of initial values for the node that is passed
--- to |Binding:createVertex|, see that function for details. 
+-- to |Binding:createVertex|, see that function for details.
 --
 -- @return The newly created node
 --
@@ -832,7 +837,7 @@ function InterfaceToAlgorithms.createVertex(algorithm, init)
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
-    
+
   -- Setup node
   if not init.name then
     init.name = "internal@gd@node@" .. unique_count
@@ -841,29 +846,29 @@ function InterfaceToAlgorithms.createVertex(algorithm, init)
 
   -- Does vertex already exist?
   assert (not scope.node_names[name], "node already created")
-  
+
   if not init.shape or init.shape == "none" then
     init.shape = "rectangle"
   end
-  
+
   -- Call binding
   binding:createVertex(init)
-  
+
   local v = assert(scope.node_names[init.name], "internal node creation failed")
-  
+
   -- Add vertex to the algorithm's digraph and ugraph
-  algorithm.syntactic_component:add {v}  
-  algorithm.digraph:add {v}  
+  algorithm.syntactic_component:add {v}
+  algorithm.digraph:add {v}
   algorithm.ugraph:add {v}
-  
-  -- Compute bounding boxes:  
+
+  -- Compute bounding boxes:
   LayoutPipeline.prepareBoundingBoxes(algorithm.rotation_info, algorithm.adjusted_bb, algorithm.digraph, {v})
-  
+
   -- Add the node to the layout stack:
   add_to_collections(algorithm.layout, "vertices", v)
 
   algorithm.layout_graph:add { v }
-  
+
   return v
 end
 
@@ -873,40 +878,41 @@ end
 -- Generate a new edge in the syntactic digraph. This method is quite
 -- similar to |createVertex| and has the same effects with respect to
 -- the edge: The edge is added to the syntactic digraph and also to
--- all layouts on the layout stack. Forthermore, appropriate edges are
+-- all layouts on the layout stack. Furthermore, appropriate edges are
 -- added to the |digraph| and the |ugraph| of the algorithm currently
--- running. 
+-- running.
 --
--- @param algorithm An algorithm for whose syntactic digraph the node should be added 
+-- @param algorithm An algorithm for whose syntactic digraph the node should be added
 -- @param tail A syntactic tail vertex
 -- @param head A syntactic head vertex
 -- @param init A table of initial values for the edge.
 --
 -- The following fields are useful for |init|:
+-- %
 -- \begin{itemize}
--- \item |init.direction| If present, a direction for the edge. Defaults to "--".
--- \item |init.options| If present, some options for the edge.
--- \item |init.generated_options| A table that is passed back to the
--- display layer as a list of key-value pairs in the syntax of
--- |declare_parameter|. 
+--   \item |init.direction| If present, a direction for the edge. Defaults to "--".
+--   \item |init.options| If present, some options for the edge.
+--   \item |init.generated_options| A table that is passed back to the
+--     display layer as a list of key-value pairs in the syntax of
+--     |declare_parameter|.
 -- \end{itemize}
 
 function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
 
   init = init or {}
-  
+
   -- Setup
   local scope = InterfaceCore.topScope()
   local binding = InterfaceCore.binding
   local syntactic_digraph   = algorithm.layout_graph
   local syntactic_component = algorithm.syntactic_component
-  
+
   assert (syntactic_digraph:contains(tail) and
-	  syntactic_digraph:contains(head),
-	  "attempting to create edge between nodes that are not in the syntactic digraph")
-  
+      syntactic_digraph:contains(head),
+      "attempting to create edge between nodes that are not in the syntactic digraph")
+
   local arc = syntactic_digraph:connect(tail, head)
-  
+
   local edge = Edge.new {
     head = head,
     tail = tail,
@@ -916,16 +922,16 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
     generated_options = init.generated_options
   }
 
-  -- Add to arc    
+  -- Add to arc
   arc.syntactic_edges[#arc.syntactic_edges+1] = edge
-  
+
   local s_arc = syntactic_component:connect(tail, head)
   s_arc.syntactic_edges = arc.syntactic_edges
-  
+
   -- Create Event
   local e = InterfaceToDisplay.createEvent ("edge", { arc, #arc.syntactic_edges })
   edge.event = e
-  
+
   -- Make part of collections
   for _,c in ipairs(edge.options.collections) do
     LookupTable.addOne(c.edges, edge)
@@ -934,7 +940,7 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
   -- Call binding
   binding.storage[edge] = {}
   binding:everyEdgeCreation(edge)
-  
+
   -- Add edge to digraph and ugraph
   local direction = edge.direction
   if direction == "->" then
@@ -950,13 +956,13 @@ function InterfaceToAlgorithms.createEdge(algorithm, tail, head, init)
 
   -- Add edge to layouts
   add_to_collections(algorithm.layout, "edges", edge)
-  
+
 end
 
 
 
 
 
--- Done 
+-- Done
 
 return InterfaceToAlgorithms

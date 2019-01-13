@@ -22,15 +22,14 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- small and edges are drawn as vertically as possible. Another goal
 -- is to avoid node and edge overlaps which is crucial in particular
 -- if the nodes are allowed to have non-uniform sizes. The
--- y-coordinates of the nodes have no influence on the number of
+-- $y$-coordinates of the nodes have no influence on the number of
 -- bends. Obviously, nodes need to be separated enough geometrically
 -- so that they do not overlap. It feels natural to aim at separating
 -- all layers in the drawing by the same amount. Large nodes, however,
 -- may force node positioning algorithms to override this uniform
--- level distance in order to avoid overlaps. 
+-- level distance in order to avoid overlaps.
 --
--- For more details, please see Section 4.1.2 of Pohlmann's Diploma
--- thesis. 
+-- For more details, please see Section~4.1.2 of Pohlmann's Diploma thesis.
 --
 -- @end
 
@@ -44,14 +43,13 @@ declare {
   phase = "node positioning",
   phase_default = true,
 
-  summary = [["  
-       This node positioning method, due to Gasner et al., is based on a
-       linear optimization problem.
+  summary = [["
+    This node positioning method, due to Gasner et al., is based on a
+    linear optimization problem.
   "]],
-  documentation = [["            
-       For more details, please see Section 4.1.3 of Pohlmann's Diploma
-       thesis. 
-      
-       This is the default algorithm for layer assignments.
-   "]]
- }
+  documentation = [["
+    For more details, please see Section~4.1.3 of Pohlmann's Diploma thesis.
+
+    This is the default algorithm for layer assignments.
+  "]]
+}

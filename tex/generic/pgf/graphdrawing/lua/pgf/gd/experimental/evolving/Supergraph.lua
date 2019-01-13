@@ -27,12 +27,12 @@ local declare  = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- and if there is a single snapshot in which two vertices are
 -- connected by an edge they are connected in the supergraph.
 --
--- Note that in TikZ a \emph{node} is more than a single dot. A node
+-- Note that in \tikzname\ a \emph{node} is more than a single dot. A node
 -- has a content and different properties like background-color or a
--- shape. Formally this can be modelled by function mapping vertices
+-- shape. Formally this can be modeled by function mapping vertices
 -- to their properties. For evolving graphs this could be done in the
--- same way. As this is difficult to be realised in PGF  because there
--- is no basic support for time dependend properties on nodes, each
+-- same way. As this is difficult to be realized in PGF  because there
+-- is no basic support for time dependent properties on nodes, each
 -- vertex will be displayed over time by different single
 -- (snapshot-)nodes which can have different visual properties. This
 -- means for a vertex which we call |supervertex| in the following we
@@ -53,7 +53,7 @@ local declare  = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- @field supervertices_by_id This storage maps a node identifier to the
 --        related supervertex such that PGF-nodes which belonging to
 --        the same superverticex can be identified
--- 
+--
 -- @field snapshots An array of all snapshots. Sorted in ascending order
 -- over the timestamps of the snapshots.
 --
@@ -64,6 +64,7 @@ local declare  = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 --        Assume we want to iterate over all snapshots
 --        for a certain pair of supernodes in which they are connected
 --        by an arc. The arc_snapshots  storage helps in this case:
+--        %
 --        \begin{codeexample}[code only, tikz syntax=false]
 --           local supergraph = Supergraph.generateSupergraph(self.digraph)
 --           local u = supergraph.vertices[1]
@@ -110,24 +111,24 @@ local get_snapshot
 --
 -- @param snapshots  An array of all existing snapshots
 -- @param timestamps A table which maps known timestamps to their
--- related snapshots 
+-- related snapshots
 -- @param ugraph     The ugraph of the underlying graph structure
 -- @param snapshot_time
 --
 -- @return The snapshot instance found in the snapshots array for the
--- wanted timestamp snapshot_time if it does'nt exists  a new snapshot
--- will be generated and added to the arrays 
+-- wanted timestamp snapshot_time if it doesn't exists a new snapshot
+-- will be generated and added to the arrays
 --
 function get_snapshot(snapshots, timestamps, ugraph, snapshot_time)
   local snapshot
   local snapshot_idx = timestamps[snapshot_time]
-    
+
   if not snapshot_idx then
     -- store snapshot if it doesn't exists
-    snapshot_idx = timestamps.n + 1 
+    snapshot_idx = timestamps.n + 1
     timestamps[snapshot_time] = snapshot_idx
     timestamps.n = timestamps.n + 1
-    snapshot = Digraph.new { 
+    snapshot = Digraph.new {
       syntactic_digraph = ugraph.syntactic_digraph,
       options           = ugraph.options
     }
@@ -136,7 +137,7 @@ function get_snapshot(snapshots, timestamps, ugraph, snapshot_time)
   else
     snapshot = snapshots[snapshot_idx]
   end
-  assert(snapshot~=nil, "an unexpected error occured")
+  assert(snapshot~=nil, "an unexpected error occurred")
   return snapshot
 end
 
@@ -152,7 +153,7 @@ end
 --
 -- @return The supergraph which is a |Digraph| that has a supervertex
 -- for each set of snapshot-vertices with the same |supernode|
--- attribute. 
+-- attribute.
 --
 function Supergraph.generateSupergraph(digraph)
   local new_supergraph
@@ -161,35 +162,35 @@ function Supergraph.generateSupergraph(digraph)
     options           = digraph.options,
     digraph           = digraph,
   }
-    
-  -- array to store the supervertices for a given vertex name  
+
+  -- array to store the supervertices for a given vertex name
   local local_snapshots = {}       -- array to store each snapshot graphs
-  
+
   local timestamps = { n = 0 }     -- set of snapshot times
 
-  -- separate and assign vertices to their snapshots and supervertives
+  -- separate and assign vertices to their snapshots and supervertices
   for i,vertex in ipairs(digraph.vertices) do
     local snapshot_time  = assert(vertex.options["snapshot"], "Missing option 'snapshot' for vertex ".. vertex.name ..". ")
     local supernode_name = assert(vertex.options["supernode"], "Missing option 'supernode' for vertex"..vertex.name..". ")
-       
+
     local snapshot    = get_snapshot(local_snapshots, timestamps, digraph, snapshot_time)
     local supervertex = new_supergraph.supervertices_by_id[supernode_name]
-    
+
     if not supervertex then
-      -- first appeareance of the supernode id
-      supervertex = Vertex.new { 
-        kind = "super", 
-        name = supernode_name 
+      -- first appearance of the supernode id
+      supervertex = Vertex.new {
+        kind = "super",
+        name = supernode_name
       }
       supervertex.snapshots = {}
       supervertex.subvertex = {}
-      new_supergraph.supervertices_by_id[supernode_name] = supervertex 
+      new_supergraph.supervertices_by_id[supernode_name] = supervertex
       new_supergraph:add{supervertex}
 
       supervertex.options = {}
       supervertex.options = vertex.options
-    end 
-    
+    end
+
     snapshot:add{vertex}
 
     new_supergraph.supervertices[vertex] = supervertex
@@ -198,11 +199,11 @@ function Supergraph.generateSupergraph(digraph)
   end
 
   -- Create edges
-  for i, e in ipairs(digraph.arcs) do  
+  for i, e in ipairs(digraph.arcs) do
     local u,v = e.tail, e.head
     local snapshot_tail = new_supergraph.vertex_snapshots[e.tail]
     local snapshot_head = new_supergraph.vertex_snapshots[e.head]
-        
+
     assert(snapshot_head == snapshot_tail, "Arcs must connect nodes that exist at the same time.")
 
     -- connect in the snapshot graph
@@ -211,18 +212,18 @@ function Supergraph.generateSupergraph(digraph)
     -- connect in the supergraph:
     local super_tail = new_supergraph.supervertices[u]
     local super_head = new_supergraph.supervertices[v]
-    
+
     new_supergraph:assignToSuperarc(super_tail, super_head, snapshot_tail)
   end
-  
+
   -- snapshots in temporal order
-  table.sort(local_snapshots, 
+  table.sort(local_snapshots,
     function(s1,s2)
       return s1.timestamp < s2.timestamp
     end )
-  
-  local previous_snapshot 
-  
+
+  local previous_snapshot
+
   for i,s in ipairs(local_snapshots) do
     local start = -math.huge
     if previous_snapshot then
@@ -235,18 +236,18 @@ function Supergraph.generateSupergraph(digraph)
 
   new_supergraph.snapshots = local_snapshots
   new_supergraph.snapshots_indices = Storage.new()
-  
+
   for i, s in ipairs(new_supergraph.snapshots) do
     new_supergraph.snapshots_indices[s] = i
   end
-  
+
   return new_supergraph
 end
 
 
 function Supergraph:getSnapshotStaticDuration(snapshot)
   assert(snapshot, "a snapshot as parameter expected, but got nil")
-  local idur = snapshot.interval.to - snapshot.interval.from 
+  local idur = snapshot.interval.to - snapshot.interval.from
   assert(idur, "unexpected nil-value")
   local d1 = snapshot.interval.to - snapshot.timestamp
   local d2 = snapshot.timestamp - snapshot.interval.from
@@ -272,9 +273,9 @@ function Supergraph:getDuration()
 end
 
 ---
--- 
+--
 -- @return The ratio of the time of a snapshot related to the global duration of the whole
---          evlolving trees. (The time between the last and first snapshot)
+--          evolving trees. (The time between the last and first snapshot)
 function Supergraph:getSnapshotRelativeDuration(snapshot)
   if self:getDuration() == 0 then
     return 1
@@ -294,7 +295,7 @@ end
 function Supergraph:getSupervertex(vertex)
   assert(vertex, "vertex required")
   assert(self.supervertices, "supervertex table is not defined")
-  return self.supervertices[vertex]  
+  return self.supervertices[vertex]
 end
 
 function Supergraph:getSuperarc(arc)
@@ -322,7 +323,7 @@ end
 ---
 -- For a given supervertex get the related vertex for a snapshot
 --
--- @param supervertex 
+-- @param supervertex
 --
 -- @param snapshot
 --
@@ -340,7 +341,7 @@ function Supergraph:consecutiveSnapshots(snapshot1, snapshot2, n)
   local idx1 = self.snapshots_indices[snapshot1] --or -1
   local idx2 = self.snapshots_indices[snapshot2] --or -1
   local d = n or 1
-  
+
   return (idx2-idx1 <= d) or (idx1-idx2 <= d)
 end
 
@@ -358,21 +359,21 @@ end
 -- their positions from the supergraph.
 --
 function Supergraph:sharePositions(ugraph, ignore)
-  
+
   for _,vertex in ipairs(ugraph.vertices) do
     if not ignore then
       vertex.pos.x = self.supervertices[vertex].pos.x
       vertex.pos.y = self.supervertices[vertex].pos.y
     else
       if not ignore.x then
-	vertex.pos.x = self.supervertices[vertex].pos.x
+        vertex.pos.x = self.supervertices[vertex].pos.x
       end
       if not ignore.y then
-	vertex.pos.y = self.supervertices[vertex].pos.y
+        vertex.pos.y = self.supervertices[vertex].pos.y
       end
     end
-    
-    
+
+
   end
 end
 
@@ -380,7 +381,7 @@ function Supergraph:onAllSnapshotvertices(f, ugraph)
   for _,vertex in ipairs(ugraph.vertices) do
     local snapshot_vertex = self.supertvertices[vertex]
     if snapshot_vertex then
-      f(vertex, snapshot_vertex)  
+      f(vertex, snapshot_vertex)
     end
   end
 end
@@ -394,23 +395,23 @@ end
 -- the original vertex.
 -- If a supervertex has no subvertices then it will not be added to the graph.
 --
--- @param supervertex The supervertex which should be splitted.
+-- @param supervertex The supervertex which should be split.
 --
 -- @param snapshots An array of snapshots at which the supervertex
--- should be splitted into a new one with the corresponding pgf-vertices.
+-- should be split into a new one with the corresponding pgf-vertices.
 -- If there are more than one snapshots passed to the function
 -- for each snapshot there will be a new pseudo-vertex
 --
 function Supergraph:splitSupervertex(supervertex, snapshots)
   assert(supervertex, "no supervertex defined")
   -- snapshots in temporal order
-  table.sort(snapshots, 
+  table.sort(snapshots,
     function(s1,s2)
       return s1.timestamp < s2.timestamp
   end )
 
   assert(#snapshots~=0)
-  
+
   local edit_snapshots = supervertex.snapshots
   local first_removed  = math.huge
   local rem_arcs = {}
@@ -437,42 +438,42 @@ function Supergraph:splitSupervertex(supervertex, snapshots)
       local s = self.snapshots[j]
       local vertex = self:getSnapshotVertex(supervertex, s)
       if vertex then
-	self.supervertices[vertex] = pseudovertex
-	self:addSnapshotVertex(pseudovertex, s, vertex)
-	self:removeSnapshotVertex(supervertex, s)
-	
-	if not has_subvertices then
-	  has_subvertices = true
-	  self:add{pseudovertex}
-	end
+        self.supervertices[vertex] = pseudovertex
+        self:addSnapshotVertex(pseudovertex, s, vertex)
+        self:removeSnapshotVertex(supervertex, s)
 
-	-- update edges:
-	local incoming = self.digraph:incoming(vertex)
-	local outgoing = self.digraph:outgoing(vertex)
-	
-	for _, arc in ipairs(incoming) do
-	  local tail = self.supervertices[arc.tail]
-	  local head = self.supervertices[arc.head]
-	  self:assignToSuperarc(tail, pseudovertex, s)
-	  
-	  local super_arc = self:arc(tail, supervertex)
-	  if not rem_arcs[super_arc] then
-	    table.insert(rem_arcs, {arc = super_arc, snapshot = s})
-	    rem_arcs[super_arc] = true
-	  end
-	end
-	
-	for _, arc in ipairs(outgoing) do
- 	  local tail = self.supervertices[arc.tail]
-	  local head = self.supervertices[arc.head]
-	  self:assignToSuperarc(pseudovertex, head, s)
+        if not has_subvertices then
+          has_subvertices = true
+          self:add{pseudovertex}
+        end
 
-	  local super_arc = self:arc(supervertex, head)
-	  if not rem_arcs[super_arc] then
-	    table.insert(rem_arcs, {arc = super_arc, snapshot = s})
-	    rem_arcs[super_arc] = true
-	  end
-	end
+        -- update edges:
+        local incoming = self.digraph:incoming(vertex)
+        local outgoing = self.digraph:outgoing(vertex)
+
+        for _, arc in ipairs(incoming) do
+          local tail = self.supervertices[arc.tail]
+          local head = self.supervertices[arc.head]
+          self:assignToSuperarc(tail, pseudovertex, s)
+
+          local super_arc = self:arc(tail, supervertex)
+          if not rem_arcs[super_arc] then
+            table.insert(rem_arcs, {arc = super_arc, snapshot = s})
+            rem_arcs[super_arc] = true
+          end
+        end
+
+        for _, arc in ipairs(outgoing) do
+          local tail = self.supervertices[arc.tail]
+          local head = self.supervertices[arc.head]
+          self:assignToSuperarc(pseudovertex, head, s)
+
+          local super_arc = self:arc(supervertex, head)
+          if not rem_arcs[super_arc] then
+            table.insert(rem_arcs, {arc = super_arc, snapshot = s})
+            rem_arcs[super_arc] = true
+          end
+        end
       end
     end
   end
@@ -481,14 +482,14 @@ function Supergraph:splitSupervertex(supervertex, snapshots)
     for _, removed_arc in ipairs(rem_arcs) do
       local snapshots = self.arc_snapshots[removed_arc.arc]
       for i=#snapshots,1,-1 do
-	local s = snapshots[i]
-	if s.timestamp >= removed_arc.snapshot.timestamp then
-	  table.remove(snapshots, i)
-	end
+        local s = snapshots[i]
+        if s.timestamp >= removed_arc.snapshot.timestamp then
+          table.remove(snapshots, i)
+        end
       end
 
       if #snapshots==0 then
-	self:disconnect(removed_arc.arc.tail, removed_arc.arc.head)
+        self:disconnect(removed_arc.arc.tail, removed_arc.arc.head)
       end
     end
   end
@@ -553,16 +554,16 @@ end
 --
 function Supergraph:assignToSuperarc(super_tail, super_head, snapshot)
   assert(self:contains(super_tail) and self:contains(super_head),
-	 "tried to connect supernodes not in the supergraph")
-  
+      "tried to connect supernodes not in the supergraph")
+
   local super_arc = self:arc(super_tail, super_head)
   if not super_arc then
-    super_arc = self:connect(super_tail, super_head)      
+    super_arc = self:connect(super_tail, super_head)
   end
-  
+
   table.insert(self.arc_snapshots[super_arc], snapshot)
   self.arc_snapshots[super_arc][snapshot] = true
-  
+
   return super_arc
 end
 

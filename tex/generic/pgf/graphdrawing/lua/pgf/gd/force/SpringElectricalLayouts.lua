@@ -30,11 +30,11 @@ declare {
     { key = "spring constant", value = "0.2" }
   },
 
-  summary = [["  
-       This key selects Hu's 2006 spring electrical layout with
-       appropriate settings for some parameters.
-   "]]
- }
+  summary = [["
+    This key selects Hu's 2006 spring electrical layout with
+    appropriate settings for some parameters.
+  "]]
+}
 
 
 ---
@@ -47,8 +47,8 @@ declare {
     { key = "convergence tolerance", value = "0.001" },
   },
 
-  summary = [["  
-       This key selects Walshaw's 2000 spring electrical layout with
-       appropriate settings for some parameters.
-   "]]
- }
+  summary = [["
+    This key selects Walshaw's 2000 spring electrical layout with
+    appropriate settings for some parameters.
+  "]]
+}

@@ -67,7 +67,7 @@ end
 function lib.find_min(array, f)
   local best = math.huge
   local best_result
-  local best_index 
+  local best_index
   for i=1,#array do
     local t = array[i]
     local result, p = f(t,i,array)
@@ -89,9 +89,9 @@ end
 -- Copies a table while preserving its metatable.
 --
 -- @param source The table to copy.
--- @param target The table to which values are to be copied or |nil| if a new 
+-- @param target The table to which values are to be copied or |nil| if a new
 --               table is to be allocated.
--- 
+--
 -- @return The |target| table or a newly allocated table containing all
 --         keys and values of the |source| table.
 --
@@ -110,10 +110,10 @@ end
 -- Copies an array while preserving its metatable.
 --
 -- @param source The array to copy.
--- @param target The array to which values are to be copied or |nil| if a new 
+-- @param target The array to which values are to be copied or |nil| if a new
 -- table is to be allocated. The elements of the
 -- |source| array will be added at the end.
--- 
+--
 -- @return The |target| table or a newly allocated table containing all
 --         keys and values of the |source| table.
 --
@@ -129,7 +129,7 @@ end
 
 
 ---
--- Apply a function to all pairs of a table, resulting in a new table. 
+-- Apply a function to all pairs of a table, resulting in a new table.
 --
 -- @param source The table.
 -- @param fun A function taking two arguments (|val| and |key|, in
@@ -140,7 +140,7 @@ end
 -- takes only a single argument and returns only a single argument,
 -- you have a ``classical'' value mapper. Also note that if
 -- |new_value| is |nil|, the value is removed from the table.
--- 
+--
 -- @return The new table.
 --
 function lib.map(source, fun)
@@ -159,7 +159,7 @@ end
 
 ---
 -- Apply a function to all elements of an array, resulting in a new
--- array. 
+-- array.
 --
 -- @param source The array.
 -- @param fun A function taking two arguments (|val| and |i|, the
@@ -169,14 +169,14 @@ end
 -- element is skipped. If this function is not provided (is |nil|),
 -- the identity function is used.
 -- @param new The target array (if |nil|, a new array is create).
---
+-- %
 --\begin{codeexample}[code only]
 --  local a = lib.imap(array, function(v) if some_test(v) then return v end end)
 --\end{codeexample}
 --
 -- The above code is a filter that will remove all elements from the
 -- array that do not pass |some_test|.
---
+-- %
 --\begin{codeexample}[code only]
 --  lib.imap(a, lib.id, b)
 --\end{codeexample}
@@ -238,23 +238,27 @@ end
 -- option table of an object contains the name field is done using
 -- |rawget| for all but the last parameter. This means that when you
 -- write
+-- %
 --\begin{codeexample}[code only]
 --lib.lookup_option("foo", vertex, graph)
 --\end{codeexample}
--- and if |/graph drawin/foo| has an inital value set, if the
+-- %
+-- and if |/graph drawing/foo| has an initial value set, if the
 -- parameter is not explicitly set in a vertex, you will get the value
 -- set for the graph or, if it is not set there either, the initial
--- value. In contrast, if you write 
+-- value. In contrast, if you write
+-- %
 --\begin{codeexample}[code only]
 -- vertex.options["foo"] or graph.options["foo"]
 --\end{codeexample}
+-- %
 -- what happens is that the first access to |.options| will
 -- \emph{always} return something when an initial parameter has been
--- set for the option |foo|. 
+-- set for the option |foo|.
 --
--- @param name   The name of the options  
+-- @param name   The name of the options
 -- @param ...    Any number of objects. Each must have an options
---               field. 
+--               field.
 --
 -- @return The found option
 
@@ -262,10 +266,10 @@ function lib.lookup_option(name, ...)
   local list = {...}
   for i=1,#list-1 do
     local o = list[i].options
-    if o then 
+    if o then
       local v = rawget(o, name)
       if v then
-	return v
+        return v
       end
     end
   end
@@ -280,12 +284,12 @@ end
 -- a |new| function, which takes an optional table of |initial| values
 -- and which outputs a new table whose metatable is the
 -- class. The |new| function will call the function |constructor| if
--- it exsist. Furthermore, the class object's |__index| is set to itself
+-- it exists. Furthermore, the class object's |__index| is set to itself
 -- and its meta table is set to the |base_class| field of the
 -- table. If |t| is |nil|, a new table is created.
 --
 -- Here is a typical usage of this function:
---
+-- %
 --\begin{codeexample}[code only]
 --local Point = lib.class {}
 --
@@ -297,13 +301,14 @@ end
 --
 --print(p:length())
 --\end{codeexample}
+-- %
 -- We can subclass this as follows:
---
+-- %
 --\begin{codeexample}[code only]
 --local Point3D = lib.class { base_class = Point }
 --
 --function Point3D:length()
---  local l = Point.length(self) -- Call base class's function 
+--  local l = Point.length(self) -- Call base class's function
 --  return math.sqrt(l*l + self.z*self.zdy)
 --end
 --
@@ -318,31 +323,31 @@ end
 
 function lib.class(t)
   t = t or {}
-  
+
   -- First, setup indexing, if necessary
   if not t.__index then
     t.__index = t
   end
-  
+
   -- Second, setup new method, if necessary
-  t.new = t.new or 
-    function (initial) 
-      
+  t.new = t.new or
+    function (initial)
+
       -- Create new object
       local obj = {}
       for k,v in pairs(initial or {}) do
-	obj[k] = v
+        obj[k] = v
       end
       setmetatable(obj, t)
 
       if obj.constructor then
-	obj:constructor()
+        obj:constructor()
       end
-      
+
       return obj
     end
-  
-  -- Third, setup inheritence, if necessary
+
+  -- Third, setup inheritance, if necessary
   if not getmetatable(t) then
     setmetatable(t, t.base_class)
   end
@@ -359,8 +364,8 @@ end
 -- a table) for which some methods are needed only seldomly. In this
 -- case, you can put these methods in a separate file and then use
 -- |ondemand| to indicate that the methods are found in a
--- another file. 
---
+-- another file.
+-- %
 --\begin{codeexample}[code only]
 -- -- File Foo.lua
 -- local Foo = {}
@@ -388,9 +393,9 @@ end
 
 function lib.ondemand(filename, table, name)
   return function(...)
-	   require (filename)
-	   return table[name] (...)
-	 end
+       require (filename)
+       return table[name] (...)
+     end
 end
 
 

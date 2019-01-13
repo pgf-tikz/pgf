@@ -10,7 +10,6 @@
 -- @release $Header$
 
 
-
 local CycleRemovalBergerS1990a = {}
 
 local lib = require("pgf.gd.lib")
@@ -27,20 +26,20 @@ function CycleRemovalBergerS1990a:run()
   for _,node in ipairs(self.graph.nodes) do
     -- get all outgoing edges that have not been removed yet
     local out_edges = lib.imap(node:getOutgoingEdges(),
-			       function (edge)
-				 if not removed[edge] then return edge end
-			       end)
+       function (edge)
+         if not removed[edge] then return edge end
+       end)
 
     -- get all incoming edges that have not been removed yet
     local in_edges = lib.imap(node:getIncomingEdges(),
-			      function (edge)
-				if not removed[edge] then return edge end
-			      end)
+      function (edge)
+        if not removed[edge] then return edge end
+      end)
 
     if #out_edges >= #in_edges then
-      -- we have more outgoing than incoming edges, reverse all incoming 
+      -- we have more outgoing than incoming edges, reverse all incoming
       -- edges and mark all incident edges as removed
-      
+
       for _,edge in ipairs(out_edges) do
         removed[edge] = true
       end

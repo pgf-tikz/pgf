@@ -39,40 +39,40 @@ local lib = require("pgf.gd.lib")
 -- @return An iterator for traversing \meta{graph} in a topological order.
 --
 function Iterators.topologicallySorted(dag)
-  -- track visited edges 
+  -- track visited edges
   local deleted_edges = {}
 
   -- collect all sources (nodes with no incoming edges) of the dag
   local sources = lib.imap(dag.nodes, function (node) if node:getInDegree() == 0 then return node end end)
 
   -- return the iterator function
-  return function () 
+  return function ()
     while #sources > 0 do
       -- fetch the next sink from the queue
       local source = table.remove(sources, 1)
 
       -- get its outgoing edges
       local out_edges = source:getOutgoingEdges()
-      
+
       -- iterate over all outgoing edges we haven't visited yet
       for _,edge in ipairs(out_edges) do
-	if not deleted_edges[edge] then 
-	  -- mark the edge as visited
-	  deleted_edges[edge] = true
-	  
-	  -- get the node at the other end of the edge
-	  local neighbour = edge:getNeighbour(source)
-	  
-	  -- get a list of all incoming edges of the neighbour that have
-	  -- not been visited yet
-	  local in_edges = lib.imap(neighbour:getIncomingEdges(),
-				    function (edge) if not deleted_edges[edge] then return edge end end)
-	  
-	  -- if there are no such edges then we have a new source
-	  if #in_edges == 0 then
-	    sources[#sources+1] = neighbour
-	  end
-	end
+        if not deleted_edges[edge] then
+          -- mark the edge as visited
+          deleted_edges[edge] = true
+
+          -- get the node at the other end of the edge
+          local neighbour = edge:getNeighbour(source)
+
+          -- get a list of all incoming edges of the neighbor that have
+          -- not been visited yet
+          local in_edges = lib.imap(neighbour:getIncomingEdges(),
+                        function (edge) if not deleted_edges[edge] then return edge end end)
+
+          -- if there are no such edges then we have a new source
+          if #in_edges == 0 then
+            sources[#sources+1] = neighbour
+          end
+        end
       end
 
       -- return the current source

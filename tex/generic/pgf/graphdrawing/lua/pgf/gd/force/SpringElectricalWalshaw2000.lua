@@ -26,7 +26,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 declare {
   key       = "spring electrical Walshaw 2000 layout",
   algorithm = SpringElectricalWalshaw2000,
-  
+
   preconditions = {
     connected = true,
     loop_free = true,
@@ -35,42 +35,42 @@ declare {
 
   old_graph_model = true,
 
-  summary = [["  
-       Implementation of a spring electrical graph drawing algorithm based on
-       a paper by Walshaw.
- "]],
-  documentation = [["        
-       \begin{itemize}
-       \item
-         C. Walshaw.
-         \newblock A multilevel algorithm for force-directed graph
-         drawing.
-         \newblock In J. Marks, editor, \emph{Graph Drawing}, Lecture Notes in
-         Computer Science, 1984:31--55, 2001. 
-       \end{itemize}
-      
-       The following modifications compared to the original algorithm were applied:
-       \begin{itemize}
-       \item An iteration limit was added.
-       \item The natural spring length for all coarse graphs is computed based
-           on the formula presented by Walshaw, so that the natural spring
-           length of the original graph (coarse graph 0) is the same as
-           the value requested by the user.
-       \item Users can define custom node and edge weights.
-       \item Coarsening stops when $|V(G_i+1)|/|V(G_i)| < p$ where $p = 0.75$.
-       \item Coarsening stops when the maximal matching is empty.
-       \item Theruntime of the algorithm is improved by use of a quadtree
-           data structure like Hu does in his algorithm.
-       \item A limiting the number of levels of the quadtree is not implemented.
-       \end{itemize}
+  summary = [["
+    Implementation of a spring electrical graph drawing algorithm based on
+    a paper by Walshaw.
+  "]],
+  documentation = [["
+    \begin{itemize}
+      \item
+        C. Walshaw.
+        \newblock A multilevel algorithm for force-directed graph drawing.
+        \newblock In J. Marks, editor, \emph{Graph Drawing}, Lecture Notes in
+           Computer Science, 1984:31--55, 2001.
+    \end{itemize}
+
+    The following modifications compared to the original algorithm were applied:
+    %
+    \begin{itemize}
+      \item An iteration limit was added.
+      \item The natural spring length for all coarse graphs is computed based
+        on the formula presented by Walshaw, so that the natural spring
+        length of the original graph (coarse graph 0) is the same as
+        the value requested by the user.
+      \item Users can define custom node and edge weights.
+      \item Coarsening stops when $|V(G_i+1)|/|V(G_i)| < p$ where $p = 0.75$.
+      \item Coarsening stops when the maximal matching is empty.
+      \item The runtime of the algorithm is improved by use of a quadtree
+        data structure like Hu does in his algorithm.
+      \item A limiting the number of levels of the quadtree is not implemented.
+    \end{itemize}
   "]]
 }
-    
+
 -- TODO Implement the following keys (or whatever seems appropriate
 -- and doable for this algorithm):
 --   - /tikz/desired at
 --   - /tikz/influence cutoff distance
---   - /tikz/spring stiffness (could this be the equivalent to the electric 
+--   - /tikz/spring stiffness (could this be the equivalent to the electric
 --       charge of nodes?
 --   - /tikz/natural spring dimension per edge
 --
@@ -91,10 +91,10 @@ local lib = require "pgf.gd.lib"
 
 
 function SpringElectricalWalshaw2000:run()
-  
+
   -- Setup parameters
   local options = self.digraph.options
-  
+
   self.iterations = options['iterations']
   self.cooling_factor = options['cooling factor']
   self.initial_step_length = options['initial step length']
@@ -105,7 +105,7 @@ function SpringElectricalWalshaw2000:run()
 
   self.approximate_repulsive_forces = options['approximate remote forces']
   self.repulsive_force_order = options['electric force order']
-   
+
   self.coarsen = options['coarsen']
   self.downsize_ratio = options['downsize ratio']
   self.minimum_graph_size = options['minimum coarsening size']
@@ -133,7 +133,7 @@ function SpringElectricalWalshaw2000:run()
       node.weight = 1
     end
 
-    -- a node is charged if its weight derives from the default setting 
+    -- a node is charged if its weight derives from the default setting
     -- of 1 (where it has no influence on the forces)
     node.charged = node.weight ~= 1
   end
@@ -142,17 +142,17 @@ function SpringElectricalWalshaw2000:run()
   for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
-  
-  
+
+
   -- initialize the coarse graph data structure. note that the algorithm
-  -- is the same regardless whether coarsening is used, except that the 
+  -- is the same regardless whether coarsening is used, except that the
   -- number of coarsening steps without coarsening is 0
   local coarse_graph = CoarseGraph.new(self.graph)
 
   -- check if the multilevel approach should be used
   if self.coarsen then
-    -- coarsen the graph repeatedly until only minimum_graph_size nodes 
-    -- are left or until the size of the coarse graph was not reduced by 
+    -- coarsen the graph repeatedly until only minimum_graph_size nodes
+    -- are left or until the size of the coarse graph was not reduced by
     -- at least the downsize ratio configured by the user
     while coarse_graph:getSize() > self.minimum_graph_size
       and coarse_graph:getRatio() < (1 - self.downsize_ratio)
@@ -162,7 +162,7 @@ function SpringElectricalWalshaw2000:run()
   end
 
   -- compute the natural spring length for the coarsest graph in a way
-  -- that will result in the desired natural spring length in the 
+  -- that will result in the desired natural spring length in the
   -- original graph
   local spring_length = self.natural_spring_length / math.pow(math.sqrt(4/7), coarse_graph:getLevel())
 
@@ -186,17 +186,17 @@ function SpringElectricalWalshaw2000:run()
   else
     -- generate a random initial layout for the coarsest graph
     self:computeInitialLayout(coarse_graph.graph, spring_length)
-    
+
     -- apply the force-based algorithm to improve the layout
     self:computeForceLayout(coarse_graph.graph, spring_length)
-  end    
+  end
 end
 
 
 
 function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
-  -- TODO how can supernodes and fixed nodes go hand in hand? 
-  -- maybe fix the supernode if at least one of its subnodes is 
+  -- TODO how can supernodes and fixed nodes go hand in hand?
+  -- maybe fix the supernode if at least one of its subnodes is
   -- fixated?
 
   -- fixate all nodes that have a 'desired at' option. this will set the
@@ -237,8 +237,8 @@ function SpringElectricalWalshaw2000:computeInitialLayout(graph, spring_length)
     -- compute initial layout based on the random positioning technique
     for _,node in ipairs(graph.nodes) do
       if not node.fixed then
-	node.pos.x = positioning_func(1)
-	node.pos.y = positioning_func(2)
+        node.pos.x = positioning_func(1)
+        node.pos.y = positioning_func(2)
       end
     end
   end
@@ -248,9 +248,9 @@ end
 
 function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
   -- global (=repulsive) force function
-  local function accurate_repulsive_force(distance, weight) 
+  local function accurate_repulsive_force(distance, weight)
     return - self.spring_constant * weight * math.pow(spring_length, self.repulsive_force_order + 1) / math.pow(distance, self.repulsive_force_order)
-  end 
+  end
 
   -- global (=repulsive, approximated) force function
   local function approximated_repulsive_force(distance, mass)
@@ -258,8 +258,8 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
   end
 
   -- local (spring) force function
-  local function attractive_force(distance, d, weight, charged, repulsive_force) 
-    -- for charged nodes, never subtract the repulsive force; we want ALL other 
+  local function attractive_force(distance, d, weight, charged, repulsive_force)
+    -- for charged nodes, never subtract the repulsive force; we want ALL other
     -- nodes to be attracted more / repulsed less (not just non-adjacent ones),
     -- depending on the charge of course
     if charged then
@@ -285,9 +285,9 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
   -- convergence criteria
   local converged = false
   local i = 0
-    
+
   while not converged and i < self.iterations do
-  
+
     -- assume that we are converging
     converged = true
     i = i + 1
@@ -303,137 +303,142 @@ function SpringElectricalWalshaw2000:computeForceLayout(graph, spring_length)
     -- iterate over all nodes
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
-	-- vector for the displacement of v
-	local d = Vector.new(2)
+        -- vector for the displacement of v
+        local d = Vector.new(2)
 
-	-- repulsive force induced by other nodes
-	local repulsive_forces = {}
+        -- repulsive force induced by other nodes
+        local repulsive_forces = {}
 
-	-- compute repulsive forces
-	if self.approximate_repulsive_forces then
-	  -- determine the cells that have an repulsive influence on v
-	  local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
+        -- compute repulsive forces
+        if self.approximate_repulsive_forces then
+          -- determine the cells that have an repulsive influence on v
+          local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
 
-	  -- compute the repulsive force between these cells and v
-	  for _,cell in ipairs(cells) do
-	    -- check if the cell is a leaf
-	    if #cell.subcells == 0 then
-	      -- compute the forces between the node and all particles in the cell
-	      for _,particle in ipairs(cell.particles) do
-		-- build a table that contains the particle plus all its subparticles 
-		-- (particles at the same position)
-		local real_particles = lib.copy(particle.subparticles)
-		table.insert(real_particles, particle)
+          -- compute the repulsive force between these cells and v
+          for _,cell in ipairs(cells) do
+            -- check if the cell is a leaf
+            if #cell.subcells == 0 then
+              -- compute the forces between the node and all particles in the cell
+              for _,particle in ipairs(cell.particles) do
+                -- build a table that contains the particle plus all its subparticles
+                -- (particles at the same position)
+                local real_particles = lib.copy(particle.subparticles)
+                table.insert(real_particles, particle)
 
-		for _,real_particle in ipairs(real_particles) do
-		  local delta = real_particle.pos:minus(v.pos)
-		  
-		  -- enforce a small virtual distance if the node and the cell's 
-		  -- center of mass are located at (almost) the same position
-		  if delta:norm() < 0.1 then
-		    delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
-		  end
+                for _,real_particle in ipairs(real_particles) do
+                  local delta = real_particle.pos:minus(v.pos)
 
-		  -- compute the repulsive force vector
-		  local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
-		  local force = delta:normalized():timesScalar(repulsive_force)
+                  -- enforce a small virtual distance if the node and the cell's
+                  -- center of mass are located at (almost) the same position
+                  if delta:norm() < 0.1 then
+                    delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+                  end
 
-		  -- remember the repulsive force for the particle so that we can 
-		  -- subtract it later when computing the attractive forces with
-		  -- adjacent nodes
-		  repulsive_forces[real_particle.node] = repulsive_force
+                  -- enforce a small virtual distance if the node and the cell's
+                  -- center of mass are located at (almost) the same position
+                  if delta:norm() < 0.1 then
+                    delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+                  end
 
-		  -- move the node v accordingly
-		  d = d:plus(force)
-		end
-	      end
-	    else
-	      -- compute the distance between the node and the cell's center of mass
-	      local delta = cell.center_of_mass:minus(v.pos)
+                  -- compute the repulsive force vector
+                  local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
+                  local force = delta:normalized():timesScalar(repulsive_force)
 
-	      -- enforce a small virtual distance if the node and the cell's 
-	      -- center of mass are located at (almost) the same position
-	      if delta:norm() < 0.1 then
-		delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
-	      end
+                  -- remember the repulsive force for the particle so that we can
+                  -- subtract it later when computing the attractive forces with
+                  -- adjacent nodes
+                  repulsive_forces[real_particle.node] = repulsive_force
 
-	      -- compute the repulsive force vector
-	      local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
-	      local force = delta:normalized():timesScalar(repulsive_force)
+              -- enforce a small virtual distance if the node and the cell's
+              -- center of mass are located at (almost) the same position
+              if delta:norm() < 0.1 then
+                delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+              end
 
-	      -- TODO for each neighbour of v, check if it is in this cell.
-	      -- if this is the case, compute the quadtree force for the mass
-	      -- 'node.weight / cell.mass' and remember this as the repulsive
-	      -- force of the neighbour;  (it is not necessarily at
-	      -- the center of mass of the cell, so the result is only an
-	      -- approximation of the real repulsive force generated by the
-	      -- neighbour)
 
-	      -- move te node v accordingly
-	      d = d:plus(force)
-	    end
-	  end
-	else
-	  for _,u in ipairs(graph.nodes) do
-	    if u.name ~= v.name then
-	      -- compute the distance between u and v
-	      local delta = u.pos:minus(v.pos)
+              -- enforce a small virtual distance if the node and the cell's
+              -- center of mass are located at (almost) the same position
+              if delta:norm() < 0.1 then
+                delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+              end
 
-	      -- enforce a small virtual distance if the nodes are
-	      -- located at (almost) the same position
-	      if delta:norm() < 0.1 then
-		delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
-	      end
+              -- compute the repulsive force vector
+              local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
+              local force = delta:normalized():timesScalar(repulsive_force)
 
-	      -- compute the repulsive force vector
-	      local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
-	      local force = delta:normalized():timesScalar(repulsive_force)
+              -- TODO for each neighbor of v, check if it is in this cell.
+              -- if this is the case, compute the quadtree force for the mass
+              -- 'node.weight / cell.mass' and remember this as the repulsive
+              -- force of the neighbor;  (it is not necessarily at
+              -- the center of mass of the cell, so the result is only an
+              -- approximation of the real repulsive force generated by the
+              -- neighbor)
 
-	      -- remember the repulsive force so we can later subtract them
-	      -- when computing the attractive forces
-	      repulsive_forces[u] = repulsive_force
+              -- enforce a small virtual distance if the nodes are
+              -- located at (almost) the same position
+              if delta:norm() < 0.1 then
+                delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+              end
 
-	      -- move the node v accordingly
-	      d = d:plus(force)
-	    end
-	  end
-	end
 
-	-- compute attractive forces between v and its neighbours
-	for _,edge in ipairs(v.edges) do
-	  local u = edge:getNeighbour(v)
+              -- enforce a small virtual distance if the nodes are
+              -- located at (almost) the same position
+              if delta:norm() < 0.1 then
+                delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+              end
 
-	  -- compute the distance between u and v
-	  local delta = u.pos:minus(v.pos)
+              -- compute the repulsive force vector
+              local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
+              local force = delta:normalized():timesScalar(repulsive_force)
 
-	  -- enforce a small virtual distance if the nodes are
-	  -- located at (almost) the same position
-	  if delta:norm() < 0.1 then
-	    delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
-	  end
+              -- remember the repulsive force so we can later subtract them
+              -- when computing the attractive forces
+              repulsive_forces[u] = repulsive_force
 
-	  -- compute the spring force between them
-	  local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
-	  local force = delta:normalized():timesScalar(attr_force)
+              -- move the node v accordingly
+              d = d:plus(force)
+            end
+          end
+        end
 
-	  -- move the node v accordingly
-	  d = d:plus(force)
-	end
+        -- compute attractive forces between v and its neighbors
+        for _,edge in ipairs(v.edges) do
+          local u = edge:getNeighbour(v)
 
-	-- remember the previous position of v
-	old_position = v.pos:copy()
+          -- enforce a small virtual distance if the nodes are
+          -- located at (almost) the same position
+          if delta:norm() < 0.1 then
+            delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+          end
 
-	if d:norm() > 0 then
-	  -- reposition v according to the force vector and the current temperature
-	  v.pos = v.pos:plus(d:normalized():timesScalar(math.min(step_length, d:norm())))
-	end
+          -- enforce a small virtual distance if the nodes are
+          -- located at (almost) the same position
+          if delta:norm() < 0.1 then
+            delta:update(function (n, value) return 0.1 + math.random() * 0.1 end)
+          end
 
-	-- we need to improve the system energy as long as any of
-	-- the node movements is large enough to assume we're far
-	-- away from the minimum system energy
-	if v.pos:minus(old_position):norm() > spring_length * self.convergence_tolerance then
-	  converged = false
-	end
+          -- compute the spring force between them
+          local attr_force = attractive_force(delta:norm(), #v.edges, u.weight, u.charged, repulsive_forces[u])
+          local force = delta:normalized():timesScalar(attr_force)
+
+          -- move the node v accordingly
+          d = d:plus(force)
+        end
+
+        -- remember the previous position of v
+        old_position = v.pos:copy()
+
+        if d:norm() > 0 then
+          -- reposition v according to the force vector and the current temperature
+          v.pos = v.pos:plus(d:normalized():timesScalar(math.min(step_length, d:norm())))
+        end
+
+        -- we need to improve the system energy as long as any of
+        -- the node movements is large enough to assume we're far
+        -- away from the minimum system energy
+        if v.pos:minus(old_position):norm() > spring_length * self.convergence_tolerance then
+          converged = false
+        end
       end
     end
 
@@ -500,8 +505,8 @@ function SpringElectricalWalshaw2000:buildQuadtree(graph)
 
   -- create the quadtree
   quadtree = QuadTree.new(min_pos.x, min_pos.y,
-			  max_pos.x - min_pos.x,
-			  max_pos.y - min_pos.y)
+                          max_pos.x - min_pos.x,
+                          max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
   for _,node in ipairs(graph.nodes) do

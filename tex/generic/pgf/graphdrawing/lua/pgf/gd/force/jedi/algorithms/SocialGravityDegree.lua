@@ -23,60 +23,63 @@ declare {
   algorithm = SocialClass,
   postconditions = {fixed = true},
 
-  summary = [[This layout uses the social gravity algorithm proposed by Bannister 
-  with closeness mass to draw graphs.]], 
+  summary = [[
+    This layout uses the social gravity algorithm proposed by Bannister
+    with closeness mass to draw graphs.]],
 
-  documentation = 
-  [[Bannister et all described a social gravity algorithm that can be 
-  implemented with different kinds of gravity. 
-  It is described in:
-  \begin{itemize}
-    \item 
-    Michael J.~ Bannister and David Eppstein and Michael T~. Goodrich and
-               Lowell Trott,
-    \newblock Force-Directed Graph Drawing Using Social Gravity and Scaling,
-    \newblock \emph{CoRR,}
-    abs/1209.0748, 2012.
-  \end{itemize}
-  This implementation uses the degree mass to determine the gravity of each 
-  vertex. There are three forces in this algorithm: A spring force as 
-  attractive force between vertices connected by an edge, an electric force as 
-  repulsive force between all vertex pairs, and a gravitational force pulling 
-  all vertices closer to their midpoint. The gravitational force depends on 
-  the social mass of a vertex, which can be determined in different ways. This 
-  algorithm uses the degree of each vertex as its mass. The gravitational 
-  force leads to more "important" vertices ending up closer to the middle of 
-  the drawing, since the social mass of a vertex is proportinal to its 
-  importance. The social layouts work especially well on unconnected graphs 
-  like forests. This layout was implemented by using the Jedi framework.
-  ]], 
+  documentation = [[
+    Bannister et all described a social gravity algorithm that can be
+    implemented with different kinds of gravity.
+    It is described in:
+    %
+    \begin{itemize}
+      \item
+        Michael J.~ Bannister and David Eppstein and Michael T~. Goodrich and
+        Lowell Trott,
+        \newblock Force-Directed Graph Drawing Using Social Gravity and Scaling,
+        \newblock \emph{CoRR,} abs/1209.0748, 2012.
+    \end{itemize}
+    %
+    This implementation uses the degree mass to determine the gravity of each
+    vertex. There are three forces in this algorithm: A spring force as
+    attractive force between vertices connected by an edge, an electric force as
+    repulsive force between all vertex pairs, and a gravitational force pulling
+    all vertices closer to their midpoint. The gravitational force depends on
+    the social mass of a vertex, which can be determined in different ways. This
+    algorithm uses the degree of each vertex as its mass. The gravitational
+    force leads to more "important" vertices ending up closer to the middle of
+    the drawing, since the social mass of a vertex is proportional to its
+    importance. The social layouts work especially well on unconnected graphs
+    like forests. This layout was implemented by using the Jedi framework.
+  ]],
 
   example = 
   [[
-  \graph[social degree layout, speed = 0.9, gravity = 0.2, node distance = 0.65cm, nodes={as=,circle, draw, inner sep=3pt,outer sep=0pt}, find equilibrium = true, maximum step = 5]{
-    a -- a1 -- a2 -- a,
-    b -- b1 -- b2 -- b,
-    c -- c1 -- c2 -- c,
-    d -- d1 -- d2 -- d,
-    e -- e1 -- e2 -- e,
-    f -- f1 -- f2 -- f,
-    g -- g1 -- g2 -- g,
-    h -- h1 -- h2 -- h,
-    i -- i1 -- i2 -- i,
-    j -- j1 -- j2 -- j,
-    a -- b -- c -- d -- e -- f -- g -- h -- i -- j -- a 
-    }; 
-  ]], 
+    \tikz
+      \graph[social degree layout, speed = 0.9, gravity = 0.2, node distance = 0.65cm, nodes={as=,circle, draw, inner sep=3pt,outer sep=0pt}, find equilibrium = true, maximum step = 5]{
+        a -- a1 -- a2 -- a,
+        b -- b1 -- b2 -- b,
+        c -- c1 -- c2 -- c,
+        d -- d1 -- d2 -- d,
+        e -- e1 -- e2 -- e,
+        f -- f1 -- f2 -- f,
+        g -- g1 -- g2 -- g,
+        h -- h1 -- h2 -- h,
+        i -- i1 -- i2 -- i,
+        j -- j1 -- j2 -- j,
+        a -- b -- c -- d -- e -- f -- g -- h -- i -- j -- a
+      };
+  ]],
 
   example =
   [[
-  \tikz
-    \graph[social degree layout, speed = 0.35, node distance = 0.7cm, maximum step = 15, nodes={as=,circle, draw, inner sep=3pt,outer sep=0pt}, radius = 1cm, gravity = 0.2]{
-      a -- {a1 -- a2, a3}, 
-      b -- {b1, b2 -- b3 -- b4 --{b5, b6}}, 
-      c -- {c1--c2},
-      d -- {d1, d2, d3 -- {d4, d5}, d6 --{d7, d8}}
-    };  
+    \tikz
+      \graph[social degree layout, speed = 0.35, node distance = 0.7cm, maximum step = 15, nodes={as=,circle, draw, inner sep=3pt,outer sep=0pt}, radius = 1cm, gravity = 0.2]{
+        a -- {a1 -- a2, a3},
+        b -- {b1, b2 -- b3 -- b4 --{b5, b6}},
+        c -- {c1--c2},
+        d -- {d1, d2, d3 -- {d4, d5}, d6 --{d7, d8}}
+      };
   ]]
 }
 
@@ -85,30 +88,30 @@ declare {
   key = "gravity",
   type = "number",
   initial = 0.2,
-  
+
   summary = "The gravity key describes the magnitude of the gravitational force.",
 
-  documentation =
-  [[
-  This parameter currently only affects the \lstinline{social degree layout} 
-  and the \lstinline{social closeness layout}. The gravity key determines the 
-  strength used to pull the vertices to the center of the canvas. 
-  ]], 
+  documentation = [[
+    This parameter currently only affects the \lstinline{social degree layout}
+    and the \lstinline{social closeness layout}. The gravity key determines the
+    strength used to pull the vertices to the center of the canvas.
+  ]],
 
   example =
   [[
-  \graph[social degree layout, iterations = 100, maximum time = 100, maximum step = 10]{
-    a1[weight = 2] -- {a2, a3, a4, a5},
-    b1 -- {b2 -- {b3, b4}, b5}
-  };    
-  ]], 
+    \tikz
+      \graph[social degree layout, iterations = 100, maximum time = 100, maximum step = 10]{
+        a1[weight = 2] -- {a2, a3, a4, a5},
+        b1 -- {b2 -- {b3, b4}, b5}
+      };
+  ]],
 
-  example = 
-  [[
-  \graph[social degree layout, iterations = 100, maximum time = 100, gravity = 0.5, maximum step = 10]{
-    a1 -- {a2 [mass = 2], a3, a4, a5},
-    b1 -- {b2 -- {b3, b4}, b5}
-  };  
+  example = [[
+    \tikz
+      \graph[social degree layout, iterations = 100, maximum time = 100, gravity = 0.5, maximum step = 10]{
+        a1 -- {a2 [mass = 2], a3, a4, a5},
+        b1 -- {b2 -- {b3, b4}, b5}
+      };
   ]]
 }
 
@@ -135,7 +138,7 @@ function time_fun_3 (t_total, t_now)
   end
 end
 
--- define table to store variables if needed 
+-- define table to store variables if needed
 local fw_attributes = Storage.newTableStorage()
 
 function SocialClass:run()
@@ -148,7 +151,7 @@ function SocialClass:run()
 
   -- add options to storage table
   fw_attributes.options = self.ugraph.options
-  
+
   -- generate new force class
   local social_gravity = ForceController.new(self.ugraph, fw_attributes)
 
@@ -174,7 +177,7 @@ function SocialClass:run()
   }
 
   -- run algorithm
-  social_gravity:run() 
+  social_gravity:run()
 end
 
 return SocialClass

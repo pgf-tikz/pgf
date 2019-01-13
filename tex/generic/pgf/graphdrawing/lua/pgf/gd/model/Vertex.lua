@@ -39,12 +39,12 @@
 -- path lives in a special ``local'' coordinate system, that is, all
 -- coordinates of this path should actually be considered relative to
 -- the vertex' |pos| field. Note that the path is typically, but not
--- alwyas, ``centered'' on the origin. A graph drawing algorithm
+-- always, ``centered'' on the origin. A graph drawing algorithm
 -- should arrange the vertices in such a way that the origins in the
 -- path coordinate systems are aligned.
 --
 -- To illustrate the difference between the origin and the vertex
--- center, conside a tree drawing algorithm in which a node |root| has
+-- center, consider a tree drawing algorithm in which a node |root| has
 -- three children |a|, |b|, and |g|. Now, if we were to simply center
 -- these three letters vertically and arrange them in a line, the
 -- letters would appear to ``jump up and down'' since the height of
@@ -100,7 +100,7 @@
 -- |options|, which must be a table of the same syntax as the
 -- |options| field. For the |entries| array, each element must be
 -- table with two field: |t| must be set to a number, representing a
--- time in secondds, and |value|, which must be set to a value that
+-- time in seconds, and |value|, which must be set to a value that
 -- the |attribute| should have at the given time. The entries and the
 -- options will then be interpreted as described in \pgfname's basic
 -- layer animation system, except that where a |\pgfpoint| is expected
@@ -207,29 +207,29 @@ local anchor_cache = Storage.new ()
 
 local directions = {
   north = function(min_x, min_y, max_x, max_y)
-	    return (min_x+max_x)/2, max_y
-	  end,
+      return (min_x+max_x)/2, max_y
+    end,
   south = function(min_x, min_y, max_x, max_y)
-	    return (min_x+max_x)/2, min_y
-	  end,
+      return (min_x+max_x)/2, min_y
+    end,
   east  = function(min_x, min_y, max_x, max_y)
-	    return max_x, (min_y+max_y)/2
-	  end,
+      return max_x, (min_y+max_y)/2
+    end,
   west  = function(min_x, min_y, max_x, max_y)
-	    return min_x, (min_y+max_y)/2
-	  end,
+      return min_x, (min_y+max_y)/2
+    end,
   ["north west"] = function(min_x, min_y, max_x, max_y)
-		     return min_x, max_y
-		   end,
+      return min_x, max_y
+    end,
   ["north east"] = function(min_x, min_y, max_x, max_y)
-		     return max_x, max_y
-		   end,
+        return max_x, max_y
+      end,
   ["south west"] = function(min_x, min_y, max_x, max_y)
-		     return min_x, min_y
-		   end,
+        return min_x, min_y
+      end,
   ["south east"] = function(min_x, min_y, max_x, max_y)
-		     return max_x, min_y
-		   end,
+        return max_x, min_y
+      end,
 }
 
 ---
@@ -260,10 +260,10 @@ function Vertex:anchor(anchor)
     else
       local n = tonumber(anchor)
       if n then
-	local x1, y1, x2, y2 = self:boundingBox()
-	local r = math.max(x2-x1, y2-y1)
-	b = Coordinate.new(r*math.cos(n/180*math.pi),r*math.sin(n/180*math.pi))
-	b:shiftByCoordinate(self.anchors.center)
+        local x1, y1, x2, y2 = self:boundingBox()
+        local r = math.max(x2-x1, y2-y1)
+        b = Coordinate.new(r*math.cos(n/180*math.pi),r*math.sin(n/180*math.pi))
+        b:shiftByCoordinate(self.anchors.center)
       end
     end
     if not b then

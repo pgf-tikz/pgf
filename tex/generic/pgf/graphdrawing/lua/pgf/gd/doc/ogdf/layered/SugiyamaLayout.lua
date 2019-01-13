@@ -20,19 +20,18 @@ local example       = require 'pgf.gd.doc'.example
 key           "SugiyamaLayout"
 summary       "The OGDF implementation of the Sugiyama algorithm."
 
-documentation 
-[[
-This layout represents a customizable implementation of Sugiyama's
-layout algorithm. The implementation used in |SugiyamaLayout| is based
-on the following publications:
-    
-\begin{itemize}
-\item Emden R. Gansner, Eleftherios Koutsofios, Stephen
-  C. North, Kiem-Phong Vo: A technique for drawing directed
-  graphs. \emph{IEEE Trans. Software Eng.} 19(3):214--230, 1993. 
-\item Georg Sander: \emph{Layout of compound directed graphs.}
-  Technical Report, Universität des Saarlandes, 1996. 
-\end{itemize}
+documentation [[
+  This layout represents a customizable implementation of Sugiyama's
+  layout algorithm. The implementation used in |SugiyamaLayout| is based
+  on the following publications:
+
+  \begin{itemize}
+    \item Emden R. Gansner, Eleftherios Koutsofios, Stephen
+      C. North, Kiem-Phong Vo: A technique for drawing directed
+      graphs. \emph{IEEE Trans. Software Eng.} 19(3):214--230, 1993.
+    \item Georg Sander: \emph{Layout of compound directed graphs.}
+      Technical Report, Universität des Saarlandes, 1996.
+  \end{itemize}
 ]]
 
 example
@@ -40,14 +39,14 @@ example
 \tikz \graph [SugiyamaLayout] { a -- {b,c,d} -- e -- a };
 ]]
 
-example     
+example
 [[
 \tikz \graph [SugiyamaLayout, grow=right] {
   a -- {b,c,d} -- e -- a
 };
 ]]
 
-example     
+example
 [[
 \tikz [nodes={text height=.7em, text depth=.2em,
               draw=black!20, thick, fill=white, font=\footnotesize},
@@ -68,7 +67,7 @@ example
     { "USG 2.0" -> "USG 3.0", "PWB 2.0", "Unix/TS 1.0" } -> "Unix/TS 3.0";
     { "Unix/TS++", "CB Unix 3", "Unix/TS 3.0" } ->
       "TS 4.0" -> "System V.0" -> "System V.2" -> "System V.3";
-  };  
+  };
 ]]
 --------------------------------------------------------------------------------
 
@@ -77,10 +76,10 @@ example
 --------------------------------------------------------------------------------
 key           "SugiyamaLayout.runs"
 summary       "Determines, how many times the crossing minimization is repeated."
-documentation 
+documentation
 [[
 Each repetition (except for the first) starts with
-randomly permuted nodes on each layer. Deterministic behaviour can
+randomly permuted nodes on each layer. Deterministic behavior can
 be achieved by setting |SugiyamaLayout.runs| to 1.
 ]]
 --------------------------------------------------------------------------------
@@ -89,12 +88,11 @@ be achieved by setting |SugiyamaLayout.runs| to 1.
 
 --------------------------------------------------------------------------------
 key           "SugiyamaLayout.transpose"
-documentation
-[[
-Determines whether the transpose step is performed
-after each 2-layer crossing minimization; this step tries to
-reduce the number of crossings by switching neighbored nodes on
-a layer.
+documentation [[
+  Determines whether the transpose step is performed
+  after each 2-layer crossing minimization; this step tries to
+  reduce the number of crossings by switching neighbored nodes on
+  a layer.
 ]]
 --------------------------------------------------------------------------------
 
@@ -102,11 +100,10 @@ a layer.
 
 --------------------------------------------------------------------------------
 key           "SugiyamaLayout.fails"
-documentation
-[[
-The number of times that the number of crossings may
-not decrease after a complete top-down bottom-up traversal,
-before a run is terminated.
+documentation [[
+  The number of times that the number of crossings may
+  not decrease after a complete top-down bottom-up traversal,
+  before a run is terminated.
 ]]
 --------------------------------------------------------------------------------
 

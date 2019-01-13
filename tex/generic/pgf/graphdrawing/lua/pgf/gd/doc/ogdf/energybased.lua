@@ -14,6 +14,6 @@
 ---
 -- @section subsection {Force-Based Algorithms}
 --
--- 
+--
 
 local _

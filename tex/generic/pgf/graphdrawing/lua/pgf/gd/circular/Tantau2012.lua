@@ -22,7 +22,7 @@ local Tantau2012 = {}
 declare {
   key       = "simple necklace layout",
   algorithm = Tantau2012,
-  
+
   postconditions = {
     upward_oriented = true
   },
@@ -48,15 +48,15 @@ function Tantau2012:run()
   local g = self.ugraph
   local vertices = g.vertices
   local n = #vertices
-  
+
   local sib_dists = self:computeNodeDistances ()
   local radii = self:computeNodeRadii()
   local diam, adjusted_radii = self:adjustNodeRadii(sib_dists, radii)
 
-  -- Compute total necessary length. For this, iterate over all 
-  -- consecutive pairs and keep track of the necessary space for 
-  -- this node. We imagine the nodes to be aligned from left to 
-  -- right in a line. 
+  -- Compute total necessary length. For this, iterate over all
+  -- consecutive pairs and keep track of the necessary space for
+  -- this node. We imagine the nodes to be aligned from left to
+  -- right in a line.
   local carry = 0
   local positions = {}
   local function wrap(i) return (i-1)%n + 1 end
@@ -67,11 +67,11 @@ function Tantau2012:run()
     local node_sep =
       lib.lookup_option('node post sep', vertices[i], g) +
       lib.lookup_option('node pre sep', vertices[wrap(i+1)], g)
-    local arc = node_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)] 
+    local arc = node_sep + adjusted_radii[i] + adjusted_radii[wrap(i+1)]
     local needed = carry + arc
     local dist = math.sin( arc/diam ) * diam
     needed = needed + math.max ((radii[i] + radii[wrap(i+1)]+node_sep)-dist, 0)
-    carry = math.max(needed-sib_dists[i],0)    
+    carry = math.max(needed-sib_dists[i],0)
   end
   local length = ideal_pos + carry
 
@@ -98,15 +98,15 @@ function Tantau2012:computeNodeDistances()
 
   local missing_length = self.digraph.options['radius'] * 2 * math.pi - sum_length
   if missing_length > 0 then
-     -- Ok, the sib_dists to not add up to the desired minimum value. 
-     -- What should we do? Hmm... We increase all by the missing amount:
-     for i=1,#vertices do
-	sib_dists[i] = sib_dists[i] + missing_length/#vertices
-     end
+    -- Ok, the sib_dists to not add up to the desired minimum value.
+    -- What should we do? Hmm... We increase all by the missing amount:
+    for i=1,#vertices do
+      sib_dists[i] = sib_dists[i] + missing_length/#vertices
+    end
   end
 
   sib_dists.total = math.max(self.digraph.options['radius'] * 2 * math.pi, sum_length)
-  
+
   return sib_dists
 end
 
@@ -130,20 +130,20 @@ function Tantau2012:adjustNodeRadii(sib_dists,radii)
   local total = 0
   local max_rad = 0
   for i=1,#radii do
-    total = total + 2*radii[i] 
+    total = total + 2*radii[i]
             + lib.lookup_option('node post sep', self.digraph.vertices[i], self.digraph)
             + lib.lookup_option('node pre sep', self.digraph.vertices[i], self.digraph)
-    max_rad = math.max(max_rad, radii[i])  
+    max_rad = math.max(max_rad, radii[i])
   end
   total = math.max(total, sib_dists.total, max_rad*math.pi)
   local diam = total/(math.pi)
-  
+
   -- Now, adjust the radii:
   local adjusted_radii = {}
   for i=1,#radii do
     adjusted_radii[i] = (math.pi - 2*math.acos(radii[i]/diam))*diam/2
   end
-  
+
   return diam, adjusted_radii
 end
 

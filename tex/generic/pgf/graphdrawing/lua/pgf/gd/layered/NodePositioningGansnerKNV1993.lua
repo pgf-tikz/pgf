@@ -32,9 +32,9 @@ function NodePositioningGansnerKNV1993:run()
   local simplex = NetworkSimplex.new(auxiliary_graph, NetworkSimplex.BALANCE_LEFT_RIGHT)
   simplex:run()
   local x_ranking = simplex.ranking
-  
+
   local layers = Storage.new()
-  
+
   local ranks = self.ranking:getRanks()
   for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)
@@ -45,7 +45,7 @@ function NodePositioningGansnerKNV1993:run()
   end
 
   layered.arrange_layers_by_baselines(layers, self.main_algorithm.adjusted_bb, self.main_algorithm.ugraph)
-  
+
   -- Copy back
   for _,rank in ipairs(ranks) do
     local nodes = self.ranking:getNodes(rank)

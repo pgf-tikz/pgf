@@ -8,26 +8,27 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This class is the most basic class for the Jedi framework. It manages the  
--- forces, epochs, options and streamlines the graph drawing process. 
+--- This class is the most basic class for the Jedi framework. It manages the
+-- forces, epochs, options and streamlines the graph drawing process.
 -- In detail, the force template will do the following:
+-- %
 -- \begin{itemize}
--- \item Hold the table with all epochs currently defined, and provide 
--- a function to add new ones
--- \item Hold the table associating forces with the epochs, and provide a 
--- function to add new ones
--- \item Define all the non-algorithm-specific options provided by Jedi
--- \item Assert user options to catch exceptions
--- \item Save user options and library functions to local variables to enchance 
--- runtime. 
--- \item Add any forces that are indicated by set options
--- \item Find and call the initial positioning algorithm requested
--- \item Determine if coarsening is enabled, and manage coarsening process if so
--- \item Call the proprocesing function of each force to obtain a vertex list the 
--- force will be applied to
--- \item Calculate the forces affecting each vertex.
--- \item Move the vertices, check for equilibria/used up iterations, update 
--- virtual time
+--   \item Hold the table with all epochs currently defined, and provide
+--     a function to add new ones
+--   \item Hold the table associating forces with the epochs, and provide a
+--     function to add new ones
+--   \item Define all the non-algorithm-specific options provided by Jedi
+--   \item Assert user options to catch exceptions
+--   \item Save user options and library functions to local variables to enhance
+--     runtime.
+--   \item Add any forces that are indicated by set options
+--   \item Find and call the initial positioning algorithm requested
+--   \item Determine if coarsening is enabled, and manage coarsening process if so
+--   \item Call the preprocessing function of each force to obtain a vertex list the
+--     force will be applied to
+--   \item Calculate the forces affecting each vertex.
+--   \item Move the vertices, check for equilibria/used up iterations, update
+--     virtual time
 -- \end{itemize}
 
 local ForceController = {}
@@ -42,7 +43,7 @@ local ForcePullToPoint = require "pgf.gd.force.jedi.forcetypes.ForcePullToPoint"
 local ForcePullToGrid = require "pgf.gd.force.jedi.forcetypes.ForcePullToGrid"
 
 local epochs = {
-  [1] = "preprocessing", 
+  [1] = "preprocessing",
   [2] = "initial layout",
   [3] = "start coarsening process",
   [4] = "before coarsen",
@@ -59,14 +60,14 @@ local epochs = {
 }
 
 -- Automatic parameter generation for epoch-variables
-for _,e in ipairs(epochs) do 
-  --- 
+for _,e in ipairs(epochs) do
+  ---
   declare {
     key = "iterations " .. e,
     type = "number"
   }
 
-  --- 
+  ---
   declare {
     key = "maximum displacement per step " .. e,
     type = "number"
@@ -115,9 +116,9 @@ end
 -- @return An integer value matching the epch's index, or $-1$ if epoch was not found
 
 function ForceController:findEpoch(epoch)
-  for j, e in ipairs(epochs) do 
+  for j, e in ipairs(epochs) do
     if e == epoch then
-      return j 
+      return j
     end
   end
   return -1
@@ -132,17 +133,17 @@ local sum_up, options, move_vertices, get_net_force, preprocessing, epoch_forces
 
 --- Creating a new force algorithm
 -- @params ugraph The ugraph object the graph drawing algorithm will run on
--- @params fw_attributes The storage object holding the additional attributes defined by 
+-- @params fw_attributes The storage object holding the additional attributes defined by
 --         the engineer
 --
 -- @returns A new instance of force template
 function ForceController.new(ugraph, fw_attributes)
-  return setmetatable( 
+  return setmetatable(
   {epoch_forces = {},
     ugraph              = ugraph,
     fw_attributes       = fw_attributes,
     pull_to_point       = false,
-  }, ForceController)  
+  }, ForceController)
 end
 
 --- Running the force algorithm
@@ -178,16 +179,16 @@ function ForceController:run()
   end
 
   -- Initialize epoch_forces table entries as empty tables
-  for _, e in ipairs(epochs) do 
+  for _, e in ipairs(epochs) do
     if not self.epoch_forces[e] then
       self.epoch_forces[e] = {}
     end
   end
 
-  -- Find inital positioning algorithm 
+  -- Find initial positioning algorithm
   local initial_positioning_class = options.algorithm_phases['initial positioning force framework'] -- initial_types[self.initial_layout]
 
-  -- If snap to grid option is set and no force was added yet, add an extra 
+  -- If snap to grid option is set and no force was added yet, add an extra
   -- force to post-processing
   if snap_to_grid then
     self:addForce{
@@ -211,15 +212,15 @@ function ForceController:run()
   local end_coarsen = self:findEpoch("end coarsen")
   local start_expand = self:findEpoch("start expand")
   local end_expand = self:findEpoch("end expand")
-  
+
 
   -- iterate over epoch table
   local i = 1
-  while i <= #epochs do 
+  while i <= #epochs do
     local e = epochs[i]
 
     local iterations = options["iterations "..e] or options["iterations"]
-    -- assert input 
+    -- assert input
     assert(iterations >= 0, 'iterations (value: ' .. iterations .. ') needs to be greater than 0')
 
     -- Check for desired vertices and collect them in a table if any are found
@@ -227,7 +228,7 @@ function ForceController:run()
     local desired_vertices = {}
     -- initialize node weights
     for _,vertex in ipairs(vertices) do
-      if vertex.options then 
+      if vertex.options then
         if vertex.options["desired at"] then
           desired = true
           desired_vertices[vertex] = vertex.options["desired at"]
@@ -235,7 +236,7 @@ function ForceController:run()
       end
     end
 
-    -- Add pull to point force if desired vertices were found and engineer did not add 
+    -- Add pull to point force if desired vertices were found and engineer did not add
     -- this force
     if desired and not self.pull_to_point then
       self:addForce{
@@ -249,9 +250,9 @@ function ForceController:run()
       -- vertices = coarse_graph.ugraph.vertices
       -- arcs = coarse_graph.ugraph.arcs
       if i >= start_coarsening and i < end_coarsening then
-        -- coarsen the graph repeatedly until only minimum_graph_size nodes 
-        -- are left or until the size of the coarse graph was not reduced by 
-        -- at least the downsize ratio configured by the user        
+        -- coarsen the graph repeatedly until only minimum_graph_size nodes
+        -- are left or until the size of the coarse graph was not reduced by
+        -- at least the downsize ratio configured by the user
         if i >= start_coarsen and i < start_expand then
           if coarse_graph:getSize() > minimum_graph_size and coarse_graph:getRatio() <= (1 - downsize_ratio) then
             if i == start_coarsen then
@@ -259,9 +260,9 @@ function ForceController:run()
             elseif i < end_coarsen then
               preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
               move_vertices(coarse_graph.ugraph.vertices, e)
-            else 
+            else
               i = start_coarsen - 1
-            end         
+            end
           end
         end
 
@@ -271,13 +272,13 @@ function ForceController:run()
           local spring_length = natural_spring_length
 
           if not vertices_initalized then
-            initial_positioning_class.new { vertices = coarse_graph.ugraph.vertices, 
-                                            options = options, 
-                                            desired_vertices = desired_vertices 
+            initial_positioning_class.new { vertices = coarse_graph.ugraph.vertices,
+                                            options = options,
+                                            desired_vertices = desired_vertices
                                           }:run()
             vertices_initalized = true
           end
-    
+
           preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
 
           -- set the spring length to the average arc length of the initial layout
@@ -305,9 +306,9 @@ function ForceController:run()
             elseif i < end_expand then
               preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
               move_vertices(coarse_graph.ugraph.vertices, e)
-            else 
+            else
               i = start_expand - 1
-            end         
+            end
           else
             preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
             move_vertices(coarse_graph.ugraph.vertices, e)
@@ -317,9 +318,9 @@ function ForceController:run()
       elseif i < start_coarsening or i > end_coarsening then
         if not vertices_initalized then
           initial_positioning_class.new {
-	    vertices = coarse_graph.ugraph.vertices,
-	    options = options,
-	    desired_vertices = desired_vertices }:run()
+            vertices = coarse_graph.ugraph.vertices,
+            options = options,
+            desired_vertices = desired_vertices }:run()
           vertices_initalized = true
         end
         preprocessing(coarse_graph.ugraph.vertices, coarse_graph.ugraph.arcs, e, coarse_graph.ugraph)
@@ -330,9 +331,9 @@ function ForceController:run()
       if i < start_coarsening or i > end_coarsening then
         if not vertices_initalized then
           initial_positioning_class.new {
-	    vertices = vertices,
-	    options = options,
-	    desired_vertices = desired_vertices }:run()
+            vertices = vertices,
+            options = options,
+            desired_vertices = desired_vertices }:run()
           vertices_initalized = true
         end
         preprocessing(vertices, arcs, e, ugraph)
@@ -348,7 +349,7 @@ end
 --
 -- @params v The vertices of the current graph
 -- @params a The arcs of the current graph
--- @params epoch The preprocessing algorithm will only be applied to the forces 
+-- @params epoch The preprocessing algorithm will only be applied to the forces
 --                associated with this epoch.
 -- @params ugraph The current graph object
 
@@ -359,8 +360,8 @@ function preprocessing(v, a, epoch, ugraph)
 end
 
 
---- Adding forces to the algorithm. 
--- 
+--- Adding forces to the algorithm.
+--
 -- @params force_data A table containing force type, time function, force function,
 --                    capping thresholds and the epochs in which this force will be active
 
@@ -374,7 +375,7 @@ function ForceController:addForce(force_data)
   if force_data.epoch == nil then
     force_data.epoch = {}
   end
-  for _,e in ipairs(force_data.epoch) do 
+  for _,e in ipairs(force_data.epoch) do
     local tab = self.epoch_forces[e]
     if not tab then
       tab = {}
@@ -382,10 +383,10 @@ function ForceController:addForce(force_data)
     tab[#tab +1] = f
     self.epoch_forces[e] = tab
   end
-end 
+end
 
 
---- Moving vertices according to force functions until the maximum number of 
+--- Moving vertices according to force functions until the maximum number of
 -- iterations is reached
 --
 -- @params vertices The vertices in the current graph
@@ -410,14 +411,14 @@ function move_vertices(vertices, epoch, g)
   local t_now = 0
   local random = lib.random
   local randomseed = lib.randomseed
-  
+
   for j = 1 , iterations do
     t_now = t_now + d_t
     net_forces =  get_net_force(vertices, j, t_now, epoch)
-    
+
     -- normalize the force vector if necessary
     for v, c in pairs(net_forces) do
-      local n = sqrt(c.x*c.x+c.y*c.y) 
+      local n = sqrt(c.x*c.x+c.y*c.y)
       if n > max_step then
         local factor = max_step/n
         c.x = c.x*factor
@@ -429,7 +430,7 @@ function move_vertices(vertices, epoch, g)
     if not find_equilibrium or sum_up(net_forces)*d_t > epsilon then
       local cool_down_dt = d_t
       if cool_down_dt > 1 then
-	cool_down_dt = 1 + 1/d_t
+        cool_down_dt = 1 + 1/d_t
       end
       for _, v in ipairs(vertices) do
         local factor = 1/(v.mass or 1)
@@ -454,9 +455,9 @@ end
 -- @params t_now The current virtual time
 -- @params epoch The current epoch
 --
--- @return A table of coordinate-objects associated with vertices. The 
---          coordinate object hold the calculated net displacement for 
---          the $x$ and $y$ coordinate.  
+-- @return A table of coordinate-objects associated with vertices. The
+--          coordinate object hold the calculated net displacement for
+--          the $x$ and $y$ coordinate.
 function get_net_force(vertices, j, t_now, epoch)
   local net_forces = {}
   local natural_spring_length = options["node distance"]
@@ -464,11 +465,11 @@ function get_net_force(vertices, j, t_now, epoch)
   for _,v in ipairs(vertices) do
     net_forces[v] = Coordinate.new(0,0)
   end
-  
+
   for _,force_class in ipairs(epoch_forces[epoch]) do
     force_class:applyTo{net_forces = net_forces, options = options, j = j, t_now = t_now, k = natural_spring_length}
   end
-  
+
   return net_forces
 end
 

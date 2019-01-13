@@ -20,17 +20,17 @@ local example       = require 'pgf.gd.doc'.example
 key           "PlanarizationLayout"
 summary       "The planarization layout algorithm."
 
-documentation 
+documentation
 [[
-A |PlanarizationLayout| represents a customizable implementation
-of the planarization approach for drawing graphs. The implementation
-used in PlanarizationLayout is based on the following  publication:
-
-\begin{itemize}
-\item C. Gutwenger, P. Mutzel: \emph{An Experimental Study of Crossing
- Minimization Heuristics.} 11th International Symposium on Graph
- Drawing 2003, Perugia (GD '03), LNCS 2912, pp. 13-24, 2004.
-\end{itemize}
+  A |PlanarizationLayout| represents a customizable implementation
+  of the planarization approach for drawing graphs. The implementation
+  used in PlanarizationLayout is based on the following  publication:
+  %
+  \begin{itemize}
+    \item C. Gutwenger, P. Mutzel: \emph{An Experimental Study of Crossing
+       Minimization Heuristics.} 11th International Symposium on Graph
+       Drawing 2003, Perugia (GD '03), LNCS 2912, pp. 13--24, 2004.
+  \end{itemize}
 ]]
 
 example
@@ -44,12 +44,12 @@ example
 --------------------------------------------------------------------------------
 key           "PlanarizationLayout.preprocessCliques"
 summary       "Configures, whether cliques are collapsed in a preprocessing step."
-documentation 
+documentation
 [[
-If set to true, a preprocessing for cliques (complete subgraphs)
-is performed and cliques will be laid out in a special form (straight-line,
-not orthogonal). The preprocessing may reduce running time and improve
-layout quality if the input graphs contains dense subgraphs.
+  If set to true, a preprocessing for cliques (complete subgraphs)
+  is performed and cliques will be laid out in a special form (straight-line,
+  not orthogonal). The preprocessing may reduce running time and improve
+  layout quality if the input graphs contains dense subgraphs.
 ]]
 --------------------------------------------------------------------------------
 

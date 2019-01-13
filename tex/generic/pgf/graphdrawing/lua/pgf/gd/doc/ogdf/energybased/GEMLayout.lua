@@ -18,79 +18,79 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "GEMLayout"
-summary       "The energy-based GEM layout algorithm."                    
-                    
+summary       "The energy-based GEM layout algorithm."
+
 documentation [[
-The implementation used in |GEMLayout| is based on the following publication:
-\begin{itemize}
-\item Arne Frick, Andreas Ludwig, Heiko Mehldau: \emph{A Fast Adaptive Layout
- Algorithm for Undirected Graphs.} Proc. Graph Drawing 1994,
- LNCS 894, pp. 388-403, 1995.
-\end{itemize}
-    
+  The implementation used in |GEMLayout| is based on the following publication:
+  %
+  \begin{itemize}
+    \item Arne Frick, Andreas Ludwig, Heiko Mehldau: \emph{A Fast Adaptive Layout
+       Algorithm for Undirected Graphs.} Proc. Graph Drawing 1994,
+       LNCS 894, pp. 388-403, 1995.
+  \end{itemize}
 ]]
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.numberOfRounds"
 summary       "Sets the maximal number of round per node."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.minimalTemperature"
 summary       "Sets the minimal temperature."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.initialTemperature"
 summary       "Sets the initial temperature; must be $\\ge$ |minimalTemperature|."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.gravitationalConstant"
 summary       "Sets the gravitational constant; must be $\\ge 0$."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.desiredLength"
 summary       "Sets the desired edge length; must be $\\ge 0$."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.maximalDisturbance"
 summary       "Sets the maximal disturbance; must be $\\ge 0$."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.rotationAngle"
 summary       "Sets the opening angle for rotations ($0 \\le x \\le \\pi / 2$)."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.oscillationAngle"
 summary       "Sets the opening angle for oscillations ($0 \\le x \\le \\pi / 2$)."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.rotationSensitivity"
 summary       "Sets the rotation sensitivity ($0 \\le x \\le 1$)."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.oscillationSensitivity"
 summary       "Sets the oscillation sensitivity ($0 \\le x \\le 1$)."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "GEMLayout.attractionFormula"
@@ -100,4 +100,4 @@ summary       "sets the formula for attraction (1 = Fruchterman / Reingold, 2 = 
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

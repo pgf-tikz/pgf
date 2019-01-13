@@ -47,19 +47,19 @@ declare {
   algorithm = GreedyTemporalCycleRemoval,
   phase     = "temporal cycle removal",
   phase_default = true,
-  summary = [["  
-       A temporal dependency cycle is a cyclic path in the supergraph of 
-       an evolving graph. Use this key if you want remove all temporal 
-       dependency cycles by a greedy strategy which incrementally inserts
-       edge checks if this edge creates a cycle and splits at least one node
-       into two supernode at a given time.
+  summary = [["
+    A temporal dependency cycle is a cyclic path in the supergraph of
+    an evolving graph. Use this key if you want remove all temporal
+    dependency cycles by a greedy strategy which incrementally inserts
+    edge checks if this edge creates a cycle and splits at least one node
+    into two supernode at a given time.
   "]],
-  documentation = [["      
-       See ToDo
+  documentation = [["
+    See ToDo
   "]]
 }
 
--- Helpfunctions
+-- Help functions
 local function reachable(graph, v, w)
   local visited = {}
   local queue = PriorityQueue.new()
@@ -73,12 +73,12 @@ local function reachable(graph, v, w)
     for _, e in ipairs(outgoings) do
       local head = e.head
       if not visited[head] then
-	visited[head] = true
-	if head == w then
-	  return true
-	else
-	  queue:enqueue(head,1)
-	end
+        visited[head] = true
+        if head == w then
+          return true
+        else
+          queue:enqueue(head,1)
+        end
       end
     end
   end
@@ -101,13 +101,13 @@ end
 -- Resolves all dependencies by splitting supernodes into multiple supernodes.
 -- To resolve a cycle each edge will be inserted into a dependency graph
 -- successively. Each time such edge closes a cycle the head and tail will
--- be splitet at the related snapshot.
+-- be split at the related snapshot.
 --
 -- @param supergraph
 --
 function GreedyTemporalCycleRemoval:iterativeCycleRemoval(supergraph, split_tail, split_head)
   -- Build up the global dependency graph
-  -- A supernode v directly depends on another supernode w iff
+  -- A supernode v directly depends on another supernode w if
   -- there is a snapshot in which w is a child of w
   local dependency_graph = Digraph.new(supergraph)
   local stable_arcs = {}
@@ -115,57 +115,57 @@ function GreedyTemporalCycleRemoval:iterativeCycleRemoval(supergraph, split_tail
     --local tree = snapshot.spanning_tree
   for _,tree in ipairs(snapshot.spanning_trees) do
     local new_arcs      = {}
-    
+
     for _, e in ipairs(tree.arcs) do
       if e.head.kind ~= "dummy" and e.tail.kind~="dummy" then
-	table.insert(new_arcs, e)
-	
-	local sv = supergraph:getSupervertex(e.tail)
-	local sw = supergraph:getSupervertex(e.head) 
-	local dep_arc = dependency_graph:arc(sv, sw)
-	
+        table.insert(new_arcs, e)
 
-	if (not dep_arc)   then
-	  -- check if the edge v->w closes a cycle in the dependencygraph
-	  --pgf.debug{dependency_graph}
-	  local cycle_arc = reachable(dependency_graph, sw, sv)
-	  dep_arc = dependency_graph:connect(sv,sw)
---	   texio.write("\ncheck ".. sv.name.."->" .. sw.name)
-	  if cycle_arc then
-	    if split_tail then
-	      supergraph:splitSupervertex(sv, { [1]=snapshot })
-	    end
-	    if split_head then
-	      supergraph:splitSupervertex(sw, { [1]=snapshot })
-	    end
+        local sv = supergraph:getSupervertex(e.tail)
+        local sw = supergraph:getSupervertex(e.head)
+        local dep_arc = dependency_graph:arc(sv, sw)
 
-	    -- rebuild dependency graph
-	    dependency_graph = Digraph.new(supergraph)
 
-	    for _, arc in ipairs(stable_arcs) do
-	      dependency_graph:connect(arc.tail, arc.head)
-	    end
-	    
-	    for _, arc in ipairs(new_arcs) do
-	      local sv = supergraph:getSupervertex(arc.tail)
-	      local sw = supergraph:getSupervertex(arc.head)
-	      dependency_graph:connect(sv, sw)	    
-	    end
-	  end -- end of resovle cycle_arc
-	end
+        if (not dep_arc)   then
+          -- check if the edge v->w closes a cycle in the dependency graph
+          --pgf.debug{dependency_graph}
+          local cycle_arc = reachable(dependency_graph, sw, sv)
+          dep_arc = dependency_graph:connect(sv,sw)
+--          texio.write("\ncheck ".. sv.name.."->" .. sw.name)
+          if cycle_arc then
+            if split_tail then
+              supergraph:splitSupervertex(sv, { [1]=snapshot })
+            end
+            if split_head then
+              supergraph:splitSupervertex(sw, { [1]=snapshot })
+            end
+
+            -- rebuild dependency graph
+            dependency_graph = Digraph.new(supergraph)
+
+            for _, arc in ipairs(stable_arcs) do
+              dependency_graph:connect(arc.tail, arc.head)
+            end
+
+            for _, arc in ipairs(new_arcs) do
+              local sv = supergraph:getSupervertex(arc.tail)
+              local sw = supergraph:getSupervertex(arc.head)
+              dependency_graph:connect(sv, sw)
+            end
+          end -- end of resolve cycle_arc
+        end
       end
     end
     -- Stable Arcs:
     for _, arc in ipairs(new_arcs) do
-      
+
       local sv = supergraph:getSupervertex(arc.tail)
       local sw = supergraph:getSupervertex(arc.head)
       local deparc = dependency_graph:arc(sv, sw)
 --      if not deparc or not stable_arcs[deparc] then
---	stable_arcs[deparc] = true
-	table.insert(stable_arcs, deparc)
+--        stable_arcs[deparc] = true
+        table.insert(stable_arcs, deparc)
 --      end
-      
+
     end
   end -- end for spanning_tree
   end -- end for snapshot

@@ -14,6 +14,6 @@
 ---
 -- @section subsection {Algorithms for Drawing Planar Graphs}
 --
--- 
+--
 
 local _

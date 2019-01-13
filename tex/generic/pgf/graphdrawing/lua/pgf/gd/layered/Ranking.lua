@@ -12,8 +12,8 @@
 
 
 
---- The Ranking class is used by the Sugiyama algorithm to compute an ordering on the
--- nodes of a layer
+--- The Ranking class is used by the Sugiyama algorithm to compute an
+-- ordering on the nodes of a layer
 
 local Ranking = {}
 Ranking.__index = Ranking
@@ -43,7 +43,7 @@ end
 
 function Ranking:copy()
   local copied_ranking = Ranking.new()
-  
+
   -- copy rank to nodes mapping
   for rank, nodes in pairs(self.rank_to_nodes) do
     copied_ranking.rank_to_nodes[rank] = lib.copy(self.rank_to_nodes[rank])
@@ -113,7 +113,7 @@ function Ranking:setRank(node, new_rank)
   if rank == new_rank then
     return
   end
-  
+
   if rank then
     for n = pos+1, #self.rank_to_nodes[rank] do
       local other_node = self.rank_to_nodes[rank][n]
@@ -196,7 +196,7 @@ function Ranking:normalizeRanks()
   for node in pairs(self.position_in_rank) do
     local rank, pos = self:getNodeInfo(node)
     local new_rank = rank - (min_rank - 1)
-    
+
     self.rank_to_nodes[new_rank] = self.rank_to_nodes[new_rank] or {}
     self.rank_to_nodes[new_rank][pos] = node
 

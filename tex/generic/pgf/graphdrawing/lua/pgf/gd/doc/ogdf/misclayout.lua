@@ -14,6 +14,6 @@
 ---
 -- @section subsection {Miscellaneous Algorithms for Graph Drawing}
 --
--- 
+--
 
 local _

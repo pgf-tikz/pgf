@@ -25,7 +25,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 declare {
   key       = "spring Hu 2006 layout",
   algorithm = SpringHu2006,
-  
+
   preconditions = {
     connected = true,
     loop_free = true,
@@ -34,20 +34,20 @@ declare {
 
   old_graph_model = true,
 
-  summary = [["  
-       Implementation of a spring graph drawing algorithm based on
-       a paper by Hu.
- "]],
-  documentation = [["        
-       \begin{itemize}
-       \item
-         Y. Hu.
-         \newblock Efficient, high-quality force-directed graph drawing.
-         \newblock \emph{The Mathematica Journal}, 2006.
-       \end{itemize}
-      
-       There are some modifications compared to the original algorithm,
-       see the Diploma thesis of Pohlmann for details.
+  summary = [["
+    Implementation of a spring graph drawing algorithm based on
+    a paper by Hu.
+  "]],
+  documentation = [["
+    \begin{itemize}
+      \item
+        Y. Hu.
+        \newblock Efficient, high-quality force-directed graph drawing.
+        \newblock \emph{The Mathematica Journal}, 2006.
+    \end{itemize}
+
+    There are some modifications compared to the original algorithm,
+    see the Diploma thesis of Pohlmann for details.
   "]]
 }
 
@@ -65,26 +65,26 @@ local lib = require("pgf.gd.lib")
 
 
 function SpringHu2006:run()
-  
+
   -- Setup some parameters
   local options = self.digraph.options
-  
+
   self.iterations = options['iterations']
   self.cooling_factor = options['cooling factor']
   self.initial_step_length = options['initial step length']
   self.convergence_tolerance = options['convergence tolerance']
 
   self.natural_spring_length = options['node distance']
-   
+
   self.coarsen = options['coarsen']
   self.downsize_ratio = options['downsize ratio']
   self.minimum_graph_size = options['minimum coarsening size']
 
 
   -- Setup
-  
+
   self.downsize_ratio = math.max(0, math.min(1, tonumber(self.downsize_ratio)))
-  
+
   self.graph_size = #self.graph.nodes
   self.graph_density = (2 * #self.graph.edges) / (#self.graph.nodes * (#self.graph.nodes - 1))
 
@@ -96,7 +96,7 @@ function SpringHu2006:run()
   assert(self.natural_spring_length >= 0, 'the natural spring dimension (value: ' .. self.natural_spring_length .. ') needs to be greater than or equal to 0')
   assert(self.downsize_ratio >= 0 and self.downsize_ratio <= 1, 'the downsize ratio (value: ' .. self.downsize_ratio .. ') needs to be between 0 and 1')
   assert(self.minimum_graph_size >= 2, 'the minimum coarsening size of coarse graphs (value: ' .. self.minimum_graph_size .. ') needs to be greater than or equal to 2')
-  
+
   -- initialize node weights
   for _,node in ipairs(self.graph.nodes) do
     node.weight = 1
@@ -106,20 +106,20 @@ function SpringHu2006:run()
   for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
-  
-  
+
+
   -- initialize the coarse graph data structure. note that the algorithm
-  -- is the same regardless whether coarsening is used, except that the 
+  -- is the same regardless whether coarsening is used, except that the
   -- number of coarsening steps without coarsening is 0
   local coarse_graph = CoarseGraph.new(self.graph)
 
   -- check if the multilevel approach should be used
   if self.coarsen then
-    -- coarsen the graph repeatedly until only minimum_graph_size nodes 
-    -- are left or until the size of the coarse graph was not reduced by 
+    -- coarsen the graph repeatedly until only minimum_graph_size nodes
+    -- are left or until the size of the coarse graph was not reduced by
     -- at least the downsize ratio configured by the user
-    while coarse_graph:getSize() > self.minimum_graph_size 
-      and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
+    while coarse_graph:getSize() > self.minimum_graph_size
+      and coarse_graph:getRatio() <= (1 - self.downsize_ratio)
     do
       coarse_graph:coarsen()
     end
@@ -192,8 +192,8 @@ end
 
 
 function SpringHu2006:computeInitialLayout(graph, spring_length)
-  -- TODO how can supernodes and fixed nodes go hand in hand? 
-  -- maybe fix the supernode if at least one of its subnodes is 
+  -- TODO how can supernodes and fixed nodes go hand in hand?
+  -- maybe fix the supernode if at least one of its subnodes is
   -- fixated?
 
   -- fixate all nodes that have a 'desired at' option. this will set the
@@ -208,7 +208,7 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
       if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
         -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
         graph.nodes[1].pos.x = 0
-	graph.nodes[1].pos.y = 0
+        graph.nodes[1].pos.y = 0
       end
 
       -- position the loose node relative to the fixed node, with
@@ -223,16 +223,16 @@ function SpringHu2006:computeInitialLayout(graph, spring_length)
     end
   else
     -- use a random positioning technique
-    local function positioning_func(n) 
+    local function positioning_func(n)
       local radius = 2 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       return lib.random(-radius, radius)
     end
 
     -- compute initial layout based on the random positioning technique
     for _,node in ipairs(graph.nodes) do
-      if not node.fixed then 
-	node.pos.x = positioning_func(1)
-	node.pos.y = positioning_func(2)
+      if not node.fixed then
+        node.pos.x = positioning_func(1)
+        node.pos.y = positioning_func(2)
       end
     end
   end
@@ -253,7 +253,7 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
- 
+
   -- convergence criteria etc.
   local converged = false
   local energy = math.huge
@@ -273,6 +273,39 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
+        -- vector for the displacement of v
+        local d = Vector.new(2)
+
+        for _,u in ipairs(graph.nodes) do
+          if v ~= u then
+            -- compute the distance between u and v
+            local delta = u.pos:minus(v.pos)
+
+            -- enforce a small virtual distance if the nodes are
+            -- located at (almost) the same position
+            if delta:norm() < 0.1 then
+              delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+            end
+
+            local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
+
+            -- compute the repulsive force vector
+            local force = repulsive_force(delta:norm(), graph_distance, v.weight)
+            local force = delta:normalized():timesScalar(force)
+
+            -- move the node v accordingly
+            d = d:plus(force)
+          end
+        end
+
+        -- really move the node now
+        -- TODO note how all nodes are moved by the same amount  (step_length)
+        -- while Walshaw multiplies the normalized force with min(step_length,
+        -- d:norm()). could that improve this algorithm even further?
+        v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
+
+        -- update the energy function
+        energy = energy + math.pow(d:norm(), 2)
 	-- vector for the displacement of v
 	local d = Vector.new(2)
 	
@@ -318,9 +351,9 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
       local delta = x.pos:minus(old_positions[x])
       max_movement = math.max(delta:norm(), max_movement)
     end
-    
-    -- the algorithm will converge if the maximum movement is below a 
-    -- threshold depending on the spring length and the convergence 
+
+    -- the algorithm will converge if the maximum movement is below a
+    -- threshold depending on the spring length and the convergence
     -- tolerance
     if max_movement < spring_length * self.convergence_tolerance then
       converged = true

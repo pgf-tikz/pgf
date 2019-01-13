@@ -8,9 +8,9 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This is a subclass of ForceTemplate, which is used to implement forces between 
--- vertex pairs. The forces depend on the graph distance of the vertices in 
--- the pair. This class is e.~g.~ used for spring forces. 
+--- This is a subclass of ForceTemplate, which is used to implement forces between
+-- vertex pairs. The forces depend on the graph distance of the vertices in
+-- the pair. This class is e.\,g.\ used for spring forces.
 
 
 local ForceTemplate = require "pgf.gd.force.jedi.base.ForceTemplate"
@@ -32,26 +32,26 @@ function ForceGraphDistance:constructor ()
 end
 
 
--- This force class works on all pairwise disjoint vertex pairs connected by 
--- a path of length maximum $n$. The parameter $n$ is given by the engineer in 
--- the force declaration. This function generates a new graph object 
--- containing all vertices from the original graph and arcs between all 
--- pairwise disjoint vertex pairs. The arcs-table of this new object will be 
--- saved in the variable |p|. 
--- 
---  @param v The vertices of the graph we are trying to find a layout for. 
+-- This force class works on all pairwise disjoint vertex pairs connected by
+-- a path of length maximum $n$. The parameter $n$ is given by the engineer in
+-- the force declaration. This function generates a new graph object
+-- containing all vertices from the original graph and arcs between all
+-- pairwise disjoint vertex pairs. The arcs-table of this new object will be
+-- saved in the variable |p|.
+--
+--  @param v The vertices of the graph we are trying to find a layout for.
 
 function ForceGraphDistance:preprocess(v, a)
   self.p = Preprocessing.overExactlyNPairs(v, a, self.force.n)
 end
 
 
--- Applying the force to the vertices andadding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
---              forces
+--
+-- @param data The parameters needed to apply the force: The options table,
+--             the current time stamp, an array containing the summed up net
+--             forces
 
 function ForceGraphDistance:applyTo(data)
   -- locals for speed
@@ -86,12 +86,12 @@ function ForceGraphDistance:applyTo(data)
       local y = p2_pos.y - p1_pos.y
       local d = max(sqrt(x*x+y*y),0.1)
 
-      -- apply force function to distance and k (natural spring length) 
+      -- apply force function to distance and k (natural spring length)
       data.u = p2
       data.v = p1
       data.d = d
       local e = fun_u(data)
-      
+
       -- Include time function
       local f = e * time_factor / d
 
@@ -106,7 +106,7 @@ function ForceGraphDistance:applyTo(data)
         else
           x = min(cap, g)
         end
-        
+
         if g <= 0 then
           y = max(-cap, h)
         else
@@ -147,7 +147,7 @@ function ForceGraphDistance:applyTo(data)
       data.d = d
       local e_head = fun_u(data)
       local e_tail = fun_v(data)
-      
+
       -- Include time function
       local f_head = time_factor * e_head / d
       local f_tail = time_factor * e_tail / d
@@ -172,7 +172,7 @@ function ForceGraphDistance:applyTo(data)
         else
           x_tail = min(cap, g_tail)
         end
-        
+
         if h_head <= 0 then
           y_head = max(-cap, h_head)
         else

@@ -18,27 +18,27 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "FastMultipoleEmbedder"
-summary       "Implementation of a fast multipole embedder by Martin Gronemann."                    
+summary       "Implementation of a fast multipole embedder by Martin Gronemann."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "FastMultipoleEmbedder.numIterations"
 summary       "sets the maximum number of iterations"
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "FastMultipoleEmbedder.multipolePrec"
 summary       "sets the number of coefficients for the expansions. default = 4"
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "FastMultipoleEmbedder.defaultEdgeLength"
 summary       ""
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "FastMultipoleEmbedder.defaultNodeSize"
@@ -48,4 +48,4 @@ summary       ""
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

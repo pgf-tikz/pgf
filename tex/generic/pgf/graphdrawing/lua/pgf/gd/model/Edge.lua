@@ -10,12 +10,12 @@
 -- @release $Header$
 
 
---- 
+---
 -- An |Edge| is a ``syntactic'' connection between two
 -- vertices that represents a connection present in the syntactic
 -- digraph. Unlike an |Arc|, |Edge| objects are not controlled by the
 -- |Digraph| class. Also unlike |Arc| objects, there can be several
--- edges betwen the same vertices, namely whenever several such edges
+-- edges between the same vertices, namely whenever several such edges
 -- are present in the syntactic digraph.
 --
 -- In detail, the relationship between arcs and edges is as follows:
@@ -33,15 +33,15 @@
 -- second one. Whether
 -- an edge is directed or not depends on the |direction| of the edge, which
 -- may be one of the following:
---
+-- %
 -- \begin{enumerate}
--- \item |"->"|
--- \item |"--"|
--- \item |"<-"|
--- \item |"<->"|
--- \item |"-!-"|
+--   \item |"->"|
+--   \item |"--"|
+--   \item |"<-"|
+--   \item |"<->"|
+--   \item |"-!-"|
 -- \end{enumerate}
--- 
+--
 --
 -- @field head The head vertex of this edge.
 --
@@ -63,7 +63,7 @@
 -- |InterfaceToAlgorithms|.
 --
 -- @field animations An array of animations, see the |animations|
--- field of the |Vertex| class for the syntax. 
+-- field of the |Vertex| class for the syntax.
 
 local Edge = {}
 Edge.__index = Edge
@@ -79,14 +79,14 @@ require("pgf.gd.model").Edge = Edge
 local Path         = require "pgf.gd.model.Path"
 
 
---- 
+---
 -- Create a new edge. The |initial| parameter allows you to setup
 -- some initial values.
 --
 -- @usage 
 --\begin{codeexample}[code only, tikz syntax=false]
 --local v = Edge.new { tail = v1, head = v2 }
---\end{codeexample} 
+--\end{codeexample}
 --
 -- @param initial Values to override defaults. --
 -- @return A new edge object.
@@ -125,10 +125,10 @@ end
 -- Note that you typically do not use this function, but use the
 -- corresponding function of the |Arc| class. Use this function only
 -- if there are multiple edges between two vertices that need to be
--- routed differently. 
+-- routed differently.
 --
--- Here is the code you would use to create the abovementioned path:
---
+-- Here is the code you would use to create the above-mentioned path:
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --local a = g:connect(tail,head)
 --local e = a.syntactic_edges[1]
@@ -140,19 +140,19 @@ end
 --\end{codeexample}
 --
 -- As for the |Arc| class, you can also setup a polyline more easily:
---
+-- %
 --\begin{codeexample}[code only, tikz syntax=false]
 --e:setPolylinePath { Coordinate.new (10, 10) }
 --\end{codeexample}
 
 function Edge:tailAnchorForEdgePath()
   return function ()
-	   local a = self.options['tail anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.tail:anchor(a) + self.tail.pos
-	 end
+    local a = self.options['tail anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.tail:anchor(a) + self.tail.pos
+  end
 end
 
 ---
@@ -160,12 +160,12 @@ end
 
 function Edge:headAnchorForEdgePath()
   return function ()
-	   local a = self.options['head anchor']
-	   if a == "" then
-	     a = "center"
-	   end
-	   return self.head:anchor(a) + self.head.pos
-	 end
+    local a = self.options['head anchor']
+    if a == "" then
+      a = "center"
+    end
+    return self.head:anchor(a) + self.head.pos
+  end
 end
 
 
@@ -188,7 +188,7 @@ function Edge:setPolylinePath(coordinates)
   end
 
   p:appendLineto(self:headAnchorForEdgePath())
-  
+
   self.path = p
 end
 

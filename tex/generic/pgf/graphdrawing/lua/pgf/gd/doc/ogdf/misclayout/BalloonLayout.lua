@@ -20,7 +20,7 @@ local example       = require 'pgf.gd.doc'.example
 key           "BalloonLayout"
 summary       "A ``balloon layout''."
 
-documentation 
+documentation
 [[
 This algorithm computes a radial (balloon) layout based on a
 spanning tree. The algorithm is partially based on the paper

@@ -8,9 +8,9 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This is a subclass of ForceTemplate, which is used to implement forces between 
--- vertex pairs. The forces depend on the canvas distance of the vertices in 
--- the pair. This class is e.~g.~ used for electric forces. 
+--- This is a subclass of ForceTemplate, which is used to implement forces between
+-- vertex pairs. The forces depend on the canvas distance of the vertices in
+-- the pair. This class is e.~g.~ used for electric forces.
 
 -- Imports
 local ForceTemplate = require "pgf.gd.force.jedi.base.ForceTemplate"
@@ -22,7 +22,7 @@ local max = math.max
 local sqrt = math.sqrt
 local min = math.min
 
--- Implementation starts here: 
+-- Implementation starts here:
 local ForceCanvasDistance = lib.class { base_class = ForceTemplate }
 
 function ForceCanvasDistance:constructor ()
@@ -31,24 +31,24 @@ function ForceCanvasDistance:constructor ()
 end
 
 
--- This force class works on all pairwise disjoint vertex pairs. This 
--- function generates a new graph object containing all vertices from the 
--- original graph and arcs between all pairwise disjoint vertex pairs. The 
--- arcs-table of this new object will be saved in the variable |p|. 
--- 
---  @param v The vertices of the graph we are trying to find a layout for. 
+-- This force class works on all pairwise disjoint vertex pairs. This
+-- function generates a new graph object containing all vertices from the
+-- original graph and arcs between all pairwise disjoint vertex pairs. The
+-- arcs-table of this new object will be saved in the variable |p|.
+--
+-- @param v The vertices of the graph we are trying to find a layout for.
 
 function ForceCanvasDistance:preprocess(v)
   self.p = Preprocessing.allPairs(v)
 end
 
 
--- Applying the force to the vertices and adding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
---              forces
+--
+-- @param data The parameters needed to apply the force: The options table,
+--             the current time stamp, an array containing the summed up net
+--             forces
 
 function ForceCanvasDistance:applyTo(data)
   -- locals for speed
@@ -68,7 +68,7 @@ function ForceCanvasDistance:applyTo(data)
   if time_factor == 0 then
     return
   end
-  
+
   if not fun_v then
     local data = { k = k, attributes = fw_attributes }
     for _, i in ipairs(p) do
@@ -103,7 +103,7 @@ function ForceCanvasDistance:applyTo(data)
         else
           x = min(cap, g)
         end
-        
+
         if h <= 0 then
           y = max(-cap, h)
         else
@@ -168,7 +168,7 @@ function ForceCanvasDistance:applyTo(data)
         else
           x_tail = min(cap, g_tail)
         end
-        
+
         if h_head <= 0 then
           y_head = max(-cap, h_head)
         else

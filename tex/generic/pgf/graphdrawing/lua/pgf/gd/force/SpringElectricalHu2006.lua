@@ -23,7 +23,7 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 declare {
   key       = "spring electrical Hu 2006 layout",
   algorithm = SpringElectricalHu2006,
-  
+
   preconditions = {
     connected = true,
     loop_free = true,
@@ -32,20 +32,20 @@ declare {
 
   old_graph_model = true,
 
-  summary = [["  
-       Implementation of a spring electrical graph drawing algorithm based on
-       a paper by Hu.
- "]],
-  documentation = [["  
-       \begin{itemize}
-       \item
-         Y. Hu.
-         \newblock Efficient, high-quality force-directed graph drawing.
-         \newblock \emph{The Mathematica Journal}, 2006.
-       \end{itemize}
-      
-       There are some modifications compared to the original algorithm,
-       see the Diploma thesis of Pohlmann for details.
+  summary = [["
+    Implementation of a spring electrical graph drawing algorithm based on
+    a paper by Hu.
+  "]],
+  documentation = [["
+    \begin{itemize}
+      \item
+        Y. Hu.
+        \newblock Efficient, high-quality force-directed graph drawing.
+        \newblock \emph{The Mathematica Journal}, 2006.
+    \end{itemize}
+
+    There are some modifications compared to the original algorithm,
+    see the Diploma thesis of Pohlmann for details.
   "]]
 }
 
@@ -64,7 +64,7 @@ function SpringElectricalHu2006:run()
 
   -- Setup properties
   local options = self.digraph.options
-  
+
   self.iterations = options['iterations']
   self.cooling_factor = options['cooling factor']
   self.initial_step_length = options['initial step length']
@@ -75,11 +75,11 @@ function SpringElectricalHu2006:run()
 
   self.approximate_repulsive_forces = options['approximate remote forces']
   self.repulsive_force_order = options['electric force order']
-   
+
   self.coarsen = options['coarsen']
   self.downsize_ratio = options['downsize ratio']
   self.minimum_graph_size = options['minimum coarsening size']
-  
+
   -- Adjust types
   self.downsize_ratio = math.max(0, math.min(1, self.downsize_ratio))
   self.graph_size = #self.graph.nodes
@@ -103,24 +103,24 @@ function SpringElectricalHu2006:run()
       node.weight = 1
     end
   end
-  
+
   -- initialize edge weights
   for _,edge in ipairs(self.graph.edges) do
     edge.weight = 1
   end
 
   -- initialize the coarse graph data structure. note that the algorithm
-  -- is the same regardless whether coarsening is used, except that the 
+  -- is the same regardless whether coarsening is used, except that the
   -- number of coarsening steps without coarsening is 0
   local coarse_graph = CoarseGraph.new(self.graph)
 
   -- check if the multilevel approach should be used
   if self.coarsen then
-    -- coarsen the graph repeatedly until only minimum_graph_size nodes 
-    -- are left or until the size of the coarse graph was not reduced by 
+    -- coarsen the graph repeatedly until only minimum_graph_size nodes
+    -- are left or until the size of the coarse graph was not reduced by
     -- at least the downsize ratio configured by the user
-    while coarse_graph:getSize() > self.minimum_graph_size 
-      and coarse_graph:getRatio() <= (1 - self.downsize_ratio) 
+    while coarse_graph:getSize() > self.minimum_graph_size
+      and coarse_graph:getRatio() <= (1 - self.downsize_ratio)
     do
       coarse_graph:coarsen()
     end
@@ -188,8 +188,8 @@ end
 
 
 function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
-  -- TODO how can supernodes and fixed nodes go hand in hand? 
-  -- maybe fix the supernode if at least one of its subnodes is 
+  -- TODO how can supernodes and fixed nodes go hand in hand?
+  -- maybe fix the supernode if at least one of its subnodes is
   -- fixated?
 
   -- fixate all nodes that have a 'desired at' option. this will set the
@@ -204,7 +204,7 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
       if not graph.nodes[1].fixed and not graph.nodes[2].fixed then
         -- both nodes can be moved, so we assume node 1 is fixed at (0,0)
         graph.nodes[1].pos.x = 0
-	graph.nodes[1].pos.y = 0
+        graph.nodes[1].pos.y = 0
       end
 
       -- position the loose node relative to the fixed node, with
@@ -220,7 +220,7 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
   else
 
     -- use a random positioning technique
-    local function positioning_func(n) 
+    local function positioning_func(n)
       local radius = 3 * spring_length * self.graph_density * math.sqrt(self.graph_size) / 2
       return lib.random(-radius, radius)
     end
@@ -228,8 +228,8 @@ function SpringElectricalHu2006:computeInitialLayout(graph, spring_length)
     -- compute initial layout based on the random positioning technique
     for _,node in ipairs(graph.nodes) do
       if not node.fixed then
-	node.pos.x = positioning_func(1)
-	node.pos.y = positioning_func(2)
+        node.pos.x = positioning_func(1)
+        node.pos.y = positioning_func(2)
       end
     end
   end
@@ -268,7 +268,7 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 
   -- adjust the initial step length automatically if desired by the user
   local step_length = self.initial_step_length == 0 and spring_length or self.initial_step_length
- 
+
   -- convergence criteria etc.
   local converged = false
   local energy = math.huge
@@ -293,6 +293,114 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
 
     for _,v in ipairs(graph.nodes) do
       if not v.fixed then
+        -- vector for the displacement of v
+        local d = Vector.new(2)
+
+        -- compute repulsive forces
+        if self.approximate_repulsive_forces then
+          -- determine the cells that have a repulsive influence on v
+          local cells = quadtree:findInteractionCells(v, barnes_hut_criterion)
+
+          -- compute the repulsive force between these cells and v
+          for _,cell in ipairs(cells) do
+            -- check if the cell is a leaf
+            if #cell.subcells == 0 then
+              -- compute the forces between the node and all particles in the cell
+              for _,particle in ipairs(cell.particles) do
+            local real_particles = lib.copy(particle.subparticles)
+            table.insert(real_particles, particle)
+
+            for _,real_particle in ipairs(real_particles) do
+              local delta = real_particle.pos:minus(v.pos)
+
+              -- enforce a small virtual distance if the node and the cell's
+              -- center of mass are located at (almost) the same position
+              if delta:norm() < 0.1 then
+                delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+              end
+
+              -- compute the repulsive force vector
+              local repulsive_force = approximated_repulsive_force(delta:norm(), real_particle.mass)
+              local force = delta:normalized():timesScalar(repulsive_force)
+
+              -- move the node v accordingly
+              d = d:plus(force)
+            end
+              end
+            else
+              -- compute the distance between the node and the cell's center of mass
+              local delta = cell.center_of_mass:minus(v.pos)
+
+              -- enforce a small virtual distance if the node and the cell's
+              -- center of mass are located at (almost) the same position
+              if delta:norm() < 0.1 then
+            delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+              end
+
+              -- compute the repulsive force vector
+              local repulsive_force = approximated_repulsive_force(delta:norm(), cell.mass)
+              local force = delta:normalized():timesScalar(repulsive_force)
+
+              -- move the node v accordingly
+              d = d:plus(force)
+            end
+          end
+        else
+          for _,u in ipairs(graph.nodes) do
+            if v ~= u then
+              -- compute the distance between u and v
+              local delta = u.pos:minus(v.pos)
+
+              -- enforce a small virtual distance if the nodes are
+              -- located at (almost) the same position
+              if delta:norm() < 0.1 then
+            delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+              end
+
+              -- compute the repulsive force vector
+              local repulsive_force = accurate_repulsive_force(delta:norm(), u.weight)
+              local force = delta:normalized():timesScalar(repulsive_force)
+
+              -- move the node v accordingly
+              d = d:plus(force)
+            end
+          end
+        end
+
+        -- compute attractive forces between v and its neighbors
+        for _,edge in ipairs(v.edges) do
+          local u = edge:getNeighbour(v)
+
+          -- compute the distance between u and v
+          local delta = u.pos:minus(v.pos)
+
+          -- enforce a small virtual distance if the nodes are
+          -- located at (almost) the same position
+          if delta:norm() < 0.1 then
+            delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
+          end
+
+          -- compute the spring force vector between u and v
+          local attr_force = attractive_force(delta:norm())
+          local force = delta:normalized():timesScalar(attr_force)
+
+          -- move the node v accordingly
+          d = d:plus(force)
+        end
+
+        -- really move the node now
+        -- TODO note how all nodes are moved by the same amount  (step_length)
+        -- while Walshaw multiplies the normalized force with min(step_length,
+        -- d:norm()). could that improve this algorithm even further?
+        v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
+
+        -- TODO Hu doesn't mention this but the energy of a particle is
+        -- typically considered as the product of its mass and the square of
+        -- its forces. This means we should probably take the weight of
+        -- the node v into the equation, doesn't it?
+        --
+        -- update the energy function
+        energy = energy + math.pow(d:norm(), 2)
 	-- vector for the displacement of v
 	local d = Vector.new(2)
 	
@@ -413,9 +521,9 @@ function SpringElectricalHu2006:computeForceLayout(graph, spring_length, step_up
       local delta = x.pos:minus(old_positions[x])
       max_movement = math.max(delta:norm(), max_movement)
     end
-    
-    -- the algorithm will converge if the maximum movement is below a 
-    -- threshold depending on the spring length and the convergence 
+
+    -- the algorithm will converge if the maximum movement is below a
+    -- threshold depending on the spring length and the convergence
     -- tolerance
     if max_movement < spring_length * self.convergence_tolerance then
       converged = true
@@ -484,8 +592,8 @@ function SpringElectricalHu2006:buildQuadtree(graph)
 
   -- create the quadtree
   quadtree = QuadTree.new(min_pos.x, min_pos.y,
-			      max_pos.x - min_pos.x,
-			      max_pos.y - min_pos.y)
+                          max_pos.x - min_pos.x,
+                          max_pos.y - min_pos.y)
 
   -- insert nodes into the quadtree
   for _,node in ipairs(graph.nodes) do

@@ -7,11 +7,11 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- This is a subclass of ForceTemplate, which is used to implement forces 
--- that work on individual vertices and pulls them to a specific point on the 
--- canvas. This point is given by the |desired at| option. The forces depend 
--- on the canvas position of the vertices relative to the canvas point it is 
--- pulled to. 
+--- This is a subclass of ForceTemplate, which is used to implement forces
+-- that work on individual vertices and pulls them to a specific point on the
+-- canvas. This point is given by the |desired at| option. The forces depend
+-- on the canvas position of the vertices relative to the canvas point it is
+-- pulled to.
 
 
 -- Imports
@@ -33,17 +33,17 @@ function ForcePullToPoint:constructor ()
   self.p = {}
 end
 
--- This force class works on individual vertices and depends on their 
--- current position as well as the point it is desired at. Thus all vertices 
--- where the |desired at| option is set are added to the table |p| together 
--- with the point where they are wanted.  
--- 
---  @param v The vertices of the graph we are trying to find a layout for. 
+-- This force class works on individual vertices and depends on their
+-- current position as well as the point it is desired at. Thus all vertices
+-- where the |desired at| option is set are added to the table |p| together
+-- with the point where they are wanted.
+--
+--  @param v The vertices of the graph we are trying to find a layout for.
 
 function ForcePullToPoint:preprocess(v)
   for _,vertex in ipairs(v) do
     if vertex.options then
-      local da = vertex.options["desired at"] 
+      local da = vertex.options["desired at"]
         if da then
           self.p[vertex]= {da}
       end
@@ -52,12 +52,12 @@ function ForcePullToPoint:preprocess(v)
 end
 
 
--- Applying the force to the vertices andadding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
---              forces
+--
+-- @param data The parameters needed to apply the force: The options table,
+--             the current time stamp, an array containing the summed up net
+--             forces
 
 function ForcePullToPoint:applyTo(data)
   -- locals for speed
@@ -69,7 +69,7 @@ function ForcePullToPoint:applyTo(data)
   local time_fun = self.force.time_fun
 
   -- Evaluate time function
-  local time_factor = time_fun(t_max, t_now) 
+  local time_factor = time_fun(t_max, t_now)
   if time_factor == 0 then
     return
   end
@@ -85,7 +85,7 @@ function ForcePullToPoint:applyTo(data)
     local d = max(sqrt(x*x+y*y),0.1)
 
     -- Include time function
-    local h = d * time_factor 
+    local h = d * time_factor
 
     -- scale effect according to direction
     local f = x * h
@@ -98,7 +98,7 @@ function ForcePullToPoint:applyTo(data)
       else
         x = min(cap, f)
       end
-        
+
       if g <= 0 then
         y = max(-cap, g)
       else
