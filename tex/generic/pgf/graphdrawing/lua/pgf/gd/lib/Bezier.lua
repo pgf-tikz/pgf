@@ -13,7 +13,7 @@
 
 ---
 -- This library offers a number of methods for working with Bezi\'er
--- curves. 
+-- curves.
 
 local Bezier = {}
 
@@ -29,7 +29,7 @@ local Coordinate = require 'pgf.gd.model.Coordinate'
 ---
 -- Compute a point ``along a curve at a time''. You provide the four
 -- coordinates of the curve and a time. You get a point on the curve
--- as return value as well as the two suport vector for curve
+-- as return value as well as the two support vector for curve
 -- before this point and two support vectors for the curve after the
 -- point.
 --
@@ -115,7 +115,7 @@ function Bezier.supportsForPointsAtTime(from, p1, t1, p2, t2, to)
   local f1b = t1 * s1^2 * 3
   local f1c = t1^2 * s1 * 3
   local f1d = t1^3
-  
+
   local f2a = s2^3
   local f2b = t2 * s2^2 * 3
   local f2c = t2^2 * s2 * 3
@@ -127,7 +127,7 @@ function Bezier.supportsForPointsAtTime(from, p1, t1, p2, t2, to)
   --
   -- p1.y - from.y * f1a - to.y * f1d = sup1.y * f1b + sup2.y * f1c
   -- p2.y - from.y * f2a - to.y * f2d = sup1.y * f2b + sup2.y * f2c
-  
+
   local a = f1b
   local b = f1c
   local c = p1.x - from.x * f1a - to.x * f1d
@@ -138,16 +138,16 @@ function Bezier.supportsForPointsAtTime(from, p1, t1, p2, t2, to)
   local det = a*e - b*d
   local x1 = -(b*f - e*c)/det
   local x2 = -(c*d - a*f)/det
-  
+
   local c = p1.y - from.y * f1a - to.y * f1d
   local f = p2.y - from.y * f2a - to.y * f2d
-  
+
   local det = a*e - b*d
   local y1 = -(b*f - e*c)/det
   local y2 = -(c*d - a*f)/det
 
   return Coordinate.new(x1,y1), Coordinate.new(x2,y2)
-  
+
 end
 
 

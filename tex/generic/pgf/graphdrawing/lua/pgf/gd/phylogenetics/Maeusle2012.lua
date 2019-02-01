@@ -39,36 +39,36 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root = self:getRoot()
-	    self:setPosForRectangularLayout(root)
-	  end
+      local root = self:getRoot()
+      self:setPosForRectangularLayout(root)
+    end
   },
   phase = "phylogenetic tree layout",
   phase_default = true,
 
-  summary = [["  
-      A rooted rectangular phylogram is...
+  summary = [["
+    A rooted rectangular phylogram is...
   "]],
   documentation = [["
-      ...
+    ...
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout,
-	            rooted rectangular phylogram,
-	            balanced minimum evolution,
-                    distance matrix={
-                      0 4 9 9 9 9 9
-                      4 0 9 9 9 9 9
-                      9 9 0 2 7 7 7
-                      9 9 2 0 7 7 7
-                      9 9 7 7 0 3 5
-                      9 9 7 7 3 0 5
-                      9 9 7 7 5 5 0}]
-        { a, b, c, d, e, f, g };
+    \tikz \graph [phylogenetic tree layout,
+                  rooted rectangular phylogram,
+                  balanced minimum evolution,
+                  distance matrix={
+                    0 4 9 9 9 9 9
+                    4 0 9 9 9 9 9
+                    9 9 0 2 7 7 7
+                    9 9 2 0 7 7 7
+                    9 9 7 7 0 3 5
+                    9 9 7 7 3 0 5
+                    9 9 7 7 5 5 0}]
+      { a, b, c, d, e, f, g };
   "]]
 }
-     
----    
+
+---
 declare {
   key = "rectangular phylogram",
   use = { { key = "rooted rectangular phylogram" } },
@@ -81,35 +81,35 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root = self:getRoot()
-	    self:setXPos(root)
-	    self:setYPosForStraightLayout(root)
-	  end
+        local root = self:getRoot()
+        self:setXPos(root)
+        self:setYPosForStraightLayout(root)
+      end
   },
   phase = "phylogenetic tree layout",
 
-  summary = [["  
-      A rooted straight phylogram is...
+  summary = [["
+    A rooted straight phylogram is...
   "]],
   documentation = [["
-      ...
+    ...
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout,
-	            rooted straight phylogram,
-	            balanced minimum evolution, grow=right,
-                    distance matrix={
-                      0 4 9 9 9 9 9
-                      4 0 9 9 9 9 9
-                      9 9 0 2 7 7 7
-                      9 9 2 0 7 7 7
-                      9 9 7 7 0 3 5
-                      9 9 7 7 3 0 5
-                      9 9 7 7 5 5 0}]
-        { a, b, c, d, e, f, g };
+    \tikz \graph [phylogenetic tree layout,
+                  rooted straight phylogram,
+                  balanced minimum evolution, grow=right,
+                  distance matrix={
+                    0 4 9 9 9 9 9
+                    4 0 9 9 9 9 9
+                    9 9 0 2 7 7 7
+                    9 9 2 0 7 7 7
+                    9 9 7 7 0 3 5
+                    9 9 7 7 3 0 5
+                    9 9 7 7 5 5 0}]
+      { a, b, c, d, e, f, g };
   "]]}
-     
----    
+
+---
 declare {
   key = "straight phylogram",
   use = { { key = "rooted straight phylogram" } },
@@ -122,91 +122,91 @@ declare {
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root1, root2 = self:getRoot()
-	    self:setPosForUnrootedRectangular(root2, root1)
-	  end
+        local root1, root2 = self:getRoot()
+        self:setPosForUnrootedRectangular(root2, root1)
+      end
   },
   phase = "phylogenetic tree layout",
 
-  summary = [["  
-      A unrooted rectangular phylogram is...
+  summary = [["
+    A unrooted rectangular phylogram is...
   "]],
   documentation = [["
-      ...
+    ...
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout,
-	            unrooted rectangular phylogram,
-	            balanced minimum evolution, grow=right,
-                    distance matrix={
-                      0 4 9 9 9 9 9
-                      4 0 9 9 9 9 9
-                      9 9 0 2 7 7 7
-                      9 9 2 0 7 7 7
-                      9 9 7 7 0 3 5
-                      9 9 7 7 3 0 5
-                      9 9 7 7 5 5 0}]
-        { a, b, c, d, e, f, g };
+    \tikz \graph [phylogenetic tree layout,
+                  unrooted rectangular phylogram,
+                  balanced minimum evolution, grow=right,
+                  distance matrix={
+                    0 4 9 9 9 9 9
+                    4 0 9 9 9 9 9
+                    9 9 0 2 7 7 7
+                    9 9 2 0 7 7 7
+                    9 9 7 7 0 3 5
+                    9 9 7 7 3 0 5
+                    9 9 7 7 5 5 0}]
+      { a, b, c, d, e, f, g };
   "]]
 }
-   
+
 ---
 declare {
   key = "unrooted straight phylogram",
   algorithm = {
     base_class = Maeusle2012,
     run = function (self)
-	    local root1, root2 = self:getRoot()
-	    self:setPosForUnrootedStraight(root2, root1)
-	  end
+        local root1, root2 = self:getRoot()
+        self:setPosForUnrootedStraight(root2, root1)
+      end
   },
   phase = "phylogenetic tree layout",
 
-  summary = [["  
-      A unrooted straight phylogram is...
+  summary = [["
+    A unrooted straight phylogram is...
   "]],
   documentation = [["
-      ...
+    ...
   "]],
   examples = [["
-      \tikz \graph [phylogenetic tree layout,
-	            unrooted straight phylogram,
-	            balanced minimum evolution, grow=right,
-                    distance matrix={
-                      0 4 9 9 9 9 9
-                      4 0 9 9 9 9 9
-                      9 9 0 2 7 7 7
-                      9 9 2 0 7 7 7
-                      9 9 7 7 0 3 5
-                      9 9 7 7 3 0 5
-                      9 9 7 7 5 5 0}]
-        { a, b, c, d, e, f, g };
+    \tikz \graph [phylogenetic tree layout,
+                  unrooted straight phylogram,
+                  balanced minimum evolution, grow=right,
+                  distance matrix={
+                    0 4 9 9 9 9 9
+                    4 0 9 9 9 9 9
+                    9 9 0 2 7 7 7
+                    9 9 2 0 7 7 7
+                    9 9 7 7 0 3 5
+                    9 9 7 7 3 0 5
+                    9 9 7 7 5 5 0}]
+      { a, b, c, d, e, f, g };
   "]]
 }
-    
- 
+
+
 ---
 declare {
   key = "evolutionary unit length",
   type = "length",
   initial = "1cm",
 
-  summary = [["  
-      Specifies how long a ``unit'' of evolutionary time should be on
-      paper. For instance, if two nodes in a phylogenetic tree have an
-      evolutionary distance of 3 and this length is set to |1cm|, then
-      they will be |3cm| apart in a straight-line phylogram.
+  summary = [["
+    Specifies how long a ``unit'' of evolutionary time should be on
+    paper. For instance, if two nodes in a phylogenetic tree have an
+    evolutionary distance of 3 and this length is set to |1cm|, then
+    they will be |3cm| apart in a straight-line phylogram.
   "]],
   documentation = [["
-      (This key used to be called |distance scaling factor|.)
+    (This key used to be called |distance scaling factor|.)
   "]],
 }
-    
 
-    
+
+
 --
 --  Gets the edge length between two nodes
---  
+--
 --  @param vertex1, vertex2 The two nodes
 --
 --  @return The length of the edge between the two nodes
@@ -221,12 +221,12 @@ end
 --  @param vertex The starting point; should usually be the root
 --  @param values Values needed for the recursion
 --  @param vertex2 A node that will not be visited; this parameter should only be set
---    for an unrooted layout to ensure that only the half of the tree is set. 
+--    for an unrooted layout to ensure that only the half of the tree is set.
 function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
   local arcs = self.tree.arcs
   local vertices = self.tree.vertices
   local adjusted_bb = self.main_algorithm.adjusted_bb
-  
+
   values = values or {
     length = 0, -- current path length
     visited = {}, -- all nodes that have already been visited
@@ -235,10 +235,10 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
 
   local vertex_is_leaf = true
   values.visited[vertex] = true
-  
+
   local children = {} -- a table containing all children of the
-  --current vertex (for the later determination of inner vertices
-  --x-positions)  
+  -- current vertex (for the later determination of inner vertices
+  -- x-positions)
 
 
   for _, arc in ipairs (self.tree:outgoing(vertex)) do
@@ -251,10 +251,10 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
 
       -- go deeper
       self:setPosForRectangularLayout(arc.head, values, vertex2)
-           
+
       -- get the children of the current vertex
       children[#children+1] = arc.head
-        
+
       values.length = values.length - arc_length
     end
   end
@@ -263,9 +263,9 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
     -- subtract layer_pre, thus the leaf itself is NOT part of the
     -- edge length
     vertex.pos.y = - adjusted_bb[vertex].layer_pre
-  
+
     values.leaves[#values.leaves+1] = vertex
-    
+
     -- x coordinate:
     -- the x coordinates of the leaves are the first to be set; the
     -- first leave stays at x = 0, the x coordinates for the other
@@ -276,7 +276,7 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
       local ideal_distance = layered.ideal_sibling_distance(adjusted_bb, self.tree, vertex, left_sibling )
       vertex.pos.x = left_sibling.pos.x + ideal_distance
     end
-  
+
   else -- the vertex is an inner node
     -- the x position of an inner vertex is at the center of its children.
 
@@ -287,12 +287,12 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
       if child.pos.x < left_child.pos.x then left_child = child end
       if child.pos.x > right_child.pos.x then right_child = child end
     end
-    
+
     -- position between child with highest and child with lowest x-value,
     -- if number of children is even
     local index_of_middle_child = math.ceil(#children/2)
     local even = #children/2 == index_of_middle_child
-    
+
     if even then
       vertex.pos.x = (left_child.pos.x + right_child.pos.x) / 2
       index_of_middle_child = 0
@@ -301,33 +301,33 @@ function Maeusle2012:setPosForRectangularLayout(vertex, values, vertex2)
       table.remove(children, index_of_middle_child) -- don't bend the edge to this node, as it it above it anyway
     end
   end
-  
+
   -- set the node's y-coordinate, using the calculated length
-  -- and a scaling factor 
+  -- and a scaling factor
   vertex.pos.y = vertex.pos.y + (values.length * self.tree.options['evolutionary unit length'])
-    
+
   -- if this is the second subtree to be set of an unrooted tree, have
   -- it grow in the other direction
   if values.second_subtree then
     vertex.pos.y = -vertex.pos.y
   end
-  
+
   -- bend the edges for the rectangular layout
   for i,child in ipairs(children) do
     self:bendEdge90Degree(child, vertex)
   end
-  
+
   return values
 end
 
 
 -- Sets only the x-positions of all nodes using a depth-first search.
 --  This is necessary for straight-edge layouts.
---  
+--
 --  @param vertex The starting point of the depth-first search; should usually be the root
 --  @param values Values needed for the recursion
 --  @param vertex2 A node that will not be visited; this parameter should only be set
---    for an unrooted layout to ensure that only the half of the tree is set. 
+--    for an unrooted layout to ensure that only the half of the tree is set.
 function Maeusle2012:setXPos(vertex, values, vertex2)
   local arcs = self.tree.arcs
   local vertices = self.tree.vertices
@@ -349,26 +349,26 @@ function Maeusle2012:setXPos(vertex, values, vertex2)
 
       -- go deeper
       self:setXPos(arc.head, values, vertex2)
-           
+
       -- get the children of the current vertex
-      table.insert(children, arc.head) 
+      table.insert(children, arc.head)
     end
   end
 
   -- set the x-position of a leaf
   if vertex_is_leaf then
-  
+
     table.insert(values.leaves, vertex)
-    
+
     if #values.leaves > 1 then
       local left_sibling = values.leaves[#values.leaves-1]
       local ideal_distance = layered.ideal_sibling_distance(self.main_algorithm.adjusted_bb, self.tree, vertex, left_sibling )
       vertex.pos.x = left_sibling.pos.x + ideal_distance
     end
- 
+
   -- set x position of an inner node, which is at the center of its
   -- children
-  else 
+  else
     -- determine the outer children
     local left_child = children[1]
     local right_child = left_child
@@ -376,12 +376,12 @@ function Maeusle2012:setXPos(vertex, values, vertex2)
       if child.pos.x < left_child.pos.x then left_child = child end
       if child.pos.x > right_child.pos.x then right_child = child end
     end
-    
+
     -- position between child with highest and child with lowest x-value,
     -- if number of children is even
     local index_of_middle_child = math.ceil(#children/2)
     local even = #children/2 == index_of_middle_child
-    
+
     if even then
       vertex.pos.x = (left_child.pos.x + right_child.pos.x) / 2
     else -- if number of children is odd, position above the middle child
@@ -406,7 +406,7 @@ function Maeusle2012:setYPosForStraightLayout(vertex, values, vertex2)
   local arcs = self.tree.arcs
   local vertices = self.tree.vertices
   local adjusted_bb = self.main_algorithm.adjusted_bb
-  
+
   values = values or {
     length = 0, -- current path length
     visited = {}, -- all nodes that have already been visited
@@ -421,7 +421,7 @@ function Maeusle2012:setYPosForStraightLayout(vertex, values, vertex2)
     if not values.visited[arc.head] and arc.head ~= vertex2 then
       -- if arc.head hasn't been visited, the current vertex cannot be a leaf
       vertex_is_leaf = false
-    
+
       -- calculate the arc length with the help of the Pythagorean
       -- theorem
       local a
@@ -439,10 +439,10 @@ function Maeusle2012:setYPosForStraightLayout(vertex, values, vertex2)
 
       -- go deeper
       self:setYPosForStraightLayout(arc.head, values, vertex2)
-           
+
       -- get the children of the current vertex
-      table.insert(children, arc.head) 
-        
+      table.insert(children, arc.head)
+
       values.length = values.length - arc_length
     end
   end
@@ -451,13 +451,13 @@ function Maeusle2012:setYPosForStraightLayout(vertex, values, vertex2)
     -- subtract layer_pre, thus the leaf itself is NOT part of the
     -- edge length
     vertex.pos.y = - adjusted_bb[vertex].layer_pre
-  
+
     table.insert(values.leaves, vertex)
   end
-  
-  -- set the node's y-coordinate, using the calculated length 
+
+  -- set the node's y-coordinate, using the calculated length
   vertex.pos.y = vertex.pos.y + values.length
-  
+
   -- if this is the second subtree to be set of an unrooted tree, have
   -- it grow in the other direction
   if values.second_subtree then vertex.pos.y = -vertex.pos.y end
@@ -472,7 +472,7 @@ end
 -- @param vertex1 The root of the first subtree
 -- @param vertex2 The root of the second subtree.
 function Maeusle2012:correctXPos(vertex1, vertex2, straight)
-  
+
   -- correct the x-positions
   --
   -- @param vertex Starting point of the depth-first search
@@ -484,12 +484,12 @@ function Maeusle2012:correctXPos(vertex1, vertex2, straight)
 
     for _, arc in ipairs (self.tree:outgoing(vertex)) do
       if not values.visited[arc.head] and arc.head ~= vertex2 then
-  
-        table.insert(children, arc.head) 
+
+        table.insert(children, arc.head)
         x_correction(arc.head, values, vertex2)
       end
     end
-  
+
     vertex.pos.x = vertex.pos.x + values.diff
     if not straight then
       for i,child in ipairs(children) do
@@ -499,9 +499,9 @@ function Maeusle2012:correctXPos(vertex1, vertex2, straight)
 
     return values
   end
-  
+
   -- compute the difference of the x-positions of the two subtrees'
-  -- roots 
+  -- roots
   local diff = vertex1.pos.x - vertex2.pos.x
   local values = { visited = {} }
   if diff < 0 then
@@ -510,7 +510,7 @@ function Maeusle2012:correctXPos(vertex1, vertex2, straight)
   elseif diff > 0 then
     values.diff = diff
     x_correction(vertex2, values, vertex1)
-  end 
+  end
 end
 
 
@@ -521,10 +521,10 @@ end
 --  Two neighboring vertices are chosen as roots; one half of the tree
 --  is drawn in one direction, the other half 180° to the other
 --  direction.
--- 
--- @param vertex1, vertex2: The vertices functioning as roots 
+--
+-- @param vertex1, vertex2: The vertices functioning as roots
 function Maeusle2012:setPosForUnrootedRectangular(vertex1, vertex2)
-  -- set positions for first half of the tree... 
+  -- set positions for first half of the tree...
   self:setPosForRectangularLayout(vertex2,false,vertex1)
   local vals={
     length = self:edgeLength(vertex1, vertex2), -- the length between the two roots
@@ -547,14 +547,14 @@ end
 --  Two neighboring vertices are chosen as roots; one half of the tree
 --  is drawn in one direction, the other half 180° to the other
 --  direction.
--- 
+--
 -- @param vertex1, vertex2: The vertices functioning as roots
 function Maeusle2012:setPosForUnrootedStraight(vertex1, vertex2)
   -- first set the x-positions of the two subtrees...
   local vals = {visited = {}, leaves = {} }
   self:setXPos(vertex2, vals, vertex1)
   self:setXPos(vertex1, vals, vertex2)
-  
+
   -- ... and then the y-positions
   self:setYPosForStraightLayout(vertex2, false, vertex1)
   local vals={
@@ -576,7 +576,7 @@ end
 
 -- Bends the arc between two nodes by 90 degree by updating the arc's
 --  path
---  
+--
 --  @param head The head of the arc
 --  @param tail The tail of the arc
 function Maeusle2012:bendEdge90Degree(head, tail)
@@ -597,7 +597,7 @@ function Maeusle2012:findLongestPath()
   local paths_to_leaves = self:getPathLengthsToLeaves(starting_point)
   local path_lengths = paths_to_leaves.path_lengths
   local paths = paths_to_leaves.paths
-  
+
  -- looks for the longest path and identifies its end-point
   local function find_head_of_longest_path(path_lengths, paths)
     local longest_path
@@ -615,7 +615,7 @@ function Maeusle2012:findLongestPath()
     end
     return node
   end
-  
+
   -- find the longest path leading away from the starting point and identify
   -- the leaf it leads to. Use that leaf as the tail for the next path
   -- search
@@ -626,11 +626,11 @@ function Maeusle2012:findLongestPath()
   path_lengths = paths_to_leaves.path_lengths
   paths = paths_to_leaves.paths
   local head = find_head_of_longest_path(path_lengths, paths)
-  
+
   local path_information =
    {  path = paths_to_leaves.paths[head], -- longest path
       length = path_lengths[head] } -- length of that path
-  
+
   return path_information
 end
 
@@ -659,7 +659,7 @@ function Maeusle2012:getPathLengthsToLeaves(vertex, values)
     }
     table.insert(values.path,vertex)
   end
-  
+
   local vertex_is_leaf = true
   values.visited[vertex] = true
 
@@ -671,13 +671,13 @@ function Maeusle2012:getPathLengthsToLeaves(vertex, values)
       vertex_is_leaf = false
       local arc_length = self.lengths[vertex][arc.head]
       values.length = values.length + arc_length
-      
+
       -- add arc.head to path...
       table.insert(values.path,arc.head)
-    
+
       -- ... and go down that path
       self:getPathLengthsToLeaves(arc.head, values)
-        
+
       -- remove arc.head again to go a different path
       table.remove(values.path)
       values.length = values.length - arc_length
@@ -699,7 +699,7 @@ function Maeusle2012:getPathLengthsToLeaves(vertex, values)
       paths = values.paths,
       leaves = values.leaves }
   return path_information
-end 
+end
 
 
 -- Gets the root of a tree
@@ -732,13 +732,13 @@ function Maeusle2012:computeCenterOfPath()
     local node3 = path[i+2]
 
     local dist_node_1_2, dist_node_2_3 --distances between node1 and node2, and node2 and node3
-    dist_node_1_2 = self:edgeLength(node1, node2) 
-    if node3 then dist_node_2_3 = self:edgeLength(node2, node3) end 
-    length = length + dist_node_1_2 -- length between first vertex on the path and current node2 
-    
+    dist_node_1_2 = self:edgeLength(node1, node2)
+    if node3 then dist_node_2_3 = self:edgeLength(node2, node3) end
+    length = length + dist_node_1_2 -- length between first vertex on the path and current node2
+
     if length == longest_path.length/2 then
       root = node2 -- if there is a node exactly at the half of the path, use this node as root
-      
+
       -- and find nearest neighbor of the root
       if node3 == nil or dist_node_1_2 < dist_node_2_3 then -- neu 3.8
         neighbor_of_root = node1
@@ -765,12 +765,12 @@ function Maeusle2012:computeCenterOfPath()
           node0 = path[i-1]
           dist_node_0_1 = self:edgeLength(node0, node1)
           if dist_node_0_1 < dist_node_1_2 then neighbor_of_root = node0 end
-        end 
+        end
       end
       break
     end
   end
-  
+
   return root, neighbor_of_root
 end
 

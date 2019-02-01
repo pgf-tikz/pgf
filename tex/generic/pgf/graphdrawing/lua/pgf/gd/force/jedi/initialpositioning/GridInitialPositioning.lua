@@ -7,8 +7,8 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
---- This class implements an inital position algorithm for graph drawing, placing the vertices on  
--- a grid with square cells with width |node distance|
+--- This class implements an initial position algorithm for graph drawing,
+-- placing the vertices on a grid with square cells with width |node distance|
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 local InitialTemplate = require "pgf.gd.force.jedi.base.InitialTemplate"
 local lib = require "pgf.gd.lib"
@@ -45,7 +45,7 @@ function GridInitialPositioning:run()
     if placed[vertex] == nil then
       if i <= (y/dist+1)*n then
         x = x + dist
-      else 
+      else
         x = 0
         y = y + dist
       end

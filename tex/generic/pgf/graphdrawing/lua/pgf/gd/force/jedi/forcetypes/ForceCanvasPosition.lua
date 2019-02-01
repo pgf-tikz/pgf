@@ -8,9 +8,9 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This is a subclass of ForceTemplate, which is used to implement forces 
--- that work on individual vertices. The forces depend on the canvas position  
--- of the vertices. This class is e.~g.~ used for gravitational forces. 
+--- This is a subclass of ForceTemplate, which is used to implement forces
+-- that work on individual vertices. The forces depend on the canvas position
+-- of the vertices. This class is e.~g.~ used for gravitational forces.
 
 local ForceTemplate = require "pgf.gd.force.jedi.base.ForceTemplate"
 local lib = require "pgf.gd.lib"
@@ -30,23 +30,23 @@ function ForceCanvasPosition:constructor ()
 end
 
 
--- This force class works on individual vertices and only depends on their 
--- current position. Thus the vertex table of the current graph is simply 
--- copied to the variable |p|. 
--- 
---  @param v The vertices of the graph we are trying to find a layout for. 
+-- This force class works on individual vertices and only depends on their
+-- current position. Thus the vertex table of the current graph is simply
+-- copied to the variable |p|.
+--
+--  @param v The vertices of the graph we are trying to find a layout for.
 
 function ForceCanvasPosition:preprocess(v)
   self.p = v
 end
 
 
--- Applying the force to the vertices and adding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
---              forces
+--
+-- @param data The parameters needed to apply the force: The options table,
+--             the current time stamp, an array containing the summed up net
+--             forces
 
 function ForceCanvasPosition:applyTo(data)
   --localize

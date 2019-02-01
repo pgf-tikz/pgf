@@ -16,7 +16,7 @@
 -- Sections \ref{section-library-graphs}
 -- and~\ref{section-trees}). The job of the graph drawing algorithms from
 -- this library is to turn the specification of trees into beautiful
--- layouts. 
+-- layouts.
 --
 -- We start this section with a description of algorithms, then we have a
 -- look at how missing children can be specified and at what happens when

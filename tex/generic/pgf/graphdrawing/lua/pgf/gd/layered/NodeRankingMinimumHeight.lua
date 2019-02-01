@@ -29,7 +29,7 @@ function NodeRankingMinimumHeight:run()
     else
       local max_rank = -math.huge
       for _,edge in ipairs(edge) do
-	max_rank = math.max(max_rank, ranking:getRank(edge:getNeighbour(node)))
+        max_rank = math.max(max_rank, ranking:getRank(edge:getNeighbour(node)))
       end
 
       assert(max_rank >= 1)

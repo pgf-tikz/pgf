@@ -17,16 +17,17 @@
 -- when the documentation is kept in a separate file.
 --
 -- Using the doc facility is easy:
---
+-- %
 -- \begin{enumerate}
--- \item In the |declare| statement of the key, you do not provide
--- fields like |documentation| or |summary|. Rather, you provide the
--- field |documentation_in|, which gets the name of a Lua file the
--- will be read whenever one of the fields |documentation|, |summary|,
--- or |examples| is requested for the key.
--- \item When the key is requested, |require| will be applied to the
--- filename given in the |documentation_in| field.
--- \item In this file, you start with the following code:
+--   \item In the |declare| statement of the key, you do not provide
+--     fields like |documentation| or |summary|. Rather, you provide the
+--     field |documentation_in|, which gets the name of a Lua file the
+--     will be read whenever one of the fields |documentation|, |summary|,
+--     or |examples| is requested for the key.
+--   \item When the key is requested, |require| will be applied to the
+--     filename given in the |documentation_in| field.
+--   \item In this file, you start with the following code:
+--     %
 --\begin{codeexample}[code only]
 --local doc           = require 'pgf.gd.doc'
 --local key           = doc.key
@@ -34,10 +35,12 @@
 --local summary       = doc.summary
 --local example       = doc.example
 --\end{codeexample}
--- This will setup nice shortcuts for the commands you are going to
--- use in your file.
--- \item Next, for each to-be-lazily-documented key, add a block to
--- the file like the following:
+--     %
+--     This will setup nice shortcuts for the commands you are going to
+--     use in your file.
+--   \item Next, for each to-be-lazily-documented key, add a block to
+--     the file like the following:
+--     %
 --\begin{codeexample}[code only]
 -- ---
 -- key           "my radius"
@@ -50,19 +53,18 @@
 -- example       "\tikz \graph [foo layout, my radius=3] { c--d };"
 --\end{codeexample}
 --
--- Note that |[[| and |]]| are used in Lua for raw multi-line
--- strings.
+--     Note that |[[| and |]]| are used in Lua for raw multi-line strings.
 --
--- The effect of the above code will be that for the key |my radius|
--- the different field like |summary| or |documentation| get
--- updated. The |key| function simple ``selects'' a key and subsequent
--- commands like |summary| will update this key until a different key
--- is selected through another use of |key|.
+--     The effect of the above code will be that for the key |my radius|
+--     the different field like |summary| or |documentation| get
+--     updated. The |key| function simple ``selects'' a key and subsequent
+--     commands like |summary| will update this key until a different key
+--     is selected through another use of |key|.
 -- \end{enumerate}
 
 local doc = {}
 
-local current_key 
+local current_key
 
 
 -- Namespace
@@ -107,7 +109,7 @@ end
 
 
 ---
--- Adds an example to the |examples| field of the last key selected 
+-- Adds an example to the |examples| field of the last key selected
 -- through the |key| command.
 --
 -- @param string An additional example string.

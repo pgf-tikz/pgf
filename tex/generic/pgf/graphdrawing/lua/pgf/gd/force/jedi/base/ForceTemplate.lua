@@ -8,8 +8,8 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This is the parent class for forces. It provides a constructor and methods 
--- stubs to be overwritten in the subclasses. 
+--- This is the parent class for forces. It provides a constructor and methods
+-- stubs to be overwritten in the subclasses.
 
 -- Imports
 local lib = require "pgf.gd.lib"
@@ -33,11 +33,11 @@ function ForceTemplate:preprocess(v)
 end
 
 -- Method stub for applying the forces
--- 
--- @param data A table holding data like the table the forces are  collected 
+--
+-- @param data A table holding data like the table the forces are  collected
 --             in, the current iteration, the current time stamp, some options
 --             or the natural spring length
-  
+
 function ForceTemplate:applyTo(data)
 end
 

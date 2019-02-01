@@ -21,11 +21,11 @@ key          "LongestPathRanking"
 summary      "The longest-path ranking algorithm."
 documentation
 [[
-|LongestPathRanking| implements the well-known longest-path ranking
-algorithm, which can be used as first phase in |SugiyamaLayout|. The
-implementation contains a special optimization for reducing edge
-lengths, as well as special treatment of mixed-upward graphs (for
-instance, \textsc{uml} class diagrams).
+  |LongestPathRanking| implements the well-known longest-path ranking
+  algorithm, which can be used as first phase in |SugiyamaLayout|. The
+  implementation contains a special optimization for reducing edge
+  lengths, as well as special treatment of mixed-upward graphs (for
+  instance, \textsc{uml} class diagrams).
 ]]
 --------------------------------------------------------------------
 
@@ -47,10 +47,10 @@ summary      "If set to true, multi-edges will span at least two layers."
 key          "LongestPathRanking.optimizeEdgeLength"
 summary
 [[
-If set to true the ranking algorithm tries to reduce edge
-length even if this might increase the height of the layout. Choose
-false, if the longest-path ranking known from the literature should be
-used.
+  If set to true the ranking algorithm tries to reduce edge
+  length even if this might increase the height of the layout. Choose
+  false, if the longest-path ranking known from the literature should be
+  used.
 ]]
 --------------------------------------------------------------------
 

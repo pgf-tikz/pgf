@@ -107,7 +107,7 @@ end
 
 
 
--- Internals: An implementation of fibonacci heaps.
+-- Internals: An implementation of Fibonacci heaps.
 FibonacciHeap.__index = FibonacciHeap
 
 
@@ -200,7 +200,7 @@ function FibonacciHeap:decreaseValue(node, value)
   assert(value <= node.value)
 
   node.value = value
-  
+
   if node.value < node.parent.value then
     local parent = node.parent
     self:cutFromParent(node)
@@ -231,7 +231,7 @@ end
 function FibonacciHeap:linkRoots(root, child)
   child.root = root
   child.parent = root
-  
+
   child = self:removeTableElement(self.trees, child)
   table.insert(root.children, child)
 

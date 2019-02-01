@@ -18,9 +18,9 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "IndependentSetMerger"
-summary       "?"                    
+summary       "?"
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "IndependentSetMerger.searchDepthBase"
@@ -30,4 +30,4 @@ summary       ""
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

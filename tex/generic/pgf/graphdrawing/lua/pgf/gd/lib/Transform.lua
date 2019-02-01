@@ -42,7 +42,7 @@ function Transform.new(a,b,c,d,x,y)
 end
 
 
---- Creates a new transformation object that represents a shift. 
+--- Creates a new transformation object that represents a shift.
 --
 -- @param x An x-shift
 -- @param y A y-shift
@@ -54,7 +54,7 @@ function Transform.new_shift(x,y)
 end
 
 
---- Creates a new transformation object that represents a rotation. 
+--- Creates a new transformation object that represents a rotation.
 --
 -- @param angle An angle
 --
@@ -67,7 +67,7 @@ function Transform.new_rotation(angle)
 end
 
 
---- Creates a new transformation object that represents a scaling. 
+--- Creates a new transformation object that represents a scaling.
 --
 -- @param x The horizontal scaling
 -- @param y The vertical scaling (if missing, the horizontal scaling is used)
@@ -94,8 +94,8 @@ function Transform.concat(a,b)
   local a1, a2, a3, a4, a5, a6, b1, b2, b3, b4, b5, b6 =
     a[1], a[2], a[3], a[4], a[5], a[6], b[1], b[2], b[3], b[4], b[5], b[6]
   return { a1*b1 + a2*b3,  a1*b2 + a2*b4,
-	   a3*b1 + a4*b3,  a3*b2 + a4*b4,
-	   a1*b5 + a2*b6 + a5,  a3*b5 + a4*b6 + a6 }
+           a3*b1 + a4*b3,  a3*b2 + a4*b4,
+           a1*b5 + a2*b6 + a5,  a3*b5 + a4*b6 + a6 }
 end
 
 

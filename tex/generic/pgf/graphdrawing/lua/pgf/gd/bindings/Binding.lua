@@ -38,7 +38,7 @@ local Storage = require "pgf.gd.lib.Storage"
 --
 -- @field storage A |Storage| storing the information passed from the
 -- display layer. The interpretation of this left to the actual
--- binding. 
+-- binding.
 
 local Binding = {
   storage = Storage.newTableStorage ()
@@ -71,7 +71,7 @@ end
 -- of the display layer to make the parameter |t.key| available to the
 -- parsing process. Furthermore, if |t.initial| is not |nil|, the
 -- display layer must convert it into a value that is stored as the
--- initial value and call |InterfaceToDisplay.setOptionInitial|. 
+-- initial value and call |InterfaceToDisplay.setOptionInitial|.
 --
 -- @param t See |InterfaceToAlgorithms.declare| for details.
 
@@ -105,7 +105,7 @@ end
 
 
 ---
--- This function and the correspoding |...Stop...| functions are
+-- This function and the corresponding |...Stop...| functions are
 -- called whenever a collection kind should be rendered. See
 -- |InterfaceToDisplay.render_collections| for details.
 --
@@ -141,7 +141,7 @@ end
 
 
 ---
--- This function and the correspoding |...Stop...| functions are
+-- This function and the corresponding |...Stop...| functions are
 -- called whenever a vertex should be rendered. See
 -- |InterfaceToDisplay.render_vertices| for details.
 --
@@ -191,7 +191,7 @@ end
 
 
 ---
--- This function and the correspoding |...Stop...| functions are
+-- This function and the corresponding |...Stop...| functions are
 -- called whenever an edge should be rendered. See
 -- |InterfaceToDisplay.render_edges| for details.
 --
@@ -237,21 +237,22 @@ end
 -- vertex. This call will be made while an algorithm is running. It is
 -- now the job of the binding to cause the display layer to create the
 -- node. This is done by calling the |yield| method of the scope's
--- coroutine. 
+-- coroutine.
 --
 -- @param init  A table of initial values for the node. The following
 -- fields will be used:
+-- %
 -- \begin{itemize}
--- \item |name| If present, this name will be given to the
--- node. If not present, an iternal name is generated. Note that,
--- unless the node is a subgraph node, this name may not be the name
--- of an already present node of the graph; in this case an error
--- results. 
--- \item |shape| If present, a shape of the node.
--- \item |generated_options| A table that is passed back to the
--- display layer as a list of key-value pairs.
--- \item |text| The text of the node, to be passed back to the
--- higher layer. This is what should be displayed as the node's text.
+--   \item |name| If present, this name will be given to the
+--     node. If not present, an internal name is generated. Note that,
+--     unless the node is a subgraph node, this name may not be the name
+--     of an already present node of the graph; in this case an error
+--     results.
+--   \item |shape| If present, a shape of the node.
+--   \item |generated_options| A table that is passed back to the
+--     display layer as a list of key--value pairs.
+--   \item |text| The text of the node, to be passed back to the
+--     higher layer. This is what should be displayed as the node's text.
 -- \end{itemize}
 
 function Binding:createVertex(init)

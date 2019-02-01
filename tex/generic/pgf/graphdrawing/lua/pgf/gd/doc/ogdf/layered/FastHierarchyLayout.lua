@@ -23,21 +23,21 @@ documentation
 [[
 This class implements a hierarchy layout algorithm, that is, it
 layouts hierarchies with a given order of nodes on each
-layer. It is used as a third phase of the Sugiyama algorithm.  
+layer. It is used as a third phase of the Sugiyama algorithm.
 
 All edges of the layout will have at most two
 bends. Additionally, for each edge having exactly two bends, the
 segment between them is drawn vertically. This applies in
 particular to the long edges arising in the first phase of the
-Sugiyama algorithm. 
+Sugiyama algorithm.
 
 The implementation is based on:
-
+%
 \begin{itemize}
-\item 
-  Christoph Buchheim, Michael Jünger, Sebastian Leipert: A Fast
-  Layout Algorithm for k-Level Graphs. \emph{Proc. Graph
-    Drawing 2000}, volumne 1984 of LNCS, pages 229--240, 2001.
+  \item
+    Christoph Buchheim, Michael Jünger, Sebastian Leipert: A Fast
+    Layout Algorithm for k-Level Graphs. \emph{Proc. Graph
+    Drawing 2000}, volume 1984 of LNCS, pages 229--240, 2001.
 \end{itemize}
 ]]
 

@@ -47,22 +47,22 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @end
 
-  
+
 ---
-  
+
 declare {
   key = "align here",
   type = "boolean",
 
-  summary = [["  
-       When this option is given to a node, this alignment line will go
-       through the origin of this node. If this option is passed to more
-       than one node of a component, the node encountered first in the
-       component is used.
+  summary = [["
+    When this option is given to a node, this alignment line will go
+    through the origin of this node. If this option is passed to more
+    than one node of a component, the node encountered first in the
+    component is used.
   "]],
-  examples = [["     
-       \tikz \graph [binary tree layout, nodes={draw}]
-         { a, b -- c[align here], d -- e[second, align here] -- f };
+  examples = [["
+    \tikz \graph [binary tree layout, nodes={draw}]
+      { a, b -- c[align here], d -- e[second, align here] -- f };
   "]]
 }
 
@@ -72,81 +72,94 @@ declare {
   key = "component align",
   type = "string",
   initial = "first node",
-  
+
   summary = [["
     Specifies a ``strategy'' for the alignment of components.
   "]],
-  documentation = [["  
-       The following values are permissible:
-       \begin{itemize}
-       \item \declare{|first node|}
-           In each component, the alignment line goes through the center of
-           the first node of the component encountered during specification
-           of the component.
+  documentation = [["
+    The following values are permissible:
+    %
+    \begin{itemize}
+      \item \declare{|first node|}
+
+        In each component, the alignment line goes through the center of
+        the first node of the component encountered during specification
+        of the component.
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=first node]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
-         \item \declare{|center|}
-    
-           The nodes of the component are projected onto the shift line. The
-           alignment line is now chosen so that it is exactly in the middle
-           between the maximum and minimum value that the projected nodes
-           have on the shift line.
+        %
+      \item \declare{|center|}
+
+        The nodes of the component are projected onto the shift line. The
+        alignment line is now chosen so that it is exactly in the middle
+        between the maximum and minimum value that the projected nodes
+        have on the shift line.
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=center]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=center]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
-         \item \declare{|counterclockwise|}
-      
-           As for |center|, we project the nodes of the component onto the
-           shift line. The alignment line is now chosen so that it goes
-           through the center of the node whose center has the highest
-           projected value.
+        %
+      \item \declare{|counterclockwise|}
+
+        As for |center|, we project the nodes of the component onto the
+        shift line. The alignment line is now chosen so that it goes
+        through the center of the node whose center has the highest
+        projected value.
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=counterclockwise]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=counterclockwise]
  { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
-           The name |counterclockwise| is intended to indicate that the align
-           line goes through the node that comes last if we go from the
-           alignment direction in a counter-clockwise direction.
-         \item \declare{|clockwise|}
-          
-           Works like |counterclockwise|, only in the other direction:
+        The name |counterclockwise| is intended to indicate that the align
+        line goes through the node that comes last if we go from the
+        alignment direction in a counter-clockwise direction.
+      \item \declare{|clockwise|}
+
+        Works like |counterclockwise|, only in the other direction:
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=clockwise]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
+        %
 \begin{codeexample}[]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=clockwise]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
-         \item \declare{|counterclockwise bounding box|}
-      
-           This method is quite similar to |counterclockwise|, only the
-           alignment line does not go through the center of the node with a
-           maximum projected value on the shift line, but through the maximum
-           value of the projected bounding boxes. For a left-to-right
-           packing, this means that the components are aligned so that the
-           bounding boxes of the components are aligned at the top.
+        %
+      \item \declare{|counterclockwise bounding box|}
+
+        This method is quite similar to |counterclockwise|, only the
+        alignment line does not go through the center of the node with a
+        maximum projected value on the shift line, but through the maximum
+        value of the projected bounding boxes. For a left-to-right
+        packing, this means that the components are aligned so that the
+        bounding boxes of the components are aligned at the top.
+        %
 \begin{codeexample}[]
 \tikz \graph [tree layout, nodes={draw, align=center},
               component sep=0pt,
@@ -157,10 +170,11 @@ declare {
               component align=counterclockwise bounding box]
   { a, "high\\node" -- b};
 \end{codeexample}
-         \item \declare{|clockwise bounding box|}
-       
-         Works like |counterclockwise bounding box|.
-       \end{itemize}
+        %
+      \item \declare{|clockwise bounding box|}
+
+        Works like |counterclockwise bounding box|.
+    \end{itemize}
   "]]
 }
 
@@ -173,16 +187,16 @@ declare {
     { key = "component align", value = "counterclockwise"},
   },
 
-  summary = [["  
-         Shorthand for |component direction=right| and
-         |component align=counterclockwise|. This means that, as the name
-         suggest, the components will be placed left-to-right and they are
-         aligned such that their top nodes are in a line.
+  summary = [["
+    Shorthand for |component direction=right| and
+    |component align=counterclockwise|. This means that, as the name
+    suggest, the components will be placed left-to-right and they are
+    aligned such that their top nodes are in a line.
   "]],
-  examples = [["       
-       \tikz \graph [tree layout, nodes={draw, align=center},
-                     components go right top aligned]
-         { a, "high\\node" -- b};
+  examples = [["
+    \tikz \graph [tree layout, nodes={draw, align=center},
+                  components go right top aligned]
+      { a, "high\\node" -- b};
   "]]
 }
 
@@ -194,17 +208,17 @@ declare {
     { key = "component direction", value=0},
     { key = "component align", value = "counterclockwise bounding box"},
   },
-  
-  summary = [["  
-       Like |components go right top aligned|, but with
-       |component align| set to |counterclockwise| |bounding box|. This means that the
-       components will be aligned with their bounding boxed being
-       top-aligned.
+
+  summary = [["
+    Like |components go right top aligned|, but with
+    |component align| set to |counterclockwise| |bounding box|. 
+    This means that the components will be aligned with their bounding 
+    boxed being top-aligned.
   "]],
   examples = [["
-       \tikz \graph [tree layout, nodes={draw, align=center},
-                     components go right absolute top aligned]
-         { a, "high\\node" -- b};
+    \tikz \graph [tree layout, nodes={draw, align=center},
+                  components go right absolute top aligned]
+      { a, "high\\node" -- b};
   "]]
 }
 
@@ -216,7 +230,7 @@ declare {
     { key = "component direction", value=0},
     { key = "component align", value = "clockwise"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -229,7 +243,7 @@ declare {
     { key = "component direction", value=0},
     { key = "component align", value = "clockwise bounding box"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -242,7 +256,7 @@ declare {
     { key = "component direction", value=0},
     { key = "component align", value = "center"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -255,11 +269,11 @@ declare {
     { key = "component direction", value=0},
     { key = "component align", value = "first node"},
   },
-  
-  summary = [["  
-       Shorthand for |component direction=right| and
-       |component align=first node|.
-   "]]
+
+  summary = [["
+    Shorthand for |component direction=right| and
+    |component align=first node|.
+  "]]
  }
 
 
@@ -271,13 +285,13 @@ declare {
     { key = "component direction", value=180},
     { key = "component align", value = "clockwise"},
   },
-  
+
   summary = "See the other |components go ...| keys.",
 
-  examples = [["  
-       \tikz \graph [tree layout, nodes={draw, align=center},
-                     components go left top aligned]
-         { a, "high\\node" -- b};
+  examples = [["
+    \tikz \graph [tree layout, nodes={draw, align=center},
+                  components go left top aligned]
+      { a, "high\\node" -- b};
   "]]
 }
 
@@ -290,7 +304,7 @@ declare {
     { key = "component direction", value=180},
     { key = "component align", value = "clockwise bounding box"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -304,7 +318,7 @@ declare {
     { key = "component direction", value=180},
     { key = "component align", value = "counterclockwise"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -318,7 +332,7 @@ declare {
     { key = "component direction", value=180},
     { key = "component align", value = "counterclockwise bounding box"},
   },
-  
+
   summary = "See the other |components go ...| keys."
 }
 
@@ -360,17 +374,15 @@ declare {
   },
   summary = "See the other |components go ...| keys.",
 
-  examples = {
-    [["  
-       \tikz \graph [tree layout, nodes={draw, align=center},
-                     components go down left aligned]
-         { a, hello -- {world,s} };
-    "]],
-    [["
-       \tikz \graph [tree layout, nodes={draw, align=center},
-                     components go up absolute left aligned]
-         { a, hello -- {world,s}};
-    "]]
+  examples = {[["
+    \tikz \graph [tree layout, nodes={draw, align=center},
+                  components go down left aligned]
+      { a, hello -- {world,s} };
+  "]],[["
+    \tikz \graph [tree layout, nodes={draw, align=center},
+                  components go up absolute left aligned]
+      { a, hello -- {world,s}};
+  "]]
   }
 }
 

@@ -32,16 +32,17 @@ local lib = require "pgf.gd.lib"
 -- |algorithm| field is set to an algorithm class object whose |run|
 -- method calls the function passed via the
 -- |algorithm_written_in_c| field. It will be called with the
--- following parameters (in that order):   
+-- following parameters (in that order):
+-- %
 -- \begin{enumerate}
--- \item The to-be-laid out digraph. This will not be the whole layout
--- graph (syntactic digraph) if preprocessing like decomposition into
--- connected components is used.
--- \item An array of the digraph's vertices, but with the table part
--- hashing vertex objects to their indices in the array part.
--- \item An array of the syntactic edges of the digraph. Like the
--- array, the table part will hash back the indices of the edge objects.
--- \item The algorithm object.
+--   \item The to-be-laid out digraph. This will not be the whole layout
+--     graph (syntactic digraph) if preprocessing like decomposition into
+--     connected components is used.
+--   \item An array of the digraph's vertices, but with the table part
+--     hashing vertex objects to their indices in the array part.
+--   \item An array of the syntactic edges of the digraph. Like the
+--     array, the table part will hash back the indices of the edge objects.
+--   \item The algorithm object.
 -- \end{enumerate}
 --
 -- @param t The table originally passed to |declare|.
@@ -49,25 +50,25 @@ local lib = require "pgf.gd.lib"
 function InterfaceToC.declare_algorithm_written_in_c (t)
   t.algorithm = {
     run = function (self)
-	    local back_table = lib.icopy(self.ugraph.vertices)
-	    for i,v in ipairs(self.ugraph.vertices) do
-	      back_table[v] = i
-	    end
-	    local edges = {}
-	    for _,a in ipairs(self.ugraph.arcs) do
-	      local b = self.layout_graph:arc(a.tail,a.head)
-	      if b then
-		lib.icopy(b.syntactic_edges, edges)
-	      end
-	    end
-	    for i=1,#edges do
-	      edges[edges[i]] = i
-	    end
-	    collectgarbage("stop") -- Remove once Lua Link Bug is fixed
-	    t.algorithm_written_in_c (self.digraph, back_table, edges, self)
-	    collectgarbage("restart") -- Remove once Lua Link Bug is fixed
-	  end
-  }  
+      local back_table = lib.icopy(self.ugraph.vertices)
+      for i,v in ipairs(self.ugraph.vertices) do
+        back_table[v] = i
+      end
+      local edges = {}
+      for _,a in ipairs(self.ugraph.arcs) do
+        local b = self.layout_graph:arc(a.tail,a.head)
+        if b then
+          lib.icopy(b.syntactic_edges, edges)
+        end
+      end
+      for i=1,#edges do
+        edges[edges[i]] = i
+      end
+      collectgarbage("stop") -- Remove once Lua Link Bug is fixed
+      t.algorithm_written_in_c (self.digraph, back_table, edges, self)
+      collectgarbage("restart") -- Remove once Lua Link Bug is fixed
+    end
+  }
 end
 
 

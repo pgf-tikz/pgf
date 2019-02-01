@@ -20,11 +20,11 @@
 -- vertices that should be on the same level in a layered algorithm,
 -- or, indeed, subgraphs that are rendered in a special way.
 --
--- Collections are grouped into ``kinds.'' All collections of a given
+-- Collections are grouped into ``kinds''. All collections of a given
 -- kind can be accessed by algorithms through an array whose elements
--- are the collections. On the displya layer, for each kind a separate
--- key is available  to indicate that a node or an edge belongs to a
--- collection.  
+-- are the collections. On the display layer, for each kind a separate
+-- key is available to indicate that a node or an edge belongs to a
+-- collection.
 --
 -- Collections serve two purposes: First, they can be seen as ``hints''
 -- to graph drawing algorithms that certain nodes and/or edges ``belong
@@ -48,14 +48,14 @@
 -- was in force when the collection was created.
 --
 -- @field child_collections An array of all collections that are
--- direct children of this collection (that is, 
+-- direct children of this collection (that is,
 -- they were defined while the current collection was the most
 -- recently defined collection on the options stack). However, you
 -- should use the methods |children|, |descendants|, and so to access
 -- this field.
 --
 -- @field parent_collection The parent collection of the current
--- colleciton. This field may be |nil| in case a collection has no parent.
+-- collection. This field may be |nil| in case a collection has no parent.
 --
 -- @field event An |Event| object that was create for this
 -- collection. Its |kind| will be |"collection"| while its |parameter|
@@ -86,7 +86,7 @@ local Storage      = require "pgf.gd.lib.Storage"
 --
 function Collection.new(t)
   assert (type(t.kind) == "string" and t.kind ~= "", "collection kind not set")
-  
+
   return setmetatable(
     {
       vertices               = t.vertices or {},
@@ -111,7 +111,7 @@ end
 
 function Collection:registerAsChildOf(parent)
   self.parent = parent
-  if parent then 
+  if parent then
     assert (getmetatable(parent) == Collection, "parent must be a collection")
     parent.child_collections[#parent.child_collections+1] = self
   end
@@ -149,10 +149,10 @@ end
 function Collection:childrenOfKind(kind)
   local function rec (c, a)
     for _,d in ipairs(c.child_collections) do
-      if d.kind == kind then 
-	a[#a + 1] = d
+      if d.kind == kind then
+        a[#a + 1] = d
       else
-	rec (d, a)
+        rec (d, a)
       end
     end
     return a
@@ -163,7 +163,7 @@ end
 
 ---
 -- The descendants of a collection are its children, plus their
--- children, plus their children, and so on. 
+-- children, plus their children, and so on.
 --
 -- @return An array of all descendants of |self|. It will be in
 -- preorder.
@@ -184,15 +184,15 @@ end
 ---
 -- The descendants of a collection of the given |kind|.
 --
--- @param kind A colleciton kind.
+-- @param kind A collection kind.
 --
 -- @return An array of all descendants of |self| of the given |kind|.
 
 function Collection:descendantsOfKind(kind)
   local function rec (c, a)
     for _,d in ipairs(c.child_collections) do
-      if d.kind == kind then 
-	a[#a + 1] = d
+      if d.kind == kind then
+        a[#a + 1] = d
       end
       rec (d, a)
     end

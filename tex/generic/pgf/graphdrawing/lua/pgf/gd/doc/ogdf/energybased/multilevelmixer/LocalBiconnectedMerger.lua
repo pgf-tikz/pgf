@@ -18,9 +18,9 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "LocalBiconnectedMerger"
-summary       "?"                    
+summary       "?"
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "LocalBiconnectedMerger.factor"
@@ -30,4 +30,4 @@ summary       ""
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

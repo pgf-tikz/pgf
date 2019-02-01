@@ -43,7 +43,7 @@ Edge.NONE = "-!-"
 --               |nodes|: TODO \par
 --               |edge_nodes|: TODO \par
 --               |options|: TODO \par
---               |tikz_options|: TODO \par 
+--               |tikz_options|: TODO \par
 --               |direction|: TODO \par
 --               |bend_points|: TODO \par
 --               |bend_nodes|: TODO \par
@@ -90,14 +90,14 @@ end
 --- Returns the value of the edge option \meta{name}.
 --
 -- @param name Name of the option.
--- @param graph If this optional argument is given, 
---        in case the option is not set as a node parameter, 
+-- @param graph If this optional argument is given,
+--        in case the option is not set as a node parameter,
 --        we try to look it up as a graph parameter.
 --
 -- @return The value of the edge option \meta{name} or |nil|.
 --
 function Edge:getOption(name, graph)
-   return lib.lookup_option(name, self, graph) 
+   return lib.lookup_option(name, self, graph)
 end
 
 
@@ -134,7 +134,7 @@ end
 
 --- Returns all nodes of the edge.
 --
--- Instead of calling |edge:getNodes()| the nodes can alternatively be 
+-- Instead of calling |edge:getNodes()| the nodes can alternatively be
 -- accessed directly with |edge.nodes|.
 --
 -- @return All edges of the node.
@@ -168,11 +168,11 @@ end
 
 
 
---- Gets first neighbour of the node (disregarding hyperedges).
+--- Gets first neighbor of the node (disregarding hyperedges).
 --
--- @param node The node which first neighbour should be returned.
+-- @param node The node which first neighbor should be returned.
 --
--- @return The first neighbour of the node.
+-- @return The first neighbor of the node.
 --
 function Edge:getNeighbour(node)
   if node == self.nodes[1] then
@@ -199,7 +199,7 @@ function Edge:getHead()
   -- of <- edges is the first node
   local head_index = (self.direction == Edge.LEFT) and 1 or #self.nodes
 
-  -- if the edge should be assumed reversed, we simply switch head and 
+  -- if the edge should be assumed reversed, we simply switch head and
   -- tail positions
   if self.reversed then
     head_index = (head_index == 1) and #self.nodes or 1
@@ -230,9 +230,9 @@ end
 --
 -- This method only works for edges with two adjacent nodes.
 --
--- Edges may be reversed internally, so their head and tail might be switched. 
--- Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second \meta{ignore\_reversed} parameter 
+-- Edges may be reversed internally, so their head and tail might be switched.
+-- Whether or not this internal reversal is handled by this method
+-- can be specified with the optional second \meta{ignore\_reversed} parameter
 -- which is |false| by default.
 --
 -- @param node            The node to check.
@@ -246,7 +246,7 @@ function Edge:isHead(node)
   -- of <- edges is the first node
   local head_index = (self.direction == Edge.LEFT) and 1 or #self.nodes
 
-  -- if the edge should be assumed reversed, we simply switch head and 
+  -- if the edge should be assumed reversed, we simply switch head and
   -- tail positions
   if self.reversed then
     head_index = (head_index == 1) and #self.nodes or 1
@@ -267,8 +267,8 @@ end
 -- This method only works for edges with two adjacent nodes.
 --
 -- Edges may be reversed internally, so their head and tail might be switched.
--- Whether or not this internal reversal is handled by this method 
--- can be specified with the optional second \meta{ignore\_reversed} parameter 
+-- Whether or not this internal reversal is handled by this method
+-- can be specified with the optional second \meta{ignore\_reversed} parameter
 -- which is |false| by default.
 --
 -- @param node            The node to check.
@@ -279,7 +279,7 @@ end
 --
 function Edge:isTail(node, ignore_reversed)
   local result = false
-  
+
   -- by default, the tail of -> edges is the first node and the tail
   -- of <- edges is the last node
   local tail_index = (self.direction == Edge.LEFT) and #self.nodes or 1
@@ -338,7 +338,7 @@ function Edge:__tostring()
     result = result .. table.concat(node_strings, ', ')
   end
   --return result .. ")"
-  
+
   -- Note: the following lines generate a shorter string representation
   -- of the edge that is more readable and can be used for debugging.
   -- So please don't remove this:

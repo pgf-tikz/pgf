@@ -18,7 +18,7 @@
 -- @field renderers This array must consist of tables having two
 -- fields: |test| and |renderer|. The first must be set to a function
 -- that is called with an information table as parameter and must
--- return |true| if the funciton stored in the |renderer| should be
+-- return |true| if the function stored in the |renderer| should be
 -- called. (Typically, the |test| will test whether the ``head line''
 -- following a documentation block has a special form.)
 
@@ -46,11 +46,11 @@ local collect_infos, render_infos
 function DocumentParser.include(filename, typ)
 
   local fullname = assert(kpse.find_file(filename:gsub("%.", "/"), typ or "lua")
-			  or kpse.find_file(filename:gsub("%.", "\\"), typ or "lua"),
-			  "file " .. filename .. " not found")
+        or kpse.find_file(filename:gsub("%.", "\\"), typ or "lua"),
+        "file " .. filename .. " not found")
 
   local file, error = io.open(fullname)
-  
+
   -- First, let us read the file into a table to make handling easier:
   local lines = {}
 
@@ -61,33 +61,33 @@ function DocumentParser.include(filename, typ)
   -- A table storing the current output. The array part contains TeX
   -- lines, the table part contains information about special table.s
   local output = {}
-  
+
   -- Now, start the main parser loop.
   local i = 1
   while i <= #lines do
 
     if lines[i]:match("^%-%-%-") then
       local infos = collect_infos (lines, i)
-      
+
       infos.filename = filename
-      
+
       render_infos(infos, output)
-      
+
       i = infos.last_line
     end
-    
+
     i = i + 1
   end
-  
+
   -- Render output:
   for _,l in ipairs(output) do
     if type(l) == "string" then
-      tex.print(l)      
+      tex.print(l)
     else
       l()
     end
   end
-  
+
 end
 
 
@@ -140,7 +140,7 @@ local function process_string(s)
     if min < math.huge then
       -- Now, trim 'em all!
       for i=1,#t do
-	t[i] = string.sub(t[i],min,-2)
+        t[i] = string.sub(t[i],min,-2)
       end
     end
     return t
@@ -156,7 +156,7 @@ local function process_examples(t)
   if type(t) == "string" then
     t = {t}
   end
-  
+
   local n = {}
   for i=1,#t do
     n[i] = process_string(strip_quotes(t[i]))
@@ -176,7 +176,7 @@ DocumentParser.addRenderer (
     return
       infos.keywords["function"] or
       infos.head_line:match("^%s*function%s+") or
-      infos.head_line:match("^%s*local%s+function%s+") 
+      infos.head_line:match("^%s*local%s+function%s+")
   end,
   function (infos, output)
     -- The renderer
@@ -185,43 +185,43 @@ DocumentParser.addRenderer (
       local k = infos.keywords["function"][1]
       infos.head_line = k:match("^%s*@(.*)")
     end
-    
+
     local rest = infos.head_line:match("function%s+(.*)")
     local tab  = rest:match("([^(]*[%.%:]).*")
     local fun  = rest:match("[^(]*[%.%:](.-)%s*%(") or rest:match("(.-)%s*%(")
     local pars = rest:match(".-%((.*)%)")
-    
+
     -- Render the head
     print_on_output_escape(output, [[\begin{luacommand}]])
     output[#output+1] = "{" .. (tab or "") .. fun .. "}"
-    print_on_output_escape(output,     
-		    "{", tab or "", "}",
-		    "{", fun, "}",
-		    "{", pars, "}")
+    print_on_output_escape(output,
+                           "{", tab or "", "}",
+                           "{", fun, "}",
+                           "{", pars, "}")
 
     if tab then
       local table_name = tab:sub(1,-2)
       local t = output[table_name] or {}
       t[#t+1] = {
-	link = "pgf/lua/" .. tab .. fun,
-	text = "function " .. tab .. "\\declare{" .. fun .. "} (" .. pars .. ")"
+        link = "pgf/lua/" .. tab .. fun,
+        text = "function " .. tab .. "\\declare{" .. fun .. "} (" .. pars .. ")"
       }
       output[table_name] = t
     end
-    
+
     local mode = "text"
     for _,l in ipairs(infos.doc_lines) do
       if mode ~= "done" then
-	mode = print_docline_on_output(output, l, mode)
+        mode = print_docline_on_output(output, l, mode)
       end
     end
     close_mode(output, mode)
 
     print_on_output(output, [[\end{luacommand}]])
-    
+
   end
 )
-		      
+
 
 -- The table renderer
 DocumentParser.addRenderer (
@@ -238,43 +238,43 @@ DocumentParser.addRenderer (
       local k = infos.keywords["table"][1]
       infos.head_line = k:match("^%s*@table(.*)") .. "="
     end
-    
+
     local name =
       infos.head_line:match("^%s*local%s+(.-)%s*=") or
-      infos.head_line:match("^%s*(.*)%s*=") 
-    
+      infos.head_line:match("^%s*(.*)%s*=")
+
     -- Render the head
     print_on_output_escape(output,
-		    [[\begin{luatable}]],
-		    "{", name:match("(.*[%.%:]).*") or "", "}",
-		    "{", name:match(".*[%.%:](*-)") or name,"}",
-		    "{", infos.filename, "}")
+                           [[\begin{luatable}]],
+                           "{", name:match("(.*[%.%:]).*") or "", "}",
+                           "{", name:match(".*[%.%:](*-)") or name,"}",
+                           "{", infos.filename, "}")
 
     local mode = "text"
     for _,l in ipairs(infos.doc_lines) do
       mode = print_docline_on_output(output, l, mode)
     end
     close_mode(output, mode)
-    
+
     output[#output+1] =
       function ()
-	if output[name] then
-	  tex.print("\\par\\emph{Alphabetical method summary:}\\par{\\small")
-	  table.sort(output[name], function (a,b) return a.text < b.text end)
-	  for _,l in ipairs(output[name]) do
-	    tex.print("\\texttt{\\hyperlink{" .. l.link .. "}{" .. l.text:gsub("_", "\\_") .. "}}\\par")
-	  end
-	  tex.print("}")
-	end
+        if output[name] then
+          tex.print("\\par\\emph{Alphabetical method summary:}\\par{\\small")
+          table.sort(output[name], function (a,b) return a.text < b.text end)
+          for _,l in ipairs(output[name]) do
+            tex.print("\\texttt{\\hyperlink{" .. l.link .. "}{" .. l.text:gsub("_", "\\_") .. "}}\\par")
+          end
+          tex.print("}")
+        end
       end
-    
+
     print_on_output(output, [[\end{luatable}]])
-    
+
   end
 )
-		      
 
-		      
+
+
 -- The library renderer
 DocumentParser.addRenderer (
   function (infos)
@@ -283,9 +283,9 @@ DocumentParser.addRenderer (
   end,
   function (infos, output)
     -- The renderer
-    
+
     local name = infos.filename:gsub("%.library$",""):gsub("^pgf%.gd%.","")
-    
+
     -- Render the head
     print_on_output_escape(output, "\\begin{lualibrary}{", name, "}")
 
@@ -294,13 +294,13 @@ DocumentParser.addRenderer (
       mode = print_docline_on_output(output, l, mode)
     end
     close_mode(output, mode)
-    
+
     print_on_output(output, "\\end{lualibrary}")
-    
+
   end
 )
 
-		      
+
 -- The section renderer
 DocumentParser.addRenderer (
   function (infos)
@@ -317,7 +317,7 @@ DocumentParser.addRenderer (
   end
 )
 
-		      
+
 -- The documentation (plain text) renderer
 DocumentParser.addRenderer (
   function (infos)
@@ -342,19 +342,19 @@ DocumentParser.addRenderer (
     return
       infos.keywords["declare"] or
       infos.head_line:match("declare%s*{") or
-      infos.head_line:match("^%s*key%s*") 
+      infos.head_line:match("^%s*key%s*")
   end,
   function (infos, output)
     -- The renderer
 
     local key_name
-    
+
     if infos.keywords["declare"] then
       local k = infos.keywords["declare"][1]
       key_name = k:match("^%s*@declare%s*(.*)")
     elseif infos.head_line:match("^%s*key%s*") then
       key_name = infos.head_line:match('^%s*key%s*"(.*)"') or
-                 infos.head_line:match("^%s*key%s*'(.*)'") 
+                 infos.head_line:match("^%s*key%s*'(.*)'")
     else
       local l = infos.lines [infos.last_line + 1]
       key_name = l:match('key%s*=%s*"(.*)"') or l:match("key%s*=%s*'(.*)'")
@@ -362,48 +362,48 @@ DocumentParser.addRenderer (
 
     assert (key_name, "could not determine key")
     local key = assert (keys[key_name], "unknown key '" .. key_name .. "'")
-    
+
     -- Render the head
     if key.type then
       print_on_output_escape(output,
-			     "\\begin{luadeclare}",
-			     "{", key.key, "}",
-			     "{\\meta{", key.type, "}}",
-			     "{", key.default or "", "}",
-			     "{", key.initial or "", "}")
+                             "\\begin{luadeclare}",
+                             "{", key.key, "}",
+                             "{\\meta{", key.type, "}}",
+                             "{", key.default or "", "}",
+                             "{", key.initial or "", "}")
     else
       print_on_output_escape(output,
-			     "\\begin{luadeclarestyle}",
-			     "{", key.key, "}",
-			     "{}",
-			     "{", key.default or "", "}",
-			     "{", key.initial or "", "}")
-    end      
+                             "\\begin{luadeclarestyle}",
+                             "{", key.key, "}",
+                             "{}",
+                             "{", key.default or "", "}",
+                             "{", key.initial or "", "}")
+    end
 
-    
+
     local mode = "text"
-    
+
     print_lines_on_output(output, process_string(strip_quotes(key.summary)))
     print_lines_on_output(output, process_string(strip_quotes(key.documentation)))
 
     if key.examples then
       local e = process_examples(key.examples)
       print_on_output(output,
-		      "\\par\\smallskip\\emph{Example" .. (((#e>1) and "s") or "") .. "}\\par")
+                      "\\par\\smallskip\\emph{Example" .. (((#e>1) and "s") or "") .. "}\\par")
       for _,example in ipairs(e) do
-	print_on_output(output, "\\begin{codeexample}[]")
-	print_lines_on_output(output, example)
-	print_on_output(output, "\\end{codeexample}")
+        print_on_output(output, "\\begin{codeexample}[]")
+        print_lines_on_output(output, example)
+        print_on_output(output, "\\end{codeexample}")
       end
     end
-    
-    print_on_output(output, key.type and "\\end{luadeclare}" or "\\end{luadeclarestyle}") 
+
+    print_on_output(output, key.type and "\\end{luadeclare}" or "\\end{luadeclarestyle}")
   end
 )
 
 
 
--- The empty line 
+-- The empty line
 DocumentParser.addRenderer (
   function (infos)
     -- The test
@@ -421,8 +421,8 @@ function print_lines_on_output(output, lines)
     output[#output+1] = l
   end
 end
-		      
-function print_on_output(output, ...)		      
+
+function print_on_output(output, ...)
   local args = {...}
   if #args > 0 then
     for i = 1, #args do
@@ -432,7 +432,7 @@ function print_on_output(output, ...)
   end
 end
 
-function print_on_output_escape(output, ...)		      
+function print_on_output_escape(output, ...)
   local args = {...}
   if #args > 0 then
     for i = 1, #args do
@@ -453,9 +453,9 @@ function print_docline_on_output(output, l, mode)
       mode = open_mode (output, "param")
     end
     print_on_output(output, "\\item[\\texttt{",
-		    l:match("%s@param%s+(.-)%s"):gsub("_", "\\_"),
-		    "}] ",
-		    l:match("%s@param%s+.-%s+(.*)"))
+                    l:match("%s@param%s+(.-)%s"):gsub("_", "\\_"),
+                    "}] ",
+                    l:match("%s@param%s+.-%s+(.*)"))
   elseif l:match("^%s*@return%s+") then
     if mode ~= "return" then
       close_mode (output, mode)
@@ -468,26 +468,26 @@ function print_docline_on_output(output, l, mode)
       mode = open_mode (output, "text")
     end
     print_on_output(output, "\\par\\emph{See also:} \\texttt{",
-		    l:match("%s@see%s+(.*)"):gsub("_", "\\_"),
-		    "}")
+                    l:match("%s@see%s+(.*)"):gsub("_", "\\_"),
+                    "}")
   elseif l:match("^%s*@usage%s+") then
     if mode ~= "text" then
       close_mode (output, mode)
       mode = open_mode (output, "text")
     end
     print_on_output(output, "\\par\\emph{Usage:} ",
-		    l:match("%s@usage%s+(.*)"))
+                    l:match("%s@usage%s+(.*)"))
   elseif l:match("^%s*@field+") then
     close_mode (output, mode)
     mode = open_mode (output, "field")
     print_on_output(output, "{",
-		    (l:match("%s@field%s+(.-)%s") or l:match("%s@field%s+(.*)")):gsub("_", "\\_"),
-		    "}",
-		    l:match("%s@field%s+.-%s+(.*)"))
+                    (l:match("%s@field%s+(.-)%s") or l:match("%s@field%s+(.*)")):gsub("_", "\\_"),
+                    "}",
+                    l:match("%s@field%s+.-%s+(.*)"))
   elseif l:match("^%s*@done") or l:match("^%s*@text") then
     close_mode(output, mode)
     print_on_output(output, l)
-    
+
     mode = "text"
   elseif l:match("^%s*@library") then
     -- do nothing
@@ -501,8 +501,8 @@ function print_docline_on_output(output, l, mode)
   else
     print_on_output(output, l)
   end
-  
-  return mode  
+
+  return mode
 end
 
 function open_mode (output, mode)
@@ -529,7 +529,7 @@ end
 
 
 function collect_infos (lines, i, state)
-  
+
   local doc_lines = {}
 
   local keywords = {}
@@ -543,13 +543,13 @@ function collect_infos (lines, i, state)
     end
     return line
   end
-  
+
   -- Copy triple matches:
   while lines[i] and lines[i]:match("^%-%-%-") do
     doc_lines [#doc_lines + 1] = find_keywords(lines[i]:sub(4))
     i = i + 1
   end
-  
+
   -- Continue with double matches:
   while lines[i] and lines[i]:match("^%-%-") do
     doc_lines [#doc_lines + 1] = find_keywords(lines[i]:sub(3))
@@ -557,7 +557,7 @@ function collect_infos (lines, i, state)
   end
 
   local head_line = ""
-  
+
   if not keywords["end"] then
     -- Skip empty lines
     while lines[i] and lines[i]:match("^%s*$") do
@@ -568,7 +568,7 @@ function collect_infos (lines, i, state)
       i = i - 1
     end
   end
-  
+
   return {
     lines     = lines,
     last_line = i,
@@ -576,7 +576,7 @@ function collect_infos (lines, i, state)
     keywords  = keywords,
     head_line = head_line
   }
-  
+
 end
 
 
@@ -589,9 +589,9 @@ function render_infos(infos, state)
       return
     end
   end
-  
+
   pgf.debug(infos)
-  error("Unkown documentation type")
+  error("Unknown documentation type")
 end
 
 

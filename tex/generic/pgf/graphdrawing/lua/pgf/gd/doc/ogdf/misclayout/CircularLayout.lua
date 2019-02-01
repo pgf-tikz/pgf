@@ -20,14 +20,14 @@ local example       = require 'pgf.gd.doc'.example
 key           "CircularLayout"
 summary       "The circular layout algorithm."
 
-documentation 
+documentation
 [[
-The implementation used in CircularLayout is based on the following publication: 
-      
+The implementation used in CircularLayout is based on the following publication:
+%
 \begin{itemize}
-\item Ugur Dogrus\"oz, Brendan Madden, Patrick Madden: Circular
-  Layout in the Graph Layout Toolkit. \emph{Proc. Graph Drawing 1996,}
-  LNCS 1190, pp. 92--100, 1997.
+  \item Ugur Dogrus\"oz, Brendan Madden, Patrick Madden: Circular
+    Layout in the Graph Layout Toolkit. \emph{Proc. Graph Drawing 1996,}
+    LNCS 1190, pp. 92--100, 1997.
 \end{itemize}
 ]]
 

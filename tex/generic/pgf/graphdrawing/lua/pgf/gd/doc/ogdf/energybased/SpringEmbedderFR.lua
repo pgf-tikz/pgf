@@ -18,30 +18,29 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFR"
-summary       "The spring-embedder layout algorithm by Fruchterman and Reingold."                    
-                    
+summary       "The spring-embedder layout algorithm by Fruchterman and Reingold."
+
 documentation [[
-The implementation used in SpringEmbedderFR is based on the following
-publication: 
+  The implementation used in SpringEmbedderFR is based on the following
+  publication:
 
-Thomas M. J. Fruchterman, Edward M. Reingold: \emph{Graph Drawing by Force-directed
-Placement}. Software - Practice and Experience 21(11), pp. 1129-1164, 1991.
-
+  Thomas M. J. Fruchterman, Edward M. Reingold: \emph{Graph Drawing by Force-directed
+  Placement}. Software - Practice and Experience 21(11), pp. 1129--1164, 1991.
 ]]
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFR.iterations"
 summary       "Sets the number of iterations."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFR.noise"
 summary       "Sets the parameter noise."
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "SpringEmbedderFR.scaleFunctionFactor"
@@ -51,4 +50,4 @@ summary       "Sets the scale function factor."
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

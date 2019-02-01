@@ -21,10 +21,10 @@ key           "CoffmanGrahamRanking"
 summary       "The ranking algorithm due to Coffman and Graham."
 documentation
 [[
-|CoffmanGrahamRanking| implements a node ranking algorithmn based on
+|CoffmanGrahamRanking| implements a node ranking algorithm based on
 the Coffman--Graham scheduling algorithm, which can be used as first
 phase in |SugiyamaLayout|. The aim of the algorithm is to ensure that
-the height of the ranking (the number of layers) is kept small.   
+the height of the ranking (the number of layers) is kept small.
 ]]
 --------------------------------------------------------------------
 

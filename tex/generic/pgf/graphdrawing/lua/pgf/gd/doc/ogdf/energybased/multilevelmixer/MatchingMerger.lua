@@ -18,9 +18,9 @@ local example       = require 'pgf.gd.doc'.example
 
 --------------------------------------------------------------------------------
 key           "MatchingMerger"
-summary       "?"                    
+summary       "?"
 --------------------------------------------------------------------------------
-    
+
 
 --------------------------------------------------------------------------------
 key           "MatchingMerger.selectByNodeMass"
@@ -30,4 +30,4 @@ summary       ""
 
 -- Local Variables:
 -- mode:latex
--- End:                      
+-- End:

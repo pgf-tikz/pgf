@@ -12,7 +12,7 @@
 
 
 --- The Simplifiers class is a singleton object.
--- Its methods allow implement methods for simplifing graphs, for instance 
+-- Its methods allow implement methods for simplifying graphs, for instance 
 -- for removing loops or multiedges or computing spanning trees.
 
 local Simplifiers = {}
@@ -104,7 +104,7 @@ function Simplifiers:classifyEdges(graph)
         completed[node] = true
         pop()
       else
-	for i=#edges_to_traverse,1,-1 do
+        for i=#edges_to_traverse,1,-1 do
           local neighbour = edges_to_traverse[i]:getNeighbour(node)
           discovered[neighbour] = true
           push(neighbour)
@@ -199,9 +199,9 @@ function Simplifiers:collapseMultiedgesOldModel(algorithm, collapse_action)
           collapsed_edges[multiedge[neighbour]] = {}
         end
 
-	if collapse_action then
-	  collapse_action(multiedge[neighbour], edge, graph)
-	end
+        if collapse_action then
+          collapse_action(multiedge[neighbour], edge, graph)
+        end
 
         table.insert(collapsed_edges[multiedge[neighbour]], edge)
       end
@@ -251,12 +251,12 @@ function Simplifiers:expandMultiedgesOldModel(algorithm)
       
       -- Copy bend points 
       for _,p in ipairs(multiedge.bend_points) do
-	edge.bend_points[#edge.bend_points+1] = p:copy()
+        edge.bend_points[#edge.bend_points+1] = p:copy()
       end
 
       -- Copy options
       for k,v in pairs(multiedge.algorithmically_generated_options) do
-	edge.algorithmically_generated_options[k] = v
+        edge.algorithmically_generated_options[k] = v
       end
 
       for _,node in ipairs(edge.nodes) do

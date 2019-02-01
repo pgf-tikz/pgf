@@ -13,7 +13,7 @@
 
 ---
 -- This table provides two utility functions for managing ``lookup
--- tables.'' Such a table is a mixture of an array and a hashtable:
+-- tables''. Such a table is a mixture of an array and a hashtable:
 -- It stores (only) tables. Each table is stored once in a normal
 -- array position. Additionally, the lookup table is also indexed at
 -- the position of the table (used as a key) and this position is set
@@ -30,7 +30,7 @@ require("pgf.gd.lib").LookupTable = LookupTable
 ---
 -- Add all elements in the |array| to a lookup table. If an element of
 -- the array is already present in the table, it will not be added
--- again. 
+-- again.
 --
 -- This operation takes time $O(|\verb!array!|)$.
 --
@@ -50,7 +50,7 @@ end
 
 ---
 -- Add one element to a lookup table. If it is already present in the
--- table, it will not be added again. 
+-- table, it will not be added again.
 --
 -- This operation takes time $O(1)$.
 --

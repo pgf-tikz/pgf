@@ -8,12 +8,12 @@
 -- See the file doc/generic/pgf/licenses/LICENSE for more information
 
 
---- This is a subclass of ForceTemplate, which is used to implement forces 
--- that work on individual vertices and pulls them to a virtual grid with 
--- cells of the size determined by the user options |grid x length| and 
--- |grid y length|. The forces depend on the canvas position  
--- of the vertices relative to th next grid point. This class is e.~g.~ used 
--- for the post-processing technique |snap to grid|. 
+--- This is a subclass of ForceTemplate, which is used to implement forces
+-- that work on individual vertices and pulls them to a virtual grid with
+-- cells of the size determined by the user options |grid x length| and
+-- |grid y length|. The forces depend on the canvas position
+-- of the vertices relative to th next grid point. This class is e.\,g.\ used
+-- for the post-processing technique |snap to grid|.
 
 
 -- Imports
@@ -40,22 +40,22 @@ function ForcePullToGrid:constructor ()
   self.p = {}
 end
 
--- This force class works on individual vertices and only depends on their 
--- current position. Thus the vertex table of the current graph is simply 
--- copied to the variable |p|. 
--- 
---  @param v The vertices of the graph we are trying to find a layout for. 
+-- This force class works on individual vertices and only depends on their
+-- current position. Thus the vertex table of the current graph is simply
+-- copied to the variable |p|.
+--
+--  @param v The vertices of the graph we are trying to find a layout for.
 
 function ForcePullToGrid:preprocess(v)
   self.p = v
 end
 
 
--- Applying the force to the vertices andadding the effect to the passed net 
+-- Applying the force to the vertices and adding the effect to the passed net
 -- force array
--- 
--- @param data The parameters needed to aplly the force: The options table, 
---              the current time stamp, an array containing the summed up net 
+--
+-- @param data The parameters needed to apply the force: The options table,
+--              the current time stamp, an array containing the summed up net
 --              forces
 
 function ForcePullToGrid:applyTo(data)
@@ -71,7 +71,7 @@ function ForcePullToGrid:applyTo(data)
   local length = 5--self.options["node distance"]
 
   -- Evaluate time function
-  local time_factor = time_fun(t_max, t_now) 
+  local time_factor = time_fun(t_max, t_now)
   if time_factor == 0 then
     return
   end
@@ -89,7 +89,7 @@ function ForcePullToGrid:applyTo(data)
     local l = -d/(length*length)
 
     -- Include time function
-    local h = l * time_factor 
+    local h = l * time_factor
 
     -- scale effect according to direction
     local f = x * h
@@ -102,7 +102,7 @@ function ForcePullToGrid:applyTo(data)
       else
         x = min(cap, f)
       end
-        
+
       if g <= 0 then
         y = max(-cap, g)
       else

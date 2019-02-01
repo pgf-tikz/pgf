@@ -17,7 +17,7 @@
 -- vertex positioning algorithms from the choice of edge routing
 -- algorithm. For instance, for a simple necklace routing, it is
 -- unclear whether the edges on the necklace should be routing ``along
--- the necklace'' or not. Thus, necklace routing algoirthms will
+-- the necklace'' or not. Thus, necklace routing algorithms will
 -- ``hint'' that a necklace is present and only when the
 -- |necklace routing| algorithm is selected will these hints lead to
 -- actual bending of edges.
@@ -47,14 +47,14 @@ local necklaces = Storage.new()
 -- Adds a necklace hint. In this case, the hint indicates that the
 -- given sequence of vertices lie on a circle.
 --
--- The idea is that an algorithm may specify that in a 
--- given graph certain sequences of nodes form a ``necklace,'' which
+-- The idea is that an algorithm may specify that in a
+-- given graph certain sequences of nodes form a ``necklace'', which
 -- is typically a circle. There may be more than one necklace inside a
--- given graph. For each necklace, 
+-- given graph. For each necklace,
 -- whenever an arc connects subsequent nodes on the necklace, they get
 -- bend in such a way that they lie follow the path of the
 -- necklace. If an arc lies on more than one necklace, the ``last one
--- wins.'' 
+-- wins''.
 --
 -- @param ugraph The ugraph to which this hint is added
 -- @param necklace The sequence of vertices that form the necklace. If
@@ -68,7 +68,7 @@ local necklaces = Storage.new()
 function Hints.addNecklaceCircleHint(ugraph, necklace, center, clockwise)
   local a = necklaces[ugraph] or {}
   necklaces[ugraph] = a
-  
+
   a[#a+1] = {
     necklace  = necklace,
     center    = center or Coordinate.origin,
@@ -95,6 +95,6 @@ function Hints.getNecklaceHints(ugraph)
 end
 
 -- done
-  
+
 return Hints
 

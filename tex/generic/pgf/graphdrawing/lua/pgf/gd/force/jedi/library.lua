@@ -9,14 +9,14 @@
 
 
 --- The library providing the graph drawing framework Jedi
--- This labrary requires all graph drawing algorithms and inital 
--- positioning algorithms provided with the first release of Jedi. 
--- It also defines the mass key attached to all vertices. 
+-- This library requires all graph drawing algorithms and initial
+-- positioning algorithms provided with the first release of Jedi.
+-- It also defines the mass key attached to all vertices.
 
 -- Library name
 local jedi
 
--- require inital positioning algorithms
+-- require initial positioning algorithms
 require "pgf.gd.force.jedi.initialpositioning.CircularInitialPositioning"
 require "pgf.gd.force.jedi.initialpositioning.RandomInitialPositioning"
 require "pgf.gd.force.jedi.initialpositioning.GridInitialPositioning"
@@ -101,7 +101,7 @@ declare {
   key = "mass",
   type = "number",
   initial = "1",
-  
+
   documentation_in = "pgf.gd.force.jedi.doc"
 }
 
@@ -110,6 +110,6 @@ declare {
   key = "coarsening weight",
   type = "number",
   initial = "1",
-  
+
   documentation_in = "pgf.gd.force.jedi.doc"
 }

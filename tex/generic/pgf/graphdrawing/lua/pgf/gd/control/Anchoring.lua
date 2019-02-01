@@ -23,29 +23,29 @@
 -- \emph{absolutely} once all relative positions have been computed. In
 -- case that the graph consists of several unconnected components, the
 -- situation is even more complicated.
--- 
+--
 -- The order in which the algorithm layer determines the node at which
 -- the graph should be anchored:
---
+-- %
 -- \begin{enumerate}
--- \item If the |anchor node=|\meta{node name} option given to the graph
---   as a whole, the graph is anchored at \meta{node name}, provided
---   there is a node of this name in the graph. (If there is no node of
---   this name or if it is misspelled, the effect is the same as if this
---   option had not been given at all.)
--- \item Otherwise, if there is a node where the |anchor here| option is
---   specified, the first node with this option set is used.
--- \item Otherwise, if there is a node where the |desired at| option is
---   set (perhaps implicitly through keys like |x|), the first such node
---   is used.
--- \item Finally, in all other cases, the first node is used.
+--   \item If the |anchor node=|\meta{node name} option given to the graph
+--     as a whole, the graph is anchored at \meta{node name}, provided
+--     there is a node of this name in the graph. (If there is no node of
+--     this name or if it is misspelled, the effect is the same as if this
+--     option had not been given at all.)
+--   \item Otherwise, if there is a node where the |anchor here| option is
+--     specified, the first node with this option set is used.
+--   \item Otherwise, if there is a node where the |desired at| option is
+--     set (perhaps implicitly through keys like |x|), the first such node
+--     is used.
+--   \item Finally, in all other cases, the first node is used.
 -- \end{enumerate}
 --
 -- In the above description, the ``first'' node refers to the node first
 -- encountered in the specification of the graph.
 --
 -- Once the node has been determined, the graph is shifted so that
--- this node lies at the poistion specified by |anchor at|.
+-- this node lies at the position specified by |anchor at|.
 --
 -- @end
 
@@ -70,7 +70,7 @@ declare {
   type = "coordinate",
   documentation_in = "pgf.gd.control.doc"
 }
-       
+
 ---
 declare {
   key = "anchor node",

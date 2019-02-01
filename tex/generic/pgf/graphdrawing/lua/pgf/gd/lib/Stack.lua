@@ -13,7 +13,7 @@
 
 --- A Stack is a very simple wrapper around an array
 --
--- 
+--
 
 local Stack = {}
 Stack.__index = Stack

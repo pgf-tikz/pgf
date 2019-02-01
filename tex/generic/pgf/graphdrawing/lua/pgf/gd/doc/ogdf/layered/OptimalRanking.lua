@@ -21,9 +21,9 @@ key           "OptimalRanking"
 summary       "The optimal ranking algorithm."
 documentation
 [[
-The |OptimalRanking| implements the LP-based algorithm for
-computing a node ranking with minimal edge lengths, which can
-be used as first phase in |SugiyamaLayout|. 
+  The |OptimalRanking| implements the LP-based algorithm for
+  computing a node ranking with minimal edge lengths, which can
+  be used as first phase in |SugiyamaLayout|.
 ]]
 --------------------------------------------------------------------
 

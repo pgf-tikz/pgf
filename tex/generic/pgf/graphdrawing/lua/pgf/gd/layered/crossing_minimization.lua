@@ -48,11 +48,11 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- the nodes of a specific layer are reordered using a neighbored
 -- layer as a fixed reference. This problem is known as one-sided
 -- crossing minimization, which unfortunately is NP-hard. In the
--- following various heuristics to solve this problem are 
+-- following various heuristics to solve this problem are
 -- presented.
 --
 -- For more details, please see Section 4.1.4 of Pohlmann's Diploma
--- thesis. 
+-- thesis.
 --
 -- @end
 
@@ -66,16 +66,16 @@ declare {
   phase = "crossing minimization",
   phase_default = true,
 
-  summary = [["  
-       Gansner et al. combine an initial ordering based on a depth-first
-       search with the median and greedy switch heuristics applied in the
-       form of an alternating layer-by-layer sweep based on a weighted
-       median. 
+  summary = [["
+    Gansner et al. combine an initial ordering based on a depth-first
+    search with the median and greedy switch heuristics applied in the
+    form of an alternating layer-by-layer sweep based on a weighted
+    median.
   "]],
-  documentation = [["      
-       For more details, please see Section 4.1.4 of Pohlmann's Diploma
-       thesis. 
-      
-       This is the default algorithm for crossing minimization.
-   "]]
- }
+  documentation = [["
+    For more details, please see Section~4.1.4 of Pohlmann's Diploma
+    thesis.
+
+    This is the default algorithm for crossing minimization.
+  "]]
+}
