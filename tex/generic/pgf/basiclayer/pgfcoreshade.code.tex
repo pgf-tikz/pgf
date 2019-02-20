@@ -560,40 +560,66 @@
       \advance\pgf@xb by.5\pgf@pathminx%
       \pgf@yb=.5\pgf@pathmaxy%
       \advance\pgf@yb by.5\pgf@pathminy%
+      % Calculate rotation:
+      \pgfmathparse{#2}%
+      \let\pgfshade@angle=\pgfmathresult
+      \pgfmathsin@\pgfshade@angle
+      \let\pgfshade@sin=\pgfmathresult
+      \pgfmathcos@\pgfshade@angle
+      \let\pgfshade@cos=\pgfmathresult
+      % width and height of the bounding box
+      \pgf@xa=\pgf@pathmaxx
+      \advance\pgf@xa by-\pgf@pathminx
+      \pgf@ya=\pgf@pathmaxy
+      \advance\pgf@ya by-\pgf@pathminy
       % Calculate scaling:
-      \pgf@xc=\pgf@pathmaxx%
-      \advance\pgf@xc by-\pgf@pathminx%
-      \pgf@yc=\pgf@pathmaxy%
-      \advance\pgf@yc by-\pgf@pathminy%
-      \pgf@xc=.01992528\pgf@xc%
-      \pgf@yc=.01992528\pgf@yc%
-      \ifdim\pgf@xc<0.0001pt\relax\ifdim\pgf@xc>-0.0001pt\relax\pgf@no@shadetrue\fi\fi%
-      \ifdim\pgf@yc<0.0001pt\relax\ifdim\pgf@yc>-0.0001pt\relax\pgf@no@shadetrue\fi\fi%
-      \ifpgf@no@shade\else%
-      \pgfsys@beginscope%
-        \pgfsyssoftpath@invokecurrentpath%
-        \pgfsys@clipnext%
-        \pgfsys@discardpath%
-        % Compute new transformation matrix:
-        \pgfsys@transformcm{1}{0}{0}{1}{\pgf@xb}{\pgf@yb}%
-        \pgfsys@transformcm%
-        {\pgf@sys@tonumber{\pgf@xc}}{0}%
-        {0}{\pgf@sys@tonumber{\pgf@yc}}{0pt}{0pt}%
-        \pgfmathparse{#2}%
-        \let\pgfshade@angle=\pgfmathresult%
-        \pgfmathsin@{\pgfshade@angle}%
-        \let\pgfshade@sin=\pgfmathresult%
-        \pgfmathcos@{\pgfshade@angle}%
-        \let\pgfshade@cos=\pgfmathresult%
-        \pgf@x=\pgfshade@sin pt%
-        \pgf@xa=-\pgf@x%
-        \pgfsys@transformcm{\pgfshade@cos}{\pgfshade@sin}{\pgf@sys@tonumber{\pgf@xa}}{\pgfshade@cos}{0pt}{0pt}%
-        \ifx\pgf@shade@extra@transform\pgfutil@empty%
-        \else%
-          \pgflowlevel{\pgf@shade@extra@transform}%
-        \fi%
-        \pgfuseshading{#1}%
-      \pgfsys@endscope%
+      % xscale = 1pt/50bp * (w*|cos(a)|+h*|sin(a)|)/(|cos(a)|+|sin(a)|)
+      % yscale = 1pt/50bp * (w*|sin(a)|+h*|cos(a)|)/(|cos(a)|+|sin(a)|)
+      % 1pt/50bp = .01992528
+      \pgfmathabs@\pgfshade@sin
+      \let\pgfshade@abssin=\pgfmathresult
+      \pgfmathabs@\pgfshade@cos
+      \let\pgfshade@abscos=\pgfmathresult
+      \pgf@xc=\pgfshade@abscos\pgf@xa
+      \advance\pgf@xc by\pgfshade@abssin\pgf@ya
+      \pgf@yc=\pgfshade@abssin\pgf@xa
+      \advance\pgf@yc by\pgfshade@abscos\pgf@ya
+      \pgfmathadd@\pgfshade@abscos\pgfshade@abssin
+      \pgfmathdivide@{.01992528}{\pgfmathresult}%
+      \pgf@xc=\pgfmathresult\pgf@xc
+      \pgf@yc=\pgfmathresult\pgf@yc
+      \ifdim\pgf@xc<0.0001pt
+        \ifdim\pgf@xc>-0.0001pt
+          \pgf@no@shadetrue
+        \fi
+      \fi
+      \ifdim\pgf@yc<0.0001pt
+        \ifdim\pgf@yc>-0.0001pt
+          \pgf@no@shadetrue
+        \fi
+      \fi
+      \ifpgf@no@shade\else
+        \pgfsys@beginscope
+          \pgfsyssoftpath@invokecurrentpath
+          \pgfsys@clipnext
+          \pgfsys@discardpath
+          % Compute new transformation matrix:
+          % shift
+          \pgfsys@transformcm{1}{0}{0}{1}{\the\pgf@xb}{\the\pgf@yb}%
+          % rotation
+          \pgf@x=\pgfshade@sin pt%
+          \pgf@xa=-\pgf@x%
+          \pgfsys@transformcm{\pgfshade@cos}{\pgfshade@sin}{\pgf@sys@tonumber{\pgf@xa}}{\pgfshade@cos}{0pt}{0pt}%
+          % scaling
+          \pgfsys@transformcm{\pgf@sys@tonumber{\pgf@xc}}{0}{0}{\pgf@sys@tonumber{\pgf@yc}}{0pt}{0pt}%
+          % This will actually be the first transformation of the shading.
+          % Should it be applied first so that it becomes the last one?
+          \ifx\pgf@shade@extra@transform\pgfutil@empty%
+          \else%
+            \pgflowlevel{\pgf@shade@extra@transform}%
+          \fi%
+          \pgfuseshading{#1}%
+        \pgfsys@endscope%
       \fi%
     \endgroup%
   \fi%
