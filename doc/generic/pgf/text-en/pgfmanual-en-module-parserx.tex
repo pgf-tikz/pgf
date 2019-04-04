@@ -1,0 +1,194 @@
+% Copyright 2019 by Jonathan P. Spratte
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU Public License.
+%
+% See the file doc/generic/pgf/licenses/LICENSE for more details.
+
+\section{ParserX Module}
+\label{section-module-parserx}
+
+\begin{pgfmodule}{parserx}
+  This module extends the ideas of the |parser| module in
+  section~\ref{section-module-parser}.
+\end{pgfmodule}
+
+This module provides commands for defining a parser that scans some given text
+letter-by-letter just like the |parser| module. In addition the rules for each
+letter might take optional or mandatory arguments, you can define an action for
+unknown letters and a final macro that is executed after the state is
+switched to |final|.
+
+Since the idea of this module is based on the idea of |parser|, this section
+mainly highlights the differences and doesn't describe the basic idea.
+
+\begin{command}{\pgfparserxrun\marg{parser name}\meta{text}}
+  This is the equivalent of |\pgfparserparse| in the |parser| module. It parses
+  \meta{text} according to the rules defined for the parser \meta{parser name},
+  an error is thrown if there are no rules defined for that parser. Initially
+  every parser's state is |initial|. Parsing will end once the state is switched
+  to |final|. Unlike the |parser| module spaces are ignored by default although
+  you can define an action for them.
+\end{command}
+
+\begin{command}
+  {%
+    \pgfparserxdef\marg{parser name}\marg{state}\meta{symbol meaning}%
+    \oarg{arguments}\marg{action}%
+  }
+  This command is used to define a rule for the parser \meta{parser name} in the
+  state \meta{state}. The \meta{symbol meaning} can either be the symbol meaning
+  as you'd provide it in the |parser| module in braces, or be the letter
+  without braces around it. There are two letters that can't be defined this
+  way: |{| and a blank space. For the first you can use |\bgroup| instead
+  and a blank space is definable with |{blank space}|.
+  \meta{arguments} is an argument string and can contain up to nine arguments.
+  The following are the available argument types:
+
+  \begingroup
+  \def\argdesc#1#2%
+    {%
+      \par
+      \begingroup
+      \setbox0\hbox{\texttt #1}\makebox[1.5em][l]{\usebox0}%
+      \ifdim\wd0>1.5em\\\null\hspace{1.5em}\fi
+      \parbox[t]{\dimexpr\linewidth-1.5em\relax}{#2}%
+      \endgroup
+    }%
+    \argdesc{m}{a normal mandatory argument}
+    \argdesc{r\meta{delim}}
+      {a mandatory argument which is read up to the \meta{delim}}
+    \argdesc{o}{an optional argument in |[]| defaulting to a special mark}
+    \argdesc{O\marg{default}}
+      {an optional argument in |[]| defaulting to \meta{default}}
+    \argdesc{d\meta{delim1}\meta{delim2}}
+      {%
+        an optional argument in \meta{delim1} and \meta{delim2} defaulting to a
+        special mark%
+      }
+    \argdesc{D\meta{delim1}\meta{delim2}\marg{default}}
+      {like |d| but defaulting to \meta{default}}
+    \argdesc{t\meta{token}}
+      {%
+        tests whether the next letter is \meta{token}, if so gobbles it and
+        the argument is set to a special mark. Don't use the argument outside of
+        tests with |\ifpgfparserxmark|.%
+      }
+  \endgroup
+
+  So if you want to define an \meta{action} that takes two mandatory arguments
+  you use |[mm]|, if it should take an optional star, one optional argument in
+  brackets that returns a marker if it's not used, one mandatory and finally an
+  optional argument in parentheses that defaults to |something| you use
+  |[t*omD(){something}]| as the argument string. If the argument should be
+  anything up to a semicolon, you use |[r;]|. Spaces before argument
+  specifications in the string are ignored. So |[r m]| will read anything up to
+  an |m|. Also spaces before any argument in the parsed letters are ignored, so
+  if |a| was setup to take an optional argument the argument would be detected
+  in |a []|. Like with normal \LaTeXe\ optional arguments you have to protect
+  nested brackets: |[a[bc]d]| would be read as |a[bc| with a trailing |d]|,
+  \emph{not} as |a[bc]d|. You'd have to use |[{a[bc]d}]| to get it correct.
+
+  The code which should be executed for \meta{symbol meaning} is set to
+  \meta{action}. Each \meta{action} is appended by an internal macro of the
+  module that parses the next letter.
+
+  Just like in the |parser| module the special \meta{state} |all| can be used.
+\end{command}
+
+\begin{command}
+  {\pgfparserxdefunknown\marg{parser name}\marg{state}\marg{action}}
+  With this macro you can define an \meta{action} for the \meta{parser name}
+  parser if the letter which was encountered was undefined.
+\end{command}
+
+\begin{command}{\pgfparserxdeffinal\marg{parser name}\marg{action}}
+  Every parser can call a final \meta{action} after the state was switched to
+  |final|. This \meta{action} is executed after everything else, so you can use
+  something that grabs more arguments if you want to.
+\end{command}
+
+\begin{command}{\pgfparserxstate\marg{state}}
+  Set the state of the parser to \meta{state}, can be used inside the action
+  code of a parser.
+\end{command}
+
+\begin{command}{\ifpgfparserxmark\marg{arg}\marg{true}\marg{false}}
+  Remember that some of the optional argument types set special marks? With
+  |\ifpgfparserxmark| you can test whether \meta{arg} is such a mark. So if
+  there was no optional argument for the argument types |o| and |d| the
+  \meta{true} branch will be executed, else the \meta{false} branch. For the |t|
+  type argument the \meta{true} branch is executed if the token was encountered.
+\end{command}
+
+\begin{command}{\pgfparserxtoken}
+  This is the macro which is let to the following token with |\futurelet|. You
+  can use it inside an action code.
+\end{command}
+
+\begin{command}{\pgfparserxletter}
+  This macro stores the letter to which |\pgfparserxtoken| was let. So if
+  you'd use |\pgfparserxrun{foo}a| this macro would be defined with
+  |\def\pgfparserxletter{a}|. This definition is done before any action code is
+  executed. There are two special cases if |{| or |}| would be the next
+  letter for the parser, this macro is defined to expand to |\bgroup| or
+  |\egroup|.
+\end{command}
+
+\begin{command}{\pgfparserxset\marg{key list}}
+  The |pgfparserx| module has a few keys which you can access through this
+  macro. It is just a shortcut for |\pgfset{/pgfparserx/.cd,#1}|. The available
+  keys are listed in subsection~\ref{sec:parserx:keys}.
+\end{command}
+
+\subsection{Keys of the ParserX module}\label{sec:parserx:keys}
+\begin{key}{/pgfparserx/silent=\meta{boolean} (initially false)}
+  If |true| then no error will be thrown when a letter is parsed for which no
+  action is defined, silently ignoring it. This holds true for every parser.
+\end{key}
+
+\begin{key}{/pgfparserx/status=\meta{boolean} (initially false)}
+  If |true| the parser prints a status message for every action executed. This
+  might help in debugging and understanding what the parser does.
+\end{key}
+
+Additionally to those keys, for every \meta{parser name} the following will be
+defined:
+
+\begin{key}
+  {/pgfparserx/\meta{parser name}/silent=\meta{boolean} (initially false)}
+  If |true| the parser \meta{parser name} will silently ignore undefined
+  letters. This is an individual equivalent of |/pgfparserx/silent| for each
+  defined parser.
+\end{key}
+
+\subsection{Example}
+The following example tries to show off many of the features of |parserx| in a
+few lines. The parser defines an empty action for each letter which is unknown.
+For that it uses the fact that |\pgfparserxtoken| has the same meaning as the
+letter just parsed.
+\begin{codeexample}[]
+\newcount\mycount
+% using the same syntax as \pgfparserdef
+\pgfparserxdef{myparser}{initial}{the letter a}[d()]
+  {\ifpgfparserxmark{#1}{\textit{no arg}}{\textbf{#1}} }
+% using the short syntax of only putting the letter there
+\pgfparserxdef{myparser}{initial}t[m]{\texttt{#1} }
+\pgfparserxdef{myparser}{all};{\pgfparserxstate{final}}
+\pgfparserxdefunknown{myparser}{all}
+  {\relax
+    \advance\mycount by 1
+    % define a new rule for every undefined letter to be a no-op
+    \pgfparserxdef{myparser}{all}\pgfparserxtoken{}\relax
+    % and print the undefined letter in red
+    \textcolor{red}{\pgfparserxletter}\relax
+  }
+\pgfparserxdeffinal{myparser}
+  {Encountered \the\mycount\ different unknown tokens.}
+% don't throw errors for unknown letters
+\pgfparserxset{myparser/silent=true}
+
+\pgfparserxrun{myparser}t{foo}aa(bar)xyzzyx;
+\end{codeexample}
