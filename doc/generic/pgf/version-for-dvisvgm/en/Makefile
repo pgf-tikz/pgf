@@ -18,6 +18,7 @@ pgfmanual.ind: pgfmanual.idx
 pgfmanual.dvi: $(doc).tex $(doc).ind revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
+	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 
 pgfmanual.svg: $(doc).dvi
 	dvisvgm --font-format=woff --no-merge --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
