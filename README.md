@@ -2,6 +2,11 @@
 
 [![Travis Build Status][travis-svg]][travis-link]
 
+PGF is a TeX macro package for generating graphics. It is platform-
+and format-independent and works together with the most important TeX
+backend drivers, including `pdftex` and `dvips`. It comes with a
+user-friendly syntax layer called Ti*k*Z.
+
 See the directory `doc/generic/pgf` for more information. See the file
 `doc/generic/pgf/pgfmanual.pdf` for a manual. This
 documentation also explains the installation.  See the file
@@ -9,6 +14,21 @@ documentation also explains the installation.  See the file
 
 Please go to https://github.com/pgf-tikz/pgf
 to submit bug reports, request new features, etc.
+
+## Installation
+
+In general you should just use the version of PGF that is shipped by
+your TeX distribution.  See their documentation on how to install
+packages.
+
+If you are feeling adventurous you can install the latest development
+version in TeX Live from our tlcontrib repository.
+```console
+tlmgr repository add http://pgf-tikz.github.io/pgf pgf-development
+tlmgr pinning add pgf-development "*"
+tlmgr update --self --all
+tlmgr install pgf --reinstall
+```
 
 ## Development
 
