@@ -58,6 +58,6 @@ touch .nojekyll
 git init
 git checkout -b gh-pages
 git add .
-git commit --no-gpg-sign --quiet -m "Deploy"
+git commit --no-gpg-sign --quiet -m "Deployment for ${TRAVIS_COMMIT}"
 git remote add origin https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG};
-git push --quiet --force origin gh-pages #> /dev/null 2>&1
+git push --quiet --force origin gh-pages > /dev/null 2>&1
