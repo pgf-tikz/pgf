@@ -31,6 +31,7 @@ for dir in doc source tex; do
 done
 touch texmf-dist/doc/generic/pgf/pgfmanual.pdf # In case you forgot to move it
 git add texmf-dist/doc/generic/pgf/pgfmanual.pdf
+git add texmf-dist/tex/generic/pgf/pgf.revision.tex # This file HAS to exist!
 git commit --no-gpg-sign --quiet -m "Move files"
 
 # Prepare tlpkg
