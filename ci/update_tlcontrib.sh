@@ -24,6 +24,20 @@ if [ -z "${GH_TOKEN}" ]; then
 fi;
 
 
+if [ -z "$(git ls-remote --heads https://github.com/${TRAVIS_REPO_SLUG} gh-pages)" ]; then
+    echo "INFO: The branch gh-pages does not exist.";
+    echo "INFO: Not building docs.";
+    exit 0;
+fi;
+
+
+if ! git diff --quiet HEAD -- && [ "$1" != "-f" ]; then
+    echo "Your working tree is not clean!"
+    echo "Please commit your changes before continuing or use the -f option."
+    exit 1
+fi
+
+
 # Prepare sources for tlpkg
 mkdir -p texmf-dist/web2c
 for dir in doc source tex; do
@@ -36,11 +50,15 @@ git commit --no-gpg-sign --quiet -m "Move files"
 
 # Prepare tlpkg
 mkdir -p tlpkg/tlpsrc
-rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/tlpsrc/00texlive.*.tlpsrc tlpkg/tlpsrc/
-rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/tlpsrc/pgf.tlpsrc tlpkg/tlpsrc/
-rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/bin/ tlpkg/bin/
-rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/installer/ tlpkg/installer/
-rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/TeXLive/ tlpkg/TeXLive/
+rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/tlpsrc/00texlive.autopatterns.tlpsrc \
+                                           ::tldevsrc/Master/tlpkg/tlpsrc/00texlive.config.tlpsrc \
+                                           ::tldevsrc/Master/tlpkg/tlpsrc/00texlive.installation.tlpsrc \
+                                           ::tldevsrc/Master/tlpkg/tlpsrc/pgf.tlpsrc \
+                                           tlpkg/tlpsrc/
+rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/bin \
+                                           ::tldevsrc/Master/tlpkg/installer \
+                                           ::tldevsrc/Master/tlpkg/TeXLive \
+                                           tlpkg/
 
 # Target directory
 rm -rf tlnet/
