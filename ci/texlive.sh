@@ -64,5 +64,5 @@ tlmgr option -- autobackup 0
 tlmgr update --self --all --no-auto-install
 
 # Install PGF
-cp -vr ../tex/* /tmp/texlive/texmf-dist/tex/
-mktexlsr
+tlmgr init-usertree --usertree `realpath ..`
+export TEXMFHOME=`realpath ..`

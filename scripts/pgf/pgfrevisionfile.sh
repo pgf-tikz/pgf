@@ -4,6 +4,8 @@
 #
 # The resulting macros define the current version of pgf.
 
+set -e
+
 LATEST_TAG=`git describe --abbrev=0 --tags`
 REVISION=`git describe --tags HEAD`
 
