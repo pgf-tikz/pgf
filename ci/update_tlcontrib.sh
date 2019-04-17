@@ -49,24 +49,28 @@ git add texmf-dist/tex/generic/pgf/pgf.revision.tex # This file HAS to exist!
 git commit --no-gpg-sign --quiet -m "Move files"
 
 # Prepare tlpkg
-mkdir -p tlpkg/tlpsrc
+mkdir -p /tmp/tlpkg/tlpsrc
 rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/tlpsrc/00texlive.autopatterns.tlpsrc \
                                            ::tldevsrc/Master/tlpkg/tlpsrc/00texlive.config.tlpsrc \
                                            ::tldevsrc/Master/tlpkg/tlpsrc/00texlive.installation.tlpsrc \
                                            ::tldevsrc/Master/tlpkg/tlpsrc/pgf.tlpsrc \
-                                           tlpkg/tlpsrc/
+                                           /tmp/tlpkg/tlpsrc/
 rsync -avzP --delete --exclude=.svn tug.org::tldevsrc/Master/tlpkg/bin \
                                            ::tldevsrc/Master/tlpkg/installer \
                                            ::tldevsrc/Master/tlpkg/TeXLive \
-                                           tlpkg/
+                                           /tmp/tlpkg/
+
+# Copy tlpsrc
+mkdir -p tlpkg
+cp -r /tmp/tlpkg/tlpsrc tlpkg/
 
 # Target directory
 rm -rf tlnet/
 mkdir -p tlnet/
 
 # Build
-perl tlpkg/bin/tl-update-tlpdb -from-git -master "${PWD}"
-perl tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlnet" -all -recreate -no-sign
+perl /tmp/tlpkg/bin/tl-update-tlpdb -from-git -master "${PWD}"
+perl /tmp/tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlnet" -all -recreate -no-sign
 
 # Reset git to previous state
 git reset --hard HEAD~1
