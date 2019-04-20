@@ -16,8 +16,8 @@
 \newcount\pgf@sys@shading@range@num
 \def\pgf@parsefunc#1{%
   \edef\temp{{#1}}%
-  \expandafter\pgf@convertrgbstring\temp%
-  \edef\temp{{\pgf@rgbconv}}%
+  \expandafter\pgf@convertstring\temp%
+  \edef\temp{{\pgf@conv}}%
   \expandafter\pgf@@parsefunc\temp}
 \def\pgf@@parsefunc#1{%
   \let\pgf@bounds=\pgfutil@empty%
@@ -112,49 +112,67 @@
 
 
 % Normalized a <color specification> argument for shadings into a
-% series of rgb color specifications and writes the result into
-% \pgf@rgbconv.
+% series of color specifications in the current xcolor color model and write
+% the result into \pgf@conv.
 %
 % Example:
-% \pgf@convertrgbstring{rgb(0cm)=(1,0,0); rgb(2cm)=(0,1,0); rgb(4cm)=(0,0,1); gray(1cm)=(3);  color(2cm)=(green); }
+% \pgf@convertstring{rgb(0cm)=(1,0,0); rgb(2cm)=(0,1,0); cmyk(4cm)=(1,0,0,0); gray(1cm)=(3);  color(2cm)=(green); }
 % ->
-% \pgf@rgbconv = macro:->'rgb(0cm)=(1,0,0); rgb(2cm)=(0,1,0); rgb(4cm)=(0,0,1); rgb(1cm)=(3,3,3); rgb(2cm)=(0,1,0); '
-\def\pgf@convertrgbstring#1{%
-  \def\pgf@rgbconv{}%
-  \pgf@converttorgb#1]%
+% \pgf@conv = macro:->'rgb(0cm)=(1,0,0); rgb(2cm)=(0,1,0); rgb(4cm)=(0,1,1); rgb(1cm)=(3,3,3); rgb(2cm)=(0,1,0); '
+\def\pgf@convertstring#1{%
+  \def\pgf@conv{}%
+  \pgf@convert#1]%
   }
-\def\pgf@converttorgb{%
+\def\pgf@convert{%
   \pgfutil@ifnextchar]{\pgfutil@gobble}%done!
   {%
     \pgfutil@ifnextchar;{\pgf@grabsemicolor}%
     {%
-      \pgfutil@ifnextchar r{\pgf@grabrgb}%
+      \pgfutil@ifnextchar c{\pgf@gobblec}%
       {%
         \pgfutil@ifnextchar g{\pgf@grabgray}%
         {%
-          \pgfutil@ifnextchar c{\pgf@grabcolor}%
-          {\pgferror{Illformed shading
-              specification}\pgf@converttorgb}%
+          \pgfutil@ifnextchar o{\pgf@grabcolor}%
+          {%
+            \pgfutil@ifnextchar m{\pgf@grabcmyk}%
+            {%
+              \pgfutil@ifnextchar r{\pgf@grabrgb}%
+                {\pgferror{Illformed shading
+                 specification}\pgf@convert}%
+            }%
+          }%
         }%
       }%
     }%
   }%
 }
-\def\pgf@grabsemicolor;{%
-  \edef\pgf@rgbconv{\pgf@rgbconv; }\pgf@converttorgb}
-\def\pgf@grabrgb rgb(#1)=(#2,#3,#4){%
-  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#1)=(#2,#3,#4)}\pgf@converttorgb}
-\def\pgf@grabgray gray(#1)=(#2){%
-  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#1)=(#2,#2,#2)}\pgf@converttorgb}
-\def\pgf@grabcolor color(#1)=(#2){%
-  \pgfutil@colorlet{pgf@tempcol}{#2}%
+\def\pgf@savecolor#1{%
   \pgfutil@extractcolorspec{pgf@tempcol}{\pgf@tempcolor}%
-  \expandafter\pgfutil@convertcolorspec\pgf@tempcolor{rgb}{\pgf@rgbcolor}%
-  \expandafter\pgf@convgetrgb@\expandafter{\pgf@rgbcolor}{#1}%
+  \expandafter\pgfutil@convertcolorspec\pgf@tempcolor
+    {\pgf@shading@model}{\pgf@color}%
+  \expandafter\pgf@convget@\expandafter{\pgf@color}{#1}%
 }
-\def\pgf@convgetrgb@#1#2{%
-  \edef\pgf@rgbconv{\pgf@rgbconv rgb(#2)=(#1)}\pgf@converttorgb}
-
+\def\pgf@grabsemicolor;{%
+  \edef\pgf@conv{\pgf@conv; }\pgf@convert}
+\def\pgf@gobblec c{\pgf@convert}
+\def\pgf@grabrgb rgb(#1)=(#2,#3,#4){%
+  \pgfutil@definecolor{pgf@tempcol}{rgb}{#2,#3,#4}%
+  \pgf@savecolor{#1}%
+}
+\def\pgf@grabcmyk myk(#1)=(#2,#3,#4,#5){%
+  \pgfutil@definecolor{pgf@tempcol}{cmyk}{#2,#3,#4,#5}%
+  \pgf@savecolor{#1}%
+}
+\def\pgf@grabgray gray(#1)=(#2){%
+  \pgfutil@definecolor{pgf@tempcol}{gray}{#2}%
+  \pgf@savecolor{#1}%
+}
+\def\pgf@grabcolor olor(#1)=(#2){%
+  \pgfutil@colorlet{pgf@tempcol}{#2}%
+  \pgf@savecolor{#1}%
+}
+\def\pgf@convget@#1#2{%
+  \edef\pgf@conv{\pgf@conv \pgf@shading@model(#2)=(#1)}\pgf@convert}
 
 
 \newcount\pgf@shadingcount
