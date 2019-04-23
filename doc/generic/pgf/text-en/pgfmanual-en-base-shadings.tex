@@ -47,12 +47,86 @@ rgb(0cm)=(1,0,0); rgb(2cm)=(0,1,0); rgb(4cm)=(0,0,1)
 This line means that at 0cm (the left end) of the bar, the color should be red,
 which has red-green-blue (rgb) components (1,0,0). At 2cm, the bar should be
 green, and at 4cm it should be blue. Instead of |rgb|, you can currently also
-specify |gray| as color model, in which case only one value is needed, or
+specify |cmyk| as color model, in which case four values are needed,
+|gray| as color model, in which case only one value is needed, or
 |color|, in which case you must provide the name of a color in parentheses. In
 a color specification the individual specifications must be separated using a
 semicolon, which may be followed by a whitespace (like a space or a newline).
 Individual specifications must be given in increasing order.
 
+\subsubsection{Color models}
+
+An attempt is made to produce shadings consistent with the currently selected
+|xcolor| package color model. The |rgb|, |cmyk|, and |gray| color models from
+the |xcolor| package are supported.
+
+\textbf{Note:} The color model chosen for a shading is based on the |xcolor|
+color model \emph{at the time the shading is created}. This is either when
+\cs{pgfdeclare*shading} is called with no optional argument or when
+\cs{pgfuseshading} is called if \cs{pgfdeclare*shading} was called with an
+optional argument.
+
+If the |xcolor| package |natural| color model is in use then the shading color
+model will be \textsc{rgb} by default. In practice this means that if you are
+using the |natural| color model of the |xcolor| package you can get mismatched
+colors if you, for example, create a shading from green (which is defined as
+\textsc{rgb}) to magenta (which is defined as \textsc{cmyk}). The shading will
+finish with \textsc{rgb} magenta which will look different to the
+\textsc{cmyk} magenta used in solid colors.
+
+You can avoid mismatched colors by loading the |xcolor| package first with an
+explicit color model (|rgb|, |cmyk|, or |gray|).
+
+\begin{codeexample}[code only]
+\begin{tikzpicture}
+  \fill[green] (0,0) rectangle (1,1);
+  \shade[left color=green, right color=magenta] (1.25,0) rectangle (3.75,1);
+  \fill[magenta] (4,0) rectangle (5,1);
+\end{tikzpicture}
+\end{codeexample}
+
+\begin{center}
+  \begin{minipage}{5cm}
+    |xcolor| |natural| color model:\medskip
+
+    \begin{tikzpicture}
+      \fill[green] (0,0) rectangle (1,1);
+      \shade[left color=green, right color=magenta] (1.25,0) rectangle (3.75,1);
+      \fill[magenta] (4,0) rectangle (5,1);
+    \end{tikzpicture}
+  \end{minipage}\hspace{2cm}%
+  \begin{minipage}{5cm}
+    |xcolor| |cmyk| color model:\medskip
+
+    \selectcolormodel{cmyk}
+    \begin{tikzpicture}
+      \fill[green] (0,0) rectangle (1,1);
+      \shade[left color=green, right color=magenta] (1.25,0) rectangle (3.75,1);
+      \fill[magenta] (4,0) rectangle (5,1);
+    \end{tikzpicture}
+  \end{minipage}\medskip
+
+  \begin{minipage}{5cm}
+    |xcolor| |rgb| color model:\medskip
+
+    \selectcolormodel{rgb}
+    \begin{tikzpicture}
+      \fill[green] (0,0) rectangle (1,1);
+      \shade[left color=green, right color=magenta] (1.25,0) rectangle (3.75,1);
+      \fill[magenta] (4,0) rectangle (5,1);
+    \end{tikzpicture}
+  \end{minipage}\hspace{2cm}%
+  \begin{minipage}{5cm}
+    |xcolor| |gray| color model:\medskip
+
+    \selectcolormodel{gray}
+    \begin{tikzpicture}
+      \fill[green] (0,0) rectangle (1,1);
+      \shade[left color=green, right color=magenta] (1.25,0) rectangle (3.75,1);
+      \fill[magenta] (4,0) rectangle (5,1);
+    \end{tikzpicture}
+  \end{minipage}
+\end{center}
 
 \subsection{Declaring Shadings}
 
@@ -75,11 +149,12 @@ Individual specifications must be given in increasing order.
     change a color that was used in the declaration of the shading later on,
     the shading will not change. By specifying a \meta{color list} you can
     specify that the shading should be recalculated whenever one of the colors
-    listed in the list changes (this includes effects like color mixins). Thus,
-    when you specify a \meta{color list}, whenever the shading is used,
-    \pgfname\ first converts the colors in the list to \textsc{rgb} triples
-    using the current values of the colors and taking any mixins and blends
-    into account. If the resulting \textsc{rgb} triples have not yet been used,
+    listed in the list changes (this includes effects like color mixins and
+    |xcolor| color models). Thus, when you specify a \meta{color list},
+    whenever the shading is used, \pgfname\ first converts the colors in the
+    list to tuples in the current |xcolor| color model using the current
+    values of the colors and taking any mixins and blends into account. If the
+    resulting tuples have not yet been used,
     a new shading is internally created and used. Note that if the option
     \meta{color list} is used, then no shading is created until the first use
     of |\pgfuseshading|. In particular, the colors mentioned in the shading
@@ -187,9 +262,12 @@ Individual specifications must be given in increasing order.
     \texttt{50.0} and \texttt{72.0}. Otherwise, the (virtual) stack is empty
     (or should be treated as if it were empty). The function should then
     replace these two values by three values, representing the red, green, and
-    blue color of the point. The numbers should be real values, not integers
-    since, Apple's PDF renderer is broken in this regard (use cvr at the end if
-    necessary).
+    blue color of the point for an \textsc{rgb} shading, four colors,
+    representing the cyan, magenta, yellow, and black color of the point for a
+    \textsc{cmyk} shading, or one value representing the gray color for a
+    grayscale shading. The numbers should be real values, not integers
+    since, Apple's PDF renderer is broken in this regard (use \texttt{cvr} at
+    the end if necessary).
 
     Conceptually, the function will be evaluated once for each point of the
     rectangle \meta{lower left corner} to \meta{upper right corner}, which
@@ -231,10 +309,12 @@ Individual specifications must be given in increasing order.
 
     Inside the PostScript function \meta{type 4 function} you cannot use colors
     directly. Rather, you must push the color components on the stack. For
-    this, it is useful to call |\pgfshadecolortorgb| in the \meta{init code}:
+    this, it is useful to call one of |\pgfshadecolortorgb|,
+    |\pgfshadecolortocmyk|, or |\pgfshadecolortogray| in the \meta{init code}:
 
     \begin{command}{\pgfshadecolortorgb\marg{color name}\marg{macro}}
-        This command takes \meta{color name} as input and stores the color's
+        This command takes \meta{color name} as input, converts it to
+        \textsc{rgb} and stores the color's
         red/green/blue components real numbers between 0.0 and 1.0 separated by
         spaces (which is exactly what you need if you want to push it on a
         stack) in \meta{macro}. This macro can then be used inside the
@@ -313,9 +393,184 @@ Individual specifications must be given in increasing order.
 \colorlet{col4}{green}
 \pgfuseshading{bilinear interpolation}
 \end{codeexample}
+
+    \begin{command}{\pgfshadecolortocmyk\marg{color name}\marg{macro}}
+        This command takes \meta{color name} as input, converts it to
+        \textsc{cmyk} and stores the color's cyan/magenta/yellow/black
+        components real numbers between 0.0 and 1.0 separated by spaces.
+
+        In addition, four macros suffixed with |cyan|, |magenta|, |yellow| and
+        |black| are defined, which store the individual components of
+        \meta{color name}.
+        %
+    \end{command}
+
+    \begin{command}{\pgfshadecolortogray\marg{color name}\marg{macro}}
+        This command takes \meta{color name} as input converts it to grayscale
+        and stores the color's value as a real number between 0.0 and 1.0.
+
+        Although it's not needed, for consistency a second macro suffixed with
+        |gray| is also defined.
+        %
+    \end{command}
     %
 \end{command}
 
+\paragraph{Color model independent functional shadings.}
+
+By nature, the PostScript code used in functional shadings must output one of
+\textsc{rgb}, \textsc{cmyk}, or grayscale data. Therefore,
+\cs{pgfdeclarefunctionalshading} is \emph{not} portable across color models.
+
+Take particular care that the same color model is in use at declaration time
+and use time for functional shadings declared with an optional argument as
+otherwise the PostScript data will not match the declared color space and
+you will end up with a malformed PDF.
+
+Having said this, it \emph{is} possible to create portable functional shadings
+by providing conditional code to append color transformations to the
+PostScript data. A variety of \cs{pgffuncshading*to*} (e.g.,
+\cs{pgffuncshadingrgbtocmyk}) macros along with \cs{ifpgfshadingmodel*} (e.g.,
+\cs{ifpgfshadingmodelcmyk}) conditionals are provided to assist with these
+transformations. Obviously, this will make the PostScript code less efficient
+than if you work in your intended color model.
+
+\pgfdeclarefunctionalshading[black]{portabletwospots}
+    {\pgfpointorigin}{\pgfpoint{3.5cm}{3.5cm}}{}{
+  2 copy
+  45 sub dup mul exch
+  40 sub dup mul 0.5 mul add sqrt
+  dup mul neg 1.0005 exch exp 1.0 exch sub
+  3 1 roll
+  70 sub dup mul .5 mul exch
+  70 sub dup mul add sqrt
+  dup mul neg 1.002 exch exp 1.0 exch sub
+  1.0 3 1 roll
+  \ifpgfshadingmodelcmyk
+    \pgffuncshadingrgbtocmyk
+  \fi
+  \ifpgfshadingmodelgray
+    \pgffuncshadingrgbtogray
+  \fi
+}
+\begin{center}
+  \begin{minipage}{3.5cm}
+    |xcolor| |rgb| model:\medskip
+
+    \selectcolormodel{rgb}
+    \pgfuseshading{portabletwospots}
+  \end{minipage}\hspace{2cm}
+  \begin{minipage}{3.5cm}
+    |xcolor| |cmyk| model:\medskip
+
+    \selectcolormodel{cmyk}
+    \pgfuseshading{portabletwospots}
+  \end{minipage}\hspace{2cm}
+  \begin{minipage}{3.5cm}
+    |xcolor| |gray| model:\medskip
+
+    \selectcolormodel{gray}
+    \pgfuseshading{portabletwospots}
+  \end{minipage}
+\end{center}
+
+\begin{codeexample}[code only]
+\pgfdeclarefunctionalshading[black]{portabletwospots}{\pgfpointorigin}{\pgfpoint{3.5cm}{3.5cm}}{}{
+  2 copy
+  45 sub dup mul exch
+  40 sub dup mul 0.5 mul add sqrt
+  dup mul neg 1.0005 exch exp 1.0 exch sub
+  3 1 roll
+  70 sub dup mul .5 mul exch
+  70 sub dup mul add sqrt
+  dup mul neg 1.002 exch exp 1.0 exch sub
+  1.0 3 1 roll
+  \ifpgfshadingmodelcmyk
+    \pgffuncshadingrgbtocmyk
+  \fi
+  \ifpgfshadingmodelgray
+    \pgffuncshadingrgbtogray
+  \fi
+}
+\end{codeexample}
+
+\begin{command}{\pgffuncshadingrgbtocmyk}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top 3 elements on the stack from \textsc{rgb} to \textsc{cmyk}. In
+  combination with the \cs{ifpgfshadingmodelcmyk} conditional this macro can
+  be used to make functional shading declarations more portable across color
+  models.
+\end{command}
+
+\begin{command}{\pgffuncshadingrgbtogray}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top 3 elements on the stack from \textsc{rgb} to grayscale. In combination
+  with the \cs{ifpgfshadingmodelgray} conditional this macro can be used to
+  make functional shading declarations more portable across color models.
+\end{command}
+
+\begin{command}{\pgffuncshadingcmyktorgb}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top 4 elements on the stack from \textsc{cmyk} to \textsc{rgb}. In
+  combination with the \cs{ifpgfshadingmodelrgb} conditional this macro can be
+  used to make functional shading declarations more portable across color
+  models.
+\end{command}
+
+\begin{command}{\pgffuncshadingcmyktogray}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top 4 elements on the stack from \textsc{cmyk} to grayscale. In combination
+  with the \cs{ifpgfshadingmodelgray} conditional this macro can be used to
+  make functional shading declarations more portable across color models.
+\end{command}
+
+\begin{command}{\pgffuncshadinggraytorgb}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top element on the stack from grayscale to \textsc{rgb}. In combination with
+  the \cs{ifpgfshadingmodelrgb} conditional this macro can be used to make
+  functional shading declarations more portable across color models.
+\end{command}
+
+\begin{command}{\pgffuncshadinggraytocmyk}
+  Within the \meta{type 4 function} argument of
+  \cs{pgfdeclarefunctionalshading}, this command can be used to convert the
+  top element on the stack from grayscale to \textsc{cmyk}. In combination
+  with the \cs{ifpgfshadingmodelcmyk} conditional this macro can be used to
+  make functional shading declarations more portable across color models.
+\end{command}
+
+{\let\ifpgfshadingmodelrgb=\relax
+ \let\ifpgfshadingmodelcmyk=\relax
+ \let\ifpgfshadingmodelgray=\relax
+ \begin{command}{\ifpgfshadingmodelrgb}
+   Within the \meta{type 4 function} argument of
+   \cs{pgfdeclarefunctionalshading}, this command can be used to test if the
+   |xcolor| color model is |rgb| \emph{at the time the shading is created}.
+   This can be used to ensure that the data output in the \meta{type 4
+   function} correctly matches the active color model.
+ \end{command}
+
+ \begin{command}{\ifpgfshadingmodelcmyk}
+   Within the \meta{type 4 function} argument of
+   \cs{pgfdeclarefunctionalshading}, this command can be used to test if the
+   |xcolor| color model is |cmyk| \emph{at the time the shading is created}.
+   This can be used to ensure that the data output in the \meta{type 4
+   function} correctly matches the active color model.
+ \end{command}
+
+ \begin{command}{\ifpgfshadingmodelgray}
+   Within the \meta{type 4 function} argument of
+   \cs{pgfdeclarefunctionalshading}, this command can be used to test if the
+   |xcolor| color model is |gray| \emph{at the time the shading is created}.
+   This can be used to ensure that the data output in the \meta{type 4
+   function} correctly matches the active color model.
+ \end{command}
+}
 
 \subsection{Using Shadings}
 \label{section-shading-a-path}
