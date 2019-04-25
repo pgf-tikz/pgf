@@ -89,15 +89,8 @@ local extractor = lpeg.P{"document",
 
 -- get the basename and extension of a file
 local basename = function(file)
-    local stripper = P{"stripext",
-        dot = P".",
-        other = C((1 - V"dot")^0),
-        stripext = Ct( C(V"dot"^-1) * V"other" * (V"dot" * V"other")^0 )
-    }
-    local matches = lpeg.match(stripper, file)
-    local ext = table.remove(matches)
-    local basename = table.concat(matches)
-    return basename, ext
+    local basename, ext = string.match(file, "^(.+)%.([^.]+)$")
+    return basename or "",  ext or file
 end
 
 -- Main loop
