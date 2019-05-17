@@ -65,18 +65,18 @@ mkdir -p tlpkg
 cp -r /tmp/tlpkg/tlpsrc tlpkg/
 
 # Target directory
-rm -rf tlnet/
-mkdir -p tlnet/
+rm -rf tlcontrib/
+mkdir -p tlcontrib/tlnet/
 
 # Build
 perl /tmp/tlpkg/bin/tl-update-tlpdb -from-git -master "${PWD}"
-perl /tmp/tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlnet" -all -recreate -no-sign
+perl /tmp/tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlcontrib/tlnet" -all -recreate -no-sign
 
 # Reset git to previous state
 git reset --hard HEAD~1
 
 # Deploy the tree
-cd tlnet/
+cd tlcontrib/
 touch .nojekyll
 git init
 git checkout -b gh-pages
