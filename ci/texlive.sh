@@ -37,6 +37,7 @@ tlmgr install \
       listings \
       lm \
       luainputenc \
+      luaotfload \
       luatex \
       luatexbase \
       makeindex \
