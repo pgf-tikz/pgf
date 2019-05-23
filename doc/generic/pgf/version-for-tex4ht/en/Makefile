@@ -1,4 +1,5 @@
 doc   = pgfmanual
+latex = htlatex
 TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 all: $(doc).html
@@ -10,7 +11,7 @@ pgfmanual.ind: pgfmanual.idx
 	makeindex $(doc).idx
 
 pgfmanual.html: $(doc).tex $(doc).ind revisionfile
-	TEXINPUTS="$(TEXINPUTS)" htlatex $(doc).tex
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 
 revisionfile:
 	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh

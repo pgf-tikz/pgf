@@ -19,6 +19,7 @@ fi
 tlmgr install \
       amsfonts \
       amsmath \
+      colortbl \
       courier \
       ctablestack \
       dvipdfmx \
@@ -40,6 +41,7 @@ tlmgr install \
       luaotfload \
       luatex \
       luatexbase \
+      make4ht \
       makeindex \
       metafont \
       mfware \
