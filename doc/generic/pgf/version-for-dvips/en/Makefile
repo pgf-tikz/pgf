@@ -5,19 +5,13 @@ TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 all: $(doc).ps
 
-pgfmanual.idx: 
-	touch pgfmanual.idx
-
-pgfmanual.ind: pgfmanual.idx 
-	makeindex $(doc).idx
-
-pgfmanual.ps: $(doc).tex $(doc).ind revisionfile
+pgfmanual.ps: $(doc).tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	dvips -o $(doc).ps $(doc).dvi
 	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -sOutputFile=$(doc).pdf $(doc).ps
 
-test: $(doc)-test.tex $(doc).ind revisionfile
+test: $(doc)-test.tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
 	dvips -o $(doc)-test.ps $(doc)-test.dvi

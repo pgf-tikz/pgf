@@ -5,13 +5,7 @@ TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 all: $(doc).pdf
 
-pgfmanual.idx: 
-	touch pgfmanual.idx
-
-pgfmanual.ind: pgfmanual.idx 
-	makeindex $(doc).idx
-
-pgfmanual.pdf: $(doc).tex $(doc).ind revisionfile
+pgfmanual.pdf: $(doc).tex revisionfile
 	(TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	xdvipdfmx -p a4 $(doc)

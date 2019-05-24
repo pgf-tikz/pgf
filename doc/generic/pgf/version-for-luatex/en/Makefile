@@ -5,28 +5,16 @@ TEXINPUTS := ../../text-en:../../images:$(TEXINPUTS)
 
 all: $(doc).pdf
 
-pgfmanual.idx: 
-	touch pgfmanual.idx
-
-dist: all
-
-pgfmanual.ind: pgfmanual.idx 
-	makeindex $(doc).idx
-
-pgfmanual.pdf: $(doc).tex $(doc).ind revisionfile
-	TEXINPUTS="$(TEXINPUTS)" $(latex) -shell-escape '$(linkcode)' $(doc).tex
+pgfmanual.pdf: $(doc).tex revisionfile
+	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
-	@echo "Use 'make dist' to generate auto-xrefs."
 
-test: $(doc)-test.tex $(doc).ind  revisionfile
+test: $(doc)-test.tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
-	@echo "Use 'make dist' to generate auto-xrefs."
-
 
 revisionfile:
 	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh
-
 
 FORCE:
 

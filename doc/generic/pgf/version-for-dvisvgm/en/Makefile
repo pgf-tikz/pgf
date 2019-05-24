@@ -9,13 +9,7 @@ test: pgfmanual-test.svg
 
 test-no-fonts: pgfmanual-test-no-font.svg
 
-pgfmanual.idx: 
-	touch pgfmanual.idx
-
-pgfmanual.ind: pgfmanual.idx 
-	makeindex $(doc).idx
-
-pgfmanual.dvi: $(doc).tex $(doc).ind revisionfile
+pgfmanual.dvi: $(doc).tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
@@ -26,7 +20,7 @@ pgfmanual.svg: $(doc).dvi
 pgfmanual-no-font.svg: $(doc).dvi
 	dvisvgm --no-fonts --output=%f-%4p.svg --page=1- --bbox=a4 --linkmark=none $(doc)
 
-pgfmanual-test.dvi: $(doc)-test.tex $(doc).ind revisionfile
+pgfmanual-test.dvi: $(doc)-test.tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 
 pgfmanual-test.svg: $(doc)-test.dvi

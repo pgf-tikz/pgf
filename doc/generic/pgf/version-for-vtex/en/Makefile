@@ -5,13 +5,7 @@ TEXINPUTS := ../../text-en:$(TEXINPUTS)
 
 all: $(doc).ps
 
-pgfmanual.idx: 
-	touch pgfmanual.idx
-
-pgfmanual.ind: pgfmanual.idx 
-	makeindex $(doc).idx
-
-pgfmanual.ps: $(doc).tex $(doc).ind revisionfile
+pgfmanual.ps: $(doc).tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 

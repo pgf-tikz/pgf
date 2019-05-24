@@ -33,6 +33,7 @@ tlmgr install \
       hyperref \
       ifluatex \
       ifxetex \
+      imakeidx \
       latex \
       latex-bin \
       listings \
