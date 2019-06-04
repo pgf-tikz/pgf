@@ -36,9 +36,6 @@ cp pgfmanual.html index.html
 git init;
 git remote add origin https://github.com/pgf-tikz/pgf-tikz.github.io.git;
 
-git config user.name "Travis CI";
-git config user.email "travis@travis-ci.org";
-
 git add .nojekyll index.html *.svg;
 
 git commit --quiet -m "Documentation build from Travis for commit ${TRAVIS_COMMIT}";
