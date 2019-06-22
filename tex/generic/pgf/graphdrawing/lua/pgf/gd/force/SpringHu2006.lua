@@ -306,39 +306,6 @@ function SpringHu2006:computeForceLayout(graph, spring_length, step_update_func)
 
         -- update the energy function
         energy = energy + math.pow(d:norm(), 2)
-	-- vector for the displacement of v
-	local d = Vector.new(2)
-	
-	for _,u in ipairs(graph.nodes) do
-	  if v ~= u then
-	    -- compute the distance between u and v
-	    local delta = u.pos:minus(v.pos)
-	    
-	    -- enforce a small virtual distance if the nodes are
-	    -- located at (almost) the same position
-	    if delta:norm() < 0.1 then
-	      delta:update(function (n, value) return 0.1 + lib.random() * 0.1 end)
-	    end
-	    
-	    local graph_distance = (distances[u] and distances[u][v]) and distances[u][v] or #graph.nodes + 1
-	    
-	    -- compute the repulsive force vector
-	    local force = repulsive_force(delta:norm(), graph_distance, v.weight)
-	    local force = delta:normalized():timesScalar(force)
-	    
-	    -- move the node v accordingly
-	    d = d:plus(force)
-	  end
-	end
-	
-	-- really move the node now
-	-- TODO note how all nodes are moved by the same amount  (step_length)
-	-- while Walshaw multiplies the normalized force with min(step_length, 
-	-- d:norm()). could that improve this algorithm even further?
-	v.pos = v.pos:plus(d:normalized():timesScalar(step_length))
-	
-	-- update the energy function
-	energy = energy + math.pow(d:norm(), 2)
       end
     end
 
