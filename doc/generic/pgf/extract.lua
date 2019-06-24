@@ -139,7 +139,7 @@ for file in lfs.dir(sourcedir) do
 
                 examplefile:write"\\documentclass{article}\n"
                 examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
-                examplefile:write(preamble)
+--                examplefile:write(preamble)
                 if options["libraries/tikz"] then
                     examplefile:write("\\usetikzlibrary{" .. options["libraries/tikz"] .. "}\n")
                 end
