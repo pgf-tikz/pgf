@@ -115,7 +115,7 @@ for file in lfs.dir(sourcedir) do
         local name, ext = basename(file)
 
         -- preprocess, strip all commented lines
-        text = text:gsub("\n%%[^\n]*\n","")
+        text = text:gsub("\n%%[^\n]*","")
 
         -- extract all code examples
         local matches = extractor:match(text) or {}
