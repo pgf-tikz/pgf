@@ -54,7 +54,7 @@ local extractor = lpeg.P{"document",
         C((1 - S",]=")^1),
 
     pair =
-        Cg(V"name" * (lit"=" * V"braces")^0) * lit","^-1,
+        Cg(V"name" * (lit"=" * (V"braces" + V"name"))^0) * lit","^-1,
 
     list =
         Cf(Ct"" * V"pair"^0, set),
