@@ -1589,6 +1589,7 @@
   graphic/.code=  {\colorlet{graphicbackground}{#1}},
   code/.code=  {\colorlet{codebackground}{#1}},
   execute code/.is if=code@execute,
+  hidden/.is if=code@hidden,
   code only/.code=  {\code@executefalse},
   setup code/.code=  {\pgfmanual@setup@codetrue\code@executefalse},
   multipage/.code=  {\code@executefalse\pgfmanual@multipage@codetrue},
@@ -1619,9 +1620,7 @@
       }
     }
   },
-  libraries/.cd,
-  tikz/.store in=\code@tikzlibraries,
-  pgf/.store in=\code@pgflibraries,
+  preamble/.store in=\code@preamble,
 }
 
 \def\pgfmanualanimscale{.5}
@@ -1658,8 +1657,7 @@
 \let\code@pre\pgfutil@empty
 \let\code@post\pgfutil@empty
 \let\code@render\pgfutil@empty
-\let\code@tikzlibraries\pgfutil@empty
-\let\code@pgflibraries\pgfutil@empty
+\let\code@preamble\pgfutil@empty
 \def\code@catcode@hook{}
 
 \newif\ifpgfmanual@multipage@code
@@ -1667,6 +1665,7 @@
 \newif\ifcodeexamplefromfile
 \newdimen\codeexamplewidth
 \newif\ifcode@execute
+\newif\ifcode@hidden
 \newbox\codeexamplebox
 \def\codeexample[#1]{%
   \global\let\pgfmanual@do@this\relax%
@@ -1679,8 +1678,10 @@
   \codeexample@tabinit% assigns \codeexample@tabinit@[catcode,replacementchars]
   \parindent0pt
   \begingroup%
-  \par%
-  \medskip%
+  \par% this \par is not inside \ifcode@hidden because we want to switch to vmode
+  \ifcode@hidden\else
+    \medskip%
+  \fi
   \let\do\@makeother%
   \dospecials%
   \obeylines%
@@ -1710,99 +1711,101 @@
       \catcode`\^^M=\pgfmanualmcatcode%
     }%
   \fi%
-  \ifcode@execute%
-    \setbox\codeexamplebox=\hbox{%
-      \ifx\code@render\pgfutil@empty%
-      {%
+  \ifcode@hidden\else
+    \ifcode@execute%
+      \setbox\codeexamplebox=\hbox{%
+        \ifx\code@render\pgfutil@empty%
         {%
-          \returntospace%
-          \commenthandler%
-          \xdef\code@temp{#1}% removes returns and comments
+          {%
+            \returntospace%
+            \commenthandler%
+            \xdef\code@temp{#1}% removes returns and comments
+          }%
+          \catcode`\^^M=9%
+          \colorbox{graphicbackground}{\color{black}\ignorespaces%
+            \code@pre\expandafter\scantokens\expandafter{\code@temp\ignorespaces}\code@post\ignorespaces}%
         }%
-        \catcode`\^^M=9%
-        \colorbox{graphicbackground}{\color{black}\ignorespaces%
-          \code@pre\expandafter\scantokens\expandafter{\code@temp\ignorespaces}\code@post\ignorespaces}%
+        \else%
+          \global\let\code@temp\code@render%
+          \colorbox{graphicbackground}{\color{black}\ignorespaces%
+            \code@render}%
+        \fi%
       }%
+      \ifx\code@animation@list\pgfutil@empty%
       \else%
-        \global\let\code@temp\code@render%
-        \colorbox{graphicbackground}{\color{black}\ignorespaces%
-          \code@render}%
+      \setbox\codeexampleboxanim=\vbox{%
+        \rightskip0pt\leftskip0pt plus1filll%
+        \ifdim\wd\codeexamplebox>\codeexamplewidth%
+        \else%
+          \hsize\codeexamplewidth%
+          \advance\hsize by2cm%
+        \fi%
+        \leavevmode\catcode`\^^M=9%
+        \foreach \pgfmanualtime/\pgfmanualtimehow in\code@animation@list{%
+          \setbox\codeexampleboxanim=\hbox{\colorbox{animationgraphicbackground}{%
+              \tikzset{make snapshot of=\pgfmanualtime}%
+              \scalebox{\pgfmanualanimscale}{\color{black}\ignorespaces%
+                \code@animation@pre\expandafter\scantokens\expandafter{\code@temp\ignorespaces}\code@animation@post\ignorespaces}%
+            }}%
+          \space\raise4pt\hbox to0pt{\vrule width0pt height1em\hbox
+            to\wd\codeexampleboxanim{\hfil\scriptsize$t{=}\pgfmanualtimehow \mathrm s$\hfil}\hss}%
+          \lower\ht\codeexampleboxanim\box\codeexampleboxanim\hfil\penalty0\hskip0ptplus-1fil%
+        }%
+      }%
+      \setbox\codeexampleboxanim=\hbox{\hbox{}\hskip-2cm\box\codeexampleboxanim}%
       \fi%
-    }%
-    \ifx\code@animation@list\pgfutil@empty%
-    \else%
-    \setbox\codeexampleboxanim=\vbox{%
-      \rightskip0pt\leftskip0pt plus1filll%
       \ifdim\wd\codeexamplebox>\codeexamplewidth%
+        \def\code@start{\par}%
+        \def\code@flushstart{}\def\code@flushend{}%
+        \def\code@mid{\parskip2pt\par\noindent}%
+        \def\code@width{\linewidth-6pt}%
+        \def\code@end{}%
       \else%
-        \hsize\codeexamplewidth%
-        \advance\hsize by2cm%
+        \def\code@start{%
+          \linewidth=\textwidth%
+          \parshape \@ne 0pt \linewidth
+          \leavevmode%
+          \hbox\bgroup}%
+        \def\code@flushstart{\hfill}%
+        \def\code@flushend{\hbox{}}%
+        \def\code@mid{\hskip6pt}%
+        \def\code@width{\linewidth-12pt-\codeexamplewidth}%
+        \def\code@end{\egroup}%
       \fi%
-      \leavevmode\catcode`\^^M=9%
-      \foreach \pgfmanualtime/\pgfmanualtimehow in\code@animation@list{%
-        \setbox\codeexampleboxanim=\hbox{\colorbox{animationgraphicbackground}{%
-            \tikzset{make snapshot of=\pgfmanualtime}%
-            \scalebox{\pgfmanualanimscale}{\color{black}\ignorespaces%
-              \code@animation@pre\expandafter\scantokens\expandafter{\code@temp\ignorespaces}\code@animation@post\ignorespaces}%
-          }}%
-        \space\raise4pt\hbox to0pt{\vrule width0pt height1em\hbox
-          to\wd\codeexampleboxanim{\hfil\scriptsize$t{=}\pgfmanualtimehow \mathrm s$\hfil}\hss}%
-        \lower\ht\codeexampleboxanim\box\codeexampleboxanim\hfil\penalty0\hskip0ptplus-1fil%
-      }%
-    }%
-    \setbox\codeexampleboxanim=\hbox{\hbox{}\hskip-2cm\box\codeexampleboxanim}%
-    \fi%
-    \ifdim\wd\codeexamplebox>\codeexamplewidth%
-      \def\code@start{\par}%
-      \def\code@flushstart{}\def\code@flushend{}%
-      \def\code@mid{\parskip2pt\par\noindent}%
-      \def\code@width{\linewidth-6pt}%
-      \def\code@end{}%
-    \else%
-      \def\code@start{%
-        \linewidth=\textwidth%
-        \parshape \@ne 0pt \linewidth
+      \code@start%
+      \noindent%
+      \begin{minipage}[t]{\codeexamplewidth}\raggedright
+        \hrule width0pt%
+        \footnotesize\vskip-1em%
+        \code@flushstart\box\codeexamplebox\code@flushend%
+        \vskip0pt%
         \leavevmode%
-        \hbox\bgroup}%
-      \def\code@flushstart{\hfill}%
-      \def\code@flushend{\hbox{}}%
-      \def\code@mid{\hskip6pt}%
-      \def\code@width{\linewidth-12pt-\codeexamplewidth}%
-      \def\code@end{\egroup}%
+        \box\codeexampleboxanim%
+        \vskip-1ex
+        \leavevmode%
+      \end{minipage}%
+    \else%
+      \def\code@mid{\par}
+      \def\code@width{\linewidth-6pt}
+      \def\code@end{}
     \fi%
-    \code@start%
-    \noindent%
-    \begin{minipage}[t]{\codeexamplewidth}\raggedright
-      \hrule width0pt%
-      \footnotesize\vskip-1em%
-      \code@flushstart\box\codeexamplebox\code@flushend%
-      \vskip0pt%
-      \leavevmode%
-      \box\codeexampleboxanim%
-      \vskip-1ex
-      \leavevmode%
-    \end{minipage}%
-  \else%
-    \def\code@mid{\par}
-    \def\code@width{\linewidth-6pt}
-    \def\code@end{}
-  \fi%
-  \code@mid%
-  \ifpgfmanual@multipage@code%
-    {%
-      \pgfkeysvalueof{/codeexample/prettyprint/base color}%
-      \pgfmanualdolisting{#1}%
-    }%
-  \else%
-    \colorbox{codebackground}{%
-      \pgfkeysvalueof{/codeexample/prettyprint/base color}%
-      \begin{minipage}[t]{\code@width}%
-        \pgfmanualdolisting{#1}%
-      \end{minipage}}%
-  \fi%
-  \code@end%
-  \par%
-  \medskip
+    \code@mid%
+      \ifpgfmanual@multipage@code%
+        {%
+          \pgfkeysvalueof{/codeexample/prettyprint/base color}%
+          \pgfmanualdolisting{#1}%
+        }%
+      \else%
+        \colorbox{codebackground}{%
+          \pgfkeysvalueof{/codeexample/prettyprint/base color}%
+          \begin{minipage}[t]{\code@width}%
+            \pgfmanualdolisting{#1}%
+          \end{minipage}}%
+      \fi%
+    \code@end%
+    \par%
+    \medskip
+  \fi
   \endcodeexample\endgroup%
 }
 
@@ -1827,16 +1830,14 @@
           \fi}%
         \obeylines
         \everypar \expandafter{\the\everypar \unpenalty}%
-        \ifx\code@tikzlibraries\pgfutil@empty\else
-            \char`\%\string\usetikzlibrary\char`\{\code@tikzlibraries\char`\}
-        \fi
-        \ifx\code@pgflibraries\pgfutil@empty\else
-            \char`\%\string\usetikzlibrary\char`\{\code@pgflibraries\char`\}
+        \ifx\code@preamble\pgfutil@empty\else
+          \pgfutil@tempdima=\hsize
+          \vbox{\hsize=\pgfutil@tempdima
+              \scriptsize\detokenize\expandafter{\code@preamble}}%
         \fi
         \pgfkeysvalueof{/codeexample/typeset listing/.@cmd}{#1}\pgfeov
       }%
 }
-
 
 \makeatother
 
