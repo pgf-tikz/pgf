@@ -12,8 +12,9 @@ See the directory `doc/generic/pgf` for more information. See the file
 documentation also explains the installation.  See the file
 `doc/generic/pgf/license/LICENSE` for license details.
 
-Please go to https://github.com/pgf-tikz/pgf
-to submit bug reports, request new features, etc.
+Please go to the official repository at https://github.com/pgf-tikz/pgf or the
+official mailing list at https://tug.org/mailman/listinfo/pgf-tikz to submit
+bug reports, request new features, etc.
 
 ## Installation
 
