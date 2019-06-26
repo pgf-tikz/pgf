@@ -140,12 +140,7 @@ for file in lfs.dir(sourcedir) do
                 examplefile:write"\\documentclass{article}\n"
                 examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
                 examplefile:write(preamble) -- TODO: this has to go
-                if options["libraries/tikz"] then
-                    examplefile:write("\\usetikzlibrary{" .. options["libraries/tikz"] .. "}\n")
-                end
-                if options["libraries/pgf"] then
-                    examplefile:write("\\usepgflibrary{" .. options["libraries/pgf"] .. "}\n")
-                end
+                examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                 examplefile:write"\\begin{document}\n"
                 examplefile:write"\\makeatletter\n" -- TODO: this has to go
                 examplefile:write(setup_code)
