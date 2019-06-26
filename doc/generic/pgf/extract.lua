@@ -139,7 +139,7 @@ for file in lfs.dir(sourcedir) do
 
                 examplefile:write"\\documentclass{article}\n"
                 examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
-                examplefile:write(preamble)
+                examplefile:write(preamble) -- TODO: this has to go
                 if options["libraries/tikz"] then
                     examplefile:write("\\usetikzlibrary{" .. options["libraries/tikz"] .. "}\n")
                 end
@@ -149,7 +149,9 @@ for file in lfs.dir(sourcedir) do
                 examplefile:write"\\begin{document}\n"
                 examplefile:write"\\makeatletter\n" -- TODO: this has to go
                 examplefile:write(setup_code)
-                examplefile:write(options["pre"] and options["pre"] .. "\n" or "")
+                local pre = options["pre"] or ""
+                pre = pre:gsub("##", "#")
+                examplefile:write(pre .. "\n")
                 if options["render instead"] then
                     examplefile:write(options["render instead"] .. "\n")
                 else
