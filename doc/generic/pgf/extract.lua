@@ -54,7 +54,7 @@ local extractor = lpeg.P{"document",
         C((1 - S",]=")^1),
 
     pair =
-        Cg(V"name" * (lit"=" * V"braces")^0) * lit","^-1,
+        Cg(V"name" * (lit"=" * (V"braces" + V"name"))^0) * lit","^-1,
 
     list =
         Cf(Ct"" * V"pair"^0, set),
@@ -115,7 +115,7 @@ for file in lfs.dir(sourcedir) do
         local name, ext = basename(file)
 
         -- preprocess, strip all commented lines
-        text = text:gsub("\n%%[^\n]*\n","")
+        text = text:gsub("\n%%[^\n]*","")
 
         -- extract all code examples
         local matches = extractor:match(text) or {}
@@ -137,19 +137,16 @@ for file in lfs.dir(sourcedir) do
                 local newname = name .. "-" .. n .. "." .. ext
                 local examplefile = io.open(targetdir .. newname, "w")
 
-                examplefile:write"\\documentclass{article}\n"
+                examplefile:write"\\documentclass{standalone}\n"
                 examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
---                examplefile:write(preamble)
-                if options["libraries/tikz"] then
-                    examplefile:write("\\usetikzlibrary{" .. options["libraries/tikz"] .. "}\n")
-                end
-                if options["libraries/pgf"] then
-                    examplefile:write("\\usepgflibrary{" .. options["libraries/pgf"] .. "}\n")
-                end
-                examplefile:write"\\begin{document}\n"
-                examplefile:write"\\makeatletter\n" -- TODO: this has to go
+--                examplefile:write(preamble) -- TODO: this has to go
+                examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                 examplefile:write(setup_code)
-                examplefile:write(options["pre"] and options["pre"] .. "\n" or "")
+                examplefile:write"\\begin{document}\n"
+--                examplefile:write"\\makeatletter\n" -- TODO: this has to go
+                local pre = options["pre"] or ""
+                pre = pre:gsub("##", "#")
+                examplefile:write(pre .. "\n")
                 if options["render instead"] then
                     examplefile:write(options["render instead"] .. "\n")
                 else
