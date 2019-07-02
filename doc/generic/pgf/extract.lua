@@ -132,16 +132,16 @@ for file in lfs.dir(sourcedir) do
                 setup_code = setup_code .. strip(content) .. "\n"
             end
 
-            -- Skip those that say "code only"
-            if not options["code only"] then
+            -- Skip those that say "code only" or "setup code"
+            if not options["code only"] and not options["setup code"] then
                 local newname = name .. "-" .. n .. "." .. ext
                 local examplefile = io.open(targetdir .. newname, "w")
 
                 examplefile:write"\\documentclass{standalone}\n"
                 examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
 --                examplefile:write(preamble) -- TODO: this has to go
-                examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                 examplefile:write(setup_code)
+                examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                 examplefile:write"\\begin{document}\n"
 --                examplefile:write"\\makeatletter\n" -- TODO: this has to go
                 local pre = options["pre"] or ""
