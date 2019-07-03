@@ -151,7 +151,7 @@ local function walk(sourcedir, targetdir)
 
                 -- Skip those that say "code only"
                 if not options["code only"] then
-                    local newname = name .. "-" .. n .. "." .. ext
+                    local newname = name .. "-" .. n .. ".tex"
                     local examplefile = io.open(targetdir .. newname, "w")
 
                     examplefile:write"\\documentclass{article}\n"
