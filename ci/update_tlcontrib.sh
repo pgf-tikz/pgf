@@ -37,11 +37,9 @@ if ! git diff --quiet HEAD -- && [ "$1" != "-f" ]; then
     exit 1
 fi
 
-CURRENT_DIRECTORY="${PWD}"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 function cleanup {
     echo "Cleaning up changes"
-    cd "${CURRENT_DIRECTORY}"
     git reset --hard "${CURRENT_BRANCH}"
     git checkout "${CURRENT_BRANCH}"
 }
@@ -84,8 +82,14 @@ mkdir -p tlcontrib/tlnet/
 perl /tmp/tlpkg/bin/tl-update-tlpdb -from-git -master "${PWD}"
 perl /tmp/tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlcontrib/tlnet" -all -recreate -no-sign
 
-# Deploy the tree
+# Copy pgfmanual.pdf to tlcontrib
 cp texmf-dist/doc/generic/pgf/pgfmanual.pdf tlcontrib/
+
+# Clear trap and cleanup
+trap - EXIT
+cleanup
+
+# Deploy the tree
 cd tlcontrib/
 touch .nojekyll
 git init
