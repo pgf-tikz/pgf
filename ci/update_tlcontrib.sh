@@ -37,6 +37,18 @@ if ! git diff --quiet HEAD -- && [ "$1" != "-f" ]; then
     exit 1
 fi
 
+CURRENT_DIRECTORY="${PWD}"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+function cleanup {
+    echo "Cleaning up changes"
+    cd "${CURRENT_DIRECTORY}"
+    git reset --hard "${CURRENT_BRANCH}"
+    git checkout "${CURRENT_BRANCH}"
+}
+trap cleanup EXIT
+
+# Switch to a new branch
+git checkout -f -B tlcontrib
 
 # Prepare sources for tlpkg
 mkdir -p texmf-dist/web2c
@@ -46,7 +58,7 @@ done
 touch texmf-dist/doc/generic/pgf/pgfmanual.pdf # In case you forgot to move it
 git add texmf-dist/doc/generic/pgf/pgfmanual.pdf
 git add texmf-dist/tex/generic/pgf/pgf.revision.tex # This file HAS to exist!
-git commit --no-gpg-sign --quiet -m "Move files"
+git commit --no-gpg-sign --quiet --amend --no-edit
 
 # Prepare tlpkg
 mkdir -p /tmp/tlpkg/tlpsrc
@@ -72,10 +84,8 @@ mkdir -p tlcontrib/tlnet/
 perl /tmp/tlpkg/bin/tl-update-tlpdb -from-git -master "${PWD}"
 perl /tmp/tlpkg/bin/tl-update-containers -master "${PWD}" -location "${PWD}/tlcontrib/tlnet" -all -recreate -no-sign
 
-# Reset git to previous state
-git reset --hard HEAD~1
-
 # Deploy the tree
+cp texmf-dist/doc/generic/pgf/pgfmanual.pdf tlcontrib/
 cd tlcontrib/
 touch .nojekyll
 git init
