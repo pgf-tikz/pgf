@@ -8,7 +8,8 @@ backend drivers, including `pdftex` and `dvips`. It comes with a
 user-friendly syntax layer called Ti*k*Z.
 
 See the directory `doc/generic/pgf` for more information. See the file
-`doc/generic/pgf/pgfmanual.pdf` for a manual. This
+`doc/generic/pgf/pgfmanual.pdf` (also available from 
+https://pgf-tikz.github.io/pgf/pgfmanual.pdf) for a manual. This
 documentation also explains the installation.  See the file
 `doc/generic/pgf/license/LICENSE` for license details.
 
