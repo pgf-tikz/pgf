@@ -83,6 +83,11 @@ When the subtrees of the children of a node are arranged, each
 position with a missing child is treated as if a zero-width,
 zero-height subtree were present at that positions:
 %
+\begin{codeexample}[setup code,hidden]
+    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}
+\end{codeexample}
+%
 \begin{codeexample}[]
 \tikz [tree layout, nodes={draw,circle}]
   \node {r}
@@ -287,6 +292,7 @@ example
   };
 ]]
 
+% TODOsp: codeexamples: the next example needs the library `arrows.spaced`
 example
 [[
 \tikz \graph [binary tree layout] {

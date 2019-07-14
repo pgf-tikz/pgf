@@ -47,6 +47,10 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @end
 
+\begin{codeexample}[setup code,hidden]
+    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}
+\end{codeexample}
 
 ---
 
@@ -211,8 +215,8 @@ declare {
 
   summary = [["
     Like |components go right top aligned|, but with
-    |component align| set to |counterclockwise| |bounding box|. 
-    This means that the components will be aligned with their bounding 
+    |component align| set to |counterclockwise| |bounding box|.
+    This means that the components will be aligned with their bounding
     boxed being top-aligned.
   "]],
   examples = [["
