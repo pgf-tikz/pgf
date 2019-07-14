@@ -14,7 +14,10 @@ local documentation = require 'pgf.gd.doc'.documentation
 local summary       = require 'pgf.gd.doc'.summary
 local example       = require 'pgf.gd.doc'.example
 
-
+\begin{codeexample}[setup code,hidden]
+    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{circular}
+\end{codeexample}
 --------------------------------------------------------------------
 key          "simple necklace layout"
 
@@ -45,7 +48,7 @@ clockwise). The order of the nodes is the order in which they appear
 in the graph, the edges are not taken into consideration, unless the
 |componentwise| option is given.
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\tikzlibrary{arrows.spaced}}]
 \tikz[>=spaced stealth']
   \graph [simple necklace layout, grow'=down, node sep=1em,
           nodes={draw,circle}, math nodes]
@@ -78,7 +81,7 @@ The nodes are placed in such a way that
 %
 \begin{enumerate}
   \item The (angular) distance between the centers of consecutive
-    nodes is at least  |node distance|,
+    nodes is at least |node distance|,
   \item the distance between the borders of consecutive nodes is at
     least |node sep|, and
   \item the radius is at least |radius|.

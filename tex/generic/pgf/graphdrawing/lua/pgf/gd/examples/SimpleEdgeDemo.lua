@@ -40,7 +40,8 @@ declare {
     option is declared and how we use it to look up a vertex in the
     graph by its name.
     %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{examples}}]
 \tikz [simple edge demo layout]
 \graph [radius=2cm] {
   a, b, c, d, e, f;

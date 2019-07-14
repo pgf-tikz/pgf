@@ -36,12 +36,18 @@
 -- trees whenever this is requested by a tree layout algorithm. The
 -- default algorithm is |breadth first spanning tree|.
 --
+\begin{codeexample}[setup code,hidden]
+    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}
+\end{codeexample}
+--%
 --\begin{codeexample}[]
 --\tikz \graph [tree layout, breadth first spanning tree]
 --{
 --  1 -- {2,3,4,5} -- 6;
 --};
 --\end{codeexample}
+--%
 --\begin{codeexample}[]
 --\tikz \graph [tree layout, depth first spanning tree]
 --{

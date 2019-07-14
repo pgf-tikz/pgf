@@ -51,7 +51,8 @@ declare {
       HuffmanNode/.style={/tikz/.cd,circle,inner sep=0pt,outer sep=0pt,draw,minimum size=3pt}
     }
 
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing,quotes}
+    \usegdlibrary{examples}}]
 \tikz \graph [simple Huffman layout,
               level distance=7mm, sibling distance=8mm, grow'=up]
 {
@@ -178,6 +179,7 @@ function SimpleHuffman:run()
     %
     Ok, we are mainly done now. Finish by computing vertical placements
     and do formal cleanup.
+    %
 \begin{codeexample}[code only, tikz syntax=false]
   layered.arrange_layers_by_baselines(layers, self.adjusted_bb, self.ugraph)
 end
