@@ -161,6 +161,7 @@ local function walk(sourcedir, targetdir)
                     examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                     examplefile:write"\\begin{document}\n"
 --                    examplefile:write"\\makeatletter\n" -- TODO: this has to go
+
                     local pre = options["pre"] or ""
                     pre = pre:gsub("##", "#")
                     examplefile:write(pre .. "\n")

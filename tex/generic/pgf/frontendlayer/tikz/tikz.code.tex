@@ -148,6 +148,42 @@
   \expandafter\def\expandafter\tikz@dashpattern\expandafter{\tikz@dashpattern{#1}}%
   \pgfutil@ifnextchar\@nil{\pgfutil@gobble}{\tikz@scandashon}}%
 
+% use a decoration to expand the `off' section of a dash pattern.
+% https://tex.stackexchange.com/a/133357
+\tikzset{
+    dash expand off/.code={%
+        \ifcsname tikz@library@decorations@loaded\endcsname\else
+            \tikzerror{You need \string\usetikzlibrary{decorations} for ``dash offexpand''}%
+        \fi
+        \tikz@addoption{%
+            \pgfgetpath\currentpath
+            \pgfprocessround{\currentpath}{\currentpath}%
+            \pgf@decorate@parsesoftpath{\currentpath}{\currentpath}%
+            % Parse \on and \off from the current path
+            \edef\on{\expandafter\pgfutil@firstoftwo\tikz@dashpattern}%
+            \edef\off{\expandafter\pgfutil@secondoftwo\tikz@dashpattern}%
+            % \dashphase = max(\on - \dashphase, 0)
+            \pgfmathsubtract@{\on}{\tikz@dashphase}%
+            \pgfmathmax@{\pgfmathresult}{0}%
+            \edef\dashphase{\the\dimexpr\pgfmathresult pt\relax}%
+            % \rest = \pgf@decorate@totalpathlength - \on
+            \edef\rest{\expandafter\pgf@sys@tonumber\dimexpr\pgf@decorate@totalpathlength - \on + 2\dimexpr\dashphase\relax\relax}%
+            % \onoff = \on + \off
+            \edef\onoff{\expandafter\pgf@sys@tonumber\dimexpr\on+\off\relax}%
+            % \nfullonoff = max(floor(\rest/\onoff), 1)
+            \pgfmathdivide@{\rest}{\onoff}%
+            \pgfmathfloor@{\pgfmathresult}%
+            \pgfmathmax@{\pgfmathresult}{1}%
+            % \offexpand = max(\rest/\nfullonoff - \on, \off)
+            \pgfmathdivide@{\rest}{\pgfmathresult}%
+            \pgfmathsubtract@{\pgfmathresult}{\on}%
+            \pgfmathmax@{\pgfmathresult}{\off}%
+            \edef\tikz@marshal{\noexpand\pgfsetdash{{\on}{\pgfmathresult}}{\dashphase}}%
+            \tikz@marshal
+        }%
+    }
+}
+
 \tikzoption{draw opacity}{\tikz@addoption{\pgfsetstrokeopacity{#1}}}%
 
 % Double draw options
@@ -1586,6 +1622,7 @@
 
 % ID callbacks
 \newif\iftikz@is@node
+\let\tikz@id@name\pgfutil@empty
 \let\tikz@id@hook\pgfutil@empty
 \def\tikz@call@id@hook{\ifx\tikz@id@hook\pgfutil@empty\else\tikz@id@hook\pgfuseid{\tikz@id@name}\fi}%
 
