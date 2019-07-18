@@ -14,10 +14,12 @@ local documentation = require 'pgf.gd.doc'.documentation
 local summary       = require 'pgf.gd.doc'.summary
 local example       = require 'pgf.gd.doc'.example
 
+--[[
 \begin{codeexample}[setup code,hidden]
     \usetikzlibrary{graphs,graphdrawing}
     \usegdlibrary{circular}
 \end{codeexample}
+--]]
 --------------------------------------------------------------------
 key          "simple necklace layout"
 

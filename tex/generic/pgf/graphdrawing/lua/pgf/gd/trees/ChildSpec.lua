@@ -37,10 +37,12 @@
 --   \item When you use the |child| syntax, you can use the |missing| key
 --     with the |child| command to indicate a missing child:
 --     %
+--[[
 \begin{codeexample}[setup code,hidden]
     \usetikzlibrary{graphs,graphdrawing}
     \usegdlibrary{trees}
 \end{codeexample}
+--]]
 --     %
 -- \begin{codeexample}[]
 -- \tikz [binary tree layout, level distance=5mm]
