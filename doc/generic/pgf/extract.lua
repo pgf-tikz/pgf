@@ -1,22 +1,3 @@
--- TODO: this has to go
-local preamble = [[
-\usetikzlibrary{3d,arrows,arrows.spaced,arrows.meta,bending,babel,calc,
-  fit,patterns,plotmarks,shapes.geometric,shapes.misc,shapes.symbols,
-  shapes.arrows,shapes.callouts,shapes.multipart,shapes.gates.logic.US,
-  shapes.gates.logic.IEC,circuits.logic.US,circuits.logic.IEC,
-  circuits.logic.CDH,circuits.ee.IEC,datavisualization,
-  datavisualization.polar,datavisualization.formats.functions,er,automata,
-  backgrounds,chains,topaths,trees,petri,mindmap,matrix,calendar,folding,
-  fadings,shadings,spy,through,turtle,positioning,scopes,
-  decorations.fractals,decorations.shapes,decorations.text,
-  decorations.pathmorphing,decorations.pathreplacing,decorations.footprints,
-  decorations.markings,shadows,lindenmayersystems,intersections,
-  fixedpointarithmetic,fpu,svg.path,external,graphs,graphs.standard,quotes,
-  math,angles,views,animations,rdf,perspective}
-\usetikzlibrary{graphdrawing}
-\usegdlibrary{trees,circular,layered,examples,force,phylogenetics,routing}
-]]
-
 local lfs = require("lfs")
 local lpeg = require("lpeg")
 local C, Cf, Cg, Ct, P, S, V = lpeg.C, lpeg.Cf, lpeg.Cg, lpeg.Ct, lpeg.P, lpeg.S, lpeg.V
@@ -156,11 +137,10 @@ local function walk(sourcedir, targetdir)
 
                     examplefile:write"\\documentclass{standalone}\n"
                     examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
---                    examplefile:write(preamble) -- TODO: this has to go
                     examplefile:write(setup_code)
                     examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                     examplefile:write"\\begin{document}\n"
---                    examplefile:write"\\makeatletter\n" -- TODO: this has to go
+
                     local pre = options["pre"] or ""
                     pre = pre:gsub("##", "#")
                     examplefile:write(pre .. "\n")
