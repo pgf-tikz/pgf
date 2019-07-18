@@ -47,10 +47,12 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @end
 
+--[[
 \begin{codeexample}[setup code,hidden]
     \usetikzlibrary{graphs,graphdrawing}
     \usegdlibrary{trees}
 \end{codeexample}
+--]]
 
 ---
 
