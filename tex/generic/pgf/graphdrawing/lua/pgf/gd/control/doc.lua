@@ -98,9 +98,11 @@ sense that some nodes are ``nailed to the canvas'' while other
 nodes can ``move freely''.
 ]]
 
+[[
 % TODOsp: codeexamples: the following 3 examples need these libraries
 %    \usetikzlibrary{graphs,graphdrawing}
 %    \usegdlibrary{force}
+]]
 example
 [[
 \begin{tikzpicture}
@@ -165,9 +167,11 @@ Note how in the last example |c| is placed at |(1,1)| rather than
 |b| as would happen by default.
 ]]
 
+[[
 % TODOsp: codeexamples: the following 4 examples need these libraries
 %    \usetikzlibrary{graphs,graphdrawing}
 %    \usegdlibrary{layered}
+]]
 example
 [[
 \tikz \draw (0,0)
