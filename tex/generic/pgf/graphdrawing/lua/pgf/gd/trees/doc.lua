@@ -292,9 +292,9 @@ example
   };
 ]]
 
-[[
+--[[
 % TODOsp: codeexamples: the next example needs the library `arrows.spaced`
-]]
+--]]
 example
 [[
 \tikz \graph [binary tree layout] {
