@@ -137,10 +137,10 @@ local function walk(sourcedir, targetdir)
 
                     examplefile:write"\\documentclass{standalone}\n"
                     examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
-                    examplefile:write(setup_code)
                     examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
                     examplefile:write"\\begin{document}\n"
 
+                    examplefile:write(setup_code)
                     local pre = options["pre"] or ""
                     pre = pre:gsub("##", "#")
                     examplefile:write(pre .. "\n")
