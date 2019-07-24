@@ -14,12 +14,6 @@ local documentation = require 'pgf.gd.doc'.documentation
 local summary       = require 'pgf.gd.doc'.summary
 local example       = require 'pgf.gd.doc'.example
 
---[[
-\begin{codeexample}[setup code,hidden]
-    \usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{circular}
-\end{codeexample}
---]]
 --------------------------------------------------------------------
 key          "simple necklace layout"
 
@@ -50,7 +44,9 @@ clockwise). The order of the nodes is the order in which they appear
 in the graph, the edges are not taken into consideration, unless the
 |componentwise| option is given.
 %
-\begin{codeexample}[preamble={\tikzlibrary{arrows.spaced}}]
+\begin{codeexample}[
+    preamble={\usetikzlibrary{arrows.spaced,graphs,graphdrawing}
+    \usegdlibrary{circular}}]
 \tikz[>=spaced stealth']
   \graph [simple necklace layout, grow'=down, node sep=1em,
           nodes={draw,circle}, math nodes]
@@ -65,14 +61,16 @@ decomposed into connected components, which are then laid out
 individually and packed using the usual component packing
 mechanisms:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{circular}}]
 \tikz \graph [simple necklace layout] {
   a -- b -- c -- d -- a,
   1 -- 2 -- 3 -- 1
 };
 \end{codeexample}
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{circular}}]
 \tikz \graph [simple necklace layout, componentwise] {
   a -- b -- c -- d -- a,
   1 -- 2 -- 3 -- 1

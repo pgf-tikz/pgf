@@ -47,13 +47,6 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @end
 
---[[
-\begin{codeexample}[setup code,hidden]
-    \usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{trees}
-\end{codeexample}
---]]
-
 ---
 
 declare {
@@ -92,7 +85,8 @@ declare {
         the first node of the component encountered during specification
         of the component.
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=first node]
   { a, b -- c, d -- e[second] -- f };
@@ -105,13 +99,15 @@ declare {
         between the maximum and minimum value that the projected nodes
         have on the shift line.
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=center]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=center]
@@ -125,13 +121,15 @@ declare {
         through the center of the node whose center has the highest
         projected value.
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=counterclockwise]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=counterclockwise]
@@ -144,13 +142,15 @@ declare {
 
         Works like |counterclockwise|, only in the other direction:
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component align=clockwise]
   { a, b -- c, d -- e[second] -- f };
 \end{codeexample}
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [binary tree layout, nodes={draw},
               component direction=90,
               component align=clockwise]
@@ -166,7 +166,8 @@ declare {
         packing, this means that the components are aligned so that the
         bounding boxes of the components are aligned at the top.
         %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [tree layout, nodes={draw, align=center},
               component sep=0pt,
               component align=counterclockwise]

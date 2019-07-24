@@ -23,13 +23,6 @@ local declare       = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 --
 -- @end
 
---[[
-\begin{codeexample}[setup code,hidden]
-    \usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{trees}
-\end{codeexample}
---]]
-
 ---
 
 declare {
@@ -48,7 +41,8 @@ declare {
         are then shifted such that the padding (separating distance)
         between the two boxes is the current value of |component sep|.
         %
-        \begin{codeexample}[]
+        \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
         \tikz \graph [tree layout, nodes={draw}, component sep=0pt,
                       component packing=rectangular]
           { a -- long text, longer text -- b};
@@ -66,7 +60,8 @@ declare {
         padding |component sep| can be used to avoid the nodes actually
         touching each other.
         %
-        \begin{codeexample}[]
+        \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
         \tikz \graph [tree layout, nodes={draw}, component sep=0pt,
                       level distance=1.5cm,
                       component packing=skyline]
@@ -95,7 +90,8 @@ declare {
         which the line was moved. This means that the holes are ``filled
         up by slanted roofs''.
         %
-        \begin{codeexample}[]
+        \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
         \begin{tikzpicture}
           \graph [tree layout, nodes={draw}, component sep=0pt,
                   component packing=skyline]

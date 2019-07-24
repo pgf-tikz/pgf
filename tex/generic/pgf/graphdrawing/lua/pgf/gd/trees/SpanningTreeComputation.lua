@@ -35,22 +35,17 @@
 -- Selects the (sub)algorithm that is to be used for computing spanning
 -- trees whenever this is requested by a tree layout algorithm. The
 -- default algorithm is |breadth first spanning tree|.
---
---[[
-\begin{codeexample}[setup code,hidden]
-    \usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{trees}
-\end{codeexample}
---]]
 --%
---\begin{codeexample}[]
+--\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{trees}}]
 --\tikz \graph [tree layout, breadth first spanning tree]
 --{
 --  1 -- {2,3,4,5} -- 6;
 --};
 --\end{codeexample}
 --%
---\begin{codeexample}[]
+--\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{trees}}]
 --\tikz \graph [tree layout, depth first spanning tree]
 --{
 --  1 --[bend right] {2,3,4,5 [>bend left]} -- 6;
