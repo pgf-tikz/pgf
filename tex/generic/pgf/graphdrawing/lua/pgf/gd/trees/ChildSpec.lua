@@ -37,14 +37,8 @@
 --   \item When you use the |child| syntax, you can use the |missing| key
 --     with the |child| command to indicate a missing child:
 --     %
---[[
-\begin{codeexample}[setup code,hidden]
-    \usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{trees}
-\end{codeexample}
---]]
---     %
--- \begin{codeexample}[]
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{trees}}]
 -- \tikz [binary tree layout, level distance=5mm]
 -- \node {a}
 -- child { node {b}
@@ -63,7 +57,8 @@
 --     which really must be completely empty and may not even contain a
 --     slash, to indicate a missing node:
 --     %
--- \begin{codeexample}[]
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{trees}}]
 -- \tikz [binary tree layout, level distance=5mm]
 -- \graph { a -> { b -> c -> d, e -> { , f -> { , g} } } };
 -- \end{codeexample}
