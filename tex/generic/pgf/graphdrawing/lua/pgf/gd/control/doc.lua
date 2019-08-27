@@ -31,7 +31,8 @@ Now, when you set this key for a single node of a graph,
 then, by shifting the graph around, this ``wish'' can obviously
 always be fulfill:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{force}}]
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -41,7 +42,8 @@ always be fulfill:
 \end{tikzpicture}
 \end{codeexample}
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{force}}]
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -61,7 +63,8 @@ by a graph drawing algorithm.) A nice side effect of this is that
 you can use the |x| and |y| keys (see
 Section~\ref{section-graphs-xy}) to specify desired positions:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{force}}]
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [spring layout]
@@ -71,7 +74,8 @@ Section~\ref{section-graphs-xy}) to specify desired positions:
 \end{tikzpicture}
 \end{codeexample}
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={    \usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{layered}}]
 \begin{tikzpicture}
   \draw [help lines] (0,0) grid (3,2);
   \graph [layered layout]
@@ -94,6 +98,11 @@ sense that some nodes are ``nailed to the canvas'' while other
 nodes can ``move freely''.
 ]]
 
+--[[
+% TODOsp: codeexamples: the following 3 examples need these libraries
+%    \usetikzlibrary{graphs,graphdrawing}
+%    \usegdlibrary{force}
+--]]
 example
 [[
 \begin{tikzpicture}
@@ -158,6 +167,11 @@ Note how in the last example |c| is placed at |(1,1)| rather than
 |b| as would happen by default.
 ]]
 
+--[[
+% TODOsp: codeexamples: the following 4 examples need these libraries
+%    \usetikzlibrary{graphs,graphdrawing}
+%    \usegdlibrary{layered}
+--]]
 example
 [[
 \tikz \draw (0,0)

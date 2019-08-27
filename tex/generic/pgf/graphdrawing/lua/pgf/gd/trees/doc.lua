@@ -83,7 +83,8 @@ When the subtrees of the children of a node are arranged, each
 position with a missing child is treated as if a zero-width,
 zero-height subtree were present at that positions:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz [tree layout, nodes={draw,circle}]
   \node {r}
     child { node {a}
@@ -95,7 +96,8 @@ zero-height subtree were present at that positions:
 %
 or in |graph| syntax:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
   \tikz \graph [tree layout, nodes={draw,circle}]
   {
     r -> {
@@ -109,7 +111,8 @@ or in |graph| syntax:
 %
 More than one child can go missing:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [tree layout, nodes={draw,circle}, sibling sep=0pt]
   { r -> { a, , ,b -> {c,d}, ,e} };
 \end{codeexample}
@@ -122,7 +125,8 @@ root node, they are usually \emph{not} considered as part of the
 key ensures that |b|, |c|, |e|, and |f| all have a missing right
 child):
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [tree layout, minimum number of children=2,
               nodes={draw,circle}]
   { a -> { b -> c -> d, e -> f -> g } };
@@ -136,7 +140,8 @@ Br\"uggemann-Klein and Wood have proposed an extension of the
 Reingold--Tilford method that is intended to better highlight the
 overall structure of a tree. Consider the following two trees:
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz [baseline=(a.base), tree layout, minimum number of children=2,
        sibling distance=5mm, level distance=5mm]
   \graph [nodes={circle, inner sep=0pt, minimum size=2mm, fill, as=}]{
@@ -165,7 +170,8 @@ minimum distance is encountered on any level other than the first
 level. Thus, in the first example there is no significant pair,
 while in the second example |a| and |b| form such a pair.
 %
-\begin{codeexample}[]
+\begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+    \usegdlibrary{trees}}]
 \tikz \graph [tree layout, minimum number of children=2,
                level distance=5mm, nodes={circle,draw}]
   { / -> { a -> / -> /, b -> /[second] -> /[second] }};
@@ -287,6 +293,9 @@ example
   };
 ]]
 
+--[[
+% TODOsp: codeexamples: the next example needs the library `arrows.spaced`
+--]]
 example
 [[
 \tikz \graph [binary tree layout] {

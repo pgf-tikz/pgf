@@ -14,8 +14,6 @@
 local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 
 
-
-
 ---
 -- @section subsubsection {Start Configuration}
 --
@@ -23,17 +21,19 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- random distribution of the vertices. You can influence it by
 -- changing the |random seed|:
 -- %
---\begin{codeexample}[]
---\tikz \graph [random seed=10, spring layout] {
---  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
---};
---\end{codeexample}
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{force}}]
+-- \tikz \graph [random seed=10, spring layout] {
+--   a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
+-- };
+-- \end{codeexample}
 -- %
---\begin{codeexample}[]
---\tikz \graph [random seed=11, spring layout] {
---  a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
---};
---\end{codeexample}
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+--    \usegdlibrary{force}}]
+-- \tikz \graph [random seed=11, spring layout] {
+--   a -- {b, c, d} -- e -- f -- {g,h} -- {a,b,e};
+-- };
+-- \end{codeexample}
 --
 -- Other methods, like a planar preembedding, are not implemented
 -- currently.
