@@ -48,7 +48,7 @@ example
 [[
 \tikz [nodes={text height=.7em, text depth=.2em,
               draw=black!20, thick, fill=white, font=\footnotesize},
-       >=spaced stealth', rounded corners, semithick]
+       >={Stealth[round,sep]}, rounded corners, semithick]
   \graph [FMMMLayout, node sep=1mm, variation=2] {
     "5th Edition" -> { "6th Edition", "PWB 1.0" };
     "6th Edition" -> { "LSX",  "1 BSD", "Mini Unix", "Wollongong", "Interdata" };

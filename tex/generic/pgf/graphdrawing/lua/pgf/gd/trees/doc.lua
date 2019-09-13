@@ -294,7 +294,7 @@ example
 ]]
 
 --[[
-% TODOsp: codeexamples: the next example needs the library `arrows.spaced`
+% TODOsp: codeexamples: the next example needs the library `arrows.meta`
 --]]
 example
 [[
@@ -304,7 +304,7 @@ example
     Tobin -> Plass -> { Lamport, Spivak }
   }
 };\qquad
-\tikz [>=spaced stealth']
+\tikz [>={Stealth[round,sep]}]
   \graph [binary tree layout, grow'=right, level sep=1.5em,
           nodes={right, fill=blue!50, text=white, chamfered rectangle},
                  edges={decorate,decoration={snake, post length=5pt}}]

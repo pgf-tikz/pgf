@@ -50,7 +50,7 @@ example
 [[
 \tikz [nodes={text height=.7em, text depth=.2em,
               draw=black!20, thick, fill=white, font=\footnotesize},
-       >=spaced stealth', rounded corners, semithick]
+       >={Stealth[round,sep]}, rounded corners, semithick]
   \graph [SugiyamaLayout, FastSimpleHierarchyLayout, grow=-80,
        level distance=1.5cm, sibling distance=7mm] {
     "5th Edition" -> { "6th Edition", "PWB 1.0" };

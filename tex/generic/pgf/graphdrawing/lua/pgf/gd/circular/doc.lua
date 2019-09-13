@@ -45,9 +45,9 @@ in the graph, the edges are not taken into consideration, unless the
 |componentwise| option is given.
 %
 \begin{codeexample}[
-    preamble={\usetikzlibrary{arrows.spaced,graphs,graphdrawing}
+    preamble={\usetikzlibrary{arrows.meta,graphs,graphdrawing}
     \usegdlibrary{circular}}]
-\tikz[>=spaced stealth']
+\tikz[>={Stealth[round,sep]}]
   \graph [simple necklace layout, grow'=down, node sep=1em,
           nodes={draw,circle}, math nodes]
   {
