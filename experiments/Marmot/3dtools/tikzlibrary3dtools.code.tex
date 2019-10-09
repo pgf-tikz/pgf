@@ -7,7 +7,7 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 \ProvidesFileRCS{tikzlibrary3dtools.code.tex}
-\usetikzlibrary{fpu}% to do: ability to switch on and off
+\usetikzlibrary{fpu,decorations}% to do: ability to switch on and off
 \usepackage{calculator}% maybe drop
 \makeatletter%
 \def\extractpgfversionaux#1.#2.#3|#4#5#6;{\def#4{#1}\def#5{#2}\def#6{#3}}%
@@ -296,6 +296,371 @@ insert path={(\pgfmathresult) coordinate #1}}}%
 \else
 \pgfmathprintnumber\pgf@tmp
 \fi}%
-}
+}%
+\newif\ifcoil@closed%
+\pgfkeys{%%
+/pgf/decoration/.cd,%
+3d coil color/.store in=\TDCoilColor, %
+3d coil color/.initial=black,%
+3d coil color=black,%
+3d coil width/.store in=\TDCoilWidth, %
+3d coil width/.initial=0.4pt,%
+3d coil width=0.4pt,%
+3d coil dist/.store in=\TDCoilDist, %
+3d coil dist/.initial=0.6pt,%
+3d coil dist=0.6pt,%
+3d coil opacity/.store in=\TDCoilOpacity, %
+3d coil opacity/.initial=1,%
+3d coil opacity=1,%
+3d coil closed/.code=\coil@closedtrue%
+}%
+% https://tex.stackexchange.com/a/219088/121799%
+\tikzset{get stroke color/.code={%%
+    \expandafter\global% Jump over, now we have \global%
+    \expandafter\let% Jump over now we have \global\let%
+    \expandafter\pgfsavedstrokecolor% Jump we have \global\let\pgf...%
+    \csname\string\color@pgfstrokecolor\endcsname% Finally expand this and put it at the end %
+    },                                           % \global\let\pgf...{} in expanded form %
+    restore stroke color/.code={\pgf@setstrokecolor#1},%
+}%
+\def\pgfpoint@onthreedcoil#1#2#3{%%
+  \pgf@x=#1\pgfdecorationsegmentamplitude%%
+  \pgf@x=\pgfdecorationsegmentaspect\pgf@x%%
+  \pgf@y=#2\pgfdecorationsegmentamplitude%%
+  \pgf@xa=0.083333333333\pgfdecorationsegmentlength%%
+  \advance\pgf@x by#3\pgf@xa%%
+  \advance\pgf@x by-\generaloffset pt%%
+}%
+% coil decoration%
+%%
+% Parameters: \pgfdecorationsegmentamplitude, \pgfdecorationsegmentlength,%
+\pgfdeclaredecoration{3d complete coil}{initial}%
+{ %
+    \state{initial}[width=0.5*\pgfdecorationsegmentlength,%
+    next state=coil, persistent precomputation={% from https://tex.stackexchange.com/a/25689/121799%
+    \pgfmathsetmacro\matchinglength{\pgfdecoratedinputsegmentlength / int(\pgfdecoratedinputsegmentlength/\pgfdecorationsegmentlength)}%
+    \setlength{\pgfdecorationsegmentlength}{\matchinglength pt}%
+    \tikzset{get stroke color}%
+    \pgfmathsetmacro{\generaloffset}{\pgfdecorationsegmentlength}%
+    \pgfmathsetmacro{\initialoffset}{1.5*\pgfdecorationsegmentlength}%
+    \pgfmathsetmacro{\auxoffset}{2.5*\pgfdecorationsegmentlength}%
+  }]    { %
+    % line in the back%
+    %%
+    \pgfsetstrokecolor{\TDCoilColor}%
+    \pgfsetfillcolor{\TDCoilColor}%
+    \pgfsetstrokeopacity{\TDCoilOpacity}%
+    \pgfsetlinewidth{\TDCoilWidth}     %
+    \ifcoil@closed%
+     \begingroup%
+      \def\generaloffset{\auxoffset}%
+      \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+      \pgfpathcurveto%
+      {\pgfpoint@onthreedcoil{1.555}{ 1    }{16}}%
+      {\pgfpoint@onthreedcoil{2    }{ 0.555}{17}}%
+      {\pgfpoint@onthreedcoil{2    }{ 0    }{18}}%
+      \pgfcoordinate{TD@coilast}{\pgfpoint@onthreedcoil{2    }{ 0    }{18}}%
+      \pgfcoordinate{TD@coilfirst}{\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+      \pgfusepath{stroke} %
+      \pgfsetstrokecolor{\TDCoilColor}%
+     \endgroup%
+    \fi%
+    \begingroup %%
+    \def\generaloffset{\initialoffset}%
+    \ifcoil@closed%
+     \pgfpathmoveto{\pgfpointanchor{TD@coilast}{center}}%
+    \else%
+     \pgfpathmoveto{\pgfpointorigin}%
+    \fi%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{2    }{-0.555}{7}}%
+    {\pgfpoint@onthreedcoil{1.555}{-1    }{8}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke} %
+    %%
+    % white background for front thick part%
+    %%
+    \pgfsetstrokeopacity{1}%
+    \pgfsetstrokecolor{white}%
+    \pgfsetfillcolor{white}%
+    \pgfsetlinewidth{1.5*\TDCoilWidth+1.5*\TDCoilDist}%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    % draw forward%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+    {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    % draw the curve back%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke,fill} %
+    % %
+    % draw the thick foreground path%
+    %%
+    \pgfsetstrokecolor{\TDCoilColor}%
+    \pgfsetfillcolor{\TDCoilColor}%
+    \pgfsetstrokeopacity{\TDCoilOpacity}%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+    \pgfsetlinewidth{\TDCoilWidth} %
+    % forward shifted +%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+    {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    % draw the curve back shfted -%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke,fill} %
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{1.555}{ 1    }{16}}%
+    {\pgfpoint@onthreedcoil{2    }{ 0.555}{17}}%
+    {\pgfpoint@onthreedcoil{2    }{ 0    }{18}}%
+    \pgfcoordinate{TD@coilast}{\pgfpoint@onthreedcoil{2    }{ 0    }{18}} %
+    \pgfusepath{stroke}     %
+    \endgroup%
+  }%
+  \state{coil}[switch if less than=%%
+    1.9*\pgfdecorationsegmentlength  to last,%
+               width=+\pgfdecorationsegmentlength]%
+    { % line in the back%
+    %%
+    \pgfsetstrokecolor{\TDCoilColor}%
+    \pgfsetfillcolor{\TDCoilColor}%
+    \pgfsetstrokeopacity{\TDCoilOpacity}%
+    \pgfpathmoveto{\pgfpointanchor{TD@coilast}{center}}%
+    \pgfsetlinewidth{\TDCoilWidth} %
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{2    }{-0.555}{7}}%
+    {\pgfpoint@onthreedcoil{1.555}{-1    }{8}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke} %
+    %%
+    % white background for front thick part%
+    %%
+    \pgfsetstrokeopacity{1}%
+    \pgfsetstrokecolor{white}%
+    \pgfsetfillcolor{white}%
+    \pgfsetlinewidth{1.5*\TDCoilWidth+1.5*\TDCoilDist}%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    % draw forward%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+    {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    % draw the curve back%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke,fill} %
+    % %
+    % draw the thick foreground path%
+    %%
+    \pgfsetstrokecolor{\TDCoilColor}%
+    \pgfsetfillcolor{\TDCoilColor}%
+    \pgfsetstrokeopacity{\TDCoilOpacity}%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+    \pgfsetlinewidth{\TDCoilWidth} %
+    % forward shifted +%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+    {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    % draw the curve back shfted -%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+    {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+    {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke,fill} %
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{1.555}{ 1    }{16}}%
+    {\pgfpoint@onthreedcoil{2    }{ 0.555}{17}}%
+    {\pgfpoint@onthreedcoil{2    }{ 0    }{18}}%
+    \pgfusepath{stroke} %
+    \pgfcoordinate{TD@coilast}{\pgfpoint@onthreedcoil{2    }{ 0    }{18}} %
+  }%
+  \state{last}[next state=final]%
+    { % line in the back%
+    %%
+    \pgfsetstrokecolor{\TDCoilColor}%
+    \pgfsetfillcolor{\TDCoilColor}%
+    \pgfsetstrokeopacity{\TDCoilOpacity}%
+    \pgfpathmoveto{\pgfpointanchor{TD@coilast}{center}}%
+    \pgfsetlinewidth{\TDCoilWidth} %
+    \pgfpathcurveto%
+    {\pgfpoint@onthreedcoil{2    }{-0.555}{7}}%
+    {\pgfpoint@onthreedcoil{1.555}{-1    }{8}}%
+    {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+    \pgfusepath{stroke} %
+    % %
+    % draw the thick foreground path%
+    %%
+    \ifcoil@closed %\pgfpointanchor{TD@coilfirst}{center}%
+     %%
+     % white background for front thick part%
+     %%
+     \pgfsetstrokeopacity{1}%
+     \pgfsetstrokecolor{white}%
+     \pgfsetfillcolor{white}%
+     \pgfsetlinewidth{1.5*\TDCoilWidth+1.5*\TDCoilDist}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     % draw forward%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+     {\pgfpointanchor{TD@coilfirst}{center}}%
+     % draw the curve back%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfusepath{stroke,fill} %
+     \pgfsetstrokecolor{\TDCoilColor}%
+     \pgfsetfillcolor{\TDCoilColor}%
+     \pgfsetstrokeopacity{\TDCoilOpacity}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+     \pgfsetlinewidth{\TDCoilWidth} %
+     % forward shifted +%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+     {\pgfpointanchor{TD@coilfirst}{center}}%
+     % draw the curve back shifted %
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfusepath{stroke,fill} %
+    \else%
+     %%
+     % white background for front thick part%
+     %%
+     \pgfsetstrokeopacity{1}%
+     \pgfsetstrokecolor{white}%
+     \pgfsetfillcolor{white}%
+     \pgfsetlinewidth{1.5*\TDCoilWidth+1.5*\TDCoilDist}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     % draw forward%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+     {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+     % draw the curve back%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfusepath{stroke,fill} %
+     \pgfsetstrokecolor{\TDCoilColor}%
+     \pgfsetfillcolor{\TDCoilColor}%
+     \pgfsetstrokeopacity{\TDCoilOpacity}%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{3}}%
+     \pgfsetlinewidth{\TDCoilWidth} %
+     % forward shifted +%
+     \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{11.25}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{12.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{13.25}}%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14.25}}%
+     {\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+     % draw the curve back shifted %
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0.445}{ 1    }{14}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0.555}{12.75}}%
+     {\pgfpoint@onthreedcoil{0    }{ 0    }{11.5}}%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{0    }{-0.555}{10.75}}%
+     {\pgfpoint@onthreedcoil{0.445}{-1    }{10}}%
+     {\pgfpoint@onthreedcoil{1    }{-1    }{9}}%
+     \pgfusepath{stroke,fill} %
+    \fi%
+    \pgfpathmoveto{\pgfpoint@onthreedcoil{1    }{ 1    }{15}}%
+    \ifcoil@closed %TD@coilfirst%
+    \else%
+     \pgfpathcurveto%
+     {\pgfpoint@onthreedcoil{1.555}{ 1    }{16}}%
+     {\pgfpoint@onthreedcoil{2    }{ 0.555}{17}}%
+     {\pgfpoint@onthreedcoil{2    }{ 0    }{18}}%
+    \fi%
+    \pgfusepath{stroke} %
+    %\pgfcoordinate{TD@coilast}{\pgfpoint@onthreedcoil{2    }{ 0    }{18}} %
+  }%
+  \state{final}%
+  {%
+    \pgfpathmoveto{\pgfpointdecoratedpathlast}%
+    \tikzset{restore stroke color/.expand once=\pgfsavedstrokecolor}%
+  }%
+}%
 \makeatother
 \endinput
