@@ -32,6 +32,7 @@ tlmgr install \
       graphics-def \
       hyperref \
       ifluatex \
+      iftex \
       ifxetex \
       imakeidx \
       latex \
