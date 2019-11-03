@@ -720,7 +720,7 @@
 % Collects tokens inside of a token list up to a single delimiting token, dealing with nested
 % catcode-12-braces.
 %
-% #1: is the end token, the delimiter. It won't be collected.
+% #1: list of tokens, each of which is marking the end. It won't be collected.
 % #2: is code to invoke after
 % \pgfmanualprettyprinterhandlecollectedargsVtwo has been invoked.
 %
@@ -742,8 +742,9 @@
 %
 \def\pgfmanualprettyprintercollectupto#1#2{%
     \pgfmanualprettyprinterarghasunmatchedbracesfalse
+    \def\pgfmanualprettyprinterterminator{}%
     \begingroup
-    \def\pgfmanual@loc@delimittoken{#1}%
+    \def\pgfmanual@loc@delimittokens{#1}%
     \toksdef\t@afterpgfmanualprettyprinterhandlecollected=10
     \t@afterpgfmanualprettyprinterhandlecollected={#2}%
     %
@@ -757,6 +758,12 @@
     %
     \pgfmanual@pretty@collectupto@loop
 }%
+
+% Stores the token that marks the end in the first argument of
+% \pgfmanualprettyprintercollectupto.  For example if the token list was {,]}
+% and ] was encountered first, then \pgfmanualprettyprinterterminator will
+% be ].
+\def\pgfmanualprettyprinterterminator{}
 
 % loops through all tokens, collecting the required number of
 % arguments. This involves to track nested braces manually.
@@ -794,11 +801,13 @@
                         \advance\c@pgfmanual@pretty@openbracecount by-1
                         \t@pgfmanual@currentarg=\expandafter{\the\t@pgfmanual@currentarg#1}%
                     \else
-                        \ifx\pgfmanual@loc@TMPc\pgfmanual@loc@delimittoken
+                        \expandafter\expandafter\expandafter\pgfutil@in@\expandafter\pgfmanual@loc@TMPc\expandafter{\pgfmanual@loc@delimittokens}%
+                        \ifpgfutil@in@
                             \ifnum\c@pgfmanual@pretty@openbracecount=0
                                 % do NOT include the delimit token.
                                 \edef\pgfmanual@pretty@collectupto@loop@NEXT{%
                                     \noexpand\endgroup
+                                    \noexpand\def\noexpand\pgfmanualprettyprinterterminator{\pgfmanual@loc@TMPc}%
                                     \noexpand\pgfmanualprettyprinterhandlecollectedargsVtwo{\the\t@pgfmanual@currentarg}{1}%
                                     \noexpand\pgfmanualprettyprintercollectupto@restore@callback
                                     \the\t@afterpgfmanualprettyprinterhandlecollected
@@ -1053,7 +1062,7 @@
         \if\pgfmanual@pretty@isconsumed0%
             \def\pgfmanualprettyprinterhandlecollectedargsVtwo##1##2{\pgfmanual@pretty@pgfkeys@processvalue{##1}}% the braces will be handled separately.
             \def\pgfmanual@pretty@pgfkeys@collectvalue@next{%
-                \pgfmanualprettyprintercollectupto,{\afterpgfmanual@pretty@collectargs@finish@value}#1%
+                \pgfmanualprettyprintercollectupto{,]}{\afterpgfmanual@pretty@collectargs@finish@value}#1%
             }%
         \fi
     \fi
@@ -1063,7 +1072,7 @@
     \pgfutil@ifnextchar\pgfmanual@EOI{%
         \pgfmanual@pretty@pgfkeys@loop
     }{%
-        \pgfmanual@pretty@pgfkeys@loop,% re-insert the gobbled comma here!
+        \expandafter\pgfmanual@pretty@pgfkeys@loop\pgfmanualprettyprinterterminator% re-insert the gobbled comma here!
     }%
 }%
 
