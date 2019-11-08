@@ -493,18 +493,31 @@
         \pgf@ya=\the\pgf@ya\space
     }%
     %
+    \let\pgf@intersect@next=\pgfutil@secondoftwo%
     % B := (2-1)
+    \pgfutil@ifsafetosubtract\pgf@xb\pgf@xa\pgf@iflinesintersect@i{}}
+\def\pgf@iflinesintersect@i{%
     \advance\pgf@xb by-\pgf@xa
+    \pgfutil@ifsafetosubtract\pgf@yb\pgf@ya\pgf@iflinesintersect@ii{}}
+\def\pgf@iflinesintersect@ii{%
     \advance\pgf@yb by-\pgf@ya
     %
     % A := (3-1)
+    \pgfutil@ifsafetosubtract\pgf@xa\pgf@xc\pgf@iflinesintersect@iii{}}
+\def\pgf@iflinesintersect@iii{%
     \advance\pgf@xa by-\pgf@xc
+    \pgfutil@ifsafetosubtract\pgf@ya\pgf@yc\pgf@iflinesintersect@iv{}}
+\def\pgf@iflinesintersect@iv{%
     \advance\pgf@ya by-\pgf@yc
     \pgf@xa=-\pgf@xa
     \pgf@ya=-\pgf@ya
     %
     % C := (3-4)
+    \pgfutil@ifsafetosubtract\pgf@xc\pgf@x\pgf@iflinesintersect@v{}}
+\def\pgf@iflinesintersect@v{%
     \advance\pgf@xc by-\pgf@x
+    \pgfutil@ifsafetosubtract\pgf@yc\pgf@y\pgf@iflinesintersect@vi{}}
+\def\pgf@iflinesintersect@vi{%
     \advance\pgf@yc by-\pgf@y
     %
     \begingroup
@@ -513,12 +526,14 @@
     % line 1: compute |#2 - #1|_1 :
     \ifdim\pgf@xb<0sp \pgf@xb=-\pgf@xb\fi
     \ifdim\pgf@yb<0sp \pgf@yb=-\pgf@yb\fi
+    % Note: no safe addition here! We allow \pgf@xb to overflow, as stripping it of the pt below does not trigger the `dimension too large` error, and `\pgf@intersect@len@a` is only used as the factor in a dimen assignment.
     \advance\pgf@xb by\pgf@yb
     \xdef\pgf@intersect@len@a{\pgf@sys@tonumber\pgf@xb}%
     %
     % line 2: compute |#3 - #4|_1 :
     \ifdim\pgf@xc<0sp \pgf@xc=-\pgf@xc\fi
     \ifdim\pgf@yc<0sp \pgf@yc=-\pgf@yc\fi
+    % Note: no safe addition here! (see above)
     \advance\pgf@xc by\pgf@yc
     \xdef\pgf@intersect@len@b{\pgf@sys@tonumber\pgf@xc}%
     \endgroup
@@ -534,7 +549,6 @@
     }%
     \pgf@marshal
     %
-    \let\pgf@intersect@next=\pgfutil@secondoftwo%
     \ifx\pgfmathresult\pgfutil@empty
         % matrix was singular.
     \else
@@ -552,13 +566,14 @@
             % <=>  |s| * ||#2 - #1|| < eps
             % and, since s< 0  here:
             % <=>  -s * ||#2 - #1|| < eps
-            \pgf@xa=-\pgf@intersect@len@a\pgf@x
-            \ifdim\pgf@xa<\pgfintersectiontolerance\relax
-                % close enough to first endpoint of line 1:
-                \def\pgf@marshal{1}%
-            \else
-                \def\pgf@marshal{0}%
-            \fi
+            \def\pgf@marshal{0}%
+            \pgfutil@ifsafetomultiplybynumber\pgf@intersect@len@a\pgf@x{%
+                \pgf@xa=-\pgf@intersect@len@a\pgf@x
+                \ifdim\pgf@xa<\pgfintersectiontolerance\relax
+                    % close enough to first endpoint of line 1:
+                    \def\pgf@marshal{1}%
+                \fi
+            }{}%
         \else
             \ifdim\pgf@x>1pt
                 % let it count as hit if
@@ -566,14 +581,17 @@
                 % <=>  |s-1| * ||#2 - #1|| < eps
                 % and, since s > 1  here:
                 % <=>  s * ||#2 - #1|| - ||#2 - #1|| < eps
-                \pgf@xa=\pgf@intersect@len@a\pgf@x
-                \advance\pgf@xa by-\pgf@intersect@len@a pt %
-                \ifdim\pgf@xa<\pgfintersectiontolerance\relax
-                    % close enough to second endpoint of line 1:
-                    \def\pgf@marshal{1}%
-                \else
-                    \def\pgf@marshal{0}%
-                \fi
+                \def\pgf@marshal{0}%
+                \pgfutil@ifsafetomultiplybynumber\pgf@intersect@len@a\pgf@x{%
+                    \pgf@xa=\pgf@intersect@len@a\pgf@x
+                    \pgfutil@ifsafetosubtract\pgf@xa{\pgf@intersect@len@a pt}{%
+                        \advance\pgf@xa -\pgf@intersect@len@a pt %
+                        \ifdim\pgf@xa<\pgfintersectiontolerance\relax
+                            % close enough to second endpoint of line 1:
+                            \def\pgf@marshal{1}%
+                        \fi
+                    }{}%
+                }{}%
             \else
                 % 0<= s <= 1: we have an intersection within line 1.
                 \def\pgf@marshal{1}%
@@ -584,24 +602,28 @@
         \if1\pgf@marshal
             \ifdim\pgf@y<0sp
                 % see remarks for line 1. same applies here.
-                \pgf@xa=-\pgf@intersect@len@b\pgf@y
-                \ifdim\pgf@xa<\pgfintersectiontolerance\relax
-                    % close enough to first endpoint of line 2:
-                    \def\pgf@marshal{1}%
-                \else
-                    \def\pgf@marshal{0}%
-                \fi
+                \def\pgf@marshal{0}%
+                \pgfutil@ifsafetomultiplybynumber\pgf@intersect@len@b\pgf@y{%
+                    \pgf@xa=-\pgf@intersect@len@b\pgf@y
+                    \ifdim\pgf@xa<\pgfintersectiontolerance\relax
+                        % close enough to first endpoint of line 2:
+                        \def\pgf@marshal{1}%
+                    \fi
+                }{}%
             \else
                 \ifdim\pgf@y>1pt
                     % see remarks for line 1. same applies here.
-                    \pgf@xa=\pgf@intersect@len@b\pgf@y
-                    \advance\pgf@xa by-\pgf@intersect@len@b pt %
-                    \ifdim\pgf@xa<\pgfintersectiontolerance\relax
-                        % close enough to second endpoint of line 2:
-                        \def\pgf@marshal{1}%
-                    \else
-                        \def\pgf@marshal{0}%
-                    \fi
+                    \def\pgf@marshal{0}%
+                    \pgfutil@ifsafetomultiplybynumber\pgf@intersect@len@b\pgf@y{%
+                        \pgf@xa=\pgf@intersect@len@b\pgf@y
+                        \pgfutil@ifsafetosubtract\pgf@xa{\pgf@intersect@len@b pt}{%
+                            \advance\pgf@xa -\pgf@intersect@len@b pt %
+                            \ifdim\pgf@xa<\pgfintersectiontolerance\relax
+                                % close enough to second endpoint of line 2:
+                                \def\pgf@marshal{1}%
+                            \fi
+                        }{}%
+                    }{}%
                 \else
                     % 0<= t <= 1: we have an intersection within line 2.
                     \def\pgf@marshal{1}%
@@ -615,17 +637,85 @@
             % keep in mind that (s,t) == (\pgf@x,\pgf@y)
             \pgf@intersect@A
             \pgf@yc=\pgf@x
-            \global\pgf@x=\pgf@sys@tonumber\pgf@xb\pgf@yc
-            \global\pgf@y=\pgf@sys@tonumber\pgf@yb\pgf@yc
-            \global\advance\pgf@x by \pgf@xa
-            \global\advance\pgf@y by \pgf@ya
-            \let\pgf@intersect@next=\pgfutil@firstoftwo%
+            \pgfutil@ifsafetomultiply\pgf@xb\pgf@yc{%
+                \global\pgf@x=\pgf@sys@tonumber\pgf@xb\pgf@yc
+                \pgfutil@ifsafetomultiply\pgf@yb\pgf@yc{%
+                    \global\pgf@y=\pgf@sys@tonumber\pgf@yb\pgf@yc
+                    \pgfutil@ifsafetoadd\pgf@x\pgf@xa{%
+                        \global\advance\pgf@x by \pgf@xa
+                        \pgfutil@ifsafetoadd\pgf@y\pgf@ya{%
+                            \global\advance\pgf@y by \pgf@ya
+                            \let\pgf@intersect@next=\pgfutil@firstoftwo%
+                        }{}%
+                    }{}%
+                }{}%
+            }{}%
         \fi
     \fi
 }%
 
+% Test if the given dimensions can be added / subtracted / multiplied.
+% #1,#2: the dimensions (either registers or values)
+% #3/#4: code if the test is successful/unsuccessful
+%        (the success code must still perform the operation)
+\newdimen\pgfutil@ifsafeto@dima
+\newdimen\pgfutil@ifsafeto@dimb
+% In case of an overflow, \ifpgf@dimen@overflow is set (globally) to true as well.
+\def\pgfutil@ifsafetoadd#1#2{%
+    \pgfutil@ifsafeto{#1}{#2}{2}{\advance\pgfutil@ifsafeto@dima\pgfutil@ifsafeto@dimb}{.5\maxdimen}}
+\def\pgfutil@ifsafetosubtract#1#2{%
+    \pgfutil@ifsafeto{#1}{#2}{2}{\advance\pgfutil@ifsafeto@dima-\pgfutil@ifsafeto@dimb}{.5\maxdimen}}
+\def\pgfutil@ifsafetomultiply#1#2{%
+    \pgfutil@ifsafeto{#1}{#2}{128}{\pgfutil@ifsafeto@dima\pgf@sys@tonumber\pgfutil@ifsafeto@dima\pgfutil@ifsafeto@dimb\relax}{1pt}}
+\newif\ifpgf@dimen@overflow
+\def\pgfutil@ifsafeto#1#2#3#4#5{%
+    \pgfutil@ifsafeto@dima #1\relax
+    \pgfutil@ifsafeto@dimb #2\relax
+    \divide\pgfutil@ifsafeto@dima #3\relax
+    \divide\pgfutil@ifsafeto@dimb #3\relax
+    \advance\pgfutil@ifsafeto@dima 0.00001pt
+    \advance\pgfutil@ifsafeto@dimb 0.00001pt
+    #4\relax
+    \ifdim\pgfutil@ifsafeto@dima<0pt
+        \pgfutil@ifsafeto@dima-\pgfutil@ifsafeto@dima\relax
+    \fi
+    \ifdim\pgfutil@ifsafeto@dima<#5\relax
+        \expandafter\pgfutil@firstoftwo
+    \else
+        \global\pgf@dimen@overflowtrue
+        \expandafter\pgfutil@secondoftwo
+    \fi
+}
 
-
+\def\pgfutil@ifsafeto@getcount#1.#2.{#1}
+\newcount\pgfutil@ifsafeto@counta
+\def\pgfutil@ifsafetomultiplybynumber#1{%
+    \pgfutil@ifsafeto@counta\expandafter\pgfutil@ifsafeto@getcount#1.%
+    \ifnum\pgfutil@ifsafeto@counta<16384
+        \expandafter\pgfutil@ifsafetomultiplybynumber@i
+    \else
+        \expandafter\pgfutil@ifsafetomultiply
+    \fi
+    {#1pt}%
+}
+\def\pgfutil@ifsafetomultiplybynumber@i#1#2{%
+    \pgfutil@ifsafeto@dimb #2\relax
+    \advance\pgfutil@ifsafeto@counta 1
+    \divide\pgfutil@ifsafeto@counta 128
+    \divide\pgfutil@ifsafeto@dimb 128
+    \advance\pgfutil@ifsafeto@counta 1
+    \advance\pgfutil@ifsafeto@dimb 0.00001pt
+    \pgfutil@ifsafeto@dima\pgfutil@ifsafeto@counta\pgfutil@ifsafeto@dimb\relax
+    \ifdim\pgfutil@ifsafeto@dima<0pt
+        \pgfutil@ifsafeto@dima-\pgfutil@ifsafeto@dima\relax
+    \fi
+    \ifdim\pgfutil@ifsafeto@dima<1pt\relax
+        \expandafter\pgfutil@firstoftwo
+    \else
+        \global\pgf@dimen@overflowtrue
+        \expandafter\pgfutil@secondoftwo
+    \fi
+}
 
 \def\pgfintersectionoflineandcurve#1#2#3#4#5#6{%
     \pgf@intersect@solutions=0\relax%
