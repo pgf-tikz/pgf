@@ -26,6 +26,7 @@ tlmgr install \
       dvips \
       dvisvgm \
       ec \
+      epstopdf-pkg \
       fp \
       geometry \
       graphics \
@@ -49,6 +50,7 @@ tlmgr install \
       mfware \
       ms \
       oberdiek \
+      pdftexcmds \
       psnfss \
       symbol \
       tex4ht \
