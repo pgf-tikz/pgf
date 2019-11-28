@@ -32,9 +32,7 @@ tlmgr install \
       graphics \
       graphics-def \
       hyperref \
-      ifluatex \
       iftex \
-      ifxetex \
       imakeidx \
       latex \
       latex-bin \
@@ -44,6 +42,7 @@ tlmgr install \
       luaotfload \
       luatex \
       luatexbase \
+      luaxml \
       make4ht \
       makeindex \
       metafont \
