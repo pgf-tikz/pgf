@@ -52,6 +52,7 @@ tlmgr install \
       oberdiek \
       pdftexcmds \
       psnfss \
+      stringenc \
       symbol \
       tex4ht \
       texlive-scripts \
