@@ -34,6 +34,7 @@ tlmgr install \
       hyperref \
       iftex \
       imakeidx \
+      kvoptions \
       latex \
       latex-bin \
       listings \
