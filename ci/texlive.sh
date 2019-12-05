@@ -37,6 +37,7 @@ tlmgr install \
       kvoptions \
       latex \
       latex-bin \
+      letltxmacro \
       listings \
       lm \
       luainputenc \
