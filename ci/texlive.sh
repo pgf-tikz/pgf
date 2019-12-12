@@ -19,6 +19,9 @@ fi
 tlmgr install \
       amsfonts \
       amsmath \
+      atbegshi \
+      atveryend \
+      bitset \
       colortbl \
       courier \
       ctablestack \
@@ -51,8 +54,10 @@ tlmgr install \
       mfware \
       ms \
       oberdiek \
+      pdfescape \
       pdftexcmds \
       psnfss \
+      rerunfilecheck \
       stringenc \
       symbol \
       tex4ht \
