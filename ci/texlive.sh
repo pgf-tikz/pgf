@@ -21,6 +21,7 @@ tlmgr install \
       amsmath \
       atbegshi \
       atveryend \
+      bigintcalc \
       bitset \
       colortbl \
       courier \
@@ -30,19 +31,26 @@ tlmgr install \
       dvisvgm \
       ec \
       epstopdf-pkg \
+      etexcmds \
       fp \
       geometry \
+      gettitlestring \
       graphics \
       graphics-def \
+      hycolor \
       hyperref \
       iftex \
       imakeidx \
+      intcalc \
+      kvdefinekeys \
       kvoptions \
+      kvsetkeys \
       latex \
       latex-bin \
       letltxmacro \
       listings \
       lm \
+      ltxcmds \
       luainputenc \
       luaotfload \
       luatex \
@@ -57,6 +65,7 @@ tlmgr install \
       pdfescape \
       pdftexcmds \
       psnfss \
+      refcount \
       rerunfilecheck \
       stringenc \
       symbol \
@@ -66,6 +75,7 @@ tlmgr install \
       todonotes \
       tools \
       url \
+      uniquecounter \
       xcolor \
       xetex \
       xkeyval \
