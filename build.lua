@@ -154,7 +154,7 @@ local function manual()
         },
         xetex = {
             latex = "xelatex --no-pdf --interaction=nonstopmode --halt-on-error pgfmanual.tex",
-            postaction = "xdvipdfmx -p a4 pgfmanual.dvi"
+            postaction = "xdvipdfmx -p a4 pgfmanual.xdv"
         }
     }
 
@@ -188,7 +188,7 @@ local function manual()
 
         for _, line in ipairs(log) do
             if string.match(line, "There were undefined references") or
-                string.match(line, "Rerun to get cross%-references right") or 
+                string.match(line, "Rerun to get cross%-references right") or
                 string.match(line, "Rerun to get the bars right") then
                 rerun = true
                 break
@@ -205,10 +205,17 @@ local function manual()
 
     -- Run the postaction
     if type(enginesettings[engine].postaction) == "string" then
-        os.execute(enginesettings[engine].postaction)
+        local action = enginesettings[engine].postaction
+        local success, exit, signal = os.execute(action)
+        if not success then
+            error("There were errors during \"" .. tostring(action) .. "\"")
+        end
     elseif type(enginesettings[engine].postaction) == "table" then
         for _, action in ipairs(enginesettings[engine].postaction) do
-            os.execute(action)
+            local success, exit, signal = os.execute(action)
+            if not success then
+                error("There were errors during \"" .. tostring(action) .. "\"")
+            end
         end
     end
 
@@ -376,7 +383,7 @@ tasks.help = function()
     print("Available commands:")
     for task in pairs(tasks) do
         print("  " .. task)
-    end 
+    end
 end
 local task = tasks[arg[1] or "help"]
 task()
