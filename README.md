@@ -44,8 +44,7 @@ these steps:
 $ git clone https://github.com/pgf-tikz/pgf
 $ tlmgr init-usertree --usertree pgf
 $ export TEXMFHOME=`realpath pgf`
-$ cd pgf/doc/generic/pgf/version-for-luatex/en/
-$ make
+$ texlua build.lua manual luatex
 ```
 We recommend building at least the version for LuaTeX, as shown in the
 example above because this has the broadest coverage of PGF features.
