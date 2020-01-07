@@ -15,6 +15,9 @@ if ! command -v texlua > /dev/null; then
   cd ..
 fi
 
+# Update infra first
+tlmgr update --self
+
 # Install all the required packages
 tlmgr install \
       amsfonts \
@@ -74,8 +77,8 @@ tlmgr install \
       times \
       todonotes \
       tools \
-      url \
       uniquecounter \
+      url \
       xcolor \
       xetex \
       xkeyval \
