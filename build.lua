@@ -268,7 +268,7 @@ local function generate_FILES()
     return files
 end
 
-local function generate_TDSzip()
+local function generate_TDSzip(filename)
     local files = generate_FILES()
 
     -- write FILES
@@ -293,16 +293,16 @@ local function generate_TDSzip()
     end
 
     -- zip it all up
-    local zipfile = "pgf_" .. git.tag .. ".tds.zip"
+    local zipfile = filename or ("pgf_" .. git.tag .. ".tds.zip")
     local filelist = table.concat(files, " ")
     os.execute(table.concat({"zip", zipfile, filelist}, " "))
 
     return zipfile
 end
 
-local function generate_CTANzip()
+local function generate_CTANzip(filename)
     local files = generate_FILES()
-    local tds = generate_TDSzip()
+    local tds = generate_TDSzip("pgf.tds.zip")
 
     local tmproot = tmpdir()
     local tmppgf = tmproot .. "pgf/"
@@ -362,7 +362,7 @@ local function generate_CTANzip()
     lfs.copy(tds, tmproot .. tds)
 
     -- Pack zipfile
-    local ctanzip = "pgf_" .. git.tag .. ".ctan.flatdir.zip"
+    local ctanzip = filename or ("pgf_" .. git.tag .. ".ctan.flatdir.zip")
     local cwd = lfs.currentdir()
     lfs.chdir(tmproot)
     os.execute(table.concat({"zip -r", cwd .. "/" .. ctanzip, "."}, " "))
