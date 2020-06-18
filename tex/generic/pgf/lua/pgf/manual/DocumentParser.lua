@@ -159,7 +159,17 @@ local function process_examples(t)
 
   local n = {}
   for i=1,#t do
-    n[i] = process_string(strip_quotes(t[i]))
+    local code, options
+    if type(t[i]) == "table" then
+      code = assert(t[i].code)
+      options = t[i].options
+    else
+      code = t[i]
+    end
+    n[i] = {
+      options = process_string(strip_quotes(options)),
+      code = process_string(strip_quotes(code))
+    }
   end
   return n
 end
@@ -391,8 +401,9 @@ DocumentParser.addRenderer (
       print_on_output(output,
                       "\\par\\smallskip\\emph{Example" .. (((#e>1) and "s") or "") .. "}\\par")
       for _,example in ipairs(e) do
-        print_on_output(output, "\\begin{codeexample}[]")
-        print_lines_on_output(output, example)
+        local opts = table.concat(example.options or {}, "")
+        print_on_output(output, "\\begin{codeexample}[" .. opts .. "]")
+        print_lines_on_output(output, example.code)
         print_on_output(output, "\\end{codeexample}")
       end
     end
@@ -417,8 +428,12 @@ DocumentParser.addRenderer (
 
 
 function print_lines_on_output(output, lines)
-  for _,l in ipairs(lines or {}) do
-    output[#output+1] = l
+  for n,l in ipairs(lines or {}) do
+    if (n == 1 or n == #lines) and l == "" then
+       -- skip leading and trailing blank lines
+    else
+      output[#output+1] = l
+    end
   end
 end
 
