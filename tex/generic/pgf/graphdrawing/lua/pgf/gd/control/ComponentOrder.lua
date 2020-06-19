@@ -58,15 +58,26 @@ declare {
         As above, but in decreasing order.
     \end{itemize}
   "]],
-  examples = {[["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  component order=by first specified node]
-      { a, b, c, f -- g, c -- d -- e };
-  "]],[["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  component order=increasing node number]
-      { a, b, c -- d -- e, f -- g };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
+      code = [["
+        \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                      component order=by first specified node]
+          { a, b, c, f -- g, c -- d -- e };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                      component order=increasing node number]
+          { a, b, c -- d -- e, f -- g };
+      "]]
+    }
   }
 }
 
@@ -94,11 +105,19 @@ declare {
   summary = [["
     A shorthand for |component order=decreasing node number|.
   "]],
-  examples = [["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  large components first]
-      { a, b, c -- d -- e, f -- g };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                    large components first]
+        { a, b, c -- d -- e, f -- g };
+    "]]
+  }}
 }
 
 
