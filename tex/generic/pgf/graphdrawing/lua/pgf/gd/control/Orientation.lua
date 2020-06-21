@@ -85,6 +85,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout]
         {
@@ -150,6 +156,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout] {
           a [orient=down, orient tail=h] -- { b, c, d, e -- {f, g, h} };
@@ -190,6 +202,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout] { a -- b -- c -- a };
         \tikz \graph [spring layout, orient=10,
@@ -330,6 +348,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
       code = [["
         \tikz \graph [layered layout, grow=right, sibling distance=5mm]
         {
@@ -338,6 +362,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
       code = [["
         \tikz
           \graph [layered layout, grow=-80]

@@ -172,6 +172,9 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={\usetikzlibrary{graphs,graphdrawing}},
+      "]],
       code = [["
         \tikz \graph [no layout, nodes={draw, minimum size=20pt},
                       allow inside edges=false] {

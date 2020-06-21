@@ -115,6 +115,12 @@ declare {
           { 1--2--3--4--5--1 };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{circular}
+        },
+      "]],
       code = [["
         \tikz \graph [simple necklace layout, node distance=0cm, node sep=0mm,
                       nodes={circle,draw}]
@@ -326,12 +332,24 @@ declare {
           { 1--{2,3,4,5} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
                       nodes={circle,draw}]
           { 1--{2,3,4,5} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
                       nodes={circle,draw}]
@@ -487,6 +505,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
                       components go right top aligned,
