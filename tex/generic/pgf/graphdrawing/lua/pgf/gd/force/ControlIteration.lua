@@ -47,17 +47,32 @@ declare {
     The examples shows two drawings generated using two
     different |iteration| limits.
   "]],
-  examples = {[["
-    \tikz \graph [spring layout, iterations=10]  { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring layout, iterations=500] { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring electrical layout, iterations=10]
-      { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring electrical layout, iterations=500]
-      { subgraph K_n [n=4] };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs.standard,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
+      code = [["
+        \tikz \graph [spring layout, iterations=10]  { subgraph K_n [n=4] };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring layout, iterations=500] { subgraph K_n [n=4] };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring electrical layout, iterations=10]
+          { subgraph K_n [n=4] };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring electrical layout, iterations=500]
+          { subgraph K_n [n=4] };
+      "]]
+    }
   }
 }
 
@@ -97,13 +112,24 @@ declare {
     Hu2006 spring electrical, and Walshaw2000 spring electrical use a
     cooling factor of |0.95|.
   "]],
-  examples = {[["
-    \tikz \graph [spring layout, cooling factor=0.1]
-      { a -> b -> c -> a };
-  "]],[["
-    \tikz \graph [spring layout, cooling factor=0.5]
-      { a -> b -> c -> a };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
+      code = [["
+        \tikz \graph [spring layout, cooling factor=0.1]
+          { a -> b -> c -> a };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring layout, cooling factor=0.5]
+          { a -> b -> c -> a };
+      "]]
+    }
   }
 }
 
@@ -120,17 +146,24 @@ declare {
       below $k \cdot \meta{tolerance}$. This tolerance factor can be changed
       with the convergence tolerance option:
   "]],
-  examples = {[["
-    \tikz \graph [spring layout, convergence tolerance=0.001]
-      { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
-  "]],[["
-    \tikz \graph [spring layout, convergence tolerance=1.0]
-      { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
+      code = [["
+        \tikz \graph [spring layout, convergence tolerance=0.001]
+          { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring layout, convergence tolerance=1.0]
+          { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
+      "]]
+    }
   }
 }
-
-
-
-
 
