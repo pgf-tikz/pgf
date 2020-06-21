@@ -91,6 +91,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
       code = [["
         \tikz [rounded corners] \graph [layered layout, sibling distance=7mm]
         {
@@ -163,6 +169,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
       code = [["
         \tikz [rounded corners] \graph [layered layout] {
           1972 -> 1976 -> 1978 -> 1980 -> 1982 -> 1984 -> 1986 -> 1988 -> 1990 -> future;

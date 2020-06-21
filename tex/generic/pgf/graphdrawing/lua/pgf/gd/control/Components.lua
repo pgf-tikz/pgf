@@ -123,6 +123,12 @@ declare {
           };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{circular}
+        },
+      "]],
       code = [[",
         \tikz \graph [simple necklace layout, componentwise]
           {

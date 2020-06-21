@@ -147,6 +147,12 @@ declare {
         };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
       code = [["
         \tikz \graph [layered layout] {
           a -- {b,c,d} -- e --[weight=3] a;

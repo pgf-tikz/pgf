@@ -427,6 +427,12 @@ declare {
           { a, hello -- {world,s} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [tree layout, nodes={draw, align=center},
                       components go up absolute left aligned]

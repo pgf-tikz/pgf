@@ -52,12 +52,24 @@ declare {
           { a, b, c -- d -- e, f -- g };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
                       component direction=10]
           { a, b, c -- d -- e, f -- g };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
                       component direction=up]

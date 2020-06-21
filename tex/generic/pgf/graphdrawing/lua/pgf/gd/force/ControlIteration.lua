@@ -59,15 +59,33 @@ declare {
         \tikz \graph [spring layout, iterations=10]  { subgraph K_n [n=4] };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs.standard,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout, iterations=500] { subgraph K_n [n=4] };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs.standard,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring electrical layout, iterations=10]
           { subgraph K_n [n=4] };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs.standard,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring electrical layout, iterations=500]
           { subgraph K_n [n=4] };
@@ -125,6 +143,12 @@ declare {
           { a -> b -> c -> a };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout, cooling factor=0.5]
           { a -> b -> c -> a };
@@ -159,6 +183,12 @@ declare {
           { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring layout, convergence tolerance=1.0]
           { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };

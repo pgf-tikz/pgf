@@ -172,21 +172,45 @@ declare {
         { a -> b[second] };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [binary tree layout, level distance=5mm]
         { a -> { b[second], c} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [binary tree layout, level distance=5mm]
         { a -> { b, c[first]} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [binary tree layout, level distance=5mm]
         { a -> { b[second], c[second]} };
       "]]
     },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
       code = [["
         \tikz \graph [binary tree layout, level distance=5mm]
         { a -> { b[third], c[first], d} };
