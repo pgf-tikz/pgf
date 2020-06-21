@@ -41,7 +41,12 @@ declare {
   "]],
   examples = {
     {
-      options = [["preamble={\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force}}"]],
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs.standard,graphdrawing}
+          \usegdlibrary{force}
+        },
+      "]],
       code = [["
         \tikz \graph [spring electrical layout, horizontal=0 to 1]
           { 0 [electric charge=1] -- subgraph C_n [n=10] };

@@ -62,18 +62,26 @@ declare {
     desired distance, for instance in case the nodes are too big. In
     this case, the \meta{length} is just considered as a lower bound.
   "]],
-  examples = [["
-    \begin{tikzpicture}
-      \graph [simple necklace layout,  node distance=1cm, node sep=0pt,
-              nodes={draw,circle,as=.}]
-      {
-        1 -- 2 [minimum size=2cm] -- 3 --
-        4 -- 5 -- 6 -- 7 --[orient=up] 8
-      };
-      \draw [red,|-|] (1.center) -- ++(0:1cm);
-      \draw [red,|-|] (5.center) -- ++(180:1cm);
-    \end{tikzpicture}
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{circular}
+      },
+    "]],
+    code = [["
+      \begin{tikzpicture}
+        \graph [simple necklace layout, node distance=1cm, node sep=0pt,
+                nodes={draw,circle,as=.}]
+        {
+          1 -- 2 [minimum size=2cm] -- 3 --
+          4 -- 5 -- 6 -- 7 --[orient=up] 8
+        };
+        \draw [red,|-|] (1.center) -- ++(0:1cm);
+        \draw [red,|-|] (5.center) -- ++(180:1cm);
+      \end{tikzpicture}
+    "]]
+  }}
 }
 
 
@@ -94,14 +102,25 @@ declare {
     front''. This make sense only for some algorithms, like for a
     simple necklace layout.
   "]],
-  examples = {[["
-    \tikz \graph [simple necklace layout, node distance=0cm, nodes={circle,draw}]
-      { 1--2--3--4--5--1 };
-  "]],[["
-    \tikz \graph [simple necklace layout, node distance=0cm, node sep=0mm,
-                  nodes={circle,draw}]
-      { 1--2--3[node pre sep=5mm]--4--5[node pre sep=1mm]--1 };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{circular}
+        },
+      "]],
+      code = [["
+        \tikz \graph [simple necklace layout, node distance=0cm, nodes={circle,draw}]
+          { 1--2--3--4--5--1 };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [simple necklace layout, node distance=0cm, node sep=0mm,
+                      nodes={circle,draw}]
+          { 1--2--3[node pre sep=5mm]--4--5[node pre sep=1mm]--1 };
+      "]]
+    }
   }
 }
 
@@ -150,15 +169,23 @@ declare {
     instance in case the nodes are too big. In this case, the
     \meta{length} is just considered as a lower bound.
   "]],
-  examples = [["
-    \begin{tikzpicture}[inner sep=2pt]
-      \draw [help lines] (0,0) grid (3.5,2);
-      \graph [layered layout, level distance=1cm, level sep=0]
-        { 1 [x=1,y=2] -- 2 -- 3 -- 1 };
-      \graph [layered layout, level distance=5mm, level sep=0]
-        { 1 [x=3,y=2] -- 2 -- 3 -- 1, 3 -- {4,5} -- 6 -- 3 };
-    \end{tikzpicture}
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{layered}
+      },
+    "]],
+    code = [["
+      \begin{tikzpicture}[inner sep=2pt]
+        \draw [help lines] (0,0) grid (3.5,2);
+        \graph [layered layout, level distance=1cm, level sep=0]
+          { 1 [x=1,y=2] -- 2 -- 3 -- 1 };
+        \graph [layered layout, level distance=5mm, level sep=0]
+          { 1 [x=3,y=2] -- 2 -- 3 -- 1, 3 -- {4,5} -- 6 -- 3 };
+      \end{tikzpicture}
+    "]]
+  }}
 }
 
 ---
@@ -188,15 +215,23 @@ declare {
     behave like the ``padding'' keys rather
     than the ``margin'' key of cascading style sheets.
   "]],
-  examples = [["
-    \begin{tikzpicture}[inner sep=2pt, level sep=0pt, sibling distance=0pt]
-      \draw [help lines] (0,0) grid (3.5,2);
-      \graph [layered layout, level distance=0cm, nodes=draw]
-        { 1 [x=1,y=2] -- {2,3[level pre sep=1mm],4[level pre sep=5mm]} -- 5 };
-      \graph [layered layout, level distance=0cm, nodes=draw]
-        { 1 [x=3,y=2] -- {2,3,4} -- 5[level pre sep=5mm] };
-    \end{tikzpicture}
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{layered}
+      },
+    "]],
+    code = [["
+      \begin{tikzpicture}[inner sep=2pt, level sep=0pt, sibling distance=0pt]
+        \draw [help lines] (0,0) grid (3.5,2);
+        \graph [layered layout, level distance=0cm, nodes=draw]
+          { 1 [x=1,y=2] -- {2,3[level pre sep=1mm],4[level pre sep=5mm]} -- 5 };
+        \graph [layered layout, level distance=0cm, nodes=draw]
+          { 1 [x=3,y=2] -- {2,3,4} -- 5[level pre sep=5mm] };
+      \end{tikzpicture}
+    "]]
+  }}
 }
 
 ---
@@ -278,18 +313,31 @@ declare {
     For some layouts, like a simple necklace layout, the \meta{length} is
     measured as the distance on the circle.
   "]],
-  examples = {[["
-    \tikz \graph [tree layout, sibling distance=1cm, nodes={circle,draw}]
-      { 1--{2,3,4,5} };
-  "]],[["
-    \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
-                  nodes={circle,draw}]
-      { 1--{2,3,4,5} };
-  "]],[["
-    \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
-                  nodes={circle,draw}]
-      { 1--{2,3[sibling distance=1cm],4,5} };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
+      code = [["
+        \tikz \graph [tree layout, sibling distance=1cm, nodes={circle,draw}]
+          { 1--{2,3,4,5} };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
+                      nodes={circle,draw}]
+          { 1--{2,3,4,5} };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [tree layout, sibling distance=0cm, sibling sep=0pt,
+                      nodes={circle,draw}]
+          { 1--{2,3[sibling distance=1cm],4,5} };
+      "]]
+    }
   }
 }
 
@@ -304,11 +352,19 @@ declare {
   summary = [["
     Works like |level pre sep|, only for siblings.
   "]],
-  examples = [["
-    \tikz \graph [tree layout, sibling distance=0cm, nodes={circle,draw},
-                  sibling sep=0pt]
-      { 1--{2,3[sibling pre sep=1cm],4,5} };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [tree layout, sibling distance=0cm, nodes={circle,draw},
+                    sibling sep=0pt]
+        { 1--{2,3[sibling pre sep=1cm],4,5} };
+    "]]
+  }}
 }
 
 ---
@@ -412,25 +468,36 @@ declare {
     connected components will have when they are placed next to each
     other.
   "]],
-  examples = {[["
-    \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
-                  components go right top aligned,
-                  component sep=1pt, nodes=draw]
+  examples = {
     {
-      1 -> 2 -> {3->4[second]->5,6,7};
-      a -> b[second] -> c[second] -> d -> e;
-      x -> y[second] -> z -> u[second] -> v;
-    };
-  "]],[["
-    \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
-                  components go right top aligned,
-                  component sep=1em, nodes=draw]
-    {
-      1 -> 2 -> {3->4[second]->5,6,7};
-      a -> b[second] -> c[second] -> d -> e;
-      x -> y[second] -> z -> u[second] -> v;
-    };
-  "]]
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
+      code = [["
+        \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
+                      components go right top aligned,
+                      component sep=1pt, nodes=draw]
+        {
+          1 -> 2 -> {3->4[second]->5,6,7};
+          a -> b[second] -> c[second] -> d -> e;
+          x -> y[second] -> z -> u[second] -> v;
+        };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [binary tree layout, sibling distance=4mm, level distance=8mm,
+                      components go right top aligned,
+                      component sep=1em, nodes=draw]
+        {
+          1 -> 2 -> {3->4[second]->5,6,7};
+          a -> b[second] -> c[second] -> d -> e;
+          x -> y[second] -> z -> u[second] -> v;
+        };
+      "]]
+    }
   }
 }
 

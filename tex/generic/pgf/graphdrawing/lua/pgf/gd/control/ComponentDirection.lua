@@ -38,19 +38,32 @@ declare {
     by this option in any way. You can use the |grow| option or |orient|
     options to orient individual components.
   "]],
-  examples = {[["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  component direction=left]
-      { a, b, c -- d -- e, f -- g };
-  "]],[["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  component direction=10]
-      { a, b, c -- d -- e, f -- g };
-  "]],[["
-    \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
-                  component direction=up]
-       { a, b, c [grow=right] -- d -- e, f[grow=45] -- g };
-  "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{trees}
+        },
+      "]],
+      code = [["
+        \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                      component direction=left]
+          { a, b, c -- d -- e, f -- g };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                      component direction=10]
+          { a, b, c -- d -- e, f -- g };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [tree layout, nodes={inner sep=1pt,draw,circle},
+                      component direction=up]
+           { a, b, c [grow=right] -- d -- e, f[grow=45] -- g };
+      "]]
+    }
   }
 }
 
