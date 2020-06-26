@@ -200,7 +200,7 @@ local function manual()
     until(run == maxruns or not rerun)
 
     if run == maxruns and rerun then
-        error("Document did not converge after 5 runs!")
+        error("Document did not converge after " .. tostring(maxruns) .. " runs!")
     end
 
     -- Run the postaction
