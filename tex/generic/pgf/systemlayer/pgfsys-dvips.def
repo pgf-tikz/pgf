@@ -79,13 +79,34 @@
     /pgfc{newpath @endspecial pgfpd}bind def %close
     /pgfsd{globaldict /pgfdelta /delta where {pop delta} {0} ifelse put}bind def% save delta
     /pgfpd{/delta globaldict /pgfdelta get def}bind def % put delta
-    /.setopacityalpha where {pop} {/.setopacityalpha{pop}def} ifelse % install .setopacityalpha
+    /.setblendmode where {pop} {/.setblendmode{pop}def} ifelse % install .setblendmode
+    /.setfillconstantalpha where {%
+      pop /.setopacityalpha {.setfillconstantalpha} def%
+    } {%
+      /.setopacityalpha where {pop} {/.setopacityalpha {pop} def} ifelse% install .setopacityalpha (fallback)
+    } ifelse
     /.pgfsetfillopacityalpha{/pgffoa exch def
-      /pgffill{gsave pgffoa .setopacityalpha fill 1 .setopacityalpha newpath fill grestore newpath}bind def
-      /pgfeofill{gsave pgffoa .setopacityalpha eofill 1 .setopacityalpha newpath eofill grestore newpath}bind def}bind def
-    /.pgfsetstrokeopacityalpha{/pgfsoa exch def /pgfstr{gsave pgfsoa .setopacityalpha stroke grestore newpath}bind def}bind def
+      /.setfillconstantalpha where {pop pgffoa .setfillconstantalpha} {%
+        /pgffill{gsave pgffoa .setopacityalpha fill 1 .setopacityalpha newpath fill grestore newpath}bind def
+        /pgfeofill{gsave pgffoa .setopacityalpha eofill 1 .setopacityalpha newpath eofill grestore newpath}bind def%
+      } ifelse%
+    } bind def
+    /.pgfsetstrokeopacityalpha{/pgfsoa exch def
+      /.setstrokeconstantalpha where {pop pgfsoa .setstrokeconstantalpha} {%
+        /pgfstr{gsave pgfsoa .setopacityalpha stroke grestore newpath}bind def%
+      } ifelse%
+    }bind def
     /pgffoa 1 def
     /pgfsoa 1 def
+    % mandatory, transparency-related per-page operations, see
+    % https://www.ghostscript.com/doc/current/Language.htm#Transparency
+    % (bop-hook & eop-hook automatically executed if defined in userdict, see texdoc dvips)
+    /.pushpdf14devicefilter where {pop
+      [userdict /bop-hook known {userdict /bop-hook get aload pop} if
+        {0 .pushpdf14devicefilter} aload pop] cvx userdict exch /bop-hook exch put
+      [userdict /eop-hook known {userdict /eop-hook get aload pop} if
+        {.poppdf14devicefilter} aload pop] cvx userdict exch /eop-hook exch put%
+    } if
     end
   }%
 }
@@ -137,6 +158,30 @@
 \def\pgf@sys@pdf@mark@pos@pgfpageorigin{\pgfpointorigin}
 
 \fi
+
+%
+% Transparency groups
+%
+\def\pgfsys@transparencygroupfrombox#1{%
+  \special{ps:
+    mark /NamespacePush pdfmark % limit `{pgfxform}' name visibility
+    mark /_objdef {pgfxform} /BBox [clippath pathbbox newpath] /BP pdfmark
+    save gsave
+    /.setstrokeconstantalpha where
+      {pop 1 .pgfsetfillopacityalpha 1 .pgfsetstrokeopacityalpha} if
+  }%
+  \ht#1=0pt
+  \dp#1=0pt
+  \hskip\pgf@picminx\hbox to 0pt{\box#1\hss}%
+  \special{ps:
+    grestore restore
+    mark /EP pdfmark
+    mark {pgfxform} << /Group << /S /Transparency
+      /I \ifpgfsys@transparency@group@isolated true \else false \fi
+      /K \ifpgfsys@transparency@group@knockout true \else false \fi  >> >> /PUT pdfmark
+  }%
+  \setbox#1=\hbox{\special{ps: mark {pgfxform} /SP pdfmark mark /NamespacePop pdfmark}}%
+}
 
 \endinput
 
