@@ -37,8 +37,8 @@
 --     \newblock \emph{Configurable Graph Drawing Algorithms
 --       for the \tikzname\ Graphics Description Language,}
 --     \newblock Diploma Thesis,
---     \newblock Institute of Theoretical Computer Science, Universit\"at
---       zu L\"ubeck, 2011.\\[.5em]
+--     \newblock Institute of Theoretical Computer Science, Universität
+--       zu Lübeck, 2011.\\[.5em]
 --     \newblock Available online via
 --       \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/}\\
 --       \url{2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
@@ -91,4 +91,3 @@ require "pgf.gd.layered.node_ranking"
 require "pgf.gd.layered.crossing_minimization"
 require "pgf.gd.layered.node_positioning"
 require "pgf.gd.layered.edge_routing"
-

@@ -25,7 +25,7 @@ documentation
 The implementation used in CircularLayout is based on the following publication:
 %
 \begin{itemize}
-  \item Ugur Dogrus\"oz, Brendan Madden, Patrick Madden: Circular
+  \item Ugur Dogrusöz, Brendan Madden, Patrick Madden: Circular
     Layout in the Graph Layout Toolkit. \emph{Proc. Graph Drawing 1996,}
     LNCS 1190, pp. 92--100, 1997.
 \end{itemize}

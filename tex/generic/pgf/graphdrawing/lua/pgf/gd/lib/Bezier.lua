@@ -12,7 +12,7 @@
 
 
 ---
--- This library offers a number of methods for working with Bezi\'er
+-- This library offers a number of methods for working with Beziér
 -- curves.
 
 local Bezier = {}

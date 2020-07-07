@@ -93,8 +93,8 @@
 --     \newblock \emph{Configurable Graph Drawing Algorithms
 --       for the \tikzname\ Graphics Description Language,}
 --     \newblock Diploma Thesis,
---     \newblock Institute of Theoretical Computer Science, Universit\"at
---       zu L\"ubeck, 2011.\\[.5em]
+--     \newblock Institute of Theoretical Computer Science, Universität
+--       zu Lübeck, 2011.\\[.5em]
 --     \newblock Online at
 --       \url{http://www.tcs.uni-luebeck.de/downloads/papers/2011/}\\ \url{2011-configurable-graph-drawing-algorithms-jannis-pohlmann.pdf}
 -- \end{itemize}
@@ -123,4 +123,3 @@ require "pgf.gd.force.SpringElectricalLayouts"
 require "pgf.gd.force.SpringHu2006"
 require "pgf.gd.force.SpringElectricalHu2006"
 require "pgf.gd.force.SpringElectricalWalshaw2000"
-

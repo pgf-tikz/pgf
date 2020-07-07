@@ -39,12 +39,12 @@ introduces some nice extensions of the basic algorithm:
 %
 \begin{itemize}
   \item
-    A.\ Br\"uggemann-Klein, D.\ Wood,
+    A.\ Brüggemann-Klein, D.\ Wood,
     \newblock Drawing trees nicely with \TeX,
     \emph{Electronic Publishing,} 2(2), 101--115, 1989.
 \end{itemize}
 %
-As a historical remark, Br\"uggemann-Klein and Wood have implemented
+As a historical remark, Brüggemann-Klein and Wood have implemented
 their version of the Reingold--Tilford algorithm directly in \TeX\
 (resulting in the Tree\TeX\ style). With the power of Lua\TeX\ at
 our disposal, the 2012 implementation in the |graphdrawing.tree|
@@ -136,7 +136,7 @@ This behaviour of ``ignoring'' missing children in later stages of
 the recursion can be changed using the key |missing nodes get space|.
 
 \noindent\textbf{Significant Pairs of Siblings.}
-Br\"uggemann-Klein and Wood have proposed an extension of the
+Brüggemann-Klein and Wood have proposed an extension of the
 Reingold--Tilford method that is intended to better highlight the
 overall structure of a tree. Consider the following two trees:
 %
@@ -154,7 +154,7 @@ overall structure of a tree. Consider the following two trees:
   };
 \end{codeexample}
 %
-As observed by Br\"uggemann-Klein and Wood, the two trees are
+As observed by Brüggemann-Klein and Wood, the two trees are
 structurally quite different, but the Reingold--Tilford method
 places the nodes at exactly the same positions and only one edge
 ``switches'' positions. In order to better highlight the differences
@@ -279,7 +279,7 @@ This key executes:
 \end{enumerate}
 %
 In the examples, the last one is taken from the paper of
-Br\"uggemann-Klein and Wood. It demonstrates nicely the
+Brüggemann-Klein and Wood. It demonstrates nicely the
 advantages of having the full power of \tikzname's anchoring and the
 graph drawing engine's orientation mechanisms at one's disposal.
 ]]

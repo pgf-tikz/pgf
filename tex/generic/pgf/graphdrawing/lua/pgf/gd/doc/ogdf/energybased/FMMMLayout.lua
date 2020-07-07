@@ -31,7 +31,7 @@ evaluating potential fields.
 The implementation is based on the following publication:
 %
 \begin{itemize}
-  \item Stefan Hachul, Michael J\"unger: Drawing Large Graphs with
+  \item Stefan Hachul, Michael Jünger: Drawing Large Graphs with
     a Potential-Field-Based Multilevel Algorithm. \emph{12th
       International Symposium on Graph Drawing 1998 (GD '04)},
       New York, LNCS 3383, pp. 285--295, 2004.
