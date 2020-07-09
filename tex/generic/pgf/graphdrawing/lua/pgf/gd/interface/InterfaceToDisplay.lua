@@ -464,7 +464,7 @@ end
 --
 -- @param tail           Name of the node the edge begins at.
 -- @param head           Name of the node the edge ends at.
--- @param direction      Direction of the edge (e.g. |--| for an undirected edge
+-- @param direction      Direction of the edge (e.g.\ |--| for an undirected edge
 --                       or |->| for a directed edge from the first to the second
 --                       node).
 -- @param height         The option stack height, see for instance |createVertex|.

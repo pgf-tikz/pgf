@@ -32,7 +32,7 @@ documentation [[
   First of all note that the algorithm uses all pairs shortest path
   to compute the graph theoretic distance. This can be done either
   with BFS (ignoring node sizes) in quadratic time or by using
-  e.g. Floyd's algorithm in cubic time with given edge lengths
+  e.g.\ Floyd's algorithm in cubic time with given edge lengths
   that may reflect the node sizes. Also |m_computeMaxIt| decides
   if the computation is stopped after a fixed maximum number of
   iterations. The desirable edge length can either be set or computed
