@@ -9,7 +9,7 @@
 
 --- This is a subclass of ForceTemplate, which is used to implement forces
 -- that work on individual vertices. Forces of this kind simply add an
--- absolute value set in the force data to each vertex' $x$ and $y$ coordinate
+-- absolute value set in the force data to each vertex' $x$- and $y$- coordinate
 
 -- Imports
 local ForceTemplate = require "pgf.gd.force.jedi.base.ForceTemplate"

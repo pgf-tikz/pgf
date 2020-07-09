@@ -457,7 +457,7 @@ end
 --
 -- @return A table of coordinate-objects associated with vertices. The
 --          coordinate object hold the calculated net displacement for
---          the $x$ and $y$ coordinate.
+--          the $x$- and $y$-coordinate.
 function get_net_force(vertices, j, t_now, epoch)
   local net_forces = {}
   local natural_spring_length = options["node distance"]
