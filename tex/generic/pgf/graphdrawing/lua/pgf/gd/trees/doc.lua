@@ -132,7 +132,7 @@ child):
   { a -> { b -> c -> d, e -> f -> g } };
 \end{codeexample}
 %
-This behaviour of ``ignoring'' missing children in later stages of
+This behavior of ``ignoring'' missing children in later stages of
 the recursion can be changed using the key |missing nodes get space|.
 
 \noindent\textbf{Significant Pairs of Siblings.}
