@@ -80,6 +80,9 @@
 \let\tikz@lib@dec@te@wordcountvar=\pgfutil@empty
 \let\tikz@lib@dec@te@wordctotalvar=\pgfutil@empty
 \let\tikz@lib@dec@te@transformtext=\pgfutil@empty%
+\let\tikz@lib@dec@te@yvecendpoint=\pgfutil@empty
+\let\tikz@lib@dec@te@yvecangle=\pgfutil@empty
+\let\tikz@lib@dec@te@threedimraisevar=\pgfutil@empty
 
 
 % Keys... lots of them...
@@ -155,9 +158,21 @@
   text effects/.code={\pgfkeysalso{/pgf/decoration/text effects/.cd,#1}},
 }%
 
+% keys for 3d text
+\pgfkeys{%
+  /pgf/decoration/.cd,
+  3d raise/.store in=\tikz@lib@dec@te@threedimraisevar,
+  3d raise=0pt,
+  yvec/.code={\tikz@handle@vec{\tikz@lib@dec@te@yvec@point}{\tikz@lib@dec@te@yvec@angle}#1\relax}
+  yvec/.initial=90,
+}
 
-
-
+% Parse yvec
+% If #1 is an angle, save the angle as the direction of yvec
+% If #1 is a point, parse the point and save it in
+% `\tikz@lib@dec@te@yvecendpoint'
+\def\tikz@lib@dec@te@yvec@angle#1{\def\tikz@lib@dec@te@yvecanglebeforecorrection{#1}}
+\def\tikz@lib@dec@te@yvec@point#1{\def\tikz@lib@dec@te@yvecendpoint{#1}}%
 
 
 % Prepare the decoration text
@@ -676,6 +691,117 @@
   \tikz@lib@dec@te@drawcharacter%
 }%
 \state{post token}[width=+\tikz@lib@dec@te@characterpostwidth, next state=scan]{}%
+}%
+
+
+% 3d text along path
+\pgfdeclaredecoration{3d text along path}{initial}{%
+    \state{initial}[
+        width=+0pt, next state=left indent,
+        persistent precomputation={%
+            \edef\pgf@lib@dec@text@indent@left{\pgfkeysvalueof{/pgf/decoration/text align/left indent}}%
+            \edef\pgf@lib@dec@text@indent@right{\pgfkeysvalueof{/pgf/decoration/text align/right indent}}%
+            \edef\pgf@lib@dec@text@align{\pgfkeysvalueof{/pgf/decoration/text align/align}}%
+            \pgfdecoratedremainingdistance=\pgfdecoratedpathlength%
+        \advance\pgfdecoratedremainingdistance by-\pgf@lib@dec@text@indent@right\relax%
+        \edef\pgfdecoratedpathlength{\the\pgfdecoratedremainingdistance}%
+        \pgf@lib@dec@text@getwidth%
+        \pgf@x=\pgf@lib@dec@text@width\relax%
+        \pgf@y=\pgfdecoratedremainingdistance%
+        \ifpgf@lib@dec@text@fit%
+            \advance\pgf@y by-\pgf@lib@dec@text@indent@left\relax%
+            \advance\pgf@y by-\pgf@x%
+            \ifpgf@lib@dec@text@stretch@spaces%
+                \def\pgf@lib@dec@text@character@shift{0pt}%
+                \divide\pgf@y by\pgf@lib@dec@space@count\relax%
+                \edef\pgf@lib@dec@text@space@shift{\the\pgf@y}%
+            \else%
+                \c@pgf@counta=\pgf@lib@dec@character@count\relax%
+                \advance\c@pgf@counta by-1\relax%
+                \divide\pgf@y by\c@pgf@counta\relax%
+                \edef\pgf@lib@dec@text@character@shift{\the\pgf@y}%
+                \def\pgf@lib@dec@text@space@shift{0pt}%
+            \fi%
+            \ifdim\pgf@y<0pt\relax%
+                \pgf@lib@dec@text@fitfalse%
+                \pgf@lib@dec@text@stretch@spacesfalse%
+                \def\pgf@lib@dec@text@character@shift{0pt}%
+                \def\pgf@lib@dec@text@space@shift{0pt}%
+            \fi%
+        \else%
+            \def\pgf@lib@dec@text@character@shift{0pt}%
+            \def\pgf@lib@dec@text@space@shift{0pt}%
+                \ifx\pgf@lib@dec@text@align\pgf@lib@dec@text@left@text%
+                \else%
+                    \ifx\pgf@lib@dec@text@align\pgf@lib@dec@text@right@text%
+                        \advance\pgf@y by-\pgf@x%
+                        \edef\pgf@lib@dec@text@indent@left{\the\pgf@y}%
+                    \else%
+                        \advance\pgf@y by-\pgf@x%
+                        \advance\pgf@y by-\pgf@lib@dec@text@indent@left\relax%
+                        \pgf@y=0.5\pgf@y%
+                        \advance\pgf@y by\pgf@lib@dec@text@indent@left\relax%
+                        \edef\pgf@lib@dec@text@indent@left{\the\pgf@y}%
+                    \fi%
+                \fi%
+        \fi%
+        \let\pgfdecorationrestoftext=\pgfdecorationtext%
+    }]{}%
+\state{left indent}[width=+\pgf@lib@dec@text@indent@left, next state=scan]{}%
+%
+\state{scan}[
+    width=+0pt,
+    next state=before typeset,
+    persistent precomputation={
+        \pgf@lib@dec@text@scanchar%
+        \ifvoid\pgf@lib@dec@text@box%
+            \setbox\pgf@lib@dec@text@box\hbox{}%
+            \wd\pgf@lib@dec@text@box16383pt\relax%
+        \fi%
+}]{}%
+%
+\state{before typeset}[width=+.5\wd\pgf@lib@dec@text@box, next state=typeset]{}%
+%
+\state{typeset}[width=+0pt, next state=after typeset,
+  persistent precomputation={
+    \pgfmathanglebetweenpoints%
+    {\pgfpointlineatdistance{\pgfdecoratedinputsegmentcompleteddistance}{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@last}}%
+    {\tikz@lib@dec@te@yvecendpoint}%
+    \xdef\tikz@lib@dec@te@yvecangle{\pgfmathresult}
+  }
+]
+{%
+  \pgftransformxshift{+-.5\wd\pgf@lib@dec@text@box}%
+  \setbox\pgf@hbox\hbox{\copy\pgf@lib@dec@text@box}%
+  \pgftransformtriangle%
+  {\pgfpointxy{0}{0}}%
+  {\pgfpointxy{1}{0}}%
+  {\pgfpointpolar{\tikz@lib@dec@te@yvecangle-\pgfdecoratedangle}{1cm}}%
+  \pgftransformscale{0.035146}%
+  \pgfsetxvec{\pgfpointxy{1}{0}}%
+  \pgfsetyvec{\pgfpointxy{0}{1}}%
+  \pgfsetzvec{\pgfpointxy{0}{0}}%
+  \pgftransformshift{\pgfpoint{0pt}{\tikz@lib@dec@te@threedimraisevar}}
+  \pgfqboxsynced\pgf@hbox%
+}%
+\state{after typeset}[width=+.5\wd\pgf@lib@dec@text@box, next state=shift,
+    persistent precomputation={%
+    \ifpgf@lib@dec@text@fit%
+        \ifpgf@lib@dec@text@stretch@spaces%
+            \ifpgf@lib@dec@text@scan@space%
+                \let\pgf@lib@dec@text@shift=\pgf@lib@dec@text@space@shift%
+            \else%
+                \def\pgf@lib@dec@text@shift{0pt}%
+            \fi%
+        \else%
+            \let\pgf@lib@dec@text@shift=\pgf@lib@dec@text@character@shift%
+          \fi%
+        \else%
+            \def\pgf@lib@dec@text@shift{0pt}%
+      \fi%
+  }]{}%
+\state{shift}[width=+\pgf@lib@dec@text@shift, next state=scan]{}%
+\state{final}{}%
 }%
 
 
