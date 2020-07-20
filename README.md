@@ -43,7 +43,8 @@ these steps:
 ```console
 $ git clone https://github.com/pgf-tikz/pgf
 $ tlmgr init-usertree --usertree pgf
-$ export TEXMFHOME=`realpath pgf`
+$ export TEXMFHOME=$(readlink -f pgf)
+$ cd pgf
 $ texlua build.lua manual luatex
 ```
 We recommend building at least the version for LuaTeX, as shown in the
