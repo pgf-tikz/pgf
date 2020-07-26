@@ -20,6 +20,8 @@
 \def\tikz@lib@dec@align@right@text{right}%
 \def\tikz@lib@dec@align@center@text{center}%
 \def\tikz@lib@dec@te@none@text{none}%
+\def\tikz@lib@dec@te@yvecangle{90}
+\def\tikz@lib@dec@te@threedimraise{0pt}
 
 % Some ifs
 \newif\iftikz@lib@dec@te@pathfromtext%
@@ -28,6 +30,7 @@
 \newif\iftikz@lib@dec@te@fittexttopath%
 \newif\iftikz@lib@dec@te@wordsep%
 \newif\iftikz@lib@dec@te@finalletter%
+\newif\iftikz@lib@dec@te@yvecispoint
 
 
 % Utility macros
@@ -81,8 +84,6 @@
 \let\tikz@lib@dec@te@wordctotalvar=\pgfutil@empty
 \let\tikz@lib@dec@te@transformtext=\pgfutil@empty%
 \let\tikz@lib@dec@te@yvecendpoint=\pgfutil@empty
-\let\tikz@lib@dec@te@yvecangle=\pgfutil@empty
-\let\tikz@lib@dec@te@threedimraisevar=\pgfutil@empty
 
 
 % Keys... lots of them...
@@ -161,18 +162,23 @@
 % keys for 3d text
 \pgfkeys{%
   /pgf/decoration/.cd,
-  3d raise/.store in=\tikz@lib@dec@te@threedimraisevar,
+  3d raise/.store in=\tikz@lib@dec@te@threedimraise,
   3d raise=0pt,
   yvec/.code={\tikz@handle@vec{\tikz@lib@dec@te@yvec@point}{\tikz@lib@dec@te@yvec@angle}#1\relax}
-  yvec/.initial=90,
 }
 
 % Parse yvec
 % If #1 is an angle, save the angle as the direction of yvec
 % If #1 is a point, parse the point and save it in
 % `\tikz@lib@dec@te@yvecendpoint'
-\def\tikz@lib@dec@te@yvec@angle#1{\def\tikz@lib@dec@te@yvecanglebeforecorrection{#1}}
-\def\tikz@lib@dec@te@yvec@point#1{\def\tikz@lib@dec@te@yvecendpoint{#1}}%
+\def\tikz@lib@dec@te@yvec@angle#1{%
+  \tikz@lib@dec@te@yvecispointfalse%
+  \def\tikz@lib@dec@te@yvecangle{#1}%
+}%
+\def\tikz@lib@dec@te@yvec@point#1{%
+  \tikz@lib@dec@te@yvecispointtrue%
+  \def\tikz@lib@dec@te@yvecendpoint{#1}%
+}%
 
 
 % Prepare the decoration text
@@ -764,10 +770,12 @@
 %
 \state{typeset}[width=+0pt, next state=after typeset,
   persistent precomputation={
-    \pgfmathanglebetweenpoints%
-    {\pgfpointlineatdistance{\pgfdecoratedinputsegmentcompleteddistance}{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@last}}%
-    {\tikz@lib@dec@te@yvecendpoint}%
-    \xdef\tikz@lib@dec@te@yvecangle{\pgfmathresult}
+    \iftikz@lib@dec@te@yvecispoint
+      \pgfmathanglebetweenpoints%
+      {\pgfpointlineatdistance{\pgfdecoratedinputsegmentcompleteddistance}{\pgf@decorate@inputsegment@first}{\pgf@decorate@inputsegment@last}}%
+      {\tikz@lib@dec@te@yvecendpoint}%
+      \edef\tikz@lib@dec@te@yvecangle{\pgfmathresult}
+    \fi
   }
 ]
 {%
@@ -776,12 +784,17 @@
   \pgftransformtriangle%
   {\pgfpointxy{0}{0}}%
   {\pgfpointxy{1}{0}}%
-  {\pgfpointpolar{\tikz@lib@dec@te@yvecangle-\pgfdecoratedangle}{1cm}}%
+  {\pgfpointpolarxy{\tikz@lib@dec@te@yvecangle-\pgfdecoratedangle}{1}}%
   \pgftransformscale{0.035146}%
   \pgfsetxvec{\pgfpointxy{1}{0}}%
   \pgfsetyvec{\pgfpointxy{0}{1}}%
   \pgfsetzvec{\pgfpointxy{0}{0}}%
-  \pgftransformshift{\pgfpoint{0pt}{\tikz@lib@dec@te@threedimraisevar}}
+  \tikz@checkunit{\tikz@lib@dec@te@threedimraise}%
+  \iftikz@isdimension%
+    \pgftransformshift{\pgfpoint{0pt}{\tikz@lib@dec@te@threedimraise}}%
+  \else%
+    \pgftransformshift{\pgfpointxy{0}{\tikz@lib@dec@te@threedimraise}}%
+  \fi%
   \pgfqboxsynced\pgf@hbox%
 }%
 \state{after typeset}[width=+.5\wd\pgf@lib@dec@text@box, next state=shift,
