@@ -159,6 +159,64 @@
 
 \fi
 
+
+%
+% Image inclusion, adding SMask reference and image interpolation if mandated
+%
+
+\def\pgfsys@defineimage{%
+  \ifx\pgf@imagewidth\pgfutil@empty\else\edef\pgf@imagewidth{width=\pgf@imagewidth,}\fi%
+  \ifx\pgf@imageheight\pgfutil@empty\else\edef\pgf@imageheight{height=\pgf@imageheight,}\fi%
+  \begingroup%
+  \def\pgf@imageaddedkeys{}\def\@tempa{true}%
+  \ifx\pgf@imageinterpolate\@tempa\def\pgf@imageaddedkeys{/Interpolate true}\fi%
+  \ifx\pgf@imagemask\pgfutil@empty\else\edef\pgf@imageaddedkeys{\pgf@imageaddedkeys /SMask {\pgf@imagemask}}\fi%
+  \edef\@tempa{%
+    \ifx\pgf@imageaddedkeys\pgfutil@empty\else%
+      \noexpand\pgfsys@outerinvoke{%
+        save /pgfparent [(img) cvx cvn rand] cvx def %random name for current image
+        mark /_objdef /pgfparent load /NI pdfmark
+        % sometimes, image metadata contain embedded pdfmarks that prevent us from
+        % writing to the image dictionary ourselves, so we disable them temporarily
+        save /pdfmark /cleartomark load def
+      }%
+    \fi%
+    \noexpand\includegraphics[\pgf@imageheight\pgf@imagewidth]{\pgf@filename}%
+    \ifx\pgf@imageaddedkeys\pgfutil@empty\else%
+      \noexpand\pgfsys@outerinvoke{%
+        % empty image dummy, in case the provided file is not a valid raster image
+        0 0 1 [1 0 0 1 0 0] {} image restore
+        mark /pgfparent load <<\pgf@imageaddedkeys>> /PUT pdfmark restore
+      }%
+    \fi%
+  }%
+  \expandafter\endgroup%
+  \expandafter\def\expandafter\pgf@image\expandafter{\@tempa}%
+}
+
+
+%
+% Image masks
+%
+
+\def\pgfsys@definemask#1{%
+  \global\advance\pgf@objectcount\@ne%
+  \ifx\pgf@maskmatte\pgfutil@empty%
+  \else%
+    \edef\pgf@maskmatte{/Matte [\pgf@maskmatte]}%
+  \fi%
+  \pgfsys@outerinvoke{%
+    mark /_objdef {pgfmask\the\pgf@objectcount} /NI pdfmark
+    1 dict begin /pdfmark /cleartomark load def
+  }%
+  \special{psfile=\pgf@filename\space hsize=0 vsize=0}%
+  \pgfsys@outerinvoke{%
+    0 0 1 [1 0 0 1 0 0] {} image
+    end mark {pgfmask\the\pgf@objectcount} <</Decode [1 0] \pgf@maskmatte>> /PUT pdfmark
+  }%
+  \edef\pgf@mask{pgfmask\the\pgf@objectcount}%
+}
+
 \endinput
 
 %%% Local Variables:
