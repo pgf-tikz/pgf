@@ -9,13 +9,13 @@ pgfmanual.ps: $(doc).tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc).tex) || true
 	dvips -o $(doc).ps $(doc).dvi
-	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -sOutputFile=$(doc).pdf $(doc).ps
+	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -dALLOWPSTRANSPARENCY -sOutputFile=$(doc).pdf $(doc).ps
 
 test: $(doc)-test.tex revisionfile
 	TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex
 	(egrep -q $(rerun) $(doc).log && TEXINPUTS="$(TEXINPUTS)" $(latex) $(doc)-test.tex) || true
 	dvips -o $(doc)-test.ps $(doc)-test.dvi
-	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -sOutputFile=$(doc)-test.pdf $(doc)-test.ps
+	gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -dCompatibilityLevel=1.4 -dALLOWPSTRANSPARENCY -sOutputFile=$(doc)-test.pdf $(doc)-test.ps
 
 revisionfile:
 	cd ../../../../.. && ./scripts/pgf/pgfrevisionfile.sh
