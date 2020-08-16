@@ -347,17 +347,18 @@
             %
             %fill `pgfdatasource' string with colour samples
             0 1 pgfsamplesy 1 sub
-            {
+            {                                % j
+              dup pgfsamplesx mul exch       % samplesdone j
+              pgfpatchdy mul pgfpatchlly add % samplesdone y
               0 1 pgfsamplesx 1 sub
-              { % j i
-                1 index exch 2 copy % j j i j i
-                exch pgfsamplesx mul add % j j i sampleidx
-                pgfdatasource exch 4 2 roll % j datasource sampleidx j i
-                pgfpatchdx mul pgfpatchllx add exch
-                pgfpatchdy mul pgfpatchlly add pgfproc % j datasource sampleindex <colour>
-                pgfputstring\pgf@shading@model % j
+              {                                % samplesdone y i
+                dup 3 index add                % samplesdone y i sampleidx
+                pgfdatasource exch 3 -1 roll   % samplesdone y pgfdatasrc sampleidx i
+                pgfpatchdx mul pgfpatchllx add % samplesdone y pgfdatasrc sampleidx x
+                3 index pgfproc                % samplesdone y pgfdatasrc sampleidx <colour>
+                pgfputstring\pgf@shading@model % samplesdone y
               } for
-              pop
+              pop pop
             } for
             pgfpatchY pgfpatchX pgfpatchllx pgfpatchlly pgfe <<
               /PatternType 2
@@ -368,7 +369,7 @@
                 /ColorSpace \pgf@shading@device\space
                 /Function <<
                   /FunctionType 0
-                  /Order 3 % splines
+                  /Order 1 % splines
                   /Domain [0 1 0 1]
                   /Range pgfrange\pgf@shading@model
                   /BitsPerSample pgfchanneldepth\pgf@shading@model % bits per channel, actually
@@ -411,23 +412,19 @@
     % patch dimensions X, Y in bp; number of samples nx, ny;
     %
     /pgfnumsamplescmyk {
-      % samples in x
-      2 copy div 16383 mul sqrt round cvi       % X Y nx
+      2 copy div 16383 mul sqrt round cvi                              % X Y nx
       % sample distance no less than 1bp
-      dup 1 sub 3 index gt {pop 1 index cvi 1 add} if
-      % samples in y
-      dup 16383 exch div cvi                 % X Y nx ny
+      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse % Y nx
+      dup 16383 exch div cvi                                           % Y nx ny
       % sample distance no less than 1bp
-      dup 1 sub 3 index gt {pop 1 index cvi 1 add} if
-      4 -2 roll pop pop                          % nx ny
+      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse % nx ny
     } bind def
     %
     /pgfnumsamplesrgb {
       2 copy div 21845 mul sqrt round cvi
-      dup 1 sub 3 index gt {pop 1 index cvi 1 add} if
+      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse
       dup 21845 exch div cvi
-      dup 1 sub 3 index gt {pop 1 index cvi 1 add} if
-      4 -2 roll pop pop
+      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse
     } bind def
     %
     /pgfnumsamplesgray /pgfnumsamplesrgb load def
@@ -439,29 +436,29 @@
     % colour components (c,m,y,k; r,g,b; gray) between 0.0 to 1.0
     %
     /pgfputstringcmyk {
-      5 index 5 index 4 mul       5 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 4 mul 1 add 4 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 4 mul 2 add 3 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 4 mul 3 add 2 index pgfcheckcolorrange 255 mul round cvi put
+      5 -1 roll pgfsamplesizecmyk mul 5 1 roll % -str- samplestart c m y k
+      5 index 5 index       5 index pgfcheckcolorrange 255 mul round cvi put
+      5 index 5 index 1 add 4 index pgfcheckcolorrange 255 mul round cvi put
+      5 index 5 index 2 add 3 index pgfcheckcolorrange 255 mul round cvi put
+      5 index 5 index 3 add 2 index pgfcheckcolorrange 255 mul round cvi put
       pop pop pop pop pop pop
     } bind def
     %
     /pgfputstringrgb {
-      4 index 4 index 3 mul       4 index pgfcheckcolorrange 255 mul round cvi put
-      4 index 4 index 3 mul 1 add 3 index pgfcheckcolorrange 255 mul round cvi put
-      4 index 4 index 3 mul 2 add 2 index pgfcheckcolorrange 255 mul round cvi put
+      4 -1 roll pgfsamplesizergb mul 4 1 roll
+      4 index 4 index       4 index pgfcheckcolorrange 255 mul round cvi put
+      4 index 4 index 1 add 3 index pgfcheckcolorrange 255 mul round cvi put
+      4 index 4 index 2 add 2 index pgfcheckcolorrange 255 mul round cvi put
       pop pop pop pop pop
     } bind def
     %
     /pgfputstringgray {
       % grayvalue between 0 and 16777215 (24 bit)
       pgfcheckcolorrange 16777215 mul round cvi % -str- sampleindex gray24
-      % put high byte
-      2 index 2 index 3 mul       2 index          16 neg bitshift put
-      % put middle byte
-      2 index 2 index 3 mul 1 add 2 index 65535 and 8 neg bitshift put
-      % put low byte
-      2 index 2 index 3 mul 2 add 2 index   255 and                put
+      exch pgfsamplesizegray mul exch
+      2 index 2 index       2 index           -16 bitshift put % high byte
+      2 index 2 index 1 add 2 index 65535 and  -8 bitshift put % middle byte
+      2 index 2 index 2 add 2 index   255 and              put % low byte
       pop pop pop
     } bind def
     %
@@ -488,7 +485,7 @@
     /pgfrangergb [0 1 0 1 0 1] def
     /pgfrangegray [0 1] def
   }%
-}  
+}
 
 
 %
