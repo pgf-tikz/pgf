@@ -1,18 +1,26 @@
 #!/usr/bin/env sh
 
+if [ z"$BASH_SOURCE" != z ]; then
+	SCRIPTPATH="$BASH_SOURCE"
+elif [ z"$KSH_VERSION" != z ]; then
+	SCRIPTPATH="${.sh.file}"
+else
+	SCRIPTPATH="$0"
+fi
+
+OWNPATH=$(cd -P -- "$(dirname -- "$SCRIPTPATH")" && pwd -P)
+
 export PATH=/tmp/texlive/bin/x86_64-linux:$PATH
+echo "::add-path::/tmp/texlive/bin/x86_64-linux"
 
 # Check for cached version
 if ! command -v texlua > /dev/null; then
   # Obtain TeX Live
   curl -LO http://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz
-  tar -xzf install-tl-unx.tar.gz
-  cd install-tl-20*
+  tar -xzf install-tl-unx.tar.gz --strip-components=1
 
   # Install a minimal system
-  ./install-tl --profile=../texlive.profile
-
-  cd ..
+  ./install-tl --profile="$OWNPATH/texlive.profile"
 fi
 
 # Update infra first
@@ -91,5 +99,6 @@ tlmgr option -- autobackup 0
 tlmgr update --self --all --no-auto-install
 
 # Install PGF
-tlmgr init-usertree --usertree `realpath ..`
-export TEXMFHOME=`realpath ..`
+tlmgr init-usertree --usertree "$(readlink -f ..)"
+export TEXMFHOME=$(readlink -f ..)
+echo "::set-env name=TEXMFHOME::$(pwd)"

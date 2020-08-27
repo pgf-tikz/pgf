@@ -1,0 +1,59 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        engine: [luatex, dvisvgm, dvipdfm, dvipdfmx, dvips, pdftex, tex4ht, xetex]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Cache dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          /tmp/texlive
+          /tmp/tlpkg
+          ~/.texlive
+        key: texlive
+
+    - name: Set up TeX Live environment
+      run: . ci/texlive.sh
+
+    - name: Generate the revision file
+      run: |
+        texlua build.lua revisionfile
+        cat tex/generic/pgf/pgf.revision.tex
+
+    - name: Build the manual
+      run: texlua build.lua manual ${{ matrix.engine }}
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.engine == 'luatex'
+      with:
+        name: pgfmanual
+        path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
+
+    - name: Deploy tlcontrib
+      if: matrix.engine == 'luatex'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yy libxml-parser-perl libxml-xpath-perl libtext-unidecode-perl
+        texlua build.lua ctan
+        cp doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf ../
+        bash ci/update_tlcontrib.sh
+
+    #- uses: actions/upload-artifact@v2
+    #  if: matrix.engine == 'luatex' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    #  with:
+    #    name: ctanzip
+    #    path: pgf_*.zip
