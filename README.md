@@ -1,6 +1,6 @@
 # pgf – A Portable Graphic Format for TeX
 
-[![Travis Build Status][travis-svg]][travis-link]
+![CI](https://github.com/pgf-tikz/pgf/workflows/CI/badge.svg)
 
 PGF is a TeX macro package for generating graphics. It is platform-
 and format-independent and works together with the most important TeX
@@ -51,6 +51,3 @@ We recommend building at least the version for LuaTeX, as shown in the
 example above because this has the broadest coverage of PGF features.
 To test the animations feature you have to build the version for
 dvisvgm.
-
-[travis-svg]: https://travis-ci.com/pgf-tikz/pgf.svg?branch=master
-[travis-link]: https://travis-ci.com/pgf-tikz/pgf
