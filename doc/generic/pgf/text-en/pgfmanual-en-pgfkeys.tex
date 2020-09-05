@@ -217,6 +217,10 @@ continue with the next subsection.
     The setting of a key is always local to the current \TeX\ group.
 \end{command}
 
+\begin{command}{\pgfkeyssetevalue\marg{full key}\marg{token text}}
+    The |\edef| version of |\pgfkeyssetvalue|.
+\end{command}
+
 \begin{command}{\pgfkeyslet\marg{full key}\marg{macro}}
     Performs a |\let| statement so the \meta{full key} points to the contents
     of \meta{macro}.
@@ -1171,14 +1175,6 @@ For styles the corresponding handlers as for normal code exist:
     than a |\def| to define the macro.
 \end{handler}
 
-\begin{handler}{{.style args}|=|\marg{argument pattern}\marg{key list}}
-    This handler works like |/.code args|, only for styles.
-\end{handler}
-
-\begin{handler}{{.estyle args}|=|\marg{argument pattern}\marg{code}}
-    This handler works like |/.ecode args|, only for styles.
-\end{handler}
-
 \begin{handler}{{.style n args}|=|\marg{argument count}\meta{key list}}
     This handler works like |/.code n args|, only for styles. Here, \meta{key
     list} may depend on all \meta{argument count} parameters.
@@ -1203,6 +1199,14 @@ For styles the corresponding handlers as for normal code exist:
                           % then execute /my key=#1
 \end{codeexample}
     %
+\end{handler}
+
+\begin{handler}{{.style args}|=|\marg{argument pattern}\marg{key list}}
+    This handler works like |/.code args|, only for styles.
+\end{handler}
+
+\begin{handler}{{.estyle args}|=|\marg{argument pattern}\marg{code}}
+    This handler works like |/.ecode args|, only for styles.
 \end{handler}
 
 \begin{handler}{{.prefix style}|=|\meta{prefix key list}}
@@ -1490,9 +1494,9 @@ Key 4:& \pgfkeys{/key4}
     %
     \begin{enumerate}
         \item If a user provides a fully qualified key which could not be
-            found, for example the full string |/main path/option|, it assume
+            found, for example the full string |/main path/option|, it assumes
             that the user knew what she is doing -- and does \emph{not}
-            continue searching for |an option| in \marg{path list}.
+            continue searching for |option| in \marg{path list}.
         \item If a user provides only the key's name, for example |option| and
             |option| cannot be found in the current default path (which is
             |/main path| in our example above), the current default path is set
@@ -1500,7 +1504,8 @@ Key 4:& \pgfkeys{/key4}
             here) and |\pgfkeys| will be restarted.
 
             This will be iterated until either a match has been found or all
-            elements in \marg{path list} have been tested. \item If all
+            elements in \marg{path list} have been tested.
+        \item If all
             elements in \marg{path list} have been checked and the key is still
             unknown, the fall-back handler |/handlers/.unknown| will be
             invoked.
@@ -1537,20 +1542,26 @@ Key 4:& \pgfkeys{/key4}
             %
 \begin{codeexample}[code only]
 \pgfkeys{/path/.unknown/.code={%
+        \def\pgfkeys@searchalso@temp@value{#1}%
         \ifpgfkeysaddeddefaultpath
+            \expandafter\pgfkeys@firstoftwo
+        \else
+            \expandafter\pgfkeys@secondoftwo
+        \fi{%
             % only process keys for which no full path has been
             % provided:
             \pgfkeyssuccessfalse
-            \let\pgfkeys@searchalso@name =\pgfkeyscurrentkeyRAW
+            \let\pgfkeys@searchalso@name=\pgfkeyscurrentkeyRAW
             \ifpgfkeyssuccess
             \else
                 % search with /tikz as default path:
-                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name={#1}}%
+                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name/.expand once=%
+                  \pgfkeys@searchalso@temp@value}%
             \fi
-        \else
-            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
-            \pgfutilnext
-        \fi
+        }{%
+            \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
+            \expandafter\pgfkeys@code\pgfkeys@searchalso@temp@value\pgfeov
+        }%
     }
 }
 \end{codeexample}
@@ -1559,23 +1570,29 @@ Key 4:& \pgfkeys{/key4}
             %
 \begin{codeexample}[code only]
 \pgfkeys{/path/.unknown/.code={%
+        \def\pgfkeys@searchalso@temp@value{#1}%
         \ifpgfkeysaddeddefaultpath
+            \expandafter\pgfkeys@firstoftwo
+        \else
+            \expandafter\pgfkeys@secondoftwo
+        \fi{%
             \pgfkeyssuccessfalse
             \let\pgfkeys@searchalso@name=\pgfkeyscurrentkeyRAW
             \ifpgfkeyssuccess
             \else
                 % step 1: search in /tikz with .try:
-                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name/.try={#1}}%
+                \pgfqkeys{/tikz}{\pgfkeys@searchalso@name/.try/.expand once=%
+                  \pgfkeys@searchalso@temp@value}%
             \fi
             \ifpgfkeyssuccess
             \else
                 % step 2: search in /pgf (without .try!):
-                \pgfqkeys{/pgf}{\pgfkeys@searchalso@name={#1}}%
+                \pgfqkeys{/pgf}{\pgfkeys@searchalso@name/.expand once=\pgfkeys@searchalso@}%
             \fi
-        \else
-            \def\pgfutilnext{\pgfkeysvalueof {/handlers/.unknown/.@cmd}#1\pgfeov}%
-            \pgfutilnext
-        \fi
+        }{%
+            \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
+            \expandafter\pgfkeys@code\pgfkeys@searchalso@temp@value\pgfeov
+        }%
     }
 }
 \end{codeexample}
@@ -1583,7 +1600,7 @@ Key 4:& \pgfkeys{/key4}
 
     To also enable searching for styles (or other handled keys), consider
     changing the configuration for handled keys to
-    |/hander config=full or existing| when you use |/.search also|, that is,
+    |/handler config=full or existing| when you use |/.search also|, that is,
     use
     %
 \begin{codeexample}[code only]
