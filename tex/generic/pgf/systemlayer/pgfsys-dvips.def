@@ -335,31 +335,33 @@
             % shading patch width and height
             /pgfpatchX \pgf@sys@tonumber{\pgf@xb} pgfpatchllx sub def
             /pgfpatchY \pgf@sys@tonumber{\pgf@yb} pgfpatchlly sub def
-            % number of samples in each direction
-            pgfpatchX pgfpatchY pgfnumsamples\pgf@shading@model /pgfsamplesy exch def /pgfsamplesx exch def
-            % sample distance in each direction, in bp
-            /pgfpatchdx pgfpatchX pgfsamplesx 1 sub div def /pgfpatchdy pgfpatchY pgfsamplesy 1 sub div def
-            % allocate DataSource string
-            /pgfdatasource pgfsamplesx pgfsamplesy mul pgfsamplesize\pgf@shading@model\space mul string def
+            % number of samples in each direction (with samples spaced by approx. 1bp)
+            /pgfsamplesx pgfpatchX round cvi 1 add def
+            /pgfsamplesy pgfpatchY round cvi 1 add def
+            % exact sample distance in each direction, in bp
+            /pgfpatchdx pgfpatchX pgfsamplesx 1 sub div def
+            /pgfpatchdy pgfpatchY pgfsamplesy 1 sub div def
             %
             pgfpatchllx neg pgfpatchlly neg translate
             /pgfproc {#4} bind def
             %
-            %fill `pgfdatasource' string with colour samples
-            0 1 pgfsamplesy 1 sub
-            {                                % j
-              dup pgfsamplesx mul exch       % samplesdone j
-              pgfpatchdy mul pgfpatchlly add % samplesdone y
-              0 1 pgfsamplesx 1 sub
-              {                                % samplesdone y i
-                dup 3 index add                % samplesdone y i sampleidx
-                pgfdatasource exch 3 -1 roll   % samplesdone y pgfdatasrc sampleidx i
-                pgfpatchdx mul pgfpatchllx add % samplesdone y pgfdatasrc sampleidx x
-                3 index pgfproc                % samplesdone y pgfdatasrc sampleidx <colour>
-                pgfputstring\pgf@shading@model % samplesdone y
-              } for
-              pop pop
-            } for
+            % sampling procedure; repeatedly called by /ReusableStreamDecode filter;
+            % on each call, /pgfsamplingproc puts one colour sample (rgb, cmyk or gray)
+            % on the operand stack which is then consumed by the filter
+            userdict /pgfsampleidx 0 put % internal index; updated on each call 
+            /pgfsamplingproc {
+              pgfsampleidx pgfsamplesx pgfsamplesy mul eq {
+                () % push empty string on the stack to signal end-of-data
+              } {
+                pgfcolorsample\pgf@shading@model\space  % -str-
+                pgfsampleidx pgfsamplesx mod pgfpatchdx mul pgfpatchllx add   % -str- x
+                pgfsampleidx pgfsamplesx idiv pgfpatchdy mul pgfpatchlly add  % -str- x y
+                pgfproc                                 % -str- <colour>
+                pgfwritesample\pgf@shading@model\space  % -str-
+                /pgfsampleidx pgfsampleidx 1 add store  % (update index)
+              } ifelse
+            } bind def
+            %
             pgfpatchY pgfpatchX pgfpatchllx pgfpatchlly pgfe <<
               /PatternType 2
               /Shading <<
@@ -369,12 +371,12 @@
                 /ColorSpace \pgf@shading@device\space
                 /Function <<
                   /FunctionType 0
-                  /Order 1 % splines
+                  /Order 1
                   /Domain [0 1 0 1]
                   /Range pgfrange\pgf@shading@model
                   /BitsPerSample pgfchanneldepth\pgf@shading@model % bits per channel, actually
                   /Size [pgfsamplesx pgfsamplesy]
-                  /DataSource pgfdatasource
+                  /DataSource /pgfsamplingproc load /ReusableStreamDecode filter
                 >>
               >>
             >> matrix makepattern setpattern fill
@@ -389,85 +391,53 @@
 % helpers for converting FunctionType-4 to FunctionType-0, i. e. sampled, functions;
 % FunctionType-4 functions are not defined in PostScript-3
 %
-% Colours in the rectangular shading patch are sampled and stored in a
-% string which is passed as value to the /DataSource key in the /FunctionType 0
-% dictionary. However, PostScript imposes a limit of 65535 characters (bytes) per
-% string. To meet this requirement, we calculate the number of samples in x and y,
-% taking into account the patch dimensions and the colour depth of the colour
-% channels. Also, the distance between colour samples should not be less than 1bp
-% in x and y.
-%
-% The table summarizes the different colour models we are going to use:
-% ------+-------------------+-----------+------------------+----------------------
-% model | channel depth/bit | max value | sample size/byte | max number of samples
-% ------+-------------------+-----------+------------------+----------------------
-%  cmyk |                 8 |       255 |                4 |                 16383
-%   rgb |                 8 |       255 |                3 |                 21845
-%  gray |                24 |  16777215 |                3 |                 21845
-% ------+-------------------+-----------+------------------+----------------------
+% These are the different colour models we are going to use:
+% +-------+-------------------+-----------+------------------+
+% | model | channel depth/bit | max value | sample size/byte |
+% +-------+-------------------+-----------+------------------+
+% |  cmyk |                 8 |       255 |                4 |
+% |   rgb |                 8 |       255 |                3 |
+% |  gray |                24 |  16777215 |                3 |
+% +-------+-------------------+-----------+------------------+
 \expandafter\gdef\expandafter\pgfsys@atbegindocument\expandafter{\pgfsys@atbegindocument%
   \pgf@sys@postscript@header{
     %
-    % X Y pgfnumsamples(cmyk|rgb|gray) ==> nx ny
-    % patch dimensions X, Y in bp; number of samples nx, ny;
-    %
-    /pgfnumsamplescmyk {
-      2 copy div 16383 mul sqrt round cvi                              % X Y nx
-      % sample distance no less than 1bp
-      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse % Y nx
-      dup 16383 exch div cvi                                           % Y nx ny
-      % sample distance no less than 1bp
-      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse % nx ny
-    } bind def
-    %
-    /pgfnumsamplesrgb {
-      2 copy div 21845 mul sqrt round cvi
-      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse
-      dup 21845 exch div cvi
-      dup 1 sub 3 index gt {pop exch cvi 1 add} {3 -1 roll pop} ifelse
-    } bind def
-    %
-    /pgfnumsamplesgray /pgfnumsamplesrgb load def
-    %
-    % -str- sampleindex c m y k pgfputstringcmyk ==> (nothing pushed)
-    % -str- sampleindex r g b   pgfputstringrgb  ==>
-    % -str- sampleindex gray    pgfputstringgray ==>
-    % put colour sample at given sample index into the /DataSource string;
+    % -str- c m y k pgfwritesamplecmyk ==> -str-
+    % -str- r g b   pgfwritesamplergb  ==> -str-
+    % -str- gray    pgfwritesamplegray ==> -str-
+    % writes a single colour sample into the /pgfcolorsample* string;
     % colour components (c,m,y,k; r,g,b; gray) between 0.0 to 1.0
     %
-    /pgfputstringcmyk {
-      5 -1 roll pgfsamplesizecmyk mul 5 1 roll % -str- samplestart c m y k
-      5 index 5 index       5 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 1 add 4 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 2 add 3 index pgfcheckcolorrange 255 mul round cvi put
-      5 index 5 index 3 add 2 index pgfcheckcolorrange 255 mul round cvi put
-      pop pop pop pop pop pop
+    /pgfwritesamplecmyk {
+      4 index 0 5 index pgfcheckcolorrange 255 mul round cvi put
+      4 index 1 4 index pgfcheckcolorrange 255 mul round cvi put
+      4 index 2 3 index pgfcheckcolorrange 255 mul round cvi put
+      4 index 3 2 index pgfcheckcolorrange 255 mul round cvi put
+      pop pop pop pop
     } bind def
     %
-    /pgfputstringrgb {
-      4 -1 roll pgfsamplesizergb mul 4 1 roll
-      4 index 4 index       4 index pgfcheckcolorrange 255 mul round cvi put
-      4 index 4 index 1 add 3 index pgfcheckcolorrange 255 mul round cvi put
-      4 index 4 index 2 add 2 index pgfcheckcolorrange 255 mul round cvi put
-      pop pop pop pop pop
-    } bind def
-    %
-    /pgfputstringgray {
-      % grayvalue between 0 and 16777215 (24 bit)
-      pgfcheckcolorrange 16777215 mul round cvi % -str- sampleindex gray24
-      exch pgfsamplesizegray mul exch
-      2 index 2 index       2 index           -16 bitshift put % high byte
-      2 index 2 index 1 add 2 index 65535 and  -8 bitshift put % middle byte
-      2 index 2 index 2 add 2 index   255 and              put % low byte
+    /pgfwritesamplergb {
+      3 index 0 4 index pgfcheckcolorrange 255 mul round cvi put
+      3 index 1 3 index pgfcheckcolorrange 255 mul round cvi put
+      3 index 2 2 index pgfcheckcolorrange 255 mul round cvi put
       pop pop pop
+    } bind def
+    %
+    /pgfwritesamplegray {
+      % grayvalue between 0 and 16777215 (24 bit)
+      pgfcheckcolorrange 16777215 mul round cvi % -str- gray24
+      1 index 0 2 index           -16 bitshift put % high byte
+      1 index 1 2 index 65535 and  -8 bitshift put % middle byte
+      1 index 2 2 index   255 and              put % low byte
+      pop
     } bind def
     %
     % <colour component> pgfcheckcolorrange ==> <something between 0.0 and 1.0>
     % truncates value to the allowed range (user-defined Type-4 functions may
     % happen to provide values outside this range)
     /pgfcheckcolorrange {
-      dup 0.0 ge not {pop 0.0} if
-      dup 1.0 le not {pop 1.0} if
+      dup 0.0 lt {pop 0.0} if
+      dup 1.0 gt {pop 1.0} if
     } bind def
     %
     %colour depths per channel (bit)
@@ -475,10 +445,10 @@
     /pgfchanneldepthrgb 8 def
     /pgfchanneldepthgray 24 def
     %
-    %colour sample size (byte)
-    /pgfsamplesizecmyk 4 def
-    /pgfsamplesizergb 3 def
-    /pgfsamplesizegray 3 def
+    % allocate strings as buffers for storing a single colour sample
+    /pgfcolorsamplecmyk 4 string def
+    /pgfcolorsamplergb 3 string def
+    /pgfcolorsamplegray 3 string def
     %
     %/Range array in the FunctionType 0 dictionary
     /pgfrangecmyk [0 1 0 1 0 1 0 1] def
@@ -637,7 +607,7 @@
 % Image masks
 %
 
-\def\pgfsys@definemask#1{%
+\def\pgfsys@definemask{%
   \global\advance\pgf@objectcount\@ne%
   \ifx\pgf@maskmatte\pgfutil@empty%
   \else%
