@@ -11,7 +11,7 @@ fi
 OWNPATH=$(cd -P -- "$(dirname -- "$SCRIPTPATH")" && pwd -P)
 
 export PATH=/tmp/texlive/bin/x86_64-linux:$PATH
-echo "::add-path::/tmp/texlive/bin/x86_64-linux"
+echo "/tmp/texlive/bin/x86_64-linux" >> ${GITHUB_PATH:-/dev/null}
 
 # Check for cached version
 if ! command -v texlua > /dev/null; then
@@ -99,6 +99,6 @@ tlmgr option -- autobackup 0
 tlmgr update --self --all --no-auto-install
 
 # Install PGF
-tlmgr init-usertree --usertree "$(readlink -f ..)"
-export TEXMFHOME=$(readlink -f ..)
-echo "::set-env name=TEXMFHOME::$(pwd)"
+tlmgr init-usertree --usertree "$(readlink -e ..)"
+export TEXMFHOME=$(readlink -e ..)
+echo "TEXMFHOME=$(pwd)" >> ${GITHUB_ENV:-/dev/null}

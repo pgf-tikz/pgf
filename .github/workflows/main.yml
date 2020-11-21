@@ -48,6 +48,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yy libxml-parser-perl libxml-xpath-perl libtext-unidecode-perl
+        texlua build.lua tds
         texlua build.lua ctan
         cp doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf ../
         bash ci/update_tlcontrib.sh
@@ -57,3 +58,46 @@ jobs:
       with:
         name: ctanzip
         path: pgf_*.zip
+
+    - name: Get tag for release
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      run: echo "GIT_TAG=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
+
+    - uses: actions/create-release@v1
+      id: create_release
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.GIT_TAG }}
+        release_name: ${{ env.GIT_TAG }}
+
+    - uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
+        asset_name: pgfmanual.pdf
+        asset_content_type: application/pdf
+
+    - uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip
+        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip
+        asset_content_type: application/zip
+
+    - uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
+        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
+        asset_content_type: application/zip
