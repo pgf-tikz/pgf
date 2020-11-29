@@ -42,15 +42,18 @@ jobs:
         name: pgfmanual
         path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
 
-    - name: Build and sign zips
+    - name: "ZIP: Build"
       if: matrix.engine == 'luatex'
+      run: |
+        texlua build.lua tds
+        texlua build.lua ctan
+
+    - name: "ZIP: Sign"
+      if: matrix.engine == 'luatex' && github.event_name != 'pull_request'
       env:
         GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
         GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
       run: |
-        # build zips
-        texlua build.lua tds
-        texlua build.lua ctan
         # get the keys
         printenv GPG_SECRET_KEY > "pgf-${GIT_TAG}.sec"
         printenv GPG_PUBLIC_KEY > "pgf-${GIT_TAG}.pub"
@@ -101,6 +104,17 @@ jobs:
         asset_name: pgfmanual-${{ env.GIT_TAG }}.pdf
         asset_content_type: application/pdf
 
+    - name: "Release: upload public key"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf-${{ env.GIT_TAG }}.pub
+        asset_name: pgf-${{ env.GIT_TAG }}.pub
+        asset_content_type: text/plain
+
     - name: "Release: upload TDS zip"
       uses: actions/upload-release-asset@v1
       if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
@@ -144,3 +158,13 @@ jobs:
         asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
         asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
         asset_content_type: text/plain
+
+    - name: "CTAN: Validate"
+      if: matrix.engine == 'luatex'
+      run: |
+        bash ci/ctan_upload.sh validate
+
+    - name: "CTAN: Upload"
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/') && github.repository == 'pgf-tikz/pgf'
+      run: |
+        bash ci/ctan_upload.sh upload
