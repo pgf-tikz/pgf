@@ -31,6 +31,7 @@ jobs:
       run: |
         texlua build.lua revisionfile
         cat tex/generic/pgf/pgf.revision.tex
+        echo "GIT_TAG=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
 
     - name: Build the manual
       run: texlua build.lua manual ${{ matrix.engine }}
@@ -41,6 +42,33 @@ jobs:
         name: pgfmanual
         path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
 
+    - name: Build and sign zips
+      if: matrix.engine == 'luatex'
+      env:
+        GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+        GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+      run: |
+        # build zips
+        texlua build.lua tds
+        texlua build.lua ctan
+        # get the keys
+        printenv GPG_SECRET_KEY > "pgf-${GIT_TAG}.sec"
+        printenv GPG_PUBLIC_KEY > "pgf-${GIT_TAG}.pub"
+        # sign the products
+        export GNUPGHOME=$(mktemp -d)
+        install -dm 0700 "$GNUPGHOME"
+        gpg --import "pgf-${GIT_TAG}.sec"
+        gpg --armor --output "pgf_${GIT_TAG}.tds.zip.sig" --detach-sign "pgf_${GIT_TAG}.tds.zip"
+        gpg --armor --output "pgf_${GIT_TAG}.ctan.flatdir.zip.sig" --detach-sign "pgf_${GIT_TAG}.ctan.flatdir.zip"
+        rm -rf "$GNUPGHOME"
+        # verify the signature against the distributed public key
+        export GNUPGHOME=$(mktemp -d)
+        install -dm 0700 "$GNUPGHOME"
+        gpg --import "pgf-${GIT_TAG}.pub"
+        gpg --verify "pgf_${GIT_TAG}.tds.zip.sig"
+        gpg --verify "pgf_${GIT_TAG}.ctan.flatdir.zip.sig"
+        rm -rf "$GNUPGHOME"
+
     - name: Deploy tlcontrib
       if: matrix.engine == 'luatex'
       env:
@@ -48,22 +76,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yy libxml-parser-perl libxml-xpath-perl libtext-unidecode-perl
-        texlua build.lua tds
-        texlua build.lua ctan
         cp doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf ../
         bash ci/update_tlcontrib.sh
 
-    - uses: actions/upload-artifact@v2
-      if: matrix.engine == 'luatex' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
-      with:
-        name: ctanzip
-        path: pgf_*.zip
-
-    - name: Get tag for release
-      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
-      run: echo "GIT_TAG=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
-
-    - uses: actions/create-release@v1
+    - name: "Release: create"
+      uses: actions/create-release@v1
       id: create_release
       if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
       env:
@@ -71,18 +88,21 @@ jobs:
       with:
         tag_name: ${{ env.GIT_TAG }}
         release_name: ${{ env.GIT_TAG }}
+        body_path: doc/generic/pgf/RELEASE_NOTES.md
 
-    - uses: actions/upload-release-asset@v1
+    - name: "Release: upload manual"
+      uses: actions/upload-release-asset@v1
       if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
-        asset_name: pgfmanual.pdf
+        asset_name: pgfmanual-${{ env.GIT_TAG }}.pdf
         asset_content_type: application/pdf
 
-    - uses: actions/upload-release-asset@v1
+    - name: "Release: upload TDS zip"
+      uses: actions/upload-release-asset@v1
       if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -92,7 +112,19 @@ jobs:
         asset_name: pgf_${{ env.GIT_TAG }}.tds.zip
         asset_content_type: application/zip
 
-    - uses: actions/upload-release-asset@v1
+    - name: "Release: upload TDS signature"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip.sig
+        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip.sig
+        asset_content_type: text/plain
+
+    - name: "Release: upload CTAN zip"
+      uses: actions/upload-release-asset@v1
       if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,3 +133,14 @@ jobs:
         asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
         asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
         asset_content_type: application/zip
+
+    - name: "Release: upload CTAN signature"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        asset_content_type: text/plain
