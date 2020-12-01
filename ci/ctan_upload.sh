@@ -18,8 +18,6 @@ The release files are signed using a detached signature.  You can obtain the
 signature from the GitHub release page
 
     https://github.com/pgf-tikz/pgf/releases/download/${GIT_TAG}/pgf_${GIT_TAG}.ctan.flatdir.zip.sig
-
-$(cat doc/generic/pgf/CTAN_NOTES.md)
 EOF
 
 curl \
