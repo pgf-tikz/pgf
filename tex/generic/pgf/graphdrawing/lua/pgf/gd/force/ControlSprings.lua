@@ -26,14 +26,14 @@ local declare = require("pgf.gd.interface.InterfaceToAlgorithms").declare
 -- The following examples shows how a simple graph can be scaled by
 -- changing the |node distance|:
 -- %
--- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs.standard,graphdrawing}
 --    \usegdlibrary{force}}]
 -- \tikz \graph [spring layout, node distance=7mm] { subgraph C_n[n=3] };
 -- \tikz \graph [spring layout]                    { subgraph C_n[n=3] };
 -- \tikz \graph [spring layout, node distance=15mm]{ subgraph C_n[n=3] };
 -- \end{codeexample}
 -- %
--- \begin{codeexample}[preamble={\usetikzlibrary{graphs,graphdrawing}
+-- \begin{codeexample}[preamble={\usetikzlibrary{graphs.standard,graphdrawing}
 --    \usegdlibrary{force}}]
 -- \tikz \graph [spring electrical layout, node distance=0.7cm] { subgraph C_n[n=3] };
 -- \tikz \graph [spring electrical layout]                      { subgraph C_n[n=3] };
