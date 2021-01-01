@@ -32,6 +32,10 @@
 \newif\ifpgfutil@format@is@plain
 \newif\ifpgfutil@format@is@context
 
+% Aliases
+
+\let\pgfutil@exp\romannumeral
+\chardef\pgfutil@exp@end=0
 
 % Simple stuff
 
@@ -48,7 +52,7 @@
 % \pgfutil@ifx{<token 1>}{<token 2>}{<true code>}{<false code>}
 %
 % This macro is expandable.
-\def\pgfutil@ifx#1#2{%
+\long\def\pgfutil@ifx#1#2{%
   \ifx#1#2%
     \expandafter\pgfutil@firstoftwo
   \else
@@ -60,7 +64,20 @@
 % Check if <cs> is equal to \pgfutil@empty
 %
 % This macro is expandable.
-\def\pgfutil@ifempty#1{\pgfutil@ifx#1\pgfutil@empty}
+\long\def\pgfutil@ifempty#1{\pgfutil@ifx#1\pgfutil@empty}
+
+% \pgfutil@ifstrequal{<lhs>}{<rhs>}{<true code>}{<false code>}
+%
+% Check if <lhs> and <rhs> are equal by string comparison
+%
+% This macro is expandable.
+\long\def\pgfutil@ifstrequal#1#2{%
+  \ifnum\pgfsys@strcmp{\pgfutil@unexpanded{#1}}{\pgfutil@unexpanded{#2}}=0
+    \expandafter\pgfutil@firstoftwo
+  \else
+    \expandafter\pgfutil@secondoftwo
+  \fi
+}
 
 % \pgfutil@ifundefined{<macro name with backslash>}
 %  {<is undefined code>}{<is defined code>}
@@ -224,45 +241,42 @@
 \def\pgfutil@iterate{\pgfutil@body \let\pgfutil@next\pgfutil@iterate \else\let\pgfutil@next\relax\fi \pgfutil@next}
 \let\pgfutil@repeat=\fi % this makes \loop...\if...\repeat skippable
 
-
 % \pgfutil@switch
 %
-% #1: string to switch on
-% #2: sequence of label-value pairs
+% #1: comparison function of the form
+%     \comp{<lhs>}{<rhs>}{<true code>}{<false code>}
+%     Has to be expandable!
+% #2: lhs
+% #3: sequence of rhs-value pairs
+% #4: default statement in case of match
+% #5: default statement in case of no match
 %
 % Example:
 %
-% \pgfutil@switch{foo}{%
-%   {foo}{1}%
-%   {bar}{2}%
-%   {default}{X}%
-% }
-%
-% If a statement with the label `default' exists it will be executed
-% if no other label matches.
+% \pgfutil@switch\pgfutil@ifx\pgf@let@token{%
+%   {(}{\tikz@movetoabs}%)
+%   {+}{\tikz@movetorel}%
+%   {-}{\tikz@lineto}%
+% }{}{\tikz@expand}
 
-\long\def\pgfutil@switch#1#2{%
-  \begingroup
-    \def\pgfutil@switch@selected{}%
-    \pgfutil@switch@collect@statements#2{}{}%
-    \ifcsname pgfutil@switch@choice@\detokenize{#1}\endcsname
-      \expandafter\let\expandafter\pgfutil@switch@selected\csname pgfutil@switch@choice@\detokenize{#1}\endcsname
-    \else
-      \ifdefined\pgfutil@switch@choice@default
-        \let\pgfutil@switch@selected\pgfutil@switch@choice@default
-      \fi
-    \fi
-  \expandafter\endgroup\pgfutil@switch@selected
+\let\pgfutil@scan@mark\relax
+\let\pgfutil@scan@stop\relax
+
+\long\def\pgfutil@switch#1#2#3#4#5{%
+  \pgfutil@exp
+  \pgfutil@switch@@{#1}%
+  {#2}#3% user-defined cases
+  {#2}{}% default case
+  \pgfutil@scan@mark{#4}% true code
+  \pgfutil@scan@mark{#5}% false code
+  \pgfutil@scan@stop
 }
-
-\long\def\pgfutil@switch@collect@statements#1{%
-  \if\relax\detokenize{#1}\relax
-  \else
-    \afterassignment\pgfutil@switch@collect@statements
-    \expandafter\def\csname pgfutil@switch@choice@\detokenize{#1}\expandafter\endcsname
-  \fi
+\long\def\pgfutil@switch@@#1#2#3#4{%
+  #1{#2}{#3}%
+    {\pgfutil@switch@end{#4}}%
+    {\pgfutil@switch@@{#1}{#2}}%
 }
-
+\long\def\pgfutil@switch@end#1#2#3\pgfutil@scan@mark#4#5\pgfutil@scan@stop{\pgfutil@exp@end#1#4}
 
 % aux-read-hook
 
