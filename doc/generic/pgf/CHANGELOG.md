@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Skip zero-length closepath segments (as produced by circles) when computing
   path intersections, which took exponential time #1256
 
+### Added
+
+- `\pgfdeclareimage` searches the directories set with `\graphicspath`
+  #980
+
 ### Changed
 
 - Typo fixes in the manual
@@ -25,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Ben Spitz @diracdeltafunk
 - Kevin Raymond
+- Sergiu Deitsch @sergiud
 - thinbold
 
 ## [3.1.12] - 2026-08-01 Henri Menke

@@ -1,0 +1,130 @@
+% -*- mode: latex -*-
+% vim: ft=tex
+\documentclass{minimal}
+\input{regression-test}
+
+\usepackage{pgf}
+
+\makeatletter
+
+% Placeholder images that the search finds but never includes.  The images
+% and plots directories are copied into the test directory with the manual.
+\def\writeplaceholder#1{%
+  \immediate\openout\@unused=#1\relax
+  \immediate\write\@unused{placeholder}%
+  \immediate\closeout\@unused
+}
+\writeplaceholder{gh-980-cwd.jpg}
+\writeplaceholder{gh-980-both.jpg}
+\writeplaceholder{gh-980-ext.png}
+\writeplaceholder{images/gh-980-sub.jpg}
+\writeplaceholder{images/gh-980-both.jpg}
+\writeplaceholder{images/gh-980-dirs.jpg}
+\writeplaceholder{images/gh-980-ext.jpg}
+\writeplaceholder{images/gh-980-page.page2.jpg}
+\writeplaceholder{plots/gh-980-dirs.jpg}
+
+% Print the file name \pgfdeclareimage finds, which is empty where the search
+% fails.
+\def\testimage#1{%
+  \pgfdeclareimage[draft,width=1cm,height=1cm]{test}{#1}%
+  \TYPE{#1: "\pgf@filename"}%
+}
+
+% Undefine every control sequence whose name starts with @, which covers the
+% internals of the LaTeX kernel, until the end of the group.  The names come
+% from the hash table of LuaTeX.
+\def\undefinelatexinternals{%
+  \directlua{
+    local backslash = string.char(92)
+    for _, name in ipairs(tex.hashtokens()) do
+      if string.sub(name, 1, 1) == "@" then
+        tex.sprint(backslash .. "expandafter" .. backslash .. "let"
+          .. backslash .. "csname ")
+        tex.sprint(-2, name)
+        tex.sprint(backslash .. "endcsname" .. backslash .. "undefinedcommand ")
+      end
+    end
+  }%
+}
+
+% Print the file name the image search finds while no LaTeX internal is
+% defined.  The file check of LaTeX relies on those internals, so the check
+% that pgf uses outside LaTeX replaces it.
+\def\testimagewithoutlatex#1{%
+  \begingroup
+    \def\pgfutil@IfFileExists##1##2##3{%
+      \openin\pgfutil@inputcheck=##1 %
+      \ifeof\pgfutil@inputcheck
+        ##3%
+      \else
+        ##2%
+      \fi
+      \closein\pgfutil@inputcheck
+    }%
+    \gdef\pgf@filename{}%
+    \undefinelatexinternals
+    \expandafter\pgf@findimage\pgfsys@imagesuffixlist:+{#1}%
+  \endgroup
+  \TYPE{#1: "\pgf@filename"}%
+}
+
+\begin{document}
+
+\START
+
+\BEGINTEST{Search without a graphics path}
+\testimage{gh-980-cwd}
+\testimage{gh-980-sub}
+\ENDTEST
+
+\BEGINTEST{Search without a graphics path and LaTeX internals}
+\testimagewithoutlatex{gh-980-cwd}
+\testimagewithoutlatex{gh-980-sub}
+\ENDTEST
+
+\BEGINTEST{Search with an empty graphics path}
+\graphicspath{}
+\testimage{gh-980-cwd}
+\testimage{gh-980-sub}
+\ENDTEST
+
+\BEGINTEST{Search in a single directory}
+\graphicspath{{images/}}
+\testimage{gh-980-sub}
+\testimage{gh-980-missing}
+\ENDTEST
+
+\BEGINTEST{Search in the current directory first}
+\graphicspath{{images/}}
+\testimage{gh-980-both}
+\ENDTEST
+
+\BEGINTEST{Search the directories in order}
+\graphicspath{{plots/}{images/}}
+\testimage{gh-980-dirs}
+\testimage{gh-980-sub}
+\ENDTEST
+
+\BEGINTEST{Search every directory for an extension before the next one}
+\graphicspath{{images/}}
+\testimage{gh-980-ext}
+\ENDTEST
+
+\BEGINTEST{Search the directories for a page}
+\graphicspath{{images/}}
+\pgfdeclareimage[draft,width=1cm,height=1cm,page=2]{test}{gh-980-page}%
+\TYPE{gh-980-page, page 2: "\pgf@filename"}%
+\ENDTEST
+
+\BEGINTEST{Search the directories without LaTeX internals}
+\graphicspath{{plots/}{images/}}
+\testimagewithoutlatex{gh-980-cwd}
+\testimagewithoutlatex{gh-980-both}
+\testimagewithoutlatex{gh-980-dirs}
+\testimagewithoutlatex{gh-980-sub}
+\testimagewithoutlatex{gh-980-ext}
+\testimagewithoutlatex{gh-980-missing}
+\ENDTEST
+
+\END
