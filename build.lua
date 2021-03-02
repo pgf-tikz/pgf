@@ -236,6 +236,7 @@ local function generate_FILES()
 
     -- list of untracked files to be added
     local untracked = {
+        "doc/generic/pgf/README.md",
         "doc/generic/pgf/FILES",
         "doc/generic/pgf/pgfmanual.pdf",
         "tex/generic/pgf/pgf.revision.tex",
@@ -284,6 +285,9 @@ local function generate_TDSzip(filename)
     else
         error("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf is missing")
     end
+
+    -- Copy the README into the TDS archive
+    lfs.copy("README.md", "doc/generic/pgf/README.md")
 
     -- Check that all files actually exist
     for _, f in ipairs(files) do
