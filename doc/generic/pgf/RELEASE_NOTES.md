@@ -1,5 +1,4 @@
-Hotfix for handling of TeX conditionals on a path.  We can't forward \relax and
-frozen \relax through the parser because there is existing code that relies on
-this.
+# Bug fixes
 
-The recommendation is to use expandable conditionals where possible.
+This release introduces a fix for blend mode with the dvips driver and
+improvements for handling expandable material that appears on a path.
