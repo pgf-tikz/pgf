@@ -271,6 +271,13 @@ end
 local function generate_TDSzip(filename)
     local files = generate_FILES()
 
+    -- copy over README
+    local readme_path = "doc/generic/pgf/README"
+    lfs.copy("README.md", readme_path)
+    -- it's safer to check if files already contains value readme_path
+    files[#files + 1] = readme_path
+    table.sort(files)
+
     -- write FILES
     local FILES = io.open("doc/generic/pgf/FILES", "w")
     for _, line in ipairs(files) do
