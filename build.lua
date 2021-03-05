@@ -359,8 +359,8 @@ local function generate_CTANzip(filename)
         "to satisfy CTAN package browsing policies.\n")
     f:close()
 
-    -- Copy over README
-    lfs.copy("README.md", tmppgf .. "README")
+    -- Move the README to the top level
+    os.rename(tmppgf .. "doc/README.md", tmppgf .. "README.md")
 
     -- Move over the TDS zip
     lfs.copy(tds, tmproot .. tds)
