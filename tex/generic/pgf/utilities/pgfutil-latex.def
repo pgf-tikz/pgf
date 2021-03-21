@@ -1,4 +1,4 @@
-% Copyright 2006 by Till Tantau
+% Copyright 2019 by Till Tantau
 %
 % This file may be distributed and/or modified
 %
@@ -92,6 +92,9 @@
 
 \AtBeginDocument{\AtEndDocument{\clearpage\the\pgfutil@everybye}}
 
+% \@ifl@t@r is defined \@onlypremable so we have to save it here
+\let\pgfutil@ifl@t@r=\@ifl@t@r
+
 \def\pgfutil@insertatbegincurrentpagefrombox#1{%
   \edef\pgf@temp{\the\wd\pgfutil@abb}%
   \global\setbox\pgfutil@abb\hbox{%
@@ -105,8 +108,9 @@
     %
     % CF observed problems when placing patterns in XObjects without
     % this skip (dvipdfmx driver for pgfplots shader=interp)
-    \hskip-\pgf@temp\relax%
+    \hskip\dimexpr\pgfutil@ifl@t@r\fmtversion{2020/10/01}{2in-2\hoffset}{}-\pgf@temp\relax%
     #1%
+    \pgfutil@ifl@t@r\fmtversion{2020/10/01}{\hskip\dimexpr-2in-2\hoffset\relax}{}%
   }%
 }
 \newbox\pgfutil@abb%
@@ -119,61 +123,69 @@
 }
 \let\pgfutil@abe\pgfutil@empty%
 
-\RequirePackage{everyshi}
-\EveryShipout{%
-  % Add at begin page stuff
- \setbox\@cclv=\vbox{%
-    \setbox\z@=\hbox{%
-        % the boxes \pgfutil@abe ("every page") and \pgfutil@abb ("current page")
-        % are used to generate pdf objects / dictionaries which are
-        % required for the graphics which are somewhere in the "real"
-        % page content.
-        % BUT: these pdf objects MUST NOT be affected by text layout
-        % shifts! Consequently, we have to undo \hoffset and \voffset
-        % (which are h/v shifts to the page layout).
-        %
-        % Note that this of importance for shadings. To be more
-        % specific: try out shadings with standalone (which uses
-        % \hoffset) and with xdvipdfmx (which appears to be more
-        % fragile than pdflatex) - they break unless we undo \hoffset
-        % and \voffset.
-        \ifdim\hoffset=0pt \else \hskip-\hoffset\fi
-        \pgfutil@abe\unhbox\pgfutil@abb\pgfutil@abc\global\let\pgfutil@abc\pgfutil@empty
-        \ifdim\hoffset=0pt \else \hskip+\hoffset\fi
+\pgfutil@ifl@t@r\fmtversion{2020/10/01}{%
+  \AddToHook{shipout/background}{%
+    \put(\hoffset-1in,\voffset-1in){%
+      \pgfutil@abe\unhbox\pgfutil@abb\pgfutil@abc\global\let\pgfutil@abc\pgfutil@empty
     }%
-    \wd\z@=\z@%
-    \ht\z@=\z@%
-    \dp\z@=\z@%
-    % ... see remark above regarding \hoffset/\voffset:
-    \ifdim\voffset=0pt \else \vskip-\voffset\fi
-    \box\z@%
-    \ifdim\voffset=0pt \else \vskip+\voffset\fi
-    %
-    % if TeX changes into vertical mode, it inserts \parskip and
-    % \lineskip. Disable it here:
-    \nointerlineskip%
-    \ifvbox\@cclv \unvbox\@cclv \else\hsize=\wd\@cclv \noindent\unhbox\@cclv \fi%
-    %\box\@cclv
-    % using \box instead of \unhbox or \unvbox
-    % has the advantage that glue settings won't be
-    % altered (as for \unhbox/\unvbox). But \box breaks compatibility
-    % with the 'remember picture' feature.
   }%
-}
+}{%
+  \RequirePackage{everyshi}
+  \EveryShipout{%
+    % Add at begin page stuff
+   \setbox\@cclv=\vbox{%
+      \setbox\z@=\hbox{%
+          % the boxes \pgfutil@abe ("every page") and \pgfutil@abb ("current page")
+          % are used to generate pdf objects / dictionaries which are
+          % required for the graphics which are somewhere in the "real"
+          % page content.
+          % BUT: these pdf objects MUST NOT be affected by text layout
+          % shifts! Consequently, we have to undo \hoffset and \voffset
+          % (which are h/v shifts to the page layout).
+          %
+          % Note that this of importance for shadings. To be more
+          % specific: try out shadings with standalone (which uses
+          % \hoffset) and with xdvipdfmx (which appears to be more
+          % fragile than pdflatex) - they break unless we undo \hoffset
+          % and \voffset.
+          \ifdim\hoffset=0pt \else \hskip-\hoffset\fi
+          \pgfutil@abe\unhbox\pgfutil@abb\pgfutil@abc\global\let\pgfutil@abc\pgfutil@empty
+          \ifdim\hoffset=0pt \else \hskip+\hoffset\fi
+      }%
+      \wd\z@=\z@%
+      \ht\z@=\z@%
+      \dp\z@=\z@%
+      % ... see remark above regarding \hoffset/\voffset:
+      \ifdim\voffset=0pt \else \vskip-\voffset\fi
+      \box\z@%
+      \ifdim\voffset=0pt \else \vskip+\voffset\fi
+      %
+      % if TeX changes into vertical mode, it inserts \parskip and
+      % \lineskip. Disable it here:
+      \nointerlineskip%
+      \ifvbox\@cclv \unvbox\@cclv \else\hsize=\wd\@cclv \noindent\unhbox\@cclv \fi%
+      %\box\@cclv
+      % using \box instead of \unhbox or \unvbox
+      % has the advantage that glue settings won't be
+      % altered (as for \unhbox/\unvbox). But \box breaks compatibility
+      % with the 'remember picture' feature.
+    }%
+  }
 
-% Preview hack: preview.sty hacks into \shipout (which is ok), but
-% does not honour everyshi.sty (which is not ok). This causes everyshi
-% material to get lost.
-\AtBeginDocument{
-    \@ifpackageloaded{preview}{%
-        % Ok, package loaded. Swap definitions of everyshi.sty's shipout
-        % and preview.sty's shipout:
-        \ifPreview
-            \let\shipout\@EveryShipout@Org@Shipout%This is the null version of \shipout, created by preview and saved by everyshi
-            \let\@EveryShipout@Org@Shipout\pr@shipout% This is the original shipout
-            \let\pr@shipout\@EveryShipout@Shipout%
-        \fi
-        }{}%
+  % Preview hack: preview.sty hacks into \shipout (which is ok), but
+  % does not honour everyshi.sty (which is not ok). This causes everyshi
+  % material to get lost.
+  \AtBeginDocument{
+      \@ifpackageloaded{preview}{%
+          % Ok, package loaded. Swap definitions of everyshi.sty's shipout
+          % and preview.sty's shipout:
+          \ifPreview
+              \let\shipout\@EveryShipout@Org@Shipout%This is the null version of \shipout, created by preview and saved by everyshi
+              \let\@EveryShipout@Org@Shipout\pr@shipout% This is the original shipout
+              \let\pr@shipout\@EveryShipout@Shipout%
+          \fi
+          }{}%
+  }
 }
 
 % Guess the driver:
@@ -196,10 +208,7 @@
 
 % e-TeX primitives
 
-\pgfutil@IfUndefined{protected}{%
-  \def\pgfutil@protected{}%
-}{%
-  \let\pgfutil@protected\protected
-}
+\let\pgfutil@protected\protected
+\let\pgfutil@unexpanded\unexpanded
 
 \endinput

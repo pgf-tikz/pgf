@@ -154,7 +154,7 @@ local function manual()
         },
         xetex = {
             latex = "xelatex --no-pdf --interaction=nonstopmode --halt-on-error pgfmanual.tex",
-            postaction = "xdvipdfmx -p a4 pgfmanual.dvi"
+            postaction = "xdvipdfmx -p a4 pgfmanual.xdv"
         }
     }
 
@@ -188,7 +188,7 @@ local function manual()
 
         for _, line in ipairs(log) do
             if string.match(line, "There were undefined references") or
-                string.match(line, "Rerun to get cross%-references right") or 
+                string.match(line, "Rerun to get cross%-references right") or
                 string.match(line, "Rerun to get the bars right") then
                 rerun = true
                 break
@@ -200,15 +200,22 @@ local function manual()
     until(run == maxruns or not rerun)
 
     if run == maxruns and rerun then
-        error("Document did not converge after 5 runs!")
+        error("Document did not converge after " .. tostring(maxruns) .. " runs!")
     end
 
     -- Run the postaction
     if type(enginesettings[engine].postaction) == "string" then
-        os.execute(enginesettings[engine].postaction)
+        local action = enginesettings[engine].postaction
+        local success, exit, signal = os.execute(action)
+        if not success then
+            error("There were errors during \"" .. tostring(action) .. "\"")
+        end
     elseif type(enginesettings[engine].postaction) == "table" then
         for _, action in ipairs(enginesettings[engine].postaction) do
-            os.execute(action)
+            local success, exit, signal = os.execute(action)
+            if not success then
+                error("There were errors during \"" .. tostring(action) .. "\"")
+            end
         end
     end
 
@@ -229,6 +236,7 @@ local function generate_FILES()
 
     -- list of untracked files to be added
     local untracked = {
+        "doc/generic/pgf/README.md",
         "doc/generic/pgf/FILES",
         "doc/generic/pgf/pgfmanual.pdf",
         "tex/generic/pgf/pgf.revision.tex",
@@ -261,7 +269,7 @@ local function generate_FILES()
     return files
 end
 
-local function generate_TDSzip()
+local function generate_TDSzip(filename)
     local files = generate_FILES()
 
     -- write FILES
@@ -278,6 +286,9 @@ local function generate_TDSzip()
         error("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf is missing")
     end
 
+    -- Copy the README into the TDS archive
+    lfs.copy("README.md", "doc/generic/pgf/README.md")
+
     -- Check that all files actually exist
     for _, f in ipairs(files) do
         if not lfs.exists(f) then
@@ -286,16 +297,16 @@ local function generate_TDSzip()
     end
 
     -- zip it all up
-    local zipfile = "pgf_" .. git.tag .. ".tds.zip"
+    local zipfile = filename or ("pgf_" .. git.tag .. ".tds.zip")
     local filelist = table.concat(files, " ")
     os.execute(table.concat({"zip", zipfile, filelist}, " "))
 
     return zipfile
 end
 
-local function generate_CTANzip()
+local function generate_CTANzip(filename)
     local files = generate_FILES()
-    local tds = generate_TDSzip()
+    local tds = generate_TDSzip("pgf.tds.zip")
 
     local tmproot = tmpdir()
     local tmppgf = tmproot .. "pgf/"
@@ -348,14 +359,14 @@ local function generate_CTANzip()
         "to satisfy CTAN package browsing policies.\n")
     f:close()
 
-    -- Copy over README
-    lfs.copy("README.md", tmppgf .. "README")
+    -- Move the README to the top level
+    os.rename(tmppgf .. "doc/README.md", tmppgf .. "README.md")
 
     -- Move over the TDS zip
     lfs.copy(tds, tmproot .. tds)
 
     -- Pack zipfile
-    local ctanzip = "pgf_" .. git.tag .. ".ctan.flatdir.zip"
+    local ctanzip = filename or ("pgf_" .. git.tag .. ".ctan.flatdir.zip")
     local cwd = lfs.currentdir()
     lfs.chdir(tmproot)
     os.execute(table.concat({"zip -r", cwd .. "/" .. ctanzip, "."}, " "))
@@ -376,7 +387,7 @@ tasks.help = function()
     print("Available commands:")
     for task in pairs(tasks) do
         print("  " .. task)
-    end 
+    end
 end
 local task = tasks[arg[1] or "help"]
 task()

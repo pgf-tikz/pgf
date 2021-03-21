@@ -1,4 +1,4 @@
-% Copyright 2008/2009 by Christian Feuersaenger
+% Copyright 2008/2019 by Christian Feuersaenger
 %
 % This file may be distributed and/or modified
 %
@@ -88,6 +88,13 @@
         \let\pgfmathfloat@relthresh=\pgfmathresult
     },
     fpu/rel thresh=1e-4,
+    fpu/install only/.code={
+        \edef\pgf@list{#1}%
+        \pgfutil@for\pgf@temp:=\pgf@list\do{%
+            \expandafter\pgfmath@float@install@singlefunction\expandafter{%
+                \romannumeral-`0\expandafter\pgfutil@trimspaces\expandafter{\pgf@temp}}%
+        }%
+    },
 }%
 
 \pgfmathfloatcreate{1}{1.0}{0}\let\pgfmathfloatscale=\pgfmathresult
@@ -118,11 +125,12 @@
     \edef\pgfmathfloat@expression{#1}%
     \expandafter\pgfmathfloatparse@@\pgfmathfloat@expression\pgfmathfloat@
     \ifpgfmathfloat@scaleactive
-        \expandafter\pgfmathfloatmultiply@\expandafter{\pgfmathresult}{\pgfmathfloatscale}
+        \expandafter\pgfmathfloatmultiply@\expandafter{\pgfmathresult}{\pgfmathfloatscale}%
         \pgfmathfloattofixed{\pgfmathresult}%
     \else
         \pgfmathfloatparse@output
     \fi
+    \ignorespaces
 }%
 
 \def\pgfmathfloat@char@asterisk{*}%
@@ -291,6 +299,40 @@
     %
     \pgfmathfloat@install\pgfmathscientific=\pgfmathfloatscientific%
 }%
+
+\def\pgfmath@float@install@singlefunction#1{%
+    \ifcsname pgfmath@function@#1\endcsname\else
+        \pgfmath@error{The function `#1' does not exist}{}%
+    \fi
+    \pgfmath@toks={}%
+    \pgfmathloop
+    \ifnum\pgfmathcounter>\csname pgfmath@operation@#1@arity\endcsname\relax%
+    \else
+        \expandafter\pgfmath@addto@toks\expandafter{\pgfmath@char@hash}%
+        \expandafter\pgfmath@addto@toks\expandafter{\pgfmathcounter}%
+    \repeatpgfmathloop
+    \edef\pgfmath@head{\noexpand\def\expandafter\noexpand\csname pgfmath#1@\endcsname\the\pgfmath@toks}%
+    \pgfmath@toks={}%
+    \def\pgfmath@arguments{}%
+    \pgfmathloop
+    \ifnum\pgfmathcounter>\csname pgfmath@operation@#1@arity\endcsname\relax%
+    \else
+        \pgfmath@addto@toks{\pgfmathfloatparsenumber}%
+        \expandafter\expandafter\expandafter\pgfmath@addto@toks
+            \expandafter\expandafter\expandafter{\expandafter\expandafter\expandafter
+                {\expandafter\pgfmath@char@hash\pgfmathcounter}}%
+        \pgfmath@addto@toks{\let}%
+        \expandafter\pgfmath@addto@toks\expandafter{%
+            \csname pgfmath@argument@\pgfmathcounter\endcsname=\pgfmathresult}%
+        \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter
+            \pgfmath@arguments\expandafter\expandafter\expandafter{\expandafter
+                \pgfmath@arguments\expandafter{\csname pgfmath@argument@\pgfmathcounter\endcsname}}%
+    \repeatpgfmathloop
+    \expandafter\pgfmath@addto@toks\expandafter{\csname pgfmathfloat#1@\expandafter\endcsname\pgfmath@arguments}%
+    \pgfmath@addto@toks{\pgfmathfloattofixed{\pgfmathresult}}%
+    \edef\pgfmath@body{{\the\pgfmath@toks}}%
+    \expandafter\pgfmath@head\pgfmath@body
+}
 
 \def\pgfmathfloat@iftrue{%
     \if Y\pgfmathfloatparse@output@choice
@@ -864,7 +906,7 @@
 \def\pgfmathfloattoextentedprecision#1{%
     \begingroup
     \pgfmathfloattoextentedprecision@a{#1}%
-    \pgfmathfloatcreate{\pgfmathfloat@a@S}{\pgfmathresult}{\pgfmathfloat@a@E}%
+    \pgfmathfloatcreate{\the\pgfmathfloat@a@S}{\pgfmathresult}{\the\pgfmathfloat@a@E}%
     \pgfmath@smuggleone\pgfmathresult
     \endgroup
 }%

@@ -1,4 +1,4 @@
-% Copyright 2007 by Till Tantau
+% Copyright 2019 by Till Tantau
 %
 % This file may be distributed and/or modified
 %
@@ -24,6 +24,8 @@
 % works with all TeX formats and has no save-stack impact
 
 \def\pgfkeys@empty{}
+\long\def\pgfkeys@firstoftwo#1#2{#1}
+\long\def\pgfkeys@secondoftwo#1#2{#2}
 
 % This is useful:
 
@@ -42,8 +44,6 @@
   \pgfkeys@error{PGF requires etex version 2}%
   \csname @@end\expandafter\endcsname\expandafter\end%
 \fi
-
-\expandafter\let\expandafter\pgfkeys@ifcsname\csname ifcsname\endcsname%
 
 % Set a key to a value
 %
@@ -74,9 +74,9 @@
 }
 
 \long\def\pgfkeyssetevalue#1#2{%
-  \pgfkeys@temptoks={#2}%
-  \pgfkeys@temptoks=\scantokens\expandafter{\expandafter{\the\pgfkeys@temptoks}}%
-  \expandafter\edef\csname pgfk@#1\expandafter\endcsname\expandafter{\the\pgfkeys@temptoks}%
+  \edef\pgfkeys@temp##1##2##3##4##5##6##7##8##9{#2}%
+  \pgfkeys@temptoks=\expandafter{\pgfkeys@temp{##1}{##2}{##3}{##4}{##5}{##6}{##7}{##8}{##9}}%
+  \expandafter\edef\csname pgfk@#1\endcsname{\the\pgfkeys@temptoks}%
 }
 
 % Add text to a key at the end
@@ -178,7 +178,13 @@
 %
 % \pgfkeysifdefined{/tikz/length}{key exists}{does not exist}
 
-\long\def\pgfkeysifdefined#1#2#3{\pgfkeys@ifcsname pgfk@#1\endcsname#2\else#3\fi}
+\long\def\pgfkeysifdefined#1{%
+  \ifcsname pgfk@#1\endcsname
+    \expandafter\pgfkeys@firstoftwo
+  \else
+    \expandafter\pgfkeys@secondoftwo
+  \fi
+}
 
 % Tests whether a key is assignable. For standard keys which just
 % store their value, this is identical to \pgfkeysifdefined.
@@ -420,7 +426,7 @@
 \def\pgfkeys@ifexecutehandler#1#2{#1}%
 \let\pgfkeys@ifexecutehandler@handleall=\pgfkeys@ifexecutehandler
 \def\pgfkeys@ifexecutehandler@handleonlyexisting#1#2{%
-  \pgfkeys@ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+  \ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
      #1% ok, this particular key handler is known and should be processed in any case (for example .try)
   \else
      % implement the 'only existing' feature here:
@@ -431,7 +437,7 @@
 }%
 \def\pgfkeys@ifexecutehandler@handlefullorexisting#1#2{%
   \ifpgfkeysaddeddefaultpath
-    \pgfkeys@ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+    \ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
        #1% ok, this particular key handler is known and be processed in any case (for example .try)
     \else
        % implement the 'only existing' feature here:
@@ -719,7 +725,11 @@
   % (with expansion of '#1'):
   \edef\pgfkeys@tempargs{\noexpand\pgfkeysvalueof{#1/.@@body}}%
   \def\pgfkeys@temp{\pgfkeysdef{#1}}%
-  \expandafter\pgfkeys@temp\expandafter{\pgfkeys@tempargs##1}%
+  \ifnum#2=1\relax
+    \expandafter\pgfkeys@temp\expandafter{\pgfkeys@tempargs{##1}}%
+  \else
+    \expandafter\pgfkeys@temp\expandafter{\pgfkeys@tempargs##1}%
+  \fi
   #5{#1/.@body}{#3}%
 }
 
@@ -745,7 +755,7 @@
   {%
     \pgfkeysgetvalue{\pgfkeyscurrentpath/.@args}{\pgfkeys@tempargs}%
     \pgfkeysgetvalue{\pgfkeyscurrentpath/.@body}{\pgfkeys@tempbody}%
-    \def\pgfkeys@marshal{\expandafter\gdef\expandafter\pgfkeys@global@temp\pgfkeys@tempargs}%
+    \def\pgfkeys@marshal{\expandafter\long\expandafter\gdef\expandafter\pgfkeys@global@temp\pgfkeys@tempargs}%
     \expandafter\pgfkeys@marshal\expandafter{\pgfkeys@tempbody}%
   }%
     \pgfkeysifdefined{\pgfkeyscurrentpath/.@@body}{%
@@ -828,7 +838,7 @@
   }%
 }
 \def\pgfkeys@handle@boolean#1#2{%
-  \pgfkeys@ifcsname#1#2\endcsname%
+  \ifcsname#1#2\endcsname%
     \csname#1#2\endcsname%
   \else%
     \def\pgf@marshal{\pgfkeysvalueof{/errors/boolean expected/.@cmd}}%
@@ -895,10 +905,17 @@
   \pgfkeys@searchalso@parse#1,\pgfkeys@mainstop
   {%
     \toks0=\expandafter{\pgfkeys@global@temp##1\pgfeov}%
-  \toks1={\pgfkeysalso{/handlers/.unknown/.@cmd/.expand once=\pgfkeys@searchalso@temp@value}}%
+  \toks1={%
+    \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
+    \expandafter\pgfkeys@code\pgfkeys@searchalso@temp@value\pgfeov
+  }%
   \xdef\pgfkeys@global@temp{%
     \noexpand\def\noexpand\pgfkeys@searchalso@temp@value{####1}%
     \noexpand\ifpgfkeysaddeddefaultpath
+      \noexpand\expandafter\noexpand\pgfkeys@firstoftwo
+    \noexpand\else
+      \noexpand\expandafter\noexpand\pgfkeys@secondoftwo
+    \noexpand\fi{%
       \noexpand\pgfkeyssuccessfalse
       \noexpand\let\noexpand\pgfkeys@searchalso@name=\noexpand\pgfkeyscurrentkeyRAW
       \the\toks0 % one or more /.try things; one for each path. The last element won't have a /.try
@@ -906,9 +923,9 @@
       %\noexpand\else
       %  \the\toks1 % invoke /handlers/.unknown handler
       %\noexpand\fi
-    \noexpand\else
+    }{%
       \the\toks1 % invoke /handlers/.unknown handler
-    \noexpand\fi
+    }%
   }%
   \expandafter\gdef\expandafter\pgfkeys@global@temp\expandafter##\expandafter1\expandafter\pgfeov\expandafter{\pgfkeys@global@temp}%
   }%
@@ -952,7 +969,6 @@
 % Value expansion
 
 \pgfkeys{/handlers/.expand once/.code=\expandafter\pgfkeys@exp@call\expandafter{#1}}
-\pgfkeys{/handlers/.expand two once/.code 2 args=\expandafter\expandafter\expandafter\pgfkeys@exp@call\expandafter\expandafter\expandafter{\expandafter#1\expandafter}\expandafter{#2}}
 \pgfkeys{/handlers/.expand twice/.code=\expandafter\expandafter\expandafter\pgfkeys@exp@call\expandafter\expandafter\expandafter{#1}}
 \pgfkeys{/handlers/.expanded/.code=\edef\pgfkeys@temp{#1}\expandafter\pgfkeys@exp@call\expandafter{\pgfkeys@temp}}
 
@@ -1025,50 +1041,50 @@
 
 \pgfkeys{
   /errors/boolean expected/.code 2 args=%
-  {
-    \toks1={#1}
-    \toks2={#2}
+  {%
+    \toks1={#1}%
+    \toks2={#2}%
     \pgfkeys@error{%
       Boolean parameter of key '\the\toks1' must be 'true' or 'false', not
       '\the\toks2'. I am going to ignore it%
-    }
+    }%
   },
   /errors/value required/.code 2 args=%
-  {
-    \toks1={#1}
+  {%
+    \toks1={#1}%
     \pgfkeys@error{%
       The key '\the\toks1' requires a value. I am going to ignore this
       key%
-    }
+    }%
   },
   /errors/value forbidden/.code 2 args=%
-  {
-    \toks1={#1}
-    \toks2={#2}
+  {%
+    \toks1={#1}%
+    \toks2={#2}%
     \pgfkeys@error{%
       You may not specify a value for the key '\the\toks1'. I am going to ignore
       the value '\the\toks2' that you provided%
-    }
+    }%
   },
   /errors/unknown choice value/.code 2 args=%
-  {
-    \toks1={#1}
-    \toks2={#2}
+  {%
+    \toks1={#1}%
+    \toks2={#2}%
     \pgfkeys@error{%
       Choice '\the\toks2' unknown in choice key '\the\toks1'. I am
       going to ignore this key%
-    }
+    }%
   },
   /errors/unknown key/.code 2 args=%
-  {
-    \toks1={#1}
-    \toks2={#2}
+  {%
+    \toks1={#1}%
+    \toks2={#2}%
     \def\pgf@temp{#2}%
     \pgfkeys@error{%
       I do not know the key '\the\toks1'\ifx\pgf@temp\pgfkeysnovalue@text\space\else, to which you passed
       '\the\toks2', \fi and I am going to ignore it. Perhaps you
       misspelled it%
-    }
+    }%
   }
 }
 
@@ -1101,7 +1117,6 @@
 \pgfkeysaddhandleonlyexistingexception{.lastretry}%
 \pgfkeysaddhandleonlyexistingexception{.unknown}%
 \pgfkeysaddhandleonlyexistingexception{.expand once}%
-\pgfkeysaddhandleonlyexistingexception{.expand two once}%
 \pgfkeysaddhandleonlyexistingexception{.expand twice}%
 \pgfkeysaddhandleonlyexistingexception{.expanded}%
 

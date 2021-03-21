@@ -39,16 +39,24 @@ declare {
     Two typical effects of increasing the |electric charge| are distortion
     of symmetries and an upscaling of the drawings.
   "]],
-  examples = {[["
-    \tikz \graph [spring electrical layout, horizontal=0 to 1]
-      { 0 [electric charge=1] -- subgraph C_n [n=10] };
-  "]],[["
-    \tikz \graph [spring electrical layout, horizontal=0 to 1]
-      { 0 [electric charge=5] -- subgraph C_n [n=10] };
-  "]],[["
-    \tikz \graph [spring electrical layout, horizontal=0 to 1]
-      { [clique] 1 [electric charge=5], 2, 3, 4 };
-  "]]
+  examples = {
+    {
+      options = [["preamble={\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring electrical layout, horizontal=0 to 1]
+          { 0 [electric charge=1] -- subgraph C_n [n=10] };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring electrical layout, horizontal=0 to 1]
+          { 0 [electric charge=5] -- subgraph C_n [n=10] };
+      "]]
+    },{
+      code = [["
+        \tikz \graph [spring electrical layout, horizontal=0 to 1]
+          { [clique] 1 [electric charge=5], 2, 3, 4 };
+      "]]
+    }
   }
 }
 
