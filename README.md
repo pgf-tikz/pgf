@@ -17,6 +17,9 @@ Please go to the official repository at https://github.com/pgf-tikz/pgf or the
 official mailing list at https://tug.org/mailman/listinfo/pgf-tikz to submit
 bug reports, request new features, etc.
 
+We also have a chat on the Matrix network at
+[#pgf-tikz:matrix.org](https://matrix.to/#/#pgf-tikz:matrix.org).
+
 ## Installation
 
 In general you should just use the version of PGF that is shipped by
