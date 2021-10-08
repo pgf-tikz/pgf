@@ -9,8 +9,7 @@
 
 **Checklist**
 
-Please check the boxes below and [signoff your commits][git-s] to explicitly
-state your agreement to the [Developer Certificate of Origin][DCO]:
+Please [signoff your commits][git-s] to explicitly state your agreement to the [Developer Certificate of Origin][DCO]. If that is not possible you may check the boxes below instead:
 
 - [ ] Code changes are licensed under [GPLv2][GPL] + [LPPLv1.3c][LPPL]
 - [ ] Documentation changes are licensed under [FDLv1.2][FDL]
