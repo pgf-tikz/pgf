@@ -95,10 +95,11 @@ cleanup
 
 # Deploy the tree
 cd tlcontrib/
+find -depth -type d -exec tree -H . -o {}/index.html {} \;
 touch .nojekyll
 git init
 git checkout -b gh-pages
-git add .
+git add -f .
 git commit --no-gpg-sign --quiet -m "Deployment for ${GITHUB_SHA}"
 git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}"
 git push --quiet --force origin gh-pages > /dev/null 2>&1
