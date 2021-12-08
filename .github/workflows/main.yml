@@ -1,0 +1,283 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]')"
+
+    strategy:
+      matrix:
+        engine: [luatex, dvisvgm, dvipdfm, dvipdfmx, dvips, pdftex, xetex]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Cache dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          /tmp/texlive
+          /tmp/tlpkg
+          ~/.texlive
+        key: texlive-2021
+
+    - name: Set up TeX Live environment
+      uses: pgf-tikz/actions/install-tl@master
+      with:
+        packages:
+          amsfonts
+          amsmath
+          atbegshi
+          atveryend
+          bigintcalc
+          bitset
+          colortbl
+          courier
+          ctablestack
+          dvipdfmx
+          dvips
+          dvisvgm
+          ec
+          epstopdf-pkg
+          etexcmds
+          fp
+          geometry
+          gettitlestring
+          graphics
+          graphics-def
+          hycolor
+          hyperref
+          iftex
+          imakeidx
+          intcalc
+          kvdefinekeys
+          kvoptions
+          kvsetkeys
+          latex
+          latex-bin
+          letltxmacro
+          listings
+          lm
+          ltxcmds
+          luainputenc
+          luaotfload
+          luatex
+          luatexbase
+          luaxml
+          make4ht
+          makeindex
+          metafont
+          mfware
+          ms
+          oberdiek
+          pdfescape
+          pdftexcmds
+          psnfss
+          refcount
+          rerunfilecheck
+          stringenc
+          symbol
+          tex4ht
+          texlive-scripts
+          times
+          todonotes
+          tools
+          uniquecounter
+          url
+          xcolor
+          xetex
+          xkeyval
+          zapfding
+
+    - name: 'Install PGF'
+      run: |
+        tlmgr init-usertree --usertree $PWD
+        echo "TEXMFHOME=$PWD" >> $GITHUB_ENV
+
+    - name: Generate the revision file
+      run: |
+        texlua build.lua revisionfile
+        cat tex/generic/pgf/pgf.revision.tex
+        echo "GIT_TAG=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
+
+    - name: Build the manual
+      run: texlua build.lua manual ${{ matrix.engine }}
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.engine == 'luatex'
+      with:
+        name: pgfmanual
+        path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
+
+    - name: "ZIP: Build"
+      if: matrix.engine == 'luatex'
+      run: |
+        texlua build.lua tds
+        texlua build.lua ctan
+
+    - name: "ZIP: Sign"
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+        GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+      run: |
+        # get the keys
+        printenv GPG_SECRET_KEY > "pgf-${GIT_TAG}.sec"
+        printenv GPG_PUBLIC_KEY > "pgf-${GIT_TAG}.pub"
+        # sign the products
+        export GNUPGHOME=$(mktemp -d)
+        install -dm 0700 "$GNUPGHOME"
+        gpg --import "pgf-${GIT_TAG}.sec"
+        gpg --armor --output "pgf_${GIT_TAG}.tds.zip.sig" --detach-sign "pgf_${GIT_TAG}.tds.zip"
+        gpg --armor --output "pgf_${GIT_TAG}.ctan.flatdir.zip.sig" --detach-sign "pgf_${GIT_TAG}.ctan.flatdir.zip"
+        rm -rf "$GNUPGHOME"
+        # verify the signature against the distributed public key
+        export GNUPGHOME=$(mktemp -d)
+        install -dm 0700 "$GNUPGHOME"
+        gpg --import "pgf-${GIT_TAG}.pub"
+        gpg --verify "pgf_${GIT_TAG}.tds.zip.sig"
+        gpg --verify "pgf_${GIT_TAG}.ctan.flatdir.zip.sig"
+        rm -rf "$GNUPGHOME"
+
+    - name: Deploy tlcontrib
+      if: matrix.engine == 'luatex'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -qq libxml-parser-perl libxml-xpath-perl libtext-unidecode-perl tree
+        cp doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf ../
+        bash ci/update_tlcontrib.sh
+
+    - name: "Release: create"
+      uses: actions/create-release@v1
+      id: create_release
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.GIT_TAG }}
+        release_name: ${{ env.GIT_TAG }}
+        body_path: doc/generic/pgf/RELEASE_NOTES.md
+
+    - name: "Release: upload manual"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: doc/generic/pgf/version-for-${{ matrix.engine }}/en/pgfmanual.pdf
+        asset_name: pgfmanual-${{ env.GIT_TAG }}.pdf
+        asset_content_type: application/pdf
+
+    - name: "Release: upload public key"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf-${{ env.GIT_TAG }}.pub
+        asset_name: pgf-${{ env.GIT_TAG }}.pub
+        asset_content_type: text/plain
+
+    - name: "Release: upload TDS zip"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip
+        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip
+        asset_content_type: application/zip
+
+    - name: "Release: upload TDS signature"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip.sig
+        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip.sig
+        asset_content_type: text/plain
+
+    - name: "Release: upload CTAN zip"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
+        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
+        asset_content_type: application/zip
+
+    - name: "Release: upload CTAN signature"
+      uses: actions/upload-release-asset@v1
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        asset_content_type: text/plain
+
+    - name: "CTAN: Validate"
+      if: matrix.engine == 'luatex'
+      uses: pgf-tikz/actions/ctan-upload@master
+      with:
+        action: validate
+        announcement: doc/generic/pgf/RELEASE_NOTES.md
+        author: 'Christian Feuersänger;Henri Menke;The PGF/TikZ Team;Till Tantau'
+        bugs: https://github.com/pgf-tikz/pgf/issues
+        ctanPath: /graphics/pgf/base
+        description: doc/generic/pgf/description.html
+        email: pgf-tikz@tug.org
+        file: 'pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip'
+        license: 'fdl;gpl2;lppl1.3c'
+        note: |
+          The release files are signed using a detached signature.  You can obtain the
+          signature from the GitHub release page
+
+              https://github.com/pgf-tikz/pgf/releases/download/${{ env.GIT_TAG }}/pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        pkg: pgf
+        repository: https://github.com/pgf-tikz/pgf
+        summary: Create PostScript and PDF graphics in TeX
+        support: https://tug.org/mailman/listinfo/pgf-tikz
+        update: true
+        uploader: github-actions
+        version: ${{ env.GIT_TAG }}
+
+    - name: "CTAN: Upload"
+      if: matrix.engine == 'luatex' && startsWith(github.ref, 'refs/tags/') && github.repository == 'pgf-tikz/pgf'
+      uses: pgf-tikz/actions/ctan-upload@master
+      with:
+        action: upload
+        announcement: doc/generic/pgf/RELEASE_NOTES.md
+        author: 'Christian Feuersänger;Henri Menke;The PGF/TikZ Team;Till Tantau'
+        bugs: https://github.com/pgf-tikz/pgf/issues
+        ctanPath: /graphics/pgf/base
+        description: doc/generic/pgf/description.html
+        email: pgf-tikz@tug.org
+        file: 'pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip'
+        license: 'fdl;gpl2;lppl1.3c'
+        note: |
+          The release files are signed using a detached signature.  You can obtain the
+          signature from the GitHub release page
+
+              https://github.com/pgf-tikz/pgf/releases/download/${{ env.GIT_TAG }}/pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        pkg: pgf
+        repository: https://github.com/pgf-tikz/pgf
+        summary: Create PostScript and PDF graphics in TeX
+        support: https://tug.org/mailman/listinfo/pgf-tikz
+        update: true
+        uploader: github-actions
+        version: ${{ env.GIT_TAG }}

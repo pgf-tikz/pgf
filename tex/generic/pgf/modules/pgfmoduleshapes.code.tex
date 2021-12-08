@@ -617,7 +617,42 @@
         \pgf@process{\pgf@shape@interpictureshift{#1}}%%
         \advance\pgf@xa by-\pgf@x%
         \advance\pgf@ya by-\pgf@y%
-        \csname pgf@anchor@\csname pgf@sh@ns@#1\endcsname @border\endcsname{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
+        % Now (\pgf@xa, \pgf@ya) is a coord in shape's coord system, and
+        % relative to the anchor "center". If (xa, ya) is almost identical to
+        % the node center, which is determined by sqrt(xa^2+ya^2) < 0.02pt,
+        % just return the node center.
+        %
+        % \pgf@xb = 10*\pgf@xa if -1pt<\pgf@xa<1pt else 10pt
+        %  - "10*\pgf@xa": reduce ruonding errors when \pgf@xa is small
+        %  - "-1pt<\pgf@xa<1pt": guard against error "Dimension too large"
+        \pgf@xb=10pt
+        \ifdim\pgf@xa<1pt\ifdim\pgf@xa>-1pt
+          \pgf@xb=10\pgf@xa
+        \fi\fi
+        % \pgf@yb = 10*\pgf@ya if -1pt<\pgf@ya<1pt else 10pt
+        \pgf@yb=10pt
+        \ifdim\pgf@ya<1pt\ifdim\pgf@ya>-1pt
+          \pgf@yb=10\pgf@ya
+        \fi\fi
+        % if xb^2+yb^2 < 0.04pt, which means sqrt(xa^2+ya^2) < 0.02pt,
+        % return node center
+        \ifdim\dimexpr\expandafter\Pgf@geT\the\pgf@xb\pgf@xb
+                     +\expandafter\Pgf@geT\the\pgf@yb\pgf@yb\relax<0.04pt
+          \expandafter\pgfutil@firstoftwo
+        \else
+          \expandafter\pgfutil@secondoftwo
+        \fi
+        {% return coord of "center"
+          \pgfwarning
+            {Returning node center instead of a point on node border. Did you
+            specify a point identical to the center of node
+            ``\pgfreferencednodename''?}%
+          \pgf@sh@reanchor{\csname pgf@sh@ns@#1\endcsname}{center}%
+        }
+        {% this calls the corresponding \anchorborder in shape declaration
+          \csname pgf@anchor@\csname pgf@sh@ns@#1\endcsname @border\endcsname
+            {\pgfqpoint{\pgf@xa}{\pgf@ya}}%
+        }%
         \pgfsettransform{\csname pgf@sh@nt@#1\endcsname}%
         \pgf@pos@transform@glob%
         \global\pgf@x=\pgf@x%
@@ -852,13 +887,13 @@
 \pgfset{
   inner xsep/.initial     =.3333em,
   inner ysep/.initial     =.3333em,
-  inner sep/.style        ={/pgf/inner xsep=#1,/pgf/inner ysep=#1},
+  inner sep/.style        ={/pgf/inner xsep={#1},/pgf/inner ysep={#1}},
   outer xsep/.initial     =.5\pgflinewidth,
   outer ysep/.initial     =.5\pgflinewidth,
   outer sep/.code         =\pgf@handle@outer@sep{#1},
   minimum width/.initial  =1pt,
   minimum height/.initial =1pt,
-  minimum size/.style     ={/pgf/minimum width=#1,/pgf/minimum height=#1},
+  minimum size/.style     ={/pgf/minimum width={#1},/pgf/minimum height={#1}},
 }%
 
 
@@ -1260,7 +1295,7 @@
     \advance\pgf@x by0.707107\pgf@xa
     \advance\pgf@y by-0.707107\pgf@xa
   }%
-  \anchorborder{
+  \anchorborder{%
     \pgf@xa=\pgf@x%
     \pgf@ya=\pgf@y%
     \edef\pgf@marshal{%

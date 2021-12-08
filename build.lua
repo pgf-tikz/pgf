@@ -200,7 +200,7 @@ local function manual()
     until(run == maxruns or not rerun)
 
     if run == maxruns and rerun then
-        error("Document did not converge after 5 runs!")
+        error("Document did not converge after " .. tostring(maxruns) .. " runs!")
     end
 
     -- Run the postaction
@@ -236,6 +236,7 @@ local function generate_FILES()
 
     -- list of untracked files to be added
     local untracked = {
+        "doc/generic/pgf/README.md",
         "doc/generic/pgf/FILES",
         "doc/generic/pgf/pgfmanual.pdf",
         "tex/generic/pgf/pgf.revision.tex",
@@ -284,6 +285,9 @@ local function generate_TDSzip(filename)
     else
         error("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf is missing")
     end
+
+    -- Copy the README into the TDS archive
+    lfs.copy("README.md", "doc/generic/pgf/README.md")
 
     -- Check that all files actually exist
     for _, f in ipairs(files) do
@@ -355,8 +359,8 @@ local function generate_CTANzip(filename)
         "to satisfy CTAN package browsing policies.\n")
     f:close()
 
-    -- Copy over README
-    lfs.copy("README.md", tmppgf .. "README")
+    -- Move the README to the top level
+    os.rename(tmppgf .. "doc/README.md", tmppgf .. "README.md")
 
     -- Move over the TDS zip
     lfs.copy(tds, tmproot .. tds)

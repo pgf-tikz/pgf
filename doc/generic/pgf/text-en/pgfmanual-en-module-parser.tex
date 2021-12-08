@@ -39,7 +39,7 @@ optionally some code is executed afterwards.
 
   The parser works as follows: At any moment, it is in a certain
   \emph{state}, initially this state is called |initial|. Then, the first
-  letter of the \meta{text} is examined (using the |\futurlet| command). For
+  letter of the \meta{text} is examined (using the |\futurelet| command). For
   each possible state and each possible letter, some action code is stored in
   the parser in a table. This code is then executed. This code may, but need
   not, trigger a \emph{state switch}, causing a new state to be set. The
@@ -72,19 +72,27 @@ There are \the\mycount\ a's.
   }%
   This command should be used repeatedly to define a parser named
   \meta{parser name}. With a call to this command you specify that the
-  \meta{parser name} should do the following: When it is in state \meta{state}%
-  and reads the letter \meta{symbol meaning}, perform the code stored in
-  \meta{action}.
+  \meta{parser name} should do the following: When it is in state
+  \meta{state} and reads the letter \meta{symbol meaning}, perform the code
+  stored in \meta{action}.
 
   The \meta{symbol meaning} must be the text that results from applying the
   \TeX\ command |\meaning| to the given character. For instance, |\meaning a|
   yields |the letter a|, while |\meaning 1| yields |the character 1|. A space
-  yields |blank space|. Alternatively you can give the symbol you want without
+  yields |blank space  |. Alternatively you can give the symbol you want without
   surrounding it in braces. So both
   |\pgfparserdef{myparser}{initial}{the letter a}{foo}|
   and
   |\pgfparserdef{myparser}{initial}a{foo}|
-  define an \meta{action} for |the letter a|.
+  define an \meta{action} for |the letter a|. This short form works for most
+  tokens, but not for a space (in which case you can use
+  |\pgfparserdef{myparser}{initial}{blank space}{foo}|), and opening braces
+  (in which case you can use
+  |\pgfparserdef{myparser}{initial}{\meaning\bgroup}{foo}|, and one might prefer
+  to use |\pgfparserdef{myparser}{initial}{\meaning\egroup}{foo}| for closing
+  braces as well). You can as well define an action for a macro's meaning (note
+  that macros with different names can have the same meaning), so things like
+  |\pgfparserdef{myparser}{initial}\texttt{foo}| are possible as well.
 
   The \meta{action} might require arguments which you can specify in the
   optional \meta{arguments} string. The argument string can contain up to nine
@@ -142,7 +150,7 @@ There are \the\mycount\ a's.
   goes back to the parser. You should not launch a parser inside the
   \meta{action} code, unless you put it in a scope.
 
-  When you set the \meta{state} to |all|, the state \meta{action} is performed
+  When you use |all| as the \meta{state}, the \meta{action} is performed
   in all states as a fallback, whenever \meta{symbol meaning} is encountered.
   This means that when you do not specify anything explicitly for a state and a
   letter, but you do specify something for |all| and this letter, then the
@@ -151,7 +159,9 @@ There are \the\mycount\ a's.
   When the parser encounters a letter for which nothing is specified in the
   current state (neither directly nor indirectly via |all|), an error occurs.
   Additionally you can specify an action that is executed after the error is
-  thrown using |\pgfparserdefunknown|.
+  thrown using |\pgfparserdefunknown|. To suppress these errors (but not the
+  action specified with |\pgfparserdefunknown|) you can use the
+  |/pgfparser/silent| key or the |silent| key of the current \meta{parser name}.
 \end{command}%
 
 \begin{command}%
@@ -160,11 +170,11 @@ There are \the\mycount\ a's.
     \marg{parser name 1}\marg{state 1}\meta{symbol meaning 1}%
     \oarg{opt 1}\oarg{opt 2}\meta{symbol meaning 2}%
   }%
-  If none of the optional arguments are given in the following \meta{parser
-  name 2} and \meta{state 2} are the same as \meta{parser name 1} and
-  \meta{state 1}. If only the first is given \meta{state 2} equals
-  \meta{opt 1}. If both are given \meta{parser name 2} equals \meta{opt 1} and
-  \meta{state 2} equals \meta{opt 2}.
+  If none of the optional arguments are given in the following explanation
+  \meta{parser name 2} and \meta{state 2} are the same as
+  \meta{parser name 1} and \meta{state 1}. If only the first is given
+  \meta{state 2} equals \meta{opt 1}. If both are given \meta{parser name 2}
+  equals \meta{opt 1} and \meta{state 2} equals \meta{opt 2}.
 
   Defines an action for \meta{parser name 1} in \meta{state 1} for the
   \meta{symbol meaning 1} to do the same as the action of \meta{parser name 2}
@@ -176,7 +186,8 @@ There are \the\mycount\ a's.
 
 \begin{command}{\pgfparserdefunknown\marg{parser name}\marg{state}\marg{action}}%
   With this macro you can define an \meta{action} for the \meta{parser name}
-  parser in \meta{state} if the letter which was encountered was undefined.
+  parser in \meta{state} if no action was defined for the letter which was
+  encountered.
 \end{command}%
 
 \begin{command}{\pgfparserdeffinal\marg{parser name}\marg{action}}%
@@ -200,9 +211,11 @@ There are \the\mycount\ a's.
 
 \begin{command}{\pgfparserreinsert}%
   You can use this as the final macro in an action of |\pgfparserdef| or
-  |\pgfparserdefunknown|. This has the effect that the letter which was parsed
-  in this action will be parsed again after this action (and after any arguments
-  were read).
+  |\pgfparserdefunknown|. This has the effect that the contents of
+  |\pgfparserletter| will be parsed next. Without any redefinition the result
+  will be that the last token will be parsed again. You can change the
+  definition of |\pgfparserletter| just before |\pgfparserreinsert| as well to
+  parse some specific tokens next.
 \end{command}%
 
 \begin{command}{\pgfparserstate}%
@@ -220,9 +233,9 @@ There are \the\mycount\ a's.
   |\def\pgfparserletter{a}|. This definition is done before any action code is
   executed. There are four special cases: If the next token is of category code
   1, 2, 6, or 10, so with standard category codes the tokens |{|, |}|, |#|, and
-  \textvisiblespace\ (a space) would be treated differently. In those cases this
-  macro expands to |\bgroup|, |\egroup|, |##|, and \textvisiblespace\ for the
-  categories 1, 2, 6, and 10, respectively.
+  \textvisiblespace\ (a space), it would be treated differently. In those cases
+  this macro expands to |\bgroup|, |\egroup|, |##|, and \textvisiblespace\ for
+  the categories 1, 2, 6, and 10, respectively.
 \end{command}%
 
 \begin{command}{\pgfparserset\marg{key list}}%
@@ -285,7 +298,7 @@ Next we want to try something that uses some of the different argument types
 available.
 %
 \begin{codeexample}[preamble={\usepgfmodule{parser}}]
-% using the same syntax as \pgfparserdef
+% using the long syntax of \pgfparserdef
 \pgfparserdef{arguments}{initial}{the letter a}[d()]
   {\pgfparserifmark{#1}{\textcolor{red}{\textit{use}}}{\textbf{#1}} }%
 % using the shortcut syntax
