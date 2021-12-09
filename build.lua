@@ -72,7 +72,7 @@ function lfs.copy(src, dest, verbose)
         f:close()
 
         local dirname = lfs.basename(dest)
-        if not lfs.exists(dirname) then
+        if dirname and not lfs.exists(dirname) then
             lfs.rmkdir(dirname)
         end
         f = io.open(dest, "wb")
@@ -161,13 +161,16 @@ local function manual()
     -- Always generate this
     revisionfile()
 
-    local engine = assert(arg[2], "Specify engine")
+    local engine = arg[2] or "luatex"
 
     local cwd = lfs.currentdir()
-    lfs.chdir("doc/generic/pgf/version-for-" .. engine .. "/en")
+    lfs.chdir("doc/generic/pgf/")
+    if lfs.exists("pgfmanual-" .. engine .. ".cfg") then
+        lfs.copy("pgfmanual-" .. engine .. ".cfg", "pgfmanual.cfg")
+    end
 
     local TEXINPUTS = os.getenv("TEXINPUTS") or ""
-    os.setenv("TEXINPUTS", "../../text-en:../../images:" .. TEXINPUTS)
+    os.setenv("TEXINPUTS", "images:" .. TEXINPUTS)
 
     -- Automatic rerun to get cross-references right
     local run = 0
@@ -280,10 +283,8 @@ local function generate_TDSzip(filename)
     FILES:close()
 
     -- Check that the manual has been built
-    if lfs.isfile("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf") then
-        lfs.copy("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf", "doc/generic/pgf/pgfmanual.pdf")
-    else
-        error("doc/generic/pgf/version-for-luatex/en/pgfmanual.pdf is missing")
+    if not lfs.isfile("doc/generic/pgf/pgfmanual.pdf") then
+        error("doc/generic/pgf/pgfmanual.pdf is missing")
     end
 
     -- Copy the README into the TDS archive
@@ -389,5 +390,5 @@ tasks.help = function()
         print("  " .. task)
     end
 end
-local task = tasks[arg[1] or "help"]
+local task = tasks[arg[1]] or tasks.help
 task()
