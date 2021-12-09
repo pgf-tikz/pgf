@@ -161,11 +161,13 @@ local function manual()
     -- Always generate this
     revisionfile()
 
-    local engine = assert(arg[2], "Specify engine")
+    local engine = arg[2] or "luatex"
 
     local cwd = lfs.currentdir()
     lfs.chdir("doc/generic/pgf/")
-    lfs.copy("pgfmanual-" .. engine .. ".cfg", "pgfmanual.cfg")
+    if lfs.exists("pgfmanual-" .. engine .. ".cfg") then
+        lfs.copy("pgfmanual-" .. engine .. ".cfg", "pgfmanual.cfg")
+    end
 
     local TEXINPUTS = os.getenv("TEXINPUTS") or ""
     os.setenv("TEXINPUTS", "images:" .. TEXINPUTS)
@@ -388,5 +390,5 @@ tasks.help = function()
         print("  " .. task)
     end
 end
-local task = tasks[arg[1] or "help"]
+local task = tasks[arg[1]] or tasks.help
 task()
