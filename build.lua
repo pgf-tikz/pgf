@@ -47,6 +47,29 @@ maxprintline = 9999
 ctanzip = "pgf.ctan.flatdir"
 packtdszip = true
 
+-- CTAN upload
+uploadconfig = {
+  announcement_file = "doc/generic/pgf/RELEASE_NOTES.md",
+  author = "Christian Feuersänger;Henri Menke;The PGF/TikZ Team;Till Tantau",
+  bugs = "https://github.com/pgf-tikz/pgf/issues",
+  ctanPath = "/graphics/pgf/base",
+  description = [[<p>PGF is a macro package for creating graphics. It is platform- and format-independent and works together with the most important TeX backend drivers, including pdfTeX and dvips. It comes with a user-friendly syntax layer called TikZ.<br></p><p>Its usage is similar to <a data-cke-saved-href="/pkg/pstricks-base" href="/pkg/pstricks-base">pstricks</a> and the standard picture environment. PGF works with plain (pdf-)TeX, (pdf-)LaTeX, and ConTeXt. Unlike <a data-cke-saved-href="/pkg/pstricks-base" href="/pkg/pstricks-base">pstricks</a>, it can produce either PostScript or PDF output.<br></p>]],
+  email = "pgf-tikz@tug.org",
+  license = "fdl;gpl2;lppl1.3c",
+  note = [[
+The release files are signed using a detached signature.  You can obtain the
+signature from the GitHub release page
+
+    https =//github.com/pgf-tikz/pgf/releases/download/${{ env.GIT_TAG }}/pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig]],
+  pkg = "pgf",
+  repository = "https://github.com/pgf-tikz/pgf",
+  summary = "Create PostScript and PDF graphics in TeX",
+  support = "https://tug.org/mailman/listinfo/pgf-tikz",
+  update = true,
+  uploader = "github-actions",
+  -- version has to be passed on the command line
+}
+
 -- For the way pgf does releases
 local function trim(str)
     return str:gsub("^%s*(.-)%s$", "%1")
