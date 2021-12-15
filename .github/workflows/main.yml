@@ -16,23 +16,22 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Install PGF
-      run: |
-        tlmgr init-usertree --usertree $PWD
-        echo "TEXMFHOME=$PWD" >> $GITHUB_ENV
-
     - name: Generate the revision file
       run: |
-        l3build revisionfile
+        export tagname=$(git describe --abbrev=0 --tags)
+        export revision=$(git describe --tags)
+        export tagdate=$(git log -n 1 "$tagname" --pretty=format:%cs)
+        export revisiondate=$(git log -n 1 "$revision" --pretty=format:%cs)
+        l3build tag --date "$tagdate" "$tagname"
         cat tex/generic/pgf/pgf.revision.tex
-        echo "GIT_TAG=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
+        echo "tagname=$tagname" >> $GITHUB_ENV
 
-    - name: "ZIP: Build"
+    - name: l3build ctan
       run: |
         l3build ctan
         # rename zips
-        cp "pgf.tds.zip" "pgf_${GIT_TAG}.tds.zip"
-        cp "pgf.ctan.flatdir.zip" "pgf_${GIT_TAG}.ctan.flatdir.zip"
+        cp "pgf.tds.zip" "pgf_${tagname}.tds.zip"
+        cp "pgf.ctan.flatdir.zip" "pgf_${tagname}.ctan.flatdir.zip"
 
     - uses: actions/upload-artifact@v2
       with:
@@ -45,20 +44,20 @@ jobs:
         GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
       run: |
         # get the keys
-        printenv GPG_SECRET_KEY > "pgf-${GIT_TAG}.sec"
-        printenv GPG_PUBLIC_KEY > "pgf-${GIT_TAG}.pub"
+        printenv GPG_SECRET_KEY > "pgf-${tagname}.sec"
+        printenv GPG_PUBLIC_KEY > "pgf-${tagname}.pub"
         export GNUPGHOME=$(mktemp -d)
         install -dm 0700 "$GNUPGHOME"
-        gpg --import "pgf-${GIT_TAG}.sec"
-        gpg --armor --output "pgf_${GIT_TAG}.tds.zip.sig" --detach-sign "pgf_${GIT_TAG}.tds.zip"
-        gpg --armor --output "pgf_${GIT_TAG}.ctan.flatdir.zip.sig" --detach-sign "pgf_${GIT_TAG}.ctan.flatdir.zip"
+        gpg --import "pgf-${tagname}.sec"
+        gpg --armor --output "pgf_${tagname}.tds.zip.sig" --detach-sign "pgf_${tagname}.tds.zip"
+        gpg --armor --output "pgf_${tagname}.ctan.flatdir.zip.sig" --detach-sign "pgf_${tagname}.ctan.flatdir.zip"
         rm -rf "$GNUPGHOME"
         # verify the signature against the distributed public key
         export GNUPGHOME=$(mktemp -d)
         install -dm 0700 "$GNUPGHOME"
-        gpg --import "pgf-${GIT_TAG}.pub"
-        gpg --verify "pgf_${GIT_TAG}.tds.zip.sig"
-        gpg --verify "pgf_${GIT_TAG}.ctan.flatdir.zip.sig"
+        gpg --import "pgf-${tagname}.pub"
+        gpg --verify "pgf_${tagname}.tds.zip.sig"
+        gpg --verify "pgf_${tagname}.ctan.flatdir.zip.sig"
         rm -rf "$GNUPGHOME"
 
     - name: "Release: create"
@@ -67,8 +66,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ env.GIT_TAG }}
-        release_name: ${{ env.GIT_TAG }}
+        tag_name: ${{ env.tagname }}
+        release_name: ${{ env.tagname }}
         body_path: doc/generic/pgf/RELEASE_NOTES.md
 
     - name: "Release: upload manual"
@@ -78,7 +77,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: build/doc/pgfmanual.pdf
-        asset_name: pgfmanual-${{ env.GIT_TAG }}.pdf
+        asset_name: pgfmanual-${{ env.tagname }}.pdf
         asset_content_type: application/pdf
 
     - name: "Release: upload public key"
@@ -87,8 +86,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf-${{ env.GIT_TAG }}.pub
-        asset_name: pgf-${{ env.GIT_TAG }}.pub
+        asset_path: ./pgf-${{ env.tagname }}.pub
+        asset_name: pgf-${{ env.tagname }}.pub
         asset_content_type: text/plain
 
     - name: "Release: upload TDS zip"
@@ -97,8 +96,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip
-        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip
+        asset_path: ./pgf_${{ env.tagname }}.tds.zip
+        asset_name: pgf_${{ env.tagname }}.tds.zip
         asset_content_type: application/zip
 
     - name: "Release: upload TDS signature"
@@ -107,8 +106,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.GIT_TAG }}.tds.zip.sig
-        asset_name: pgf_${{ env.GIT_TAG }}.tds.zip.sig
+        asset_path: ./pgf_${{ env.tagname }}.tds.zip.sig
+        asset_name: pgf_${{ env.tagname }}.tds.zip.sig
         asset_content_type: text/plain
 
     - name: "Release: upload CTAN zip"
@@ -117,8 +116,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
-        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip
+        asset_path: ./pgf_${{ env.tagname }}.ctan.flatdir.zip
+        asset_name: pgf_${{ env.tagname }}.ctan.flatdir.zip
         asset_content_type: application/zip
 
     - name: "Release: upload CTAN signature"
@@ -127,15 +126,15 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
-        asset_name: pgf_${{ env.GIT_TAG }}.ctan.flatdir.zip.sig
+        asset_path: ./pgf_${{ env.tagname }}.ctan.flatdir.zip.sig
+        asset_name: pgf_${{ env.tagname }}.ctan.flatdir.zip.sig
         asset_content_type: text/plain
 
     - name: "CTAN: Validate"
       run: |
-        l3build upload --debug "$GIT_TAG"
+        l3build upload --dry-run "$tagname"
 
     - name: "CTAN: Upload"
       if: github.repository == 'pgf-tikz/pgf'
       run: |
-        l3build upload "$GIT_TAG"
+        l3build upload "$tagname"

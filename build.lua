@@ -47,6 +47,11 @@ maxprintline = 9999
 ctanzip = "pgf.ctan.flatdir"
 packtdszip = true
 
+-- if ctanupload is nil or false, only validation is attempted
+if options["dry-run"] then
+  ctanupload = false
+end
+
 -- CTAN upload
 uploadconfig = {
   announcement_file = "doc/generic/pgf/RELEASE_NOTES.md",
@@ -70,51 +75,19 @@ signature from the GitHub release page
   -- version has to be passed on the command line
 }
 
--- For the way pgf does releases
-local function trim(str)
-    return str:gsub("^%s*(.-)%s$", "%1")
-end
-
-local function runcmd(cmd)
-    local pid = assert(io.popen(cmd))
-    local out = trim(pid:read("*all"))
-    pid:close()
-    return out
-end
-
-local git = {
-  tag = runcmd("git describe --abbrev=0 --tags"),
-  HEAD = runcmd("git rev-parse --abbrev-ref HEAD"),
-}
-
-local function revisionfile()
-    -- Generate the revision file
-    local revision = runcmd("git describe --tags HEAD")
-    local versiondatetime = runcmd("git log -n 1 '" .. git.tag .. "' --pretty=format:'%ci'")
-    local revisiondatetime = runcmd("git log -n 1 '" .. revision .. "' --pretty=format:'%ci'")
-
-    local revisionfiletext = [[
-\begingroup
-\catcode`\-=12
-\catcode`\/=12
-\catcode`\.=12
-\catcode`\:=12
-\catcode`\+=12
-\catcode`\-=12
-\gdef\pgfrevision{%s}
-\gdef\pgfversion{%s}
-\gdef\pgfversiondatetime{%s}
-\gdef\pgfrevisiondatetime{%s}
-\gdef\pgf@glob@TMPa#1-#2-#3 #4\relax{#1/#2/#3}
-\xdef\pgfversiondate{\expandafter\pgf@glob@TMPa\pgfversiondatetime\relax}
-\xdef\pgfrevisiondate{\expandafter\pgf@glob@TMPa\pgfrevisiondatetime\relax}
-\endgroup
+function tag_hook(tagname, tagdate)
+  local revision = options["--revision"] or tagname
+  local revisiondate = options["--revision-date"] or tagdate
+  local revisionfiletext = [[
+\def\pgfrevision{%s}
+\def\pgfversion{%s}
+\def\pgfrevisiondate{%s}
+\def\pgfversiondate{%s}
 ]]
-
-    local revisionfile = io.open(maindir .. "/tex/generic/pgf/pgf.revision.tex", "w")
-    revisionfile:write(string.format(revisionfiletext, git.tag, revision, versiondatetime, revisiondatetime))
-    revisionfile:close()
-    return 0
+  local file = io.open("tex/generic/pgf/pgf.revision.tex", "w")
+  file:write(string.format(revisionfiletext, revision, tagname, revisiondate, tagdate))
+  file:close()
+  return 0
 end
 
 target_list = target_list or { }
