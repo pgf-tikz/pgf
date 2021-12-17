@@ -54,7 +54,7 @@ end
 
 -- CTAN upload
 uploadconfig = {
-  announcement_file = "doc/generic/pgf/RELEASE_NOTES.md",
+  announcement_file = "RELEASE_NOTES.md",
   author = "Christian Feuersänger;Henri Menke;The PGF/TikZ Team;Till Tantau",
   bugs = "https://github.com/pgf-tikz/pgf/issues",
   ctanPath = "/graphics/pgf/base",
