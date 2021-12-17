@@ -47,9 +47,6 @@ jobs:
     - name: l3build ctan
       run: |
         l3build ctan
-        # rename zips
-        cp "pgf.tds.zip" "pgf_${tagname}.tds.zip"
-        cp "pgf.ctan.flatdir.zip" "pgf_${tagname}.ctan.flatdir.zip"
 
     - uses: actions/upload-artifact@v2
       with:
@@ -62,20 +59,20 @@ jobs:
         GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
       run: |
         # get the keys
-        printenv GPG_SECRET_KEY > "pgf-${tagname}.sec"
-        printenv GPG_PUBLIC_KEY > "pgf-${tagname}.pub"
+        printenv GPG_SECRET_KEY > "pgf.sec"
+        printenv GPG_PUBLIC_KEY > "pgf.pub"
         export GNUPGHOME=$(mktemp -d)
         install -dm 0700 "$GNUPGHOME"
-        gpg --import "pgf-${tagname}.sec"
-        gpg --armor --output "pgf_${tagname}.tds.zip.sig" --detach-sign "pgf_${tagname}.tds.zip"
-        gpg --armor --output "pgf_${tagname}.ctan.flatdir.zip.sig" --detach-sign "pgf_${tagname}.ctan.flatdir.zip"
+        gpg --import "pgf.sec"
+        gpg --armor --output "pgf.tds.zip.sig" --detach-sign "pgf.tds.zip"
+        gpg --armor --output "pgf.ctan.flatdir.zip.sig" --detach-sign "pgf.ctan.flatdir.zip"
         rm -rf "$GNUPGHOME"
         # verify the signature against the distributed public key
         export GNUPGHOME=$(mktemp -d)
         install -dm 0700 "$GNUPGHOME"
-        gpg --import "pgf-${tagname}.pub"
-        gpg --verify "pgf_${tagname}.tds.zip.sig"
-        gpg --verify "pgf_${tagname}.ctan.flatdir.zip.sig"
+        gpg --import "pgf.pub"
+        gpg --verify "pgf.tds.zip.sig"
+        gpg --verify "pgf.ctan.flatdir.zip.sig"
         rm -rf "$GNUPGHOME"
 
     - name: "Release: create"
@@ -88,65 +85,39 @@ jobs:
         release_name: ${{ env.tagname }}
         body_path: RELEASE_NOTES.md
 
-    - name: "Release: upload manual"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: "Release: upload assets"
+      uses: actions/github-script@v5
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/doc/pgfmanual.pdf
-        asset_name: pgfmanual-${{ env.tagname }}.pdf
-        asset_content_type: application/pdf
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { basename, extname } = require('path');
+          const { readFile } = require('fs').promises;
 
-    - name: "Release: upload public key"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf-${{ env.tagname }}.pub
-        asset_name: pgf-${{ env.tagname }}.pub
-        asset_content_type: text/plain
-
-    - name: "Release: upload TDS zip"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.tagname }}.tds.zip
-        asset_name: pgf_${{ env.tagname }}.tds.zip
-        asset_content_type: application/zip
-
-    - name: "Release: upload TDS signature"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.tagname }}.tds.zip.sig
-        asset_name: pgf_${{ env.tagname }}.tds.zip.sig
-        asset_content_type: text/plain
-
-    - name: "Release: upload CTAN zip"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.tagname }}.ctan.flatdir.zip
-        asset_name: pgf_${{ env.tagname }}.ctan.flatdir.zip
-        asset_content_type: application/zip
-
-    - name: "Release: upload CTAN signature"
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./pgf_${{ env.tagname }}.ctan.flatdir.zip.sig
-        asset_name: pgf_${{ env.tagname }}.ctan.flatdir.zip.sig
-        asset_content_type: text/plain
+          const release_id = '${{ steps.create_release.outputs.id }}'
+          console.log('Release ID:', release_id)
+          for (const { path, name } of [
+              { path: './build/doc/pgfmanual.pdf',
+                name: 'pgfmanual-${{ env.tagname }}.pdf' },
+              { path: './pgf.pub',
+                name: 'pgf-${{ env.tagname }}.pub' },
+              { path: './pgf.tds.zip',
+                name: 'pgf_${{ env.tagname }}.tds.zip' },
+              { path: './pgf.tds.zip.sig',
+                name: 'pgf_${{ env.tagname }}.tds.zip.sig' },
+              { path: './pgf.ctan.flatdir.zip',
+                name: 'pgf_${{ env.tagname }}.ctan.flatdir.zip' },
+              { path: './pgf.ctan.flatdir.zip.sig',
+                name: 'pgf_${{ env.tagname }}.ctan.flatdir.zip.sig' }
+          ]) {
+              console.log('uploadReleaseAsset:', path, '->', name)
+              await github.rest.repos.uploadReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release_id,
+                  name: name,
+                  data: await readFile(path)
+              });
+          }
 
     - name: "CTAN: Validate"
       run: |
