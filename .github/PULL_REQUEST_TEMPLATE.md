@@ -1,13 +1,15 @@
 <!-- Thank you for contributing to PGF/TikZ!  Now that you are becoming a
     contributor, please also subscribe to the mailing list at
-    https://tug.org/mailman/listinfo/pgf-tikz where we coordinate larger
-    changes and rebases. -->
+    https://tug.org/mailman/listinfo/pgf-tikz and our chat on the
+    Matrix network https://matrix.to/#/#pgf-tikz:matrix.org -->
 
 **Motivation for this change**
 
 <!-- If this fixes an issue, add “Fixes #<issue number>” here. -->
 
 **Checklist**
+
+<!-- If your contribution does more than fixing a typo, please add an entry to doc/generic/pgf/CHANGELOG.md -->
 
 Please [signoff your commits][git-s] to explicitly state your agreement to the [Developer Certificate of Origin][DCO]. If that is not possible you may check the boxes below instead:
 
