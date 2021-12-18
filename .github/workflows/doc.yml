@@ -1,0 +1,41 @@
+name: Manual
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/islandoftex/images/texlive:latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Generate the revision file
+      run: |
+        export tagname=$(git describe --abbrev=0 --tags)
+        export revision=$(git describe --tags)
+        export tagdate=$(git log -n 1 "$tagname" --pretty=format:%cs)
+        export revisiondate=$(git log -n 1 "$revision" --pretty=format:%cs)
+        l3build tag --date "$tagdate" "$tagname"
+        cat tex/generic/pgf/pgf.revision.tex
+
+    - name: Build the manual
+      run: |
+        l3build doc -q
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: pgfmanual
+        path: build/doc/pgfmanual.pdf
+
+    - name: Deploy tlcontrib
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        apt-get update -qq
+        apt-get install -qq libxml-parser-perl libxml-xpath-perl libtext-unidecode-perl tree
+        cp build/doc/pgfmanual.pdf ../
+        bash ci/update_tlcontrib.sh

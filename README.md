@@ -37,7 +37,7 @@ $ tlmgr install pgf --reinstall
 
 ## Development
 
-Currently PGF does not have a comprehensive test suite to check for
+Currently PGF only has a very rudimentary test suite to check for
 regressions, so for now we check for bugs by building the manual for
 each commit.  To build the manual locally you can either copy the PGF
 repository into your texmf tree (not recommended) or use the usertree
@@ -48,7 +48,7 @@ $ git clone https://github.com/pgf-tikz/pgf
 $ tlmgr init-usertree --usertree pgf
 $ export TEXMFHOME=$(readlink -f pgf)
 $ cd pgf
-$ texlua build.lua manual luatex
+$ l3build doc -q -H
 ```
 We recommend building at least the version for LuaTeX, as shown in the
 example above because this has the broadest coverage of PGF features.
