@@ -92,6 +92,7 @@ local function walk(sourcedir, targetdir)
 
     -- Process all items in the directory
     for file in lfs.dir(sourcedir) do
+
         if file == "." or file == ".." then
             -- Ignore these two special ones
         elseif lfs.attributes(sourcedir .. file, "mode") == "directory" then
@@ -113,8 +114,12 @@ local function walk(sourcedir, targetdir)
             -- extract all code examples
             local matches = extractor:match(text) or {}
 
-            -- write code examples to separate files
+            -- storage
             local setup_code = ""
+            local preamble = ""
+            local document = ""
+
+            -- write code examples to separate files
             for n, e in ipairs(matches) do
                 local options = e[1]
                 local content = e[2]
@@ -133,6 +138,7 @@ local function walk(sourcedir, targetdir)
                 -- Skip those that say "code only" or "setup code"
                 if not options["code only"] and not options["setup code"] then
                     local newname = name .. "-" .. n .. ".tex"
+                    --[[
                     local examplefile = io.open(targetdir .. newname, "w")
 
                     examplefile:write"\\documentclass{standalone}\n"
@@ -153,9 +159,46 @@ local function walk(sourcedir, targetdir)
                     examplefile:write"\\end{document}\n"
 
                     examplefile:close()
+                    --]]
+                    preamble = preamble .. (options["preamble"] and (options["preamble"] .. "\n") or "")
+                    document = document .. "\\BEGINBOXTEST{" .. name .. "-" .. n .. "}\n"
+                    local pre = options["pre"]
+                    if pre then
+                        pre = pre:gsub("##", "#")
+                        document = document .. pre .. "\n"
+                    end
+                    if options["render instead"] then
+                        document = document .. options["render instead"] .. "\n"
+                    else
+                        document = document .. strip(content) .. "\n"
+                    end
+                    document = document .. (options["post"] and (options["post"] .. "\n") or "")
+                    document = document .. "\\ENDBOXTEST\n\n"
                 end
 
                 ::continue::
+            end
+
+            document = strip(document)
+            if document ~= "" then
+                local examplefile = io.open(targetdir .. name .. ".lvt", "w")
+                examplefile:write"\\documentclass{minimal}\n"
+                examplefile:write"\\input{pgf-regression-test}\n"
+                examplefile:write"\\RequirePackage{fp,pgf,tikz,xcolor}\n"
+                if preamble ~= "" then
+                    examplefile:write"\n"
+                    examplefile:write(preamble)
+                    examplefile:write"\n"
+                end
+                examplefile:write"\\begin{document}\n\n"
+                if setup_code ~= "" then
+                    examplefile:write(setup_code)
+                    examplefile:write"\n"
+                end
+                examplefile:write(document)
+                examplefile:write"\n"
+                examplefile:write"\\END\n"
+                examplefile:close()
             end
         end
     end
