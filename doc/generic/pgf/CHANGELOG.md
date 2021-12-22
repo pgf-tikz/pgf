@@ -55,6 +55,8 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add empty Pattern dictionary to Resources dictionary
 - Spelling and typo fixes in the manual
 - Update Debian installation instructions
+- Suppress white space at line end when `datavisualization` reads from a file 
+  #1112
 
 ### Changed
 
