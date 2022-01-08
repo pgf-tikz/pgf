@@ -28,6 +28,12 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
   case the value is undefined instead of a `\relax`ed csname. It has always been
   semantically wrong to assign to the result of `\pgfkeysgetvalueof`, but now it
   will have undesired side-effects. Therefore this change is breaking.
+- The `textures` and `vtex` drivers have been deprecated. Both engines are no
+  longer in active development and lack eTeX features which are required for
+  quite some time in PGF.
+- The file `pgfutil-common-lists.tex` is deprecated and therefore no longer
+  `\input` by `pgfutil-common.tex`. The macros from this file are specifically
+  meant for pgfplots and are not used in PGF at all.
 
 ### Added
 
