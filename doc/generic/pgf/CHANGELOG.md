@@ -57,7 +57,9 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Update Debian installation instructions
 - Suppress white space at line end when `datavisualization` reads from a file 
   #1112
-- Form-only patterns have no specified color #1122 
+- Form-only patterns have no specified color #1122
+- Functions defined by `/pgf/declare function` now allow spaces in their arg 
+  list #1123
 
 ### Changed
 
