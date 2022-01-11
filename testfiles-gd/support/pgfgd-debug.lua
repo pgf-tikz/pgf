@@ -2,7 +2,7 @@ local InterfaceToDisplay = assert(pgf.gd.interface.InterfaceToDisplay)
 
 -- helper
 local function typeout(...)
-  texio.write_nl(17, string.format(...))
+  texio.write_nl(17, "Gd Lua layer Info: " .. string.format(...))
 end
 
 local createVertex = assert(InterfaceToDisplay.createVertex)
