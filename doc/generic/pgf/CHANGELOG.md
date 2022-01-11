@@ -58,6 +58,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Update Debian installation instructions
 - Suppress white space at line end when `datavisualization` reads from a file 
   #1112
+- Form-only patterns have no specified color #1122 
 - Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 
 ### Changed
@@ -75,8 +76,8 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 
 - 3geek14
 - BeneIII
-- Gábor Braun
 - graue70
+- Gábor Braun
 - Joel Coffman
 - Jonathan Spratte
 - Joseph Wright
@@ -85,6 +86,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Michal Hoftich
 - muzimuzhi
 - PhelypeOleinik
+- QJLc
 - Stefan Pinnow
 
 ## [3.1.9a] - 2021-05-15 Henri Menke
