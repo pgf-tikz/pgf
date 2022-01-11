@@ -23,6 +23,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add Matrix chat to README
 - Add rhombic polihedra #1022
 - Add Developer Certificate of Origin (DCO) to Pull Request template and enforce
+- Add test set for `graphdrawing` (gd) 
 
 ### Fixed
 
@@ -58,6 +59,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Suppress white space at line end when `datavisualization` reads from a file 
   #1112
 - Form-only patterns have no specified color #1122 
+- Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 
 ### Changed
 
