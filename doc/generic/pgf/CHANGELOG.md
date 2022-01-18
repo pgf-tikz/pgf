@@ -36,6 +36,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add rhombic polihedra #1022
 - Add Developer Certificate of Origin (DCO) to Pull Request template and enforce
 - Add test set for `graphdrawing` (gd) 
+- pgfkeys gained support for loading libraries
 
 ### Fixed
 
