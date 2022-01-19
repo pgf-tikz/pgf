@@ -848,7 +848,7 @@ numbers to get to the fix and the ticket, respectively.
 - Reset \tikz@intersect@namedpaths at scope boundaries, fixes #284
 - Make \node foreach work if loop variable is used for positioning, fixes #735
 - Correct some typos, fixes #736
-- checked `pattern.meta` library stuff and fixed some minor issues
+- checked `patterns.meta` library stuff and fixed some minor issues
 - corrected a word in `pgfmanual-en-dv-axes.tex`
 - harmonized spelling of `i.e.` and `e.g.`
 - corrected line breaking in `pgfmanual-en-math-numberprinting.tex` where a
