@@ -26,6 +26,13 @@
 \def\pgfkeys@empty{}
 \long\def\pgfkeys@firstoftwo#1#2{#1}
 \long\def\pgfkeys@secondoftwo#1#2{#2}
+\long\def\pgfkeys@ifcsname#1{%
+  \ifcsname#1\endcsname
+    \expandafter\pgfkeys@firstoftwo
+  \else
+    \expandafter\pgfkeys@secondoftwo
+  \fi
+}
 
 % This is useful:
 
@@ -145,7 +152,7 @@
 %
 % \pgfkeyslet{/algo/swap}{\myswap}
 
-\def\pgfkeyslet#1#2{%
+\long\def\pgfkeyslet#1#2{%
   \expandafter\let\csname pgfk@#1\endcsname#2%
 }
 
@@ -163,7 +170,10 @@
 %
 % \pgfkeysgetvalue{/tikz/swap}{\myswap}
 
-\def\pgfkeysgetvalue#1#2{\expandafter\let\expandafter#2\csname pgfk@#1\endcsname}
+\long\def\pgfkeysgetvalue#1#2{%
+  \pgfkeys@ifcsname{pgfk@#1}%
+    {\expandafter\let\expandafter#2\csname pgfk@#1\endcsname}%
+    {\let#2\relax}}
 
 
 
@@ -180,7 +190,8 @@
 %
 % The length is \pgfkeysvalue{/tikz/length}.
 
-\def\pgfkeysvalueof#1{\csname pgfk@#1\endcsname}
+\let\pgfkeys@relax\relax
+\long\def\pgfkeysvalueof#1{\csname\pgfkeys@ifcsname{pgfk@#1}{pgfk@#1}{pgfkeys@relax}\endcsname}
 
 
 
@@ -379,7 +390,9 @@
 \def\pgfkeys@case@one{%
   \pgfkeysifdefined{\pgfkeyscurrentkey/.@cmd}%
   {\pgfkeysgetvalue{\pgfkeyscurrentkey/.@cmd}{\pgfkeys@code}%
-   \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
+    \ifx\pgfkeys@code\relax\expandafter\pgfkeys@firstoftwo\else\expandafter\pgfkeys@secondoftwo\fi
+    {\pgfkeys@unknown}%
+    {\expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}}
   {\pgfkeys@case@two}%
 }
 
@@ -447,20 +460,20 @@
 \def\pgfkeys@ifexecutehandler#1#2{#1}%
 \let\pgfkeys@ifexecutehandler@handleall=\pgfkeys@ifexecutehandler
 \def\pgfkeys@ifexecutehandler@handleonlyexisting#1#2{%
-  \ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+  \pgfkeys@ifcsname{pgfk@excpt@\pgfkeyscurrentname}{%
      #1% ok, this particular key handler is known and should be processed in any case (for example .try)
-  \else
+  }{%
      % implement the 'only existing' feature here:
      \pgfkeysifdefined{\pgfkeyscurrentpath}{#1}{%
     \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{#1}{#2}%
      }{}%
-  \fi%
+  }%
 }%
 \def\pgfkeys@ifexecutehandler@handlefullorexisting#1#2{%
   \ifpgfkeysaddeddefaultpath
-    \ifcsname pgfk@excpt@\pgfkeyscurrentname\endcsname%
+    \pgfkeys@ifcsname{pgfk@excpt@\pgfkeyscurrentname}{%
        #1% ok, this particular key handler is known and be processed in any case (for example .try)
-    \else
+    }{%
        % implement the 'only existing' feature here:
        \pgfkeysifdefined{\pgfkeyscurrentpath}{%
          #1%
@@ -471,7 +484,7 @@
            #2%
          }%
        }%
-    \fi%
+    }%
   \else
     #1% ok, always true if the USER explicitly provided the full key path.
   \fi
@@ -859,12 +872,12 @@
   }%
 }
 \def\pgfkeys@handle@boolean#1#2{%
-  \ifcsname#1#2\endcsname%
+  \pgfkeys@ifcsname{#1#2}{%
     \csname#1#2\endcsname%
-  \else%
+  }{%
     \def\pgf@marshal{\pgfkeysvalueof{/errors/boolean expected/.@cmd}}%
     \expandafter\pgf@marshal\expandafter{\pgfkeyscurrentkey}{#2}\pgfeov%
-  \fi
+  }%
 }
 
 \pgfkeys{/handlers/.is choice/.code=%
@@ -996,12 +1009,12 @@
 \long\def\pgfkeys@exp@call#1{\pgfkeysalso{\pgfkeyscurrentpath={#1}}}
 
 \def\pgfkeys@mathparse{%
-  \ifcsname pgfmathparse\endcsname
-    \expandafter\pgfmathparse
-  \else
+  \pgfkeys@ifcsname{pgfmathparse}{%
+    \pgfmathparse
+  }{%
     \pgfkeys@error{You have to load `pgfmath' to use \string\pgfmathparse}%
-    \expandafter\def\expandafter\pgfmathresult
-  \fi
+    \def\pgfmathresult
+  }%
 }
 \pgfkeys{/handlers/.evaluated/.code=\pgfkeys@mathparse{#1}\expandafter\pgfkeys@exp@call\expandafter{\pgfmathresult}}
 
