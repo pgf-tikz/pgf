@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Add `RGB` and `gray` color model support for ConTeXt #1130
+
 ### Fixed
 
 - Typo in animations `end on` key #1273
@@ -37,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rocky Zhang (@rockyzhz)
 - Yukai Chou (@muzimuzhi)
 - Alexander Grahn
+- Max Chernoff
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 
