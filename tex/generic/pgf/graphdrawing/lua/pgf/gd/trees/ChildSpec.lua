@@ -137,7 +137,7 @@ declare {
     While all of this might sound a bit complicated, the application of
     the key in a binary tree is pretty straightforward: To indicate that
     a node is a ``right'' child in a tree, just add \texttt{desired child index=2}
-    to it. This will make it a second child, possibly causing the fist
+    to it. This will make it a second child, possibly causing the first
     child to be missing. If there are two nodes specified as children of
     a node, by saying \texttt{desired child index=}\meta{number} for one
     of them, you will cause it be first or second child, depending on
