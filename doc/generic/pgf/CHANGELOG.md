@@ -28,6 +28,10 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
   case the value is undefined instead of a `\relax`ed csname. It has always been
   semantically wrong to assign to the result of `\pgfkeysgetvalueof`, but now it
   will have undesired side-effects. Therefore this change is breaking.
+- If `/handler config=full or existing` is active, `/.style={...}` assignments
+  can now fail if the style is not found in any `.search also` path. Previously,
+  the style was always set in the first search path, if it was not found in the
+  currently active path.
 
 ### Added
 
@@ -74,6 +78,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Form-only patterns have no specified color #1122 
 - Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 - pgfkeys was a bit too relaxed around `\relax` #1132
+- Fix `.search also` when `/handler config=full or existing` is active #1143
 
 ### Changed
 
@@ -90,6 +95,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 
 - 3geek14
 - BeneIII
+- Fritz Webering
 - graue70
 - Gábor Braun
 - Joel Coffman
