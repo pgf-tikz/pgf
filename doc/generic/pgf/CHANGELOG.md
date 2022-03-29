@@ -74,6 +74,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Form-only patterns have no specified color #1122 
 - Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 - pgfkeys was a bit too relaxed around `\relax` #1132
+- Remove spurious spaces for `3d view` #1151
 
 ### Changed
 
