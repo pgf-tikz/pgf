@@ -93,6 +93,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Flatten the doc tree
 - Ensure `\tracinglostchars<3` in `\pgf@picture`
 - Use descriptive workflow job ids
+- Ensure `doc` v2 is loaded for pgfmanual
 
 ### Contributors
 
