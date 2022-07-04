@@ -94,6 +94,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Ensure `\tracinglostchars<3` in `\pgf@picture`
 - Use descriptive workflow job ids
 - Ensure `doc` v2 is loaded for pgfmanual
+- Ensure active `^^M` is non-expandable in `codeexample`
 
 ### Contributors
 
