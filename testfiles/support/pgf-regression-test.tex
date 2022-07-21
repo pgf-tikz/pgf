@@ -1,6 +1,7 @@
 \input regression-test.tex
 
 \OMIT
+\catcode`\@=11\relax
 
 \newbox\PGFTESTBOX
 
@@ -38,4 +39,100 @@
   \ENDTEST
 }
 
+% more typeout commands
+\def\PASSED {\TYPE{PASSED}}
+\def\FAILED {\TYPE{FAILED}}
+\long\def\FAILEDAT#1{\TYPE{FAILED at #1}}
+
+% more assert commands, which if fails will typeout more diagnostic info
+\newif\ifassert@return
+\newdimen\assert@equals@tolerance
+
+% \AssertPointEquals[<tolerance>]{<point>}{<point>}
+%   [<tolerance>] omitted -> assert equiality within 0.001pt
+%   <point> ::= <tikz point> | <pgfqpoint>
+\protected\long\def\AssertTikzPointEquals{%
+  \begingroup
+  \pgfutil@ifnextchar[%]
+    {\AssertTikzPointEquals@opt}
+    {\AssertTikzPointEquals@}%
+}
+
+\protected\long\def\AssertTikzPointEquals@opt[#1]#2#3{%
+  \edef\assert@input{%
+    \string\AssertTikzPointEquals\unexpanded{[#1]{#2}{#3}}}%
+  \AssertTikzPointEquals@@[{#1}]{#2}{#3}%
+}
+
+\protected\long\def\AssertTikzPointEquals@#1#2{%
+  \edef\assert@input{%
+    \string\AssertTikzPointEquals\unexpanded{{#1}{#2}}}%
+  \AssertTikzPointEquals@@[.001pt]{#1}{#2}%
+}
+
+\protected\long\def\AssertTikzPointEquals@@[#1]#2#3{%
+  \assert@equals@tolerance=\dimexpr#1\relax
+  \ifdim\assert@equals@tolerance<0pt
+    \TYPE{\string\AssertTikzPointEquals: negative tolerance \the\assert@equals@tolerance}%
+  \fi
+  \expandafter\TikzGetOnePoint\expandafter{#2}\assert@tempa
+  \expandafter\TikzGetOnePoint\expandafter{#3}\assert@tempb
+  \assert@returntrue
+  \ifx\assert@tempa\assert@tempb
+  \else
+    \assert@tempa\pgf@xa=\pgf@x\pgf@ya=\pgf@y
+    \assert@tempb%\pgf@xb=\pgf@x\pgf@yb=\pgf@y
+    %
+    \ifdim\pgf@x>\dimexpr\pgf@xa+\assert@equals@tolerance\relax
+    \else
+      \ifdim\pgf@x<\dimexpr\pgf@xa-\assert@equals@tolerance\relax
+        \assert@returnfalse
+      \else
+        \ifdim\pgf@y>\dimexpr\pgf@ya+\assert@equals@tolerance\relax
+          \assert@returnfalse
+        \else
+          \ifdim\pgf@y<\dimexpr\pgf@ya-\assert@equals@tolerance\relax
+            \assert@returnfalse
+          \fi
+        \fi
+      \fi
+    \fi
+  \fi
+  \ifassert@return
+    \PASSED
+  \else
+    \FAILEDAT{\assert@input}%
+    \TYPE{%
+      - Expected: \detokenize\expandafter{#2} => (\the\pgf@xa, \the\pgf@ya)^^J%
+      - Actual: \space\space\detokenize\expandafter{#3} => (\the\pgf@x,  \the\pgf@y)^^J%
+      - Tolerance: \the\assert@equals@tolerance
+    }%
+  \fi
+  \endgroup
+}
+
+% pgf or tikz specific testing commands
+
+% \TikzGetOnePoint{<point>}{<macro>}
+%   <point> ::= <tikz point> | <pgfqpoint>
+\protected\long\def\TikzGetOnePoint#1#2{%
+  \pgfutil@ifnextchar\pgfqpoint
+    {\TikzGetOnePoint@{#2}}
+    {\def\assert@tempc{\TikzGetOnePoint@@{#2}}%
+     \tikz@scan@one@point\assert@tempc}%
+   #1%
+}
+
+% \TikzGetOnePoint@{<macro>}\pgfqpoint{<x>}{<y>}
+\protected\long\def\TikzGetOnePoint@#1#2#3#4{%
+  \TikzGetOnePoint@@{#1}{\pgfqpoint{#3}{#4}}%
+}
+
+% \TikzGetOnePoint@@{<macro>}{<general pgfpoint>}
+\protected\long\def\TikzGetOnePoint@@#1#2{%
+  \pgf@process{#2}%
+  \edef#1{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+}
+
+\catcode`\@=12\relax
 \TIMO

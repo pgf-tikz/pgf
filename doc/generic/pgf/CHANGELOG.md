@@ -81,6 +81,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 - pgfkeys was a bit too relaxed around `\relax` #1132
 - Remove spurious spaces for `3d view` #1151
+- Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
 
 ### Changed
 
