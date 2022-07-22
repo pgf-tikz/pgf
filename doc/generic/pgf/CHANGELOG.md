@@ -83,6 +83,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
 - added timer for `parabola` path operator
+- added timer for `rectangle` path operator
 
 ### Changed
 
