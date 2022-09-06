@@ -82,6 +82,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - pgfkeys was a bit too relaxed around `\relax` #1132
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
+- added timer for `parabola`, `rectangle`, `sin` and `cos` path operator
 
 ### Changed
 
@@ -111,6 +112,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - muzimuzhi
 - PhelypeOleinik
 - QJLc
+- Qrrbrbirlbel
 - Stefan Pinnow
 
 ## [3.1.9a] - 2021-05-15 Henri Menke

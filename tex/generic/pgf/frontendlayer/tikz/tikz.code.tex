@@ -3272,8 +3272,8 @@
 \def\tikz@rectB#1{%
   \tikz@make@last@position{#1}%
   \edef\tikz@timer@end{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
-  \let\tikz@timer=\tikz@timer@line%
-          \tikz@@movetosave{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
+  \let\tikz@timer\tikz@timer@rectangle
+  \tikz@@movetosave{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
   \tikz@path@lineto{\pgfqpoint{\pgf@xa}{\tikz@lasty}}%
   \tikz@path@lineto{\pgfqpoint{\tikz@lastx}{\tikz@lasty}}%
   \tikz@path@lineto{\pgfqpoint{\tikz@lastx}{\pgf@ya}}%
@@ -3450,7 +3450,9 @@
 \def\tikz@@cosine#1{%
   \let\tikz@tangent\tikz@tangent@lookup%
   \tikz@flush@moveto%
+  \edef\tikz@timer@start{\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@process{#1}%
+  \edef\tikz@timer@end{\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
   \pgf@xc=\pgf@x%
   \pgf@yc=\pgf@y%
   \advance\pgf@xc by-\tikz@lastx%
@@ -3460,6 +3462,7 @@
   \tikz@lastxsaved=\tikz@lastx%
   \tikz@lastysaved=\tikz@lasty%
   \tikz@updatecurrenttrue%
+  \let\tikz@timer=\tikz@timer@cosine
   \pgfpathcosine{\pgfqpoint{\pgf@xc}{\pgf@yc}}%
   \tikz@scan@next@command%
 }%
@@ -3470,7 +3473,9 @@
 \def\tikz@@sine#1{%
   \let\tikz@tangent\tikz@tangent@lookup%
   \tikz@flush@moveto%
+  \edef\tikz@timer@start{\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@process{#1}%
+  \edef\tikz@timer@end{\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
   \pgf@xc=\pgf@x%
   \pgf@yc=\pgf@y%
   \advance\pgf@xc by-\tikz@lastx%
@@ -3480,6 +3485,7 @@
   \tikz@lastxsaved=\tikz@lastx%
   \tikz@lastysaved=\tikz@lasty%
   \tikz@updatecurrenttrue%
+  \let\tikz@timer=\tikz@timer@sine
   \pgfpathsine{\pgfqpoint{\pgf@xc}{\pgf@yc}}%
   \tikz@scan@next@command%
 }%
@@ -3501,9 +3507,11 @@
 \def\tikz@parabola@semifinal#1{%
   \tikz@flush@moveto%
   % Save original start:
+  \edef\tikz@timer@start{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@xb=\tikz@lastx%
   \pgf@yb=\tikz@lasty%
   \tikz@make@last@position{#1}%
+  \edef\tikz@timer@end{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}%
   \pgf@xc=\tikz@lastx%
   \pgf@yc=\tikz@lasty%
   \begingroup% now calculate bend:
@@ -3516,18 +3524,22 @@
     \advance\tikz@lastxsaved by-\tikz@parabola@bend@factor\pgf@xb%
     \advance\tikz@lastysaved by-\tikz@parabola@bend@factor\pgf@yb%
     \expandafter\tikz@make@last@position\expandafter{\tikz@parabola@bend}%
+    \edef\tikz@timer@middle{{\the\tikz@lastx}{\the\tikz@lasty}}%
     % Calculate delta from bend
     \advance\pgf@xc by-\tikz@lastx%
     \advance\pgf@yc by-\tikz@lasty%
     % Ok, now calculate delta to bend
     \advance\tikz@lastx by-\pgf@xb%
     \advance\tikz@lasty by-\pgf@yb%
-    \xdef\tikz@parabola@b{{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}}%
+    \edef\tikz@marshall{%
+      \noexpand\let\noexpand\tikz@timer\noexpand\tikz@timer@parabola
+      \noexpand\edef\noexpand\tikz@timer@middle{\noexpand\pgfqpoint\tikz@timer@middle}%
+      \noexpand\pgfpathparabola{\noexpand\pgfqpoint{\the\tikz@lastx}{\the\tikz@lasty}}{\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+    }%
   \expandafter\endgroup%
-  \expandafter\expandafter\expandafter\pgfpathparabola\expandafter\tikz@parabola@b%
+  \tikz@marshall
   \expandafter\tikz@scan@next@command\tikz@after@path%
 }%
-
 
 % Syntax for circles:
 % circle [options] % where options should set, at least, radius
@@ -4894,6 +4906,18 @@
   \pgftransformlineattime{\tikz@time}{\tikz@timer@start}{\tikz@timer@end}%
 }%
 
+\def\tikz@timer@rectangle{%
+  \pgfutil@tempdima\tikz@time pt
+  \ifdim\pgfutil@tempdima<.5pt\else % if we're at the return pos-ition we switch start and end
+    \advance\pgfutil@tempdima-.5pt
+    \let\pgf@tempa\tikz@timer@start
+    \let\tikz@timer@start\tikz@timer@end
+    \let\tikz@timer@end\pgf@tempa
+  \fi
+  \multiply\pgfutil@tempdima2
+  \edef\tikz@time{\strip@pt\pgfutil@tempdima}%
+  \tikz@timer@hvline}%
+
 \def\tikz@timer@vhline{%
   \ifdim\tikz@time pt<0.5pt% first half
     \pgf@process{\tikz@timer@start}%
@@ -4969,7 +4993,80 @@
   {\tikz@timer@start@angle}{\tikz@timer@end@angle}%
 }%
 
+\def\tikz@timer@sine{% following calculations, see \def of \pgfpathsine in pgfcorepathconstruct.code.tex (l. 1315)
+  \pgf@process{\tikz@timer@end}%
+  \pgf@xc\pgf@x\pgf@yc\pgf@y
+  \pgf@xb\pgf@x\pgf@yb\pgf@y
+  \pgf@process{\tikz@timer@start}%
+  \advance\pgf@xc-\pgf@x\pgf@xc.3260\pgf@xc
+  \advance\pgf@xc\pgf@x                     % = start_x + .3260 (end_x - start_x)
+  \advance\pgf@yc-\pgf@y\pgf@yc.5120\pgf@yc
+  \advance\pgf@yc\pgf@y                     % = start_y + .5120 (end_y - start_y)
+  \advance\pgf@xb-\pgf@x\pgf@xb.6380\pgf@xb % = start_x + .6380 (end_x - start_x)
+  \advance\pgf@xb\pgf@x
+  \edef\tikz@marshall{\noexpand\pgftransformcurveattime{\tikz@time}{\noexpand\tikz@timer@start}%
+    {\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+    {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}%
+    {\noexpand\tikz@timer@end}}%
+  \tikz@marshall
+}
 
+\def\tikz@timer@cosine{% following calculations, see \def of \pgfpathcosine in pgfcorepathconstruct.code.tex (l. 1345)
+  \pgf@process{\tikz@timer@end}%
+  \pgf@xc\pgf@x\pgf@yc\pgf@y
+  \pgf@xb\pgf@x\pgf@yb\pgf@y
+  \pgf@process{\tikz@timer@start}%
+  \advance\pgf@xb-\pgf@x\pgf@xb.6740\pgf@xb
+  \advance\pgf@xb\pgf@x                     % = start_x + .6740 (end_x - start_x)
+  \advance\pgf@yb-\pgf@y\pgf@yb.4880\pgf@yb
+  \advance\pgf@yb\pgf@y                     % = start_y + .4880 (end_y - start_y)
+  \advance\pgf@xc-\pgf@x\pgf@xc.3620\pgf@xc % = start_x + .3620 (end_x - start_x)
+  \advance\pgf@xc\pgf@x
+  \edef\tikz@marshall{\noexpand\pgftransformcurveattime{\tikz@time}{\noexpand\tikz@timer@start}%
+    {\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@y}}%
+    {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}%
+    {\noexpand\tikz@timer@end}}%
+  \tikz@marshall
+}
+
+\def\tikz@timer@parabola{% following calculations, see \def of \pgfpathparabola in pgfcorepathconstruct.code.tex (l. 1261)
+\ifdim\tikz@time pt<.5pt\relax % first part
+    \pgf@process{\tikz@timer@middle}%
+    \pgf@xc\pgf@x\pgf@yc\pgf@y
+    \pgf@xb\pgf@x\pgf@yb\pgf@y
+    \pgf@process{\tikz@timer@start}%
+    \advance\pgf@xc-\pgf@x\pgf@xc.1125\pgf@xc
+    \advance\pgf@xc\pgf@x                 % = start_x + .1125 (middle_x - start_x)
+    \advance\pgf@yc-\pgf@y\pgf@yc.225\pgf@yc
+    \advance\pgf@yc\pgf@y                 % = start_y + .225 (middle_y - start_y)
+    \advance\pgf@xb\pgf@x\pgf@xb.5\pgf@xb % = .5 (middle_x + start_x) = start_x + .5 (middle_x - start_x)
+    \pgf@xa=\tikz@time pt%
+    \pgf@xa=2\pgf@xa                      % = 2 * \tikz@time
+    \edef\tikz@marshall{\noexpand\pgftransformcurveattime{\strip@pt\pgf@xa}{\noexpand\tikz@timer@start}%
+      {\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@yc}}%
+      {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}%
+      {\noexpand\tikz@timer@middle}}%
+  \else % second part
+    \pgf@process{\tikz@timer@end}%
+    \pgf@xc\pgf@x
+    \pgf@xb\pgf@x
+    \pgf@yb\pgf@y
+    \pgf@process{\tikz@timer@middle}%
+    \advance\pgf@xc\pgf@x\pgf@xc.5\pgf@xc % = .5 (end_x + middle_x) = middle_x + .5 (end_x - middle_x)
+    \advance\pgf@xb-\pgf@x\pgf@xb.8875\pgf@xb
+    \advance\pgf@xb\pgf@x                 % = middle_x + .8875 (end_x - middle_x)
+    \advance\pgf@yb-\pgf@y\pgf@yb.775\pgf@yb
+    \advance\pgf@yb\pgf@y                 % = middle_y + .775 (end_y - middle_y)
+    \pgf@xa=\tikz@time pt%
+    \advance\pgf@xa-.5pt%
+    \pgf@xa=2\pgf@xa                      % = 2 (\tikz@zime - .5)
+    \edef\tikz@marshall{\noexpand\pgftransformcurveattime{\strip@pt\pgf@xa}{\noexpand\tikz@timer@middle}%
+      {\noexpand\pgfqpoint{\the\pgf@xc}{\the\pgf@y}}%
+      {\noexpand\pgfqpoint{\the\pgf@xb}{\the\pgf@yb}}%
+      {\noexpand\tikz@timer@end}}%
+  \fi
+  \tikz@marshall
+}
 
 %
 % Coordinate systems
