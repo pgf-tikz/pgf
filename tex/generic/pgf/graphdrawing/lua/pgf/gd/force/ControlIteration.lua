@@ -47,17 +47,30 @@ declare {
     The examples shows two drawings generated using two
     different |iteration| limits.
   "]],
-  examples = {[["
-    \tikz \graph [spring layout, iterations=10]  { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring layout, iterations=500] { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring electrical layout, iterations=10]
-      { subgraph K_n [n=4] };
-  "]],[["
-    \tikz \graph [spring electrical layout, iterations=500]
-      { subgraph K_n [n=4] };
-  "]]
+  examples = {
+    {
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring layout, iterations=10]  { subgraph K_n [n=4] };
+      "]]
+    },{
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring layout, iterations=500] { subgraph K_n [n=4] };
+      "]]
+    },{
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring electrical layout, iterations=10]
+          { subgraph K_n [n=4] };
+      "]]
+    },{
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring electrical layout, iterations=500]
+          { subgraph K_n [n=4] };
+      "]]
+    }
   }
 }
 
@@ -129,8 +142,3 @@ declare {
   "]]
   }
 }
-
-
-
-
-
