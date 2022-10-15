@@ -83,6 +83,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
 - Use `/.append` to fix a wrong usage of `/.add` in pgfmanual #1201
+- Allow XOR and XNOR gates to have more than 2 inputs #376
 
 ### Changed
 
@@ -113,6 +114,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - PhelypeOleinik
 - QJLc
 - Stefan Pinnow
+- Erin Cold
 
 ## [3.1.9a] - 2021-05-15 Henri Menke
 
