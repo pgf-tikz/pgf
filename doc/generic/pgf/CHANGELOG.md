@@ -43,6 +43,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add Developer Certificate of Origin (DCO) to Pull Request template and enforce
 - Add test set for `graphdrawing` (gd) 
 - pgfkeys gained support for loading libraries
+- Add dependabot to keep GitHub Actions up to date
 
 ### Fixed
 
