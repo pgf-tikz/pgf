@@ -83,6 +83,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
 - Use `/.append` to fix a wrong usage of `/.add` in pgfmanual #1201
+- Do not rotate content of ac/dc source symbols in IEC circuit library
 
 ### Changed
 
