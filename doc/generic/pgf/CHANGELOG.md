@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Simplify short verb `|...|` or add required preamble for it
 - Harden parser for math expressions against active chars
 - Resolve overfull hboxes >=20pt in the manual
+- Adapt `\graphicspath` setting for flattened doc tree #1191
 
 ### Contributors
 
