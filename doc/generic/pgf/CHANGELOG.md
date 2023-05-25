@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Changed
+
+- Typo fixes in the manual
+
+### Contributors
+
+- Andreas Deininger
+- Matthias Hetzenberger
+- quark67
+- Yukai Chou (muzimuzhi)
+
 ## [3.1.10] - 2023-01-13 Henri Menke
 
 Even though this release is not too heavy on user-facing additions it has seen a
