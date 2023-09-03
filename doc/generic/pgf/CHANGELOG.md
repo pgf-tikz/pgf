@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### BREAKING CHANGES
+
+### Added
+
+### Fixed
+
+- Typo in animations `end on` key #1273
+
 ### Changed
 
 - Typo fixes in the manual
@@ -14,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Andreas Deininger
 - Matthias Hetzenberger
+- Qrrbrbirlbel
 - quark67
 - Yukai Chou (muzimuzhi)
 
