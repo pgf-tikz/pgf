@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Fixed
+
+- Fix formatting of `default XXX, initially XXX` in key docs #1278
+
 ## [3.1.11] - 2025-08-14 Henri Menke
 
 ### BREAKING CHANGES
