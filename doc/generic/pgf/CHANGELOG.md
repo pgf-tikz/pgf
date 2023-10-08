@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- `pgfkeys` tracing.
+
 ### Fixed
 
 - Typo in animations `end on` key #1273
@@ -25,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Qrrbrbirlbel
 - quark67
 - Yukai Chou (muzimuzhi)
+- Sašo Živanović
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 

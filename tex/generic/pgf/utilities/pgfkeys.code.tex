@@ -74,6 +74,102 @@
 \fi
 
 
+%%% TRACING
+
+%% The tracing code is based on the draft of package "trace-pgfkeys.sty"
+%% (2012/02/06) by Ryan Reich <ryan.reich@gmail.com>.
+
+% If catcode of & is 9 (ignore; most likely set by \tracepgfkeys below), the
+% tracing code, all of which is preceded by this character, will be loaded.
+% Otherwise, we set catcode of & to 14 (comment), and the tracing code will not
+% be loaded.
+\ifnum\catcode`\&=9
+  % Here we expect that whoever set the catcode of & also set \tpgfk@ampcode.
+\else
+  \edef\tpgfk@ampcode{\the\catcode`\&}
+  \catcode`\&=14
+\fi
+
+% Usage: \tracepgfkeys[<tracing option keylist>]
+% This macro loads pgfkeys.code.tex with tracing code when first executed (and
+% then applies the given keylist).
+\def\tracepgfkeys{\pgf@keys@utilifnextchar[{\tracepgfkeys@opt}{\tracepgfkeys@{}}}
+\def\tracepgfkeys@opt[#1]{\tracepgfkeys@{#1}}
+\def\tracepgfkeys@#1{%
+  \edef\tpgfk@ampcode{\the\catcode`\&}%
+  \edef\tpgfk@atcode{\the\catcode`\@}%
+  \catcode`\@=11
+  \catcode`\&=9
+  \let\pgfkeysloaded\undefined
+  \input{pgfkeys.code.tex}%
+  \catcode`\@=\tpgfk@atcode\relax
+  \tracepgfkeys@{#1}%
+}
+% This definition will override the previous one when loading the tracing code.
+&\def\tracepgfkeys@#1{%
+  &\pgfqkeys{/trace pgfkeys}{#1}%
+&}
+
+% Tracing level counter, available even when tracing is not loaded (thus no &),
+% and not redeclared upon the tracing reload.
+&\iffalse
+\newcount\tracingpgfkeys
+&\fi
+&\tracingpgfkeys=1 % initial trace level: stack
+
+% Tracing levels:
+% 0 = silent: no tracing messages
+% 1 = stack: show only the execution of keys
+% 2 = trace: stack, plus calls to \pgf(q)keys(also)
+%            and the values of /pgfkeyscurrentpath etc.
+% 3 = verbose: trace, plus informational messages about logic flow
+
+% The tracing macros for each tracing level.
+% They are used behind "&" within the pgfkeys code.
+&\def\tpgfk@log@silent{\tpgfk@log 0}
+&\def\tpgfk@log@stack{\tpgfk@log 1}
+&\def\tpgfk@log@trace{\tpgfk@log 2}
+&\def\tpgfk@log@verbose{\tpgfk@log 3}
+
+&\def\tpgfk@log#1{%
+ &\ifnum#1>\tracingpgfkeys
+   &\expandafter\@gobble
+ &\else% #1 <= \tracingpgfkeys
+   &\expandafter\tpgfk@log@do\expandafter#1%
+ &\fi
+&}
+&\long\def\tpgfk@log@do#1#2{%
+  &\begingroup
+  &\let\ =\space
+  &\newlinechar=`\^^J%
+  &\def\\{^^J\tpgfk@prefix{#1} }%
+  &\immediate\write16{\tpgfk@prefix{#1} #2}%
+  &\endgroup
+&}
+&\def\tpgfk@prefix{\tpgfk@banner\tpgfk@indent\tpgfk@arrow}
+&\def\tpgfk@banner{[trace-pgfkeys]}
+&\def\tpgfk@arrow#1{\ifcase#1 .\or>\or+\or:\fi}
+% Dummy \tracingpgfkeyscompact/long are available even when tracing code is not
+% loaded.
+\def\tracingpgfkeyslong{%
+  &\def\tpgfk@indent{\tpgfk@indent@long}%
+}
+\def\tracingpgfkeyscompact{%
+  &\def\tpgfk@indent{\the\tpgfk@depth}%
+}
+&\tracingpgfkeyslong % initial output format: long
+&\gdef\tpgfk@indent@long{}
+&\newcount\tpgfk@depth
+&\def\tpgfk@inc{%
+  &\xdef\tpgfk@indent@long{-\tpgfk@indent@long}%
+  &\global\advance\tpgfk@depth1
+&}
+&\def\tpgfk@dec{%
+ &\xdef\tpgfk@indent@long{\expandafter\@gobble\tpgfk@indent@long\empty}%
+ &\global\advance\tpgfk@depth-1
+&}
+
+
 % Set a key to a value
 %
 % #1 = key
@@ -310,15 +406,22 @@
 %         .set default=.4pt}
 % \pgfkeys{tikz,line width=1pt}
 
+% Don't do \newtoks on the tracing reload, wasteful.
+&\iffalse
 \newtoks\pgfkeys@pathtoks
 \def\pgfkeyscurrentpath{\the\pgfkeys@pathtoks}
 \newtoks\pgfkeys@temptoks
+&\fi
 
 \def\pgfkeys@root{/}
 \let\pgfkeysdefaultpath\pgfkeys@root
 
-\def\pgfkeys{\expandafter\pgfkeys@@set\expandafter{\pgfkeysdefaultpath}}%
+\def\pgfkeys{%
+  &\tpgfk@log@verbose{Tracing \noexpand\pgfkeys call.}%
+  &\tpgfk@inc
+  \expandafter\pgfkeys@@set\expandafter{\pgfkeysdefaultpath}}%
 \long\def\pgfkeys@@set#1#2{%
+  &\tpgfk@log@trace{Key/value list: (\detokenize{#2})}%
   \let\pgfkeysdefaultpath\pgfkeys@root%
   \pgfkeys@parse#2,\pgfkeys@mainstop%
   \def\pgfkeysdefaultpath{#1}}
@@ -326,12 +429,17 @@
 \def\pgfkeys@parse{\futurelet\pgfkeys@possiblerelax\pgfkeys@parse@main}
 \def\pgfkeys@parse@main{%
   \ifx\pgfkeys@possiblerelax\pgfkeys@mainstop%
+    &\tpgfk@log@trace{Last key processed.}%
+    &\tpgfk@dec
     \expandafter\pgfkeys@cleanup%
   \else%
     \expandafter\pgfkeys@normal%
   \fi%
 }
+% \ifpgfkeys@syntax@handlers should not be redefined on the tracing reload.
+&\iffalse
 \newif\ifpgfkeys@syntax@handlers
+&\fi\fi
 \def\pgfkeys@normal{%
   \ifpgfkeys@syntax@handlers%
     \expandafter\pgfkeys@syntax@handlers%
@@ -350,11 +458,15 @@
   \fi%
 }
 \long\def\pgfkeys@use@handler#1,{%
+  &\tpgfk@log@stack{Current string (first char syntax): (\detokenize{#1})}%
+  &\tpgfk@log@trace{First char syntax handler: \detokenize\expandafter{\pgfkeys@the@handler}}%
+  &\tpgfk@log@verbose{First char syntax handler code: \meaning\pgfkeys@the@handler}%
   \pgfkeys@the@handler{#1}%
   \pgfkeys@parse%
 }
 
 \long\def\pgfkeys@@normal#1,{%
+  &\tpgfk@log@trace{Current key-value: (\detokenize{#1})}%
   \pgfkeys@unpack#1=\pgfkeysnovalue=\pgfkeys@stop%
   \pgfkeys@parse%
 }
@@ -370,13 +482,20 @@
   \pgfkeys@spdef\pgfkeyscurrentkey{#1}%
   \edef\pgfkeyscurrentkey{\pgfkeyscurrentkey}%
   \ifx\pgfkeyscurrentkey\pgfkeys@empty%
-    % Skip
+    &\tpgfk@log@trace{Skipping empty key.}%
   \else%
+    &\tpgfk@log@trace{\noexpand\pgfkeyscurrentkey (given): \pgfkeyscurrentkey}%
     \pgfkeys@add@path@as@needed%
+    &\tpgfk@log@stack{\noexpand\pgfkeyscurrentkey: \pgfkeyscurrentkey}%
     \pgfkeys@spdef\pgfkeyscurrentvalue{#2}%
+    &\tpgfk@log@stack{\noexpand\pgfkeyscurrentvalue: (\detokenize\expandafter{\pgfkeyscurrentvalue})}%
     \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text% Hmm... no value
+      &\tpgfk@log@verbose{Empty value; default?}%
       \pgfkeysifdefined{\pgfkeyscurrentkey/.@def}%
-      {\pgfkeysgetvalue{\pgfkeyscurrentkey/.@def}{\pgfkeyscurrentvalue}}
+      {%
+        &\tpgfk@log@trace{\noexpand\pgfkeyscurrentvalue (from default): (\expandafter\detokenize\expandafter\expandafter\expandafter{\csname pgfk@\pgfkeyscurrentkey/.@def\endcsname})}%
+        \pgfkeysgetvalue{\pgfkeyscurrentkey/.@def}{\pgfkeyscurrentvalue}%
+      }%
       {}% no default, so leave it
     \fi%
     \ifx\pgfkeyscurrentvalue\pgfkeysvaluerequired%
@@ -384,19 +503,28 @@
       \expandafter\pgf@marshal\expandafter{\pgfkeyscurrentkey}{}\pgfeov%
     \else%
       \pgfkeys@case@one%
+      &\tpgfk@log@trace{Execution finished.}%
+      &\tpgfk@dec
     \fi%
   \fi}
 
 \def\pgfkeys@case@one{%
+  &\tpgfk@log@verbose{Case one: key code?}%
   \pgfkeysifdefined{\pgfkeyscurrentkey/.@cmd}%
   {\pgfkeysgetvalue{\pgfkeyscurrentkey/.@cmd}{\pgfkeys@code}%
     \ifx\pgfkeys@code\relax\expandafter\pgfkeys@firstoftwo\else\expandafter\pgfkeys@secondoftwo\fi
     {\pgfkeys@unknown}%
-    {\expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}}
+    {%
+      &\tpgfk@log@verbose{Code found:\\\meaning\pgfkeys@code}%
+      &\tpgfk@log@trace{Executing key code.}%
+      &\tpgfk@inc
+      &\tpgfk@log@stack{Executing: \pgfkeyscurrentkey/.@cmd}%
+      \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}}
   {\pgfkeys@case@two}%
 }
 
 \def\pgfkeys@case@two{%
+  &\tpgfk@log@verbose{Case two: key value?}%
   \pgfkeysifdefined{\pgfkeyscurrentkey}%
   {\pgfkeys@case@two@extern}%
   {\pgfkeys@case@three}%
@@ -404,8 +532,16 @@
 
 \def\pgfkeys@case@two@extern{%
   \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
+    &\tpgfk@log@verbose{Key defined but no value passed.}%
+    &\tpgfk@log@trace{Expanding current value.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{\pgfkeyscurrentkey}%
     \pgfkeysvalueof{\pgfkeyscurrentkey}%
   \else%
+    &\tpgfk@log@verbose{Key already defined and new value passed.}%
+    &\tpgfk@log@trace{Redefining key.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{\pgfkeyscurrentkey\ <- \detokenize\expandafter{\pgfkeyscurrentvalue}}%
     \pgfkeyslet{\pgfkeyscurrentkey}\pgfkeyscurrentvalue%
   \fi%
 }
@@ -416,40 +552,58 @@
 % This macro will be replaced by the /handler config/handle only existing
 % configuration, see below.
 \def\pgfkeys@case@three{%
+  &\tpgfk@log@verbose{Case three: key unknown.  Splitting the path.}%
   \pgfkeys@split@path%
+  &\tpgfk@log@trace{\noexpand\pgfkeyscurrentpath (\pgfkeyscurrentpath)\\\noexpand\pgfkeyscurrentname (\pgfkeyscurrentname)}%
+  &\tpgfk@log@verbose{Checking whether a handler is defined.}%
+  &\tpgfk@log@trace{Executing all handlers.}%
   \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}%
   {\pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+    &\tpgfk@log@verbose{Handler code:\\\meaning\pgfkeys@code}%
+    &\tpgfk@log@trace{Executing handler.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{Handler: /handlers/\pgfkeyscurrentname}%
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
   {\pgfkeys@unknown}%
 }
 \let\pgfkeys@case@three@handleall=\pgfkeys@case@three
 \def\pgfkeys@case@three@handle@restricted{%
+  &\tpgfk@log@verbose{Case three: key unknown.  Splitting the path.}%
   \pgfkeys@split@path%
+  &\tpgfk@log@trace{\noexpand\pgfkeyscurrentpath (\pgfkeyscurrentpath)\\\noexpand\pgfkeyscurrentname (\pgfkeyscurrentname)}%
+  &\tpgfk@log@verbose{Checking whether a handler is defined.}%
   \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}{%
+    &\tpgfk@log@verbose{Checking whether to execute handler.}%
     \pgfkeys@ifexecutehandler{%
-    \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+      \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+      &\tpgfk@log@verbose{Handler code:\\\meaning\pgfkeys@code}%
+      &\tpgfk@log@trace{Executing handler.}%
+      &\tpgfk@inc
+      &\tpgfk@log@stack{Handler: /handlers/\pgfkeyscurrentname}%
       \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov
-  }{%
+    }{%
       % this here is necessary:  /my search path/key/.code
       % won't be called, so \pgfkeyscurrentpath == '/my search path/key'
       % -> it should be one directory higher! We want to invoke the
-    %  .unknown handler in
-    % '/my search path'
-    %
-    % Idea:
-    % set
-    % - path := '/my search path'
-    % - name := 'key/.code'
-    % - key = '/my search path/key/.code'
-    \let\pgfkeys@tempa=\pgfkeyscurrentkey
-    \let\pgfkeys@tempb=\pgfkeyscurrentname
+      % .unknown handler in
+      % '/my search path'
+      % 
+      % Idea:
+      % set
+      % - path := '/my search path'
+      % - name := 'key/.code'
+      % - key = '/my search path/key/.code'
+      \let\pgfkeys@tempa=\pgfkeyscurrentkey
+      \let\pgfkeys@tempb=\pgfkeyscurrentname
       \edef\pgfkeyscurrentkey{\pgfkeyscurrentpath}%
       \pgfkeys@split@path%
-    \let\pgfkeyscurrentkey=\pgfkeys@tempa
-    \edef\pgfkeyscurrentname{\pgfkeyscurrentname/\pgfkeys@tempb}%
+      \let\pgfkeyscurrentkey=\pgfkeys@tempa
+      \edef\pgfkeyscurrentname{\pgfkeyscurrentname/\pgfkeys@tempb}%
+      &\tpgfk@log@trace{\noexpand\pgfkeyscurrentpath: (\pgfkeyscurrentpath)\\\noexpand\pgfkeyscurrentname: (\pgfkeyscurrentname)}%
       \pgfkeys@unknown
-  }%
+    }%
   }{%
+    &\tpgfk@log@trace{\noexpand\pgfkeyscurrentpath: (\pgfkeyscurrentpath)\\\noexpand\pgfkeyscurrentname: (\pgfkeyscurrentname)}%
     \pgfkeys@unknown
   }%
 }
@@ -460,47 +614,64 @@
 \def\pgfkeys@ifexecutehandler#1#2{#1}%
 \let\pgfkeys@ifexecutehandler@handleall=\pgfkeys@ifexecutehandler
 \def\pgfkeys@ifexecutehandler@handleonlyexisting#1#2{%
+  &\tpgfk@log@verbose{Handling only existing keys.\\Exception exists for this handler?}%
   \pgfkeys@ifcsname{pgfk@excpt@\pgfkeyscurrentname}{%
-     #1% ok, this particular key handler is known and should be processed in any case (for example .try)
+    &\tpgfk@log@verbose{Exception exists; handling key.}%
+    #1% ok, this particular key handler is known and should be processed in any case (for example .try)
   }{%
-     % implement the 'only existing' feature here:
-     \pgfkeysifdefined{\pgfkeyscurrentpath}{#1}{%
-    \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{#1}{#2}%
-     }{}%
+    &\tpgfk@log@verbose{Checking for key or key/.@cmd.}%
+    % implement the 'only existing' feature here:
+    \pgfkeysifdefined{\pgfkeyscurrentpath}{#1}{%
+      \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{#1}{#2}%
+    }{}%
   }%
 }%
 \def\pgfkeys@ifexecutehandler@handlefullorexisting#1#2{%
+  &\tpgfk@log@verbose{Handling only full or existing keys.\\Exception exists for this handler?}%
   \ifpgfkeysaddeddefaultpath
     \pgfkeys@ifcsname{pgfk@excpt@\pgfkeyscurrentname}{%
-       #1% ok, this particular key handler is known and be processed in any case (for example .try)
+      &\tpgfk@log@verbose{Exception exists; handling key.}%
+      #1% ok, this particular key handler is known and be processed in any case (for example .try)
     }{%
-       % implement the 'only existing' feature here:
-       \pgfkeysifdefined{\pgfkeyscurrentpath}{%
-         #1%
-       }{%
-         \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{%
-           #1%
-         }{%
-           #2%
-         }%
-       }%
+      &\tpgfk@log@trace{Checking for key or key/.@cmd.}%
+      % implement the 'only existing' feature here:
+      \pgfkeysifdefined{\pgfkeyscurrentpath}{%
+        #1%
+      }{%
+        \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{%
+          #1%
+        }{%
+          #2%
+        }%
+      }%
     }%
   \else
+    &\tpgfk@log@trace{Full path was given; accepting handler.}%
     #1% ok, always true if the USER explicitly provided the full key path.
   \fi
 }%
 \def\pgfkeysaddhandleonlyexistingexception#1{\expandafter\def\csname pgfk@excpt@#1\endcsname{1}}%
 
 \def\pgfkeys@unknown{%
+  &\tpgfk@log@verbose{Key unknown.  Looking for an unknown handler.}%
   \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
   {%
     \pgfkeysgetvalue{\pgfkeyscurrentpath/.unknown/.@cmd}{\pgfkeys@code}%
+    &\tpgfk@log@verbose{Unknown handler code:\\\meaning\pgfkeys@code}%
+    &\tpgfk@log@trace{Executing unknown handler.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{Unknown handler: \pgfkeyscurrentpath/.unknown}%
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov}
   {%
+    &\tpgfk@log@verbose{No unknown handler in this path.}%
+    &\tpgfk@log@trace{Executing the default unknown handler.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{Default unknown handler: /handlers/.unknown}%
     \pgfkeysgetvalue{/handlers/.unknown/.@cmd}{\pgfkeys@code}%
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov%
   }%
 }
+
 
 
 \long\def\pgfkey@argumentisspace#1{%
@@ -527,8 +698,10 @@
 \newif\ifpgfkeysaddeddefaultpath
 \def\pgfkeys@check@slash{%
   \ifx\pgfkeys@possibleslash/%
+    &\tpgfk@log@verbose{Full key; no path added.}%
     \expandafter\pgfkeys@nevermind%
   \else%
+    &\tpgfk@log@verbose{Partial key; default path added.}%
     \expandafter\pgfkeys@addpath%
   \fi%
 }
@@ -586,8 +759,18 @@
 %
 % \pgfqkeys{/tikz}{myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length={#1}}}
 
-\def\pgfqkeys{\expandafter\pgfkeys@@qset\expandafter{\pgfkeysdefaultpath}}%
-\long\def\pgfkeys@@qset#1#2#3{\def\pgfkeysdefaultpath{#2/}\pgfkeys@parse#3,\pgfkeys@mainstop\def\pgfkeysdefaultpath{#1}}
+\def\pgfqkeys{%
+  &\tpgfk@log@verbose{Tracing \noexpand\pgfqkeys call.}%
+  &\tpgfk@inc
+  \expandafter\pgfkeys@@qset\expandafter{\pgfkeysdefaultpath}}%
+\long\def\pgfkeys@@qset#1#2#3{%
+  &\tpgfk@log@trace{%
+    &Previous path: #1\\%
+    &\noexpand\pgfkeysdefaultpath: #2\\%
+    &Key/value list: (\detokenize{#3})}%
+  \def\pgfkeysdefaultpath{#2/}%
+  \pgfkeys@parse#3,\pgfkeys@mainstop\def\pgfkeysdefaultpath{#1}%
+}
 
 
 % Sets keys while setting keys
@@ -604,7 +787,13 @@
 %
 % \pgfkeys{tikz,myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length={#1}}}
 
-\long\def\pgfkeysalso#1{\pgfkeys@parse#1,\pgfkeys@mainstop}
+\long\def\pgfkeysalso#1{%
+  &\tpgfk@log@verbose{Tracing \noexpand\pgfkeysalso call.}%
+  &\tpgfk@inc
+  &\tpgfk@log@trace{%
+    &\noexpand\pgfkeysdefaultpath: (\pgfkeysdefaultpath)\\%
+    &Key/value list: (\detokenize{#1})}%
+  \pgfkeys@parse#1,\pgfkeys@mainstop}
 
 
 
@@ -624,7 +813,13 @@
 % \begingroup
 %   \pgfqkeysalso{/tikz}{myother length/.code=\def\myotherlength{#1}\pgfkeysalso{length={#1}}}
 
-\long\def\pgfqkeysalso#1#2{\def\pgfkeysdefaultpath{#1/}\pgfkeys@parse#2,\pgfkeys@mainstop}
+\long\def\pgfqkeysalso#1#2{%
+  &\tpgfk@log@verbose{Tracing \noexpand\pgfqkeysalso call.}%
+  &\tpgfk@inc
+  &\tpgfk@log@trace{%
+    &\noexpand\pgfkeysdefaultpath: (\pgfkeysdefaultpath)\\%
+    &Key/value list: (\detokenize{#1})}%
+  \def\pgfkeysdefaultpath{#1/}\pgfkeys@parse#2,\pgfkeys@mainstop}
 
 
 
@@ -872,7 +1067,10 @@
   }%
 }
 \def\pgfkeys@handle@boolean#1#2{%
+  &\tpgfk@log@stack{Key: #1; state requested: #2.}%
+  &\tpgfk@log@verbose{Handling a boolean key.}%
   \pgfkeys@ifcsname{#1#2}{%
+    &\tpgfk@log@verbose{State is valid; setting conditional.}%
     \csname#1#2\endcsname%
   }{%
     \def\pgf@marshal{\pgfkeysvalueof{/errors/boolean expected/.@cmd}}%
@@ -1024,46 +1222,74 @@
 \pgfkeys{/handlers/.try/.code=\pgfkeys@try}
 \pgfkeys{/handlers/.retry/.code=\ifpgfkeyssuccess\else\pgfkeys@try\fi}
 \def\pgfkeys@try{%
+  &\tpgfk@log@trace{Trying a key.}%
   \edef\pgfkeyscurrentkey{\pgfkeyscurrentpath}% make sure that \pgfkeys@code doesn't know about 'try'. Important for .is choice
+  &\tpgfk@log@trace{\noexpand\pgfkeyscurrentkey: \pgfkeyscurrentkey}%
+  &\tpgfk@log@trace{\noexpand\pgfkeyscurrentvalue: (\detokenize\expandafter{\pgfkeyscurrentvalue})}%
   \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text% Hmm... no value
+    &\tpgfk@log@verbose{Empty value; default?}%
     \pgfkeysifdefined{\pgfkeyscurrentpath/.@def}%
-    {\pgfkeysgetvalue{\pgfkeyscurrentpath/.@def}{\pgfkeyscurrentvalue}}
+    {%
+      &\tpgfk@log@trace{\noexpand\pgfkeyscurrentvalue (from default): (\expandafter\detokenize\expandafter\expandafter\expandafter{\csname pgfk@\pgfkeyscurrentkey/.@def\endcsname})}%
+      \pgfkeysgetvalue{\pgfkeyscurrentpath/.@def}{\pgfkeyscurrentvalue}%
+    }%
     {}% no default, so leave it
   \fi%
+  &\tpgfk@log@verbose{Key code?}%
   \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}%
   {%
+    &\tpgfk@log@verbose{Code found:\\\expandafter\meaning\csname pgfk@\pgfkeyscurrentpath/.@cmd\endcsname}%
+    &\tpgfk@log@trace{Executing key code.}%
+    &\tpgfk@inc
+    &\tpgfk@log@stack{Executing: \pgfkeyscurrentpath/.@cmd}%
     \pgfkeysgetvalue{\pgfkeyscurrentpath/.@cmd}{\pgfkeys@code}%
     \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov%
     \pgfkeyssuccesstrue%
   }%
   {%
+    &\tpgfk@log@verbose{No code; value?}%
     \pgfkeysifdefined{\pgfkeyscurrentpath}%
     {%
       \ifx\pgfkeyscurrentvalue\pgfkeysnovalue@text%
+        &\tpgfk@log@verbose{Key defined but no value passed.}%
         \pgfkeysvalueof{\pgfkeyscurrentpath}%
+        &\tpgfk@log@trace{Try succeeded.}%
+        &\tpgfk@inc
       \else%
+        &\tpgfk@log@verbose{Key already defined and new value passed.}%
         \pgfkeyslet{\pgfkeyscurrentpath}\pgfkeyscurrentvalue%
+        &\tpgfk@log@verbose{Try succeeded.}%
+        &\tpgfk@inc
       \fi%
       \pgfkeyssuccesstrue%
     }%
     {%
+      &\tpgfk@log@verbose{Key unknown; splitting the path.}%
       \pgfkeys@split@path%
+      &\tpgfk@log@trace{\noexpand\pgfkeyscurrentpath (\pgfkeyscurrentpath)\\\noexpand\pgfkeyscurrentname (\pgfkeyscurrentname)}%
       \pgfkeysifdefined{/handlers/\pgfkeyscurrentname/.@cmd}{%
       % in the standard configuration, this check here is redundant
       % because pgfkeys@ifexecutehandler === true.
     % It is only interesting for 'handle only existing'.
+        &\tpgfk@log@verbose{Checking whether to execute handler.}%
         \pgfkeys@ifexecutehandler{%
-        \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
+          &\tpgfk@log@verbose{Handler code:\\\expandafter\meaning\csname /handlers/\pgfkeyscurrentname/.@cmd\endcsname}%
+          &\tpgfk@log@trace{Executing handler.}%
+          &\tpgfk@inc
+          &\tpgfk@log@stack{Handler: /handlers/\pgfkeyscurrentname}%
+          \pgfkeysgetvalue{/handlers/\pgfkeyscurrentname/.@cmd}{\pgfkeys@code}%
           \expandafter\pgfkeys@code\pgfkeyscurrentvalue\pgfeov
           \pgfkeyssuccesstrue%
-      }{%
-        \pgfkeyssuccessfalse
-      }%
+        }{%
+          \pgfkeyssuccessfalse
+        }%
       }{%
       \pgfkeyssuccessfalse
       }%
+    }%
   }%
-  }%
+  &\tpgfk@log@trace{Try complete.\\(Failed if not otherwise indicated.)}%
+  &\tpgfk@dec
 }
 
 % Utilities
@@ -1145,6 +1371,7 @@
   },
   /handler config/only existing/add exception/.code={\pgfkeysaddhandleonlyexistingexception{#1}},
 }%
+
 \pgfkeysaddhandleonlyexistingexception{.cd}%
 \pgfkeysaddhandleonlyexistingexception{.try}%
 \pgfkeysaddhandleonlyexistingexception{.retry}%
@@ -1228,5 +1455,35 @@
 
 \let\pgfkeys@library@filtered@loaded\pgfkeys@empty
 \input pgfkeyslibraryfiltered.code.tex
+
+% Pgfkeys interface to tracing. These keys are used by \tracepgfkeys, but they
+% may be used directly as well, so dummies should be available even when
+% tracing is not loaded.
+\pgfqkeys{/trace pgfkeys}{%
+  silent/.code={%
+    &\tpgfk@log@silent{Changing trace level to silent (0).}%
+    &\tracingpgfkeys=0
+  },
+  stack/.code={%
+    &\tpgfk@log@silent{Changing trace level to stack (1).}%
+    &\tracingpgfkeys=1
+  },
+  trace/.code={%
+    &\tpgfk@log@silent{Changing trace level to trace (2).}%
+    &\tracingpgfkeys=2
+  },
+  verbose/.code={%
+    &\tpgfk@log@silent{Changing trace level to verbose (3).}%
+    &\tracingpgfkeys=3
+  },
+  compact/.code={%
+    &\tracingpgfkeyscompact
+  },
+  long/.code={%
+    &\tracingpgfkeyslong
+  },
+}
+% Restore the catcode of &.
+\catcode`\&=\tpgfk@ampcode
 
 \endinput
