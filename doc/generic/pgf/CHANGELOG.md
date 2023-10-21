@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Typo in animations `end on` key #1273
+- `sloped` should consider the current transformation #1058
 
 ### Changed
 
@@ -22,8 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Andreas Deininger
 - Matthias Hetzenberger
+- muzimuzhi
 - Qrrbrbirlbel
 - quark67
+- thinbold
 - Yukai Chou (muzimuzhi)
 
 ## [3.1.10] - 2023-01-13 Henri Menke
