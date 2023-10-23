@@ -20,10 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Typo fixes in the manual
 - Simplify short verb `|...|` or add required preamble for it
+- Harden parser for math expressions against active chars
 
 ### Contributors
 
 - Andreas Deininger
+- Joseph Wright
 - Marcel Krüger
 - Matthias Hetzenberger
 - Qrrbrbirlbel
@@ -124,7 +126,6 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Use descriptive workflow job ids
 - Ensure `doc` v2 is loaded for pgfmanual
 - Ensure active `^^M` is non-expandable in `codeexample`
-- Harden parser for math expressions against active chars
 
 ### Contributors
 
