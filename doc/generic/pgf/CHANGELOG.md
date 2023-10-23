@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Typo in animations `end on` key #1273
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
+- Fix shadings under LuaMetaTeX
 
 ### Changed
 
@@ -23,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Contributors
 
 - Andreas Deininger
+- Marcel Krüger
 - Matthias Hetzenberger
 - Qrrbrbirlbel
 - quark67
@@ -109,7 +111,6 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
 - Use `/.append` to fix a wrong usage of `/.add` in pgfmanual #1201
-- Fix shadings under LuaMetaTeX
 
 ### Changed
 
