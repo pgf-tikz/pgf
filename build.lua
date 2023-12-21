@@ -43,9 +43,6 @@ checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 -- Use multiple sets of tests
 checkconfigs = { "build", "config-gd" }
 
---- Keep all \special data (may one day be the l3build default)
-maxprintline = 9999
-
 -- For release
 ctanzip = "pgf.ctan.flatdir"
 packtdszip = true
