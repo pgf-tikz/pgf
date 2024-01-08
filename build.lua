@@ -12,18 +12,12 @@ docfiledir = "./doc/generic/pgf"
 docfiles =
   {
     "RELEASE_NOTES.md", "description.html", -- Part of the release script
-    "color.cfg", "pgfmanual.cfg", "images/*.jpg", "*.tex" -- Build the PDF
+    "color.cfg", "pgfmanual.cfg", "images", "plots", "*.tex" -- Build the manual
   }
 tdsroot = "generic"
 typesetfiles = {"pgfmanual.tex"}
 typesetexe = "lualatex"
 flatten = false
-
--- To allow writing
-function docinit_hook()
-  mkdir(typesetdir .. "/plots")
-  return 0
-end
 
 -- Set up to allow testing dvips, etc.
 specialformats = specialformats or {}
@@ -43,9 +37,6 @@ checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 -- Use multiple sets of tests
 checkconfigs = { "build", "config-gd" }
 
---- Keep all \special data (may one day be the l3build default)
-maxprintline = 9999
-
 -- For release
 ctanzip = "pgf.ctan.flatdir"
 packtdszip = true
@@ -63,7 +54,7 @@ uploadconfig = {
   ctanPath = "/graphics/pgf/base",
   description = [[<p>PGF is a macro package for creating graphics. It is platform- and format-independent and works together with the most important TeX backend drivers, including pdfTeX and dvips. It comes with a user-friendly syntax layer called TikZ.<br></p><p>Its usage is similar to <a data-cke-saved-href="/pkg/pstricks-base" href="/pkg/pstricks-base">pstricks</a> and the standard picture environment. PGF works with plain (pdf-)TeX, (pdf-)LaTeX, and ConTeXt. Unlike <a data-cke-saved-href="/pkg/pstricks-base" href="/pkg/pstricks-base">pstricks</a>, it can produce either PostScript or PDF output.<br></p>]],
   email = "pgf-tikz@tug.org",
-  license = "fdl;gpl2;lppl1.3c",
+  license = { "fdl", "gpl2", "lppl1.3c" },
   note_file = "CTAN_NOTES.md",
   pkg = "pgf",
   repository = "https://github.com/pgf-tikz/pgf",

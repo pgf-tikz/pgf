@@ -225,7 +225,7 @@ static char* make_string_from(lua_State* L, const char* name)
 {
   lua_getfield(L, -1, name);
   if (lua_isnil(L, -1)) {
-    // Field not set; return emtpy string.
+    // Field not set; return empty string.
     lua_pop(L, 1);
     return (char*) calloc(1, sizeof(char));
   }

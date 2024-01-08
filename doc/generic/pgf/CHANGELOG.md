@@ -4,7 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## Unreleased
+
+### BREAKING CHANGES
+
+### Added
+
+### Fixed
+
+- Typo in animations `end on` key #1273
+- Output bounding box adjustment in pgfsys-dvisvgm.def #1275
+- Fix shadings under LuaMetaTeX
+- Resolve missing `gnuplot` plots in manual #1238
+
+### Changed
+
+- Typo fixes in the manual
+- Simplify short verb `|...|` or add required preamble for it
+- Harden parser for math expressions against active chars
+- Resolve overfull hboxes >=20pt in the manual
+- Adapt `\graphicspath` setting for flattened doc tree #1191
+- Promote warning "Plot data file \`...' not found" to error
+
+### Contributors
+
+- Andreas Deininger
+- Joseph Wright
+- Marcel Krüger
+- Matthias Hetzenberger
+- Qrrbrbirlbel
+- quark67
+- Yukai Chou (@muzimuzhi)
+- Alexander Grahn
+
+## [3.1.10] - 2023-01-13 Henri Menke
 
 Even though this release is not too heavy on user-facing additions it has seen a
 lot of contributed changes. Thanks to everyone who volunteered their time!
@@ -43,6 +76,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add Developer Certificate of Origin (DCO) to Pull Request template and enforce
 - Add test set for `graphdrawing` (gd) 
 - pgfkeys gained support for loading libraries
+- Add dependabot to keep GitHub Actions up to date
 
 ### Fixed
 
@@ -82,6 +116,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - pgfkeys was a bit too relaxed around `\relax` #1132
 - Remove spurious spaces for `3d view` #1151
 - Fix incorrectly placed matrix delimiters for implicitly positioned nodes #1102
+- Use `/.append` to fix a wrong usage of `/.add` in pgfmanual #1201
 
 ### Changed
 
@@ -3293,7 +3328,7 @@ will be the stable version.
 - Created ChangeLog
 - Added pgfshade.sty
 
-[Unreleased]: https://github.com/pgf-tikz/pgf/compare/3.1.9a...HEAD
+[3.1.10]: https://github.com/pgf-tikz/pgf/compare/3.1.9a...3.1.10
 [3.1.9a]: https://github.com/pgf-tikz/pgf/compare/3.1.9...3.1.9a
 [3.1.9]: https://github.com/pgf-tikz/pgf/compare/3.1.8b...3.1.9
 [3.1.8b]: https://github.com/pgf-tikz/pgf/compare/3.1.8a...3.1.8b
