@@ -80,9 +80,3 @@ function tag_hook(tagname, tagdate)
   return 0
 end
 
-target_list = target_list or { }
-target_list.revisionfile =
-  {
-    desc = "Create revision data file",
-    func = revisionfile
-  }
