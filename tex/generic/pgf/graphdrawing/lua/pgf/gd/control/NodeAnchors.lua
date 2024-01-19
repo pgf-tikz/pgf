@@ -161,15 +161,26 @@ declare {
     could draw a sort of ``inside edge''.
   "]],
 
-  examples = { [["
-    \tikz \graph [no layout, nodes={draw, minimum size=20pt}] {
-      a [x=0, y=0] -- b [x=15pt, y=10pt] -- c[x=40pt]
-    };
-  "]],[["
-    \tikz \graph [no layout, nodes={draw, minimum size=20pt},
-                  allow inside edges=false] {
-      a [x=0, y=0] -- b [x=15pt, y=10pt] -- c[x=40pt]
-    };
-  "]]
+  examples = { 
+    {
+      options = [["
+        preamble={\usetikzlibrary{graphs,graphdrawing}},
+      "]],
+      code = [["
+        \tikz \graph [no layout, nodes={draw, minimum size=20pt}] {
+          a [x=0, y=0] -- b [x=15pt, y=10pt] -- c[x=40pt]
+        };
+      "]]
+    },{
+      options = [["
+        preamble={\usetikzlibrary{graphs,graphdrawing}},
+      "]],
+      code = [["
+        \tikz \graph [no layout, nodes={draw, minimum size=20pt},
+                      allow inside edges=false] {
+          a [x=0, y=0] -- b [x=15pt, y=10pt] -- c[x=40pt]
+        };
+      "]]
+    }
   }
 }

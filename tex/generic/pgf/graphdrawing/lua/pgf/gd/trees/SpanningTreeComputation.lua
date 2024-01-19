@@ -237,20 +237,28 @@ declare {
     preferred in the computation of the spanning tree, but use
     |no span edge| to cause the algorithm to ignore these edges.
   "]],
-  examples = [["
-    \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
-                  every group/.style={
-                    default edge kind=->, no span edge,
-                    path=source}]
-    {
-      5 -> {
-        "1,3" -> {0,2,4},
-        11    -> {
-          "7,9" -> { 6, 8, 10 }
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
+                    every group/.style={
+                      default edge kind=->, no span edge,
+                      path=source}]
+      {
+        5 -> {
+          "1,3" -> {0,2,4},
+          11    -> {
+            "7,9" -> { 6, 8, 10 }
+          }
         }
-      }
-    };
-  "]]
+      };
+    "]]
+  }}
 }
 
 
@@ -406,16 +414,24 @@ declare {
     This strategy is nice with trees specified with both forward and
     backward edges.
   "]],
-  examples = [["
-    \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
-                  span using directed]
-    {
-      3 <- 5[root] -> 8,
-      1 <- 3 -> 4,
-      7 <- 8 -> 9,
-      1 -- 4 -- 7 -- 9
-    };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [tree layout, nodes={draw}, sibling distance=0pt,
+                    span using directed]
+      {
+        3 <- 5[root] -> 8,
+        1 <- 3 -> 4,
+        7 <- 8 -> 9,
+        1 -- 4 -- 7 -- 9
+      };
+    "]]
+  }}
 }
 
 ---
