@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
+- Missing files in release zip, including licenses and more #1240
 
 ### Changed
 

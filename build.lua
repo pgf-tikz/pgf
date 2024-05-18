@@ -9,11 +9,8 @@ tdsdirs = {tex = "tex"}
 
 -- For the manual
 docfiledir = "./doc/generic/pgf"
-docfiles =
-  {
-    "RELEASE_NOTES.md", "description.html", -- Part of the release script
-    "color.cfg", "pgfmanual.cfg", "images", "plots", "*.tex" -- Build the manual
-  }
+-- although some are useless in `l3build doc`, all are needed by `l3build ctan`
+docfiles = { "*" }
 tdsroot = "generic"
 typesetfiles = {"pgfmanual.tex"}
 typesetexe = "lualatex"
