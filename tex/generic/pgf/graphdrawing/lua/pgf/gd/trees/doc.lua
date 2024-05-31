@@ -293,11 +293,9 @@ example
   };
 ]]
 
---[[
-% TODOsp: codeexamples: the next example needs the library `arrows.meta`
---]]
 example
 [[
+\usetikzlibrary{shapes.misc, arrows.meta, decorations.pathmorphing}
 \tikz \graph [binary tree layout] {
   Knuth -> {
     Beeton -> Kellermann [second] -> Carnes,
