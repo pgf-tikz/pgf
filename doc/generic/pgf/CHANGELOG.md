@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
+- Fix missing inclusion of three libraries in one of the examples at https://tikz.dev/gd-trees
 
 ### Changed
 
@@ -40,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Yukai Chou (@muzimuzhi)
 - Alexander Grahn
 - Max Chernoff
+- Hanson Char
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 
