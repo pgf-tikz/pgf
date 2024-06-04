@@ -25,7 +25,7 @@ int luaopen_pgf_gd_examples_c_SimpleDemoC (struct lua_State *state) {
      the nodes of a graph in a circle (without paying heed to the sizes of the \
      nodes or to the edges). Its main purpose is to show how C code	\
      can access the Lua representation of graphs. See \
-     Section~\ref{section-algorithms-in-c} of the manual for detais.");
+     Section~\ref{section-algorithms-in-c} of the manual for details.");
   pgfgd_key_add_precondition (d, "connected");
   pgfgd_declare              (state, d);
   pgfgd_free_key             (d);
