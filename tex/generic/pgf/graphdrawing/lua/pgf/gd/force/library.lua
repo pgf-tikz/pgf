@@ -43,7 +43,7 @@
 --   \item If the nodes are connected by an edge, one can treat the edge as
 --     a ``spring'' that has a ``natural spring dimension''. If the nodes
 --     are nearer than the spring dimension, they are push apart; if they
---     are farther aways than the spring dimension, they are pulled together.
+--     are farther away than the spring dimension, they are pulled together.
 --   \item If two nodes are connected by a path of a certain length, the
 --     nodes may ``wish to be at a distance proportional to the path
 --     length''. If they are nearer, they are pushed apart; if they are

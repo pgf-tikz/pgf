@@ -57,7 +57,7 @@ declare {
     expected to be higher than graphics where this feature is not applied.
 
     The following example demonstrates how coarsening can improve the
-    quality of graph drawings generated with Walshaw's algorihtm
+    quality of graph drawings generated with Walshaw's algorithm
     |spring electrical layout'|.
   "]],
   examples = [["

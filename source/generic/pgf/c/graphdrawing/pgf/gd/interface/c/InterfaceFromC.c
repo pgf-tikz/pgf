@@ -849,7 +849,7 @@ pgfgd_Edge_array* pgfgd_digraph_syntactic_edges  (pgfgd_Digraph* g, int tail, in
 {
   pgfgd_Edge_array* edges = (pgfgd_Edge_array*) calloc(1, sizeof(pgfgd_Edge_array));
 
-  // First, get the arc in the syntatic digraph.
+  // First, get the arc in the syntactic digraph.
   lua_State* L = g->state;
   int tos = lua_gettop(L);
   
