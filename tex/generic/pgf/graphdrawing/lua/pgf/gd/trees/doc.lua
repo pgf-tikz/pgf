@@ -293,9 +293,12 @@ example
   };
 ]]
 
-example
+example({options =
 [[
-\usetikzlibrary{shapes.misc, arrows.meta, decorations.pathmorphing}
+  preamble=\usetikzlibrary{shapes.misc, arrows.meta, decorations.pathmorphing}
+]],
+code =
+[[
 \tikz \graph [binary tree layout] {
   Knuth -> {
     Beeton -> Kellermann [second] -> Carnes,
@@ -313,6 +316,7 @@ example
     }
   };
 ]]
+})
 --------------------------------------------------------------------
 
 
