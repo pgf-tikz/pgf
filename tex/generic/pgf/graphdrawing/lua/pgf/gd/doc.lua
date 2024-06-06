@@ -112,7 +112,9 @@ end
 -- Adds an example to the |examples| field of the last key selected
 -- through the |key| command.
 --
--- @param input either a string of example or a table with two fields - "code" and "options".
+-- @param input Either a string of example or a table with two fields:
+-- "code" and "options".
+
 function doc.example (input)
   local examples = rawget(current_key, "examples") or {}
   examples[#examples + 1] = input
