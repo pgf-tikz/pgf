@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use luatexbase to register pgfsys@strcmp to not sidestep their allocation counting
 - Allow XOR and XNOR gates to have more than 2 inputs #376
 - Fix missing inclusion of libraries in `graphdrawing` examples
+- Fix missing inclusion of libraries in the examples at https://tikz.dev/gd-trees and https://tikz.dev/gd-usage-tikz
+- Fix mis-spelled Kellermann to Kellerman
 
 ### Added
 

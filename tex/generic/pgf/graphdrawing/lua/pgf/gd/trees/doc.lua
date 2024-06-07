@@ -301,7 +301,7 @@ code =
 [[
 \tikz \graph [binary tree layout] {
   Knuth -> {
-    Beeton -> Kellermann [second] -> Carnes,
+    Beeton -> Kellerman [second] -> Carnes,
     Tobin -> Plass -> { Lamport, Spivak }
   }
 };\qquad
@@ -311,7 +311,7 @@ code =
                  edges={decorate,decoration={snake, post length=5pt}}]
   {
     Knuth -> {
-      Beeton -> Kellermann [second] -> Carnes,
+      Beeton -> Kellerman [second] -> Carnes,
       Tobin -> Plass -> { Lamport, Spivak }
     }
   };
