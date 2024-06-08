@@ -1,6 +1,6 @@
 # pgf – A Portable Graphic Format for TeX
 
-![CI](https://github.com/pgf-tikz/pgf/workflows/CI/badge.svg)
+![Test suite](https://github.com/pgf-tikz/pgf/actions/workflows/check.yml/badge.svg?branch=master)
 
 PGF is a TeX macro package for generating graphics. It is platform-
 and format-independent and works together with the most important TeX
