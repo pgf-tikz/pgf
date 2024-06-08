@@ -98,58 +98,46 @@ sense that some nodes are ``nailed to the canvas'' while other
 nodes can ``move freely''.
 ]]
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{force}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a[x=1] -- { b, c, d, e -- {f,g,h} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-]]
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (3,2);
+      \graph [spring layout]
+      {
+        a[x=1] -- { b, c, d, e -- {f,g,h} };
+        { h, g } -- a;
+      };
+    \end{tikzpicture}
+  ]]
 })
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{force}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- { b, c, d[x=0], e -- {f[x=2], g, h[x=1]} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-]]
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (3,2);
+      \graph [spring layout]
+      {
+        a -- { b, c, d[x=0], e -- {f[x=2], g, h[x=1]} };
+        { h, g } -- a;
+      };
+    \end{tikzpicture}
+  ]]
 })
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{force}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
-  \graph [spring layout]
-  {
-    a -- { b, c, d[x=0], e -- {f[x=2,y=1], g, h[x=1]} };
-    { h, g } -- a;
-  };
-\end{tikzpicture}
-]]
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (3,2);
+      \graph [spring layout]
+      {
+        a -- { b, c, d[x=0], e -- {f[x=2,y=1], g, h[x=1]} };
+        { h, g } -- a;
+      };
+    \end{tikzpicture}
+  ]]
 })
 --------------------------------------------------------------------
 
@@ -180,34 +168,26 @@ Note how in the last example |c| is placed at |(1,1)| rather than
 |b| as would happen by default.
 ]]
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{layered}
-]],
-code =
-[[
-\tikz \draw (0,0)
-  -- (1,0.5) graph [edges=red,  layered layout, anchor node=a] { a -> {b,c} }
-  -- (1.5,0) graph [edges=blue, layered layout,
-                    anchor node=y, anchor at={(2,0)}]          { x -> {y,z} };
-]]
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{layered} ]],
+  code = [[
+    \tikz \draw (0,0)
+      -- (1,0.5) graph [edges=red,  layered layout, anchor node=a] { a -> {b,c} }
+      -- (1.5,0) graph [edges=blue, layered layout,
+                        anchor node=y, anchor at={(2,0)}]          { x -> {y,z} };
+  ]]
 })
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{layered}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (3,2);
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{layered} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (3,2);
 
-  \graph [layered layout, anchor node=c, edges=rounded corners]
-    { a -- {b [x=1,y=1], c [x=1,y=1] } -- d -- a};
-\end{tikzpicture}
-]]
+      \graph [layered layout, anchor node=c, edges=rounded corners]
+        { a -- {b [x=1,y=1], c [x=1,y=1] } -- d -- a};
+    \end{tikzpicture}
+  ]]
 })
 --------------------------------------------------------------------
 
@@ -223,20 +203,16 @@ The coordinate at which the graph should be anchored when no
 explicit anchor is given for any node. The initial value is the origin.
 ]]
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{layered}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (2,2);
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{layered} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (2,2);
 
-  \graph [layered layout, edges=rounded corners, anchor at={(1,2)}]
-    { a -- {b, c [anchor here] } -- d -- a};
-\end{tikzpicture}
-]]
+      \graph [layered layout, edges=rounded corners, anchor at={(1,2)}]
+        { a -- {b, c [anchor here] } -- d -- a};
+    \end{tikzpicture}
+  ]]
 })
 --------------------------------------------------------------------
 
@@ -259,19 +235,15 @@ In the example, |c| is placed at the origin since this is the
 default |anchor at| position.
 ]]
 
-example({options =
-[[
-  preamble=\usetikzlibrary{graphs,graphdrawing}
-    \usegdlibrary{layered}
-]],
-code =
-[[
-\begin{tikzpicture}
-  \draw [help lines] (0,0) grid (2,2);
+example({
+  options = [[ preamble=\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{layered} ]],
+  code = [[
+    \begin{tikzpicture}
+      \draw [help lines] (0,0) grid (2,2);
 
-  \graph [layered layout, edges=rounded corners]
-    { a -- {b, c [anchor here] } -- d -- a};
-\end{tikzpicture}
-]]
+      \graph [layered layout, edges=rounded corners]
+        { a -- {b, c [anchor here] } -- d -- a};
+    \end{tikzpicture}
+  ]]
 })
 --------------------------------------------------------------------

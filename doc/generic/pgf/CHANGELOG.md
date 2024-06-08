@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
-- Fix missing inclusion of libraries in the examples at https://tikz.dev/gd-trees and https://tikz.dev/gd-usage-tikz
+- Fix missing inclusion of libraries in `graphdrawing` examples
 - Fix mis-spelled Kellermann to Kellerman
 
 ### Changed
