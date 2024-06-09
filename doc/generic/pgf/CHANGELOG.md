@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Add `RGB` and `gray` color model support for ConTeXt #1130
+- Support an apply-all feature (suggested in issue #640) to
+  apply a single definition of options to multiple examples.
 
 ### Fixed
 
@@ -27,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Resolve overfull hboxes >=20pt in the manual
 - Adapt `\graphicspath` setting for flattened doc tree #1191
 - Promote warning "Plot data file \`...' not found" to error
+- Ignore file `tex/generic/pgf/pgf.revision.tex` in git
 
 ### Contributors
 
@@ -40,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Yukai Chou (@muzimuzhi)
 - Alexander Grahn
 - Max Chernoff
+- Hanson Char
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 
