@@ -162,9 +162,10 @@ local function process_examples(t)
     local code, options
     if type(t[i]) == "table" then
       code = assert(t[i].code)
-      options = t[i].options
+      options = t[i].options or t.options
     else
       code = t[i]
+      options = t.options
     end
     n[i] = {
       options = process_string(strip_quotes(options)),
