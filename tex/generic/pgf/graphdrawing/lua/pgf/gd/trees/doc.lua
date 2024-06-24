@@ -293,8 +293,13 @@ example
   };
 ]]
 
-example({
-  options = [[ preamble=\usetikzlibrary{shapes.misc, arrows.meta, decorations.pathmorphing} ]],
+example {
+  options = [[
+    preamble = {
+      \usetikzlibrary{shapes.misc,arrows.meta,graphs,graphdrawing,decorations.pathmorphing}
+      \usegdlibrary{trees}
+    }
+  ]],
   code = [[
     \tikz \graph [binary tree layout] {
       Knuth -> {
@@ -313,7 +318,7 @@ example({
         }
       };
   ]]
-})
+}
 --------------------------------------------------------------------
 
 
