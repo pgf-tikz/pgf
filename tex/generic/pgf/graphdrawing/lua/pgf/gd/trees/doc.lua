@@ -293,28 +293,32 @@ example
   };
 ]]
 
---[[
-% TODOsp: codeexamples: the next example needs the library `arrows.meta`
---]]
-example
-[[
-\tikz \graph [binary tree layout] {
-  Knuth -> {
-    Beeton -> Kellermann [second] -> Carnes,
-    Tobin -> Plass -> { Lamport, Spivak }
-  }
-};\qquad
-\tikz [>={Stealth[round,sep]}]
-  \graph [binary tree layout, grow'=right, level sep=1.5em,
-          nodes={right, fill=blue!50, text=white, chamfered rectangle},
-                 edges={decorate,decoration={snake, post length=5pt}}]
-  {
-    Knuth -> {
-      Beeton -> Kellermann [second] -> Carnes,
-      Tobin -> Plass -> { Lamport, Spivak }
+example {
+  options = [[
+    preamble = {
+      \usetikzlibrary{shapes.misc,arrows.meta,graphs,graphdrawing,decorations.pathmorphing}
+      \usegdlibrary{trees}
     }
-  };
-]]
+  ]],
+  code = [[
+    \tikz \graph [binary tree layout] {
+      Knuth -> {
+        Beeton -> Kellerman [second] -> Carnes,
+        Tobin -> Plass -> { Lamport, Spivak }
+      }
+    };\qquad
+    \tikz [>={Stealth[round,sep]}]
+      \graph [binary tree layout, grow'=right, level sep=1.5em,
+              nodes={right, fill=blue!50, text=white, chamfered rectangle},
+                    edges={decorate,decoration={snake, post length=5pt}}]
+      {
+        Knuth -> {
+          Beeton -> Kellerman [second] -> Carnes,
+          Tobin -> Plass -> { Lamport, Spivak }
+        }
+      };
+  ]]
+}
 --------------------------------------------------------------------
 
 
