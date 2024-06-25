@@ -23,17 +23,14 @@ local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 ---
 
 declare {
-  key = "simple demo layout",
+  key = "very simple demo layout",
   algorithm = {
     run =
       function (self)
-        local g = self.digraph
-        local alpha = (2 * math.pi) / #g.vertices
-
-        for i,vertex in ipairs(g.vertices) do
-          local radius = vertex.options['radius'] or g.options['radius']
-          vertex.pos.x = radius * math.cos(i * alpha)
-          vertex.pos.y = radius * math.sin(i * alpha)
+        local alpha = (2 * math.pi) / #self.ugraph.vertices
+        for i,vertex in ipairs(self.ugraph.vertices) do
+          vertex.pos.x = math.cos(i * alpha) * 25
+          vertex.pos.y = math.sin(i * alpha) * 25
         end
       end
   },
@@ -49,11 +46,11 @@ declare {
     implement a graph drawing algorithm.
     %
 \begin{codeexample}[code only, tikz syntax=false]
--- File pgf.gd.examples.SimpleDemo
+-- File pgf.gd.examples.simpledemo
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 
 declare {
-  key = "simple demo layout",
+  key = "very simple demo layout",
   algorithm = {
     run =
       function (self)
@@ -61,9 +58,8 @@ declare {
         local alpha = (2 * math.pi) / #g.vertices
 
         for i,vertex in ipairs(g.vertices) do
-          local radius = vertex.options['radius'] or g.options['radius']
-          vertex.pos.x = radius * math.cos(i * alpha)
-          vertex.pos.y = radius * math.sin(i * alpha)
+          vertex.pos.x = math.cos(i * alpha)
+          vertex.pos.y = math.sin(i * alpha)
         end
       end
   },
@@ -76,7 +72,7 @@ declare {
 
     On the display layer (\tikzname, that is) the algorithm can now
     immediately be employed; you just need to say
-    |\usegdlibrary{examples.SimpleDemo}| at the beginning
+    |\usegdlibrary{simpledemo}| at the beginning
     somewhere.
   "]=]
 }
