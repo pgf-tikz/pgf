@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Yukai Chou (@muzimuzhi)
 - Alexander Grahn
 - Max Chernoff
+- Volker Diels-Grabsch
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 
