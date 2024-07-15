@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Resolve overfull hboxes >=20pt in the manual
 - Adapt `\graphicspath` setting for flattened doc tree #1191
 - Promote warning "Plot data file \`...' not found" to error
+- Allow empty value for /pgf/arrow keys/fill to make it behave more like /tikz/fill #1352
 
 ### Contributors
 
@@ -38,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Qrrbrbirlbel
 - quark67
 - Rocky Zhang (@rockyzhz)
+- Romano Giannetti (@rmano)
 - Yukai Chou (@muzimuzhi)
 - Alexander Grahn
 - Max Chernoff
