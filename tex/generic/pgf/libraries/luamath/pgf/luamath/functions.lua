@@ -148,12 +148,12 @@ function pgfluamathfunctions.less(x,y)
   end
 end
 
-function pgfluamathfunctions.min(x,y)
-  return mathmin(x,y)
+function pgfluamathfunctions.min(x,y,...)
+  return mathmin(x,y,...)
 end
 
-function pgfluamathfunctions.max(x,y)
-  return mathmax(x,y)
+function pgfluamathfunctions.max(x,y,...)
+  return mathmax(x,y,...)
 end
 
 function pgfluamathfunctions.notequal(x,y)
