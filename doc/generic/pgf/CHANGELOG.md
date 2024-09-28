@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Add `RGB` and `gray` color model support for ConTeXt #1130
+- Add a new monotonic interpolation plot handler #1358
 
 ### Fixed
 
