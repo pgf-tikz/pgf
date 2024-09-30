@@ -164,13 +164,13 @@ typedef struct pgfgd_Vertex {
   
   /** The pos field of the Lua Vertex class. Unlike the other fields
       of this struct, you can write pos.x and pos.y. When the graph
-      drawing function returns, the values stored in theses fields
+      drawing function returns, the values stored in these fields
       will be written back to the Lua layer.
   */
   pgfgd_Coordinate pos;
   
   /** The options fields of the Lua Vertex class. Note that you do
-      not have direct access to theses options. Rather, all access to
+      not have direct access to these options. Rather, all access to
       them must go through functions like pgfgd_isset that take a
       pgfgd_OptionsTable* as input. Also note that you cannot store a
       pointer to an options table: At the end of the graph drawing
@@ -297,7 +297,7 @@ typedef struct pgfgd_SyntacticDigraph {
   pgfgd_Vertex_array vertices;
 
   /** All syntactic edges of the graph. You cannot modify this array,
-      but you can use the pgfgd_path_xxx funtion to change the routing
+      but you can use the pgfgd_path_xxx function to change the routing
       of the edges stored here. Note that, since you get access to 
       syntactic edges, the direction of these edges may not be what
       you expect and there may be several syntactic edges between the
@@ -382,7 +382,7 @@ typedef struct pgfgd_Digraph pgfgd_Digraph;
     pgfgd_Vertex objects. The reason is that a pgfgd_Digraph may
     actually contain vertices that are not present in the syntactic
     digraph (for instance, dummy vertices in a spanning tree) and for
-    which no pgfgd_Vertex obejct exists. For this reason, we only use
+    which no pgfgd_Vertex object exists. For this reason, we only use
     indices and there is a special function
     (pgfgd_digraph_syntactic_vertex) that can be used to retrieve the
     pgfgd_Vertex object, provided it exists.
@@ -421,7 +421,7 @@ typedef struct pgfgd_Arc_array {
     store a |Digraph| object. Examples are "digraph" or "ugraph". The
     function will then return a handle to this digraph which you can
     subsequently access. The handle will become invalid at the end of
-    the graph drawing funciton and you must free it explicitly using
+    the graph drawing function and you must free it explicitly using
     pgfgd_digraph_free. 
  */
 extern pgfgd_Digraph*    pgfgd_get_digraph              (pgfgd_SyntacticDigraph* g, const char* graph_name);
@@ -438,13 +438,13 @@ extern int               pgfgd_digraph_num_vertices     (pgfgd_Digraph* g);
 */
 extern pgfgd_Arc_array*  pgfgd_digraph_arcs             (pgfgd_Digraph* g);
 
-/** This function allows you to retrieve the syntatic vertex that
+/** This function allows you to retrieve the syntactic vertex that
     corresponds to a given index in the digraph. Normally, the first
     vertex of a digraph like the ugraph will also be the first entry
     of the vertices field of the syntactic digraph, but this need not
     always be the case. For instance, for a spanning_tree digraph,
     there will be more vertices in the graph than there are syntactic
-    vertices and the order may be quite different. For theses reaons,
+    vertices and the order may be quite different. For these reasons,
     you must use this function to convert a vertex index into the
     digraph g into a pgfgd_Vertex object. It may happen that the index
     does not refer to any syntactic vertex, in this case 0 is
@@ -466,7 +466,7 @@ extern int               pgfgd_digraph_isarc            (pgfgd_Digraph* g, int t
     returned array explicitly using
     pgfgd_digraph_free_edge_array. Typically, this array will have at
     most one entry, but it may happen that the user has specified
-    several syntatic edges between the same vertices, in which case
+    several syntactic edges between the same vertices, in which case
     you get a larger array here.
 
     Note that tail and head are indices (starting with 1) into the
@@ -568,7 +568,7 @@ extern void pgfgd_key_phase             (pgfgd_Declaration* d, const char* s);
     some point, it would call the actual Lua graph drawing
     algorithm. At that point, the function f is called instead. The
     parameter of this function will be a representation of the
-    to-be-drawn syntatic digraph as a C pgfgd_SyntacticDigraph. 
+    to-be-drawn syntactic digraph as a C pgfgd_SyntacticDigraph. 
 */
 extern void pgfgd_key_algorithm         (pgfgd_Declaration* d,
 					 pgfgd_algorithm_fun f,
