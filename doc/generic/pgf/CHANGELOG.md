@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
 - Treat varargs for `min` and `max` in `luamath` pgf-tikz/pgfplots#492 #1359
+- Fixed support for the `\tikz` command in the `dvisvg4ht` driver for TeX4ht
 
 ### Changed
 
@@ -29,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Adapt `\graphicspath` setting for flattened doc tree #1191
 - Promote warning "Plot data file \`...' not found" to error
 - Allow empty value for /pgf/arrow keys/fill to make it behave more like /tikz/fill #1352
+- Added support for alt text in the `dvisvg4ht` driver for TeX4ht
 
 ### Contributors
 
