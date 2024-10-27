@@ -1,4 +1,4 @@
-% Copyright 2021 by Michal Hoftich
+% Copyright 2021-2024 by Michal Hoftich
 % Copyright 2006 by Till Tantau
 %
 % This file may be distributed and/or modified
@@ -16,66 +16,55 @@
 % Load common pdf commands:
 %
 
-% we load the dvips driver by default. it doesn't support patterns and some other stuff,
-% but it handles better nested images and some formatting. if you use patterns or if you
-% have other issues with the default method, pass the "tikz-dvisvgm" option to make4ht. 
+% we switched to dvisvgm driver by default. it supports patterns and other features 
+% dvips driver is available through the tikz+ option. It doesn't support everything, 
+% but it worked better with nested pictures in the past.
 \ifdefined\ifOption
-\ifOption{tikz+}{\input pgfsys-dvisvgm.def}{\input pgfsys-dvips.def}
+\ifOption{tikz+}{\input pgfsys-dvips.def}{\input pgfsys-dvisvgm.def}
 \else
 % load the dvips driver by default
-\input pgfsys-dvips.def
+\input pgfsys-dvisvgm.def
 \fi
 
 
-\def\texfourht@tikz@begin{%
-  \bgroup%
-  \def\run@pict@cmd{}% insert the \Picture hooks only in the top nesting level
-  \def\end@pict@cmd{}%
-  \ifdefined\EndPicture\else% We are already inside command that uses \Picture
-  \ifdefined\inside@pict@cmd\else% handle nested uses
-  \ifdefined\tikzexternalize\else% Support externalize library
-  \def\run@pict@cmd{\Picture*}%
-  \def\end@pict@cmd{\EndPicture}%
-  \fi\fi\fi%
-  % command used to detect nesting
-  \def\inside@pict@cmd{}%
-  \csname a:tikzpicture\endcsname%
-}
+\catcode`\:=11%
 
-\def\texfourht@tikz@end{%
-  \csname b:tikzpicture\endcsname%
-  \egroup%
-}
-
+% we must call most of these redefinitions in \AtBeginDocument, because \HLet is available 
+% only at that moment
 \AtBeginDocument{%
-  \NewConfigure{tikzpicture}{2}%
-  \catcode`\:=11%
-  \Configure{tikzpicture}{%
-    \protect\csname nested:math\endcsname% support display math
-    \run@pict@cmd{}%
-  }{\end@pict@cmd}
-  % configure the output picture format to svg, as it will require dvisvgm
-  % post processing. 
-  \Configure{Picture}{.svg}%
-  % insert tex4ht hooks around TikZ picture box
-  \def\pgfsys@typesetpicturebox#1{%
-    \texfourht@tikz@begin%
-    \orig@pgfsys@typesetpicturebox{#1}%
-    \texfourht@tikz@end%
-  }
-  %
-  \ConfigureEnv{tikzpicture}{\texfourht@tikz@begin}{\texfourht@tikz@end}{}{}%
-  \ConfigureEnv{pgfpicture}{\texfourht@tikz@begin}{\texfourht@tikz@end}{}{}%
-  \catcode`\:=12%
+ % configure the output picture format to svg, as it will require dvisvgm
+ % post processing. 
+ \Configure{Picture}{.svg}%
+
+ % insert picture hooks to pgfsys commands 
+ % these redefinitions are usually called only with the \tikz command, 
+ % they are ignored in tikzpicture environment
+ \def\:tempa#1{%
+     \texfourht@tikz@begin%
+     \csname o:pgfsys@typesetpicturebox:\endcsname{#1}
+     \texfourht@tikz@end%
+ }
+ \HLet\pgfsys@typesetpicturebox\:tempa
+
+ % we must remove Picture-alt in \pgfsys@beginpicture, because it can result in alt text included in the image
+ \def\:tempa{\Configure{Picture-alt}{}\texfourht@tikz@begin\o:pgfsys@beginpicture:}
+ \HLet\pgfsys@beginpicture\:tempa
+ \let\o:pgfsys@endpicture:\pgfsys@endpicture
+ \def\:tempa{\o:pgfsys@endpicture:}
+ \HLet\pgfsys@endpicture\:tempa
+
+ %  start picture around TikZ and PGF environments
+ \ConfigureEnv{tikzpicture}{\begingroup\texfourht@tikz@begin}{\texfourht@tikz@end\endgroup}{}{}%
+ \ConfigureEnv{pgfpicture}{\begingroup\texfourht@tikz@begin}{\texfourht@tikz@end\endgroup}{}{}%
 }
 
+\def\texfourht@tikz@begin{
+  \protect\csname nested:math\endcsname% support display math
+  \Picture+[\csname a:Picture-alt\endcsname]{}%
+}
+\def\texfourht@tikz@end{\EndPicture}
 
-% Make the code inserted by tex4ht configurable
-% 
-
-
-\let\orig@pgfsys@typesetpicturebox\pgfsys@typesetpicturebox
-%\def\pgf@sys@postscript@header#1{{\special{! #1}}}
+\catcode`\:=12%
 
 
 \endinput
