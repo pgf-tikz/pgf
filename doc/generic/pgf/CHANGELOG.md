@@ -10,23 +10,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Add `RGB` and `gray` color model support for ConTeXt #1130
+
 ### Fixed
 
 - Typo in animations `end on` key #1273
 - `sloped` should consider the current transformation #1058
+- Output bounding box adjustment in pgfsys-dvisvgm.def #1275
+- Fix shadings under LuaMetaTeX
+- Resolve missing `gnuplot` plots in manual #1238
+- Treat varargs for `min` and `max` in `luamath` pgf-tikz/pgfplots#492 #1359
+- Fixed support for the `\tikz` command in the `dvisvgm4ht` driver for TeX4ht
 
 ### Changed
 
 - Typo fixes in the manual
+- Simplify short verb `|...|` or add required preamble for it
+- Harden parser for math expressions against active chars
+- Resolve overfull hboxes >=20pt in the manual
+- Adapt `\graphicspath` setting for flattened doc tree #1191
+- Promote warning "Plot data file \`...' not found" to error
+- Allow empty value for /pgf/arrow keys/fill to make it behave more like /tikz/fill #1352
+- Added support for alt text in the `dvisvgm4ht` driver for TeX4ht
 
 ### Contributors
 
 - Andreas Deininger
+- Joseph Wright
+- Marcel Krüger
 - Matthias Hetzenberger
 - Qrrbrbirlbel
 - quark67
 - thinbold
 - Yukai Chou (muzimuzhi)
+- Rocky Zhang (@rockyzhz)
+- Romano Giannetti (@rmano)
+- Yukai Chou (@muzimuzhi)
+- Alexander Grahn
+- Max Chernoff
+- Volker Diels-Grabsch
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 

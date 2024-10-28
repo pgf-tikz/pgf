@@ -171,7 +171,7 @@ local function arc (path, start, start_angle, end_angle, radius, trans, centerx,
     end_angle   = end_angle % 360
 
     if end_angle >= start_angle then
-      -- In case the modulo has inadvertedly moved the end angle
+      -- In case the modulo has inadvertently moved the end angle
       -- before the start angle:
       end_angle = end_angle - 360
     end
