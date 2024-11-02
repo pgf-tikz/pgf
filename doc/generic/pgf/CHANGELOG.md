@@ -42,7 +42,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Qrrbrbirlbel
 - quark67
 - thinbold
-- Yukai Chou (muzimuzhi)
 - Rocky Zhang (@rockyzhz)
 - Romano Giannetti (@rmano)
 - Yukai Chou (@muzimuzhi)
