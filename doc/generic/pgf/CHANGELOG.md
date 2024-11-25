@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Resolve missing `gnuplot` plots in manual #1238
 - Treat varargs for `min` and `max` in `luamath` pgf-tikz/pgfplots#492 #1359
 - Fixed support for the `\tikz` command in the `dvisvgm4ht` driver for TeX4ht
+- Support of `name prefix`/`name suffix` for pics `angle` and `right angle` (allows nesting it in other pics),
+  side-effect: any coordinates are now possiblenot just coordinates/nodes #1363
 
 ### Changed
 
