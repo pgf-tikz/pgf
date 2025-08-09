@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Treat varargs for `min()` and `max()` in `luamath` pgf library pgf-tikz/pgfplots#492 #1359
 - Fixed support for the `\tikz` command in the `dvisvgm4ht` driver for TeX4ht
 - Wrong key name in unknown decoration option error #1082
+- `gnuplot` is always run when the function contains leading or trailing spaces #1397
 
 ### Changed
 
