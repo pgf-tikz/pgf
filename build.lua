@@ -35,7 +35,7 @@ specialformats["latex"] = specialformats["latex"] or
 checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 
 -- Use multiple sets of tests
-checkconfigs = { "build", "config-gd" }
+checkconfigs = { "build", "config-gd", "config-manual" }
 
 -- For release
 ctanzip = "pgf.ctan.flatdir"
@@ -79,4 +79,3 @@ function tag_hook(tagname, tagdate)
   file:close()
   return 0
 end
-
