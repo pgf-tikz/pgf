@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Arguments to `\pgfpointintersectionoflines` are now evaluated before
+    `\pgf@xa` and other similar variables are modified #1402
 - Typo in animations `end on` key #1273
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
