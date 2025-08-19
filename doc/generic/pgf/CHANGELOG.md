@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Fix formatting of `default XXX, initially XXX` in key docs #1278
+
+## [3.1.11] - 2025-08-14 Henri Menke
+
 ### BREAKING CHANGES
 
 ### Added
@@ -24,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Treat varargs for `min()` and `max()` in `luamath` pgf library pgf-tikz/pgfplots#492 #1359
 - Fixed support for the `\tikz` command in the `dvisvgm4ht` driver for TeX4ht
 - Wrong key name in unknown decoration option error #1082
+- `gnuplot` was always run when the function contained leading or trailing spaces #1397
 
 ### Changed
 
@@ -3343,6 +3350,8 @@ will be the stable version.
 - Created ChangeLog
 - Added pgfshade.sty
 
+[Unreleased]: https://github.com/pgf-tikz/pgf/compare/3.1.11...HEAD
+[3.1.11]: https://github.com/pgf-tikz/pgf/compare/3.1.10...3.1.11
 [3.1.10]: https://github.com/pgf-tikz/pgf/compare/3.1.9a...3.1.10
 [3.1.9a]: https://github.com/pgf-tikz/pgf/compare/3.1.9...3.1.9a
 [3.1.9]: https://github.com/pgf-tikz/pgf/compare/3.1.8b...3.1.9
