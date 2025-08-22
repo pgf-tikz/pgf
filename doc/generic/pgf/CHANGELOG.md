@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fix formatting of `default XXX, initially XXX` in key docs #1278
+- Moved `base west`, `base east`, `mid west`, and `mid east` anchors
+    onto the edge of the shape for `circle` and `ellipse` shapes
 
 ## [3.1.11] - 2025-08-14 Henri Menke
 
