@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fix formatting of `default XXX, initially XXX` in key docs #1278
+- Fix handling of closepath command in svg.path library #1189
 
 ## [3.1.11] - 2025-08-14 Henri Menke
 
