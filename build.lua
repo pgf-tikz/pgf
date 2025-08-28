@@ -35,7 +35,15 @@ specialformats["latex"] = specialformats["latex"] or
 checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 
 -- Use multiple sets of tests
-checkconfigs = { "build", "config-gd", "config-manual" }
+checkconfigs = {
+  "build",
+  "config-gd",
+  "config-manual",
+  "config-shell",
+}
+
+-- common testing support files
+checksuppfiles = {"pgf-regression-test.tex"}
 
 -- For release
 ctanzip = "pgf.ctan.flatdir"
