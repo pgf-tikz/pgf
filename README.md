@@ -18,8 +18,7 @@ official mailing list at https://tug.org/mailman/listinfo/pgf-tikz to submit
 bug reports, request new features, etc.
 
 We also have a chat on the Matrix network at
-[#pgf-tikz:matrix.org](https://matrix.to/#/#pgf-tikz:matrix.org) ([read-only
-version](https://view.matrix.org/room/!NuxCISwYQJuyWwNsEI:matrix.org/)).
+[#pgf-tikz:matrix.org](https://matrix.to/#/#pgf-tikz:matrix.org).
 
 ## Installation
 
