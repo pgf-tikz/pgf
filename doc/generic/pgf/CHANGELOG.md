@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Changed
+
+- Typo fixes in the manual
+
 ## [3.1.11a] - 2025-08-29 Henri Menke
 
 ### Fixed
