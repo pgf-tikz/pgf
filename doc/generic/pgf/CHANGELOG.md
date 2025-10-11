@@ -6,10 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
-### Added
-
-- Documentation of `\pgfkeysifassignable`
-
 ### Changed
 
 - Typo fixes in the manual
@@ -109,7 +105,7 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add Matrix chat to README
 - Add rhombic polihedra #1022
 - Add Developer Certificate of Origin (DCO) to Pull Request template and enforce
-- Add test set for `graphdrawing` (gd)
+- Add test set for `graphdrawing` (gd) 
 - pgfkeys gained support for loading libraries
 - Add dependabot to keep GitHub Actions up to date
 
@@ -144,9 +140,9 @@ lot of contributed changes. Thanks to everyone who volunteered their time!
 - Add empty Pattern dictionary to Resources dictionary
 - Spelling and typo fixes in the manual
 - Update Debian installation instructions
-- Suppress white space at line end when `datavisualization` reads from a file
+- Suppress white space at line end when `datavisualization` reads from a file 
   #1112
-- Form-only patterns have no specified color #1122
+- Form-only patterns have no specified color #1122 
 - Make `graphdrawing` work with `name prefix` and `name suffix` options #1087
 - pgfkeys was a bit too relaxed around `\relax` #1132
 - Remove spurious spaces for `3d view` #1151
@@ -952,8 +948,8 @@ numbers to get to the fix and the ticket, respectively.
 - handled one more `codeexample` that was added after branching.   (related issues #640, #711, #729)
 - moved `colorlet` to the `codeexample` itself instead of to `pre` in `pgfmanual-en-base-quick.tex`
 - included issue #720 ("sub-library" should load "main library" by default)
-- therefore added loading `graphs` library in `graphs.standard` library
-- adjusted `preamble` code in `codeexample`s accordingly
+- therefore added loading `graphs` library in `graphs.standard` library   
+- adjusted `preamble` code in `codeexample`s accordingly  
 - there exist `graphdrawing` `codeexample`s in the manual that don't need the
   `graphs` library --> adjusted `codeexample`s accordingly
 - fixed issue #718 ([manual] \usepgflibrary vs. \usetikzlibrary)
@@ -989,9 +985,9 @@ numbers to get to the fix and the ticket, respectively.
 - finished switching from `libraries/tikz={...}` to
   `preamble={\usetikzlibrary{...}}`
 - continued with following files in the manual
-- adapted `extract.lua`
-- incorporated fixes from main PGF repository (provided by Henri)
-- changed `\documentclass` from `article` to `standalone`
+- adapted `extract.lua`  
+- incorporated fixes from main PGF repository (provided by Henri)  
+- changed `\documentclass` from `article` to `standalone`  
 - reordered some stuff
 - started switching from `libraries/tikz={...}` to
   `preamble={\usetikzlibrary{...}}`
@@ -1048,7 +1044,7 @@ position tracking #353.
 
 ### Fixed
 
-#672, #675, #689, #353, #693, #690, #700, #701, #702
+#672, #675, #689, #353, #693, #690, #700, #701, #702 
 Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 `\pgfmathrandominteger` didn't handle expressions as input
 
@@ -1214,7 +1210,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - David Purton
 - Jonathan Spratte
 
-## [3.1.2] - 2019-04-04 Christian Feuersaenger
+## [3.1.2] - 2019-04-04 Christian Feuersaenger 
 
 ### Changed
 
@@ -1256,14 +1252,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Max Snippe
 - Stefan Pinnow
 
-## [3.1.1] - 2019-02-02 Christian Feuersaenger
+## [3.1.1] - 2019-02-02 Christian Feuersaenger 
 
 ### Changed
 
 - fixed bug #503: regression prevented the use of dvips. This reverts the bugfix
   for bug #362
 
-## [3.1] - 2019-01-05 Christian Feuersaenger
+## [3.1] - 2019-01-05 Christian Feuersaenger 
 
 ### Changed
 
@@ -1271,7 +1267,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - fixed wrong projection of `canvas is xy plane at z` in `3d` library (bug #410)
 - added documentation of `3d` library to the manual (support request #11)
 - defined CMYK colors for ConTeXt (feature request #33)
-- `text along path` decoration repeated last char multiple times when
+- `text along path` decoration repeated last char multiple times when 
   this was in math mode (bug #479)
 - fixed accidental usage of `\rm` (bug #476)
 - fixed newlines for tex4ht (bug #327)
@@ -1301,7 +1297,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - added utility \pgfmathifexpression (and special treatment in luamath
   library and fpu library)
 - intersections lib: improved accuracy of intersections for linear paths
-- fixed incompatibility issue of tikzmath and fpu reported in
+- fixed incompatibility issue of tikzmath and fpu reported in 
     http://tex.stackexchange.com/questions/349766/pgfplots-on-tikzmath-function-with-conditionals-returns-an-error
 - Improved driver detection (bug #395 TikZ does not create output with LuaTeX 0.95.0)
 - New luatex driver now supports fallback to pdftex driver if
@@ -1347,7 +1343,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Henri Menke
 - Till Tantau
 
-## [3.0.1] - 2015-08-07 Christian Feuersaenger
+## [3.0.1] - 2015-08-07 Christian Feuersaenger 
 
 - fixed regression introduced for pgf 3.0.0 (bug #149): leading empty
   lines at the beginning of plot files disabled '-- plot'
@@ -1410,7 +1406,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - number parser/printer: added switch 'read comma as period' to read
   localized input numbers. Off by default but added useful hint to parser
   message.
-- Fixed bug #308 fixedpointarithmetic: unwanted spaces by line ends
+- Fixed bug #308 fixedpointarithmetic: unwanted spaces by line ends 
 - Fixed feature #81: signum function (fpu + pgf basic layer)
 - Fixed all \begin{scope} and \end{scope} in foldings lib,
   changed them to \scope and \endscope.
@@ -1441,7 +1437,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed #282 "\pgfmathredeclarefunction does not work properly."
 - Added first edge routing algorithm to gd.
 - intersections libs: improved robustness and accuracy for curveto paths
-  by using the floating point library together with Mark Wibrow.
+  by using the floating point library together with Mark Wibrow. 
 - fixed bug in latex/plain tex shipout routines for xdvipdfmx and xelatex:
   combination of shadings    and standalone package failed to work.
 - Fix for 'rotate around x/y/z' keys which now evaluate
@@ -1458,14 +1454,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Mark Wibrow
 - Till Tantau
 
-## [3.0.0] - 2013-12-20 Till Tantau
+## [3.0.0] - 2013-12-20 Till Tantau 
 
 - In preparation for the release 3.0.0, I pimped the manual a
   bit. It will now automatically detect whether graph drawing
   C libs are available or not. Also, syntax hilighting is now
   always switched on. I also some subtle optical hints to
   crossreferenced words in the code examples; this is pretty
-  useful, I think.
+  useful, I think. 
 - Did a lot of cleaning up for the release.
 - Fixed a bug in Vertex.lua that returned wrong anchor
   positions for non-centered vertices.
@@ -1484,10 +1480,10 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   Now, lualatex and pdftex both result in the same checksums (by means of
   \usepackage{pdftexcmds})
 - Finalised 'text effects along path' decoration and docs.
-- Changed keyval example (and references to define@key)
+- Changed keyval example (and references to define@key) 
   in pgfcalendar documentation to pgfkeys stuff.
 - Minor fixes to decorations.text and math libraries documentation
-- Added 'text effects along path' decoration.
+- Added 'text effects along path' decoration. 
 - Fixed regression/bug in 'name path global'.
 - Applied path for bug #277 "\beforeforegroundpath not working".
 - Prepared manual for new release (fixed overful boxes and
@@ -1496,7 +1492,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Applied some fixes so that C code for graph drawing works
   once more.
 - Arrow tips and their doc are now officially finished!
-- Added documentation of nonlinear transformations.
+- Added documentation of nonlinear transformations. 
 - modified release script to allow uploads of unstable TDS
   zips to http://pgf.sourceforge.net using
   make -f pgf/scripts/pgf/Makefile.pgf_release upload USER=cfeuersaenger
@@ -1556,21 +1552,21 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   typesetting; for this I needed to fix some latin1 characters in
   html4.4ht). Also, I renamed /tikz/tex4ht... to /pgf/tex4ht
   (someone else added that) since tikz has nothing to do with
-  that stuff.
+  that stuff. 
   Typesetting the manual in tex4ht no longer works, but that seems
-  like too much bother for my taste.
+  like too much bother for my taste. 
 - Fixed bug #256 "The special \pgfcoordinate macro doesn't
-  expand \pgfpictureid."
+  expand \pgfpictureid." 
 - external lib: fixed incompatibility of pdflscape with
   external lib
 - Fixed a problem with pdf resources of transparency groups in
-  dvipdfmx.
+  dvipdfmx. 
 - Fixed bug #149 "/tikz/raw gnuplot ignoring segmented plot"
   by introducing a new way of handling plot streams. There are
   now new kinds of points (outliers and undefined points) and
   "new data sets" commands inside streams. Handlers (like the
   lineto and curve handlers) can be configured to interpret
-  these as jumps (this is the default).
+  these as jumps (this is the default).  
 - Fixed bug #255 "Trig computations offend fp via fixedpointarithmetic lib"
 - Added "math" library. Could be integrated with calc library.
 - Fixed bug in external lib: mode=list and make did not cope well with
@@ -1596,7 +1592,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed bug #181 "Need to document |- coordinates using calc notation"
 - Fixed bug #187 "\pgfmathanglebetweenpoints is not documented"
 - Increased accuracy of atan, atan2 and
-  \pgfmathanglebetweenpoints.
+  \pgfmathanglebetweenpoints.     
 - Fixed bug "#168 PGF is sensitive to dollar catcode"
 - Fixed bug "#186 pgfonlayer makes pgf forget options" and
   added "every on background layer" option.
@@ -1614,7 +1610,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   tikz figure" by no longer sharing \pgfutil@tempa with latex:
   This register gets changed by LaTeX in a fontchange, which, in
   turn can happen at the beginning of every
-  \pgfmathsetlength.
+  \pgfmathsetlength. 
 - Fixed bug #207 "Decoration markings not on path on large
   lines" by using a more precise computation of positions on
   straight lines in decorations. Also, the angle computation
@@ -1649,14 +1645,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed bug "#247 Error messages hard to catch in plain TeX/ConTeXt"
 - Fixed bug "#166 Possibly typos in circuits.logic.IEC"
 - Fixed bug "#249 pgfkeys: /handlers/first char syntax is not
-  'self-contained' (CVS version)"
+  'self-contained' (CVS version)" 
 - Fixed bug "#248 circuits adjustable annotation improperly placed"
 - Fixed bug "#250 pgfkyes: .append style and similar undouble # tokens"
 - Fixed bug "#143 label changes center of a matrix node"
 - Fixed bug #128 "fit does not scale if used in scaled scope"
 - Fixed bug #136 "\hrulefill inherits or not pgf line styles"
 - Fixed bug #224 "Including Tikzpicture in third part of
-  multipart node"
+  multipart node" 
 - Fixed bug #251 "cross out shape interacts with path options of path it is drawn on"
 - Fixed bug #139 "Placement of node inside matix environment"
 - Fixed bug #131 "text centering calculates wrong" and added
@@ -1664,7 +1660,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed bug #121 "Annoying "Underfull \hbox (badness 10000)" message"
 - Fixed bug #134 "Edge node style affecting arrowhead".
 - Fixed bug #132 "Error in matrix with column sep "between"
-  origins"
+  origins"    
 - Fixed bug #133 "\draw[-<<,>=stealth] (10,45) -- (40,45); does
   not work." However, this introduces a (small, only visual)
   incompatibility with previous versions. If you need the visual
@@ -1725,7 +1721,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   for dvipdfmx does which includes fadings, functional shadings, and
   patterns.
 - First complete documentation of the graph drawing
-  system. (Finally!)
+  system. (Finally!) 
 - Renamed gd files to shorter versions: instead of
   pgf/gd/model/pgf.gd.model.Edges.lua we now have
   pgf/gd/model/Edge.lua and so on.
@@ -1738,7 +1734,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   done completely inside Lua. This makes gd usable (in
   principle) independently of tikz and pgf.
 - Because of this, all declarations of algorithms need to be
-  redone.
+  redone. 
 - external lib: fixed spurious white space (caused by 'up to date check')
 - manual styles: improved robustness of auto cross references & active spaces
 - Fixed a bug with active colon in circuits lib. Probably more to
@@ -1760,7 +1756,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Worked on gd documentation.
 - fixed minor expansion issue \foreach \x in {a,...,d} lead to unexpanded value \x
 - externalization: added special switch to deactivate incompatible
-  geometry drivers during externalization
+  geometry drivers during externalization 
 - Redone pgf.gd.model.Arc
 - Added documentation for said class.
 - Worked on gd documentation.
@@ -1777,7 +1773,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Introduced library graphdrawing.examples that includes some
   code demonstrating how "things are done".
 - context: fixed catcode issues by means of suitable module
-  \protect/\unprotect statements.
+  \protect/\unprotect statements. 
 - Introduced a new class model for graph drawing (Digraph,
   Arc, and Vertex instead of Graph, Edge, Node). I'm currently
   porting all the old code, but it takes a while and it's a
@@ -1810,11 +1806,11 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Switched graph drawing calling interface from function-base
   to object-based: All graph drawing algorithms must now be
   implemented in a class
-- Cleaned up file and class names of graph drawing engine.
+- Cleaned up file and class names of graph drawing engine. 
 - Fixed problem that in case math library is loaded before pgf
   some math functions were broken (because \pgfmath@xa and
   \pgf@xa were different registers, which they should not be).
-- Added anchoring and orientation to graph drawing library.
+- Added anchoring and orientation to graph drawing library. 
 - Added arrows.spaced library.
 - Added quotation syntax to graph lib.
 - Renamed some graph drawing layouts.
@@ -1839,7 +1835,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added the 'fixed relative' number formatting style.
 - Added 'const plot mark mid' and 'jump mark mid' plot handlers.
 - Renamed "layered drawing" to "layered layout" for
-  consistency.
+  consistency. 
 - More work on the lua math parser and evaluator.
 - Added wrappers for luatex primitives: \pgfutil@directlua,
   \pgfutil@ifluatex, \pgfutil@luaescapestring
@@ -1855,7 +1851,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Some work on a lua (lpeg based) math parser.
 - Added a gnuplot call key to pgfmoduleplot.code.tex (feature
   request #3308340).
-- graph drawing:
+- graph drawing: 
   - Initial work on layered drawing algorithms.
 - Added dim function for array to pgfmath (to be documented)
 - Some work on a ODE solver
@@ -1868,21 +1864,21 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
       Rename existing algorithms accordingly.
   - Add an implementation of the Floyd-Warshall algorithm.
   - Add a new 'Hu2006 spring' algorithm based solely on springs.
-  - Improve the initial layout of 'Hu2006 spring electrical' by
+  - Improve the initial layout of 'Hu2006 spring electrical' by 
     taking the graph size and diameter into account.
-  - Rework existing spring electrical algorithms and improve
+  - Rework existing spring electrical algorithms and improve 
     documentation.
   - Catch -!- edges and remove them from the Lua graph when detected.
 - graph drawing:
   - Update documentation of spring and spring-electrical parameters.
-    Add TODO items where things are missing, unclear or need to be
+    Add TODO items where things are missing, unclear or need to be 
     worked on.
   - Make initial step dimension and the electric charge of nodes
     configurable. Both, Walshaw2000 and Hu2006 support this.
   - Improve the approximation of the repulsive force.
 - Fixed bug 3297817 (spy postscript problem).
 - Fixed bug of missing newpath in postscript and opacity
-  settings.
+  settings. 
 - graph drawing:
   - Rename graphdrawing.spring to graphdrawing.force.
   - Fix NaN bug in the orientation helper.
@@ -1890,10 +1886,10 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
     spring and spring-electrical algorithms.
   - Properly forward default node and edge parameters to Lua.
 - graph drawing:
-  - Add Fibonacci heap and priority queue classes.
+  - Add Fibonacci heap and priority queue classes. 
   - Add Lua file for common graph algorithms. Implement Dijkstra.
   - Add method Graph:getPseudoDiameter().
-  - Hu2006: Scale coordinations of nodes in a coarse graph based on
+  - Hu2006: Scale coordinations of nodes in a coarse graph based on 
     the quotient of its pseudo diameters and that of the parent coarse
     graph, as described in the paper.
 - graph drawing:
@@ -1920,7 +1916,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
     seems to work almost as good as the Walshaw even without
       the multilevel approach implemented (which is the only thing
       that really makes the Walshaw algorithm useful).
-- graph drawing:
+- graph drawing: 
   - Initial work on a quad tree implementation for spring and spring
       electrical algorithms, with unit test.
     - Improve the internals of the Vector class.
@@ -1935,26 +1931,26 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
       helpers.
     - Remove old table and iterator helpers. Rename helper files. Rename
       table.merge() and table.copy() to table.custom_merge() and
-      table.custom_copy() to avoid name clashes with luatools. Add
-      string helpers, including string.parse_braces(). Update algorithms
+      table.custom_copy() to avoid name clashes with luatools. Add 
+      string helpers, including string.parse_braces(). Update algorithms 
       to work with these changes.
     - Allow vectors to have an origin vector, similar to the Position
       class. Introduce new alternative table-based syntax for
       Vector:set() that is much easier to read. Update unit tests
-      and algorithms.
+      and algorithms. 
 - fpu: added support for log10 and log2
-- graph drawing:
+- graph drawing: 
   - Drop the 'not yet positionedPGFGDINTERNAL' node name prefix
     internally. It's stripped off now when nodes are passed over to
       Lua and its added back again when shipping the node out to TeX.
   -    Drop the Node:shortname() method which is no longer needed.
-  - Improve coding style and documentation of the Interface, Sys,
-    Node, Edge and Graph classes.
+  - Improve coding style and documentation of the Interface, Sys, 
+    Node, Edge and Graph classes. 
   - Rename Sys:logMessage() to Sys:log().
   - Make parameter labels in the API docs not appear in bold.
     - Disable verbose logging by default.
     - Add methods Edge:getNodes() and Node:getEdges().
-- graph drawing:
+- graph drawing: 
   - Initial work on spring-electrical and layered drawing algorithms.
     - Major rework of the Lua code of the graphdrawing library: added
       a Vector class for improved math operations and node positioning,
@@ -1969,21 +1965,21 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   noluatex file, reworked the text (added information).
 - First attempt to do math with lua (very basical): pgflibraryluamath
 - bugfix for rounding error in \pgfmathdivide{83.407811000}{16.68156400}
-  was 4.10, is now 5.0: it could happen in rare cases that digits where
+  was 4.10, is now 5.0: it could happen in rare cases that digits where 
   appended where they shouldhave been than added (4 + .10 instead of 4 + 1.0)
 - Implemented a G_n subgraph for creating grid (or: mesh) graphs.
   This also introduces a new key /tikz/graphs/wrap after=<number> that
   configures how the nodes in such a grid graph are connected. Some of
-  the common subgraph keys such as /tikz/graphs/V and /tikz/graphs/n
+  the common subgraph keys such as /tikz/graphs/V and /tikz/graphs/n 
   can be used with G_n subgraphs as well.
-- Added a simple grid placement strategy. It currently does not
-  support the chain shift and group shift keys properly and does not
+- Added a simple grid placement strategy. It currently does not 
+  support the chain shift and group shift keys properly and does not 
   implement any placement order other than left-to-right, so there is
   room for improvement.
 - external lib: reduced number of \newwrite allocations and allowed to disable features
   to safe more of them (aux in dpth=false,disable dependency files)
 - added '/pgf/number format/relative' formatting style.
-- Finished documentation of data visualization (sort of)!
+- Finished documentation of data visualization (sort of)! 
 - First usable version of data visualization!
 - Worked on dv documentation. Finished chapter on visualizers,
   style sheets. Legends still missing
@@ -2027,7 +2023,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   to \pgf@node@name (bug reported by Zarko F. Cucej on ctt and fix
   contributed by Mark Wibrow)
 - fixed bug 3096333 (Fix contributed by Mark Wibrow): pgffor
-  failed to update \lastx in some cases
+  failed to update \lastx in some cases 
 
 ### Contributors
 
@@ -2036,8 +2032,8 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Mark Wibrow
 - Matthias Schulz
 - Till Tantau
-
-## [2.10] - 2010-10-25  Christian Feuersaenger
+   
+## [2.10] - 2010-10-25  Christian Feuersaenger 
 
 ### Changed
 
@@ -2083,15 +2079,15 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   by '%' and ',,' is valid.
 - external lib: documented how to solve compatibility problems with
   \tikzifexternalizing
-- added \deferredanchor feature contributed by Christophe Jorssen
+- added \deferredanchor feature contributed by Christophe Jorssen 
 - added optimized and numerically stable arc path command
   \pgfpatharctoprecomputed which interpolates start- and end points
-- external lib: fixed incompatibility with 2010/06/08 v2.0b eso-pic package
+- external lib: fixed incompatibility with 2010/06/08 v2.0b eso-pic package 
 - external lib: added sanity checking for failed \ref,\pageref,\cite commands in external images.
 - math parser: improved error messages by providing the complete math expression.
 - added 'trim left' and 'trim right' features to simplify bounding box
   modifications and allow support for restricted bounding boxes and image
-  externalization.
+  externalization.    
 - pgfutil-latex.def: changed \usepackage to \RequirePackage (thanks to Christophe Jorssen)
 - external lib: added \tikzappendtofigurename{} shortcut for '\tikzset{external/figure name/.add={}{suffix}}'
 - external lib: added warning at end of document if not all graphics have
@@ -2108,7 +2104,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - improved sanity checking in number printer: now, the zero flag is
   checked even if its exponent > 0
 - floatparsenumber: number format errors after exponents now contain the offending
-  character instead of '\relax'
+  character instead of '\relax' 
 - number printer: added 'frac denom' and 'frac whole' for fine tuning of
   fractional number printing.
 - number printer: made \protect portable across TeX variants (doesn't
@@ -2119,14 +2115,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - added '/pgf/images/include external/<image name>' code key.
 - fpu: added convenience method \pgfmathfloattoint
 - number printer: added 'frac' style to automatically create fractionals.
-- splitted basic level file pgfcoreimage.code.tex: there is now a
+- splitted basic level file pgfcoreimage.code.tex: there is now a 
   pgfcoreexternal.code.tex file.
 - \pgfmathprintnumber is no longer a "fragile" command (it is \protect'ed
   automatically in LaTeX).
 - Fixed baseline alignment with "text width" option in LaTeX.
 - New divide function
 - Rewrote code foreach extensions. Now no longer an impenetrable mess.
-  pgffor.code.tex is much larger, but contains some (as yet) undocumented
+  pgffor.code.tex is much larger, but contains some (as yet) undocumented 
   features which may get optimised out.
 - Image externalization: added '/pgf/images/aux in dpth' feature.
   It allows to store \label and other .aux file related stuff in the image's
@@ -2148,7 +2144,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - intersection lib: added 'name path global' feature.
 - external lib: partially fixed incompatibility with glossary package and
   documented work-around
-- FPU: added \pgfmathfloatifapproxequalrel
+- FPU: added \pgfmathfloatifapproxequalrel 
 - number printing: added style to configure |sci precision|
 - number printing: added style to configure |std=<lower e>:<upper e>|
 - external lib: the <real job's name> argument from \tikzexternalize is
@@ -2191,7 +2187,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   and is more rebust with respect to save stack usage
 - worked on profiler library and added docs for it.
 - added first draft of the pgf 'profiler' library
-- Fix for rounded corners affecting custom fills in rectangle
+- Fix for rounded corners affecting custom fills in rectangle 
   split shape.
 - updated the 'make dist' documentation target such that it compresses
   every pdf object. The resulting manual is half as large than without
@@ -2271,17 +2267,17 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - fixed bug in fpu cosh, sinh and tanh
 - provided two new aliases for key filters, added \pgfkeyssetfamily.
 - allowed numbers like '.9' in fpu.
-- Fix for signal shape.
+- Fix for signal shape. 
 - Applied the patches for dvipdfmx driver,
   pgf-doc-diff.version2cvs (2009-04-18) and
   pgf-generic-diff.version2cvs (2009-04-19).
 - Restored processing of unknown keys in the predefined key filters 'and',
   'not', 'or' and 'false': it was not improvement...
 - fixed the sequence of arguments of
-  \pgfqkeysactivatefamiliesandfilteroptions and
+  \pgfqkeysactivatefamiliesandfilteroptions and 
   \pgfqkeysactivatesinglefamilyandfilteroptions
   in the reference manual.
-- key filtering: the composed key filter handlers 'not', 'and', 'false' and 'or' now
+- key filtering: the composed key filter handlers 'not', 'and', 'false' and 'or' now 
   ignore unknown options and call the .unknown handlers.
 - pgfkeys: removed the experimental \pgfkeyssetdefaultpathforhandled method.
   It doesn't fit into the clean interface for pgfkeys - and the problem of
@@ -2291,7 +2287,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   FPU.
 - added (primitive) veclen implementation for FPU.
 - added cosh, sinh, tanh to FPU
-- fixed bug in external lib: empty lines in tikzpicture environments were not accepted
+- fixed bug in external lib: empty lines in tikzpicture environments were not accepted 
   for some operating modes.
 - added \pgfqpointscale
 - added an optional argument count to 'optimize command away' in external
@@ -2306,13 +2302,13 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - external library: fixed the 'optimize' feature: pictures which won't be
   exported could not be optimized away (although they should)
 - Replaced \toks@ and \voidb@x by \pgfutil@toks@ and
-  \pgfutil@voidb@x.
+  \pgfutil@voidb@x. 
 - improved docs for .search also.
 - fixed initial value for 'domain' such that it really uses the default
   samples=25.
 - Added patch for context color support in luatex.
 - improved the optimization facilities of the external library:
-  |optimize=false| will now properly restore any optimized material
+  |optimize=false| will now properly restore any optimized material 
   when used in \tikzset
 - added |/handler config=all,only existing,full or existing|
   configuration.
@@ -2321,33 +2317,33 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - fixed default value for /tikz/samples at- there are no really 25
   samples, not 26. I forgot to fix this last time when I fixed 'samples'
 - added |\pgfkeyssetdefaultpathforhandled| feature as improvement for
-  multiple key paths to pgfkeys. Reference documentation and an
+  multiple key paths to pgfkeys. Reference documentation and an 
   application example is in the manual.
 - added 'mark=text' which draws arbitrary TeX content as plot marks to
   plot mark library.
-- Added key 'define function' to define simple local functions.
+- Added key 'define function' to define simple local functions. 
 - Worked on dv stuff.
-- Index argument to array is automatically truncated to an
+- Index argument to array is automatically truncated to an 
   integer.
 - Text decoration can now be aligned along or fitted to a path.
-- Added key '/pgf/decoration/reverse path' to decorate a path
+- Added key '/pgf/decoration/reverse path' to decorate a path 
   backwards.
 - the FPU deactivation command is now assembled once and for all during
   its first usage.
 - Changed the "ellipse", "circle" and "arc" commands, so that
   they take options. This gives a much clearer and more
   flexible syntax. Naturally, the old syntax continues to work
-  as expected.
+  as expected. 
 - Documented svg stuff and added tikz interface. Most useful
   for quickly converting svg pictures to tikz pictures...
 - fixed fpu 'round' method - it rounded mantissas instead of the complete
   number before.
 - Fixed some math stuff
 - Renamed \pgfpathcurvebetweentime* to
-  \pgfpathcurvebetweentimecontinue.
+  \pgfpathcurvebetweentimecontinue. 
 - Added svg.path lib. It allows one to directly use
   the svg syntax for paths (like "M10 10 L 20 20"). Not yet
-  documented.
+  documented. 
 - Added tutorial for mind/lecture maps.
 - implemented fpu factorial
 - if the fixed point library is activated, the fpu will be deactivated
@@ -2378,7 +2374,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - added trigonometric functions to floating point unit.
 - Added \colorlet to ConTeXt stuff.
 - Worked some more on data visualization stuff. Still in
-  pre-alpha.
+  pre-alpha. 
 - added \pgfmathfloatexp.
 - floating point macros now always use the basic pgf math methods for
   mantisse computations, even if the fixed point library is active.
@@ -2391,9 +2387,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   positive values.
 - optimized \pgfmathfloattofixed for speed (although it introduces
   redundand zeros)
-- Added '/pgf/image/include external' command key as public interface
+- Added '/pgf/image/include external' command key as public interface 
   to modify the '\includegraphics' command in image externalization routines.
-- fixed bug with |overlay| option and matrizes: now, cell pictures won't
+- fixed bug with |overlay| option and matrizes: now, cell pictures won't 
   collapse any more if the matrix has |overlay| enabled. However, the
   matrix' bounding box won't contribute to the image as desired.
 - added support for active '!' characters (for example in blue!30!black
@@ -2421,17 +2417,17 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed rounded rectangle right arc bug.
 - Fixed missing treatment of 'assume math mode' in \pgfmathprintnumber'
 - Fixed missing switching off of auto anchors in positioning
-  library.
+  library. 
 - Fixed matrix/pdfsync incompatibility.
 - Fixed some parsing bugs with arrays.
-- Fix for parsing of arrays in TikZ coordinates.
+- Fix for parsing of arrays in TikZ coordinates. 
 - Added number formatting option 'min exponent for 1000 sep'.
 - Fixed bug in math parser which inserted spaces into text
   or picture.
 - added number formatting style 'sci superscript'
   Example: formats the number 42 as 4.2^1 instead of 4.2 \cdot 10^1
 - Fixed bug "TikZ, the shadow library and ConTeXt MKIV
-  (LuaTeX)".
+  (LuaTeX)". 
 - Fixed bug #2105132 for rounded rectangle.
 - Fixed bug #2044129 for chamfered rectangle.
 - Added \pgfpathcurvebetweentime.
@@ -2439,32 +2435,32 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   inside a node of another picture. Pictures will now always
   start with "pos=.5" set.
 - Slight hack of decorations so that the input path can consist of a
-  single move to. This enables stuff like
+  single move to. This enables stuff like 
   \path [decoration={some decoration}, decorate] (4,5);
 - fixed small bug related to '@dec sep mark' and not-a-number in number
   formatting routines.
 - Solutions for path intersections can now be sorted along either path.
 - \pgfintersectionsolutions is now a macro, not a count register.
-- fix for `Missing character...` warnings in logfile when using
+- fix for `Missing character...` warnings in logfile when using 
   foreach.
-- removed `trim integers' option from foreach as int function
+- removed `trim integers' option from foreach as int function 
   can now be used.
-- Rewrote math parser. Anyone who relies on, or has hacked internal
+- Rewrote math parser. Anyone who relies on, or has hacked internal 
   parser or function macros, or has defined their own functions for
-  the parser will need to reconsult the code and/or documentation.
-- Files for functions definitions split (possibly permanantly) into
+  the parser will need to reconsult the code and/or documentation. 
+- Files for functions definitions split (possibly permanantly) into 
   different files.
-- Scaling of results at the end of the parse is no longer the default
+- Scaling of results at the end of the parse is no longer the default 
   action. This doesn't break PGF or TikZ, but it may break user code
-  that depended on this scaling. To turn it back on use
-  \let\pgfmathpostparse=\pgfmathscaleresult.
+  that depended on this scaling. To turn it back on use 
+  \let\pgfmathpostparse=\pgfmathscaleresult. 
 - Modifying existing functions or creating new functions must now be
   done using \pgfmathdeclarefunction and \pgfmathredeclarefunction.
 - Single argument functions do not need parentheses, provided the
   funtion is followed by a space, so sin 60 is the same as sin(60).
-  But! Functions have the highest precedence, so sin 60*\x is the
+  But! Functions have the highest precedence, so sin 60*\x is the 
   same as sin(60)*\x.
-- Added {} operators for array specification and [] operators for
+- Added {} operators for array specification and [] operators for 
   array access - see docs for details.
 - added postfix ! factorial operator.
 - added c++/java style conditional e.g., \x > 10 ? 13 : 20.
@@ -2474,28 +2470,28 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - added lua-style random function for generating random integers.
 - added Mod function (note capital letter). Uses floored division
   and is never negative.
-- min, max, veclen and pow can now be nested in any argument
+- min, max, veclen and pow can now be nested in any argument 
   position.
 - min and max can now take a variable number of arguments.
-- For compatability \pgfmathmax and \pgfmathmin still take two
-  arguments (although these can contain comma separated expressions).
+- For compatability \pgfmathmax and \pgfmathmin still take two 
+  arguments (although these can contain comma separated expressions). 
   However \pgfmathmin@ and \pgfmathmax@ now only take
-  one argument in the form \pgfmathmin@{{1}{2}{3}{4}{5}} (for 5
+  one argument in the form \pgfmathmin@{{1}{2}{3}{4}{5}} (for 5 
   arguments).
 - added hex, Hex, bin, and oct functions. These functions will not
     work properly if the post-parse scaling is turned back on.
-- 0 prefix for integers now specifies an octal number which is
+- 0 prefix for integers now specifies an octal number which is 
   automatically converted to base 10.
-- 0x or 0X prefix for integers now specifies a hexadecimal number,
-  which is automatically converted to base 10.
-- 0b or 0B prefix for integers now specifies a binary number,
+- 0x or 0X prefix for integers now specifies a hexadecimal number, 
+  which is automatically converted to base 10. 
+- 0b or 0B prefix for integers now specifies a binary number, 
   which is automatically converted to base 10.
 - "" characters turn off parsing (!) for part of an expression.
-- added width, height, and depth functions for text e.g.,
+- added width, height, and depth functions for text e.g., 
   width("Some text"), but as an expression is \edef'ed before
   parsing other commands will have to be `protected` e.g.,
   width("\noexpand\Huge Some text").
-- bugfix for tan and cot.
+- bugfix for tan and cot. 
 - added '/tikz/external/export={true,false}' key for externalization
   library.
 - added documentation for basic layer externalization and baseline option.
@@ -2514,7 +2510,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added "align" option. "text ragged" and friends are now
   deprecated. Text width need no longer not, but can, be
   specified. The following now has the expected effect: \node
-  [draw,align=center] {Hello\\world.};
+  [draw,align=center] {Hello\\world.}; 
 - added \pgfqpointxy and \pgfqpointxyz to complement the "quick" point
   commands in basic layer.
 - added 'every mark' style.
@@ -2522,7 +2518,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   definition)
 - Finished circuit library and documentation (well, some
   shapes still missing, but that's something users should
-  contribute).
+  contribute). 
 - the external library now handles active double quotes ",
   single quotes ', and active semicolons ';' in its system call
   correctly. Furthermore, \\ will expand to a normal
@@ -2532,9 +2528,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Did some documentation of circuit lib.
 - Removed the separated documentation of the intersection
   library and made this documentation part of the main
-  documentation.
+  documentation. 
 - The intersection cs is now deprecated, the documentation
-  is now only based on the intersection lib.
+  is now only based on the intersection lib. 
 - Added a "by" option so that "name intersections={of=A and
   B,by={c,d,e}}" will create an alias c for intersection-1, d
   for intersection-2 and e for intersection-3.
@@ -2544,8 +2540,8 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   pgfmathfloatdivide on top of pgfmathmultiply and pgfmathdivide
 - Added `Fixed Point Arithmetic' library, which provides
   a parsing interface to the fp package. Dealing with plotting
-  files still a bit crude.
-- This library means the manual now requires the fp pacakge
+  files still a bit crude. 
+- This library means the manual now requires the fp pacakge 
   to compile.
 - Fixed floor function for negative numbers.
 - Fixed \pgfmathsetseed.
@@ -2559,18 +2555,18 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   You may need to update your checkout.
 - The external library now typesets as horizontal material by issueing
   \leavevmode. This fixes an inconsistency with the normal tikzpictures.
-- Added intersection library + documentation for
+- Added intersection library + documentation for 
   intersecting “named” paths.
-- Fixed bug in external library. Now, strings like '#1' occuring
+- Fixed bug in external library. Now, strings like '#1' occuring 
   somewhere in an image is collected correctly.
 - Removed new intersection stuff. Need to restart from scratch...
 - Started working on circuit library documentation.
-- Added PGF code and docs for intersections of two curves and
+- Added PGF code and docs for intersections of two curves and 
   intersections of a line and a curve.
 - Fixed bug in foreach code when registers are used with dots
   statement.
 - Created first version of circuit libraries for electrical
-  engineering (circuits.ee.*).
+  engineering (circuits.ee.*). 
 - Added libraries so that ee circuits and logical circuits can
   be accessed using the same interface. (circuits.logic.*)
 - The tikz lib shapes.gates.logic.* will no
@@ -2582,7 +2578,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - All this is not documented, yet.
 - Worked some more on dv stuff, but nothing to "show", yet.
 - Fixed parsing bug in foreach code.
-- Added "rotate fit" key to fit library, so (e.g.) a rotated
+- Added "rotate fit" key to fit library, so (e.g.) a rotated 
   rectangle can be fitted around nodes/coordinates.
 - Added documentation for tikz 'external' library.
 - created pgfexternalwithdepth.tex file to use the 'baseline' information.
@@ -2590,7 +2586,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added '/pgf/images/draft' option
 - Modified implementation of draft images to show the image file name
   instead of the internal image name
-- Added tikz library 'external' which allows automatic or semiautomatic
+- Added tikz library 'external' which allows automatic or semiautomatic 
   export of each tikzpicture to pdf. Documentation is not yet ready.
 - Added self-contained latex package tikzexternal.sty to read those images
   without tikz/pgf installed.
@@ -2600,7 +2596,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Bugfixes in scoping behaviour.
 - Changed scoping rules for to path operation: Options are now
   local. This may break existing code, but is much more
-  consistent with everything else and removes other problems.
+  consistent with everything else and removes other problems. 
 - Patched mindmap lib to account for these changed rules.
 - Added insert path option.
 - Deprecated "after node path". Use "append after command" and
@@ -2629,10 +2625,10 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - sequences indicated by dots can be character sequences.
 - a list item can be “remembered” in the next iteration.
 - access to the number of the current item in the list is
-  provided.
+  provided. 
 - Worked a bit on data visualization stuff.
-- Added '/pgf/number format/1000 sep' and 'dec sep' shortcut
-  styles which simply call 'set thousands separator' and 'set
+- Added '/pgf/number format/1000 sep' and 'dec sep' shortcut 
+  styles which simply call 'set thousands separator' and 'set 
   decimal separator'. Those option are somewhat long...
 - Fixed the "local bounding box" option so that it honors the
   "relevant for picture size"-if.
@@ -2640,7 +2636,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added "between positions" option to the "mark" option. This
   makes it possible to create paths with "repeated arrows along
   the path". This did not work before.
-- Added '/pgf/number format/assume math mode' to disable math checks.
+- Added '/pgf/number format/assume math mode' to disable math checks. 
   This allows to assemble tabulars, apply \pgfmathprintnumber to each cell
   and use the dcolumn package to align at decimal separators (no
   documentation for that feature yet)
@@ -2650,7 +2646,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   SET fixed format. The same holds for sci zerofill.
 - Provided \pgfmathprintnumberto macro in addition to
   \pgfmathprintnumber.
-- Revised Lindenmayer system stuff. Documentation should
+- Revised Lindenmayer system stuff. Documentation should 
   now be up to date.
 - Added 'xbar interval' and 'ybar interval' plot handlers.
 - Moved plot handler options to /pgf key tree.
@@ -2683,13 +2679,13 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   of the corrected mindmap connecting bars.
 - Fixed buggy code of mindmap connect bars: Shading angles
   where sometimes wrong and shading was sometimes at the wrong
-  position.
+  position.  
 - Completely rewrote management of pdf resources. This affects
   pdftex, dvipdfm, dvipdfmx and xetex backends and all front
   ends. They should now all work together in harmony, as far
   as this is supported by them.
 - Completely rewrote driver detection in plain and context
-  mode.
+  mode. 
 - dvipdfmx and xetex now use \special{pdf:literal direct},
   which can *considerably* reduce file sizes (up to a factor
   of 2).
@@ -2737,7 +2733,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added (not yet documented) new arrow tip "implies" using
   this mechanism.
 - New version of rectangle split shape. Now supports horizontal
-  as well as vertical spliting. Also supports up to 20 parts.
+  as well as vertical spliting. Also supports up to 20 parts. 
 - Added pgfkeysfiltered.code.tex which provides key filtering
   and provides key-selection utilities like xkeyvals families
 - changed pgfkeys.code.tex to '\input' pgfkeysfiltered.code.tex
@@ -2750,24 +2746,24 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   \shipout. Wrote direct code to hack into \shipout in plain
   mode. Hacking into \shipout in Context is still unclear.
 - Added space arrow.
-- Reimplemented parsing of operands.
+- Reimplemented parsing of operands. 
 - Added cirlce solidus shape by Manuel Lacruz.
-- `curve control points` decoration no longer exists. It is
+- `curve control points` decoration no longer exists. It is 
   replaced by the `show path construction` decoration.
 - added code + docs for defining changable patterns.
-- Parser altered to access \pgfmathfloatparsenumber when
+- Parser altered to access \pgfmathfloatparsenumber when 
   \ifpgfmathfloat is true (old interface to \pgfmathfloat deleted).
 - Added generic/pgf/math/pgfmathfloat.code.tex
 - Modified pgfmath.code.tex to include pgfmathfloat.code.tex
 - Added generic/pgf/testsuite/mathtest/pgfmathtestsuite.tex [dvipdfm/pdflatex]
   which provides testing for pgfmathfloat.code.tex
-- Fixed minimum width handling in rounded rectangle shape.
+- Fixed minimum width handling in rounded rectangle shape. 
 - Added key for rectangle split to ignore empty parts.
 - Extended \pgfshadecolortorgb to define macros for the
   individual color components.
 - Added `curve control points` decoration for drawing
   curve controls. NB: names/keys may change.
-- Fix for (some) “hidden” bugs: `Missing character:
+- Fix for (some) “hidden” bugs: `Missing character: 
   There is no <char> in font nullfont!`. This is usually
   only seen in log file. Fixed for star, circular sector
   and math macros.
@@ -2776,9 +2772,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   still not as smooth as support of other formats)
 - Checked in some data visualization stuff, without any
   documentation. Everything still likely to change
-  completely.
+  completely. 
 - Moved module management to pgfutil.
-- Added support for simple oo-programming, not documented.
+- Added support for simple oo-programming, not documented. 
 - Fixed bug in pgfkeysaddvalue.
 - Fixed bug of stack leak in function shadings in postscript.
 - Fixed missing image inclusion documentation.
@@ -2792,7 +2788,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Jin-Hwan Cho
 - Mark Wibrow
 
-## [2.00] - 2008-02-20 Till Tantau
+## [2.00] - 2008-02-20 Till Tantau 
 
 ### Changed
 
@@ -2804,17 +2800,17 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added "auto end on length" and "auto corner on length"
   options to decorations.
 - Added "if input segment is closepath" option to
-  decorations.
+  decorations. 
 - Renamed "subpath" in decoration code to "inputsegment". In
   the pdf-specification (and in the rest of the pgf manual) a
   path is made up of subpath, which are started by movetos,
   and these in turn are made up of segments. In decorations,
   segments used to be called subpaths, which was too
-  confusing...
+  confusing... 
 - More renaming in chains, but its stabilizing now.
 - Started a tutorial on chains.
 - Moved chain part inside "positioning" into "chains"
-  library.
+  library. 
 - Renamed things in the chains library, yet again and added
   branches.
 - Fixed bug with "xyz of" placements.
@@ -2831,18 +2827,18 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed bug: Manual now is hyperlinked also for dvipdfm.
 - Fixed bug: wrong size of all shadings in svg code.
 - Slight change in placement lib, default chain now has a
-  name.
-- Removed internal asin tables as asin is now calculated from
+  name. 
+- Removed internal asin tables as asin is now calculated from 
   acos tables.
 - Misc. updates for shapes docs.
 - Changed fit library, so that nodes are now "completely"
-  fitted.
+  fitted. 
 - Changed tutorial so that fit library is now used.
 - Added placement library and documentation.
 - Fixes in snake compatibility code.
 - Added dvipdfmx support (identical to dvipdfm).
 - Fixed missing braces and color stack problem in
-  shapes.logic.IEC.
+  shapes.logic.IEC. 
 - Patched (and hopefully fixed) hyperref support.
 - Made matrix inversion more precise.
 - Added tutorial for geometric constructions.
@@ -2859,7 +2855,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   minimum height to appear slightly wider than before. But...
 - Added keys for trapezium so that minimum width and height
   can be applied independently, or to just the `body` of the
-  trapezium.
+  trapezium. 
 - Reimplemented shape `tape`. Anchors should behave a bit
   better now.
 - Fixed problem with pin a relative coordinates.
@@ -2870,16 +2866,16 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Modified calc library. Working on documentation.
 - Added calc library and ($...$) notation for coordinates.
 - Reorganised logic shapes. Now two libraries:
-  shapes.gates.logic.US (for “American” gates) and
+  shapes.gates.logic.US (for “American” gates) and 
   shapes.gates.logic.IEC (for rectangular gates).
   Gates are now named `and gate US` or `and gate IEC` etc.
   TikZ key `use US style logic gates` and `use IEC style
-  logic gates` set up styles so that (e.g.) `and gate`
+  logic gates` set up styles so that (e.g.) `and gate` 
   becomes a synonym for `shape=and gate US`. See docs for
   details.
 - Added decorations.markings.
 - Fixed pgfpatharc: Fractional angles are now handled
-  correctly.
+  correctly. 
 - Fixed incompatability with bm package: Changed hack to
   \@@end to \AtEndDocument.
 - Changed things in the math engine to speed up things: First,
@@ -2891,9 +2887,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   this was the case.
 - Added footprint decoration and merged Marks footprints.
 - Added buffering to the subpath mechanism. This speeds up
-  constructions of very long paths by a factor of 10 or more.
+  constructions of very long paths by a factor of 10 or more. 
 - Fixed missing declaration of \iftikz@decoratepath in
-  tikz.code.tex.
+  tikz.code.tex. 
 - Added logic shapes library. Includes AND gate, NAND gate,
   OR gate, NOR gate, XOR gate, XNOR gate and NOT gate.
 - Fooled around with title page.
@@ -2901,14 +2897,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   last point on a path. This was a nuiseance before and became
   a real problem with decorations.
 - Finished my move from snakes to decorations. Also finished
-  documentation.
+  documentation. 
   We are now ready for a new release!
 - Removed \externalcode command for decoration states as
-  persistent pre/postcomputation stuff does a similar job.
+  persistent pre/postcomputation stuff does a similar job.      
 - Added \externalcode command for decoration states. Allows
   code to be executed outside the TeX-group the state code
   is executed in.
-- Split decoration lib into several libs.
+- Split decoration lib into several libs. 
 - Renamed lineto decoration to curveto decoration.
 - Renamed many keys of decorations and snakes to shorter
   names.
@@ -2924,9 +2920,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Decorated path can now contain nodes.
 - Node paths can also be decorated now.
 - Fixed missing \pgftransformreset inside decoration
-  environment.
+  environment. 
 - Changed the decoration documentation a bit. Still not quite
-    perfect...
+    perfect... 
 - Restructured the basic layer. There is a central core (which
   got slightly larger) and "modules", which can be included
   using \usepgfmodule. All the pgfbaseXXX files are now
@@ -2935,7 +2931,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   The {pgf} package no longer includes the modules "pattern",
   "snakes" and "decorations" by default. However, these
   modules are loaded by their respective libraries, so,
-  normally, no one will notice.
+  normally, no one will notice.    
 - Fix for minimum size in ellipse split shape.
 - Added decorations documentation.
 - Coordinates like (2,3cm) are now allowed. Has the same
@@ -2968,7 +2964,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed buggy swirl shading.
 - Finished documentation switch from \itemoption to {key}.
 - Changed TikZ fading options. More consistent and easier to use,
-  now.
+  now. 
 - Added `ellipse split` shape.
 - Fixed spaces problem with external graphics.
 - Added [missing] option to supress children.
@@ -3004,14 +3000,14 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   argument (as in \foreach \x in \mylist {...})
 - Fixed keys problem when .try is used with a comma.
 - Fixed shape snake for drawing to other pictures.
-- Added shapes `arrow box` shape, `rectangle callout` and
+- Added shapes `arrow box` shape, `rectangle callout` and 
   `ellipse callout`.
 - Fixed dvipdfm problem with hyperref.
 - pgfbasesnakes: changed length calculation and added angle calculation.
 - added `shape snake` to snake library.
 - added cylinder shape to geometric shapes.
 - renamed `bevelled rectangle`. Now called `chamfered rectangle`.
-- renamed pgfsavepgf@process. Now called pgfextract@process.
+- renamed pgfsavepgf@process. Now called pgfextract@process. 
 - Fixed bug #1803811 gobbling of tokens after \pgfmathaddtocounter.
 - Fixed insertion of spaces after \pgfmath stuff.
 - Fixed bug #1811862.
@@ -3040,7 +3036,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
   and, TikZ option `apsect` are still there for compatability).
 - Updated diamond shape (and doc.) to use keys.
 - “Housekeeping” stuff (moved some macros around).
-- Trapezium shape updated. No longer uses left and right
+- Trapezium shape updated. No longer uses left and right 
   extensions. Uses internal angles instead.
     - Updated pgfkeys for shapes (not done \pgfsetshapeaspect for
   diamond shape)
@@ -3075,9 +3071,9 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added trapezium shape.
 - Added support for “legacy” calc code (\real, \minof, \maxof, \ratio).
 - Fixed 'public' sqrt macro in \pgfmathoperations.code.tex
-- Added isosceles triangle shape: uses incircle, but supports arbitrary
+- Added isosceles triangle shape: uses incircle, but supports arbitrary 
   rotation of border.
-- Added simple isosceles triangle shape: much tighter fit of node
+- Added simple isosceles triangle shape: much tighter fit of node 
   contents, but restricted rotation of border.
 - Fixed text width problem in matrix of nodes.
 
@@ -3085,26 +3081,26 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 
 - Mark Wibrow
 
-## [1.18] - 2007-01-18 Till Tantau
+## [1.18] - 2007-01-18 Till Tantau 
 
 - Added regular polygon and star shapes (by Mark Wibrow).
 - Added graphic externalization commands.
 - Added barycentric coordinate system.
 - Added direct TikZ plotting of function based on math engine.
 - Added math documentation into main documentation.
-- Added Mark Wibrow's math library.
+- Added Mark Wibrow's math library. 
 - Added calendar support.
 - Added matrix stuff.
 - Added automatic driver selection for xetex.
 - Added "growth parent anchor" option.
 - Fixed superfluous spaces in quick math parse code
 - Fixed superfluous \newboxes in math and image code
-- Fixed mth parser to recognize \wd\mybox.
+- Fixed mth parser to recognize \wd\mybox. 
 - Fixed wrong \pgfmathsetrandomseed
 - Fixed wrong \pgfmathradians@
 - Fixed problems with long mantissa and plain tex math code.
 - Fixed things so that \setlength works in pictures, once
-  more.
+  more. 
 - Fixed selectfont problem in pdfsys-dvipdfm.def
 - Fixed problem with lost lastx/lasty in foreach in TikZ.
 - Fixed snake+rectangle+transform problem.
@@ -3116,12 +3112,12 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed .aux problems in plain and ConTeXt mode. Using .pgf as
   extension now.
 
-## [1.10] - 2006-10-26 Till Tantau
+## [1.10] - 2006-10-26 Till Tantau 
 
 - Renamed \pgf@sys@pdf@mark to \pgfsyspdfmark.
 - Fixed the ConTeXt support so that it is usable (which is wasn't).
 
-## [1.09] - 2006-10-11 Till Tantau
+## [1.09] - 2006-10-11 Till Tantau 
 
 - Added \usepgflibrary and \usetikzlibrary to simplify adding
   new libraries.
@@ -3131,7 +3127,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added crosses snake.
 - Added to and edge path operations.
 - Added to path library. In particular, this gives decent
-  curved paths.
+  curved paths. 
 - Added tikz automata library.
 - Added tikz er diagram library.
 - Added tikz Petri net library.
@@ -3144,7 +3140,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Added plot mark phase, repeat and indices.
 - Added text height and text depth options.
 - Added label and pin options.
-- Added automatic node placement (!).
+- Added automatic node placement (!). 
 - Added pgfsys-dvi.def for pure dvi mode. Supports only
   black and white drawing (not documented and not really usable).
 - Added 3d library (not documented and not really usable).
@@ -3166,7 +3162,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed patch #1443606.
 - Fixed path #1526178.
 
-## [1.01] - 2005-11-16 Till Tantau
+## [1.01] - 2005-11-16 Till Tantau 
 
 - Added textures support.
 - Added text opacity option.
@@ -3178,11 +3174,11 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed SVG support to create legal xml.
 - Moved documentation to doc/generic/pgf.
 
-## [1.00] - 2005-10-23 Till Tantau
+## [1.00] - 2005-10-23 Till Tantau 
 
 - There have not been any real changes since 0.99.
 
-## [0.99] - 2005-10-11 Till Tantau
+## [0.99] - 2005-10-11 Till Tantau 
 
 - Added vtex support (finally!).
 - Added multi part mechanism to nodes.
@@ -3192,7 +3188,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Renamed \pgfshapebox to \pgfnodeparttextbox (made necessary
   by the node part mechanism).
 
-## [0.98] - 2005-09-20 Till Tantau
+## [0.98] - 2005-09-20 Till Tantau 
 
 - Added transparency to PGF (quite nice...).
 - Added foreach option to child path operation (also nice...).
@@ -3200,7 +3196,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
 - Fixed problem with hyperlinks in nodes.
 - Fixed wrong arrows in trees.
 
-## [0.97] - 2005-09-08 Till Tantau
+## [0.97] - 2005-09-08 Till Tantau 
 
 - Reorganised directory structure of documentation.
 - Added tree mechanism.
@@ -3216,7 +3212,7 @@ Revert 00f4e8d4154dcb3133ed4a106b6254b8faf874e2
     inside svg graphics is not supported well, but that's mainly
   a shortcoming of the svg specification.)
 
-## 0.96 - 2005-07-06 Till Tantau
+## 0.96 - 2005-07-06 Till Tantau 
 
 This is a beta version. Version 1.00 will be the first stable
 version of TikZ/pgf.
@@ -3233,7 +3229,7 @@ version of TikZ/pgf.
 - Changed syntax of parabola command.
 - Proof read documentation.
 
-## 0.95 - 2005-06-12 Till Tantau
+## 0.95 - 2005-06-12 Till Tantau 
 
 This is an *alpha* prerelease version. Syntax changes
 are still possible before the beta version. Version 1.00
@@ -3254,18 +3250,18 @@ will be the stable version.
 - Restructured directory structure.
 - Zillions of small bugfixes.
 
-## 0.65 - 2004-10-20 Till Tantau
+## 0.65 - 2004-10-20 Till Tantau 
 
 - Fixed bug in pgfshade.sty that arises in conjunction with
   calc.sty and latex+dvips.
 
-## 0.64 - 2004-10-08 Till Tantau
+## 0.64 - 2004-10-08 Till Tantau 
 
 - Fixed missing depth of \pgfnodebox.
 - Fixed bug that caused infinite stack loop with pictures inside
-  nodes.
+  nodes. 
 
-## 0.63 - 2004-07-08 Till Tantau
+## 0.63 - 2004-07-08 Till Tantau 
 
 - Added \pgfextractx, \pgfextracty, \pgfcorner.
 - Added some documentation on masks and images.
@@ -3274,7 +3270,7 @@ will be the stable version.
 - \pgfex and \pgfem no loner needed. Use 1ex etc. once more.
 - calc.sty is now supported.
 
-## 0.62 - 2004-07-06 Till Tantau
+## 0.62 - 2004-07-06 Till Tantau 
 
 - Fixed problem in xxcolor with option "gray" and xcolor.
 - Switched to xcolor version 2.00.
@@ -3283,28 +3279,28 @@ will be the stable version.
   recalculated upon color changes.
 - Changed names of example images to start with pgf.
 
-## 0.61 - 2004-04-07 Till Tantau
+## 0.61 - 2004-04-07 Till Tantau 
 
 - Added \pgfex and \pgfem dimensions.
-- Fixed bug that causes pgfshade to fail to work if xcolor
+- Fixed bug that causes pgfshade to fail to work if xcolor 
   is called with option "gray".
 - Fixed PostScript code for radial shadings.
 - xxcolor now works with xcolor 1.10 (and only 1.10).
 
-## 0.60 - 2004-02-18 Till Tantau
+## 0.60 - 2004-02-18 Till Tantau 
 
 - Replaced some commands for the postscript code by shorter
   versions for smaller file size.
 - Fixed bug in pgfbox command that caused incorrect kerning in
   postscript output.
 - Fixed bug in pgfsys@defineimage that made page inclusion
-  impossible.
+  impossible. 
 - Fixed bug in pgfshading that did not reset dash patterns in
-  shadings in the PostScript version.
+  shadings in the PostScript version. 
 - Spaces are now allowed inside the pgfpicture environment.
 - Added \pgfgrid command.
 
-## 0.50 - 2004-01-13 Till Tantau
+## 0.50 - 2004-01-13 Till Tantau 
 
 - Switched to version 1.06 of xcolor.
 - Core pgf no longer relies on xxcolor.
@@ -3314,51 +3310,51 @@ will be the stable version.
   the alternate extension).
 - Some xxcolor commands have been removed.
 
-## 0.43 - 2003-12-02 Till Tantau
+## 0.43 - 2003-12-02 Till Tantau 
 
 - Fixed \normalcolor, so that it works also in preamble.
 
-## 0.42 - 2003-11-20 Till Tantau
+## 0.42 - 2003-11-20 Till Tantau 
 
 - Documented masks.
 - Fixed bug in pgf.sty for nested pictures.
 
-## 0.41 - 2003-11-18 Till Tantau
+## 0.41 - 2003-11-18 Till Tantau 
 
 - Added masks (not yet documented).
 
-## 0.40 - 2003-11-12 Till Tantau
+## 0.40 - 2003-11-12 Till Tantau 
 
 - Changed syntax of \pgfdeclareimage. Uses key=value scheme
-  now. All parameters may now be omitted.
+  now. All parameters may now be omitted. 
 - Added \pgfimage command.
 - Option for selecting a specific page from an image file.
 - Fixed bug in xxcolor.sty having to do with \@ifempty command.
 - Reworked the formatting of the user's guide.
 
-## 0.34 - 2003-10-29 Till Tantau
+## 0.34 - 2003-10-29 Till Tantau 
 
 - Shadings now work together with color mix-ins.
 - Shadings can now take color names as parameters.
 
-## 0.33 - 2003-10-24 Till Tantau
+## 0.33 - 2003-10-24 Till Tantau 
 
 - Fixed problem with missing \leavevmode in \pgfuseimage.
-- Reworked code for image inclusion.
-- "Draft" option is now supported. Supresses reading of images.
+- Reworked code for image inclusion. 
+- "Draft" option is now supported. Supresses reading of images. 
 - Added xxcolor package.
 - pgfpictures will now inherit the color from their surroundings.
 
-## 0.32 - 2003-10-20 Till Tantau
+## 0.32 - 2003-10-20 Till Tantau 
 
 - Updated installation procedure information.
 
-## 0.31 - 2003-09-18 Till Tantau
+## 0.31 - 2003-09-18 Till Tantau 
 
 - One parameter for \pgfdeclareimage may now be omitted. It will
   be computed automatically.
-
-## 0.30 - 2003-08-21 Till Tantau
+    
+## 0.30 - 2003-08-21 Till Tantau 
 
 - Created ChangeLog
 - Added pgfshade.sty
