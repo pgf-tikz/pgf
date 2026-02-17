@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Resolve parsing ambiguity in general shadow #1435
+
 ### Added
 
-- Documentation of `\pgfkeysifassignable`
+- Documentation of `\pgfkeysifassignable` #1423
 
 ### Changed
 
