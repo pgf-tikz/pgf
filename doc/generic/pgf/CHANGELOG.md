@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Typo fixes in the manual
 
+### Added
+
+- Add a new monotonic interpolation plot handler #1358
+
 ## [3.1.11a] - 2025-08-29 Henri Menke
 
 ### Fixed

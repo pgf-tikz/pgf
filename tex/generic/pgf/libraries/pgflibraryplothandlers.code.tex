@@ -269,6 +269,135 @@
 }%
 
 
+% This handler converts each plot stream command into a curveto
+% command, except for the first, which is converted to the previously
+% specified action. The curveto control points are computed and adjusted
+% so that the resulting curve respects the monotonicity of the points.
+% If a point is a local extremum of the point set, it will also be
+% a local extremum of the generated curve.
+% This handler treats the x and y direction differently, and expects
+% x values to be monotone.
+% See https://en.wikipedia.org/wiki/Monotone_cubic_interpolation for an
+% explanation of the algorithm. The last part uses \pgfpathcurveto
+% instead of using Hermitte base functions.
+\pgfdeclareplothandler{\pgfplothandlermonotone}{}{%
+    point macro=\pgf@plot@monotone@dopointone,
+    jump macro=\pgf@plot@monotone@dojump,
+    end macro=\pgf@plot@monotone@doend
+}%
+
+\def\pgf@plot@monotone@dojump{%
+    \pgf@plot@monotone@doend
+    \global\pgf@plot@startedfalse
+    \global\let\pgf@plotstreampoint\pgf@plot@monotone@dopointone
+}%
+
+\def\pgf@plot@monotone@dopointone#1{%
+    \pgf@process{#1}%
+    \xdef\pgf@plot@monotone@pointone{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    \pgf@plot@first@action{\pgf@plot@monotone@pointone}%
+    \global\let\pgf@plotstreampoint=\pgf@plot@monotone@dopointtwo
+}%
+
+\def\pgf@plot@monotone@dopointtwo#1{%
+    \pgf@process{#1}%
+    \xdef\pgf@plot@monotone@pointtwo{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % compute vector:
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgf@plot@monotone@pointone}%
+    \advance\pgf@xa by-\pgf@x
+    \advance\pgf@ya by-\pgf@y
+    % save left delta
+    \xdef\pgf@plot@monotone@deltaleft{\pgf@sys@tonumber\pgf@xa}%
+    % compute slope
+    \pgfmathdivide@{\the\pgf@ya}{\the\pgf@xa}%
+    \global\let\pgf@plot@monotone@rateleft\pgfmathresult
+    % init tangent one
+    \global\let\pgf@plot@monotone@slopeone\pgf@plot@monotone@rateleft
+    % prepare for next step
+    \global\let\pgf@plotstreampoint=\pgf@plot@monotone@dopointthree
+    \global\pgf@plot@startedtrue%
+}%
+
+\def\pgf@plot@monotone@dopointthree#1{%
+    \pgf@process{#1}%
+    \xdef\pgf@plot@monotone@pointthree{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % compute vector:
+    \pgf@xa=\pgf@x%
+    \pgf@ya=\pgf@y%
+    \pgf@process{\pgf@plot@monotone@pointtwo}%
+    \advance\pgf@xa by-\pgf@x
+    \advance\pgf@ya by-\pgf@y
+    % save right delta
+    \xdef\pgf@plot@monotone@deltaright{\pgf@sys@tonumber\pgf@xa}%
+    % compute slope
+    \pgfmathdivide@{\the\pgf@ya}{\the\pgf@xa}%
+    \global\let\pgf@plot@monotone@rateright\pgfmathresult
+    % compute tangent slope
+    \pgfmathadd@{\pgf@plot@monotone@rateleft}{\pgf@plot@monotone@rateright}%
+    \pgf@xa=\pgfmathresult pt\relax
+    \pgf@xa=0.5\pgf@xa
+    % Fix slopes & draw curve
+    \pgf@plot@monotonecurveto@fixdraw
+    % Prepare next:
+    \global\let\pgf@plot@monotone@slopeone\pgf@plot@monotone@slopetwo
+    \global\let\pgf@plot@monotone@pointone\pgf@plot@monotone@pointtwo
+    \global\let\pgf@plot@monotone@pointtwo\pgf@plot@monotone@pointthree
+    \global\let\pgf@plot@monotone@deltaleft\pgf@plot@monotone@deltaright
+    \global\let\pgf@plot@monotone@rateleft\pgf@plot@monotone@rateright
+}%
+
+\def\pgf@plot@monotonecurveto@fixdraw{%
+    % fix extremums
+    % \pgf@xa is slope two
+    \pgf@ya=\pgf@plot@monotone@rateleft pt\relax
+    \pgf@yb=\pgf@plot@monotone@rateright\pgf@ya
+    \ifdim\pgf@yb<0.0001pt\relax
+        \pgf@xa=0pt\relax
+    \else
+    % fix motonicity
+        \pgf@ya=3\pgf@ya
+        \ifdim\pgf@xa>0pt\relax
+            \ifdim\pgf@xa>\pgf@ya \pgf@xa=\pgf@ya\fi
+        \else
+            \ifdim\pgf@xa<\pgf@ya \pgf@xa=\pgf@ya\fi
+        \fi
+        \pgf@ya=\pgf@plot@monotone@rateright pt\relax
+        \pgf@ya=3\pgf@ya
+        \ifdim\pgf@xa>0pt\relax
+            \ifdim\pgf@xa>\pgf@ya \pgf@xa=\pgf@ya\fi
+        \else
+            \ifdim\pgf@xa<\pgf@ya \pgf@xa=\pgf@ya\fi
+        \fi
+    \fi
+    \xdef\pgf@plot@monotone@slopetwo{\pgf@sys@tonumber\pgf@xa}%
+    % compute points for left bezier
+    % (\pgf@x,\pgf@y) is point two
+    \pgf@ya=\pgf@plot@monotone@deltaleft pt\relax
+    \pgf@ya=0.333333\pgf@ya
+    \advance \pgf@x by -\pgf@ya
+    \advance \pgf@y by -\pgf@plot@monotone@slopetwo\pgf@ya
+    \xdef\pgf@plot@monotone@supporttwo{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    \pgf@process{\pgf@plot@monotone@pointone}%
+    \advance \pgf@x by \pgf@ya
+    \advance \pgf@y by \pgf@plot@monotone@slopeone\pgf@ya
+    \xdef\pgf@plot@monotone@supportone{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+    % draw left curve:
+    \pgfpathcurveto{\pgf@plot@monotone@supportone}{\pgf@plot@monotone@supporttwo}{\pgf@plot@monotone@pointtwo}%
+}%
+
+\def\pgf@plot@monotone@doend{%
+    \ifpgf@plot@started
+        % fixdraw needs (\pgf@x,\pgf@y) as point two
+        % and \pgf@xa as slope two
+        \pgf@process{\pgf@plot@monotone@pointtwo}%
+        \pgf@xa=\pgf@plot@monotone@rateleft pt\relax
+        \pgf@plot@monotonecurveto@fixdraw
+    \fi
+}%
+
+
 
 
 
