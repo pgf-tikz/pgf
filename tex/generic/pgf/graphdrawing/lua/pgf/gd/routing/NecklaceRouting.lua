@@ -50,13 +50,21 @@ declare {
     to 7 in the example.
   "]],
 
-  examples = [["
-    \tikz \graph [simple necklace layout, node distance=1.5cm,
-                  necklace routing,
-                  nodes={draw,circle}, edges={>={Stealth[round,sep,bend]}}]
-      { 1 -> 2 [minimum size=30pt] <- 3 <-> 4 --
-        5 -- 6 -- [bend left] 7 -- 1 -- 4 };
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{arrows.meta,bending,graphs,graphdrawing}
+        \usegdlibrary{circular,routing}
+      },
+    "]],
+    code = [["
+      \tikz \graph [simple necklace layout, node distance=1.5cm,
+                    necklace routing,
+                    nodes={draw,circle}, edges={>={Stealth[round,sep,bend]}}]
+        { 1 -> 2 [minimum size=30pt] <- 3 <-> 4 --
+          5 -- 6 -- [bend left] 7 -- 1 -- 4 };
     "]]
+  }}
 }
 
 

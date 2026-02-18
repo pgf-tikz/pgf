@@ -60,17 +60,25 @@ declare {
     quality of graph drawings generated with Walshaw's algorithm
     |spring electrical layout'|.
   "]],
-  examples = [["
-    \tikz \graph [spring electrical layout', coarsen=false, vertical=3 to 4]
-      {
-        { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
-      };
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{force}
+      },
+    "]],
+    code = [["
+      \tikz \graph [spring electrical layout', coarsen=false, vertical=3 to 4]
+        {
+          { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
+        };
 
-    \tikz \graph [spring electrical layout', coarsen, vertical=3 to 4]
-      {
-        { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
-      };
-  "]]
+      \tikz \graph [spring electrical layout', coarsen, vertical=3 to 4]
+        {
+          { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 }
+        };
+    "]]
+  }}
 }
 
 ---
@@ -95,15 +103,23 @@ declare {
     in the two graphs, the nodes are placed at exactly two and four
     coordinates in the final drawing.
   "]],
-  examples = [["
-    \tikz \graph [spring layout, iterations=0,
-                  minimum coarsening size=2]
-      { subgraph C_n [n=8] };
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs.standard,graphdrawing}
+        \usegdlibrary{force}
+      },
+    "]],
+    code = [["
+      \tikz \graph [spring layout, iterations=0,
+                    minimum coarsening size=2]
+        { subgraph C_n [n=8] };
 
-    \tikz \graph [spring layout, iterations=0,
-                  minimum coarsening size=4]
-      { subgraph C_n [n=8] };
-  "]]
+      \tikz \graph [spring layout, iterations=0,
+                    minimum coarsening size=4]
+        { subgraph C_n [n=8] };
+    "]]
+  }}
 }
 
 ---
@@ -131,18 +147,26 @@ declare {
     multilevel approach may not produce drawings as good as with a lower
     |downsize ratio|.
   "]],
-  examples = [["
-    % 1. ratio too high, coarsening stops early, benefits are lost
-    \tikz \graph [spring electrical layout',
-                  downsize ratio=1.0,
-                  node distance=7mm, vertical=3 to 4]
-      { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{force}
+      },
+    "]],
+    code = [["
+      % 1. ratio too high, coarsening stops early, benefits are lost
+      \tikz \graph [spring electrical layout',
+                    downsize ratio=1.0,
+                    node distance=7mm, vertical=3 to 4]
+        { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
 
-    % 2. ratio set to default, coarsening benefits are visible
-    \tikz \graph [spring electrical layout',
-                  downsize ratio=0.2,
-                  node distance=7mm, vertical=3 to 4]
-      { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
-  "]]
+      % 2. ratio set to default, coarsening benefits are visible
+      \tikz \graph [spring electrical layout',
+                    downsize ratio=0.2,
+                    node distance=7mm, vertical=3 to 4]
+        { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
+    "]]
+  }}
 }
 

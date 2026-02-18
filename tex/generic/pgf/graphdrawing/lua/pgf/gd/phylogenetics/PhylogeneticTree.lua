@@ -40,18 +40,26 @@ declare {
   documentation = [["
     ...
   "]],
-  examples = [["
-    \tikz \graph [phylogenetic tree layout, upgma,
-                  distance matrix={
-                    0 4 9 9 9 9 9
-                    4 0 9 9 9 9 9
-                    9 9 0 2 7 7 7
-                    9 9 2 0 7 7 7
-                    9 9 7 7 0 3 5
-                    9 9 7 7 3 0 5
-                    9 9 7 7 5 5 0}]
-      { a, b, c, d, e, f, g };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{phylogenetics}
+      },
+    "]],
+    code = [["
+      \tikz \graph [phylogenetic tree layout, upgma,
+                    distance matrix={
+                      0 4 9 9 9 9 9
+                      4 0 9 9 9 9 9
+                      9 9 0 2 7 7 7
+                      9 9 2 0 7 7 7
+                      9 9 7 7 0 3 5
+                      9 9 7 7 3 0 5
+                      9 9 7 7 5 5 0}]
+        { a, b, c, d, e, f, g };
+    "]]
+  }}
 }
 
 
