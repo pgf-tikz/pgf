@@ -19,7 +19,7 @@ declare {
 
   summary = [["
     Whether or not to use the Sort and Flip Algorithm
-    to improve the combinatorical embedding.
+    to improve the combinatorial embedding.
     "]]
 }
 
