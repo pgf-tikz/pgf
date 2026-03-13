@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Typo in animations `end on` key #1273
+- `sloped` should consider the current transformation #1058
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
@@ -68,6 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Matthias Hetzenberger
 - Qrrbrbirlbel
 - quark67
+- thinbold
 - Rocky Zhang (@rockyzhz)
 - Romano Giannetti (@rmano)
 - Yukai Chou (@muzimuzhi)
