@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Resolve parsing ambiguity in general shadow #1435
+- Fix clobbered register in `bending` library #896
 
 ### Added
 
