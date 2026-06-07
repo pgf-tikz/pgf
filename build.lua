@@ -107,10 +107,16 @@ target_list.examples =
       local sourcedir = "doc/generic/pgf"
       local targetdir = "testfiles-examples"
       local pdftargetdir = "testfiles-examples-pdf"
+      local gdtargetdir = "testfiles-gd"
+      local gdsourcedir = "tex/generic/pgf/graphdrawing/lua/pgf/gd"
       mkdir(targetdir)
       mkdir(pdftargetdir)
       local errorlevel = run(".", string.format(
         "texlua %s/extract.lua %s %s", sourcedir, sourcedir, targetdir))
+      -- The graph-drawing examples are embedded in the gd Lua sources and are
+      -- collected into a single file in testfiles-gd (run by config-gd).
+      errorlevel = errorlevel + run(".", string.format(
+        "texlua %s/extract-gd.lua %s %s", sourcedir, gdsourcedir, gdtargetdir))
       -- extract.lua mirrors the source tree, leaving empty directories behind
       for _, dir in ipairs({"images", "plots", "licenses"}) do
         rmdir(targetdir .. "/" .. dir)
