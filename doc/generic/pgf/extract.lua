@@ -76,6 +76,28 @@ end
 
 local pathsep = package.config:sub(1,1)
 
+-- Chapters whose examples are about global PDF objects (shadings, patterns,
+-- fadings, transparency, image xobjects, ...).  For these we additionally
+-- emit a PDF-based test (.pvt) that ships every example out as a page so that
+-- the actual generated PDF objects can be compared (see config-examples-pdf).
+local pdffeatures = {
+    ["pgfmanual-en-base-shadings"]    = true,
+    ["pgfmanual-en-library-shadings"] = true,
+    ["pgfmanual-en-base-patterns"]    = true,
+    ["pgfmanual-en-library-patterns"] = true,
+    ["pgfmanual-en-base-transparency"]= true,
+    ["pgfmanual-en-tikz-transparency"]= true,
+    ["pgfmanual-en-base-images"]      = true,
+    ["pgfmanual-en-library-shadows"]  = true,
+}
+
+-- Engine-portable way to switch off PDF compression so that the produced PDF
+-- is text-comparable after normalization.
+local uncompress_pdf =
+    "\\ifdefined\\pdfcompresslevel\\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\fi\n"
+ .. "\\ifdefined\\pdfvariable\\pdfvariable compresslevel 0 \\pdfvariable objcompresslevel 0 \\fi\n"
+ .. "\\ifdefined\\XeTeXversion\\special{dvipdfmx:config z 0}\\fi\n"
+
 -- Walk the file tree
 local function walk(sourcedir, targetdir)
     -- Make sure the arguments are directories
@@ -113,8 +135,11 @@ local function walk(sourcedir, targetdir)
             -- extract all code examples
             local matches = extractor:match(text) or {}
 
-            -- write code examples to separate files
+            -- collect all code examples of this file
             local setup_code = ""
+            local preamble = ""
+            local document = ""     -- box test (.lvt) body
+            local pdfdocument = ""  -- PDF test (.pvt) body, one page per example
             for n, e in ipairs(matches) do
                 local options = e[1]
                 local content = e[2]
@@ -132,30 +157,83 @@ local function walk(sourcedir, targetdir)
 
                 -- Skip those that say "code only" or "setup code"
                 if not options["code only"] and not options["setup code"] then
-                    local newname = name .. "-" .. n .. ".tex"
-                    local examplefile = io.open(targetdir .. newname, "w")
+                    -- Collect preamble snippets at the top of the document
+                    preamble = preamble .. (options["preamble"] and (options["preamble"] .. "\n") or "")
 
-                    examplefile:write"\\documentclass{standalone}\n"
-                    examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
-                    examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
-                    examplefile:write"\\begin{document}\n"
-
-                    examplefile:write(setup_code)
-                    local pre = options["pre"] or ""
-                    pre = pre:gsub("##", "#")
-                    examplefile:write(pre .. "\n")
-                    if options["render instead"] then
-                        examplefile:write(options["render instead"] .. "\n")
-                    else
-                        examplefile:write(strip(content) .. "\n")
+                    -- The snippet body, shared between the box and PDF tests
+                    local body = ""
+                    local pre = options["pre"]
+                    if pre then
+                        pre = pre:gsub("##", "#")
+                        body = body .. pre .. "\n"
                     end
-                    examplefile:write(options["post"] and options["post"] .. "\n" or "")
-                    examplefile:write"\\end{document}\n"
+                    if options["render instead"] then
+                        body = body .. options["render instead"] .. "\n"
+                    else
+                        body = body .. strip(content) .. "\n"
+                    end
+                    body = body .. (options["post"] and (options["post"] .. "\n") or "")
 
-                    examplefile:close()
+                    -- Box test: typeset the snippet into a box and dump it
+                    document = document .. "\\BEGINBOXTEST{" .. name .. "-" .. n .. "}\n"
+                        .. body .. "\\ENDBOXTEST\n\n"
+
+                    -- PDF test: ship the snippet out as its own page
+                    pdfdocument = pdfdocument .. "% " .. name .. "-" .. n .. "\n"
+                        .. body .. "\\clearpage\n\n"
                 end
 
                 ::continue::
+            end
+
+            -- Write the common preamble shared by the box and PDF test files
+            local function write_preamble(f, extra)
+                -- Mirror the relevant parts of the manual's preamble so that the
+                -- examples have the same packages available as in the manual.
+                f:write"\\documentclass{article}\n"
+                f:write"\\input{pgf-regression-test}\n"
+                f:write"\\RequirePackage{amsmath,amssymb,calc,pifont}\n"
+                f:write"\\RequirePackage{fp,xcolor,pgf,tikz,xxcolor}\n"
+                -- Colours defined in the manual's preamble (pgfmanual-en-macros)
+                -- that some examples rely on.
+                f:write"\\colorlet{examplefill}{yellow!80!black}\n"
+                f:write"\\definecolor{graphicbackground}{rgb}{0.96,0.96,0.8}\n"
+                f:write"\\definecolor{codebackground}{rgb}{0.9,0.9,1}\n"
+                f:write"\\definecolor{animationgraphicbackground}{rgb}{0.96,0.96,0.8}\n"
+                if extra then f:write(extra) end
+                if preamble ~= "" then
+                    f:write"\n"
+                    f:write(preamble)
+                    f:write"\n"
+                end
+                f:write"\\begin{document}\n\n"
+                f:write"\\START\n\n"
+                if setup_code ~= "" then
+                    f:write(setup_code)
+                    f:write"\n"
+                end
+            end
+
+            -- write the box test file
+            document = strip(document)
+            if document ~= "" then
+                local f = io.open(targetdir .. name .. ".lvt", "w")
+                write_preamble(f)
+                f:write(document)
+                f:write"\n"
+                f:write"\\END\n"
+                f:close()
+            end
+
+            -- write the PDF test file for the global-PDF-object chapters
+            pdfdocument = strip(pdfdocument)
+            if pdffeatures[name] and pdfdocument ~= "" then
+                local f = io.open(targetdir .. name .. ".pvt", "w")
+                write_preamble(f, uncompress_pdf)
+                f:write(pdfdocument)
+                f:write"\n"
+                f:write"\\END\n"
+                f:close()
             end
         end
     end

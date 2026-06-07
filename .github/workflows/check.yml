@@ -3,7 +3,9 @@ name: Test suite
 on: [push, pull_request]
 
 jobs:
-  test-suite:
+  # The "core" test configurations.  These are quick (seconds of work each), so
+  # they all run in a single job to amortize the container setup.
+  core:
     runs-on: ubuntu-latest
     container:
       image: registry.gitlab.com/islandoftex/images/texlive:latest
@@ -25,13 +27,80 @@ jobs:
         l3build tag --date "$tagdate" "$tagname"
         cat tex/generic/pgf/pgf.revision.tex
 
-    - name: Run test suite
-      run: |
-        l3build check -q --show-log-on-error
-    
+    - name: Run the core tests
+      run: l3build check -c config-regression,config-gd,config-manual -q --show-log-on-error
+
     - name: Archive failed test output
       if: failure()
       uses: actions/upload-artifact@v7
       with:
-        name: test-diff-files
+        name: test-diff-core
+        path: build/test*/*.diff
+
+  # The box tests generated from the manual, one job per engine.
+  examples:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/islandoftex/images/texlive:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [luatex, pdftex, xetex, latexdvisvgm]
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Fixup Run actions/checkout
+      run: git config --global --add safe.directory '*'
+
+    - name: Generate the revision file
+      run: |
+        export tagname=$(git describe --abbrev=0 --tags)
+        export revision=$(git describe --tags)
+        export tagdate=$(git log -n 1 "$tagname" --pretty=format:%cs)
+        export revisiondate=$(git log -n 1 "$revision" --pretty=format:%cs)
+        l3build tag --date "$tagdate" "$tagname"
+
+    - name: Run the example tests (${{ matrix.engine }})
+      run: l3build check -c config-examples -e ${{ matrix.engine }} -q --show-log-on-error
+
+    - name: Archive failed test output
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: test-diff-examples-${{ matrix.engine }}
+        path: build/test*/*.diff
+
+  # The PDF-based tests for the global-PDF-object chapters.  Only a handful of
+  # files, so all three PDF-producing engines (luatex, pdftex, xetex -- dvisvgm
+  # makes SVG, not PDF) run in a single job.
+  examples-pdf:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/islandoftex/images/texlive:latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Fixup Run actions/checkout
+      run: git config --global --add safe.directory '*'
+
+    - name: Generate the revision file
+      run: |
+        export tagname=$(git describe --abbrev=0 --tags)
+        export revision=$(git describe --tags)
+        export tagdate=$(git log -n 1 "$tagname" --pretty=format:%cs)
+        export revisiondate=$(git log -n 1 "$revision" --pretty=format:%cs)
+        l3build tag --date "$tagdate" "$tagname"
+
+    - name: Run the example PDF tests
+      run: l3build check -c config-examples-pdf -q --show-log-on-error
+
+    - name: Archive failed test output
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: test-diff-examples-pdf
         path: build/test*/*.diff
