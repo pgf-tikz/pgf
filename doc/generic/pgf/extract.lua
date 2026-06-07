@@ -11,6 +11,7 @@ local function strip_braces(str)
     return str:match"^{?(.-)}?$"
 end
 
+
 -- optional whitespace
 local ws = S" \t\n\r"^0
 
@@ -138,6 +139,7 @@ local function walk(sourcedir, targetdir)
             -- collect all code examples of this file
             local setup_code = ""
             local preamble = ""
+            local preamble_seen = {}  -- de-duplicate identical preamble snippets
             local document = ""     -- box test (.lvt) body
             local pdfdocument = ""  -- PDF test (.pvt) body, one page per example
             for n, e in ipairs(matches) do
@@ -157,8 +159,17 @@ local function walk(sourcedir, targetdir)
 
                 -- Skip those that say "code only" or "setup code"
                 if not options["code only"] and not options["setup code"] then
-                    -- Collect preamble snippets at the top of the document
-                    preamble = preamble .. (options["preamble"] and (options["preamble"] .. "\n") or "")
+                    -- Collect preamble snippets at the top of the document,
+                    -- skipping snippets we have already seen.  A snippet is kept
+                    -- whole (e.g. a multi-line \pgfdeclarepattern), so only exact
+                    -- duplicates are dropped.
+                    if options["preamble"] then
+                        local snippet = strip(options["preamble"])
+                        if snippet ~= "" and not preamble_seen[snippet] then
+                            preamble_seen[snippet] = true
+                            preamble = preamble .. snippet .. "\n"
+                        end
+                    end
 
                     -- The snippet body, shared between the box and PDF tests
                     local body = ""
