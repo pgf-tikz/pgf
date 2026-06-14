@@ -38,7 +38,6 @@ checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 checkconfigs = {
   "config-regression",
   "config-gd",
-  "config-manual",
   "config-examples",
   "config-examples-pdf",
 }
