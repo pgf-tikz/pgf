@@ -113,7 +113,7 @@ declare {
         a -- b -- c -- d -- a,
         1 -- 2 -- 3 -- 1
       };
-    "]],[[",
+    "]],[["
     \tikz \graph [simple necklace layout, componentwise]
       {
         a -- b -- c -- d -- a,
