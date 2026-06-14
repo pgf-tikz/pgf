@@ -73,25 +73,27 @@ local function walk(sourcedir, targetdir)
 
             -- extract all code examples and collect them into a test file
             local matches = common.extractor:match(text) or {}
-            local t = common.collect(matches, name)
+            local t = common.collect(matches, name, luatexonly)
 
             -- write the box test file
             if t.document ~= "" then
                 common.write_test(targetdir .. name .. ".lvt", {
-                    preamble   = t.preamble,
-                    setup_code = t.setup_code,
-                    body       = t.document,
-                    luatexonly = luatexonly,
+                    preamble    = t.preamble,
+                    gd_preamble = t.gd_preamble,
+                    setup_code  = t.setup_code,
+                    body        = t.document,
+                    luatexonly  = luatexonly,
                 })
             end
 
             -- write the PDF test file for the global-PDF-object chapters
             if pdffeatures[name] and t.pdfdocument ~= "" then
                 common.write_test(targetdir .. name .. ".pvt", {
-                    preamble   = t.preamble,
-                    setup_code = t.setup_code,
-                    body       = t.pdfdocument,
-                    extra      = uncompress_pdf,
+                    preamble    = t.preamble,
+                    gd_preamble = t.gd_preamble,
+                    setup_code  = t.setup_code,
+                    body        = t.pdfdocument,
+                    extra       = uncompress_pdf,
                 })
             end
         end

@@ -51,6 +51,9 @@ examplesexcludefiles =
   {
     "pgfmanual-en-dv-axes",
     "pgfmanual-en-dv-stylesheets",
+    -- library-rdf needs an RDF backend that is not available; every example
+    -- errors (the /tikz/rdf engine key is undefined) on all engines.
+    "pgfmanual-en-library-rdf",
   }
 
 -- For release

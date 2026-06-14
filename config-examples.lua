@@ -29,10 +29,12 @@ dynamicfiles = {"*.gnuplot", "*.table"}
 maxprintline = 9999
 
 -- Many plot examples read prebuilt data from plots/*.table (shipped with the
--- manual).  Make those available inside the test directory.
+-- manual), and several examples \includegraphics images from the manual's
+-- images directory.  Make both available inside the test directory.
 function checkinit_hook()
   mkdir(testdir .. "/plots")
   cp("*.table", "doc/generic/pgf/plots", testdir .. "/plots")
   cp("*.gnuplot", "doc/generic/pgf/plots", testdir .. "/plots")
+  cp("*", "doc/generic/pgf/images", testdir)
   return 0
 end

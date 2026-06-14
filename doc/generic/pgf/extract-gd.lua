@@ -137,7 +137,9 @@ assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a
 
 local all = {}
 walk(sourcedir, "gd-", all)
-local t = common.collect(all, "gd-examples")
+-- This file is run by config-gd under LuaTeX only and loads all gd libraries
+-- via gd_preamble below, so the per-example graph-drawing guarding is skipped.
+local t = common.collect(all, "gd-examples", true)
 if t.document ~= "" then
     common.write_test(targetdir .. pathsep .. "gd-examples.lvt", {
         preamble   = t.preamble,
