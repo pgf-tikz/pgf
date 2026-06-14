@@ -11,10 +11,10 @@
 -- The tests are run for every supported engine.  Because the box dumps differ
 -- between engines, each test has an engine specific reference file
 -- (name.tlg for the std engine luatex, name.<engine>.tlg for the others).
--- This is a lot of tests, so CI splits them into chunks (see check.yml).
+-- checkengines is left unset so that all engines from build.lua (pdftex,
+-- latexdvips, latexdvisvgm, luatex, xetex) are used.
 
 stdengine    = "luatex"
-checkengines = {"luatex", "pdftex", "xetex", "latexdvisvgm"}
 testfiledir  = "testfiles-examples"
 
 -- Some examples call out to gnuplot to generate plot data.  Enable shell
