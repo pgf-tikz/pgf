@@ -178,19 +178,26 @@ function common.write_test(filename, opts)
     f:write"\\definecolor{codebackground}{rgb}{0.9,0.9,1}\n"
     f:write"\\definecolor{animationgraphicbackground}{rgb}{0.96,0.96,0.8}\n"
     if opts.extra then f:write(opts.extra) end
+    -- Chapters that the manual itself restricts to LuaTeX (\ifluatex ... \endinput)
+    -- are only run under LuaTeX: on other engines the gd-dependent preamble and
+    -- body are skipped so the test is a clean no-op instead of erroring.
+    if opts.luatexonly then f:write"\\ifdefined\\directlua\n" end
     if opts.preamble ~= "" then
         f:write"\n"
         f:write(opts.preamble)
         f:write"\n"
     end
+    if opts.luatexonly then f:write"\\fi\n" end
     f:write"\\begin{document}\n\n"
     f:write"\\START\n\n"
+    if opts.luatexonly then f:write"\\ifdefined\\directlua\n" end
     if opts.setup_code ~= "" then
         f:write(opts.setup_code)
         f:write"\n"
     end
     f:write(opts.body)
     f:write"\n"
+    if opts.luatexonly then f:write"\\fi\n" end
     f:write"\\END\n"
     f:close()
 end

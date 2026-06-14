@@ -63,6 +63,11 @@ local function walk(sourcedir, targetdir)
             f:close()
             local name, ext = basename(file)
 
+            -- Chapters the manual restricts to LuaTeX (\ifluatex \else ...
+            -- \endinput \fi), e.g. the graph-drawing usage sections, are only
+            -- run under LuaTeX in the generated tests too.
+            local luatexonly = text:match("\\ifluatex%s*\\else.-\\endinput") ~= nil
+
             -- preprocess, strip all commented lines
             text = text:gsub("\n%%[^\n]*","")
 
@@ -76,6 +81,7 @@ local function walk(sourcedir, targetdir)
                     preamble   = t.preamble,
                     setup_code = t.setup_code,
                     body       = t.document,
+                    luatexonly = luatexonly,
                 })
             end
 
