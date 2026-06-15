@@ -1,80 +1,36 @@
 local lfs = require("lfs")
-local lpeg = require("lpeg")
-local C, Cf, Cg, Ct, P, S, V = lpeg.C, lpeg.Cf, lpeg.Cg, lpeg.Ct, lpeg.P, lpeg.S, lpeg.V
 
--- strip leading and trailing whitespace
-local function strip(str)
-    return str:match"^%s*(.-)%s*$"
-end
--- strip braces
-local function strip_braces(str)
-    return str:match"^{?(.-)}?$"
-end
+-- Resolve the directory this script lives in so we can load the shared module
+-- regardless of the current working directory.
+local scriptdir = arg[0]:match("^(.*[/\\])") or "./"
+package.path = scriptdir .. "?.lua;" .. package.path
+local common = require("extract-common")
 
--- optional whitespace
-local ws = S" \t\n\r"^0
+local strip = common.strip
+local basename = common.basename
+local pathsep = common.pathsep
 
--- match string literal
-local function lit(str)
-    return ws * P(str) * ws
-end
-
--- setter for options table
-local invalid = string.char(0x8)
-local function set(t,k,v)
-    -- strip whitespace from keys
-    k = strip(k)
-    -- if the value is empty, set it to invalid character
-    v = v and strip_braces(v) or invalid
-    return rawset(t,k,v)
-end
-
--- Grammar to extract code examples
-local extractor = lpeg.P{"document",
-    name =
-        C((1 - S",]=")^1),
-
-    pair =
-        Cg(V"name" * (lit"=" * (V"braces" + V"name"))^0) * lit","^-1,
-
-    list =
-        Cf(Ct"" * V"pair"^0, set),
-
-    balanced =
-        "{" * ((1 - S"{}") + V"balanced")^0 * "}",
-
-    braces =
-        C(V"balanced"),
-
-    optarg =
-        lit"[" * V"list" * lit"]",
-
-    begincodeexample =
-        P"\\begin{codeexample}" * V"optarg",
-
-    endcodeexample =
-        P"\\end{codeexample}",
-
-    content =
-        C((1 - V"endcodeexample")^0),
-
-    codeexample =
-        Ct(V"begincodeexample" * V"content" * V"endcodeexample"),
-
-    anything =
-        (1 - V"codeexample")^0,
-
-    document =
-        V"anything" * Ct(V"codeexample" * (V"anything" * V"codeexample")^0) * V"anything"
+-- Chapters whose examples are about global PDF objects (shadings, patterns,
+-- fadings, transparency, image xobjects, ...).  For these we additionally
+-- emit a PDF-based test (.pvt) that ships every example out as a page so that
+-- the actual generated PDF objects can be compared (see config-examples-pdf).
+local pdffeatures = {
+    ["pgfmanual-en-base-shadings"]    = true,
+    ["pgfmanual-en-library-shadings"] = true,
+    ["pgfmanual-en-base-patterns"]    = true,
+    ["pgfmanual-en-library-patterns"] = true,
+    ["pgfmanual-en-base-transparency"]= true,
+    ["pgfmanual-en-tikz-transparency"]= true,
+    ["pgfmanual-en-base-images"]      = true,
+    ["pgfmanual-en-library-shadows"]  = true,
 }
 
--- get the basename and extension of a file
-local function basename(file)
-    local basename, ext = string.match(file, "^(.+)%.([^.]+)$")
-    return basename or "",  ext or file
-end
-
-local pathsep = package.config:sub(1,1)
+-- Engine-portable way to switch off PDF compression so that the produced PDF
+-- is text-comparable after normalization.
+local uncompress_pdf =
+    "\\ifdefined\\pdfcompresslevel\\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\fi\n"
+ .. "\\ifdefined\\pdfvariable\\pdfvariable compresslevel 0 \\pdfvariable objcompresslevel 0 \\fi\n"
+ .. "\\ifdefined\\XeTeXversion\\special{dvipdfmx:config z 0}\\fi\n"
 
 -- Walk the file tree
 local function walk(sourcedir, targetdir)
@@ -107,55 +63,38 @@ local function walk(sourcedir, targetdir)
             f:close()
             local name, ext = basename(file)
 
+            -- Chapters the manual restricts to LuaTeX (\ifluatex \else ...
+            -- \endinput \fi), e.g. the graph-drawing usage sections, are only
+            -- run under LuaTeX in the generated tests too.
+            local luatexonly = text:match("\\ifluatex%s*\\else.-\\endinput") ~= nil
+
             -- preprocess, strip all commented lines
             text = text:gsub("\n%%[^\n]*","")
 
-            -- extract all code examples
-            local matches = extractor:match(text) or {}
+            -- extract all code examples and collect them into a test file
+            local matches = common.extractor:match(text) or {}
+            local t = common.collect(matches, name, luatexonly)
 
-            -- write code examples to separate files
-            local setup_code = ""
-            for n, e in ipairs(matches) do
-                local options = e[1]
-                local content = e[2]
+            -- write the box test file
+            if t.document ~= "" then
+                common.write_test(targetdir .. name .. ".lvt", {
+                    preamble    = t.preamble,
+                    gd_preamble = t.gd_preamble,
+                    setup_code  = t.setup_code,
+                    body        = t.document,
+                    luatexonly  = luatexonly,
+                })
+            end
 
-                if content:match("remember picture") then
-                    goto continue
-                end
-
-                -- If the snippet is marked as setup code, we have to put it before
-                -- every other snippet in the same file
-                if options["setup code"] then
-                    setup_code = setup_code .. strip(content) .. "\n"
-                    goto continue
-                end
-
-                -- Skip those that say "code only" or "setup code"
-                if not options["code only"] and not options["setup code"] then
-                    local newname = name .. "-" .. n .. ".tex"
-                    local examplefile = io.open(targetdir .. newname, "w")
-
-                    examplefile:write"\\documentclass{standalone}\n"
-                    examplefile:write"\\usepackage{fp,pgf,tikz,xcolor}\n"
-                    examplefile:write(options["preamble"] and options["preamble"] .. "\n" or "")
-                    examplefile:write"\\begin{document}\n"
-
-                    examplefile:write(setup_code)
-                    local pre = options["pre"] or ""
-                    pre = pre:gsub("##", "#")
-                    examplefile:write(pre .. "\n")
-                    if options["render instead"] then
-                        examplefile:write(options["render instead"] .. "\n")
-                    else
-                        examplefile:write(strip(content) .. "\n")
-                    end
-                    examplefile:write(options["post"] and options["post"] .. "\n" or "")
-                    examplefile:write"\\end{document}\n"
-
-                    examplefile:close()
-                end
-
-                ::continue::
+            -- write the PDF test file for the global-PDF-object chapters
+            if pdffeatures[name] and t.pdfdocument ~= "" then
+                common.write_test(targetdir .. name .. ".pvt", {
+                    preamble    = t.preamble,
+                    gd_preamble = t.gd_preamble,
+                    setup_code  = t.setup_code,
+                    body        = t.pdfdocument,
+                    extra       = uncompress_pdf,
+                })
             end
         end
     end
