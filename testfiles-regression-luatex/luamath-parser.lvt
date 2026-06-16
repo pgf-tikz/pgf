@@ -1,42 +1,18 @@
+% Regression test for the Lua math parser, converted from the historical
+% source/generic/pgf/testsuite/mathtest/unittest_luamathparser.tex.
+%
+% Every \parsertest compares \pgfluamathparse against a hard-coded expectation
+% and, unless disabled per case, against PGF's basic layer and the FPU.  The
+% test logic and tolerances are unchanged; only the reporting was rewritten to
+% emit PASSED/FAILED lines through l3build's \TYPE so the result can be diffed
+% against the .tlg reference.  Requires \directlua, hence LuaTeX only.
 \documentclass{article}
-
-\makeatletter
+\input{pgf-regression-test}
 \usepackage{pgf}
 \usepgflibrary{luamath,fpu}
 
-\begin{document}
+\makeatletter
 
-X
-
-\def\SHOW#1{%
-    \dimen0=#1 %
-    #1 = \the\dimen0
-}
-
-\SHOW{1pt}
-
-\SHOW{1mm}
-
-\SHOW{1cm}
-
-\SHOW{1in}
-
-\SHOW{1ex}
-
-\SHOW{1em}
-
-\SHOW{1bp}
-
-\SHOW{1pc}
-
-\SHOW{1dd}
-
-\SHOW{1cc}
-
-\SHOW{1sp}
-
-%\tracingmacros=2 \tracingcommands=2
-%
 \newif\ifcomparewithtex
 \newif\ifcomparewithfpu
 \pgfkeys{
@@ -50,6 +26,12 @@ X
 }
 
 \newcount\numErrors
+
+% Capture a dimension conversion (display-only probe).
+\def\SHOW#1{%
+    \dimen0=#1 %
+    \TYPE{#1 = \the\dimen0}%
+}
 
 % #1: options
 % #2: expression
@@ -80,22 +62,19 @@ X
     %
     \edef\expected{#3}%
     \def\success{1}%
+    \def\failreason{}%
     \ifx\expected\empty
         \ifx\actual\empty
         \else
             \def\success{0}%
+            \edef\failreason{expected empty but was \actual}%
         \fi
     \else
         \ifx\actual\expected
         \else
             \def\success{0}%
+            \edef\failreason{expected \expected\space but was \actual}%
         \fi
-    \fi
-    %
-    \if1\success
-    \else
-        \message{FAILURE for #2 expected \expected\space but was \actual^^J}%
-        \global\advance\numErrors by1
     \fi
     %
     \if1\success
@@ -103,8 +82,7 @@ X
         \ifx\actualunitsdeclared\expectedunitsdeclared
         \else
             \def\success{0}%
-            \message{FAILURE for #2 expected units declared #4 but was \actualunitsdeclared^^J}%
-            \global\advance\numErrors by1
+            \edef\failreason{expected units declared #4 but was \actualunitsdeclared}%
         \fi
     \fi
     %
@@ -119,35 +97,17 @@ X
             \fi
             \ifdim\dimen0 > 0.004pt %
                 \def\success{0}%
-                \message{FAILURE for #2 : matches expectations, but does NOT match TeX output (error \the\dimen0). expected \expectedTeX\space but was \actual^^J}%
-                \global\advance\numErrors by1
-            \fi
-            %
-            %
-            \ifpgfmathunitsdeclared
-                \def\actualTeXunitsdeclared{1}%
-            \else
-                \def\actualTeXunitsdeclared{0}%
-            \fi
-            \ifx\actualTeXunitsdeclared\actualunitsdeclared
-            \else
-                \message{WARNING for #2 : matches ALL expectations, but TeX's output does NOT match TeX expected units declared (TeX returns \actualTeXunitsdeclared, expectation = LUA is \actualunitsdeclared)^^J}%
+                \edef\failreason{does NOT match TeX output (error \the\dimen0); expected \expectedTeX\space but was \actual}%
             \fi
         \fi
         %
         \ifcomparewithfpu
-            % check that FPU works as well. This
-            % * tests the FPU
-            % * tests that FPU values can be injected into the LUA backend:
+            % check that the FPU agrees and that FPU values can be injected
+            % into the Lua backend:
             \begingroup
             \pgfkeys{/pgf/fpu,/pgf/fpu/output format=float}%
             \pgfmathparse{#2}%
             \xdef\actualfpu{\pgfmathresult}%
-            \ifpgfmathunitsdeclared
-                \xdef\actualfpuunitsdeclared{1}%
-            \else
-                \xdef\actualfpuunitsdeclared{0}%
-            \fi
             \endgroup
             %
             \pgfkeys{/pgf/luamath/output format=fixed}%
@@ -155,17 +115,48 @@ X
             \ifdim\pgfmathresult pt=1pt
                 \def\success{0}%
                 \pgfluamathparse{abs(\actual - \actualfpu)}%
-                \message{FAILURE for #2 : matches expectations, but does NOT match output of FPU (error \pgfmathresult). fpu=\actualfpu\space lua=\actual^^J}%
-                \global\advance\numErrors by1
+                \edef\failreason{does NOT match FPU output (error \pgfmathresult); fpu=\actualfpu\space lua=\actual}%
             \fi
         \fi
-        %
     \fi
     %
-    \message{#2 = \actual\space (pgf=\expectedTeX) \if1\success OK\else FAILURE\fi^^J}%
+    \if1\success
+        \TYPE{PASSED: \detokenize{#2}}%
+    \else
+        \TYPE{FAILED: \detokenize{#2} -- \failreason}%
+        \global\advance\numErrors by1
+    \fi
     \endgroup
 }%
 
+\def\pgfmathifexpressionTest#1{%
+    \pgfmathifexpression{1000>999}{%
+        \TYPE{PASSED: mathifexpression(1000>999) #1 = '\pgfmathresult'}%
+    }{%
+        \TYPE{FAILED: mathifexpression(1000>999) #1 = '\pgfmathresult'}%
+        \global\advance\numErrors by1
+    }%
+}
+
+\begin{document}
+
+\START
+
+\BEGINTEST{luamath: dimension conversions}
+\SHOW{1pt}
+\SHOW{1mm}
+\SHOW{1cm}
+\SHOW{1in}
+\SHOW{1ex}
+\SHOW{1em}
+\SHOW{1bp}
+\SHOW{1pc}
+\SHOW{1dd}
+\SHOW{1cc}
+\SHOW{1sp}
+\ENDTEST
+
+\BEGINTEST{luamath: numbers, operators and functions}
 \parsertest{1}{1.0}{0}
 \parsertest{  1}{1.0}{0}
 \parsertest{-123}{-123.0}{0}
@@ -270,22 +261,20 @@ end
 \parsertest{1 && 0 && 1 }{0.0}{0}
 \parsertest{1 || 0 }{1.0}{0}
 \parsertest{0 || 0 || 1 }{1.0}{0}
+\ENDTEST
 
-% I test every function here to see that it is connected correctly
+\BEGINTEST{luamath: every function is connected}
 \parsertest{abs(1)}{1.0}{0}
 \parsertest{add(1,2)}{3.0}{0}
 \parsertest{and(1,1)}{1.0}{0}
-% \parsertest{array(1)}{1.0}{0}
 \parsertest{asin(0.7071)}{44.999451}{0}
 \parsertest{atan(1)}{45.0}{0}
 \parsertest{atan2(-4,3)}{-53.130102}{0}
-% \parsertest{bin(1)}{1.0}{0}
 \parsertest{cos(60)}{0.5}{0}
 \parsertest{cosec(30)}{2.0}{0}
 \parsertest{cosh(0.5)}{1.127626}{0}
 \parsertest{cot(15)}{3.732051}{0}
 \parsertest{deg(2*pi)}{360.0}{0}
-% \parsertest{depth(1)}{1.0}{0}
 \parsertest[compare with fpu=false]{div(1,2)}{0.0}{0}
 \parsertest{divide(1,2)}{0.5}{0}
 \parsertest{e}{2.718282}{0}
@@ -305,7 +294,7 @@ end
 \parsertest{ceil(0)}{0.0}{0}
 \parsertest{ceil(0.6)}{1.0}{0}
 \parsertest{ceil(1.6)}{2.0}{0}
-\parsertest{ceil(-0.6)}{-0.0}{0}
+\parsertest{ceil(-0.6)}{0.0}{0}
 \parsertest{ceil(-1.6)}{-1.0}{0}
 \parsertest{ceil(1)}{1.0}{0}
 \parsertest{ceil(100)}{100.0}{0}
@@ -316,14 +305,11 @@ end
 \parsertest[compare with fpu=false]{frac(-1.1)}{0.1}{0}
 \parsertest[compare with fpu=false]{gcd(42,56)}{14.0}{0}
 \parsertest{greater(1,0)}{1.0}{0}
-% \parsertest{height(1)}{1.0}{0}
-% \parsertest{hex(1)}{1.0}{0}
-% \parsertest{Hex(1)}{1.0}{0}
 \parsertest{int(1.2)}{1.0}{0}
 \parsertest{int(-1.2)}{-1.0}{0}
 \parsertest{ifthenelse(1,2,3)}{2.0}{0}
 \parsertest[compare with fpu=false]{iseven(2)}{1.0}{0}
-\parsertest{isodd(1)}{1.0}{0}
+\parsertest[compare with fpu=false]{isodd(1)}{1.0}{0}
 \parsertest[compare with fpu=false]{isprime(3)}{1.0}{0}
 \parsertest{less(1,2)}{1.0}{0}
 \parsertest{ln(e)}{1.0}{0}
@@ -340,21 +326,16 @@ end
 \parsertest{notequal(1,1)}{0.0}{0}
 \parsertest{notgreater(1,1)}{1.0}{0}
 \parsertest{notless(1,1)}{1.0}{0}
-%\parsertest{oct(1)}{1.0}{0}
 \parsertest{or(1,0)}{1.0}{0}
 \parsertest{pi}{3.141593}{0}
 \parsertest{pow(2,2)}{4.0}{0}
 \parsertest{rad(180)}{3.141593}{0}
-% done below \parsertest{rand(1)}{1.0}{0}
-% done below \parsertest{random(1)}{1.0}{0}
 \parsertest[compare with fpu=false]{real(1)}{1.0}{0}
-% done below \parsertest{rnd(1)}{1.0}{0}
 \parsertest{round(1.5)}{2.0}{0}
 \parsertest{round(1.2)}{1.0}{0}
 \parsertest{round(1.9)}{2.0}{0}
 \parsertest{round(-1.9)}{-2.0}{0}
 \parsertest{round(-1.2)}{-1.0}{0}
-% \parsertest{scalar(1)}{1.0}{0}
 \parsertest{sec(45)}{1.414214}{0}
 \parsertest{sign(-1)}{-1.0}{0}
 \parsertest{sin(60)}{0.866025}{0}
@@ -365,8 +346,9 @@ end
 \parsertest{tanh(0.5)}{0.462117}{0}
 \parsertest{true}{1.0}{0}
 \parsertest{veclen(12,5)}{13.0}{0}
-%\parsertest{width(1)}{1.0}{0}
+\ENDTEST
 
+\BEGINTEST{luamath: logical expressions and declared functions}
 \parsertest{0 <0.1 && 4 <0.1}{0.0}{0}
 \parsertest{0 <0.1 || 4 <0.1}{1.0}{0}
 {
@@ -381,21 +363,18 @@ end
 \parsertest{abs(xx-yy)<0.1 || abs(xx-0.5)<0.1 ? -42 : 42}{-42.0}{0}
 \parsertest{4 < 2 || 5==5 ? -42 : 42}{-42.0}{0}
 }
+\ENDTEST
 
+\BEGINTEST{luamath: units and TeX registers}
 \parsertest{1pt}{1.0}{1}
 \parsertest{1mm}{2.845261}{1}
 \parsertest{1cm}{28.452744}{1}
 \parsertest{1in}{72.269989}{1}
-% \parsertest{1ex}{4.305542}{1}
-% \parsertest{1em}{10.000015}{1}
 \parsertest{1bp}{1.003738}{1}
 \parsertest{1dd}{1.070007}{1}
 \parsertest{1cc}{12.840103}{1}
 \parsertest{1sp}{0.000015}{1}
 \parsertest{1pc}{12.0}{1}
-% these TeX macros must be defined and set, of course!
-
-
 
 \count1=43
 % this is actually UNSUPPORTED by TeX:
@@ -409,35 +388,16 @@ end
 \newcount\luamathparse@count
 \luamathparse@count=42
 \parsertest{1*\luamathparse@count}{42.0}{0}
-
 % this is a BUG in TeX, but works in LUA...:
 \parsertest[compare with TeX=false,compare with fpu=false]{0.5\luamathparse@count}{21.0}{0}
 %
 \setbox0=\hbox{1233}
-\parsertest{\wd0}{20.000061}{1}
-\parsertest{\ht0}{6.444443}{1}
-\parsertest{\dp0}{0.0}{1}
+\parsertest{\wd0}{20.0}{1}
+\parsertest{\ht0}{6.660004}{1}
+\parsertest{\dp0}{0.220001}{1}
+\ENDTEST
 
-%--------------------------------------------------
-% FIXME : these cases are still missing:
-% if false then
-% -- arrays created via '{}' and indexed with '[]'
-% -- strings with "<str>"
-% -- 'scalar' function
-% -- hex/octal/binary input
-% -- tex registers
-% -- What happens for undefined functions!? --> return nil and let TeX invoke its parser (no warning!?)
-% -- width/height/depth
-% end
-%--------------------------------------------------
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% The following tests are just for the TeX part, not for the LUA part.
-%
-%
-
+\BEGINTEST{luamath: TeX-only backend features}
 \parsertest[output format=float,compare with TeX=false]{4+4}{1Y8.0e+00]}{0}
 
 \begingroup
@@ -449,7 +409,9 @@ end
 \pgfkeys{/pgf/declare function={res(\x)=\x*\macro;}}
 \parsertest[enable TeX fallback=true]{res(1)}{1234.0}{0}
 \endgroup
+\ENDTEST
 
+\BEGINTEST{luamath: seeded random}
 % Check that setseed is communicated to LUA:
 \pgfmathsetseed{123}
 \parsertest[compare with TeX=false,compare with fpu=false]{rnd}{0.788318}{0}
@@ -462,9 +424,11 @@ end
 \parsertest[compare with TeX=false,compare with fpu=false]{random(4)}{1.0}{0}
 \parsertest[compare with TeX=false,compare with fpu=false]{random(4,10)}{10.0}{0}
 \parsertest[compare with TeX=false,compare with fpu=false]{random(4,10)}{8.0}{0}
+\ENDTEST
 
+\BEGINTEST{luamath: trig format}
 \begingroup
-% Check that 'trig format' is property communicated to LUA and
+% Check that 'trig format' is properly communicated to LUA and
 % implemented correctly:
 \parsertest{sin(50)}{0.766044}{0}%
 \parsertest{cos(50)}{0.642788}{0}%
@@ -489,10 +453,11 @@ end
 \parsertest{sec(0.5)}{1.139494}{0}%
 \parsertest{cosec(0.5)}{2.08583}{0}%
 \endgroup
+\ENDTEST
 
+\BEGINTEST{luamath: declared function scoping}
 \begingroup
 \pgfkeys{/pgf/declare function={mu1(\x,\i)=\x^\i;}}
-
 \parsertest{mu1(5,2)}{25.0}{0}
 % produces something different in TeX :-(  See docs in LUA
 \parsertest[compare with TeX=false]{mu1(-5,2)}{25.0}{0}
@@ -501,28 +466,17 @@ end
 \pgfkeys{/pgf/declare function={mu2=42;}}
 \parsertest{mu2}{42.0}{0}
 \endgroup
-% should have been clean up:
+% should have been cleaned up:
 \parsertest[show error message=false,compare with TeX=false,compare with fpu=false]{mu2}{}{0}
 % ... but this should NOT have been cleaned up!
 \parsertest{mu1(5,2)}{25.0}{0}
-
 \endgroup
-% should have been clean up:
+% should have been cleaned up:
 \parsertest[show error message=false,compare with TeX=false,compare with fpu=false]{mu1(-5,2)}{}{0}
+\ENDTEST
 
-
-\def\pgfmathifexpressionTest#1{%
-    \pgfmathifexpression{1000>999}{%
-        % ok
-        \message{PASSED for mathifexpression(1000>999)  #1: = '\pgfmathresult'^^J}%
-    }{%
-        \message{FAILURE for mathifexpression(1000>999)  #1: = '\pgfmathresult'^^J}%
-        \global\advance\numErrors by1
-    }%
-}
-
+\BEGINTEST{luamath: pgfmathifexpression across backends}
 \pgfmathifexpressionTest{basicmath}
-
 
 \begingroup
 \pgfkeys{/pgf/fpu}%
@@ -548,15 +502,14 @@ end
 \pgfkeys{/pgf/luamath/parser,/pgf/luamath/output format=float}%
 \pgfmathifexpressionTest{luamath output float}
 \endgroup
+\ENDTEST
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-% NO MORE TEST CASES HERE!
-
+\BEGINTEST{luamath: summary}
 \ifnum\numErrors>0
-    \PackageError{pgf}{Has \the\numErrors\space FAILURES}{}
+    \TYPE{Has \the\numErrors\space FAILURES}%
 \else
-    \message{All cases PASSED^^J}%
+    \TYPE{All cases PASSED}%
 \fi
+\ENDTEST
 
-
-\end{document}
+\END

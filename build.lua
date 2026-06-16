@@ -37,7 +37,7 @@ checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 -- Use multiple sets of tests
 checkconfigs = {
   "config-regression",
-  "config-gd",
+  "config-regression-luatex",
   "config-examples",
   "config-examples-pdf",
 }
@@ -109,14 +109,14 @@ target_list.examples =
       local sourcedir = "doc/generic/pgf"
       local targetdir = "testfiles-examples"
       local pdftargetdir = "testfiles-examples-pdf"
-      local gdtargetdir = "testfiles-gd"
+      local gdtargetdir = "testfiles-regression-luatex"
       local gdsourcedir = "tex/generic/pgf/graphdrawing/lua/pgf/gd"
       mkdir(targetdir)
       mkdir(pdftargetdir)
       local errorlevel = run(".", string.format(
         "texlua %s/extract.lua %s %s", sourcedir, sourcedir, targetdir))
       -- The graph-drawing examples are embedded in the gd Lua sources and are
-      -- collected into a single file in testfiles-gd (run by config-gd).
+      -- collected into a single file in testfiles-regression-luatex (run by config-regression-luatex).
       errorlevel = errorlevel + run(".", string.format(
         "texlua %s/extract-gd.lua %s %s", sourcedir, gdsourcedir, gdtargetdir))
       -- extract.lua mirrors the source tree, leaving empty directories behind

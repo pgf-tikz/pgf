@@ -137,7 +137,7 @@ assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a
 
 local all = {}
 walk(sourcedir, "gd-", all)
--- This file is run by config-gd under LuaTeX only and loads all gd libraries
+-- This file is run by config-regression-luatex under LuaTeX only and loads all gd libraries
 -- via gd_preamble below, so the per-example graph-drawing guarding is skipped.
 local t = common.collect(all, "gd-examples", true)
 if t.document ~= "" then
