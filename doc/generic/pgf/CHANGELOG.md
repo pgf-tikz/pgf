@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Documentation of `\pgfkeysifassignable` #1423
+- Add a new monotonic interpolation plot handler #1358
 
 ### Changed
 
