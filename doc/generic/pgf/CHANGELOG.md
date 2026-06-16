@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix clobbered register in `bending` library #896
 - Fix handling of closepath command in svg.path library #1189
 - Use luatexbase to register pgfsys@strcmp to not sidestep their allocation counting
+- Allow XOR and XNOR gates to have more than 2 inputs #376
 
 ### Added
 
@@ -25,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Contributors
 
 - Dominik Peters
+- Erin Cold
 
 ## [3.1.11a] - 2025-08-29 Henri Menke
 
