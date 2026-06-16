@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Resolve parsing ambiguity in general shadow #1435
 - Fix clobbered register in `bending` library #896
 - Fix handling of closepath command in svg.path library #1189
+- Use luatexbase to register pgfsys@strcmp to not sidestep their allocation counting
 
 ### Added
 
