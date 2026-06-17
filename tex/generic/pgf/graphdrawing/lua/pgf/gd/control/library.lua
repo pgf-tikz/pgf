@@ -53,11 +53,16 @@ declare {
     This behavior can be changed using this option. When the key is
     invoked, nodes are placed \emph{behind} the edges.
   "]],
-  examples = [["
-    \tikz \graph [simple necklace layout, nodes={draw,fill=white},
-                  nodes behind edges]
-      { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
-  "]]
+  examples = {
+    {
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{circular}}"]],
+      code = [["
+        \tikz \graph [simple necklace layout, nodes={draw,fill=white},
+                      nodes behind edges]
+          { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
+      "]]
+    }
+  }
 }
 
 
@@ -72,11 +77,16 @@ declare {
   summary = [["
     This is the default placement of edges: Behind the nodes.
   "]],
-  examples = [["
-    \tikz \graph [simple necklace layout, nodes={draw,fill=white},
-                  edges behind nodes]
-      { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
- "]]
+  examples = {
+    {
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{circular}}"]],
+      code = [["
+        \tikz \graph [simple necklace layout, nodes={draw,fill=white},
+                      edges behind nodes]
+          { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
+      "]]
+    }
+  }
 }
 
 ---
@@ -193,4 +203,3 @@ declare {
   key = InterfaceCore.subgraph_node_kind,
   layer = 0
 }
-

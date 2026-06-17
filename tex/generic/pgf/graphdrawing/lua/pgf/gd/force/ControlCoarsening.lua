@@ -95,15 +95,20 @@ declare {
     in the two graphs, the nodes are placed at exactly two and four
     coordinates in the final drawing.
   "]],
-  examples = [["
-    \tikz \graph [spring layout, iterations=0,
-                  minimum coarsening size=2]
-      { subgraph C_n [n=8] };
+  examples = {
+    {
+      options = [["preamble={\usetikzlibrary{graphs.standard,graphdrawing} \usegdlibrary{force}}"]],
+      code = [["
+        \tikz \graph [spring layout, iterations=0,
+                      minimum coarsening size=2]
+          { subgraph C_n [n=8] };
 
-    \tikz \graph [spring layout, iterations=0,
-                  minimum coarsening size=4]
-      { subgraph C_n [n=8] };
-  "]]
+        \tikz \graph [spring layout, iterations=0,
+                      minimum coarsening size=4]
+          { subgraph C_n [n=8] };
+      "]]
+    }
+  }
 }
 
 ---
@@ -145,4 +150,3 @@ declare {
       { { [clique] 1, 2 } -- 3 -- 4 -- { 5, 6, 7 } };
   "]]
 }
-
