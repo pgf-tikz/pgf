@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix missing inclusion of libraries in `graphdrawing` examples
 - Fix missing inclusion of libraries in the examples at https://tikz.dev/gd-trees and https://tikz.dev/gd-usage-tikz
 - Fix mis-spelled Kellermann to Kellerman
+- Support an apply-all feature (suggested in issue #640) to
+  apply a single definition of options to multiple examples.
 
 ### Added
 
