@@ -107,3 +107,33 @@ jobs:
       with:
         name: test-diff-examples-pdf
         path: build/test*/*.diff
+
+  # Regenerate the example tests from the sources and warn (never fail) if the
+  # committed files are out of date.
+  examples-regen:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/islandoftex/images/texlive:latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Fixup Run actions/checkout
+      run: git config --global --add safe.directory '*'
+
+    - name: Regenerate the example tests
+      run: l3build examples
+
+    - name: Warn if the generated examples changed
+      run: |
+        if ! git diff --quiet; then
+          echo "::warning::Generated examples are out of date; run 'l3build examples' and commit the result."
+          git diff --stat
+          git diff > examples.diff
+        fi
+
+    - name: Archive the diff
+      if: hashFiles('examples.diff') != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: examples-regen-diff
+        path: examples.diff
