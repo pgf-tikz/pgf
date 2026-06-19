@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix mis-spelled Kellermann to Kellerman
 - Support an apply-all feature (suggested in issue #640) to
   apply a single definition of options to multiple examples.
-- Fix broken example of simpledemo.lua to work with "very simple demo layout"
+- Fix broken example of SimpleDemo.lua to work with "very simple demo layout"
 
 ### Added
 

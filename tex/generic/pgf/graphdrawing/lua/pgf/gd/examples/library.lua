@@ -24,7 +24,7 @@ local examples
 
 
 -- Load algorithms from:
-require "pgf.gd.examples.simpledemo"
+require "pgf.gd.examples.Simpledemo"
 require "pgf.gd.examples.SimpleEdgeDemo"
 require "pgf.gd.examples.SimpleHuffman"
 

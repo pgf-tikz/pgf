@@ -46,7 +46,7 @@ declare {
     implement a graph drawing algorithm.
     %
 \begin{codeexample}[code only, tikz syntax=false]
--- File pgf.gd.examples.simpledemo
+-- File pgf.gd.examples.Simpledemo
 local declare = require "pgf.gd.interface.InterfaceToAlgorithms".declare
 
 declare {
@@ -72,7 +72,7 @@ declare {
 
     On the display layer (\tikzname, that is) the algorithm can now
     immediately be employed; you just need to say
-    |\usegdlibrary{simpledemo}| at the beginning
+    |\usegdlibrary{SimpleDemo}| at the beginning
     somewhere.
   "]=]
 }
