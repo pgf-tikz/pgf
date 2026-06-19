@@ -1,13 +1,21 @@
 -- Extract the examples embedded in the graph-drawing (gd) Lua sources into a
 -- single l3build test file.  Unlike the manual examples (see extract.lua), the
 -- gd examples live in the Lua files and are pulled into the manual by
--- \includeluadocumentationof.  They come in two forms:
+-- \includeluadocumentationof, which is rendered by pgf.manual.DocumentParser.
 --
---   * the "examples" field of a declare{} key, a long string [[...]] or a
---     table { [[...]], ... } of long strings (the surrounding quotes are
---     stripped and the code is dedented, as pgf.manual.DocumentParser does);
---   * \begin{codeexample} ... \end{codeexample} blocks inside the "--" Lua
---     documentation comments.
+-- Rather than re-implementing how DocumentParser turns the Lua sources into TeX
+-- (the "examples" field of a declare{} key, \begin{codeexample} blocks in "--"
+-- comments, examples pulled in via "documentation_in" lazy-doc files, ...), we
+-- run DocumentParser itself under texlua, capture the TeX it would emit into the
+-- manual, and feed that through the same codeexample extractor used for the
+-- manual sources (common.extractor).  This guarantees the test suite contains
+-- exactly the examples a reader sees in the graph-drawing chapters.
+--
+-- DocumentParser is meant to run inside LuaTeX (via \directlua), so a little
+-- environment is set up below: a "tex" table whose print() accumulates into a
+-- buffer, a kpse.find_file that resolves module names against the pgf Lua trees
+-- (the repo is not installed in a texmf tree), and a binding object (declare{}
+-- calls binding:declareCallback, which the base Binding implements as a no-op).
 --
 -- Loading the graph-drawing machinery is expensive, so all examples go into a
 -- single test file (graph drawing only works with LuaTeX anyway).
@@ -15,13 +23,58 @@
 local lfs = require("lfs")
 
 local scriptdir = arg[0]:match("^(.*[/\\])") or "./"
-package.path = scriptdir .. "?.lua;" .. package.path
+
+-- The pgf Lua trees, derived from this script's location (doc/generic/pgf/), so
+-- the script does not depend on the current working directory:
+--   * tex/generic/pgf/lua            -- pgf.manual.*
+--   * tex/generic/pgf/graphdrawing/lua -- pgf and pgf.gd.*
+local repo       = scriptdir .. "../../../"
+local manuallua  = repo .. "tex/generic/pgf/lua/"
+local gdlua      = repo .. "tex/generic/pgf/graphdrawing/lua/"
+
+package.path = scriptdir .. "?.lua;"
+            .. manuallua .. "?.lua;"
+            .. gdlua .. "?.lua;"
+            .. package.path
+
+-- Capture everything DocumentParser would tex.print() into the manual.  The
+-- deferred-closure outputs it emits for method summaries also call tex.print,
+-- so they land in the same buffer.
+local buffer = {}
+tex = {
+    print = function(...)
+        for _, a in ipairs({...}) do
+            buffer[#buffer + 1] = tostring(a)
+        end
+    end,
+}
+
+-- Resolve dotted module names against the pgf Lua trees, since the repo is not
+-- part of a texmf tree (so the real kpse.find_file would not find these files).
+-- This is also what require() of "documentation_in" files needs, but those go
+-- through package.path above.
+local real_find_file = kpse and kpse.find_file
+kpse = kpse or {}
+kpse.find_file = function(name, typ)
+    for _, base in ipairs({ gdlua, manuallua }) do
+        local path = base .. name .. "." .. (typ or "lua")
+        local f = io.open(path, "r")
+        if f then f:close(); return path end
+    end
+    return real_find_file and real_find_file(name, typ)
+end
+
+-- Initialize the graph-drawing system once and load DocumentParser.
+require "pgf"
+require "pgf.gd.interface.InterfaceCore"
+require "pgf.gd.interface.InterfaceToAlgorithms"
+-- declare{} calls InterfaceCore.binding:declareCallback; the base Binding
+-- implements it as a no-op, which is exactly what we want here.
+require "pgf.gd.interface.InterfaceToDisplay".bind(require "pgf.gd.bindings.Binding")
+require "pgf.manual"
+local DocumentParser = require "pgf.manual.DocumentParser"
+
 local common = require("extract-common")
-
-local lpeg = require("lpeg")
-local C, Ct, P, S = lpeg.C, lpeg.Ct, lpeg.P, lpeg.S
-
-local strip = common.strip
 local pathsep = common.pathsep
 
 -- The libraries to load.  Only the TikZ libraries actually used by the gd
@@ -34,109 +87,76 @@ local gd_preamble =
     "\\usegdlibrary{trees,circular,layered,force,examples," ..
         "phylogenetics,routing,planar,pedigrees}\n"
 
--- Subdirectories that are skipped: ogdf needs the C++ backend, experimental is
--- not part of the stable interface.
-local skipdirs = { ogdf = true, experimental = true }
-
--- Strip one layer of surrounding double quotes (as DocumentParser does).
-local function strip_quotes(s)
-    return (s:gsub('^"(.*)"$', "%1"))
-end
-
--- Remove the common leading indentation and surrounding blank lines, so the
--- extracted code reads the same as in the rendered manual.
-local function dedent(s)
-    local lines = {}
-    for line in (s .. "\n"):gmatch("(.-)\n") do
-        lines[#lines + 1] = line
-    end
-    while #lines > 0 and lines[1]:match("^%s*$") do table.remove(lines, 1) end
-    while #lines > 0 and lines[#lines]:match("^%s*$") do table.remove(lines) end
-    local min = math.huge
-    for _, l in ipairs(lines) do
-        if not l:match("^%s*$") then
-            min = math.min(min, l:find("%S") or math.huge)
+-- Collect, in manual-appearance order and de-duplicated, the module names the
+-- manual documents via \includeluadocumentationof{...}.  This is the manual's
+-- own source of truth for what is shown to the reader.  ogdf modules are
+-- skipped (they need the C++ backend, just like the old skipdirs).
+local function module_list(manualdir)
+    local files = {}
+    for file in lfs.dir(manualdir) do
+        if file:match("%.tex$") then
+            files[#files + 1] = file
         end
     end
-    if min == math.huge then min = 1 end
-    for i, l in ipairs(lines) do lines[i] = l:sub(min) end
-    return table.concat(lines, "\n")
-end
+    table.sort(files)
 
--- Grammar for the "examples" field: a long string or a table of long strings.
-local ws = S" \t\n\r"^0
-local longstring = P"[[" * C((P(1) - P"]]")^0) * P"]]"
-local tablevalue = P"{" * Ct((ws * longstring * ws * P","^-1)^0) * ws * P"}"
-local singlevalue = longstring / function(s) return {s} end
-local field = P"examples" * ws * P"=" * ws * (tablevalue + singlevalue)
-local examples_scanner = Ct((field + P(1))^0)
-
--- Collect the examples of a single Lua file as a list of {options, content}
--- tables, the same shape the codeexample extractor produces.
-local function harvest(text)
-    local matches = {}
-
-    -- Form A: the "examples" fields
-    for _, list in ipairs(examples_scanner:match(text) or {}) do
-        for _, code in ipairs(list) do
-            code = dedent(strip(strip_quotes(code)))
-            if code ~= "" then
-                matches[#matches + 1] = { {}, code }
+    local modules, seen = {}, {}
+    for _, file in ipairs(files) do
+        local f = io.open(manualdir .. pathsep .. file)
+        local text = f:read("*all")
+        f:close()
+        for mod in text:gmatch("\\includeluadocumentationof%s*{(.-)}") do
+            if not seen[mod] and not mod:match("ogdf") then
+                seen[mod] = true
+                modules[#modules + 1] = mod
             end
         end
     end
-
-    -- Form B: \begin{codeexample} blocks inside "--" comments.  Strip the
-    -- leading "--" from every line and reuse the codeexample extractor, which
-    -- ignores everything outside codeexample environments.
-    local decommented = ("\n" .. text):gsub("\n%-%-", "\n"):sub(2)
-    for _, m in ipairs(common.extractor:match(decommented) or {}) do
-        matches[#matches + 1] = m
-    end
-
-    return matches
+    return modules
 end
 
--- Walk the gd Lua tree, accumulating every example into "all".  "prefix" is
--- the dashed name built from the path so far; it is used to label the tests.
-local function walk(sourcedir, prefix, all)
-    for file in lfs.dir(sourcedir) do
-        local path = sourcedir .. pathsep .. file
-        if file == "." or file == ".." then
-            -- skip
-        elseif lfs.attributes(path, "mode") == "directory" then
-            if not skipdirs[file] then
-                walk(path, prefix .. file .. "-", all)
-            end
-        elseif file:match("%.lua$") then
-            local f = io.open(path)
-            local text = f:read("*all")
-            f:close()
-            local name = prefix .. file:gsub("%.lua$", "")
-            local matches = harvest(text)
-            if #matches > 0 then
-                print("Processing " .. path)
-                for i, e in ipairs(matches) do
-                    e[3] = name .. "-" .. i  -- the box-test label
-                    all[#all + 1] = e
-                end
-            end
-        end
+-- Render a single module via DocumentParser and return the TeX it emits.
+local function render(module)
+    buffer = {}
+    -- Loading the module populates its declare{} keys (pure-doc modules simply
+    -- have nothing to load); best-effort, the include below is what matters.
+    pcall(require, module)
+    local ok, err = pcall(DocumentParser.include, module)
+    if not ok then
+        print("Skipping " .. module .. ": " .. tostring(err))
+        return nil
     end
+    return table.concat(buffer, "\n")
 end
 
 -- Main
 if #arg < 2 then
-    print("Usage: " .. arg[-1] .. " " .. arg[0] .. " <gd-lua-dir> <target-dir>")
+    print("Usage: " .. arg[-1] .. " " .. arg[0] .. " <manual-tex-dir> <target-dir>")
     os.exit(1)
 end
-local sourcedir = arg[1]
+local manualdir = arg[1]
 local targetdir = arg[2]
-assert(lfs.attributes(sourcedir, "mode") == "directory", sourcedir .. " is not a directory")
+assert(lfs.attributes(manualdir, "mode") == "directory", manualdir .. " is not a directory")
 assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a directory")
 
 local all = {}
-walk(sourcedir, "gd-", all)
+for _, module in ipairs(module_list(manualdir)) do
+    local text = render(module)
+    if text then
+        local matches = common.extractor:match(text) or {}
+        if #matches > 0 then
+            print("Processing " .. module)
+            -- A short, deterministic label derived from the module name, e.g.
+            -- pgf.gd.layered.library -> gd-layered-library-1.
+            local prefix = "gd-" .. module:gsub("^pgf%.gd%.", ""):gsub("%.", "-")
+            for i, e in ipairs(matches) do
+                e[3] = prefix .. "-" .. i
+                all[#all + 1] = e
+            end
+        end
+    end
+end
+
 -- This file is run by config-regression-luatex under LuaTeX only and loads all gd libraries
 -- via gd_preamble below, so the per-example graph-drawing guarding is skipped.
 local t = common.collect(all, "gd-examples", true)
