@@ -110,15 +110,17 @@ target_list.examples =
       local targetdir = "testfiles-examples"
       local pdftargetdir = "testfiles-examples-pdf"
       local gdtargetdir = "testfiles-regression-luatex"
-      local gdsourcedir = "tex/generic/pgf/graphdrawing/lua/pgf/gd"
       mkdir(targetdir)
       mkdir(pdftargetdir)
       local errorlevel = run(".", string.format(
         "texlua %s/extract.lua %s %s", sourcedir, sourcedir, targetdir))
       -- The graph-drawing examples are embedded in the gd Lua sources and are
-      -- collected into a single file in testfiles-regression-luatex (run by config-regression-luatex).
+      -- pulled into the manual via \includeluadocumentationof; extract-gd.lua
+      -- renders those modules with pgf.manual.DocumentParser and collects the
+      -- examples into a single file in testfiles-regression-luatex (run by
+      -- config-regression-luatex).
       errorlevel = errorlevel + run(".", string.format(
-        "texlua %s/extract-gd.lua %s %s", sourcedir, gdsourcedir, gdtargetdir))
+        "texlua %s/extract-gd.lua %s %s", sourcedir, sourcedir, gdtargetdir))
       -- extract.lua mirrors the source tree, leaving empty directories behind
       for _, dir in ipairs({"images", "plots", "licenses"}) do
         rmdir(targetdir .. "/" .. dir)
