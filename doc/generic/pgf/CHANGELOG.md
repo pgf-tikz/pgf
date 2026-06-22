@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - PGF/TikZ now requires support for the braced `\input{...}` syntax, i.e. TeX
   built with Web2C 2020 or newer.
+- When using LaTeX the internal functions `\pgfutil@IfFileExists` and
+  `\pgfutil@InputIfFileExists` are now aliases to their counterparts from the
+  LaTeX format. This could potentially change the precedence in file lookup.
+
 ### Fixed
 
 - Resolve parsing ambiguity in general shadow #1435
@@ -25,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Comprehenive testsuite generated from the examples in the manual #666
 - Documentation of `\pgfkeysifassignable` #1423
 - Add a new monotonic interpolation plot handler #1358
 - The keys `actualtext`, `alt`, and `artifact` are now pre-defined as no-ops for usage in tagging #1370
