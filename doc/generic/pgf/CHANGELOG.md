@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### BREAKING CHANGES
+
+- PGF/TikZ now requires support for the braced `\input{...}` syntax, i.e. TeX
+  built with Web2C 2020 or newer.
 ### Fixed
 
 - Resolve parsing ambiguity in general shadow #1435
