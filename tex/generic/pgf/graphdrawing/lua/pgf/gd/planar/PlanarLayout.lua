@@ -31,16 +31,22 @@ InterfaceToAlgorithms.declare {
   documentation = [["
     The planar layout is a pipeline of algorithms to produce
     a crossings-free drawing of a planar graph.
-    First a combinatorical embedding of the graph is created using
+    First a combinatorial embedding of the graph is created using
     the Algorithm from Boyer and Myrvold.
-    The combinatorical Embedding is then being improved by
+    The combinatorial Embedding is then being improved by
     by the Sort and Flip algorithm and triangulated afterwards.
     To determine the actual node positions the shift method
     by de Fraysseix, Pach and Pollack is used.
     Finally the force based Planar Drawing Postprocessing improves the drawing.
   "]],
-  examples = {
-    [["
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{trees}
+      },
+    "]],
+    code = [["
       \tikz \graph [nodes={draw, circle}] {
           a -- {
               b -- {
@@ -59,9 +65,9 @@ InterfaceToAlgorithms.declare {
           f --[no span edge] g,
           c --[no span edge] d,
           e --[no span edge] c
-      }
+      };
     "]]
-  }
+  }}
 }
 
 function PlanarLayout:run()
