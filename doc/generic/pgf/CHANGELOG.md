@@ -32,7 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Comprehenive testsuite generated from the examples in the manual #666
 - Documentation of `\pgfkeysifassignable` #1423
 - Add a new monotonic interpolation plot handler #1358
-- The keys `actualtext`, `alt`, and `artifact` are now pre-defined as no-ops for usage in tagging #1370
+- The keys `actualtext`, `alt`, and `artifact` are now pre-defined
+  in both `tikz` and `pgf` as  no-ops for usage in tagging #1370 #1453
 
 ### Changed
 
