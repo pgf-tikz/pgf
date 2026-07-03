@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - When using LaTeX the internal functions `\pgfutil@IfFileExists` and
   `\pgfutil@InputIfFileExists` are now aliases to their counterparts from the
   LaTeX format. This could potentially change the precedence in file lookup.
+- The precision of the scaling operation from bp to pt has been improved, which
+  changes all the values emitted in the PDF literals. #1434
 
 ### Fixed
 
