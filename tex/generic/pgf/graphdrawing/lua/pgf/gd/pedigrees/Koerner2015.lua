@@ -73,16 +73,19 @@ declare {
   documentation = [["
       ...
   "]],
-  examples = [["
-    \tikz \graph [simple pedigree layout, default edge operator=complete bipartite]
-    {
-      Eve -- [mate] Felix;
-      { Eve, Felix } -> [child] { George, Hank };
+  examples = {{
+    options = [["preamble={\usetikzlibrary{graphs,graphdrawing}"]],
+    code = [["
+      \tikz \graph [simple pedigree layout, default edge operator=complete bipartite]
+      {
+        Eve -- [mate] Felix;
+        { Eve, Felix } -> [child] { George, Hank };
 
-      Alice -- [mate] Bob;
-      { Alice, Bob } -> [child] { Charly, Dave, Eve };
-    };
-  "]]
+        Alice -- [mate] Bob;
+        { Alice, Bob } -> [child] { Charly, Dave, Eve };
+      };
+    "]]
+  }}
 }
 
 

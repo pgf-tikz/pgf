@@ -43,16 +43,24 @@ declare {
     The evolutionary length of the edges must be specified through
     the use of the |length| key for each edge.
   "]],
-  examples = [["
-    \tikz \graph [phylogenetic tree layout] {
-      a -- {
-        b [>length=2] --[length=1] { c, d },
-        e [>length=3]
-      }
-    };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{phylogenetics,trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [phylogenetic tree layout] {
+        a -- {
+          b [>length=2] --[length=1] { c, d },
+          e [>length=3]
+        }
+      };
+    "]]
+  }}
 }
-    
+
 
 
 function AuthorDefinedPhylogeny:run()

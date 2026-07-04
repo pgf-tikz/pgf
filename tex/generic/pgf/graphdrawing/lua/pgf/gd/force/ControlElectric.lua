@@ -29,7 +29,7 @@ declare {
   type = "number",
   initial = 1,
 
-  summary = [["
+  summary = [[
     Defines the electric charge of the node. The stronger the
     |electric charge| of a node the stronger the repulsion between the
     node and others in the graph. A negative |electric charge| means that
@@ -38,25 +38,21 @@ declare {
     |spring electrical layout| algorithm works.
     Two typical effects of increasing the |electric charge| are distortion
     of symmetries and an upscaling of the drawings.
-  "]],
+  ]],
   examples = {
-    {
-      options = [["preamble={\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force}}"]],
-      code = [["
+    options = [[ preamble={\usetikzlibrary{graphs,graphdrawing} \usegdlibrary{force}} ]],
+    [[
         \tikz \graph [spring electrical layout, horizontal=0 to 1]
           { 0 [electric charge=1] -- subgraph C_n [n=10] };
-      "]]
-    },{
-      code = [["
+    ]],
+    [[
         \tikz \graph [spring electrical layout, horizontal=0 to 1]
           { 0 [electric charge=5] -- subgraph C_n [n=10] };
-      "]]
-    },{
-      code = [["
+    ]],
+    [[
         \tikz \graph [spring electrical layout, horizontal=0 to 1]
           { [clique] 1 [electric charge=5], 2, 3, 4 };
-      "]]
-    }
+    ]]
   }
 }
 

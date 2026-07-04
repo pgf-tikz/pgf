@@ -18,8 +18,7 @@ official mailing list at https://tug.org/mailman/listinfo/pgf-tikz to submit
 bug reports, request new features, etc.
 
 We also have a chat on the Matrix network at
-[#pgf-tikz:matrix.org](https://matrix.to/#/#pgf-tikz:matrix.org) ([read-only
-version](https://view.matrix.org/room/!NuxCISwYQJuyWwNsEI:matrix.org/)).
+[#pgf-tikz:matrix.org](https://matrix.to/#/#pgf-tikz:matrix.org).
 
 ## Installation
 
@@ -30,7 +29,7 @@ packages.
 If you are feeling adventurous you can install the latest development
 version in TeX Live from our tlcontrib repository.
 ```console
-$ tlmgr repository add http://pgf-tikz.github.io/pgf/tlnet pgf-development
+$ tlmgr repository add https://pgf-tikz.github.io/pgf/tlnet pgf-development
 $ tlmgr pinning add pgf-development "*"
 $ tlmgr update --self --all
 $ tlmgr install pgf --reinstall

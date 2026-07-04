@@ -8,9 +8,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### BREAKING CHANGES
 
+- PGF/TikZ now requires support for the braced `\input{...}` syntax, i.e. TeX
+  built with Web2C 2020 or newer.
+- When using LaTeX the internal functions `\pgfutil@IfFileExists` and
+  `\pgfutil@InputIfFileExists` are now aliases to their counterparts from the
+  LaTeX format. This could potentially change the precedence in file lookup.
+
+### Fixed
+
+- Resolve parsing ambiguity in general shadow #1435
+- Fix clobbered register in `bending` library #896
+- Fix handling of closepath command in svg.path library #1189
+- Use luatexbase to register pgfsys@strcmp to not sidestep their allocation counting
+- Allow XOR and XNOR gates to have more than 2 inputs #376
+- Fix missing inclusion of libraries in `graphdrawing` examples
+- Fix missing inclusion of libraries in the examples at https://tikz.dev/gd-trees and https://tikz.dev/gd-usage-tikz
+- Fix mis-spelled Kellermann to Kellerman
+- Support an apply-all feature (suggested in issue #640) to
+  apply a single definition of options to multiple examples.
+
+### Added
+
+- Comprehenive testsuite generated from the examples in the manual #666
+- Documentation of `\pgfkeysifassignable` #1423
+- Add a new monotonic interpolation plot handler #1358
+- The keys `actualtext`, `alt`, and `artifact` are now pre-defined
+  in both `tikz` and `pgf` as  no-ops for usage in tagging #1370 #1453
+
+### Changed
+
+- Typo fixes in the manual
+- Replace `\begingroup`...`\endgroup` by an explicit brace group in `pgfscope` to fix usage in alignments #1417
+
+### Contributors
+
+- Dominik Peters
+- Erin Cold
+- Hanson Char
+
+## [3.1.11a] - 2025-08-29 Henri Menke
+
+### Fixed
+
+- Fix formatting of `default XXX, initially XXX` in key docs #1278
+- Correct the fix to trim spaces from `gnuplot` functions #1397 #1399
+
+### Added
+
+- Emulated `runsystem(...)` logging for LuaTeX
+
+## [3.1.11] - 2025-08-14 Henri Menke
+
+### BREAKING CHANGES
+
 ### Added
 
 - Add `RGB` and `gray` color model support for ConTeXt #1130
+- Add `diamond split` shape
 
 ### Fixed
 
@@ -19,18 +73,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Output bounding box adjustment in pgfsys-dvisvgm.def #1275
 - Fix shadings under LuaMetaTeX
 - Resolve missing `gnuplot` plots in manual #1238
-- Treat varargs for `min` and `max` in `luamath` pgf-tikz/pgfplots#492 #1359
+- Treat varargs for `min()` and `max()` in `luamath` pgf library pgf-tikz/pgfplots#492 #1359
 - Fixed support for the `\tikz` command in the `dvisvgm4ht` driver for TeX4ht
+- Wrong key name in unknown decoration option error #1082
+- `gnuplot` was always run when the function contained leading or trailing spaces #1397
 
 ### Changed
 
 - Typo fixes in the manual
-- Simplify short verb `|...|` or add required preamble for it
+- Simplify short verb `|...|` used in manual or add required preamble for it
 - Harden parser for math expressions against active chars
 - Resolve overfull hboxes >=20pt in the manual
 - Adapt `\graphicspath` setting for flattened doc tree #1191
-- Promote warning "Plot data file \`...' not found" to error
-- Allow empty value for /pgf/arrow keys/fill to make it behave more like /tikz/fill #1352
+- Promote warning "Plot data file ... not found" to error
+- Allow empty value for `/pgf/arrow keys/fill` to make it behave more like `/tikz/fill` #1352
 - Added support for alt text in the `dvisvgm4ht` driver for TeX4ht
 
 ### Contributors
@@ -48,6 +104,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Alexander Grahn
 - Max Chernoff
 - Volker Diels-Grabsch
+- Karl Hammond (@hammondkd)
 
 ## [3.1.10] - 2023-01-13 Henri Menke
 
@@ -3340,6 +3397,9 @@ will be the stable version.
 - Created ChangeLog
 - Added pgfshade.sty
 
+[Unreleased]: https://github.com/pgf-tikz/pgf/compare/3.1.11a...HEAD
+[3.1.11a]: https://github.com/pgf-tikz/pgf/compare/3.1.11...3.1.11a
+[3.1.11]: https://github.com/pgf-tikz/pgf/compare/3.1.10...3.1.11
 [3.1.10]: https://github.com/pgf-tikz/pgf/compare/3.1.9a...3.1.10
 [3.1.9a]: https://github.com/pgf-tikz/pgf/compare/3.1.9...3.1.9a
 [3.1.9]: https://github.com/pgf-tikz/pgf/compare/3.1.8b...3.1.9

@@ -53,11 +53,19 @@ declare {
     This behavior can be changed using this option. When the key is
     invoked, nodes are placed \emph{behind} the edges.
   "]],
-  examples = [["
-    \tikz \graph [simple necklace layout, nodes={draw,fill=white},
-                  nodes behind edges]
-      { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
-  "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs.standard,graphdrawing}
+        \usegdlibrary{circular,examples}
+      },
+    "]],
+    code = [["
+      \tikz \graph [simple necklace layout, nodes={draw,fill=white},
+                    nodes behind edges]
+        { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
+    "]]
+  }}
 }
 
 
@@ -72,11 +80,19 @@ declare {
   summary = [["
     This is the default placement of edges: Behind the nodes.
   "]],
-  examples = [["
-    \tikz \graph [simple necklace layout, nodes={draw,fill=white},
-                  edges behind nodes]
-      { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
- "]]
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs.standard,graphdrawing}
+        \usegdlibrary{circular,examples}
+      },
+    "]],
+    code = [["
+      \tikz \graph [simple necklace layout, nodes={draw,fill=white},
+                    edges behind nodes]
+        { subgraph K_n [n=7], 1 [regardless at={(0,-1)}] };
+    "]]
+  }}
 }
 
 ---
@@ -117,15 +133,32 @@ declare {
     For instance, in a |layered layout|, an edge with a large |weight|
     will be as short as possible.
   "]],
-  examples = {[["
-    \tikz \graph [layered layout] {
-      a -- {b,c,d} -- e -- a;
-    };
-  "]],[["
-    \tikz \graph [layered layout] {
-      a -- {b,c,d} -- e --[weight=3] a;
-    };
- "]]
+  examples = {
+    {
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
+      code = [["
+        \tikz \graph [layered layout] {
+          a -- {b,c,d} -- e -- a;
+        };
+      "]]
+    },{
+      options = [["
+        preamble={
+          \usetikzlibrary{graphs,graphdrawing}
+          \usegdlibrary{layered}
+        },
+      "]],
+      code = [["
+        \tikz \graph [layered layout] {
+          a -- {b,c,d} -- e --[weight=3] a;
+        };
+      "]]
+    }
   }
 }
 
@@ -141,13 +174,20 @@ declare {
     Sets the ``length'' of an edge. Algorithms may take this value
     into account when drawing a graph.
   "]],
-  examples = {[["
-    \tikz \graph [phylogenetic tree layout] {
-      a --[length=2] b --[length=1] {c,d};
-      a --[length=3] e
-    };
-  "]],
-  }
+  examples = {{
+    options = [["
+      preamble={
+        \usetikzlibrary{graphs,graphdrawing}
+        \usegdlibrary{phylogenetics,trees}
+      },
+    "]],
+    code = [["
+      \tikz \graph [phylogenetic tree layout] {
+        a --[length=2] b --[length=1] {c,d};
+        a --[length=3] e
+      };
+    "]],
+  }}
 }
 
 

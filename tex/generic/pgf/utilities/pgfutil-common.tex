@@ -49,6 +49,10 @@
 \def\pgfutil@trimspaces@@#1Q#2{#1}
 \catcode`\Q=11
 
+\def\pgfutil@trimspaces@e#1{%
+  \expandafter\pgfutil@trimspaces\expandafter{\pgfutil@expanded{#1}}%
+}
+
 % \pgfutil@ifx{<token 1>}{<token 2>}{<true code>}{<false code>}
 %
 % This macro is expandable.
@@ -94,14 +98,14 @@
 % \pgfutil@ifundefined{<macro name with backslash>}
 %  {<is undefined code>}{<is defined code>}
 %
-% This will let #1 to \relax if it undefined.
+% This will let #1 to \relax if it is undefined.
 %
 % This macro is expandable.
 \def\pgfutil@ifundefined#1{%
   \expandafter\pgfutil@ifx\csname#1\endcsname\relax}
 
-% A variant of \pgfutil@ifundefined which will NOT let #1 to \relax it
-% is undefined.
+% A variant of \pgfutil@ifundefined which will NOT let #1 to \relax if
+% it is undefined.
 \def\pgfutil@IfUndefined#1{%
   \ifcsname#1\endcsname
     \expandafter\pgfutil@secondoftwo
@@ -244,7 +248,7 @@
   \fi
   \closein\pgfutil@inputcheck}
 
-\def\pgfutil@InputIfFileExists#1#2#3{\pgfutil@IfFileExists{#1}{\input #1\relax#2}{#3}}%
+\def\pgfutil@InputIfFileExists#1#2#3{\pgfutil@IfFileExists{#1}{\input{#1}\relax#2}{#3}}%
 
 
 % pgfutil@loop (from plain.tex)
@@ -415,7 +419,7 @@
       \catcode`\@=11
       \catcode`\|=12
       \catcode`\$=3
-      \input pgfmodule\pgf@temp.code.tex
+      \input{pgfmodule\pgf@temp.code.tex}
       \catcode`\@=\csname pgf@module@#1@atcode\endcsname
       \catcode`\|=\csname pgf@module@#1@barcode\endcsname
       \catcode`\$=\csname pgf@module@#1@dollarcode\endcsname
@@ -879,9 +883,22 @@
   \def\pgfutil@luaescapestring#1{}
 \fi
 
-
+% Emulate the "runsystem(...)" logging for LuaTeX
+% based on the emulation in l3kernel (l3sys.dtx, @@_shell_now:e), and the
+% ending periods are added following https://github.com/latex3/latex2e/commit/90d53de44fe4a09baa4a17506abe6ce9e120a7c3.
 \def\pgfutil@shellescape@lua@eightseven#1{%
-    \pgfutil@directlua{os.execute("\pgfutil@luaescapestring{#1}")}%
+    \pgfutil@directlua{%
+        local write_nl = texio.write_nl
+        local cmd = "\pgfutil@luaescapestring{#1}"
+        local status, msg = os.execute(cmd)
+        if status == nil then
+            write_nl("log", "runsystem(" .. cmd .. ")...(" .. msg .. ").\string\n")
+        elseif status == 0 then
+            write_nl("log", "runsystem(" .. cmd .. ")...executed.\string\n")
+        else
+            write_nl("log", "runsystem(" .. cmd .. ")...failed. " .. (msg or "") .. "\string\n")
+        end
+    }%
 }%
 \def\pgfutil@shellescape#1{%
     \immediate\write18{#1}%
