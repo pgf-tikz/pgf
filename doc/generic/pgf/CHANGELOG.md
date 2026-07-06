@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support an apply-all feature (suggested in issue #640) to
   apply a single definition of options to multiple examples.
 - Support directions in LuaTeX and LuaMetaTeX
+- Fix unused variable in tikzmath example #1142
 
 ### Added
 
