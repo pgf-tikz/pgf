@@ -12,7 +12,7 @@ docfiledir = "./doc/generic/pgf"
 docfiles =
   {
     "RELEASE_NOTES.md", "description.html", -- Part of the release script
-    "color.cfg", "pgfmanual.cfg", "images", "plots", "*.tex" -- Build the manual
+    "color.cfg", "pgfmanual.cfg", "pgfmanual.ist", "images", "plots", "*.tex" -- Build the manual
   }
 tdsroot = "generic"
 typesetfiles = {"pgfmanual.tex"}

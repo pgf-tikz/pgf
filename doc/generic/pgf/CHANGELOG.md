@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The keys `actualtext`, `alt`, and `artifact` are now pre-defined
   in both `tikz` and `pgf` as  no-ops for usage in tagging #1370 #1453
 - Documentation of the default z-axis vector #611
+- The manual now has PDF bookmarks for the index sections #1307
 
 ### Changed
 
