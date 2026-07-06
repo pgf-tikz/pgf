@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix unused variable in tikzmath example #1142
 - Correct source comment on `\pgfshadepath` #437
 - Mention `\pgfinterruptpath` in the documentation of `\pgfextra` #1327
+- Prevent math active character from causing infinite loops #1391
 
 ### Added
 
