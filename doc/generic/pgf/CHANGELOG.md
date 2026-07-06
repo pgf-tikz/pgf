@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The long deprecated `vtex` and `textures` drivers have been removed
 - The long deprecated `pgfutil-common-lists` (part of pgfplots since 1.18.2) has been removed
+- Removed duplicate definition of `\pgfmath@tempdima` in pgfutil #1384
 
 ### Contributors
 
