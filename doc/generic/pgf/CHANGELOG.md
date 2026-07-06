@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   apply a single definition of options to multiple examples.
 - Support directions in LuaTeX and LuaMetaTeX
 - Fix unused variable in tikzmath example #1142
+- Correct source comment on `\pgfshadepath` #437
 
 ### Added
 
