@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   in both `tikz` and `pgf` as  no-ops for usage in tagging #1370 #1453
 - Documentation of the default z-axis vector #611
 - The manual now has PDF bookmarks for the index sections #1307
+- New expansion helpers and emptiness check in pgfkeys #1254
 
 ### Changed
 
