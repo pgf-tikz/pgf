@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support an apply-all feature (suggested in issue #640) to
   apply a single definition of options to multiple examples.
 - Support directions in LuaTeX and LuaMetaTeX
+- Fix unused variable in tikzmath example #1142
+- Correct source comment on `\pgfshadepath` #437
+- Mention `\pgfinterruptpath` in the documentation of `\pgfextra` #1327
+- Prevent math active character from causing infinite loops #1391
 
 ### Added
 
@@ -35,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add a new monotonic interpolation plot handler #1358
 - The keys `actualtext`, `alt`, and `artifact` are now pre-defined
   in both `tikz` and `pgf` as  no-ops for usage in tagging #1370 #1453
+- Documentation of the default z-axis vector #611
+- The manual now has PDF bookmarks for the index sections #1307
 
 ### Changed
 
@@ -45,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The long deprecated `vtex` and `textures` drivers have been removed
 - The long deprecated `pgfutil-common-lists` (part of pgfplots since 1.18.2) has been removed
+- Removed duplicate definition of `\pgfmath@tempdima` in pgfutil #1384
 
 ### Contributors
 
