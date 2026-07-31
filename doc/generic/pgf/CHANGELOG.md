@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Typo fixes in the manual
 - Replace `\begingroup`...`\endgroup` by an explicit brace group in `pgfscope` to fix usage in alignments #1417
+- Update the engine requirements in the manual #1242
 
 ### Removed
 
