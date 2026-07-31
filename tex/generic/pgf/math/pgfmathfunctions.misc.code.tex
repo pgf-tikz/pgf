@@ -135,22 +135,38 @@
 %
 \def\pgfmathscientific#1#2{%
     \begingroup%
+        \edef\pgfmath@sci@mantissa{#1}%
         \edef\pgfmath@sci@exponent{#2}%
-        \pgfmath@x#1pt\relax%
-        \ifdim\pgfmath@x<0pt\relax%
-            \pgfmath@x-\pgfmath@x%
-            \edef\pgfmath@sci@sign{-}%
-            \expandafter\edef\expandafter\pgfmath@temp\expandafter{\expandafter\pgfmath@gobbleone#1}%
-        \else%
-            \edef\pgfmath@sci@sign{+}%
-            \edef\pgfmath@temp{#1}%
-        \fi%
+        \expandafter\pgfmath@scientific@sign@mantissa\pgfmath@sci@mantissa\pgfmath@
         \expandafter\pgfmath@in@\expandafter.\expandafter{#1}%
         \ifpgfmath@in@%
         \else%
-            \edef\pgfmath@temp{\pgfmath@temp.0}%
+            \edef\pgfmath@sci@mantissa{\pgfmath@sci@mantissa.0}%
         \fi%
-        \expandafter\pgfmath@scientific@@\pgfmath@temp00000000000\pgfmath@}
+        \expandafter\pgfmath@scientific@@\pgfmath@sci@mantissa00000000000\pgfmath@}
+
+\def\pgfmath@scientific@sign@mantissa#1\pgfmath@{%
+    \c@pgfmath@counta=0
+    \pgfmath@scientific@sign@mantissa@#1\pgfmath@
+}
+\def\pgfmath@scientific@sign@mantissa@#1{%
+    \ifx\pgfmath@#1%
+        \pgfmath@error{Missing number in input}% input was only signs or spaces
+    \fi
+    \ifx-#1%
+        \advance\c@pgfmath@counta1
+        \expandafter\pgfmath@gobbleone
+    \else\ifx+#1%
+        \expandafter\expandafter\expandafter\pgfmath@gobbleone
+    \else
+        \expandafter\expandafter\expandafter\pgfmath@scientific@sign@mantissa@end
+    \fi\fi
+    #1\pgfmath@scientific@sign@mantissa@
+}
+\def\pgfmath@scientific@sign@mantissa@end#1\pgfmath@scientific@sign@mantissa@#2\pgfmath@{%
+    \edef\pgfmath@sci@sign{\ifodd\c@pgfmath@counta-\else+\fi}%
+    \edef\pgfmath@sci@mantissa{#1#2}%
+}
 
 \def\pgfmath@scientific@@#1.#2#3#4#5#6{%
         \edef\pgfmath@sci@int{#1}%
@@ -160,41 +176,87 @@
 \def\pgfmath@scientific@@@#1#2#3#4#5#6\pgfmath@{%
         \edef\pgfmath@sci@mantissaB{#1#2#3#4#5}%
         \c@pgfmath@counta\pgfmath@sci@exponent\relax%
-                \ifnum\c@pgfmath@counta<-4\relax%
-                  \pgfmath@x0pt\relax%
-                \else%
-        \c@pgfmath@countb\c@pgfmath@counta%
-        \ifnum\c@pgfmath@counta<0\relax%
-            \c@pgfmath@counta-\c@pgfmath@counta%
-        \fi%
-        \pgfmathpow@{10}{\the\c@pgfmath@counta}%
-        \afterassignment\pgfmath@gobbletilpgfmath@
-        \c@pgfmath@countc\pgfmathresult\relax\pgfmath@
-        \edef\pgfmath@sci@factor{\the\c@pgfmath@countc}%
-        \ifnum\c@pgfmath@countb<0\relax%
-            % xE-y: easy...
-            \pgfmath@x\pgfmath@sci@int.\pgfmath@sci@mantissaA pt\relax%
-            \divide\pgfmath@x\pgfmath@sci@factor\relax%
+        \ifnum\c@pgfmath@counta<-9
+            % 10^10 exceeds the range of a TeX count, and any value that
+            % fits a \dimen rounds below 1sp once divided by it, so flush
+            % such tiny numbers to zero.
+            \pgfmath@x0pt
         \else%
-            % xE+y:
-            % Must do this way so as not lose digits in a long mantissa. Sigh...
-            \c@pgfmath@counta\pgfmath@sci@int%
-            \c@pgfmath@countb\pgfmath@sci@mantissaA%
-            \multiply\c@pgfmath@counta\pgfmath@sci@factor\relax%
-            \multiply\c@pgfmath@countb\pgfmath@sci@factor\relax%
-            \c@pgfmath@countc\c@pgfmath@countb%
-            \divide\c@pgfmath@countb100000\relax%
-            \advance\c@pgfmath@counta\c@pgfmath@countb%
-            \multiply\c@pgfmath@countb100000\relax%
-            \advance\c@pgfmath@countc-\c@pgfmath@countb%
-            \c@pgfmath@countb\pgfmath@sci@mantissaB\relax%
-            \multiply\c@pgfmath@countb\pgfmath@sci@factor\relax%
-            \divide\c@pgfmath@countb100000\relax%
-            \advance\c@pgfmath@countc\c@pgfmath@countb%
-            \advance\c@pgfmath@countc100000\relax%
-            \edef\pgfmath@sci@result{\pgfmath@sci@sign\the\c@pgfmath@counta.\expandafter\pgfmath@gobbleone\the\c@pgfmath@countc pt}%
-            \pgfmath@x\pgfmath@sci@result\relax%
-        \fi\fi%
+            \c@pgfmath@countb\c@pgfmath@counta%
+            \ifnum\c@pgfmath@counta<0\relax%
+                \c@pgfmath@counta-\c@pgfmath@counta%
+            \fi%
+            % Calculating 10^|exponent| using \pgfmathpow@ would overflow already for
+            % exponents of 5 or larger, because that exceeds \maxdimen.  We can work around
+            % that to some extent by calculating 10^|exponent| by repeated multiplication of
+            % 10 in a loop with a TeX count that has a larger range than a \dimen and allows
+            % us to go all the way to 10^10.
+            \begingroup
+                \aftergroup\c@pgfmath@countc\aftergroup1%
+                \pgfutil@loop\ifnum\c@pgfmath@counta>0
+                    \aftergroup0%
+                    \advance\c@pgfmath@counta-1
+                \pgfutil@repeat
+            \endgroup
+            \relax
+            \edef\pgfmath@sci@factor{\the\c@pgfmath@countc}%
+            \pgfmath@xa0.\pgfmath@sci@mantissaA pt
+            \c@pgfmath@countc\pgfmath@xa\relax
+            \c@pgfmath@counta\pgfmath@sci@int\relax
+            \ifnum\c@pgfmath@countb<0\relax%
+                % xE-y: divide in scaled points (sp).  Forming the dividend in sp
+                % instead of as the dimension \pgfmath@sci@int.\pgfmath@sci@mantissaA pt
+                % avoids "Dimension too large" for integer parts up to 32767 and lets
+                % us reapply the sign. The following code calculates:
+                % x = sign * ((int * 65536 + round(mantissaA * 65536) / factor) sp
+                \multiply\c@pgfmath@counta65536
+                \advance\c@pgfmath@counta\c@pgfmath@countc\relax
+                \divide\c@pgfmath@counta\pgfmath@sci@factor\relax
+                \pgfmath@x\pgfmath@sci@sign\the\c@pgfmath@counta sp
+            \else%
+                % xE+y: in contrast to \dimen calculations that signal "Dimension
+                % too large" the count multiplications below wrap silently on
+                % 32-bit overflow, which for an out-of-range value could yield a
+                % wrong, in-range-looking result.  So we first detect overflow by
+                % checking that the mantissa does not exceed \maxdimen/factor (in
+                % sp) and raise an error before performing the calculation.
+                \c@pgfmath@countd\maxdimen
+                \divide\c@pgfmath@countd\pgfmath@sci@factor\relax
+                \ifnum\c@pgfmath@counta>16383
+                    \pgfmath@error{You've asked me to compute %
+                        `\pgfmath@sci@sign\pgfmath@sci@mantissa e\pgfmath@sci@exponent', %
+                        but the result is too large}{}%
+                    \pgfmath@x\pgfmath@sci@sign\maxdimen
+                \else
+                    \multiply\c@pgfmath@counta65536
+                    \advance\c@pgfmath@counta\c@pgfmath@countc\relax
+                    \ifnum\c@pgfmath@counta>\c@pgfmath@countd
+                        \pgfmath@error{You've asked me to compute %
+                            `\pgfmath@sci@sign\pgfmath@sci@mantissa e\pgfmath@sci@exponent', %
+                            but the result is too large}{}%
+                        \pgfmath@x\pgfmath@sci@sign\maxdimen
+                    \else
+                        % Must do this way so as not lose digits in a long mantissa. Sigh...
+                        \c@pgfmath@counta\pgfmath@sci@int%
+                        \c@pgfmath@countb\pgfmath@sci@mantissaA%
+                        \multiply\c@pgfmath@counta\pgfmath@sci@factor\relax%
+                        \multiply\c@pgfmath@countb\pgfmath@sci@factor\relax%
+                        \c@pgfmath@countc\c@pgfmath@countb%
+                        \divide\c@pgfmath@countb100000\relax%
+                        \advance\c@pgfmath@counta\c@pgfmath@countb%
+                        \multiply\c@pgfmath@countb100000\relax%
+                        \advance\c@pgfmath@countc-\c@pgfmath@countb%
+                        \c@pgfmath@countb\pgfmath@sci@mantissaB\relax%
+                        \multiply\c@pgfmath@countb\pgfmath@sci@factor\relax%
+                        \divide\c@pgfmath@countb100000\relax%
+                        \advance\c@pgfmath@countc\c@pgfmath@countb%
+                        \advance\c@pgfmath@countc100000\relax%
+                        \edef\pgfmath@sci@result{\pgfmath@sci@sign\the\c@pgfmath@counta.\expandafter\pgfmath@gobbleone\the\c@pgfmath@countc pt}%
+                        \pgfmath@x\pgfmath@sci@result\relax%
+                    \fi
+                \fi
+            \fi
+        \fi
         \pgfmath@returnone\pgfmath@x%
     \endgroup}
 
