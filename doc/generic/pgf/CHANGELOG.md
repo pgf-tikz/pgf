@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - When using LaTeX the internal functions `\pgfutil@IfFileExists` and
   `\pgfutil@InputIfFileExists` are now aliases to their counterparts from the
   LaTeX format. This could potentially change the precedence in file lookup.
+- The precision of the reciprocal and divide operations in pgfmath have been
+  improved, which changes the results of mathematical expressions involving
+  these operations. #1148
 
 ### Fixed
 
