@@ -262,6 +262,8 @@ function common.write_test(filename, opts)
     local f = io.open(filename, "w")
     -- Mirror the relevant parts of the manual's preamble so that the examples
     -- have the same packages available as in the manual.
+    f:write"% -*- mode: latex -*-\n"
+    f:write"% vim: ft=tex\n"
     f:write"\\documentclass{article}\n"
     f:write"\\input{pgf-regression-test}\n"
     f:write"\\RequirePackage{amsmath,amssymb,calc,pifont}\n"
