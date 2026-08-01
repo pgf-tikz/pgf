@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## Unreleased
+## [3.1.12] - 2026-08-01 Henri Menke
 
 ### BREAKING CHANGES
 
@@ -3414,7 +3414,8 @@ will be the stable version.
 - Created ChangeLog
 - Added pgfshade.sty
 
-[Unreleased]: https://github.com/pgf-tikz/pgf/compare/3.1.11a...HEAD
+[Unreleased]: https://github.com/pgf-tikz/pgf/compare/3.1.12...HEAD
+[3.1.12]: https://github.com/pgf-tikz/pgf/compare/3.1.11a...3.1.12
 [3.1.11a]: https://github.com/pgf-tikz/pgf/compare/3.1.11...3.1.11a
 [3.1.11]: https://github.com/pgf-tikz/pgf/compare/3.1.10...3.1.11
 [3.1.10]: https://github.com/pgf-tikz/pgf/compare/3.1.9a...3.1.10
