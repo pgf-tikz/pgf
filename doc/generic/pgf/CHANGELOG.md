@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mention `\pgfinterruptpath` in the documentation of `\pgfextra` #1327
 - Prevent math active character from causing infinite loops #1391
 - Extended the valid range of `\pgfmathscientific` #1444
+- Convert `^^M` to space instead of ignored when re-scanning codeexamples #1134
 
 ### Added
 
