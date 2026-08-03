@@ -55,7 +55,7 @@ local function walk(sourcedir, targetdir)
             lfs.mkdir(targetdir .. file)
             walk(sourcedir .. file .. pathsep, targetdir .. file .. pathsep)
         elseif lfs.attributes(sourcedir .. file, "mode") == "file" then
-            print("Processing " .. sourcedir .. file)
+            common.print("Processing " .. sourcedir .. file)
 
             -- Read file into memory
             local f = io.open(sourcedir .. file)
