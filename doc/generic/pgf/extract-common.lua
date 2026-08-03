@@ -10,6 +10,14 @@ local C, Cf, Cg, Ct, P, S, V = lpeg.C, lpeg.Cf, lpeg.Cg, lpeg.Ct, lpeg.P, lpeg.S
 
 local common = {}
 
+-- print if PGF_QUIET is not set
+local function print_new(str)
+  if not os.getenv("PGF_QUIET") then
+    print(str)
+  end
+end
+common.print = print_new
+
 -- strip leading and trailing whitespace
 local function strip(str)
     return str:match"^%s*(.-)%s*$"

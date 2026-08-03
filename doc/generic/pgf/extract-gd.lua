@@ -123,7 +123,7 @@ local function render(module)
     pcall(require, module)
     local ok, err = pcall(DocumentParser.include, module)
     if not ok then
-        print("Skipping " .. module .. ": " .. tostring(err))
+        common.print("Skipping " .. module .. ": " .. tostring(err))
         return nil
     end
     return table.concat(buffer, "\n")
@@ -145,7 +145,7 @@ for _, module in ipairs(module_list(manualdir)) do
     if text then
         local matches = common.extractor:match(text) or {}
         if #matches > 0 then
-            print("Processing " .. module)
+            common.print("Processing " .. module)
             -- A short, deterministic label derived from the module name, e.g.
             -- pgf.gd.layered.library -> gd-layered-library-1.
             local prefix = "gd-" .. module:gsub("^pgf%.gd%.", ""):gsub("%.", "-")
