@@ -46,7 +46,7 @@ introduces some nice extensions of the basic algorithm:
 %
 As a historical remark, Br\"uggemann-Klein and Wood have implemented
 their version of the Reingold--Tilford algorithm directly in \TeX\
-(resulting in the Tree\TeX\ style). With the power of Lua\TeX\ at
+(resulting in the Tree\TeX\ style). With the power of \hologo{LuaTeX} at
 our disposal, the 2012 implementation in the |graphdrawing.tree|
 library is somewhat more powerful and cleaner, but it really was an
 impressive achievement to implement this algorithm back in 1989
