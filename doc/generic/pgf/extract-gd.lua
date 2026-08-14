@@ -136,8 +136,8 @@ if #arg < 2 then
 end
 local manualdir = arg[1]
 local targetdir = arg[2]
-assert(lfs.attributes(manualdir, "mode") == "directory", manualdir .. " is not a directory")
-assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a directory")
+assert(lfs.isdir(manualdir), manualdir .. " is not a directory")
+assert(lfs.isdir(targetdir), targetdir .. " is not a directory")
 
 local all = {}
 for _, module in ipairs(module_list(manualdir)) do

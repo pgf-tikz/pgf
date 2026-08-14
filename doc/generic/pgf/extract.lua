@@ -35,8 +35,8 @@ local uncompress_pdf =
 -- Walk the file tree
 local function walk(sourcedir, targetdir)
     -- Make sure the arguments are directories
-    assert(lfs.attributes(sourcedir, "mode") == "directory", sourcedir .. " is not a directory")
-    assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a directory")
+    assert(lfs.isdir(sourcedir), sourcedir .. " is not a directory")
+    assert(lfs.isdir(targetdir), targetdir .. " is not a directory")
 
     -- Append the path separator if necessary
     if sourcedir:sub(-1, -1) ~= pathsep then
@@ -50,11 +50,11 @@ local function walk(sourcedir, targetdir)
     for file in lfs.dir(sourcedir) do
         if file == "." or file == ".." then
             -- Ignore these two special ones
-        elseif lfs.attributes(sourcedir .. file, "mode") == "directory" then
+        elseif lfs.isdir(sourcedir .. file) then
             -- Recurse into subdirectories
             lfs.mkdir(targetdir .. file)
             walk(sourcedir .. file .. pathsep, targetdir .. file .. pathsep)
-        elseif lfs.attributes(sourcedir .. file, "mode") == "file" then
+        elseif lfs.isfile(sourcedir .. file) then
             local name, ext = basename(file)
             -- Ignore non-TeX files
             if ext ~= "tex" then
