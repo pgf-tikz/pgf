@@ -55,8 +55,8 @@ local function walk(sourcedir, targetdir)
             walk(sourcedir .. file .. pathsep, targetdir .. file .. pathsep)
         elseif lfs.isfile(sourcedir .. file) then
             local name, ext = basename(file)
-            -- Ignore non-TeX files
-            if ext ~= "tex" then
+            -- Ignore non-TeX files and "pgfmanual-test.*"
+            if ext ~= "tex" or name == "pgfmanual-test" then
                 goto continue
             end
 
