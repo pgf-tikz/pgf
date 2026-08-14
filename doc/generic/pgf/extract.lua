@@ -6,7 +6,6 @@ local scriptdir = arg[0]:match("^(.*[/\\])") or "./"
 package.path = scriptdir .. "?.lua;" .. package.path
 local common = require("extract-common")
 
-local strip = common.strip
 local basename = common.basename
 local pathsep = common.pathsep
 
