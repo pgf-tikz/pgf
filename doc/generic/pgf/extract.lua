@@ -55,13 +55,18 @@ local function walk(sourcedir, targetdir)
             lfs.mkdir(targetdir .. file)
             walk(sourcedir .. file .. pathsep, targetdir .. file .. pathsep)
         elseif lfs.attributes(sourcedir .. file, "mode") == "file" then
+            local name, ext = basename(file)
+            -- Ignore non-TeX files
+            if ext ~= "tex" then
+                goto continue
+            end
+
             print("Processing " .. sourcedir .. file)
 
             -- Read file into memory
             local f = io.open(sourcedir .. file)
             local text = f:read("*all")
             f:close()
-            local name, ext = basename(file)
 
             -- Chapters the manual restricts to LuaTeX (\ifluatex \else ...
             -- \endinput \fi), e.g. the graph-drawing usage sections, are only
@@ -97,6 +102,8 @@ local function walk(sourcedir, targetdir)
                 })
             end
         end
+
+        ::continue::
     end
 end
 
