@@ -6,7 +6,6 @@ local scriptdir = arg[0]:match("^(.*[/\\])") or "./"
 package.path = scriptdir .. "?.lua;" .. package.path
 local common = require("extract-common")
 
-local strip = common.strip
 local basename = common.basename
 local pathsep = common.pathsep
 
@@ -35,8 +34,8 @@ local uncompress_pdf =
 -- Walk the file tree
 local function walk(sourcedir, targetdir)
     -- Make sure the arguments are directories
-    assert(lfs.attributes(sourcedir, "mode") == "directory", sourcedir .. " is not a directory")
-    assert(lfs.attributes(targetdir, "mode") == "directory", targetdir .. " is not a directory")
+    assert(lfs.isdir(sourcedir), sourcedir .. " is not a directory")
+    assert(lfs.isdir(targetdir), targetdir .. " is not a directory")
 
     -- Append the path separator if necessary
     if sourcedir:sub(-1, -1) ~= pathsep then
@@ -50,18 +49,23 @@ local function walk(sourcedir, targetdir)
     for file in lfs.dir(sourcedir) do
         if file == "." or file == ".." then
             -- Ignore these two special ones
-        elseif lfs.attributes(sourcedir .. file, "mode") == "directory" then
+        elseif lfs.isdir(sourcedir .. file) then
             -- Recurse into subdirectories
             lfs.mkdir(targetdir .. file)
             walk(sourcedir .. file .. pathsep, targetdir .. file .. pathsep)
-        elseif lfs.attributes(sourcedir .. file, "mode") == "file" then
+        elseif lfs.isfile(sourcedir .. file) then
+            local name, ext = basename(file)
+            -- Ignore non-TeX files and "pgfmanual-test.*"
+            if ext ~= "tex" or name == "pgfmanual-test" then
+                goto continue
+            end
+
             print("Processing " .. sourcedir .. file)
 
             -- Read file into memory
             local f = io.open(sourcedir .. file)
             local text = f:read("*all")
             f:close()
-            local name, ext = basename(file)
 
             -- Chapters the manual restricts to LuaTeX (\ifluatex \else ...
             -- \endinput \fi), e.g. the graph-drawing usage sections, are only
@@ -97,6 +101,8 @@ local function walk(sourcedir, targetdir)
                 })
             end
         end
+
+        ::continue::
     end
 end
 
