@@ -264,8 +264,12 @@ function common.write_test(filename, opts)
     -- have the same packages available as in the manual.
     f:write"% -*- mode: latex -*-\n"
     f:write"% vim: ft=tex\n"
+    if opts.header then
+        f:write(opts.header)
+        f:write"\n"
+    end
     f:write"\\documentclass{article}\n"
-    f:write"\\input{pgf-regression-test}\n"
+    f:write"\\input{regression-test}\n"
     f:write"\\RequirePackage{amsmath,amssymb,calc,pifont}\n"
     f:write"\\RequirePackage{fp,xcolor,pgf,tikz,xxcolor}\n"
     -- Colours defined in the manual's preamble (pgfmanual-en-macros) that some

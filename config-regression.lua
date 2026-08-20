@@ -4,6 +4,7 @@
 -- issue they cover).  Some of them generate plot data with gnuplot, so shell
 -- escape is enabled for the whole suite.
 
+checkengines = {"luatex"}
 testfiledir  = "testfiles-regression"
 checkopts    = "-interaction=nonstopmode -shell-escape"
 

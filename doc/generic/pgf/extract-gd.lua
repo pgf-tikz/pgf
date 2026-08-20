@@ -157,11 +157,12 @@ for _, module in ipairs(module_list(manualdir)) do
     end
 end
 
--- This file is run by config-regression-luatex under LuaTeX only and loads all gd libraries
+-- This file is run by config-regression under LuaTeX only and loads all gd libraries
 -- via gd_preamble below, so the per-example graph-drawing guarding is skipped.
 local t = common.collect(all, "gd-examples", true)
 if t.document ~= "" then
     common.write_test(targetdir .. pathsep .. "gd-examples.lvt", {
+        header     = "\\unless\\ifdefined\\directlua\\expandafter\\endinput\\fi",
         preamble   = t.preamble,
         setup_code = t.setup_code,
         body       = t.document,

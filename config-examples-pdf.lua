@@ -10,7 +10,6 @@
 -- dvisvgm produces SVG (by way of DVI) rather than PDF, so it is not used
 -- here; the box tests in config-examples already exercise that backend.
 
-stdengine    = "luatex"
 checkengines = {"luatex", "pdftex", "xetex"}
 testfiledir  = "testfiles-examples-pdf"
 

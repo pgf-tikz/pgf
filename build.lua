@@ -32,18 +32,15 @@ specialformats["latex"] = specialformats["latex"] or
         tokens = "\\def\\pgfsysdriver{pgfsys-dvisvgm.def}"
       }
   }
+stdengine    = "luatex"
 checkengines = {"pdftex", "latexdvips", "latexdvisvgm", "luatex", "xetex"}
 
 -- Use multiple sets of tests
 checkconfigs = {
   "config-regression",
-  "config-regression-luatex",
   "config-examples",
   "config-examples-pdf",
 }
-
--- common testing support files
-checksuppfiles = {"pgf-regression-test.tex"}
 
 -- Example chapters that are excluded from the generated test suite because
 -- their references are prohibitively large/slow (see the "examples" target).
@@ -109,7 +106,6 @@ target_list.examples =
       local sourcedir = "doc/generic/pgf"
       local targetdir = "testfiles-examples"
       local pdftargetdir = "testfiles-examples-pdf"
-      local gdtargetdir = "testfiles-regression-luatex"
       mkdir(targetdir)
       mkdir(pdftargetdir)
       local errorlevel = run(".", string.format(
@@ -117,10 +113,9 @@ target_list.examples =
       -- The graph-drawing examples are embedded in the gd Lua sources and are
       -- pulled into the manual via \includeluadocumentationof; extract-gd.lua
       -- renders those modules with pgf.manual.DocumentParser and collects the
-      -- examples into a single file in testfiles-regression-luatex (run by
-      -- config-regression-luatex).
+      -- examples into a single file in testfiles-regression.
       errorlevel = errorlevel + run(".", string.format(
-        "texlua %s/extract-gd.lua %s %s", sourcedir, sourcedir, gdtargetdir))
+        "texlua %s/extract-gd.lua %s %s", sourcedir, sourcedir, targetdir))
       -- extract.lua mirrors the source tree, leaving empty directories behind
       for _, dir in ipairs({"images", "plots", "licenses"}) do
         rmdir(targetdir .. "/" .. dir)
