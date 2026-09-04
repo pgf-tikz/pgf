@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - `sloped` should consider the current transformation #1058
+- Use `render instead` for the `colormixin` example #1134
 
 ### Changed
 
