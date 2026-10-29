@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Changed definition of `rotate` for trapezium shape to wrap angle to [0,360)
 - `sloped` should consider the current transformation #1058
 - Use `render instead` for the `colormixin` example #1134
+- Skip zero-length closepath segments (as produced by circles) when computing
+  path intersections, which took exponential time #1256
 
 ### Changed
 
