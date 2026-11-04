@@ -74,7 +74,9 @@
     \pgfsys@dvipdfmx@suspendcontent%
     \pgfsys@invoke{0 J [] 0 d}% reset line cap and dash
     \pgfsys@dvipdfmx@start@force@reset@color%
+    \ifpgfsys@dvipdfmx@tate\pgfsys@dvipdfmx@tate@bunrotate\fi
     \box#1%
+    \ifpgfsys@dvipdfmx@tate\pgfsys@dvipdfmx@tate@eunrotate\fi
     \pgfsys@dvipdfmx@stop@force@reset@color%
     \pgfsys@dvipdfmx@unsuspendcontent%
   \pgfsys@endscope%
@@ -95,7 +97,17 @@
     \pgfsys@dvipdfmx@start@force@reset@color%
     \pgf@sys@bp@correct\pgf@pt@x%
     \pgf@sys@bp@correct\pgf@pt@y%
-    \special{pdf:btrans matrix \pgf@pt@aa\space \pgf@pt@ab\space \pgf@pt@ba\space \pgf@pt@bb\space
+    \ifpgfsys@dvipdfmx@tate
+      % In pTeX's vertical (tate) direction, compose the matrix with the
+      % inverse of the rotation installed by \pgfsys@beginpicture.
+      \edef\pgfsys@dvipdfmx@matrix{%
+        \pgfsys@dvipdfmx@negate\pgf@pt@ab\space \pgf@pt@aa\space
+        \pgfsys@dvipdfmx@negate\pgf@pt@bb\space \pgf@pt@ba}%
+    \else
+      \edef\pgfsys@dvipdfmx@matrix{%
+        \pgf@pt@aa\space \pgf@pt@ab\space \pgf@pt@ba\space \pgf@pt@bb}%
+    \fi
+    \special{pdf:btrans matrix \pgfsys@dvipdfmx@matrix\space
       \pgf@sys@tonumber{\pgf@pt@x} \pgf@sys@tonumber{\pgf@pt@y}}%
     \box#1%
     \special{pdf:etrans}%
@@ -107,8 +119,65 @@
 
 % All text materials between `pdf:bcontent' and `pdf:econtent' are
 % treated in the relative coordinate.
-\def\pgfsys@beginpicture{\special{pdf:bcontent}}
-\def\pgfsys@endpicture{\special{pdf:econtent}}
+\def\pgfsys@beginpicture{\special{pdf:bcontent}\pgfsys@dvipdfmx@tate@beginpicture}
+\def\pgfsys@endpicture{\pgfsys@dvipdfmx@tate@endpicture\special{pdf:econtent}}
+
+% Support for the vertical (tate) direction of pTeX and upTeX.
+%
+% In the tate direction dvipdfmx places the characters rotated, but
+% the coordinate system of `pdf:code' is not rotated.  So we rotate
+% the coordinate system of a picture by -90 degrees, i.e., the x-axis
+% of the picture points in the direction of the line (downwards) and
+% the y-axis to the right, and undo the rotation for the boxes which
+% are inserted into the picture.  The direction is determined once at
+% the beginning of each picture.
+\newif\ifpgfsys@dvipdfmx@tate
+\let\pgfsys@dvipdfmx@tate@beginpicture\pgfutil@empty
+\let\pgfsys@dvipdfmx@tate@endpicture\pgfutil@empty
+\def\pgfsys@dvipdfmx@tate@rotate{\special{pdf:code 0 -1 1 0 0 0 cm}}
+\def\pgfsys@dvipdfmx@tate@unrotate{\special{pdf:code 0 1 -1 0 0 0 cm}}
+% Undo the rotation around the current point for the material in
+% between (boxes, XObjects).
+\def\pgfsys@dvipdfmx@tate@bunrotate{\special{pdf:btrans matrix 0 1 -1 0 0 0}}
+\def\pgfsys@dvipdfmx@tate@eunrotate{\special{pdf:etrans}}
+% In the tate direction the positions on the page are rotated into the
+% coordinate system of the picture.
+\def\pgfsys@dvipdfmx@tate@mark#1#2#3{}
+% \pgfsys@dvipdfmx@negate<macro> expands to the negated number stored
+% in <macro>.
+\def\pgfsys@dvipdfmx@negate#1{\expandafter\pgfsys@dvipdfmx@negate@#1\relax}
+\def\pgfsys@dvipdfmx@negate@#1#2\relax{\ifx-#1#2\else-#1#2\fi}
+% The definitions are passed as an argument instead of being put
+% between \ifdefined\iftdir and \fi: when \iftdir is undefined (latex
+% followed by dvipdfmx), TeX does not see it as a conditional while
+% skipping, so the \else and \fi below would end \ifdefined.
+\ifdefined\iftdir
+  \expandafter\pgfutil@firstofone
+\else
+  \expandafter\pgfutil@gobble
+\fi
+{%
+  \def\pgfsys@dvipdfmx@tate@beginpicture{%
+    \iftdir
+      \pgfsys@dvipdfmx@tatetrue
+      \pgfsys@dvipdfmx@tate@rotate
+      % The page is rotated, too.
+      \expandafter\def\csname pgf@sh@nt@current page\endcsname{{0}{1}{-1}{0}{0pt}{0pt}}%
+    \else
+      \pgfsys@dvipdfmx@tatefalse
+      \expandafter\def\csname pgf@sh@nt@current page\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+    \fi
+  }%
+  \def\pgfsys@dvipdfmx@tate@endpicture{%
+    \ifpgfsys@dvipdfmx@tate\pgfsys@dvipdfmx@tate@unrotate\fi
+  }%
+  \def\pgfsys@dvipdfmx@tate@mark#1#2#3{%
+    \expandafter\gdef\csname pgf@sys@pdf@mark@tpos@#1\endcsname{\pgfqpoint{-#3sp}{#2sp}}%
+  }%
+  % Packages can test this to see that the driver supports the tate
+  % direction.
+  \let\pgfsys@ptex@tate@supported\relax
+}
 
 \def\pgfsys@imagesuffixlist{.pdf:.jpg:.jpeg:.png:.bmp:}
 
@@ -241,13 +310,16 @@
   }
   \def\pgfsyspdfmark##1##2##3{%
     \expandafter\gdef\csname pgf@sys@pdf@mark@pos@##1\endcsname{\pgfqpoint{##2sp}{##3sp}}%
+    \pgfsys@dvipdfmx@tate@mark{##1}{##2}{##3}%
     \pgfutil@check@rerun{##1}{{##2}{##3}}%
   }
   \def\pgfsys@getposition##1##2{%
-    \edef\pgf@marshal{\let\noexpand##2=\expandafter\noexpand\csname pgf@sys@pdf@mark@pos@##1\endcsname}%
+    \edef\pgf@marshal{\let\noexpand##2=\expandafter\noexpand
+      \csname pgf@sys@pdf@mark@\ifpgfsys@dvipdfmx@tate t\fi pos@##1\endcsname}%
     \pgf@marshal%
   }
   \def\pgf@sys@pdf@mark@pos@pgfpageorigin{\pgfpointorigin}
+  \def\pgf@sys@pdf@mark@tpos@pgfpageorigin{\pgfpointorigin}
 }
 
 % Resource management: bugs were fixed.
@@ -471,7 +543,9 @@
     /I \ifpgfsys@transparency@group@isolated true \else false \fi
     /K \ifpgfsys@transparency@group@knockout true \else false \fi>> >>}%
     }}\@tempa%
+    \ifpgfsys@dvipdfmx@tate\pgfsys@dvipdfmx@tate@bunrotate\fi
     \special{pdf:uxobj @pgftransgroup\the\pgfsys@objnum}%
+    \ifpgfsys@dvipdfmx@tate\pgfsys@dvipdfmx@tate@eunrotate\fi
   }%
   \global\advance\pgfsys@objnum\@ne%
 }
