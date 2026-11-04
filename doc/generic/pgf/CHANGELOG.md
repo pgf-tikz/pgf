@@ -6,8 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Support for the vertical (tate) direction of pTeX and upTeX with the
+  `dvipdfmx` and `dvips` drivers: pictures are rotated like the surrounding
+  text, and remembered positions and `current page` follow the rotation
+
 ### Fixed
 
+- The material for the beginning of the page (shadings, patterns, fadings) is
+  always collected in the horizontal (yoko) direction with pTeX and upTeX,
+  avoiding "Incompatible direction list can't be unboxed" errors
 - Changed definition of `rotate` for trapezium shape to wrap angle to [0,360)
 - `sloped` should consider the current transformation #1058
 - Use `render instead` for the `colormixin` example #1134
@@ -18,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Contributors
 
+- Munehiro Yamamoto
 - thinbold
 
 ## [3.1.12] - 2026-08-01 Henri Menke

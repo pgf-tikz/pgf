@@ -30,7 +30,7 @@
 % dvips-specific stuff:
 %
 
-\def\pgfsys@beginpicture{\pgfsys@ps@boxmodefalse\special{ps: }\special{ps::[begin]}\pgfsys@invoke{pgfo}}
+\def\pgfsys@beginpicture{\pgfsys@ps@boxmodefalse\special{ps: }\special{ps::[begin]}\pgfsys@invoke{pgfo}\pgfsys@dvips@tate@beginpicture}
 \def\pgfsys@endpicture{\pgfsys@invoke{pgfc}\special{ps::[end]}}
 \def\pgfsys@hbox#1{%
   \pgfsys@begin@idscope%
@@ -124,6 +124,45 @@
 
 
 %
+% Support for the vertical (tate) direction of pTeX and upTeX.
+%
+% In the tate direction dvips rotates the coordinate system of the
+% PostScript specials by itself, so the x-axis of a picture points in
+% the direction of the line (downwards) and the y-axis to the right.
+% Only the positions on the page have to be rotated into the
+% coordinate system of the picture.  The direction is determined once
+% at the beginning of each picture.
+%
+\newif\ifpgfsys@dvips@tate
+\let\pgfsys@dvips@tate@beginpicture\pgfutil@empty
+\def\pgfsys@dvips@tate@mark#1#2#3{}
+% The definitions are passed as an argument, so that the conditionals
+% of pTeX are never skipped by an engine which does not know them.
+\ifdefined\iftdir
+  \expandafter\pgfutil@firstofone
+\else
+  \expandafter\pgfutil@gobble
+\fi
+{%
+  \def\pgfsys@dvips@tate@beginpicture{%
+    \iftdir
+      \pgfsys@dvips@tatetrue
+      % The page is rotated, too.
+      \expandafter\def\csname pgf@sh@nt@current page\endcsname{{0}{1}{-1}{0}{0pt}{0pt}}%
+    \else
+      \pgfsys@dvips@tatefalse
+      \expandafter\def\csname pgf@sh@nt@current page\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+    \fi
+  }%
+  \def\pgfsys@dvips@tate@mark#1#2#3{%
+    \expandafter\gdef\csname pgf@sys@pdf@mark@tpos@#1\endcsname{\pgfqpoint{-#3sp}{#2sp}}%
+  }%
+  % Packages can test this to see that the driver supports the tate
+  % direction.
+  \let\pgfsys@ptex@tate@supported\relax
+}
+
+%
 % Position tracking (needs pdftex or luatex in dvi mode)
 %
 \ifx\savepos\@undefined
@@ -152,15 +191,18 @@
 
 \def\pgfsyspdfmark#1#2#3{%
   \expandafter\gdef\csname pgf@sys@pdf@mark@pos@#1\endcsname{\pgfqpoint{#2sp}{#3sp}}%
+  \pgfsys@dvips@tate@mark{#1}{#2}{#3}%
   \pgfutil@check@rerun{#1}{{#2}{#3}}%
 }
 
 \def\pgfsys@getposition#1#2{%
-  \edef\pgf@marshal{\let\noexpand#2=\expandafter\noexpand\csname pgf@sys@pdf@mark@pos@#1\endcsname}%
+  \edef\pgf@marshal{\let\noexpand#2=\expandafter\noexpand
+    \csname pgf@sys@pdf@mark@\ifpgfsys@dvips@tate t\fi pos@#1\endcsname}%
   \pgf@marshal%
 }
 
 \def\pgf@sys@pdf@mark@pos@pgfpageorigin{\pgfpointorigin}
+\def\pgf@sys@pdf@mark@tpos@pgfpageorigin{\pgfpointorigin}
 
 \fi
 

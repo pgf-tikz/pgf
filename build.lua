@@ -40,6 +40,7 @@ checkconfigs = {
   "config-regression",
   "config-examples",
   "config-examples-pdf",
+  "config-ptex",
 }
 
 -- Example chapters that are excluded from the generated test suite because
