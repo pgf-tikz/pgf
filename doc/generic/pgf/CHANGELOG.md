@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Changed definition of `rotate` for trapezium shape to wrap angle to [0,360)
 - `sloped` should consider the current transformation #1058
 - Use `render instead` for the `colormixin` example #1134
+- `\pgfmathparse` no longer leaves a name in the hash table for every distinct
+  number #1488
 
 ### Changed
 
@@ -18,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Contributors
 
+- Kevin Raymond
 - thinbold
 
 ## [3.1.12] - 2026-08-01 Henri Menke
