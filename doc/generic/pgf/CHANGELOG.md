@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use `render instead` for the `colormixin` example #1134
 - `\pgfmathparse` no longer leaves a name in the hash table for every distinct
   number #1488
+- Invalid key in Postscript patterns caused rotation to be dropped #1490
 
 ### Changed
 
