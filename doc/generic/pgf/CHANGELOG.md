@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `\pgfmathparse` no longer leaves a name in the hash table for every distinct
   number #1488
 - Invalid key in Postscript patterns caused rotation to be dropped #1490
+- Skip zero-length closepath segments (as produced by circles) when computing
+  path intersections, which took exponential time #1256
 
 ### Changed
 
@@ -21,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Contributors
 
+- Ben Spitz @diracdeltafunk
 - Kevin Raymond
 - thinbold
 
