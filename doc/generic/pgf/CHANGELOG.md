@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Typo fixes in the manual
+- `\pgfprocesssplitpath` and `\pgfprocesssplitsubpath` (used for arrow tips)
+  are much faster for long paths
 
 ### Contributors
 

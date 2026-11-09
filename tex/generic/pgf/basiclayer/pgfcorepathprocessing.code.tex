@@ -31,8 +31,25 @@
 \def\pgfprocesssplitpath#1{%
   \let\pgfprocessresultpathprefix\pgfutil@empty%
   \let\pgfprocessresultpathsuffix\pgfutil@empty%
+  \pgf@process@split@reset%
   \let\pgf@next\pgf@process@split%
   \expandafter\pgf@process@split#1\pgfsyssoftpath@movetotoken{}{}\pgf@stop%
+  \pgf@process@split@flush%
+}
+
+% Each append copies the whole prefix, so collect subpaths in a buffer and
+% append that every 64 subpaths.
+\newcount\pgf@process@split@count
+\def\pgf@process@split@reset{%
+  \let\pgf@process@split@buffer\pgfutil@empty%
+  \pgf@process@split@count=0\relax%
+}
+\def\pgf@process@split@flush{%
+  \edef\pgfprocessresultpathprefix{%
+    \pgfutil@unexpanded\expandafter{\pgfprocessresultpathprefix}%
+    \pgfutil@unexpanded\expandafter{\pgf@process@split@buffer}%
+  }%
+  \pgf@process@split@reset%
 }
 
 \def\pgf@process@split#1\pgfsyssoftpath@movetotoken#2#3#4{%
@@ -41,8 +58,12 @@
     \let\pgf@next\pgfutil@gobble%
   \else%
     \expandafter\expandafter\expandafter\def%
-    \expandafter\expandafter\expandafter\pgfprocessresultpathprefix%
-    \expandafter\expandafter\expandafter{\expandafter\pgfprocessresultpathprefix\pgfprocessresultpathsuffix#1}%
+    \expandafter\expandafter\expandafter\pgf@process@split@buffer%
+    \expandafter\expandafter\expandafter{\expandafter\pgf@process@split@buffer\pgfprocessresultpathsuffix#1}%
+    \advance\pgf@process@split@count by1\relax%
+    \ifnum\pgf@process@split@count=64\relax%
+      \pgf@process@split@flush%
+    \fi%
     \def\pgfprocessresultpathsuffix{\pgfsyssoftpath@movetotoken{#2}{#3}}%
   \fi%
   \pgf@next#4%
@@ -76,11 +97,27 @@
   \let\pgf@tempd\pgfutil@empty%
   \let\pgfprocessresultsubpathprefix\pgfutil@empty%
   \let\pgfprocessresultsubpathsuffix\pgfutil@empty%
+  \pgf@split@reset%
   \let\pgf@next\pgf@split@subpath%
   \expandafter\pgf@split@subpath#1\pgf@stop%
+  \pgf@split@flush%
 }
 
 \newif\ifpgf@split@move
+
+% Buffer the prefix as in \pgfprocesssplitpath.
+\newcount\pgf@split@count
+\def\pgf@split@reset{%
+  \let\pgf@split@buffer\pgfutil@empty%
+  \pgf@split@count=0\relax%
+}
+\def\pgf@split@flush{%
+  \edef\pgfprocessresultsubpathprefix{%
+    \pgfutil@unexpanded\expandafter{\pgfprocessresultsubpathprefix}%
+    \pgfutil@unexpanded\expandafter{\pgf@split@buffer}%
+  }%
+  \pgf@split@reset%
+}
 
 \def\pgf@split@subpath#1#2#3#4{%
   \ifx#4\pgf@stop%
@@ -97,9 +134,13 @@
     \fi%
     \ifpgf@split@move%
       \expandafter\expandafter\expandafter\def%
-      \expandafter\expandafter\expandafter\pgfprocessresultsubpathprefix%
+      \expandafter\expandafter\expandafter\pgf@split@buffer%
       \expandafter\expandafter\expandafter{%
-        \expandafter\pgfprocessresultsubpathprefix\pgfprocessresultsubpathsuffix}%
+        \expandafter\pgf@split@buffer\pgfprocessresultsubpathsuffix}%
+      \advance\pgf@split@count by1\relax%
+      \ifnum\pgf@split@count=64\relax%
+        \pgf@split@flush%
+      \fi%
       \def\pgfprocessresultsubpathsuffix{#1{#2}{#3}}%
     \else%
       \expandafter\def\expandafter\pgfprocessresultsubpathsuffix\expandafter{\pgfprocessresultsubpathsuffix#1{#2}{#3}}%
