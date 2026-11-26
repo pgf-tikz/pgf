@@ -36,10 +36,10 @@
   % If page= parameter is not empty, try that file first:
   \ifx\pgf@imagepage\pgfutil@empty%
   \else%
-  \expandafter\pgf@findfile\pgfsys@imagesuffixlist:+{#3.page\pgf@imagepage}%
+  \expandafter\pgf@findimage\pgfsys@imagesuffixlist:+{#3.page\pgf@imagepage}%
   \fi%
   \ifx\pgf@filename\pgfutil@empty%
-    \expandafter\pgf@findfile\pgfsys@imagesuffixlist:+{#3}%
+    \expandafter\pgf@findimage\pgfsys@imagesuffixlist:+{#3}%
   \else%
     \pgfkeys{/pgf/images/page=}% make page empty
   \fi%
@@ -81,13 +81,46 @@
   }}
 
 
-\def\pgf@findfile#1:#2+#3{%
-  \pgfutil@IfFileExists{#3#1}%
-  {\xdef\pgf@filename{#3#1}}%
-  {\def\pgf@mightbeempty{#2}%
+% Find a file by trying each extension in turn and store the name of the
+% first file found in \pgf@filename, which must be empty beforehand.
+%
+% #1 = macro that takes a file name and stores it in \pgf@filename if the file
+%      exists
+% #2 = first extension
+% #3 = remaining extensions, each followed by a colon
+% #4 = file name without extension
+\def\pgf@findfilewith#1#2:#3+#4{%
+  #1{#4#2}%
+  \ifx\pgf@filename\pgfutil@empty%
+    \def\pgf@mightbeempty{#3}%
     \ifx\pgf@mightbeempty\pgfutil@empty\else%
-    \pgf@findfile#2+{#3}%
-    \fi}}
+      \pgf@findfilewith#1#3+{#4}%
+    \fi%
+  \fi}
+
+\def\pgf@findfile{\pgf@findfilewith\pgf@findfileincurrentdir}
+
+\def\pgf@findfileincurrentdir#1{%
+  \pgfutil@IfFileExists{#1}{\xdef\pgf@filename{#1}}{}}
+
+% Like \pgf@findfile, but also searches the directories of the graphics path
+% that \graphicspath of graphicx stores in \Ginput@path as a list of groups,
+% such as {images/}{figures/}.  As for \includegraphics, the current directory
+% comes first, and every directory is searched for an extension before the
+% next extension is tried.
+\def\pgf@findimage{\pgf@findfilewith\pgf@findimageingraphicspath}
+
+\def\pgf@findimageingraphicspath#1{%
+  \pgf@findfileincurrentdir{#1}%
+  \pgfutil@IfUndefined{Ginput@path}{}{%
+    \expandafter\pgfutil@tfor\expandafter\pgf@imagedir
+      \expandafter:\expandafter=\Ginput@path\do{%
+      \ifx\pgf@filename\pgfutil@empty%
+        \pgf@findfileincurrentdir{\pgf@imagedir#1}%
+      \fi%
+    }%
+  }%
+}
 
 % #1: image name
 % #2: file name
